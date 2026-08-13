@@ -36,9 +36,17 @@ final readonly class ContentRepository
     }
 
     /** @return \Generator<int, ContentItem> */
-    public function published(): \Generator
+    public function published(ContentType ...$contentTypes): \Generator
     {
-        foreach ($this->sources as $source) {
+        $sources = $this->sources;
+        if ($contentTypes !== []) {
+            $sources = [];
+            foreach ($contentTypes as $contentType) {
+                $sources[$contentType->value] = $this->source($contentType);
+            }
+        }
+
+        foreach ($sources as $source) {
             yield from $source->published();
         }
     }

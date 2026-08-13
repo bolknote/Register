@@ -13,6 +13,8 @@ use Register\Comment\CommentRepository;
 use Register\Content\ContentRepository;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentStatisticsRepository;
+use Register\Content\ContentType;
+use Register\Content\Controller\ContentSitemapController;
 use Register\Content\PageContentSource;
 use Register\Content\TagRepository;
 use Register\Module\BaseModuleInstaller;
@@ -25,6 +27,7 @@ use Register\Url\UniqueSlugGenerator;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Model\ArticleProvider;
+use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 
 /**
@@ -49,6 +52,12 @@ readonly class ProductModule implements ContainerModuleInterface
         ));
         $container->set(ContentStatisticsRepository::class, static fn(Container $container): ContentStatisticsRepository => new ContentStatisticsRepository(
             $container->get(DbLayer::class),
+        ));
+        $container->set(ContentSitemapController::PAGE_SERVICE_ID, static fn(Container $container): ContentSitemapController => new ContentSitemapController(
+            $container->get(ContentRepository::class),
+            $container->get(UrlBuilder::class),
+            $container->get('strict_viewer'),
+            ContentType::PAGE,
         ));
         $container->set(TagRepository::class, static fn(Container $container): TagRepository => new TagRepository(
             $container->get(DbLayer::class),

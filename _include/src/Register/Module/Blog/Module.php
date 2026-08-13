@@ -11,6 +11,9 @@ namespace Register\Module\Blog;
 
 use Psr\Log\LoggerInterface;
 use Register\Content\ContentSourceInterface;
+use Register\Content\ContentRepository;
+use Register\Content\ContentType;
+use Register\Content\Controller\ContentSitemapController;
 use Register\Module\Blog\Content\BlogContentSource;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
@@ -47,7 +50,6 @@ use Register\Module\Blog\Controller\FlatContentController;
 use Register\Module\Blog\Controller\MainPageController;
 use Register\Module\Blog\Controller\MonthPageController;
 use Register\Module\Blog\Controller\PostPageController;
-use Register\Module\Blog\Controller\Sitemap;
 use Register\Module\Blog\Controller\TagPageController;
 use Register\Module\Blog\Controller\TagsPageController;
 use Register\Module\Blog\Controller\YearPageController;
@@ -310,14 +312,18 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $provider->getStringProxy('S2_WEBMASTER'),
             );
         });
-        $container->set(Sitemap::class, static fn(Container $container): \Register\Module\Blog\Controller\Sitemap => new Sitemap(
-            $container->get(DbLayer::class),
-            $container->get(BlogUrlBuilder::class),
-            $container->get(ArticleProvider::class),
-            $container->get(UrlBuilder::class),
-            $container->get('strict_viewer'),
-            $container->get(DynamicConfigProvider::class)->getBoolProxy('S2_USE_HIERARCHY'),
-        ));
+        $container->set(ContentSitemapController::BLOG_SERVICE_ID, static function (Container $container): ContentSitemapController {
+            $blogUrlBuilder = $container->get(BlogUrlBuilder::class);
+
+            return new ContentSitemapController(
+                $container->get(ContentRepository::class),
+                $container->get(UrlBuilder::class),
+                $container->get('strict_viewer'),
+                ...($blogUrlBuilder->blogIsOnTheSiteRoot()
+                    ? [ContentType::PAGE, ContentType::POST]
+                    : [ContentType::POST]),
+            );
+        });
 
         $container->set(BlogCommentStrategy::class, static fn(Container $container): \Register\Module\Blog\Model\BlogCommentStrategy => new BlogCommentStrategy(
             $container->get(DbLayer::class),
@@ -522,7 +528,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         ), $priority);
         $routes->add('blog_sitemap', new Route(
             $s2BlogUrl . '/sitemap.xml',
-            ['_controller' => Sitemap::class],
+            ['_controller' => ContentSitemapController::BLOG_SERVICE_ID],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);

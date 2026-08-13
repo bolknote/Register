@@ -30,6 +30,7 @@ final class ContentRepositoryTest extends Unit
         self::assertSame($page, $repository->find(ContentId::page(1)));
         self::assertSame($post, $repository->find(ContentId::post(2)));
         self::assertSame([$page, $post], iterator_to_array($repository->published(), false));
+        self::assertSame([$post], iterator_to_array($repository->published(ContentType::POST), false));
     }
 
     public function testRejectsDuplicateSources(): void

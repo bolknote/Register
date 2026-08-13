@@ -43,7 +43,7 @@ use S2\Cms\Controller\PageFavorite;
 use S2\Cms\Controller\PageTag;
 use S2\Cms\Controller\PageTags;
 use S2\Cms\Controller\RssController;
-use S2\Cms\Controller\Sitemap;
+use Register\Content\Controller\ContentSitemapController;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\Event\NotFoundEvent;
 use S2\Cms\Framework\Exception\ConfigurationException;
@@ -604,16 +604,6 @@ class CmsExtension implements ExtensionInterface
             );
         });
 
-        $container->set(Sitemap::class, function (Container $container): \S2\Cms\Controller\Sitemap {
-            $provider = $container->get(DynamicConfigProvider::class);
-            return new Sitemap(
-                $container->get(DbLayer::class),
-                $container->get(ArticleProvider::class),
-                $container->get(UrlBuilder::class),
-                $container->get('strict_viewer'),
-                $provider->getBoolProxy('S2_USE_HIERARCHY'),
-            );
-        });
     }
 
     #[\Override]
@@ -740,7 +730,7 @@ class CmsExtension implements ExtensionInterface
         ));
         $routes->add('sitemap', new Route(
             '/sitemap.xml',
-            ['_controller' => Sitemap::class],
+            ['_controller' => ContentSitemapController::PAGE_SERVICE_ID],
             methods: ['GET']
         ));
         $routes->add('favorite', new Route(

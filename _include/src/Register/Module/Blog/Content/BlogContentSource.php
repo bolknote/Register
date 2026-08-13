@@ -42,7 +42,7 @@ final readonly class BlogContentSource implements ContentSourceInterface
         }
 
         $post = $this->dbLayer
-            ->select('id, title, body, published_at, slug')
+            ->select('id, title, body, published_at, updated_at, slug')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $id->value)
             ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
@@ -62,7 +62,7 @@ final readonly class BlogContentSource implements ContentSourceInterface
     public function published(): \Generator
     {
         $result = $this->dbLayer
-            ->select('id, title, body, published_at, slug')
+            ->select('id, title, body, published_at, updated_at, slug')
             ->from(ContentSchema::TABLE_NAME)
             ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('published = 1')
@@ -86,6 +86,7 @@ final readonly class BlogContentSource implements ContentSourceInterface
             body: (string)$post['body'],
             path: $this->urlBuilder->postWithoutPrefix((string)$post['slug']),
             publishedAt: $publishedAt !== null && $publishedAt > 0 ? $publishedAt : null,
+            updatedAt: (int)$post['updated_at'],
         );
     }
 }
