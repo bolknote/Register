@@ -7,7 +7,7 @@
     --minor-color: #706b63;
     --quiet-color: #9a948a;
     --link-color: #8f4633;
-    --link-visited-color: var(--link-color);
+    --link-visited-color: #75645b;
     --link-hover-color: #bd321f;
     --accent-color: #bd321f;
     --link-underline-color: color-mix(in srgb, var(--link-color) 28%, transparent);
@@ -40,6 +40,7 @@
         --minor-color: #b6aea2;
         --quiet-color: #8b8378;
         --link-color: #d1a08b;
+        --link-visited-color: #a99b92;
         --link-hover-color: #ef8068;
         --accent-color: #ef8068;
         --link-underline-color: color-mix(in srgb, var(--link-color) 40%, transparent);
