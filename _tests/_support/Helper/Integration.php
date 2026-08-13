@@ -261,7 +261,6 @@ class Integration extends AbstractBrowserModule
         $this->adminApplication->container->get(PdoStorage::class)->drop();
         $dbLayer->dropTable('register_analytics_visitor');
         $dbLayer->dropTable('register_analytics_daily');
-        $dbLayer->dropTable('s2_blog_posts');
     }
 
     /**

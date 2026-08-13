@@ -138,6 +138,7 @@ final readonly class TagRepository
         }
 
         $table = $this->contentTable($contentType);
+        $timeColumn = $contentType === ContentType::POST ? 'published_at' : 'create_time';
         $rows  = $this->dbLayer
             ->select('ct.content_id')
             ->from(ContentTagSchema::TABLE_NAME . ' AS ct')
@@ -145,7 +146,8 @@ final readonly class TagRepository
             ->where('ct.content_type = :content_type')->setParameter('content_type', $contentType->value)
             ->andWhere('ct.tag_id = :tag_id')->setParameter('tag_id', $tagId)
             ->andWhere('c.published = 1')
-            ->orderBy('c.create_time DESC', 'c.id DESC')
+            ->andWhere($contentType === ContentType::POST ? "c.content_type = 'post'" : '1 = 1')
+            ->orderBy('c.' . $timeColumn . ' DESC', 'c.id DESC')
             ->execute()
             ->fetchColumn()
         ;
@@ -181,6 +183,7 @@ final readonly class TagRepository
                 ->where('ct.content_type = :' . $parameter)
                 ->andWhere('ct.tag_id = t.id')
                 ->andWhere('c.published = 1')
+                ->andWhere($contentType === ContentType::POST ? "c.content_type = 'post'" : '1 = 1')
                 ->getSql() . ')';
         }
 
@@ -256,7 +259,7 @@ final readonly class TagRepository
     {
         return match ($contentType) {
             ContentType::PAGE => 'articles',
-            ContentType::POST => 's2_blog_posts',
+            ContentType::POST => ContentSchema::TABLE_NAME,
         };
     }
 }

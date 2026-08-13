@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Pdo\DbLayer;
 
 class BlogPaginationCest
@@ -52,18 +54,21 @@ class BlogPaginationCest
     private function insertPost(DbLayer $dbLayer, int $number): void
     {
         $dbLayer
-            ->insert('s2_blog_posts')
-            ->setValue('create_time', ':time')->setParameter('time', 1_700_000_000 + $number)
-            ->setValue('modify_time', ':time')
+            ->insert(ContentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::POST->value)
+            ->setValue('created_at', ':time')->setParameter('time', 1_700_000_000 + $number)
+            ->setValue('published_at', ':time')
+            ->setValue('updated_at', ':time')
             ->setValue('revision', '1')
             ->setValue('title', ':title')->setParameter('title', 'Post ' . $number)
-            ->setValue('text', ':text')->setParameter('text', '<p>Text ' . $number . '</p>')
+            ->setValue('excerpt', "''")
+            ->setValue('body', ':text')->setParameter('text', '<p>Text ' . $number . '</p>')
             ->setValue('published', '1')
-            ->setValue('favorite', '0')
-            ->setValue('commented', '1')
-            ->setValue('label', "''")
-            ->setValue('url', ':url')->setParameter('url', 'post-' . $number)
-            ->setValue('user_id', 'NULL')
+            ->setValue('featured', '0')
+            ->setValue('comments_enabled', '1')
+            ->setValue('series', "''")
+            ->setValue('slug', ':url')->setParameter('url', 'post-' . $number)
+            ->setValue('author_id', 'NULL')
             ->execute()
         ;
     }

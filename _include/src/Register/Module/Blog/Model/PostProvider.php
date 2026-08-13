@@ -12,6 +12,7 @@ namespace Register\Module\Blog\Model;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use S2\Cms\Model\ArticleProvider;
@@ -39,8 +40,9 @@ readonly class PostProvider
     {
         return (int)$this->dbLayer
             ->select('COUNT(*)')
-            ->from('s2_blog_posts')
-            ->where('published = 1')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('published = 1')
             ->execute()
             ->result()
         ;
@@ -53,10 +55,11 @@ readonly class PostProvider
     public function allPublishedPostLinks(): array
     {
         $result = $this->dbLayer
-            ->select('title', 'url')
-            ->from('s2_blog_posts')
-            ->where('published = 1')
-            ->orderBy('create_time DESC')
+            ->select('title', 'slug AS url')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('published = 1')
+            ->orderBy('published_at DESC')
             ->execute()
         ;
 
@@ -96,18 +99,20 @@ readonly class PostProvider
         $rawQueryUser = $this->dbLayer
             ->select('u.name')
             ->from('users AS u')
-            ->where('u.id = p.user_id')
+            ->where('u.id = p.author_id')
             ->getSql()
         ;
 
         $result = $this->dbLayer
-            ->select('p.create_time, p.display_date, p.title, p.text, p.url, p.id, p.commented, p.modify_time, p.favorite')
+            ->select('p.published_at AS create_time, p.date_label AS display_date, p.title, p.body AS text, p.slug AS url, p.id, p.comments_enabled AS commented, p.updated_at AS modify_time, p.featured AS favorite')
             ->addSelect('(' . $rawQueryCount . ') AS comment_num')
-            ->addSelect('(' . $rawQueryUser . ') AS author, p.label')
-            ->from('s2_blog_posts AS p')
-            ->where('p.published = 1')
+            ->addSelect('(' . $rawQueryUser . ') AS author, p.series AS label')
+            ->from(ContentSchema::TABLE_NAME . ' AS p')
+            ->where('p.content_type = :post_content_type')
+            ->setParameter('post_content_type', ContentType::POST->value)
+            ->andWhere('p.published = 1')
             ->setParameter('comment_content_type', ContentType::POST->value)
-            ->orderBy('p.create_time DESC')
+            ->orderBy('p.published_at DESC')
             ->limit($postsNum)
             ->offset($skip)
             ->execute()
@@ -186,9 +191,10 @@ readonly class PostProvider
         // Processing labels
         if (\count($labels) > 0) {
             $result = $this->dbLayer
-                ->select('p.id, p.label, p.title, p.create_time, p.url')
-                ->from('s2_blog_posts AS p')
-                ->where('p.label IN (' . implode(',', array_fill(0, \count($labels), '?')) . ')')
+                ->select('p.id, p.series AS label, p.title, p.published_at AS create_time, p.slug AS url')
+                ->from(ContentSchema::TABLE_NAME . ' AS p')
+                ->where("p.content_type = '" . ContentType::POST->value . "'")
+                ->andWhere('p.series IN (' . implode(',', array_fill(0, \count($labels), '?')) . ')')
                 ->andWhere('p.published = 1')
                 ->execute(array_keys($labels))
             ;
@@ -245,8 +251,10 @@ readonly class PostProvider
 
         $result = $this->dbLayer
             ->select('COUNT(*)')
-            ->from('s2_blog_posts')
-            ->where('url = :url')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')
+            ->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('slug = :url')
             ->setParameter('url', $url)
             ->andWhere('id <> :id')
             ->setParameter('id', $postId)
@@ -267,10 +275,11 @@ readonly class PostProvider
     public function getAllLabels(): array
     {
         $result = $this->dbLayer
-            ->select('label')
-            ->from('s2_blog_posts')
-            ->groupBy('label')
-            ->orderBy('count(label) DESC')
+            ->select('series')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->groupBy('series')
+            ->orderBy('count(series) DESC')
             ->execute()
         ;
 

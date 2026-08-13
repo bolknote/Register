@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Installation;
 
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Pdo\DbLayer;
 
 final readonly class WelcomePostInstaller
@@ -20,26 +22,28 @@ final readonly class WelcomePostInstaller
     public function create(string $title, string $text, int $authorId, int $timestamp): void
     {
         $this->dbLayer
-            ->insert('s2_blog_posts')
+            ->insert(ContentSchema::TABLE_NAME)
             ->values([
-                'create_time' => ':create_time',
-                'modify_time' => ':modify_time',
-                'revision'    => '1',
-                'title'       => ':title',
-                'text'        => ':text',
-                'published'   => '1',
-                'favorite'    => '0',
-                'commented'   => '1',
-                'label'       => "''",
-                'url'         => "'welcome-to-register'",
-                'user_id'     => ':user_id',
+                'content_type'     => ':content_type',
+                'slug'             => "'welcome-to-register'",
+                'title'            => ':title',
+                'excerpt'          => "''",
+                'body'             => ':body',
+                'created_at'       => ':created_at',
+                'published_at'     => ':published_at',
+                'updated_at'       => ':updated_at',
+                'published'        => '1',
+                'comments_enabled' => '1',
+                'author_id'        => ':author_id',
             ])
             ->execute([
-                'create_time' => $timestamp,
-                'modify_time' => $timestamp,
-                'title'       => $title,
-                'text'        => $text,
-                'user_id'     => $authorId,
+                'content_type' => ContentType::POST->value,
+                'created_at'   => $timestamp,
+                'published_at' => $timestamp,
+                'updated_at'   => $timestamp,
+                'title'        => $title,
+                'body'         => $text,
+                'author_id'    => $authorId,
             ])
         ;
     }

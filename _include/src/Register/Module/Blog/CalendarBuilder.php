@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog;
 
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -58,11 +60,12 @@ readonly class CalendarBuilder
         if ($dayUrls === null) {
             $dayUrls = [];
             $result  = $this->dbLayer
-                ->select('create_time, url')
-                ->from('s2_blog_posts')
-                ->where('create_time < :end_time')
+                ->select('published_at', 'slug')
+                ->from(ContentSchema::TABLE_NAME)
+                ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+                ->andWhere('published_at < :end_time')
                 ->setParameter('end_time', $endTime)
-                ->andWhere('create_time >= :start_time')
+                ->andWhere('published_at >= :start_time')
                 ->setParameter('start_time', $startTime)
                 ->andWhere('published = 1')
                 ->execute()

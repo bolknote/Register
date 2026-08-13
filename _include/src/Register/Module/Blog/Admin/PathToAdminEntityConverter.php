@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Admin;
 
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use S2\AdminYard\Config\FieldConfig;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
@@ -40,8 +42,9 @@ readonly class PathToAdminEntityConverter
 
         $result = $this->dbLayer
             ->select('id')
-            ->from('s2_blog_posts')
-            ->where('url = :url')->setParameter('url', rawurldecode($relativePath))
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('slug = :slug')->setParameter('slug', rawurldecode($relativePath))
             ->execute()
         ;
 

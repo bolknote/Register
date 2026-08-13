@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -44,18 +46,21 @@ final class BlogAllPostsCest
         bool $published,
     ): void {
         $dbLayer
-            ->insert('s2_blog_posts')
-            ->setValue('create_time', ':time')->setParameter('time', $timestamp)
-            ->setValue('modify_time', ':time')
+            ->insert(ContentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::POST->value)
+            ->setValue('created_at', ':time')->setParameter('time', $timestamp)
+            ->setValue('published_at', ':time')
+            ->setValue('updated_at', ':time')
             ->setValue('revision', '1')
             ->setValue('title', ':title')->setParameter('title', $title)
-            ->setValue('text', "'<p>Text</p>'")
+            ->setValue('excerpt', "''")
+            ->setValue('body', "'<p>Text</p>'")
             ->setValue('published', $published ? '1' : '0')
-            ->setValue('favorite', '0')
-            ->setValue('commented', '1')
-            ->setValue('label', "''")
-            ->setValue('url', ':url')->setParameter('url', $url)
-            ->setValue('user_id', 'NULL')
+            ->setValue('featured', '0')
+            ->setValue('comments_enabled', '1')
+            ->setValue('series', "''")
+            ->setValue('slug', ':url')->setParameter('url', $url)
+            ->setValue('author_id', 'NULL')
             ->execute()
         ;
     }

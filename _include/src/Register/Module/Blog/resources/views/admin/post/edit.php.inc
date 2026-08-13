@@ -27,16 +27,16 @@ $errorMessages = array_merge($errorMessages, $form->getGlobalFormErrors());
 
 $columnMap = [
     // NOTE: order affects the order in HTML and focus (implicit taborder)
-    'text'        => ['column' => 1, 'input_area' => '2/1/3/5'],
-    'user_id'     => ['column' => 2,],
-    'label'       => ['column' => 2,],
-    'create_time' => ['column' => 2,],
-    'display_date' => ['column' => 2,],
-    'modify_time' => ['column' => 2,],
-    'favorite'    => ['column' => 2,],
-    'commented'   => ['column' => 2,],
-    'url'         => ['column' => 2,],
-    'published'   => ['column' => 2,],
+    'body'             => ['column' => 1, 'input_area' => '2/1/3/5'],
+    'author_id'        => ['column' => 2,],
+    'series'           => ['column' => 2,],
+    'published_at'     => ['column' => 2,],
+    'date_label'       => ['column' => 2,],
+    'updated_at'       => ['column' => 2,],
+    'featured'         => ['column' => 2,],
+    'comments_enabled' => ['column' => 2,],
+    'slug'             => ['column' => 2,],
+    'published'        => ['column' => 2,],
 ];
 
 $visibleControls = $form->getVisibleControls();
@@ -117,7 +117,7 @@ $jsvarencode = static function ($var) {
                                 <?php foreach ($control->getValidationErrors() as $error): ?>
                                     <span class="validation-error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></span>
                                 <?php endforeach; ?>
-                                <?php if ($fieldName === 'commented') {
+                                <?php if ($fieldName === 'comments_enabled') {
                                     if ($commentsNum > 0) {
                                         echo '<div><a href="?' . http_build_query([
                                                         'entity'     => 'BlogComment',
@@ -178,7 +178,8 @@ $jsvarencode = static function ($var) {
     window.S2_EDITOR_CONFIG = {
         formName: 'article-form',
         entityName: 'BlogPost',
-        textareaName: 'text',
+        textareaName: 'body',
+        slugFieldName: 'slug',
         templateId: 'blog.php',
         statusData: <?= json_encode($statusData) ?>,
         tagsInputId: 'id-tags',
@@ -186,7 +187,7 @@ $jsvarencode = static function ($var) {
         sUrl: '<?php echo $basePath; ?>/_admin/ajax.php?',
         datalists: [
             {
-                inputName: 'label',
+                inputName: 'series',
                 listId: 'post-labels-datalist'
             }
         ]

@@ -13,6 +13,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Controller;
 
 use Register\Comment\CommentSchema;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
@@ -93,7 +94,8 @@ abstract class BlogController implements ControllerInterface
         // Obtaining posts
         $qb = $this->dbLayer
             ->select(
-                'p.create_time', 'p.display_date', 'p.title', 'p.text', 'p.url', 'p.id', 'p.commented', 'p.favorite',
+                'p.published_at AS create_time', 'p.date_label AS display_date', 'p.title', 'p.body AS text',
+                'p.slug AS url', 'p.id', 'p.comments_enabled AS commented', 'p.featured AS favorite',
                 '(' . $this->dbLayer
                     ->select('count(*)')
                     ->from(CommentSchema::TABLE_NAME . ' AS c')
@@ -104,12 +106,14 @@ abstract class BlogController implements ControllerInterface
                 '(' . $this->dbLayer
                     ->select('u.name')
                     ->from('users AS u')
-                    ->where('u.id = p.user_id')
+                    ->where('u.id = p.author_id')
                     ->getSql() . ') AS author',
-                'p.label'
+                'p.series AS label'
             )
-            ->from('s2_blog_posts AS p')
-            ->where('p.published = 1')
+            ->from(ContentSchema::TABLE_NAME . ' AS p')
+            ->where('p.content_type = :post_content_type')
+            ->setParameter('post_content_type', ContentType::POST->value)
+            ->andWhere('p.published = 1')
         ;
 
         $queryModifier($qb);

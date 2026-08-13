@@ -11,6 +11,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
@@ -40,9 +42,10 @@ class Sitemap extends \S2\Cms\Controller\Sitemap
     {
         // Obtaining posts
         $result = $this->dbLayer
-            ->select('p.create_time AS time, p.modify_time, p.url')
-            ->from('s2_blog_posts AS p')
-            ->where('p.published = 1')
+            ->select('p.published_at AS time, p.updated_at AS modify_time, p.slug AS url')
+            ->from(ContentSchema::TABLE_NAME . ' AS p')
+            ->where('p.content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('p.published = 1')
             ->execute()
         ;
 

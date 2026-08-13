@@ -81,7 +81,7 @@ class FavoritePageController extends BlogController
         $output = $this->getPosts(
             fn(SelectBuilder $qb): \S2\Cms\Pdo\QueryBuilder\SelectBuilder => $qb
                 ->addSelect('2 AS favorite')
-                ->andWhere('p.favorite = 1'),
+                ->andWhere('p.featured = 1'),
             false
         );
 

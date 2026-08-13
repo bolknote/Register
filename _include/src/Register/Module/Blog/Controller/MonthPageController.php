@@ -112,8 +112,8 @@ class MonthPageController extends BlogController
 
         $output = $this->getPosts(
             fn (SelectBuilder $qb): \S2\Cms\Pdo\QueryBuilder\SelectBuilder => $qb
-                ->andWhere('p.create_time < ' . $endTime)
-                ->andWhere('p.create_time >= ' . $startTime)
+                ->andWhere('p.published_at < ' . $endTime)
+                ->andWhere('p.published_at >= ' . $startTime)
         );
 
         if ($output === '') {

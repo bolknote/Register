@@ -81,7 +81,8 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'deleted'));
         $I->assertFalse($dbLayer->tableExists('art_comments'));
         $I->assertFalse($dbLayer->tableExists('s2_blog_comments'));
-        $I->assertTrue($dbLayer->fieldExists('s2_blog_posts', 'display_date'));
+        $I->assertFalse($dbLayer->tableExists('s2_blog_posts'));
+        $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'date_label'));
         $I->assertTrue($dbLayer->tableExists(ContentTagSchema::TABLE_NAME));
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'content_tag_idx'));
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'tag_content_idx'));
@@ -91,7 +92,7 @@ final class ModuleManagerCest
     {
         /** @var SchemaManager $schemaManager */
         $schemaManager = $I->grabAdminService(SchemaManager::class);
-        $I->setConfigValue(SchemaManager::CONFIG_KEY, '3');
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, (string)(SchemaManager::CURRENT_GENERATION + 1));
 
         $I->expectThrowable(\LogicException::class, $schemaManager->ensureCurrent(...));
     }

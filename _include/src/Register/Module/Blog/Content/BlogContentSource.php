@@ -11,13 +11,14 @@ namespace Register\Module\Blog\Content;
 
 use Register\Content\ContentId;
 use Register\Content\ContentItem;
+use Register\Content\ContentSchema;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentType;
 use Register\Module\Blog\BlogUrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 
-/** Adapts the inherited post table to Register's content contract. */
+/** Exposes published posts from Register's shared content storage. */
 final readonly class BlogContentSource implements ContentSourceInterface
 {
     public function __construct(
@@ -41,9 +42,10 @@ final readonly class BlogContentSource implements ContentSourceInterface
         }
 
         $post = $this->dbLayer
-            ->select('id, title, text, create_time, url')
-            ->from('s2_blog_posts')
+            ->select('id, title, body, published_at, slug')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $id->value)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('published = 1')
             ->execute()
             ->fetchAssoc()
@@ -60,9 +62,10 @@ final readonly class BlogContentSource implements ContentSourceInterface
     public function published(): \Generator
     {
         $result = $this->dbLayer
-            ->select('id, title, text, create_time, url')
-            ->from('s2_blog_posts')
-            ->where('published = 1')
+            ->select('id, title, body, published_at, slug')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('published = 1')
             ->orderBy('id')
             ->execute()
         ;
@@ -75,14 +78,14 @@ final readonly class BlogContentSource implements ContentSourceInterface
     /** @param array<string, mixed> $post */
     private function fromRow(array $post): ContentItem
     {
-        $timestamp = (int)$post['create_time'];
+        $publishedAt = $post['published_at'] === null ? null : (int)$post['published_at'];
 
         return new ContentItem(
             id: ContentId::post((int)$post['id']),
             title: (string)$post['title'],
-            body: (string)$post['text'],
-            path: $this->urlBuilder->postWithoutPrefix((string)$post['url']),
-            publishedAt: $timestamp > 0 ? $timestamp : null,
+            body: (string)$post['body'],
+            path: $this->urlBuilder->postWithoutPrefix((string)$post['slug']),
+            publishedAt: $publishedAt !== null && $publishedAt > 0 ? $publishedAt : null,
         );
     }
 }

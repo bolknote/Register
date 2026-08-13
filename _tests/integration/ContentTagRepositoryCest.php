@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use S2\Cms\Pdo\DbLayer;
@@ -95,22 +96,26 @@ final class ContentTagRepositoryCest
         ]);
         $pageId = (int)$dbLayer->insertId();
 
-        $dbLayer->insert('s2_blog_posts')->values([
-            'create_time' => ':time',
-            'modify_time' => ':time',
-            'revision'    => '1',
-            'title'       => ':title',
-            'text'        => "'<p>Post text</p>'",
-            'published'   => '1',
-            'favorite'    => '0',
-            'commented'   => '1',
-            'label'       => "''",
-            'url'         => ':url',
-            'user_id'     => 'NULL',
+        $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
+            'content_type'     => ':content_type',
+            'created_at'       => ':time',
+            'published_at'     => ':time',
+            'updated_at'       => ':time',
+            'revision'         => '1',
+            'title'            => ':title',
+            'excerpt'          => "''",
+            'body'             => "'<p>Post text</p>'",
+            'published'        => '1',
+            'featured'         => '0',
+            'comments_enabled' => '1',
+            'series'           => "''",
+            'slug'             => ':url',
+            'author_id'        => 'NULL',
         ])->execute([
-            'title' => 'Post ' . $suffix,
-            'time'  => $timestamp,
-            'url'   => 'post-' . $suffix,
+            'content_type' => ContentType::POST->value,
+            'title'        => 'Post ' . $suffix,
+            'time'         => $timestamp,
+            'url'          => 'post-' . $suffix,
         ]);
 
         return [$pageId, (int)$dbLayer->insertId()];

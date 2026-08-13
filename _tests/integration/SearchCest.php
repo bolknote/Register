@@ -12,6 +12,7 @@ namespace integration;
 use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
+use Register\Content\ContentSchema;
 use Register\Module\Search\Service\ContentIndexer;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Queue\QueueConsumer;
@@ -32,7 +33,7 @@ class SearchCest
         $I->seeResponseCodeIs(200);
         $I->submitForm('form', [
             'title' => 'Привет, мир!',
-            'text'  => '<p>Start text</p>',
+            'body'  => '<p>Start text</p>',
         ]);
         $I->seeResponseCodeIs(302);
 
@@ -50,24 +51,24 @@ class SearchCest
             throw new \RuntimeException('The blog post form does not expose a user identifier.');
         }
 
-        $I->assertSame('privet-mir', $I->grabValueFrom('input[name=url]'));
-        $I->assertSame('', $I->grabValueFrom('input[name=display_date]'));
+        $I->assertSame('privet-mir', $I->grabValueFrom('input[name=slug]'));
+        $I->assertSame('', $I->grabValueFrom('input[name=date_label]'));
 
         $dataProvider = (static fn(string $csrfToken, string $userId): array => [
             '__csrf_token' => $csrfToken,
             'title'        => 'New Blog Post Title',
             'tags'         => 'tag1, blog tag',
-            'create_time'  => '2023-08-12T11:32',
-            'display_date' => 'лето 1977 года',
-            'modify_time'  => '2023-08-12T12:15',
-            'text'         => '<p>New blog post with some text</p>',
-            'user_id'      => $userId,
-            'label'        => '',
+            'published_at' => '2023-08-12T11:32',
+            'date_label'   => 'лето 1977 года',
+            'updated_at'   => '2023-08-12T12:15',
+            'body'         => '<p>New blog post with some text</p>',
+            'author_id'    => $userId,
+            'series'       => '',
             'revision'     => '1',
-            'url'          => 'new_post1',
+            'slug'         => 'new_post1',
 
-            'commented' => '1',
-            'published' => '1',
+            'comments_enabled' => '1',
+            'published'        => '1',
         ]);
         // Secondary check beyond the search, but let it be
         $I->sendAjaxPostRequest('https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . ((int)$postId + 1111), $dataProvider($csrfToken, $userId));
@@ -109,9 +110,9 @@ class SearchCest
         // Reopen the edit form in the admin panel
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId);
 
-        $postText = $I->grabValueFrom('textarea[name=text]');
+        $postText = $I->grabValueFrom('textarea[name=body]');
         $I->assertStringContainsString('New blog post', $postText);
-        $I->assertSame('лето 1977 года', $I->grabValueFrom('input[name=display_date]'));
+        $I->assertSame('лето 1977 года', $I->grabValueFrom('input[name=date_label]'));
 
         // Reopen the list in the admin panel
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
@@ -142,8 +143,8 @@ class SearchCest
         $I->see('лето 1977 года');
 
         // An empty display date falls back to the localized internal date and time.
-        $dbLayer->update('s2_blog_posts')
-            ->set('display_date', ':display_date')->setParameter('display_date', '')
+        $dbLayer->update(ContentSchema::TABLE_NAME)
+            ->set('date_label', ':date_label')->setParameter('date_label', '')
             ->where('id = :id')->setParameter('id', $postId)
             ->execute()
         ;

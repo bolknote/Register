@@ -13,12 +13,12 @@ import {PopupWindow} from './dialogs.js';
 import {s2_codemirror} from './codemirror.js';
 import {sanitizeUrlForAttribute} from './utils/escape.js';
 
-export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaName, sTemplateId) {
+export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaName, sTemplateId, sSlugFieldName = 'url') {
     const sLowerEntityName = sEntityName.toLowerCase();
 
     function decorateForm(statusData) {
-        const urlWrapper = eForm.querySelector('.field-url');
-        const urlLabel = eForm.querySelector('label[for="id-url"]');
+        const urlWrapper = eForm.querySelector('.field-' + sSlugFieldName);
+        const urlLabel = eForm.querySelector('label[for="id-' + sSlugFieldName + '"]');
         urlWrapper.setAttribute('data-url-status', statusData['urlStatus']);
         urlWrapper.title = statusData['urlTitle'];
         urlLabel.title = statusData['urlTitle'];

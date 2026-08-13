@@ -368,30 +368,30 @@ class InstallCest
         $I->amOnPage('/_admin/index.php?entity=BlogPost&action=new');
         $I->submitForm('form', [
             'title' => 'Привет, мир!',
-            'text'  => '<p>Start text</p>',
+            'body'  => '<p>Start text</p>',
         ]);
         $I->seeResponseCodeIsSuccessful();
 
         $postId           = $I->grabFromCurrentUrl('~id=(\d+)~');
         $this->blogPostId = (int)$postId;
         $csrfToken        = $I->grabValueFrom('input[name=__csrf_token]');
-        $I->assertSame('privet-mir', $I->grabValueFrom('input[name=url]'));
+        $I->assertSame('privet-mir', $I->grabValueFrom('input[name=slug]'));
 
         $dataProvider = (static fn(string $csrfToken): array => [
             '__csrf_token' => $csrfToken,
             'title'        => 'New Blog Post Title',
             'tags'         => 'tag1, blog tag',
-            'create_time'  => '2023-08-12T11:32',
-            'display_date' => '',
-            'modify_time'  => '2023-08-12T12:15',
-            'text'         => '<p>New blog post</p>',
-            'user_id'      => '1',
-            'label'        => '',
+            'published_at' => '2023-08-12T11:32',
+            'date_label'   => '',
+            'updated_at'   => '2023-08-12T12:15',
+            'body'         => '<p>New blog post</p>',
+            'author_id'    => '1',
+            'series'       => '',
             'revision'     => '1',
-            'url'          => 'new_post1',
+            'slug'         => 'new_post1',
 
-            'commented' => '1',
-            'published' => '1',
+            'comments_enabled' => '1',
+            'published'        => '1',
         ]);
         $I->sendAjaxPostRequest('/_admin/index.php?entity=BlogPost&action=edit&id=333', $dataProvider($csrfToken));
         $this->assertJsonResponseContains($I, ['errors', 0], 'Unable to confirm security token.');
@@ -405,7 +405,7 @@ class InstallCest
 
         $I->amOnPage('/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId);
 
-        $postText = $I->grabValueFrom('textarea[name=text]');
+        $postText = $I->grabValueFrom('textarea[name=body]');
         $I->assertStringContainsString('New blog post', $postText);
 
         $I->amOnPage('/_admin/index.php?entity=BlogPost&action=list');

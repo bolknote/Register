@@ -14,6 +14,7 @@ namespace Register\Module\Blog\Controller;
 
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use S2\Cms\Config\BoolProxy;
@@ -111,16 +112,17 @@ class PostPageController extends BlogController
 
         $result = $this->dbLayer
             ->select(
-                'create_time, display_date, title, text, id, commented, label, favorite',
+                'published_at AS create_time, date_label AS display_date, title, body AS text, id, comments_enabled AS commented, series AS label, featured AS favorite',
                 '(' . $this->dbLayer
                     ->select('u.name')
                     ->from('users AS u')
-                    ->where('u.id = p.user_id')
+                    ->where('u.id = p.author_id')
                     ->getSql() . ') AS author',
-                'url'
+                'slug AS url'
             )
-            ->from('s2_blog_posts AS p')
-            ->where('url = :url')->setParameter('url', $url)
+            ->from(ContentSchema::TABLE_NAME . ' AS p')
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('slug = :url')->setParameter('url', $url)
             ->andWhere('published = 1')
             ->execute()
         ;
@@ -155,12 +157,13 @@ class PostPageController extends BlogController
         $params = [];
         if ($label !== '') {
             // Getting posts that have the same label
-            $queries[]         = $this->dbLayer->select('title, create_time, url, "label" AS type')
-                ->from('s2_blog_posts')
-                ->where('label = :label')
+            $queries[]         = $this->dbLayer->select('title, published_at AS create_time, slug AS url, "label" AS type')
+                ->from(ContentSchema::TABLE_NAME)
+                ->where("content_type = '" . ContentType::POST->value . "'")
+                ->andWhere('series = :label')
                 ->andWhere('id <> :post_id')
                 ->andWhere('published = 1')
-                ->orderBy('create_time DESC')
+                ->orderBy('published_at DESC')
                 ->getSql()
             ;
             $params['label']   = $label;
@@ -168,23 +171,25 @@ class PostPageController extends BlogController
         }
 
         if ($is_back_forward) {
-            $queries[] = $this->dbLayer->select('title, create_time, url, "next" AS type')
-                ->from('s2_blog_posts')
-                ->where('create_time > :time_next')
+            $queries[] = $this->dbLayer->select('title, published_at AS create_time, slug AS url, "next" AS type')
+                ->from(ContentSchema::TABLE_NAME)
+                ->where("content_type = '" . ContentType::POST->value . "'")
+                ->andWhere('published_at > :time_next')
                 ->andWhere('published = 1')
-                ->orderBy('create_time ASC')
+                ->orderBy('published_at ASC')
                 ->limit(1)
                 ->getSql()
             ;
 
             $params['time_next'] = (int)$row['create_time'];
 
-            $queries[] = $this->dbLayer->select('title, create_time, url, "prev" AS type')
-                ->from('s2_blog_posts')
-                ->where('create_time < :time_prev')
+            $queries[] = $this->dbLayer->select('title, published_at AS create_time, slug AS url, "prev" AS type')
+                ->from(ContentSchema::TABLE_NAME)
+                ->where("content_type = '" . ContentType::POST->value . "'")
+                ->andWhere('published_at < :time_prev')
                 ->setParameter('time_prev', (int)$row['create_time'], \PDO::PARAM_INT)
                 ->andWhere('published = 1')
-                ->orderBy('create_time DESC')
+                ->orderBy('published_at DESC')
                 ->limit(1)
                 ->getSql()
             ;

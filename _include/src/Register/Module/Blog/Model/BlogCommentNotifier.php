@@ -12,6 +12,7 @@ namespace Register\Module\Blog\Model;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSubscriptionService;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use S2\Cms\Helper\StringHelper;
 use S2\Cms\Mail\CommentMailer;
@@ -63,12 +64,14 @@ readonly class BlogCommentNotifier
 
         // Getting some info about the post commented
         $result = $this->dbLayer
-            ->select('title, create_time, url')
-            ->from('s2_blog_posts')
+            ->select('title, published_at AS create_time, slug AS url')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')
             ->setParameter('id', $comment->contentId->value)
+            ->andWhere('content_type = :content_type')
+            ->setParameter('content_type', ContentType::POST->value)
             ->andWhere('published = 1')
-            ->andWhere('commented = 1')
+            ->andWhere('comments_enabled = 1')
             ->execute()
         ;
         $post   = $result->fetchAssoc();

@@ -14,6 +14,7 @@ namespace Register\Module\Blog\Model;
 
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
@@ -73,9 +74,11 @@ readonly class BlogPlaceholderProvider
 
             // Check for favorite posts
             $result = $this->dbLayer->select('1')
-                ->from('s2_blog_posts')
-                ->where('published = 1')
-                ->andWhere('favorite = 1')
+                ->from(ContentSchema::TABLE_NAME)
+                ->where('content_type = :navigation_content_type')
+                ->setParameter('navigation_content_type', ContentType::POST->value)
+                ->andWhere('published = 1')
+                ->andWhere('featured = 1')
                 ->limit(1)
                 ->execute()
             ;
@@ -96,9 +99,10 @@ readonly class BlogPlaceholderProvider
             $result = $this->dbLayer->select('t.name, t.url, count(t.id)')
                 ->from('tags AS t')
                 ->innerJoin(ContentTagSchema::TABLE_NAME . ' AS pt', 't.id = pt.tag_id')
-                ->innerJoin('s2_blog_posts AS p', 'p.id = pt.content_id')
+                ->innerJoin(ContentSchema::TABLE_NAME . ' AS p', 'p.id = pt.content_id')
                 ->where('t.s2_blog_important = 1')
                 ->andWhere("pt.content_type = '" . ContentType::POST->value . "'")
+                ->andWhere("p.content_type = '" . ContentType::POST->value . "'")
                 ->andWhere('p.published = 1')
                 ->groupBy('t.id')
                 ->orderBy('3 DESC')
@@ -160,11 +164,12 @@ readonly class BlogPlaceholderProvider
         ;
 
         $result = $this->dbLayer
-            ->select('time, url, title, nick, create_time, (' . $raw_query1 . ') AS count')
+            ->select('time, p.slug AS url, title, nick, p.published_at AS create_time, (' . $raw_query1 . ') AS count')
             ->from(CommentSchema::TABLE_NAME . ' AS c')
-            ->innerJoin('s2_blog_posts AS p', 'c.content_id = p.id')
-            ->where('commented = 1')
-            ->andWhere('published = 1')
+            ->innerJoin(ContentSchema::TABLE_NAME . ' AS p', 'c.content_id = p.id')
+            ->where('p.comments_enabled = 1')
+            ->andWhere('p.published = 1')
+            ->andWhere('p.content_type = :post_content_type')->setParameter('post_content_type', ContentType::POST->value)
             ->andWhere('c.content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('c.shown = 1')
             ->orderBy('time DESC')
@@ -209,13 +214,15 @@ readonly class BlogPlaceholderProvider
         ;
 
         $result = $this->dbLayer
-            ->select('p.create_time, p.url, p.title, c1.comment_num AS comment_num, c2.nick, c2.time')
-            ->from('s2_blog_posts AS p, (' . $rawQuery . ') AS c1')
+            ->select('p.published_at AS create_time, p.slug AS url, p.title, c1.comment_num AS comment_num, c2.nick, c2.time')
+            ->from(ContentSchema::TABLE_NAME . ' AS p, (' . $rawQuery . ') AS c1')
             ->innerJoin(CommentSchema::TABLE_NAME . ' AS c2', 'c2.id = c1.max_id')
             ->where('c1.post_id = p.id')
-            ->andWhere('p.commented = 1')
+            ->andWhere('p.content_type = :post_content_type')
+            ->andWhere('p.comments_enabled = 1')
             ->andWhere('p.published = 1')
             ->setParameter('content_type', ContentType::POST->value)
+            ->setParameter('post_content_type', ContentType::POST->value)
             ->setParameter('time', strtotime('-1 month midnight'))
             ->limit(10)
             ->execute()

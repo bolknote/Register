@@ -50,39 +50,6 @@ class Manifest implements BaseModuleInstallerInterface
     #[\Override]
     public function installFresh(DbLayer $dbLayer): void
     {
-        // Setup posts table
-        if (!$dbLayer->tableExists('s2_blog_posts')) {
-            $dbLayer->createTable('s2_blog_posts', function (SchemaBuilderInterface $table): void {
-                $table
-                    ->addIdColumn()
-                    ->addInteger('create_time', true)
-                    ->addString('display_date', 255)
-                    ->addInteger('modify_time', true)
-                    ->addInteger('revision', true, default: 1)
-                    ->addString('title', 255)
-                    ->addLongText('text', nullable: false)
-                    ->addBoolean('published')
-                    ->addBoolean('favorite')
-                    ->addBoolean('commented', default: true)
-                    ->addString('label', 255)
-                    ->addString('url', 255)
-                    ->addInteger('user_id', true, nullable: true, default: null)
-                    ->addForeignKey(
-                        'fk_user',
-                        ['user_id'],
-                        'users',
-                        ['id'],
-                        'SET NULL',
-                    )
-                    ->addIndex('url_idx', ['url'])
-                    ->addIndex('create_time_published_idx', ['create_time', 'published'])
-                    ->addIndex('id_published_idx', ['id', 'published'])
-                    ->addIndex('favorite_idx', ['favorite'])
-                    ->addIndex('label_idx', ['label'])
-                ;
-            });
-        }
-
         // Add extension options to the config table
         $config = [
             'S2_BLOG_URL'   => '',

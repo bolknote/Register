@@ -12,6 +12,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use Register\Module\Blog\Module as BlogModule;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\IntProxy;
@@ -97,10 +99,11 @@ class YearPageController extends BlogController
         $template->putInPlaceholder('title', $pageTitle);
 
         $result = $this->dbLayer
-            ->select('create_time, url')
-            ->from('s2_blog_posts')
-            ->where('create_time < :end_time')->setParameter('end_time', $end_time)
-            ->andWhere('create_time >= :start_time')->setParameter('start_time', $start_time)
+            ->select('published_at', 'slug')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('published_at < :end_time')->setParameter('end_time', $end_time)
+            ->andWhere('published_at >= :start_time')->setParameter('start_time', $start_time)
             ->andWhere('published = 1')
             ->execute()
         ;

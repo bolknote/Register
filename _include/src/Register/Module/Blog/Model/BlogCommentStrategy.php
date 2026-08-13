@@ -11,6 +11,7 @@ namespace Register\Module\Blog\Model;
 
 use Register\Comment\CommentRepository;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use S2\Cms\Controller\Comment\CommentDto;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
@@ -46,11 +47,13 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
 
         $result = $this->dbLayer
             ->select('id', 'title')
-            ->from('s2_blog_posts AS p')
-            ->where('url = :url')
+            ->from(ContentSchema::TABLE_NAME . ' AS p')
+            ->where('content_type = :content_type')
+            ->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('slug = :url')
             ->setParameter('url', $url)
             ->andWhere('published = 1')
-            ->andWhere('commented = 1')
+            ->andWhere('comments_enabled = 1')
             ->execute()
         ;
 
@@ -68,9 +71,11 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
     {
         $post = $this->dbLayer
             ->select('id', 'title')
-            ->from('s2_blog_posts AS p')
+            ->from(ContentSchema::TABLE_NAME . ' AS p')
             ->where('id = :id')
             ->setParameter('id', $targetId)
+            ->andWhere('content_type = :content_type')
+            ->setParameter('content_type', ContentType::POST->value)
             ->execute()
             ->fetchAssoc()
         ;

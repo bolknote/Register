@@ -11,6 +11,7 @@ namespace integration;
 
 use Psr\Log\LoggerInterface;
 use Register\Comment\CommentSchema;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use S2\Cms\Comment\AkismetProxy;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
@@ -551,18 +552,21 @@ final class AntispamCest
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
         $dbLayer
-            ->insert('s2_blog_posts')
-            ->setValue('create_time', ':time')->setParameter('time', time())
-            ->setValue('modify_time', ':time')
+            ->insert(ContentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::POST->value)
+            ->setValue('created_at', ':time')->setParameter('time', time())
+            ->setValue('published_at', ':time')
+            ->setValue('updated_at', ':time')
             ->setValue('revision', '1')
             ->setValue('title', "'Feedback post'")
-            ->setValue('text', "'Post text'")
+            ->setValue('excerpt', "''")
+            ->setValue('body', "'Post text'")
             ->setValue('published', '1')
-            ->setValue('favorite', '0')
-            ->setValue('commented', '1')
-            ->setValue('label', "''")
-            ->setValue('url', "'feedback-post'")
-            ->setValue('user_id', 'NULL')
+            ->setValue('featured', '0')
+            ->setValue('comments_enabled', '1')
+            ->setValue('series', "''")
+            ->setValue('slug', "'feedback-post'")
+            ->setValue('author_id', 'NULL')
             ->execute()
         ;
         $postId = (int)$dbLayer->insertId();
