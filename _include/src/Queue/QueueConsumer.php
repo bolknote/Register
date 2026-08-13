@@ -32,10 +32,15 @@ final readonly class QueueConsumer
      *
      * Returns true when a job was attempted, including a failed attempt, and false when no due job exists.
      */
-    public function runQueue(?int $now = null): bool
+    public function runQueue(?int $now = null, ?QueueExecutionBudget $budget = null): bool
     {
         $now ??= time();
-        $job = $this->fetchDueJob($now);
+        $budget ??= new QueueExecutionBudget(30.0);
+        if (!$budget->canStart()) {
+            return false;
+        }
+
+        $job = $this->fetchRunnableJob($now, $budget);
         if ($job === null) {
             return false;
         }
@@ -53,15 +58,19 @@ final readonly class QueueConsumer
             'generation' => $generation,
             'attempt'    => $attempts + 1,
         ];
-        $this->logger->notice('Queue item is being processed.', $context);
-
         try {
             $payload = json_decode($encodedPayload, true, 512, JSON_THROW_ON_ERROR);
             if (!\is_array($payload)) {
                 throw new \UnexpectedValueException('A queue payload must decode to an array.');
             }
 
-            $this->handlerRegistry->get($jobCode)->handle($jobId, $jobCode, $payload);
+            $handler = $this->handlerRegistry->get($jobCode);
+            if (!$budget->canStart($handler->minimumExecutionTime())) {
+                return false;
+            }
+
+            $this->logger->notice('Queue item is being processed.', $context);
+            $handler->handle($jobId, $jobCode, $payload, $budget);
 
             if (!$hadTransaction && $this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -74,6 +83,12 @@ final readonly class QueueConsumer
             } else {
                 $this->logger->notice('Queue item was republished while it was being processed.', $context);
             }
+        } catch (QueueTimeBudgetExceeded $exception) {
+            if (!$hadTransaction && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            $this->deferForBudget($jobId, $jobCode, $generation, $now, $exception);
         } catch (\Throwable $throwable) {
             if (!$hadTransaction && $this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -85,21 +100,70 @@ final readonly class QueueConsumer
         return true;
     }
 
+    private function deferForBudget(
+        string                  $id,
+        string                  $code,
+        int                     $generation,
+        int                     $now,
+        QueueTimeBudgetExceeded $exception,
+    ): void {
+        $statement = $this->pdo->prepare(
+            'UPDATE ' . $this->dbPrefix . 'queue SET updated_at = :updated_at, available_at = :available_at '
+            . 'WHERE id = :id AND code = :code AND generation = :generation'
+        );
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the queue budget deferral query.', 0, $exception);
+        }
+
+        $statement->execute([
+            'updated_at'   => $now,
+            'available_at' => $now + 1,
+            'id'           => $id,
+            'code'         => $code,
+            'generation'   => $generation,
+        ]);
+
+        $context = [
+            'id'         => $id,
+            'code'       => $code,
+            'generation' => $generation,
+        ];
+        if ($statement->rowCount() === 1) {
+            $this->logger->notice('Queue item was deferred because the execution budget was exhausted.', $context);
+        } else {
+            $this->logger->notice('Queue item exhausted its budget, but a newer generation is already available.', $context);
+        }
+    }
+
     /** @return array<string, mixed>|null */
-    private function fetchDueJob(int $now): ?array
+    private function fetchRunnableJob(int $now, QueueExecutionBudget $budget): ?array
     {
+        $parameters    = ['now' => $now];
+        $codeFilter    = '';
+        $excludedCodes = $this->handlerRegistry->codesExceedingBudget($budget);
+        if ($excludedCodes !== []) {
+            $placeholders = [];
+            foreach ($excludedCodes as $index => $code) {
+                $parameterName              = 'excluded_code_' . $index;
+                $placeholders[]              = ':' . $parameterName;
+                $parameters[$parameterName] = $code;
+            }
+
+            $codeFilter = 'AND code NOT IN (' . implode(', ', $placeholders) . ') ';
+        }
+
         $statement = $this->pdo->prepare(
             'SELECT id, code, payload, generation, attempts FROM ' . $this->dbPrefix . 'queue '
             . 'WHERE failed_at IS NULL AND available_at <= :now '
+            . $codeFilter
             . 'ORDER BY available_at, created_at, id, code LIMIT 1'
         );
         if ($statement === false) {
             throw new \RuntimeException('Unable to prepare the queue fetch query.');
         }
 
-        $statement->execute(['now' => $now]);
+        $statement->execute($parameters);
         $job = $statement->fetch(\PDO::FETCH_ASSOC);
-
         return \is_array($job) ? $job : null;
     }
 

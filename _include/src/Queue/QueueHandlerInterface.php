@@ -16,8 +16,11 @@ interface QueueHandlerInterface
      */
     public function codes(): array;
 
+    /** Conservative time required before this handler may start. */
+    public function minimumExecutionTime(): float;
+
     /**
      * @param array<mixed> $payload
      */
-    public function handle(string $id, string $code, array $payload): void;
+    public function handle(string $id, string $code, array $payload, QueueExecutionBudget $budget): void;
 }

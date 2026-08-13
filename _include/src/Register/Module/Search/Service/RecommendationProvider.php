@@ -12,6 +12,7 @@ namespace Register\Module\Search\Service;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Queue\QueueExecutionBudget;
 use S2\Rose\Entity\ExternalId;
 use S2\Rose\Entity\TocEntryWithMetadata;
 use Register\Module\Search\Layout\ContentItem;
@@ -45,6 +46,12 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         return [self::RECOMMENDATIONS_QUEUE];
     }
 
+    #[\Override]
+    public function minimumExecutionTime(): float
+    {
+        return 0.5;
+    }
+
     /**
      * @throws InvalidArgumentException
      * @throws DbLayerException
@@ -76,9 +83,10 @@ readonly class RecommendationProvider implements QueueHandlerInterface
      * @param array<mixed> $payload
      */
     #[\Override]
-    public function handle(string $id, string $code, array $payload): void
+    public function handle(string $id, string $code, array $payload, QueueExecutionBudget $budget): void
     {
         unset($payload);
+        $budget->checkpoint($this->minimumExecutionTime());
 
         if ($code !== self::RECOMMENDATIONS_QUEUE) {
             throw new \LogicException(\sprintf('Unsupported recommendations queue code "%s".', $code));
@@ -88,6 +96,7 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         $cacheKey   = $this->getCacheKey($externalId);
 
         $this->cache->delete($cacheKey);
+        $budget->checkpoint(0.5);
         $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
     }
 

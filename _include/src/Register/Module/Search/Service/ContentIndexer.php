@@ -16,6 +16,7 @@ use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Queue\QueueExecutionBudget;
 use S2\Rose\Entity\Indexable;
 use S2\Rose\Indexer;
 
@@ -44,14 +45,24 @@ final readonly class ContentIndexer implements QueueHandlerInterface, BulkIndexi
         return [self::QUEUE_CODE, self::LEGACY_PAGE_QUEUE_CODE, self::LEGACY_POST_QUEUE_CODE];
     }
 
+    #[\Override]
+    public function minimumExecutionTime(): float
+    {
+        return 0.25;
+    }
+
     /**
      * @param array<mixed> $payload
      * @throws InvalidArgumentException
      */
     #[\Override]
-    public function handle(string $id, string $code, array $payload): void
+    public function handle(string $id, string $code, array $payload, QueueExecutionBudget $budget): void
     {
-        unset($payload);
+        if ($payload !== []) {
+            throw new \InvalidArgumentException('A content indexing job must not contain a payload.');
+        }
+
+        $budget->checkpoint($this->minimumExecutionTime());
 
         $contentId = $this->contentIdFromJob($id, $code);
         if (!$contentId instanceof ContentId) {
@@ -61,15 +72,19 @@ final readonly class ContentIndexer implements QueueHandlerInterface, BulkIndexi
         $content = $this->contentRepository->find($contentId);
         if ($content instanceof ContentItem) {
             $indexable = $this->documentFactory->create($content);
+            $budget->checkpoint(0.25);
             $this->indexer->index($indexable);
+            $budget->checkpoint(0.05);
             $this->queuePublisher->publish(
                 $indexable->getExternalId()->toString(),
                 RecommendationProvider::RECOMMENDATIONS_QUEUE,
             );
         } else {
+            $budget->checkpoint(0.1);
             $this->indexer->removeById(SearchDocumentFactory::externalId($contentId), null);
         }
 
+        $budget->checkpoint(0.02);
         $this->recommendationsCache->deleteItem(RecommendationProvider::INVALIDATED_AT);
 
     }

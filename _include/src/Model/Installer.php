@@ -17,6 +17,7 @@ use Register\Schema\SchemaMigrator;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
 use S2\Cms\Pdo\DbLayerException;
+use S2\Cms\Queue\QueueSchema;
 
 readonly class Installer
 {
@@ -173,6 +174,8 @@ readonly class Installer
             ;
         });
 
+        QueueSchema::createRunnerLeaseStorage($this->dbLayer);
+
         AntispamSchema::create($this->dbLayer);
     }
 
@@ -182,6 +185,7 @@ readonly class Installer
     public function dropTables(): void
     {
         AntispamSchema::drop($this->dbLayer);
+        $this->dbLayer->dropTable(QueueSchema::LEASE_TABLE);
         $this->dbLayer->dropTable('queue');
         ContentTagSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('tags');

@@ -79,8 +79,11 @@ use S2\Cms\Queue\BackgroundWorkRunner;
 use S2\Cms\Queue\QueueConsumer;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueueHandlerRegistry;
+use S2\Cms\Queue\QueueMonitor;
 use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\QueueRunnerLock;
+use S2\Cms\Queue\QueueRecovery;
+use S2\Cms\Queue\QueueRunnerLease;
+use S2\Cms\Queue\NativeShutdownRuntime;
 use S2\Cms\Queue\ScheduledMaintenance;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
 use S2\Cms\Template\HtmlTemplateProvider;
@@ -194,6 +197,14 @@ class CmsExtension implements ExtensionInterface
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
         ));
+        $container->set(QueueMonitor::class, fn(Container $container): \S2\Cms\Queue\QueueMonitor => new QueueMonitor(
+            $container->get(\PDO::class),
+            $container->getStringParameter('db_prefix'),
+        ));
+        $container->set(QueueRecovery::class, fn(Container $container): \S2\Cms\Queue\QueueRecovery => new QueueRecovery(
+            $container->get(\PDO::class),
+            $container->getStringParameter('db_prefix'),
+        ));
         $container->set(QueueHandlerRegistry::class, fn(Container $container): \S2\Cms\Queue\QueueHandlerRegistry => new QueueHandlerRegistry(
             ...$container->getByTag(QueueHandlerInterface::class)
         ));
@@ -203,14 +214,10 @@ class CmsExtension implements ExtensionInterface
             $container->get(LoggerInterface::class),
             $container->get(QueueHandlerRegistry::class),
         ));
-        $container->set(QueueRunnerLock::class, function (Container $container): \S2\Cms\Queue\QueueRunnerLock {
-            $cacheDir = $container->getStringParameter('cache_dir');
-            if (!str_starts_with($cacheDir, DIRECTORY_SEPARATOR)) {
-                $cacheDir = $container->getStringParameter('root_dir') . ltrim($cacheDir, '/');
-            }
-
-            return new QueueRunnerLock(rtrim($cacheDir, '/') . '/background-runner.lock');
-        });
+        $container->set(QueueRunnerLease::class, fn(Container $container): \S2\Cms\Queue\QueueRunnerLease => new QueueRunnerLease(
+            $container->get(\PDO::class),
+            $container->getStringParameter('db_prefix'),
+        ));
         $container->set(ScheduledMaintenance::class, fn(Container $container): \S2\Cms\Queue\ScheduledMaintenance => new ScheduledMaintenance(
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
@@ -218,7 +225,7 @@ class CmsExtension implements ExtensionInterface
         ));
         $container->set(BackgroundWorkRunner::class, fn(Container $container): \S2\Cms\Queue\BackgroundWorkRunner => new BackgroundWorkRunner(
             $container->get(\PDO::class),
-            $container->get(QueueRunnerLock::class),
+            $container->get(QueueRunnerLease::class),
             $container->get(QueueConsumer::class),
             $container->get(ScheduledMaintenance::class),
             $container->get(LoggerInterface::class),
@@ -226,7 +233,9 @@ class CmsExtension implements ExtensionInterface
         $container->set(ShutdownWorkCoordinator::class, fn(Container $container): \S2\Cms\Queue\ShutdownWorkCoordinator => new ShutdownWorkCoordinator(
             $container->get(\PDO::class),
             $container->get(LoggerInterface::class),
+            new NativeShutdownRuntime(),
             fn(): BackgroundWorkRunner => $container->get(BackgroundWorkRunner::class),
+            $container->getFloatParameter('boot_timestamp'),
         ));
 
         $container->set(UrlBuilder::class, fn(Container $container): \S2\Cms\Model\UrlBuilder => new UrlBuilder(

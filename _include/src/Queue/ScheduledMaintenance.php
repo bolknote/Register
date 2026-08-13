@@ -27,9 +27,11 @@ final readonly class ScheduledMaintenance
     ) {
     }
 
-    public function runIfDue(?int $now = null): bool
+    public function runIfDue(?int $now = null, ?QueueExecutionBudget $budget = null): bool
     {
         $now ??= time();
+        $budget ??= new QueueExecutionBudget(30.0);
+        $budget->checkpoint(0.05);
         $statement = $this->pdo->prepare(
             'SELECT value FROM ' . $this->dbPrefix . 'config WHERE name = :name'
         );
@@ -49,6 +51,7 @@ final readonly class ScheduledMaintenance
         }
 
         foreach (SpamMaintenance::OPERATIONS as $operation) {
+            $budget->checkpoint(0.02);
             $this->queuePublisher->publish(
                 $operation,
                 SpamMaintenanceQueueHandler::CODE,
@@ -57,6 +60,7 @@ final readonly class ScheduledMaintenance
             );
         }
 
+        $budget->checkpoint(0.02);
         $statement = $this->pdo->prepare(
             'UPDATE ' . $this->dbPrefix . 'config SET value = :now WHERE name = :name AND value = :previous_value'
         );

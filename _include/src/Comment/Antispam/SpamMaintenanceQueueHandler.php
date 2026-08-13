@@ -11,6 +11,7 @@ namespace S2\Cms\Comment\Antispam;
 
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Queue\QueueExecutionBudget;
 
 final readonly class SpamMaintenanceQueueHandler implements QueueHandlerInterface
 {
@@ -33,9 +34,15 @@ final readonly class SpamMaintenanceQueueHandler implements QueueHandlerInterfac
         return [self::CODE];
     }
 
+    #[\Override]
+    public function minimumExecutionTime(): float
+    {
+        return 0.05;
+    }
+
     /** @param array<mixed> $payload */
     #[\Override]
-    public function handle(string $id, string $code, array $payload): void
+    public function handle(string $id, string $code, array $payload, QueueExecutionBudget $budget): void
     {
         if ($code !== self::CODE) {
             throw new \InvalidArgumentException('Unexpected antispam maintenance queue code.');
@@ -46,8 +53,10 @@ final readonly class SpamMaintenanceQueueHandler implements QueueHandlerInterfac
             throw new \UnexpectedValueException('Antispam maintenance payload must contain a valid schedule timestamp.');
         }
 
+        $budget->checkpoint($this->minimumExecutionTime());
         $deleted = $this->maintenance->runOperation($id, $scheduledAt, self::BATCH_SIZE);
         if ($deleted > 0) {
+            $budget->checkpoint(0.02);
             $this->queuePublisher->publish(
                 $id,
                 self::CODE,

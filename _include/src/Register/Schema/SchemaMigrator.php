@@ -14,6 +14,7 @@ use S2\Cms\Framework\Container;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
+use S2\Cms\Queue\QueueSchema;
 
 /**
  * Owns the single schema revision for all mandatory Register modules.
@@ -25,7 +26,7 @@ final readonly class SchemaMigrator
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_REVISION';
 
-    public const int LATEST_REVISION = 2;
+    public const int LATEST_REVISION = 3;
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -140,6 +141,11 @@ final readonly class SchemaMigrator
         ;
     }
 
+    private function migrateToRevisionThree(): void
+    {
+        QueueSchema::createRunnerLeaseStorage($this->dbLayer);
+    }
+
     /** @return array<int, \Closure(): void> */
     private function migrations(): array
     {
@@ -149,6 +155,9 @@ final readonly class SchemaMigrator
             },
             2 => function (): void {
                 $this->migrateToRevisionTwo();
+            },
+            3 => function (): void {
+                $this->migrateToRevisionThree();
             },
         ];
     }

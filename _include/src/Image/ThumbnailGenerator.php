@@ -11,6 +11,7 @@ namespace S2\Cms\Image;
 
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Queue\QueueExecutionBudget;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 class ThumbnailGenerator implements QueueHandlerInterface
@@ -63,9 +64,15 @@ class ThumbnailGenerator implements QueueHandlerInterface
         return [self::QUEUE_CODE];
     }
 
+    #[\Override]
+    public function minimumExecutionTime(): float
+    {
+        return 0.5;
+    }
+
     /** @param array<mixed> $payload */
     #[\Override]
-    public function handle(string $id, string $code, array $payload): void
+    public function handle(string $id, string $code, array $payload, QueueExecutionBudget $budget): void
     {
         if ($code !== self::QUEUE_CODE) {
             throw new \LogicException(\sprintf('Unsupported thumbnail queue code "%s".', $code));
@@ -83,6 +90,8 @@ class ThumbnailGenerator implements QueueHandlerInterface
         }
 
         [$src, $width, $height] = $payload;
+
+        $budget->checkpoint($this->minimumExecutionTime());
 
         // Check if $src file is in the pictures dir
         if (!str_starts_with($src, $this->cacheUrlPrefix . '/')) {
@@ -103,7 +112,13 @@ class ThumbnailGenerator implements QueueHandlerInterface
             chmod($dirname, 0777);
         }
 
-        $this->makeThumbnail($this->cacheFilesystemPrefix . substr($src, \strlen($this->cacheUrlPrefix)), $filename, $width, $height);
+        $this->makeThumbnail(
+            $this->cacheFilesystemPrefix . substr($src, \strlen($this->cacheUrlPrefix)),
+            $filename,
+            $width,
+            $height,
+            $budget,
+        );
     }
 
     public static function createImageFromFile(string $inputFilename): \GdImage
@@ -178,14 +193,22 @@ class ThumbnailGenerator implements QueueHandlerInterface
         return $src;
     }
 
-    private function makeThumbnail(string $inputFilename, string $outputFilename, int $width, int $height): void
+    private function makeThumbnail(
+        string               $inputFilename,
+        string               $outputFilename,
+        int                  $width,
+        int                  $height,
+        QueueExecutionBudget $budget,
+    ): void
     {
         if ($width < 1 || $height < 1) {
             throw new \InvalidArgumentException('Thumbnail dimensions must be positive.');
         }
 
+        $budget->checkpoint(0.5);
         $image = self::createImageFromFile($inputFilename);
 
+        $budget->checkpoint(0.25);
         $inputWidth  = imagesx($image);
         $inputHeight = imagesy($image);
         $thumbnail   = imagecreatetruecolor($width, $height);
@@ -203,6 +226,7 @@ class ThumbnailGenerator implements QueueHandlerInterface
 
         imagecopyresampled($thumbnail, $image, 0, 0, 0, 0, $width, $height, $inputWidth, $inputHeight);
 
+        $budget->checkpoint(0.1);
         $temporaryFilename = tempnam(\dirname($outputFilename), '.thumbnail-');
         if ($temporaryFilename === false) {
             throw new \RuntimeException('Unable to create a temporary thumbnail file.');

@@ -22,9 +22,15 @@ use S2\Cms\Pdo\PDO;
 use S2\Cms\Pdo\SchemaBuilderInterface;
 use S2\Cms\Queue\BackgroundWorkRunner;
 use S2\Cms\Queue\QueueConsumer;
+use S2\Cms\Queue\QueueExecutionBudget;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueueHandlerRegistry;
+use S2\Cms\Queue\QueueMonitor;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Queue\QueueRecovery;
+use S2\Cms\Queue\QueueRunnerLease;
+use S2\Cms\Queue\QueueSchema;
+use S2\Cms\Queue\QueueTimeBudgetExceeded;
 use S2\Cms\Queue\ScheduledMaintenance;
 
 /** @group queue */
@@ -40,6 +46,22 @@ final class QueueCest
         $runner = $I->grabService(BackgroundWorkRunner::class);
         $I->assertSame(0, $runner->run());
         $I->assertIsArray($this->findJob($pdo, 'transaction', 'test'));
+    }
+
+    public function invalidBackgroundRunnerBudgetDoesNotAcquireLease(IntegrationTester $I): void
+    {
+        $pdo = $this->pdo($I);
+
+        /** @var BackgroundWorkRunner $runner */
+        $runner = $I->grabService(BackgroundWorkRunner::class);
+        $I->expectThrowable(
+            \InvalidArgumentException::class,
+            static fn(): int => $runner->run(INF),
+        );
+
+        $lease = new QueueRunnerLease($pdo, '');
+        $I->assertTrue($lease->acquire(1));
+        $lease->release();
     }
 
     public function maintenanceRunsAtMostOncePerInterval(IntegrationTester $I): void
@@ -103,7 +125,50 @@ final class QueueCest
         $I->assertFalse($this->findJob($pdo, 'form_nonces', SpamMaintenanceQueueHandler::CODE));
     }
 
-    public function revisionTwoMigrationPreservesLegacyQueueRows(IntegrationTester $I): void
+    public function runnerLeaseSerializesNodesAndRecoversAfterExpiry(IntegrationTester $I): void
+    {
+        $pdo = $this->pdo($I);
+        $pdo->exec(
+            "UPDATE " . QueueSchema::LEASE_TABLE . " SET owner = '', expires_at = 0 WHERE name = '"
+            . QueueSchema::RUNNER_LEASE . "'"
+        );
+
+        $first  = new QueueRunnerLease($pdo, '');
+        $second = new QueueRunnerLease($pdo, '');
+        $I->assertTrue($first->acquire(30));
+        $I->assertFalse($second->acquire(30));
+        $I->assertTrue((new QueueMonitor($pdo, ''))->status()['runner_active']);
+
+        $first->release();
+        $I->assertFalse((new QueueMonitor($pdo, ''))->status()['runner_active']);
+        $I->assertTrue($second->acquire(30));
+
+        $second->release();
+
+        $pdo->exec(
+            "UPDATE " . QueueSchema::LEASE_TABLE . " SET owner = 'dead-worker', expires_at = 0 WHERE name = '"
+            . QueueSchema::RUNNER_LEASE . "'"
+        );
+        $recovered = new QueueRunnerLease($pdo, '');
+        $I->assertTrue($recovered->acquire(30));
+        $recovered->release();
+
+        $stale       = new QueueRunnerLease($pdo, '');
+        $replacement = new QueueRunnerLease($pdo, '');
+        $contender   = new QueueRunnerLease($pdo, '');
+        $I->assertTrue($stale->acquire(1));
+        $pdo->exec(
+            "UPDATE " . QueueSchema::LEASE_TABLE . " SET expires_at = 0 WHERE name = '"
+            . QueueSchema::RUNNER_LEASE . "'"
+        );
+        $I->assertTrue($replacement->acquire(30));
+
+        $stale->release();
+        $I->assertFalse($contender->acquire(30));
+        $replacement->release();
+    }
+
+    public function queueMigrationsPreserveLegacyRowsAndCreateRunnerLease(IntegrationTester $I): void
     {
         $pdo     = new PDO('sqlite::memory:');
         $dbLayer = new DbLayerSqlite($pdo);
@@ -141,6 +206,7 @@ final class QueueCest
         }
 
         $I->assertTrue($dbLayer->indexExists('queue', 'due_idx'));
+        $I->assertTrue($dbLayer->tableExists(QueueSchema::LEASE_TABLE));
 
         $row = $this->job($pdo, 'legacy', 'test');
         $I->assertSame(1, (int)$row['generation']);
@@ -152,6 +218,129 @@ final class QueueCest
         }
 
         $I->assertSame('0', $statement->fetchColumn());
+    }
+
+    public function executionBudgetDefersWithoutConsumingRetryAttempts(IntegrationTester $I): void
+    {
+        $pdo       = $this->pdo($I);
+        $publisher = new QueuePublisher($pdo, '');
+        $handler   = new QueueTestHandler();
+        $handler->callback = static function (): never {
+            throw new QueueTimeBudgetExceeded('Expected cooperative stop.');
+        };
+        $consumer = $this->consumer($pdo, $handler);
+        $now      = time();
+        $publisher->publish('budget', 'test');
+
+        $I->assertTrue($consumer->runQueue($now, new QueueExecutionBudget(5.0)));
+        $row = $this->job($pdo, 'budget', 'test');
+        $I->assertSame(0, (int)$row['attempts']);
+        $I->assertSame($now + 1, (int)$row['available_at']);
+        $I->assertNull($row['last_error']);
+    }
+
+    public function insufficientBudgetDoesNotStartOrMutateJob(IntegrationTester $I): void
+    {
+        $pdo       = $this->pdo($I);
+        $publisher = new QueuePublisher($pdo, '');
+        $handler   = new QueueTestHandler();
+        $consumer  = $this->consumer($pdo, $handler);
+        $clock     = 1.0;
+        $publisher->publish('too-late', 'test');
+        $before = $this->job($pdo, 'too-late', 'test');
+
+        $budget = new QueueExecutionBudget(0.005, static function () use (&$clock): float {
+            return $clock;
+        });
+        $I->assertFalse($consumer->runQueue(budget: $budget));
+
+        $I->assertSame([], $handler->calls);
+        $I->assertSame($before, $this->job($pdo, 'too-late', 'test'));
+    }
+
+    public function expiredBudgetDoesNotMutateUnknownJob(IntegrationTester $I): void
+    {
+        $pdo       = $this->pdo($I);
+        $publisher = new QueuePublisher($pdo, '');
+        $consumer  = $this->consumer($pdo, new QueueTestHandler());
+        $clock     = 1.0;
+        $publisher->publish('unknown-too-late', 'missing');
+        $before = $this->job($pdo, 'unknown-too-late', 'missing');
+
+        $budget = new QueueExecutionBudget(0.01, static function () use (&$clock): float {
+            return $clock;
+        });
+        $clock += 0.01;
+
+        $I->assertFalse($consumer->runQueue(budget: $budget));
+        $I->assertSame($before, $this->job($pdo, 'unknown-too-late', 'missing'));
+    }
+
+    public function expensiveHeadJobDoesNotBlockRunnableWorkBehindIt(IntegrationTester $I): void
+    {
+        $pdo          = $this->pdo($I);
+        $publisher    = new QueuePublisher($pdo, '');
+        $shortHandler = new QueueTestHandler();
+        $consumer     = new QueueConsumer(
+            $pdo,
+            '',
+            new NullLogger(),
+            new QueueHandlerRegistry(new SlowQueueTestHandler(), $shortHandler),
+        );
+        for ($jobNumber = 0; $jobNumber < 40; ++$jobNumber) {
+            $publisher->publish(\sprintf('a-slow-%02d', $jobNumber), 'slow');
+        }
+
+        $publisher->publish('z-short', 'test');
+
+        $I->assertTrue($consumer->runQueue(budget: new QueueExecutionBudget(1.0)));
+
+        $I->assertIsArray($this->findJob($pdo, 'a-slow-00', 'slow'));
+        $I->assertFalse($this->findJob($pdo, 'z-short', 'test'));
+        $I->assertSame([['z-short', 'test', []]], $shortHandler->calls);
+    }
+
+    public function queueStatusAndExplicitDeadLetterRecoveryAreObservable(IntegrationTester $I): void
+    {
+        $pdo       = $this->pdo($I);
+        $publisher = new QueuePublisher($pdo, '');
+        $now       = time();
+        $monitor   = new QueueMonitor($pdo, '');
+        $empty     = $monitor->status($now);
+        $I->assertSame(0, $empty['total']);
+        $I->assertSame(0, $empty['ready']);
+        $I->assertSame(0, $empty['delayed']);
+        $I->assertSame(0, $empty['failed']);
+        $I->assertNull($empty['oldest_ready_age']);
+
+        $publisher->publish('ready', 'test', availableAt: $now);
+        $publisher->publish('delayed', 'test', availableAt: $now + 60);
+        $publisher->publish('failed', 'test', availableAt: $now);
+
+        $pdo->exec(
+            "UPDATE queue SET created_at = " . ($now - 40) . " WHERE id = 'ready' AND code = 'test'"
+        );
+        $pdo->exec(
+            "UPDATE queue SET attempts = 5, last_error = 'failed', failed_at = " . $now
+            . " WHERE id = 'failed' AND code = 'test'"
+        );
+
+        $status = $monitor->status($now);
+        $I->assertSame(3, $status['total']);
+        $I->assertSame(1, $status['ready']);
+        $I->assertSame(1, $status['delayed']);
+        $I->assertSame(1, $status['failed']);
+        $I->assertSame(40, $status['oldest_ready_age']);
+
+        $recovery = new QueueRecovery($pdo, '');
+        $I->assertTrue($recovery->retryFailed('failed', 'test', $now + 1));
+        $I->assertFalse($recovery->retryFailed('failed', 'test', $now + 1));
+
+        $row = $this->job($pdo, 'failed', 'test');
+        $I->assertSame(2, (int)$row['generation']);
+        $I->assertSame(0, (int)$row['attempts']);
+        $I->assertNull($row['last_error']);
+        $I->assertNull($row['failed_at']);
     }
 
     public function publishUpdatesGenerationAndRevivesFailedJob(IntegrationTester $I): void
@@ -313,13 +502,43 @@ final class QueueTestHandler implements QueueHandlerInterface
         return ['test'];
     }
 
+    #[\Override]
+    public function minimumExecutionTime(): float
+    {
+        return 0.01;
+    }
+
     /** @param array<mixed> $payload */
     #[\Override]
-    public function handle(string $id, string $code, array $payload): void
+    public function handle(string $id, string $code, array $payload, QueueExecutionBudget $budget): void
     {
+        $budget->checkpoint();
         $this->calls[] = [$id, $code, $payload];
         if ($this->callback instanceof \Closure) {
             ($this->callback)();
         }
+    }
+}
+
+final class SlowQueueTestHandler implements QueueHandlerInterface
+{
+    /** @return non-empty-list<non-empty-string> */
+    #[\Override]
+    public function codes(): array
+    {
+        return ['slow'];
+    }
+
+    #[\Override]
+    public function minimumExecutionTime(): float
+    {
+        return 10.0;
+    }
+
+    /** @param array<mixed> $payload */
+    #[\Override]
+    public function handle(string $id, string $code, array $payload, QueueExecutionBudget $budget): void
+    {
+        throw new \LogicException('The slow test handler must not be started.', 0);
     }
 }

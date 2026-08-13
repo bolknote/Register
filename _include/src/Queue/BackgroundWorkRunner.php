@@ -11,11 +11,16 @@ namespace S2\Cms\Queue;
 
 use Psr\Log\LoggerInterface;
 
-final readonly class BackgroundWorkRunner
+final readonly class BackgroundWorkRunner implements BackgroundWorkRunnerInterface
 {
+    /** Keeps a killed 30-second FPM request from overlapping its replacement. */
+    private const int MINIMUM_LEASE_SECONDS = 60;
+
+    private const int LEASE_GRACE_SECONDS = 15;
+
     public function __construct(
         private \PDO                $pdo,
-        private QueueRunnerLock     $lock,
+        private QueueRunnerLease    $lease,
         private QueueConsumer       $consumer,
         private ScheduledMaintenance $maintenance,
         private LoggerInterface     $logger,
@@ -25,10 +30,11 @@ final readonly class BackgroundWorkRunner
     /**
      * Runs a bounded slice and returns the number of attempted queue jobs.
      */
+    #[\Override]
     public function run(float $maxSeconds = 5.0, int $maxJobs = 5): int
     {
-        if ($maxSeconds <= 0.0) {
-            throw new \InvalidArgumentException('Background work duration must be positive.');
+        if (!is_finite($maxSeconds) || $maxSeconds <= 0.0) {
+            throw new \InvalidArgumentException('Background work duration must be positive and finite.');
         }
 
         if ($maxJobs < 0) {
@@ -40,25 +46,31 @@ final readonly class BackgroundWorkRunner
             return 0;
         }
 
-        if (!$this->lock->acquire()) {
+        $budget       = new QueueExecutionBudget($maxSeconds);
+        $leaseSeconds = max(
+            self::MINIMUM_LEASE_SECONDS,
+            (int)ceil($maxSeconds) + self::LEASE_GRACE_SECONDS,
+        );
+        if (!$this->lease->acquire($leaseSeconds)) {
             return 0;
         }
 
-        $deadline = hrtime(true) + (int)($maxSeconds * 1_000_000_000.0);
-        $jobs     = 0;
+        $jobs = 0;
 
         try {
             try {
-                if (hrtime(true) < $deadline) {
-                    $this->maintenance->runIfDue();
+                if ($budget->canStart(0.1)) {
+                    $this->maintenance->runIfDue(budget: $budget);
                 }
+            } catch (QueueTimeBudgetExceeded) {
+                // A custom sub-50ms handler may still fit the remaining slice.
             } catch (\Throwable $throwable) {
                 $this->logger->error('Scheduled maintenance failed.', ['exception' => $throwable]);
             }
 
-            while ($jobs < $maxJobs && hrtime(true) < $deadline) {
+            while ($jobs < $maxJobs && $budget->canStart()) {
                 try {
-                    if (!$this->consumer->runQueue()) {
+                    if (!$this->consumer->runQueue(budget: $budget)) {
                         break;
                     }
                 } catch (\Throwable $throwable) {
@@ -69,7 +81,7 @@ final readonly class BackgroundWorkRunner
                 ++$jobs;
             }
         } finally {
-            $this->lock->release();
+            $this->lease->release();
         }
 
         return $jobs;

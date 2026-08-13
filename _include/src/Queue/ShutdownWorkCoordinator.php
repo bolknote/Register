@@ -28,30 +28,33 @@ final class ShutdownWorkCoordinator
 
     private bool $responseDetached = false;
 
-    /** @param \Closure(): BackgroundWorkRunner $runnerFactory */
+    /** @param \Closure(): BackgroundWorkRunnerInterface $runnerFactory */
     public function __construct(
-        private readonly \PDO            $pdo,
-        private readonly LoggerInterface $logger,
-        private readonly \Closure        $runnerFactory,
+        private readonly \PDO                    $pdo,
+        private readonly LoggerInterface         $logger,
+        private readonly ShutdownRuntimeInterface $runtime,
+        private readonly \Closure                $runnerFactory,
+        private readonly float                   $requestStartedAt,
     ) {
     }
 
     public function register(): void
     {
-        if ($this->registered || !$this->isWebSapi()) {
+        if ($this->registered || !$this->runtime->isWebSapi()) {
             return;
         }
 
         // This must be enabled before registering the callback: a disconnected client must not cancel queue recovery.
-        ignore_user_abort(true);
-        register_shutdown_function($this->runOnShutdown(...));
+        $this->runtime->ignoreUserAbort();
+        $this->runtime->registerShutdownFunction($this->runOnShutdown(...));
+
         $this->registered = true;
     }
 
     /** Saves the session and releases its lock before any background work can begin. */
     public function closeSession(): void
     {
-        if (session_status() === PHP_SESSION_ACTIVE && !session_write_close()) {
+        if (!$this->runtime->closeSession()) {
             $this->logger->warning('Unable to close the active session before background work.');
         }
     }
@@ -59,20 +62,19 @@ final class ShutdownWorkCoordinator
     /** Marks a sent response as detached from the PHP process whenever the SAPI supports it. */
     public function finishResponse(): void
     {
-        $this->closeSession();
-
-        if (\function_exists('fastcgi_finish_request')) {
-            fastcgi_finish_request();
-            $this->responseDetached = true;
-        } elseif (\function_exists('litespeed_finish_request')) {
-            litespeed_finish_request();
-            $this->responseDetached = true;
-        } else {
-            flush();
+        if ($this->responseFinished) {
+            return;
         }
 
+        $this->closeSession();
+
+        $this->responseDetached = $this->runtime->finishResponse();
         $this->responseFinished = true;
-        $this->startApmBackgroundTransaction();
+        try {
+            $this->runtime->startApmBackgroundTransaction();
+        } catch (\Throwable $throwable) {
+            $this->logger->warning('Unable to start an APM background transaction.', ['exception' => $throwable]);
+        }
     }
 
     private function runOnShutdown(): void
@@ -87,12 +89,19 @@ final class ShutdownWorkCoordinator
                 return;
             }
 
-            $runner = ($this->runnerFactory)();
-            if (!$this->responseDetached || PHP_SAPI === 'cli-server') {
-                $runner->run(1.0, 1);
-            } else {
-                $runner->run();
+            $detached        = $this->responseDetached && !$this->runtime->isDevelopmentServer();
+            $requestedBudget = $detached ? 5.0 : 1.0;
+            $maxJobs         = 5;
+            $safeBudget      = $this->runtime->remainingExecutionSeconds(
+                $this->requestStartedAt,
+                $requestedBudget,
+            );
+            if ($safeBudget < 0.05) {
+                $this->logger->notice('Shutdown background work was skipped because the request time limit is exhausted.');
+                return;
             }
+
+            ($this->runnerFactory)()->run($safeBudget, $maxJobs);
         } catch (\Throwable $throwable) {
             try {
                 $this->logger->error('Shutdown background work failed.', ['exception' => $throwable]);
@@ -102,31 +111,9 @@ final class ShutdownWorkCoordinator
         }
     }
 
-    private function isWebSapi(): bool
-    {
-        return !\in_array(PHP_SAPI, ['cli', 'phpdbg', 'embed'], true);
-    }
-
     private function hasFatalError(): bool
     {
-        $lastError = error_get_last();
-        return \is_array($lastError) && \in_array($lastError['type'], self::FATAL_ERROR_TYPES, true);
-    }
-
-    private function startApmBackgroundTransaction(): void
-    {
-        if (
-            !\extension_loaded('newrelic')
-            || !\function_exists('newrelic_end_transaction')
-            || !\function_exists('newrelic_start_transaction')
-            || !\function_exists('newrelic_name_transaction')
-        ) {
-            return;
-        }
-
-        newrelic_end_transaction();
-        $appName = ini_get('newrelic.appname');
-        newrelic_start_transaction(\is_string($appName) ? $appName : 'Register');
-        newrelic_name_transaction('shutdown_background');
+        $lastErrorType = $this->runtime->lastErrorType();
+        return $lastErrorType !== null && \in_array($lastErrorType, self::FATAL_ERROR_TYPES, true);
     }
 }
