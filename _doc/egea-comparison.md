@@ -109,7 +109,7 @@ automatic URL lifecycle management.
 | Popular, hot, and random-item navigation | Missing | No first-party popularity model or random route. |
 | Promote selected tags into navigation | Partial | Possible through navigation/templates, but not a dedicated setting. |
 | Year, month, and day calendar | Available | Implemented by the blog extension. |
-| Semantic related-content recommendations | Partial | Implemented through the search index, but disabled when using SQLite. |
+| Semantic related-content recommendations | Available | Implemented through the search index on SQLite, MySQL/MariaDB, and PostgreSQL. |
 | Adaptive recommendations with images | Available | Recommendation snippets account for available images. |
 | Restrict recommendations to favourites | Missing | The favourite flag is not part of recommendation ranking. |
 | Recommendation intercuts in the home feed | Missing | Recommendations are attached to content pages. |

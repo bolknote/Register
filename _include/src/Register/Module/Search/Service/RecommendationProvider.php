@@ -14,7 +14,6 @@ use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
 use S2\Rose\Entity\ExternalId;
 use S2\Rose\Entity\TocEntryWithMetadata;
-use S2\Rose\Storage\Database\PdoStorage;
 use Register\Module\Search\Layout\ContentItem;
 use Register\Module\Search\Layout\LayoutMatcherFactory;
 use Symfony\Contracts\Cache\CacheInterface;
@@ -31,11 +30,10 @@ readonly class RecommendationProvider implements QueueHandlerInterface
     public const string CACHE_KEY_PREFIX = 'recommendations_';
 
     public function __construct(
-        private PdoStorage           $pdoStorage,
+        private RecommendationFinder $recommendationFinder,
         private LayoutMatcherFactory $layoutMatcherFactory,
         private CacheInterface       $cache,
         private QueuePublisher       $queuePublisher,
-        private string               $dbType,
         private IntProxy             $recommendationsLimit,
     ) {
     }
@@ -47,7 +45,7 @@ readonly class RecommendationProvider implements QueueHandlerInterface
      */
     public function getRecommendations(string $page, ExternalId $externalId): array
     {
-        if ($this->recommendationsLimit->get() <= 0 || $this->dbType === 'sqlite') {
+        if ($this->recommendationsLimit->get() <= 0) {
             return [[], [], []];
         }
 
@@ -126,7 +124,7 @@ readonly class RecommendationProvider implements QueueHandlerInterface
 
     private function getCacheKey(ExternalId $externalId): string
     {
-        return self::CACHE_KEY_PREFIX . $externalId->toString();
+        return self::CACHE_KEY_PREFIX . hash('sha256', $externalId->toString());
     }
 
     /**
@@ -135,9 +133,9 @@ readonly class RecommendationProvider implements QueueHandlerInterface
     private function getValueForCache(ExternalId $externalId): array
     {
         try {
-            $similar = $this->pdoStorage->getSimilar($externalId, true, null, 4, 9);
+            $similar = $this->recommendationFinder->getSimilar($externalId, true, null, 4, 9);
             if ($similar === []) {
-                $similar = $this->pdoStorage->getSimilar($externalId, true, null, 2, 9);
+                $similar = $this->recommendationFinder->getSimilar($externalId, true, null, 2, 9);
             }
 
             return [

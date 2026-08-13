@@ -490,14 +490,11 @@ class InstallCest
         $I->dontSeeElement('h2.recommendation-title#recommendations');
         $I->changeSetting('S2_SEARCH_RECOMMENDATIONS_LIMIT', 10);
         $I->amOnPage('/new_post1');
-        if ($dbType !== 'sqlite') {
-            $I->seeElement('h2.recommendation-title#recommendations');
-            $I->seeElement('div.recommendations > div.recommendation > a.recommendation-link');
-            $I->see('Read next', 'h2.recommendation-title');
-            $I->see('New Page Title', '.recommendation-header-2');
-            $I->see('Some new page text', '.recommendation-snippet');
-            $I->see('2023', '.recommendation-date');
-        }
+        $I->seeElement('h2.recommendation-title#recommendations');
+        $I->seeElement('div.recommendations > div.recommendation > a.recommendation-link');
+        $I->see('Read next', 'h2.recommendation-title');
+        $I->see('New Page Title', '.recommendation-header-2');
+        $I->see('2023', '.recommendation-date');
 
         $I->submitForm('.s2_search_form', ['q' => 'new']);
         $I->seeCurrentUrlEquals('/index.php?search=1&q=new');

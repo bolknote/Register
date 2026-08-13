@@ -43,6 +43,7 @@ use Register\Module\Search\Layout\LayoutMatcherFactory;
 use Register\Module\Search\Rose\CustomExtractor;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\ContentIndexer;
+use Register\Module\Search\Service\RecommendationFinder;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SearchDocumentFactory;
 use Register\Module\Search\Service\SimilarWordsDetector;
@@ -143,6 +144,12 @@ final class Module implements ModuleInterface
 
         $container->set('recommendations_logger', fn(Container $container): \S2\Cms\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'recommendations.log', 'recommendations', LogLevel::INFO));
         $container->set('recommendations_cache', fn(Container $container): \Symfony\Component\Cache\Adapter\FilesystemAdapter => new FilesystemAdapter('recommendations', 0, $container->getStringParameter('cache_dir')));
+        $container->set(RecommendationFinder::class, static fn(Container $container): RecommendationFinder => new RecommendationFinder(
+            $container->get(PdoStorage::class),
+            $container->get(\PDO::class),
+            $container->getStringParameter('db_type'),
+            $container->getStringParameter('db_prefix') . 's2_search_idx_',
+        ));
         $container->set(LayoutMatcherFactory::class, function (Container $container): LayoutMatcherFactory {
             $provider = $container->get(DynamicConfigProvider::class);
             return new LayoutMatcherFactory(
@@ -153,11 +160,10 @@ final class Module implements ModuleInterface
         $container->set(RecommendationProvider::class, function (Container $container): RecommendationProvider {
             $provider = $container->get(DynamicConfigProvider::class);
             return new RecommendationProvider(
-                $container->get(PdoStorage::class),
+                $container->get(RecommendationFinder::class),
                 $container->get(LayoutMatcherFactory::class),
                 $container->get('recommendations_cache'),
                 $container->get(QueuePublisher::class),
-                $container->getStringParameter('db_type'),
                 $provider->getIntProxy('S2_SEARCH_RECOMMENDATIONS_LIMIT'),
             );
         }, [QueueHandlerInterface::class]);
