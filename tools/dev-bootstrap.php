@@ -114,6 +114,40 @@ $pdo     = PdoSqliteFactory::create($database, false);
 $dbLayer = new DbLayerSqlite($pdo);
 $isNew   = !$dbLayer->tableExists('config');
 
+if (!$isNew) {
+    $storedRevision = $dbLayer
+        ->select('value')
+        ->from('config')
+        ->where('name = :name')->setParameter('name', SchemaMigrator::CONFIG_KEY)
+        ->execute()
+        ->result()
+    ;
+    $validRevision = \is_string($storedRevision)
+        && preg_match('/^(?:0|[1-9][0-9]*)$/D', $storedRevision) === 1;
+
+    if (!$validRevision || (int)$storedRevision > SchemaMigrator::LATEST_REVISION) {
+        $backup = $database . '.incompatible-' . date('Ymd-His') . '.bak';
+        unset($dbLayer, $pdo);
+
+        foreach (['', '-wal', '-shm', '-journal'] as $suffix) {
+            $source = $database . $suffix;
+            if (is_file($source) && !rename($source, $backup . $suffix)) {
+                throw new RuntimeException(sprintf('Unable to back up incompatible local database file "%s".', $source));
+            }
+        }
+
+        echo sprintf(
+            "Rebuilding the incompatible local database (schema revision %s, backup: %s).\n",
+            is_scalar($storedRevision) ? (string)$storedRevision : 'missing',
+            $backup,
+        );
+
+        $pdo     = PdoSqliteFactory::create($database, false);
+        $dbLayer = new DbLayerSqlite($pdo);
+        $isNew   = true;
+    }
+}
+
 if ($isNew) {
     $dbLayer->startTransaction();
 
