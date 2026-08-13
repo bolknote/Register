@@ -161,7 +161,15 @@ readonly class Installer
                 ->addString('id', 80, default: null)
                 ->addString('code', 80, default: null)
                 ->addText('payload', nullable: false)
+                ->addInteger('generation', true, default: 1)
+                ->addInteger('created_at', true)
+                ->addInteger('updated_at', true)
+                ->addInteger('available_at', true)
+                ->addInteger('attempts', true)
+                ->addText('last_error')
+                ->addInteger('failed_at', true, true, null)
                 ->setPrimaryKey(['id', 'code'])
+                ->addIndex('due_idx', ['failed_at', 'available_at', 'created_at'])
             ;
         });
 
@@ -223,6 +231,7 @@ readonly class Installer
             'S2_ADMIN_NEW_POS'    => '0',
             'S2_ADMIN_CUT'        => '0',
             'S2_LOGIN_TIMEOUT'    => '60',
+            'S2_LAST_MAINTENANCE' => '0',
             SchemaMigrator::CONFIG_KEY => '0',
         ];
 

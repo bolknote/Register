@@ -68,11 +68,11 @@ class AcceptanceTester extends Actor
         $I = $this;
 
         $name = 'Roman 🌞';
-        $I->fillField('name', $name);
-        $I->fillField('email', 'roman@example.com');
-        $I->checkOption('subscribed');
-        $I->fillField('text', $text);
-        $I->click('submit');
+        $I->fillField('#comment-form input[name=name]', $name);
+        $I->fillField('#comment-form input[name=email]', 'roman@example.com');
+        $I->checkOption('#comment-form input[name=subscribed]');
+        $I->fillField('#comment-form textarea[name=text]', $text);
+        $I->click('#comment-form input[name=submit]');
 
         $I->seeResponseCodeIs(200);
         if ($premoderation) {
@@ -87,10 +87,10 @@ class AcceptanceTester extends Actor
     {
         $I = $this;
 
-        $I->fillField('name', $name);
-        $I->fillField('email', $email);
-        $I->fillField('text', $text);
-        $I->click('submit');
+        $I->fillField('#comment-form input[name=name]', $name);
+        $I->fillField('#comment-form input[name=email]', $email);
+        $I->fillField('#comment-form textarea[name=text]', $text);
+        $I->click('#comment-form input[name=submit]');
     }
 
     public function login(string $username = 'admin', string $userpass = ''): void

@@ -22,6 +22,7 @@ use S2\Cms\Framework\Exception\ConfigurationException;
 use S2\Cms\Framework\Exception\ParameterNotFoundException;
 use S2\Cms\Framework\ModuleInterface;
 use S2\Cms\Model\ExtensionCache;
+use S2\Cms\Queue\ShutdownWorkCoordinator;
 use Symfony\Component\ErrorHandler\Debug;
 use Symfony\Component\ErrorHandler\ErrorHandler;
 use Symfony\Component\ErrorHandler\ErrorRenderer\HtmlErrorRenderer;
@@ -228,5 +229,7 @@ if ($registerSchemaMigrator->migrate()) {
     $dynamicConfigProvider->regenerate();
     $app->container->get(SearchIndexRebuilder::class)->rebuild();
 }
+
+$app->container->get(ShutdownWorkCoordinator::class)->register();
 
 return $app;

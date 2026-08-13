@@ -73,6 +73,33 @@ migrations that change the search identity or storage rebuild the index. Later e
 publish `register_content_index` jobs to the shared queue; the control-panel rebuild remains repair
 tooling rather than an installation step.
 
+## Background work lifecycle
+
+Register does not require cron. Every successfully completed web request registers a shutdown
+callback, closes the PHP session, sends and detaches the response where the SAPI supports that, and
+then offers a small time-limited slice to the durable queue. `ignore_user_abort(true)` is enabled
+before the callback is registered, so a client disconnect does not cancel recovery work.
+
+Only one local runner may execute at once; a non-blocking `flock` in the configured cache directory
+protects the PHP-FPM pool from a runner per request. This contract assumes one host, or multiple PHP
+instances sharing that lock file. Deployments with independent filesystems need a distributed lease
+before they can safely share one database.
+
+Queue delivery is at least once. A job remains in the database until a generation-aware
+acknowledgement succeeds; failures use exponential backoff and become visible as failed jobs after
+the retry limit. Handlers must therefore be idempotent. Republishing the same `(id, code)` advances
+its generation, replaces stale payload, and revives failed work. The slice deadline is checked
+between handlers; PHP cannot safely interrupt arbitrary handler code, so every handler must also
+bound its own I/O and unit of work.
+
+Antispam maintenance uses the same request-driven runner on an hourly schedule. Each cleanup
+operation is a separate retryable queue job, deletes at most 100 records per attempt, and schedules
+another small batch when work remains. A terminated process therefore leaves either the current job
+or its next generation available to a later request.
+
+With no incoming HTTP traffic, background work waits indefinitely. `tools/run-background.php`
+provides a manual recovery/drain command but is not a scheduled entrypoint.
+
 ## Configuration
 
 Register has two configuration layers:

@@ -13,6 +13,9 @@ documentation.
 Register is free software distributed under the MIT license. It runs on an ordinary PHP host and can
 use SQLite, MySQL/MariaDB, or PostgreSQL.
 
+Background work is advanced opportunistically after normal HTTP responses; installing a cron job is
+not required. A site without incoming traffic consequently has no bounded background-delivery time.
+
 ## What Register already does
 
 - Publishes blog posts and permanent pages, including drafts and scheduled dates.

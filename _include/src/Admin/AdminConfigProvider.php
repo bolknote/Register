@@ -1253,6 +1253,33 @@ class AdminConfigProvider implements StatefulServiceInterface
                     ->addField(new FieldConfig(
                         name: 'payload',
                     ))
+                    ->addField(new FieldConfig(
+                        name: 'generation',
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'created_at',
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'updated_at',
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'available_at',
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'attempts',
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'last_error',
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'failed_at',
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
+                    ))
                     ->setEnabledActions([FieldConfig::ACTION_LIST])
                 , 90
             );

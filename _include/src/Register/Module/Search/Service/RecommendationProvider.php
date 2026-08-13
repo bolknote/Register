@@ -38,6 +38,13 @@ readonly class RecommendationProvider implements QueueHandlerInterface
     ) {
     }
 
+    /** @return non-empty-list<non-empty-string> */
+    #[\Override]
+    public function codes(): array
+    {
+        return [self::RECOMMENDATIONS_QUEUE];
+    }
+
     /**
      * @throws InvalidArgumentException
      * @throws DbLayerException
@@ -69,19 +76,19 @@ readonly class RecommendationProvider implements QueueHandlerInterface
      * @param array<mixed> $payload
      */
     #[\Override]
-    public function handle(string $id, string $code, array $payload): bool
+    public function handle(string $id, string $code, array $payload): void
     {
-        if ($code === self::RECOMMENDATIONS_QUEUE) {
-            $externalId = ExternalId::fromString($id);
-            $cacheKey   = $this->getCacheKey($externalId);
+        unset($payload);
 
-            $this->cache->delete($cacheKey);
-            $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
-
-            return true;
+        if ($code !== self::RECOMMENDATIONS_QUEUE) {
+            throw new \LogicException(\sprintf('Unsupported recommendations queue code "%s".', $code));
         }
 
-        return false;
+        $externalId = ExternalId::fromString($id);
+        $cacheKey   = $this->getCacheKey($externalId);
+
+        $this->cache->delete($cacheKey);
+        $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
     }
 
     /**

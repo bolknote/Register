@@ -18,7 +18,6 @@ parameters:
         - _include/setup.php
         - _extensions
         - _tests
-        - cron.php
         - index.php
         - tools
     excludePaths:

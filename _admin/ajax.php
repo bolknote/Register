@@ -10,6 +10,7 @@
 declare(strict_types = 1);
 
 use S2\Cms\Admin\AdminAjaxRequestHandler;
+use S2\Cms\Queue\ShutdownWorkCoordinator;
 use Symfony\Component\HttpFoundation\Request;
 
 // NOTE: find a more elegant way to boot the application with the AdminExtension
@@ -23,4 +24,7 @@ $response = $handler->handle($request);
 
 // direct call of header() to override default PHP header
 header('X-Powered-By: Register/' . $app->container->getParameter('version'));
-$response->send();
+$shutdownCoordinator = $app->container->get(ShutdownWorkCoordinator::class);
+$shutdownCoordinator->closeSession();
+$response->send(false);
+$shutdownCoordinator->finishResponse();

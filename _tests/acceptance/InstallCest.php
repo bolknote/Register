@@ -463,17 +463,18 @@ class InstallCest
 
     private function testSearchModule(AcceptanceTester $I): void
     {
+        // The preceding HTTP requests have advanced the request-driven background queue.
         $I->amOnPage('/?search=1&q=new');
         $I->see('Search', 'h1');
-        $I->dontSee('New Blog Post Title');
-        $I->dontSee('New Page Title');
+        $I->see('New Blog Post Title');
+        $I->see('New Page Title');
 
         $I->amOnPage('/section1/new_page1');
         $I->submitForm('.s2_search_form', ['q' => 'new']);
         $I->seeCurrentUrlEquals('/index.php?search=1&q=new');
         $I->see('Search', 'h1');
-        $I->dontSee('New Blog Post Title');
-        $I->dontSee('New Page Title');
+        $I->see('New Blog Post Title');
+        $I->see('New Page Title');
 
         $I->amOnPage('/_admin/index.php?entity=Dashboard');
 
@@ -788,10 +789,14 @@ class InstallCest
 
         /**
          * Check comment notifications to subscribers after moderation approval
-         */
+        */
         $I->clearEmails();
         $I->amOnPage('/_admin/index.php?entity=' . $commentEntity . '&action=list&' . $targetIdName . '=' . $targetId);
-        $I->submitForm('form[action="?entity=' . $commentEntity . '&action=patch&field=shown&id=4"]', [
+
+        $moderator2Row = '//tr[td[contains(@class, "field-' . $commentEntity . '-text") '
+            . 'and normalize-space(.) = "This is a comment from a moderator2."]]';
+        $shownForm     = $moderator2Row . '//form[contains(@action, "field=shown")]';
+        $I->submitForm($shownForm, [
             'shown' => 'on',
         ]);
 
@@ -836,18 +841,18 @@ class InstallCest
          * Test hiding
          */
         $I->amOnPage('/_admin/index.php?entity=' . $commentEntity . '&action=list&' . $targetIdName . '=' . $targetId);
-        $I->uncheckOption('form[action="?entity=' . $commentEntity . '&action=patch&field=shown&id=4"] input[name="shown"]');
-        $I->submitForm('form[action="?entity=' . $commentEntity . '&action=patch&field=shown&id=4"]', []);
+        $I->uncheckOption($shownForm . '//input[@name="shown"]');
+        $I->submitForm($shownForm, []);
         $I->amOnPage($publicUrl);
         $I->dontSee('Moderator2', '.comment-name');
         $I->dontSee('This is a comment from a moderator2.');
 
         /**
          * Test no emails on republication
-         */
+        */
         $I->clearEmails();
         $I->amOnPage('/_admin/index.php?entity=' . $commentEntity . '&action=list&' . $targetIdName . '=' . $targetId);
-        $I->submitForm('form[action="?entity=' . $commentEntity . '&action=patch&field=shown&id=4"]', [
+        $I->submitForm($shownForm, [
             'shown' => 'on',
         ]);
         $I->amOnPage($publicUrl);
@@ -882,13 +887,21 @@ class InstallCest
          */
         $I->amOnPage('/_admin/index.php?entity=' . $commentEntity . '&action=list&' . $targetIdName . '=' . $targetId);
 
-        $onClickHandler = $I->grabAttributeFrom('[href="?entity=' . $commentEntity . '&action=delete&id=5"]', 'onclick');
+        $moderator3DeleteLink = '//tr[td[contains(@class, "field-' . $commentEntity . '-text") '
+            . 'and normalize-space(.) = "This is a comment from a moderator3."]]'
+            . '//a[contains(@href, "action=delete")]';
+        $deleteUrl      = $I->grabAttributeFrom($moderator3DeleteLink, 'href');
+        $onClickHandler = $I->grabAttributeFrom($moderator3DeleteLink, 'onclick');
+        if (!\is_string($deleteUrl) || !str_starts_with($deleteUrl, '?')) {
+            throw new \RuntimeException('The delete action does not contain a valid URL.');
+        }
+
         if ($onClickHandler === null || ($tokenPosition = strrpos($onClickHandler, 'csrf_token=')) === false) {
             throw new \RuntimeException('The delete action does not contain a CSRF token.');
         }
 
         $csrfToken = substr($onClickHandler, $tokenPosition + 11, 40);
-        $I->sendAjaxPostRequest('/_admin/index.php?entity=' . $commentEntity . '&action=delete&id=5', ['csrf_token' => $csrfToken]);
+        $I->sendAjaxPostRequest('/_admin/index.php' . $deleteUrl, ['csrf_token' => $csrfToken]);
         $I->amOnPage($publicUrl);
         $I->dontSee('Moderator3', '.comment-name');
         $I->dontSee('This is a comment from a moderator3.');

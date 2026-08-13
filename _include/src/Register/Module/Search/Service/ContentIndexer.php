@@ -37,18 +37,25 @@ final readonly class ContentIndexer implements QueueHandlerInterface, BulkIndexi
     ) {
     }
 
+    /** @return non-empty-list<non-empty-string> */
+    #[\Override]
+    public function codes(): array
+    {
+        return [self::QUEUE_CODE, self::LEGACY_PAGE_QUEUE_CODE, self::LEGACY_POST_QUEUE_CODE];
+    }
+
     /**
      * @param array<mixed> $payload
      * @throws InvalidArgumentException
      */
     #[\Override]
-    public function handle(string $id, string $code, array $payload): bool
+    public function handle(string $id, string $code, array $payload): void
     {
         unset($payload);
 
         $contentId = $this->contentIdFromJob($id, $code);
         if (!$contentId instanceof ContentId) {
-            return false;
+            throw new \LogicException(\sprintf('Unsupported content index queue code "%s".', $code));
         }
 
         $content = $this->contentRepository->find($contentId);
@@ -65,7 +72,6 @@ final readonly class ContentIndexer implements QueueHandlerInterface, BulkIndexi
 
         $this->recommendationsCache->deleteItem(RecommendationProvider::INVALIDATED_AT);
 
-        return true;
     }
 
     /** @return \Generator<int, Indexable> */

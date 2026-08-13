@@ -13,6 +13,8 @@ use Register\Comment\CommentSchema;
 use Register\Content\ContentType;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
+use S2\Cms\Pdo\QueryBuilder\DeleteBuilder;
+use S2\Cms\Pdo\QueryBuilder\SelectBuilder;
 
 final readonly class SpamAssessmentRepository
 {
@@ -129,44 +131,109 @@ final readonly class SpamAssessmentRepository
     /**
      * @throws DbLayerException
      */
-    public function deleteUnattachedOlderThan(int $timestamp): int
+    public function deleteUnattachedOlderThan(int $timestamp, ?int $limit = null): int
     {
-        return $this->dbLayer
+        $delete = $this->dbLayer
             ->delete('spam_assessments')
             ->where('(target_type IS NULL OR comment_id IS NULL)')
             ->andWhere('created_at < :timestamp')->setParameter('timestamp', $timestamp)
-            ->execute()
-            ->affectedRows()
         ;
+        if ($limit === null) {
+            return $delete->execute()->affectedRows();
+        }
+
+        $select = $this->dbLayer
+            ->select('id')
+            ->from('spam_assessments')
+            ->where('(target_type IS NULL OR comment_id IS NULL)')
+            ->andWhere('created_at < :timestamp')->setParameter('timestamp', $timestamp)
+        ;
+
+        return $this->deleteIdBatch($select, $delete, $limit);
     }
 
     /**
      * @throws DbLayerException
      */
-    public function deleteUnlabelledOlderThan(int $timestamp): int
+    public function deleteUnlabelledOlderThan(int $timestamp, ?int $limit = null): int
     {
-        return $this->dbLayer
+        $delete = $this->dbLayer
             ->delete('spam_assessments')
             ->where('moderator_label IS NULL')
             ->andWhere('created_at < :timestamp')->setParameter('timestamp', $timestamp)
-            ->execute()
-            ->affectedRows()
         ;
+        if ($limit === null) {
+            return $delete->execute()->affectedRows();
+        }
+
+        $select = $this->dbLayer
+            ->select('id')
+            ->from('spam_assessments')
+            ->where('moderator_label IS NULL')
+            ->andWhere('created_at < :timestamp')->setParameter('timestamp', $timestamp)
+        ;
+
+        return $this->deleteIdBatch($select, $delete, $limit);
     }
 
     /**
      * @throws DbLayerException
      */
-    public function deleteOrphans(): int
+    public function deleteOrphans(?int $limit = null): int
     {
-        return $this->dbLayer
+        $condition = 'comment_id NOT IN (SELECT id FROM ' . $this->dbLayer->getPrefix() . CommentSchema::TABLE_NAME . ')';
+        $delete    = $this->dbLayer
             ->delete('spam_assessments')
             ->where('target_type IS NOT NULL')
             ->andWhere('comment_id IS NOT NULL')
-            ->andWhere(
-                'comment_id NOT IN (SELECT id FROM ' . $this->dbLayer->getPrefix() . CommentSchema::TABLE_NAME . ')',
-            )
-            ->execute()
-            ->affectedRows();
+            ->andWhere($condition)
+        ;
+        if ($limit === null) {
+            return $delete->execute()->affectedRows();
+        }
+
+        $select = $this->dbLayer
+            ->select('id')
+            ->from('spam_assessments')
+            ->where('target_type IS NOT NULL')
+            ->andWhere('comment_id IS NOT NULL')
+            ->andWhere($condition)
+        ;
+
+        return $this->deleteIdBatch($select, $delete, $limit);
     }
+
+    /**
+     * @throws DbLayerException
+     */
+    private function deleteIdBatch(SelectBuilder $select, DeleteBuilder $delete, int $limit): int
+    {
+        if ($limit < 1) {
+            throw new \InvalidArgumentException('Maintenance batch size must be positive.');
+        }
+
+        $ids = $select
+            ->orderBy('id')
+            ->limit($limit)
+            ->execute()
+            ->fetchColumn()
+        ;
+        if ($ids === []) {
+            return 0;
+        }
+
+        $placeholders = [];
+        foreach ($ids as $index => $id) {
+            $parameter      = 'id_' . $index;
+            $placeholders[] = ':' . $parameter;
+            $delete->setParameter($parameter, (int)$id, \PDO::PARAM_INT);
+        }
+
+        return $delete
+            ->andWhere('id IN (' . implode(', ', $placeholders) . ')')
+            ->execute()
+            ->affectedRows()
+        ;
+    }
+
 }

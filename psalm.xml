@@ -31,7 +31,6 @@
         <file name="_include/setup.php" />
         <directory name="_extensions" />
         <directory name="_tests" />
-        <file name="cron.php" />
         <file name="index.php" />
         <directory name="tools" />
         <ignoreFiles>

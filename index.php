@@ -11,9 +11,11 @@ declare(strict_types = 1);
  */
 
 use S2\Cms\Config\DynamicConfigProvider;
+use S2\Cms\Queue\ShutdownWorkCoordinator;
 use Symfony\Component\HttpFoundation\Request;
 
 $app = require __DIR__ . '/_include/common.php';
+$shutdownCoordinator = $app->container->get(ShutdownWorkCoordinator::class);
 
 header('X-Powered-By: Register/' . S2_VERSION);
 
@@ -42,7 +44,8 @@ if (isset($_SERVER['PATH_INFO']) && $urlPrefix !== '') {
 //
 if (str_ends_with($request_uri, '---')) {
     header('Location: ' . $basePath . '/_admin/index.php?path=' . urlencode(substr($request_uri, 0, -3)));
-    die;
+    $shutdownCoordinator->finishResponse();
+    exit;
 }
 
 $request  = Request::createFromGlobals();
@@ -54,6 +57,7 @@ $response->setExpires(new DateTimeImmutable('-1 day'));
 $response->isNotModified($request);
 
 $response->prepare($request);
+$shutdownCoordinator->closeSession();
 
 if ($response->isInformational() || $response->isEmpty() || $response->getContent() === false || $response->getContent() === '') {
     $response->send(false);
@@ -78,20 +82,4 @@ if ($response->isInformational() || $response->isEmpty() || $response->getConten
     ob_end_flush();
 }
 
-if (function_exists('fastcgi_finish_request')) {
-    fastcgi_finish_request();
-    if (\extension_loaded('newrelic')) {
-        newrelic_end_transaction();
-        $newRelicAppName = ini_get('newrelic.appname');
-        newrelic_start_transaction(is_string($newRelicAppName) ? $newRelicAppName : 'Register');
-        newrelic_name_transaction('index_background');
-    }
-
-    $consumer  = $app->container->get(\S2\Cms\Queue\QueueConsumer::class);
-    $startedAt = microtime(true);
-    while (microtime(true) - $startedAt < 10) {
-        if (!$consumer->runQueue()) {
-            break;
-        }
-    }
-}
+$shutdownCoordinator->finishResponse();

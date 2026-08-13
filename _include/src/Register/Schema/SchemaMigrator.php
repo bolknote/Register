@@ -13,6 +13,7 @@ use Register\Module\BaseModuleInstaller;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Pdo\SchemaBuilderInterface;
 
 /**
  * Owns the single schema revision for all mandatory Register modules.
@@ -24,7 +25,7 @@ final readonly class SchemaMigrator
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_REVISION';
 
-    public const int LATEST_REVISION = 1;
+    public const int LATEST_REVISION = 2;
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -110,12 +111,44 @@ final readonly class SchemaMigrator
         $this->baseModuleInstaller->installFresh($this->dbLayer, $this->container);
     }
 
+    private function migrateToRevisionTwo(): void
+    {
+        foreach ([
+                     'generation' => [SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, false, 1, 'payload'],
+                     'created_at' => [SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, false, 0, 'generation'],
+                     'updated_at' => [SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, false, 0, 'created_at'],
+                     'available_at' => [SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, false, 0, 'updated_at'],
+                     'attempts' => [SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, false, 0, 'available_at'],
+                     'last_error' => [SchemaBuilderInterface::TYPE_TEXT, true, null, 'attempts'],
+                     'failed_at' => [SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, true, null, 'last_error'],
+                 ] as $field => [$type, $nullable, $default, $after]) {
+            if (!$this->dbLayer->fieldExists('queue', $field)) {
+                $this->dbLayer->addField('queue', $field, $type, null, $nullable, $default, $after);
+            }
+        }
+
+        if (!$this->dbLayer->indexExists('queue', 'due_idx')) {
+            $this->dbLayer->addIndex('queue', 'due_idx', ['failed_at', 'available_at', 'created_at']);
+        }
+
+        $this->dbLayer
+            ->insert('config')
+            ->setValue('name', ':name')->setParameter('name', 'S2_LAST_MAINTENANCE')
+            ->setValue('value', ':value')->setParameter('value', '0')
+            ->onConflictDoNothing('name')
+            ->execute()
+        ;
+    }
+
     /** @return array<int, \Closure(): void> */
     private function migrations(): array
     {
         return [
             1 => function (): void {
                 $this->migrateToRevisionOne();
+            },
+            2 => function (): void {
+                $this->migrateToRevisionTwo();
             },
         ];
     }
