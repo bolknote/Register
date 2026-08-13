@@ -51,6 +51,24 @@ final readonly class ContentRepository
         }
     }
 
+    /** @return \Generator<int, ContentItem> */
+    public function recent(ContentType $contentType, int $limit): \Generator
+    {
+        if ($limit < 1) {
+            throw new \InvalidArgumentException('The recent content limit must be positive.');
+        }
+
+        $source = $this->source($contentType);
+        if (!$source instanceof RecentContentSourceInterface) {
+            throw new \LogicException(\sprintf(
+                'Content source "%s" does not support recent publication queries.',
+                $contentType->value,
+            ));
+        }
+
+        yield from $source->recent($limit);
+    }
+
     private function source(ContentType $type): ContentSourceInterface
     {
         return $this->sources[$type->value]

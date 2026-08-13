@@ -56,7 +56,7 @@ use Register\Module\Blog\Controller\YearPageController;
 use Register\Module\Blog\Model\BlogCommentNotifier;
 use Register\Module\Blog\Model\BlogCommentStrategy;
 use Register\Module\Blog\Model\BlogPlaceholderProvider;
-use Register\Module\Blog\Model\BlogRssStrategy;
+use Register\Module\Blog\Model\ContentRssStrategy;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Service\TagsSearchProvider;
 use Register\Module\Search\Event\TagsSearchEvent;
@@ -289,20 +289,22 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(FavoriteArticleProvider::class),
             );
         });
-        $container->set(BlogRssStrategy::class, static function (Container $container): \Register\Module\Blog\Model\BlogRssStrategy {
+        $container->set(ContentRssStrategy::class, static function (Container $container): ContentRssStrategy {
             $provider = $container->get(DynamicConfigProvider::class);
-            return new BlogRssStrategy(
+            return new ContentRssStrategy(
+                $container->get(ContentRepository::class),
                 $container->get(PostProvider::class),
                 $container->get(BlogUrlBuilder::class),
+                $container->get(UrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $container->get('strict_viewer'),
                 $provider->getStringProxy('S2_BLOG_TITLE'),
             );
         });
-        $container->set('register_blog.rss_controller', static function (Container $container): \S2\Cms\Controller\RssController {
+        $container->set(RssController::class, static function (Container $container): RssController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new RssController(
-                $container->get(BlogRssStrategy::class),
+                $container->get(ContentRssStrategy::class),
                 $container->get(UrlBuilder::class),
                 $container->get('strict_viewer'),
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
@@ -522,7 +524,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
 
         $routes->add('blog_rss', new Route(
             $s2BlogUrl . '/rss.xml',
-            ['_controller' => 'register_blog.rss_controller'],
+            ['_controller' => RssController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);

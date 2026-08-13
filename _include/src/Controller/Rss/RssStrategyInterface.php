@@ -11,6 +11,9 @@ namespace S2\Cms\Controller\Rss;
 
 interface RssStrategyInterface
 {
+    /** Stable semantic identifier used by feed analytics and integrations. */
+    public function getId(): string;
+
     public function getFeedInfo(): FeedDto;
 
     /**

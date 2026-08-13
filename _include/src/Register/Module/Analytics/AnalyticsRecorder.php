@@ -17,8 +17,6 @@ final class AnalyticsRecorder
 {
     public const string BLOG_FEED_CHANNEL = 'feed:blog';
 
-    public const string PAGES_FEED_CHANNEL = 'feed:pages';
-
     private ?string $fingerprintsPrunedForDay = null;
 
     public function __construct(
@@ -93,13 +91,9 @@ final class AnalyticsRecorder
 
     private function feedChannel(RssStrategyInterface $rssStrategy): string
     {
-        $shortClass = (new \ReflectionClass($rssStrategy))->getShortName();
+        $id = preg_replace('/[^a-z0-9_-]+/', '-', strtolower($rssStrategy->getId()));
 
-        return match ($shortClass) {
-            'BlogRssStrategy'    => self::BLOG_FEED_CHANNEL,
-            'ArticleRssStrategy' => self::PAGES_FEED_CHANNEL,
-            default => 'feed:' . (preg_replace('/[^a-z0-9_-]+/', '-', strtolower($shortClass)) ?? 'other'),
-        };
+        return 'feed:' . ($id === null || $id === '' ? 'other' : $id);
     }
 
     private function pruneFingerprints(string $day): void

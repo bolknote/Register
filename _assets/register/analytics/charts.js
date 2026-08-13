@@ -35,14 +35,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    Promise.all([load('page'), load('feed:pages'), load('feed:blog')])
-        .then(([pages, pageFeed, blogFeed]) => {
+    Promise.all([load('page'), load('feed:blog')])
+        .then(([pages, blogFeed]) => {
             draw('register-analytics-pages', [
                 {name: 'Page views', data: pages.map(([time, item]) => [time, item.hits])},
                 {name: 'Unique visitors', color: '#64748b', data: pages.map(([time, item]) => [time, item.unique_count])},
             ]);
             draw('register-analytics-feeds', [
-                {name: 'Page feed readers', color: '#f59e0b', data: pageFeed.map(([time, item]) => [time, item.unique_count])},
                 {name: 'Blog feed readers', color: '#8b5cf6', data: blogFeed.map(([time, item]) => [time, item.unique_count])},
             ]);
         })

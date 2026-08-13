@@ -15,6 +15,7 @@ use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentType;
+use Register\Content\RecentContentSourceInterface;
 
 final class ContentRepositoryTest extends Unit
 {
@@ -24,13 +25,14 @@ final class ContentRepositoryTest extends Unit
         $post = new ContentItem(ContentId::post(2), 'Post', 'Post body', '/post', 123);
         $repository = new ContentRepository(
             new InMemoryContentSource(ContentType::PAGE, $page),
-            new InMemoryContentSource(ContentType::POST, $post),
+            new InMemoryRecentContentSource(ContentType::POST, $post),
         );
 
         self::assertSame($page, $repository->find(ContentId::page(1)));
         self::assertSame($post, $repository->find(ContentId::post(2)));
         self::assertSame([$page, $post], iterator_to_array($repository->published(), false));
         self::assertSame([$post], iterator_to_array($repository->published(ContentType::POST), false));
+        self::assertSame([$post], iterator_to_array($repository->recent(ContentType::POST, 1), false));
     }
 
     public function testRejectsDuplicateSources(): void
@@ -68,6 +70,44 @@ final readonly class InMemoryContentSource implements ContentSourceInterface
     public function published(): iterable
     {
         if ($this->item instanceof ContentItem) {
+            yield $this->item;
+        }
+    }
+}
+
+/** @internal */
+final readonly class InMemoryRecentContentSource implements RecentContentSourceInterface
+{
+    public function __construct(
+        private ContentType  $contentType,
+        private ?ContentItem $item = null,
+    ) {
+    }
+
+    #[\Override]
+    public function type(): ContentType
+    {
+        return $this->contentType;
+    }
+
+    #[\Override]
+    public function find(ContentId $id): ?ContentItem
+    {
+        return $this->item?->id->equals($id) === true ? $this->item : null;
+    }
+
+    #[\Override]
+    public function published(): iterable
+    {
+        if ($this->item instanceof ContentItem) {
+            yield $this->item;
+        }
+    }
+
+    #[\Override]
+    public function recent(int $limit): iterable
+    {
+        if ($limit > 0 && $this->item instanceof ContentItem) {
             yield $this->item;
         }
     }

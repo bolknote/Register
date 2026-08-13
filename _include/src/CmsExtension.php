@@ -42,7 +42,6 @@ use S2\Cms\Controller\PageCommon;
 use S2\Cms\Controller\PageFavorite;
 use S2\Cms\Controller\PageTag;
 use S2\Cms\Controller\PageTags;
-use S2\Cms\Controller\RssController;
 use Register\Content\Controller\ContentSitemapController;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\Event\NotFoundEvent;
@@ -55,7 +54,6 @@ use S2\Cms\HttpClient\HttpClient;
 use S2\Cms\Image\ThumbnailGenerator;
 use S2\Cms\Logger\Logger;
 use S2\Cms\Mail\CommentMailer;
-use S2\Cms\Model\Article\ArticleRssStrategy;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\Comment\ArticleCommentStrategy;
@@ -580,30 +578,6 @@ class CmsExtension implements ExtensionInterface
             ...$container->getByTag(CommentStrategyInterface::class)
         ));
 
-        $container->set(ArticleRssStrategy::class, function (Container $container): \S2\Cms\Model\Article\ArticleRssStrategy {
-            $provider = $container->get(DynamicConfigProvider::class);
-            return new ArticleRssStrategy(
-                $container->get(ArticleProvider::class),
-                $container->get(UrlBuilder::class),
-                $container->get('translator'),
-                $provider->getStringProxy('S2_SITE_NAME'),
-            );
-        });
-
-        $container->set(RssController::class, function (Container $container): \S2\Cms\Controller\RssController {
-            $provider = $container->get(DynamicConfigProvider::class);
-            return new RssController(
-                $container->get(ArticleRssStrategy::class),
-                $container->get(UrlBuilder::class),
-                $container->get('strict_viewer'),
-                $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
-                $container->getStringParameter('base_path'),
-                $container->getStringParameter('base_url'),
-                $container->getStringParameter('version'),
-                $provider->getStringProxy('S2_WEBMASTER'),
-            );
-        });
-
     }
 
     #[\Override]
@@ -723,11 +697,6 @@ class CmsExtension implements ExtensionInterface
         $favoriteUrl    = $configProvider->getStringProxy('S2_FAVORITE_URL')->get();
         $tagsUrl        = $configProvider->getStringProxy('S2_TAGS_URL')->get();
 
-        $routes->add('rss', new Route(
-            '/rss.xml',
-            ['_controller' => RssController::class],
-            methods: ['GET']
-        ));
         $routes->add('sitemap', new Route(
             '/sitemap.xml',
             ['_controller' => ContentSitemapController::PAGE_SERVICE_ID],

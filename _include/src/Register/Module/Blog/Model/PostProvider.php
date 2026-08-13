@@ -181,7 +181,7 @@ readonly class PostProvider
      * Fetching tags and labels for posts
      *
      * @param array<mixed> $ids
-     * @param array<int, int> $labels Label flags
+     * @param array<string, int> $labels Series flags keyed by their stored names
      * @param array<mixed> $see_also
      * @param array<mixed> $tags
      * @throws DbLayerException

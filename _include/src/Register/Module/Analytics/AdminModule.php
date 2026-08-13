@@ -55,7 +55,6 @@ class AdminModule implements ContainerModuleInterface, ContainerAwareListenerMod
                 $channel = $request->query->getString('channel');
                 if (!\in_array($channel, [
                     AnalyticsRepository::PAGE_CHANNEL,
-                    AnalyticsRecorder::PAGES_FEED_CHANNEL,
                     AnalyticsRecorder::BLOG_FEED_CHANNEL,
                 ], true)) {
                     return new JsonResponse(['success' => false, 'message' => 'Unknown analytics channel.'], Response::HTTP_BAD_REQUEST);

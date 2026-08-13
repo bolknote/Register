@@ -12,14 +12,14 @@ namespace Register\Module\Blog\Content;
 use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Content\ContentSchema;
-use Register\Content\ContentSourceInterface;
 use Register\Content\ContentType;
+use Register\Content\RecentContentSourceInterface;
 use Register\Module\Blog\BlogUrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 
 /** Exposes published posts from Register's shared content storage. */
-final readonly class BlogContentSource implements ContentSourceInterface
+final readonly class BlogContentSource implements RecentContentSourceInterface
 {
     public function __construct(
         private DbLayer        $dbLayer,
@@ -42,7 +42,7 @@ final readonly class BlogContentSource implements ContentSourceInterface
         }
 
         $post = $this->dbLayer
-            ->select('id, title, body, published_at, updated_at, slug')
+            ->select(...$this->selectExpressions())
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $id->value)
             ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
@@ -62,11 +62,37 @@ final readonly class BlogContentSource implements ContentSourceInterface
     public function published(): \Generator
     {
         $result = $this->dbLayer
-            ->select('id, title, body, published_at, updated_at, slug')
+            ->select(...$this->selectExpressions())
             ->from(ContentSchema::TABLE_NAME)
             ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('published = 1')
             ->orderBy('id')
+            ->execute()
+        ;
+
+        while ($post = $result->fetchAssoc()) {
+            yield $this->fromRow($post);
+        }
+    }
+
+    /**
+     * @throws DbLayerException
+     * @return \Generator<int, ContentItem>
+     */
+    #[\Override]
+    public function recent(int $limit): \Generator
+    {
+        if ($limit < 1) {
+            throw new \InvalidArgumentException('The recent content limit must be positive.');
+        }
+
+        $result = $this->dbLayer
+            ->select(...$this->selectExpressions())
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('published = 1')
+            ->orderBy('published_at DESC')
+            ->limit($limit)
             ->execute()
         ;
 
@@ -87,6 +113,30 @@ final readonly class BlogContentSource implements ContentSourceInterface
             path: $this->urlBuilder->postWithoutPrefix((string)$post['slug']),
             publishedAt: $publishedAt !== null && $publishedAt > 0 ? $publishedAt : null,
             updatedAt: (int)$post['updated_at'],
+            author: (string)($post['author'] ?? ''),
+            series: (string)$post['series'],
         );
+    }
+
+    /** @return list<string> */
+    private function selectExpressions(): array
+    {
+        $authorQuery = $this->dbLayer
+            ->select('users.name')
+            ->from('users')
+            ->where('users.id = author_id')
+            ->getSql()
+        ;
+
+        return [
+            'id',
+            'title',
+            'body',
+            'published_at',
+            'updated_at',
+            'slug',
+            'series',
+            '(' . $authorQuery . ') AS author',
+        ];
     }
 }
