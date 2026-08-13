@@ -76,9 +76,9 @@ Optional modules should depend on public Register capabilities and services, for
 repositories, canonical URL generation, publication events, comment events, renderer extensions,
 search document providers, and administration menu registration.
 
-Until those contracts are introduced, treat direct access to `articles`, `s2_blog_*`, comment, tag,
-and search-index tables as unstable. Such access will break as Register adopts a unified content
-model.
+Treat direct access to `content`, `comments`, `content_tag`, `tags`, and search-index tables as
+unstable. Optional modules must use public Register repositories and events; the inherited
+`articles`, `art_comments`, `article_tag`, and `s2_blog_*` product tables no longer exist.
 
 Use dependency injection instead of globals and static state. Keep business logic in services and
 keep event listeners small.

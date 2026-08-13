@@ -21,6 +21,16 @@ use S2\Cms\Pdo\DbLayer;
 
 final class ModuleManagerCest
 {
+    /** @var list<string> */
+    private const array OBSOLETE_PRODUCT_TABLES = [
+        'articles',
+        'art_comments',
+        'article_tag',
+        's2_blog_posts',
+        's2_blog_comments',
+        's2_blog_post_tag',
+    ];
+
     public function baseModulesHaveNoOptionalLifecycle(\IntegrationTester $I): void
     {
         /** @var ExtensionManager $manager */
@@ -79,9 +89,13 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'userpic_id'));
         $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'userpic_idx'));
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'deleted'));
-        $I->assertFalse($dbLayer->tableExists('art_comments'));
-        $I->assertFalse($dbLayer->tableExists('s2_blog_comments'));
-        $I->assertFalse($dbLayer->tableExists('s2_blog_posts'));
+        foreach (self::OBSOLETE_PRODUCT_TABLES as $obsoleteTable) {
+            $I->assertFalse(
+                $dbLayer->tableExists($obsoleteTable),
+                sprintf('Obsolete product table "%s" must not be created.', $obsoleteTable),
+            );
+        }
+
         $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'date_label'));
         $I->assertTrue($dbLayer->tableExists(ContentTagSchema::TABLE_NAME));
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'content_tag_idx'));

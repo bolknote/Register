@@ -100,14 +100,14 @@ module class, and optional-module resource lookup remains isolated by validated 
 
 ## Content and URL direction
 
-Posts are the primary content type and pages are a secondary permanent content type. They will share
-publication, revision, author, comment, tag, search, feed, and sitemap infrastructure while retaining
+Posts are the primary content type and pages are a secondary permanent content type. They share
+publication, revision, author, comment, tag, search, feed, sitemap, and moderation infrastructure while retaining
 type-specific policies such as page hierarchy.
 
-The first unification layer is deliberately storage-independent: `ContentRepository` aggregates a
-page source and a blog-post source behind typed IDs and a normalized published-content shape. Search
-already uses this contract. The inherited `articles` and `s2_blog_posts` tables remain temporary
-adapters until their write paths, comments, and tags are migrated without a flag day.
+`ContentRepository` aggregates typed page and post sources behind canonical `ContentId` values and a
+normalized published-content shape. Both types are stored in `content`; `comments` and `content_tag`
+refer to the same typed identities. Clean installations never create the inherited `articles`,
+`art_comments`, `article_tag`, or `s2_blog_*` product tables.
 
 The blog lives at `/`. Post permalinks are `/<slug>`; publication dates belong to archive navigation,
 not post addresses. One canonical URL service must be used by public rendering, the control panel,
