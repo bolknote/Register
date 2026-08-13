@@ -92,4 +92,5 @@ composer check
 - [Development](_doc/development.md)
 - [Architecture Overview](_doc/architecture.md)
 - [Comments](_doc/comments.md)
+- [S2 and Aegea feature comparison](_doc/egea-comparison.md)
 - [Extensions](_doc/extensions.md)
