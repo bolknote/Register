@@ -25,7 +25,7 @@ final readonly class SchemaMigrator
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_REVISION';
 
-    public const int LATEST_REVISION = 2;
+    public const int LATEST_REVISION = 3;
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -127,6 +127,12 @@ final readonly class SchemaMigrator
         (new $manifestClass())->install($this->dbLayer, $this->container, null);
     }
 
+    private function migrateToRevisionThree(): void
+    {
+        // The search module moved into the Register namespace. The schema itself is unchanged;
+        // advancing the ledger invalidates compiled routes that contain controller class names.
+    }
+
     /** @return array<int, \Closure(): void> */
     private function migrations(): array
     {
@@ -136,6 +142,9 @@ final readonly class SchemaMigrator
             },
             2 => function (): void {
                 $this->migrateToRevisionTwo();
+            },
+            3 => function (): void {
+                $this->migrateToRevisionThree();
             },
         ];
     }

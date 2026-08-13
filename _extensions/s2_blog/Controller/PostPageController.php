@@ -21,10 +21,11 @@ use S2\Cms\Template\HtmlTemplate;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\Viewer;
 use S2\Rose\Entity\ExternalId;
+use Register\Module\Search\Module as SearchModule;
 use s2_extensions\s2_blog\BlogUrlBuilder;
 use s2_extensions\s2_blog\CalendarBuilder;
 use s2_extensions\s2_blog\Model\PostProvider;
-use s2_extensions\s2_search\Service\RecommendationProvider;
+use Register\Module\Search\Service\RecommendationProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -241,14 +242,14 @@ class PostPageController extends BlogController
             ->putInPlaceholder('head_title', s2_htmlencode($row['title']))
         ;
 
-        if ($this->recommendationProvider instanceof \s2_extensions\s2_search\Service\RecommendationProvider && $template->hasPlaceholder('<!-- s2_recommendations -->')) {
+        if ($this->recommendationProvider instanceof RecommendationProvider && $template->hasPlaceholder('<!-- s2_recommendations -->')) {
             $request_uri = $request->getPathInfo();
             [$recommendations, $log, $rawRecommendations] = $this->recommendationProvider->getRecommendations($request_uri, new ExternalId('s2_blog_' . $post_id));
             $template->putInPlaceholder('recommendations', $this->viewer->render('recommendations', [
                 'raw'     => $rawRecommendations,
                 'content' => $recommendations,
                 'log'     => $log,
-            ], 's2_search'));
+            ], SearchModule::class));
         }
 
         return null;

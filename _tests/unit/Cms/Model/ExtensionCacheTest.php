@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Model;
 
 use Codeception\Test\Unit;
+use Register\Module\BaseModuleRegistry;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Pdo\DbLayer;
 
@@ -24,8 +25,8 @@ final class ExtensionCacheTest extends Unit
         $cache = new ExtensionCache(new DbLayer($pdo), true, '');
 
         self::assertSame([
-            'cms' => ['\s2_extensions\s2_search\Extension'],
-            'admin' => ['\s2_extensions\s2_search\AdminExtension'],
-        ], $cache->generateEnabledExtensionClassNames(['s2_blog']));
+            'cms' => [],
+            'admin' => [],
+        ], $cache->generateEnabledExtensionClassNames((new BaseModuleRegistry())->ids()));
     }
 }

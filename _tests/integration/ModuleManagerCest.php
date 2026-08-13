@@ -95,7 +95,7 @@ final class ModuleManagerCest
 
         foreach ([
             new \s2_extensions\s2_blog\Manifest(),
-            new \s2_extensions\s2_search\Manifest(),
+            new \Register\Module\Search\Manifest(),
             new \Register\Module\Analytics\Manifest(),
         ] as $manifest) {
             $I->expectThrowable(\LogicException::class, static fn() => $manifest->uninstall($dbLayer, $container));

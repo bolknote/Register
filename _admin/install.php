@@ -16,7 +16,7 @@ use Register\Installation\WelcomePostInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaMigrator;
-use Register\Search\SearchIndexRebuilder;
+use Register\Module\Search\SearchIndexRebuilder;
 use S2\Cms\Admin\AdminExtension;
 use S2\Cms\CmsExtension;
 use S2\Cms\Framework\Application;

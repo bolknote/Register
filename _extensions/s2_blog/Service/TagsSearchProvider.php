@@ -11,7 +11,7 @@ namespace s2_extensions\s2_blog\Service;
 
 use S2\Cms\Pdo\DbLayer;
 use s2_extensions\s2_blog\BlogUrlBuilder;
-use s2_extensions\s2_search\Service\SimilarWordsDetector;
+use Register\Module\Search\Service\SimilarWordsDetector;
 use S2\Cms\Pdo\DbLayerException;
 
 readonly class TagsSearchProvider

@@ -15,8 +15,8 @@ use S2\Cms\Framework\ModuleInterface;
 /**
  * The product modules that make up every Register installation.
  *
- * Their current extension class names are transitional. Keeping the list here makes the product
- * contract independent from extension database rows while the modules move into Register namespaces.
+ * Keeping the list here makes the product contract independent from extension database rows while
+ * the remaining S2-era code moves into Register namespaces.
  */
 final class BaseModuleRegistry
 {
@@ -46,9 +46,9 @@ final class BaseModuleRegistry
             'admin'       => \s2_extensions\s2_blog\AdminExtension::class,
         ],
         self::SEARCH => [
-            'manifest'    => \s2_extensions\s2_search\Manifest::class,
-            'application' => \s2_extensions\s2_search\Extension::class,
-            'admin'       => \s2_extensions\s2_search\AdminExtension::class,
+            'manifest'    => Search\Manifest::class,
+            'application' => Search\Module::class,
+            'admin'       => Search\AdminModule::class,
         ],
         self::MATH => [
             'manifest'    => Math\Manifest::class,

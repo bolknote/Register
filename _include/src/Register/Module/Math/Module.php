@@ -17,7 +17,7 @@ use S2\Cms\Image\ThumbnailGenerateEvent;
 use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplatePreCommentRenderEvent;
 use S2\Rose\Finder;
-use s2_extensions\s2_search\Event\TextNodeExtractEvent;
+use Register\Module\Search\Event\TextNodeExtractEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\RouteCollection;
 use S2\Cms\Translation\ExtensibleTranslator;

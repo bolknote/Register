@@ -14,7 +14,7 @@ use Psr\Log\LoggerInterface;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaMigrator;
-use Register\Search\SearchIndexRebuilder;
+use Register\Module\Search\SearchIndexRebuilder;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Config\StaticConfigLoader;
 use S2\Cms\Framework\Application;

@@ -26,6 +26,8 @@ parameters:
             - _extensions/*/lang/*
             - _extensions/*/templates/*
             - _extensions/*/views/*
+            - _include/src/Register/Module/*/resources/lang/*
+            - _include/src/Register/Module/*/resources/views/*
             - _tests/_resources/*
             - _tests/_support/_generated/*
     bootstrapFiles:

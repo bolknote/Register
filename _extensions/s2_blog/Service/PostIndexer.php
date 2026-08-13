@@ -19,8 +19,8 @@ use S2\Cms\Queue\QueuePublisher;
 use S2\Rose\Entity\Indexable;
 use S2\Rose\Indexer;
 use s2_extensions\s2_blog\BlogUrlBuilder;
-use s2_extensions\s2_search\Service\BulkIndexingProviderInterface;
-use s2_extensions\s2_search\Service\RecommendationProvider;
+use Register\Module\Search\Service\BulkIndexingProviderInterface;
+use Register\Module\Search\Service\RecommendationProvider;
 use Psr\Cache\InvalidArgumentException;
 use S2\Cms\Pdo\DbLayerException;
 

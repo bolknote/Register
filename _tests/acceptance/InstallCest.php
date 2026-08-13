@@ -155,6 +155,9 @@ class InstallCest
         $I->seeElement('script[src$="/_assets/register/analytics/highstock.js"]');
         $I->seeElement('script[src$="/_assets/register/analytics/charts.js"]');
         $I->dontSeeElement('script[src*="/_extensions/s2_counter/"]');
+        $I->seeElement('script[src$="/_assets/register/search/index-manager.js"]');
+        $I->dontSeeElement('script[src*="/_extensions/s2_search/"]');
+        $I->seeElement('input[name=register_search_csrf_token]');
 
         $I->amOnPage('/_admin/index.php?entity=Configuration');
         $I->dontSee('REGISTER_ANALYTICS_SALT');
@@ -467,9 +470,15 @@ class InstallCest
         $I->dontSee('New Blog Post Title');
         $I->dontSee('New Page Title');
 
-        $I->sendAjaxGetRequest('/_admin/ajax.php?action=s2_search_makeindex');
+        $I->amOnPage('/_admin/index.php?entity=Dashboard');
+        $csrfToken = $I->grabValueFrom('input[name=register_search_csrf_token]');
+        $I->sendAjaxGetRequest('/_admin/ajax.php?action=register_search_reindex');
+        $I->seeResponseCodeIs(405);
+        $I->sendAjaxPostRequest('/_admin/ajax.php?action=register_search_reindex', ['csrf_token' => 'invalid']);
+        $I->seeResponseCodeIs(403);
+        $I->sendAjaxPostRequest('/_admin/ajax.php?action=register_search_reindex', ['csrf_token' => $csrfToken]);
         $I->see('go_20');
-        $I->sendAjaxGetRequest('/_admin/ajax.php?action=s2_search_makeindex');
+        $I->sendAjaxPostRequest('/_admin/ajax.php?action=register_search_reindex', ['csrf_token' => $csrfToken]);
         $I->see('stop');
 
         $I->amOnPage('/new_post1');

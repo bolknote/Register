@@ -282,8 +282,8 @@ The main implementation anchors used during review are:
 - authentication and sessions: [`_include/src/Model/AuthManager.php`](../_include/src/Model/AuthManager.php);
 - typography: [`Register\Module\Typography\Typograph`](../_include/src/Register/Module/Typography/Typograph.php);
 - formula rendering: [`Register\Module\Math\Module`](../_include/src/Register/Module/Math/Module.php);
-- search and indexing: [`_extensions/s2_search/Extension.php`](../_extensions/s2_search/Extension.php);
-- recommendations: [`_extensions/s2_search/Service/RecommendationProvider.php`](../_extensions/s2_search/Service/RecommendationProvider.php);
+- search and indexing: [`Register\Module\Search\Module`](../_include/src/Register/Module/Search/Module.php);
+- recommendations: [`Register\Module\Search\Service\RecommendationProvider`](../_include/src/Register/Module/Search/Service/RecommendationProvider.php);
 - blog routes and archives: [`_extensions/s2_blog/Extension.php`](../_extensions/s2_blog/Extension.php);
 - asset processing: [`_include/src/Asset/AssetMerge.php`](../_include/src/Asset/AssetMerge.php);
 - local development bootstrap: [`tools/dev-bootstrap.php`](../tools/dev-bootstrap.php).

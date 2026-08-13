@@ -7,7 +7,7 @@ use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaMigrator;
-use Register\Search\SearchIndexRebuilder;
+use Register\Module\Search\SearchIndexRebuilder;
 use S2\Cms\Framework\Application;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\Installer;

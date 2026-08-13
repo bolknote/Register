@@ -1,0 +1,243 @@
+<?php
+/**
+ * Displays a page with search results
+ *
+ * @copyright 2010-2025 Roman Parpalak
+ * @license   https://opensource.org/license/mit MIT
+ * @package   Register
+ */
+
+declare(strict_types = 1);
+
+namespace Register\Module\Search\Controller;
+
+use Register\Module\Search\Module;
+use S2\Cms\Config\IntProxy;
+use S2\Cms\Config\StringProxy;
+use S2\Cms\Framework\ControllerInterface;
+use S2\Cms\Helper\StringHelper;
+use S2\Cms\Image\ThumbnailGenerator;
+use S2\Cms\Model\ArticleProvider;
+use S2\Cms\Model\UrlBuilder;
+use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Template\HtmlTemplateProvider;
+use S2\Cms\Template\Viewer;
+use S2\Rose\Entity\ExternalId;
+use S2\Rose\Entity\Query;
+use S2\Rose\Finder;
+use S2\Rose\Helper\ProfileHelper;
+use S2\Rose\Stemmer\StemmerInterface;
+use S2\Rose\Storage\Database\PdoStorage;
+use S2\Rose\Storage\Exception\EmptyIndexException;
+use Register\Module\Search\Event\TagsSearchEvent;
+use Register\Module\Search\Service\SimilarWordsDetector;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
+use S2\Rose\Exception\ImmutableException;
+use S2\Rose\Exception\RuntimeException;
+use S2\Rose\Exception\UnknownIdException;
+use S2\Rose\Storage\Exception\InvalidEnvironmentException;
+use Symfony\Component\HttpFoundation\Exception\BadRequestException;
+
+readonly class SearchPageController implements ControllerInterface
+{
+    public function __construct(
+        private Finder                   $finder,
+        private StemmerInterface         $stemmer,
+        private PdoStorage               $pdoStorage,
+        private ThumbnailGenerator       $thumbnailGenerator,
+        private SimilarWordsDetector     $similarWordsDetector,
+        private DbLayer                  $dbLayer,
+        private ArticleProvider          $articleProvider,
+        private EventDispatcherInterface $eventDispatcher,
+        private TranslatorInterface      $translator,
+        private UrlBuilder               $urlBuilder,
+        private HtmlTemplateProvider     $templateProvider,
+        private Viewer                   $viewer,
+        private bool                     $debugView,
+        private StringProxy              $tagsUrl,
+        private IntProxy                 $maxItems,
+    ) {
+    }
+
+    /**
+     * @throws DbLayerException
+     * @throws ImmutableException
+     * @throws RuntimeException
+     * @throws UnknownIdException
+     * @throws BadRequestException
+     * @throws \JsonException
+     */
+    #[\Override]
+    public function handle(Request $request): Response
+    {
+        if ($request->query->has('title')) {
+            return $this->searchByTitle($request->query->getString('title'));
+        }
+
+        $query   = $request->query->getString('q');
+        $pageNum = $request->query->getInt('p', 1);
+        $content = ['query' => $query];
+
+        $template = $this->templateProvider->getTemplate('service.php');
+
+        if ($query !== '') {
+            $items_per_page = $this->maxItems->get();
+            if ($items_per_page <= 0) {
+                $items_per_page = 10;
+            }
+
+            $queryObj       = new Query($query);
+            $queryObj
+                ->setLimit($items_per_page)
+                ->setOffset(($pageNum - 1) * $items_per_page) // TODO Может быть за пределами
+            ;
+            $resultSet = null;
+            try {
+                $resultSet = $this->finder->find($queryObj, $this->debugView);
+                $content   += ['num' => $resultSet->getTotalCount()];
+            } catch (\Throwable $exception) {
+                if (!$exception instanceof EmptyIndexException) {
+                    throw $exception;
+                }
+
+                $content += ['num' => 0,];
+            }
+
+            $content += ['tags' => $this->findInTags($queryObj)];
+
+            if ($content['num'] > 0 && $resultSet instanceof \S2\Rose\Entity\ResultSet) {
+                $content['num_info'] = $this->translator->trans('Found N pages', ['%count%' => $content['num'], '{{ pages }}' => $content['num']]);
+
+                $totalPages = intdiv($content['num'] + $items_per_page - 1, $items_per_page);
+                if ($pageNum < 1 || $pageNum > $totalPages) {
+                    $pageNum = 1;
+                }
+
+                $content['profile'] = array_map(ProfileHelper::formatProfilePoint(...), $resultSet->getProfilePoints());
+                $content['trace']   = $resultSet->getTrace();
+
+                $content['output'] = '';
+                foreach ($resultSet->getItems() as $item) {
+                    $content['output'] .= $this->viewer->render('search_result', [
+                        'title'         => $item->getHighlightedTitle($this->stemmer),
+                        'url'           => $item->getUrl(),
+                        'link'          => $this->urlBuilder->link($item->getUrl()),
+                        'descr'         => $item->getFormattedSnippet(),
+                        'time'          => $item->getDate()?->getTimestamp(),
+                        'images'        => $item->getImageCollection(),
+                        'debug'         => $content['trace'][(new ExternalId($item->getId()))->toString()],
+                        'thumbnailHtml' => $this->thumbnailGenerator->getThumbnailHtml(...),
+                    ], Module::class);
+                }
+
+                $link_nav          = [];
+                $content['paging'] = StringHelper::paging($pageNum, $totalPages, $this->urlBuilder->link('/search', ['q=' . str_replace('%', '%%', urlencode($query)), 'p=%d']), $link_nav);
+                foreach ($link_nav as $rel => $href) {
+                    $template->setLink($rel, $href);
+                }
+            }
+        }
+
+        $content['action'] = $this->urlBuilder->link('/search');
+
+        $template->putInPlaceholder('text', $this->viewer->render('search', $content, Module::class));
+        $template->putInPlaceholder('title', $this->translator->trans('Search'));
+        $template->registerPlaceholder('<!-- s2_search_field -->', '');
+
+        $template->addBreadCrumb($this->articleProvider->mainPageTitle(), $this->urlBuilder->link('/'));
+        $template->addBreadCrumb($this->translator->trans('Search'));
+
+        return $template->toHttpResponse();
+    }
+
+    /**
+     * @throws DbLayerException
+     */
+    private function findInTags(Query $query): string
+    {
+        $words = $query->valueToArray();
+        if (\count($words) === 0) {
+            return '';
+        }
+
+        $stemmedWords = array_map(fn(string $word): string => $this->stemmer->stemWord($word), $words);
+        $words        = array_unique(array_merge($words, $stemmedWords));
+
+        $usedSql = $this->dbLayer
+            ->select('1')
+            ->from('article_tag AS at')
+            ->innerJoin('articles AS a', 'a.id = at.article_id')
+            ->where('at.tag_id = t.id')
+            ->andWhere('a.published = 1')
+            ->limit(1)
+            ->getSql()
+        ;
+
+        $result = $this->dbLayer
+            ->select('id AS tag_id, name, url')
+            ->from('tags AS t')
+            ->where('EXISTS (' . $usedSql . ')')
+            ->andWhere('(' . implode(' OR ', array_fill(0, 2 * \count($words), 'name LIKE ?')) . ')')
+            ->execute(array_merge(
+                array_map(static fn(string $word): string => $word . '%', $words),
+                array_map(static fn(string $word): string => '% ' . $word . '%', $words),
+            ))
+        ;
+
+        $tags = [];
+        while (true) {
+            $row = $result->fetchAssoc();
+            if ($row === false) {
+                break;
+            }
+
+            if ($this->similarWordsDetector->wordIsSimilarToOtherWords($row['name'], $words)) {
+                $tags[] = '<a href="' . $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($row['url']) . '/') . '">' . s2_htmlencode($row['name']) . '</a>';
+            }
+        }
+
+        $event = new TagsSearchEvent($words);
+        if (\count($tags) > 0) {
+            $event->addLine(\sprintf($this->translator->trans('Found tags'), implode(', ', $tags)));
+        }
+
+        $this->eventDispatcher->dispatch($event);
+
+        $string = $event->getLine();
+        if ($string !== null) {
+            return '<p class="s2_search_found_tags">' . $string . '</p>';
+        }
+
+        return '';
+    }
+
+    /**
+     * @throws InvalidEnvironmentException
+     * @throws \JsonException
+     */
+    private function searchByTitle(string $titleQuery): Response
+    {
+        $pdoStorage = $this->pdoStorage;
+        $toc        = $pdoStorage->getTocByTitlePrefix($titleQuery);
+
+        $result = '';
+        foreach ($toc as $tocEntryWithExtId) {
+            $highlightedTitle = preg_replace(
+                    '#(' . preg_quote($titleQuery, '#') . ')#ui',
+                    '<em>\\1</em>'
+                    , s2_htmlencode($tocEntryWithExtId->getTocEntry()->getTitle()));
+            if ($highlightedTitle === null) {
+                throw new \RuntimeException('Unable to highlight the title search result.');
+            }
+
+            $result .= '<a href="' . $this->urlBuilder->link($tocEntryWithExtId->getTocEntry()->getUrl()) . '">' . $highlightedTitle . '</a>';
+        }
+
+        return new Response($result);
+    }
+
+}

@@ -1,0 +1,325 @@
+<?php
+/**
+ * @copyright 2023-2025 Roman Parpalak
+ * @license   https://opensource.org/license/mit MIT
+ * @package   Register
+ */
+
+declare(strict_types = 1);
+
+namespace Register\Module\Search\Layout;
+
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
+
+class LayoutMatcher
+{
+    /** @var array<int|string, list<BlockGroup>> */
+    private array $templatesList = [];
+
+    public function __construct(
+        private readonly LoggerInterface $logger,
+        private readonly int             $recommendationsLimit,
+    ) {
+    }
+
+    public function addGroup(string $key, BlockGroup ...$blockGroups): void
+    {
+        if (isset($this->templatesList[$key])) {
+            throw new \InvalidArgumentException(\sprintf('Block group "%s" is already registered.', $key));
+        }
+
+        $count = 0;
+        foreach ($blockGroups as $blockGroup) {
+            $count += $blockGroup->count();
+        }
+
+        if ($count > $this->recommendationsLimit) {
+            return;
+        }
+
+        $this->templatesList[$key] = array_values($blockGroups);
+    }
+
+    /**
+     * This function tries to distribute items over blocks based on the mapping of which items can be placed in which
+     * block groups. Example:
+     *  |        | i1 | i2 | i3 | i4 | i5 |
+     *  | b1     | *  | *  |    |    |    |
+     *  | b2, b3 | *  |    | *  |    |    |
+     *  | b4, b5 | *  | *  | *  | *  | *  |
+     *  The result is a match: b1 -> i2, (b2, b3) -> (i1, i3), (b4, b5) -> (i4, i5).
+     *
+     * For this example input parameters will be:
+     * $mapItemToGroups = [
+     *     [0, 1, 2],
+     *     [0, 2],
+     *     [1, 2],
+     *     [2],
+     *     [2],
+     * ];
+     * $blocksInGroup = [
+     *     1,
+     *     2,
+     *     2,
+     * ];
+     *
+     * Result:
+     * $result = [
+     *     [1],
+     *     [0, 2],
+     *     [3, 4],
+     * ];
+     * @param array<int, non-empty-list<int>> $mapItemToGroups
+     * @param list<int> $blocksInGroup
+     * @return list<list<int>>|null
+     */
+    public static function distributeItemsOverBlocks(array $mapItemToGroups, array $blocksInGroup): ?array
+    {
+        // Initialize the result array with empty arrays for each group.
+        $result = array_map(static fn(int $_blockCount): array => [], $blocksInGroup);
+
+        // Sort items by the number of groups they can be placed in (ascending order).
+        $itemMap = \array_keys($mapItemToGroups);
+        usort($itemMap, static fn($a, $b): int => \count($mapItemToGroups[$a]) <=> \count($mapItemToGroups[$b]));
+
+        // Recursive backtracking function to allocate items to groups.
+        // Recursion may be rewritten as a loop. But this code is shorter and easier to read,
+        // and there are no performance issues worth it.
+        /**
+         * @param list<list<int>> $result
+         */
+        $allocate = static function (int $itemIndex, array &$result) use ($mapItemToGroups, $itemMap, $blocksInGroup, &$allocate): bool {
+            if (!isset($itemMap[$itemIndex])) { // The end is reached: item index is out of range
+                return true;
+            }
+
+            $item = $itemMap[$itemIndex];
+            foreach ($mapItemToGroups[$item] as $group) {
+                if (\count($result[$group]) < $blocksInGroup[$group]) {
+                    $result[$group][] = $item;
+
+                    if ($allocate($itemIndex + 1, $result)) {
+                        return true;
+                    }
+
+                    // Backtrack
+                    array_pop($result[$group]);
+                }
+            }
+
+            return false;
+        };
+
+        if (!$allocate(0, $result)) {
+            return null;
+        }
+
+        foreach ($result as &$items) {
+            sort($items);
+        }
+
+        unset($items);
+        return array_values($result);
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    public function match(string $page, ContentItem ...$contentItems): array
+    {
+        $start           = microtime(true);
+        $log             = [];
+        $contentItemsNum = \count($contentItems);
+        if ($contentItemsNum === 0) {
+            $this->logger->warning(\sprintf('Requested layout for empty recommendations for page "%s".', $page), [
+                'time' => $this->formatTime($start),
+            ]);
+
+            return [null, $log];
+        }
+
+        $distributionTimes = [];
+
+        foreach ($this->templatesList as $templateName => $templateGroups) {
+            $templateName = (string)$templateName; // Integers in array keys are converted to int
+            $log[]        = $this->formatTime($start) . " >>>>> '$templateName': start";
+            $blockCount   = array_sum(array_map(static fn(BlockGroup $bg): int => $bg->count(), $templateGroups));
+
+            if ($blockCount > $contentItemsNum) {
+                $log[] = $this->formatTime($start) . " '$templateName': no match due to count constraint ($blockCount > $contentItemsNum)";
+                continue;
+            }
+
+            $mapGroupToItems = [];
+            $mapItemToGroups = [];
+
+            $blocksInPrevAndCurGroup = 0;
+            $blocksInGroup           = [];
+            foreach ($templateGroups as $idx => $templateGroup) {
+                for ($i = 0; $i < $blockCount; ++$i) {
+                    $contentItem = $contentItems[$i];
+                    if ($contentItem->match($templateGroup->getBlock())) {
+                        $mapGroupToItems[$idx][] = $i;
+                        $mapItemToGroups[$i][]   = $idx;
+
+                        $log[] = \sprintf(
+                            "%s item %d match ['%s']",
+                            $this->formatTime($start),
+                            $i,
+                            implode("', '", $templateGroup->getPositions())
+                        );
+                    }
+                }
+
+                $foundCount       = \count($mapGroupToItems[$idx] ?? []);
+                $blocksInCurGroup = $templateGroup->count();
+                if ($foundCount < $blocksInCurGroup) {
+                    $log[] = \sprintf(
+                        "%s '%s': not enough match [%s] for group [%s] found (%s < %s)",
+                        $this->formatTime($start),
+                        $templateName,
+                        implode(', ', $mapGroupToItems[$idx] ?? []),
+                        implode(', ', $templateGroup->getPositions()),
+                        $foundCount,
+                        $blocksInCurGroup
+                    );
+                    continue 2;
+                }
+
+                $blocksInGroup[]         = $blocksInCurGroup;
+                $blocksInPrevAndCurGroup += $blocksInCurGroup;
+                $matchedCount = \count($mapItemToGroups);
+                if ($matchedCount < $blocksInPrevAndCurGroup) {
+                    $log[] = $this->formatTime($start) . " '$templateName': no match for several groups (0..$idx) $matchedCount < required $blocksInPrevAndCurGroup";
+                    continue 2;
+                }
+            }
+
+            /**
+             * Here we know what items can be placed in block groups ($mapGroupToItems). Example:
+             * |        | i1 | i2 | i3 | i4 | i5 |
+             * | b1     | *  | *  |    |    |    |
+             * | b2, b3 | *  |    | *  |    |    |
+             * | b4, b5 | *  | *  | *  | *  | *  |
+             * Some kind of search algorithm is required to find a match: b1 -> i2, (b2, b3) -> (i1, i3), (b4, b5) -> (i4, i5).
+             */
+            $startDistribution   = microtime(true);
+            $processedMap        = self::distributeItemsOverBlocks($mapItemToGroups, $blocksInGroup);
+            $distributionTimes[] = 1000.0 * (microtime(true) - $startDistribution);
+            if ($processedMap === null) {
+                $log[] = $this->formatTime($start) . " '$templateName': cannot distribute items over blocks";
+                continue;
+            }
+
+            $hasUnusedImages = false;
+            $result          = [];
+            foreach ($processedMap as $groupIdx => $itemsToUse) {
+                $templateGroup = $templateGroups[$groupIdx];
+
+                if ($templateGroup->count() !== \count($itemsToUse)) {
+                    $this->logger->error(\sprintf('Invalid distribution: count mismatch for template "%s" group "%s".', $templateName, $groupIdx), $processedMap);
+                    continue 2;
+                }
+
+                $partialResult = [];
+                $positions     = [];
+                foreach ($templateGroup->getPositions() as $idx2 => $position) {
+                    $i = $itemsToUse[$idx2];
+
+                    $contentItem  = $contentItems[$i];
+                    $positions[]  = $position;
+                    $matchedImage = $contentItem->getMatchedImage($templateGroup->getBlock());
+                    if ($matchedImage === null && $contentItem->hasImage()) {
+                        $hasUnusedImages = true;
+                    }
+
+                    $partialResult[] = [
+                        'title'       => $contentItem->getTitle(),
+                        'headingSize' => $templateGroup->getBlock()->getTitleSize($contentItem->getTitle()),
+                        'url'         => $contentItem->getUrl(),
+                        'date'        => $contentItem->getCreatedAt(),
+                        'image'       => $matchedImage,
+                        'snippet'     => $contentItem->getMatchedSnippet($templateGroup->getBlock()),
+                    ];
+                }
+
+                if ($templateGroup->getBlock()->sortByImageHeight() && \count($partialResult) > 1) {
+                    // Sort full-column images by height desc
+                    // http://localhost:8081/?/blog/2012/03/26/presenter
+                    // http://localhost:8081/?/blog/2012/01/28/kollaideru_net
+                    // http://localhost:8081/?/blog/2011/12/25/Psychologists
+                    usort($partialResult, static function (array $r1, array $r2): int {
+                        $image1 = $r1['image'];
+                        $image2 = $r2['image'];
+                        if ($image1 === null || $image2 === null) {
+                            throw new \LogicException('An image block was matched without an image.');
+                        }
+
+                        $ratioComparison = $image1['w'] * $image2['h'] <=> $image2['w'] * $image1['h'];
+                        if ($ratioComparison === 0) {
+                            return mb_strlen($r2['snippet']) + mb_strlen($r2['title']) <=> mb_strlen($r1['snippet']) + mb_strlen($r1['title']);
+                        }
+
+                        return $ratioComparison;
+                    });
+                }
+
+                if (!$templateGroup->getBlock()->hasImage() && \count($partialResult) > 1) {
+                    // Sort full-column images by height desc
+                    // http://localhost:8081/?/blog/2021/08/27/fake_pop3_server
+                    usort($partialResult, static fn(array $r1, array $r2): int => mb_strlen($r2['snippet']) + mb_strlen($r2['title']) <=> mb_strlen($r1['snippet']) + mb_strlen($r1['title']));
+                }
+
+                // Assign positions after sorting
+                foreach ($positions as $k => $position) {
+                    $item     = $partialResult[$k];
+                    $imgArray = $item['image'];
+                    $result[$groupIdx][] = [
+                        'title'       => $item['title'],
+                        'headingSize' => $item['headingSize'],
+                        'url'         => $item['url'],
+                        'date'        => $item['date'],
+                        'image'       => $imgArray === null ? null : new ImgDto($imgArray['src'], $imgArray['w'], $imgArray['h'], $imgArray['class']),
+                        'snippet'     => $item['snippet'],
+                        'position'    => $position,
+                    ];
+                }
+            }
+
+            // Restore order of layout
+            ksort($result);
+
+            $result        = array_merge(...$result);
+            $formattedTime = $this->formatTime($start);
+
+            if ($hasUnusedImages && \count(array_filter($result, static fn(array $resultItem): bool => $resultItem['image'] !== null)) >= 5) {
+                // 5 images is enough, do not log warning
+                $hasUnusedImages = false;
+            }
+
+            $log[] = $formattedTime . " match" . ($hasUnusedImages ? ' (not all images used!)' : '') . " &nbsp; $templateName";
+
+            $this->logger->log($hasUnusedImages ? LogLevel::WARNING : LogLevel::INFO, \sprintf('Recommendations for page "%s" completed.', $page), [
+                'time'                                          => $formattedTime,
+                'templateName'                                  => $templateName,
+                'tplid ' . str_replace(' ', '_', $templateName) => $page,
+                '$hasUnusedImages'                              => $hasUnusedImages,
+                'distr_times'                                   => implode(' ', $distributionTimes),
+            ]);
+
+            return [$result, $log];
+        }
+
+        $this->logger->warning(\sprintf('No recommendations found for page "%s".', $page), [
+            'time' => $this->formatTime($start),
+        ]);
+
+        return [null, $log];
+    }
+
+    private function formatTime(float $start): string
+    {
+        return number_format((microtime(true) - $start) * 1000.0, 2);
+    }
+}

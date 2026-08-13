@@ -15,6 +15,8 @@ use Register\Module\Analytics\Module as AnalyticsModule;
 use Register\Module\BaseModuleRegistry;
 use Register\Module\Math\AdminModule as MathAdminModule;
 use Register\Module\Math\Module as MathModule;
+use Register\Module\Search\AdminModule as SearchAdminModule;
+use Register\Module\Search\Module as SearchModule;
 use Register\Module\Typography\Module as TypographyModule;
 use Register\ProductModule;
 use Register\RegisterKernel;
@@ -37,7 +39,7 @@ final class RegisterKernelTest extends Unit
             CmsExtension::class,
             ProductModule::class,
             \s2_extensions\s2_blog\Extension::class,
-            \s2_extensions\s2_search\Extension::class,
+            SearchModule::class,
             MathModule::class,
             AnalyticsModule::class,
             TypographyModule::class,
@@ -55,12 +57,12 @@ final class RegisterKernelTest extends Unit
             ProductModule::class,
             AdminExtension::class,
             \s2_extensions\s2_blog\Extension::class,
-            \s2_extensions\s2_search\Extension::class,
+            SearchModule::class,
             MathModule::class,
             AnalyticsModule::class,
             TypographyModule::class,
             \s2_extensions\s2_blog\AdminExtension::class,
-            \s2_extensions\s2_search\AdminExtension::class,
+            SearchAdminModule::class,
             MathAdminModule::class,
             AnalyticsAdminModule::class,
         ], $application->moduleClasses);
