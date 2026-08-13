@@ -9,6 +9,9 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Content\Admin\DashboardContentProvider;
+use Register\Content\ContentStatisticsRepository;
+use Register\Content\ContentType;
 use Register\Module\BaseModuleRegistry;
 use S2\AdminYard\Database\PdoDataProvider;
 use S2\AdminYard\Database\TypeTransformer;
@@ -17,7 +20,6 @@ use S2\AdminYard\Form\FormFactory;
 use S2\AdminYard\SettingStorage\SettingStorageInterface;
 use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
-use S2\Cms\Admin\Dashboard\DashboardArticleProvider;
 use S2\Cms\Admin\Dashboard\DashboardBlockProviderInterface;
 use S2\Cms\Admin\Dashboard\DashboardConfigExtender;
 use S2\Cms\Admin\Dashboard\DashboardDatabaseProvider;
@@ -248,10 +250,12 @@ class AdminExtension implements ExtensionInterface
             $container->getStringParameter('db_prefix'),
         ), [DashboardStatProviderInterface::class]);
 
-        $container->set(DashboardArticleProvider::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardArticleProvider => new DashboardArticleProvider(
+        $container->set(DashboardContentProvider::PAGE_SERVICE_ID, fn(Container $container): DashboardContentProvider => new DashboardContentProvider(
             $container->get(TemplateRenderer::class),
-            $container->get(DbLayer::class),
-            $container->getStringParameter('root_dir'),
+            $container->get(ContentStatisticsRepository::class),
+            ContentType::PAGE,
+            $container->getStringParameter('root_dir') . '_admin/templates/dashboard/article-item.php.inc',
+            'articles_num',
         ), [DashboardStatProviderInterface::class]);
 
         $container->set(PathToAdminEntityConverter::class, fn(Container $container): \S2\Cms\Admin\PathToAdminEntityConverter => new PathToAdminEntityConverter(

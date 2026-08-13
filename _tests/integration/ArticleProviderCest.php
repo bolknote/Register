@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Content\ContentSchema;
+use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentType;
-use S2\Cms\Admin\Dashboard\DashboardArticleProvider;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
@@ -25,13 +25,13 @@ class ArticleProviderCest
 
     private DbLayer $dbLayer;
 
-    private DashboardArticleProvider $dashboardArticleProvider;
+    private ContentStatisticsRepository $statisticsRepository;
 
     public function _before(\IntegrationTester $I): void
     {
         $this->articleProvider          = $I->grabService(ArticleProvider::class);
         $this->dbLayer                  = $I->grabService(DbLayer::class);
-        $this->dashboardArticleProvider = $I->grabAdminService(DashboardArticleProvider::class);
+        $this->statisticsRepository     = $I->grabService(ContentStatisticsRepository::class);
     }
 
     /**
@@ -112,7 +112,7 @@ class ArticleProviderCest
         $I->assertEquals('site.php', $this->articleProvider->findInheritedTemplate($id4));
         $I->assertEquals('site.php', $this->articleProvider->findInheritedTemplate($id5));
 
-        $I->assertEquals(1, $this->dashboardArticleProvider->countArticles()['articles_num']);
+        $I->assertEquals(1, $this->statisticsRepository->published(ContentType::PAGE)->contentCount);
     }
 
     /**

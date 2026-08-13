@@ -27,14 +27,15 @@ use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
 use Register\Url\UniqueSlugGenerator;
+use Register\Content\Admin\DashboardContentProvider;
 use Register\Module\Blog\Admin\AdminConfigExtender;
-use Register\Module\Blog\Admin\DashboardBlogProvider;
 use Register\Module\Blog\Admin\DynamicConfigFormExtender;
 use Register\Module\Blog\Admin\PathToAdminEntityConverter;
 use Register\Module\Blog\Admin\TranslationProvider;
 use Register\Module\Blog\Model\BlogCommentNotifier;
 use Register\Comment\CommentRepository;
 use Register\Content\ContentType;
+use Register\Content\ContentStatisticsRepository;
 use Register\Module\Blog\Model\PostProvider;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -62,9 +63,12 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
 
         $container->set(TranslationProvider::class, new TranslationProvider(), [TranslationProviderInterface::class]);
 
-        $container->set(DashboardBlogProvider::class, fn(Container $container): \Register\Module\Blog\Admin\DashboardBlogProvider => new DashboardBlogProvider(
+        $container->set(DashboardContentProvider::POST_SERVICE_ID, fn(Container $container): DashboardContentProvider => new DashboardContentProvider(
             $container->get(TemplateRenderer::class),
-            $container->get(DbLayer::class),
+            $container->get(ContentStatisticsRepository::class),
+            ContentType::POST,
+            __DIR__ . '/resources/views/dashboard/blog-item.php.inc',
+            'posts_num',
         ), [DashboardStatProviderInterface::class]);
 
         $container->set(PathToAdminEntityConverter::class, fn(Container $container): \Register\Module\Blog\Admin\PathToAdminEntityConverter => new PathToAdminEntityConverter(

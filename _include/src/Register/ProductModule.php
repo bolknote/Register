@@ -12,6 +12,7 @@ namespace Register;
 use Register\Comment\CommentRepository;
 use Register\Content\ContentRepository;
 use Register\Content\ContentSourceInterface;
+use Register\Content\ContentStatisticsRepository;
 use Register\Content\PageContentSource;
 use Register\Content\TagRepository;
 use Register\Module\BaseModuleInstaller;
@@ -45,6 +46,9 @@ readonly class ProductModule implements ContainerModuleInterface
         ), [ContentSourceInterface::class]);
         $container->set(ContentRepository::class, static fn(Container $container): ContentRepository => new ContentRepository(
             ...$container->getByTag(ContentSourceInterface::class),
+        ));
+        $container->set(ContentStatisticsRepository::class, static fn(Container $container): ContentStatisticsRepository => new ContentStatisticsRepository(
+            $container->get(DbLayer::class),
         ));
         $container->set(TagRepository::class, static fn(Container $container): TagRepository => new TagRepository(
             $container->get(DbLayer::class),
