@@ -27,7 +27,7 @@ final readonly class SchemaMigrator
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_REVISION';
 
-    public const int LATEST_REVISION = 8;
+    public const int LATEST_REVISION = 9;
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -203,6 +203,19 @@ final readonly class SchemaMigrator
         }
     }
 
+    private function migrateToRevisionNine(): void
+    {
+        $this->dbLayer->addField(
+            's2_blog_posts',
+            'display_date',
+            SchemaBuilderInterface::TYPE_STRING,
+            255,
+            false,
+            '',
+            'create_time',
+        );
+    }
+
     /** @return array<int, \Closure(): void> */
     private function migrations(): array
     {
@@ -230,6 +243,9 @@ final readonly class SchemaMigrator
             },
             8 => function (): void {
                 $this->migrateToRevisionEight();
+            },
+            9 => function (): void {
+                $this->migrateToRevisionNine();
             },
         ];
     }

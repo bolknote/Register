@@ -93,7 +93,7 @@ readonly class PostProvider
         ;
 
         $result = $this->dbLayer
-            ->select('p.create_time, p.title, p.text, p.url, p.id, p.commented, p.modify_time, p.favorite')
+            ->select('p.create_time, p.display_date, p.title, p.text, p.url, p.id, p.commented, p.modify_time, p.favorite')
             ->addSelect('(' . $rawQueryCount . ') AS comment_num')
             ->addSelect('(' . $rawQueryUser . ') AS author, p.label')
             ->from('s2_blog_posts AS p')
@@ -150,10 +150,17 @@ readonly class PostProvider
             $link               = $this->blogUrlBuilder->post($post['url']);
             $post['title_link'] = $link;
             $post['link']       = $link;
-            $post['time']       = $this->viewer->dateAndTime($post['create_time']);
+            $post['time']       = $this->displayDate((int)$post['create_time'], (string)$post['display_date']);
         }
 
         return $posts;
+    }
+
+    public function displayDate(int $createTime, string $displayDate): string
+    {
+        $displayDate = trim($displayDate);
+
+        return $displayDate !== '' ? $displayDate : $this->viewer->dateAndTime($createTime);
     }
 
     /**

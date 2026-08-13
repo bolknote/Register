@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace S2\Cms\Controller;
 
 use S2\Cms\Comment\Antispam\SpamFeedbackService;
+use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Framework\ControllerInterface;
 use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\Comment\CommentModerationTokenManager;
@@ -32,6 +33,9 @@ final readonly class CommentModerationController implements ControllerInterface
         'blog'    => 's2_blog_comments',
     ];
 
+    /** @var array<string, CommentStrategyInterface> */
+    private array $commentStrategies;
+
     public function __construct(
         private DbLayer                       $dbLayer,
         private AuthProvider                  $authProvider,
@@ -39,7 +43,13 @@ final readonly class CommentModerationController implements ControllerInterface
         private SpamFeedbackService           $spamFeedbackService,
         private UrlBuilder                    $urlBuilder,
         private TranslatorInterface           $translator,
+        CommentStrategyInterface              ...$commentStrategies,
     ) {
+        $strategiesByTarget = [];
+        foreach ($commentStrategies as $commentStrategy) {
+            $strategiesByTarget[$commentStrategy->getAntispamTargetType()] = $commentStrategy;
+        }
+        $this->commentStrategies = $strategiesByTarget;
     }
 
     #[\Override]
@@ -56,7 +66,7 @@ final readonly class CommentModerationController implements ControllerInterface
         $token      = $request->request->getString('moderation_token');
         $table      = self::COMMENT_TABLES[$targetType] ?? null;
 
-        if ($table === null || $commentId <= 0 || !in_array($action, ['edit', 'delete', 'spam'], true)) {
+        if ($table === null || $commentId <= 0 || !in_array($action, ['edit', 'delete', 'spam', 'ham'], true)) {
             return $this->error($request, $this->translator->trans('Invalid comment moderation request'), Response::HTTP_BAD_REQUEST);
         }
 
@@ -89,7 +99,7 @@ final readonly class CommentModerationController implements ControllerInterface
                 return $this->error($request, $this->translator->trans('Comment moderation forbidden'), Response::HTTP_FORBIDDEN);
             }
 
-            if (!$this->commentExists($table, $commentId, $action === 'spam')) {
+            if (!$this->commentExists($table, $commentId, in_array($action, ['spam', 'ham'], true))) {
                 return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
             }
 
@@ -103,7 +113,9 @@ final readonly class CommentModerationController implements ControllerInterface
                     ->where('id = :id')->setParameter('id', $commentId)
                     ->execute()
                 ;
-            } elseif (!$this->spamFeedbackService->markSpam($commentId, $targetType, $table)) {
+            } elseif ($action === 'spam' && !$this->spamFeedbackService->markSpam($commentId, $targetType, $table)) {
+                return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
+            } elseif ($action === 'ham' && !$this->markHam($commentId, $targetType, $table)) {
                 return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
             }
         }
@@ -117,6 +129,21 @@ final readonly class CommentModerationController implements ControllerInterface
         $location   = $this->urlBuilder->link($returnPath) . ($anchor > 0 ? '#' . $anchor : '#comments-title');
 
         return new RedirectResponse($location, Response::HTTP_SEE_OTHER);
+    }
+
+    private function markHam(int $commentId, string $targetType, string $table): bool
+    {
+        $commentStrategy = $this->commentStrategies[$targetType] ?? null;
+        if (!$commentStrategy instanceof CommentStrategyInterface) {
+            return false;
+        }
+
+        return $this->spamFeedbackService->markHam(
+            $commentId,
+            $targetType,
+            $table,
+            $commentStrategy->notifySubscribers(...),
+        );
     }
 
     private function commentExists(string $table, int $commentId, bool $requireNotDeleted): bool

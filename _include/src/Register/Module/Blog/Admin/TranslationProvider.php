@@ -38,6 +38,8 @@ class TranslationProvider implements TranslationProviderInterface
 
                 'Label'      => 'Метка',
                 'Label help' => 'К этой записи будут добавлены ссылки «см. также» на другие записи с такой же меткой.',
+                'Display date'      => 'Дата для показа',
+                'Display date help' => 'Необязательно. Показывается читателям вместо внутренней даты и времени, например «лето 1977 года». Внутренняя дата по-прежнему используется для сортировки, архива, поиска и RSS.',
 
                 'Posts'         => 'Посты',
                 'New post'      => 'Новый пост',
@@ -62,6 +64,8 @@ class TranslationProvider implements TranslationProviderInterface
 
                 'Label'      => 'Label',
                 'Label help' => '“See also” links (to the posts that have the same label) will be appended to this post.',
+                'Display date'      => 'Display date',
+                'Display date help' => 'Optional. Shown to readers instead of the internal date and time, for example “summer 1977”. The internal date is still used for sorting, archives, search, and RSS.',
 
                 'Posts'         => 'Posts',
                 'New post'      => 'New post',

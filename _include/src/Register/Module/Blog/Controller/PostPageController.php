@@ -107,7 +107,7 @@ class PostPageController extends BlogController
 
         $result = $this->dbLayer
             ->select(
-                'create_time, title, text, id, commented, label, favorite',
+                'create_time, display_date, title, text, id, commented, label, favorite',
                 '(' . $this->dbLayer
                     ->select('u.name')
                     ->from('users AS u')
@@ -236,7 +236,7 @@ class PostPageController extends BlogController
             $template->putInPlaceholder('comments', $this->getComments($post_id, $request));
         }
 
-        $row['time']             = $this->viewer->dateAndTime($row['create_time']);
+        $row['time']             = $this->postProvider->displayDate((int)$row['create_time'], (string)$row['display_date']);
         $row['commented']        = 0; // for template
         $row['tags']             = $tags;
         $row['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();

@@ -473,6 +473,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(SpamFeedbackService::class),
             $container->get(UrlBuilder::class),
             $container->get('comments_translator'),
+            ...$container->getByTag(CommentStrategyInterface::class),
         ));
 
         $container->set('comments_translator', function (Container $container) {

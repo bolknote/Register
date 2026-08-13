@@ -192,6 +192,7 @@ final readonly class CommentThreadRenderer
             'can_edit'   => $context->moderator->canEdit,
             'can_delete' => $context->moderator->canHide,
             'can_spam'   => $context->moderator->canHide && $comment['moderation_state'] !== 'spam',
+            'can_ham'    => $context->moderator->canHide && $comment['moderation_state'] === 'spam',
         ];
     }
 

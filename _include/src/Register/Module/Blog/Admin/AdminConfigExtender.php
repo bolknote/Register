@@ -298,6 +298,14 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 viewTemplate: '_admin/templates/date.php.inc',
             ))
             ->addField(new FieldConfig(
+                name: 'display_date',
+                label: $this->translator->trans('Display date'),
+                hint: $this->translator->trans('Display date help'),
+                control: 'input',
+                validators: [new Length(max: 255)],
+                useOnActions: [FieldConfig::ACTION_NEW, FieldConfig::ACTION_EDIT],
+            ))
+            ->addField(new FieldConfig(
                 name: 'modify_time',
                 label: $this->translator->trans('Modify time'),
                 hint: $this->translator->trans('Modify time help'),
@@ -446,7 +454,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 }
 
                 $changed = false;
-                foreach (['text', 'title', 'url'] as $field) {
+                foreach (['text', 'title', 'url', 'display_date'] as $field) {
                     if ($event->data[$field] !== $oldData['column_' . $field]) {
                         $changed = true;
                     }

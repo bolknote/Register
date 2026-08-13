@@ -81,6 +81,17 @@ $replyQuery = $isPreview ? '' : http_build_query([
                     <button class="comment-moderation-button" type="submit" title="<?php echo $trans('Mark comment as spam'); ?>" aria-label="<?php echo $trans('Mark comment as spam'); ?>"><span aria-hidden="true">🚫</span></button>
                 </form>
             <?php endif; ?>
+            <?php if (!empty($moderationData['can_ham'])): ?>
+                <form class="comment-moderation-action" method="post" action="<?php echo s2_htmlencode((string)$moderationData['action_url']); ?>" data-moderation-action="ham" data-confirm="<?php echo $trans('Confirm comment ham'); ?>">
+                    <input type="hidden" name="moderation_action" value="ham">
+                    <input type="hidden" name="target_type" value="<?php echo s2_htmlencode((string)$moderationData['target']); ?>">
+                    <input type="hidden" name="comment_id" value="<?php echo $id; ?>">
+                    <input type="hidden" name="comment_anchor" value="<?php echo $i; ?>">
+                    <input type="hidden" name="moderation_token" value="<?php echo s2_htmlencode((string)$moderationData['token']); ?>">
+                    <input type="hidden" name="return_to" value="<?php echo s2_htmlencode((string)$moderationData['return_to']); ?>">
+                    <button class="comment-moderation-button" type="submit" title="<?php echo $trans('Mark comment as not spam'); ?>" aria-label="<?php echo $trans('Mark comment as not spam'); ?>"><span aria-hidden="true">✅</span></button>
+                </form>
+            <?php endif; ?>
         </nav>
     <?php endif; ?>
     <?php if ($hasUserpic): ?>

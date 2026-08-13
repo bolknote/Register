@@ -382,6 +382,7 @@ class InstallCest
             'title'        => 'New Blog Post Title',
             'tags'         => 'tag1, blog tag',
             'create_time'  => '2023-08-12T11:32',
+            'display_date' => '',
             'modify_time'  => '2023-08-12T12:15',
             'text'         => '<p>New blog post</p>',
             'user_id'      => '1',

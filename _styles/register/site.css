@@ -685,9 +685,12 @@ h2.comment {
     grid-row: 5;
 }
 
-.comment-item:target {
+.comment-item:target > .comment-meta,
+.comment-item:target > .comment-tombstone {
+    width: fit-content;
+    max-width: 100%;
     background: color-mix(in srgb, var(--highlight-color) 45%, transparent);
-    box-shadow: 0 0 0 0.7rem color-mix(in srgb, var(--highlight-color) 45%, transparent);
+    box-shadow: 0 0 0 0.3rem color-mix(in srgb, var(--highlight-color) 45%, transparent);
 }
 
 .comment-children {
@@ -805,6 +808,90 @@ h2.comment {
     background: transparent;
     color: var(--text-color);
     transform: translateY(-1px);
+}
+
+.comment-item.is-confirming > .comment-moderation {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.comment-action-confirmation {
+    position: absolute;
+    z-index: 4;
+    top: -0.45rem;
+    right: 0;
+    display: flex;
+    width: max-content;
+    max-width: 100%;
+    min-height: 2.75rem;
+    padding: 0.35rem 0.4rem 0.35rem 0.8rem;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem 0.8rem;
+    border-radius: 3px;
+    background: var(--surface-background);
+    box-shadow: 0 0.6rem 1.8rem color-mix(in srgb, #000 18%, transparent);
+    color: var(--text-color);
+    font-family: var(--ui-font);
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.comment-action-question {
+    font-weight: 650;
+}
+
+.comment-action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.comment-action-confirmation button {
+    min-height: 2rem;
+    margin: 0;
+    padding: 0.25rem 0.65rem;
+    border-radius: 2px;
+    font-size: 13px;
+}
+
+.comment-action-cancel {
+    background: transparent;
+    color: var(--minor-color);
+}
+
+.comment-action-cancel:hover,
+.comment-action-cancel:focus-visible {
+    background: var(--field-background);
+    color: var(--text-color);
+}
+
+.comment-action-confirm,
+.comment-action-confirm:hover,
+.comment-action-confirm:focus-visible {
+    background: var(--error-color);
+    color: var(--page-background);
+    font-weight: 700;
+}
+
+.comment-action-confirm:hover {
+    filter: brightness(1.12);
+}
+
+.comment-action-confirmation[data-action="ham"] .comment-action-confirm,
+.comment-action-confirmation[data-action="ham"] .comment-action-confirm:hover,
+.comment-action-confirmation[data-action="ham"] .comment-action-confirm:focus-visible {
+    background: var(--success-color);
+}
+
+.comment-moderation-error {
+    max-width: 800px;
+    margin: 0.55rem 0 0;
+    color: var(--error-color);
+    font-family: var(--ui-font);
+    font-size: 13px;
+    line-height: 1.4;
 }
 
 .comment-edit-form {

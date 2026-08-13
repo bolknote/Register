@@ -182,50 +182,142 @@
             return;
         }
 
-        function submit(form) {
+        var confirmationTemplate = document.getElementById('comment-action-confirmation-template');
+        var activeConfirmation = null;
+
+        function askForConfirmation(form) {
             var confirmation = form.getAttribute('data-confirm');
-            if (confirmation && !window.confirm(confirmation)) {
+            var moderationAction = form.getAttribute('data-moderation-action');
+            if (!confirmation || !confirmationTemplate) {
+                return Promise.resolve(true);
+            }
+
+            if (activeConfirmation) {
+                activeConfirmation(false);
+            }
+
+            return new Promise(function (resolve) {
+                var item = form.closest('.comment-item');
+                var sourceButton = form.querySelector('button[type="submit"]');
+                var confirmationElement = confirmationTemplate.content.firstElementChild.cloneNode(true);
+                var question = confirmationElement.querySelector('.comment-action-question');
+                var confirmButton = confirmationElement.querySelector('.comment-action-confirm');
+                var cancelButton = confirmationElement.querySelector('.comment-action-cancel');
+                var finished = false;
+
+                if (!item || !sourceButton || !question || !confirmButton || !cancelButton) {
+                    resolve(true);
+                    return;
+                }
+
+                function finish(confirmed) {
+                    if (finished) {
+                        return;
+                    }
+
+                    finished = true;
+                    activeConfirmation = null;
+                    item.classList.remove('is-confirming');
+                    confirmationElement.remove();
+                    sourceButton.focus();
+                    resolve(confirmed);
+                }
+
+                activeConfirmation = finish;
+                question.textContent = confirmation;
+                confirmationElement.setAttribute('aria-label', confirmation);
+                if (moderationAction) {
+                    confirmationElement.setAttribute('data-action', moderationAction);
+                }
+                confirmButton.textContent = sourceButton.getAttribute('aria-label') || sourceButton.title;
+                cancelButton.addEventListener('click', function () {
+                    finish(false);
+                }, false);
+                confirmButton.addEventListener('click', function () {
+                    finish(true);
+                }, false);
+                confirmationElement.addEventListener('keydown', function (event) {
+                    if (event.key === 'Escape') {
+                        event.preventDefault();
+                        finish(false);
+                    }
+                }, false);
+
+                item.classList.add('is-confirming');
+                item.appendChild(confirmationElement);
+                confirmButton.focus();
+            });
+        }
+
+        function showError(form, message) {
+            var item = form.closest('.comment-item');
+            if (!item) {
                 return;
             }
 
-            var buttons = form.querySelectorAll('button');
-            buttons.forEach(function (button) {
-                button.disabled = true;
-            });
+            var previousError = item.querySelector(':scope > .comment-moderation-error');
+            if (previousError) {
+                previousError.remove();
+            }
 
-            window.fetch(form.action, {
-                method: 'POST',
-                body: new FormData(form),
-                credentials: 'same-origin',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            }).then(function (response) {
-                return response.json().catch(function () {
-                    return {success: false, message: 'Не удалось обработать ответ сервера.'};
-                }).then(function (payload) {
-                    if (!response.ok || !payload.success) {
-                        throw new Error(payload.message || 'Не удалось изменить комментарий.');
-                    }
+            var error = document.createElement('p');
+            error.className = 'comment-moderation-error';
+            error.setAttribute('role', 'alert');
+            error.textContent = message;
 
-                    return payload;
-                });
-            }).then(function () {
-                var anchorField = form.elements.comment_anchor;
-                if (anchorField && anchorField.value) {
-                    try {
-                        window.history.replaceState(null, '', '#' + anchorField.value);
-                    } catch (error) {
-                        // The moderation change is already stored; reloading is enough.
-                    }
+            var actions = item.querySelector(':scope > .comment-actions');
+            if (actions) {
+                actions.insertAdjacentElement('afterend', error);
+            } else {
+                item.appendChild(error);
+            }
+        }
+
+        function submit(form) {
+            askForConfirmation(form).then(function (confirmed) {
+                if (!confirmed) {
+                    return;
                 }
-                window.location.reload();
-            }).catch(function (error) {
+
+                var buttons = form.querySelectorAll('button');
                 buttons.forEach(function (button) {
-                    button.disabled = false;
+                    button.disabled = true;
                 });
-                window.alert(error.message);
+
+                window.fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form),
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }).then(function (response) {
+                    return response.json().catch(function () {
+                        return {success: false, message: 'Не удалось обработать ответ сервера.'};
+                    }).then(function (payload) {
+                        if (!response.ok || !payload.success) {
+                            throw new Error(payload.message || 'Не удалось изменить комментарий.');
+                        }
+
+                        return payload;
+                    });
+                }).then(function () {
+                    var anchorField = form.elements.comment_anchor;
+                    if (anchorField && anchorField.value) {
+                        try {
+                            window.history.replaceState(null, '', '#' + anchorField.value);
+                        } catch (error) {
+                            // The moderation change is already stored; reloading is enough.
+                        }
+                    }
+                    window.location.reload();
+                }).catch(function (error) {
+                    buttons.forEach(function (button) {
+                        button.disabled = false;
+                    });
+                    showError(form, error.message);
+                });
             });
         }
 

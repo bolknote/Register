@@ -88,6 +88,7 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->indexExists('s2_blog_comments', 'userpic_idx'));
         $I->assertTrue($dbLayer->fieldExists('art_comments', 'deleted'));
         $I->assertTrue($dbLayer->fieldExists('s2_blog_comments', 'deleted'));
+        $I->assertTrue($dbLayer->fieldExists('s2_blog_posts', 'display_date'));
 
         $legacyRows = $dbLayer->select('COUNT(*)')
             ->from('extensions')

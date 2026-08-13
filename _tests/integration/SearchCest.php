@@ -51,12 +51,14 @@ class SearchCest
         }
 
         $I->assertSame('privet-mir', $I->grabValueFrom('input[name=url]'));
+        $I->assertSame('', $I->grabValueFrom('input[name=display_date]'));
 
         $dataProvider = (static fn(string $csrfToken, string $userId): array => [
             '__csrf_token' => $csrfToken,
             'title'        => 'New Blog Post Title',
             'tags'         => 'tag1, blog tag',
             'create_time'  => '2023-08-12T11:32',
+            'display_date' => 'лето 1977 года',
             'modify_time'  => '2023-08-12T12:15',
             'text'         => '<p>New blog post with some text</p>',
             'user_id'      => $userId,
@@ -88,6 +90,7 @@ class SearchCest
 
         $I->assertSame('New Blog Post Title', $post->title);
         $I->assertSame('/new_post1', $post->path);
+        $I->assertSame(strtotime('2023-08-12T11:32'), $post->publishedAt);
         $I->assertSame('Main page', $mainPage->title);
         $I->assertSame('/', $mainPage->path);
 
@@ -108,6 +111,7 @@ class SearchCest
 
         $postText = $I->grabValueFrom('textarea[name=text]');
         $I->assertStringContainsString('New blog post', $postText);
+        $I->assertSame('лето 1977 года', $I->grabValueFrom('input[name=display_date]'));
 
         // Reopen the list in the admin panel
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
@@ -125,7 +129,27 @@ class SearchCest
         $I->amOnPage('https://localhost/new_post1');
         $I->see('New Blog Post Title');
         $I->see('New blog post');
+        $I->see('лето 1977 года');
+        $I->dontSee('August 12, 2023');
+        $I->assertStringContainsString(
+            'datetime="' . date(DATE_ATOM, $post->publishedAt) . '"',
+            $I->grabResponse(),
+        );
+
+        // The internal timestamp still determines the archive location.
+        $I->amOnPage('https://localhost/2023/08/12/');
+        $I->see('New Blog Post Title');
+        $I->see('лето 1977 года');
+
+        // An empty display date falls back to the localized internal date and time.
+        $dbLayer->update('s2_blog_posts')
+            ->set('display_date', ':display_date')->setParameter('display_date', '')
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute()
+        ;
+        $I->amOnPage('https://localhost/new_post1');
         $I->see('August 12, 2023');
+        $I->dontSee('лето 1977 года');
 
 
         /**
@@ -151,5 +175,6 @@ class SearchCest
 
         $I->amOnPage('https://localhost/?search=1&q=another+tag');
         $I->see('<a href="/tags/blog%20tag/">blog tag</a>');
+
     }
 }

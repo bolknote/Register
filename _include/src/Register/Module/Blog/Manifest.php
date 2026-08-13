@@ -61,6 +61,7 @@ class Manifest implements ManifestInterface
                 $table
                     ->addIdColumn()
                     ->addInteger('create_time', true)
+                    ->addString('display_date', 255)
                     ->addInteger('modify_time', true)
                     ->addInteger('revision', true, default: 1)
                     ->addString('title', 255)

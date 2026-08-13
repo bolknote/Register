@@ -91,7 +91,7 @@ abstract class BlogController implements ControllerInterface
         // Obtaining posts
         $qb = $this->dbLayer
             ->select(
-                'p.create_time', 'p.title', 'p.text', 'p.url', 'p.id', 'p.commented', 'p.favorite',
+                'p.create_time', 'p.display_date', 'p.title', 'p.text', 'p.url', 'p.id', 'p.commented', 'p.favorite',
                 '(' . $this->dbLayer
                     ->select('count(*)')
                     ->from('s2_blog_comments AS c')
@@ -145,7 +145,7 @@ abstract class BlogController implements ControllerInterface
             $link               = $this->blogUrlBuilder->post($post['url']);
             $post['link']       = $link;
             $post['title_link'] = $link;
-            $post['time']       = $this->viewer->dateAndTime($post['create_time']);
+            $post['time']       = $this->postProvider->displayDate((int)$post['create_time'], (string)$post['display_date']);
             $post['tags']       = $tags[$id] ?? [];
 
             $post['see_also'] = [];

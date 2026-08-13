@@ -201,6 +201,42 @@ class CommentCest
         $I->amOnPage('https://localhost/thread-test');
         $I->seeElement('[data-comment-id="' . $parentId . '"].is-spam');
         $I->see('Edited suspicious text');
+        $I->seeElement('[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="ham"]');
+        $I->dontSeeElement('[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="spam"]');
+
+        $hamToken = (string)$I->grabAttributeFrom(
+            '[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="ham"] input[name="moderation_token"]',
+            'value',
+        );
+        $I->sendPost('https://localhost/comment-moderate', [
+            'moderation_action' => 'ham',
+            'target_type'       => 'article',
+            'comment_id'        => (string)$parentId,
+            'comment_anchor'    => '1',
+            'moderation_token'  => $hamToken,
+            'return_to'         => '/thread-test',
+        ]);
+        $I->seeResponseCodeIs(303);
+
+        $I->amOnPage('https://localhost/thread-test');
+        $I->dontSeeElement('[data-comment-id="' . $parentId . '"].is-spam');
+        $I->dontSeeElement('[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="ham"]');
+        $I->seeElement('[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="spam"]');
+        $I->see('Edited suspicious text');
+
+        $spamToken = (string)$I->grabAttributeFrom(
+            '[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="spam"] input[name="moderation_token"]',
+            'value',
+        );
+        $I->sendPost('https://localhost/comment-moderate', [
+            'moderation_action' => 'spam',
+            'target_type'       => 'article',
+            'comment_id'        => (string)$parentId,
+            'comment_anchor'    => '1',
+            'moderation_token'  => $spamToken,
+            'return_to'         => '/thread-test',
+        ]);
+        $I->seeResponseCodeIs(303);
 
         $I->logout();
         $I->amOnPage('https://localhost/thread-test');
@@ -276,6 +312,7 @@ class CommentCest
         $I->dontSeeElement($selector . ' .comment-edit-start');
         $I->seeElement($selector . ' [data-moderation-action="delete"]');
         $I->seeElement($selector . ' [data-moderation-action="spam"]');
+        $I->dontSeeElement($selector . ' [data-moderation-action="ham"]');
     }
 
     private function insertArticle(DbLayer $dbLayer): int

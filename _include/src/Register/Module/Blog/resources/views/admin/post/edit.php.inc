@@ -31,6 +31,7 @@ $columnMap = [
     'user_id'     => ['column' => 2,],
     'label'       => ['column' => 2,],
     'create_time' => ['column' => 2,],
+    'display_date' => ['column' => 2,],
     'modify_time' => ['column' => 2,],
     'favorite'    => ['column' => 2,],
     'commented'   => ['column' => 2,],
