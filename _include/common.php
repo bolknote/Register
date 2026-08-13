@@ -162,8 +162,8 @@ try {
     }
 
     $staticallyLoadedClasses = array_merge(
-        $baseModuleRegistry->applicationExtensionClasses(),
-        $baseModuleRegistry->adminExtensionClasses()
+        $baseModuleRegistry->applicationModuleClasses(),
+        $baseModuleRegistry->adminModuleClasses()
     );
 
     foreach ($enabledExtensions['cms'] as $module) {

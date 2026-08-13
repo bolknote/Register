@@ -31,7 +31,7 @@ final readonly class RegisterKernel
             $application->addModule(new AdminExtension());
         }
 
-        foreach ($this->baseModuleRegistry->applicationExtensionClasses() as $moduleClass) {
+        foreach ($this->baseModuleRegistry->applicationModuleClasses() as $moduleClass) {
             $application->addModule(new $moduleClass());
         }
 
@@ -39,7 +39,7 @@ final readonly class RegisterKernel
             return;
         }
 
-        foreach ($this->baseModuleRegistry->adminExtensionClasses() as $moduleClass) {
+        foreach ($this->baseModuleRegistry->adminModuleClasses() as $moduleClass) {
             $application->addModule(new $moduleClass());
         }
     }

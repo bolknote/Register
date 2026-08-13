@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module;
 
 use S2\Cms\Extensions\ManifestInterface;
-use S2\Cms\Framework\ExtensionInterface;
+use S2\Cms\Framework\ModuleInterface;
 
 /**
  * The product modules that make up every Register installation.
@@ -35,8 +35,8 @@ final class BaseModuleRegistry
      *
      * @var array<string, array{
      *     manifest: class-string<ManifestInterface>,
-     *     application: class-string<ExtensionInterface>,
-     *     admin: class-string<ExtensionInterface>|null
+     *     application: class-string<ModuleInterface>,
+     *     admin: class-string<ModuleInterface>|null
      * }>
      */
     private const array MODULES = [
@@ -61,8 +61,8 @@ final class BaseModuleRegistry
             'admin'       => \s2_extensions\s2_counter\AdminExtension::class,
         ],
         self::TYPOGRAPHY => [
-            'manifest'    => \s2_extensions\s2_typo\Manifest::class,
-            'application' => \s2_extensions\s2_typo\Extension::class,
+            'manifest'    => Typography\Manifest::class,
+            'application' => Typography\Module::class,
             'admin'       => null,
         ],
     ];
@@ -84,14 +84,14 @@ final class BaseModuleRegistry
         return $this->module($id)['manifest'];
     }
 
-    /** @return list<class-string<ExtensionInterface>> */
-    public function applicationExtensionClasses(): array
+    /** @return list<class-string<ModuleInterface>> */
+    public function applicationModuleClasses(): array
     {
         return array_column(self::MODULES, 'application');
     }
 
-    /** @return list<class-string<ExtensionInterface>> */
-    public function adminExtensionClasses(): array
+    /** @return list<class-string<ModuleInterface>> */
+    public function adminModuleClasses(): array
     {
         $classes = [];
         foreach (self::MODULES as $module) {
@@ -106,8 +106,8 @@ final class BaseModuleRegistry
     /**
      * @return array{
      *     manifest: class-string<ManifestInterface>,
-     *     application: class-string<ExtensionInterface>,
-     *     admin: class-string<ExtensionInterface>|null
+     *     application: class-string<ModuleInterface>,
+     *     admin: class-string<ModuleInterface>|null
      * }
      */
     private function module(string $id): array

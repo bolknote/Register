@@ -69,7 +69,7 @@ automatic URL lifecycle management.
 
 | Aegea capability | Register status | Notes |
 |---|---|---|
-| Automatic typography | Available | The `s2_typo` extension processes rendered HTML and RSS. |
+| Automatic typography | Available | The built-in Typography module processes rendered HTML and RSS. |
 | Nested quotes, dashes, non-breaking spaces, and abbreviation protection | Available | Implemented by the typographer. |
 | Move quotation marks outside links | Available | Implemented. |
 | Typography traditions for every interface language | Partial | The bundled typographer is focused on Russian typography. |
@@ -280,7 +280,7 @@ The main implementation anchors used during review are:
 - content, comment, tag, session, and user schema: [`_include/src/Model/Installer.php`](../_include/src/Model/Installer.php);
 - comment subscriptions: [`_include/src/Model/CommentNotifier.php`](../_include/src/Model/CommentNotifier.php);
 - authentication and sessions: [`_include/src/Model/AuthManager.php`](../_include/src/Model/AuthManager.php);
-- typography: [`_extensions/s2_typo/Typograph.php`](../_extensions/s2_typo/Typograph.php);
+- typography: [`Register\Module\Typography\Typograph`](../_include/src/Register/Module/Typography/Typograph.php);
 - search and indexing: [`_extensions/s2_search/Extension.php`](../_extensions/s2_search/Extension.php);
 - recommendations: [`_extensions/s2_search/Service/RecommendationProvider.php`](../_extensions/s2_search/Service/RecommendationProvider.php);
 - blog routes and archives: [`_extensions/s2_blog/Extension.php`](../_extensions/s2_blog/Extension.php);

@@ -11,6 +11,7 @@ namespace unit\Register;
 
 use Codeception\Test\Unit;
 use Register\Module\BaseModuleRegistry;
+use Register\Module\Typography\Module as TypographyModule;
 use Register\ProductModule;
 use Register\RegisterKernel;
 use S2\Cms\Admin\AdminExtension;
@@ -33,7 +34,7 @@ final class RegisterKernelTest extends Unit
             \s2_extensions\s2_search\Extension::class,
             \s2_extensions\s2_latex\Extension::class,
             \s2_extensions\s2_counter\Extension::class,
-            \s2_extensions\s2_typo\Extension::class,
+            TypographyModule::class,
         ], $application->moduleClasses);
     }
 
@@ -51,7 +52,7 @@ final class RegisterKernelTest extends Unit
             \s2_extensions\s2_search\Extension::class,
             \s2_extensions\s2_latex\Extension::class,
             \s2_extensions\s2_counter\Extension::class,
-            \s2_extensions\s2_typo\Extension::class,
+            TypographyModule::class,
             \s2_extensions\s2_blog\AdminExtension::class,
             \s2_extensions\s2_search\AdminExtension::class,
             \s2_extensions\s2_latex\AdminExtension::class,

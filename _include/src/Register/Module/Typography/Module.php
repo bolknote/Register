@@ -2,22 +2,22 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   MIT
- * @package   s2_typo
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace s2_extensions\s2_typo;
+namespace Register\Module\Typography;
 
 use S2\Cms\Controller\Rss\FeedItemRenderEvent;
 use S2\Cms\Controller\Rss\FeedRenderEvent;
 use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ExtensionInterface;
+use S2\Cms\Framework\ModuleInterface;
 use S2\Cms\Template\TemplateFinalReplaceEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\RouteCollection;
 
-class Extension implements ExtensionInterface
+class Module implements ModuleInterface
 {
     #[\Override]
     public function buildContainer(Container $container): void

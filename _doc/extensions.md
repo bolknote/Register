@@ -9,10 +9,11 @@ the blog product itself are base modules and follow a different lifecycle; see
 Blog, Pages, Comments, Tags, Search, Typography, Analytics, Math, and Admin are available in every
 Register installation. They cannot be disabled or uninstalled and are upgraded with the engine.
 
-During the transition from S2, five base modules still live under `_extensions`: `s2_blog`,
-`s2_search`, `s2_typo`, `s2_counter`, and `s2_latex`. Their status is defined by
-[`BaseModuleRegistry`](../_include/src/Register/Module/BaseModuleRegistry.php). Their directory and
-class names do not make them optional.
+During the transition from S2, four base modules still live under `_extensions`: `s2_blog`,
+`s2_search`, `s2_counter`, and `s2_latex`. Typography already lives under `Register\Module`. The
+status of all five is defined by
+[`BaseModuleRegistry`](../_include/src/Register/Module/BaseModuleRegistry.php); an inherited directory
+or class name does not make a base module optional.
 
 Their schemas are installed and upgraded by Register's single `REGISTER_SCHEMA_REVISION` ledger.
 Base manifest versions are not consulted after a database has entered that ledger, and their

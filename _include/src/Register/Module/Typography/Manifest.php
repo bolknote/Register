@@ -7,17 +7,17 @@
  *
  * @copyright 2010-2024 Roman Parpalak
  * @license MIT
- * @package s2_typo
+ * @package Register
  */
 
 declare(strict_types = 1);
 
-namespace s2_extensions\s2_typo;
+namespace Register\Module\Typography;
 
 use S2\Cms\Extensions\ManifestInterface;
 use S2\Cms\Extensions\ManifestTrait;
 
-class Manifest implements ManifestInterface
+final class Manifest implements ManifestInterface
 {
     use ManifestTrait;
 

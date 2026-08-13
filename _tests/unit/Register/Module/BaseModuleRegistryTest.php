@@ -31,11 +31,11 @@ final class BaseModuleRegistryTest extends Unit
             self::assertTrue(class_exists($this->registry()->manifestClass($id)));
         }
 
-        foreach ($this->registry()->applicationExtensionClasses() as $class) {
+        foreach ($this->registry()->applicationModuleClasses() as $class) {
             self::assertTrue(class_exists($class));
         }
 
-        foreach ($this->registry()->adminExtensionClasses() as $class) {
+        foreach ($this->registry()->adminModuleClasses() as $class) {
             self::assertTrue(class_exists($class));
         }
     }

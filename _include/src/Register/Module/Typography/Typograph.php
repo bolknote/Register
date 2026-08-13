@@ -8,14 +8,14 @@
  * @copyright 2010-2024 Roman Parpalak, partially based on code (C) by Dmitry Smirnov
  * @see       http://spectator.ru/technology/php/quotation_marks_stike_back
  * @license   MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace s2_extensions\s2_typo;
+namespace Register\Module\Typography;
 
-class Typograph
+final class Typograph
 {
     public static function processRussianText(string $contents, bool $soft = false): string
     {

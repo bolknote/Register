@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace unit\extensions\s2_typo;
+namespace unit\Register\Module\Typography;
 
 use Codeception\Test\Unit;
-use s2_extensions\s2_typo\Typograph;
+use Register\Module\Typography\Typograph;
 
 /**
  * @group typo
