@@ -26,6 +26,7 @@ final class RecommendationCest
         if (!$cache instanceof CacheItemPoolInterface) {
             throw new \RuntimeException('The recommendations cache service is unavailable.');
         }
+
         $I->assertTrue($cache->clear());
 
         /** @var Indexer $indexer */

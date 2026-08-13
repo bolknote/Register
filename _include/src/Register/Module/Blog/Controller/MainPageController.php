@@ -115,6 +115,7 @@ class MainPageController extends BlogController
             if ($prevLink !== null) {
                 $template->setLink('prev', $prevLink);
             }
+
             if ($nextLink !== null) {
                 $template->setLink('next', $nextLink);
             }

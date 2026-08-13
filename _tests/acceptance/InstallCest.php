@@ -101,7 +101,7 @@ class InstallCest
         $this->testFavoritePage($I);
         $this->testBlogModule($I);
         $this->testBlogRssAndSitemap($I);
-        $this->testSearchModule($I, $example['db_type']);
+        $this->testSearchModule($I);
         $this->testAdminAddArticles($I);
         $this->testRssAndSitemap($I);
         $this->testAdminTagListAndEdit($I);
@@ -461,7 +461,7 @@ class InstallCest
         $I->see(gmdate('c', strtotime('2023-08-12 12:15')));
     }
 
-    private function testSearchModule(AcceptanceTester $I, string $dbType): void
+    private function testSearchModule(AcceptanceTester $I): void
     {
         $I->amOnPage('/?search=1&q=new');
         $I->see('Search', 'h1');

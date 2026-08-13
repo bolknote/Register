@@ -33,7 +33,7 @@ final readonly class SpamAssessmentRepository
     ): int {
         $this->dbLayer
             ->insert('spam_assessments')
-            ->setValue('target_type', ':target_type')->setParameter('target_type', $contentType?->value, $contentType === null ? \PDO::PARAM_NULL : \PDO::PARAM_STR)
+            ->setValue('target_type', ':target_type')->setParameter('target_type', $contentType?->value, $contentType instanceof \Register\Content\ContentType ? \PDO::PARAM_STR : \PDO::PARAM_NULL)
             ->setValue('comment_id', ':comment_id')->setParameter('comment_id', $commentId, $commentId === null ? \PDO::PARAM_NULL : \PDO::PARAM_INT)
             ->setValue('created_at', ':created_at')->setParameter('created_at', time())
             ->setValue('source', ':source')->setParameter('source', $source)

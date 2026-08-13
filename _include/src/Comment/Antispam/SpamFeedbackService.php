@@ -63,7 +63,7 @@ final readonly class SpamFeedbackService
     ): bool
     {
         $comment = $this->commentRepository->findOfType($commentId, $contentType);
-        if ($comment === null) {
+        if (!$comment instanceof \Register\Comment\Comment) {
             return false;
         }
 

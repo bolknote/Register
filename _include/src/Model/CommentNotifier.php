@@ -45,7 +45,7 @@ readonly class CommentNotifier
     public function notify(int $commentId): void
     {
         $comment = $this->commentRepository->findOfType($commentId, ContentType::PAGE);
-        if ($comment === null) {
+        if (!$comment instanceof \Register\Comment\Comment) {
             return;
         }
 

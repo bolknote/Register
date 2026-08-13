@@ -141,6 +141,7 @@ final readonly class RecommendationFinder
             if (!$statement instanceof \PDOStatement) {
                 throw new UnknownException('Unable to prepare the SQLite recommendations query.');
             }
+
             $statement->bindValue('external_id', $externalId->getId(), \PDO::PARAM_STR);
             $statement->bindValue('instance_id', (int)$externalId->getInstanceId(), \PDO::PARAM_INT);
             $statement->bindValue('min_common_words', $minCommonWords, \PDO::PARAM_INT);
@@ -148,6 +149,7 @@ final readonly class RecommendationFinder
             if ($instanceId !== null) {
                 $statement->bindValue('candidate_instance_id', $instanceId, \PDO::PARAM_INT);
             }
+
             $statement->execute();
 
             /** @var list<array<string, mixed>> $rows */
@@ -164,7 +166,7 @@ final readonly class RecommendationFinder
 
     private function registerSqliteMathFunctions(): void
     {
-        $registerFunction = [$this->pdo, 'sqliteCreateFunction'];
+        $registerFunction = $this->pdo->sqliteCreateFunction(...);
         $registerFunction(
             'register_recommendation_exp',
             static fn(mixed $value): float => exp((float)$value),
@@ -172,7 +174,7 @@ final readonly class RecommendationFinder
         );
         $registerFunction(
             'register_recommendation_pow',
-            static fn(mixed $base, mixed $exponent): float => $base > 0 ? pow((float)$base, (float)$exponent) : 0.0,
+            static fn(mixed $base, mixed $exponent): float => $base > 0 ? ((float)$base) ** (float)$exponent : 0.0,
             2,
         );
     }

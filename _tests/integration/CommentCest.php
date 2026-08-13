@@ -186,6 +186,7 @@ class CommentCest
 
         $I->amOnPage('https://localhost/thread-test');
         $I->see('Edited suspicious text');
+
         $spamToken = (string)$I->grabAttributeFrom(
             '[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="spam"] input[name="moderation_token"]',
             'value',
@@ -259,6 +260,7 @@ class CommentCest
 
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/thread-test');
+
         $deleteToken = (string)$I->grabAttributeFrom(
             '[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="delete"] input[name="moderation_token"]',
             'value',

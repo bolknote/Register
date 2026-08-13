@@ -536,7 +536,7 @@ readonly class PageCommon implements ControllerInterface
             $moderator = $this->authProvider->getAuthenticatedCommentModerator($request);
             $comments  = $this->commentThreadRenderer->render(
                 $result->fetchAssocAll(),
-                $moderator === null ? null : new CommentModerationContext($moderator, ContentType::PAGE, $request->getPathInfo()),
+                $moderator instanceof \S2\Cms\Model\Comment\CommentModerator ? new CommentModerationContext($moderator, ContentType::PAGE, $request->getPathInfo()) : null,
             );
             if ($comments !== '') {
                 $template->putInPlaceholder('comments', $comments);

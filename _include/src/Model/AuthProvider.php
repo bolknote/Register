@@ -52,6 +52,7 @@ readonly class AuthProvider
         if (!$moderator instanceof CommentModerator) {
             return null;
         }
+
         if (!$moderator->canEdit) {
             return null;
         }

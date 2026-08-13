@@ -300,7 +300,7 @@ class PostPageController extends BlogController
 
         return $this->commentThreadRenderer->render(
             $statement->fetchAssocAll(),
-            $moderator === null ? null : new CommentModerationContext($moderator, ContentType::POST, $request->getPathInfo()),
+            $moderator instanceof \S2\Cms\Model\Comment\CommentModerator ? new CommentModerationContext($moderator, ContentType::POST, $request->getPathInfo()) : null,
         );
     }
 

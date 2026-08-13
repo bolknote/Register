@@ -47,7 +47,7 @@ readonly class BlogCommentNotifier
     public function notify(int $commentId): void
     {
         $comment = $this->commentRepository->findOfType($commentId, ContentType::POST);
-        if ($comment === null) {
+        if (!$comment instanceof \Register\Comment\Comment) {
             return;
         }
 

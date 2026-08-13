@@ -69,6 +69,7 @@ final class RecommendationFinderTest extends Unit
         foreach ($tocWithMetadata->getImgCollection() as $image) {
             $images[] = $image;
         }
+
         self::assertCount(1, $images);
         self::assertSame('/strong.jpg', $images[0]->getSrc());
 

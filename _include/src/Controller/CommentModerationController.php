@@ -44,6 +44,7 @@ final readonly class CommentModerationController implements ControllerInterface
         foreach ($commentStrategies as $commentStrategy) {
             $strategiesByTarget[$commentStrategy->getContentType()->value] = $commentStrategy;
         }
+
         $this->commentStrategies = $strategiesByTarget;
     }
 
@@ -87,7 +88,7 @@ final readonly class CommentModerationController implements ControllerInterface
             }
 
             $comment = $this->commentRepository->findOfType($commentId, $contentType);
-            if ($comment === null || ($comment->deleted && in_array($action, ['spam', 'ham'], true))) {
+            if (!$comment instanceof \Register\Comment\Comment || ($comment->deleted && in_array($action, ['spam', 'ham'], true))) {
                 return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
             }
 

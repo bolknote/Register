@@ -35,6 +35,7 @@ final readonly class CommentThreadRenderer
                 if ($comment['moderation_state'] === 'deleted') {
                     $comment['nick'] = '';
                 }
+
                 $normalizedComments[] = $comment;
             }
         }
@@ -123,15 +124,18 @@ final readonly class CommentThreadRenderer
                 ) {
                     break;
                 }
+
                 if (isset($visited[$parentId])) {
                     break;
                 }
+
                 $visited[$parentId] = true;
 
                 if (!isset($publicIds[$parentId])) {
                     $publicIds[$parentId]    = true;
                     $tombstoneIds[$parentId] = true;
                 }
+
                 $childId = $parentId;
             }
         }
@@ -152,6 +156,7 @@ final readonly class CommentThreadRenderer
                 $comment['is_author']           = false;
                 $comment['userpic_storage_key'] = null;
             }
+
             $result[] = $comment;
         }
 
@@ -204,7 +209,7 @@ final readonly class CommentThreadRenderer
 
         $segments = explode('/', $storageKey);
         foreach ($segments as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..') {
+            if (in_array($segment, ['', '.', '..'], true)) {
                 return null;
             }
         }

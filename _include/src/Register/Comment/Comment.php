@@ -33,12 +33,15 @@ final readonly class Comment
         if ($id <= 0) {
             throw new \InvalidArgumentException('A comment identifier must be a positive integer.');
         }
+
         if ($parentId !== null && $parentId <= 0) {
             throw new \InvalidArgumentException('A parent comment identifier must be a positive integer.');
         }
+
         if ($userpicId !== null && $userpicId <= 0) {
             throw new \InvalidArgumentException('A userpic identifier must be a positive integer.');
         }
+
         if ($time < 0) {
             throw new \InvalidArgumentException('A comment timestamp cannot be negative.');
         }
