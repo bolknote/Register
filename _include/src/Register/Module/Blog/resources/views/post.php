@@ -58,6 +58,6 @@ declare(strict_types = 1);
         }
     }
 
-	echo implode(' | ', $footer);
+	echo implode(' · ', $footer);
 ?>
 </div>

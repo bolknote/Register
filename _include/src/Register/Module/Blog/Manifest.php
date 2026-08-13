@@ -100,6 +100,7 @@ class Manifest implements ManifestInterface
                 $table
                     ->addIdColumn()
                     ->addInteger('post_id', true, default: null)
+                    ->addInteger('parent_id', true, true, null)
                     ->addInteger('time', true)
                     ->addString('ip', 39)
                     ->addString('nick', 50)
@@ -118,6 +119,7 @@ class Manifest implements ManifestInterface
                         'CASCADE',
                     )
                     ->addIndex('sort_idx', ['post_id', 'time', 'shown'])
+                    ->addIndex('thread_idx', ['post_id', 'parent_id', 'shown'])
                     ->addIndex('time_idx', ['time'])
                 ;
             });

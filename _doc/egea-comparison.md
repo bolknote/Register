@@ -258,7 +258,7 @@ and implementation scope; it is not an approved roadmap.
 - a configurable main-menu composer;
 - first-party share controls and analytics settings;
 - richer media blocks, captions, galleries, and replacement workflows;
-- comment threads and configurable age-based closing;
+- configurable age-based comment closing;
 - offline-safe editing.
 
 ### Large product projects

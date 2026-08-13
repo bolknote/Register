@@ -140,6 +140,11 @@ class HtmlTemplate
 
         $antispamVisitorCookie = null;
         if ($this->hasContent('commented') && $this->enabledComments->get()) {
+            $antispamRequest = $this->requestStack->getCurrentRequest();
+            if (!$antispamRequest instanceof Request) {
+                throw new \LogicException('A request is required to render the comment form.');
+            }
+
             $comment_array = [
                 'id' => $this->page['id'],
             ];
@@ -148,19 +153,25 @@ class HtmlTemplate
                 $comment_array += $this->page['comment_form'];
             }
 
+            if (!array_key_exists('parent_id', $comment_array)) {
+                $replyId = $antispamRequest->query->getInt('reply_to');
+                $comment_array += [
+                    'parent_id'    => $replyId > 0 ? $replyId : null,
+                    'reply_number' => max(0, $antispamRequest->query->getInt('reply_number')),
+                    'reply_name'   => mb_substr(trim($antispamRequest->query->getString('reply_name')), 0, 50),
+                ];
+            }
+
             $event = new TemplatePreCommentRenderEvent([$this->translator->trans('Comment syntax info')]);
             $this->eventDispatcher->dispatch($event);
-            $antispamRequest = $this->requestStack->getCurrentRequest();
-            if (!$antispamRequest instanceof Request) {
-                throw new \LogicException('A request is required to render the comment form.');
-            }
 
             $antispamVisitorToken = $this->commentFormTokenManager->getOrCreateVisitorToken($antispamRequest);
             $antispamVisitorCookie = $this->commentFormTokenManager->createVisitorCookie($antispamVisitorToken, $antispamRequest);
             $replace['<!-- s2_comment_form -->'] = $this->viewer->render('comment_form', [
                 ...$comment_array,
                 'syntaxHelpItems' => $event->syntaxHelpItems,
-                'action'          => '',
+                'action'          => $this->urlBuilder->link($antispamRequest->getPathInfo()),
+                'cancelReplyUrl'  => $this->urlBuilder->link($antispamRequest->getPathInfo()) . '#add-comment',
                 'antispamToken'   => $this->commentFormTokenManager->issue(
                     $antispamRequest->getPathInfo(),
                     $antispamVisitorToken,

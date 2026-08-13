@@ -7,10 +7,13 @@ declare(strict_types = 1);
  *
  * @var callable $trans
  * @var string $comments
+ * @var int $count
  */
 
 ?>
-<h2 class="comment" id="comment"><?php echo $trans('Comments'); ?></h2>
-<?php
-
-echo $comments;
+<section class="comments-section" aria-labelledby="comments-title">
+    <h2 class="comment" id="comments-title"><?php echo $trans('Comments'); ?> <span class="comment-count"><?php echo $count; ?></span></h2>
+    <div class="comment-thread" role="list">
+        <?php echo $comments; ?>
+    </div>
+</section>

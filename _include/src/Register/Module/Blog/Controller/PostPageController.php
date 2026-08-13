@@ -16,6 +16,7 @@ use Register\Content\ContentId;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Model\ArticleProvider;
+use S2\Cms\Model\Comment\CommentThreadRenderer;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\HtmlTemplate;
@@ -48,6 +49,7 @@ class PostPageController extends BlogController
         TranslatorInterface                      $translator,
         HtmlTemplateProvider                     $templateProvider,
         Viewer                                   $viewer,
+        private readonly CommentThreadRenderer   $commentThreadRenderer,
         StringProxy                              $blogTitle,
         BoolProxy                                $showComments,
         BoolProxy                                $enabledComments,
@@ -266,24 +268,26 @@ class PostPageController extends BlogController
      */
     private function getComments(int $id): string
     {
-        $comments = '';
-
+        $authorComment = $this->dbLayer
+            ->select('COUNT(*)')
+            ->from('users AS u')
+            ->where('LOWER(u.email) = LOWER(c.email)')
+            ->getSql()
+        ;
         $statement = $this->dbLayer
-            ->select('nick, time, email, show_email, good, text')
-            ->from('s2_blog_comments')
+            ->select(
+                'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text',
+                '(' . $authorComment . ') AS is_author',
+            )
+            ->from('s2_blog_comments AS c')
             ->where('post_id = :post_id')
             ->setParameter('post_id', $id)
             ->andWhere('shown = 1')
-            ->orderBy('time')
+            ->orderBy('time, c.id')
             ->execute()
         ;
 
-        for ($i = 1; $row = $statement->fetchAssoc(); ++$i) {
-            $row['i'] = $i;
-            $comments .= $this->viewer->render('comment', $row);
-        }
-
-        return $comments !== '' ? $this->viewer->render('comments', ['comments' => $comments]) : '';
+        return $this->commentThreadRenderer->render($statement->fetchAssocAll());
     }
 
     private function extractMetaDescriptions(string $text): string

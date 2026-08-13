@@ -20,6 +20,7 @@ use S2\Cms\Framework\Exception\NotFoundException;
 use S2\Cms\Helper\StringHelper;
 use S2\Cms\Model\Article\ArticleRenderedEvent;
 use S2\Cms\Model\ArticleProvider;
+use S2\Cms\Model\Comment\CommentThreadRenderer;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\HtmlTemplateProvider;
@@ -43,6 +44,7 @@ readonly class PageCommon implements ControllerInterface
         private TranslatorInterface      $translator,
         private HtmlTemplateProvider     $htmlTemplateProvider,
         private Viewer                   $viewer,
+        private CommentThreadRenderer    $commentThreadRenderer,
         private BoolProxy                $useHierarchy,
         private BoolProxy                $showComments,
         private StringProxy              $tagsUrl,
@@ -492,23 +494,27 @@ readonly class PageCommon implements ControllerInterface
 
         // Comments
         if ((bool)$page['commented'] && $showComments && $template->hasPlaceholder('<!-- s2_comments -->')) {
+            $authorComment = $this->dbLayer
+                ->select('COUNT(*)')
+                ->from('users AS u')
+                ->where('LOWER(u.email) = LOWER(c.email)')
+                ->getSql()
+            ;
             $result = $this->dbLayer
-                ->select('nick, time, email, show_email, good, text')
-                ->from('art_comments')
+                ->select(
+                    'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text',
+                    '(' . $authorComment . ') AS is_author',
+                )
+                ->from('art_comments AS c')
                 ->where('article_id = :article_id')->setParameter('article_id', $articleId)
                 ->andWhere('shown = 1')
-                ->orderBy('time')
+                ->orderBy('time, c.id')
                 ->execute()
             ;
 
-            $comments = '';
-            for ($commentIndex = 1; $row = $result->fetchAssoc(); ++$commentIndex) {
-                $row['i'] = $commentIndex;
-                $comments .= $this->viewer->render('comment', $row);
-            }
-
+            $comments = $this->commentThreadRenderer->render($result->fetchAssocAll());
             if ($comments !== '') {
-                $template->putInPlaceholder('comments', $this->viewer->render('comments', ['comments' => $comments]));
+                $template->putInPlaceholder('comments', $comments);
             }
         }
 

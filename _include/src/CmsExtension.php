@@ -54,6 +54,8 @@ use S2\Cms\Model\Article\ArticleRssStrategy;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\Comment\ArticleCommentStrategy;
+use S2\Cms\Model\Comment\CommentThreadBuilder;
+use S2\Cms\Model\Comment\CommentThreadRenderer;
 use S2\Cms\Model\CommentNotifier;
 use S2\Cms\Model\CommentProvider;
 use S2\Cms\Model\ExtensionCache;
@@ -289,6 +291,12 @@ class CmsExtension implements ExtensionInterface
             );
         });
 
+        $container->set(CommentThreadBuilder::class, static fn(): CommentThreadBuilder => new CommentThreadBuilder());
+        $container->set(CommentThreadRenderer::class, static fn(Container $container): CommentThreadRenderer => new CommentThreadRenderer(
+            $container->get(Viewer::class),
+            $container->get(CommentThreadBuilder::class),
+        ));
+
         $container->set('strict_viewer', function (Container $container): \S2\Cms\Template\Viewer {
             $provider = $container->get(DynamicConfigProvider::class);
             return new Viewer(
@@ -397,6 +405,7 @@ class CmsExtension implements ExtensionInterface
                 $container->get('translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
+                $container->get(CommentThreadRenderer::class),
                 $provider->getBoolProxy('S2_USE_HIERARCHY'),
                 $provider->getBoolProxy('S2_SHOW_COMMENTS'),
                 $provider->getStringProxy('S2_TAGS_URL'),

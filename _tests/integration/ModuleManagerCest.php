@@ -77,6 +77,10 @@ final class ModuleManagerCest
         $I->assertSame(SchemaMigrator::LATEST_REVISION, $schemaMigrator->currentRevision());
         $I->assertFileDoesNotExist($routesCache);
         $I->assertFalse($schemaMigrator->migrate());
+        $I->assertTrue($dbLayer->fieldExists('art_comments', 'parent_id'));
+        $I->assertTrue($dbLayer->indexExists('art_comments', 'thread_idx'));
+        $I->assertTrue($dbLayer->fieldExists('s2_blog_comments', 'parent_id'));
+        $I->assertTrue($dbLayer->indexExists('s2_blog_comments', 'thread_idx'));
 
         $legacyRows = $dbLayer->select('COUNT(*)')
             ->from('extensions')

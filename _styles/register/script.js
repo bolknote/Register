@@ -89,7 +89,95 @@
         }, false);
     }
 
+    function initCommentReplies() {
+        var block = document.querySelector('.comment-form-block');
+        var form = document.forms.post_comment;
+        if (!block || !form) {
+            return;
+        }
+
+        var parentField = form.elements.parent_id;
+        var numberField = form.elements.reply_number;
+        var nameField = form.elements.reply_name;
+        var textField = form.elements.text;
+        var context = block.querySelector('.comment-reply-context');
+        var contextTarget = block.querySelector('.comment-reply-target');
+        var cancelButton = block.querySelector('.comment-reply-cancel');
+        var originLink = block.querySelector('.comment-form-origin');
+        if (!parentField || !numberField || !nameField || !context || !contextTarget || !cancelButton || !originLink) {
+            return;
+        }
+
+        var originParent = block.parentNode;
+        var originNextSibling = block.nextSibling;
+
+        function restoreOrigin() {
+            if (originNextSibling && originNextSibling.parentNode === originParent) {
+                originParent.insertBefore(block, originNextSibling);
+            } else {
+                originParent.appendChild(block);
+            }
+        }
+
+        function setReply(link, focusText) {
+            var commentId = link.getAttribute('data-reply-comment') || '';
+            var number = link.getAttribute('data-reply-number') || '';
+            var name = link.getAttribute('data-reply-name') || '';
+            var actions = link.closest('.comment-actions');
+
+            parentField.value = commentId;
+            numberField.value = number;
+            nameField.value = name;
+            contextTarget.textContent = name || ('№ ' + number);
+            contextTarget.href = '#' + number;
+            context.hidden = false;
+
+            if (actions) {
+                actions.insertAdjacentElement('afterend', block);
+            }
+
+            try {
+                window.history.replaceState(null, '', link.href);
+            } catch (error) {
+                // Replying still works if the browser disallows History API updates.
+            }
+
+            if (focusText && textField) {
+                textField.focus();
+            }
+        }
+
+        document.querySelectorAll('.comment-reply').forEach(function (link) {
+            link.addEventListener('click', function (event) {
+                event.preventDefault();
+                setReply(link, true);
+            }, false);
+        });
+
+        cancelButton.addEventListener('click', function () {
+            parentField.value = '';
+            numberField.value = '0';
+            nameField.value = '';
+            context.hidden = true;
+            restoreOrigin();
+
+            try {
+                window.history.replaceState(null, '', originLink.href);
+            } catch (error) {
+                // The form has already returned to its original place.
+            }
+        }, false);
+
+        if (parentField.value) {
+            var activeReply = document.querySelector('.comment-reply[data-reply-comment="' + parentField.value + '"]');
+            if (activeReply) {
+                setReply(activeReply, false);
+            }
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
+        initCommentReplies();
         initCommentStorage();
         initKeyboardNavigation();
     }, false);
