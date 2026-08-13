@@ -68,7 +68,7 @@ class DynamicConfigFormBuilder
         'S2_ADMIN_COLOR'   => 'color',
         'S2_ADMIN_NEW_POS' => 'boolean',
         'S2_ADMIN_CUT'     => 'boolean',
-        'S2_LOGIN_TIMEOUT' => 'int',
+        'S2_LOGIN_TIMEOUT' => 'hidden',
         'S2_DB_REVISION'   => 'hidden',
         SchemaMigrator::CONFIG_KEY => 'hidden',
         AnalyticsManifest::SALT_CONFIG_KEY => 'hidden',

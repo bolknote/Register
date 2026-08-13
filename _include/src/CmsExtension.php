@@ -489,15 +489,10 @@ class CmsExtension implements ExtensionInterface
             $container->get(CommentNotifier::class),
         ), [CommentStrategyInterface::class]);
 
-        $container->set(AuthProvider::class, function (Container $container): \S2\Cms\Model\AuthProvider {
-            $provider = $container->get(DynamicConfigProvider::class);
-
-            return new AuthProvider(
-                $container->get(DbLayer::class),
-                $container->getStringParameter('cookie_name'),
-                $provider->getIntProxy('S2_LOGIN_TIMEOUT'),
-            );
-        });
+        $container->set(AuthProvider::class, fn(Container $container): \S2\Cms\Model\AuthProvider => new AuthProvider(
+            $container->get(DbLayer::class),
+            $container->getStringParameter('cookie_name'),
+        ));
 
         $container->set(UserProvider::class, fn(Container $container): \S2\Cms\Model\User\UserProvider => new UserProvider(
             $container->get(DbLayer::class),

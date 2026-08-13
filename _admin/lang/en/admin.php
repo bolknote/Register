@@ -34,6 +34,7 @@ return [
 
     // Login form
     'Password'                   => 'Password',
+    'Foreign computer'           => 'Shared computer',
     'Log in'                     => 'Log in',
     'Noscript'                   => 'You have disabled Javascript in your browser.<br>The system does not work without it.<br>Please enable Javascript.',
     'Error login page'           => 'You have entered incorrect username or password.<br>Please check the data and try again.',

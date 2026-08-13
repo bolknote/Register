@@ -9,7 +9,6 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
-use S2\Cms\Config\IntProxy;
 use S2\Cms\Model\Comment\CommentModerator;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,7 +20,6 @@ readonly class AuthProvider
     public function __construct(
         private DbLayer $dbLayer,
         private string  $cookieName,
-        private IntProxy $loginTimeoutMinutes,
     ) {
     }
 
@@ -62,7 +60,7 @@ readonly class AuthProvider
     }
 
     /**
-     * Authenticates the short-lived public-side moderator cookie issued by the admin login.
+     * Authenticates the public-side moderator cookie issued by the admin login.
      *
      * @throws DbLayerException
      * @throws BadRequestException
@@ -80,10 +78,6 @@ readonly class AuthProvider
             ->innerJoin('users_online AS o', 'o.login = u.login')
             ->where('o.comment_cookie = :cookie')
             ->setParameter('cookie', $cookie)
-            ->andWhere('o.time >= :min_time')
-            ->setParameter('min_time', time() - max(1, $this->loginTimeoutMinutes->get()) * 60)
-            ->andWhere('o.ip = :ip')
-            ->setParameter('ip', $request->getClientIp())
             ->andWhere('(u.hide_comments = 1 OR u.edit_comments = 1)')
             ->limit(1)
             ->execute()

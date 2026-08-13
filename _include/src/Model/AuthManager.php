@@ -12,7 +12,6 @@ namespace S2\Cms\Model;
 use S2\AdminYard\Helper\RandomHelper;
 use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
-use S2\Cms\Config\IntProxy;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -26,13 +25,11 @@ readonly class AuthManager
 {
     public const string FORCE_AJAX_RESPONSE = '_force_ajax_response';
 
+    public const int PERSISTENT_SESSION_LIFETIME = 5 * 365 * 86400;
+
     private const string SESSION_STATUS_LOST     = 'Lost';
 
     private const string SESSION_STATUS_OK       = 'Ok';
-
-    private const string SESSION_STATUS_EXPIRED  = 'Expired';
-
-    private const string SESSION_STATUS_WRONG_IP = 'Wrong_IP';
 
     private const string LEGACY_PASSWORD_PEPPER  = 'Life is not so easy :-)';
 
@@ -46,7 +43,6 @@ readonly class AuthManager
         private string            $baseUrl,
         private string            $cookieName,
         private bool              $forceAdminHttps,
-        private IntProxy          $loginTimeoutMinutes,
     ) {
     }
 
@@ -153,6 +149,41 @@ readonly class AuthManager
     }
 
     /**
+     * Renews persistent login cookies after an authenticated admin request. Legacy session IDs are
+     * treated as persistent, so an existing login is upgraded without asking for a password again.
+     *
+     * @throws DbLayerException
+     */
+    public function renewPersistentCookies(Request $request, Response $response): void
+    {
+        $sessionId = $request->cookies->get($this->cookieName, '');
+        if ($sessionId === '' || str_starts_with($sessionId, 't')) {
+            return;
+        }
+
+        $commentCookie = $this->dbLayer
+            ->select('comment_cookie')
+            ->from('users_online')
+            ->where('challenge = :challenge')->setParameter('challenge', $sessionId)
+            ->execute()
+            ->result()
+        ;
+        if (!\is_string($commentCookie) || $commentCookie === '') {
+            return;
+        }
+
+        $secureCookies = $this->shouldUseSecureCookies($request);
+        $response->headers->setCookie(Cookie::create(
+            name: $this->cookieName,
+            value: $sessionId,
+            expire: time() + self::PERSISTENT_SESSION_LIFETIME,
+            path: $this->basePath . '/_admin/',
+            secure: $secureCookies,
+        ));
+        $response->headers->setCookie($this->createCommentCookie($commentCookie, $secureCookies));
+    }
+
+    /**
      * @throws DbLayerException
      */
     private function cleanupExpiredSessions(): void
@@ -161,7 +192,7 @@ readonly class AuthManager
             ->delete('users_online')
             ->where('time < :time')
             ->andWhere('login IS NOT NULL')
-            ->setParameter('time', time() - $this->cookieExpireTimeout())
+            ->setParameter('time', time() - self::PERSISTENT_SESSION_LIFETIME)
             ->execute()
         ;
     }
@@ -276,7 +307,7 @@ readonly class AuthManager
         }
 
         // Everything is Ok.
-        return $this->successLogin($request, $login);
+        return $this->successLogin($request, $login, $request->request->getBoolean('foreign_computer'));
     }
 
     /**
@@ -328,10 +359,10 @@ readonly class AuthManager
     /**
      * @throws DbLayerException
      */
-    private function successLogin(Request $request, string $login): JsonResponse
+    private function successLogin(Request $request, string $login, bool $foreignComputer): JsonResponse
     {
         $time          = time();
-        $sessionId     = RandomHelper::getRandomHexString32();
+        $sessionId     = ($foreignComputer ? 't' : 'p') . substr(RandomHelper::getRandomHexString32(), 1);
         $commentCookie = RandomHelper::getRandomHexString32();
 
         // Create user session
@@ -353,11 +384,11 @@ readonly class AuthManager
         $response->headers->setCookie(Cookie::create(
             name: $this->cookieName,
             value: $sessionId,
-            expire: $time + $this->cookieExpireTimeout(),
+            expire: $foreignComputer ? 0 : $time + self::PERSISTENT_SESSION_LIFETIME,
             path: $this->basePath . '/_admin/',
             secure: $secureCookies,
         ));
-        $response->headers->setCookie($this->createCommentCookie($commentCookie, $secureCookies));
+        $response->headers->setCookie($this->createCommentCookie($commentCookie, $secureCookies, $foreignComputer));
 
         return $response;
     }
@@ -391,24 +422,14 @@ readonly class AuthManager
         return new Response($content);
     }
 
-    private function cookieExpireTimeout(): int
-    {
-        return max(14 * 86400, $this->loginExpireTimeout());
-    }
-
-    private function loginExpireTimeout(): int
-    {
-        return max($this->loginTimeoutMinutes->get(), 1) * 60;
-    }
-
     /**
      * @throws DbLayerException
      */
     private function checkAndUpdateCurrentUserSession(Request $request, string $sessionId): string
     {
-        // Check if the session exists and isn't expired
+        // Check if the session still exists.
         $result = $this->dbLayer
-            ->select('login, time, ip')
+            ->select('login, time')
             ->from('users_online')
             ->where('challenge = :challenge')->setParameter('challenge', $sessionId)
             ->execute()
@@ -418,20 +439,11 @@ readonly class AuthManager
             return self::SESSION_STATUS_LOST;
         }
 
-        [$loginValue, $timeValue, $ipValue] = $row;
+        [$loginValue, $timeValue] = $row;
         $login = (string)$loginValue;
         $time  = (int)$timeValue;
-        $ip    = $ipValue === null ? null : (string)$ipValue;
 
         $now = time();
-
-        if ($now > $time + $this->loginExpireTimeout()) {
-            return self::SESSION_STATUS_EXPIRED;
-        }
-
-        if ($ip !== $request->getClientIp()) {
-            return self::SESSION_STATUS_WRONG_IP;
-        }
 
         // Ok, we keep it fresh every 5 seconds.
         if ($now > $time + 5) {
@@ -461,12 +473,12 @@ readonly class AuthManager
      * Special cookie to mark that a user is logged in.
      * If this user has a permission, his comment will be published even in pre-moderation mode.
      */
-    private function createCommentCookie(string $value, bool $secure): Cookie
+    private function createCommentCookie(string $value, bool $secure, bool $foreignComputer = false): Cookie
     {
         return Cookie::create(
             name: $this->cookieName . '_c',
             value: $value,
-            expire: $value !== '' ? $this->cookieExpireTimeout() + time() : 0,
+            expire: $value !== '' && !$foreignComputer ? self::PERSISTENT_SESSION_LIFETIME + time() : 0,
             path: rtrim($this->basePath, '/') . '/',
             secure: $secure,
         );

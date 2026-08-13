@@ -33,6 +33,12 @@
                 <input type="password" name="pass" size="30" maxlength="255" disabled="disabled">
             </label>
         </p>
+        <p class="login-session-options">
+            <label class="login-session-option">
+                <input type="checkbox" name="foreign_computer" value="1">
+                <span><?php echo $trans('Foreign computer'); ?></span>
+            </label>
+        </p>
         <p>
             <input type="submit" name="button" value="<?php echo $trans('Log in'); ?>"/>
         </p>

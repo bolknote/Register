@@ -794,6 +794,8 @@ class AdminAjaxRequestHandler
             $response = new Json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         }
 
+        $this->authManager->renewPersistentCookies($request, $response);
+
         return $response;
     }
 

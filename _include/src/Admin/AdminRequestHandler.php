@@ -60,6 +60,7 @@ readonly class AdminRequestHandler
             $response          = $adminPanel->handleRequest($request);
         }
 
+        $this->authManager->renewPersistentCookies($request, $response);
         $this->requestStack->pop();
 
         return $response;

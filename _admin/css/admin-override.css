@@ -123,6 +123,27 @@ body.login_page {
     padding: 0 1em 0.5em 0;
 }
 
+.loginform .login-session-options {
+    display: block;
+    margin: 0.25em 0 0.75em;
+}
+
+.loginform .login-session-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    text-align: left;
+}
+
+.loginform .login-session-option input {
+    margin: 0;
+}
+
+.loginform .login-session-option span {
+    display: inline;
+    padding: 0;
+}
+
 /* List pages */
 
 .list-content .field-Article-published,

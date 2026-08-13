@@ -220,9 +220,8 @@ $errorHandler->setDefaultLogger($app->container->get(LoggerInterface::class));
 $dynamicConfigProvider = $app->container->get(DynamicConfigProvider::class);
 
 if (defined('S2_ADMIN_MODE') && session_status() !== PHP_SESSION_ACTIVE) {
-    $loginTimeoutSeconds = $dynamicConfigProvider->getIntProxy('S2_LOGIN_TIMEOUT')->get() * 60;
-    ini_set('session.cookie_lifetime', $loginTimeoutSeconds);
-    ini_set('session.gc_maxlifetime', $loginTimeoutSeconds);
+    ini_set('session.cookie_lifetime', '0');
+    ini_set('session.gc_maxlifetime', (string)\S2\Cms\Model\AuthManager::PERSISTENT_SESSION_LIFETIME);
     ini_set('session.cookie_httponly', true);
 }
 

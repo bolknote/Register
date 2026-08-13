@@ -160,22 +160,17 @@ class AdminExtension implements ExtensionInterface
 
         $container->set(PermissionChecker::class, fn(Container $_container): \S2\Cms\Model\PermissionChecker => new PermissionChecker(), [StatefulServiceInterface::class]);
 
-        $container->set(AuthManager::class, function (Container $container): \S2\Cms\Model\AuthManager {
-            $provider = $container->get(DynamicConfigProvider::class);
-
-            return new AuthManager(
-                $container->get(DbLayer::class),
-                $container->get(PermissionChecker::class),
-                $container->get(RequestStack::class),
-                $container->get(TemplateRenderer::class),
-                $container->get(Translator::class),
-                $container->getStringParameter('base_path'),
-                $container->getStringParameter('base_url'),
-                $container->getStringParameter('cookie_name'),
-                $container->getBoolParameter('force_admin_https'),
-                $provider->getIntProxy('S2_LOGIN_TIMEOUT'),
-            );
-        });
+        $container->set(AuthManager::class, fn(Container $container): \S2\Cms\Model\AuthManager => new AuthManager(
+            $container->get(DbLayer::class),
+            $container->get(PermissionChecker::class),
+            $container->get(RequestStack::class),
+            $container->get(TemplateRenderer::class),
+            $container->get(Translator::class),
+            $container->getStringParameter('base_path'),
+            $container->getStringParameter('base_url'),
+            $container->getStringParameter('cookie_name'),
+            $container->getBoolParameter('force_admin_https'),
+        ));
 
         // Request handlers
         $container->set(AdminRequestHandler::class, fn(Container $container): \S2\Cms\Admin\AdminRequestHandler => new AdminRequestHandler(
