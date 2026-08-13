@@ -13,8 +13,8 @@
         },
         "sort-packages": true
     },
-    "name": "s2/cms",
-    "description": "Small and fast CMS",
+    "name": "register/blog-engine",
+    "description": "Small and fast blog engine",
     "minimum-stability": "dev",
     "prefer-stable": true,
     "license": "MIT",

@@ -155,7 +155,7 @@ return [
     'Comments num'                         => '{{ comments }} комментарий|{{ comments }} комментария|{{ comments }} комментариев',
     'Server load'                          => 'Нагрузка на сервер: %s',
     'Dashboard'                            => 'Дашборд',
-    'S2 version'                           => 'Версия S2',
+    'S2 version'                           => 'Версия Register',
     'Environment'                          => 'Программная среда',
     'N/A'                                  => 'Информация недоступна',
     'OS'                                   => 'Операционная система: %s',

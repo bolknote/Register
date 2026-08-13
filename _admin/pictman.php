@@ -33,5 +33,5 @@ if ($response === null) {
 }
 
 // direct call of header() to override default PHP header
-header('X-Powered-By: S2/' . $app->container->getParameter('version'));
+header('X-Powered-By: Register/' . $app->container->getParameter('version'));
 $response->send();

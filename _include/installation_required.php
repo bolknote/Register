@@ -16,7 +16,7 @@ declare(strict_types = 1);
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>S2 Setup Required</title>
+    <title>Register Setup Required</title>
     <style>
         body {
             font-family: system-ui, -apple-system, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
@@ -121,7 +121,7 @@ declare(strict_types = 1);
 </head>
 <body>
 <div class="card">
-    <h1>S2 Setup Required <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-label="Warning" role="img">
+    <h1>Register Setup Required <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-label="Warning" role="img">
             <path fill="#ffce31" d="M5.9 62c-3.3 0-4.8-2.4-3.3-5.3L29.3 4.2c1.5-2.9 3.9-2.9 5.4 0l26.7 52.5c1.5 2.9 0 5.3-3.3 5.3H5.9z"/>
             <g fill="#231f20">
                 <path d="m27.8 23.6 2.8 18.5c.3 1.8 2.6 1.8 2.9 0l2.7-18.5c.5-7.2-8.9-7.2-8.4 0"/>
@@ -136,7 +136,7 @@ declare(strict_types = 1);
     </p>
 
     <ul>
-        <li>S2 hasn't been installed yet, <strong>or</strong></li>
+        <li>Register hasn't been installed yet, <strong>or</strong></li>
         <li>The config file was accidentally deleted after setup.</li>
     </ul>
 
@@ -147,7 +147,7 @@ declare(strict_types = 1);
     <div class="help">
         <p><strong>Need help?</strong></p>
         <ul>
-            <li>If you already installed S2, restore <code><?=$configFilename?></code> from a backup.</li>
+            <li>If you already installed Register, restore <code><?=$configFilename?></code> from a backup.</li>
             <li>Or you can create the file manually using <span class="toggle-config">this template</span></li>
         </ul>
 

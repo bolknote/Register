@@ -1,74 +1,69 @@
-# S2 — Simple and Fast CMS
+# Register — a small, fast blog engine
 
-S2 is a simple and fast website engine (or CMS — Content Management System) written in PHP.
-It is distributed for free under the MIT license.
-It is best suited for small to medium-sized content websites.
-S2’s undeniable advantages include a convenient
-[administrative interface](https://github.com/parpalak/s2/wiki/Control-Panel)
-and high performance.
-The engine provides a minimal set of essential features,
-while additional functionality can be implemented via
-[extensions](https://github.com/parpalak/s2/wiki/Extensions).
+Register is an open-source PHP engine for personal blogs and compact editorial sites. It is designed
+for writing and publishing without turning the site into a collection of dashboards, widgets, and
+unnecessary abstractions. The public side stays quiet and readable; the control panel handles the
+work of drafts, publication, comments, files, and maintenance.
 
-**Key advantages:**
-- **User-friendly**: Intuitive [control panel](https://github.com/parpalak/s2/wiki/Control-Panel) for easy content management and comment moderation.
-- **Reliable**: Auto-recovery after browser crashes or power outages.
-- **Fast**: Optimized for high performance.
-- **Free & open-source**: Licensed under the MIT license, allowing unrestricted use for any project.
-- **Low system requirements**: PHP + MySQL/PostgreSQL/SQLite.
-- **Team collaboration**: Role-based access (authors, moderators, editors, admins).
-- **Extensible**: Plugins for added functionality (search, blog, etc.).
-- **Minimalist**: Focuses on essential features (80/20 principle).
+Register is free software distributed under the MIT license. It runs on an ordinary PHP host and can
+use SQLite, MySQL/MariaDB, or PostgreSQL.
 
-[Learn more in the documentation](https://github.com/parpalak/s2/wiki/Features)
+## What Register already does
 
-## Server Requirements
+- Publishes blog posts and permanent pages, including drafts and scheduled dates.
+- Organizes material with tags, sections, archives, favorites, RSS, and a sitemap.
+- Supports comments, moderation, subscriptions, and spam filtering.
+- Provides accounts and permissions for authors, moderators, editors, and administrators.
+- Recovers unsaved editor text after a browser or power failure.
+- Handles image uploads and thumbnails and can be extended with optional modules.
+- Keeps the public theme deliberately small, responsive, readable, and compatible with light and
+  dark system appearance.
 
-- **Web server**
-- **PHP** 8.3 or higher. The codebase is continuously checked for PHP 8.3–8.5 compatibility.
-- PHP extensions: DOM, Filter, GD, JSON, PDO, and Session. cURL and zlib are optional performance enhancements.
-- One of the supported databases:
-    - **MySQL** (tested on MariaDB 10.5 and higher, MySQL 8.0 and higher),
-    - **PostgreSQL** (tested on 14),
-    - **SQLite** (tested on 3.37).
+The project follows the 80/20 principle: the everyday publishing path should be excellent, while
+specialized behavior belongs in extensions. Register is a blog engine, not a universal site builder.
 
-## Browser Requirements for Control Panel
+## First launch
 
-The admin UI relies on modern JavaScript (ES modules, async/await, fetch, WebAssembly) and modern CSS
-(CSS variables, grid, color-mix). Minimum supported browsers:
+A fresh installation opens with a welcome note that explains the engine and points to the first
+useful actions. Edit or delete that note, publish the first post, choose the site name, and the blog
+is ready. The unobtrusive lock in the public footer opens the control panel.
 
-- **Chrome / Edge** 111+
-- **Firefox** 113+ (ESR 115+)
-- **Safari** 16.2+
+## Requirements
 
-## Installation and upgrade
+- A web server.
+- PHP 8.3 or newer. The codebase is continuously checked for PHP 8.3–8.5 compatibility.
+- PHP extensions: DOM, Filter, GD, JSON, PDO, and Session. cURL and zlib are optional.
+- One supported database:
+  - MariaDB 10.5+ or MySQL 8.0+;
+  - PostgreSQL 14+;
+  - SQLite 3.37+.
+
+The control panel targets Chrome/Edge 111+, Firefox 113+ (ESR 115+), and Safari 16.2+.
+
+## Installation
 
 ```bash
-git clone https://github.com/parpalak/s2.git
-cd s2
-
-composer install # for local development and running tests
-# or
-composer install --no-dev -o # for production
+git clone https://github.com/parpalak/s2.git register
+cd register
+composer install --no-dev -o
 ```
 
-See [details in the documentation](https://github.com/parpalak/s2/wiki/Installation).
+See the [installation documentation](https://github.com/parpalak/s2/wiki/Installation) for web-server
+and database setup.
 
-## Local development
-
-Start an isolated local installation with one command:
+## Local development in one command
 
 ```bash
 ./dev
 ```
 
-The command installs Composer dependencies when needed, creates a local SQLite site in `.local/`,
-and serves it at `http://127.0.0.1:8080`. On the first run it prints the local admin credentials.
-Existing `config.php` and production data are never modified. The host, port, PHP executable, and
-initial credentials can be overridden with `S2_DEV_HOST`, `S2_DEV_PORT`, `PHP_BIN`,
-`S2_DEV_ADMIN_LOGIN`, and `S2_DEV_ADMIN_PASSWORD`.
+The command installs missing Composer dependencies, creates an isolated SQLite site in `.local/`,
+and serves it at `http://127.0.0.1:8080`. On first launch it prints the local credentials. Existing
+`config.php` and production data are never modified. Override the host, port, PHP executable, or
+initial credentials with `S2_DEV_HOST`, `S2_DEV_PORT`, `PHP_BIN`, `S2_DEV_ADMIN_LOGIN`, and
+`S2_DEV_ADMIN_PASSWORD`.
 
-Run all linters, maximum-level static analyzers, compatibility checks, and tests with:
+Run maximum-level static analysis, compatibility checks, linters, and tests with:
 
 ```bash
 composer check
@@ -76,21 +71,16 @@ composer check
 
 ## Documentation
 
-### For users
-- [Installation and upgrade](https://github.com/parpalak/s2/wiki/Installation)
-- [Configuration](https://github.com/parpalak/s2/wiki/Configuration)
-- [Control panel](https://github.com/parpalak/s2/wiki/Control-Panel)
-
-### For webmasters
-
-- [Language packs](https://github.com/parpalak/s2/wiki/Language-Packs)
-- [Styles](https://github.com/parpalak/s2/wiki/Styles)
-- [Templates](https://github.com/parpalak/s2/wiki/Templates)
-
-### For developers
-
 - [Development](_doc/development.md)
-- [Architecture Overview](_doc/architecture.md)
+- [Architecture](_doc/architecture.md)
 - [Comments](_doc/comments.md)
-- [S2 and Aegea feature comparison](_doc/egea-comparison.md)
+- [Register and Aegea feature comparison](_doc/egea-comparison.md)
 - [Extensions](_doc/extensions.md)
+- [Control panel](https://github.com/parpalak/s2/wiki/Control-Panel)
+- [Styles](https://github.com/parpalak/s2/wiki/Styles)
+
+## Compatibility note
+
+Register grew from S2. The PHP namespace `S2\Cms`, `S2_*` configuration keys, extension directory
+names, and selected environment variables remain unchanged for backward compatibility. They are
+implementation identifiers, not the product name shown to readers or administrators.

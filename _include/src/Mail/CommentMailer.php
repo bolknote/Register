@@ -52,7 +52,7 @@ readonly class CommentMailer
             'MIME-Version'              => '1.0',
             'Content-transfer-encoding' => '8bit',
             'Content-type'              => 'text/plain; charset=utf-8',
-            'X-Mailer'                  => 'S2 Mailer',
+            'X-Mailer'                  => 'Register Mailer',
             'List-Unsubscribe'          => '<' . $unsubscribeLink . '>',
             'Reply-To'                  => $from
         ];
@@ -99,7 +99,7 @@ readonly class CommentMailer
             'MIME-Version'              => '1.0',
             'Content-transfer-encoding' => '8bit',
             'Content-type'              => 'text/plain; charset=utf-8',
-            'X-Mailer'                  => 'S2 Mailer',
+            'X-Mailer'                  => 'Register Mailer',
             'Reply-To'                  => $author
         ];
 

@@ -13,11 +13,21 @@ const S2_DEV_REQUIRED_EXTENSIONS = [
     'pdo_sqlite',
 ];
 
+const REGISTER_DEV_WELCOME = <<<'HTML'
+<h1>Welcome to Register</h1>
+<p>Register is a small, fast engine for a personal blog: a place for posts, permanent pages, tags, archives, RSS, and thoughtful discussion without a noisy public interface.</p>
+<h2>What is ready</h2>
+<ul><li>Drafts and publication;</li><li>comments and moderation;</li><li>images, tags, favorites, and search extensions;</li><li>multiple authors and clear permissions;</li><li>a responsive light and dark reading theme.</li></ul>
+<h2>Start here</h2>
+<ol><li>Open the control panel using the lock in the footer.</li><li>Give the blog its name in Configuration.</li><li>Edit or delete this note and publish the first post.</li></ol>
+<p>This welcome note is only starting material. Register is a blog engine, not a universal site builder; its job is to keep writing, publishing, and reading pleasantly direct.</p>
+HTML;
+
 $rootDir = dirname(__DIR__);
 require $rootDir . '/_vendor/autoload.php';
 
 if (PHP_VERSION_ID < 80300) {
-    throw new RuntimeException(sprintf('S2 requires PHP 8.3 or newer; %s is running.', PHP_VERSION));
+    throw new RuntimeException(sprintf('Register requires PHP 8.3 or newer; %s is running.', PHP_VERSION));
 }
 
 foreach (S2_DEV_REQUIRED_EXTENSIONS as $extension) {
@@ -113,8 +123,8 @@ if ($isNew) {
             ->execute()
         ;
 
-        $installer->insertConfigData('S2 Local', 'admin@example.test', 'English', Installer::DB_REVISION);
-        $installer->insertMainPage('S2 Local', time());
+        $installer->insertConfigData('Register', 'admin@example.test', 'English', Installer::DB_REVISION);
+        $installer->insertMainPage('Register', time(), REGISTER_DEV_WELCOME);
         $dbLayer->endTransaction();
     } catch (Throwable $throwable) {
         if ($pdo->inTransaction()) {
@@ -126,7 +136,7 @@ if ($isNew) {
 }
 
 echo PHP_EOL;
-echo sprintf("S2 local: %s/\n", $baseUrl);
+echo sprintf("Register: %s/\n", $baseUrl);
 echo sprintf("Admin:    %s/_admin/index.php\n", $baseUrl);
 if ($isNew) {
     echo sprintf("Login:    %s\n", $adminLogin);

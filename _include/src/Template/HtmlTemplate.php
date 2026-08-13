@@ -84,13 +84,11 @@ class HtmlTemplate
         $replace = [];
 
         // HTML head
-        $replace['<!-- s2_head_title -->'] = !$this->hasContent('head_title') ?
-            ($this->hasContent('title') ? $this->renderValue($this->page['title']) . ' &mdash; ' : '') . $this->siteName->get() :
-            $this->renderValue($this->page['head_title']);
+        $replace['<!-- s2_head_title -->'] = $this->buildHeadTitle();
 
         // Meta tags processing
         $meta_tags = [
-            '<meta name="Generator" content="S2">',
+            '<meta name="Generator" content="Register">',
         ];
 
         if ($this->hasContent('meta_keywords')) {
@@ -114,7 +112,7 @@ class HtmlTemplate
         $replace['<!-- s2_rss_link -->'] = implode("\n", $this->stringListValue($this->page['rss_link']));
 
         // Content
-        $replace['<!-- s2_site_title -->'] = $this->siteName->get();
+        $replace['<!-- s2_site_title -->'] = $this->buildSiteTitle();
 
         $link_navigation = [];
         foreach ($this->navLinks as $link_rel => $link_href) {
@@ -159,7 +157,7 @@ class HtmlTemplate
         $replace['<!-- s2_back_forward -->'] = $this->hasContent('back_forward') ? $this->viewer->render('back_forward', ['links' => $this->page['back_forward']]) : '';
 
         // Footer
-        $replace['<!-- s2_copyright -->'] = $this->s2_build_copyright();
+        $replace['<!-- s2_copyright -->'] = $this->buildFooter();
 
         $this->eventDispatcher->dispatch(new TemplateEvent($this), TemplateEvent::EVENT_PRE_REPLACE);
 
@@ -256,7 +254,41 @@ class HtmlTemplate
     /**
      * @throws DbLayerException
      */
-    private function s2_build_copyright(): string
+    private function buildSiteTitle(): string
+    {
+        $siteName    = s2_htmlencode($this->siteName->get());
+        $requestPath = $this->requestStack->getCurrentRequest()?->getPathInfo();
+
+        if ($requestPath === '/') {
+            return $siteName;
+        }
+
+        return '<a href="' . $this->urlBuilder->link('/') . '">' . $siteName . '</a>';
+    }
+
+    private function buildHeadTitle(): string
+    {
+        if ($this->hasContent('head_title')) {
+            return $this->renderValue($this->page['head_title']);
+        }
+
+        $siteName = $this->siteName->get();
+        if (!$this->hasContent('title')) {
+            return s2_htmlencode($siteName);
+        }
+
+        $pageTitle = $this->renderValue($this->page['title']);
+        if ($pageTitle === $siteName) {
+            return s2_htmlencode($siteName);
+        }
+
+        return s2_htmlencode($pageTitle) . ' &mdash; ' . s2_htmlencode($siteName);
+    }
+
+    /**
+     * @throws DbLayerException
+     */
+    private function buildFooter(): string
     {
         $requestUri = $this->requestStack->getCurrentRequest()?->getPathInfo();
 
@@ -264,13 +296,35 @@ class HtmlTemplate
         $email     = $this->webmasterEmail->get();
         $startYear = $this->startYear->get();
 
-        $author    = $webmaster !== '' ? $webmaster : $this->siteName->get();
-        $copyright = $webmaster !== '' && $email !== '' ? StringHelper::jsMailTo($author, $email) : ($requestUri !== '/' ? '<a href="' . $this->urlBuilder->link('/') . '">' . $author . '</a>' : $author);
+        $author = $webmaster !== '' ? $webmaster : $this->siteName->get();
+        if ($webmaster !== '' && $email !== '') {
+            $copyrightOwner = StringHelper::jsMailTo($author, $email);
+        } else {
+            $escapedAuthor  = s2_htmlencode($author);
+            $copyrightOwner = $requestUri !== '/'
+                ? '<a href="' . $this->urlBuilder->link('/') . '">' . $escapedAuthor . '</a>'
+                : $escapedAuthor;
+        }
 
-        return ($startYear !== (int)date('Y') ?
-                \sprintf($this->translator->trans('Copyright 2'), $copyright, $startYear, date('Y')) :
-                \sprintf($this->translator->trans('Copyright 1'), $copyright, date('Y'))) . ' ' .
-            \sprintf($this->translator->trans('Powered by'), '<a href="http://s2cms.ru/">S2</a>');
+        $currentYear = (int)date('Y');
+        $copyright   = $startYear !== $currentYear
+            ? \sprintf($this->translator->trans('Copyright 2'), $copyrightOwner, $startYear, $currentYear)
+            : \sprintf($this->translator->trans('Copyright 1'), $copyrightOwner, $currentYear);
+
+        $engineCredit = \sprintf(
+            $this->translator->trans('Engine credit'),
+            '<a href="https://github.com/parpalak/s2">Register</a>'
+        );
+        $loginLabel = s2_htmlencode($this->translator->trans('Administration login'));
+
+        return '<span class="copyright-text">' . $copyright . '</span>' .
+            '<span class="footer-separator" aria-hidden="true">·</span>' .
+            '<a class="footer-rss" href="' . $this->urlBuilder->link('/rss.xml') . '">RSS</a>' .
+            '<span class="footer-separator" aria-hidden="true">·</span>' .
+            '<span class="engine-credit">' . $engineCredit . '</span>' .
+            '<a class="visual-login" href="' . $this->urlBuilder->link('/_admin/index.php') .
+            '" aria-label="' . $loginLabel . '" title="' . $loginLabel . '">' .
+            '<span aria-hidden="true">🔒</span></a>';
     }
 
     private function hasContent(string $placeholder): bool

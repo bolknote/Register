@@ -6,13 +6,13 @@ declare(strict_types = 1);
 $lang_install = array(
 
 // Install Form
-'Install S2'				=>	'Install S2 %s',
+'Install S2'				=>	'Install Register %s',
 'Part 0'					=>	'Change installer language',
 'Choose language help'		=>	'You can change the language of this install script if you find it easier to follow the instructions in your own language. Just choose your language from the list of installed ones below.',
 'Installer language'		=>	'Installer language',
 'Choose language'			=>	'Change language',
 'Part1'						=>	'Database setup',
-'Part1 intro'				=>	'Please enter the requested information in order to setup your database for S2. Contact your hosting support in case of difficulties.',
+'Part1 intro'				=>	'Enter the requested information to set up the Register database. Contact your hosting support in case of difficulties.',
 'Database error'			=>	'A database error occurred: "%s". Please check your database connection parameters.',
 'Database type'				=>	'Database type',
 'Database name'				=>	'Database name',
@@ -22,12 +22,12 @@ $lang_install = array(
 'Table prefix'				=>	'Table prefix',
 'Database type N/A'			=>	'(this PHP environment does not have support for it)',
 'Database server help'		=>	'The address of the database server.<br />Examples: <em>localhost</em>, <em>mysql1.example.com</em> or <em>208.77.188.166</em>. You can specify a custom port number if your database does not run on the default port (example: <em>localhost:3580</em>). For SQLite support, leave it at “localhost”.',
-'Database name help'		=>	'The name of the database that S2 will be installed into.<br />The database must exist. For SQLite, this is the relative path to the database file. If the SQLite database file does not exist, S2 will attempt to create it. You should grant PHP write permissions for this file and for the containing directory.',
+'Database name help'		=>	'The database where Register will be installed.<br />For SQLite, this is a relative path to the database file. Register will create a missing file. PHP needs write permission for the file and its directory.',
 'Database username help'	=>	'For database connection. Ignore for SQLite.',
 'Database password help'	=>	'For database connection. Ignore for SQLite.',
-'Table prefix help'			=>	'Optional database table prefix, e.g. “test_”.<br />By specifying a table prefix you can run multiple copies of S2 in the same database',
+'Table prefix help'			=>	'Optional database table prefix, e.g. “test_”.<br />A different prefix allows multiple Register installations in one database.',
 'Part2'						=>	'Administrator setup',
-'Part2 intro'				=>	'Please enter the requested information in order to setup an administrator account for your S2 installation. You can create more administrators and moderators in the control panel later.',
+'Part2 intro'				=>	'Create the administrator account for Register. You can add more administrators, authors, and moderators in the control panel later.',
 'Admin username'			=>	'Username',
 'Admin password'			=>	'Password',
 'Admin e-mail'				=>	'Administrator email',
@@ -35,7 +35,7 @@ $lang_install = array(
 'Part3'						=>	'Site setup',
 'Part3 intro'				=>	'Please enter the requested information about the site.',
 'Base URL'					=>	'Base URL',
-'Base URL help'				=>	' The URL (without trailing slash) of your site (example: <em>http://example.com</em> or <em>http://example.com/~myuser</em>).<br />You must set the correct Base URL or your site will not work properly. Please note that the preset value is just an educated guess by S2.',
+'Base URL help'				=>	'The blog URL without a trailing slash (for example, <em>https://example.com</em>).<br />Set the correct value or the site will not work properly. The preset value is only Register’s best guess.',
 'Default language'			=>	'Site language',
 'Default language help'		=>	'If you are going to delete the current language pack (English), you must choose another one before deleting.',
 'Start install'				=>	'Start installation', // Label for submit button
@@ -43,7 +43,7 @@ $lang_install = array(
 
 
 // Install errors
-'No database support'		=>	'This PHP environment does not have support for any of the databases that S2 supports. PHP needs to have support for either MySQL, PostgreSQL or SQLite in order for S2 to be installed.',
+'No database support'		=>	'This PHP environment has none of the database drivers Register supports. Enable MySQL, PostgreSQL, or SQLite support before installation.',
 'Missing database name'		=>	'You must enter a database name.',
 'Username too long'			=>	'Usernames must be no more than 40 characters long.',
 'Username too short'		=>	'Usernames must be at least 2 characters long.',
@@ -55,30 +55,31 @@ $lang_install = array(
 'Invalid table prefix'		=>	'The table prefix “%s” contains illegal characters. The prefix may contain the letters a to z, any numbers and the underscore character. They must however not start with a number. Please choose a different prefix.',
 'Too long table prefix'		=>	'The table prefix “%s” is too long. The maximum length is 40 characters. Please choose a different prefix.',
 'SQLite prefix collision'	=>	'The table prefix “sqlite_” is reserved for use by the SQLite engine. Please choose a different prefix.',
-'S2 already installed'		=>	'A table called “%1$susers” is already present in the database “%2$s”. This could mean that S2 is already installed or that another piece of software is installed and is occupying one or more of the table names S2 requires.',
-'S2 already installed 2'	=>	'If you want to install multiple copies of S2 in the same database, you must choose a different table prefix.',
-'S2 already installed 3'	=>	'To connect the current S2 installation to the selected database, simply download the config.php file with the current parameters and upload it to the folder containing the other S2 files.',
+'S2 already installed'		=>	'A table called “%1$susers” already exists in database “%2$s”. Register may already be installed, or another application may be using the required table names.',
+'S2 already installed 2'	=>	'To install multiple Register copies in one database, choose a different table prefix.',
+'S2 already installed 3'	=>	'To connect this Register installation to the selected database, download config.php with the current parameters and place it alongside the other engine files.',
 'Invalid language'			=>	'The language pack you have chosen does not seem to exist or is corrupt. Please recheck and try again.',
 
 // Used in the install
-'Site name'					=>	'Site powered by S2',
+'Site name'					=>	'Register',
 'Main Page'					=>	'Main page',
 'Section example'			=>	'Section 1',
 'Page example'				=>	'Page 1',
-'Page text'					=>	'If you see this text, the install of S2 has been successfully completed. Now you can go directly to <script type="text/javascript">document.write(\'<a href="\' + document.location.href + \'---">the control panel</a>\');</script> and configure this site.',
+'Welcome text'				=>	'<h1>A place to write</h1><p>Register is a small, fast engine for a personal blog. Publish notes and permanent pages, organize them with tags, keep an archive, receive comments, and offer RSS without putting a noisy interface in front of readers.</p><h2>What is ready</h2><ul><li>Drafts and publication;</li><li>comments, moderation, and subscriptions;</li><li>images, tags, favorites, and extensions;</li><li>multiple authors with clear permissions;</li><li>a responsive light and dark reading theme.</li></ul><h2>Start here</h2><ol><li>Open the control panel using the lock in the footer.</li><li>Give the blog its name in Configuration.</li><li>Edit or delete this note and publish the first post.</li></ol><p>This is starting material, not a mandatory page. Register is a blog engine, not a universal site builder; its job is to keep writing, publishing, and reading pleasantly direct.</p>',
+'Page text'					=>	'Register was installed successfully. Open the control panel using the lock in the footer and configure the blog.',
 
 
 // Installation completed form
-'Success description'		=>	'Congratulations! S2 %s is successfully installing.',
+'Success description'		=>	'Congratulations! Register %s was installed successfully.',
 'Success welcome'			=>	'Please follow the instructions below to finalize the installation.',
 'Final instructions'		=>	'Final instructions',
-'No write info 1'			=>	'<strong>Notice!</strong> To finalize the installation, you need to click on the button below to download a file called config.php. You then need to upload this file to the root directory of your S2 installation.',
-'No write info 2'			=>	'Once you have uploaded config.php, S2 will be fully installed! You may then %s once config.php has been uploaded.',
+'No write info 1'			=>	'<strong>Notice!</strong> To finish installation, download config.php with the button below and upload it to the directory containing Register.',
+'No write info 2'			=>	'After config.php is uploaded, Register will be fully installed and you may %s.',
 'Go to index'				=>	'go to the main page',
 'Warning'					=>	'Warning!',
-'No cache write'			=>	'<strong>The cache directory is currently not writable!</strong> In order for S2 to function properly, the directory named <em>_cache</em> must be writable by PHP. Use chmod to set the appropriate directory permissions. If in doubt, chmod to 0777.',
+'No cache write'			=>	'<strong>The cache directory is not writable!</strong> Register needs PHP write access to <em>_cache</em>. Use chmod to set appropriate permissions. If in doubt, chmod to 0777.',
 'No pictures write'			=>	'<strong>The picture directory is currently not writable!</strong> If you want to upload pictures and other files you must check that the directory named <em>_pictures</em> is writable by PHP. Use chmod to set the appropriate directory permissions. If in doubt, chmod to 0777.',
 'File upload alert'			=>	'<strong>File uploads appear to be disallowed on this server!</strong> If you want to upload pictures in the control panel, you have to enable the file_uploads configuration setting in PHP.',
 'Download config'			=>	'Download config.php', // Label for submit button
-'Write info'				=>	'S2 is completely installed! Now you may %s.',
+'Write info'				=>	'Register is completely installed! Now you may %s.',
 );

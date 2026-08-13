@@ -35,7 +35,7 @@ readonly class HttpClient
     public function __construct(
         private int     $timeout = 10,
         private int     $maxRedirects = 10,
-        string          $userAgent = 'S2',
+        string          $userAgent = 'Register',
         private bool    $verifySsl = false,
         private ?string $preferredTransport = null,
     ) {

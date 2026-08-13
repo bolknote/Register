@@ -1,6 +1,6 @@
-# Developing Extensions for S2
+# Developing Extensions for Register
 
-Extensions are pluggable components that enhance the functionality of the S2 CMS.
+Extensions are pluggable components that enhance the functionality of the Register blog engine.
 Each extension resides in its own directory under the `_extensions/` folder and must include
 a single mandatory file, `Manifest.php`, with several optional files
 that are automatically recognized and used by the system.
@@ -104,9 +104,9 @@ class Manifest implements ManifestInterface
 
 You can use `S2\Cms\Extensions\ManifestTrait` to get a reasonable default implementation for some methods.
 
-## S2 Application Extensions
+## Register Application Extensions
 
-If present, these files are automatically discovered and registered by the S2 application:
+If present, these files are automatically discovered and registered by Register:
 - `Extension.php` – used for the **public pages**.
 - `AdminExtension.php` – used in the **control panel**.
 
@@ -116,7 +116,7 @@ They must define classes implementing `S2\Cms\Framework\ExtensionInterface`:
 - Add public routes via `registerRoutes()`
 
 The most important part of the extension is the `registerListeners()` method,
-which registers event listeners to the events fired by the S2 core and other extensions.
+which registers event listeners to events fired by the Register core and other extensions.
 The event list is not documented yet because this API is still under active development.
 To discover the current event surface, search the source tree for event classes and dispatch calls:
 
@@ -267,7 +267,7 @@ Extension versions follow [Semantic Versioning](https://semver.org/):
 
 ## Extensions Must Be Able to Be Disabled
 
-Extensions in S2 can be disabled from the control panel.
+Extensions in Register can be disabled from the control panel.
 This action does not run uninstall code,
 it only disables the usage of `Extension` and `AdminExtension` classes.
 It is important to keep in mind this situation when developing your extension.

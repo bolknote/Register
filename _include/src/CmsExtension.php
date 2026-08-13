@@ -560,13 +560,16 @@ class CmsExtension implements ExtensionInterface
             if ($container->getBoolParameter('debug') || defined('S2_SHOW_TIME')) {
                 $viewer = $container->get(Viewer::class);
 
+                /** @var TranslatorInterface $translator */
+                $translator = $container->get('translator');
+
                 $pdo           = $container->getIfInstantiated(\PDO::class);
                 $executionTime = microtime(true) - $container->getFloatParameter('boot_timestamp');
-                $content       = \sprintf(
-                    't = %s; q = %d',
-                    $viewer->numberFormat($executionTime, true, 3),
+                $content       = '<span class="technical-data">' . \sprintf(
+                    $translator->trans('Performance info'),
+                    $viewer->numberFormat($executionTime * 1000.0, true, 1),
                     $pdo instanceof PDO ? $pdo->getQueryCount() : 0
-                );
+                ) . '</span>';
             }
 
             $event->replace('<!-- s2_querytime -->', $content);

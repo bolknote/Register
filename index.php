@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 
 $app = require __DIR__ . '/_include/common.php';
 
-header('X-Powered-By: S2/' . S2_VERSION);
+header('X-Powered-By: Register/' . S2_VERSION);
 
 $urlPrefix = $app->container->getStringParameter('url_prefix');
 $basePath  = $app->container->getParameter('base_path');
@@ -83,7 +83,7 @@ if (function_exists('fastcgi_finish_request')) {
     if (\extension_loaded('newrelic')) {
         newrelic_end_transaction();
         $newRelicAppName = ini_get('newrelic.appname');
-        newrelic_start_transaction(is_string($newRelicAppName) ? $newRelicAppName : 'S2');
+        newrelic_start_transaction(is_string($newRelicAppName) ? $newRelicAppName : 'Register');
         newrelic_name_transaction('index_background');
     }
 

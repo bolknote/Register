@@ -1,6 +1,6 @@
 ## Comment System Overview
 
-S2 includes a flexible and secure comment system designed to handle validation, spam detection, and moderation.
+Register includes a flexible and secure comment system designed to handle validation, spam detection, and moderation.
 
 ### Comment Submission Flow
 
@@ -13,7 +13,7 @@ S2 includes a flexible and secure comment system designed to handle validation, 
    If the comment is submitted with the preview flag, it is formatted and returned without being stored or processed further.
 
 3. **Spam Detection**
-   If the comment is valid, it is passed to the `SpamDetectorInterface`. S2 includes a single implementation of this interface, which uses the Akismet service for spam detection. A `SpamDecisionProvider` wraps the detector and applies local heuristics.
+   If the comment is valid, it is passed to the `SpamDetectorInterface`. Register includes a single implementation of this interface, which uses the Akismet service for spam detection. A `SpamDecisionProvider` wraps the detector and applies local heuristics.
 
    `SpamDetectorInterface` may return one of the following statuses:
     - `disabled`: The spam detection service is not enabled (API key not configured in the [control panel](https://github.com/parpalak/s2/wiki/Control-Panel#configuration)).

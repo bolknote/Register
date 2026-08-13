@@ -76,9 +76,14 @@ class InstallCest
         $I->install('admin', 'passwd', $example['db_type'], $example['db_user'], $example['db_password']);
 
         $I->amOnPage('/');
-        $I->see('Site powered by S2');
+        $I->see('Register');
+        $I->see('A place to write');
+        $I->see('Register is a blog engine, not a universal site builder');
+        $I->seeElement('meta[name="Generator"][content="Register"]');
+        $I->seeElement('link[href$="/_styles/register/favicon.svg"]');
+        $I->seeElement('a.visual-login[href$="/_admin/index.php"]');
         $I->click(['link' => 'Page 1']);
-        $I->see('If you see this text, the install of S2 has been successfully completed.');
+        $I->see('Register was installed successfully.');
         $I->canWriteComment();
 
         $this->testHierarchyRedirects($I);
@@ -137,7 +142,7 @@ class InstallCest
         $I->dontSee('another tag');
 
         $I->amOnPage('/_admin/index.php?entity=Article&action=edit&id=3');
-        $I->assertStringContainsString('If you see this text, the install of S2 has been successfully completed.', $I->grabValueFrom('textarea[name=pagetext]'));
+        $I->assertStringContainsString('Register was installed successfully.', $I->grabValueFrom('textarea[name=pagetext]'));
 
         $dataProvider = (static fn(string $csrfToken): array => [
             '__csrf_token' => $csrfToken,
@@ -291,7 +296,7 @@ class InstallCest
     {
         $I->amOnPage('/index.php?/rss.xml'); // Other URL scheme because the built-in PHP server looks for a file rss.xml
         $I->seeResponseCodeIsSuccessful();
-        $I->canSee('Site powered by S2');
+        $I->canSee('Register');
         $I->canSee('New Page Title');
         $I->canSee('New Page 4');
         $I->canSee('New Page 5');
@@ -600,7 +605,7 @@ class InstallCest
             'MIME-Version: 1.0' . "\r\n" .
             'Content-transfer-encoding: 8bit' . "\r\n" .
             'Content-type: text/plain; charset=utf-8' . "\r\n" .
-            'X-Mailer: S2 Mailer' . "\r\n" .
+            'X-Mailer: Register Mailer' . "\r\n" .
             'Reply-To: =?UTF-8?B?Um9tYW4g8J+Mng==?= <roman@example.com>' . "\r\n" .
             '' . "\r\n" .
             'Hello, admin.' . "\r\n" .
@@ -648,7 +653,7 @@ class InstallCest
             'MIME-Version: 1.0' . "\r\n" .
             'Content-transfer-encoding: 8bit' . "\r\n" .
             'Content-type: text/plain; charset=utf-8' . "\r\n" .
-            'X-Mailer: S2 Mailer' . "\r\n" .
+            'X-Mailer: Register Mailer' . "\r\n" .
             'List-Unsubscribe: <http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code='
             , $emails[0]);
         $I->assertStringContainsString(
@@ -701,7 +706,7 @@ class InstallCest
             'MIME-Version: 1.0' . "\r\n" .
             'Content-transfer-encoding: 8bit' . "\r\n" .
             'Content-type: text/plain; charset=utf-8' . "\r\n" .
-            'X-Mailer: S2 Mailer' . "\r\n" .
+            'X-Mailer: Register Mailer' . "\r\n" .
             'Reply-To: =?UTF-8?B?TW9kZXJhdG9yMg==?= <admin@example.com>' . "\r\n" .
             '' . "\r\n" .
             'Hello, admin.' . "\r\n" .

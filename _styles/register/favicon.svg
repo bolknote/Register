@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Register">
+    <rect width="128" height="128" rx="3" fill="#f3c527"/>
+    <rect x="4" y="4" width="120" height="120" rx="1" fill="none" stroke="#17130b" stroke-width="8"/>
+    <rect x="13" y="13" width="102" height="102" fill="none" stroke="#17130b" stroke-width="2"/>
+    <text x="64" y="91" fill="#17130b" font-family="Georgia,serif" font-size="90" font-weight="700" text-anchor="middle">R</text>
+    <rect x="13" y="96" width="102" height="19" fill="#17130b"/>
+    <text x="64" y="110" fill="#f3c527" font-family="Arial,sans-serif" font-size="10" font-weight="700" letter-spacing="2.3" text-anchor="middle">REGISTER</text>
+</svg>

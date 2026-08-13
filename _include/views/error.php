@@ -17,7 +17,7 @@ if (isset($GLOBALS['app']) && $GLOBALS['app'] instanceof Application) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="Generator" content="S2">
+    <meta name="Generator" content="Register">
     <title>Error - <?php echo s2_htmlencode($siteName); ?></title>
     <style>
         :root {

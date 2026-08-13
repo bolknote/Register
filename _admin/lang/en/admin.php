@@ -155,7 +155,7 @@ return [
     'Comments num'                         => '{{ comments }} comment|{{ comments }} comments',
     'Server load'                          => 'Server load: %s',
     'Dashboard'                            => 'Dashboard',
-    'S2 version'                           => 'S2 version',
+    'S2 version'                           => 'Register version',
     'Environment'                          => 'Environment',
     'N/A'                                  => 'N/A',
     'OS'                                   => 'Operating system: %s',

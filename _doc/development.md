@@ -40,7 +40,7 @@ rules in `.codegraphignore`. Start a new Codex task after cloning the repository
 server is loaded; it then keeps the first-party graph current while excluding dependencies,
 generated caches, local data, and bundled third-party frontend libraries. Its graph database is
 kept in the ignored `.local/codegraph-runtime/` directory so CodeGraph instances for other
-repositories cannot contend for or contaminate the S2 index.
+repositories cannot contend for or contaminate the Register index.
 
 Acceptance tests require the built-in PHP server and test databases.
 Use the repository helper script to prepare caches, start the server on `localhost:8881`,

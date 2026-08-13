@@ -3,35 +3,40 @@
 declare(strict_types = 1);
 
 /**
- * @var $author string
- * @var $title string
- * @var $title_link string
- * @var $time string
- * @var $text string
- * @var $tags array
- * @var $commented bool
- * @var $comment_num int
- * @var $favorite bool
+ * @var string $author
+ * @var string $title
+ * @var string $title_link
+ * @var string $time
+ * @var string $text
+ * @var array<int, array{link: string, title: string}> $tags
+ * @var bool $commented
+ * @var int $comment_num
+ * @var bool $favorite
+ * @var string|null $see_also
  */
 
-foreach ($tags as &$tag)
-	$tag = '<a class="preview_section" href="'.$tag['link'].'">'.$tag['title'].'</a>';
-unset($tag);
+$tagLinks = [];
+foreach ($tags as $tag) {
+    $tagLinks[] = '<a href="' . s2_htmlencode($tag['link']) . '">' . s2_htmlencode($tag['title']) . '</a>';
+}
 
 ?>
 <h2 class="preview">
-<?php if (!empty($tags)) { ?>
-	<small><?php echo implode(', ', $tags); ?> &rarr;</small>
-<?php } ?>
-<?php if (!empty($title_link)) {?>
-	<a href="<?php echo s2_htmlencode($title_link); ?>"><?php echo s2_htmlencode($title); ?></a>
+<?php if ($title_link !== '') {?>
+    <a href="<?php echo s2_htmlencode($title_link); ?>"><?php echo s2_htmlencode($title); ?></a>
 <?php } else {?>
-	<?php echo s2_htmlencode($title); ?>
+    <?php echo s2_htmlencode($title); ?>
 <?php } ?>
 </h2>
-<div class="preview time"><?php echo $time; ?></div>
+<div class="preview meta">
+    <span class="preview time"><?php echo $time; ?></span>
+<?php if ($tagLinks !== []) { ?>
+    <span class="preview tags"><?php echo implode(', ', $tagLinks); ?></span>
+<?php } ?>
+</div>
 <div class="post body"><?php echo $text; ?></div>
 <?php
 
-if (!empty($see_also))
-	include __DIR__ . '/see_also.php';
+if (!empty($see_also)) {
+    include __DIR__ . '/see_also.php';
+}

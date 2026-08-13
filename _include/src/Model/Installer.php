@@ -241,7 +241,7 @@ readonly class Installer
             'S2_FAVORITE_URL'     => 'favorite',
             'S2_TAGS_URL'         => 'tags',
             'S2_COMPRESS'         => '0',
-            'S2_STYLE'            => 'zeta',
+            'S2_STYLE'            => 'register',
             'S2_LANGUAGE'         => $defaultLanguage,
             'S2_SHOW_COMMENTS'    => '1',
             'S2_ENABLED_COMMENTS' => '1',
@@ -267,7 +267,7 @@ readonly class Installer
     /**
      * @throws DbLayerException
      */
-    public function insertMainPage(string $title, int $time): void
+    public function insertMainPage(string $title, int $time, string $pageText = ''): void
     {
         $this->dbLayer
             ->insert('articles')
@@ -277,8 +277,8 @@ readonly class Installer
             ->setValue('modify_time', ':modify_time')->setParameter('modify_time', $time)
             ->setValue('published', '1')
             ->setValue('template', ':template')->setParameter('template', 'mainpage.php')
-            ->setValue('excerpt', "''")
-            ->setValue('pagetext', "''")
+            ->setValue('excerpt', ':excerpt')->setParameter('excerpt', $pageText)
+            ->setValue('pagetext', ':pagetext')->setParameter('pagetext', $pageText)
             ->execute()
         ;
     }

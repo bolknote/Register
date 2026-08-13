@@ -1,7 +1,7 @@
-# S2 Architecture Overview
+# Register Architecture Overview
 
 ## Config Parameters
-There are two types of S2 config parameters:
+There are two types of Register config parameters:
 
 | Static                                                                                          | Dynamic                                                                                          |
 |-------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
@@ -13,7 +13,7 @@ There are two types of S2 config parameters:
 | –                                                                                               | Affect routing, i.e. routes matching is possible only after the container is initialized         |
 
 ## Components
-- [**Application**](../_include/src/Framework/Application.php) – part of the framework, does not contain S2 CMS logic.
+- [**Application**](../_include/src/Framework/Application.php) – part of the framework, independent of Register's blog-domain logic.
     - Gathers the following information from extensions:
         - Container definitions
         - Event listeners
@@ -22,9 +22,9 @@ There are two types of S2 config parameters:
       any requests to the public pages into a response.
 
 - **Application Extensions** – classes that implement the [`ExtensionInterface`](../_include/src/Framework/ExtensionInterface.php).
-    - There is [`CmsExtension`](../_include/src/CmsExtension.php) that contains the core S2 CMS logic for public pages.
+    - [`CmsExtension`](../_include/src/CmsExtension.php) contains the core Register logic for public pages.
     - There is [`AdminExtension`](../_include/src/Admin/AdminExtension.php) that defines additional control panel services and events. This separation is for performance reasons.
-    - [S2 extensions](extensions.md#s2-application-extensions) can also implement `ExtensionInterface` for public pages and for the control panel.
+    - [Register extensions](extensions.md#register-application-extensions) can also implement `ExtensionInterface` for public pages and for the control panel.
 
 - **Controllers**
     - Implement the method `public function handle(Request $request): Response` from [`ControllerInterface`](../_include/src/Framework/ControllerInterface.php).

@@ -3,7 +3,7 @@
 declare(strict_types = 1);
 
 /**
- * Installation script for S2.
+ * Installation script for Register.
  *
  * @copyright 2009-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
@@ -69,8 +69,8 @@ function error(string $message, string $title = 'An error was encountered'): nev
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="Generator" content="S2">
-        <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?> - S2</title>
+        <meta name="Generator" content="Register">
+        <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?> - Register</title>
         <style>
             :root {
                 --error-color: #d32f2f;
@@ -127,7 +127,7 @@ function error(string $message, string $title = 'An error was encountered'): nev
 
 if (file_exists(S2_ROOT . s2_get_config_filename())) {
     error(sprintf(
-        'The file \'%s\' already exists which would mean that S2 is already installed. You should go <a href="%s">here</a> instead.',
+        'The file \'%s\' already exists which would mean that Register is already installed. You should go <a href="%s">here</a> instead.',
         s2_get_config_filename(),
         S2_ROOT
     ));
@@ -135,7 +135,7 @@ if (file_exists(S2_ROOT . s2_get_config_filename())) {
 
 // Make sure we are running at least MIN_PHP_VERSION
 if (!function_exists('version_compare') || version_compare(PHP_VERSION, MIN_PHP_VERSION, '<')) {
-    error('You are running PHP version ' . PHP_VERSION . '. S2 requires at least PHP ' . MIN_PHP_VERSION . ' to run properly. You must upgrade your PHP installation before you can continue.');
+    error('You are running PHP version ' . PHP_VERSION . '. Register requires at least PHP ' . MIN_PHP_VERSION . ' to run properly. You must upgrade your PHP installation before you can continue.');
 }
 
 // Disable error reporting for uninitialized variables
@@ -177,6 +177,16 @@ function render_install_config_array(array $config, int $indentLevel = 0): strin
     return implode("\n", $resultLines);
 }
 
+function has_register_generator(?string $content): bool
+{
+    if ($content === null) {
+        return false;
+    }
+
+    return str_contains($content, '<meta name="Generator" content="Register">') ||
+        str_contains($content, '<meta name="Generator" content="S2">');
+}
+
 function generate_config_file(
     HttpClient $httpClient,
     string $dbType,
@@ -194,7 +204,7 @@ function generate_config_file(
         $urlPrefix = $prefix;
         try {
             $response = $httpClient->fetch($baseUrl . $urlPrefix . '/this/URL/_DoEs_/_NoT_/_eXiSt');
-            if ($response->content !== null && str_contains($response->content, '<meta name="Generator" content="S2">')) {
+            if (has_register_generator($response->content)) {
                 break;
             }
         } catch (HttpClientException) {
@@ -210,7 +220,7 @@ function generate_config_file(
     } else {
         try {
             $response = $httpClient->fetch('https://' . substr($baseUrl, 7) . $urlPrefix . '/this/URL/_DoEs_/_NoT_/_eXiSt');
-            if ($response->content !== null && str_contains($response->content, '<meta name="Generator" content="S2">')) {
+            if (has_register_generator($response->content)) {
                 $useHttps = true;
             }
         } catch (HttpClientException) {
@@ -394,7 +404,7 @@ if (isset($_POST['generate_config'])) {
     exit;
 }
 
-header('X-Powered-By: S2/' . S2_VERSION);
+header('X-Powered-By: Register/' . S2_VERSION);
 header('Content-Type: text/html; charset=utf-8');
 
 function guessBaseUrl(): string
@@ -449,8 +459,9 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
     <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-        <meta name="Generator" content="S2 <?php echo S2_VERSION; ?>">
+        <meta name="Generator" content="Register <?php echo S2_VERSION; ?>">
         <title><?php printf($lang_install['Install S2'], S2_VERSION) ?></title>
+        <link rel="icon" type="image/svg+xml" href="<?php echo S2_ROOT ?>_styles/register/favicon.svg">
         <link rel="stylesheet" href="<?php echo S2_ROOT ?>_admin/css/style.css">
     </head>
     <body>
@@ -801,7 +812,7 @@ try {
     exit;
 }
 
-// Make sure S2 isn't already installed.
+// Make sure Register isn't already installed.
 try {
     $result           = $s2_db->select('count(id)')->from('users')->execute();
     $databaseHasUsers = $result->fetchRow() !== false;
@@ -846,7 +857,7 @@ $admin_uid = $s2_db->insertId();
 $installer->insertConfigData($lang_install['Site name'], $email, $default_lang, Installer::DB_REVISION);
 
 // Insert some other default data
-$installer->insertMainPage($lang_install['Main Page'], $now);
+$installer->insertMainPage($lang_install['Main Page'], $now, $lang_install['Welcome text']);
 $s2_db->insert('articles')
     ->setValue('parent_id', '1')
     ->setValue('title', ':title')->setParameter('title', $lang_install['Section example'])
@@ -931,8 +942,9 @@ if (is_writable(S2_ROOT)) {
     <html>
     <head>
         <meta charset="utf-8">
-        <meta name="Generator" content="S2 <?php echo S2_VERSION; ?>"/>
+        <meta name="Generator" content="Register <?php echo S2_VERSION; ?>"/>
         <title><?php printf($lang_install['Install S2'], S2_VERSION) ?></title>
+        <link rel="icon" type="image/svg+xml" href="<?php echo S2_ROOT ?>_styles/register/favicon.svg">
         <link rel="stylesheet" type="text/css" href="<?php echo S2_ROOT ?>_admin/css/style.css"/>
     </head>
     <body>

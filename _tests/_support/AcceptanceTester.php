@@ -35,7 +35,7 @@ class AcceptanceTester extends Actor
         $I->seeLink('Run Installation', '/_admin/install.php');
         $I->amOnPage('/_admin/install.php');
         $I->seeResponseCodeIs(200);
-        $I->see('S2 2.0dev', 'h1');
+        $I->see('Register 2.0dev', 'h1');
 
         $I->selectOption('req_db_type', $dbType);
         $I->fillField('req_db_host', '127.0.0.1'); // not localhost for Github Actions
@@ -46,7 +46,7 @@ class AcceptanceTester extends Actor
         $I->fillField('req_password', $userPass);
         $I->click('start');
         $I->canSeeResponseCodeIs(200);
-        $I->see('S2 is completely installed!');
+        $I->see('Register is completely installed!');
 
         $configFileName = __DIR__ . '/../../config.test.php';
         $config = include $configFileName;

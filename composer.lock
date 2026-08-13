@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e6ef3404f6e16f3855d4e7245a007cf7",
+    "content-hash": "a178f496d96332943caab61b18dab834",
     "packages": [
         {
             "name": "matthiasmullie/minify",

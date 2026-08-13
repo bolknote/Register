@@ -1,24 +1,24 @@
-# S2 and Aegea feature comparison
+# Register and Aegea feature comparison
 
-This document compares S2 with the capabilities advertised on the
+This document compares Register with the capabilities advertised on the
 [Aegea feature page](https://blogengine.ru/features/). It is intended as a product-gap inventory for
 future planning, not as a commitment to reproduce every Aegea feature.
 
-The snapshot was reviewed on 2026-08-13 against first-party S2 source code, routes, database schema,
+The snapshot was reviewed on 2026-08-13 against first-party Register source code, routes, database schema,
 tests, and the CodeGraph index. Repeated items from Aegea's release summaries and thematic sections
 are consolidated. A feature that can only be recreated with arbitrary HTML, a custom theme, or a new
 extension is not marked as built in.
 
 Status legend:
 
-- **Available** — the user-facing outcome is implemented in S2.
+- **Available** — the user-facing outcome is implemented in Register.
 - **Partial** — only part of the outcome is implemented, or the workflow differs materially.
 - **Missing** — no first-party implementation was found.
-- **Not applicable** — the feature belongs to a commercial/licensing model S2 does not use.
+- **Not applicable** — the feature belongs to a commercial/licensing model Register does not use.
 
 ## Executive summary
 
-S2 already has a solid CMS and blog foundation: pages and posts, unpublished drafts, tags, comments,
+Register already has a solid blog foundation: pages and posts, unpublished drafts, tags, comments,
 email subscriptions, favourites, calendar archives, RSS, sitemaps, morphological search, related-content
 recommendations, an extension system, and browser-based administration. It additionally supports
 multiple users with roles and three database families: MySQL/MariaDB, PostgreSQL, and SQLite.
@@ -29,10 +29,10 @@ automatic URL lifecycle management.
 
 ## Editor, media, and presentation
 
-| Aegea capability | S2 status | Notes |
+| Aegea capability | Register status | Notes |
 |---|---|---|
 | Persistent public “Write” control | Partial | Editing is available through the separate control panel; there is no persistent public author control. |
-| Markdown-like authoring syntax and semantic blocks | Partial | S2 provides an HTML editor, formatting controls, and smart paragraphs, but not Aegea's syntax or block model. |
+| Markdown-like authoring syntax and semantic blocks | Partial | Register provides an HTML editor, formatting controls, and smart paragraphs, but not Aegea's syntax or block model. |
 | Links, emphasis, arbitrary HTML, and emoji | Available | Supported through HTML and UTF-8. |
 | Automatic URL linking | Missing | Links must be authored explicitly. |
 | Automatic tweet embedding | Missing | Embed HTML can be inserted manually. |
@@ -50,24 +50,24 @@ automatic URL lifecycle management.
 | Special syntax for external audio | Missing | Manual HTML is required. |
 | Audio and video media fragments | Missing | There is no dedicated authoring syntax. |
 | Silent looping video (`@loop`) | Missing | No first-party implementation. |
-| Public code highlighting for 18 languages | Missing | CodeMirror highlights editor source, but S2 does not bundle a public article code renderer. |
+| Public code highlighting for 18 languages | Missing | CodeMirror highlights editor source, but Register does not bundle a public article code renderer. |
 | Preview plus explicit draft/publish choice | Partial | Live preview and a publication flag exist, but the workflow differs. |
 | Continuous browser crash recovery | Available | Editor content is periodically stored in `localStorage`. |
 | Save with Ctrl/Cmd-S | Partial | Ctrl-S is implemented; modifier handling is not fully uniform across platforms. |
 | Scheduled publishing | Missing | The content schema has no publication-start timestamp. |
 | Backdated publishing | Available | The creation timestamp is editable. |
 | Rename a media file from the editor | Partial | Available through the picture manager rather than directly on an editor media fragment. |
-| Ten bundled themes | Missing | S2 currently bundles the Zeta theme. |
-| Bundled dark themes | Missing | No first-party dark theme is included. |
+| Ten bundled themes | Missing | Register deliberately bundles one first-party theme. |
+| Bundled dark themes | Available | The Register theme follows the operating-system light/dark preference. |
 | Custom themes and view overrides | Available | Themes, templates, views, and extensions are replaceable. |
-| CSS variables and responsive layout | Available | Used by the bundled Zeta theme. |
+| CSS variables and responsive layout | Available | Used by the bundled Register theme. |
 | Extra HTML wrappers without replacing a theme | Partial | Achievable through template overrides, but not exposed as a dedicated setting. |
 | Global custom CSS / embedded commercial theme | Missing | No dedicated product feature. |
 | Theme component preview page | Missing | No first-party catalogue of theme elements. |
 
 ## Typography, drafts, and comments
 
-| Aegea capability | S2 status | Notes |
+| Aegea capability | Register status | Notes |
 |---|---|---|
 | Automatic typography | Available | The `s2_typo` extension processes rendered HTML and RSS. |
 | Nested quotes, dashes, non-breaking spaces, and abbreviation protection | Available | Implemented by the typographer. |
@@ -101,9 +101,9 @@ automatic URL lifecycle management.
 
 ## Navigation, recommendations, and broadcasting
 
-| Aegea capability | S2 status | Notes |
+| Aegea capability | Register status | Notes |
 |---|---|---|
-| Configurable main menu | Partial | S2 has a page tree and blog navigation, but no equivalent menu composer. |
+| Configurable main menu | Partial | Register has a page tree and blog navigation, but no equivalent menu composer. |
 | Drag menu items directly in the public menu | Missing | Ordering is managed in the control panel. |
 | Favourites, tags, and calendar navigation | Available | Corresponding pages and routes exist. |
 | Popular, hot, and random-item navigation | Missing | No first-party popularity model or random route. |
@@ -133,7 +133,7 @@ automatic URL lifecycle management.
 
 ## Tags, search, archives, and languages
 
-| Aegea capability | S2 status | Notes |
+| Aegea capability | Register status | Notes |
 |---|---|---|
 | Assign, display, and globally edit tags | Available | Implemented. |
 | Unlimited tags | Available | No explicit product limit. |
@@ -169,11 +169,11 @@ automatic URL lifecycle management.
 
 ## Keyboard workflow and URL lifecycle
 
-| Aegea capability | S2 status | Notes |
+| Aegea capability | Register status | Notes |
 |---|---|---|
 | Alt-E to edit | Missing | No matching shortcut. |
 | Ctrl-S to save | Available | Implemented by the editor. |
-| Enter moves from title to body | Partial | S2 moves between form fields, but the exact workflow differs. |
+| Enter moves from title to body | Partial | Register moves between form fields, but the exact workflow differs. |
 | Ctrl-Enter saves and previews | Missing | No matching shortcut. |
 | Google Docs-style formatting shortcuts | Partial | Several Ctrl-based formatting shortcuts exist; the set and macOS handling differ. |
 | Keyboard navigation to previous/next item and archive | Partial | Ctrl/Meta navigation exists, but not every Aegea Alt mapping. |
@@ -186,31 +186,31 @@ automatic URL lifecycle management.
 
 ## Administration, installation, and operations
 
-| Aegea capability | S2 status | Notes |
+| Aegea capability | Register status | Notes |
 |---|---|---|
 | Browser-based login | Available | Implemented. |
-| Password-only login without a username | Missing | S2 requires both login and password. |
+| Password-only login without a username | Missing | Register requires both login and password. |
 | Indefinite remembered login | Partial | Cookie sessions and a configurable timeout exist, but sessions are not unconditional and permanent. |
 | “Foreign computer” session option | Missing | No matching login control. |
 | Brute-force rate limiting | Missing | No dedicated authentication rate limiter was found. |
 | Author photo and settings-managed favicon | Missing | A favicon can be supplied by a theme; there is no equivalent author profile feature. |
 | Multiple device sessions with revocation | Available | Active sessions can be inspected and revoked. |
 | Password reset through email or a file | Missing | No first-party reset workflow. |
-| Inline administration without a separate control panel | Missing | S2 uses the `_admin` application. |
-| Multiple users and role-based permissions | Available | This is an S2 capability beyond Aegea's advertised single-author workflow. |
+| Inline administration without a separate control panel | Missing | Register uses the `_admin` application. |
+| Multiple users and role-based permissions | Available | This is a Register capability beyond Aegea's advertised single-author workflow. |
 | Web installer | Available | Creates configuration and database tables. |
 | Environment and permission diagnostics | Available | Performed during installation. |
 | MySQL/MariaDB, PostgreSQL, and SQLite | Available | All three database families are supported. |
 | Table prefixes and multiple installations per database | Available | Supported. |
 | Production database settings from environment variables | Missing | Production configuration is file-based. |
-| Upgrade an existing S2 database | Available | Schema migrations are implemented. |
+| Upgrade an existing Register database | Available | Schema migrations are implemented. |
 | Import an existing Aegea database | Missing | No importer. |
 | Semi-automatic code and database update | Partial | Database migration is automatic after code deployment; deployment itself is external. |
 | Automatic database backup | Missing | No backup subsystem. |
 | Downloadable backup ZIP | Missing | No first-party implementation. |
 | Continuous incremental backup | Missing | No first-party implementation. |
 | HTTP and HTTPS | Available | Supported, including optional forced HTTPS for administration. |
-| Modern PHP support | Available | S2 requires PHP 8.3 and is checked for PHP 8.3–8.5 compatibility. |
+| Modern PHP support | Available | Register requires PHP 8.3 and is checked for PHP 8.3–8.5 compatibility. |
 | Sitemap | Available | Core and blog sitemap routes exist. |
 | Merge and minify CSS/JavaScript | Available | Registered assets can be merged, minified, hashed, and compressed. |
 | Configurable mail sender | Available | Uses the configured webmaster email. |
@@ -221,11 +221,11 @@ automatic URL lifecycle management.
 | Per-item timezone | Missing | Content records do not store a timezone. |
 | Canonical-domain redirect | Partial | A canonical URL is generated, but the application does not enforce a host redirect. |
 | General database and formatted-text cache | Partial | Routes, extensions, assets, and recommendations are cached; there is no equivalent general cache layer. |
-| Commercial licence-expiry indicator | Not applicable | S2 is distributed under the MIT licence. |
+| Commercial licence-expiry indicator | Not applicable | Register is distributed under the MIT licence. |
 
-## S2 capabilities that should be preserved
+## Register capabilities that should be preserved
 
-Closing selected product gaps should not weaken the capabilities that distinguish S2:
+Closing selected product gaps should not weaken the capabilities that distinguish Register:
 
 - multiple users and role-based permissions;
 - MySQL/MariaDB, PostgreSQL, and SQLite support;
@@ -256,7 +256,6 @@ and implementation scope; it is not an approved roadmap.
 - hidden items and secret draft-preview links;
 - a configurable main-menu composer;
 - first-party share controls and analytics settings;
-- dark mode for the bundled theme;
 - richer media blocks, captions, galleries, and replacement workflows;
 - comment threads and configurable age-based closing;
 - offline-safe editing.
