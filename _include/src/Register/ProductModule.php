@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register;
 
+use Register\Comment\CommentRepository;
 use Register\Content\ContentRepository;
 use Register\Content\ContentSourceInterface;
 use Register\Content\PageContentSource;
@@ -48,6 +49,9 @@ readonly class ProductModule implements ModuleInterface
             ...$container->getByTag(ContentSourceInterface::class),
         ));
         $container->set(TagRepository::class, static fn(Container $container): TagRepository => new TagRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(CommentRepository::class, static fn(Container $container): CommentRepository => new CommentRepository(
             $container->get(DbLayer::class),
         ));
         $container->set(

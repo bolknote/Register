@@ -11,6 +11,7 @@ namespace S2\Cms\Model;
 
 use S2\Cms\AdminYard\UserSettingStorage;
 use S2\Cms\Comment\Antispam\AntispamSchema;
+use Register\Comment\CommentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Schema\SchemaMigrator;
 use S2\Cms\Pdo\DbLayer;
@@ -138,6 +139,8 @@ readonly class Installer
             ;
         });
 
+        CommentSchema::create($this->dbLayer);
+
         $this->dbLayer->createTable('tags', function (SchemaBuilderInterface $table): void {
             $table
                 ->addIdColumn()
@@ -208,6 +211,7 @@ readonly class Installer
         $this->dbLayer->dropTable('queue');
         ContentTagSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('tags');
+        CommentSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('art_comments');
         $this->dbLayer->dropTable('articles');
         UserpicSchema::drop($this->dbLayer);
