@@ -20,9 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
 /** Builds a sitemap from the same canonical content sources used by search. */
 final readonly class ContentSitemapController implements ControllerInterface
 {
-    public const string PAGE_SERVICE_ID = self::class . '.pages';
-
-    public const string BLOG_SERVICE_ID = self::class . '.blog';
+    public const string SERVICE_ID = self::class . '.all';
 
     /** @var list<ContentType> */
     private array $contentTypes;

@@ -80,9 +80,6 @@ class TagsPageController extends BlogController
         $template->putInPlaceholder('text', $this->viewer->render('tags_list', ['tags' => $tags]));
 
         $template->addBreadCrumb($this->articleProvider->mainPageTitle(), $this->urlBuilder->link('/'));
-        if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
-            $template->addBreadCrumb($this->translator->trans('Blog'), $this->blogUrlBuilder->main());
-        }
 
         $template->addBreadCrumb($this->translator->trans('Tags'));
 

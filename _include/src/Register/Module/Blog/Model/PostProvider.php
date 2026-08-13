@@ -242,7 +242,7 @@ readonly class PostProvider
             str_contains($url, '/')
             || $this->blogUrlBuilder->isReservedPostSlug($url)
             || $this->articleProvider->articleFromPath(
-                $this->blogUrlBuilder->pathPrefix() . '/' . rawurlencode($url),
+                $this->blogUrlBuilder->postPath($url),
                 false
             ) !== null
         ) {

@@ -21,24 +21,21 @@ class BlogUrlBuilder implements StatefulServiceInterface
 
     private ?string $blogTagsPath = null;
 
-    private ?string $normalizedBlogUrl = null;
-
     public function __construct(
         private readonly UrlBuilder  $urlBuilder,
         private readonly StringProxy $tagsUrl,
         private readonly StringProxy $favoriteUrl,
-        private readonly StringProxy $blogUrl,
     ) {
     }
 
     public function main(): string
     {
-        return $this->blogPath ?? $this->blogPath = $this->urlBuilder->link($this->encodedBlogUrl() . '/');
+        return $this->blogPath ?? $this->blogPath = $this->urlBuilder->link('/');
     }
 
     public function absMain(): string
     {
-        return $this->absBlogPath ?? $this->absBlogPath = $this->urlBuilder->absLink($this->encodedBlogUrl() . '/');
+        return $this->absBlogPath ?? $this->absBlogPath = $this->urlBuilder->absLink('/');
     }
 
     public function favorite(): string
@@ -91,19 +88,9 @@ class BlogUrlBuilder implements StatefulServiceInterface
         return $this->absMain() . rawurlencode($url);
     }
 
-    public function postWithoutPrefix(string $url): string
+    public function postPath(string $url): string
     {
-        return $this->encodedBlogUrl() . '/' . rawurlencode($url);
-    }
-
-    public function blogIsOnTheSiteRoot(): bool
-    {
-        return $this->pathPrefix() === '';
-    }
-
-    public function pathPrefix(): string
-    {
-        return $this->normalizedBlogUrl ??= self::normalizePathPrefix($this->blogUrl->get());
+        return '/' . rawurlencode($url);
     }
 
     public function isReservedPostSlug(string $url): bool
@@ -117,22 +104,12 @@ class BlogUrlBuilder implements StatefulServiceInterface
             'all',
         ];
 
-        if ($this->blogIsOnTheSiteRoot()) {
-            $reserved[] = 'comment_sent';
-            $reserved[] = 'comment_unsubscribe';
-            $reserved[] = 'comment-moderate';
-            $reserved[] = 'search';
-        }
+        $reserved[] = 'comment_sent';
+        $reserved[] = 'comment_unsubscribe';
+        $reserved[] = 'comment-moderate';
+        $reserved[] = 'search';
 
         return \in_array($url, $reserved, true);
-    }
-
-    public static function normalizePathPrefix(string $path): string
-    {
-        $path = trim($path);
-        $path = trim($path, '/');
-
-        return $path === '' ? '' : '/' . $path;
     }
 
     #[\Override]
@@ -141,16 +118,10 @@ class BlogUrlBuilder implements StatefulServiceInterface
         $this->blogPath = null;
         $this->absBlogPath = null;
         $this->blogTagsPath = null;
-        $this->normalizedBlogUrl = null;
     }
 
     private function extendNumber(int $month): string
     {
         return str_pad((string)$month, 2, '0', STR_PAD_LEFT);
-    }
-
-    private function encodedBlogUrl(): string
-    {
-        return str_replace(rawurlencode('/'), '/', rawurlencode($this->pathPrefix()));
     }
 }

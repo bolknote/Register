@@ -22,7 +22,6 @@ class DynamicConfigFormExtender implements DynamicConfigFormExtenderInterface
         return [
             'Blog config'   => 'title',
             'S2_BLOG_TITLE' => 'string',
-            'S2_BLOG_URL'   => 'string',
         ];
     }
 }

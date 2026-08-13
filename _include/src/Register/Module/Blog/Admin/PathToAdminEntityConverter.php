@@ -14,14 +14,11 @@ use Register\Content\ContentType;
 use S2\AdminYard\Config\FieldConfig;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
-use Register\Module\Blog\BlogUrlBuilder;
 
 readonly class PathToAdminEntityConverter
 {
-    public function __construct(
-        private DbLayer        $dbLayer,
-        private BlogUrlBuilder $blogUrlBuilder,
-    ) {
+    public function __construct(private DbLayer $dbLayer)
+    {
     }
 
     /**
@@ -30,12 +27,7 @@ readonly class PathToAdminEntityConverter
      */
     public function getQueryParams(string $path): ?array
     {
-        $blogUrl = $this->blogUrlBuilder->pathPrefix();
-        if ($blogUrl !== '' && $path !== $blogUrl && !str_starts_with($path, $blogUrl . '/')) {
-            return null;
-        }
-
-        $relativePath = trim(substr($path, \strlen($blogUrl)), '/');
+        $relativePath = trim($path, '/');
         if ($relativePath === '' || str_contains($relativePath, '/')) {
             return ['entity' => 'BlogPost', 'action' => FieldConfig::ACTION_LIST];
         }

@@ -58,11 +58,12 @@ readonly class ProductModule implements ContainerModuleInterface
         $container->set(ContentStatisticsRepository::class, static fn(Container $container): ContentStatisticsRepository => new ContentStatisticsRepository(
             $container->get(DbLayer::class),
         ));
-        $container->set(ContentSitemapController::PAGE_SERVICE_ID, static fn(Container $container): ContentSitemapController => new ContentSitemapController(
+        $container->set(ContentSitemapController::SERVICE_ID, static fn(Container $container): ContentSitemapController => new ContentSitemapController(
             $container->get(ContentRepository::class),
             $container->get(UrlBuilder::class),
             $container->get('strict_viewer'),
             ContentType::PAGE,
+            ContentType::POST,
         ));
         $container->set(TagRepository::class, static fn(Container $container): TagRepository => new TagRepository(
             $container->get(DbLayer::class),

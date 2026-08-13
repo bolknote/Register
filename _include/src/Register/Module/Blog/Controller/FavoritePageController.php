@@ -94,9 +94,6 @@ class FavoritePageController extends BlogController
 
         // Bread crumbs
         $template->addBreadCrumb($this->articleProvider->mainPageTitle(), $this->urlBuilder->link('/'));
-        if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
-            $template->addBreadCrumb($this->translator->trans('Blog'), $this->blogUrlBuilder->main());
-        }
 
         $template->addBreadCrumb($this->translator->trans('Favorite'));
 

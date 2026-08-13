@@ -110,7 +110,7 @@ final readonly class BlogContentSource implements RecentContentSourceInterface
             id: ContentId::post((int)$post['id']),
             title: (string)$post['title'],
             body: (string)$post['body'],
-            path: $this->urlBuilder->postWithoutPrefix((string)$post['slug']),
+            path: $this->urlBuilder->postPath((string)$post['slug']),
             publishedAt: $publishedAt !== null && $publishedAt > 0 ? $publishedAt : null,
             updatedAt: (int)$post['updated_at'],
             author: (string)($post['author'] ?? ''),

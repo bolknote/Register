@@ -38,6 +38,26 @@ final class BlogAllPostsCest
         $I->dontSee('Unpublished post', '.blog-all-posts');
     }
 
+    public function testPostIsPublishedAtTheSiteRoot(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertPost($dbLayer, 'Root permalink', 'root-permalink', 1_700_000_005, true);
+
+        $I->amOnPage('/root-permalink');
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->see('Root permalink', '.post.head');
+
+        $configuredPrefix = $dbLayer
+            ->select('COUNT(*)')
+            ->from('config')
+            ->where("name = 'S2_BLOG_URL'")
+            ->execute()
+            ->result()
+        ;
+        $I->assertSame(0, (int)$configuredPrefix);
+    }
+
     private function insertPost(
         DbLayer $dbLayer,
         string $title,

@@ -95,9 +95,6 @@ class PostPageController extends BlogController
         }
 
         $template->addBreadCrumb($this->articleProvider->mainPageTitle(), $this->urlBuilder->link('/'));
-        if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
-            $template->addBreadCrumb($this->translator->trans('Blog'), $this->blogUrlBuilder->main());
-        }
 
         return null;
     }

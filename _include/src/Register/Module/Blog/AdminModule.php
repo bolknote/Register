@@ -73,7 +73,6 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
 
         $container->set(PathToAdminEntityConverter::class, fn(Container $container): \Register\Module\Blog\Admin\PathToAdminEntityConverter => new PathToAdminEntityConverter(
             $container->get(DbLayer::class),
-            $container->get(BlogUrlBuilder::class),
         ));
     }
 

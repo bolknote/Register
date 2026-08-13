@@ -133,17 +133,11 @@ class MainPageController extends BlogController
         $template->putInPlaceholder('text', $output);
 
         $template->addBreadCrumb($this->articleProvider->mainPageTitle(), $this->urlBuilder->link('/'));
-        if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
-            $template->addBreadCrumb($this->translator->trans('Blog'), $skipLastPostsNum > 0 ? $this->blogUrlBuilder->main() : null);
-        }
 
         if ($skipLastPostsNum > 0) {
             $template->setLink('up', $this->blogUrlBuilder->main());
         } else {
             $template->putInPlaceholder('meta_description', $this->blogTitle);
-            if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
-                $template->setLink('up', $this->urlBuilder->link('/'));
-            }
         }
 
         return null;

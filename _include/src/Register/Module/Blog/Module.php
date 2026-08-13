@@ -13,8 +13,6 @@ use Psr\Log\LoggerInterface;
 use Register\Comment\ContentCommentStrategy;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentRepository;
-use Register\Content\ContentType;
-use Register\Content\Controller\ContentSitemapController;
 use Register\Module\Blog\Content\BlogContentSource;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
@@ -80,7 +78,6 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(UrlBuilder::class),
                 $provider->getStringProxy('S2_TAGS_URL'),
                 $provider->getStringProxy('S2_FAVORITE_URL'),
-                $provider->getStringProxy('S2_BLOG_URL'),
             );
         }, [StatefulServiceInterface::class]);
         $container->set(BlogContentSource::class, static fn(Container $container): BlogContentSource => new BlogContentSource(
@@ -312,19 +309,6 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $provider->getStringProxy('S2_WEBMASTER'),
             );
         });
-        $container->set(ContentSitemapController::BLOG_SERVICE_ID, static function (Container $container): ContentSitemapController {
-            $blogUrlBuilder = $container->get(BlogUrlBuilder::class);
-
-            return new ContentSitemapController(
-                $container->get(ContentRepository::class),
-                $container->get(UrlBuilder::class),
-                $container->get('strict_viewer'),
-                ...($blogUrlBuilder->blogIsOnTheSiteRoot()
-                    ? [ContentType::PAGE, ContentType::POST]
-                    : [ContentType::POST]),
-            );
-        });
-
         $container->set('register_blog.comment_controller', static function (Container $container): \S2\Cms\Controller\CommentController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new CommentController(
@@ -477,101 +461,84 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
         $configProvider = $container->get(DynamicConfigProvider::class);
-        $s2BlogUrl      = $container->get(BlogUrlBuilder::class)->pathPrefix();
         $favoriteUrl    = $configProvider->getStringProxy('S2_FAVORITE_URL')->get();
         $tagsUrl        = $configProvider->getStringProxy('S2_TAGS_URL')->get();
         $priority       = 1;
         $flatPriority   = -1;
 
-        if ($s2BlogUrl !== '') {
-            $routes->add('blog_main', new Route(
-                $s2BlogUrl . '{slash</?>}',
-                ['_controller' => MainPageController::class, 'page' => 0],
-                options: ['utf8' => true],
-                methods: ['GET'],
-            ), $priority);
-        } else {
-            $routes->add('blog_main', new Route(
-                '/',
-                ['_controller' => MainPageController::class, 'page' => 0, 'slash' => '/'],
-                options: ['utf8' => true],
-                methods: ['GET'],
-            ), $priority);
-        }
+        $routes->add('blog_main', new Route(
+            '/',
+            ['_controller' => MainPageController::class, 'page' => 0, 'slash' => '/'],
+            options: ['utf8' => true],
+            methods: ['GET'],
+        ), $priority);
 
         $routes->add('blog_main_pages', new Route(
-            $s2BlogUrl . '/skip/{page<\d+>}',
+            '/skip/{page<\d+>}',
             ['_controller' => MainPageController::class, 'slash' => '/'],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
 
         $routes->add('blog_rss', new Route(
-            $s2BlogUrl . '/rss.xml',
+            '/rss.xml',
             ['_controller' => RssController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
-        $routes->add('blog_sitemap', new Route(
-            $s2BlogUrl . '/sitemap.xml',
-            ['_controller' => ContentSitemapController::BLOG_SERVICE_ID],
-            options: ['utf8' => true],
-            methods: ['GET'],
-        ), $priority);
-
         $routes->add('blog_all', new Route(
-            $s2BlogUrl . '/all{slash</?>}',
+            '/all{slash</?>}',
             ['_controller' => AllPostsController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
 
         $routes->add('blog_favorite', new Route(
-            $s2BlogUrl . '/' . $favoriteUrl . '{slash</?>}',
+            '/' . $favoriteUrl . '{slash</?>}',
             ['_controller' => FavoritePageController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
 
         $routes->add('blog_tags', new Route(
-            $s2BlogUrl . '/' . $tagsUrl . '{slash</?>}',
+            '/' . $tagsUrl . '{slash</?>}',
             ['_controller' => TagsPageController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_tag', new Route(
-            $s2BlogUrl . '/' . $tagsUrl . '/{tag}{slash</?>}',
+            '/' . $tagsUrl . '/{tag}{slash</?>}',
             ['_controller' => TagPageController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
 
         $routes->add('blog_year', new Route(
-            $s2BlogUrl . '/{year<\d+>}/',
+            '/{year<\d+>}/',
             ['_controller' => YearPageController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_month', new Route(
-            $s2BlogUrl . '/{year<\d+>}/{month<\d+>}/',
+            '/{year<\d+>}/{month<\d+>}/',
             ['_controller' => MonthPageController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_day', new Route(
-            $s2BlogUrl . '/{year<\d+>}/{month<\d+>}/{day<\d+>}/',
+            '/{year<\d+>}/{month<\d+>}/{day<\d+>}/',
             ['_controller' => DayPageController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_post', new Route(
-            $s2BlogUrl . '/{url}',
+            '/{url}',
             ['_controller' => FlatContentController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $flatPriority);
         $routes->add('blog_comment', new Route(
-            $s2BlogUrl . '/{url}',
+            '/{url}',
             ['_controller' => FlatCommentController::class],
             options: ['utf8' => true],
             methods: ['POST'],

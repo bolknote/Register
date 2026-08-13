@@ -682,7 +682,7 @@ class CmsExtension implements ExtensionInterface
 
         $routes->add('sitemap', new Route(
             '/sitemap.xml',
-            ['_controller' => ContentSitemapController::PAGE_SERVICE_ID],
+            ['_controller' => ContentSitemapController::SERVICE_ID],
             methods: ['GET']
         ));
         $routes->add('favorite', new Route(
