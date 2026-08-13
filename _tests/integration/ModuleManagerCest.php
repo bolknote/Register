@@ -94,7 +94,7 @@ final class ModuleManagerCest
         $container = new Container([]);
 
         foreach ([
-            new \s2_extensions\s2_blog\Manifest(),
+            new \Register\Module\Blog\Manifest(),
             new \Register\Module\Search\Manifest(),
             new \Register\Module\Analytics\Manifest(),
         ] as $manifest) {

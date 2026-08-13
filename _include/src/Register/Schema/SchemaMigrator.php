@@ -25,7 +25,7 @@ final readonly class SchemaMigrator
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_REVISION';
 
-    public const int LATEST_REVISION = 3;
+    public const int LATEST_REVISION = 4;
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -133,6 +133,12 @@ final readonly class SchemaMigrator
         // advancing the ledger invalidates compiled routes that contain controller class names.
     }
 
+    private function migrateToRevisionFour(): void
+    {
+        // The blog module moved into the Register namespace. The schema itself is unchanged;
+        // advancing the ledger invalidates compiled routes that contain controller class names.
+    }
+
     /** @return array<int, \Closure(): void> */
     private function migrations(): array
     {
@@ -145,6 +151,9 @@ final readonly class SchemaMigrator
             },
             3 => function (): void {
                 $this->migrateToRevisionThree();
+            },
+            4 => function (): void {
+                $this->migrateToRevisionFour();
             },
         ];
     }

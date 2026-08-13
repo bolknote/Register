@@ -13,6 +13,8 @@ use Codeception\Test\Unit;
 use Register\Module\Analytics\AdminModule as AnalyticsAdminModule;
 use Register\Module\Analytics\Module as AnalyticsModule;
 use Register\Module\BaseModuleRegistry;
+use Register\Module\Blog\AdminModule as BlogAdminModule;
+use Register\Module\Blog\Module as BlogModule;
 use Register\Module\Math\AdminModule as MathAdminModule;
 use Register\Module\Math\Module as MathModule;
 use Register\Module\Search\AdminModule as SearchAdminModule;
@@ -38,7 +40,7 @@ final class RegisterKernelTest extends Unit
         self::assertSame([
             CmsExtension::class,
             ProductModule::class,
-            \s2_extensions\s2_blog\Extension::class,
+            BlogModule::class,
             SearchModule::class,
             MathModule::class,
             AnalyticsModule::class,
@@ -56,12 +58,12 @@ final class RegisterKernelTest extends Unit
             CmsExtension::class,
             ProductModule::class,
             AdminExtension::class,
-            \s2_extensions\s2_blog\Extension::class,
+            BlogModule::class,
             SearchModule::class,
             MathModule::class,
             AnalyticsModule::class,
             TypographyModule::class,
-            \s2_extensions\s2_blog\AdminExtension::class,
+            BlogAdminModule::class,
             SearchAdminModule::class,
             MathAdminModule::class,
             AnalyticsAdminModule::class,

@@ -35,9 +35,9 @@
         <file name="index.php" />
         <directory name="tools" />
         <ignoreFiles>
-            <directory name="_extensions/s2_blog/lang" />
-            <directory name="_extensions/s2_blog/templates" />
-            <directory name="_extensions/s2_blog/views" />
+            <directory name="_include/src/Register/Module/Blog/resources/lang" />
+            <directory name="_include/src/Register/Module/Blog/resources/templates" />
+            <directory name="_include/src/Register/Module/Blog/resources/views" />
             <directory name="_include/src/Register/Module/Math/lang" />
             <directory name="_include/src/Register/Module/Search/resources/lang" />
             <directory name="_include/src/Register/Module/Search/resources/views" />

@@ -13,7 +13,6 @@ declare(strict_types = 1);
 namespace S2\Cms\Template;
 
 use S2\Cms\Config\StringProxy;
-use S2\Cms\Framework\ModuleInterface;
 use S2\Cms\Model\UrlBuilder;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -44,7 +43,10 @@ class Viewer
         $foundFile = null;
         $dirs      = [
             $styleViewDir,
-            ...array_map($this->resourceViewDirectory(...), $resourceOwners),
+            ...array_map(
+                fn(string $resourceOwner): string => ModuleResourceLocator::views($this->rootDir, $resourceOwner),
+                $resourceOwners,
+            ),
             $systemViewDir
         ];
         foreach ($dirs as $dir) {
@@ -81,26 +83,6 @@ class Viewer
 
         return $rendered;
     }
-
-    private function resourceViewDirectory(string $resourceOwner): string
-    {
-        if (is_a($resourceOwner, ModuleInterface::class, true)) {
-            $reflection = new \ReflectionClass($resourceOwner);
-            $moduleFile = $reflection->getFileName();
-            if ($moduleFile === false) {
-                throw new \RuntimeException(\sprintf('Unable to locate module "%s" resources.', $resourceOwner));
-            }
-
-            return \dirname($moduleFile) . '/resources/views/';
-        }
-
-        if (preg_match('/^[0-9a-z_]+$/', $resourceOwner) !== 1) {
-            throw new \InvalidArgumentException(\sprintf('Invalid optional module identifier "%s".', $resourceOwner));
-        }
-
-        return $this->rootDir . '_extensions/' . $resourceOwner . '/views/';
-    }
-
 
     /**
      * Puts the date into a string

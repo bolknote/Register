@@ -1,0 +1,71 @@
+<?php
+/**
+ * Blog posts for a day.
+ *
+ * @copyright 2007-2025 Roman Parpalak
+ * @license   https://opensource.org/license/mit MIT
+ * @package   Register
+ */
+
+declare(strict_types = 1);
+
+namespace Register\Module\Blog\Controller;
+
+use S2\Cms\Pdo\QueryBuilder\SelectBuilder;
+use S2\Cms\Template\HtmlTemplate;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use S2\Cms\Pdo\DbLayerException;
+
+class DayPageController extends BlogController
+{
+    /**
+     * @throws DbLayerException
+     */
+    #[\Override]
+    public function body(Request $request, HtmlTemplate $template): ?Response
+    {
+        $year  = (int)($textYear = $request->attributes->get('year'));
+        $month = (int)($textMonth = $request->attributes->get('month'));
+        $day   = (int)($textDay = $request->attributes->get('day'));
+
+        if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
+            $template->registerPlaceholder('<!-- s2_blog_calendar -->', $this->calendarBuilder->calendar($year, $month, $day));
+        }
+
+        $template->putInPlaceholder('title', '');
+
+        $startTime = (new \DateTimeImmutable())->setDate($year, $month, $day)->setTime(0, 0)->getTimestamp();
+        $endTime   = $startTime + 60 * 60 * 24;
+
+        $output = $this->getPosts(
+            fn (SelectBuilder $qb): \S2\Cms\Pdo\QueryBuilder\SelectBuilder => $qb
+                ->andWhere('p.create_time < ' . $endTime)
+                ->andWhere('p.create_time >= ' . $startTime)
+        );
+
+        if ($output === '') {
+            $template->markAsNotFound();
+            $output = '<p>' . $this->translator->trans('Not found') . '</p>';
+        }
+
+        $template
+            ->putInPlaceholder('text', $output)
+            ->setLink('up', $this->blogUrlBuilder->monthFromTimestamp($startTime))
+            ->putInPlaceholder('head_title', $this->viewer->date($startTime))
+        ;
+
+        $template->addBreadCrumb($this->articleProvider->mainPageTitle(), $this->urlBuilder->link('/'));
+        if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
+            $template->addBreadCrumb($this->translator->trans('Blog'), $this->blogUrlBuilder->main());
+        }
+
+        $template
+            ->addBreadCrumb($textYear, $this->blogUrlBuilder->year($year))
+            ->addBreadCrumb($textMonth, $this->blogUrlBuilder->month($year, $month))
+            ->addBreadCrumb($textDay)
+        ;
+
+        return null;
+    }
+}

@@ -50,9 +50,9 @@ class HtmlTemplateProvider
     /**
      * @throws DbLayerException
      */
-    public function getTemplate(string $templateId, ?string $extraDir = null): HtmlTemplate
+    public function getTemplate(string $templateId, ?string $resourceOwner = null): HtmlTemplate
     {
-        $templateContent = $this->getRawTemplateContent($templateId, $extraDir);
+        $templateContent = $this->getRawTemplateContent($templateId, $resourceOwner);
         $templateContent = $this->replaceCurrentLinks($templateContent);
 
         $htmlTemplate = new HtmlTemplate(
@@ -81,7 +81,7 @@ class HtmlTemplateProvider
      * @throws DbLayerException
      * @throws \RuntimeException
      */
-    public function getRawTemplateContent(string $templateId, ?string $extraDir): string
+    public function getRawTemplateContent(string $templateId, ?string $resourceOwner): string
     {
         $path            = null;
         $cleanTemplateId = preg_replace('#[^0-9a-zA-Z._\-]#', '', $templateId)
@@ -91,7 +91,7 @@ class HtmlTemplateProvider
         $this->dispatcher->dispatch($buildEvent, TemplateBuildEvent::EVENT_START);
 
         if ($path === null) { // Can be not null via event
-            $path = $this->getTemplateFullFilename($extraDir, $cleanTemplateId);
+            $path = $this->getTemplateFullFilename($resourceOwner, $cleanTemplateId);
         }
 
         ob_start();
@@ -165,15 +165,15 @@ class HtmlTemplateProvider
     /**
      * @throws DbLayerException
      */
-    private function getTemplateFullFilename(?string $extraDir, string $cleanTemplateId): string
+    private function getTemplateFullFilename(?string $resourceOwner, string $cleanTemplateId): string
     {
         $pathInStyles = $this->rootDir . '_styles/' . $this->getStyleName() . '/templates/' . $cleanTemplateId;
         if (file_exists($pathInStyles)) {
             return $pathInStyles;
         }
 
-        if ($extraDir !== null) {
-            $path = $this->rootDir . '_extensions/' . $extraDir . '/templates/' . $cleanTemplateId;
+        if ($resourceOwner !== null) {
+            $path = ModuleResourceLocator::templates($this->rootDir, $resourceOwner) . $cleanTemplateId;
         } else {
             $path = $this->rootDir . '_include/templates/' . $cleanTemplateId;
         }

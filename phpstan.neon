@@ -27,6 +27,7 @@ parameters:
             - _extensions/*/templates/*
             - _extensions/*/views/*
             - _include/src/Register/Module/*/resources/lang/*
+            - _include/src/Register/Module/*/resources/templates/*
             - _include/src/Register/Module/*/resources/views/*
             - _tests/_resources/*
             - _tests/_support/_generated/*

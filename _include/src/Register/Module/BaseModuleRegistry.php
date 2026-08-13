@@ -41,9 +41,9 @@ final class BaseModuleRegistry
      */
     private const array MODULES = [
         self::BLOG => [
-            'manifest'    => \s2_extensions\s2_blog\Manifest::class,
-            'application' => \s2_extensions\s2_blog\Extension::class,
-            'admin'       => \s2_extensions\s2_blog\AdminExtension::class,
+            'manifest'    => Blog\Manifest::class,
+            'application' => Blog\Module::class,
+            'admin'       => Blog\AdminModule::class,
         ],
         self::SEARCH => [
             'manifest'    => Search\Manifest::class,

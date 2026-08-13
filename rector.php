@@ -41,6 +41,7 @@ return RectorConfig::configure()
         __DIR__ . '/_extensions/*/templates',
         __DIR__ . '/_extensions/*/views',
         __DIR__ . '/_include/src/Register/Module/*/resources/lang',
+        __DIR__ . '/_include/src/Register/Module/*/resources/templates',
         __DIR__ . '/_include/src/Register/Module/*/resources/views',
         __DIR__ . '/_tests/_resources',
         __DIR__ . '/_tests/_support/_generated',
