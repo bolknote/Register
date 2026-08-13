@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 use ShipMonk\ComposerDependencyAnalyser\Config\Configuration;
 use ShipMonk\ComposerDependencyAnalyser\Config\ErrorType;
@@ -21,9 +21,6 @@ return $config
     // Codeception creates these actors and traits from suite configuration at runtime.
     ->ignoreUnknownClasses([
         'Tests\\Support\\Helper\\AbstractBrowserModule',
-        '_generated\\AcceptanceTesterActions',
-        '_generated\\IntegrationTesterActions',
-        '_generated\\UnitTesterActions',
     ])
     // Native mbstring/ctype are covered by direct polyfills; the other extensions are optional and guarded.
     ->ignoreErrorsOnExtensions([
