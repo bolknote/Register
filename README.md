@@ -1,9 +1,14 @@
 # Register — a small, fast blog engine
 
-Register is an open-source PHP engine for personal blogs and compact editorial sites. It is designed
-for writing and publishing without turning the site into a collection of dashboards, widgets, and
-unnecessary abstractions. The public side stays quiet and readable; the control panel handles the
-work of drafts, publication, comments, files, and maintenance.
+Register is an open-source PHP engine for personal blogs and compact editorial sites, built on S2.
+S2 supplies the reusable HTTP, dependency-injection, event, database, queue, and administration
+infrastructure. Register owns the publishing model, editorial workflow, public theme, control-panel
+experience, and URL policy.
+
+Register is designed for writing and publishing without turning the site into a collection of
+dashboards, widgets, and unnecessary abstractions. Blog posts are the primary content type;
+arbitrary permanent pages remain available for material such as an about page or project
+documentation.
 
 Register is free software distributed under the MIT license. It runs on an ordinary PHP host and can
 use SQLite, MySQL/MariaDB, or PostgreSQL.
@@ -11,18 +16,21 @@ use SQLite, MySQL/MariaDB, or PostgreSQL.
 ## What Register already does
 
 - Publishes blog posts and permanent pages, including drafts and scheduled dates.
-- Gives every post a short permalink such as `/post-name`; the blog lives at `/` by default and can
-  optionally be placed under a prefix such as `/notes`.
+- Gives every post a short permalink such as `/post-name`; the blog lives at `/`.
 - Organizes material with tags, sections, archives, favorites, RSS, and a sitemap.
 - Supports comments, moderation, subscriptions, and spam filtering.
 - Provides accounts and permissions for authors, moderators, editors, and administrators.
 - Recovers unsaved editor text after a browser or power failure.
-- Handles image uploads and thumbnails and can be extended with optional modules.
+- Handles image uploads and thumbnails and provides a module API for additional integrations.
 - Keeps the public theme deliberately small, responsive, readable, and compatible with light and
   dark system appearance.
 
-The project follows the 80/20 principle: the everyday publishing path should be excellent, while
-specialized behavior belongs in extensions. Register is a blog engine, not a universal site builder.
+Blog, permanent pages, comments, tags, search, typography, analytics, formula rendering, and the
+control panel are base modules. They ship with Register, are always available, and cannot be disabled
+or uninstalled. Optional modules remain available for integrations and specialized behavior.
+
+The project follows the 80/20 principle: the everyday publishing path should be excellent. Register
+is a blog engine, not a universal site builder.
 
 ## First launch
 
@@ -77,12 +85,14 @@ composer check
 - [Architecture](_doc/architecture.md)
 - [Comments](_doc/comments.md)
 - [Register and Aegea feature comparison](_doc/egea-comparison.md)
-- [Extensions](_doc/extensions.md)
+- [Optional modules](_doc/extensions.md)
+- [Architecture decision: module tiers](_doc/decisions/0001-register-module-tiers.md)
 - [Control panel](https://github.com/parpalak/s2/wiki/Control-Panel)
 - [Styles](https://github.com/parpalak/s2/wiki/Styles)
 
 ## Compatibility note
 
-Register grew from S2. The PHP namespace `S2\Cms`, `S2_*` configuration keys, extension directory
-names, and selected environment variables remain unchanged for backward compatibility. They are
-implementation identifiers, not the product name shown to readers or administrators.
+Register is based on S2. Reusable foundation code continues to use the `S2\Cms` namespace while
+Register-owned product code moves to the `Register` namespace. Existing `S2_*` configuration keys,
+extension directory names, and selected environment variables are transitional implementation
+identifiers, not a compatibility promise or the product name shown to readers and administrators.

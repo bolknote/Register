@@ -1,48 +1,92 @@
-# Register Architecture Overview
+# Register architecture overview
 
-## Config Parameters
-There are two types of Register config parameters:
+Register is a blog engine built on S2. S2 provides reusable application infrastructure; Register
+provides the publishing domain and product experience. The boundary is intentional:
 
-| Static                                                                                          | Dynamic                                                                                          |
-|-------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| [Stored in the `config.php`](https://github.com/parpalak/s2/wiki/Configuration)                 | Stored in the database (`config` table)                                                          |
-| Created during the installation process                                                         | Created from default values and user input during installation                                   |
-| Can only be edited later by modifying the file on the server                                    | Editable in [the control panel](https://github.com/parpalak/s2/wiki/Control-Panel#configuration) |
-| Loaded into the container, accessible via `$container->getParameter()` in container definitions | Accessible via the `DynamicConfigProvider` service that fetches them from cache or the DB        |
-| No additional cache is required                                                                 | Cached in a file by `DynamicConfigProvider` service                                              |
-| –                                                                                               | Affect routing, i.e. routes matching is possible only after the container is initialized         |
+- `S2\Cms` contains HTTP, dependency injection, events, database access, queues, caching, and reusable
+  administration infrastructure.
+- `Register` contains posts, pages, comments, tags, search, typography, analytics, formula rendering,
+  editorial workflows, public presentation, and product policy.
 
-## Components
-- [**Application**](../_include/src/Framework/Application.php) – part of the framework, independent of Register's blog-domain logic.
-    - Gathers the following information from extensions:
-        - Container definitions
-        - Event listeners
-        - Routing
-    - Has a method `public function handle(Request $request): Response`, which converts
-      any requests to the public pages into a response.
+See [ADR 0001](decisions/0001-register-module-tiers.md) for the module-tier decision.
 
-- **Application Extensions** – classes that implement the [`ExtensionInterface`](../_include/src/Framework/ExtensionInterface.php).
-    - [`CmsExtension`](../_include/src/CmsExtension.php) contains the core Register logic for public pages.
-    - There is [`AdminExtension`](../_include/src/Admin/AdminExtension.php) that defines additional control panel services and events. This separation is for performance reasons.
-    - [Register extensions](extensions.md#register-application-extensions) can also implement `ExtensionInterface` for public pages and for the control panel.
+## Application runtime
 
-- **Controllers**
-    - Implement the method `public function handle(Request $request): Response` from [`ControllerInterface`](../_include/src/Framework/ControllerInterface.php).
-    - Do not check whether they should process the request; this logic is fully delegated to the router.
-    - Convert a request into a response.
+[`Application`](../_include/src/Framework/Application.php) is the HTTP kernel. Runtime modules provide
+container definitions, event listeners, and routes through the current
+[`ExtensionInterface`](../_include/src/Framework/ExtensionInterface.php). The interface will be renamed
+to `ModuleInterface` as product modules move out of the inherited extension directories.
 
-- [**Page Templates**](https://github.com/parpalak/s2/wiki/Templates)
-    - Contain HTML markup defining the presence and layout of major page blocks.
-    - Blocks are marked with special placeholder tags.
-    - The controller selects the template type and retrieves its content via [`HtmlTemplateProvider::getTemplate()`](../_include/src/Template/HtmlTemplateProvider.php). Template lookup logic:
-        - `_styles/{style_name}/templates/`
-        - `_extensions/{extension_id}/templates/` (if an additional `$extraDir` parameter is provided)
-        - Otherwise, `_include/templates/` (if no `$extraDir` is specified).
+The boot sequence is:
 
-- [**Views**](https://github.com/parpalak/s2/wiki/Views)
-    - **Global views**: Defined in `_include/` and overridden in theme folders. Cannot be overridden by extensions (to avoid conflicts when multiple extensions attempt to override the same view).
-    - **Extension-level views**: Require explicitly specifying the directory in `Viewer::render()`. Can also be overridden in themes.
+1. Register the reusable S2 infrastructure module.
+2. Register the mandatory Register base modules in deterministic order.
+3. In control-panel requests, register the base administration module and administration portions of
+   the base modules.
+4. Discover and register enabled optional modules.
+5. Build the container, event dispatcher, and route collection.
 
-## Extensions
-- Must contain a class named `Manifest` that implements [`ManifestInterface`](../_include/src/Extensions/ManifestInterface.php) (provides extension metadata).
-- Whether an extension is enabled is stored in the DB (the `extensions.disabled` field) and is not accessible via `DynamicConfigProvider`.
+The mandatory list is defined in
+[`BaseModuleRegistry`](../_include/src/Register/Module/BaseModuleRegistry.php), not in the database.
+
+## Module tiers
+
+### Base modules
+
+Base modules form every Register installation and cannot be disabled or uninstalled:
+
+- Content/Blog and permanent Pages;
+- Comments and Tags;
+- Search;
+- Typography;
+- Analytics;
+- Math;
+- Admin.
+
+Some of these concerns currently live in S2 core and others still live under `_extensions`. This is
+a transitional layout. Base product code will move into `Register\*` namespaces and use one Register
+schema migration stream.
+
+### Optional modules
+
+Optional modules provide integrations and specialized behavior. They can add services, listeners,
+routes, administration pages, translations, templates, views, and assets. Their installed and enabled
+state may be stored in the database, and they retain independent version and migration metadata.
+
+Optional modules must use public Register services and events. Direct access to product tables is not
+a supported integration boundary.
+
+## Configuration
+
+Register has two configuration layers:
+
+| Static | Dynamic |
+|---|---|
+| Stored in `config.php` | Stored in the `config` table |
+| Database, filesystem, URL, cache, and environment wiring | Editorial and site behavior |
+| Changed by editing deployment configuration | Changed in the control panel |
+| Loaded as container parameters | Accessed through `DynamicConfigProvider` |
+
+Product-facing settings will gradually move from inherited `S2_*` names to typed Register settings.
+The inherited names are implementation details rather than a compatibility requirement.
+
+## Controllers and presentation
+
+Controllers implement
+[`ControllerInterface`](../_include/src/Framework/ControllerInterface.php), receive a matched request,
+and return a response. Route matching decides which controller runs.
+
+Page templates define the large-scale HTML structure. Views render individual blocks. During the
+namespace transition, lookup still supports `_include`, themes, and `_extensions`; base-module
+resources will move to Register-owned resource directories while optional-module resource lookup
+remains isolated.
+
+## Content and URL direction
+
+Posts are the primary content type and pages are a secondary permanent content type. They will share
+publication, revision, author, comment, tag, search, feed, and sitemap infrastructure while retaining
+type-specific policies such as page hierarchy.
+
+The blog lives at `/`. Post permalinks are `/<slug>`; publication dates belong to archive navigation,
+not post addresses. One canonical URL service must be used by public rendering, the control panel,
+RSS, sitemap, search, comments, and notifications.

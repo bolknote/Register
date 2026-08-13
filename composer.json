@@ -53,6 +53,7 @@
     },
     "autoload": {
         "psr-4": {
+            "Register\\": "_include/src/Register",
             "S2\\Cms\\": "_include/src",
             "s2_extensions\\": "_extensions"
         },

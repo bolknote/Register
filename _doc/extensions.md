@@ -1,300 +1,110 @@
-# Developing Extensions for Register
+# Developing optional modules for Register
 
-Extensions are pluggable components that enhance the functionality of the Register blog engine.
-Each extension resides in its own directory under the `_extensions/` folder and must include
-a single mandatory file, `Manifest.php`, with several optional files
-that are automatically recognized and used by the system.
+Register supports optional modules for integrations and specialized behavior. The modules that form
+the blog product itself are base modules and follow a different lifecycle; see
+[ADR 0001](decisions/0001-register-module-tiers.md).
 
-## Required File: `Manifest.php`
+## Base modules are not plugins
 
-Each extension **must** include a `Manifest.php` file,
-containing a `Manifest` class that implements `S2\Cms\Extensions\ManifestInterface`.
+Blog, Pages, Comments, Tags, Search, Typography, Analytics, Math, and Admin are available in every
+Register installation. They cannot be disabled or uninstalled and are upgraded with the engine.
 
-The manifest describes the extension and may contain the code that will be executed
-when the extension is installed, updated, or uninstalled.
+During the transition from S2, five base modules still live under `_extensions`: `s2_blog`,
+`s2_search`, `s2_typo`, `s2_counter`, and `s2_latex`. Their status is defined by
+[`BaseModuleRegistry`](../_include/src/Register/Module/BaseModuleRegistry.php). Their directory and
+class names do not make them optional.
 
-Example:
+The rest of this document describes optional modules only.
+
+## Current optional-module layout
+
+An optional module resides in its own `_extensions/{module_id}` directory. The identifier may contain
+lowercase ASCII letters, digits, and underscores. A module contains:
+
+- `Manifest.php` — required metadata and lifecycle operations;
+- `Extension.php` — optional public application services, listeners, and routes;
+- `AdminExtension.php` — optional control-panel services and listeners;
+- optional `lang`, `templates`, `views`, JavaScript, and CSS resources.
+
+These inherited names will become `Module`, `AdminModule`, and a dedicated optional-module directory
+in a later migration. The current names remain the supported API until that migration lands.
+
+## Manifest
+
+`Manifest.php` defines `s2_extensions\{module_id}\Manifest` implementing
+`S2\Cms\Extensions\ManifestInterface`. It provides the title, author, description, semantic version,
+dependencies, and migration callbacks.
+
+Installation and upgrades must be idempotent. A disabled optional module keeps its schema and data.
+Uninstalling code must not delete data by default; permanent data removal belongs to a separate,
+explicitly confirmed operation.
+
+Optional modules must not remove or narrow base Register tables, settings, or routes.
+
+## Runtime module contract
+
+`Extension.php` and `AdminExtension.php` currently implement
+[`ExtensionInterface`](../_include/src/Framework/ExtensionInterface.php):
 
 ```php
-<?php
-
-declare(strict_types=1);
-
-namespace s2_extensions\extension_name;
-
-use S2\Cms\Extensions\ManifestInterface;
-use S2\Cms\Extensions\ManifestTrait;
-use S2\Cms\Framework\Container;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
-
-class Manifest implements ManifestInterface
+interface ExtensionInterface
 {
-    use ManifestTrait;
+    public function buildContainer(Container $container): void;
 
-    public function getTitle(): string
-    {
-        return 'Your Extension Name';
-    }
+    public function registerListeners(
+        EventDispatcherInterface $eventDispatcher,
+        Container $container,
+    ): void;
 
-    public function getAuthor(): string
-    {
-        return 'Your Name';
-    }
-
-    public function getDescription(): string
-    {
-        return 'Short description of your extension.';
-    }
-
-    public function getVersion(): string
-    {
-        return '1.0.0';
-    }
-
-    // ...
-
-    public function install(DbLayer $dbLayer, Container $container, ?string $currentVersion): void
-    {
-        // Setup a table
-        if (!$dbLayer->tableExists('extension_name_table')) {
-            $dbLayer->createTable('extension_name_table', function (SchemaBuilderInterface $table) {
-                $table
-                    ->addIdColumn()
-                    ->addString('name', 255)
-                    ->addInteger('revision', unsigned: true, default: 1)
-                    ->addBoolean('published')
-                    ->addInteger('user_id', unsigned: true, nullable: true, default: null)
-                    ->addIndex('name_idx', ['name'])
-                    ->addForeignKey('fk_user', ['user_id'], 'users', ['id'], 'SET NULL')
-                ;
-            });
-        }
-
-        // Add extension options to the config table
-        if ($currentVersion === null || version_compare($currentVersion, '0.1', '<')) {
-            $config = [
-                'EXTENSION_NAME_PARAM1' => 'value1',
-            ];
-
-            foreach ($config as $confName => $confValue) {
-                $dbLayer->insert('config')
-                    ->setValue('name', ':name')->setParameter('name', $confName)
-                    ->setValue('value', ':value')->setParameter('value', $confValue)
-                    ->onConflictDoNothing('name')
-                    ->execute()
-                ;
-            }
-        }
-    }
-
-    public function uninstall(DbLayer $dbLayer, Container $container): void
-    {
-        if ($dbLayer->tableExists('config')) {
-            $dbLayer->delete('config')
-                ->where('name in (:name)')->setParameter('name', 'EXTENSION_NAME_PARAM1')
-                ->execute()
-            ;
-        }
-
-        $dbLayer->dropTable('extension_name_table');
-    }
+    public function registerRoutes(RouteCollection $routes, Container $container): void;
 }
 ```
 
-You can use `S2\Cms\Extensions\ManifestTrait` to get a reasonable default implementation for some methods.
+Use `buildContainer()` for service definitions, `registerListeners()` for event subscriptions, and
+`registerRoutes()` for controller routes. Public and control-panel registrations remain separate so
+public requests do not pay for administration-only services.
 
-## Register Application Extensions
+Prefer routes and controllers over directly accessible PHP endpoints.
 
-If present, these files are automatically discovered and registered by Register:
-- `Extension.php` – used for the **public pages**.
-- `AdminExtension.php` – used in the **control panel**.
+## Integration boundaries
 
-They must define classes implementing `S2\Cms\Framework\ExtensionInterface`:
-- Define new services in the DI container via `buildContainer()`
-- Register event listeners via `registerListeners()`
-- Add public routes via `registerRoutes()`
+Optional modules should depend on public Register capabilities and services, for example content
+repositories, canonical URL generation, publication events, comment events, renderer extensions,
+search document providers, and administration menu registration.
 
-The most important part of the extension is the `registerListeners()` method,
-which registers event listeners to events fired by the Register core and other extensions.
-The event list is not documented yet because this API is still under active development.
-To discover the current event surface, search the source tree for event classes and dispatch calls:
+Until those contracts are introduced, treat direct access to `articles`, `s2_blog_*`, comment, tag,
+and search-index tables as unstable. Such access will break as Register adopts a unified content
+model.
 
-```bash
-rg "class .*Event|dispatch\\(" _include/src _extensions
-```
+Use dependency injection instead of globals and static state. Keep business logic in services and
+keep event listeners small.
 
-Let's take a look at a simple example:
+## Dependencies and compatibility
 
-```php
-<?php
+Dependencies are declared by module identifier in the current manifest API. A module cannot be
+enabled until its optional dependencies are enabled. Future manifests will depend on Register
+versions and named capabilities so modules do not need to know which base package provides a
+capability.
 
-declare(strict_types=1);
+Use semantic versions. A module must declare the Register versions it supports once the capability
+API is versioned.
 
-namespace s2_extensions\extension_name;
+## Resources
 
-use S2\Cms\Asset\AssetPack;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ExtensionInterface;
-use S2\Cms\Model\Article\ArticleRenderedEvent;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\TemplateAssetEvent;
-use S2\Cms\Template\Viewer;
-use S2\Cms\Translation\ExtensibleTranslator;
-use s2_extensions\extension_name\Controller;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\Routing\Route;
-use Symfony\Component\Routing\RouteCollection;
-use Symfony\Contracts\Translation\TranslatorInterface;
+Optional modules may supply translations, templates, views, CSS, and JavaScript from their own
+directory. Pass the module identifier when rendering module-owned views or templates so lookup stays
+isolated. Themes may provide an explicit override for an optional module's resource.
 
-class Extension implements ExtensionInterface
-{
-    public function buildContainer(Container $container): void
-    {
-        // Example for defining custom translations
-        $container->set('extension_name_translator', static function (Container $container) {
-            /** @var ExtensibleTranslator $translator */
-            $translator = $container->get('translator');
-            $translator->attachLoader('extension_name', static function (string $lang) {
-                return require ($dir = __DIR__ . '/lang/') . (file_exists($dir . $lang . '.php') ? $lang : 'English') . '.php';
-            });
+Global view replacement by optional modules is unsupported because multiple modules could compete
+for the same file. Prefer events, named placeholders, renderer contracts, and view-specific hooks.
 
-            return $translator;
-        });
+## Operational rules
 
-        // Example for defining a new controller
-        $container->set(Controller::class, static function (Container $container) {
-            /** @var DynamicConfigProvider $provider */
-            $provider = $container->get(DynamicConfigProvider::class);
-            return new Controller(
-                $container->get(DbLayer::class),
-                $container->get('extension_name_translator'),
-                $container->get(Viewer::class),
-                $container->get(RequestStack::class),
-                $container->get('config_cache'),
-                $provider->getStringProxy('EXTENSION_NAME_PARAM1'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getIntProxy('S2_MAX_ITEMS'),
-                $container->getParameter('url_prefix'),
-            );
-        });
-    }
-
-    public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
-    {
-        // Example for defining a new placeholder
-        $eventDispatcher->addListener(ArticleRenderedEvent::class, static function (ArticleRenderedEvent $event) use ($container) {
-            if ($event->template->hasPlaceholder('<!-- extension_name_placeholder -->')) {
-                /** @var Viewer $viewer */
-                $viewer = $container->get(Viewer::class);
-                /** @var TranslatorInterface $translator */
-                $translator = $container->get('extension_name_translator');
-                /** @var YourService $provider */
-                $provider = $container->get(YourService::class);
-
-                $data = $provider->getData($event->articleId);
-                $event->template->registerPlaceholder('<!-- extension_name_placeholder -->', empty($data) ? '' : $viewer->render('some_view', [
-                    'title' => $translator->trans('Some title'),
-                    'data'  => $data,
-                ]));
-            }
-        });
-
-        // Example for adding extension assets
-        $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) {
-            $event->assetPack->addCss('../../_extensions/extension_name/style.css', [AssetPack::OPTION_MERGE]);
-        });
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function registerRoutes(RouteCollection $routes, Container $container): void
-    {
-        // Example for adding a new page or section with a custom controller
-        $routes->add('extension_name_page', new Route(
-            '/new_section/',
-            ['_controller' => Controller::class],
-            options: ['utf8' => true],
-            methods: ['GET'],
-        ));
-    }
-}
-```
-
-You can look at the source code of other extensions for more advanced examples.
-
-## Language Files
-
-Extensions can define their own translators and provide custom translation strings.
-In the example above, the translator is defined in the `buildContainer()` method.
-It assumes that the language files are located in the `_extensions/extension_name/lang/` directory.
-For example, a language file can be in `_extensions/extension_name/lang/English.php` with the following content:
-
-```php
-<?php
-
-return [
-    'Some title' => 'Title of a custom widget',
-];
-```
-
-## Templates and Views
-
-Extensions can add new [templates and views](https://github.com/parpalak/s2/wiki/Styles#html-page-generation-with-templates-and-views).
-They must be placed in the `_extensions/extension_name/templates/`
-and `_extensions/extension_name/views/` directories, respectively.
-
-To use new templates and views, you must specify the extension directory
-when getting the template content and rendering the view:
-
-```php
-$template = $this->templateProvider->getTemplate('template.php', 'extension_name');
-$template->putInPlaceholder('text', $this->viewer->render('view.php', [...], 'extension_name'));
-```
-
-## Versioning
-
-Extension versions follow [Semantic Versioning](https://semver.org/):
-- The format is 1.2.3, where 1 is the major version, 2 is the minor version and 3 is the patch version.
-- Extensions in beta stages should be marked as 0.x.x.
-- When new functionality is added, the minor number should be increased.
-- When there are breaking changes, the major number should be increased.
-- Small bugfixes should increase the patch number.
-
-## Extensions Must Be Able to Be Disabled
-
-Extensions in Register can be disabled from the control panel.
-This action does not run uninstall code,
-it only disables the usage of `Extension` and `AdminExtension` classes.
-It is important to keep in mind this situation when developing your extension.
-As a result, in general you cannot perform destructive actions on the core database
-(e.g., delete a core configuration value, shrink a column to an unusable size, drop a table or column, etc.).
-
-It is also important to make sure that any files in your extension that are accessed directly
-return some form of error message if they are accessed when the extension is disabled.
-Prefer routes and controllers registered from `Extension.php` for public entry points.
-For AJAX-like endpoints, add a route and route it to a controller instead of exposing a PHP file directly.
-
-## Extensible Extensions
-
-You can split your extension into smaller extensions and connect them using dependencies.
-For example, a donation feature could be a separate extension that relies on a payment extension.
-This way, the payment extension can be used on its own or with other extensions,
-without the donation extension.
-
-You can also design your extensions to be extendable.
-By adding events, you allow other developers to modify or enhance your extension’s behavior.
-To ensure compatibility, include any required extensions as dependencies in your manifest.
-
-## Best Practices
-
-- Use namespaces with the following `s2_extensions\{extension_name}` pattern.
-- Keep business logic in separate service classes.
-- Prefer DI to static calls whenever possible.
-- Leverage dependency injection rather than global state.
-- Always check for table existence in migrations/uninstalls.
-- Keep logic for public pages and control panel in separate classes (`Extension` and `AdminExtension`).
+- Optional modules must tolerate being disabled.
+- Disabling a module must not remove data or break base routes.
+- Installation and migration failures must leave the previous working state recoverable.
+- Validate identifiers and every administration action, including CSRF protection.
+- Do not expose secrets in module metadata, templates, logs, or client assets.
+- Avoid direct PHP entry points; use registered routes.
+- Add unit and integration coverage for install, upgrade, disable, re-enable, and compatibility
+  behavior.
