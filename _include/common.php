@@ -11,14 +11,14 @@ declare(strict_types = 1);
  */
 
 use Psr\Log\LoggerInterface;
-use S2\Cms\Admin\AdminExtension;
-use S2\Cms\CmsExtension;
+use Register\Module\BaseModuleRegistry;
+use Register\RegisterKernel;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Config\StaticConfigLoader;
 use S2\Cms\Framework\Application;
-use S2\Cms\Framework\ExtensionInterface;
 use S2\Cms\Framework\Exception\ConfigurationException;
 use S2\Cms\Framework\Exception\ParameterNotFoundException;
+use S2\Cms\Framework\ModuleInterface;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\Installer;
 use S2\Cms\Model\MigrationManager;
@@ -141,11 +141,9 @@ function collectParameters(): array
     return $result;
 }
 
-$app = new Application();
-$app->addExtension(new CmsExtension());
-if (defined('S2_ADMIN_MODE')) {
-    $app->addExtension(new AdminExtension());
-}
+$app                = new Application();
+$baseModuleRegistry = new BaseModuleRegistry();
+(new RegisterKernel($baseModuleRegistry))->registerBaseModules($app, defined('S2_ADMIN_MODE'));
 
 $enabledExtensions = null;
 $cacheDir          = (string)$s2BaseStaticParameters['cache_dir'];
@@ -158,24 +156,37 @@ try {
     if (!is_array($enabledExtensions)) {
         $app->boot(collectParameters());
         $appCache          = $app->container->get(ExtensionCache::class);
-        $enabledExtensions = $appCache->generateEnabledExtensionClassNames();
+        $enabledExtensions = $appCache->generateEnabledExtensionClassNames($baseModuleRegistry->ids());
     }
 
-    foreach ($enabledExtensions['cms'] as $extension) {
-        if (!is_string($extension) || !is_a($extension, ExtensionInterface::class, true)) {
+    $staticallyLoadedClasses = array_merge(
+        $baseModuleRegistry->applicationExtensionClasses(),
+        $baseModuleRegistry->adminExtensionClasses()
+    );
+
+    foreach ($enabledExtensions['cms'] as $module) {
+        if (is_string($module) && in_array(ltrim($module, '\\'), $staticallyLoadedClasses, true)) {
+            continue;
+        }
+
+        if (!is_string($module) || !is_a($module, ModuleInterface::class, true)) {
             throw new ConfigurationException('The enabled CMS extension cache contains an invalid class name.');
         }
 
-        $app->addExtension(new $extension());
+        $app->addModule(new $module());
     }
 
     if (defined('S2_ADMIN_MODE')) {
-        foreach ($enabledExtensions['admin'] as $extension) {
-            if (!is_string($extension) || !is_a($extension, ExtensionInterface::class, true)) {
+        foreach ($enabledExtensions['admin'] as $module) {
+            if (is_string($module) && in_array(ltrim($module, '\\'), $staticallyLoadedClasses, true)) {
+                continue;
+            }
+
+            if (!is_string($module) || !is_a($module, ModuleInterface::class, true)) {
                 throw new ConfigurationException('The enabled admin extension cache contains an invalid class name.');
             }
 
-            $app->addExtension(new $extension());
+            $app->addModule(new $module());
         }
     }
 

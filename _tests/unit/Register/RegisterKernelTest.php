@@ -1,0 +1,73 @@
+<?php
+/**
+ * @copyright 2026 Roman Parpalak
+ * @license   https://opensource.org/license/mit MIT
+ * @package   Register
+ */
+
+declare(strict_types = 1);
+
+namespace unit\Register;
+
+use Codeception\Test\Unit;
+use Register\Module\BaseModuleRegistry;
+use Register\RegisterKernel;
+use S2\Cms\Admin\AdminExtension;
+use S2\Cms\CmsExtension;
+use S2\Cms\Framework\Application;
+use S2\Cms\Framework\ModuleInterface;
+
+final class RegisterKernelTest extends Unit
+{
+    public function testRegistersPublicBaseModulesWithoutDatabaseState(): void
+    {
+        $application = new RecordingApplication();
+
+        (new RegisterKernel(new BaseModuleRegistry()))->registerBaseModules($application, false);
+
+        self::assertSame([
+            CmsExtension::class,
+            \s2_extensions\s2_blog\Extension::class,
+            \s2_extensions\s2_search\Extension::class,
+            \s2_extensions\s2_latex\Extension::class,
+            \s2_extensions\s2_counter\Extension::class,
+            \s2_extensions\s2_typo\Extension::class,
+        ], $application->moduleClasses);
+    }
+
+    public function testAddsAdminPartsForEveryBaseModuleThatHasOne(): void
+    {
+        $application = new RecordingApplication();
+
+        (new RegisterKernel(new BaseModuleRegistry()))->registerBaseModules($application, true);
+
+        self::assertSame([
+            CmsExtension::class,
+            AdminExtension::class,
+            \s2_extensions\s2_blog\Extension::class,
+            \s2_extensions\s2_search\Extension::class,
+            \s2_extensions\s2_latex\Extension::class,
+            \s2_extensions\s2_counter\Extension::class,
+            \s2_extensions\s2_typo\Extension::class,
+            \s2_extensions\s2_blog\AdminExtension::class,
+            \s2_extensions\s2_search\AdminExtension::class,
+            \s2_extensions\s2_latex\AdminExtension::class,
+            \s2_extensions\s2_counter\AdminExtension::class,
+        ], $application->moduleClasses);
+    }
+}
+
+/** @internal */
+final class RecordingApplication extends Application
+{
+    /** @var list<class-string<ModuleInterface>> */
+    public array $moduleClasses = [];
+
+    #[\Override]
+    public function addModule(ModuleInterface $module): static
+    {
+        $this->moduleClasses[] = $module::class;
+
+        return $this;
+    }
+}

@@ -1,7 +1,7 @@
 <?php
 /**
  * Application class.
- * Handles HTTP requests after building container definitions and registering event listeners.
+ * Handles HTTP requests after building module container definitions and registering event listeners.
  *
  * @copyright 2024-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
@@ -44,21 +44,26 @@ class Application
      */
     private ?array $compiledRoutes = null;
 
-    /** @var ExtensionInterface[] */
-    private array $extensions = [];
+    /** @var ModuleInterface[] */
+    private array $modules = [];
 
     private ?string $cachedRoutesFilename = null;
 
-    public function addExtension(ExtensionInterface $extension): static
+    public function addModule(ModuleInterface $module): static
     {
-        $this->extensions[] = $extension;
+        $this->modules[] = $module;
 
         return $this;
     }
 
+    public function addExtension(ExtensionInterface $extension): static
+    {
+        return $this->addModule($extension);
+    }
+
     /**
      * Boots the application by initializing the container definitions
-     * and registering event listeners described in the extensions.
+     * and registering event listeners described by the modules.
      *
      * This method can be called again to reinitialize the application.
      * @param array<mixed> $params
@@ -73,9 +78,9 @@ class Application
         $eventDispatcher = new EventDispatcher();
         $this->container->set(EventDispatcherInterface::class, $eventDispatcher);
 
-        foreach ($this->extensions as $extension) {
-            $extension->buildContainer($this->container);
-            $extension->registerListeners($eventDispatcher, $this->container);
+        foreach ($this->modules as $module) {
+            $module->buildContainer($this->container);
+            $module->registerListeners($eventDispatcher, $this->container);
         }
     }
 
@@ -90,7 +95,7 @@ class Application
     /**
      * Method of an HTTP kernel interface.
      *
-     * 1. Detects a controller based on the routes defined in the extensions.
+     * 1. Detects a controller based on the routes defined by the modules.
      * 2. Pushes the request onto the RequestStack if available.
      * 3. Executes the controller and returns the response.
      * 4. If the controller throws NotFoundException, it can be handled via NotFoundEvent.
@@ -194,8 +199,8 @@ class Application
     {
         if (!$this->routes instanceof \Symfony\Component\Routing\RouteCollection) {
             $this->routes = new RouteCollection();
-            foreach ($this->extensions as $extension) {
-                $extension->registerRoutes($this->routes, $this->container);
+            foreach ($this->modules as $module) {
+                $module->registerRoutes($this->routes, $this->container);
             }
         }
 

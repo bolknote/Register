@@ -1,0 +1,45 @@
+<?php
+/**
+ * @copyright 2026 Roman Parpalak
+ * @license   https://opensource.org/license/mit MIT
+ * @package   Register
+ */
+
+declare(strict_types = 1);
+
+namespace Register;
+
+use Register\Module\BaseModuleRegistry;
+use S2\Cms\Admin\AdminExtension;
+use S2\Cms\CmsExtension;
+use S2\Cms\Framework\Application;
+
+/**
+ * Registers the product modules that exist in every working Register installation.
+ */
+final readonly class RegisterKernel
+{
+    public function __construct(private BaseModuleRegistry $baseModuleRegistry)
+    {
+    }
+
+    public function registerBaseModules(Application $application, bool $adminMode): void
+    {
+        $application->addModule(new CmsExtension());
+        if ($adminMode) {
+            $application->addModule(new AdminExtension());
+        }
+
+        foreach ($this->baseModuleRegistry->applicationExtensionClasses() as $moduleClass) {
+            $application->addModule(new $moduleClass());
+        }
+
+        if (!$adminMode) {
+            return;
+        }
+
+        foreach ($this->baseModuleRegistry->adminExtensionClasses() as $moduleClass) {
+            $application->addModule(new $moduleClass());
+        }
+    }
+}

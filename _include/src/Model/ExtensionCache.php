@@ -49,10 +49,11 @@ class ExtensionCache
     /**
      * Retrieves Extension class names if they exist for enabled extensions.
      *
+     * @param list<string> $staticallyLoadedExtensionIds Extension IDs already supplied by the product kernel
      * @throws DbLayerException
      * @return array<mixed>
      */
-    public function generateEnabledExtensionClassNames(): array
+    public function generateEnabledExtensionClassNames(array $staticallyLoadedExtensionIds = []): array
     {
         $result = $this->dbLayer
             ->select('id')
@@ -63,6 +64,10 @@ class ExtensionCache
 
         $extensionClassNames = ['cms' => [], 'admin' => []];
         while ($extension = $result->fetchAssoc()) {
+            if (in_array($extension['id'], $staticallyLoadedExtensionIds, true)) {
+                continue;
+            }
+
             $className = \sprintf('\s2_extensions\%s\Extension', $extension['id']);
             if (class_exists($className)) {
                 $extensionClassNames['cms'][] = $className;

@@ -13,14 +13,12 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Framework;
 
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\Routing\RouteCollection;
-
-interface ExtensionInterface
+/**
+ * Backward-compatible name for modules supplied by the S2 extension API.
+ *
+ * New Register code should depend on ModuleInterface. This interface remains while third-party
+ * extensions migrate without requiring an all-at-once ecosystem break.
+ */
+interface ExtensionInterface extends ModuleInterface
 {
-    public function buildContainer(Container $container): void;
-
-    public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void;
-
-    public function registerRoutes(RouteCollection $routes, Container $container): void;
 }
