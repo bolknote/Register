@@ -46,6 +46,7 @@ final class AdminModule implements ModuleInterface
             $container->get(PermissionChecker::class),
             $container->get(Translator::class),
             $container->get(TagsProvider::class),
+            $container->get(\Register\Content\TagRepository::class),
             $container->get(PostProvider::class),
             $container->get(BlogUrlBuilder::class),
             $container->get(BlogCommentNotifier::class),

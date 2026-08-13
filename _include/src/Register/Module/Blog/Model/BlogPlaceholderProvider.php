@@ -12,6 +12,10 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Model;
 
+use Register\Content\ContentId;
+use Register\Content\ContentTagSchema;
+use Register\Content\ContentType;
+use Register\Content\TagRepository;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Pdo\DbLayer;
@@ -30,6 +34,7 @@ readonly class BlogPlaceholderProvider
 
     public function __construct(
         private DbLayer             $dbLayer,
+        private TagRepository       $tagRepository,
         private BlogUrlBuilder      $blogUrlBuilder,
         private TranslatorInterface $translator,
         private Viewer              $viewer,
@@ -89,9 +94,10 @@ readonly class BlogPlaceholderProvider
 
             $result = $this->dbLayer->select('t.name, t.url, count(t.id)')
                 ->from('tags AS t')
-                ->innerJoin('s2_blog_post_tag AS pt', 't.id = pt.tag_id')
-                ->innerJoin('s2_blog_posts AS p', 'p.id = pt.post_id')
+                ->innerJoin(ContentTagSchema::TABLE_NAME . ' AS pt', 't.id = pt.tag_id')
+                ->innerJoin('s2_blog_posts AS p', 'p.id = pt.content_id')
                 ->where('t.s2_blog_important = 1')
+                ->andWhere("pt.content_type = '" . ContentType::POST->value . "'")
                 ->andWhere('p.published = 1')
                 ->groupBy('t.id')
                 ->orderBy('3 DESC')
@@ -232,30 +238,21 @@ readonly class BlogPlaceholderProvider
      */
     public function getBlogTagsForArticle(int $articleId): array
     {
-        $rawQuery = $this->dbLayer
-            ->select('p.id')
-            ->from('s2_blog_posts AS p')
-            ->innerJoin('s2_blog_post_tag AS pt', 'p.id = pt.post_id')
-            ->where('p.published = 1')
-            ->andWhere('pt.tag_id = atg.tag_id')
-            ->limit(1)
-            ->getSql()
-        ;
-
-        $result = $this->dbLayer->select('t.name, t.url as url')
-            ->from('tags AS t')
-            ->innerJoin('article_tag AS atg', 'atg.tag_id = t.id')
-            ->where('atg.article_id = :id')
-            ->setParameter('id', $articleId)
-            ->andWhere('(' . $rawQuery . ') IS NOT NULL')
-            ->execute()
-        ;
-
         $links = [];
-        while ($row = $result->fetchAssoc()) {
+        $usedInPosts = [];
+        foreach ($this->tagRepository->findPublishedUsage(ContentType::POST) as $usage) {
+            $usedInPosts[$usage->tag->id] = true;
+        }
+
+        $tagsByContent = $this->tagRepository->findForContent([ContentId::page($articleId)]);
+        foreach ($tagsByContent['page:' . $articleId] as $tag) {
+            if (!isset($usedInPosts[$tag->id])) {
+                continue;
+            }
+
             $links[] = [
-                'title' => $row['name'],
-                'link'  => $this->blogUrlBuilder->tag($row['url']),
+                'title' => $tag->name,
+                'link'  => $this->blogUrlBuilder->tag($tag->slug),
             ];
         }
 

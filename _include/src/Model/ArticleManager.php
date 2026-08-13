@@ -9,6 +9,10 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
+use Register\Content\ContentId;
+use Register\Content\ContentTagSchema;
+use Register\Content\ContentType;
+use Register\Content\TagRepository;
 use S2\Cms\Config\BoolProxy;
 use S2\AdminYard\Config\FieldConfig;
 use S2\AdminYard\Form\FormParams;
@@ -22,6 +26,7 @@ readonly class ArticleManager
 {
     public function __construct(
         private DbLayer                 $dbLayer,
+        private TagRepository           $tagRepository,
         private SettingStorageInterface $settingStorage,
         private PermissionChecker       $permissionChecker,
         private BoolProxy               $newPositionOnTop,
@@ -66,9 +71,10 @@ readonly class ArticleManager
                 if ($word[0] === ':' && \strlen($word) > 1) {
                     $condition[] = '(' . $this->dbLayer
                             ->select('COUNT(*)')
-                            ->from('article_tag AS at')
+                            ->from(ContentTagSchema::TABLE_NAME . ' AS at')
                             ->innerJoin('tags AS t', 't.id = at.tag_id')
-                            ->where('a.id = at.article_id')
+                            ->where("at.content_type = '" . ContentType::PAGE->value . "'")
+                            ->andWhere('a.id = at.content_id')
                             ->andWhere('t.name LIKE :param' . $paramIndex)
                             ->getSql()
                         . ')';
@@ -418,11 +424,7 @@ readonly class ArticleManager
             ->execute()
         ;
 
-        $this->dbLayer
-            ->delete('article_tag')
-            ->where('article_id = :id')->setParameter('id', $id)
-            ->execute()
-        ;
+        $this->tagRepository->remove(ContentId::page($id));
 
         $this->dbLayer
             ->delete('art_comments')

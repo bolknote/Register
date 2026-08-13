@@ -9,10 +9,10 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
+use Register\Content\ContentType;
+use Register\Content\TagRepository;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 
 class TagsProvider implements StatefulServiceInterface
 {
@@ -23,7 +23,7 @@ class TagsProvider implements StatefulServiceInterface
     private ?array $cachedTags = null;
 
     public function __construct(
-        private readonly DbLayer     $dbLayer,
+        private readonly TagRepository $tagRepository,
         private readonly UrlBuilder  $urlBuilder,
         private readonly StringProxy $tagsUrl
     ) {
@@ -32,36 +32,18 @@ class TagsProvider implements StatefulServiceInterface
     /**
      * Makes tags list for the tags page and the placeholder
      *
-     * @throws DbLayerException
      * @return array<mixed>
      */
     public function tagsList(): array
     {
         if ($this->cachedTags === null) {
             $this->cachedTags = [];
-            $result = $this->dbLayer
-                ->select('id AS tag_id, name, url, (' . $this->dbLayer
-                        ->select('COUNT(*)')
-                        ->from('article_tag AS at')
-                        ->innerJoin('articles AS a', 'a.id = at.article_id')
-                        // Well, it's an inaccuracy because we don't check parents' "published" property
-                        ->where('a.published = 1')
-                        ->andWhere('at.tag_id = t.id')
-                        ->getSql()
-                    . ') AS count')
-                ->from('tags AS t')
-                ->orderBy('count DESC')
-                ->execute()
-            ;
-
-            while ($row = $result->fetchAssoc()) {
-                if ($row['count'] > 0) {
-                    $this->cachedTags[] = [
-                        'title' => $row['name'],
-                        'link'  => $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($row['url']) . '/'),
-                        'num'   => $row['count'],
-                    ];
-                }
+            foreach ($this->tagRepository->findPublishedUsage(ContentType::PAGE) as $usage) {
+                $this->cachedTags[] = [
+                    'title' => $usage->tag->name,
+                    'link'  => $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($usage->tag->slug) . '/'),
+                    'num'   => $usage->publishedContentCount,
+                ];
             }
         }
 
@@ -69,28 +51,14 @@ class TagsProvider implements StatefulServiceInterface
     }
 
     /**
-     * @throws DbLayerException
      * @return array<mixed>
      */
     public function getAllTags(): array
     {
-        $result = $this->dbLayer
-            ->select('name, (' . $this->dbLayer
-                    ->select('COUNT(*)')
-                    ->from('article_tag AS at')
-                    ->innerJoin('articles AS a', 'a.id = at.article_id')
-                    // Well, it's an inaccuracy because we don't check parents' "published" property
-                    ->where('a.published = 1')
-                    ->andWhere('at.tag_id = t.id')
-                    ->getSql()
-                . ') AS count'
-            )
-            ->from('tags AS t')
-            ->orderBy('count DESC')
-            ->execute()
-        ;
-
-        return $result->fetchColumn();
+        return array_map(
+            static fn(\Register\Content\TagUsage $usage): string => $usage->tag->name,
+            $this->tagRepository->findAllUsage(ContentType::PAGE),
+        );
     }
 
     #[\Override]

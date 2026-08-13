@@ -13,6 +13,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Controller;
 
 use Register\Content\ContentId;
+use Register\Content\TagRepository;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Model\ArticleProvider;
@@ -53,6 +54,7 @@ class PostPageController extends BlogController
         Viewer                                   $viewer,
         private readonly CommentThreadRenderer   $commentThreadRenderer,
         private readonly AuthProvider             $authProvider,
+        private readonly TagRepository            $tagRepository,
         StringProxy                              $blogTitle,
         BoolProxy                                $showComments,
         BoolProxy                                $enabledComments,
@@ -213,21 +215,12 @@ class PostPageController extends BlogController
         }
 
         // Getting tags
-        $result = $this->dbLayer
-            ->select('name, url')
-            ->from('tags AS t')
-            ->innerJoin('s2_blog_post_tag AS pt', 'pt.tag_id = t.id')
-            ->where('post_id = :post_id')
-            ->setParameter('post_id', $post_id)
-            ->orderBy('pt.id')
-            ->execute()
-        ;
-
         $tags = [];
-        while ($tag = $result->fetchAssoc()) {
+        $tagsByContent = $this->tagRepository->findForContent([ContentId::post((int)$post_id)]);
+        foreach ($tagsByContent['post:' . $post_id] as $tag) {
             $tags[] = [
-                'title' => $tag['name'],
-                'link'  => $this->blogUrlBuilder->tag($tag['url']),
+                'title' => $tag->name,
+                'link'  => $this->blogUrlBuilder->tag($tag->slug),
             ];
         }
 

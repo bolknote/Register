@@ -9,6 +9,10 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Content\ContentId;
+use Register\Content\ContentTagSchema;
+use Register\Content\ContentType;
+use Register\Content\TagRepository;
 use S2\AdminYard\Config\AdminConfig;
 use S2\AdminYard\Config\DbColumnFieldType;
 use S2\AdminYard\Config\EntityConfig;
@@ -66,6 +70,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly Translator               $translator,
         private readonly ArticleProvider          $articleProvider,
         private readonly TagsProvider             $tagsProvider,
+        private readonly TagRepository             $tagRepository,
         private readonly UrlBuilder               $urlBuilder,
         private readonly CommentNotifier          $commentNotifier,
         private readonly ExtensionCache           $extensionCache,
@@ -479,8 +484,8 @@ class AdminConfigProvider implements StatefulServiceInterface
                         default => 'GROUP_CONCAT(t.name ORDER BY pt.id SEPARATOR ", ")',
                     };
                     $tableName  = $this->dbPrefix . 'tags';
-                    $tableName2 = $this->dbPrefix . 'article_tag';
-                    return "SELECT $column FROM $tableName AS t JOIN $tableName2 AS pt ON t.id = pt.tag_id WHERE pt.article_id = entity.id";
+                    $tableName2 = $this->dbPrefix . ContentTagSchema::TABLE_NAME;
+                    return "SELECT $column FROM $tableName AS t JOIN $tableName2 AS pt ON t.id = pt.tag_id WHERE pt.content_type = '" . ContentType::PAGE->value . "' AND pt.content_id = entity.id";
                 })()),
                 control: 'input',
                 validators: [
@@ -722,29 +727,10 @@ class AdminConfigProvider implements StatefulServiceInterface
 
                 $newTagIds = self::tagIdsFromTags($event->dataProvider, $tags, $this->dbPrefix);
 
-                $tableName = $this->dbPrefix . 'article_tag';
-
-                $existingLinks = $event->dataProvider->getEntityList($tableName, [
-                    'article_id' => FieldConfig::DATA_TYPE_INT,
-                    'tag_id'     => FieldConfig::DATA_TYPE_INT,
-                ], conditions: [new LogicalExpression('article_id', $this->requirePrimaryKey($event->primaryKey)->getIntId())]);
-
-                $existingTagIds = array_column($existingLinks, 'column_tag_id');
-                if (implode(',', $existingTagIds) !== implode(',', $newTagIds)) {
-                    $event->dataProvider->deleteEntity(
-                        $tableName,
-                        ['article_id' => FieldConfig::DATA_TYPE_INT],
-                        new Key(['article_id' => $this->requirePrimaryKey($event->primaryKey)->getIntId()]),
-                        [],
-                    );
-
-                    foreach ($newTagIds as $tagId) {
-                        $event->dataProvider->createEntity($tableName, [
-                            'article_id' => FieldConfig::DATA_TYPE_INT,
-                            'tag_id'     => FieldConfig::DATA_TYPE_INT,
-                        ], ['article_id' => $this->requirePrimaryKey($event->primaryKey)->getIntId(), 'tag_id' => $tagId]);
-                    }
-                }
+                $this->tagRepository->replace(
+                    ContentId::page($this->requirePrimaryKey($event->primaryKey)->getIntId()),
+                    array_values(array_map(intval(...), $newTagIds)),
+                );
             })
             ->addFilter(
                 new Filter(
@@ -760,7 +746,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     'tags',
                     $this->translator->trans('Tags'),
                     'search_input',
-                    'id IN (SELECT at.article_id FROM ' . $this->dbPrefix . 'article_tag AS at JOIN ' . $this->dbPrefix . 'tags AS t ON t.id = at.tag_id WHERE t.name LIKE %1$s)',
+                    "id IN (SELECT at.content_id FROM " . $this->dbPrefix . ContentTagSchema::TABLE_NAME . " AS at JOIN " . $this->dbPrefix . "tags AS t ON t.id = at.tag_id WHERE at.content_type = '" . ContentType::PAGE->value . "' AND t.name LIKE %1\$s)",
                     fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null
                 )
             )
@@ -832,7 +818,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     label: $this->translator->trans('Used in articles'),
                     hint: $this->translator->trans('Used in articles info'),
                     type: new VirtualFieldType(
-                        'SELECT CAST(COUNT(*) AS CHAR) FROM ' . $this->dbPrefix . 'article_tag AS pt WHERE pt.tag_id = entity.id',
+                        "SELECT CAST(COUNT(*) AS CHAR) FROM " . $this->dbPrefix . ContentTagSchema::TABLE_NAME . " AS pt WHERE pt.content_type = '" . ContentType::PAGE->value . "' AND pt.tag_id = entity.id",
                         new LinkToEntityParams($articleEntity->getName(), ['tags'], ['name' /* tags.name */])
                     ),
                     sortable: true,

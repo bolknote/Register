@@ -140,6 +140,7 @@ class AdminExtension implements ExtensionInterface
                 $container->get(Translator::class),
                 $container->get(ArticleProvider::class),
                 $container->get(TagsProvider::class),
+                $container->get(\Register\Content\TagRepository::class),
                 $container->get(UrlBuilder::class),
                 $container->get(CommentNotifier::class),
                 $container->get(ExtensionCache::class),
@@ -194,6 +195,7 @@ class AdminExtension implements ExtensionInterface
             $provider = $container->get(DynamicConfigProvider::class);
             return new ArticleManager(
                 $container->get(DbLayer::class),
+                $container->get(\Register\Content\TagRepository::class),
                 $container->get(SettingStorageInterface::class),
                 $container->get(PermissionChecker::class),
                 $provider->getBoolProxy('S2_ADMIN_NEW_POS'),

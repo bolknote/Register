@@ -65,7 +65,7 @@ final readonly class TagRepository
                 ->innerJoin('tags AS t', 't.id = ct.tag_id')
                 ->where('ct.content_type = :content_type')
                 ->andWhere('ct.content_id IN (' . implode(', ', $placeholders) . ')')
-                ->orderBy('ct.content_id', 't.name', 't.id')
+                ->orderBy('ct.content_id', 'ct.id')
                 ->execute($parameters)
                 ->fetchAssocAll()
             ;
@@ -92,6 +92,7 @@ final readonly class TagRepository
             if ($tagId <= 0) {
                 throw new \InvalidArgumentException('A tag identifier must be a positive integer.');
             }
+
             $normalizedTagIds[$tagId] = $tagId;
         }
 
@@ -117,6 +118,16 @@ final readonly class TagRepository
                 ])
             ;
         }
+    }
+
+    public function remove(ContentId $contentId): void
+    {
+        $this->dbLayer
+            ->delete(ContentTagSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', $contentId->type->value)
+            ->andWhere('content_id = :content_id')->setParameter('content_id', $contentId->value)
+            ->execute()
+        ;
     }
 
     /** @return list<ContentId> */
@@ -148,40 +159,84 @@ final readonly class TagRepository
     /** @return list<TagUsage> */
     public function findPublishedUsage(?ContentType $onlyType = null): array
     {
-        /** @var array<int, array{tag: Tag, count: int}> $usageByTag */
-        $usageByTag = [];
-        $types      = $onlyType instanceof ContentType ? [$onlyType] : ContentType::cases();
+        return array_values(array_filter(
+            $this->findAllUsage($onlyType),
+            static fn(TagUsage $usage): bool => $usage->publishedContentCount > 0,
+        ));
+    }
 
+    /** @return list<TagUsage> */
+    public function findAllUsage(?ContentType $onlyType = null): array
+    {
+        $types       = $onlyType instanceof ContentType ? [$onlyType] : ContentType::cases();
+        $countSql    = [];
+        $parameters  = [];
         foreach ($types as $contentType) {
-            $rows = $this->dbLayer
-                ->select('t.id, t.name, t.url, t.description', 'COUNT(*) AS content_count')
+            $parameter                    = 'usage_type_' . $contentType->value;
+            $parameters[$parameter]       = $contentType->value;
+            $countSql[]                   = '(' . $this->dbLayer
+                ->select('COUNT(*)')
                 ->from(ContentTagSchema::TABLE_NAME . ' AS ct')
-                ->innerJoin('tags AS t', 't.id = ct.tag_id')
                 ->innerJoin($this->contentTable($contentType) . ' AS c', 'c.id = ct.content_id')
-                ->where('ct.content_type = :content_type')->setParameter('content_type', $contentType->value)
+                ->where('ct.content_type = :' . $parameter)
+                ->andWhere('ct.tag_id = t.id')
                 ->andWhere('c.published = 1')
-                ->groupBy('t.id', 't.name', 't.url', 't.description')
-                ->execute()
-                ->fetchAssocAll()
-            ;
-
-            foreach ($rows as $row) {
-                $tagId = (int)$row['id'];
-                if (!isset($usageByTag[$tagId])) {
-                    $usageByTag[$tagId] = ['tag' => $this->hydrateTag($row), 'count' => 0];
-                }
-                $usageByTag[$tagId]['count'] += (int)$row['content_count'];
-            }
+                ->getSql() . ')';
         }
 
+        $rows = $this->dbLayer
+            ->select('t.id, t.name, t.url, t.description', implode(' + ', $countSql) . ' AS content_count')
+            ->from('tags AS t')
+            ->execute($parameters)
+            ->fetchAssocAll()
+        ;
+
         $result = array_map(
-            static fn(array $usage): TagUsage => new TagUsage($usage['tag'], $usage['count']),
-            array_values($usageByTag),
+            fn(array $row): TagUsage => new TagUsage($this->hydrateTag($row), (int)$row['content_count']),
+            $rows,
         );
         usort(
             $result,
-            static fn(TagUsage $left, TagUsage $right): int => strcasecmp($left->tag->name, $right->tag->name),
+            static function (TagUsage $left, TagUsage $right): int {
+                $countComparison = $right->publishedContentCount <=> $left->publishedContentCount;
+
+                return $countComparison !== 0
+                    ? $countComparison
+                    : strcasecmp($left->tag->name, $right->tag->name);
+            },
         );
+
+        return $result;
+    }
+
+    /**
+     * @param list<string> $words
+     * @return list<Tag>
+     */
+    public function findPublishedMatching(array $words, ?ContentType $onlyType = null): array
+    {
+        $normalizedWords = [];
+        foreach ($words as $word) {
+            $word = mb_strtolower(trim($word));
+            if ($word !== '') {
+                $normalizedWords[$word] = $word;
+            }
+        }
+
+        if ($normalizedWords === []) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($this->findPublishedUsage($onlyType) as $usage) {
+            $name = mb_strtolower($usage->tag->name);
+            foreach ($normalizedWords as $word) {
+                if (str_starts_with($name, $word) || str_contains($name, ' ' . $word)) {
+                    $result[] = $usage->tag;
+                    break;
+                }
+            }
+        }
 
         return $result;
     }

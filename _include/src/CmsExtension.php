@@ -347,7 +347,7 @@ class CmsExtension implements ExtensionInterface
         $container->set(TagsProvider::class, function (Container $container): \S2\Cms\Model\TagsProvider {
             $provider = $container->get(DynamicConfigProvider::class);
             return new TagsProvider(
-                $container->get(DbLayer::class),
+                $container->get(\Register\Content\TagRepository::class),
                 $container->get(UrlBuilder::class),
                 $provider->getStringProxy('S2_TAGS_URL'),
             );
@@ -409,6 +409,7 @@ class CmsExtension implements ExtensionInterface
             $provider = $container->get(DynamicConfigProvider::class);
             return new PageTag(
                 $container->get(DbLayer::class),
+                $container->get(\Register\Content\TagRepository::class),
                 $container->get(ArticleProvider::class),
                 $container->get(UrlBuilder::class),
                 $container->get('translator'),
@@ -424,6 +425,7 @@ class CmsExtension implements ExtensionInterface
             $provider = $container->get(DynamicConfigProvider::class);
             return new PageCommon(
                 $container->get(DbLayer::class),
+                $container->get(\Register\Content\TagRepository::class),
                 $container->get(ArticleProvider::class),
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
                 $container->get(UrlBuilder::class),

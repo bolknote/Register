@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
+use Register\Content\TagRepository;
 use S2\Cms\Template\HtmlTemplate;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,6 +21,37 @@ use S2\Cms\Pdo\DbLayerException;
 
 class TagsPageController extends BlogController
 {
+    public function __construct(
+        \S2\Cms\Pdo\DbLayer $dbLayer,
+        \Register\Module\Blog\CalendarBuilder $calendarBuilder,
+        \Register\Module\Blog\BlogUrlBuilder $blogUrlBuilder,
+        \S2\Cms\Model\ArticleProvider $articleProvider,
+        \Register\Module\Blog\Model\PostProvider $postProvider,
+        \S2\Cms\Model\UrlBuilder $urlBuilder,
+        \Symfony\Contracts\Translation\TranslatorInterface $translator,
+        \S2\Cms\Template\HtmlTemplateProvider $templateProvider,
+        \S2\Cms\Template\Viewer $viewer,
+        \S2\Cms\Config\StringProxy $blogTitle,
+        \S2\Cms\Config\BoolProxy $showComments,
+        \S2\Cms\Config\BoolProxy $enabledComments,
+        private readonly TagRepository $tagRepository,
+    ) {
+        parent::__construct(
+            $dbLayer,
+            $calendarBuilder,
+            $blogUrlBuilder,
+            $articleProvider,
+            $postProvider,
+            $urlBuilder,
+            $translator,
+            $templateProvider,
+            $viewer,
+            $blogTitle,
+            $showComments,
+            $enabledComments,
+        );
+    }
+
     /**
      * @throws DbLayerException
      */
@@ -36,55 +68,13 @@ class TagsPageController extends BlogController
             $template->registerPlaceholder('<!-- s2_blog_calendar -->', $this->calendarBuilder->calendar());
         }
 
-        $result = $this->dbLayer
-            ->select('id AS tag_id, name, url')
-            ->from('tags')
-            ->execute()
-        ;
-        $tag_name = [];
-        $tag_url = [];
-        $tag_count = [];
-        while ($row = $result->fetchAssoc()) {
-            $tag_name[$row['tag_id']]  = $row['name'];
-            $tag_url[$row['tag_id']]   = $row['url'];
-            $tag_count[$row['tag_id']] = 0;
-        }
-
-        $result = $this->dbLayer
-            ->select('pt.tag_id')
-            ->from('s2_blog_post_tag AS pt')
-            ->innerJoin('s2_blog_posts AS p', 'p.id = pt.post_id')
-            ->where('p.published = 1')
-            ->execute()
-        ;
-
-        while ($row = $result->fetchRow()) {
-            $tag_count[$row[0]] = 1 + ($tag_count[$row[0]] ?? 0);
-        }
-
-        $result = $this->dbLayer
-            ->select('at.tag_id')
-            ->from('article_tag AS at')
-            ->innerJoin('articles AS a', 'a.id = at.article_id')
-            ->where('a.published = 1')
-            ->execute()
-        ;
-
-        while ($row = $result->fetchRow()) {
-            $tag_count[$row[0]] = 1 + ($tag_count[$row[0]] ?? 0);
-        }
-
-        arsort($tag_count);
-
         $tags = [];
-        foreach ($tag_count as $id => $num) {
-            if ($num > 0) {
-                $tags[] = [
-                    'title' => $tag_name[$id],
-                    'link'  => $this->blogUrlBuilder->tag($tag_url[$id]),
-                    'num'   => $num,
-                ];
-            }
+        foreach ($this->tagRepository->findPublishedUsage() as $usage) {
+            $tags[] = [
+                'title' => $usage->tag->name,
+                'link'  => $this->blogUrlBuilder->tag($usage->tag->slug),
+                'num'   => $usage->publishedContentCount,
+            ];
         }
 
         $template->putInPlaceholder('text', $this->viewer->render('tags_list', ['tags' => $tags]));

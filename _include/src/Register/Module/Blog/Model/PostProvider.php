@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Model;
 
+use Register\Content\ContentId;
+use Register\Content\TagRepository;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\Viewer;
@@ -19,6 +21,7 @@ readonly class PostProvider
 {
     public function __construct(
         private DbLayer         $dbLayer,
+        private TagRepository   $tagRepository,
         private BlogUrlBuilder  $blogUrlBuilder,
         private ArticleProvider $articleProvider,
         private Viewer          $viewer,
@@ -201,28 +204,16 @@ readonly class PostProvider
         }
 
         // Obtaining tags
-        $result2 = $this->dbLayer
-            ->select('pt.post_id', 't.name', 't.url', 'pt.id AS pt_id')
-            ->from('tags AS t')
-            ->innerJoin('s2_blog_post_tag AS pt', 'pt.tag_id = t.id')
-            ->where('pt.post_id IN (' . implode(',', array_fill(0, \count($ids), '?')) . ')')
-            ->execute($ids)
-        ;
-        $rows = [];
-        $sortArray = [];
-        while ($row = $result2->fetchAssoc()) {
-            $rows[]      = $row;
-            $sortArray[] = $row['pt_id'];
-        }
-
-        array_multisort($sortArray, $rows);
-
         $tags = [];
-        foreach ($rows as $row) {
-            $tags[$row['post_id']][] = [
-                'title' => $row['name'],
-                'link'  => $this->blogUrlBuilder->tag($row['url']),
-            ];
+        $contentIds = array_values(array_map(static fn(mixed $id): ContentId => ContentId::post((int)$id), $ids));
+        foreach ($this->tagRepository->findForContent($contentIds) as $contentId => $contentTags) {
+            $postId = ContentId::fromString($contentId)->value;
+            foreach ($contentTags as $tag) {
+                $tags[$postId][] = [
+                    'title' => $tag->name,
+                    'link'  => $this->blogUrlBuilder->tag($tag->slug),
+                ];
+            }
         }
     }
 

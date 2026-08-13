@@ -36,7 +36,7 @@ final class ContentTagRepositoryCest
 
         $tagsByContent = $repository->findForContent([$pageIdObject, $postIdObject]);
         $I->assertSame(
-            ['Architecture', 'Register'],
+            ['Register', 'Architecture'],
             array_column($tagsByContent[(string)$pageIdObject], 'name'),
         );
         $I->assertSame(['Register'], array_column($tagsByContent[(string)$postIdObject], 'name'));
@@ -47,11 +47,12 @@ final class ContentTagRepositoryCest
         foreach ($usages as $usage) {
             $counts[$usage->tag->slug] = $usage->publishedContentCount;
         }
+
         $I->assertSame(1, $counts['architecture']);
         $I->assertSame(2, $counts['register-engine']);
         $I->assertSame(
             [(string)$postIdObject],
-            array_map('strval', $repository->findPublishedContentIds($secondTagId, ContentType::POST)),
+            array_map(strval(...), $repository->findPublishedContentIds($secondTagId, ContentType::POST)),
         );
 
         $repository->replace($pageIdObject, []);

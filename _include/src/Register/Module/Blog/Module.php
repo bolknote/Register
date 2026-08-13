@@ -105,6 +105,7 @@ final class Module implements ModuleInterface
             $provider = $container->get(DynamicConfigProvider::class);
             return new BlogPlaceholderProvider(
                 $container->get(DbLayer::class),
+                $container->get(\Register\Content\TagRepository::class),
                 $container->get(BlogUrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $container->get(Viewer::class),
@@ -201,6 +202,7 @@ final class Module implements ModuleInterface
                 $container->get(Viewer::class),
                 $container->get(CommentThreadRenderer::class),
                 $container->get(AuthProvider::class),
+                $container->get(\Register\Content\TagRepository::class),
                 $provider->getStringProxy('S2_BLOG_TITLE'),
                 $provider->getBoolProxy('S2_SHOW_COMMENTS'),
                 $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
@@ -243,6 +245,7 @@ final class Module implements ModuleInterface
                 $provider->getStringProxy('S2_BLOG_TITLE'),
                 $provider->getBoolProxy('S2_SHOW_COMMENTS'),
                 $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+                $container->get(\Register\Content\TagRepository::class),
             );
         });
         $container->set(TagPageController::class, static function (Container $container): \Register\Module\Blog\Controller\TagPageController {
@@ -260,6 +263,7 @@ final class Module implements ModuleInterface
                 $provider->getStringProxy('S2_BLOG_TITLE'),
                 $provider->getBoolProxy('S2_SHOW_COMMENTS'),
                 $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+                $container->get(\Register\Content\TagRepository::class),
                 $provider->getBoolProxy('S2_USE_HIERARCHY'),
             );
         });
@@ -345,6 +349,7 @@ final class Module implements ModuleInterface
 
         $container->set(PostProvider::class, static fn(Container $container): \Register\Module\Blog\Model\PostProvider => new PostProvider(
             $container->get(DbLayer::class),
+            $container->get(\Register\Content\TagRepository::class),
             $container->get(BlogUrlBuilder::class),
             $container->get(ArticleProvider::class),
             $container->get(Viewer::class),
@@ -358,7 +363,7 @@ final class Module implements ModuleInterface
         ));
 
         $container->set(TagsSearchProvider::class, static fn(Container $container): \Register\Module\Blog\Service\TagsSearchProvider => new TagsSearchProvider(
-            $container->get(DbLayer::class),
+            $container->get(\Register\Content\TagRepository::class),
             $container->get(SimilarWordsDetector::class),
             $container->get(BlogUrlBuilder::class),
         ));

@@ -12,6 +12,9 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
+use Register\Content\ContentId;
+use Register\Content\ContentType;
+use Register\Content\TagRepository;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Framework\Exception\NotFoundException;
@@ -47,6 +50,7 @@ class TagPageController extends BlogController
         StringProxy           $blogTitle,
         BoolProxy             $showComments,
         BoolProxy             $enabledComments,
+        private readonly TagRepository $tagRepository,
         private readonly BoolProxy $useHierarchy
     ) {
         parent::__construct(
@@ -79,29 +83,20 @@ class TagPageController extends BlogController
 
         $tag = $params['tag'];
 
-        $result = $this->dbLayer
-            ->select('id AS tag_id, description, name, url')
-            ->from('tags')
-            ->where('url = :url')
-            ->setParameter('url', $tag)
-            ->execute()
-        ;
-
-        $row = $result->fetchRow();
-        if ($row === false) {
+        $tagEntity = $this->tagRepository->findBySlug((string)$tag);
+        if (!$tagEntity instanceof \Register\Content\Tag) {
             throw new NotFoundException();
         }
 
-        [$tagId, $tagDescription, $tagName, $tagUrl] = $row;
-        $tagDescription = (string)$tagDescription;
-        $tagName        = (string)$tagName;
-        $tagUrl         = (string)$tagUrl;
+        $tagDescription = $tagEntity->description;
+        $tagName        = $tagEntity->name;
+        $tagUrl         = $tagEntity->slug;
 
         if ($params['slash'] !== '/') {
             return new RedirectResponse($this->blogUrlBuilder->tag($tagUrl), Response::HTTP_MOVED_PERMANENTLY);
         }
 
-        $art_links = $this->articles_by_tag($tagId);
+        $art_links = $this->articles_by_tag($tagEntity->id);
         if (\count($art_links) > 0) {
             $tagDescription .= '<p>' . $this->translator->trans('Articles by tag') . '<br />' . implode('<br />', $art_links) . '</p>';
         }
@@ -110,12 +105,32 @@ class TagPageController extends BlogController
             $tagDescription .= '<hr />';
         }
 
+        $postIds = array_map(
+            static fn(ContentId $contentId): int => $contentId->value,
+            $this->tagRepository->findPublishedContentIds($tagEntity->id, ContentType::POST),
+        );
         $output = $this->getPosts(
-            fn(SelectBuilder $qb): \S2\Cms\Pdo\QueryBuilder\SelectBuilder => $qb
-                ->innerJoin('s2_blog_post_tag AS pt', 'p.id = pt.post_id')
-                ->andWhere('pt.tag_id = :tag_id')
-                ->setParameter('tag_id', $tagId),
-            false
+            static function (SelectBuilder $qb) use ($postIds): SelectBuilder {
+                if ($postIds === []) {
+                    return $qb->andWhere('1 = 0');
+                }
+
+                $parameters = [];
+                $placeholders = [];
+                foreach ($postIds as $index => $postId) {
+                    $parameter               = 'tag_post_' . $index;
+                    $parameters[$parameter] = $postId;
+                    $placeholders[]          = ':' . $parameter;
+                }
+
+                $qb->andWhere('p.id IN (' . implode(', ', $placeholders) . ')');
+                foreach ($parameters as $parameter => $postId) {
+                    $qb->setParameter($parameter, $postId);
+                }
+
+                return $qb;
+            },
+            false,
         );
 
         if ($output === '' && $art_links === []) {
@@ -157,25 +172,29 @@ class TagPageController extends BlogController
             ->getSql()
         ;
 
-        $result = $this->dbLayer
-            ->select('a.id, a.url, a.title, a.parent_id')
-            ->addSelect('(' . $rawQuery . ') IS NOT NULL AS children_exist')
-            ->from('articles AS a')
-            ->innerJoin('article_tag AS atg', 'atg.article_id = a.id')
-            ->where('atg.tag_id = :tag_id')
-            ->setParameter('tag_id', $tag_id)
-            ->andWhere('a.published = 1')
-            ->execute()
-        ;
         $title = [];
         $urls = [];
         $parentIds = [];
         $useHierarchy = $this->useHierarchy->get();
 
-        while ($row = $result->fetchAssoc()) {
-            $urls[]      = urlencode($row['url']) . ($useHierarchy && (bool)$row['children_exist'] ? '/' : '');
-            $parentIds[] = $row['parent_id'];
-            $title[]     = $row['title'];
+        $pageIds = array_map(
+            static fn(ContentId $contentId): int => $contentId->value,
+            $this->tagRepository->findPublishedContentIds($tag_id, ContentType::PAGE),
+        );
+        if ($pageIds !== []) {
+            $result = $this->dbLayer
+                ->select('a.id, a.url, a.title, a.parent_id')
+                ->addSelect('(' . $rawQuery . ') IS NOT NULL AS children_exist')
+                ->from('articles AS a')
+                ->where('a.id IN (' . implode(', ', array_fill(0, \count($pageIds), '?')) . ')')
+                ->andWhere('a.published = 1')
+                ->execute($pageIds)
+            ;
+            while ($row = $result->fetchAssoc()) {
+                $urls[]      = urlencode($row['url']) . ($useHierarchy && (bool)$row['children_exist'] ? '/' : '');
+                $parentIds[] = $row['parent_id'];
+                $title[]     = $row['title'];
+            }
         }
 
         $urls = $this->articleProvider->getFullUrlsForArticles($parentIds, $urls);

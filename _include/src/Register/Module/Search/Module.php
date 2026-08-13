@@ -23,7 +23,6 @@ use S2\Cms\Logger\Logger;
 use S2\Cms\Model\Article\ArticleRenderedEvent;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
 use S2\Cms\Template\HtmlTemplateProvider;
@@ -129,7 +128,7 @@ final class Module implements ModuleInterface
                 $container->get(PdoStorage::class),
                 $container->get(ThumbnailGenerator::class),
                 $container->get(SimilarWordsDetector::class),
-                $container->get(DbLayer::class),
+                $container->get(\Register\Content\TagRepository::class),
                 $container->get(ArticleProvider::class),
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
                 $container->get('register_search_translator'),

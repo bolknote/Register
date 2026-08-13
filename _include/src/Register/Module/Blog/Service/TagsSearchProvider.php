@@ -9,52 +9,30 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Service;
 
-use S2\Cms\Pdo\DbLayer;
+use Register\Content\ContentType;
+use Register\Content\TagRepository;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Search\Service\SimilarWordsDetector;
-use S2\Cms\Pdo\DbLayerException;
 
 readonly class TagsSearchProvider
 {
     public function __construct(
-        private DbLayer              $dbLayer,
+        private TagRepository        $tagRepository,
         private SimilarWordsDetector $similarWordsDetector,
         private BlogUrlBuilder       $blogUrlBuilder,
     ) {
     }
 
     /**
-     * @throws DbLayerException
      * @param string[] $words
      * @return string[]
      */
     public function findBlogTags(array $words): array
     {
-        $tagIsUsedSql = $this->dbLayer
-            ->select('1')
-            ->from('s2_blog_post_tag AS pt')
-            ->innerJoin('s2_blog_posts AS p', 'p.id = pt.post_id')
-            ->where('pt.tag_id = t.id')
-            ->andWhere('p.published = 1')
-            ->limit(1)
-            ->getSql()
-        ;
-
-        $result = $this->dbLayer
-            ->select('id AS tag_id, name, url')
-            ->from('tags AS t')
-            ->where('EXISTS (' . $tagIsUsedSql . ')')
-            ->andWhere('(' . implode(' OR ', array_fill(0, 2 * \count($words), 'name LIKE ?')) . ')')
-            ->execute(array_merge(
-                array_map(static fn(string $word): string => $word . '%', $words),
-                array_map(static fn(string $word): string => '% ' . $word . '%', $words),
-            ))
-        ;
-
         $tags = [];
-        while ($row = $result->fetchAssoc()) {
-            if ($this->similarWordsDetector->wordIsSimilarToOtherWords($row['name'], $words)) {
-                $tags[] = '<a href="' . $this->blogUrlBuilder->tag($row['url']) . '">' . $row['name'] . '</a>';
+        foreach ($this->tagRepository->findPublishedMatching(array_values($words), ContentType::POST) as $tag) {
+            if ($this->similarWordsDetector->wordIsSimilarToOtherWords($tag->name, $words)) {
+                $tags[] = '<a href="' . $this->blogUrlBuilder->tag($tag->slug) . '">' . $tag->name . '</a>';
             }
         }
 

@@ -11,6 +11,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Controller;
 
+use Register\Content\ContentType;
+use Register\Content\TagRepository;
 use Register\Module\Search\Module;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Config\StringProxy;
@@ -19,7 +21,6 @@ use S2\Cms\Helper\StringHelper;
 use S2\Cms\Image\ThumbnailGenerator;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\Viewer;
 use S2\Rose\Entity\ExternalId;
@@ -50,7 +51,7 @@ readonly class SearchPageController implements ControllerInterface
         private PdoStorage               $pdoStorage,
         private ThumbnailGenerator       $thumbnailGenerator,
         private SimilarWordsDetector     $similarWordsDetector,
-        private DbLayer                  $dbLayer,
+        private TagRepository            $tagRepository,
         private ArticleProvider          $articleProvider,
         private EventDispatcherInterface $eventDispatcher,
         private TranslatorInterface      $translator,
@@ -167,36 +168,10 @@ readonly class SearchPageController implements ControllerInterface
         $stemmedWords = array_map(fn(string $word): string => $this->stemmer->stemWord($word), $words);
         $words        = array_unique(array_merge($words, $stemmedWords));
 
-        $usedSql = $this->dbLayer
-            ->select('1')
-            ->from('article_tag AS at')
-            ->innerJoin('articles AS a', 'a.id = at.article_id')
-            ->where('at.tag_id = t.id')
-            ->andWhere('a.published = 1')
-            ->limit(1)
-            ->getSql()
-        ;
-
-        $result = $this->dbLayer
-            ->select('id AS tag_id, name, url')
-            ->from('tags AS t')
-            ->where('EXISTS (' . $usedSql . ')')
-            ->andWhere('(' . implode(' OR ', array_fill(0, 2 * \count($words), 'name LIKE ?')) . ')')
-            ->execute(array_merge(
-                array_map(static fn(string $word): string => $word . '%', $words),
-                array_map(static fn(string $word): string => '% ' . $word . '%', $words),
-            ))
-        ;
-
         $tags = [];
-        while (true) {
-            $row = $result->fetchAssoc();
-            if ($row === false) {
-                break;
-            }
-
-            if ($this->similarWordsDetector->wordIsSimilarToOtherWords($row['name'], $words)) {
-                $tags[] = '<a href="' . $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($row['url']) . '/') . '">' . s2_htmlencode($row['name']) . '</a>';
+        foreach ($this->tagRepository->findPublishedMatching(array_values($words), ContentType::PAGE) as $tag) {
+            if ($this->similarWordsDetector->wordIsSimilarToOtherWords($tag->name, $words)) {
+                $tags[] = '<a href="' . $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($tag->slug) . '/') . '">' . s2_htmlencode($tag->name) . '</a>';
             }
         }
 

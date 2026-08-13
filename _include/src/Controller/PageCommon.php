@@ -11,6 +11,10 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
+use Register\Content\ContentId;
+use Register\Content\ContentTagSchema;
+use Register\Content\ContentType;
+use Register\Content\TagRepository;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Config\StringProxy;
@@ -40,6 +44,7 @@ readonly class PageCommon implements ControllerInterface
 {
     public function __construct(
         private DbLayer                  $dbLayer,
+        private TagRepository            $tagRepository,
         private ArticleProvider          $articleProvider,
         private EventDispatcherInterface $eventDispatcher,
         private UrlBuilder               $urlBuilder,
@@ -546,18 +551,12 @@ readonly class PageCommon implements ControllerInterface
      */
     private function tagged_articles(int $articleId): string
     {
-        $result = $this->dbLayer
-            ->select('t.id AS tag_id, name, t.url as url')
-            ->from('tags AS t')
-            ->innerJoin('article_tag AS atg', 'atg.tag_id = t.id')
-            ->where('atg.article_id = :article_id')->setParameter('article_id', $articleId)
-            ->execute()
-        ;
         $tag_names = [];
         $tag_urls = [];
-        while (($row = $result->fetchAssoc()) !== false) {
-            $tag_names[$row['tag_id']] = $row['name'];
-            $tag_urls[$row['tag_id']]  = $row['url'];
+        $tagsByContent = $this->tagRepository->findForContent([ContentId::page($articleId)]);
+        foreach ($tagsByContent['page:' . $articleId] as $tag) {
+            $tag_names[$tag->id] = $tag->name;
+            $tag_urls[$tag->id]  = $tag->slug;
         }
 
         if (\count($tag_urls) === 0) {
@@ -567,7 +566,7 @@ readonly class PageCommon implements ControllerInterface
         $raw_query1 = $this->dbLayer
             ->select('1')
             ->from('articles AS a1')
-            ->where('a1.parent_id = atg.article_id')
+            ->where('a1.parent_id = atg.content_id')
             ->andWhere('a1.published = 1')
             ->limit(1)
             ->getSql()
@@ -576,8 +575,9 @@ readonly class PageCommon implements ControllerInterface
         $result = $this->dbLayer
             ->select('title, tag_id, parent_id, url, a.id AS id, (' . $raw_query1 . ') IS NOT NULL AS children_exist')
             ->from('articles AS a')
-            ->innerJoin('article_tag AS atg', 'atg.article_id = a.id')
-            ->where('atg.tag_id IN (' . implode(', ', array_fill(0, \count($tag_names), '?')) . ')')
+            ->innerJoin(ContentTagSchema::TABLE_NAME . ' AS atg', 'atg.content_id = a.id')
+            ->where("atg.content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere('atg.tag_id IN (' . implode(', ', array_fill(0, \count($tag_names), '?')) . ')')
             ->andWhere('a.published = 1')
             // ->orderBy('create_time') // no temp table is created but order by ID is almost the same
             ->execute(array_keys($tag_names))
@@ -648,19 +648,12 @@ readonly class PageCommon implements ControllerInterface
     {
         $tagsUrl = $this->tagsUrl->get();
 
-        $result = $this->dbLayer
-            ->select('name, url')
-            ->from('tags AS t')
-            ->innerJoin('article_tag AS at', 'at.tag_id = t.id')
-            ->where('at.article_id = :article_id')->setParameter('article_id', $articleId)
-            ->execute()
-        ;
-
         $tags = [];
-        while (($row = $result->fetchAssoc()) !== false) {
+        $tagsByContent = $this->tagRepository->findForContent([ContentId::page($articleId)]);
+        foreach ($tagsByContent['page:' . $articleId] as $tag) {
             $tags[] = [
-                'title' => $row['name'],
-                'link'  => $this->urlBuilder->link('/' . rawurlencode($tagsUrl) . '/' . rawurlencode($row['url']) . '/'),
+                'title' => $tag->name,
+                'link'  => $this->urlBuilder->link('/' . rawurlencode($tagsUrl) . '/' . rawurlencode($tag->slug) . '/'),
             ];
         }
 

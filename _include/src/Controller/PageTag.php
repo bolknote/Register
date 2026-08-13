@@ -11,6 +11,8 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
+use Register\Content\ContentType;
+use Register\Content\TagRepository;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Framework\ControllerInterface;
@@ -30,6 +32,7 @@ readonly class PageTag implements ControllerInterface
 {
     public function __construct(
         private DbLayer              $dbLayer,
+        private TagRepository        $tagRepository,
         private ArticleProvider      $articleProvider,
         private UrlBuilder           $urlBuilder,
         private TranslatorInterface  $translator,
@@ -53,22 +56,14 @@ readonly class PageTag implements ControllerInterface
         $hasSlash = $request->attributes->get('slash') === '/';
 
         // Tag preview
-        $result = $this->dbLayer
-            ->select('id AS tag_id, description, name, url')
-            ->from('tags')
-            ->where('url = :url')->setParameter('url', $name)
-            ->execute()
-        ;
-
-        $row = $result->fetchRow();
-        if ($row === false) {
+        $tag = $this->tagRepository->findBySlug((string)$name);
+        if (!$tag instanceof \Register\Content\Tag) {
             throw new NotFoundException();
         }
 
-        [$tagId, $tagDescription, $tagName, $tagUrl] = $row;
-        $tagDescription = (string)$tagDescription;
-        $tagName        = (string)$tagName;
-        $tagUrl         = (string)$tagUrl;
+        $tagDescription = $tag->description;
+        $tagName        = $tag->name;
+        $tagUrl         = $tag->slug;
 
         if (!$hasSlash) {
             return new RedirectResponse(
@@ -87,23 +82,24 @@ readonly class PageTag implements ControllerInterface
         ;
 
         $sort_order = SORT_DESC; // SORT_ASC is also possible
-        $result = $this->dbLayer
-            ->select('a.title, a.url, (' . $rawQuery . ') IS NOT NULL AS children_exist, a.id, a.excerpt, a.favorite, a.create_time, a.parent_id')
-            ->from('article_tag AS at')
-            ->innerJoin('articles AS a', 'a.id = at.article_id')
-            ->where('at.tag_id = :tag_id')->setParameter('tag_id', $tagId)
-            ->andWhere('a.published = 1')
-            // NOTE: leads to "Using temporary; Using filesort"
-            // ->orderBy('a.create_time DESC')
-            ->execute()
-        ;
         $urls = [];
         $parentIds = [];
         $rows = [];
-        while ($row = $result->fetchAssoc()) {
-            $rows[]      = $row;
-            $urls[]      = rawurlencode($row['url']);
-            $parentIds[] = $row['parent_id'];
+        $contentIds = $this->tagRepository->findPublishedContentIds($tag->id, ContentType::PAGE);
+        if ($contentIds !== []) {
+            $ids = array_map(static fn(\Register\Content\ContentId $contentId): int => $contentId->value, $contentIds);
+            $result = $this->dbLayer
+                ->select('a.title, a.url, (' . $rawQuery . ') IS NOT NULL AS children_exist, a.id, a.excerpt, a.favorite, a.create_time, a.parent_id')
+                ->from('articles AS a')
+                ->where('a.id IN (' . implode(', ', array_fill(0, \count($ids), '?')) . ')')
+                ->andWhere('a.published = 1')
+                ->execute($ids)
+            ;
+            while ($row = $result->fetchAssoc()) {
+                $rows[]      = $row;
+                $urls[]      = rawurlencode($row['url']);
+                $parentIds[] = $row['parent_id'];
+            }
         }
 
         $urls = $this->articleProvider->getFullUrlsForArticles($parentIds, $urls);
