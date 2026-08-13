@@ -15,8 +15,8 @@ use S2\Cms\Pdo\DbLayer;
 /**
  * Creates the schema and defaults owned by Register's extension-backed base modules.
  *
- * This is deliberately separate from the optional-module manager: callers use it only while
- * creating a new Register installation. Product migrations will replace manifest versions later.
+ * This is deliberately separate from the optional-module manager. It is invoked by Register's
+ * integer schema ledger, never by administrator-controlled extension lifecycle actions.
  */
 final readonly class BaseModuleInstaller
 {

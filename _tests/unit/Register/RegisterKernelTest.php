@@ -11,6 +11,7 @@ namespace unit\Register;
 
 use Codeception\Test\Unit;
 use Register\Module\BaseModuleRegistry;
+use Register\ProductModule;
 use Register\RegisterKernel;
 use S2\Cms\Admin\AdminExtension;
 use S2\Cms\CmsExtension;
@@ -27,6 +28,7 @@ final class RegisterKernelTest extends Unit
 
         self::assertSame([
             CmsExtension::class,
+            ProductModule::class,
             \s2_extensions\s2_blog\Extension::class,
             \s2_extensions\s2_search\Extension::class,
             \s2_extensions\s2_latex\Extension::class,
@@ -43,6 +45,7 @@ final class RegisterKernelTest extends Unit
 
         self::assertSame([
             CmsExtension::class,
+            ProductModule::class,
             AdminExtension::class,
             \s2_extensions\s2_blog\Extension::class,
             \s2_extensions\s2_search\Extension::class,

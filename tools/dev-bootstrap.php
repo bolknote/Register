@@ -5,6 +5,7 @@ declare(strict_types = 1);
 use Register\Installation\WelcomePostInstaller;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
+use Register\Schema\SchemaMigrator;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\Installer;
 use S2\Cms\Pdo\DbLayerSqlite;
@@ -130,7 +131,13 @@ if ($isNew) {
         $installer->insertConfigData('Register', 'admin@example.test', 'English', Installer::DB_REVISION);
         $moduleContainer = new Container(['db_prefix' => '']);
         $moduleContainer->set(\PDO::class, $pdo);
-        (new BaseModuleInstaller(new BaseModuleRegistry()))->installFresh($dbLayer, $moduleContainer);
+        $baseModuleRegistry = new BaseModuleRegistry();
+        (new SchemaMigrator(
+            $dbLayer,
+            $moduleContainer,
+            new BaseModuleInstaller($baseModuleRegistry),
+            $baseModuleRegistry,
+        ))->migrate();
 
         $now = time();
         $installer->insertMainPage('Register', $now);

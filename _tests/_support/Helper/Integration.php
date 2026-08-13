@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace Helper;
 
 use Codeception\TestInterface;
-use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
+use Register\Schema\SchemaMigrator;
 use S2\Cms\Admin\AdminAjaxRequestHandler;
 use S2\Cms\Admin\AdminRequestHandler;
 use S2\Cms\Comment\SpamDetectorComment;
@@ -26,7 +26,7 @@ use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Model\Installer;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Pdo\DbLayer;
-use s2_extensions\s2_blog\Manifest;
+use S2\Rose\Storage\Database\PdoStorage;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\Session;
@@ -81,8 +81,7 @@ class Integration extends AbstractBrowserModule
         $this->decorateCommentMailer();
 
         $adminDbLayer = $this->adminApplication->container->get(DbLayer::class);
-        (new Manifest())->uninstall($adminDbLayer, $this->adminApplication->container);
-        (new \s2_extensions\s2_search\Manifest())->uninstall($adminDbLayer, $this->adminApplication->container);
+        $this->dropBaseModuleTables($adminDbLayer);
         $installer = new Installer($adminDbLayer);
         $installer->dropTables();
         $installer->createTables();
@@ -93,13 +92,8 @@ class Integration extends AbstractBrowserModule
 
         $this->session = new Session(new MockArraySessionStorage());
 
-        /**
-         * Install base module schema here since CREATE TABLE triggers an implicit commit on MySQL.
-         */
-        (new BaseModuleInstaller(new BaseModuleRegistry()))->installFresh(
-            $adminDbLayer,
-            $this->adminApplication->container
-        );
+        /** Install product schema here since CREATE TABLE triggers an implicit commit on MySQL. */
+        $this->adminApplication->container->get(SchemaMigrator::class)->migrate();
         $this->clearConfigCache();
     }
 
@@ -216,6 +210,14 @@ class Integration extends AbstractBrowserModule
             /** @var StatefulServiceInterface $service */
             $service->clearState();
         }
+    }
+
+    private function dropBaseModuleTables(DbLayer $dbLayer): void
+    {
+        $this->adminApplication->container->get(PdoStorage::class)->drop();
+        $dbLayer->dropTable('s2_blog_post_tag');
+        $dbLayer->dropTable('s2_blog_comments');
+        $dbLayer->dropTable('s2_blog_posts');
     }
 
     /**

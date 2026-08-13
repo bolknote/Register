@@ -26,6 +26,7 @@ final readonly class RegisterKernel
     public function registerBaseModules(Application $application, bool $adminMode): void
     {
         $application->addModule(new CmsExtension());
+        $application->addModule(new ProductModule($this->baseModuleRegistry));
         if ($adminMode) {
             $application->addModule(new AdminExtension());
         }

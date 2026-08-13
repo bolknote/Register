@@ -13,8 +13,9 @@ declare(strict_types = 1);
 
 use Psr\Log\LogLevel;
 use Register\Installation\WelcomePostInstaller;
-use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
+use Register\ProductModule;
+use Register\Schema\SchemaMigrator;
 use S2\Cms\Admin\AdminExtension;
 use S2\Cms\CmsExtension;
 use S2\Cms\Framework\Application;
@@ -336,6 +337,7 @@ function createInstallationApplication(
 ): array {
     $application = new Application();
     $application->addExtension(new CmsExtension());
+    $application->addModule(new ProductModule(new BaseModuleRegistry()));
     $application->boot(installApplicationParameters($dbType, $dbHost, $dbName, $dbUsername, $dbPassword, $dbPrefix));
 
     $dbLayer = $application->container->get(DbLayer::class);
@@ -859,7 +861,7 @@ $admin_uid = $s2_db->insertId();
 
 $installer->insertConfigData($lang_install['Site name'], $email, $default_lang, Installer::DB_REVISION);
 
-(new BaseModuleInstaller(new BaseModuleRegistry()))->installFresh($s2_db, $app->container);
+$app->container->get(SchemaMigrator::class)->migrate();
 
 // Insert some other default data
 $installer->insertMainPage($lang_install['Main Page'], $now);

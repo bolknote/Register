@@ -13,6 +13,7 @@ declare(strict_types = 1);
 use Psr\Log\LoggerInterface;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
+use Register\Schema\SchemaMigrator;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Config\StaticConfigLoader;
 use S2\Cms\Framework\Application;
@@ -226,6 +227,11 @@ if ($dynamicConfigProvider->getIntProxy('S2_DB_REVISION')->get() < Installer::DB
     $migrationManager = $app->container->get(MigrationManager::class);
     $migrationManager->migrate($dynamicConfigProvider->getIntProxy('S2_DB_REVISION')->get(), Installer::DB_REVISION);
 
+    $dynamicConfigProvider->regenerate();
+}
+
+$registerSchemaMigrator = $app->container->get(SchemaMigrator::class);
+if ($registerSchemaMigrator->migrate()) {
     $dynamicConfigProvider->regenerate();
 }
 

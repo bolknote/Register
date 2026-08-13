@@ -17,7 +17,6 @@ use S2\Cms\Extensions\ManifestInterface;
 use S2\Cms\Extensions\ManifestTrait;
 use S2\Cms\Framework\Container;
 use S2\Cms\Pdo\DbLayer;
-use S2\Rose\Storage\Database\PdoStorage;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use S2\Cms\Pdo\DbLayerException;
@@ -48,12 +47,6 @@ class Manifest implements ManifestInterface
     public function getVersion(): string
     {
         return '2.0a1';
-    }
-
-    #[\Override]
-    public function getInstallationNote(): ?string
-    {
-        return 'Do not forget to create search index after extension installation (Admin → Stats page).';
     }
 
     /**
@@ -91,14 +84,6 @@ class Manifest implements ManifestInterface
     #[\Override]
     public function uninstall(DbLayer $dbLayer, Container $container): void
     {
-        if ($dbLayer->tableExists('config')) {
-            $dbLayer->delete('config')
-                ->where("name in ('S2_SEARCH_QUICK', 'S2_SEARCH_RECOMMENDATIONS_LIMIT')")
-                ->execute()
-            ;
-        }
-
-        $pdoStorage = $container->get(PdoStorage::class);
-        $pdoStorage->drop();
+        throw new \LogicException('The Search module is part of Register and cannot be uninstalled.');
     }
 }

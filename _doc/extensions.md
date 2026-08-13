@@ -14,6 +14,10 @@ During the transition from S2, five base modules still live under `_extensions`:
 [`BaseModuleRegistry`](../_include/src/Register/Module/BaseModuleRegistry.php). Their directory and
 class names do not make them optional.
 
+Their schemas are installed and upgraded by Register's single `REGISTER_SCHEMA_REVISION` ledger.
+Base manifest versions are not consulted after a database has entered that ledger, and their
+`uninstall()` methods cannot remove product data.
+
 The rest of this document describes optional modules only.
 
 ## Current optional-module layout

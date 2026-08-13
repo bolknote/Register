@@ -10,7 +10,10 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Module\BaseModuleRegistry;
+use Register\Schema\SchemaMigrator;
 use S2\Cms\Extensions\ExtensionManager;
+use S2\Cms\Framework\Container;
+use S2\Cms\Pdo\DbLayer;
 
 final class ModuleManagerCest
 {
@@ -37,5 +40,52 @@ final class ModuleManagerCest
         $I->see('Built-in modules', 'h2');
         $I->assertCount(count($registry->ids()), $I->grabMultiple('.base-module'));
         $I->dontSeeElement('.base-module button');
+    }
+
+    public function registerSchemaUsesOneIntegerLedger(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var SchemaMigrator $schemaMigrator */
+        $schemaMigrator = $I->grabAdminService(SchemaMigrator::class);
+
+        $dbLayer->insert('extensions')->values([
+            'id'             => ':id',
+            'title'          => ':title',
+            'version'        => ':version',
+            'description'    => "''",
+            'author'         => "''",
+            'uninstall_note' => "''",
+            'disabled'       => '0',
+            'dependencies'   => "''",
+        ])->execute([
+            'id'      => BaseModuleRegistry::BLOG,
+            'title'   => 'Legacy Blog',
+            'version' => '2.0a3',
+        ]);
+        $I->setConfigValue(SchemaMigrator::CONFIG_KEY, '0');
+
+        $I->assertTrue($schemaMigrator->migrate());
+        $I->assertSame(SchemaMigrator::LATEST_REVISION, $schemaMigrator->currentRevision());
+        $I->assertFalse($schemaMigrator->migrate());
+
+        $legacyRows = $dbLayer->select('COUNT(*)')
+            ->from('extensions')
+            ->where('id = :id')->setParameter('id', BaseModuleRegistry::BLOG)
+            ->execute()
+            ->result()
+        ;
+        $I->assertSame(0, (int)$legacyRows);
+    }
+
+    public function baseManifestsCannotDestroyProductData(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer   = $I->grabAdminService(DbLayer::class);
+        $container = new Container([]);
+
+        foreach ([new \s2_extensions\s2_blog\Manifest(), new \s2_extensions\s2_search\Manifest()] as $manifest) {
+            $I->expectThrowable(\LogicException::class, static fn() => $manifest->uninstall($dbLayer, $container));
+        }
     }
 }

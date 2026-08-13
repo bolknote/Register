@@ -42,6 +42,8 @@ that is reusable without Register's blog domain.
   base modules.
 - Product migrations have one Register schema version; optional modules retain independent
   migrations and compatibility metadata.
+- The current implementation stores that integer in `REGISTER_SCHEMA_REVISION`; the first migration
+  absorbs and removes inherited base-module rows from the optional-module registry.
 - Optional modules integrate through public Register contracts and events rather than querying base
   module tables directly.
 - Existing extension class names and directories remain transitional until base modules are moved

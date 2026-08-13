@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Schema\SchemaMigrator;
 use S2\AdminYard\Config\DbColumnFieldType;
 use S2\AdminYard\Config\FieldConfig;
 use S2\AdminYard\Database\TypeTransformer;
@@ -64,6 +65,7 @@ class DynamicConfigFormBuilder
         'S2_ADMIN_CUT'     => 'boolean',
         'S2_LOGIN_TIMEOUT' => 'int',
         'S2_DB_REVISION'   => 'hidden',
+        SchemaMigrator::CONFIG_KEY => 'hidden',
     ];
 
     /**

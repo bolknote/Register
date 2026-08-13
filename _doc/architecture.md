@@ -13,13 +13,13 @@ See [ADR 0001](decisions/0001-register-module-tiers.md) for the module-tier deci
 ## Application runtime
 
 [`Application`](../_include/src/Framework/Application.php) is the HTTP kernel. Runtime modules provide
-container definitions, event listeners, and routes through the current
-[`ExtensionInterface`](../_include/src/Framework/ExtensionInterface.php). The interface will be renamed
-to `ModuleInterface` as product modules move out of the inherited extension directories.
+container definitions, event listeners, and routes through
+[`ModuleInterface`](../_include/src/Framework/ModuleInterface.php). `ExtensionInterface` remains as a
+transitional alias for inherited modules.
 
 The boot sequence is:
 
-1. Register the reusable S2 infrastructure module.
+1. Register the reusable S2 infrastructure module and Register-owned product services.
 2. Register the mandatory Register base modules in deterministic order.
 3. In control-panel requests, register the base administration module and administration portions of
    the base modules.
@@ -44,8 +44,10 @@ Base modules form every Register installation and cannot be disabled or uninstal
 - Admin.
 
 Some of these concerns currently live in S2 core and others still live under `_extensions`. This is
-a transitional layout. Base product code will move into `Register\*` namespaces and use one Register
-schema migration stream.
+a transitional layout. Base product code will move into `Register\*` namespaces. All base schemas
+already use the integer `REGISTER_SCHEMA_REVISION` ledger managed by
+[`SchemaMigrator`](../_include/src/Register/Schema/SchemaMigrator.php); manifest versions are only
+transitional metadata and are not product migration state.
 
 ### Optional modules
 

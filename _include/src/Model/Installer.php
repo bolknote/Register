@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace S2\Cms\Model;
 
 use S2\Cms\AdminYard\UserSettingStorage;
+use Register\Schema\SchemaMigrator;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
 use S2\Cms\Pdo\DbLayerException;
@@ -252,6 +253,7 @@ readonly class Installer
             'S2_ADMIN_CUT'        => '0',
             'S2_LOGIN_TIMEOUT'    => '60',
             'S2_DB_REVISION'      => (string)$dbRevision,
+            SchemaMigrator::CONFIG_KEY => '0',
         ];
 
         foreach ($config as $conf_name => $conf_value) {

@@ -48,12 +48,6 @@ class Manifest implements ManifestInterface
         return '2.0a3';
     }
 
-    #[\Override]
-    public function getUninstallationNote(): ?string
-    {
-        return "Warning! All your posts and user comments will be deleted during the uninstall process. It is strongly recommended you to disable 'Blog' extension instead or to upgrade it without uninstalling.";
-    }
-
     /**
      * @throws DbLayerException
      */
@@ -223,22 +217,6 @@ class Manifest implements ManifestInterface
     #[\Override]
     public function uninstall(DbLayer $dbLayer, Container $container): void
     {
-        if ($dbLayer->tableExists('config')) {
-            $dbLayer
-                ->delete('config')
-                ->where("name in ('S2_BLOG_URL', 'S2_BLOG_TITLE')")
-                ->execute()
-            ;
-        }
-
-        $dbLayer->dropTable('s2_blog_post_tag');
-        $dbLayer->dropTable('s2_blog_comments');
-        $dbLayer->dropTable('s2_blog_posts');
-
-        if ($dbLayer->tableExists('tags')) {
-            $dbLayer->dropIndex('tags', 's2_blog_important_idx');
-        }
-
-        $dbLayer->dropField('tags', 's2_blog_important');
+        throw new \LogicException('The Blog module is part of Register and cannot be uninstalled.');
     }
 }
