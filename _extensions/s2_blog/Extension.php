@@ -22,6 +22,7 @@ use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Model\Article\ArticleRenderedEvent;
 use S2\Cms\Model\ArticleProvider;
+use S2\Cms\Model\FavoriteArticleProvider;
 use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Model\User\UserProvider;
@@ -252,6 +253,7 @@ class Extension implements ExtensionInterface
                 $provider->getStringProxy('S2_BLOG_TITLE'),
                 $provider->getBoolProxy('S2_SHOW_COMMENTS'),
                 $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+                $container->get(FavoriteArticleProvider::class),
             );
         });
         $container->set(BlogRssStrategy::class, static function (Container $container): \s2_extensions\s2_blog\Model\BlogRssStrategy {

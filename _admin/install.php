@@ -12,6 +12,9 @@ declare(strict_types = 1);
 
 
 use Psr\Log\LogLevel;
+use Register\Installation\WelcomePostInstaller;
+use Register\Module\BaseModuleInstaller;
+use Register\Module\BaseModuleRegistry;
 use S2\Cms\Admin\AdminExtension;
 use S2\Cms\CmsExtension;
 use S2\Cms\Framework\Application;
@@ -856,8 +859,11 @@ $admin_uid = $s2_db->insertId();
 
 $installer->insertConfigData($lang_install['Site name'], $email, $default_lang, Installer::DB_REVISION);
 
+(new BaseModuleInstaller(new BaseModuleRegistry()))->installFresh($s2_db, $app->container);
+
 // Insert some other default data
-$installer->insertMainPage($lang_install['Main Page'], $now, $lang_install['Welcome text']);
+$installer->insertMainPage($lang_install['Main Page'], $now);
+(new WelcomePostInstaller($s2_db))->create($lang_install['Welcome title'], $lang_install['Welcome text'], (int)$admin_uid, $now);
 $s2_db->insert('articles')
     ->setValue('parent_id', '1')
     ->setValue('title', ':title')->setParameter('title', $lang_install['Section example'])

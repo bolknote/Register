@@ -118,7 +118,7 @@ class TagPageController extends BlogController
             false
         );
 
-        if ($output === '') {
+        if ($output === '' && $art_links === []) {
             throw new NotFoundException();
         }
 

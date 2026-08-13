@@ -19,6 +19,8 @@ class InstallCest
 {
     private const string URL_PREFIX = '/index.php?';
 
+    private int $blogPostId;
+
     /**
      * @return array<int, array<string, string>>
      */
@@ -82,18 +84,19 @@ class InstallCest
         $I->seeElement('meta[name="Generator"][content="Register"]');
         $I->seeElement('link[href$="/_styles/register/favicon.svg"]');
         $I->seeElement('a.visual-login[href$="/_admin/index.php"]');
-        $I->click(['link' => 'Page 1']);
+        $I->amOnPage('/section1/page1');
         $I->see('Register was installed successfully.');
         $I->canWriteComment();
 
         $this->testHierarchyRedirects($I);
         $this->testAdminLogin($I);
+        $this->testBaseModules($I);
         $this->testAdminEditAndTagsAdded($I);
         $this->testTagsPage($I);
         $this->testFavoritePage($I);
-        $this->testBlogExtension($I);
+        $this->testBlogModule($I);
         $this->testBlogRssAndSitemap($I);
-        $this->testSearchExtension($I, $example['db_type']);
+        $this->testSearchModule($I, $example['db_type']);
         $this->testAdminAddArticles($I);
         $this->testRssAndSitemap($I);
         $this->testAdminTagListAndEdit($I);
@@ -127,6 +130,20 @@ class InstallCest
 
         $I->amOnPage('/---');
         $I->see('👤 admin');
+    }
+
+    private function testBaseModules(AcceptanceTester $I): void
+    {
+        $I->amOnPage('/_admin/index.php?entity=Extension');
+        $I->see('Built-in modules', 'h2');
+
+        foreach (['s2_blog', 's2_search', 's2_latex', 's2_counter', 's2_typo'] as $moduleId) {
+            $I->seeElement('.base-module [title=' . $moduleId . ']');
+            $I->dontSeeElement('.extension.available [title=' . $moduleId . ']');
+            $I->dontSeeElement('.extension:not(.base-module) [title=' . $moduleId . ']');
+        }
+
+        $I->dontSeeElement('.base-module button');
     }
 
     /**
@@ -304,10 +321,13 @@ class InstallCest
         $I->see('New blog post');
         $I->dontSee('New Page Title');
 
-        $I->haveHttpHeader('If-Modified-Since', 'Sun, 13 Aug 2023 00:00:00 GMT');
+        $lastModified = $I->grabHeaders()['Last-Modified'][0]
+            ?? throw new \RuntimeException('The blog RSS response has no Last-Modified header.');
+        $I->haveHttpHeader('If-Modified-Since', $lastModified);
         $I->amOnPage('/index.php?/rss.xml');
         $I->seeResponseCodeIs(304);
         $I->dontSee('New Blog Post Title');
+        $I->unsetHttpHeader('If-Modified-Since');
 
         $I->amOnPage('/index.php?/sitemap.xml'); // Same as above
         $I->seeResponseCodeIsSuccessful();
@@ -319,11 +339,8 @@ class InstallCest
     /**
      * @throws \JsonException
      */
-    private function testBlogExtension(AcceptanceTester $I): void
+    private function testBlogModule(AcceptanceTester $I): void
     {
-        $I->installExtension('s2_blog');
-        $I->changeSetting('S2_BLOG_URL', '/');
-
         $I->amOnPage('/tags/blog tag');
         $I->seeResponseCodeIsClientError();
 
@@ -335,6 +352,7 @@ class InstallCest
         $I->seeResponseCodeIsSuccessful();
 
         $postId    = $I->grabFromCurrentUrl('~id=(\d+)~');
+        $this->blogPostId = (int)$postId;
         $csrfToken = $I->grabValueFrom('input[name=__csrf_token]');
 
         $dataProvider = (static fn(string $csrfToken): array => [
@@ -420,12 +438,12 @@ class InstallCest
         $I->see(gmdate('c', strtotime('2023-08-12 12:15')));
     }
 
-    private function testSearchExtension(AcceptanceTester $I, string $dbType): void
+    private function testSearchModule(AcceptanceTester $I, string $dbType): void
     {
         $I->amOnPage('/?search=1&q=new');
-        $I->dontSee('Search', 'h1');
-
-        $I->installExtension('s2_search');
+        $I->see('Search', 'h1');
+        $I->dontSee('New Blog Post Title');
+        $I->dontSee('New Page Title');
 
         $I->amOnPage('/section1/new_page1');
         $I->submitForm('.s2_search_form', ['q' => 'new']);
@@ -519,7 +537,7 @@ class InstallCest
         $I->see('{"success":true}');
 
         $this->testComments($I, '/section1/new_page1', 'New Page Title', 'Some new page text', 3, 'Comment', 'article_id');
-        $this->testComments($I, '/new_post1', 'New Blog Post Title', 'New blog post', 1, 'BlogComment', 'post_id');
+        $this->testComments($I, '/new_post1', 'New Blog Post Title', 'New blog post', $this->blogPostId, 'BlogComment', 'post_id');
     }
 
     private function testETag(AcceptanceTester $I): void

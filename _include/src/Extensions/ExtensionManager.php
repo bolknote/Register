@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Extensions;
 
+use Register\Module\BaseModuleRegistry;
 use S2\AdminYard\Translator;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\Container;
@@ -25,6 +26,7 @@ readonly class ExtensionManager
         private Translator            $translator,
         private Container             $container, // Note: do not use here as a service locator
         private string                $rootDir,
+        private BaseModuleRegistry     $baseModuleRegistry,
     ) {
     }
 
@@ -32,6 +34,7 @@ readonly class ExtensionManager
      * @throws DbLayerException
      * @return array{
      *     extensionNum: int,
+     *     baseModules: list<array<string, string>>,
      *     availableExtensions: list<array<string, mixed>>,
      *     failedExtensions: list<array<string, string>>,
      *     installedExtensions: array<array-key, array<mixed>>
@@ -50,6 +53,20 @@ readonly class ExtensionManager
             $installedExtensions[$currentExtension['id']] = $currentExtension;
         }
 
+        $baseModules = [];
+        foreach ($this->baseModuleRegistry->ids() as $id) {
+            $manifestClass = $this->baseModuleRegistry->manifestClass($id);
+            $manifest      = new $manifestClass();
+            $baseModules[] = [
+                'id'          => $id,
+                'title'       => $manifest->getTitle(),
+                'version'     => $manifest->getVersion(),
+                'author'      => $manifest->getAuthor(),
+                'description' => $manifest->getDescription(),
+            ];
+            unset($installedExtensions[$id]);
+        }
+
         $extensionNum        = 0;
         $availableExtensions = [];
         $failedExtensions    = [];
@@ -61,6 +78,10 @@ readonly class ExtensionManager
 
         while (($entry = $d->read()) !== false) {
             if ($entry[0] === '.' || !is_dir($this->rootDir . '_extensions/' . $entry)) {
+                continue;
+            }
+
+            if ($this->baseModuleRegistry->contains($entry)) {
                 continue;
             }
 
@@ -126,6 +147,7 @@ readonly class ExtensionManager
 
         return [
             'extensionNum'        => $extensionNum,
+            'baseModules'         => $baseModules,
             'availableExtensions' => $availableExtensions,
             'failedExtensions'    => $failedExtensions,
             'installedExtensions' => $installedExtensions,
@@ -145,6 +167,10 @@ readonly class ExtensionManager
 
         $extensionNum = 0;
         while ($currentExtension = $result->fetchAssoc()) {
+            if ($this->baseModuleRegistry->contains($currentExtension['id'])) {
+                continue;
+            }
+
             $manifestClass = '\\s2_extensions\\' . $currentExtension['id'] . '\\Manifest';
             if (!class_exists($manifestClass)) {
                 continue;
@@ -168,6 +194,10 @@ readonly class ExtensionManager
      */
     public function flipExtension(string $id): ?string
     {
+        if ($this->baseModuleRegistry->contains($id)) {
+            return $this->baseModuleLifecycleError($id);
+        }
+
         // Fetch the current status of the extension
         $row = $this->fetchExtension($id);
         if ($row === null) {
@@ -237,6 +267,10 @@ readonly class ExtensionManager
      */
     public function installExtension(string $id): array
     {
+        if ($this->baseModuleRegistry->contains($id)) {
+            return [$this->baseModuleLifecycleError($id)];
+        }
+
         if (!file_exists($this->rootDir . '_extensions/' . $id . '/Manifest.php')) {
             return [
                 $this->translator->trans('Extension loading error', ['{{ extension }}' => $id]),
@@ -332,6 +366,10 @@ readonly class ExtensionManager
      */
     public function uninstallExtension(string $id): ?string
     {
+        if ($this->baseModuleRegistry->contains($id)) {
+            return $this->baseModuleLifecycleError($id);
+        }
+
         // Fetch info about the extension
         $currentExtension = $this->fetchExtension($id);
         if ($currentExtension === null) {
@@ -389,7 +427,20 @@ readonly class ExtensionManager
             ->execute()
         ;
 
-        return $result->fetchColumn();
+        $optionalExtensionIds = array_values(array_filter(
+            $result->fetchColumn(),
+            is_string(...)
+        ));
+
+        return array_values(array_unique([
+            ...$this->baseModuleRegistry->ids(),
+            ...$optionalExtensionIds,
+        ]));
+    }
+
+    private function baseModuleLifecycleError(string $id): string
+    {
+        return $this->translator->trans('Base module lifecycle forbidden', ['{{ module }}' => $id]);
     }
 
     /**

@@ -62,6 +62,18 @@ class TagsPageController extends BlogController
             $tag_count[$row[0]] = 1 + ($tag_count[$row[0]] ?? 0);
         }
 
+        $result = $this->dbLayer
+            ->select('at.tag_id')
+            ->from('article_tag AS at')
+            ->innerJoin('articles AS a', 'a.id = at.article_id')
+            ->where('a.published = 1')
+            ->execute()
+        ;
+
+        while ($row = $result->fetchRow()) {
+            $tag_count[$row[0]] = 1 + ($tag_count[$row[0]] ?? 0);
+        }
+
         arsort($tag_count);
 
         $tags = [];

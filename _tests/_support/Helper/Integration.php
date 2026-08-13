@@ -10,16 +10,16 @@ declare(strict_types = 1);
 namespace Helper;
 
 use Codeception\TestInterface;
+use Register\Module\BaseModuleInstaller;
+use Register\Module\BaseModuleRegistry;
+use Register\RegisterKernel;
 use S2\Cms\Admin\AdminAjaxRequestHandler;
-use S2\Cms\Admin\AdminExtension;
 use S2\Cms\Admin\AdminRequestHandler;
-use S2\Cms\CmsExtension;
 use S2\Cms\Comment\SpamDetectorComment;
 use S2\Cms\Comment\SpamDetectorInterface;
 use S2\Cms\Comment\SpamDetectorReport;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Extensions\ExtensionManager;
 use S2\Cms\Framework\Application;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\StatefulServiceInterface;
@@ -94,12 +94,12 @@ class Integration extends AbstractBrowserModule
         $this->session = new Session(new MockArraySessionStorage());
 
         /**
-         * Install extensions here since CREATE TABLE triggers implicit commit on test transactions in MySQL
+         * Install base module schema here since CREATE TABLE triggers an implicit commit on MySQL.
          */
-        /** @var ExtensionManager $extensionManager */
-        $extensionManager = $this->adminApplication->container->get(ExtensionManager::class);
-        $extensionManager->installExtension('s2_blog');
-        $extensionManager->installExtension('s2_search');
+        (new BaseModuleInstaller(new BaseModuleRegistry()))->installFresh(
+            $adminDbLayer,
+            $this->adminApplication->container
+        );
         $this->clearConfigCache();
     }
 
@@ -123,9 +123,7 @@ class Integration extends AbstractBrowserModule
     public function createApplication(array $parameterOverrides = []): Application
     {
         $application = new Application();
-        $application->addExtension(new CmsExtension());
-        $application->addExtension(new \s2_extensions\s2_blog\Extension());
-        $application->addExtension(new \s2_extensions\s2_search\Extension());
+        (new RegisterKernel(new BaseModuleRegistry()))->registerBaseModules($application, false);
         $application->boot($this->collectParameters($parameterOverrides));
 
         return $application;
@@ -135,12 +133,7 @@ class Integration extends AbstractBrowserModule
     public function createAdminApplication(array $parameterOverrides = []): Application
     {
         $application = new Application();
-        $application->addExtension(new CmsExtension());
-        $application->addExtension(new AdminExtension());
-        $application->addExtension(new \s2_extensions\s2_blog\Extension());
-        $application->addExtension(new \s2_extensions\s2_blog\AdminExtension());
-        $application->addExtension(new \s2_extensions\s2_search\Extension());
-        $application->addExtension(new \s2_extensions\s2_search\AdminExtension());
+        (new RegisterKernel(new BaseModuleRegistry()))->registerBaseModules($application, true);
         $application->boot($this->collectParameters($parameterOverrides));
 
         return $application;

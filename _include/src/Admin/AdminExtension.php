@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Module\BaseModuleRegistry;
 use S2\AdminYard\Database\PdoDataProvider;
 use S2\AdminYard\Database\TypeTransformer;
 use S2\AdminYard\Form\FormControlFactoryInterface;
@@ -210,6 +211,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(Translator::class),
             $container,
             $container->getStringParameter('root_dir'),
+            new BaseModuleRegistry(),
         ));
 
         $container->set(ExtensionManagerAdapter::class, fn(Container $container): \S2\Cms\Extensions\ExtensionManagerAdapter => new ExtensionManagerAdapter(
@@ -294,7 +296,7 @@ class AdminExtension implements ExtensionInterface
             $extensionManager = $container->get(ExtensionManager::class);
             $n                = $extensionManager->getUpgradableExtensionNum();
             if ($n > 0) {
-                $event->addSignal('Extension', new Signal((string)$n, 'New extensions', '?entity=Extension'));
+                $event->addSignal('Extension', new Signal((string)$n, 'Extensions for upgrade', '?entity=Extension'));
             }
 
             $authManager            = $container->get(AuthManager::class);

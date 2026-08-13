@@ -45,6 +45,7 @@ use S2\Cms\Model\Comment\ArticleCommentStrategy;
 use S2\Cms\Model\CommentNotifier;
 use S2\Cms\Model\CommentProvider;
 use S2\Cms\Model\ExtensionCache;
+use S2\Cms\Model\FavoriteArticleProvider;
 use S2\Cms\Model\MigrationManager;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Model\UrlBuilder;
@@ -286,14 +287,20 @@ class CmsExtension implements ExtensionInterface
             $container->get(HtmlTemplateProvider::class),
         ));
 
-        $container->set(PageFavorite::class, function (Container $container): \S2\Cms\Controller\PageFavorite {
+        $container->set(PageFavorite::class, fn(Container $container): \S2\Cms\Controller\PageFavorite => new PageFavorite(
+            $container->get(FavoriteArticleProvider::class),
+            $container->get(ArticleProvider::class),
+            $container->get(UrlBuilder::class),
+            $container->get('translator'),
+            $container->get(HtmlTemplateProvider::class),
+        ));
+
+        $container->set(FavoriteArticleProvider::class, function (Container $container): \S2\Cms\Model\FavoriteArticleProvider {
             $provider = $container->get(DynamicConfigProvider::class);
-            return new PageFavorite(
+            return new FavoriteArticleProvider(
                 $container->get(DbLayer::class),
                 $container->get(ArticleProvider::class),
                 $container->get(UrlBuilder::class),
-                $container->get('translator'),
-                $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
                 $provider->getStringProxy('S2_FAVORITE_URL'),
                 $provider->getBoolProxy('S2_USE_HIERARCHY'),
