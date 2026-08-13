@@ -43,7 +43,8 @@ is required. The unobtrusive lock in the public footer opens the control panel.
 
 - A web server.
 - PHP 8.3 or newer. The codebase is continuously checked for PHP 8.3–8.5 compatibility.
-- PHP extensions: DOM, Filter, GD, JSON, PDO, and Session. cURL and zlib are optional.
+- PHP extensions: DOM, Filter, GD, JSON, PDO, and Session. Intl improves URL transliteration;
+  cURL and zlib are also optional. Register does not require iconv.
 - One supported database:
   - MariaDB 10.5+ or MySQL 8.0+;
   - PostgreSQL 14+;
@@ -84,6 +85,7 @@ composer check
 
 - [Development](_doc/development.md)
 - [Architecture](_doc/architecture.md)
+- [URL slug generation](_doc/url-slugs.md)
 - [Comments](_doc/comments.md)
 - [Register and Aegea feature comparison](_doc/egea-comparison.md)
 - [Optional modules](_doc/extensions.md)

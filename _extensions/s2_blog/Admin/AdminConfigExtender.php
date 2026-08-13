@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Admin;
 
+use Register\Url\UniqueSlugGenerator;
 use S2\AdminYard\Config\AdminConfig;
 use S2\AdminYard\Config\DbColumnFieldType;
 use S2\AdminYard\Config\EntityConfig;
@@ -49,6 +50,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private PostProvider             $postProvider,
         private BlogUrlBuilder           $blogUrlBuilder,
         private BlogCommentNotifier      $blogCommentNotifier,
+        private UniqueSlugGenerator      $uniqueSlugGenerator,
         private EventDispatcherInterface $eventDispatcher,
         private string                   $dbType,
         private string                   $dbPrefix
@@ -322,6 +324,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ->addField(new FieldConfig(
                 name: 'url',
                 label: $this->translator->trans('URL part'),
+                type: new DbColumnFieldType(defaultValue: ''),
                 control: 'input',
                 validators: [new Length(max: 255)],
                 useOnActions: [FieldConfig::ACTION_EDIT],
@@ -365,6 +368,12 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                         $event->data['virtual_tags'] .= ', ';
                     }
                 }
+            })
+            ->addListener(EntityConfig::EVENT_BEFORE_CREATE, function (BeforeSaveEvent $event): void {
+                $event->data['url'] = $this->uniqueSlugGenerator->generate(
+                    (string)$event->data['title'],
+                    fn(string $slug): bool => $this->postProvider->checkUrlStatus(0, $slug) === 'ok',
+                );
             })
             ->addListener(EntityConfig::EVENT_BEFORE_EDIT_RENDER, function (BeforeRenderEvent $event): void {
                 if (!\is_array($event->data)) {

@@ -26,12 +26,15 @@ return $config
     ->ignoreErrorsOnExtensions([
         'ext-ctype',
         'ext-curl',
+        'ext-intl',
         'ext-mbstring',
         'ext-zend-opcache',
         'ext-zlib',
     ], [ErrorType::SHADOW_DEPENDENCY])
     ->ignoreErrorsOnPackages([
+        'symfony/expression-language',
         'symfony/polyfill-ctype',
+        'symfony/polyfill-iconv',
         'symfony/polyfill-mbstring',
     ], [ErrorType::UNUSED_DEPENDENCY])
     // These tools are invoked from Composer scripts or non-PHP configuration files.

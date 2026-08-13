@@ -22,6 +22,7 @@
         "S2_IMG_DIR",
         "S2_PATH",
         "S2_URL_PREFIX",
+        "Transliterator",
         "curl_errno",
         "curl_error",
         "curl_exec",

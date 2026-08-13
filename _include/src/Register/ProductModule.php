@@ -12,6 +12,10 @@ namespace Register;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Schema\SchemaMigrator;
+use Register\Url\IcuTransliterator;
+use Register\Url\PortableAsciiTransliterator;
+use Register\Url\SlugGenerator;
+use Register\Url\UniqueSlugGenerator;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ModuleInterface;
 use S2\Cms\Pdo\DbLayer;
@@ -42,6 +46,13 @@ readonly class ProductModule implements ModuleInterface
             $container,
             $container->get(BaseModuleInstaller::class),
             $this->baseModuleRegistry,
+        ));
+        $container->set(SlugGenerator::class, static fn(Container $_container): SlugGenerator => new SlugGenerator(
+            new PortableAsciiTransliterator(),
+            IcuTransliterator::create(),
+        ));
+        $container->set(UniqueSlugGenerator::class, static fn(Container $container): UniqueSlugGenerator => new UniqueSlugGenerator(
+            $container->get(SlugGenerator::class),
         ));
     }
 

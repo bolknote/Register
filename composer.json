@@ -44,12 +44,18 @@
         "symfony/error-handler": "^7.0",
         "symfony/event-dispatcher": "^7.0",
         "symfony/event-dispatcher-contracts": "^3.0",
+        "symfony/expression-language": "^7.0",
         "symfony/filesystem": "^7.0",
         "symfony/http-foundation": "^7.0",
         "symfony/polyfill-ctype": "^1.0",
+        "symfony/polyfill-iconv": "^1.0",
         "symfony/polyfill-mbstring": "^1.0",
         "symfony/routing": "^7.0",
-        "symfony/translation-contracts": "^3.0"
+        "symfony/translation-contracts": "^3.0",
+        "voku/portable-ascii": "^2.1"
+    },
+    "suggest": {
+        "ext-intl": "Uses ICU for higher-quality URL transliteration when available."
     },
     "autoload": {
         "psr-4": {

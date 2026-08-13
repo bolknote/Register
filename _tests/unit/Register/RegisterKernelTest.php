@@ -14,6 +14,8 @@ use Register\Module\BaseModuleRegistry;
 use Register\Module\Typography\Module as TypographyModule;
 use Register\ProductModule;
 use Register\RegisterKernel;
+use Register\Url\SlugGenerator;
+use Register\Url\UniqueSlugGenerator;
 use S2\Cms\Admin\AdminExtension;
 use S2\Cms\CmsExtension;
 use S2\Cms\Framework\Application;
@@ -58,6 +60,18 @@ final class RegisterKernelTest extends Unit
             \s2_extensions\s2_latex\AdminExtension::class,
             \s2_extensions\s2_counter\AdminExtension::class,
         ], $application->moduleClasses);
+    }
+
+    public function testProductModuleRegistersCanonicalSlugServices(): void
+    {
+        $container = new \S2\Cms\Framework\Container([]);
+        (new ProductModule(new BaseModuleRegistry()))->buildContainer($container);
+
+        self::assertSame('new-post', $container->get(SlugGenerator::class)->generate('New post'));
+        self::assertSame(
+            'new-post',
+            $container->get(UniqueSlugGenerator::class)->generate('New post', static fn(string $_slug): bool => true),
+        );
     }
 }
 

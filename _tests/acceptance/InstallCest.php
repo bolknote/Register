@@ -349,14 +349,15 @@ class InstallCest
 
         $I->amOnPage('/_admin/index.php?entity=BlogPost&action=new');
         $I->submitForm('form', [
-            'title' => 'New Blog Post Title',
+            'title' => 'Привет, мир!',
             'text'  => '<p>Start text</p>',
         ]);
         $I->seeResponseCodeIsSuccessful();
 
-        $postId    = $I->grabFromCurrentUrl('~id=(\d+)~');
+        $postId           = $I->grabFromCurrentUrl('~id=(\d+)~');
         $this->blogPostId = (int)$postId;
-        $csrfToken = $I->grabValueFrom('input[name=__csrf_token]');
+        $csrfToken        = $I->grabValueFrom('input[name=__csrf_token]');
+        $I->assertSame('privet-mir', $I->grabValueFrom('input[name=url]'));
 
         $dataProvider = (static fn(string $csrfToken): array => [
             '__csrf_token' => $csrfToken,

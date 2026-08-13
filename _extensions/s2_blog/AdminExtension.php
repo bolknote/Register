@@ -24,6 +24,7 @@ use S2\Cms\Framework\ExtensionInterface;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
+use Register\Url\UniqueSlugGenerator;
 use s2_extensions\s2_blog\Admin\AdminConfigExtender;
 use s2_extensions\s2_blog\Admin\DashboardBlogProvider;
 use s2_extensions\s2_blog\Admin\DynamicConfigFormExtender;
@@ -47,6 +48,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(PostProvider::class),
             $container->get(BlogUrlBuilder::class),
             $container->get(BlogCommentNotifier::class),
+            $container->get(UniqueSlugGenerator::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container->getStringParameter('db_type'),
             $container->getStringParameter('db_prefix'),

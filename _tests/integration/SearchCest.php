@@ -26,7 +26,7 @@ class SearchCest
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=new');
         $I->seeResponseCodeIs(200);
         $I->submitForm('form', [
-            'title' => 'New Blog Post Title',
+            'title' => 'Привет, мир!',
             'text'  => '<p>Start text</p>',
         ]);
         $I->seeResponseCodeIs(302);
@@ -44,6 +44,8 @@ class SearchCest
         if ($userId === null) {
             throw new \RuntimeException('The blog post form does not expose a user identifier.');
         }
+
+        $I->assertSame('privet-mir', $I->grabValueFrom('input[name=url]'));
 
         $dataProvider = (static fn(string $csrfToken, string $userId): array => [
             '__csrf_token' => $csrfToken,
