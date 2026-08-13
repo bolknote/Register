@@ -120,6 +120,7 @@ class BlogUrlBuilder implements StatefulServiceInterface
         if ($this->blogIsOnTheSiteRoot()) {
             $reserved[] = 'comment_sent';
             $reserved[] = 'comment_unsubscribe';
+            $reserved[] = 'comment-moderate';
             $reserved[] = 'search';
         }
 

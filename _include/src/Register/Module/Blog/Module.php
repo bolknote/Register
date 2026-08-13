@@ -200,6 +200,7 @@ final class Module implements ModuleInterface
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
                 $container->get(CommentThreadRenderer::class),
+                $container->get(AuthProvider::class),
                 $provider->getStringProxy('S2_BLOG_TITLE'),
                 $provider->getBoolProxy('S2_SHOW_COMMENTS'),
                 $provider->getBoolProxy('S2_ENABLED_COMMENTS'),

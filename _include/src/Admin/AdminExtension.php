@@ -171,7 +171,6 @@ class AdminExtension implements ExtensionInterface
                 $container->get(Translator::class),
                 $container->getStringParameter('base_path'),
                 $container->getStringParameter('base_url'),
-                $container->getStringParameter('url_prefix'),
                 $container->getStringParameter('cookie_name'),
                 $container->getBoolParameter('force_admin_https'),
                 $provider->getIntProxy('S2_LOGIN_TIMEOUT'),

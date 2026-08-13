@@ -176,8 +176,105 @@
         }
     }
 
+    function initCommentModeration() {
+        var moderationForms = document.querySelectorAll('.comment-moderation-action, .comment-edit-form');
+        if (!moderationForms.length) {
+            return;
+        }
+
+        function submit(form) {
+            var confirmation = form.getAttribute('data-confirm');
+            if (confirmation && !window.confirm(confirmation)) {
+                return;
+            }
+
+            var buttons = form.querySelectorAll('button');
+            buttons.forEach(function (button) {
+                button.disabled = true;
+            });
+
+            window.fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).then(function (response) {
+                return response.json().catch(function () {
+                    return {success: false, message: 'Не удалось обработать ответ сервера.'};
+                }).then(function (payload) {
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'Не удалось изменить комментарий.');
+                    }
+
+                    return payload;
+                });
+            }).then(function () {
+                var anchorField = form.elements.comment_anchor;
+                if (anchorField && anchorField.value) {
+                    try {
+                        window.history.replaceState(null, '', '#' + anchorField.value);
+                    } catch (error) {
+                        // The moderation change is already stored; reloading is enough.
+                    }
+                }
+                window.location.reload();
+            }).catch(function (error) {
+                buttons.forEach(function (button) {
+                    button.disabled = false;
+                });
+                window.alert(error.message);
+            });
+        }
+
+        moderationForms.forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                submit(form);
+            }, false);
+        });
+
+        document.querySelectorAll('.comment-edit-start').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var item = button.closest('.comment-item');
+                var form = item ? item.querySelector(':scope > .comment-edit-form') : null;
+                if (!item || !form) {
+                    return;
+                }
+
+                item.classList.add('is-editing');
+                form.hidden = false;
+                var textarea = form.querySelector('textarea');
+                if (textarea) {
+                    textarea.focus();
+                    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+                }
+            }, false);
+        });
+
+        document.querySelectorAll('.comment-edit-cancel').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var form = button.closest('.comment-edit-form');
+                var item = form ? form.closest('.comment-item') : null;
+                if (!form || !item) {
+                    return;
+                }
+
+                form.hidden = true;
+                item.classList.remove('is-editing');
+                var startButton = item.querySelector(':scope > .comment-moderation .comment-edit-start');
+                if (startButton) {
+                    startButton.focus();
+                }
+            }, false);
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         initCommentReplies();
+        initCommentModeration();
         initCommentStorage();
         initKeyboardNavigation();
     }, false);

@@ -34,6 +34,7 @@ use S2\Cms\Comment\SpamDecisionProviderInterface;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Controller\CommentController;
+use S2\Cms\Controller\CommentModerationController;
 use S2\Cms\Controller\CommentSentController;
 use S2\Cms\Controller\CommentUnsubscribeController;
 use S2\Cms\Controller\NotFoundController;
@@ -58,6 +59,7 @@ use S2\Cms\Model\Article\ArticleRssStrategy;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\Comment\ArticleCommentStrategy;
+use S2\Cms\Model\Comment\CommentModerationTokenManager;
 use S2\Cms\Model\Comment\CommentThreadBuilder;
 use S2\Cms\Model\Comment\CommentThreadRenderer;
 use S2\Cms\Model\CommentNotifier;
@@ -247,6 +249,9 @@ class CmsExtension implements ExtensionInterface
             $container->getStringParameter('cookie_name'),
             $container->getStringParameter('base_path'),
         ));
+        $container->set(CommentModerationTokenManager::class, fn(Container $container): \S2\Cms\Model\Comment\CommentModerationTokenManager => new CommentModerationTokenManager(
+            $container->get(SpamIdentityHasher::class),
+        ));
         $container->set(SpamRateLimiter::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRateLimiter => new SpamRateLimiter(
             $container->get(DbLayer::class),
             $container->get(SpamIdentityHasher::class),
@@ -312,6 +317,8 @@ class CmsExtension implements ExtensionInterface
         $container->set(CommentThreadRenderer::class, static fn(Container $container): CommentThreadRenderer => new CommentThreadRenderer(
             $container->get(Viewer::class),
             $container->get(CommentThreadBuilder::class),
+            $container->get(CommentModerationTokenManager::class),
+            $container->get(UrlBuilder::class),
             $container->getStringParameter('image_path'),
         ));
 
@@ -424,6 +431,7 @@ class CmsExtension implements ExtensionInterface
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
                 $container->get(CommentThreadRenderer::class),
+                $container->get(AuthProvider::class),
                 $provider->getBoolProxy('S2_USE_HIERARCHY'),
                 $provider->getBoolProxy('S2_SHOW_COMMENTS'),
                 $provider->getStringProxy('S2_TAGS_URL'),
@@ -458,6 +466,15 @@ class CmsExtension implements ExtensionInterface
             $container->get(CommentNotifier::class),
         ));
 
+        $container->set(CommentModerationController::class, fn(Container $container): \S2\Cms\Controller\CommentModerationController => new CommentModerationController(
+            $container->get(DbLayer::class),
+            $container->get(AuthProvider::class),
+            $container->get(CommentModerationTokenManager::class),
+            $container->get(SpamFeedbackService::class),
+            $container->get(UrlBuilder::class),
+            $container->get('comments_translator'),
+        ));
+
         $container->set('comments_translator', function (Container $container) {
             /** @var ExtensibleTranslator $translator */
             $translator = $container->get('translator');
@@ -472,10 +489,15 @@ class CmsExtension implements ExtensionInterface
             $container->get(CommentNotifier::class),
         ), [CommentStrategyInterface::class]);
 
-        $container->set(AuthProvider::class, fn(Container $container): \S2\Cms\Model\AuthProvider => new AuthProvider(
-            $container->get(DbLayer::class),
-            $container->getStringParameter('cookie_name'),
-        ));
+        $container->set(AuthProvider::class, function (Container $container): \S2\Cms\Model\AuthProvider {
+            $provider = $container->get(DynamicConfigProvider::class);
+
+            return new AuthProvider(
+                $container->get(DbLayer::class),
+                $container->getStringParameter('cookie_name'),
+                $provider->getIntProxy('S2_LOGIN_TIMEOUT'),
+            );
+        });
 
         $container->set(UserProvider::class, fn(Container $container): \S2\Cms\Model\User\UserProvider => new UserProvider(
             $container->get(DbLayer::class),
@@ -752,6 +774,11 @@ class CmsExtension implements ExtensionInterface
             '/comment_unsubscribe',
             ['_controller' => CommentUnsubscribeController::class],
             methods: ['GET']
+        ));
+        $routes->add('comment_moderate', new Route(
+            '/comment-moderate',
+            ['_controller' => CommentModerationController::class],
+            methods: ['POST']
         ));
         $routes->add('comment', new Route(
             '/{path<.*>}',

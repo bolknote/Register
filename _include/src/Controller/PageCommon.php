@@ -20,6 +20,8 @@ use S2\Cms\Framework\Exception\NotFoundException;
 use S2\Cms\Helper\StringHelper;
 use S2\Cms\Model\Article\ArticleRenderedEvent;
 use S2\Cms\Model\ArticleProvider;
+use S2\Cms\Model\AuthProvider;
+use S2\Cms\Model\Comment\CommentModerationContext;
 use S2\Cms\Model\Comment\CommentThreadRenderer;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
@@ -45,6 +47,7 @@ readonly class PageCommon implements ControllerInterface
         private HtmlTemplateProvider     $htmlTemplateProvider,
         private Viewer                   $viewer,
         private CommentThreadRenderer    $commentThreadRenderer,
+        private AuthProvider             $authProvider,
         private BoolProxy                $useHierarchy,
         private BoolProxy                $showComments,
         private StringProxy              $tagsUrl,
@@ -501,20 +504,33 @@ readonly class PageCommon implements ControllerInterface
                 ->andWhere("c.email <> ''")
                 ->getSql()
             ;
+            $moderatorLabel = $this->dbLayer
+                ->select('sa.moderator_label')
+                ->from('spam_assessments AS sa')
+                ->where("sa.target_type = 'article'")
+                ->andWhere('sa.comment_id = c.id')
+                ->orderBy('sa.id DESC')
+                ->limit(1)
+                ->getSql()
+            ;
             $result = $this->dbLayer
                 ->select(
-                    'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text, p.storage_key AS userpic_storage_key',
+                    'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
                     '(' . $authorComment . ') AS is_author',
+                    '(' . $moderatorLabel . ') AS moderator_label',
                 )
                 ->from('art_comments AS c')
                 ->leftJoin('userpics AS p', 'p.id = c.userpic_id')
                 ->where('article_id = :article_id')->setParameter('article_id', $articleId)
-                ->andWhere('shown = 1')
                 ->orderBy('time, c.id')
                 ->execute()
             ;
 
-            $comments = $this->commentThreadRenderer->render($result->fetchAssocAll());
+            $moderator = $this->authProvider->getAuthenticatedCommentModerator($request);
+            $comments  = $this->commentThreadRenderer->render(
+                $result->fetchAssocAll(),
+                $moderator === null ? null : new CommentModerationContext($moderator, 'article', $request->getPathInfo()),
+            );
             if ($comments !== '') {
                 $template->putInPlaceholder('comments', $comments);
             }

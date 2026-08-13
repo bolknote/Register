@@ -622,6 +622,7 @@ h2.comment {
 }
 
 .comment-item {
+    position: relative;
     margin: 0 0 clamp(2.4rem, 5vw, 3.6rem);
     scroll-margin-top: 1rem;
 }
@@ -649,7 +650,8 @@ h2.comment {
 .has-userpic > .comment-meta,
 .has-userpic > .comment-body,
 .has-userpic > .comment-actions,
-.has-userpic > .comment-form-block {
+.has-userpic > .comment-form-block,
+.has-userpic > .comment-edit-form {
     min-width: 0;
     grid-column: 2;
 }
@@ -667,6 +669,10 @@ h2.comment {
 }
 
 .has-userpic > .comment-form-block {
+    grid-row: 4;
+}
+
+.has-userpic > .comment-edit-form {
     grid-row: 4;
 }
 
@@ -705,6 +711,168 @@ h2.comment {
     font-family: var(--ui-font);
     font-size: 13px;
     line-height: 1.45;
+}
+
+.comment-state-mark {
+    color: var(--accent-color);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.is-spam > .comment-body,
+.is-hidden > .comment-body {
+    opacity: 0.64;
+}
+
+.comment-tombstone {
+    display: flex;
+    min-height: 40px;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--quiet-color);
+    font-style: italic;
+}
+
+.comment-tombstone .comment-permalink {
+    font-family: var(--ui-font);
+    font-size: 12px;
+    font-style: normal;
+}
+
+.comment-moderation {
+    position: absolute;
+    z-index: 2;
+    top: -0.35rem;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(0.2rem);
+    transition: opacity 100ms ease, transform 100ms ease;
+}
+
+.comment-item:hover > .comment-moderation,
+.comment-item:focus-within > .comment-moderation {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+}
+
+.comment-item:has(.comment-item:hover) > .comment-moderation,
+.comment-item:has(.comment-item:focus-within) > .comment-moderation {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.comment-moderation-action {
+    display: contents;
+    margin: 0;
+}
+
+.comment-moderation-button {
+    display: grid;
+    width: 2rem;
+    min-height: 2rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    appearance: none;
+    place-items: center;
+    background: transparent;
+    box-shadow: none;
+    color: var(--minor-color);
+    cursor: pointer;
+    font-family: sans-serif;
+    font-size: 17px;
+    line-height: 1;
+}
+
+.comment-moderation-button span {
+    filter: grayscale(1);
+}
+
+.comment-moderation-button:hover,
+.comment-moderation-button:focus-visible {
+    background: transparent;
+    color: var(--text-color);
+    transform: translateY(-1px);
+}
+
+.comment-edit-form {
+    max-width: 800px;
+    margin-top: 0.6rem;
+}
+
+.comment-edit-form[hidden] {
+    display: none;
+}
+
+.comment-edit-form textarea {
+    width: 100%;
+    min-height: 9rem;
+    padding: 0.7rem 0.8rem;
+    resize: vertical;
+    font-family: var(--text-font);
+    font-size: 17px;
+    line-height: 1.5;
+}
+
+.comment-edit-buttons {
+    display: flex;
+    margin-top: 0.65rem;
+    align-items: center;
+    gap: 1rem;
+}
+
+.comment-edit-buttons button {
+    min-height: 2.25rem;
+    margin: 0;
+    padding: 0.35rem 0.75rem;
+    font-family: var(--ui-font);
+    font-size: 13px;
+}
+
+.comment-edit-buttons button[type="submit"] {
+    background: var(--text-color);
+    color: var(--page-background);
+    font-weight: 700;
+}
+
+.comment-edit-buttons button[type="submit"]:hover,
+.comment-edit-buttons button[type="submit"]:focus-visible {
+    background: var(--accent-color);
+    color: var(--page-background);
+}
+
+.comment-edit-cancel {
+    border: 0;
+    background: transparent;
+    color: var(--minor-color);
+}
+
+.comment-item.is-editing > .comment-body,
+.comment-item.is-editing > .comment-actions,
+.comment-item.is-editing > .comment-moderation {
+    display: none;
+}
+
+@media (hover: none) {
+    .comment-moderation {
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .comment-moderation-button span {
+        filter: grayscale(1) brightness(1.75) contrast(0.8);
+    }
 }
 
 .comment-name {

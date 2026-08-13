@@ -152,6 +152,132 @@ class CommentCest
         $I->assertSame($countBefore, (int)$dbLayer->select('COUNT(*)')->from('art_comments')->execute()->result());
     }
 
+    public function testModeratorCanEditAndHideSpamWithoutBreakingTheThread(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer  = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+        $parentId  = $this->insertComment($dbLayer, $articleId, 'Suspicious author', 'spam@example.test', text: 'Original suspicious text');
+        $childId   = $this->insertComment($dbLayer, $articleId, 'Reader', 'reader@example.test', parentId: $parentId, text: 'Visible answer');
+
+        $I->amOnPage('https://localhost/thread-test');
+        $I->dontSeeElement('[data-comment-id="' . $parentId . '"] > .comment-moderation');
+
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/thread-test');
+        $I->seeElement('[data-comment-id="' . $parentId . '"] > .comment-moderation');
+
+        $editToken = (string)$I->grabAttributeFrom(
+            '[data-comment-id="' . $parentId . '"] > .comment-edit-form input[name="moderation_token"]',
+            'value',
+        );
+        $I->sendPost('https://localhost/comment-moderate', [
+            'moderation_action' => 'edit',
+            'target_type'       => 'article',
+            'comment_id'        => (string)$parentId,
+            'comment_anchor'    => '1',
+            'moderation_token'  => $editToken,
+            'return_to'         => '/thread-test',
+            'text'              => 'Edited suspicious text',
+        ]);
+        $I->seeResponseCodeIs(303);
+
+        $I->amOnPage('https://localhost/thread-test');
+        $I->see('Edited suspicious text');
+        $spamToken = (string)$I->grabAttributeFrom(
+            '[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="spam"] input[name="moderation_token"]',
+            'value',
+        );
+        $I->sendPost('https://localhost/comment-moderate', [
+            'moderation_action' => 'spam',
+            'target_type'       => 'article',
+            'comment_id'        => (string)$parentId,
+            'comment_anchor'    => '1',
+            'moderation_token'  => $spamToken,
+            'return_to'         => '/thread-test',
+        ]);
+        $I->seeResponseCodeIs(303);
+
+        $I->amOnPage('https://localhost/thread-test');
+        $I->seeElement('[data-comment-id="' . $parentId . '"].is-spam');
+        $I->see('Edited suspicious text');
+
+        $I->logout();
+        $I->amOnPage('https://localhost/thread-test');
+        $I->dontSee('Edited suspicious text');
+        $I->dontSee('Suspicious author');
+        $I->seeElement('[data-comment-id="' . $parentId . '"].is-deleted > .comment-tombstone');
+        $I->seeElement('[data-comment-id="' . $parentId . '"] .comment-children [data-comment-id="' . $childId . '"]');
+        $I->see('Visible answer');
+    }
+
+    public function testDeletedCommentBecomesATombstoneAndKeepsItsReplies(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer  = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+        $parentId  = $this->insertComment($dbLayer, $articleId, 'Former author', 'former@example.test', text: 'Text that will be deleted');
+        $childId   = $this->insertComment($dbLayer, $articleId, 'Reply author', 'reply@example.test', parentId: $parentId, text: 'Reply that stays');
+
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/thread-test');
+        $deleteToken = (string)$I->grabAttributeFrom(
+            '[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="delete"] input[name="moderation_token"]',
+            'value',
+        );
+        $I->sendPost('https://localhost/comment-moderate', [
+            'moderation_action' => 'delete',
+            'target_type'       => 'article',
+            'comment_id'        => (string)$parentId,
+            'comment_anchor'    => '1',
+            'moderation_token'  => $deleteToken,
+            'return_to'         => '/thread-test',
+        ]);
+        $I->seeResponseCodeIs(303);
+
+        $I->sendPost('https://localhost/comment-moderate', [
+            'moderation_action' => 'edit',
+            'target_type'       => 'article',
+            'comment_id'        => (string)$parentId,
+            'comment_anchor'    => '1',
+            'moderation_token'  => $deleteToken,
+            'return_to'         => '/thread-test',
+            'text'              => 'Attempted resurrection',
+        ]);
+        $I->seeResponseCodeIs(404);
+
+        $I->logout();
+        $I->amOnPage('https://localhost/thread-test');
+        $I->seeElement('[data-comment-id="' . $parentId . '"].is-deleted > .comment-tombstone');
+        $I->see('Comment deleted');
+        $I->dontSee('Text that will be deleted');
+        $I->dontSee('Former author');
+        $I->seeElement('[data-comment-id="' . $parentId . '"] .comment-children [data-comment-id="' . $childId . '"]');
+        $I->see('Reply that stays');
+    }
+
+    public function testModerationToolsFollowSeparateUserPermissions(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer   = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+        $commentId = $this->insertComment($dbLayer, $articleId, 'Author', 'author@example.test');
+        $selector  = '[data-comment-id="' . $commentId . '"] > .comment-moderation';
+
+        $I->login('power_moderator', 'power_moderator');
+        $I->amOnPage('https://localhost/thread-test');
+        $I->seeElement($selector . ' .comment-edit-start');
+        $I->dontSeeElement($selector . ' [data-moderation-action="delete"]');
+        $I->dontSeeElement($selector . ' [data-moderation-action="spam"]');
+
+        $I->logout();
+        $I->login('moderator', 'moderator');
+        $I->amOnPage('https://localhost/thread-test');
+        $I->dontSeeElement($selector . ' .comment-edit-start');
+        $I->seeElement($selector . ' [data-moderation-action="delete"]');
+        $I->seeElement($selector . ' [data-moderation-action="spam"]');
+    }
+
     private function insertArticle(DbLayer $dbLayer): int
     {
         $dbLayer
@@ -175,12 +301,20 @@ class CommentCest
         return (int)$dbLayer->insertId();
     }
 
-    private function insertComment(DbLayer $dbLayer, int $articleId, string $nick, string $email, ?int $userpicId = null): int
+    private function insertComment(
+        DbLayer $dbLayer,
+        int     $articleId,
+        string  $nick,
+        string  $email,
+        ?int    $userpicId = null,
+        ?int    $parentId = null,
+        string  $text = 'Parent text',
+    ): int
     {
         $dbLayer
             ->insert('art_comments')
             ->setValue('article_id', ':article_id')->setParameter('article_id', $articleId)
-            ->setValue('parent_id', 'NULL')
+            ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $parentId)
             ->setValue('userpic_id', ':userpic_id')->setParameter('userpic_id', $userpicId)
             ->setValue('time', ':time')->setParameter('time', time())
             ->setValue('ip', "'127.0.0.1'")
@@ -191,7 +325,7 @@ class CommentCest
             ->setValue('shown', '1')
             ->setValue('sent', '1')
             ->setValue('good', '0')
-            ->setValue('text', "'Parent text'")
+            ->setValue('text', ':text')->setParameter('text', $text)
             ->execute()
         ;
 

@@ -112,6 +112,7 @@ class Manifest implements ManifestInterface
                     ->addBoolean('show_email')
                     ->addBoolean('subscribed')
                     ->addBoolean('shown', default: true)
+                    ->addBoolean('deleted')
                     ->addBoolean('sent', default: true)
                     ->addBoolean('good')
                     ->addText('text', nullable: false)

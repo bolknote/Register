@@ -27,7 +27,7 @@ final readonly class SchemaMigrator
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_REVISION';
 
-    public const int LATEST_REVISION = 7;
+    public const int LATEST_REVISION = 8;
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -186,6 +186,23 @@ final readonly class SchemaMigrator
         }
     }
 
+    private function migrateToRevisionEight(): void
+    {
+        foreach (['art_comments', 's2_blog_comments'] as $commentTable) {
+            if ($this->dbLayer->tableExists($commentTable)) {
+                $this->dbLayer->addField(
+                    $commentTable,
+                    'deleted',
+                    SchemaBuilderInterface::TYPE_BOOLEAN,
+                    null,
+                    false,
+                    '0',
+                    'shown',
+                );
+            }
+        }
+    }
+
     /** @return array<int, \Closure(): void> */
     private function migrations(): array
     {
@@ -210,6 +227,9 @@ final readonly class SchemaMigrator
             },
             7 => function (): void {
                 $this->migrateToRevisionSeven();
+            },
+            8 => function (): void {
+                $this->migrateToRevisionEight();
             },
         ];
     }

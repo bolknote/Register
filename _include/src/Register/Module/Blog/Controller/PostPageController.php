@@ -16,6 +16,8 @@ use Register\Content\ContentId;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Model\ArticleProvider;
+use S2\Cms\Model\AuthProvider;
+use S2\Cms\Model\Comment\CommentModerationContext;
 use S2\Cms\Model\Comment\CommentThreadRenderer;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
@@ -50,6 +52,7 @@ class PostPageController extends BlogController
         HtmlTemplateProvider                     $templateProvider,
         Viewer                                   $viewer,
         private readonly CommentThreadRenderer   $commentThreadRenderer,
+        private readonly AuthProvider             $authProvider,
         StringProxy                              $blogTitle,
         BoolProxy                                $showComments,
         BoolProxy                                $enabledComments,
@@ -230,7 +233,7 @@ class PostPageController extends BlogController
 
         $template->putInPlaceholder('commented', $row['commented']);
         if ((bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- s2_comments -->')) {
-            $template->putInPlaceholder('comments', $this->getComments($post_id));
+            $template->putInPlaceholder('comments', $this->getComments($post_id, $request));
         }
 
         $row['time']             = $this->viewer->dateAndTime($row['create_time']);
@@ -266,7 +269,7 @@ class PostPageController extends BlogController
     /**
      * @throws DbLayerException
      */
-    private function getComments(int $id): string
+    private function getComments(int $id, Request $request): string
     {
         $authorComment = $this->dbLayer
             ->select('COUNT(*)')
@@ -275,21 +278,35 @@ class PostPageController extends BlogController
             ->andWhere("c.email <> ''")
             ->getSql()
         ;
+        $moderatorLabel = $this->dbLayer
+            ->select('sa.moderator_label')
+            ->from('spam_assessments AS sa')
+            ->where("sa.target_type = 'blog'")
+            ->andWhere('sa.comment_id = c.id')
+            ->orderBy('sa.id DESC')
+            ->limit(1)
+            ->getSql()
+        ;
         $statement = $this->dbLayer
             ->select(
-                'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text, p.storage_key AS userpic_storage_key',
+                'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
                 '(' . $authorComment . ') AS is_author',
+                '(' . $moderatorLabel . ') AS moderator_label',
             )
             ->from('s2_blog_comments AS c')
             ->leftJoin('userpics AS p', 'p.id = c.userpic_id')
             ->where('post_id = :post_id')
             ->setParameter('post_id', $id)
-            ->andWhere('shown = 1')
             ->orderBy('time, c.id')
             ->execute()
         ;
 
-        return $this->commentThreadRenderer->render($statement->fetchAssocAll());
+        $moderator = $this->authProvider->getAuthenticatedCommentModerator($request);
+
+        return $this->commentThreadRenderer->render(
+            $statement->fetchAssocAll(),
+            $moderator === null ? null : new CommentModerationContext($moderator, 'blog', $request->getPathInfo()),
+        );
     }
 
     private function extractMetaDescriptions(string $text): string

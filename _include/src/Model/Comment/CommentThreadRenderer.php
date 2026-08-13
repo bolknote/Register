@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Model\Comment;
 
+use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Template\Viewer;
 
 final readonly class CommentThreadRenderer
@@ -16,6 +17,8 @@ final readonly class CommentThreadRenderer
     public function __construct(
         private Viewer               $viewer,
         private CommentThreadBuilder $threadBuilder,
+        private CommentModerationTokenManager $moderationTokenManager,
+        private UrlBuilder           $urlBuilder,
         private string               $imagePath,
     ) {
     }
@@ -23,30 +26,41 @@ final readonly class CommentThreadRenderer
     /**
      * @param array<mixed> $comments
      */
-    public function render(array $comments): string
+    public function render(array $comments, ?CommentModerationContext $moderation = null): string
     {
         $normalizedComments = [];
         foreach ($comments as $comment) {
             if (\is_array($comment)) {
+                $comment['moderation_state'] = $this->moderationState($comment);
+                if ($comment['moderation_state'] === 'deleted') {
+                    $comment['nick'] = '';
+                }
                 $normalizedComments[] = $comment;
             }
         }
 
-        $tree = $this->threadBuilder->build($normalizedComments);
+        $audienceComments = $moderation instanceof CommentModerationContext
+            ? $normalizedComments
+            : $this->publicComments($normalizedComments);
+        $tree = $this->threadBuilder->build($audienceComments);
         if ($tree === []) {
             return '';
         }
 
         return $this->viewer->render('comments', [
-            'comments' => $this->renderNodes($tree),
-            'count'    => count($normalizedComments),
+            'comments' => $this->renderNodes($tree, $moderation),
+            'count'    => count($audienceComments),
         ]);
     }
 
     /**
      * @param list<array<string, mixed>> $nodes
      */
-    private function renderNodes(array $nodes, int $depth = 0): string
+    private function renderNodes(
+        array                     $nodes,
+        ?CommentModerationContext $moderation,
+        int                       $depth = 0,
+    ): string
     {
         $html = '';
         foreach ($nodes as $node) {
@@ -54,15 +68,131 @@ final readonly class CommentThreadRenderer
             $children = $node['children'];
             $html .= $this->viewer->render('comment', [
                 ...$node,
-                'children'       => $this->renderNodes($children, $depth + 1),
+                'children'       => $this->renderNodes($children, $moderation, $depth + 1),
                 'depth'          => $depth,
                 'visual_depth'   => min($depth, 3),
                 'show_addressee' => $depth > 3,
-                'userpic_url'    => $this->userpicUrl($node['userpic_storage_key'] ?? null),
+                'userpic_url'    => $node['moderation_state'] === 'deleted'
+                    ? null
+                    : $this->userpicUrl($node['userpic_storage_key'] ?? null),
+                'moderation'     => $this->moderationData($node, $moderation),
             ]);
         }
 
         return $html;
+    }
+
+    /**
+     * Hidden leaf comments disappear for visitors. A hidden comment with visible descendants is
+     * kept as an anonymous tombstone so the shape and meaning of the discussion stay intact.
+     *
+     * @param list<array<string, mixed>> $comments
+     * @return list<array<string, mixed>>
+     */
+    private function publicComments(array $comments): array
+    {
+        $commentsById = [];
+        $positions    = [];
+        foreach ($comments as $position => $comment) {
+            $id = (int)($comment['id'] ?? 0);
+            if ($id > 0 && !isset($commentsById[$id])) {
+                $commentsById[$id] = $comment;
+                $positions[$id]    = $position;
+            }
+        }
+
+        $publicIds = [];
+        foreach ($commentsById as $id => $comment) {
+            if (in_array($comment['moderation_state'], ['visible', 'deleted'], true)) {
+                $publicIds[$id] = true;
+            }
+        }
+
+        $tombstoneIds = [];
+        foreach (array_keys($publicIds) as $id) {
+            $childId = $id;
+            $visited = [];
+            while (isset($commentsById[$childId])) {
+                $parentId = isset($commentsById[$childId]['parent_id'])
+                    ? (int)$commentsById[$childId]['parent_id']
+                    : 0;
+                if (
+                    $parentId <= 0
+                    || !isset($commentsById[$parentId])
+                    || $positions[$parentId] >= $positions[$childId]
+                ) {
+                    break;
+                }
+                if (isset($visited[$parentId])) {
+                    break;
+                }
+                $visited[$parentId] = true;
+
+                if (!isset($publicIds[$parentId])) {
+                    $publicIds[$parentId]    = true;
+                    $tombstoneIds[$parentId] = true;
+                }
+                $childId = $parentId;
+            }
+        }
+
+        $result = [];
+        foreach ($comments as $comment) {
+            $id = (int)($comment['id'] ?? 0);
+            if (!isset($publicIds[$id])) {
+                continue;
+            }
+
+            if (isset($tombstoneIds[$id])) {
+                $comment['moderation_state']    = 'deleted';
+                $comment['nick']                = '';
+                $comment['email']               = '';
+                $comment['text']                = '';
+                $comment['show_email']          = false;
+                $comment['is_author']           = false;
+                $comment['userpic_storage_key'] = null;
+            }
+            $result[] = $comment;
+        }
+
+        return $result;
+    }
+
+    /** @param array<string, mixed> $comment */
+    private function moderationState(array $comment): string
+    {
+        if ((bool)($comment['deleted'] ?? false)) {
+            return 'deleted';
+        }
+
+        if (($comment['moderator_label'] ?? null) === 'spam') {
+            return 'spam';
+        }
+
+        return (bool)($comment['shown'] ?? true) ? 'visible' : 'hidden';
+    }
+
+    /**
+     * @param array<string, mixed> $comment
+     * @return array<string, mixed>|null
+     */
+    private function moderationData(array $comment, ?CommentModerationContext $context): ?array
+    {
+        if (!$context instanceof CommentModerationContext || $comment['moderation_state'] === 'deleted') {
+            return null;
+        }
+
+        $id = (int)$comment['id'];
+
+        return [
+            'action_url' => $this->urlBuilder->link('/comment-moderate'),
+            'token'      => $this->moderationTokenManager->issue($context->moderator, $context->targetType, $id),
+            'target'     => $context->targetType,
+            'return_to'  => $context->returnPath,
+            'can_edit'   => $context->moderator->canEdit,
+            'can_delete' => $context->moderator->canHide,
+            'can_spam'   => $context->moderator->canHide && $comment['moderation_state'] !== 'spam',
+        ];
     }
 
     private function userpicUrl(mixed $storageKey): ?string

@@ -44,7 +44,6 @@ readonly class AuthManager
         private Translator        $translator,
         private string            $basePath,
         private string            $baseUrl,
-        private string            $urlPrefix,
         private string            $cookieName,
         private bool              $forceAdminHttps,
         private IntProxy          $loginTimeoutMinutes,
@@ -468,7 +467,7 @@ readonly class AuthManager
             name: $this->cookieName . '_c',
             value: $value,
             expire: $value !== '' ? $this->cookieExpireTimeout() + time() : 0,
-            path: $this->basePath . ($this->urlPrefix === '' ? '/comment_sent' : '/'),
+            path: rtrim($this->basePath, '/') . '/',
             secure: $secure,
         );
     }

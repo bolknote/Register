@@ -120,6 +120,7 @@ readonly class Installer
                 ->addBoolean('show_email')
                 ->addBoolean('subscribed')
                 ->addBoolean('shown', false, true)
+                ->addBoolean('deleted')
                 ->addBoolean('sent', false, true)
                 ->addBoolean('good')
                 ->addText('text', nullable: false)
