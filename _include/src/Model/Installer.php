@@ -12,8 +12,9 @@ namespace S2\Cms\Model;
 use S2\Cms\AdminYard\UserSettingStorage;
 use S2\Cms\Comment\Antispam\AntispamSchema;
 use Register\Comment\CommentSchema;
+use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
-use Register\Schema\SchemaMigrator;
+use Register\Schema\SchemaManager;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
 use S2\Cms\Pdo\DbLayerException;
@@ -70,6 +71,7 @@ readonly class Installer
             ;
         });
 
+        ContentSchema::create($this->dbLayer);
         UserpicSchema::create($this->dbLayer);
 
         $this->dbLayer->createTable('articles', function (SchemaBuilderInterface $table): void {
@@ -179,6 +181,7 @@ readonly class Installer
         $this->dbLayer->dropTable('tags');
         CommentSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('articles');
+        ContentSchema::drop($this->dbLayer);
         UserpicSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('extensions');
         $this->dbLayer->dropTable('config');
@@ -223,7 +226,7 @@ readonly class Installer
             'S2_ADMIN_NEW_POS'    => '0',
             'S2_ADMIN_CUT'        => '0',
             'S2_LOGIN_TIMEOUT'    => '60',
-            SchemaMigrator::CONFIG_KEY => '0',
+            SchemaManager::CONFIG_KEY => '0',
         ];
 
         foreach ($config as $conf_name => $conf_value) {

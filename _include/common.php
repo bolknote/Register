@@ -13,7 +13,7 @@ declare(strict_types = 1);
 use Psr\Log\LoggerInterface;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
-use Register\Schema\SchemaMigrator;
+use Register\Schema\SchemaManager;
 use Register\Module\Search\SearchIndexRebuilder;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Config\StaticConfigLoader;
@@ -223,8 +223,8 @@ if (defined('S2_ADMIN_MODE') && session_status() !== PHP_SESSION_ACTIVE) {
     ini_set('session.cookie_httponly', true);
 }
 
-$registerSchemaMigrator = $app->container->get(SchemaMigrator::class);
-if ($registerSchemaMigrator->migrate()) {
+$registerSchemaManager = $app->container->get(SchemaManager::class);
+if ($registerSchemaManager->ensureCurrent()) {
     $dynamicConfigProvider->regenerate();
     $app->container->get(SearchIndexRebuilder::class)->rebuild();
 }

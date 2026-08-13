@@ -15,7 +15,7 @@ use Psr\Log\LogLevel;
 use Register\Installation\WelcomePostInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
-use Register\Schema\SchemaMigrator;
+use Register\Schema\SchemaManager;
 use Register\Module\Search\SearchIndexRebuilder;
 use S2\Cms\Admin\AdminExtension;
 use S2\Cms\CmsExtension;
@@ -898,7 +898,7 @@ $installer->insertConfigData(
     $default_lang,
 );
 
-$app->container->get(SchemaMigrator::class)->migrate();
+$app->container->get(SchemaManager::class)->ensureCurrent();
 
 // Insert some other default data
 $installer->insertMainPage($lang_install['Main Page'], $now);

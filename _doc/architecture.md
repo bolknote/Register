@@ -45,9 +45,10 @@ Base modules form every Register installation and cannot be disabled or uninstal
 
 All feature modules live under `Register\Module`; `_extensions` is reserved for optional modules.
 Some inherited page and administration infrastructure still lives in `S2\Cms` and moves only when a
-Register-owned replacement exists. All base schemas use the integer `REGISTER_SCHEMA_REVISION` ledger managed by
-[`SchemaMigrator`](../_include/src/Register/Schema/SchemaMigrator.php); manifest versions are only
-transitional metadata and are not product migration state.
+Register-owned replacement exists. All base schemas use the integer `REGISTER_SCHEMA_GENERATION`
+marker managed by [`SchemaManager`](../_include/src/Register/Schema/SchemaManager.php). Register is
+pre-release and deliberately supports only a fresh current schema; manifest versions are only
+transitional metadata and are not product schema state.
 
 Built-in Analytics stores daily aggregates in product tables. It retains only salted visitor
 fingerprints for the active aggregation day, pruning older fingerprints on subsequent traffic. It
@@ -69,7 +70,7 @@ Search consumes the storage-independent [`ContentRepository`](../_include/src/Re
 rather than querying post and page tables itself. Published posts and pages are represented by one
 `ContentItem` contract and have typed `post:<id>` and `page:<id>` identities. A fresh installation
 synchronously indexes its welcome post and starter pages before reporting success. Product
-migrations that change the search identity or storage rebuild the index. Later editorial changes
+schema-generation changes that affect search identity or storage rebuild the index. Later editorial changes
 publish `register_content_index` jobs to the shared queue; the control-panel rebuild remains repair
 tooling rather than an installation step.
 

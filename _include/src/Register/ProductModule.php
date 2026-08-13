@@ -16,7 +16,7 @@ use Register\Content\PageContentSource;
 use Register\Content\TagRepository;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
-use Register\Schema\SchemaMigrator;
+use Register\Schema\SchemaManager;
 use Register\Url\IcuTransliterator;
 use Register\Url\PortableAsciiTransliterator;
 use Register\Url\SlugGenerator;
@@ -58,7 +58,7 @@ readonly class ProductModule implements ContainerModuleInterface
                 $container->get(BaseModuleRegistry::class),
             ),
         );
-        $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(
+        $container->set(SchemaManager::class, fn(Container $container): SchemaManager => new SchemaManager(
             $container->get(DbLayer::class),
             $container,
             $container->get(BaseModuleInstaller::class),

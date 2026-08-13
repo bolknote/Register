@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace S2\Cms\Admin;
 
 use Register\Module\Analytics\Manifest as AnalyticsManifest;
-use Register\Schema\SchemaMigrator;
+use Register\Schema\SchemaManager;
 use S2\AdminYard\Config\DbColumnFieldType;
 use S2\AdminYard\Config\FieldConfig;
 use S2\AdminYard\Database\TypeTransformer;
@@ -69,7 +69,7 @@ class DynamicConfigFormBuilder
         'S2_ADMIN_NEW_POS' => 'boolean',
         'S2_ADMIN_CUT'     => 'boolean',
         'S2_LOGIN_TIMEOUT' => 'hidden',
-        SchemaMigrator::CONFIG_KEY => 'hidden',
+        SchemaManager::CONFIG_KEY => 'hidden',
         AnalyticsManifest::SALT_CONFIG_KEY => 'hidden',
     ];
 

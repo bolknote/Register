@@ -13,8 +13,9 @@ Blog, Search, Typography, Math, and Analytics live under `Register\Module`; thei
 resources no longer share the optional-module directory. The status of all five is defined by
 [`BaseModuleRegistry`](../_include/src/Register/Module/BaseModuleRegistry.php).
 
-Their schemas are installed and upgraded by Register's single `REGISTER_SCHEMA_REVISION` ledger.
-Base manifest versions are not consulted after a database has entered that ledger, and their
+Their schemas are installed with Register's single `REGISTER_SCHEMA_GENERATION` marker. Register
+does not migrate old product schemas in place while it is pre-release.
+Base manifest versions are not consulted after a database has entered that generation, and their
 `uninstall()` methods cannot remove product data.
 
 The rest of this document describes optional modules only.

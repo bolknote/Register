@@ -12,7 +12,7 @@ namespace Helper;
 use Codeception\TestInterface;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
-use Register\Schema\SchemaMigrator;
+use Register\Schema\SchemaManager;
 use S2\Cms\Admin\AdminAjaxRequestHandler;
 use S2\Cms\Admin\AdminRequestHandler;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
@@ -99,7 +99,7 @@ class Integration extends AbstractBrowserModule
         $this->session = new Session(new MockArraySessionStorage());
 
         /** Install product schema here since CREATE TABLE triggers an implicit commit on MySQL. */
-        $this->adminApplication->container->get(SchemaMigrator::class)->migrate();
+        $this->adminApplication->container->get(SchemaManager::class)->ensureCurrent();
         $this->clearConfigCache();
     }
 

@@ -11,8 +11,9 @@ namespace integration;
 
 use Register\Module\BaseModuleRegistry;
 use Register\Comment\CommentSchema;
+use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
-use Register\Schema\SchemaMigrator;
+use Register\Schema\SchemaManager;
 use S2\Cms\Extensions\ExtensionManager;
 use S2\Cms\Extensions\ManifestInterface;
 use S2\Cms\Model\ExtensionCache;
@@ -45,14 +46,14 @@ final class ModuleManagerCest
         $I->dontSeeElement('.base-module button');
     }
 
-    public function registerSchemaUsesOneIntegerLedger(\IntegrationTester $I): void
+    public function registerSchemaUsesOneCleanGeneration(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabAdminService(DbLayer::class);
-        /** @var SchemaMigrator $schemaMigrator */
-        $schemaMigrator = $I->grabAdminService(SchemaMigrator::class);
+        /** @var SchemaManager $schemaManager */
+        $schemaManager = $I->grabAdminService(SchemaManager::class);
 
-        $I->setConfigValue(SchemaMigrator::CONFIG_KEY, '0');
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, '0');
 
         /** @var ExtensionCache $extensionCache */
         $extensionCache = $I->grabAdminService(ExtensionCache::class);
@@ -61,10 +62,17 @@ final class ModuleManagerCest
             throw new \RuntimeException('Unable to create the route-cache fixture.');
         }
 
-        $I->assertTrue($schemaMigrator->migrate());
-        $I->assertSame(SchemaMigrator::LATEST_REVISION, $schemaMigrator->currentRevision());
+        $I->assertTrue($schemaManager->ensureCurrent());
+        $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
         $I->assertFileDoesNotExist($routesCache);
-        $I->assertFalse($schemaMigrator->migrate());
+        $I->assertFalse($schemaManager->ensureCurrent());
+        $I->assertTrue($dbLayer->tableExists(ContentSchema::TABLE_NAME));
+        $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'content_type'));
+        $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'body'));
+        $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'type_parent_sort_idx'));
+        $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'type_publication_idx'));
+        $I->assertTrue($dbLayer->foreignKeyExists(ContentSchema::TABLE_NAME, 'fk_parent'));
+        $I->assertTrue($dbLayer->foreignKeyExists(ContentSchema::TABLE_NAME, 'fk_author'));
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'parent_id'));
         $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'thread_idx'));
         $I->assertTrue($dbLayer->tableExists('userpics'));
@@ -77,6 +85,15 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->tableExists(ContentTagSchema::TABLE_NAME));
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'content_tag_idx'));
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'tag_content_idx'));
+    }
+
+    public function staleProductSchemaIsRejectedInsteadOfMigrated(\IntegrationTester $I): void
+    {
+        /** @var SchemaManager $schemaManager */
+        $schemaManager = $I->grabAdminService(SchemaManager::class);
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, '3');
+
+        $I->expectThrowable(\LogicException::class, $schemaManager->ensureCurrent(...));
     }
 
     public function baseManifestsDoNotExposeOptionalLifecycle(\IntegrationTester $I): void

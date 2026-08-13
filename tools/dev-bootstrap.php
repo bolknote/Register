@@ -6,7 +6,7 @@ use Register\Installation\WelcomePostInstaller;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
-use Register\Schema\SchemaMigrator;
+use Register\Schema\SchemaManager;
 use Register\Module\Search\SearchIndexRebuilder;
 use S2\Cms\Framework\Application;
 use S2\Cms\Framework\Container;
@@ -115,17 +115,17 @@ $dbLayer = new DbLayerSqlite($pdo);
 $isNew   = !$dbLayer->tableExists('config');
 
 if (!$isNew) {
-    $storedRevision = $dbLayer
+    $storedGeneration = $dbLayer
         ->select('value')
         ->from('config')
-        ->where('name = :name')->setParameter('name', SchemaMigrator::CONFIG_KEY)
+        ->where('name = :name')->setParameter('name', SchemaManager::CONFIG_KEY)
         ->execute()
         ->result()
     ;
-    $validRevision = \is_string($storedRevision)
-        && preg_match('/^(?:0|[1-9][0-9]*)$/D', $storedRevision) === 1;
+    $validGeneration = \is_string($storedGeneration)
+        && preg_match('/^(?:0|[1-9][0-9]*)$/D', $storedGeneration) === 1;
 
-    if (!$validRevision || (int)$storedRevision > SchemaMigrator::LATEST_REVISION) {
+    if (!$validGeneration || (int)$storedGeneration !== SchemaManager::CURRENT_GENERATION) {
         $backup = $database . '.incompatible-' . date('Ymd-His') . '.bak';
         unset($dbLayer, $pdo);
 
@@ -137,8 +137,8 @@ if (!$isNew) {
         }
 
         echo sprintf(
-            "Rebuilding the incompatible local database (schema revision %s, backup: %s).\n",
-            is_scalar($storedRevision) ? (string)$storedRevision : 'missing',
+            "Rebuilding the incompatible local database (schema generation %s, backup: %s).\n",
+            is_scalar($storedGeneration) ? (string)$storedGeneration : 'missing',
             $backup,
         );
 
@@ -179,11 +179,11 @@ if ($isNew) {
         $moduleContainer = new Container(['db_prefix' => '']);
         $moduleContainer->set(\PDO::class, $pdo);
         $baseModuleRegistry = new BaseModuleRegistry();
-        (new SchemaMigrator(
+        (new SchemaManager(
             $dbLayer,
             $moduleContainer,
             new BaseModuleInstaller($baseModuleRegistry),
-        ))->migrate();
+        ))->ensureCurrent();
 
         $now = time();
         $installer->insertMainPage('Register', $now);
