@@ -97,7 +97,7 @@ automatic URL lifecycle management.
 | Subscribe to and unsubscribe from a discussion | Available | Email notification and unsubscribe links are implemented. |
 | Notify authors/moderators about new comments | Available | Implemented by the comment notification services. |
 | Toggle author email in the footer | Missing | No dedicated setting. |
-| Per-post view count | Missing | The counter extension records site-level statistics rather than a counter for each post. |
+| Per-post view count | Missing | Register Analytics records privacy-conscious site-level daily aggregates rather than a counter for each post. |
 
 ## Navigation, recommendations, and broadcasting
 

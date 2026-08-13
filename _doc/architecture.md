@@ -49,6 +49,11 @@ already use the integer `REGISTER_SCHEMA_REVISION` ledger managed by
 [`SchemaMigrator`](../_include/src/Register/Schema/SchemaMigrator.php); manifest versions are only
 transitional metadata and are not product migration state.
 
+Built-in Analytics stores daily aggregates in product tables. It retains only salted visitor
+fingerprints for the active aggregation day, pruning older fingerprints on subsequent traffic. It
+honors DNT and Global Privacy Control and exposes chart data through the authenticated
+administration endpoint. Raw IP addresses and User-Agent strings are not stored.
+
 ### Optional modules
 
 Optional modules provide integrations and specialized behavior. They can add services, listeners,

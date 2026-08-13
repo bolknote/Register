@@ -13,6 +13,7 @@ use Register\Module\BaseModuleRegistry;
 use Register\Schema\SchemaMigrator;
 use S2\Cms\Extensions\ExtensionManager;
 use S2\Cms\Framework\Container;
+use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Pdo\DbLayer;
 
 final class ModuleManagerCest
@@ -65,8 +66,16 @@ final class ModuleManagerCest
         ]);
         $I->setConfigValue(SchemaMigrator::CONFIG_KEY, '0');
 
+        /** @var ExtensionCache $extensionCache */
+        $extensionCache = $I->grabAdminService(ExtensionCache::class);
+        $routesCache    = $extensionCache->getCachedRoutesFilename();
+        if (file_put_contents($routesCache, '<?php return [];') === false) {
+            throw new \RuntimeException('Unable to create the route-cache fixture.');
+        }
+
         $I->assertTrue($schemaMigrator->migrate());
         $I->assertSame(SchemaMigrator::LATEST_REVISION, $schemaMigrator->currentRevision());
+        $I->assertFileDoesNotExist($routesCache);
         $I->assertFalse($schemaMigrator->migrate());
 
         $legacyRows = $dbLayer->select('COUNT(*)')
@@ -84,7 +93,11 @@ final class ModuleManagerCest
         $dbLayer   = $I->grabAdminService(DbLayer::class);
         $container = new Container([]);
 
-        foreach ([new \s2_extensions\s2_blog\Manifest(), new \s2_extensions\s2_search\Manifest()] as $manifest) {
+        foreach ([
+            new \s2_extensions\s2_blog\Manifest(),
+            new \s2_extensions\s2_search\Manifest(),
+            new \Register\Module\Analytics\Manifest(),
+        ] as $manifest) {
             $I->expectThrowable(\LogicException::class, static fn() => $manifest->uninstall($dbLayer, $container));
         }
     }

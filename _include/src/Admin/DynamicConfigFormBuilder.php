@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Module\Analytics\Manifest as AnalyticsManifest;
 use Register\Schema\SchemaMigrator;
 use S2\AdminYard\Config\DbColumnFieldType;
 use S2\AdminYard\Config\FieldConfig;
@@ -66,6 +67,7 @@ class DynamicConfigFormBuilder
         'S2_LOGIN_TIMEOUT' => 'int',
         'S2_DB_REVISION'   => 'hidden',
         SchemaMigrator::CONFIG_KEY => 'hidden',
+        AnalyticsManifest::SALT_CONFIG_KEY => 'hidden',
     ];
 
     /**

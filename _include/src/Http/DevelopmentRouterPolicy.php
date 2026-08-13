@@ -17,8 +17,6 @@ final class DevelopmentRouterPolicy
         '/_admin/index.php',
         '/_admin/install.php',
         '/_admin/pictman.php',
-        '/_extensions/s2_counter/counter.php',
-        '/_extensions/s2_counter/data.php',
     ];
 
     private const array PUBLIC_PREFIXES = [

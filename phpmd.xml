@@ -9,8 +9,6 @@
     <exclude-pattern>*/lang/*</exclude-pattern>
     <exclude-pattern>*/templates/*</exclude-pattern>
     <exclude-pattern>*/views/*</exclude-pattern>
-    <exclude-pattern>*/counter.php</exclude-pattern>
-    <exclude-pattern>*/data.php</exclude-pattern>
 
     <!-- Preserve the published legacy API and database vocabulary. PHPCS,
          PHPStan and Psalm enforce naming, types and signatures more accurately. -->

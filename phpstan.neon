@@ -26,8 +26,6 @@ parameters:
             - _extensions/*/lang/*
             - _extensions/*/templates/*
             - _extensions/*/views/*
-            - _extensions/s2_counter/counter.php
-            - _extensions/s2_counter/data.php
             - _tests/_resources/*
             - _tests/_support/_generated/*
     bootstrapFiles:

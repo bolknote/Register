@@ -56,9 +56,9 @@ final class BaseModuleRegistry
             'admin'       => Math\AdminModule::class,
         ],
         self::ANALYTICS => [
-            'manifest'    => \s2_extensions\s2_counter\Manifest::class,
-            'application' => \s2_extensions\s2_counter\Extension::class,
-            'admin'       => \s2_extensions\s2_counter\AdminExtension::class,
+            'manifest'    => Analytics\Manifest::class,
+            'application' => Analytics\Module::class,
+            'admin'       => Analytics\AdminModule::class,
         ],
         self::TYPOGRAPHY => [
             'manifest'    => Typography\Manifest::class,

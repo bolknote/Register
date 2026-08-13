@@ -41,8 +41,6 @@
             <directory name="_include/src/Register/Module/Math/lang" />
             <directory name="_extensions/s2_search/lang" />
             <directory name="_extensions/s2_search/views" />
-            <file name="_extensions/s2_counter/counter.php" />
-            <file name="_extensions/s2_counter/data.php" />
             <directory name="_tests/_resources" />
             <directory name="_tests/_support/_generated" />
             <!-- Codeception's generated actor API is covered by PHPStan max and

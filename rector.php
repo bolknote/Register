@@ -40,8 +40,6 @@ return RectorConfig::configure()
         __DIR__ . '/_extensions/*/lang',
         __DIR__ . '/_extensions/*/templates',
         __DIR__ . '/_extensions/*/views',
-        __DIR__ . '/_extensions/s2_counter/counter.php',
-        __DIR__ . '/_extensions/s2_counter/data.php',
         __DIR__ . '/_tests/_resources',
         __DIR__ . '/_tests/_support/_generated',
     ])

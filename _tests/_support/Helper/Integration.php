@@ -153,6 +153,17 @@ class Integration extends AbstractBrowserModule
         $this->doRequest(Request::create($url, $method));
     }
 
+    /** @param array<string, string> $headers */
+    public function sendRequestWithHeaders(string $url, array $headers): void
+    {
+        $server = [];
+        foreach ($headers as $name => $value) {
+            $server['HTTP_' . strtoupper(str_replace('-', '_', $name))] = $value;
+        }
+
+        $this->doRequest(Request::create($url, Request::METHOD_GET, server: $server));
+    }
+
     public function grabAdminService(string $serviceName): mixed
     {
         return $this->adminApplication->container->get($serviceName);
@@ -215,6 +226,8 @@ class Integration extends AbstractBrowserModule
     private function dropBaseModuleTables(DbLayer $dbLayer): void
     {
         $this->adminApplication->container->get(PdoStorage::class)->drop();
+        $dbLayer->dropTable('register_analytics_visitor');
+        $dbLayer->dropTable('register_analytics_daily');
         $dbLayer->dropTable('s2_blog_post_tag');
         $dbLayer->dropTable('s2_blog_comments');
         $dbLayer->dropTable('s2_blog_posts');

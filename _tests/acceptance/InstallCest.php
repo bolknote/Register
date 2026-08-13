@@ -149,6 +149,15 @@ class InstallCest
         $I->dontSeeElement('.base-module button');
         $I->seeElement('script[src$="/_assets/register/math-preview.js"]');
         $I->dontSeeElement('script[src*="/_extensions/s2_latex/"]');
+
+        $I->amOnPage('/_admin/index.php?entity=Dashboard');
+        $I->see('Analytics', 'h2');
+        $I->seeElement('script[src$="/_assets/register/analytics/highstock.js"]');
+        $I->seeElement('script[src$="/_assets/register/analytics/charts.js"]');
+        $I->dontSeeElement('script[src*="/_extensions/s2_counter/"]');
+
+        $I->amOnPage('/_admin/index.php?entity=Configuration');
+        $I->dontSee('REGISTER_ANALYTICS_SALT');
     }
 
     /**

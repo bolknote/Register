@@ -49,6 +49,7 @@ final class DevelopmentRouterPolicyTest extends Unit
     public function testAllowsOnlyKnownPhpEndpoints(): void
     {
         self::assertTrue(DevelopmentRouterPolicy::isAllowedPhpEndpoint('/_admin/index.php'));
+        self::assertFalse(DevelopmentRouterPolicy::isAllowedPhpEndpoint('/_extensions/s2_counter/data.php'));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedPhpEndpoint('/_include/config.php'));
     }
 }
