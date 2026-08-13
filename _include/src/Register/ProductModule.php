@@ -12,6 +12,7 @@ namespace Register;
 use Register\Content\ContentRepository;
 use Register\Content\ContentSourceInterface;
 use Register\Content\PageContentSource;
+use Register\Content\TagRepository;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Schema\SchemaMigrator;
@@ -45,6 +46,9 @@ readonly class ProductModule implements ModuleInterface
         ), [ContentSourceInterface::class]);
         $container->set(ContentRepository::class, static fn(Container $container): ContentRepository => new ContentRepository(
             ...$container->getByTag(ContentSourceInterface::class),
+        ));
+        $container->set(TagRepository::class, static fn(Container $container): TagRepository => new TagRepository(
+            $container->get(DbLayer::class),
         ));
         $container->set(
             BaseModuleInstaller::class,

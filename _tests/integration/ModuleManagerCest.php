@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Module\BaseModuleRegistry;
+use Register\Content\ContentTagSchema;
 use Register\Schema\SchemaMigrator;
 use S2\Cms\Extensions\ExtensionManager;
 use S2\Cms\Framework\Container;
@@ -89,6 +90,9 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->fieldExists('art_comments', 'deleted'));
         $I->assertTrue($dbLayer->fieldExists('s2_blog_comments', 'deleted'));
         $I->assertTrue($dbLayer->fieldExists('s2_blog_posts', 'display_date'));
+        $I->assertTrue($dbLayer->tableExists(ContentTagSchema::TABLE_NAME));
+        $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'content_tag_idx'));
+        $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'tag_content_idx'));
 
         $legacyRows = $dbLayer->select('COUNT(*)')
             ->from('extensions')

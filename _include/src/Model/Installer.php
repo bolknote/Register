@@ -11,6 +11,7 @@ namespace S2\Cms\Model;
 
 use S2\Cms\AdminYard\UserSettingStorage;
 use S2\Cms\Comment\Antispam\AntispamSchema;
+use Register\Content\ContentTagSchema;
 use Register\Schema\SchemaMigrator;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
@@ -173,6 +174,8 @@ readonly class Installer
             ;
         });
 
+        ContentTagSchema::create($this->dbLayer);
+
         $this->dbLayer->createTable('users_online', function (SchemaBuilderInterface $table): void {
             $table->addString('challenge', 32)
                 ->addInteger('time', true)
@@ -227,6 +230,7 @@ readonly class Installer
     {
         AntispamSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('queue');
+        ContentTagSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('article_tag');
         $this->dbLayer->dropTable('tags');
         $this->dbLayer->dropTable('art_comments');

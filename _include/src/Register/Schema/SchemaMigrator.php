@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Schema;
 
+use Register\Content\ContentTagSchema;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use S2\Cms\Framework\Container;
@@ -27,7 +28,7 @@ final readonly class SchemaMigrator
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_REVISION';
 
-    public const int LATEST_REVISION = 9;
+    public const int LATEST_REVISION = 10;
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -216,6 +217,12 @@ final readonly class SchemaMigrator
         );
     }
 
+    private function migrateToRevisionTen(): void
+    {
+        ContentTagSchema::create($this->dbLayer);
+        ContentTagSchema::copyLegacyRelations($this->dbLayer);
+    }
+
     /** @return array<int, \Closure(): void> */
     private function migrations(): array
     {
@@ -246,6 +253,9 @@ final readonly class SchemaMigrator
             },
             9 => function (): void {
                 $this->migrateToRevisionNine();
+            },
+            10 => function (): void {
+                $this->migrateToRevisionTen();
             },
         ];
     }
