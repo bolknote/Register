@@ -340,7 +340,7 @@ class HtmlTemplate
 
         $engineCredit = \sprintf(
             $this->translator->trans('Engine credit'),
-            '<a href="https://github.com/parpalak/s2">Register</a>'
+            '<a href="https://github.com/bolknote/Register">Register</a>'
         );
         $loginLabel = s2_htmlencode($this->translator->trans('Administration login'));
 
