@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\extensions\s2_search\Rose;
 
 use Codeception\Test\Unit;
-use s2_extensions\s2_latex\Extension;
+use Register\Module\Math\Module;
 use s2_extensions\s2_search\Event\TextNodeExtractEvent;
 use s2_extensions\s2_search\Rose\CustomExtractor;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -31,7 +31,7 @@ final class CustomExtractorTest extends Unit
     protected function _before(): void
     {
         $this->eventDispatcher = new EventDispatcher();
-        $this->eventDispatcher->addListener(TextNodeExtractEvent::class, Extension::textNodeExtractListener(...));
+        $this->eventDispatcher->addListener(TextNodeExtractEvent::class, Module::textNodeExtractListener(...));
 
         $this->domExtractor = new CustomExtractor($this->eventDispatcher);
     }

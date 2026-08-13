@@ -147,6 +147,8 @@ class InstallCest
         }
 
         $I->dontSeeElement('.base-module button');
+        $I->seeElement('script[src$="/_assets/register/math-preview.js"]');
+        $I->dontSeeElement('script[src*="/_extensions/s2_latex/"]');
     }
 
     /**

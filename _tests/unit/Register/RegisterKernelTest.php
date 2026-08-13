@@ -11,6 +11,8 @@ namespace unit\Register;
 
 use Codeception\Test\Unit;
 use Register\Module\BaseModuleRegistry;
+use Register\Module\Math\AdminModule as MathAdminModule;
+use Register\Module\Math\Module as MathModule;
 use Register\Module\Typography\Module as TypographyModule;
 use Register\ProductModule;
 use Register\RegisterKernel;
@@ -34,7 +36,7 @@ final class RegisterKernelTest extends Unit
             ProductModule::class,
             \s2_extensions\s2_blog\Extension::class,
             \s2_extensions\s2_search\Extension::class,
-            \s2_extensions\s2_latex\Extension::class,
+            MathModule::class,
             \s2_extensions\s2_counter\Extension::class,
             TypographyModule::class,
         ], $application->moduleClasses);
@@ -52,12 +54,12 @@ final class RegisterKernelTest extends Unit
             AdminExtension::class,
             \s2_extensions\s2_blog\Extension::class,
             \s2_extensions\s2_search\Extension::class,
-            \s2_extensions\s2_latex\Extension::class,
+            MathModule::class,
             \s2_extensions\s2_counter\Extension::class,
             TypographyModule::class,
             \s2_extensions\s2_blog\AdminExtension::class,
             \s2_extensions\s2_search\AdminExtension::class,
-            \s2_extensions\s2_latex\AdminExtension::class,
+            MathAdminModule::class,
             \s2_extensions\s2_counter\AdminExtension::class,
         ], $application->moduleClasses);
     }

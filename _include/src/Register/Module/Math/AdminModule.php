@@ -2,20 +2,20 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   s2_latex
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace s2_extensions\s2_latex;
+namespace Register\Module\Math;
 
 use S2\Cms\AdminYard\CustomTemplateRendererEvent;
 use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ExtensionInterface;
+use S2\Cms\Framework\ModuleInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\RouteCollection;
 
-class AdminExtension implements ExtensionInterface
+class AdminModule implements ModuleInterface
 {
     #[\Override]
     public function buildContainer(Container $container): void
@@ -26,7 +26,7 @@ class AdminExtension implements ExtensionInterface
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(CustomTemplateRendererEvent::class, static function (CustomTemplateRendererEvent $event): void {
-            $event->extraScripts[] = $event->basePath . '/_extensions/s2_latex/admin/preview.js';
+            $event->extraScripts[] = $event->basePath . '/_assets/register/math-preview.js';
         });
     }
 

@@ -38,7 +38,7 @@
             <directory name="_extensions/s2_blog/lang" />
             <directory name="_extensions/s2_blog/templates" />
             <directory name="_extensions/s2_blog/views" />
-            <directory name="_extensions/s2_latex/lang" />
+            <directory name="_include/src/Register/Module/Math/lang" />
             <directory name="_extensions/s2_search/lang" />
             <directory name="_extensions/s2_search/views" />
             <file name="_extensions/s2_counter/counter.php" />

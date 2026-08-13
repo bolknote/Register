@@ -23,6 +23,7 @@ final class DevelopmentRouterPolicy
 
     private const array PUBLIC_PREFIXES = [
         '/_admin/',
+        '/_assets/',
         '/_cache/',
         '/_extensions/',
         '/_pictures/',

@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace unit\extensions\s2_latex;
+namespace unit\Register\Module\Math;
 
 use Codeception\Test\Unit;
-use s2_extensions\s2_latex\Extension;
+use Register\Module\Math\Module;
 
 final class HtmlReplaceTest extends Unit
 {
@@ -106,6 +106,6 @@ final class HtmlReplaceTest extends Unit
   }
 \end{tikzpicture}" /></p>';
 
-        self::assertSame($expected, Extension::convertLatexInHtml($html));
+        self::assertSame($expected, Module::convertLatexInHtml($html));
     }
 }

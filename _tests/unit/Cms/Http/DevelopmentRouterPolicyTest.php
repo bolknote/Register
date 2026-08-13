@@ -41,7 +41,9 @@ final class DevelopmentRouterPolicyTest extends Unit
     public function testAllowsOnlyStaticFilesUnderPublicApplicationPrefixes(): void
     {
         self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_admin/css/admin-override.css', 'CSS'));
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_assets/register/math-preview.js', 'js'));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_admin/templates/layout.php.inc', 'inc'));
+        self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_include/src/Register/ProductModule.php', 'php'));
     }
 
     public function testAllowsOnlyKnownPhpEndpoints(): void

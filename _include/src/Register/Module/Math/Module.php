@@ -2,17 +2,17 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   s2_latex
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace s2_extensions\s2_latex;
+namespace Register\Module\Math;
 
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Controller\Rss\FeedItemRenderEvent;
 use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ExtensionInterface;
+use S2\Cms\Framework\ModuleInterface;
 use S2\Cms\Image\ThumbnailGenerateEvent;
 use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplatePreCommentRenderEvent;
@@ -23,17 +23,17 @@ use Symfony\Component\Routing\RouteCollection;
 use S2\Cms\Translation\ExtensibleTranslator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-class Extension implements ExtensionInterface
+class Module implements ModuleInterface
 {
     private const string CUSTOM_UPMATH_PROTOCOL = 'upmath://';
 
     #[\Override]
     public function buildContainer(Container $container): void
     {
-        $container->set('s2_latex_translator', static function (Container $container) {
+        $container->set('register_math_translator', static function (Container $container) {
             /** @var ExtensibleTranslator $translator */
             $translator = $container->get('translator');
-            $translator->attachLoader('s2_latex', static fn(string $lang): array => require ($dir = __DIR__ . '/lang/') . (file_exists($dir . $lang . '.php') ? $lang : 'English') . '.php');
+            $translator->attachLoader('register_math', static fn(string $lang): array => require ($dir = __DIR__ . '/lang/') . (file_exists($dir . $lang . '.php') ? $lang : 'English') . '.php');
 
             return $translator;
         });
@@ -57,7 +57,7 @@ class Extension implements ExtensionInterface
 
         $eventDispatcher->addListener(TemplatePreCommentRenderEvent::class, static function (TemplatePreCommentRenderEvent $event) use ($container): void {
             /** @var TranslatorInterface $translator */
-            $translator = $container->get('s2_latex_translator');
+            $translator = $container->get('register_math_translator');
             array_unshift($event->syntaxHelpItems, $translator->trans('Comment latex syntax'));
         });
 

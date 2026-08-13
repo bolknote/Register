@@ -51,9 +51,9 @@ final class BaseModuleRegistry
             'admin'       => \s2_extensions\s2_search\AdminExtension::class,
         ],
         self::MATH => [
-            'manifest'    => \s2_extensions\s2_latex\Manifest::class,
-            'application' => \s2_extensions\s2_latex\Extension::class,
-            'admin'       => \s2_extensions\s2_latex\AdminExtension::class,
+            'manifest'    => Math\Manifest::class,
+            'application' => Math\Module::class,
+            'admin'       => Math\AdminModule::class,
         ],
         self::ANALYTICS => [
             'manifest'    => \s2_extensions\s2_counter\Manifest::class,

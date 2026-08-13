@@ -6,17 +6,17 @@
  *
  * @copyright 2011-2024 Roman Parpalak
  * @license MIT
- * @package s2_latex
+ * @package Register
  */
 
 declare(strict_types = 1);
 
-namespace s2_extensions\s2_latex;
+namespace Register\Module\Math;
 
 use S2\Cms\Extensions\ManifestInterface;
 use S2\Cms\Extensions\ManifestTrait;
 
-class Manifest implements ManifestInterface
+final class Manifest implements ManifestInterface
 {
     use ManifestTrait;
 
