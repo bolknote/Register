@@ -195,6 +195,7 @@ class AdminExtension implements ExtensionInterface
             $provider = $container->get(DynamicConfigProvider::class);
             return new ArticleManager(
                 $container->get(DbLayer::class),
+                $container->get(\Register\Comment\CommentRepository::class),
                 $container->get(\Register\Content\TagRepository::class),
                 $container->get(SettingStorageInterface::class),
                 $container->get(PermissionChecker::class),

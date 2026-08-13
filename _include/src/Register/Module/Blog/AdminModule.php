@@ -32,7 +32,8 @@ use Register\Module\Blog\Admin\DynamicConfigFormExtender;
 use Register\Module\Blog\Admin\PathToAdminEntityConverter;
 use Register\Module\Blog\Admin\TranslationProvider;
 use Register\Module\Blog\Model\BlogCommentNotifier;
-use Register\Module\Blog\Model\BlogCommentProvider;
+use Register\Comment\CommentRepository;
+use Register\Content\ContentType;
 use Register\Module\Blog\Model\PostProvider;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\RouteCollection;
@@ -66,8 +67,6 @@ final class AdminModule implements ModuleInterface
             $container->get(DbLayer::class),
         ), [DashboardStatProviderInterface::class]);
 
-        $container->set(BlogCommentProvider::class, fn(Container $container): \Register\Module\Blog\Model\BlogCommentProvider => new BlogCommentProvider($container->get(DbLayer::class)));
-
         $container->set(PathToAdminEntityConverter::class, fn(Container $container): \Register\Module\Blog\Admin\PathToAdminEntityConverter => new PathToAdminEntityConverter(
             $container->get(DbLayer::class),
             $container->get(BlogUrlBuilder::class),
@@ -82,8 +81,7 @@ final class AdminModule implements ModuleInterface
         });
 
         $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container): void {
-            $blogCommentProvider = $container->get(BlogCommentProvider::class);
-            $size                = $blogCommentProvider->getPendingCommentsCount();
+            $size = $container->get(CommentRepository::class)->countPending(ContentType::POST);
 
             if ($size > 0) {
                 $event->addSignal('BlogComment', new Signal((string)$size, 'Blog new comments', '?entity=BlogComment&action=list&status=0&apply_filter=0'));

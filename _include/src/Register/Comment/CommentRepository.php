@@ -157,6 +157,50 @@ final readonly class CommentRepository
         return (int)$query->execute()->result();
     }
 
+    public function countPending(ContentType $contentType): int
+    {
+        return (int)$this->dbLayer
+            ->select('COUNT(*)')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', $contentType->value)
+            ->andWhere('shown = 0')
+            ->andWhere('sent = 0')
+            ->execute()
+            ->result();
+    }
+
+    /** @return list<Comment> */
+    public function findSubscribers(ContentId $contentId, string $email, bool $sameEmail): array
+    {
+        $query = $this->dbLayer
+            ->select('*')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', $contentId->type->value)
+            ->andWhere('content_id = :content_id')->setParameter('content_id', $contentId->value)
+            ->andWhere('subscribed = 1')
+            ->andWhere('shown = 1')
+            ->andWhere($sameEmail ? 'email = :email' : 'email <> :email')->setParameter('email', $email)
+            ->orderBy('time', 'id')
+            ->execute()
+            ->fetchAssocAll()
+        ;
+
+        return array_values(array_map($this->hydrate(...), $query));
+    }
+
+    public function unsubscribe(ContentId $contentId, string $email): void
+    {
+        $this->dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('subscribed', '0')
+            ->where('content_type = :content_type')->setParameter('content_type', $contentId->type->value)
+            ->andWhere('content_id = :content_id')->setParameter('content_id', $contentId->value)
+            ->andWhere('subscribed = 1')
+            ->andWhere('email = :email')->setParameter('email', $email)
+            ->execute()
+        ;
+    }
+
     public function publish(int $commentId, ContentType $contentType): void
     {
         $this->dbLayer

@@ -217,6 +217,10 @@ class CmsExtension implements ExtensionInterface
 
             return new SpamIdentityHasher($secret);
         });
+        $container->set(\Register\Comment\CommentSubscriptionService::class, static fn(Container $container): \Register\Comment\CommentSubscriptionService => new \Register\Comment\CommentSubscriptionService(
+            $container->get(\Register\Comment\CommentRepository::class),
+            $container->get(SpamIdentityHasher::class),
+        ));
         $container->set(SpamFeatureExtractor::class, new SpamFeatureExtractor());
         $container->set(SpamAssessmentRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamAssessmentRepository => new SpamAssessmentRepository(
             $container->get(DbLayer::class),
@@ -337,6 +341,7 @@ class CmsExtension implements ExtensionInterface
             $provider = $container->get(DynamicConfigProvider::class);
             return new ArticleProvider(
                 $container->get(DbLayer::class),
+                $container->get(\Register\Comment\CommentRepository::class),
                 $container->get(UrlBuilder::class),
                 $container->get(Viewer::class),
                 $provider->getStringProxy('S2_FAVORITE_URL'),
@@ -357,6 +362,7 @@ class CmsExtension implements ExtensionInterface
             $provider = $container->get(DynamicConfigProvider::class);
             return new CommentProvider(
                 $container->get(DbLayer::class),
+                $container->get(\Register\Comment\CommentRepository::class),
                 $container->get(ArticleProvider::class),
                 $container->get(UrlBuilder::class),
                 $container->get(Viewer::class),
@@ -454,6 +460,8 @@ class CmsExtension implements ExtensionInterface
 
         $container->set(CommentNotifier::class, fn(Container $container): \S2\Cms\Model\CommentNotifier => new CommentNotifier(
             $container->get(DbLayer::class),
+            $container->get(\Register\Comment\CommentRepository::class),
+            $container->get(\Register\Comment\CommentSubscriptionService::class),
             $container->get(ArticleProvider::class),
             $container->get(UrlBuilder::class),
             $container->get(CommentMailer::class),

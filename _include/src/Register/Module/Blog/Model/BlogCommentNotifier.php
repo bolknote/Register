@@ -9,6 +9,10 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Model;
 
+use Register\Comment\CommentRepository;
+use Register\Comment\CommentSubscriptionService;
+use Register\Content\ContentId;
+use Register\Content\ContentType;
 use S2\Cms\Helper\StringHelper;
 use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Model\UrlBuilder;
@@ -29,6 +33,8 @@ readonly class BlogCommentNotifier
 {
     public function __construct(
         private DbLayer        $dbLayer,
+        private CommentRepository $commentRepository,
+        private CommentSubscriptionService $subscriptionService,
         private UrlBuilder     $urlBuilder,
         private BlogUrlBuilder $blogUrlBuilder,
         private CommentMailer  $commentMailer,
@@ -40,24 +46,12 @@ readonly class BlogCommentNotifier
      */
     public function notify(int $commentId): void
     {
-        /**
-         * Checking if the comment exists.
-         * We need post_id for displaying comments.
-         * Also, we need the comment if the pre-moderation is turned on.
-         */
-        $result  = $this->dbLayer
-            ->select('post_id, sent, shown, nick, email, text')
-            ->from('s2_blog_comments')
-            ->where('id = :id')
-            ->setParameter('id', $commentId)
-            ->execute()
-        ;
-        $comment = $result->fetchAssoc();
-        if ($comment === false) {
+        $comment = $this->commentRepository->findOfType($commentId, ContentType::POST);
+        if ($comment === null) {
             return;
         }
 
-        if ((bool)$comment['shown'] || (bool)$comment['sent']) {
+        if ($comment->shown || $comment->sent) {
             // Comment has already been checked by the moderator
             return;
         }
@@ -72,7 +66,7 @@ readonly class BlogCommentNotifier
             ->select('title, create_time, url')
             ->from('s2_blog_posts')
             ->where('id = :id')
-            ->setParameter('id', $comment['post_id'])
+            ->setParameter('id', $comment->contentId->value)
             ->andWhere('published = 1')
             ->andWhere('commented = 1')
             ->execute()
@@ -85,34 +79,20 @@ readonly class BlogCommentNotifier
         $link = $this->blogUrlBuilder->absPost($post['url']);
 
         // Fetching receivers' names and addresses
-        $allReceivers = $this->getCommentReceivers($comment['post_id'], $comment['email'], '<>');
-
-        // Group by email, taking last records
-        $receivers = [];
-        foreach ($allReceivers as $receiver) {
-            $receivers[$receiver['email']] = $receiver;
-        }
-
-        $message = StringHelper::bbcodeToMail($comment['text']);
+        $receivers = $this->subscriptionService->receivers($comment->contentId, $comment->email);
+        $message   = StringHelper::bbcodeToMail($comment->text);
 
         foreach ($receivers as $receiver) {
             $unsubscribeLink = $this->urlBuilder->rawAbsLink('/comment_unsubscribe', [
-                'mail=' . urlencode($receiver['email']),
-                'id=' . $comment['post_id'],
-                'code=' . $receiver['hash'],
+                'mail=' . urlencode($receiver->email),
+                'id=' . $comment->contentId->value,
+                'code=' . $receiver->unsubscribeToken,
             ]);
 
-            $this->commentMailer->mailToSubscriber($receiver['nick'], $receiver['email'], $message, $post['title'], $link, $comment['nick'], $unsubscribeLink);
+            $this->commentMailer->mailToSubscriber($receiver->name, $receiver->email, $message, $post['title'], $link, $comment->name, $unsubscribeLink);
         }
 
-        // Toggle sent mark
-        $this->dbLayer
-            ->update('s2_blog_comments')
-            ->set('sent', '1')
-            ->where('id = :id')
-            ->setParameter('id', $commentId)
-            ->execute()
-        ;
+        $this->commentRepository->setSent($commentId, ContentType::POST, true);
     }
 
     /**
@@ -120,56 +100,6 @@ readonly class BlogCommentNotifier
      */
     public function unsubscribe(int $postId, string $email, string $code): bool
     {
-        $receivers = $this->getCommentReceivers($postId, $email, '=');
-
-        foreach ($receivers as $receiver) {
-            if ($code === $receiver['hash']) {
-                $this->dbLayer->update('s2_blog_comments')
-                    ->set('subscribed', '0')
-                    ->where('post_id = :post_id')
-                    ->setParameter('post_id', $postId)
-                    ->andWhere('email = :email')
-                    ->setParameter('email', $email)
-                    ->andWhere('subscribed = 1')
-                    ->execute()
-                ;
-
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @throws DbLayerException
-     * @return array<mixed>
-     */
-    private function getCommentReceivers(int $postId, string $email, string $operation): array
-    {
-        if (!\in_array($operation, ['=', '<>'], true)) {
-            throw new \InvalidArgumentException(\sprintf('Invalid operation "%s".', $operation));
-        }
-
-        $result = $this->dbLayer
-            ->select('id', 'nick', 'email', 'ip', 'time')
-            ->from('s2_blog_comments')
-            ->where('post_id = :post_id')
-            ->setParameter('post_id', $postId)
-            ->andWhere('subscribed = 1')
-            ->andWhere('shown = 1')
-            ->andWhere('email ' . $operation . ' :email')
-            ->setParameter('email', $email)
-            ->execute()
-        ;
-
-        $receivers = $result->fetchAssocAll();
-        foreach ($receivers as &$receiver) {
-            $receiver['hash'] = substr(base_convert(md5('s2_blog_comments' . serialize($receiver)), 16, 36), 0, 13);
-        }
-
-        unset($receiver);
-
-        return $receivers;
+        return $this->subscriptionService->unsubscribe(ContentId::post($postId), $email, $code);
     }
 }

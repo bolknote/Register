@@ -350,6 +350,7 @@ final class Module implements ModuleInterface
 
         $container->set(PostProvider::class, static fn(Container $container): \Register\Module\Blog\Model\PostProvider => new PostProvider(
             $container->get(DbLayer::class),
+            $container->get(\Register\Comment\CommentRepository::class),
             $container->get(\Register\Content\TagRepository::class),
             $container->get(BlogUrlBuilder::class),
             $container->get(ArticleProvider::class),
@@ -358,6 +359,8 @@ final class Module implements ModuleInterface
 
         $container->set(BlogCommentNotifier::class, static fn(Container $container): \Register\Module\Blog\Model\BlogCommentNotifier => new BlogCommentNotifier(
             $container->get(DbLayer::class),
+            $container->get(\Register\Comment\CommentRepository::class),
+            $container->get(\Register\Comment\CommentSubscriptionService::class),
             $container->get(UrlBuilder::class),
             $container->get(BlogUrlBuilder::class),
             $container->get(CommentMailer::class),
