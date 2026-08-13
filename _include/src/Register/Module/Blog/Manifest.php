@@ -134,33 +134,6 @@ class Manifest implements ManifestInterface
         // For old installations
         $dbLayer->addIndex('s2_blog_comments', 'sort_idx', ['post_id', 'time', 'shown']);
 
-        // Setup table to link posts and tags
-        if (!$dbLayer->tableExists('s2_blog_post_tag')) {
-            $dbLayer->createTable('s2_blog_post_tag', function (SchemaBuilderInterface $table): void {
-                $table
-                    ->addIdColumn()
-                    ->addInteger('post_id', true, default: null)
-                    ->addInteger('tag_id', true, default: null)
-                    ->addForeignKey(
-                        'fk_post',
-                        ['post_id'],
-                        's2_blog_posts',
-                        ['id'],
-                        'CASCADE',
-                    )
-                    ->addForeignKey(
-                        'fk_tag',
-                        ['tag_id'],
-                        'tags',
-                        ['id'],
-                        'CASCADE',
-                    )
-                    ->addIndex('post_id_idx', ['post_id'])
-                    ->addIndex('tag_id_idx', ['tag_id'])
-                ;
-            });
-        }
-
         // Add extension options to the config table
         $config = [
             'S2_BLOG_URL'   => '',
@@ -209,13 +182,6 @@ class Manifest implements ManifestInterface
             $dbLayer->addForeignKey('s2_blog_comments', 'fk_post', ['post_id'], 's2_blog_posts', ['id'], 'CASCADE');
             $dbLayer->dropIndex('s2_blog_comments', 'post_id_idx');
 
-            $dbLayer->query('DELETE FROM ' . $dbLayer->getPrefix() . 's2_blog_post_tag WHERE post_id NOT IN (SELECT id FROM ' . $dbLayer->getPrefix() . 's2_blog_posts)');
-            $dbLayer->query('DELETE FROM ' . $dbLayer->getPrefix() . 's2_blog_post_tag WHERE tag_id NOT IN (SELECT id FROM ' . $dbLayer->getPrefix() . 'tags)');
-
-            $dbLayer->alterField('s2_blog_post_tag', 'post_id', SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, null, false);
-            $dbLayer->alterField('s2_blog_post_tag', 'tag_id', SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, null, false);
-            $dbLayer->addForeignKey('s2_blog_post_tag', 'fk_post', ['post_id'], 's2_blog_posts', ['id'], 'CASCADE');
-            $dbLayer->addForeignKey('s2_blog_post_tag', 'fk_tag', ['tag_id'], 'tags', ['id'], 'CASCADE');
         }
     }
 

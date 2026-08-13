@@ -10,10 +10,8 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Content\ContentId;
-use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
-use Register\Schema\SchemaMigrator;
 use S2\Cms\Pdo\DbLayer;
 
 final class ContentTagRepositoryCest
@@ -57,43 +55,6 @@ final class ContentTagRepositoryCest
 
         $repository->replace($pageIdObject, []);
         $I->assertSame([], $repository->findForContent([$pageIdObject])[(string)$pageIdObject]);
-    }
-
-    public function migrationCopiesLegacyRelationsWithoutRemovingThem(\IntegrationTester $I): void
-    {
-        /** @var DbLayer $dbLayer */
-        $dbLayer = $I->grabAdminService(DbLayer::class);
-        /** @var SchemaMigrator $schemaMigrator */
-        $schemaMigrator = $I->grabAdminService(SchemaMigrator::class);
-
-        [$pageId, $postId] = $this->createPublishedContent($dbLayer, 'migration');
-        $tagId             = $this->createTag($dbLayer, 'Migration', 'migration');
-
-        $dbLayer->insert('article_tag')->values([
-            'article_id' => ':content_id',
-            'tag_id'     => ':tag_id',
-        ])->execute(['content_id' => $pageId, 'tag_id' => $tagId]);
-        $dbLayer->insert('s2_blog_post_tag')->values([
-            'post_id' => ':content_id',
-            'tag_id'  => ':tag_id',
-        ])->execute(['content_id' => $postId, 'tag_id' => $tagId]);
-        $I->setConfigValue(SchemaMigrator::CONFIG_KEY, '8');
-
-        $I->assertTrue($schemaMigrator->migrate());
-        $I->assertSame(2, (int)$dbLayer
-            ->select('COUNT(*)')
-            ->from(ContentTagSchema::TABLE_NAME)
-            ->where('tag_id = :tag_id')->setParameter('tag_id', $tagId)
-            ->execute()
-            ->result());
-        $I->assertSame(1, (int)$dbLayer
-            ->select('COUNT(*)')->from('article_tag')
-            ->where('tag_id = :tag_id')->setParameter('tag_id', $tagId)
-            ->execute()->result());
-        $I->assertSame(1, (int)$dbLayer
-            ->select('COUNT(*)')->from('s2_blog_post_tag')
-            ->where('tag_id = :tag_id')->setParameter('tag_id', $tagId)
-            ->execute()->result());
     }
 
     private function createTag(DbLayer $dbLayer, string $name, string $slug): int

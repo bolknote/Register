@@ -150,30 +150,6 @@ readonly class Installer
             ;
         });
 
-        $this->dbLayer->createTable('article_tag', function (SchemaBuilderInterface $table): void {
-            $table
-                ->addIdColumn()
-                ->addInteger('article_id', true, false, null)
-                ->addInteger('tag_id', true, false, null)
-                ->addForeignKey(
-                    'fk_article',
-                    ['article_id'],
-                    'articles',
-                    ['id'],
-                    'CASCADE',
-                )
-                ->addForeignKey(
-                    'fk_tag',
-                    ['tag_id'],
-                    'tags',
-                    ['id'],
-                    'CASCADE',
-                )
-                ->addIndex('article_id_idx', ['article_id'])
-                ->addIndex('tag_id_idx', ['tag_id'])
-            ;
-        });
-
         ContentTagSchema::create($this->dbLayer);
 
         $this->dbLayer->createTable('users_online', function (SchemaBuilderInterface $table): void {
@@ -231,7 +207,6 @@ readonly class Installer
         AntispamSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('queue');
         ContentTagSchema::drop($this->dbLayer);
-        $this->dbLayer->dropTable('article_tag');
         $this->dbLayer->dropTable('tags');
         $this->dbLayer->dropTable('art_comments');
         $this->dbLayer->dropTable('articles');

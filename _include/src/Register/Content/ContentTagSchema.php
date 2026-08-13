@@ -44,47 +44,6 @@ final class ContentTagSchema
         );
     }
 
-    /**
-     * Copies the two inherited relation tables into the Register relation without deleting them.
-     * Keeping the legacy tables makes this migration independently reversible.
-     */
-    public static function copyLegacyRelations(DbLayer $dbLayer): void
-    {
-        $legacyRelations = [
-            ContentType::PAGE->value => ['article_tag', 'article_id'],
-            ContentType::POST->value => ['s2_blog_post_tag', 'post_id'],
-        ];
-
-        foreach ($legacyRelations as $contentType => [$table, $contentColumn]) {
-            if (!$dbLayer->tableExists($table)) {
-                continue;
-            }
-
-            $relations = $dbLayer
-                ->select($contentColumn . ' AS content_id', 'tag_id')
-                ->from($table)
-                ->execute()
-                ->fetchAssocAll()
-            ;
-            foreach ($relations as $relation) {
-                $dbLayer
-                    ->insert(self::TABLE_NAME)
-                    ->values([
-                        'content_type' => ':content_type',
-                        'content_id'   => ':content_id',
-                        'tag_id'       => ':tag_id',
-                    ])
-                    ->onConflictDoNothing('content_type', 'content_id', 'tag_id')
-                    ->execute([
-                        'content_type' => $contentType,
-                        'content_id'   => (int)$relation['content_id'],
-                        'tag_id'       => (int)$relation['tag_id'],
-                    ])
-                ;
-            }
-        }
-    }
-
     public static function drop(DbLayer $dbLayer): void
     {
         $dbLayer->dropTable(self::TABLE_NAME);
