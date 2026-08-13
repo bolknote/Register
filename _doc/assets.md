@@ -1,8 +1,9 @@
 # Asset provenance
 
-Register does not copy visual assets from Aegea. Product-interface symbols should be Unicode emoji
-or original artwork. Emoji used as quiet monochrome controls are rendered with
-`filter: grayscale(1)` by the Register theme.
+Register does not copy visual assets from Aegea. Product-interface symbols should be Unicode text,
+emoji, or original artwork. Emoji used as quiet monochrome controls are rendered with
+`filter: grayscale(1)` by the Register theme. The administration link uses the Unicode `ℜ` glyph,
+not an imported image.
 
 Current product assets:
 
