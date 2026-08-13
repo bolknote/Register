@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog;
 
 use Psr\Log\LoggerInterface;
+use Register\Comment\ContentCommentStrategy;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
@@ -21,7 +22,6 @@ use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
 use S2\Cms\Comment\Antispam\SpamRateLimiter;
 use S2\Cms\Comment\SpamDecisionProviderInterface;
 use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Controller\CommentController;
 use S2\Cms\Controller\RssController;
 use S2\Cms\Framework\Container;
@@ -53,8 +53,6 @@ use Register\Module\Blog\Controller\PostPageController;
 use Register\Module\Blog\Controller\TagPageController;
 use Register\Module\Blog\Controller\TagsPageController;
 use Register\Module\Blog\Controller\YearPageController;
-use Register\Module\Blog\Model\BlogCommentNotifier;
-use Register\Module\Blog\Model\BlogCommentStrategy;
 use Register\Module\Blog\Model\BlogPlaceholderProvider;
 use Register\Module\Blog\Model\ContentRssStrategy;
 use Register\Module\Blog\Model\PostProvider;
@@ -327,17 +325,12 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             );
         });
 
-        $container->set(BlogCommentStrategy::class, static fn(Container $container): \Register\Module\Blog\Model\BlogCommentStrategy => new BlogCommentStrategy(
-            $container->get(DbLayer::class),
-            $container->get(\Register\Comment\CommentRepository::class),
-            $container->get(BlogCommentNotifier::class),
-        ), [CommentStrategyInterface::class]);
         $container->set('register_blog.comment_controller', static function (Container $container): \S2\Cms\Controller\CommentController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new CommentController(
                 $container->get(AuthProvider::class),
                 $container->get(UserProvider::class),
-                $container->get(BlogCommentStrategy::class),
+                $container->get(ContentCommentStrategy::POST_SERVICE_ID),
                 $container->get('comments_translator'),
                 $container->get(UrlBuilder::class),
                 $container->get(HtmlTemplateProvider::class),
@@ -365,15 +358,6 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(BlogUrlBuilder::class),
             $container->get(ArticleProvider::class),
             $container->get(Viewer::class),
-        ));
-
-        $container->set(BlogCommentNotifier::class, static fn(Container $container): \Register\Module\Blog\Model\BlogCommentNotifier => new BlogCommentNotifier(
-            $container->get(DbLayer::class),
-            $container->get(\Register\Comment\CommentRepository::class),
-            $container->get(\Register\Comment\CommentSubscriptionService::class),
-            $container->get(UrlBuilder::class),
-            $container->get(BlogUrlBuilder::class),
-            $container->get(CommentMailer::class),
         ));
 
         $container->set(TagsSearchProvider::class, static fn(Container $container): \Register\Module\Blog\Service\TagsSearchProvider => new TagsSearchProvider(

@@ -32,7 +32,7 @@ use Register\Module\Blog\Admin\AdminConfigExtender;
 use Register\Module\Blog\Admin\DynamicConfigFormExtender;
 use Register\Module\Blog\Admin\PathToAdminEntityConverter;
 use Register\Module\Blog\Admin\TranslationProvider;
-use Register\Module\Blog\Model\BlogCommentNotifier;
+use Register\Comment\ContentCommentNotifier;
 use Register\Comment\CommentRepository;
 use Register\Content\ContentType;
 use Register\Content\ContentStatisticsRepository;
@@ -51,7 +51,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(\Register\Content\TagRepository::class),
             $container->get(PostProvider::class),
             $container->get(BlogUrlBuilder::class),
-            $container->get(BlogCommentNotifier::class),
+            $container->get(ContentCommentNotifier::class),
             $container->get(SpamFeedbackService::class),
             $container->get(UniqueSlugGenerator::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),

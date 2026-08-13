@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace S2\Cms\Admin;
 
 use Register\Comment\CommentSchema;
+use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
@@ -45,7 +46,6 @@ use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\CommentNotifier;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
@@ -73,7 +73,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly TagsProvider             $tagsProvider,
         private readonly TagRepository             $tagRepository,
         private readonly UrlBuilder               $urlBuilder,
-        private readonly CommentNotifier          $commentNotifier,
+        private readonly ContentCommentNotifier   $commentNotifier,
         private readonly ExtensionCache           $extensionCache,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly CommentControllerFactory $commentControllerFactory,
@@ -266,7 +266,10 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->setListActionsTemplate('_admin/templates/comment/list-actions.php.inc')
             ->addListener(EntityConfig::EVENT_BEFORE_PATCH, function (BeforeSaveEvent $event): void {
                 if (isset($event->data['shown'])) {
-                    $this->commentNotifier->notify($this->requirePrimaryKey($event->primaryKey)->getIntId());
+                    $this->commentNotifier->notify(
+                        $this->requirePrimaryKey($event->primaryKey)->getIntId(),
+                        ContentType::PAGE,
+                    );
                 }
             })
         ;

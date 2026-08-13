@@ -47,7 +47,7 @@ final readonly class PageContentSource implements ContentSourceInterface
         ;
 
         $page = $this->dbLayer
-            ->select('page.id, page.parent_id, page.title, page.body, page.slug')
+            ->select('page.id, page.parent_id, page.title, page.body, page.slug, page.comments_enabled')
             ->addSelect('page.published_at, page.updated_at, page.meta_keywords, page.meta_description')
             ->addSelect('(' . $childrenQuery . ') IS NOT NULL AS has_children')
             ->from(ContentSchema::TABLE_NAME . ' AS page')
@@ -86,6 +86,7 @@ final readonly class PageContentSource implements ContentSourceInterface
             keywords: (string)$page['meta_keywords'],
             description: (string)$page['meta_description'],
             updatedAt: (int)$page['updated_at'],
+            commentsEnabled: (bool)$page['comments_enabled'],
         );
     }
 
@@ -116,7 +117,7 @@ final readonly class PageContentSource implements ContentSourceInterface
         ;
 
         $query = $this->dbLayer
-            ->select('page.id, page.title, page.body, page.slug, page.published_at, page.updated_at')
+            ->select('page.id, page.title, page.body, page.slug, page.published_at, page.updated_at, page.comments_enabled')
             ->addSelect('page.meta_keywords, page.meta_description')
             ->addSelect('(' . $childrenQuery . ') IS NOT NULL AS has_children')
             ->from(ContentSchema::TABLE_NAME . ' AS page')
@@ -150,6 +151,7 @@ final readonly class PageContentSource implements ContentSourceInterface
                 keywords: (string)$page['meta_keywords'],
                 description: (string)$page['meta_description'],
                 updatedAt: (int)$page['updated_at'],
+                commentsEnabled: (bool)$page['comments_enabled'],
             );
 
             yield from $this->crawl((int)$page['id'], rtrim($path, '/') . '/');

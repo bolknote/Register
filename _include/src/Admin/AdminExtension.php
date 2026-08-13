@@ -45,7 +45,7 @@ use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Model\ArticleManager;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\CommentNotifier;
+use Register\Comment\ContentCommentNotifier;
 use S2\Cms\Model\CommentProvider;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
@@ -144,7 +144,7 @@ class AdminExtension implements ExtensionInterface
                 $container->get(TagsProvider::class),
                 $container->get(\Register\Content\TagRepository::class),
                 $container->get(UrlBuilder::class),
-                $container->get(CommentNotifier::class),
+                $container->get(ContentCommentNotifier::class),
                 $container->get(ExtensionCache::class),
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
                 $container->get(CommentControllerFactory::class),

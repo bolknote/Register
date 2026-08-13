@@ -26,7 +26,6 @@ final readonly class CommentControllerFactory implements ControllerFactoryInterf
     public function __construct(
         private SpamFeedbackService $spamFeedbackService,
         private ContentType         $contentType = ContentType::PAGE,
-        private ?\Closure           $notifier = null,
     ) {
     }
 
@@ -52,7 +51,6 @@ final readonly class CommentControllerFactory implements ControllerFactoryInterf
             $settingStorage,
             $this->spamFeedbackService,
             $this->contentType,
-            $this->notifier,
         );
     }
 }

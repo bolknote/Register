@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace S2\Cms\Comment\Antispam;
 
 use Register\Comment\CommentRepository;
+use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentType;
-use S2\Cms\Model\CommentNotifier;
 use S2\Cms\Pdo\DbLayerException;
 
 final readonly class SpamFeedbackService
@@ -22,7 +22,7 @@ final readonly class SpamFeedbackService
         private SpamFeatureExtractor       $featureExtractor,
         private SpamAssessmentRepository   $assessmentRepository,
         private SpamReputationRepository   $reputationRepository,
-        private CommentNotifier            $commentNotifier,
+        private ContentCommentNotifier     $commentNotifier,
     ) {
     }
 
@@ -31,12 +31,11 @@ final readonly class SpamFeedbackService
      * @throws \JsonException
      */
     public function markHam(
-        int       $commentId,
+        int         $commentId,
         ContentType $contentType,
-        ?\Closure $notifier = null,
     ): bool
     {
-        return $this->mark($commentId, SpamReputationRepository::LABEL_HAM, $contentType, $notifier);
+        return $this->mark($commentId, SpamReputationRepository::LABEL_HAM, $contentType);
     }
 
     /**
@@ -48,7 +47,7 @@ final readonly class SpamFeedbackService
         ContentType $contentType,
     ): bool
     {
-        return $this->mark($commentId, SpamReputationRepository::LABEL_SPAM, $contentType, null);
+        return $this->mark($commentId, SpamReputationRepository::LABEL_SPAM, $contentType);
     }
 
     /**
@@ -56,10 +55,9 @@ final readonly class SpamFeedbackService
      * @throws \JsonException
      */
     private function mark(
-        int       $commentId,
-        string    $label,
+        int         $commentId,
+        string      $label,
         ContentType $contentType,
-        ?\Closure $notifier,
     ): bool
     {
         $comment = $this->commentRepository->findOfType($commentId, $contentType);
@@ -92,13 +90,7 @@ final readonly class SpamFeedbackService
             }
 
             if (!$comment->shown) {
-                if ($notifier instanceof \Closure) {
-                    $notifier($commentId);
-                } elseif ($contentType === ContentType::PAGE) {
-                    $this->commentNotifier->notify($commentId);
-                } else {
-                    throw new \LogicException('A notifier is required for post comments.');
-                }
+                $this->commentNotifier->notify($commentId, $contentType);
             }
 
             $this->commentRepository->publish($commentId, $contentType);

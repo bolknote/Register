@@ -35,6 +35,13 @@ final class ContentRepositoryTest extends Unit
         self::assertSame([$post], iterator_to_array($repository->recent(ContentType::POST, 1), false));
     }
 
+    public function testCommentCapabilityBelongsToCanonicalContentItem(): void
+    {
+        $page = new ContentItem(ContentId::page(1), 'Page', 'Body', '/page', null, commentsEnabled: false);
+
+        self::assertFalse($page->commentsEnabled);
+    }
+
     public function testRejectsDuplicateSources(): void
     {
         $this->expectException(\LogicException::class);

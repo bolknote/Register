@@ -41,7 +41,6 @@ class CommentController extends EntityController
         SettingStorageInterface $settingStorage,
         private readonly SpamFeedbackService $spamFeedbackService,
         private readonly ContentType         $contentType = ContentType::PAGE,
-        private readonly ?\Closure           $commentNotifier = null,
     ) {
         parent::__construct(
             $entityConfig,
@@ -142,7 +141,6 @@ class CommentController extends EntityController
                 ? $this->spamFeedbackService->markHam(
                     $primaryKey->getIntId(),
                     $this->contentType,
-                    $this->commentNotifier,
                 )
                 : $this->spamFeedbackService->markSpam(
                     $primaryKey->getIntId(),

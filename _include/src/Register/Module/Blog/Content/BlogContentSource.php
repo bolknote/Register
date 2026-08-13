@@ -115,6 +115,7 @@ final readonly class BlogContentSource implements RecentContentSourceInterface
             updatedAt: (int)$post['updated_at'],
             author: (string)($post['author'] ?? ''),
             series: (string)$post['series'],
+            commentsEnabled: (bool)$post['comments_enabled'],
         );
     }
 
@@ -136,6 +137,7 @@ final readonly class BlogContentSource implements RecentContentSourceInterface
             'updated_at',
             'slug',
             'series',
+            'comments_enabled',
             '(' . $authorQuery . ') AS author',
         ];
     }

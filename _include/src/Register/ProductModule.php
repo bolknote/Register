@@ -10,6 +10,9 @@ declare(strict_types = 1);
 namespace Register;
 
 use Register\Comment\CommentRepository;
+use Register\Comment\ContentCommentNotifier;
+use Register\Comment\ContentCommentStrategy;
+use Register\Comment\ContentCommentTargetResolver;
 use Register\Content\ContentRepository;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentStatisticsRepository;
@@ -26,6 +29,8 @@ use Register\Url\SlugGenerator;
 use Register\Url\UniqueSlugGenerator;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ContainerModuleInterface;
+use S2\Cms\Controller\Comment\CommentStrategyInterface;
+use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
@@ -65,6 +70,29 @@ readonly class ProductModule implements ContainerModuleInterface
         $container->set(CommentRepository::class, static fn(Container $container): CommentRepository => new CommentRepository(
             $container->get(DbLayer::class),
         ));
+        $container->set(ContentCommentTargetResolver::class, static fn(Container $container): ContentCommentTargetResolver => new ContentCommentTargetResolver(
+            $container->get(DbLayer::class),
+            $container->get(ArticleProvider::class),
+        ));
+        $container->set(ContentCommentNotifier::class, static fn(Container $container): ContentCommentNotifier => new ContentCommentNotifier(
+            $container->get(CommentRepository::class),
+            $container->get(\Register\Comment\CommentSubscriptionService::class),
+            $container->get(ContentRepository::class),
+            $container->get(UrlBuilder::class),
+            $container->get(CommentMailer::class),
+        ));
+        $container->set(ContentCommentStrategy::PAGE_SERVICE_ID, static fn(Container $container): ContentCommentStrategy => new ContentCommentStrategy(
+            ContentType::PAGE,
+            $container->get(CommentRepository::class),
+            $container->get(ContentCommentTargetResolver::class),
+            $container->get(ContentCommentNotifier::class),
+        ), [CommentStrategyInterface::class]);
+        $container->set(ContentCommentStrategy::POST_SERVICE_ID, static fn(Container $container): ContentCommentStrategy => new ContentCommentStrategy(
+            ContentType::POST,
+            $container->get(CommentRepository::class),
+            $container->get(ContentCommentTargetResolver::class),
+            $container->get(ContentCommentNotifier::class),
+        ), [CommentStrategyInterface::class]);
         $container->set(
             BaseModuleInstaller::class,
             fn(Container $container): BaseModuleInstaller => new BaseModuleInstaller(

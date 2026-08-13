@@ -11,6 +11,8 @@ namespace S2\Cms;
 
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
+use Register\Comment\ContentCommentNotifier;
+use Register\Comment\ContentCommentStrategy;
 use S2\Cms\Asset\AssetMergeFactory;
 use S2\Cms\Comment\AkismetProxy;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
@@ -56,11 +58,9 @@ use S2\Cms\Logger\Logger;
 use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\Comment\ArticleCommentStrategy;
 use S2\Cms\Model\Comment\CommentModerationTokenManager;
 use S2\Cms\Model\Comment\CommentThreadBuilder;
 use S2\Cms\Model\Comment\CommentThreadRenderer;
-use S2\Cms\Model\CommentNotifier;
 use S2\Cms\Model\CommentProvider;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\FavoriteArticleProvider;
@@ -450,22 +450,13 @@ class CmsExtension implements ExtensionInterface
             );
         });
 
-        $container->set(CommentNotifier::class, fn(Container $container): \S2\Cms\Model\CommentNotifier => new CommentNotifier(
-            $container->get(DbLayer::class),
-            $container->get(\Register\Comment\CommentRepository::class),
-            $container->get(\Register\Comment\CommentSubscriptionService::class),
-            $container->get(ArticleProvider::class),
-            $container->get(UrlBuilder::class),
-            $container->get(CommentMailer::class),
-        ));
-
         $container->set(SpamFeedbackService::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamFeedbackService => new SpamFeedbackService(
             $container->get(\Register\Comment\CommentRepository::class),
             $container->get(SpamIdentityHasher::class),
             $container->get(SpamFeatureExtractor::class),
             $container->get(SpamAssessmentRepository::class),
             $container->get(SpamReputationRepository::class),
-            $container->get(CommentNotifier::class),
+            $container->get(ContentCommentNotifier::class),
         ));
 
         $container->set(CommentModerationController::class, fn(Container $container): \S2\Cms\Controller\CommentModerationController => new CommentModerationController(
@@ -475,7 +466,6 @@ class CmsExtension implements ExtensionInterface
             $container->get(SpamFeedbackService::class),
             $container->get(UrlBuilder::class),
             $container->get('comments_translator'),
-            ...$container->getByTag(CommentStrategyInterface::class),
         ));
 
         $container->set('comments_translator', function (Container $container) {
@@ -485,13 +475,6 @@ class CmsExtension implements ExtensionInterface
 
             return $translator;
         });
-
-        $container->set(ArticleCommentStrategy::class, fn(Container $container): \S2\Cms\Model\Comment\ArticleCommentStrategy => new ArticleCommentStrategy(
-            $container->get(DbLayer::class),
-            $container->get(\Register\Comment\CommentRepository::class),
-            $container->get(ArticleProvider::class),
-            $container->get(CommentNotifier::class),
-        ), [CommentStrategyInterface::class]);
 
         $container->set(AuthProvider::class, fn(Container $container): \S2\Cms\Model\AuthProvider => new AuthProvider(
             $container->get(DbLayer::class),
@@ -546,7 +529,7 @@ class CmsExtension implements ExtensionInterface
             return new CommentController(
                 $container->get(AuthProvider::class),
                 $container->get(UserProvider::class),
-                $container->get(ArticleCommentStrategy::class),
+                $container->get(ContentCommentStrategy::PAGE_SERVICE_ID),
                 $container->get('comments_translator'),
                 $container->get(UrlBuilder::class),
                 $container->get(HtmlTemplateProvider::class),

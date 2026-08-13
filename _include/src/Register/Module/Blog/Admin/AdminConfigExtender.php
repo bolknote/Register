@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Admin;
 
 use Register\Comment\CommentSchema;
+use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
@@ -43,7 +44,6 @@ use S2\Cms\Comment\Antispam\SpamFeedbackService;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use Register\Module\Blog\BlogUrlBuilder;
-use Register\Module\Blog\Model\BlogCommentNotifier;
 use Register\Module\Blog\Model\PostProvider;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use S2\Cms\Pdo\DbLayerException;
@@ -57,7 +57,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private TagRepository            $tagRepository,
         private PostProvider             $postProvider,
         private BlogUrlBuilder           $blogUrlBuilder,
-        private BlogCommentNotifier      $blogCommentNotifier,
+        private ContentCommentNotifier   $commentNotifier,
         private SpamFeedbackService      $spamFeedbackService,
         private UniqueSlugGenerator      $uniqueSlugGenerator,
         private EventDispatcherInterface $eventDispatcher,
@@ -231,7 +231,6 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ->setControllerClassOrFactory(new CommentControllerFactory(
                 $this->spamFeedbackService,
                 ContentType::POST,
-                $this->blogCommentNotifier->notify(...),
             ))
             ->setEnabledActions([
                 FieldConfig::ACTION_LIST,
@@ -240,7 +239,10 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ->setListActionsTemplate('_admin/templates/comment/list-actions.php.inc')
             ->addListener(EntityConfig::EVENT_BEFORE_PATCH, function (BeforeSaveEvent $event): void {
                 if (isset($event->data['shown'])) {
-                    $this->blogCommentNotifier->notify($this->requirePrimaryKey($event->primaryKey)->getIntId());
+                    $this->commentNotifier->notify(
+                        $this->requirePrimaryKey($event->primaryKey)->getIntId(),
+                        ContentType::POST,
+                    );
                 }
             })
         ;

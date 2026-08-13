@@ -12,7 +12,6 @@ namespace S2\Cms\Controller;
 use Register\Comment\CommentRepository;
 use Register\Content\ContentType;
 use S2\Cms\Comment\Antispam\SpamFeedbackService;
-use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Framework\ControllerInterface;
 use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\Comment\CommentModerationTokenManager;
@@ -28,9 +27,6 @@ final readonly class CommentModerationController implements ControllerInterface
 {
     private const int MAX_COMMENT_BYTES = 65535;
 
-    /** @var array<string, CommentStrategyInterface> */
-    private array $commentStrategies;
-
     public function __construct(
         private CommentRepository             $commentRepository,
         private AuthProvider                  $authProvider,
@@ -38,14 +34,7 @@ final readonly class CommentModerationController implements ControllerInterface
         private SpamFeedbackService           $spamFeedbackService,
         private UrlBuilder                    $urlBuilder,
         private TranslatorInterface           $translator,
-        CommentStrategyInterface              ...$commentStrategies,
     ) {
-        $strategiesByTarget = [];
-        foreach ($commentStrategies as $commentStrategy) {
-            $strategiesByTarget[$commentStrategy->getContentType()->value] = $commentStrategy;
-        }
-
-        $this->commentStrategies = $strategiesByTarget;
     }
 
     #[\Override]
@@ -114,16 +103,7 @@ final readonly class CommentModerationController implements ControllerInterface
 
     private function markHam(int $commentId, ContentType $contentType): bool
     {
-        $commentStrategy = $this->commentStrategies[$contentType->value] ?? null;
-        if (!$commentStrategy instanceof CommentStrategyInterface) {
-            return false;
-        }
-
-        return $this->spamFeedbackService->markHam(
-            $commentId,
-            $contentType,
-            $commentStrategy->notifySubscribers(...),
-        );
+        return $this->spamFeedbackService->markHam($commentId, $contentType);
     }
 
     private function safeReturnPath(string $path): string

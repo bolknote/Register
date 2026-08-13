@@ -23,6 +23,7 @@ final readonly class ContentItem
         public ?int      $updatedAt = null,
         public string    $author = '',
         public string    $series = '',
+        public bool      $commentsEnabled = true,
     ) {
         if (!str_starts_with($path, '/')) {
             throw new \InvalidArgumentException('A content path must start with a slash.');

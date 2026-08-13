@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace S2\Cms\Controller;
 
 use Psr\Log\LoggerInterface;
+use Register\Content\ContentType;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
 use S2\Cms\Comment\Antispam\CommentFormTokenValidation;
@@ -59,9 +60,9 @@ readonly class CommentController implements ControllerInterface
 
     private const int S2_MAX_COMMENT_BYTES = 65535;
 
-    public static function commentHash(int $commentId, int $targetId, string $email, string $ip, string $strategyClass): string
+    public static function commentHash(int $commentId, int $targetId, string $email, string $ip, ContentType $contentType): string
     {
-        return md5(serialize([$commentId, $targetId, $email, $ip, $strategyClass]));
+        return md5(serialize([$commentId, $targetId, $email, $ip, $contentType->value]));
     }
 
     /**
@@ -371,7 +372,13 @@ readonly class CommentController implements ControllerInterface
         } else {
             $redirectLink = $this->urlBuilder->rawLink('/comment_sent', [
                 'go=' . urlencode($path),
-                'sign=' . self::commentHash($commentId, $target->id, $email, (string)$request->getClientIp(), $this->commentStrategy::class),
+                'sign=' . self::commentHash(
+                    $commentId,
+                    $target->id,
+                    $email,
+                    (string)$request->getClientIp(),
+                    $this->commentStrategy->getContentType(),
+                ),
             ]);
         }
 

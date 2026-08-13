@@ -549,7 +549,7 @@ final class AntispamCest
         $I->assertSame(0, (int)$reputation['spam_count']);
     }
 
-    public function testBlogModeratorFeedbackUsesBlogAssessment(\IntegrationTester $I): void
+    public function testPostModeratorFeedbackUsesUnifiedNotifier(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -595,12 +595,7 @@ final class AntispamCest
         $feedback = $I->grabService(SpamFeedbackService::class);
         $I->assertTrue($feedback->markSpam($commentId, ContentType::POST));
 
-        $notifiedCommentId = null;
-        $notifier          = static function (int $id) use (&$notifiedCommentId): void {
-            $notifiedCommentId = $id;
-        };
-        $I->assertTrue($feedback->markHam($commentId, ContentType::POST, $notifier));
-        $I->assertSame($commentId, $notifiedCommentId);
+        $I->assertTrue($feedback->markHam($commentId, ContentType::POST));
 
         $comment = $dbLayer
             ->select('shown', 'sent')
@@ -614,7 +609,7 @@ final class AntispamCest
         }
 
         $I->assertSame(1, (int)$comment['shown']);
-        $I->assertSame(0, (int)$comment['sent']);
+        $I->assertSame(1, (int)$comment['sent']);
 
         $assessment = $dbLayer
             ->select('target_type', 'moderator_label')
