@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Controller\Comment;
 
@@ -28,7 +28,7 @@ interface CommentStrategyInterface
 
     public function getRecentComment(string $hash, string $ip): ?CommentDto;
 
-    public function publishComment(int $commentId);
+    public function publishComment(int $commentId): void;
 
     public function unsubscribe(int $targetId, string $email, string $code): bool;
 }

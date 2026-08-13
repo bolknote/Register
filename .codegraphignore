@@ -1,0 +1,7 @@
+**/_vendor/**
+**/_cache/**
+**/_admin/lib/**
+**/_extensions/s2_counter/highcharts/**
+**/.git/**
+**/.local/**
+**/_tests/_output/**

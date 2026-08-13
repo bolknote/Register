@@ -8,7 +8,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Framework;
 
@@ -31,10 +31,22 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 class Application
 {
     public Container $container;
+
+    public function __construct()
+    {
+        $this->container = new Container([]);
+    }
+
     private ?RouteCollection $routes = null;
+
+    /**
+     * @var array<mixed>|null
+     */
     private ?array $compiledRoutes = null;
+
     /** @var ExtensionInterface[] */
     private array $extensions = [];
+
     private ?string $cachedRoutesFilename = null;
 
     public function addExtension(ExtensionInterface $extension): static
@@ -49,6 +61,7 @@ class Application
      * and registering event listeners described in the extensions.
      *
      * This method can be called again to reinitialize the application.
+     * @param array<mixed> $params
      */
     public function boot(array $params): void
     {
@@ -84,11 +97,10 @@ class Application
      */
     public function handle(Request $request): Response
     {
-        array_map(static function (StatefulServiceInterface $service) {
+        foreach ($this->container->getByTagIfInstantiated(StatefulServiceInterface::class) as $service) {
             $service->clearState();
-        }, $this->container->getByTagIfInstantiated(StatefulServiceInterface::class));
+        }
 
-        /** @var RequestStack $requestStack */
         $requestStack = $this->container->has(RequestStack::class) ? $this->container->get(RequestStack::class) : null;
         $requestStack?->push($request);
 
@@ -110,6 +122,7 @@ class Application
             if ($response->isNotFound()) {
                 throw new NotFoundException();
             }
+
             if (\extension_loaded('newrelic')) {
                 newrelic_name_transaction($controllerClass . (!$response->isSuccessful() ? '_' . $response->getStatusCode() : ''));
             }
@@ -125,7 +138,6 @@ class Application
                 newrelic_name_transaction('method_not_allowed');
             }
         } catch (NotFoundException | ResourceNotFoundException) {
-            /** @var EventDispatcherInterface $eventDispatcher */
             $eventDispatcher = $this->container->get(EventDispatcherInterface::class);
             $notFoundEvent   = new NotFoundEvent($request, $response);
             $eventDispatcher->dispatch($notFoundEvent);
@@ -180,7 +192,7 @@ class Application
 
     private function getRoutes(): RouteCollection
     {
-        if ($this->routes === null) {
+        if (!$this->routes instanceof \Symfony\Component\Routing\RouteCollection) {
             $this->routes = new RouteCollection();
             foreach ($this->extensions as $extension) {
                 $extension->registerRoutes($this->routes, $this->container);
@@ -193,6 +205,7 @@ class Application
     /**
      * @throws MethodNotAllowedException
      * @throws ResourceNotFoundException
+     * @return array<mixed>
      */
     private function matchRequest(Request $request): array
     {
@@ -214,9 +227,14 @@ class Application
 
     private function getCompiledUrlMatcher(RequestContext $context): CompiledUrlMatcher
     {
+        $cacheFilename = $this->cachedRoutesFilename;
+        if ($cacheFilename === null) {
+            throw new \LogicException('A route cache filename must be configured before compiling routes.');
+        }
+
         if ($this->compiledRoutes === null) {
-            if (file_exists($this->cachedRoutesFilename)) {
-                $compiledRoutes = @include $this->cachedRoutesFilename;
+            if (file_exists($cacheFilename)) {
+                $compiledRoutes = s2_call_without_warnings(static fn(): mixed => include $cacheFilename);
                 if (\is_array($compiledRoutes)) {
                     $this->compiledRoutes = $compiledRoutes;
                 }
@@ -225,9 +243,9 @@ class Application
             if ($this->compiledRoutes === null) {
                 $compiledUrlMatcherDumper = new CompiledUrlMatcherDumper($this->getRoutes());
                 $this->compiledRoutes     = $compiledUrlMatcherDumper->getCompiledRoutes();
-                s2_overwrite_file_skip_locked($this->cachedRoutesFilename, $compiledUrlMatcherDumper->dump());
+                s2_overwrite_file_skip_locked($cacheFilename, $compiledUrlMatcherDumper->dump());
                 if (\function_exists('opcache_invalidate')) {
-                    opcache_invalidate($this->cachedRoutesFilename, true);
+                    opcache_invalidate($cacheFilename, true);
                 }
             }
         }

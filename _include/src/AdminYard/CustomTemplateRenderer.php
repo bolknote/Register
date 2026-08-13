@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\AdminYard;
 
@@ -18,6 +18,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 class CustomTemplateRenderer extends TemplateRenderer implements StatefulServiceInterface
 {
+    /**
+     * @var array<mixed>|null
+     */
     private ?array $extraAssets = null;
 
     public function __construct(
@@ -31,8 +34,12 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
         parent::__construct($translator);
     }
 
-    private const FILE_SIZE_UNITS = ['B', 'КB', 'MB', 'GB', 'ТB', 'PB', 'EB', 'ZB', 'YB'];
+    private const array FILE_SIZE_UNITS = ['B', 'КB', 'MB', 'GB', 'ТB', 'PB', 'EB', 'ZB', 'YB'];
 
+    /**
+     * @param array<mixed> $data
+     */
+    #[\Override]
     public function render(string $_template_path, array $data = []): string
     {
         $trans            = $this->translator->trans(...);
@@ -51,21 +58,40 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
         } else {
             require $this->rootDir . $_template_path;
         }
-        return ob_get_clean();
+
+        $output = ob_get_clean();
+        if ($output === false) {
+            throw new \RuntimeException('Unable to render template "' . $_template_path . '".');
+        }
+
+        return $output;
     }
 
     public function friendlyFilesize(int $size): string
     {
-        $unitIndex = 0;
-        $unitsNum  = \count(self::FILE_SIZE_UNITS);
-        while (($size / 1024) > 1 && $unitIndex < $unitsNum - 1) {
-            $size /= 1024;
-            $unitIndex++;
+        $unitIndex  = 0;
+        $displaySize = (float)$size;
+        $unitsNum   = \count(self::FILE_SIZE_UNITS);
+        while ($displaySize / 1024.0 > 1.0 && $unitIndex < $unitsNum - 1) {
+            $displaySize /= 1024.0;
+            ++$unitIndex;
         }
 
+        $unit = match ($unitIndex) {
+            0 => self::FILE_SIZE_UNITS[0],
+            1 => self::FILE_SIZE_UNITS[1],
+            2 => self::FILE_SIZE_UNITS[2],
+            3 => self::FILE_SIZE_UNITS[3],
+            4 => self::FILE_SIZE_UNITS[4],
+            5 => self::FILE_SIZE_UNITS[5],
+            6 => self::FILE_SIZE_UNITS[6],
+            7 => self::FILE_SIZE_UNITS[7],
+            8 => self::FILE_SIZE_UNITS[8],
+        };
+
         return $this->translator->trans('Filesize format', [
-            '{{ number }}' => $this->numberFormat($size),
-            '{{ unit }}'   => $this->translator->trans('Filesize ' . self::FILE_SIZE_UNITS[$unitIndex]),
+            '{{ number }}' => $this->numberFormat($displaySize),
+            '{{ unit }}'   => $this->translator->trans('Filesize ' . $unit),
         ]);
     }
 
@@ -79,23 +105,29 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
         );
 
         if (!$keepTrailingZero) {
-            $result = preg_replace('#' . preg_quote($this->translator->trans('Decimal point'), '#') . '?0*$#', '', $result);
+            return preg_replace('#' . preg_quote($this->translator->trans('Decimal point'), '#') . '?0*$#', '', $result)
+                ?? throw new \RuntimeException('Unable to format a number.');
         }
 
         return $result;
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function getExtraAssets(): array
     {
         if ($this->extraAssets !== null) {
             return $this->extraAssets;
         }
+
         $event = new CustomTemplateRendererEvent($this->basePath);
         $this->eventDispatcher->dispatch($event);
 
         return $this->extraAssets = [$event->extraStyles, $event->extraScripts];
     }
 
+    #[\Override]
     public function clearState(): void
     {
         $this->extraAssets = null;

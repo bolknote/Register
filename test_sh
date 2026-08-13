@@ -1,47 +1,88 @@
-chmod a+w _tests/_output/
-[ ! -d "_tests/_output/email/" ] && mkdir _tests/_output/email/
-chmod a+w _tests/_output/email/
+#!/bin/sh
 
-[ ! -d "_cache/test/" ] && mkdir _cache/test/
-chmod a+w _cache/test/
-rm -f _cache/*.log
-rm -f _cache/test/*.log
-rm -rf _cache/test/config/*
-rm -rf _cache/test/recommendations/*
+set -eu
 
-# clear test databases
-rm -f s2_test
-mysql -uroot --execute="DROP DATABASE IF EXISTS s2_test; CREATE DATABASE s2_test;"
-echo 'DROP DATABASE IF EXISTS s2_test; CREATE DATABASE s2_test;' | psql postgresql://postgres:12345@localhost > /dev/null
+PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
+cd "$PROJECT_DIR"
 
-# run web-server in background
-APP_ENV=test \
- PHP_CLI_SERVER_WORKERS=2 \
- nohup php \
-  -d "max_execution_time=-1" \
-  -d "opcache.revalidate_freq=0" \
-  -d "sendmail_path=$(realpath $(dirname "$0")/_tests/_resources/sendmail.php) --dir\\=$(realpath $(dirname "$0")/_tests/_output/email/)" \
-  -S localhost:8881 >/dev/null 2>&1 &
+PHP_BIN=${PHP_BIN:-php}
+DB_TYPE=${APP_DB_TYPE:-sqlite}
+OUTPUT_DIR="$PROJECT_DIR/_tests/_output"
+EMAIL_DIR="$OUTPUT_DIR/email"
+TEST_CACHE_DIR="$PROJECT_DIR/_cache/test"
+SERVER_LOG="$OUTPUT_DIR/php-server.log"
+SERVER_PID=
 
-serverPID=$!
+cleanup() {
+    status=$?
+    trap - EXIT HUP INT TERM
 
-# run tests
-if [ -z "$1" ]; then
-    # XDEBUG_MODE=on PHP_IDE_CONFIG="serverName=localhost" php _vendor/bin/codecept run acceptance -g http
-    XDEBUG_MODE=off php _vendor/bin/codecept run acceptance
-else
-    # XDEBUG_MODE=on PHP_IDE_CONFIG="serverName=localhost" php _vendor/bin/codecept run acceptance -g http "$1"
-    XDEBUG_MODE=off php _vendor/bin/codecept run acceptance "$1"
-fi
+    if [ -n "$SERVER_PID" ]; then
+        if command -v pkill >/dev/null; then
+            pkill -TERM -P "$SERVER_PID" 2>/dev/null || true
+        fi
+        kill "$SERVER_PID" 2>/dev/null || true
+        wait "$SERVER_PID" 2>/dev/null || true
+    fi
 
-status=$?
+    find "$TEST_CACHE_DIR" -maxdepth 1 -type f \( -name '*.php' -o -name '*.txt' \) -delete
+    exit "$status"
+}
 
-#read -p "Press any key to resume ..."
+trap cleanup EXIT HUP INT TERM
 
-pkill -P $serverPID # for children PHP_CLI_SERVER_WORKERS
-kill $serverPID
+mkdir -p "$EMAIL_DIR" "$TEST_CACHE_DIR/config" "$TEST_CACHE_DIR/recommendations"
+chmod a+w "$OUTPUT_DIR" "$EMAIL_DIR" "$TEST_CACHE_DIR"
 
-rm -f _cache/test/*.php
-rm -f _cache/test/*.txt
+find "$PROJECT_DIR/_cache" -maxdepth 1 -type f -name '*.log' -delete
+find "$TEST_CACHE_DIR" -maxdepth 1 -type f \( -name '*.php' -o -name '*.txt' -o -name '*.log' \) -delete
+find "$TEST_CACHE_DIR/config" "$TEST_CACHE_DIR/recommendations" -mindepth 1 -delete
 
-exit $status
+case "$DB_TYPE" in
+    sqlite)
+        rm -f "$PROJECT_DIR/s2_test"
+        ;;
+    mysql)
+        command -v mysql >/dev/null
+        MYSQL_PWD=${DB_PASSWORD:-} mysql \
+            --host="${DB_HOST:-127.0.0.1}" \
+            --user="${DB_USER:-root}" \
+            --execute='DROP DATABASE IF EXISTS s2_test; CREATE DATABASE s2_test;'
+        ;;
+    pgsql)
+        command -v psql >/dev/null
+        PGPASSWORD=${DB_PASSWORD:-12345} psql \
+            --host="${DB_HOST:-127.0.0.1}" \
+            --username="${DB_USER:-postgres}" \
+            --dbname=postgres \
+            --set=ON_ERROR_STOP=1 \
+            --command='DROP DATABASE IF EXISTS s2_test;' \
+            --command='CREATE DATABASE s2_test;' >/dev/null
+        ;;
+    *)
+        echo "Unsupported APP_DB_TYPE: $DB_TYPE" >&2
+        exit 2
+        ;;
+esac
+
+APP_ENV=test PHP_CLI_SERVER_WORKERS=${S2_TEST_SERVER_WORKERS:-2} "$PHP_BIN" \
+    -d 'max_execution_time=-1' \
+    -d 'opcache.revalidate_freq=0' \
+    -d "sendmail_path=$PROJECT_DIR/_tests/_resources/sendmail.php --dir=$EMAIL_DIR" \
+    -S 127.0.0.1:8881 >"$SERVER_LOG" 2>&1 &
+SERVER_PID=$!
+
+attempt=0
+# The single quotes deliberately prevent the shell from expanding the embedded PHP variables.
+# shellcheck disable=SC2016
+until "$PHP_BIN" -r '$socket = @fsockopen("127.0.0.1", 8881); if ($socket === false) { exit(1); } fclose($socket);'; do
+    attempt=$((attempt + 1))
+    if [ "$attempt" -ge 100 ]; then
+        echo 'PHP test server did not start.' >&2
+        cat "$SERVER_LOG" >&2
+        exit 1
+    fi
+    sleep 0.1
+done
+
+XDEBUG_MODE=off "$PHP_BIN" _vendor/bin/codecept run acceptance --no-interaction "$@"

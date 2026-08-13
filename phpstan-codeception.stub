@@ -1,0 +1,8 @@
+<?php
+
+namespace Codeception;
+
+/** @implements \IteratorAggregate<array-key, mixed> */
+class Example implements \IteratorAggregate
+{
+}

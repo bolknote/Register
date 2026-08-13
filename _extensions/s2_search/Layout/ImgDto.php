@@ -5,27 +5,29 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Layout;
 
 class ImgDto
 {
-    private string $src;
-    private float $width;
-    private float $height;
-    private string $class;
+    private readonly float $width;
+
+    private readonly float $height;
+
+    /**
+     * @var string[]
+     */
     private array $srcSet = [];
 
-    public function __construct(string $src, float $width, float $height, string $class)
+    public function __construct(private readonly string $src, float $width, float $height, private readonly string $class)
     {
         if ($width < 1 || $height < 1) {
             throw new \DomainException(\sprintf('Invalid image dimensions: "%s" "%s".', $width, $height));
         }
-        $this->src    = $src;
+
         $this->width  = $width;
         $this->height = $height;
-        $this->class  = $class;
     }
 
     public function getSrc(): string
@@ -60,6 +62,9 @@ class ImgDto
         return $this;
     }
 
+    /**
+     * @return string[]
+     */
     public function getSrcSet(): array
     {
         return $this->srcSet;

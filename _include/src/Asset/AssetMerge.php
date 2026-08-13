@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Asset;
 
@@ -18,14 +18,26 @@ use Symfony\Component\Filesystem\Filesystem;
 
 class AssetMerge implements AssetMergeInterface
 {
-    public const  TYPE_CSS              = 'css';
-    public const  TYPE_JS               = 'js';
-    private const META_KEY_FAILED_FILES = 'failed_files';
-    private const META_KEY_CONTENT_HASH = 'hash';
+    public const string TYPE_CSS = 'css';
 
+    public const string TYPE_JS = 'js';
+
+    private const string META_KEY_FAILED_FILES = 'failed_files';
+
+    private const string META_KEY_CONTENT_HASH = 'hash';
+
+    /**
+     * @var string[]
+     */
     private array $filesToMerge = [];
+
+    /**
+     * @var string[]
+     */
     private array $failedExternalFiles = [];
+
     private string $mergedHash = '';
+
     private ?Filesystem $filesystem = null;
 
     public function __construct(
@@ -42,6 +54,7 @@ class AssetMerge implements AssetMergeInterface
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function concat(string $fileName): void
     {
         $this->filesToMerge[] = $fileName;
@@ -50,6 +63,7 @@ class AssetMerge implements AssetMergeInterface
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function getMergedPaths(): array
     {
         if ($this->needToDump() || !$this->readMetadata()) {
@@ -74,10 +88,11 @@ class AssetMerge implements AssetMergeInterface
                     if (!$response->isSuccessful()) {
                         throw new \RuntimeException('Failed to fetch ' . $fileToMerge);
                     }
+
                     if ($response->content !== null) {
                         $minifier->add($response->content);
                     }
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     // Store failed file and continue with next one
                     $this->failedExternalFiles[] = $fileToMerge;
                     $this->logger->warning('Failed to fetch external asset.', [
@@ -112,13 +127,19 @@ class AssetMerge implements AssetMergeInterface
             $content = $this->getConcatenatedContent();
         }
 
-        $this->filesystem()->dumpFile($this->getDumpFilename(), $content);
+        $this->fileSystem()->dumpFile($this->getDumpFilename(), $content);
         if (\function_exists('gzencode')) {
-            $this->filesystem()->dumpFile($this->getDumpFilename() . '.gz', gzencode($content, 6));
+            $compressedContent = gzencode($content, 6);
+            if ($compressedContent === false) {
+                throw new \RuntimeException('Unable to compress merged assets.');
+            }
+
+            $this->fileSystem()->dumpFile($this->getDumpFilename() . '.gz', $compressedContent);
         }
-        $this->filesystem()->remove($this->getDumpTempFilename());
+
+        $this->fileSystem()->remove($this->getDumpTempFilename());
         $this->mergedHash = md5($content);
-        $this->filesystem()->dumpFile($this->getMetadataFilename(), '<?php return ' . var_export([
+        $this->fileSystem()->dumpFile($this->getMetadataFilename(), '<?php return ' . var_export([
                 self::META_KEY_CONTENT_HASH => $this->mergedHash,
                 self::META_KEY_FAILED_FILES => $this->failedExternalFiles,
             ], true) . ';');
@@ -136,13 +157,19 @@ class AssetMerge implements AssetMergeInterface
         if ($this->devEnv) {
             // TODO add tracking of modified images that are embedded in CSS
             $dumpModifiedAt = filemtime($this->getDumpFilename());
+            if ($dumpModifiedAt === false) {
+                return true;
+            }
+
             foreach ($this->filesToMerge as $fileToMerge) {
                 $parsedUrl = parse_url($fileToMerge);
                 if (isset($parsedUrl['host'])) {
                     // file is external
                     continue;
                 }
-                if (filemtime($fileToMerge) > $dumpModifiedAt) {
+
+                $fileModifiedAt = filemtime($fileToMerge);
+                if ($fileModifiedAt === false || $fileModifiedAt > $dumpModifiedAt) {
                     return true;
                 }
             }
@@ -158,7 +185,12 @@ class AssetMerge implements AssetMergeInterface
 
     private function getDumpTempFilename(): string
     {
-        return \sprintf('%s%s', realpath($this->publicCacheDir) . '/', $this->getFilename('tmp'));
+        $realCacheDir = realpath($this->publicCacheDir);
+        if ($realCacheDir === false) {
+            throw new \RuntimeException('Asset cache directory does not exist: ' . $this->publicCacheDir);
+        }
+
+        return \sprintf('%s/%s', $realCacheDir, $this->getFilename('tmp'));
     }
 
     private function getMetadataFilename(): string
@@ -188,16 +220,25 @@ class AssetMerge implements AssetMergeInterface
             return false;
         }
 
-        $result = @include $metadataFilename;
+        $result = s2_call_without_warnings(static fn(): mixed => include $metadataFilename);
         if (!\is_array($result)) {
             return false;
         }
-        if (!isset($result[self::META_KEY_CONTENT_HASH])) {
+
+        if (!isset($result[self::META_KEY_CONTENT_HASH]) || !\is_string($result[self::META_KEY_CONTENT_HASH])) {
             return false;
         }
-        if (!isset($result[self::META_KEY_FAILED_FILES])) {
+
+        if (!isset($result[self::META_KEY_FAILED_FILES]) || !\is_array($result[self::META_KEY_FAILED_FILES])) {
             return false;
         }
+
+        foreach ($result[self::META_KEY_FAILED_FILES] as $failedFile) {
+            if (!\is_string($failedFile)) {
+                return false;
+            }
+        }
+
         $this->failedExternalFiles = $result[self::META_KEY_FAILED_FILES];
         $this->mergedHash          = $result[self::META_KEY_CONTENT_HASH];
 
@@ -211,7 +252,13 @@ class AssetMerge implements AssetMergeInterface
             if ($content !== '') {
                 $content .= "\n";
             }
-            $content .= file_get_contents($fileToMerge);
+
+            $fileContent = file_get_contents($fileToMerge);
+            if ($fileContent === false) {
+                throw new \RuntimeException('Unable to read asset: ' . $fileToMerge);
+            }
+
+            $content .= $fileContent;
         }
 
         return $content;

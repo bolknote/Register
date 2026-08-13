@@ -8,7 +8,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo;
 
@@ -55,36 +55,45 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
 
     /**
      * @throws DbLayerException
+     * @param array<int|string, mixed> $params
+     * @param array<int|string, int> $types
      */
-    public function query($sql, array $params = [], array $types = []): QueryResult
+    #[\Override]
+    public function query(string $sql, array $params = [], array $types = []): QueryResult
     {
         $stmt = $this->pdo->prepare($sql);
+        if (!$stmt instanceof \PDOStatement) {
+            throw new DbLayerException('Unable to prepare query: ' . $sql, 0, $sql);
+        }
+
         try {
             if ($types !== []) {
                 foreach ($params as $key => $value) {
                     $stmt->bindValue($key, $value, $types[$key] ?? \PDO::PARAM_STR);
                 }
+
                 $stmt->execute();
             } else {
                 $stmt->execute($params);
             }
 
             return new QueryResult($stmt);
-        } catch (\PDOException $e) {
+        } catch (\PDOException $pdoException) {
             if ($this->transactionLevel > 0) {
                 try {
                     $this->pdo->rollBack();
-                } catch (\PDOException $e) {
-                    throw new DbLayerException('An exception occurred on rollback: ' . $e->getMessage(), 0, $sql, $e->getPrevious());
+                } catch (\PDOException $pdoException) {
+                    throw new DbLayerException('An exception occurred on rollback: ' . $pdoException->getMessage(), 0, $sql, $pdoException->getPrevious());
                 }
+
                 --$this->transactionLevel;
             }
 
             throw new DbLayerException(
-                \sprintf("%s. Failed query: %s. Error code: %s.", $e->getMessage(), $sql, $e->getCode()),
-                $e->errorInfo[1] ?? 0,
+                \sprintf("%s. Failed query: %s. Error code: %s.", $pdoException->getMessage(), $sql, $pdoException->getCode()),
+                $pdoException->errorInfo[1] ?? 0,
                 $sql,
-                $e
+                $pdoException
             );
         }
     }
@@ -96,6 +105,7 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
 
     /**
      * @throws DbLayerException
+     * @return array<string, mixed>
      */
     public function getVersion(): array
     {
@@ -173,10 +183,7 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
 
             if (isset($fieldData[SchemaBuilder::COLUMN_PROPERTY_DEFAULT])) {
                 $defaultValue = self::convertDefaultValue($fieldData[SchemaBuilder::COLUMN_PROPERTY_DEFAULT], $fieldData[SchemaBuilder::COLUMN_PROPERTY_TYPE]);
-                if (\is_string($defaultValue)) {
-                    $defaultValue = $this->pdo->quote($defaultValue);
-                }
-                $query .= ' DEFAULT ' . $defaultValue;
+                $query .= ' DEFAULT ' . $this->formatDefaultValue($defaultValue);
             }
 
             $query .= ",\n";
@@ -210,8 +217,8 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
                 $foreignKey[SchemaBuilder::FK_PROPERTY_COLUMNS],
                 $foreignKey[SchemaBuilder::FK_PROPERTY_FOREIGN_TABLE],
                 $foreignKey[SchemaBuilder::FK_PROPERTY_FOREIGN_COLUMNS],
-                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_DELETE] ?? null,
-                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_UPDATE] ?? null,
+                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_DELETE],
+                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_UPDATE],
             );
         }
     }
@@ -321,6 +328,7 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
 
     /**
      * @throws DbLayerException
+     * @param list<string> $indexFields
      */
     public function addIndex(string $tableName, string $indexName, array $indexFields, bool $unique = false): void
     {
@@ -368,6 +376,8 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
 
     /**
      * @throws DbLayerException
+     * @param string[] $columns
+     * @param string[] $referenceColumns
      */
     public function addForeignKey(string $tableName, string $fkName, array $columns, string $referenceTable, array $referenceColumns, ?string $onDelete = null, ?string $onUpdate = null): void
     {
@@ -473,6 +483,11 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
             return $value ? '1' : '0';
         }
 
-        return $this->pdo->quote((string)$value);
+        $quoted = $this->pdo->quote($value);
+        if ($quoted === false) {
+            throw new \RuntimeException('Unable to quote a database default value.');
+        }
+
+        return $quoted;
     }
 }

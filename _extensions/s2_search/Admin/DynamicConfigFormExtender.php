@@ -5,7 +5,7 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Admin;
 
@@ -13,6 +13,10 @@ use S2\Cms\Admin\DynamicConfigFormExtenderInterface;
 
 class DynamicConfigFormExtender implements DynamicConfigFormExtenderInterface
 {
+    /**
+     * @return array<mixed>
+     */
+    #[\Override]
     public function getExtraParamTypes(): array
     {
         return [

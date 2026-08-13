@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 $contentType = $_SERVER['CONTENT_TYPE'];
 
 if (!str_contains($contentType, 'application/json')) {

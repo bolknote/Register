@@ -5,7 +5,7 @@
  * @package   s2_counter
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_counter;
 
@@ -18,14 +18,16 @@ use Symfony\Component\Routing\RouteCollection;
 
 class Extension implements ExtensionInterface
 {
+    #[\Override]
     public function buildContainer(Container $container): void
     {
     }
 
+    #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
-        $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, function (TemplateEvent $event) use ($container) {
-            $basePath = $container->getParameter('base_path');
+        $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, function (TemplateEvent $event) use ($container): void {
+            $basePath = $container->getStringParameter('base_path');
             $event->htmlTemplate->registerPlaceholder('<!-- s2_counter_img -->', '<img class="s2_counter" src="' . $basePath . '/_extensions/s2_counter/counter.php" width="88" height="31" />');
 
             if ($event->htmlTemplate->isNotFound()) {
@@ -39,7 +41,7 @@ class Extension implements ExtensionInterface
             s2_counter_process();
         });
 
-        $eventDispatcher->addListener(RssHitEvent::class, function (RssHitEvent $event) use ($container) {
+        $eventDispatcher->addListener(RssHitEvent::class, function (RssHitEvent $event) : void {
             if (!defined('S2_COUNTER_FUNCTIONS_LOADED')) {
                 include __DIR__ . '/functions.php';
             }
@@ -48,6 +50,7 @@ class Extension implements ExtensionInterface
         });
     }
 
+    #[\Override]
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
     }

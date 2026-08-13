@@ -12,15 +12,10 @@ jobs:
           - '8.3'
           - '8.4'
           - '8.5'
-        include:
-          -
-            operating_system: 'ubuntu-22.04'
-            php_versions: 8.2
-
     runs-on: '${{ matrix.operating_system }}'
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: 'Setup PHP'
         uses: shivammathur/setup-php@v2

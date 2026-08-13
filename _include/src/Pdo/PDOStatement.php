@@ -12,7 +12,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo;
 
@@ -21,21 +21,20 @@ use PDOStatement as NativePdoStatement;
 
 class PDOStatement extends NativePdoStatement
 {
-    protected NativePdo $pdo;
-
     /**
      * For binding simulations purposes.
+     * @var array<mixed>
      */
     protected array $bindings = [];
 
-    protected function __construct(NativePdo $pdo)
+    protected function __construct(protected PDO $pdo)
     {
-        $this->pdo = $pdo;
     }
 
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function bindParam(
         int|string $param,
         mixed      &$var,
@@ -50,6 +49,7 @@ class PDOStatement extends NativePdoStatement
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function bindValue(int|string $param, mixed $value, int $type = NativePdo::PARAM_STR): bool
     {
         $this->bindings[$param] = $value;
@@ -58,7 +58,9 @@ class PDOStatement extends NativePdoStatement
 
     /**
      * {@inheritdoc}
+     * @param array<mixed>|null $params
      */
+    #[\Override]
     public function execute(?array $params = null): bool
     {
         if ($params !== null) {
@@ -73,6 +75,9 @@ class PDOStatement extends NativePdoStatement
         return $result;
     }
 
+    /**
+     * @param array<mixed> $bindings
+     */
     private function addValuesToQuery(array $bindings, string $query): string
     {
         $indexed = array_is_list($bindings);
@@ -80,18 +85,30 @@ class PDOStatement extends NativePdoStatement
         foreach ($bindings as $param => $value) {
             $value = match (true) {
                 $value === null => 'null',
-                \is_int($value), \is_float($value) => (string)$value,
-                is_numeric($value) => $value,
-                default => $this->pdo->quote($value),
+                \is_int($value) => (string)$value,
+                \is_float($value) => (string)$value,
+                \is_string($value) && is_numeric($value) => $value,
+                default => $this->quoteForLog($value),
             };
 
             if ($indexed) {
-                $query = preg_replace('/\?/', $value, $query, 1);
+                $query = preg_replace('/\?/', $value, $query, 1)
+                    ?? throw new \RuntimeException('Unable to interpolate a positional query parameter.');
             } else {
                 $query = str_replace(":$param", $value, $query);
             }
         }
 
         return $query;
+    }
+
+    private function quoteForLog(mixed $value): string
+    {
+        if (!\is_scalar($value) && !$value instanceof \Stringable) {
+            return "'[" . get_debug_type($value) . "]'";
+        }
+
+        $quoted = $this->pdo->quote((string)$value);
+        return $quoted === false ? "''" : $quoted;
     }
 }

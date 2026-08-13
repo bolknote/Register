@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Dashboard;
 
@@ -16,6 +16,10 @@ use S2\Cms\Model\PermissionChecker;
 
 readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
 {
+    /**
+     * @param array<mixed> $dashboardStatProviders
+     * @param array<mixed> $dashboardBlockProviders
+     */
     public function __construct(
         private array             $dashboardStatProviders,
         private array             $dashboardBlockProviders,
@@ -25,6 +29,7 @@ readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
     ) {
     }
 
+    #[\Override]
     public function extend(AdminConfig $adminConfig): void
     {
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
@@ -32,16 +37,14 @@ readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
         }
 
         $adminConfig
-            ->setServicePage('Dashboard', function () {
-                return $this->templateRenderer->render(
-                    '_admin/templates/dashboard/dashboard.php.inc',
-                    [
-                        'dashboardStatProviders'  => $this->dashboardStatProviders,
-                        'dashboardBlockProviders' => $this->dashboardBlockProviders,
-                        'version'                 => $this->version,
-                    ]
-                );
-            }, 30)
+            ->setServicePage('Dashboard', fn(): string => $this->templateRenderer->render(
+                '_admin/templates/dashboard/dashboard.php.inc',
+                [
+                    'dashboardStatProviders'  => $this->dashboardStatProviders,
+                    'dashboardBlockProviders' => $this->dashboardBlockProviders,
+                    'version'                 => $this->version,
+                ]
+            ), 30)
         ;
     }
 }

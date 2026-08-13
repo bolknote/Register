@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
@@ -22,6 +22,7 @@ readonly class PathToAdminEntityConverter
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>|null
      */
     public function getQueryParams(string $path): ?array
     {

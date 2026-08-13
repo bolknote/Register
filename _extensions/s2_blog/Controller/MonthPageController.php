@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Blog posts for a month.
  *
@@ -16,7 +19,6 @@ use S2\Cms\Framework\Exception\NotFoundException;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Pdo\QueryBuilder\SelectBuilder;
 use S2\Cms\Template\HtmlTemplate;
 use S2\Cms\Template\HtmlTemplateProvider;
@@ -27,6 +29,7 @@ use s2_extensions\s2_blog\Model\PostProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 class MonthPageController extends BlogController
 {
@@ -64,35 +67,38 @@ class MonthPageController extends BlogController
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function body(Request $request, HtmlTemplate $template): ?Response
     {
-        $year  = $request->attributes->get('year');
-        // Here is a leading zero for months from 01 to 09, cannot be cast to int
-        $month = $request->attributes->get('month');
+        $textYear  = $request->attributes->getString('year');
+        $textMonth = $request->attributes->getString('month');
+        $year      = (int)$textYear;
+        $month     = (int)$textMonth;
 
-        if ((int)$month < 1 || (int)$month > 12) {
+        if ($month < 1 || $month > 12) {
             throw new NotFoundException();
         }
 
         if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
-            $template->registerPlaceholder('<!-- s2_blog_calendar -->', $this->calendarBuilder->calendar((int)$year, (int)$month));
+            $template->registerPlaceholder('<!-- s2_blog_calendar -->', $this->calendarBuilder->calendar($year, $month));
         }
 
         $template->putInPlaceholder('title', '');
 
-        $startTime = mktime(0, 0, 0, (int)$month, 1, (int)$year);
-        $endTime   = mktime(0, 0, 0, (int)$month + 1, 1, (int)$year);
-        $prevTime  = mktime(0, 0, 0, (int)$month - 1, 1, (int)$year);
-
-        $template->setLink('up', $this->blogUrlBuilder->year((int)$year));
+        $date               = new \DateTimeImmutable();
+        $startTime          = $date->setDate($year, $month, 1)->setTime(0, 0)->getTimestamp();
+        $endTime            = $date->setDate($year, $month + 1, 1)->setTime(0, 0)->getTimestamp();
+        $prevTime           = $date->setDate($year, $month - 1, 1)->setTime(0, 0)->getTimestamp();
+        $firstSupportedTime = $date->setDate($this->startYear->get(), 1, 1)->setTime(0, 0)->getTimestamp();
+        $template->setLink('up', $this->blogUrlBuilder->year($year));
 
         $paging = '';
-        $startYear = $this->startYear->get();
-        if ($prevTime >= mktime(0, 0, 0, 1, 1, $startYear)) {
+        if ($prevTime >= $firstSupportedTime) {
             $prevLink = $this->blogUrlBuilder->monthFromTimestamp($prevTime);
             $template->setLink('prev', $prevLink);
             $paging = '<a href="' . $prevLink . '">' . $this->translator->trans('Here') . '</a> ';
         }
+
         if ($endTime < time()) {
             $nextLink = $this->blogUrlBuilder->monthFromTimestamp($endTime);
             $template->setLink('next', $nextLink);
@@ -105,7 +111,7 @@ class MonthPageController extends BlogController
         }
 
         $output = $this->getPosts(
-            fn (SelectBuilder $qb) => $qb
+            fn (SelectBuilder $qb): \S2\Cms\Pdo\QueryBuilder\SelectBuilder => $qb
                 ->andWhere('p.create_time < ' . $endTime)
                 ->andWhere('p.create_time >= ' . $startTime)
         );
@@ -117,16 +123,17 @@ class MonthPageController extends BlogController
 
         $template
             ->putInPlaceholder('text', $output . $paging)
-            ->putInPlaceholder('head_title', $this->calendarBuilder->month($month) . ', ' . $year)
+            ->putInPlaceholder('head_title', $this->calendarBuilder->month($month) . ', ' . $textYear)
         ;
 
         $template->addBreadCrumb($this->articleProvider->mainPageTitle(), $this->urlBuilder->link('/'));
         if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
             $template->addBreadCrumb($this->translator->trans('Blog'), $this->blogUrlBuilder->main());
         }
+
         $template
-            ->addBreadCrumb($year, $this->blogUrlBuilder->year((int)$year))
-            ->addBreadCrumb($month)
+            ->addBreadCrumb($textYear, $this->blogUrlBuilder->year($year))
+            ->addBreadCrumb($textMonth)
         ;
 
         return null;

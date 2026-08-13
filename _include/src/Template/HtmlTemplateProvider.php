@@ -8,7 +8,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Template;
 
@@ -19,10 +19,10 @@ use S2\Cms\Asset\AssetMerge;
 use S2\Cms\Asset\AssetMergeFactory;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 class HtmlTemplateProvider
 {
@@ -42,8 +42,7 @@ class HtmlTemplateProvider
         private readonly IntProxy                 $startYear,
         private readonly bool                     $debugView,
         private readonly string                   $rootDir,
-        private readonly string                   $basePath,
-        private readonly string                   $baseUrl, // to be used in templates
+        private readonly string                   $basePath, // to be used in templates
         private readonly ?string                  $canonicalUrl,
     ) {
     }
@@ -80,11 +79,13 @@ class HtmlTemplateProvider
     /**
      * Searches for a template file (in the style or 'template' directory)
      * @throws DbLayerException
+     * @throws \RuntimeException
      */
     public function getRawTemplateContent(string $templateId, ?string $extraDir): string
     {
         $path            = null;
-        $cleanTemplateId = preg_replace('#[^0-9a-zA-Z._\-]#', '', $templateId);
+        $cleanTemplateId = preg_replace('#[^0-9a-zA-Z._\-]#', '', $templateId)
+            ?? throw new \RuntimeException('Unable to sanitize template identifier.');
 
         $buildEvent = new TemplateBuildEvent($this->getStyleName(), $cleanTemplateId, $path);
         $this->dispatcher->dispatch($buildEvent, TemplateBuildEvent::EVENT_START);
@@ -96,6 +97,9 @@ class HtmlTemplateProvider
         ob_start();
         include $path;
         $template = ob_get_clean();
+        if ($template === false) {
+            throw new \RuntimeException('Unable to read rendered template: ' . $path);
+        }
 
         $styleFilename = '_styles/' . $this->getStyleName() . '/' . $this->getStyleName() . '.php';
         $assetPack     = require $this->rootDir . $styleFilename;
@@ -128,16 +132,19 @@ class HtmlTemplateProvider
 
     private function replaceCurrentLinks(string $templateContent): string
     {
-        $request = $this->requestStack->getCurrentRequest();
-        if ($request === null || !str_contains($templateContent, '</a>')) {
+        $requestUri = $this->requestStack->getCurrentRequest()?->getPathInfo() ?? '';
+        if ($requestUri === '' || !str_contains($templateContent, '</a>')) {
             return $templateContent;
         }
 
-        $requestUri = $request->getPathInfo();
+        return $this->replaceCurrentLinkAnchors($templateContent, $requestUri);
+    }
 
-        $templateContent = preg_replace_callback('#<a href="([^"]*)">([^<]*)</a>#',
-            function ($matches) use ($requestUri) {
-                $real_request_uri = $this->urlBuilder->link($requestUri);
+    private function replaceCurrentLinkAnchors(string $templateContent, string $currentPath): string
+    {
+        return preg_replace_callback('#<a href="([^"]*)">([^<]*)</a>#',
+            function ($matches) use ($currentPath): string {
+                $real_request_uri = $this->urlBuilder->link($currentPath);
 
                 [, $url, $text] = $matches;
 
@@ -152,9 +159,7 @@ class HtmlTemplateProvider
                 return '<a href="' . $url . '">' . $text . '</a>';
             },
             $templateContent
-        );
-
-        return $templateContent;
+        ) ?? throw new \RuntimeException('Unable to replace current template links.');
     }
 
     /**

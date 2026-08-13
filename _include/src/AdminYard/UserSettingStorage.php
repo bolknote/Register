@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\AdminYard;
 
@@ -17,7 +17,11 @@ use S2\Cms\Pdo\DbLayerException;
 
 class UserSettingStorage implements SettingStorageInterface, StatefulServiceInterface
 {
-    public const TABLE_NAME = 'user_settings';
+    public const string TABLE_NAME = 'user_settings';
+
+    /**
+     * @var array<mixed>
+     */
     private array $params = [];
 
     public function __construct(
@@ -29,26 +33,39 @@ class UserSettingStorage implements SettingStorageInterface, StatefulServiceInte
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function has(string $key): bool
     {
         $this->ensureParamsAreLoaded();
+        $userId = $this->permissionChecker->getUserId();
+        if ($userId === null) {
+            throw new \RuntimeException('No authenticated user found.');
+        }
 
-        return isset($this->params[$this->permissionChecker->getUserId()][$key]);
+        return isset($this->params[$userId][$key]);
     }
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
+    #[\Override]
     public function get(string $key): array|string|int|float|bool|null
     {
         $this->ensureParamsAreLoaded();
+        $userId = $this->permissionChecker->getUserId();
+        if ($userId === null) {
+            throw new \RuntimeException('No authenticated user found.');
+        }
 
-        return $this->params[$this->permissionChecker->getUserId()][$key] ?? null;
+        return $this->params[$userId][$key] ?? null;
     }
 
     /**
      * @throws DbLayerException
+     * @param array<mixed>|string|int|float|bool|null $data
      */
+    #[\Override]
     public function set(string $key, array|string|int|float|bool|null $data): void
     {
         $this->ensureParamsAreLoaded();
@@ -71,14 +88,15 @@ class UserSettingStorage implements SettingStorageInterface, StatefulServiceInte
                 ->setValue('value', ':value')->setParameter('value', json_encode($data, JSON_THROW_ON_ERROR))
                 ->execute()
             ;
-        } catch (\JsonException $e) {
-            throw new \LogicException('Failed to encode user settings.', 0, $e);
+        } catch (\JsonException $jsonException) {
+            throw new \LogicException('Failed to encode user settings.', 0, $jsonException);
         }
     }
 
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function remove(string $key): void
     {
         $userId = $this->permissionChecker->getUserId();
@@ -120,6 +138,10 @@ class UserSettingStorage implements SettingStorageInterface, StatefulServiceInte
 
         $this->params[$userId] = $result->fetchKeyPair();
         foreach ($this->params[$userId] as $key => $value) {
+            if (!\is_string($value)) {
+                throw new \UnexpectedValueException('A stored user setting must contain JSON text.');
+            }
+
             try {
                 $this->params[$userId][$key] = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
             } catch (\JsonException $e) {
@@ -128,6 +150,7 @@ class UserSettingStorage implements SettingStorageInterface, StatefulServiceInte
         }
     }
 
+    #[\Override]
     public function clearState(): void
     {
         $this->params = [];

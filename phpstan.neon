@@ -1,0 +1,49 @@
+includes:
+    - _vendor/phpstan/phpstan-deprecation-rules/rules.neon
+    - _vendor/phpstan/phpstan-phpunit/extension.neon
+    - _vendor/phpstan/phpstan-strict-rules/rules.neon
+
+parameters:
+    level: max
+    phpVersion: 80300
+    paths:
+        - _admin/ajax.php
+        - _admin/index.php
+        - _admin/install.php
+        - _admin/pictman.php
+        - _include/src
+        - _include/common.php
+        - _include/functions.php
+        - _include/installation_required.php
+        - _include/setup.php
+        - _extensions
+        - _tests
+        - cron.php
+        - index.php
+        - tools
+    excludePaths:
+        analyse:
+            - _extensions/*/lang/*
+            - _extensions/*/templates/*
+            - _extensions/*/views/*
+            - _extensions/s2_counter/counter.php
+            - _extensions/s2_counter/data.php
+            - _tests/_resources/*
+            - _tests/_support/_generated/*
+    bootstrapFiles:
+        - _vendor/autoload.php
+        - _vendor/s2/admin-yard/tests/Support/Helper/AbstractBrowserModule.php
+    stubFiles:
+        - phpstan-codeception.stub
+        - static-analysis.stub.php
+    checkBenevolentUnionTypes: true
+    # Dynamic database/configuration boundaries are deliberately typed as mixed;
+    # level max still validates every operation after those values are narrowed.
+    checkExplicitMixed: false
+    checkImplicitMixed: false
+    reportMaybesInMethodSignatures: true
+    reportMaybesInPropertyPhpDocTypes: true
+    reportStaticMethodSignatures: true
+    reportUnmatchedIgnoredErrors: true
+    treatPhpDocTypesAsCertain: true
+    tmpDir: _cache/phpstan

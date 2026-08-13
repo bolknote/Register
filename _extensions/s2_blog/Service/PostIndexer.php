@@ -8,14 +8,12 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Service;
 
 use Psr\Cache\CacheItemPoolInterface;
-use Psr\Cache\InvalidArgumentException;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
 use S2\Rose\Entity\Indexable;
@@ -23,6 +21,8 @@ use S2\Rose\Indexer;
 use s2_extensions\s2_blog\BlogUrlBuilder;
 use s2_extensions\s2_search\Service\BulkIndexingProviderInterface;
 use s2_extensions\s2_search\Service\RecommendationProvider;
+use Psr\Cache\InvalidArgumentException;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class PostIndexer implements QueueHandlerInterface, BulkIndexingProviderInterface
 {
@@ -38,19 +38,21 @@ readonly class PostIndexer implements QueueHandlerInterface, BulkIndexingProvide
     /**
      * @throws DbLayerException
      * @throws InvalidArgumentException
+     * @param array<mixed> $payload
      */
+    #[\Override]
     public function handle(string $id, string $code, array $payload): bool
     {
         if ($code !== 's2_search_BlogPost') {
             return false;
         }
 
-        if ($this->indexer === null) {
+        if (!$this->indexer instanceof \S2\Rose\Indexer) {
             return true;
         }
 
         $indexable = $this->getIndexable((int)$id);
-        if ($indexable !== null) {
+        if ($indexable instanceof \S2\Rose\Entity\Indexable) {
             $this->indexer->index($indexable);
             $this->queuePublisher->publish($indexable->getExternalId()->toString(), RecommendationProvider::RECOMMENDATIONS_QUEUE);
         } else {
@@ -66,6 +68,7 @@ readonly class PostIndexer implements QueueHandlerInterface, BulkIndexingProvide
      * @throws DbLayerException
      * @throws \Exception
      */
+    #[\Override]
     public function getIndexables(): \Generator
     {
         $result = $this->dbLayer
@@ -98,7 +101,7 @@ readonly class PostIndexer implements QueueHandlerInterface, BulkIndexingProvide
         ;
 
         $post = $result->fetchAssoc();
-        if (!$post) {
+        if ($post === false) {
             return null;
         }
 
@@ -110,17 +113,22 @@ readonly class PostIndexer implements QueueHandlerInterface, BulkIndexingProvide
      */
     private function invalidateRecommendationsCache(): void
     {
-        $this->cache->deleteItem(RecommendationProvider::INVALIDATED_AT);
+        if ($this->cache instanceof \Psr\Cache\CacheItemPoolInterface) {
+            $this->cache->deleteItem(RecommendationProvider::INVALIDATED_AT);
+        }
     }
 
     /**
      * @throws \Exception
+     * @param array<string, mixed> $post
      */
     private function getIndexableFromDbRow(array $post): Indexable
     {
-        $dateTime = null;
-        if ($post['create_time'] > 0) {
-            $dateTime = (new \DateTime('@' . $post['create_time']))->setTimezone((new \DateTime())->getTimezone());
+        $dateTime  = null;
+        $timestamp = (int)$post['create_time'];
+        if ($timestamp > 0) {
+            // Rose currently requires the mutable DateTime implementation.
+            $dateTime = (new \DateTime())->setTimestamp($timestamp);
         }
 
         $indexable = new Indexable('s2_blog_' . $post['id'], $post['title'], $post['text']);

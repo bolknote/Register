@@ -7,7 +7,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
@@ -18,13 +18,13 @@ use S2\Cms\Framework\Exception\NotFoundException;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\Viewer;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class PageTag implements ControllerInterface
 {
@@ -46,10 +46,11 @@ readonly class PageTag implements ControllerInterface
      * @throws DbLayerException
      * @throws NotFoundException
      */
+    #[\Override]
     public function handle(Request $request): Response
     {
         $name     = $request->attributes->get('name');
-        $hasSlash = (!empty($request->attributes->get('slash')));
+        $hasSlash = $request->attributes->get('slash') === '/';
 
         // Tag preview
         $result = $this->dbLayer
@@ -59,11 +60,15 @@ readonly class PageTag implements ControllerInterface
             ->execute()
         ;
 
-        if (!($row = $result->fetchRow())) {
+        $row = $result->fetchRow();
+        if ($row === false) {
             throw new NotFoundException();
         }
 
         [$tagId, $tagDescription, $tagName, $tagUrl] = $row;
+        $tagDescription = (string)$tagDescription;
+        $tagName        = (string)$tagName;
+        $tagUrl         = (string)$tagUrl;
 
         if (!$hasSlash) {
             return new RedirectResponse(
@@ -92,8 +97,9 @@ readonly class PageTag implements ControllerInterface
             // ->orderBy('a.create_time DESC')
             ->execute()
         ;
-
-        $urls = $parentIds = $rows = [];
+        $urls = [];
+        $parentIds = [];
+        $rows = [];
         while ($row = $result->fetchAssoc()) {
             $rows[]      = $row;
             $urls[]      = rawurlencode($row['url']);
@@ -101,8 +107,10 @@ readonly class PageTag implements ControllerInterface
         }
 
         $urls = $this->articleProvider->getFullUrlsForArticles($parentIds, $urls);
-
-        $sections = $articles = $sortingValuesForArticles = $sortingValuesForSections = [];
+        $sections = [];
+        $articles = [];
+        $sortingValuesForArticles = [];
+        $sortingValuesForSections = [];
         if (\count($urls) > 0) {
             $favoriteLink = $this->urlBuilder->link('/' . rawurlencode($this->favoriteUrl->get()) . '/');
             $useHierarchy = $this->useHierarchy->get();
@@ -111,13 +119,13 @@ readonly class PageTag implements ControllerInterface
                 $item = [
                     'id'            => $row['id'],
                     'title'         => $row['title'],
-                    'link'          => $this->urlBuilder->link($url . ($useHierarchy && $row['children_exist'] ? '/' : '')),
+                    'link'          => $this->urlBuilder->link($url . ($useHierarchy && (bool)$row['children_exist'] ? '/' : '')),
                     'favorite_link' => $favoriteLink,
                     'date'          => $this->viewer->date($row['create_time']),
                     'excerpt'       => $row['excerpt'],
                     'favorite'      => $row['favorite'],
                 ];
-                if ($row['children_exist']) {
+                if ((bool)$row['children_exist']) {
                     $sections[]                 = $item;
                     $sortingValuesForSections[] = $row['create_time'];
                 } else {

@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
@@ -19,12 +19,11 @@ readonly class SiteStructureExtender implements AdminConfigExtenderInterface
     ) {
     }
 
+    #[\Override]
     public function extend(AdminConfig $adminConfig): void
     {
         $adminConfig
-            ->setServicePage('Site', function () {
-                return $this->templateRenderer->render('_admin/templates/structure/structure.php.inc');
-            }, -10)
+            ->setServicePage('Site', fn(): string => $this->templateRenderer->render('_admin/templates/structure/structure.php.inc'), -10)
         ;
     }
 }

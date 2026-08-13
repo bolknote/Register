@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Displays image with hits/hosts info
  *
@@ -34,4 +37,3 @@ imagestring($image, 1, 86 - 5*strlen(trim($data[2])), 22, trim($data[2]), $black
 
 header('Content-type: image/png');
 imagepng($image);
-imagedestroy($image);

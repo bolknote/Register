@@ -1,7 +1,6 @@
 <?php
 
-declare(strict_types=1);
-
+declare(strict_types = 1);
 
 /**
  * Inherited Methods
@@ -40,6 +39,7 @@ class IntegrationTester extends \Codeception\Actor
         $this->amOnPage('https://localhost/_admin/index.php?action=logout');
     }
 
+    /** @param list<int|string> $path */
     public function assertJsonSubResponseContains(string $needle, array $path): void
     {
         $I        = $this;
@@ -48,15 +48,17 @@ class IntegrationTester extends \Codeception\Actor
             $I->assertArrayHasKey($value, $response);
             $response = $response[$value];
         }
+
         $I->assertStringContainsString($needle, $response);
     }
 
+    /** @param list<int|string> $path */
     public function assertJsonResponseHasNoKey(array $path): void
     {
         $I        = $this;
         $response = $I->grabJson();
         $total    = count($path);
-        foreach (array_values($path) as $index => $value) {
+        foreach ($path as $index => $value) {
             if ($index === $total - 1) {
                 $I->assertArrayNotHasKey($value, $response);
             } else {
@@ -66,6 +68,7 @@ class IntegrationTester extends \Codeception\Actor
         }
     }
 
+    /** @param list<int|string> $path */
     public function assertJsonSubResponseEquals(mixed $needle, array $path): void
     {
         $I        = $this;
@@ -74,6 +77,7 @@ class IntegrationTester extends \Codeception\Actor
             $I->assertArrayHasKey($value, $response);
             $response = $response[$value];
         }
+
         $I->assertEquals($needle, $response);
     }
 }

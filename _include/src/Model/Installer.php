@@ -5,17 +5,19 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
 use S2\Cms\AdminYard\UserSettingStorage;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Pdo\SchemaBuilderInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class Installer
 {
+    public const int DB_REVISION = 24;
+
     public function __construct(private DbLayer $dbLayer)
     {
     }
@@ -26,7 +28,7 @@ readonly class Installer
     public function createTables(): void
     {
         // Create all tables
-        $this->dbLayer->createTable('config', function (SchemaBuilderInterface $table) {
+        $this->dbLayer->createTable('config', function (SchemaBuilderInterface $table): void {
             $table
                 ->addString('name', 191)
                 ->addText('value', nullable: false)
@@ -34,7 +36,7 @@ readonly class Installer
             ;
         });
 
-        $this->dbLayer->createTable('extensions', function (SchemaBuilderInterface $table) {
+        $this->dbLayer->createTable('extensions', function (SchemaBuilderInterface $table): void {
             $table
                 ->addString('id', 150)
                 ->addString('title', 255)
@@ -48,7 +50,7 @@ readonly class Installer
             ;
         });
 
-        $this->dbLayer->createTable('users', function (SchemaBuilderInterface $table) {
+        $this->dbLayer->createTable('users', function (SchemaBuilderInterface $table): void {
             $table
                 ->addIdColumn()
                 ->addString('login', 191)
@@ -66,7 +68,7 @@ readonly class Installer
             ;
         });
 
-        $this->dbLayer->createTable('articles', function (SchemaBuilderInterface $table) {
+        $this->dbLayer->createTable('articles', function (SchemaBuilderInterface $table): void {
             $table
                 ->addIdColumn()
                 ->addInteger('parent_id', true) // NOTE think about adding a foreign key here. What value must be set in parent_id for root article? Null? Now it is 0.
@@ -99,7 +101,7 @@ readonly class Installer
             ;
         });
 
-        $this->dbLayer->createTable('art_comments', function (SchemaBuilderInterface $table) {
+        $this->dbLayer->createTable('art_comments', function (SchemaBuilderInterface $table): void {
             $table
                 ->addIdColumn()
                 ->addInteger('article_id', true, false, null)
@@ -125,7 +127,7 @@ readonly class Installer
             ;
         });
 
-        $this->dbLayer->createTable('tags', function (SchemaBuilderInterface $table) {
+        $this->dbLayer->createTable('tags', function (SchemaBuilderInterface $table): void {
             $table
                 ->addIdColumn()
                 ->addString('name', 191)
@@ -137,7 +139,7 @@ readonly class Installer
             ;
         });
 
-        $this->dbLayer->createTable('article_tag', function (SchemaBuilderInterface $table) {
+        $this->dbLayer->createTable('article_tag', function (SchemaBuilderInterface $table): void {
             $table
                 ->addIdColumn()
                 ->addInteger('article_id', true, false, null)
@@ -161,7 +163,7 @@ readonly class Installer
             ;
         });
 
-        $this->dbLayer->createTable('users_online', function (SchemaBuilderInterface $table) {
+        $this->dbLayer->createTable('users_online', function (SchemaBuilderInterface $table): void {
             $table->addString('challenge', 32)
                 ->addInteger('time', true)
                 ->addString('login', 191, true, null)
@@ -180,7 +182,7 @@ readonly class Installer
             ;
         });
 
-        $this->dbLayer->createTable(UserSettingStorage::TABLE_NAME, function (SchemaBuilderInterface $table) {
+        $this->dbLayer->createTable(UserSettingStorage::TABLE_NAME, function (SchemaBuilderInterface $table): void {
             $table
                 ->addInteger('user_id', true, default: null)
                 ->addString('name', 191, default: null)
@@ -196,7 +198,7 @@ readonly class Installer
             ;
         });
 
-        $this->dbLayer->createTable('queue', function (SchemaBuilderInterface $table) {
+        $this->dbLayer->createTable('queue', function (SchemaBuilderInterface $table): void {
             $table
                 ->addString('id', 80, default: null)
                 ->addString('code', 80, default: null)

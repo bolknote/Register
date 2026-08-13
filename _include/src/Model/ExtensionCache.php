@@ -9,7 +9,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
@@ -26,7 +26,7 @@ class ExtensionCache
     ) {
     }
 
-    public const CACHE_ENABLED_EXTENSIONS_FILENAME = 'cache_enabled_extensions.php';
+    public const string CACHE_ENABLED_EXTENSIONS_FILENAME = 'cache_enabled_extensions.php';
 
     /**
      * Delete every .php cache file in the cache directory
@@ -41,7 +41,7 @@ class ExtensionCache
 
         foreach ($file_list as $entry) {
             if (file_exists($entry)) {
-                @unlink($entry);
+                s2_call_without_warnings(static fn(): bool => unlink($entry));
             }
         }
     }
@@ -50,6 +50,7 @@ class ExtensionCache
      * Retrieves Extension class names if they exist for enabled extensions.
      *
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function generateEnabledExtensionClassNames(): array
     {
@@ -66,6 +67,7 @@ class ExtensionCache
             if (class_exists($className)) {
                 $extensionClassNames['cms'][] = $className;
             }
+
             $className = \sprintf('\s2_extensions\%s\AdminExtension', $extension['id']);
             if (class_exists($className)) {
                 $extensionClassNames['admin'][] = $className;
@@ -85,11 +87,11 @@ class ExtensionCache
             if (\function_exists('opcache_invalidate')) {
                 opcache_invalidate($this->cacheDir . self::CACHE_ENABLED_EXTENSIONS_FILENAME, true);
             }
-        } catch (\RuntimeException $e) {
+        } catch (\RuntimeException $runtimeException) {
             throw new ConfigurationException(\sprintf(
                 'Unable to write extensions cache file to cache directory. Please make sure PHP has write access to the directory "%s".',
                 $this->cacheDir
-            ), null, $e);
+            ), null, $runtimeException);
         }
 
         return $extensionClassNames;
@@ -97,7 +99,8 @@ class ExtensionCache
 
     public function clearRoutesCache(): void
     {
-        @unlink($this->getCachedRoutesFilename());
+        $cacheFilename = $this->getCachedRoutesFilename();
+        s2_call_without_warnings(static fn(): bool => unlink($cacheFilename));
     }
 
     public function getCachedRoutesFilename(): string

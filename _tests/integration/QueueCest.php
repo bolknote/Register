@@ -5,30 +5,30 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace integration;
 
 use IntegrationTester;
-use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\NotFoundExceptionInterface;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Pdo\PDO;
 use S2\Cms\Queue\QueueConsumer;
 use S2\Cms\Queue\QueuePublisher;
 use S2\Rose\Storage\Exception\InvalidEnvironmentException;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
+use S2\Cms\Pdo\DbLayerException;
+use S2\Cms\Pdo\PDO;
 
 /**
  * @group queue
  */
 class QueueCest
 {
-    protected function _before()
+    protected function _before(): void
     {
     }
 
-    protected function _after()
+    protected function _after(): void
     {
     }
 
@@ -89,7 +89,14 @@ class QueueCest
             default => throw new InvalidEnvironmentException(sprintf('Driver "%s" is not supported.', $driverName)),
         };
         $statement  = $consumerPdo->query($sql);
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to query the test queue.');
+        }
+
         $job        = $statement->fetch(\PDO::FETCH_ASSOC);
+        if (!\is_array($job)) {
+            throw new \RuntimeException('The expected queue job was not found.');
+        }
 
         $I->assertEquals('test_id2', $job['id']);
         $I->assertEquals('code', $job['code']);
@@ -105,13 +112,13 @@ class QueueCest
              * Skip it in the test.
              */
             $consumerApplication2 = $I->createApplication();
-            /** @var QueueConsumer $queueConsumer */
             $queueConsumer2 = $consumerApplication2->container->get(QueueConsumer::class);
             $I->assertFalse($queueConsumer2->runQueue(), 'No jobs in parallel process are available');
         }
 
         $consumerPdo->rollBack();
-        $statement = null;
+        $statement->closeCursor();
+        unset($statement);
 
         $queuePublisher->publish('test_id4', 'code', ['data']);
 
@@ -119,6 +126,7 @@ class QueueCest
             // Sqlite loses test_id3 being written during parallel consumer transaction.
             $I->assertTrue($queueConsumer->runQueue(), 'Job was processed');
         }
+
         $I->assertTrue($queueConsumer->runQueue(), 'Job was processed');
         $I->assertTrue($queueConsumer->runQueue(), 'Job was processed');
         $I->assertFalse($queueConsumer->runQueue(), 'No more jobs');

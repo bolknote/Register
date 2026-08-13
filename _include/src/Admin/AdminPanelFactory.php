@@ -1,11 +1,9 @@
 <?php
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
-use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\NotFoundExceptionInterface;
 use Psr\Log\LoggerInterface;
 use S2\AdminYard\AdminPanel;
 use S2\AdminYard\Config\AdminConfig;
@@ -20,6 +18,8 @@ use S2\Cms\Framework\Container;
 use S2\Cms\Model\PermissionChecker;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 
 /**
  * Builds fresh AdminPanel instances per request to keep admin config and menu up to date.
@@ -36,7 +36,6 @@ readonly class AdminPanelFactory
      */
     public function create(): AdminPanel
     {
-        /** @var AdminConfigProvider $adminConfigProvider */
         $adminConfigProvider = $this->container->get(AdminConfigProvider::class);
         $adminConfig         = $adminConfigProvider->getAdminConfig();
 

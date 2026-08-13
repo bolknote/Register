@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Describes the data provider for building the search index
  *
@@ -9,14 +12,11 @@
 
 namespace s2_extensions\s2_search\Service;
 
-use S2\Rose\Entity\Indexable;
 
 interface BulkIndexingProviderInterface
 {
     /**
      * Walks through all pages and gets info about them
-     *
-     * @return \Generator|Indexable[]
      */
     public function getIndexables(): \Generator;
 }

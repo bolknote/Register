@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
@@ -27,6 +27,7 @@ readonly class NotFoundController implements ControllerInterface
     ) {
     }
 
+    #[\Override]
     public function handle(Request $request): Response
     {
         $template = $this->htmlTemplateProvider->getTemplate('error404.php');

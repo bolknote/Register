@@ -6,32 +6,59 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Asset;
 
 class AssetPack
 {
-    public const OPTION_PRELOAD = 'preload';
-    public const OPTION_DEFER   = 'defer';
-    public const OPTION_ASYNC   = 'async';
-    public const OPTION_MERGE   = 'merge';
+    public const string OPTION_PRELOAD = 'preload';
 
+    public const string OPTION_DEFER = 'defer';
+
+    public const string OPTION_ASYNC = 'async';
+
+    public const string OPTION_MERGE = 'merge';
+
+    /**
+     * @var string[]
+     */
     private array $meta = [];
+
+    /** @var list<array{src: string, merge: bool}> */
     private array $css = [];
+
+    /** @var list<array{src: string, is_async: bool, is_defer: bool}> */
     private array $headJs = [];
+
+    /**
+     * @var string[]
+     */
     private array $headInlineJs = [];
+
+    /** @var list<array{src: string, is_async: bool, is_defer: bool, merge: bool}> */
     private array $js = [];
+
+    /**
+     * @var string[]
+     */
     private array $inlineJs = [];
+
+    /** @var list<array{src: string, 'as': string}> */
     private array $preload = [];
+
     private ?string $favIcon = null;
-    private string $localDir;
+
+    private readonly string $localDir;
 
     public function __construct(string $localDir)
     {
         $this->localDir = rtrim($localDir, '/');
     }
 
+    /**
+     * @param list<string> $options
+     */
     public function addCss(string $filename, array $options = []): self
     {
         $o = array_flip($options);
@@ -47,6 +74,9 @@ class AssetPack
         return $this;
     }
 
+    /**
+     * @param list<string> $options
+     */
     public function addJs(string $filename, array $options = []): self
     {
         $o = array_flip($options);
@@ -67,6 +97,7 @@ class AssetPack
         if ($isPreload) {
             $this->preload[] = ['src' => $filename, 'as' => 'script'];
         }
+
         $this->js[] = ['src' => $filename, 'is_async' => $isAsync, 'is_defer' => $isDefer, 'merge' => $merge];
 
         return $this;
@@ -87,6 +118,9 @@ class AssetPack
         return $this;
     }
 
+    /**
+     * @param list<string> $options
+     */
     public function addHeadJs(string $filename, array $options = []): self
     {
         $o = array_flip($options);
@@ -145,29 +179,27 @@ class AssetPack
      * Return styles (as long as meta tags and scripts) to be included in the head section.
      *
      * @param string                   $pathPrefix Path prefix to be prepended to local file names
-     * @param AssetMergeInterface|null $assetMerge
      *
-     * @return string
      */
     public function getStyles(string $pathPrefix, ?AssetMergeInterface $assetMerge): string
     {
         $result = array_values($this->meta);
 
         foreach ($this->preload as $preloadItem) {
-            $preloadPath = self::getPrefixedPath($preloadItem['src'], $pathPrefix);
+            $preloadPath = $this->getPrefixedPath($preloadItem['src'], $pathPrefix);
             $result[]    = \sprintf('<link rel="preload" href="%s" as="%s">', $preloadPath, $preloadItem['as']);
         }
 
         foreach ($this->css as $cssItem) {
-            if ($assetMerge !== null && $cssItem['merge'] ?? false) {
-                $assetMerge->concat((self::requireDirPrefix($cssItem['src']) ? $this->localDir . '/' : '') . $cssItem['src']);
+            if ($assetMerge instanceof \S2\Cms\Asset\AssetMergeInterface && $cssItem['merge']) {
+                $assetMerge->concat(($this->requireDirPrefix($cssItem['src']) ? $this->localDir . '/' : '') . $cssItem['src']);
             } else {
-                $cssPath  = self::getPrefixedPath($cssItem['src'], $pathPrefix);
+                $cssPath  = $this->getPrefixedPath($cssItem['src'], $pathPrefix);
                 $result[] = \sprintf('<link rel="stylesheet" href="%s">', $cssPath);
             }
         }
 
-        if ($assetMerge !== null) {
+        if ($assetMerge instanceof \S2\Cms\Asset\AssetMergeInterface) {
             $mergedPaths = $assetMerge->getMergedPaths();
             foreach ($mergedPaths as $mergedPath) {
                 $result[] = \sprintf('<link rel="stylesheet" href="%s" />', $mergedPath);
@@ -177,14 +209,14 @@ class AssetPack
         foreach ($this->headJs as $jsItem) {
             $result[] = \sprintf(
             /** @lang text */ '<script src="%s"%s%s></script>',
-                self::getPrefixedPath($jsItem['src'], $pathPrefix),
-                ($jsItem['is_defer'] ?? false) ? ' defer' : '',
-                ($jsItem['is_async'] ?? false) ? ' async' : ''
+                $this->getPrefixedPath($jsItem['src'], $pathPrefix),
+                $jsItem['is_defer'] ? ' defer' : '',
+                $jsItem['is_async'] ? ' async' : ''
             );
         }
 
         if ($this->favIcon !== null) {
-            $result[] = '<link rel="shortcut icon" type="' . self::getFaviconMimeType($this->favIcon) . '" href="' . self::getPrefixedPath($this->favIcon, $pathPrefix) . '">';
+            $result[] = '<link rel="shortcut icon" type="' . $this->getFaviconMimeType($this->favIcon) . '" href="' . $this->getPrefixedPath($this->favIcon, $pathPrefix) . '">';
         }
 
         $result = array_merge($result, $this->headInlineJs);
@@ -196,27 +228,25 @@ class AssetPack
      * Return scripts to be included in the body section.
      *
      * @param string                   $pathPrefix Path prefix to be prepended to local file names
-     * @param AssetMergeInterface|null $assetMerge
      *
-     * @return string
      */
     public function getScripts(string $pathPrefix, ?AssetMergeInterface $assetMerge): string
     {
         $result = [];
         foreach ($this->js as $jsItem) {
-            if ($assetMerge !== null && $jsItem['merge'] ?? false) {
-                $assetMerge->concat((self::requireDirPrefix($jsItem['src']) ? $this->localDir . '/' : '') . $jsItem['src']);
+            if ($assetMerge instanceof \S2\Cms\Asset\AssetMergeInterface && $jsItem['merge']) {
+                $assetMerge->concat(($this->requireDirPrefix($jsItem['src']) ? $this->localDir . '/' : '') . $jsItem['src']);
             } else {
                 $result[] = \sprintf(
                 /** @lang text */ '<script src="%s"%s%s></script>',
-                    self::getPrefixedPath($jsItem['src'], $pathPrefix),
-                    ($jsItem['is_defer'] ?? false) ? ' defer' : '',
-                    ($jsItem['is_async'] ?? false) ? ' async' : ''
+                    $this->getPrefixedPath($jsItem['src'], $pathPrefix),
+                    $jsItem['is_defer'] ? ' defer' : '',
+                    $jsItem['is_async'] ? ' async' : ''
                 );
             }
         }
 
-        if ($assetMerge !== null) {
+        if ($assetMerge instanceof \S2\Cms\Asset\AssetMergeInterface) {
             foreach ($assetMerge->getMergedPaths() as $mergedPath) {
                 $result[] = \sprintf('<script src="%s" defer></script>', $mergedPath);
             }
@@ -227,43 +257,35 @@ class AssetPack
         return implode("\n", $result);
     }
 
-    private static function getFaviconMimeType(?string $filename): string
+    private function getFaviconMimeType(string $filename): string
     {
-        switch (pathinfo($filename, PATHINFO_EXTENSION)) {
-            case 'ico':
-                return 'image/vnd.microsoft.icon';
-            case 'png':
-                return 'image/png';
-            case 'gif':
-                return 'image/gif';
-            case 'jpg':
-            case 'jpeg':
-                return 'image/jpg';
-            case 'svg':
-            case 'svgz':
-                return 'image/svg+xml';
-        }
-
-        throw new \InvalidArgumentException('This file type is not allowed for a favicon image');
+        return match (pathinfo($filename, PATHINFO_EXTENSION)) {
+            'ico' => 'image/vnd.microsoft.icon',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'jpg', 'jpeg' => 'image/jpg',
+            'svg', 'svgz' => 'image/svg+xml',
+            default => throw new \InvalidArgumentException('This file type is not allowed for a favicon image'),
+        };
     }
 
-    private static function requireDirPrefix(string $path): bool
+    private function requireDirPrefix(string $path): bool
     {
+        if ($path === '') {
+            return false;
+        }
+
         if ($path[0] === '/') {
             return false;
         }
 
-        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
-            return false;
-        }
-
-        return true;
+        return !str_starts_with($path, 'http://') && !str_starts_with($path, 'https://');
     }
 
-    private static function getPrefixedPath($path, string $dirPrefix)
+    private function getPrefixedPath(string $path, string $dirPrefix): string
     {
-        if (self::requireDirPrefix($path)) {
-            $path = $dirPrefix . $path;
+        if ($this->requireDirPrefix($path)) {
+            return $dirPrefix . $path;
         }
 
         return $path;

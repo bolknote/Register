@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Picture;
 
@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PictureManager
 {
-    private const EXTENSIONS_FOR_PREVIEW = ['gif', 'bmp', 'jpg', 'jpeg', 'png'];
+    private const array EXTENSIONS_FOR_PREVIEW = ['gif', 'bmp', 'jpg', 'jpeg', 'png'];
 
     public function __construct(
         private readonly Translator              $translator,
@@ -34,8 +34,12 @@ class PictureManager
         $this->imageDir = rtrim($imageDir, '/');
     }
 
-    public function getThumbnailResponse(string $file, $maxSize = 100, $maxZoom = 2.0): Response
+    public function getThumbnailResponse(string $file, int $maxSize = 100, float $maxZoom = 2.0): Response
     {
+        if ($maxSize < 1 || $maxZoom <= 0.0) {
+            throw new \InvalidArgumentException('Thumbnail dimensions must be positive.');
+        }
+
         $filename = $this->imageDir . $file;
 
         $image = ThumbnailGenerator::createImageFromFile($filename);
@@ -43,23 +47,27 @@ class PictureManager
         $sy    = imagesy($image);
 
         $originalSize = max($sx, $sy);
-        if ($originalSize < 1) {
-            throw new \RuntimeException('Image size is 0');
-        }
 
-        $zoom = min(1.0 * $maxSize / $originalSize, $maxZoom);
+        $zoom = min((float)$maxSize / (float)$originalSize, $maxZoom);
 
         $thumbnail = imagecreatetruecolor($maxSize, $maxSize);
+        if (!$thumbnail instanceof \GdImage) {
+            throw new \RuntimeException('Unable to create a thumbnail image.');
+        }
 
         imagealphablending($thumbnail, false);
         imagesavealpha($thumbnail, true);
         $white = imagecolorallocatealpha($thumbnail, 255, 255, 255, 127);
+        if ($white === false) {
+            throw new \RuntimeException('Unable to allocate a thumbnail color.');
+        }
+
         imagefilledrectangle($thumbnail, 0, 0, $maxSize, $maxSize, $white);
         imagecolortransparent($thumbnail, $white);
 
-        $dst_width  = (int)($sx * $zoom);
-        $dst_height = (int)($sy * $zoom);
-        $dst_x      = (int)(max(0, $maxSize - $dst_width) / 2);
+        $dst_width  = (int)((float)$sx * $zoom);
+        $dst_height = (int)((float)$sy * $zoom);
+        $dst_x      = intdiv(max(0, $maxSize - $dst_width), 2);
         $dst_y      = max(0, $maxSize - $dst_height);
         // TODO chess-like background for transparent images
         // imagefilledrectangle($thumbnail, $dst_x, $dst_y, $dst_x + $dst_width, $dst_y + $dst_height, imagecolorallocatealpha($thumbnail, 255, 0, 0, 0));
@@ -74,17 +82,22 @@ class PictureManager
             $contentType = 'image/jpeg';
             imagejpeg($thumbnail);
         }
-        $content = ob_get_clean();
 
-        imagedestroy($image);
-        imagedestroy($thumbnail);
+        $content = ob_get_clean();
+        if (!\is_string($content)) {
+            throw new \RuntimeException('Unable to render the thumbnail.');
+        }
 
         return new Response($content, Response::HTTP_OK, ['Content-Type' => $contentType]);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getDirContentRecursive(string $dir): array
     {
-        if (!($dirHandle = opendir($this->imageDir . $dir))) {
+        $dirHandle = opendir($this->imageDir . $dir);
+        if ($dirHandle === false) {
             throw new \RuntimeException($this->translator->trans('Directory not open', ['{{ dir }}' => $this->imageDir . $dir]), Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
@@ -95,6 +108,7 @@ class PictureManager
             if ($item === '.' || $item === '..') {
                 continue;
             }
+
             if (is_dir($this->imageDir . $dir . '/' . $item)) {
                 $dirs[] = $item;
             }
@@ -116,7 +130,7 @@ class PictureManager
         }
 
         if ($dir === '') {
-            $output = [
+            return [
                 'data'     => $this->translator->trans('Pictures'),
                 'attr'     => [
                     'id'              => 'node_1',
@@ -136,12 +150,14 @@ class PictureManager
         if (file_exists($this->imageDir . $path . '/' . $name)) {
             $i = 1;
             while (file_exists($this->imageDir . $path . '/' . $name . $i)) {
-                $i++;
+                ++$i;
             }
+
             $name .= $i;
         }
 
-        if (!mkdir($concurrentDirectory = $this->imageDir . $path . '/' . $name) && !is_dir($concurrentDirectory)) {
+        $concurrentDirectory = $this->imageDir . $path . '/' . $name;
+        if (!mkdir($concurrentDirectory) && !is_dir($concurrentDirectory)) {
             throw new \RuntimeException($this->translator->trans('Error creating folder', ['{{ dir }}' => $this->imageDir . $path . '/' . $name]), Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
@@ -153,15 +169,22 @@ class PictureManager
     public function deleteFolder(string $dir, bool $deleteRoot = true): void
     {
         $fullDir = $this->imageDir . $dir;
-        if (!$dirHandle = @opendir($fullDir)) {
+        $dirHandle = s2_call_without_warnings(static fn() => opendir($fullDir));
+        if ($dirHandle === false) {
             return;
         }
 
-        while (false !== ($item = readdir($dirHandle))) {
+        while (true) {
+            $item = readdir($dirHandle);
+            if ($item === false) {
+                break;
+            }
+
             if ($item === '.' || $item === '..') {
                 continue;
             }
-            if (is_dir($fullDir . '/' . $item) || !@unlink($fullDir . '/' . $item)) {
+
+            if (is_dir($fullDir . '/' . $item) || !s2_call_without_warnings(static fn(): bool => unlink($fullDir . '/' . $item))) {
                 $this->deleteFolder($dir . '/' . $item);
             }
         }
@@ -169,20 +192,20 @@ class PictureManager
         closedir($dirHandle);
 
         if ($deleteRoot) {
-            @rmdir($fullDir);
+            s2_call_without_warnings(static fn(): bool => rmdir($fullDir));
         }
     }
 
     public function deleteFile(string $path): void
     {
         if (file_exists($this->imageDir . $path)) {
-            @unlink($this->imageDir . $path);
+            s2_call_without_warnings(fn(): bool => unlink($this->imageDir . $path));
         }
     }
 
     public function renameFolder(string $path, string $newName): string
     {
-        $parentPath = self::s2_dirname($path);
+        $parentPath = $this->s2_dirname($path);
 
         $newFullName = $this->imageDir . $parentPath . '/' . $newName;
         if (file_exists($newFullName)) {
@@ -203,7 +226,7 @@ class PictureManager
 
     public function renameFile(string $path, string $newName): string
     {
-        $parentPath = self::s2_dirname($path);
+        $parentPath = $this->s2_dirname($path);
 
         $newFullPath = $this->imageDir . $parentPath . '/' . $newName;
         if (file_exists($newFullPath)) {
@@ -222,7 +245,7 @@ class PictureManager
     public function moveFolder(string $sourcePath, string $destPath): string
     {
         $fullSourcePath = $this->imageDir . $sourcePath;
-        $fullDestPath   = $this->imageDir . $destPath . '/' . self::s2_basename($sourcePath);
+        $fullDestPath   = $this->imageDir . $destPath . '/' . $this->s2_basename($sourcePath);
 
         if (file_exists($fullDestPath)) {
             throw new \RuntimeException($this->translator->trans('Move file exists', ['{{ dir }}' => $fullDestPath]), Response::HTTP_CONFLICT);
@@ -233,14 +256,17 @@ class PictureManager
             throw new \RuntimeException($this->translator->trans('Move error'), Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
-        return $destPath . '/' . self::s2_basename($sourcePath);
+        return $destPath . '/' . $this->s2_basename($sourcePath);
     }
 
+    /**
+     * @param array<mixed> $fileNames
+     */
     public function moveFiles(string $sourcePath, string $destPath, array $fileNames): void
     {
         $skippedFiles = [];
         foreach ($fileNames as $fileName) {
-            $fileName       = self::s2_basename($fileName);
+            $fileName       = $this->s2_basename($fileName);
             $fullSourcePath = $this->imageDir . $sourcePath . '/' . $fileName;
             $fullDestPath   = $this->imageDir . $destPath . '/' . $fileName;
 
@@ -259,6 +285,9 @@ class PictureManager
         }
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getFiles(string $dir): array
     {
         $displayPreview = \function_exists('imagetypes');
@@ -269,7 +298,8 @@ class PictureManager
             return ['message' => 'Invalid directory'];
         }
 
-        if (!($dirHandle = opendir($this->imageDir . $dir))) {
+        $dirHandle = opendir($this->imageDir . $dir);
+        if ($dirHandle === false) {
             return ['message' => '<p>' . $this->translator->trans('Directory not open', ['{{ dir }}' => $this->imageDir . $dir]) . '</p>'];
         }
 
@@ -278,6 +308,7 @@ class PictureManager
             if ($item === '.' || $item === '..' || is_dir($this->imageDir . $dir . '/' . $item)) {
                 continue;
             }
+
             $files[] = $item;
         }
 
@@ -287,26 +318,29 @@ class PictureManager
 
         $output = [];
         foreach ($files as $item) {
-            $bits = $dimensions = '';
-
+            $bits = '';
+            $dimensions = '';
             if (str_contains($item, '.') && \in_array(pathinfo($item, PATHINFO_EXTENSION), self::EXTENSIONS_FOR_PREVIEW, true)) {
-                $imageInfo = getImageSize($this->imageDir . $dir . '/' . $item);
+                $imageInfo = getimagesize($this->imageDir . $dir . '/' . $item);
                 if ($imageInfo !== false) {
                     $dimensions = $imageInfo[0] . '*' . $imageInfo[1];
                     $bits       = ($imageInfo['bits'] ?? 0) * ($imageInfo['channels'] ?? 1);
                 }
             }
 
+            $fileSize = filesize($this->imageDir . $dir . '/' . $item);
+            $modifiedAt = filemtime($this->imageDir . $dir . '/' . $item);
+            $cacheBuster = $modifiedAt === false ? 0 : $modifiedAt;
             $output[] = [
                 'data' => [
                     'title' => $item,
-                    'icon'  => $displayPreview && $dimensions ? $this->basePath . '/_admin/ajax.php?action=preview&file=' . urlencode($dir . '/' . $item) . '&nocache=' . filemtime($this->imageDir . $dir . '/' . $item) : 'no-preview'
+                    'icon'  => $displayPreview && $dimensions !== '' ? $this->basePath . '/_admin/ajax.php?action=preview&file=' . urlencode($dir . '/' . $item) . '&nocache=' . $cacheBuster : 'no-preview'
                 ],
                 'attr' => [
                     'data-fname' => $item,
                     'data-dim'   => $dimensions,
                     'data-bits'  => $bits,
-                    'data-fsize' => $this->customTemplateRenderer->friendlyFilesize(filesize($this->imageDir . $dir . '/' . $item))
+                    'data-fsize' => $this->customTemplateRenderer->friendlyFilesize($fileSize !== false ? $fileSize : 0)
                 ]
             ];
         }
@@ -319,13 +353,13 @@ class PictureManager
         $filename = $uploadedFile->getClientOriginalName();
         if ($uploadedFile->getError() !== UPLOAD_ERR_OK) {
             $errorMessage = $this->translator->trans('Upload error ' . $uploadedFile->getError());
-            $error        = $filename ? sprintf($this->translator->trans('Upload file error'), $filename, $errorMessage) : $errorMessage;
+            $error        = $filename !== '' ? sprintf($this->translator->trans('Upload file error'), $filename, $errorMessage) : $errorMessage;
             throw new \RuntimeException($error);
         }
 
         if (!$uploadedFile->isValid()) {
             $errorMessage = $this->translator->trans('Is upload file error');
-            $errors       = $filename ? sprintf($this->translator->trans('Upload file error'), $filename, $errorMessage) : $errorMessage;
+            $errors       = $filename !== '' ? sprintf($this->translator->trans('Upload file error'), $filename, $errorMessage) : $errorMessage;
             throw new \RuntimeException($errors);
         }
 
@@ -340,6 +374,7 @@ class PictureManager
         if ($createDir) {
             $this->ensureDirExists($this->imageDir . $path);
         }
+
         $uploadedFile->move($this->imageDir . $path, $filename);
         chmod($this->imageDir . $path . '/' . $filename, 0644);
 
@@ -351,13 +386,13 @@ class PictureManager
         $originalName = $uploadedFile->getClientOriginalName();
         if ($uploadedFile->getError() !== UPLOAD_ERR_OK) {
             $errorMessage = $this->translator->trans('Upload error ' . $uploadedFile->getError());
-            $error        = $originalName ? sprintf($this->translator->trans('Upload file error'), $originalName, $errorMessage) : $errorMessage;
+            $error        = $originalName !== '' ? sprintf($this->translator->trans('Upload file error'), $originalName, $errorMessage) : $errorMessage;
             throw new \RuntimeException($error);
         }
 
         if (!$uploadedFile->isValid()) {
             $errorMessage = $this->translator->trans('Is upload file error');
-            $errors       = $originalName ? sprintf($this->translator->trans('Upload file error'), $originalName, $errorMessage) : $errorMessage;
+            $errors       = $originalName !== '' ? sprintf($this->translator->trans('Upload file error'), $originalName, $errorMessage) : $errorMessage;
             throw new \RuntimeException($errors);
         }
 
@@ -365,6 +400,7 @@ class PictureManager
         if ($normalized !== $filename) {
             throw new \RuntimeException('Invalid reserved file name.', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
+
         $this->fileNameHelper->assertAllowedExtension($filename);
 
         if ($createDir) {
@@ -383,9 +419,17 @@ class PictureManager
 
 
 
+    /**
+     * @return array<mixed>
+     */
     public function getImageInfo(string $fileName): array
     {
-        return \function_exists('getimagesize') ? (getimagesize($this->imageDir . $fileName) ?: []) : [];
+        if (!\function_exists('getimagesize')) {
+            return [];
+        }
+
+        $imageInfo = getimagesize($this->imageDir . $fileName);
+        return $imageInfo !== false ? $imageInfo : [];
     }
 
     public function getFolderCsrfToken(string $path): string
@@ -410,7 +454,7 @@ class PictureManager
 
     public function assertFileCsrfToken(string $filePath, string $csrfToken): void
     {
-        $this->assertFolderCsrfToken(self::s2_dirname($filePath), $csrfToken);
+        $this->assertFolderCsrfToken($this->s2_dirname($filePath), $csrfToken);
     }
 
     private function getFolderTokenKey(string $path): string
@@ -423,7 +467,7 @@ class PictureManager
             $realPath = $fullPath;
         }
 
-        $inode = @fileinode($fullPath);
+        $inode = s2_call_without_warnings(static fn(): int|false => fileinode($fullPath));
         if ($inode === false) {
             return $realPath;
         }
@@ -431,14 +475,14 @@ class PictureManager
         return 'inode:' . $inode;
     }
 
-    private static function s2_basename($dir)
+    private function s2_basename(string $dir): string
     {
         return false !== ($pos = strrpos($dir, '/')) ? substr($dir, $pos + 1) : $dir;
     }
 
-    private static function s2_dirname(string $dir): string
+    private function s2_dirname(string $dir): string
     {
-        return preg_replace('#/[^/]*$#', '', $dir);
+        return preg_replace('#/[^/]*$#', '', $dir) ?? $dir;
     }
 
     private function ensureDirExists(string $dir): void
@@ -448,14 +492,15 @@ class PictureManager
         }
 
         $warning = null;
-        set_error_handler(function ($errno, $errstr) use (&$warning) {
+        set_error_handler(function (int $_errno, string $errstr, string $_file, int $_line) use (&$warning): bool {
             $warning = $errstr;
+            return true;
         });
         $created = mkdir($dir, 0777, true);
         restore_error_handler();
 
         if (!$created && !is_dir($dir)) {
-            throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir) . ($warning ? ' (' . $warning . ')' : ''));
+            throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir) . ($warning !== null ? ' (' . $warning . ')' : ''));
         }
 
         chmod($dir, 0777);

@@ -7,7 +7,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
@@ -37,6 +37,7 @@ readonly class RssController implements ControllerInterface
     ) {
     }
 
+    #[\Override]
     public function handle(Request $request): Response
     {
         $this->eventDispatcher->dispatch(new RssHitEvent($request, $this->rssStrategy));
@@ -60,8 +61,9 @@ readonly class RssController implements ControllerInterface
             $item->text = str_replace('href="' . $this->basePath . '/', 'href="' . $this->baseUrl . '/', $item->text);
             $item->text = str_replace('src="' . $this->basePath . '/', 'src="' . $this->baseUrl . '/', $item->text);
 
-            if (empty($item->author) && $this->webmaster->get()) {
-                $item->author = $this->webmaster->get();
+            $webmaster = $this->webmaster->get();
+            if ($item->author === '' && $webmaster !== '') {
+                $item->author = $webmaster;
             }
 
             $this->eventDispatcher->dispatch(new FeedItemRenderEvent($item));
@@ -80,7 +82,7 @@ readonly class RssController implements ControllerInterface
 
         $output = $this->viewer->render(
             'rss',
-            compact('items', 'maxContentTime', 'feedInfo', 'selfLink') + [
+            ['items' => $items, 'maxContentTime' => $maxContentTime, 'feedInfo' => $feedInfo, 'selfLink' => $selfLink] + [
                 'baseUrl' => $this->baseUrl,
                 'version' => $this->version,
             ]

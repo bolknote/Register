@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Picture manager
  *
@@ -15,15 +18,13 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 define('S2_ADMIN_MODE', true);
-require __DIR__ . '/../_include/common.php';
+$app = require __DIR__ . '/../_include/common.php';
 
 $request = Request::createFromGlobals();
 
-/** @var AuthManager $authManager */
 $authManager = $app->container->get(AuthManager::class);
 $response    = $authManager->checkAuthenticatedUser($request);
 if ($response === null) {
-    /** @var TemplateRenderer $templateRenderer */
     $templateRenderer = $app->container->get(TemplateRenderer::class);
     $content          = $templateRenderer->render('_admin/templates/picture-manager.php.inc', [
         'imagePath' => $app->container->getParameter('image_path'),

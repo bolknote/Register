@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Model;
 
@@ -14,8 +14,8 @@ use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Controller\Comment\TargetDto;
 use S2\Cms\Controller\CommentController;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\Request;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class BlogCommentStrategy implements CommentStrategyInterface
 {
@@ -29,6 +29,7 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function getTargetByRequest(Request $request): ?TargetDto
     {
         $year  = (int)($request->attributes->get('year'));
@@ -36,8 +37,7 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
         $day   = (int)($request->attributes->get('day'));
         $url   = $request->attributes->get('url');
 
-        $startTime = mktime(0, 0, 0, $month, $day, $year);
-
+        $startTime = (new \DateTimeImmutable())->setDate($year, $month, $day)->setTime(0, 0)->getTimestamp();
         $result = $this->dbLayer
             ->select('id', 'title')
             ->from('s2_blog_posts AS p')
@@ -61,6 +61,7 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function getTargetById(int $targetId): ?TargetDto
     {
         $post = $this->dbLayer
@@ -79,6 +80,7 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function save(int $targetId, string $name, string $email, bool $showEmail, bool $subscribed, string $text, string $ip): int
     {
         $this->dbLayer
@@ -104,6 +106,7 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function notifySubscribers(int $commentId): void
     {
         $this->commentNotifier->notify($commentId);
@@ -113,6 +116,7 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function getHashForPublishedComment(int $targetId): ?string
     {
         $result = $this->dbLayer->select('COUNT(id)')
@@ -125,13 +129,14 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
 
         $num = $result->result();
 
-        return $num ? (string)$num : null;
+        return (int)$num > 0 ? (string)$num : null;
     }
 
     /**
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function getRecentComment(string $hash, string $ip): ?CommentDto
     {
         $result = $this->dbLayer->select('id, post_id AS target_id, email, text, nick AS name')
@@ -147,7 +152,7 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
         ;
 
         foreach ($result->fetchAssocAll() as $comment) {
-            if ($hash === CommentController::commentHash($comment['id'], $comment['target_id'], $comment['email'], $ip, \get_class($this))) {
+            if ($hash === CommentController::commentHash($comment['id'], $comment['target_id'], $comment['email'], $ip, static::class)) {
                 return new CommentDto($comment['id'], $comment['target_id'], $comment['name'], $comment['email'], $comment['text']);
             }
         }
@@ -159,6 +164,7 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function publishComment(int $commentId): void
     {
         $this->dbLayer
@@ -174,6 +180,7 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function unsubscribe(int $targetId, string $email, string $code): bool
     {
         return $this->commentNotifier->unsubscribe($targetId, $email, $code);

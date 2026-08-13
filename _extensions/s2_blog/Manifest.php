@@ -9,7 +9,7 @@
  * @package   s2_blog
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog;
 
@@ -17,46 +17,52 @@ use S2\Cms\Extensions\ManifestInterface;
 use S2\Cms\Extensions\ManifestTrait;
 use S2\Cms\Framework\Container;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Pdo\SchemaBuilderInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 class Manifest implements ManifestInterface
 {
     use ManifestTrait;
 
+    #[\Override]
     public function getTitle(): string
     {
         return 'Blog';
     }
 
+    #[\Override]
     public function getAuthor(): string
     {
         return 'Roman Parpalak';
     }
 
+    #[\Override]
     public function getDescription(): string
     {
         return 'Adds a blog to your site.';
     }
 
+    #[\Override]
     public function getVersion(): string
     {
         return '2.0a2';
     }
 
+    #[\Override]
     public function getUninstallationNote(): ?string
     {
-        return 'Warning! All your posts and user comments will be deleted during the uninstall process. It is strongly recommended you to disable \'Blog\' extension instead or to upgrade it without uninstalling.';
+        return "Warning! All your posts and user comments will be deleted during the uninstall process. It is strongly recommended you to disable 'Blog' extension instead or to upgrade it without uninstalling.";
     }
 
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function install(DbLayer $dbLayer, Container $container, ?string $currentVersion): void
     {
         // Setup posts table
         if (!$dbLayer->tableExists('s2_blog_posts')) {
-            $dbLayer->createTable('s2_blog_posts', function (SchemaBuilderInterface $table) {
+            $dbLayer->createTable('s2_blog_posts', function (SchemaBuilderInterface $table): void {
                 $table
                     ->addIdColumn()
                     ->addInteger('create_time', true)
@@ -90,13 +96,13 @@ class Manifest implements ManifestInterface
         }
 
         // For old installations
-        $dbLayer->addIndex('s2_blog_posts', 'create_time_published_idx', array('create_time', 'published'));
-        $dbLayer->addIndex('s2_blog_posts', 'id_published_idx', array('id', 'published'));
-        $dbLayer->addIndex('s2_blog_posts', 'favorite_idx', array('favorite'));
+        $dbLayer->addIndex('s2_blog_posts', 'create_time_published_idx', ['create_time', 'published']);
+        $dbLayer->addIndex('s2_blog_posts', 'id_published_idx', ['id', 'published']);
+        $dbLayer->addIndex('s2_blog_posts', 'favorite_idx', ['favorite']);
 
         // Setup blog comments table
         if (!$dbLayer->tableExists('s2_blog_comments')) {
-            $dbLayer->createTable('s2_blog_comments', function (SchemaBuilderInterface $table) {
+            $dbLayer->createTable('s2_blog_comments', function (SchemaBuilderInterface $table): void {
                 $table
                     ->addIdColumn()
                     ->addInteger('post_id', true, default: null)
@@ -124,11 +130,11 @@ class Manifest implements ManifestInterface
         }
 
         // For old installations
-        $dbLayer->addIndex('s2_blog_comments', 'sort_idx', array('post_id', 'time', 'shown'));
+        $dbLayer->addIndex('s2_blog_comments', 'sort_idx', ['post_id', 'time', 'shown']);
 
         // Setup table to link posts and tags
         if (!$dbLayer->tableExists('s2_blog_post_tag')) {
-            $dbLayer->createTable('s2_blog_post_tag', function (SchemaBuilderInterface $table) {
+            $dbLayer->createTable('s2_blog_post_tag', function (SchemaBuilderInterface $table): void {
                 $table
                     ->addIdColumn()
                     ->addInteger('post_id', true, default: null)
@@ -176,7 +182,7 @@ class Manifest implements ManifestInterface
         // A field in tags table for important tags displaying
         $dbLayer->addField('tags', 's2_blog_important', SchemaBuilderInterface::TYPE_BOOLEAN, null, false, 0);
 
-        $dbLayer->addIndex('tags', 's2_blog_important_idx', array('s2_blog_important'));
+        $dbLayer->addIndex('tags', 's2_blog_important_idx', ['s2_blog_important']);
 
         if ($currentVersion !== null && version_compare($currentVersion, '2.0a1', '<')) {
             $dbLayer->alterField('s2_blog_posts', 'user_id', SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, null, true);
@@ -214,12 +220,13 @@ class Manifest implements ManifestInterface
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function uninstall(DbLayer $dbLayer, Container $container): void
     {
         if ($dbLayer->tableExists('config')) {
             $dbLayer
                 ->delete('config')
-                ->where('name in (\'S2_BLOG_URL\', \'S2_BLOG_TITLE\')')
+                ->where("name in ('S2_BLOG_URL', 'S2_BLOG_TITLE')")
                 ->execute()
             ;
         }
@@ -231,6 +238,7 @@ class Manifest implements ManifestInterface
         if ($dbLayer->tableExists('tags')) {
             $dbLayer->dropIndex('tags', 's2_blog_important_idx');
         }
+
         $dbLayer->dropField('tags', 's2_blog_important');
     }
 }

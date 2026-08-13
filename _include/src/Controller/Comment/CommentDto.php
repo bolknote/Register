@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Controller\Comment;
 
@@ -20,6 +20,9 @@ readonly class CommentDto
     ) {
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function toArray(): array
     {
         return get_object_vars($this);

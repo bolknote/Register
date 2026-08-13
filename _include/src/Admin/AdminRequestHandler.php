@@ -5,22 +5,22 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
-use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\NotFoundExceptionInterface;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Model\AuthManager;
-use S2\Cms\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class AdminRequestHandler
 {
@@ -39,22 +39,22 @@ readonly class AdminRequestHandler
      */
     public function handle(Request $request): Response
     {
-        array_map(static function (StatefulServiceInterface $service) {
+        foreach ($this->container->getByTagIfInstantiated(StatefulServiceInterface::class) as $service) {
             $service->clearState();
-        }, $this->container->getByTagIfInstantiated(StatefulServiceInterface::class));
+        }
 
         $request->setSession(new Session());
         $this->requestStack->push($request);
 
         $response = $this->authManager->checkAuth($request);
-        if ($response === null) {
+        if (!$response instanceof \Symfony\Component\HttpFoundation\Response) {
             if ($request->query->has('path') && !$request->query->has('entity')) {
                 // Redirect from public pages to the admin panel.
                 // Listeners must modify the request if they recognize the path.
-                $this->eventDispatcher->dispatch(new RedirectFromPublicEvent($request, $request->query->get('path')));
+                $this->eventDispatcher->dispatch(new RedirectFromPublicEvent($request, $request->query->getString('path')));
             }
+
             // NOTE: Initialization of the AdminPanel is delayed since its factory is relied on the RequestStack to be populated
-            /** @var AdminPanelFactory $adminPanelFactory */
             $adminPanelFactory = $this->container->get(AdminPanelFactory::class);
             $adminPanel        = $adminPanelFactory->create();
             $response          = $adminPanel->handleRequest($request);

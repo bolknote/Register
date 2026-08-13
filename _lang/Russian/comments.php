@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 return [
 
 	'Save comment'             => 'Скопируйте на всякий случай свой комментарий, чтобы он не&nbsp;потерялся.',

@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace acceptance;
 
@@ -17,8 +17,11 @@ use Codeception\Example;
  */
 class InstallCest
 {
-    private const URL_PREFIX = '/index.php?';
+    private const string URL_PREFIX = '/index.php?';
 
+    /**
+     * @return array<int, array<string, string>>
+     */
     protected function configProvider(): array
     {
         return [
@@ -46,7 +49,7 @@ class InstallCest
         }
     }
 
-    private static function getCookieName(): string
+    private function getCookieName(): string
     {
         static $cookieName = null;
         if ($cookieName === null) {
@@ -54,6 +57,7 @@ class InstallCest
             if (!\is_array($config) || !isset($config['cookies']['name'])) {
                 throw new \RuntimeException('Unable to determine cookie name from config.test.php');
             }
+
             $cookieName = (string)$config['cookies']['name'];
         }
 
@@ -135,31 +139,29 @@ class InstallCest
         $I->amOnPage('/_admin/index.php?entity=Article&action=edit&id=3');
         $I->assertStringContainsString('If you see this text, the install of S2 has been successfully completed.', $I->grabValueFrom('textarea[name=pagetext]'));
 
-        $dataProvider = static function (string $csrfToken) {
-            return [
-                '__csrf_token' => $csrfToken,
-                'title'        => 'New Page Title',
-                'meta_keys'    => 'New Meta Keywords',
-                'meta_desc'    => 'New Meta Description',
-                'excerpt'      => 'New Excerpt',
-                'tags'         => 'tag1, another tag',
-                'create_time'  => '2023-08-10T11:32',
-                'modify_time'  => '2023-08-11T12:15',
-                'pagetext'     => '<p>Some new page text</p>',
-                'revision'     => '1',
-                'user_id'      => '1',
-                'template'     => 'site.php',
-                'url'          => 'new_page1',
-                'favorite'     => '1',
-                'published'    => '1',
-                'commented'    => '1',
-            ];
-        };
+        $dataProvider = (static fn(string $csrfToken): array => [
+            '__csrf_token' => $csrfToken,
+            'title'        => 'New Page Title',
+            'meta_keys'    => 'New Meta Keywords',
+            'meta_desc'    => 'New Meta Description',
+            'excerpt'      => 'New Excerpt',
+            'tags'         => 'tag1, another tag',
+            'create_time'  => '2023-08-10T11:32',
+            'modify_time'  => '2023-08-11T12:15',
+            'pagetext'     => '<p>Some new page text</p>',
+            'revision'     => '1',
+            'user_id'      => '1',
+            'template'     => 'site.php',
+            'url'          => 'new_page1',
+            'favorite'     => '1',
+            'published'    => '1',
+            'commented'    => '1',
+        ]);
         $csrfToken    = $I->grabValueFrom('input[name=__csrf_token]');
         $I->sendAjaxPostRequest('/_admin/index.php?entity=Article&action=edit&id=333', $dataProvider($csrfToken));
         $this->assertJsonResponseContains($I, ['errors', 0], 'Unable to confirm security token.');
 
-        for ($i = 0; $i < 2; $i++) {
+        for ($i = 0; $i < 2; ++$i) {
             // 2-nd iteration checks that consequent saving of the same entity works fine
             $I->sendAjaxPostRequest('/_admin/index.php?entity=Article&action=edit&id=3', $dataProvider($csrfToken));
             $I->seeResponseCodeIsSuccessful();
@@ -211,26 +213,24 @@ class InstallCest
             $I->amOnPage('/_admin/index.php?entity=Article&action=edit&id=' . $newId);
             $csrfToken = $I->grabValueFrom('input[name=__csrf_token]');
 
-            $dataProvider = static function (string $id, string $csrfToken) {
-                return [
-                    '__csrf_token' => $csrfToken,
-                    'title'        => 'New Page ' . $id,
-                    'meta_keys'    => 'New Meta Keywords',
-                    'meta_desc'    => 'New Meta Description',
-                    'excerpt'      => 'New Excerpt',
-                    'tags'         => 'tag1, another tag',
-                    'create_time'  => '2023-08-10T11:32',
-                    'modify_time'  => '2023-08-12T12:15',
-                    'pagetext'     => '<p>Some new page text</p>',
-                    'revision'     => '1',
-                    'user_id'      => '1',
-                    'template'     => 'site.php',
-                    'url'          => 'new_page' . $id,
-                    'favorite'     => '1',
-                    'published'    => '1',
-                    'commented'    => '1',
-                ];
-            };
+            $dataProvider = static fn(string $id, string $csrfToken): array => [
+                '__csrf_token' => $csrfToken,
+                'title'        => 'New Page ' . $id,
+                'meta_keys'    => 'New Meta Keywords',
+                'meta_desc'    => 'New Meta Description',
+                'excerpt'      => 'New Excerpt',
+                'tags'         => 'tag1, another tag',
+                'create_time'  => '2023-08-10T11:32',
+                'modify_time'  => '2023-08-12T12:15',
+                'pagetext'     => '<p>Some new page text</p>',
+                'revision'     => '1',
+                'user_id'      => '1',
+                'template'     => 'site.php',
+                'url'          => 'new_page' . $id,
+                'favorite'     => '1',
+                'published'    => '1',
+                'commented'    => '1',
+            ];
 
             $I->sendAjaxPostRequest('/_admin/index.php?entity=Article&action=edit&id=' . $newId, $dataProvider((string)$newId, $csrfToken));
             $I->seeResponseCodeIsSuccessful();
@@ -328,26 +328,25 @@ class InstallCest
             'text'  => '<p>Start text</p>',
         ]);
         $I->seeResponseCodeIsSuccessful();
+
         $postId    = $I->grabFromCurrentUrl('~id=(\d+)~');
         $csrfToken = $I->grabValueFrom('input[name=__csrf_token]');
 
-        $dataProvider = static function (string $csrfToken) {
-            return [
-                '__csrf_token' => $csrfToken,
-                'title'        => 'New Blog Post Title',
-                'tags'         => 'tag1, blog tag',
-                'create_time'  => '2023-08-12T11:32',
-                'modify_time'  => '2023-08-12T12:15',
-                'text'         => '<p>New blog post</p>',
-                'user_id'      => '1',
-                'label'        => '',
-                'revision'     => '1',
-                'url'          => 'new_post1',
+        $dataProvider = (static fn(string $csrfToken): array => [
+            '__csrf_token' => $csrfToken,
+            'title'        => 'New Blog Post Title',
+            'tags'         => 'tag1, blog tag',
+            'create_time'  => '2023-08-12T11:32',
+            'modify_time'  => '2023-08-12T12:15',
+            'text'         => '<p>New blog post</p>',
+            'user_id'      => '1',
+            'label'        => '',
+            'revision'     => '1',
+            'url'          => 'new_post1',
 
-                'commented' => '1',
-                'published' => '1',
-            ];
-        };
+            'commented' => '1',
+            'published' => '1',
+        ]);
         $I->sendAjaxPostRequest('/_admin/index.php?entity=BlogPost&action=edit&id=333', $dataProvider($csrfToken));
         $this->assertJsonResponseContains($I, ['errors', 0], 'Unable to confirm security token.');
 
@@ -359,6 +358,7 @@ class InstallCest
         $I->see('"revision":"2"');
 
         $I->amOnPage('/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId);
+
         $postText = $I->grabValueFrom('textarea[name=text]');
         $I->assertStringContainsString('New blog post', $postText);
 
@@ -470,18 +470,16 @@ class InstallCest
 
         $tagId = '1';
         $I->amOnPage('/_admin/index.php?entity=Tag&action=edit&id=' . $tagId);
-        $dataProvider = static function (string $csrfToken) {
-            return [
-                '__csrf_token' => $csrfToken,
-                'name'         => 'New Tag Name',
-                'modify_time'  => '2023-08-12T12:15',
-                'description'  => 'New tag description text',
-                'url'          => 'new_tag_url1',
+        $dataProvider = (static fn(string $csrfToken): array => [
+            '__csrf_token' => $csrfToken,
+            'name'         => 'New Tag Name',
+            'modify_time'  => '2023-08-12T12:15',
+            'description'  => 'New tag description text',
+            'url'          => 'new_tag_url1',
 
-                'commented' => '1',
-                'published' => '1',
-            ];
-        };
+            'commented' => '1',
+            'published' => '1',
+        ]);
         $csrfToken    = $I->grabValueFrom('input[name=__csrf_token]');
         $I->sendAjaxPostRequest('/_admin/index.php?entity=Tag&action=edit&id=1111' . $tagId, $dataProvider($csrfToken));
         $this->assertJsonResponseContains($I, ['errors', 0], 'Unable to confirm security token.');
@@ -533,12 +531,16 @@ class InstallCest
         // Check conditional get when the comment form is disabled. Otherwise, there are some random tokens.
         // Last comments must be also hidden.
         $I->amOnPage('/section1/new_page1');
+
         $headers = $I->grabHeaders();
         $I->haveHttpHeader('If-None-Match', $headers['ETag'][0]);
         $I->amOnPage('/section1/new_page1');
         $I->seeResponseCodeIs(304);
     }
 
+    /**
+     * @param string[]|int[] $path
+     */
     private function assertJsonResponseContains(AcceptanceTester $I, array $path, string $needle): void
     {
         $response = json_decode($I->grabPageSource(), true, 512, JSON_THROW_ON_ERROR);
@@ -546,6 +548,7 @@ class InstallCest
             $I->assertArrayHasKey($value, $response);
             $response = $response[$value];
         }
+
         $I->assertStringContainsString($needle, $response);
     }
 
@@ -674,8 +677,8 @@ class InstallCest
          * Testing that a comment with known email <admin@example.com> is not published when pre-moderation is enabled
          * and user is not logged in
          */
-        $commentCookie = $I->grabCookie(self::getCookieName() . '_c');
-        $I->setCookie(self::getCookieName() . '_c', 'wrong_value');
+        $commentCookie = $I->grabCookie($this->getCookieName() . '_c');
+        $I->setCookie($this->getCookieName() . '_c', 'wrong_value');
 
         $I->clearEmails();
         $I->amOnPage($publicUrl);
@@ -757,7 +760,10 @@ class InstallCest
             'http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code='
             , $emails[0]);
 
-        $I->assertEquals(1, preg_match('#List-Unsubscribe: <([^<]+)>#', $emails[0], $matches));
+        if (preg_match('#List-Unsubscribe: <([^<]+)>#', $emails[0], $matches) !== 1) {
+            throw new \RuntimeException('The subscription email does not contain an unsubscribe link.');
+        }
+
         $unsubscribeLink = $matches[1];
 
         $I->amOnPage($publicUrl);
@@ -804,7 +810,7 @@ class InstallCest
          */
         $I->clearEmails();
         $I->amOnPage($publicUrl);
-        $I->setCookie(self::getCookieName() . '_c', $commentCookie);
+        $I->setCookie($this->getCookieName() . '_c', $commentCookie);
         $I->sendComment('Moderator3', 'admin@example.com', 'This is a comment from a moderator3.');
         $I->see('Moderator3 wrote:');
         $I->see('This is a comment from a moderator3.');
@@ -814,8 +820,13 @@ class InstallCest
          * Test deleting
          */
         $I->amOnPage('/_admin/index.php?entity=' . $commentEntity . '&action=list&' . $targetIdName . '=' . $targetId);
+
         $onClickHandler = $I->grabAttributeFrom('[href="?entity=' . $commentEntity . '&action=delete&id=5"]', 'onclick');
-        $csrfToken      = substr($onClickHandler, strrpos($onClickHandler, 'csrf_token=') + 11, 40);
+        if ($onClickHandler === null || ($tokenPosition = strrpos($onClickHandler, 'csrf_token=')) === false) {
+            throw new \RuntimeException('The delete action does not contain a CSRF token.');
+        }
+
+        $csrfToken = substr($onClickHandler, $tokenPosition + 11, 40);
         $I->sendAjaxPostRequest('/_admin/index.php?entity=' . $commentEntity . '&action=delete&id=5', ['csrf_token' => $csrfToken]);
         $I->amOnPage($publicUrl);
         $I->dontSee('Moderator3 wrote:');
@@ -826,7 +837,12 @@ class InstallCest
     {
         $I->sendAjaxGetRequest('/_admin/ajax.php?action=load_tree&id=0');
         $I->seeResponseCodeIsSuccessful();
+
         $tree  = json_decode($I->grabPageSource(), true, 512, JSON_THROW_ON_ERROR);
+        if (!\is_array($tree)) {
+            throw new \RuntimeException('The article tree response must be an array.');
+        }
+
         $token = $this->extractArticleToken($tree, $articleId);
 
         if ($token === null) {
@@ -836,16 +852,23 @@ class InstallCest
         return $token;
     }
 
+    /** @param array<array-key, mixed> $tree */
     private function extractArticleToken(array $tree, int $articleId): ?string
     {
         foreach ($tree as $node) {
-            $nodeId = (int)($node['attr']['data-id'] ?? 0);
-            if ($nodeId === $articleId) {
-                return $node['attr']['data-csrf-token'] ?? null;
+            if (!\is_array($node)) {
+                continue;
             }
 
-            if (!empty($node['children']) && is_array($node['children'])) {
-                $found = $this->extractArticleToken($node['children'], $articleId);
+            $nodeId = (int)($node['attr']['data-id'] ?? 0);
+            if ($nodeId === $articleId) {
+                $token = $node['attr']['data-csrf-token'] ?? null;
+                return \is_string($token) ? $token : null;
+            }
+
+            $children = $node['children'] ?? null;
+            if (\is_array($children) && $children !== []) {
+                $found = $this->extractArticleToken($children, $articleId);
                 if ($found !== null) {
                     return $found;
                 }

@@ -1,17 +1,22 @@
 {
     "config": {
         "vendor-dir": "_vendor",
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        },
         "preferred-install": {
             "s2/rose": "source",
             "s2/admin-yard": "source"
         },
         "platform": {
-            "php": "8.2.0"
-        }
+            "php": "8.3.33"
+        },
+        "sort-packages": true
     },
     "name": "s2/cms",
     "description": "Small and fast CMS",
-    "minimum-stability": "stable",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
     "license": "MIT",
     "authors": [
         {
@@ -20,36 +25,105 @@
         }
     ],
     "require": {
-        "ext-pdo": "*",
-        "ext-json": "*",
+        "php": "^8.3",
         "ext-dom": "*",
+        "ext-filter": "*",
         "ext-gd": "*",
+        "ext-json": "*",
+        "ext-pdo": "*",
+        "ext-session": "*",
         "matthiasmullie/minify": "^1.3",
+        "psr/cache": "^3.0",
         "psr/container": "^2.0",
+        "psr/event-dispatcher": "^1.0",
         "psr/log": "^3.0",
+        "s2/admin-yard": "dev-master",
         "s2/rose": "dev-master",
         "symfony/cache": "^7.0",
+        "symfony/cache-contracts": "^3.0",
         "symfony/error-handler": "^7.0",
-        "symfony/expression-language": "^7.0",
         "symfony/event-dispatcher": "^7.0",
+        "symfony/event-dispatcher-contracts": "^3.0",
         "symfony/filesystem": "^7.0",
         "symfony/http-foundation": "^7.0",
+        "symfony/polyfill-ctype": "^1.0",
+        "symfony/polyfill-mbstring": "^1.0",
         "symfony/routing": "^7.0",
-        "s2/admin-yard": "dev-master"
+        "symfony/translation-contracts": "^3.0"
     },
     "autoload": {
         "psr-4": {
             "S2\\Cms\\": "_include/src",
-            "s2_extensions\\": "_extensions",
-            "": "_include/"
+            "s2_extensions\\": "_extensions"
         },
         "files": [
             "_include/functions.php"
         ]
     },
+    "autoload-dev": {
+        "classmap": [
+            "_tests/_support/"
+        ]
+    },
     "require-dev": {
         "codeception/codeception": "^5.0",
         "codeception/module-asserts": "^3.0.0",
-        "codeception/module-phpbrowser": "^3.0"
+        "codeception/module-phpbrowser": "^3.0",
+        "maglnet/composer-require-checker": "~4.20.0",
+        "phan/phan": "^6.0.7",
+        "php-parallel-lint/php-parallel-lint": "^1.4",
+        "phpcompatibility/php-compatibility": "^10.0@alpha",
+        "phpmd/phpmd": "3.x-dev",
+        "phpunit/phpunit": "^12.5",
+        "phpstan/phpstan": "^2.2",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "rector/rector": "^2.6",
+        "shipmonk/composer-dependency-analyser": "^1.8",
+        "slevomat/coding-standard": "^8.31",
+        "squizlabs/php_codesniffer": "^4.0",
+        "vimeo/psalm": "^6.16"
+    },
+    "scripts": {
+        "analyse": [
+            "@analyse:phpstan",
+            "@analyse:psalm",
+            "@analyse:phan",
+            "@analyse:phpmd",
+            "@analyse:compatibility",
+            "@analyse:dependencies"
+        ],
+        "analyse:compatibility": "phpcs --standard=phpcs.xml.dist --runtime-set testVersion 8.3-8.5",
+        "analyse:dependencies": [
+            "php tools/composer-require-checker.php check --config-file=composer-require-checker.json",
+            "composer-dependency-analyser --config=dependency-analyser.php"
+        ],
+        "analyse:phan": "phan --config-file .phan/config.php --allow-polyfill-parser",
+        "analyse:phpmd": "php -d error_reporting=8191 _vendor/bin/phpmd analyze _admin/ajax.php _admin/index.php _admin/install.php _admin/pictman.php _include/src _include/common.php _include/functions.php _include/setup.php _extensions cron.php index.php tools --format ansi --ruleset phpmd.xml --no-progress",
+        "analyse:phpstan": "phpstan analyse --configuration=phpstan.neon --no-progress --memory-limit=1G",
+        "analyse:psalm": "psalm --config=psalm.xml --no-cache --no-progress",
+        "check": [
+            "@lint",
+            "@analyse",
+            "@rector",
+            "@test"
+        ],
+        "dev": "./dev",
+        "lint": [
+            "parallel-lint --exclude _vendor --exclude _cache .",
+            "phpcs --standard=phpcs.xml.dist",
+            "@lint:shell",
+            "@lint:actions"
+        ],
+        "lint:actions": "actionlint -shellcheck='shellcheck --severity=style'",
+        "lint:shell": "shellcheck --severity=style dev test_sh",
+        "rector": "rector process --dry-run --config=rector.php",
+        "test": [
+            "@test:unit",
+            "@test:integration"
+        ],
+        "test:integration": "APP_DB_TYPE=sqlite XDEBUG_MODE=off codecept run integration --no-interaction",
+        "test:unit": "XDEBUG_MODE=off codecept run unit --no-interaction"
     }
 }

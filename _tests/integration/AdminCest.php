@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace integration;
 
@@ -71,7 +71,6 @@ class AdminCest
     private function assertSecureCookiePolicy(\IntegrationTester $I, AuthManager $authManager, string $url, bool $expected): void
     {
         $method = new \ReflectionMethod(AuthManager::class, 'shouldUseSecureCookies');
-        $method->setAccessible(true);
 
         $I->assertSame($expected, $method->invoke($authManager, Request::create($url)));
     }

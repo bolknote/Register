@@ -7,7 +7,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 use S2\Cms\Admin\AdminAjaxRequestHandler;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,10 +15,9 @@ use Symfony\Component\HttpFoundation\Request;
 // NOTE: find a more elegant way to boot the application with the AdminExtension
 const S2_ADMIN_MODE = true;
 
-require __DIR__ . '/../_include/common.php';
+$app = require __DIR__ . '/../_include/common.php';
 
 $request = Request::createFromGlobals();
-/** @var AdminAjaxRequestHandler $handler */
 $handler  = $app->container->get(AdminAjaxRequestHandler::class);
 $response = $handler->handle($request);
 

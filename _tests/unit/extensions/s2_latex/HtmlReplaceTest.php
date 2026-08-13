@@ -5,16 +5,16 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace unit\extensions\s2_latex;
 
 use Codeception\Test\Unit;
 use s2_extensions\s2_latex\Extension;
 
-class HtmlReplaceTest extends Unit
+final class HtmlReplaceTest extends Unit
 {
-    public function testReplaceHtml()
+    public function testReplaceHtml(): void
     {
         $html = '
 <p>$$\dvisvgm\definecolor{cyan}{RGB}{0, 200, 250}
@@ -106,6 +106,6 @@ class HtmlReplaceTest extends Unit
   }
 \end{tikzpicture}" /></p>';
 
-        $this->assertEquals($expected, Extension::convertLatexInHtml($html));
+        self::assertSame($expected, Extension::convertLatexInHtml($html));
     }
 }

@@ -5,15 +5,22 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Event;
 
 class TagsSearchEvent
 {
     private ?string $string = null;
+
+    /**
+     * @var string[]
+     */
     private array $shortStrings = [];
 
+    /**
+     * @param array<mixed> $words
+     */
     public function __construct(public readonly array $words)
     {
     }
@@ -28,6 +35,7 @@ class TagsSearchEvent
         if ($this->string !== null) {
             throw new \LogicException('String is already set');
         }
+
         $this->string = $string;
     }
 

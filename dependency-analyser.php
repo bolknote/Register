@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+use ShipMonk\ComposerDependencyAnalyser\Config\Configuration;
+use ShipMonk\ComposerDependencyAnalyser\Config\ErrorType;
+
+$config = new Configuration();
+
+return $config
+    ->addPathToScan(__DIR__ . '/_admin', isDev: false)
+    ->addPathToScan(__DIR__ . '/_include/common.php', isDev: false)
+    ->addPathToScan(__DIR__ . '/_include/functions.php', isDev: false)
+    ->addPathToScan(__DIR__ . '/_include/setup.php', isDev: false)
+    ->addPathToScan(__DIR__ . '/_tests', isDev: true)
+    ->addPathToScan(__DIR__ . '/tools', isDev: true)
+    ->addPathToScan(__DIR__ . '/dependency-analyser.php', isDev: true)
+    ->addPathToScan(__DIR__ . '/rector.php', isDev: true)
+    ->addPathToScan(__DIR__ . '/cron.php', isDev: false)
+    ->addPathToScan(__DIR__ . '/index.php', isDev: false)
+    // Codeception creates these actors and traits from suite configuration at runtime.
+    ->ignoreUnknownClasses([
+        'Tests\\Support\\Helper\\AbstractBrowserModule',
+    ])
+    // Native mbstring/ctype are covered by direct polyfills; the other extensions are optional and guarded.
+    ->ignoreErrorsOnExtensions([
+        'ext-ctype',
+        'ext-curl',
+        'ext-mbstring',
+        'ext-zend-opcache',
+        'ext-zlib',
+    ], [ErrorType::SHADOW_DEPENDENCY])
+    ->ignoreErrorsOnPackages([
+        'symfony/polyfill-ctype',
+        'symfony/polyfill-mbstring',
+    ], [ErrorType::UNUSED_DEPENDENCY])
+    // These tools are invoked from Composer scripts or non-PHP configuration files.
+    ->ignoreErrorsOnPackages([
+        'codeception/module-asserts',
+        'phan/phan',
+        'php-parallel-lint/php-parallel-lint',
+        'phpcompatibility/php-compatibility',
+        'phpmd/phpmd',
+        'phpstan/phpstan',
+        'phpstan/phpstan-deprecation-rules',
+        'phpstan/phpstan-phpunit',
+        'phpstan/phpstan-strict-rules',
+        'slevomat/coding-standard',
+        'squizlabs/php_codesniffer',
+        'vimeo/psalm',
+    ], [ErrorType::UNUSED_DEPENDENCY])
+    ->enableAnalysisOfUnusedDevDependencies();

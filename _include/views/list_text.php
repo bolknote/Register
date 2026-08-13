@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * General list of sections and articles
  * Used for tag and favorite pages.

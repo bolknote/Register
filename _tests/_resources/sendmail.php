@@ -1,6 +1,8 @@
 #!/usr/bin/env php
 <?php
 
+declare(strict_types = 1);
+
 $options  = getopt('', ['dir:']);
 $mailDir  = $options['dir'] ?? sys_get_temp_dir() . '/mail';
 $fileName = getFileName($mailDir);

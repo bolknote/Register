@@ -5,11 +5,11 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Config;
-
 use S2\Cms\Pdo\DbLayerException;
+
 
 final readonly class IntProxy
 {

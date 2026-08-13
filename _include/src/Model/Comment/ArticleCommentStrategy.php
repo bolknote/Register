@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model\Comment;
 
@@ -16,8 +16,8 @@ use S2\Cms\Controller\CommentController;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\CommentNotifier;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\Request;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class ArticleCommentStrategy implements CommentStrategyInterface
 {
@@ -32,6 +32,7 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function getTargetByRequest(Request $request): ?TargetDto
     {
         $path = $request->getPathInfo();
@@ -41,6 +42,7 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
         if ($article === null || $article['commented'] === 0) {
             return null;
         }
+
         return new TargetDto($article['id'], $article['title']);
     }
 
@@ -48,6 +50,7 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function getTargetById(int $targetId): ?TargetDto
     {
         $result = $this->dbLayer
@@ -62,6 +65,7 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
         if (!\is_array($article)) {
             return null;
         }
+
         return new TargetDto($article['id'], $article['title']);
     }
 
@@ -69,6 +73,7 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function save(int $targetId, string $name, string $email, bool $showEmail, bool $subscribed, string $text, string $ip): int
     {
         $this->dbLayer
@@ -94,6 +99,7 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function notifySubscribers(int $commentId): void
     {
         $this->commentNotifier->notify($commentId);
@@ -103,6 +109,7 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function getHashForPublishedComment(int $targetId): ?string
     {
         $num = $this->articleProvider->getCommentNum($targetId, false);
@@ -114,6 +121,7 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function getRecentComment(string $hash, string $ip): ?CommentDto
     {
         $result = $this->dbLayer
@@ -129,7 +137,7 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
         ;
 
         foreach ($result->fetchAssocAll() as $comment) {
-            if ($hash === CommentController::commentHash($comment['id'], $comment['target_id'], $comment['email'], $ip, \get_class($this))) {
+            if ($hash === CommentController::commentHash($comment['id'], $comment['target_id'], $comment['email'], $ip, static::class)) {
                 return new CommentDto($comment['id'], $comment['target_id'], $comment['name'], $comment['email'], $comment['text']);
             }
         }
@@ -141,6 +149,7 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function publishComment(int $commentId): void
     {
         $this->dbLayer->update('art_comments')
@@ -154,6 +163,7 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function unsubscribe(int $targetId, string $email, string $code): bool
     {
         return $this->commentNotifier->unsubscribe($targetId, $email, $code);

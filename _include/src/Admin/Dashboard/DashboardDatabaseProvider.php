@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Dashboard;
 
@@ -28,20 +28,21 @@ readonly class DashboardDatabaseProvider implements DashboardStatProviderInterfa
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function getHtml(): string
     {
-        $totalSize = $totalRecords = null;
-
+        $totalSize = null;
+        $totalRecords = null;
         // Collect some additional info about MySQL
         if ($this->dbType === 'mysql') {
             // Calculate total db size/row count
             // TODO get rid of hardcoded 's2_search_idx_' prefix
-            $result = $this->dbLayer->query('SHOW TABLE STATUS FROM `' . $this->dbName . '` WHERE NAME LIKE \'' . $this->dbPrefix . '%\' AND NAME NOT LIKE \'' . $this->dbPrefix . 's2_search_idx_%\'');
-
-            $totalRecords = $totalSize = 0;
+            $result = $this->dbLayer->query('SHOW TABLE STATUS FROM `' . $this->dbName . "` WHERE NAME LIKE '" . $this->dbPrefix . "%' AND NAME NOT LIKE '" . $this->dbPrefix . "s2_search_idx_%'");
+            $totalRecords = 0;
+            $totalSize = 0;
             while ($status = $result->fetchAssoc()) {
-                $totalRecords += $status['Rows'];
-                $totalSize    += $status['Data_length'] + $status['Index_length'];
+                $totalRecords += (int)$status['Rows'];
+                $totalSize    += (int)$status['Data_length'] + (int)$status['Index_length'];
             }
         }
 

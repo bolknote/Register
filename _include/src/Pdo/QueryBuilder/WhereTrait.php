@@ -5,15 +5,13 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
 trait WhereTrait
 {
-    /**
-     * @var string[]
-     */
+    /** @var list<string> */
     private array $where = [];
 
     public function where(string $condition): self
@@ -28,6 +26,7 @@ trait WhereTrait
         return $this;
     }
 
+    /** @return list<string> */
     public function getWhere(): array
     {
         return $this->where;

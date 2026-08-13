@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
@@ -15,6 +15,7 @@ readonly class DeleteCommonCompiler implements DeleteCompilerInterface
     {
     }
 
+    #[\Override]
     public function getSql(DeleteBuilder $builder): string
     {
         $sql = \sprintf('DELETE FROM %s%s', $this->prefix, $builder->getTable());

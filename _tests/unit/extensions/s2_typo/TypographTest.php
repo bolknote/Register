@@ -5,7 +5,7 @@
  * @package S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace unit\extensions\s2_typo;
 
@@ -15,56 +15,58 @@ use s2_extensions\s2_typo\Typograph;
 /**
  * @group typo
  */
-class TypographTest extends Unit
+final class TypographTest extends Unit
 {
     /**
      * @dataProvider russianTextProvider
      */
-    public function testRussian($source, $expected): void
+    public function testRussian(string $source, string $expected): void
     {
         $val = Typograph::processRussianText($source);
-        $this->assertEquals($expected, $val);
+        self::assertSame($expected, $val);
     }
 
     /**
      * @dataProvider performanceProvider
      */
-    public function testPerformance($source, $expected): void
+    public function testPerformance(string $source, string $_expected): void
     {
         $iterations     = 100;
         $executionTimes = [];
 
-        for ($i = 0; $i < $iterations; $i++) {
+        for ($i = 0; $i < $iterations; ++$i) {
             $start            = microtime(true);
-            $val              = Typograph::processRussianText($source);
+            Typograph::processRussianText($source);
             $end              = microtime(true);
             $executionTime    = $end - $start;
             $executionTimes[] = $executionTime;
         }
 
         sort($executionTimes);
-        $medianIndex         = floor($iterations / 2);
+        $medianIndex         = intdiv($iterations, 2);
         $medianExecutionTime = $executionTimes[$medianIndex];
         codecept_debug("Median execution time for $iterations iterations: $medianExecutionTime seconds");
+        self::assertNotSame('', Typograph::processRussianText($source));
     }
 
     /** @noinspection HtmlUnknownTarget */
-    private function russianTextProvider(): array
+    public static function russianTextProvider(): \Iterator
     {
-        return [
-            ['- Это "Типограф"?', '— Это «Типограф»?'],
-            ['в этом – она вся', 'в этом&nbsp;— она вся'],
-            ['да и в школах не проходят', 'да и&nbsp;в&nbsp;школах не проходят'],
-            ['как-то же можно', '<nobr>как-то</nobr>&nbsp;же можно'],
-            ['так-что ли?', '<nobr>так-что</nobr>&nbsp;ли?'],
-            ['"Онлайн-кинотеатр "Аййо"".', '<nobr>«Онлайн-кинотеатр</nobr> „Аййо“».'],
-            ['(c) 2024 - someone.', '© 2024&nbsp;— someone.'],
-            ['<p>$$5+6z=A(6+z)\iff(6-A)z=6A-5\implies z={6A-5\over 6-A}.$$</p>', '<p>$$5+6z=A(6+z)\iff(6-A)z=6A-5\implies z={6A-5\over 6-A}.$$</p>'], // No replacement in LaTeX
-            ['<p class="header">Some text.</p><p class="subheader">Another-text</p>', '<p class="header">Some text.</p><p class="subheader"><nobr>Another-text</nobr></p>'],
-            ['SOCKS5-прокси', '<nobr>SOCKS5-прокси</nobr>'],
-            ['<a href="/some/url.html">"CSS-стилей"</a>', '<a href="/some/url.html"><nobr>«CSS-стилей»</nobr></a>'], // a bug, should be '«<a href="/some/url.html"><nobr>CSS-стилей</nobr></a>»'
-            ['"First level "second level "and third level"" and "second" level again".', '"First level «second level „and third level“» and «second» level again".'],
-            ['
+        yield ['- Это "Типограф"?', '— Это «Типограф»?'];
+        yield ['в этом – она вся', 'в этом&nbsp;— она вся'];
+        yield ['да и в школах не проходят', 'да и&nbsp;в&nbsp;школах не проходят'];
+        yield ['как-то же можно', '<nobr>как-то</nobr>&nbsp;же можно'];
+        yield ['так-что ли?', '<nobr>так-что</nobr>&nbsp;ли?'];
+        yield ['"Онлайн-кинотеатр "Аййо"".', '<nobr>«Онлайн-кинотеатр</nobr> „Аййо“».'];
+        yield ['(c) 2024 - someone.', '© 2024&nbsp;— someone.'];
+        yield ['<p>$$5+6z=A(6+z)\iff(6-A)z=6A-5\implies z={6A-5\over 6-A}.$$</p>', '<p>$$5+6z=A(6+z)\iff(6-A)z=6A-5\implies z={6A-5\over 6-A}.$$</p>'];
+        // No replacement in LaTeX
+        yield ['<p class="header">Some text.</p><p class="subheader">Another-text</p>', '<p class="header">Some text.</p><p class="subheader"><nobr>Another-text</nobr></p>'];
+        yield ['SOCKS5-прокси', '<nobr>SOCKS5-прокси</nobr>'];
+        yield ['<a href="/some/url.html">"CSS-стилей"</a>', '<a href="/some/url.html"><nobr>«CSS-стилей»</nobr></a>'];
+        // a bug, should be '«<a href="/some/url.html"><nobr>CSS-стилей</nobr></a>»'
+        yield ['"First level "second level "and third level"" and "second" level again".', '"First level «second level „and third level“» and «second» level again".'];
+        yield ['
   <title>Приключения Кода и Типо-графа</title>
   <h1>Приключения Кода и Типографа</h1>
 
@@ -124,13 +126,12 @@ class TypographTest extends Unit
     <p>И&nbsp;так, под звуки магии CSS и&nbsp;атрибутов HTML, Кодик и&nbsp;Типограф вместе создали волшебный текст, который приносил удовольствие каждому разработчику, кто к&nbsp;нему прикасался.</p>
 
     <p>С&nbsp;тех пор Кодик и&nbsp;Типограф стали неразлучными друзьями, продолжая исследовать мир кода и&nbsp;преображать текст во <nobr>что-то</nobr> удивительное.</p>
-  </div>'],
-        ];
+  </div>'];
     }
 
-    private function performanceProvider(): array
+    public static function performanceProvider(): \Iterator
     {
-        return [[<<<'EOF'
+        yield [<<<'EOF'
 
 <!DOCTYPE html>
 <html lang="ru">
@@ -626,6 +627,6 @@ class TypographTest extends Unit
 </body>
 </html>
 EOF
-            , '']];
+            , ''];
     }
 }

@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Installation script for S2.
  *
@@ -18,6 +21,7 @@ use S2\Cms\HttpClient\HttpClientException;
 use S2\Cms\Install\InstallExtension;
 use S2\Cms\Logger\Logger;
 use S2\Cms\Model\ExtensionCache;
+use S2\Cms\Model\Installer;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 use Symfony\Component\ErrorHandler\Debug;
@@ -25,8 +29,7 @@ use Symfony\Component\ErrorHandler\ErrorHandler;
 use Symfony\Component\ErrorHandler\ErrorRenderer\HtmlErrorRenderer;
 
 define('S2_VERSION', '2.0dev');
-define('S2_DB_REVISION', 24);
-define('MIN_PHP_VERSION', '8.2.0');
+define('MIN_PHP_VERSION', '8.3.0');
 
 define('S2_ROOT', '../');
 define('S2_DEBUG', 1);
@@ -40,8 +43,9 @@ require S2_ROOT . '_vendor/autoload.php';
  *
  * @param string $message Error message to display (can contain HTML)
  * @param string $title Page title and heading (default: 'Error')
+ * @SuppressWarnings("PHPMD.ExitExpression")
  */
-function error(string $message, string $title = 'An error was encountered'): void
+function error(string $message, string $title = 'An error was encountered'): never
 {
     if (!headers_sent()) {
         $protocol = $_SERVER['SERVER_PROTOCOL'] ?? 'HTTP/1.1';
@@ -138,7 +142,7 @@ if (!function_exists('version_compare') || version_compare(PHP_VERSION, MIN_PHP_
 error_reporting(defined('S2_DEBUG') ? E_ALL : E_ALL ^ E_NOTICE);
 
 // Turn off PHP time limit
-@set_time_limit(0);
+s2_call_without_warnings(static fn(): bool => set_time_limit(0));
 
 require __DIR__ . '/../_include/setup.php';
 
@@ -150,6 +154,7 @@ if (defined('S2_DEBUG')) {
 HtmlErrorRenderer::setTemplate(__DIR__ . '/../_include/views/error.php');
 $errorHandler->setDefaultLogger(new Logger(S2_ROOT . '_cache/install.log', 'install', LogLevel::DEBUG));
 
+/** @param array<int|string, mixed> $config */
 function render_install_config_array(array $config, int $indentLevel = 0): string
 {
     $indent      = str_repeat('    ', $indentLevel);
@@ -172,107 +177,122 @@ function render_install_config_array(array $config, int $indentLevel = 0): strin
     return implode("\n", $resultLines);
 }
 
-function generate_config_file(HttpClient $httpClient)
+function generate_config_file(
+    HttpClient $httpClient,
+    string $dbType,
+    string $dbHost,
+    string $dbName,
+    string $dbUsername,
+    string $dbPassword,
+    string $dbPrefix,
+    string $baseUrl,
+    string $cookieName,
+): string
 {
-    global $db_type, $db_host, $db_name, $db_username, $db_password, $db_prefix, $base_url, $s2_cookie_name;
-
-    foreach (array('', '/?', '/index.php', '/index.php?') as $prefix) {
-        $url_prefix = $prefix;
+    $urlPrefix = '';
+    foreach (['', '/?', '/index.php', '/index.php?'] as $prefix) {
+        $urlPrefix = $prefix;
         try {
-            $response = $httpClient->fetch($base_url . $url_prefix . '/this/URL/_DoEs_/_NoT_/_eXiSt');
+            $response = $httpClient->fetch($baseUrl . $urlPrefix . '/this/URL/_DoEs_/_NoT_/_eXiSt');
             if ($response->content !== null && str_contains($response->content, '<meta name="Generator" content="S2">')) {
                 break;
             }
-        } catch (HttpClientException $e) {
+        } catch (HttpClientException) {
             continue;
         }
     }
 
-    $path = preg_replace('#^[^:/]+://[^/]*#', '', $base_url);
+    $path = preg_replace('#^[^:/]+://[^/]*#', '', $baseUrl) ?? '';
 
-    $use_https = false;
-    if (str_starts_with($base_url, 'https://')) {
-        $use_https = true;
+    $useHttps = false;
+    if (str_starts_with($baseUrl, 'https://')) {
+        $useHttps = true;
     } else {
         try {
-            $response = $httpClient->fetch('https://' . substr($base_url, 7) . $url_prefix . '/this/URL/_DoEs_/_NoT_/_eXiSt');
+            $response = $httpClient->fetch('https://' . substr($baseUrl, 7) . $urlPrefix . '/this/URL/_DoEs_/_NoT_/_eXiSt');
             if ($response->content !== null && str_contains($response->content, '<meta name="Generator" content="S2">')) {
-                $use_https = true;
+                $useHttps = true;
             }
-        } catch (HttpClientException $e) {
-            ; // no op
+        } catch (HttpClientException) {
+            $useHttps = false;
         }
     }
 
     $config = [
         'database' => [
-            'type'      => $db_type,
-            'host'      => $db_host,
-            'name'      => $db_name,
-            'user'      => $db_username,
-            'password'  => $db_password,
-            'prefix'    => $db_prefix,
+            'type'      => $dbType,
+            'host'      => $dbHost,
+            'name'      => $dbName,
+            'user'      => $dbUsername,
+            'password'  => $dbPassword,
+            'prefix'    => $dbPrefix,
             'p_connect' => false,
         ],
         'http'     => [
-            'base_url'   => $base_url,
+            'base_url'   => $baseUrl,
             'base_path'  => $path,
-            'url_prefix' => $url_prefix,
+            'url_prefix' => $urlPrefix,
         ],
         'options'  => [
-            'force_admin_https' => $use_https,
+            'force_admin_https' => $useHttps,
             'canonical_url'     => null,
             'debug'             => 0,
             'debug_view'        => 0,
             'show_queries'      => 0,
         ],
         'cookies'  => [
-            'name' => $s2_cookie_name,
+            'name' => $cookieName,
         ],
     ];
 
     return "<?php\n\nreturn " . render_install_config_array($config) . ";\n";
 }
 
-function get_preferred_lang($languages)
+/** @param list<string> $languages */
+function get_preferred_lang(array $languages): string
 {
-    if (!isset($_SERVER['HTTP_ACCEPT_LANGUAGE']))
+    $acceptLanguage = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? null;
+    if (!is_string($acceptLanguage)) {
         return 'English';
-
-    $langs = array();
-
-    // Break up string into pieces (languages and q factors)
-    preg_match_all('#([a-z]{1,8}(-[a-z]{1,8}))?\s*(;\s*q\s*=\s*(1|0\.[0-9]+))?#i', $_SERVER['HTTP_ACCEPT_LANGUAGE'], $lang_parse);
-
-    if (count($lang_parse[1])) {
-        // Create a list like "en" => 0.8
-        $langs = array_combine($lang_parse[1], $lang_parse[4]);
-
-        // Set default to 1 for any without q factor
-        foreach ($langs as $lang => $val)
-            if ($val === '')
-                $langs[$lang] = 1;
-
-        // Sort list based on value
-        arsort($langs, SORT_NUMERIC);
     }
 
-    foreach ($langs as $lang => $val) {
-        list($lang) = explode('-', $lang);
-        foreach ($languages as $available_lang)
-            if (strtolower(substr($available_lang, 0, 2)) == strtolower($lang))
-                return $available_lang;
+    $langs = [];
+
+    // Break up string into pieces (languages and q factors)
+    preg_match_all('#([a-z]{1,8}(?:-[a-z]{1,8})?)?\s*(?:;\s*q\s*=\s*(1|0\.[0-9]+))?#i', $acceptLanguage, $languageMatches);
+
+    foreach ($languageMatches[1] as $index => $languageCode) {
+        if ($languageCode === '') {
+            continue;
+        }
+
+        $quality = $languageMatches[2][$index];
+        $langs[$languageCode] = $quality === '' ? 1.0 : (float)$quality;
+    }
+    arsort($langs, SORT_NUMERIC);
+
+    foreach (array_keys($langs) as $languageCode) {
+        [$shortLanguageCode] = explode('-', $languageCode);
+        foreach ($languages as $availableLanguage) {
+            if (strtolower(substr($availableLanguage, 0, 2)) === strtolower($shortLanguageCode)) {
+                return $availableLanguage;
+            }
+        }
     }
 
     return 'English';
 }
 
-$emptyApp = new Application();
-$emptyApp->addExtension(new CmsExtension());
-$emptyApp->addExtension(new AdminExtension());
-$emptyApp->addExtension(new InstallExtension());
-$emptyApp->boot((static function (): array {
-    $result = [
+/** @return array<string, mixed> */
+function installApplicationParameters(
+    ?string $dbType = null,
+    ?string $dbHost = null,
+    ?string $dbName = null,
+    ?string $dbUsername = null,
+    ?string $dbPassword = null,
+    ?string $dbPrefix = null,
+): array {
+    return [
         'root_dir'      => S2_ROOT,
         'cache_dir'     => s2_get_default_cache_dir(),
         'disable_cache' => false,
@@ -282,54 +302,95 @@ $emptyApp->boot((static function (): array {
         'debug'         => defined('S2_DEBUG'),
         'debug_view'    => defined('S2_DEBUG_VIEW'),
         'redirect_map'  => [],
+        'db_type'       => $dbType,
+        'db_host'       => $dbHost,
+        'db_name'       => $dbName,
+        'db_username'   => $dbUsername,
+        'db_password'   => $dbPassword,
+        'db_prefix'     => $dbPrefix,
+        'p_connect'     => false,
     ];
+}
 
-    foreach (['db_type', 'db_host', 'db_name', 'db_username', 'db_password', 'db_prefix', 'p_connect'] as $globalVarName) {
-        $result[$globalVarName] = $GLOBALS[$globalVarName] ?? null;
-    }
+/** @return array{Application, DbLayer} */
+function createInstallationApplication(
+    string $dbType,
+    string $dbHost,
+    string $dbName,
+    string $dbUsername,
+    string $dbPassword,
+    string $dbPrefix,
+): array {
+    $application = new Application();
+    $application->addExtension(new CmsExtension());
+    $application->boot(installApplicationParameters($dbType, $dbHost, $dbName, $dbUsername, $dbPassword, $dbPrefix));
 
-    return $result;
-})());
+    $dbLayer = $application->container->get(DbLayer::class);
+    $dbLayer->query('SELECT 1;');
+
+    return [$application, $dbLayer];
+}
+
+$emptyApp = new Application();
+$emptyApp->addExtension(new CmsExtension());
+$emptyApp->addExtension(new AdminExtension());
+$emptyApp->addExtension(new InstallExtension());
+$emptyApp->boot(installApplicationParameters());
 
 
-/** @var \S2\Cms\Admin\ResourceProvider $resourceProvider */
 $resourceProvider = $emptyApp->container->get(\S2\Cms\Admin\ResourceProvider::class);
 $languages        = $resourceProvider->readLanguages();
 
-$language = $_GET['lang'] ?? (isset($_POST['req_language']) ? trim($_POST['req_language']) : get_preferred_lang($languages));
-$language = preg_replace('#[\.\\\/]#', '', $language);
+function installPostString(string $name): string
+{
+    $value = $_POST[$name] ?? '';
+    return is_string($value) ? $value : '';
+}
+
+function installServerString(string $name, string $default): string
+{
+    $value = $_SERVER[$name] ?? null;
+    return is_string($value) ? $value : $default;
+}
+
+$requestedLanguage = $_GET['lang'] ?? null;
+if (!is_string($requestedLanguage)) {
+    $requestedLanguage = isset($_POST['req_language']) ? installPostString('req_language') : get_preferred_lang($languages);
+}
+
+$language = preg_replace('#[\.\\\/]#', '', $requestedLanguage) ?? 'English';
 if (!file_exists(S2_ROOT . '_lang/' . $language . '/common.php')) {
-    error('The language pack you have chosen doesn\'t seem to exist or is corrupt. Please recheck and try again.');
+    error("The language pack you have chosen doesn't seem to exist or is corrupt. Please recheck and try again.");
 }
 
 /** @var \S2\Cms\Config\InstallationConfigProvider $dynamicConfigProvider */
 $dynamicConfigProvider = $emptyApp->container->get(\S2\Cms\Config\DynamicConfigProvider::class);
-$dynamicConfigProvider->setCallback(static function (string $paramName) use ($language) {
-    return match ($paramName) {
-        'S2_LANGUAGE' => $language,
-        default => throw new LogicException(sprintf('Parameter "%s" is not available during installation.', $paramName))
-    };
+$dynamicConfigProvider->setCallback(static fn(string $paramName): string => match ($paramName) {
+    'S2_LANGUAGE' => $language,
+    default => throw new LogicException(sprintf('Parameter "%s" is not available during installation.', $paramName))
 });
 
 // Load the language files
 /** @var \Symfony\Contracts\Translation\TranslatorInterface $translator */
 $translator = $emptyApp->container->get('translator');
 require S2_ROOT . '_admin/lang/' . $translator->getLocale() . '/install.php';
+/** @var array<string, string> $lang_install */
 
 if (isset($_POST['generate_config'])) {
     header(sprintf('Content-Type: text/x-delimtext; name="%s"', s2_get_config_filename()));
     header(sprintf("Content-disposition: attachment; filename=%s", s2_get_config_filename()));
 
-    $db_type        = $_POST['db_type'];
-    $db_host        = $_POST['db_host'];
-    $db_name        = $_POST['db_name'];
-    $db_username    = $_POST['db_username'];
-    $db_password    = $_POST['db_password'];
-    $db_prefix      = $_POST['db_prefix'];
-    $base_url       = $_POST['base_url'];
-    $s2_cookie_name = $_POST['cookie_name'];
-
-    echo generate_config_file($emptyApp->container->get(HttpClient::class));
+    echo generate_config_file(
+        $emptyApp->container->get(HttpClient::class),
+        installPostString('db_type'),
+        installPostString('db_host'),
+        installPostString('db_name'),
+        installPostString('db_username'),
+        installPostString('db_password'),
+        installPostString('db_prefix'),
+        installPostString('base_url'),
+        installPostString('cookie_name'),
+    );
     exit;
 }
 
@@ -338,18 +399,27 @@ header('Content-Type: text/html; charset=utf-8');
 
 function guessBaseUrl(): string
 {
+    $host       = installServerString('HTTP_HOST', 'localhost');
+    $scriptName = installServerString('SCRIPT_NAME', '/_admin/install.php');
+
     $result =
-        ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https://' : 'http://')
-        . preg_replace('/:80$/', '', $_SERVER['HTTP_HOST'])
-        . substr(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), 0, -6);
+        (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://')
+        . (preg_replace('/:80$/', '', $host) ?? $host)
+        . substr(str_replace('\\', '/', dirname($scriptName)), 0, -6);
 
     if (str_ends_with($result, '/')) {
-        $result = substr($result, 0, -1);
+        return substr($result, 0, -1);
     }
 
     return $result;
 }
 
+/**
+ * @param array<string, string> $lang_install
+ * @param list<string> $languages
+ * @param array<string, string> $values
+ * @param array<string, list<string>> $validationErrors
+ */
 function renderInstallForm(array $lang_install, array $languages, string $currentLanguage, array $values, array $validationErrors): void
 {
     // Determine available database extensions
@@ -368,7 +438,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
         ],
     ];
 
-    if (count(array_filter($supportedDatabases, static fn($db) => $db['available'])) === 0) {
+    if (count(array_filter($supportedDatabases, static fn(array $db): bool => $db['available'])) === 0) {
         error($lang_install['No database support']);
     }
 
@@ -425,12 +495,12 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
     </div>
     <?php if (isset($validationErrors['db_error'])): ?>
         <div class="error-box">
-            <p><?php echo s2_htmlencode(sprintf($lang_install['Database error'], $validationErrors['db_error'])); ?></p>
+            <p><?php echo s2_htmlencode(sprintf($lang_install['Database error'], $validationErrors['db_error'][0])); ?></p>
         </div>
     <?php endif; ?>
     <?php if (isset($validationErrors['db_is_used'])): ?>
         <div class="error-box">
-            <p><?php echo $validationErrors['db_is_used']; ?></p>
+            <p><?php echo $validationErrors['db_is_used'][0]; ?></p>
             <p><?php echo $lang_install['S2 already installed 2'] ?></p>
             <p><?php echo $lang_install['S2 already installed 3'] ?></p>
             <form method="post" accept-charset="utf-8" action="install.php">
@@ -459,7 +529,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                 foreach ($supportedDatabases as $dbType => $dbInfo) {
                     $enabled   = $dbInfo['available'];
                     $isChecked = (isset($values['req_db_type']) ? $values['req_db_type'] === $dbType : $enabled && !$selected) ? 'checked' : '';
-                    echo '<label ' . ($enabled ? '' : 'class="disabled"') . '><input type="radio" name="req_db_type" ' . ($isChecked) . ' value="' . $dbType . '" ' . ($enabled ? '' : 'disabled="disabled"') . '><span>' . $dbInfo['title'] . ($enabled ? '' : ' ' . $lang_install['Database type N/A']) . '</span></label>' . "<br>\n";
+                    echo '<label ' . ($enabled ? '' : 'class="disabled"') . '><input type="radio" name="req_db_type" ' . $isChecked . ' value="' . $dbType . '" ' . ($enabled ? '' : 'disabled="disabled"') . '><span>' . $dbInfo['title'] . ($enabled ? '' : ' ' . $lang_install['Database type N/A']) . '</span></label>' . "<br>\n";
                     if ($enabled) {
                         $selected = true;
                     }
@@ -638,22 +708,23 @@ if (!isset($_POST['form_sent'])) {
     exit;
 }
 
-$db_type      = $_POST['req_db_type'];
-$db_host      = trim($_POST['req_db_host']);
-$db_name      = trim($_POST['req_db_name']);
-$db_username  = trim($_POST['db_username']);
-$db_password  = trim($_POST['db_password']);
-$db_prefix    = trim($_POST['db_prefix']);
-$username     = trim($_POST['req_username']);
-$password     = trim($_POST['req_password']);
-$email        = strtolower(trim($_POST['adm_email']));
-$default_lang = preg_replace('#[\.\\\/]#', '', trim($_POST['req_language']));
+$db_type      = installPostString('req_db_type');
+$db_host      = trim(installPostString('req_db_host'));
+$db_name      = trim(installPostString('req_db_name'));
+$db_username  = trim(installPostString('db_username'));
+$db_password  = trim(installPostString('db_password'));
+$db_prefix    = trim(installPostString('db_prefix'));
+$username     = trim(installPostString('req_username'));
+$password     = trim(installPostString('req_password'));
+$email        = strtolower(trim(installPostString('adm_email')));
+$default_lang = preg_replace('#[\.\\\/]#', '', trim(installPostString('req_language'))) ?? '';
 
 // Make sure base_url doesn't end with a slash
-if (str_ends_with($_POST['req_base_url'], '/')) {
-    $base_url = substr($_POST['req_base_url'], 0, -1);
+$requestedBaseUrl = installPostString('req_base_url');
+if (str_ends_with($requestedBaseUrl, '/')) {
+    $base_url = substr($requestedBaseUrl, 0, -1);
 } else {
-    $base_url = $_POST['req_base_url'];
+    $base_url = $requestedBaseUrl;
 }
 
 // Validate form
@@ -667,7 +738,7 @@ if (strlen($db_prefix) > 40) {
     $validationErrors['db_prefix'][] = sprintf($lang_install['Too long table prefix'], $db_prefix);
 }
 
-if (strlen($db_prefix) > 0 && !preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $db_prefix)) {
+if ($db_prefix !== '' && preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/D', $db_prefix) !== 1) {
     $validationErrors['db_prefix'][] = sprintf($lang_install['Invalid table prefix'], $db_prefix);
 }
 
@@ -703,66 +774,44 @@ if (!file_exists(S2_ROOT . '_lang/' . $default_lang . '/common.php')) {
     $validationErrors['req_language'][] = $lang_install['Invalid language'];
 }
 
-if (count($validationErrors) === 0) {
-    // Create the database object (and connect/select db)
-    $p_connect = false;
-    $app       = new Application();
-    $app->addExtension(new CmsExtension());
-    $app->boot((static function (): array {
-        $result = [
-            'root_dir'      => S2_ROOT,
-            'cache_dir'     => s2_get_default_cache_dir(),
-            'disable_cache' => false,
-            'log_dir'       => s2_get_default_cache_dir(),
-            'base_url'      => null,
-            'base_path'     => null,
-            'debug'         => defined('S2_DEBUG'),
-            'debug_view'    => defined('S2_DEBUG_VIEW'),
-            'redirect_map'  => [],
-        ];
+$submittedValues = [
+    'req_db_type'  => $db_type,
+    'req_db_host'  => $db_host,
+    'req_db_name'  => $db_name,
+    'db_username'  => $db_username,
+    'db_password'  => $db_password,
+    'db_prefix'    => $db_prefix,
+    'req_username' => $username,
+    'req_password' => $password,
+    'adm_email'    => $email,
+    'req_language' => $default_lang,
+    'req_base_url' => $base_url,
+];
 
-        foreach (['db_type', 'db_host', 'db_name', 'db_username', 'db_password', 'db_prefix', 'p_connect'] as $globalVarName) {
-            $result[$globalVarName] = $GLOBALS[$globalVarName] ?? null;
-        }
-
-        return $result;
-    })());
-    /** @var DbLayer $s2_db */
-    $s2_db = $app->container->get(DbLayer::class);
-
-    try {
-        $s2_db->query('SELECT 1;');
-    } catch (\Exception $e) {
-        $validationErrors['db_error'] = $e->getMessage();
-    }
+if ($validationErrors !== []) {
+    renderInstallForm($lang_install, $languages, $language, $submittedValues, $validationErrors);
+    exit;
 }
 
-if (count($validationErrors) === 0) {
-    // Make sure S2 isn't already installed
-    try {
-        $result = $s2_db->select('count(id)')->from('users')->execute();
-        if ($result->fetchRow()) {
-            $validationErrors['db_is_used'] = sprintf($lang_install['S2 already installed'], $db_prefix, $db_name);
-        }
-    } catch (DbLayerException|PDOException $e) {
-
-    }
+try {
+    [$app, $s2_db] = createInstallationApplication($db_type, $db_host, $db_name, $db_username, $db_password, $db_prefix);
+} catch (\Throwable $throwable) {
+    $validationErrors['db_error'][] = $throwable->getMessage();
+    renderInstallForm($lang_install, $languages, $language, $submittedValues, $validationErrors);
+    exit;
 }
 
-if (count($validationErrors) > 0) {
-    renderInstallForm($lang_install, $languages, $language, [
-        'req_db_type'  => $db_type,
-        'req_db_host'  => $db_host,
-        'req_db_name'  => $db_name,
-        'db_username'  => $db_username,
-        'db_password'  => $db_password,
-        'db_prefix'    => $db_prefix,
-        'req_username' => $username,
-        'req_password' => $password,
-        'adm_email'    => $email,
-        'req_language' => $default_lang,
-        'req_base_url' => $base_url,
-    ], $validationErrors);
+// Make sure S2 isn't already installed.
+try {
+    $result           = $s2_db->select('count(id)')->from('users')->execute();
+    $databaseHasUsers = $result->fetchRow() !== false;
+} catch (DbLayerException|PDOException) {
+    $databaseHasUsers = false;
+}
+
+if ($databaseHasUsers) {
+    $validationErrors['db_is_used'][] = sprintf($lang_install['S2 already installed'], $db_prefix, $db_name);
+    renderInstallForm($lang_install, $languages, $language, $submittedValues, $validationErrors);
     exit;
 }
 
@@ -794,7 +843,7 @@ $s2_db
 ;
 $admin_uid = $s2_db->insertId();
 
-$installer->insertConfigData($lang_install['Site name'], $email, $default_lang, S2_DB_REVISION);
+$installer->insertConfigData($lang_install['Site name'], $email, $default_lang, Installer::DB_REVISION);
 
 // Insert some other default data
 $installer->insertMainPage($lang_install['Main Page'], $now);
@@ -829,11 +878,10 @@ if ($db_type !== 'mysql') {
     $s2_db->endTransaction();
 }
 
-/** @var ExtensionCache $cache */
 $cache = $app->container->get(ExtensionCache::class);
 $cache->clear();
 
-$alerts = array();
+$alerts = [];
 // Check if the cache directory is writable
 if (!is_writable(s2_get_default_cache_dir())) {
     $alerts[] = '<li><span>' . $lang_install['No cache write'] . '</span></li>';
@@ -845,7 +893,7 @@ if (!is_writable(S2_ROOT . '_pictures/')) {
 }
 
 // Check if we disabled uploading pictures because file_uploads was disabled
-$uploads = in_array(strtolower(@ini_get('file_uploads')), array('on', 'true', '1')) ? 1 : 0;
+$uploads = in_array(strtolower((string)ini_get('file_uploads')), ['on', 'true', '1'], true);
 if (!$uploads) {
     $alerts[] = '<li><span>' . $lang_install['File upload alert'] . '</span></li>';
 }
@@ -854,13 +902,23 @@ if (!$uploads) {
 $s2_cookie_name = 's2_cookie_' . mt_rand();
 
 /// Generate the config.php file data
-$config = generate_config_file($app->container->get(HttpClient::class));
+$config = generate_config_file(
+    $app->container->get(HttpClient::class),
+    $db_type,
+    $db_host,
+    $db_name,
+    $db_username,
+    $db_password,
+    $db_prefix,
+    $base_url,
+    $s2_cookie_name,
+);
 
 // Attempt to write config.php and serve it up for download if writing fails
 $written = false;
 if (is_writable(S2_ROOT)) {
-    $fh = @fopen(S2_ROOT . s2_get_config_filename(), 'wb');
-    if ($fh) {
+    $fh = s2_call_without_warnings(static fn() => fopen(S2_ROOT . s2_get_config_filename(), 'wb'));
+    if ($fh !== false) {
         fwrite($fh, $config);
         fclose($fh);
 
@@ -885,7 +943,7 @@ if (is_writable(S2_ROOT)) {
     <h2><?php echo $lang_install['Final instructions'] ?></h2>
     <?php
 
-    if (!empty($alerts)) {
+    if ($alerts !== []) {
 
         ?>
         <div class="warning-box">

@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
@@ -29,9 +29,14 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 class DynamicConfigFormBuilder
 {
     /**
+     * @var array<string, string>|null
+     */
+    public ?array $paramTypes = null;
+
+    /**
      * S2 parameters. Extensions may add their own parameters via DynamicConfigFormExtenderInterface instances.
      */
-    private const PARAM_TYPES = [
+    private const array PARAM_TYPES = [
         'Site config'        => 'title',
         'S2_SITE_NAME'       => 'string',
         'S2_WEBMASTER'       => 'string',
@@ -64,7 +69,7 @@ class DynamicConfigFormBuilder
     /**
      * @var DynamicConfigFormExtenderInterface[]
      */
-    private array $dynamicConfigFormExtenders;
+    private readonly array $dynamicConfigFormExtenders;
 
     public function __construct(
         private readonly PermissionChecker       $permissionChecker,
@@ -80,6 +85,10 @@ class DynamicConfigFormBuilder
         $this->dynamicConfigFormExtenders = $dynamicConfigFormExtenders;
     }
 
+    /**
+     * @param array<string, mixed> $header
+     * @param array<int, mixed> $rows
+     */
     public function transformConfigTable(string $entityName, array &$header, array &$rows): void
     {
         $paramTypes = $this->getParamTypes();
@@ -94,8 +103,9 @@ class DynamicConfigFormBuilder
                 ];
             }
         }
+
         $orderArray = array_flip(array_keys($paramTypes));
-        usort($rows, static fn($row1, $row2) => ($orderArray[$row1['cells']['name']['content']] ?? PHP_INT_MAX) <=> ($orderArray[$row2['cells']['name']['content']] ?? PHP_INT_MAX));
+        usort($rows, static fn(array $row1, array $row2): int => ($orderArray[$row1['cells']['name']['content']] ?? PHP_INT_MAX) <=> ($orderArray[$row2['cells']['name']['content']] ?? PHP_INT_MAX));
 
         $valFieldName = 'value';
         foreach ($rows as $rowIndex => &$row) {
@@ -105,6 +115,7 @@ class DynamicConfigFormBuilder
                 $row['cells']['name']['content'] = '<b>' . $this->translator->trans($paramName) . '</b>';
                 continue;
             }
+
             if (($paramTypes[$paramName] ?? null) === 'hidden') {
                 unset($rows[$rowIndex]);
                 continue;
@@ -112,6 +123,10 @@ class DynamicConfigFormBuilder
 
             $field = $this->createDynamicFieldConfig($paramName);
             if ($field->inlineEdit) {
+                if (!$field->type instanceof DbColumnFieldType) {
+                    throw new \LogicException('Inline configuration fields must be backed by a database column.');
+                }
+
                 $form = $this->formFactory->createEntityForm(new FormParams(
                     $entityName,
                     [$valFieldName => $field],
@@ -131,12 +146,14 @@ class DynamicConfigFormBuilder
                     'primaryKey' => $row['primary_key'],
                 ]);
             }
+
             $row['cells']['name']['content'] = $this->translator->trans($paramName);
             $row['cells']['help']            = [
                 'content' => $this->translator->trans($paramName . '_help'),
                 'type'    => FieldConfig::DATA_TYPE_STRING,
             ];
         }
+
         unset($row);
 
         $header['help'] = $this->translator->trans('Help');
@@ -145,10 +162,10 @@ class DynamicConfigFormBuilder
     public function getValueFieldConfig(): FieldConfig
     {
         $request = $this->requestStack->getMainRequest();
-        if ($request !== null && $request->query->get('action') === 'patch' && $request->query->get('field') === 'value') {
+        if ($request instanceof \Symfony\Component\HttpFoundation\Request && $request->query->get('action') === 'patch' && $request->query->get('field') === 'value') {
             // Polymorphic field config for form processing in AdminYard.
             // Datatype and control are selected based on the parameter name.
-            return $this->createDynamicFieldConfig($request->query->get('name'));
+            return $this->createDynamicFieldConfig($request->query->getString('name'));
         }
 
         // Fake field config for AdminYard on the list screen.
@@ -172,7 +189,7 @@ class DynamicConfigFormBuilder
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING),
                 control: 'input',
                 validators: [
-                    (static function () {
+                    (static function (): \S2\AdminYard\Validator\Regex {
                         $validator          = new Regex('/^(([^<>()[\]\\.,;:\s@"\']+(\.[^<>()[\]\\.,;:\s@"\']+)*)|("[^"\']+"))@((\[\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])|(([a-zA-Z\d\-]+\.)+[a-zA-Z]{2,}))$/');
                         $validator->message = 'Invalid webmaster email';
                         return $validator;
@@ -211,15 +228,19 @@ class DynamicConfigFormBuilder
                 options: array_combine($styles = $this->resourceProvider->readStyles(), $styles),
                 inlineEdit: $inlineEdit
             ),
+            default => throw new \LogicException(\sprintf('Unsupported dynamic configuration field type for "%s".', $paramName)),
         };
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function getParamTypes(): array
     {
         return $this->paramTypes ?? array_merge(
             self::PARAM_TYPES,
             ...array_map(
-                static fn(DynamicConfigFormExtenderInterface $extender) => $extender->getExtraParamTypes(),
+                static fn(DynamicConfigFormExtenderInterface $extender): array => $extender->getExtraParamTypes(),
                 $this->dynamicConfigFormExtenders
             )
         );

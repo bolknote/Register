@@ -5,14 +5,14 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\Viewer;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class CommentProvider
 {
@@ -29,6 +29,7 @@ readonly class CommentProvider
      * Fetching last comments (for template placeholders)
      *
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function lastArticleComments(): array
     {
@@ -57,8 +58,11 @@ readonly class CommentProvider
             ->limit(5)
             ->execute()
         ;
-
-        $nickNames = $titles = $parentIds = $urls = $counts = [];
+        $nickNames = [];
+        $titles = [];
+        $parentIds = [];
+        $urls = [];
+        $counts = [];
         while ($row = $result->fetchAssoc()) {
             $nickNames[] = $row['nick'];
             $titles[]    = $row['title'];
@@ -71,11 +75,11 @@ readonly class CommentProvider
 
         $output = [];
         foreach ($urls as $k => $url) {
-            $output[] = array(
+            $output[] = [
                 'title'  => $titles[$k],
                 'link'   => $this->urlBuilder->link($url) . '#' . $counts[$k],
                 'author' => $nickNames[$k],
-            );
+            ];
         }
 
         return $output;
@@ -86,8 +90,8 @@ readonly class CommentProvider
      *
      * Last discussions are the articles with the highest number of comments that were created in the last month.
      *
-     * @return array
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function lastDiscussions(): array
     {
@@ -117,8 +121,11 @@ readonly class CommentProvider
             ->setParameter(':time', strtotime('-1 month midnight'))
             ->execute()
         ;
-
-        $titles = $parent_ids = $urls = $nicks = $time = [];
+        $titles = [];
+        $parent_ids = [];
+        $urls = [];
+        $nicks = [];
+        $time = [];
         while ($row = $result->fetchAssoc()) {
             $titles[]     = $row['title'];
             $parent_ids[] = $row['parent_id'];

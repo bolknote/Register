@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
@@ -13,17 +13,29 @@ use S2\Cms\Framework\StatefulServiceInterface;
 
 class PermissionChecker implements StatefulServiceInterface
 {
-    public const PERMISSION_VIEW            = 'view';
-    public const PERMISSION_VIEW_HIDDEN     = 'view_hidden';
-    public const PERMISSION_HIDE_COMMENTS   = 'hide_comments';
-    public const PERMISSION_EDIT_COMMENTS   = 'edit_comments';
-    public const PERMISSION_CREATE_ARTICLES = 'create_articles';
-    public const PERMISSION_EDIT_SITE       = 'edit_site';
-    public const PERMISSION_EDIT_USERS      = 'edit_users';
+    public const string PERMISSION_VIEW = 'view';
 
+    public const string PERMISSION_VIEW_HIDDEN = 'view_hidden';
+
+    public const string PERMISSION_HIDE_COMMENTS = 'hide_comments';
+
+    public const string PERMISSION_EDIT_COMMENTS = 'edit_comments';
+
+    public const string PERMISSION_CREATE_ARTICLES = 'create_articles';
+
+    public const string PERMISSION_EDIT_SITE = 'edit_site';
+
+    public const string PERMISSION_EDIT_USERS = 'edit_users';
+
+    /**
+     * @var array<mixed>|null
+     */
     private ?array $user = null;
 
 
+    /**
+     * @param array<mixed>|null $user
+     */
     public function setUser(?array $user): void
     {
         if ($user !== null) {
@@ -31,6 +43,7 @@ class PermissionChecker implements StatefulServiceInterface
         }
     }
 
+    #[\Override]
     public function clearState(): void
     {
         $this->user = null;
@@ -48,6 +61,7 @@ class PermissionChecker implements StatefulServiceInterface
                 return true;
             }
         }
+
         return false;
     }
 

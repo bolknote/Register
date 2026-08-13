@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace integration;
 
@@ -26,7 +26,6 @@ class AssetCest
         $merge   = $factory->create('test_scripts', AssetMerge::TYPE_JS);
 
         $httpClientProperty = new \ReflectionProperty(AssetMerge::class, 'httpClient');
-        $httpClientProperty->setAccessible(true);
 
         $I->assertSame($assetHttpClient, $httpClientProperty->getValue($merge));
     }
@@ -34,7 +33,6 @@ class AssetCest
     private function isHttpClientSslVerificationEnabled(HttpClient $httpClient): bool
     {
         $verifySslProperty = new \ReflectionProperty(HttpClient::class, 'verifySsl');
-        $verifySslProperty->setAccessible(true);
 
         return $verifySslProperty->getValue($httpClient);
     }

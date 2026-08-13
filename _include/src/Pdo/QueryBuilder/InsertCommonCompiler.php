@@ -5,19 +5,17 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
 readonly class InsertCommonCompiler implements InsertCompilerInterface
 {
-    /**
-     * @param string $prefix
-     */
     public function __construct(private string $prefix)
     {
     }
 
+    #[\Override]
     public function getSql(InsertBuilder $builder): string
     {
         $columnExpressions = $builder->getColumnExpressions();
@@ -26,9 +24,7 @@ readonly class InsertCommonCompiler implements InsertCompilerInterface
         $valuesList        = implode(', ', array_values($columnExpressions));
         $onConflict        = $this->getConflictClause($builder);
 
-        $sql = $this->substituteQueryParts($tableName, $columnList, $valuesList, $onConflict);
-
-        return $sql;
+        return $this->substituteQueryParts($tableName, $columnList, $valuesList, $onConflict);
     }
 
     protected function getConflictClause(InsertBuilder $builder): string

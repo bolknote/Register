@@ -5,12 +5,15 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
 readonly class UnionAll
 {
+    /**
+     * @var array<int|string, \S2\Cms\Pdo\QueryBuilder\SelectBuilder>
+     */
     public array $selects;
 
     public function __construct(SelectBuilder ...$selects)

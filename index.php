@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Processing all public pages of the site.
  *
@@ -10,25 +13,26 @@
 use S2\Cms\Config\DynamicConfigProvider;
 use Symfony\Component\HttpFoundation\Request;
 
-require __DIR__ . '/_include/common.php';
+$app = require __DIR__ . '/_include/common.php';
 
 header('X-Powered-By: S2/' . S2_VERSION);
 
-$urlPrefix = (string)(s2_get_static_parameter('url_prefix') ?? '');
-$basePath  = s2_get_static_parameter('base_path');
+$urlPrefix = $app->container->getStringParameter('url_prefix');
+$basePath  = $app->container->getParameter('base_path');
 $basePath  = $basePath === null ? '' : (string)$basePath;
 
 // We create our own request URI with the path removed and only the parts to rewrite included
 if (isset($_SERVER['PATH_INFO']) && $urlPrefix !== '') {
     $request_uri = $_SERVER['PATH_INFO'];
 } else {
-    $request_uri = substr(($_SERVER['REQUEST_URI']), strlen($urlPrefix));
+    $request_uri = substr($_SERVER['REQUEST_URI'], strlen($urlPrefix));
     if (!str_starts_with($request_uri, '/')) {
         // Fix for usual URLS (e.g. '/?search=1&q=text' in case of prefix === '/?')
         $request_uri = '/';
     } elseif (($delimiter = strpos($request_uri, $urlPrefix !== '' ? '&' : '?')) !== false) {
         $request_uri = substr($request_uri, 0, $delimiter);
     }
+
     // Hack for symfony router in case of /? and /index.php? prefix.
     $_SERVER['REQUEST_URI'] = $request_uri;
 }
@@ -58,17 +62,17 @@ if ($response->isInformational() || $response->isEmpty() || $response->getConten
     ob_start();
 
     $useCompression = $app->container->get(DynamicConfigProvider::class)->getBoolProxy('S2_COMPRESS')->get();
-    if ($useCompression) {
+    if ($useCompression === true) {
         ob_start('ob_gzhandler');
     }
 
     $response->sendContent();
 
-    if ($useCompression) {
+    if ($useCompression === true) {
         ob_end_flush();
     }
 
-    $response->headers->set('Content-Length', ob_get_length());
+    $response->headers->set('Content-Length', (string)ob_get_length());
     $response->sendHeaders();
 
     ob_end_flush();
@@ -78,11 +82,16 @@ if (function_exists('fastcgi_finish_request')) {
     fastcgi_finish_request();
     if (\extension_loaded('newrelic')) {
         newrelic_end_transaction();
-        newrelic_start_transaction(ini_get('newrelic.appname'));
+        $newRelicAppName = ini_get('newrelic.appname');
+        newrelic_start_transaction(is_string($newRelicAppName) ? $newRelicAppName : 'S2');
         newrelic_name_transaction('index_background');
     }
-    /** @var \S2\Cms\Queue\QueueConsumer $consumer */
+
     $consumer  = $app->container->get(\S2\Cms\Queue\QueueConsumer::class);
     $startedAt = microtime(true);
-    while ($consumer->runQueue() && microtime(true) - $startedAt < 10) ;
+    while (microtime(true) - $startedAt < 10) {
+        if (!$consumer->runQueue()) {
+            break;
+        }
+    }
 }

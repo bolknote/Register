@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Loads common data and performs various functions necessary for the site to work properly.
  *
@@ -13,8 +16,11 @@ use S2\Cms\CmsExtension;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Config\StaticConfigLoader;
 use S2\Cms\Framework\Application;
+use S2\Cms\Framework\ExtensionInterface;
+use S2\Cms\Framework\Exception\ConfigurationException;
 use S2\Cms\Framework\Exception\ParameterNotFoundException;
 use S2\Cms\Model\ExtensionCache;
+use S2\Cms\Model\Installer;
 use S2\Cms\Model\MigrationManager;
 use Symfony\Component\ErrorHandler\Debug;
 use Symfony\Component\ErrorHandler\ErrorHandler;
@@ -33,7 +39,7 @@ require __DIR__ . '/../_vendor/autoload.php';
 $staticConfigLoader = new StaticConfigLoader();
 $s2StaticConfig     = $staticConfigLoader->load(__DIR__ . '/../' . s2_get_config_filename());
 
-$debugEnabled = defined('S2_DEBUG') || !empty($s2StaticConfig['options']['debug']);
+$debugEnabled = defined('S2_DEBUG') || ($s2StaticConfig['options']['debug'] ?? false) === true;
 error_reporting($debugEnabled ? E_ALL : E_ALL ^ E_NOTICE);
 
 require __DIR__ . '/../_include/setup.php';
@@ -43,10 +49,15 @@ if ($debugEnabled) {
 } else {
     $errorHandler = ErrorHandler::register();
 }
+
 HtmlErrorRenderer::setTemplate(__DIR__ . '/views/error.php');
 
 $s2BaseStaticParameters = s2_build_base_static_parameters($s2StaticConfig);
 
+/**
+ * @param array<string, mixed> $config
+ * @return array<string, mixed>
+ */
 function s2_build_base_static_parameters(array $config): array
 {
     $rootDir = dirname(__DIR__) . '/';
@@ -61,9 +72,11 @@ function s2_build_base_static_parameters(array $config): array
     if (isset($config['files']['image_dir']) && is_string($config['files']['image_dir'])) {
         $imageDirRelative = trim($config['files']['image_dir'], '/');
     }
+
     if ($imageDirRelative === '') {
         $imageDirRelative = StaticConfigLoader::DEFAULT_IMAGE_DIR;
     }
+
     $imageDir = $rootDir . $imageDirRelative;
 
     $basePath = $config['http']['base_path'] ?? null;
@@ -75,11 +88,11 @@ function s2_build_base_static_parameters(array $config): array
     $baseUrl   = $config['http']['base_url'] ?? null;
     $urlPrefix = $config['http']['url_prefix'] ?? '';
 
-    $debug           = !empty($config['options']['debug']);
-    $debugView       = !empty($config['options']['debug_view']);
-    $showQueries     = !empty($config['options']['show_queries']);
-    $disableCache    = !empty($config['options']['disable_cache']);
-    $forceAdminHttps = !empty($config['options']['force_admin_https']);
+    $debug           = (bool)($config['options']['debug'] ?? false);
+    $debugView       = (bool)($config['options']['debug_view'] ?? false);
+    $showQueries     = (bool)($config['options']['show_queries'] ?? false);
+    $disableCache    = (bool)($config['options']['disable_cache'] ?? false);
+    $forceAdminHttps = (bool)($config['options']['force_admin_https'] ?? false);
     $canonicalUrl    = $config['options']['canonical_url'] ?? null;
 
     return [
@@ -117,6 +130,7 @@ function s2_build_base_static_parameters(array $config): array
     ];
 }
 
+/** @return array<string, mixed> */
 function collectParameters(): array
 {
     global $s2BootTimestamp, $s2BaseStaticParameters;
@@ -127,13 +141,6 @@ function collectParameters(): array
     return $result;
 }
 
-function s2_get_static_parameter(string $name): mixed
-{
-    global $s2BaseStaticParameters;
-
-    return $s2BaseStaticParameters[$name] ?? null;
-}
-
 $app = new Application();
 $app->addExtension(new CmsExtension());
 if (defined('S2_ADMIN_MODE')) {
@@ -141,8 +148,8 @@ if (defined('S2_ADMIN_MODE')) {
 }
 
 $enabledExtensions = null;
-$cacheDir          = $s2BaseStaticParameters['cache_dir'];
-$disableCache      = $s2BaseStaticParameters['disable_cache'];
+$cacheDir          = (string)$s2BaseStaticParameters['cache_dir'];
+$disableCache      = (bool)$s2BaseStaticParameters['disable_cache'];
 if (!$disableCache && file_exists($cacheDir . ExtensionCache::CACHE_ENABLED_EXTENSIONS_FILENAME)) {
     $enabledExtensions = include $cacheDir . ExtensionCache::CACHE_ENABLED_EXTENSIONS_FILENAME;
 }
@@ -150,21 +157,29 @@ if (!$disableCache && file_exists($cacheDir . ExtensionCache::CACHE_ENABLED_EXTE
 try {
     if (!is_array($enabledExtensions)) {
         $app->boot(collectParameters());
-        /** @var ExtensionCache $appCache */
         $appCache          = $app->container->get(ExtensionCache::class);
         $enabledExtensions = $appCache->generateEnabledExtensionClassNames();
     }
+
     foreach ($enabledExtensions['cms'] as $extension) {
+        if (!is_string($extension) || !is_a($extension, ExtensionInterface::class, true)) {
+            throw new ConfigurationException('The enabled CMS extension cache contains an invalid class name.');
+        }
+
         $app->addExtension(new $extension());
     }
+
     if (defined('S2_ADMIN_MODE')) {
         foreach ($enabledExtensions['admin'] as $extension) {
+            if (!is_string($extension) || !is_a($extension, ExtensionInterface::class, true)) {
+                throw new ConfigurationException('The enabled admin extension cache contains an invalid class name.');
+            }
+
             $app->addExtension(new $extension());
         }
     }
 
     $app->boot(collectParameters());
-    /** @var ExtensionCache $appCache */
     $appCache = $app->container->get(ExtensionCache::class);
     if (!$disableCache) {
         $app->setCachedRoutesFilename($appCache->getCachedRoutesFilename());
@@ -180,13 +195,13 @@ try {
                 ? strlen($_SERVER['SCRIPT_FILENAME']) - strlen($_SERVER['SCRIPT_NAME'])
                 : strlen($_SERVER['DOCUMENT_ROOT'] ?? '')
         ) . '/_admin/install.php';
-    require 'installation_required.php';
+    require __DIR__ . '/installation_required.php';
 
     exit;
 }
+
 $errorHandler->setDefaultLogger($app->container->get(LoggerInterface::class));
 
-/** @var DynamicConfigProvider $dynamicConfigProvider */
 $dynamicConfigProvider = $app->container->get(DynamicConfigProvider::class);
 
 if (defined('S2_ADMIN_MODE') && session_status() !== PHP_SESSION_ACTIVE) {
@@ -196,10 +211,11 @@ if (defined('S2_ADMIN_MODE') && session_status() !== PHP_SESSION_ACTIVE) {
     ini_set('session.cookie_httponly', true);
 }
 
-if ($dynamicConfigProvider->getIntProxy('S2_DB_REVISION')->get() < 24) {
-    /** @var MigrationManager $migrationManager */
+if ($dynamicConfigProvider->getIntProxy('S2_DB_REVISION')->get() < Installer::DB_REVISION) {
     $migrationManager = $app->container->get(MigrationManager::class);
-    $migrationManager->migrate($dynamicConfigProvider->getIntProxy('S2_DB_REVISION')->get(), 24);
+    $migrationManager->migrate($dynamicConfigProvider->getIntProxy('S2_DB_REVISION')->get(), Installer::DB_REVISION);
 
     $dynamicConfigProvider->regenerate();
 }
+
+return $app;

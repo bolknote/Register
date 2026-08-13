@@ -5,7 +5,7 @@
  * @package   s2_counter
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_counter;
 
@@ -24,35 +24,37 @@ use Symfony\Component\Routing\RouteCollection;
 
 class AdminExtension implements ExtensionInterface
 {
+    #[\Override]
     public function buildContainer(Container $container): void
     {
-        $container->set(DashboardCounterProvider::class, static fn(Container $container) => new DashboardCounterProvider(
+        $container->set(DashboardCounterProvider::class, static fn(Container $container): \s2_extensions\s2_counter\Admin\DashboardCounterProvider => new DashboardCounterProvider(
             $container->get(TemplateRenderer::class),
-            $container->getParameter('root_dir'),
+            $container->getStringParameter('root_dir'),
         ), [DashboardBlockProviderInterface::class]);
 
         $container->set(
             TranslationProvider::class,
-            static fn(Container $container) => new TranslationProvider(),
+            static fn(Container $_container): \s2_extensions\s2_counter\Admin\TranslationProvider => new TranslationProvider(),
             [TranslationProviderInterface::class]
         );
     }
 
+    #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
-        $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container) {
-            if (!is_writable($container->getParameter('root_dir') . '_extensions/s2_counter/data/')) {
-                /** @var Translator $translator */
+        $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container): void {
+            if (!is_writable($container->getStringParameter('root_dir') . '_extensions/s2_counter/data/')) {
                 $translator = $container->get(Translator::class);
                 $event->addSignal('Dashboard', Signal::createEmpty(
                     $translator->trans('Data folder not writable', [
-                        '{{ dir }}' => $container->getParameter('base_path') . '/_extensions/s2_counter/data/',
+                        '{{ dir }}' => $container->getStringParameter('base_path') . '/_extensions/s2_counter/data/',
                     ])
                 ));
             }
         });
     }
 
+    #[\Override]
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
     }

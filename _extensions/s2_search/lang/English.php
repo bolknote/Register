@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 return [
     'Search'        => 'Search',
     'Search button' => 'Search',

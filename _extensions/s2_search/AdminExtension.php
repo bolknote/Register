@@ -5,7 +5,7 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search;
 
@@ -40,55 +40,45 @@ use Symfony\Component\Routing\RouteCollection;
 
 class AdminExtension implements ExtensionInterface
 {
+    #[\Override]
     public function buildContainer(Container $container): void
     {
-        $container->set(DynamicConfigFormExtender::class, function (Container $container) {
-            return new DynamicConfigFormExtender();
-        }, [DynamicConfigFormExtenderInterface::class]);
+        $container->set(DynamicConfigFormExtender::class, fn(Container $_container): \s2_extensions\s2_search\Admin\DynamicConfigFormExtender => new DynamicConfigFormExtender(), [DynamicConfigFormExtenderInterface::class]);
 
-        $container->set(TranslationProvider::class, function (Container $container) {
-            return new TranslationProvider();
-        }, [TranslationProviderInterface::class]);
+        $container->set(TranslationProvider::class, fn(Container $_container): \s2_extensions\s2_search\Admin\TranslationProvider => new TranslationProvider(), [TranslationProviderInterface::class]);
 
-        $container->set(DashboardSearchProvider::class, function (Container $container) {
-            return new DashboardSearchProvider(
-                $container->get(TemplateRenderer::class),
-                $container->get(PdoStorage::class),
-                $container->getParameter('root_dir')
-            );
-        }, [DashboardStatProviderInterface::class]);
+        $container->set(DashboardSearchProvider::class, fn(Container $container): \s2_extensions\s2_search\Admin\DashboardSearchProvider => new DashboardSearchProvider(
+            $container->get(TemplateRenderer::class),
+            $container->get(PdoStorage::class),
+            $container->getStringParameter('root_dir')
+        ), [DashboardStatProviderInterface::class]);
 
-        $container->set(ArticleBulkIndexingProvider::class, function (Container $container) {
-            return new ArticleBulkIndexingProvider($container->get(DbLayer::class));
-        }, [BulkIndexingProviderInterface::class]);
+        $container->set(ArticleBulkIndexingProvider::class, fn(Container $container): \s2_extensions\s2_search\Service\ArticleBulkIndexingProvider => new ArticleBulkIndexingProvider($container->get(DbLayer::class)), [BulkIndexingProviderInterface::class]);
 
-        $container->set(IndexManager::class, function (Container $container) {
-            return new IndexManager(
-                $container->getParameter('cache_dir'),
-                $container->get(Indexer::class),
-                $container->get(PdoStorage::class),
-                $container->get('recommendations_cache'),
-                $container->get(LoggerInterface::class),
-                ...$container->getByTag(BulkIndexingProviderInterface::class),
-            );
-        });
+        $container->set(IndexManager::class, fn(Container $container): \s2_extensions\s2_search\Admin\IndexManager => new IndexManager(
+            $container->getStringParameter('cache_dir'),
+            $container->get(Indexer::class),
+            $container->get(PdoStorage::class),
+            $container->get('recommendations_cache'),
+            $container->get(LoggerInterface::class),
+            ...$container->getByTag(BulkIndexingProviderInterface::class),
+        ));
     }
 
+    #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
-        $eventDispatcher->addListener(VisibleEntityChangedEvent::class, function (VisibleEntityChangedEvent $event) use ($container) {
-            /** @var QueuePublisher $queuePublisher */
+        $eventDispatcher->addListener(VisibleEntityChangedEvent::class, function (VisibleEntityChangedEvent $event) use ($container): void {
             $queuePublisher = $container->get(QueuePublisher::class);
             $queuePublisher->publish((string)$event->entityId, 's2_search_' . $event->entityName);
         });
 
-        $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, function (AdminAjaxControllerMapEvent $event) use ($container) {
-            $event->controllerMap['s2_search_makeindex'] = static function (PermissionChecker $p, Request $r, Container $c) {
+        $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, function (AdminAjaxControllerMapEvent $event) : void {
+            $event->controllerMap['s2_search_makeindex'] = static function (PermissionChecker $p, Request $r, Container $c): \Symfony\Component\HttpFoundation\JsonResponse {
                 if (!$p->isGrantedAny(PermissionChecker::PERMISSION_CREATE_ARTICLES, PermissionChecker::PERMISSION_EDIT_SITE)) {
                     return new JsonResponse(['success' => false, 'message' => 'Permission denied.'], Response::HTTP_FORBIDDEN);
                 }
 
-                /** @var IndexManager $indexManager */
                 $indexManager = $c->get(IndexManager::class);
                 return new JsonResponse([
                     'success' => true,
@@ -97,23 +87,22 @@ class AdminExtension implements ExtensionInterface
             };
         });
 
-        $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container) {
+        $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container): void {
             try {
-                /** @var PdoStorage $pdoStorage */
                 $pdoStorage = $container->get(PdoStorage::class);
                 $size       = $pdoStorage->getTocSize(null);
-            } catch (\Exception $e) {
+            } catch (\Throwable) {
                 $size = 0;
             }
 
             if ($size === 0) {
-                /** @var Translator $translator */
                 $translator = $container->get(Translator::class);
                 $event->addSignal('Dashboard', Signal::createEmpty($translator->trans('Indexing required')));
             }
         });
     }
 
+    #[\Override]
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
     }

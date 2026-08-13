@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * An item of <!-- s2_last_articles --> content
  *

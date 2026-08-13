@@ -9,7 +9,7 @@
  * @package S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Logger;
 
@@ -52,7 +52,7 @@ class Logger implements LoggerInterface
     /**
      * Lowest log level to log.
      */
-    private int $logLevel;
+    private int $logLevel = 0;
 
     /**
      * Whether to log to standard out.
@@ -62,17 +62,17 @@ class Logger implements LoggerInterface
     /**
      * Log fields separated by tabs to form a TSV (CSV with tabs).
      */
-    private const TAB = "\t";
+    private const string TAB = "\t";
 
     /**
      * Special minimum log level which will not log any log levels.
      */
-    public const LOG_LEVEL_NONE = 'none';
+    public const string LOG_LEVEL_NONE = 'none';
 
     /**
      * Log level hierarchy
      */
-    public const LEVELS = [
+    public const array LEVELS = [
         self::LOG_LEVEL_NONE => -1,
         LogLevel::DEBUG      => 0,
         LogLevel::INFO       => 1,
@@ -132,6 +132,7 @@ class Logger implements LoggerInterface
      *
      * @throws \RuntimeException when log file cannot be opened for writing.
      */
+    #[\Override]
     public function log($level, string|\Stringable $message, array $context = []): void
     {
         if (!$this->logAtThisLevel($level)) {
@@ -139,14 +140,16 @@ class Logger implements LoggerInterface
         }
 
         // Build log line
-        $pid = \getmypid() ?: -1;
-        /** @var string $formattedException */
+        $processId = \getmypid();
+        $pid       = $processId === false ? -1 : $processId;
+        $message   = (string)$message;
         [$formattedException, $contextData] = $this->handleException($context);
         try {
             $formattedContext = json_encode($contextData, JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE);
-        } catch (\JsonException $e) {
+        } catch (\JsonException) {
             $formattedContext = '{}';
         }
+
         $logLine = $this->formatLogLine($level, $pid, $message, $formattedContext, $formattedException);
 
         // Log to NewRelic
@@ -156,6 +159,7 @@ class Logger implements LoggerInterface
             } else {
                 newrelic_notice_error($message);
             }
+
             foreach ($contextData as $key => $parameter) {
                 if (\is_array($parameter)) {
                     foreach ($parameter as $paramKey => $paramValue) {
@@ -173,16 +177,17 @@ class Logger implements LoggerInterface
             if ($fh === false) {
                 throw new \RuntimeException('fopen failed');
             }
+
             fwrite($fh, $logLine);
             fclose($fh);
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             /** @noinspection ForgottenDebugOutputInspection */
             error_log("Could not open log file {$this->log_file} for writing to log channel {$this->channel}!");
         }
 
         // Log to stdout if option set to do so.
         if ($this->stdout) {
-            print($logLine);
+            print$logLine;
         }
     }
 
@@ -200,9 +205,9 @@ class Logger implements LoggerInterface
      * Handle an exception in the data context array.
      * If an exception is included in the data context array, extract it.
      *
-     * @param mixed[] $context
+     * @param array<string, mixed> $context
      *
-     * @return mixed[]  [exception, data (without exception)]
+     * @return array{string, array<string, mixed>} [exception, data (without exception)]
      */
     private function handleException(array $context): array
     {
@@ -220,7 +225,6 @@ class Logger implements LoggerInterface
     /**
      * Build the exception log data.
      *
-     * @param \Throwable $e
      *
      * @return string JSON {message, code, file, line, trace}
      */
@@ -234,27 +238,43 @@ class Logger implements LoggerInterface
                 '#0 ' . $e->getFile() . ':' . $e->getLine() . \PHP_EOL .
                 self::formatTrace($e->getTrace());
 
-            if ($e->getPrevious() !== null) {
-                $str .= \PHP_EOL . 'Previous Exception: ' . self::buildExceptionData($e->getPrevious());
+            $previous = $e->getPrevious();
+            if ($previous instanceof \Throwable) {
+                $str .= \PHP_EOL . 'Previous Exception: ' . self::buildExceptionData($previous);
             }
+
             return $str;
-        } catch (\JsonException $e) {
-            return '{"message":"' . $e->getMessage() . '"}';
+        } catch (\JsonException $jsonException) {
+            return '{"message":"' . $jsonException->getMessage() . '"}';
         }
     }
 
+    /**
+     * @param list<array<string, mixed>> $trace
+     */
     private static function formatTrace(array $trace): string
     {
         $stack = '';
         $i     = 1;
         foreach ($trace as $node) {
-            $stack .= "#$i " . (isset($node['file']) ? $node['file'] . ':' . $node['line'] . ' ' : '');
-            if (isset($node['class'])) {
-                $stack .= $node['class'] . '->';
+            $file = $node['file'] ?? null;
+            $line = $node['line'] ?? null;
+            if (\is_string($file) && \is_int($line)) {
+                $stack .= "#$i $file:$line ";
+            } else {
+                $stack .= "#$i ";
             }
-            $stack .= $node['function'] . '()' . PHP_EOL;
-            $i++;
+
+            $class = $node['class'] ?? null;
+            if (\is_string($class)) {
+                $stack .= $class . '->';
+            }
+
+            $function = $node['function'] ?? null;
+            $stack   .= (\is_string($function) ? $function : '{unknown}') . '()' . PHP_EOL;
+            ++$i;
         }
+
         return $stack;
     }
 
@@ -293,13 +313,19 @@ class Logger implements LoggerInterface
         if (!\extension_loaded('newrelic')) {
             return;
         }
-        if (null !== $value && !is_scalar($value)) {
+
+        if ($value === null) {
+            return;
+        }
+
+        if (!is_scalar($value)) {
             try {
                 $value = json_encode($value, JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE);
-            } catch (\JsonException $e) {
+            } catch (\JsonException) {
                 $value = serialize($value);
             }
         }
+
         newrelic_add_custom_parameter($key, $value);
     }
 }

@@ -5,17 +5,25 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Comment;
 
 class SpamDetectorReport
 {
-    public const STATUS_FAILED   = 'failed'; // API call to a spam detection service failed
-    public const STATUS_DISABLED = 'disabled'; // Spam detection service is disabled in the config
-    public const STATUS_HAM      = 'ham'; // The comment is not spam
-    public const STATUS_SPAM     = 'spam'; // The comment is spam
-    public const STATUS_BLATANT  = 'blatant'; // The comment is blatant spam that can be safely dropped
+    public const string STATUS_FAILED = 'failed';
+
+     // API call to a spam detection service failed
+    public const string STATUS_DISABLED = 'disabled';
+
+     // Spam detection service is disabled in the config
+    public const string STATUS_HAM = 'ham';
+
+     // The comment is not spam
+    public const string STATUS_SPAM = 'spam';
+
+     // The comment is spam
+    public const string STATUS_BLATANT = 'blatant'; // The comment is blatant spam that can be safely dropped
 
     private function __construct(public string $status)
     {
@@ -25,7 +33,8 @@ class SpamDetectorReport
             self::STATUS_HAM,
             self::STATUS_SPAM,
             self::STATUS_BLATANT,
-        ])) {
+        ],
+        true)) {
             throw new \InvalidArgumentException(\sprintf('Unknown status "%s"', $this->status));
         }
     }

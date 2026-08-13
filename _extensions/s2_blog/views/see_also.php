@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /** @var callable $trans */
 /** @var array $see_also */
 

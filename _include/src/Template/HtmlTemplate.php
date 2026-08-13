@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Template;
 
@@ -14,18 +14,28 @@ use S2\Cms\Config\IntProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Helper\StringHelper;
 use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 class HtmlTemplate
 {
+    /**
+     * @var array<mixed>
+     */
     protected array $page = [];
+
+    /** @var list<array{title: string, link: string|null}> */
     protected array $breadCrumbs = [];
+
+    /** @var array<string, string> */
     private array $navLinks = [];
+
+    /** @var array<string, string> */
     private array $replace = [];
+
     private bool $notFound = false;
 
     public function __construct(
@@ -45,7 +55,10 @@ class HtmlTemplate
     ) {
     }
 
-    public function putInPlaceholder(string $placeholder, mixed $content): static
+    /**
+     * @param array<mixed>|bool|float|int|string|StringProxy|null $content
+     */
+    public function putInPlaceholder(string $placeholder, array|bool|float|int|string|StringProxy|null $content): static
     {
         $this->page[$placeholder] = $content;
 
@@ -71,31 +84,34 @@ class HtmlTemplate
         $replace = [];
 
         // HTML head
-        $replace['<!-- s2_head_title -->'] = empty($this->page['head_title']) ?
-            (!empty($this->page['title']) ? $this->page['title'] . ' &mdash; ' : '') . $this->siteName->get() :
-            $this->page['head_title'];
+        $replace['<!-- s2_head_title -->'] = !$this->hasContent('head_title') ?
+            ($this->hasContent('title') ? $this->renderValue($this->page['title']) . ' &mdash; ' : '') . $this->siteName->get() :
+            $this->renderValue($this->page['head_title']);
 
         // Meta tags processing
         $meta_tags = [
             '<meta name="Generator" content="S2">',
         ];
 
-        if (!empty($this->page['meta_keywords'])) {
+        if ($this->hasContent('meta_keywords')) {
             $meta_tags[] = '<meta name="keywords" content="' . s2_htmlencode($this->page['meta_keywords']) . '" />';
         }
-        if (!empty($this->page['meta_description'])) {
+
+        if ($this->hasContent('meta_description')) {
             $meta_tags[] = '<meta name="description" content="' . s2_htmlencode($this->page['meta_description']) . '" />';
         }
-        if (!empty($this->page['canonical_path']) && $this->canonicalUrlPrefix !== null) {
+
+        if ($this->hasContent('canonical_path') && $this->canonicalUrlPrefix !== null) {
             $meta_tags[] = '<link rel="canonical" href="' . $this->canonicalUrlPrefix . s2_htmlencode($this->page['canonical_path']) . '" />';
         }
 
         $replace['<!-- s2_meta -->'] = implode("\n", $meta_tags);
 
-        if (empty($this->page['rss_link'])) {
-            $this->page['rss_link'][] = '<link rel="alternate" type="application/rss+xml" title="' . $this->translator->trans('RSS link title') . '" href="' . $this->urlBuilder->link('/rss.xml') . '" />';
+        if (!$this->hasContent('rss_link')) {
+            $this->page['rss_link'] = ['<link rel="alternate" type="application/rss+xml" title="' . $this->translator->trans('RSS link title') . '" href="' . $this->urlBuilder->link('/rss.xml') . '" />'];
         }
-        $replace['<!-- s2_rss_link -->'] = implode("\n", $this->page['rss_link']);
+
+        $replace['<!-- s2_rss_link -->'] = implode("\n", $this->stringListValue($this->page['rss_link']));
 
         // Content
         $replace['<!-- s2_site_title -->'] = $this->siteName->get();
@@ -107,25 +123,25 @@ class HtmlTemplate
 
         $replace['<!-- s2_navigation_link -->'] = implode("\n", $link_navigation);
 
-        $replace['<!-- s2_author -->']      = !empty($this->page['author']) ? '<div class="author">' . $this->page['author'] . '</div>' : '';
-        $replace['<!-- s2_title -->']       = !empty($this->page['title']) ? $this->viewer->render(
+        $replace['<!-- s2_author -->']      = $this->hasContent('author') ? '<div class="author">' . $this->renderValue($this->page['author']) . '</div>' : '';
+        $replace['<!-- s2_title -->']       = $this->hasContent('title') ? $this->viewer->render(
             'title',
             array_intersect_key($this->page, ['title' => 1, 'favorite' => 1, 'favorite_link' => 1])
         ) : '';
-        $replace['<!-- s2_date -->']        = !empty($this->page['date']) ? '<div class="date">' . $this->viewer->date($this->page['date']) . '</div>' : '';
+        $replace['<!-- s2_date -->']        = $this->hasContent('date') ? '<div class="date">' . $this->viewer->date($this->intValue($this->page['date'])) . '</div>' : '';
         $replace['<!-- s2_crumbs -->']      = \count($this->breadCrumbs) > 0 ? $this->viewer->render('breadcrumbs', ['breadcrumbs' => $this->breadCrumbs]) : '';
         $replace['<!-- s2_subarticles -->'] = $this->page['subcontent'] ?? '';
 
         foreach ($this->simplePlaceholders() as $placeholderName) {
-            $replace['<!-- s2_' . $placeholderName . ' -->'] = $this->page[$placeholderName] ?? '';
+            $replace['<!-- s2_' . $placeholderName . ' -->'] = $this->renderValue($this->page[$placeholderName] ?? '');
         }
 
-        if (!empty($this->page['commented']) && $this->enabledComments->get()) {
+        if ($this->hasContent('commented') && $this->enabledComments->get()) {
             $comment_array = [
                 'id' => $this->page['id'],
             ];
 
-            if (!empty($this->page['comment_form']) && \is_array($this->page['comment_form'])) {
+            if ($this->hasContent('comment_form') && \is_array($this->page['comment_form'])) {
                 $comment_array += $this->page['comment_form'];
             }
 
@@ -140,7 +156,7 @@ class HtmlTemplate
             $replace['<!-- s2_comment_form -->'] = '';
         }
 
-        $replace['<!-- s2_back_forward -->'] = !empty($this->page['back_forward']) ? $this->viewer->render('back_forward', ['links' => $this->page['back_forward']]) : '';
+        $replace['<!-- s2_back_forward -->'] = $this->hasContent('back_forward') ? $this->viewer->render('back_forward', ['links' => $this->page['back_forward']]) : '';
 
         // Footer
         $replace['<!-- s2_copyright -->'] = $this->s2_build_copyright();
@@ -151,11 +167,11 @@ class HtmlTemplate
 
         $etag = md5($template);
         // Add here placeholders to be excluded from the ETag calculation
-        $etag_skip = array('<!-- s2_comment_form -->');
+        $etag_skip = ['<!-- s2_comment_form -->'];
 
         // Replacing placeholders and calculating hash for ETag header
         foreach ($replace as $what => $to) {
-            if ($this->debugView && $to && !in_array($what, array('<!-- s2_head_title -->', '<!-- s2_navigation_link -->', '<!-- s2_rss_link -->', '<!-- s2_meta -->', '<!-- s2_styles -->'))) {
+            if ($this->debugView && $to !== '' && !in_array($what, ['<!-- s2_head_title -->', '<!-- s2_navigation_link -->', '<!-- s2_rss_link -->', '<!-- s2_meta -->', '<!-- s2_styles -->'], true)) {
 
                 $title = '<pre style="color: red; font-size: 12px; opacity: 0.6; margin: 0 -100% 0 0; width: 100%; text-align: center; line-height: 1; position: relative; float: left; z-index: 1000; pointer-events: none;">' . s2_htmlencode($what) . '</pre>';
                 $to    = '<div style="border: 1px solid rgba(255, 0, 0, 0.4); margin: 1px;">' .
@@ -218,6 +234,9 @@ class HtmlTemplate
         return $this;
     }
 
+    /**
+     * @return array<int, string>
+     */
     protected function simplePlaceholders(): array
     {
         return [
@@ -245,12 +264,60 @@ class HtmlTemplate
         $email     = $this->webmasterEmail->get();
         $startYear = $this->startYear->get();
 
-        $author    = $webmaster ?: $this->siteName->get();
-        $copyright = $webmaster && $email ? StringHelper::jsMailTo($author, $email) : ($requestUri !== '/' ? '<a href="' . $this->urlBuilder->link('/') . '">' . $author . '</a>' : $author);
+        $author    = $webmaster !== '' ? $webmaster : $this->siteName->get();
+        $copyright = $webmaster !== '' && $email !== '' ? StringHelper::jsMailTo($author, $email) : ($requestUri !== '/' ? '<a href="' . $this->urlBuilder->link('/') . '">' . $author . '</a>' : $author);
 
-        return ((int)$startYear !== (int)date('Y') ?
+        return ($startYear !== (int)date('Y') ?
                 \sprintf($this->translator->trans('Copyright 2'), $copyright, $startYear, date('Y')) :
                 \sprintf($this->translator->trans('Copyright 1'), $copyright, date('Y'))) . ' ' .
             \sprintf($this->translator->trans('Powered by'), '<a href="http://s2cms.ru/">S2</a>');
+    }
+
+    private function hasContent(string $placeholder): bool
+    {
+        if (!isset($this->page[$placeholder])) {
+            return false;
+        }
+
+        $value = $this->page[$placeholder];
+        return !in_array($value, ['', '0', 0, 0.0, false, []], true);
+    }
+
+    private function renderValue(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        if (\is_scalar($value) || $value instanceof \Stringable) {
+            return (string)$value;
+        }
+
+        throw new \UnexpectedValueException('Template placeholder must contain a renderable value.');
+    }
+
+    private function intValue(mixed $value): int
+    {
+        if (!\is_int($value)) {
+            throw new \UnexpectedValueException('Template date placeholder must contain an integer timestamp.');
+        }
+
+        return $value;
+    }
+
+    /** @return list<string> */
+    private function stringListValue(mixed $value): array
+    {
+        if (!\is_array($value) || !array_is_list($value)) {
+            throw new \UnexpectedValueException('Template list placeholder must contain a list.');
+        }
+
+        foreach ($value as $item) {
+            if (!\is_string($item)) {
+                throw new \UnexpectedValueException('Template list placeholder items must be strings.');
+            }
+        }
+
+        return $value;
     }
 }

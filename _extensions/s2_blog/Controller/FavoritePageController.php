@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Favorite blog posts.
  *
@@ -9,18 +12,19 @@
 
 namespace s2_extensions\s2_blog\Controller;
 
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Pdo\QueryBuilder\SelectBuilder;
 use S2\Cms\Template\HtmlTemplate;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use S2\Cms\Pdo\DbLayerException;
 
 class FavoritePageController extends BlogController
 {
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function body(Request $request, HtmlTemplate $template): ?Response
     {
         if ($request->attributes->get('slash') !== '/') {
@@ -32,7 +36,7 @@ class FavoritePageController extends BlogController
         }
 
         $output = $this->getPosts(
-            fn(SelectBuilder $qb) => $qb
+            fn(SelectBuilder $qb): \S2\Cms\Pdo\QueryBuilder\SelectBuilder => $qb
                 ->addSelect('2 AS favorite')
                 ->andWhere('p.favorite = 1'),
             false
@@ -48,6 +52,7 @@ class FavoritePageController extends BlogController
         if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
             $template->addBreadCrumb($this->translator->trans('Blog'), $this->blogUrlBuilder->main());
         }
+
         $template->addBreadCrumb($this->translator->trans('Favorite'));
 
         $template

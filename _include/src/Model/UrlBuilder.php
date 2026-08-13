@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
@@ -20,6 +20,7 @@ readonly class UrlBuilder
 
     /**
      * @return string HTML-escaped relative link
+     * @param array<mixed> $params
      */
     public function link(string $path = '', array $params = []): string
     {
@@ -28,6 +29,7 @@ readonly class UrlBuilder
 
     /**
      * @return string Raw relative link, suitable for headers
+     * @param array<mixed> $params
      */
     public function rawLink(string $path = '', array $params = []): string
     {
@@ -36,6 +38,7 @@ readonly class UrlBuilder
 
     /**
      * @return string HTML-escaped full link with protocol and domain
+     * @param array<mixed> $params
      */
     public function absLink(string $path = '', array $params = []): string
     {
@@ -44,6 +47,7 @@ readonly class UrlBuilder
 
     /**
      * @return string Raw full link with protocol and domain, suitable for headers
+     * @param array<mixed> $params
      */
     public function rawAbsLink(string $path = '', array $params = []): string
     {
@@ -55,10 +59,13 @@ readonly class UrlBuilder
         return $this->urlPrefix !== '';
     }
 
+    /**
+     * @param array<mixed> $params
+     */
     private function getRelativeUrl(string $path, array $params, string $amp = '&amp;'): string
     {
         return $this->urlPrefix . $path
-            . (!empty($params)
+            . ($params !== []
                 ? (str_contains($this->urlPrefix, '?') ? $amp : '?') . implode($amp, $params)
                 : ''
             );

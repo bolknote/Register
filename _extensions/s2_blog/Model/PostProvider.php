@@ -5,14 +5,14 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Model;
 
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\Viewer;
 use s2_extensions\s2_blog\BlogUrlBuilder;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class PostProvider
 {
@@ -27,11 +27,12 @@ readonly class PostProvider
      * Returns an array containing info about last N posts
      *
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function lastPostsArray(int $postsNum = 10, int $skip = 0, bool $fakeLastPost = false): array
     {
         if ($fakeLastPost) {
-            $postsNum++;
+            ++$postsNum;
         }
 
         // Obtaining last posts
@@ -61,11 +62,13 @@ readonly class PostProvider
             ->offset($skip)
             ->execute()
         ;
-
-        $posts = $mergeLabels = $labels = $ids = [];
+        $posts = [];
+        $mergeLabels = [];
+        $labels = [];
+        $ids = [];
         $i     = 0;
         while ($row = $result->fetchAssoc()) {
-            $i++;
+            ++$i;
             $posts[$row['id']] = $row;
 
             if ($i >= $postsNum && $fakeLastPost) {
@@ -74,28 +77,31 @@ readonly class PostProvider
 
             $ids[]              = $row['id'];
             $labels[$row['id']] = $row['label'];
-            if ($row['label']) {
+            if ((string)$row['label'] !== '') {
                 $mergeLabels[$row['label']] = 1;
             }
         }
-        if (!$i) {
+
+        if ($i === 0) {
             return [];
         }
 
-        $seeAlso = $tags = [];
+        $seeAlso = [];
+        $tags = [];
         $this->postsLinks($ids, $mergeLabels, $seeAlso, $tags);
 
-        foreach ($posts as $i => &$post) {
-            $posts[$i]['see_also'] = [];
-            if (!empty($labels[$i]) && isset($seeAlso[$labels[$i]])) {
-                $labelCopy = $seeAlso[$labels[$i]];
-                if (isset($labelCopy[$i])) {
-                    unset($labelCopy[$i]);
+        foreach ($posts as $postId => &$post) {
+            $posts[$postId]['see_also'] = [];
+            if (isset($labels[$postId]) && (string)$labels[$postId] !== '' && isset($seeAlso[$labels[$postId]])) {
+                $labelCopy = $seeAlso[$labels[$postId]];
+                if (isset($labelCopy[$postId])) {
+                    unset($labelCopy[$postId]);
                 }
-                $posts[$i]['see_also'] = $labelCopy;
+
+                $posts[$postId]['see_also'] = $labelCopy;
             }
 
-            $post['tags'] = $tags[$i] ?? [];
+            $post['tags'] = $tags[$postId] ?? [];
             if (!isset($post['author'])) {
                 $post['author'] = '';
             }
@@ -112,14 +118,13 @@ readonly class PostProvider
     /**
      * Fetching tags and labels for posts
      *
-     * @param array $ids    Post ids, e.g. array (10, 15, 20)
-     * @param array $labels Label flags, e.g. array ('label1' => 1, 'label2' => 1, 'label3' => 1)
-     * @param       $see_also
-     * @param       $tags
-     *
+     * @param array<mixed> $ids
+     * @param array<int, int> $labels Label flags
+     * @param array<mixed> $see_also
+     * @param array<mixed> $tags
      * @throws DbLayerException
      */
-    public function postsLinks(array $ids, array $labels, &$see_also, &$tags): void
+    public function postsLinks(array $ids, array $labels, array &$see_also, array &$tags): void
     {
         // Processing labels
         if (\count($labels) > 0) {
@@ -130,8 +135,8 @@ readonly class PostProvider
                 ->andWhere('p.published = 1')
                 ->execute(array_keys($labels))
             ;
-
-            $rows = $sortArray = [];
+            $rows = [];
+            $sortArray = [];
             while ($row = $result->fetchAssoc()) {
                 $rows[]      = $row;
                 $sortArray[] = $row['create_time'];
@@ -155,8 +160,8 @@ readonly class PostProvider
             ->where('pt.post_id IN (' . implode(',', array_fill(0, \count($ids), '?')) . ')')
             ->execute($ids)
         ;
-
-        $rows = $sortArray = [];
+        $rows = [];
+        $sortArray = [];
         while ($row = $result2->fetchAssoc()) {
             $rows[]      = $row;
             $sortArray[] = $row['pt_id'];
@@ -166,10 +171,10 @@ readonly class PostProvider
 
         $tags = [];
         foreach ($rows as $row) {
-            $tags[$row['post_id']][] = array(
+            $tags[$row['post_id']][] = [
                 'title' => $row['name'],
                 'link'  => $this->blogUrlBuilder->tag($row['url']),
-            );
+            ];
         }
     }
 
@@ -182,7 +187,7 @@ readonly class PostProvider
             return 'empty';
         }
 
-        $startTime = strtotime('midnight', $createTime);
+        $startTime = (new \DateTimeImmutable())->setTimestamp($createTime)->setTime(0, 0)->getTimestamp();
         $endTime   = $startTime + 86400;
 
         $result = $this->dbLayer
@@ -206,6 +211,7 @@ readonly class PostProvider
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getAllLabels(): array
     {
@@ -216,9 +222,8 @@ readonly class PostProvider
             ->orderBy('count(label) DESC')
             ->execute()
         ;
-        $labels = $result->fetchColumn();
 
-        return $labels;
+        return $result->fetchColumn();
     }
 
     /**

@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
@@ -14,23 +14,27 @@ use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class AuthManager
 {
-    public const FORCE_AJAX_RESPONSE = '_force_ajax_response';
+    public const string FORCE_AJAX_RESPONSE = '_force_ajax_response';
 
-    private const SESSION_STATUS_LOST     = 'Lost';
-    private const SESSION_STATUS_OK       = 'Ok';
-    private const SESSION_STATUS_EXPIRED  = 'Expired';
-    private const SESSION_STATUS_WRONG_IP = 'Wrong_IP';
-    private const LEGACY_PASSWORD_PEPPER  = 'Life is not so easy :-)';
+    private const string SESSION_STATUS_LOST     = 'Lost';
+
+    private const string SESSION_STATUS_OK       = 'Ok';
+
+    private const string SESSION_STATUS_EXPIRED  = 'Expired';
+
+    private const string SESSION_STATUS_WRONG_IP = 'Wrong_IP';
+
+    private const string LEGACY_PASSWORD_PEPPER  = 'Life is not so easy :-)';
 
     public function __construct(
         private DbLayer           $dbLayer,
@@ -59,7 +63,8 @@ readonly class AuthManager
     {
         if ($this->forceAdminHttps && !$request->isSecure()) {
             $uri       = $request->getUri();
-            $secureUri = preg_replace('/^http:/i', 'https:', $uri);
+            $secureUri = preg_replace('/^http:/i', 'https:', $uri)
+                ?? throw new \RuntimeException('Unable to construct a secure admin URL.');
 
             return new RedirectResponse($secureUri);
         }
@@ -106,7 +111,8 @@ readonly class AuthManager
     {
         if ($this->forceAdminHttps && !$request->isSecure()) {
             $uri       = $request->getUri();
-            $secureUri = preg_replace('/^http:/i', 'https:', $uri);
+            $secureUri = preg_replace('/^http:/i', 'https:', $uri)
+                ?? throw new \RuntimeException('Unable to construct a secure admin URL.');
 
             return new RedirectResponse($secureUri);
         }
@@ -126,7 +132,8 @@ readonly class AuthManager
 
     public function getCurrentSessionId(): string
     {
-        return $this->requestStack->getMainRequest()->cookies->get($this->cookieName, '');
+        $request = $this->requestStack->getMainRequest();
+        return $request instanceof \Symfony\Component\HttpFoundation\Request ? $request->cookies->get($this->cookieName, '') : '';
     }
 
     /**
@@ -143,7 +150,7 @@ readonly class AuthManager
             ->execute()
         ;
 
-        return $result->result();
+        return (int)$result->result();
     }
 
     /**
@@ -178,7 +185,7 @@ readonly class AuthManager
         // Some error detected
         $this->deleteSession($sessionId);
 
-        if ($request->isXmlHttpRequest() || $request->attributes->get(self::FORCE_AJAX_RESPONSE)) {
+        if ($request->isXmlHttpRequest() || $request->attributes->get(self::FORCE_AJAX_RESPONSE) === true) {
             $response = new JsonResponse([
                 'success' => false,
                 'status'  => $status,
@@ -202,6 +209,7 @@ readonly class AuthManager
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>|null
      */
     private function getUserInfo(string $login): ?array
     {
@@ -213,7 +221,8 @@ readonly class AuthManager
             ->execute()
         ;
 
-        return $result->fetchAssoc() ?: null;
+        $row = $result->fetchAssoc();
+        return $row === false ? null : $row;
     }
 
     /**
@@ -239,8 +248,8 @@ readonly class AuthManager
      */
     private function processLoginForm(Request $request): Response
     {
-        $login    = $request->request->get('login', '');
-        $password = $request->request->get('pass', '');
+        $login    = $request->request->getString('login');
+        $password = $request->request->getString('pass');
 
         if ($login === '') {
             return $this->createAjaxErrorLoginPasswordResponse();
@@ -356,7 +365,7 @@ readonly class AuthManager
 
     private function createUnauthorizedResponse(Request $request): Response
     {
-        if ($request->isXmlHttpRequest() || $request->attributes->get(self::FORCE_AJAX_RESPONSE)) {
+        if ($request->isXmlHttpRequest() || $request->attributes->get(self::FORCE_AJAX_RESPONSE) === true) {
             return new JsonResponse([
                 'success' => false,
                 'message' => $this->translator->trans('Lost session'),
@@ -390,7 +399,7 @@ readonly class AuthManager
 
     private function loginExpireTimeout(): int
     {
-        return (max($this->loginTimeoutMinutes->get(), 1)) * 60;
+        return max($this->loginTimeoutMinutes->get(), 1) * 60;
     }
 
     /**
@@ -405,11 +414,15 @@ readonly class AuthManager
             ->where('challenge = :challenge')->setParameter('challenge', $sessionId)
             ->execute()
         ;
-        if (!($row = $result->fetchRow())) {
+        $row = $result->fetchRow();
+        if ($row === false) {
             return self::SESSION_STATUS_LOST;
         }
 
-        [$login, $time, $ip] = $row;
+        [$loginValue, $timeValue, $ipValue] = $row;
+        $login = (string)$loginValue;
+        $time  = (int)$timeValue;
+        $ip    = $ipValue === null ? null : (string)$ipValue;
 
         $now = time();
 
@@ -425,6 +438,7 @@ readonly class AuthManager
         if ($now > $time + 5) {
             $this->touchSession($request, $sessionId);
         }
+
         $this->permissionChecker->setUser($this->getUserInfo($login));
 
         return self::SESSION_STATUS_OK;

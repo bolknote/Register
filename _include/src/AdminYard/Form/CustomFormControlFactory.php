@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\AdminYard\Form;
 
@@ -19,11 +19,13 @@ class CustomFormControlFactory extends FormControlFactory
     {
     }
 
+    #[\Override]
     public function create(string $control, string $fieldName): FormControlInterface
     {
         if ($control === 'datetime') {
             return new CustomDateTime($fieldName, $this->translator);
         }
+
         if ($control === 'html_textarea') {
             return new HtmlTextarea($fieldName);
         }

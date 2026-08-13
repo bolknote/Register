@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
@@ -15,6 +15,7 @@ readonly class UpdateCommonCompiler implements UpdateCompilerInterface
     {
     }
 
+    #[\Override]
     public function getSql(UpdateBuilder $builder): string
     {
         $set = [];

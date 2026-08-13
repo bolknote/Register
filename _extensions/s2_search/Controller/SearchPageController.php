@@ -7,7 +7,7 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Controller;
 
@@ -19,27 +19,27 @@ use S2\Cms\Image\ThumbnailGenerator;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\Viewer;
 use S2\Rose\Entity\ExternalId;
 use S2\Rose\Entity\Query;
-use S2\Rose\Exception\ImmutableException;
-use S2\Rose\Exception\RuntimeException;
-use S2\Rose\Exception\UnknownIdException;
 use S2\Rose\Finder;
 use S2\Rose\Helper\ProfileHelper;
 use S2\Rose\Stemmer\StemmerInterface;
 use S2\Rose\Storage\Database\PdoStorage;
 use S2\Rose\Storage\Exception\EmptyIndexException;
-use S2\Rose\Storage\Exception\InvalidEnvironmentException;
 use s2_extensions\s2_search\Event\TagsSearchEvent;
 use s2_extensions\s2_search\Service\SimilarWordsDetector;
-use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
+use S2\Rose\Exception\ImmutableException;
+use S2\Rose\Exception\RuntimeException;
+use S2\Rose\Exception\UnknownIdException;
+use S2\Rose\Storage\Exception\InvalidEnvironmentException;
+use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 readonly class SearchPageController implements ControllerInterface
 {
@@ -70,43 +70,53 @@ readonly class SearchPageController implements ControllerInterface
      * @throws BadRequestException
      * @throws \JsonException
      */
+    #[\Override]
     public function handle(Request $request): Response
     {
-        if (($titleQuery = $request->query->get('title')) !== null) {
-            return $this->searchByTitle($titleQuery);
+        if ($request->query->has('title')) {
+            return $this->searchByTitle($request->query->getString('title'));
         }
-        $query   = $request->query->get('q', '');
-        $pageNum = (int)$request->query->get('p', 1);
 
-        $content['query'] = $query;
+        $query   = $request->query->getString('q');
+        $pageNum = $request->query->getInt('p', 1);
+        $content = ['query' => $query];
 
         $template = $this->templateProvider->getTemplate('service.php');
 
         if ($query !== '') {
-            $items_per_page = $this->maxItems->get() ?: 10.0;
+            $items_per_page = $this->maxItems->get();
+            if ($items_per_page <= 0) {
+                $items_per_page = 10;
+            }
+
             $queryObj       = new Query($query);
             $queryObj
                 ->setLimit($items_per_page)
                 ->setOffset(($pageNum - 1) * $items_per_page) // TODO Может быть за пределами
             ;
+            $resultSet = null;
             try {
                 $resultSet = $this->finder->find($queryObj, $this->debugView);
                 $content   += ['num' => $resultSet->getTotalCount()];
-            } catch (EmptyIndexException $e) {
+            } catch (\Throwable $exception) {
+                if (!$exception instanceof EmptyIndexException) {
+                    throw $exception;
+                }
+
                 $content += ['num' => 0,];
             }
 
             $content += ['tags' => $this->findInTags($queryObj)];
 
-            if ($content['num'] > 0) {
+            if ($content['num'] > 0 && $resultSet instanceof \S2\Rose\Entity\ResultSet) {
                 $content['num_info'] = $this->translator->trans('Found N pages', ['%count%' => $content['num'], '{{ pages }}' => $content['num']]);
 
-                $totalPages = (int)ceil(1.0 * $content['num'] / $items_per_page);
+                $totalPages = intdiv($content['num'] + $items_per_page - 1, $items_per_page);
                 if ($pageNum < 1 || $pageNum > $totalPages) {
                     $pageNum = 1;
                 }
 
-                $content['profile'] = array_map(static fn($p) => ProfileHelper::formatProfilePoint($p), $resultSet->getProfilePoints());
+                $content['profile'] = array_map(ProfileHelper::formatProfilePoint(...), $resultSet->getProfilePoints());
                 $content['trace']   = $resultSet->getTrace();
 
                 $content['output'] = '';
@@ -118,7 +128,7 @@ readonly class SearchPageController implements ControllerInterface
                         'descr'         => $item->getFormattedSnippet(),
                         'time'          => $item->getDate()?->getTimestamp(),
                         'images'        => $item->getImageCollection(),
-                        'debug'         => ($content['trace'][(new ExternalId($item->getId()))->toString()]),
+                        'debug'         => $content['trace'][(new ExternalId($item->getId()))->toString()],
                         'thumbnailHtml' => $this->thumbnailGenerator->getThumbnailHtml(...),
                     ], 's2_search');
                 }
@@ -153,7 +163,7 @@ readonly class SearchPageController implements ControllerInterface
             return '';
         }
 
-        $stemmedWords = array_map(fn($word) => $this->stemmer->stemWord($word), $words);
+        $stemmedWords = array_map(fn(string $word): string => $this->stemmer->stemWord($word), $words);
         $words        = array_unique(array_merge($words, $stemmedWords));
 
         $usedSql = $this->dbLayer
@@ -172,13 +182,18 @@ readonly class SearchPageController implements ControllerInterface
             ->where('EXISTS (' . $usedSql . ')')
             ->andWhere('(' . implode(' OR ', array_fill(0, 2 * \count($words), 'name LIKE ?')) . ')')
             ->execute(array_merge(
-                array_map(static fn(string $word) => $word . '%', $words),
-                array_map(static fn(string $word) => '% ' . $word . '%', $words),
+                array_map(static fn(string $word): string => $word . '%', $words),
+                array_map(static fn(string $word): string => '% ' . $word . '%', $words),
             ))
         ;
 
         $tags = [];
-        while ($row = $result->fetchAssoc()) {
+        while (true) {
+            $row = $result->fetchAssoc();
+            if ($row === false) {
+                break;
+            }
+
             if ($this->similarWordsDetector->wordIsSimilarToOtherWords($row['name'], $words)) {
                 $tags[] = '<a href="' . $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($row['url']) . '/') . '">' . s2_htmlencode($row['name']) . '</a>';
             }
@@ -188,9 +203,11 @@ readonly class SearchPageController implements ControllerInterface
         if (\count($tags) > 0) {
             $event->addLine(\sprintf($this->translator->trans('Found tags'), implode(', ', $tags)));
         }
+
         $this->eventDispatcher->dispatch($event);
 
-        if (($string = $event->getLine()) !== null) {
+        $string = $event->getLine();
+        if ($string !== null) {
             return '<p class="s2_search_found_tags">' . $string . '</p>';
         }
 
@@ -208,14 +225,18 @@ readonly class SearchPageController implements ControllerInterface
 
         $result = '';
         foreach ($toc as $tocEntryWithExtId) {
-            $result .= '<a href="' . $this->urlBuilder->link($tocEntryWithExtId->getTocEntry()->getUrl()) . '">' .
-                preg_replace(
+            $highlightedTitle = preg_replace(
                     '#(' . preg_quote($titleQuery, '#') . ')#ui',
                     '<em>\\1</em>'
-                    , s2_htmlencode($tocEntryWithExtId->getTocEntry()->getTitle())) .
-                '</a>';
+                    , s2_htmlencode($tocEntryWithExtId->getTocEntry()->getTitle()));
+            if ($highlightedTitle === null) {
+                throw new \RuntimeException('Unable to highlight the title search result.');
+            }
+
+            $result .= '<a href="' . $this->urlBuilder->link($tocEntryWithExtId->getTocEntry()->getUrl()) . '">' . $highlightedTitle . '</a>';
         }
 
         return new Response($result);
     }
+
 }

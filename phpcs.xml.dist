@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<ruleset name="S2 strict quality and compatibility rules">
+    <description>Correctness, type safety and PHP 8.3–8.5 compatibility checks.</description>
+
+    <arg name="basepath" value="." />
+    <arg name="colors" />
+    <arg name="extensions" value="php" />
+    <arg name="parallel" value="8" />
+    <arg name="report-width" value="120" />
+    <config name="testVersion" value="8.3-8.5" />
+
+    <file>_admin</file>
+    <file>_extensions</file>
+    <file>_include</file>
+    <file>_lang</file>
+    <file>_styles</file>
+    <file>_tests</file>
+    <file>tools</file>
+    <file>cron.php</file>
+    <file>index.php</file>
+
+    <exclude-pattern>*/_vendor/*</exclude-pattern>
+    <exclude-pattern>*/_cache/*</exclude-pattern>
+    <exclude-pattern>*/_tests/_output/*</exclude-pattern>
+
+    <rule ref="PHPCompatibility" />
+    <rule ref="Generic.PHP.Syntax" />
+    <rule ref="SlevomatCodingStandard.Classes.ClassConstantVisibility" />
+    <rule ref="SlevomatCodingStandard.Classes.ModernClassNameReference" />
+    <rule ref="SlevomatCodingStandard.ControlStructures.RequireNullCoalesceOperator" />
+    <rule ref="SlevomatCodingStandard.Exceptions.ReferenceThrowableOnly" />
+    <rule ref="SlevomatCodingStandard.Functions.UnusedInheritedVariablePassedToClosure" />
+    <rule ref="SlevomatCodingStandard.Namespaces.UnusedUses">
+        <properties>
+            <property name="searchAnnotations" value="true" />
+        </properties>
+    </rule>
+    <rule ref="SlevomatCodingStandard.Operators.DisallowEqualOperators" />
+    <rule ref="SlevomatCodingStandard.PHP.UselessParentheses" />
+    <rule ref="SlevomatCodingStandard.TypeHints.DeclareStrictTypes" />
+    <rule ref="SlevomatCodingStandard.TypeHints.LongTypeHints" />
+    <rule ref="SlevomatCodingStandard.TypeHints.NullableTypeForNullDefaultValue" />
+    <rule ref="SlevomatCodingStandard.TypeHints.DeclareStrictTypes.MissingDeclaration">
+        <exclude-pattern>*/views/*</exclude-pattern>
+        <exclude-pattern>*/templates/*</exclude-pattern>
+        <exclude-pattern>*/lang/*</exclude-pattern>
+        <exclude-pattern>*/_lang/*</exclude-pattern>
+        <exclude-pattern>*/_styles/*</exclude-pattern>
+        <exclude-pattern>*/_tests/_resources/*</exclude-pattern>
+    </rule>
+</ruleset>

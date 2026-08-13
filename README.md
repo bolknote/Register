@@ -25,7 +25,8 @@ while additional functionality can be implemented via
 ## Server Requirements
 
 - **Web server**
-- **PHP** 8.2 or higher.
+- **PHP** 8.3 or higher. The codebase is continuously checked for PHP 8.3–8.5 compatibility.
+- PHP extensions: DOM, Filter, GD, JSON, PDO, and Session. cURL and zlib are optional performance enhancements.
 - One of the supported databases:
     - **MySQL** (tested on MariaDB 10.5 and higher, MySQL 8.0 and higher),
     - **PostgreSQL** (tested on 14),
@@ -52,6 +53,26 @@ composer install --no-dev -o # for production
 ```
 
 See [details in the documentation](https://github.com/parpalak/s2/wiki/Installation).
+
+## Local development
+
+Start an isolated local installation with one command:
+
+```bash
+./dev
+```
+
+The command installs Composer dependencies when needed, creates a local SQLite site in `.local/`,
+and serves it at `http://127.0.0.1:8080`. On the first run it prints the local admin credentials.
+Existing `config.php` and production data are never modified. The host, port, PHP executable, and
+initial credentials can be overridden with `S2_DEV_HOST`, `S2_DEV_PORT`, `PHP_BIN`,
+`S2_DEV_ADMIN_LOGIN`, and `S2_DEV_ADMIN_PASSWORD`.
+
+Run all linters, maximum-level static analyzers, compatibility checks, and tests with:
+
+```bash
+composer check
+```
 
 ## Documentation
 

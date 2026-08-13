@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
@@ -25,7 +25,6 @@ use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\PermissionChecker as P;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\HtmlTemplateProvider;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\JsonResponse as Json;
@@ -36,6 +35,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 class AdminAjaxRequestHandler
 {
@@ -54,16 +54,17 @@ class AdminAjaxRequestHandler
      */
     public function handle(Request $request): Response
     {
-        array_map(static function (StatefulServiceInterface $service) {
+        foreach ($this->container->getByTagIfInstantiated(StatefulServiceInterface::class) as $service) {
             $service->clearState();
-        }, $this->container->getByTagIfInstantiated(StatefulServiceInterface::class));
+        }
 
         $request->setSession(new Session());
         $request->attributes->set(AuthManager::FORCE_AJAX_RESPONSE, true);
+
         $this->requestStack->push($request);
 
         $response = $this->authManager->checkAuth($request);
-        if ($response !== null) {
+        if ($response instanceof \Symfony\Component\HttpFoundation\Response) {
             $this->requestStack->pop();
 
             return $response;
@@ -71,75 +72,81 @@ class AdminAjaxRequestHandler
 
         $controllerMap = [
             // Articles tree
-            'move'                => static function (P $p, R $r, C $c, T $t) {
+            'move'                => static function (P $p, R $r, C $c, T $_t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
+
                 if (!$r->request->has('source_id') || !$r->request->has('new_parent_id') || !$r->request->has('new_pos')) {
                     return new Json(['success' => false, 'message' => 'Parameters "source_id", "new_parent_id" and "new_pos" are required.'], Response::HTTP_BAD_REQUEST);
                 }
-                /** @var ArticleManager $am */
+
                 $am = $c->get(ArticleManager::class);
                 $am->moveBranch(
                     (int)$r->request->get('source_id'),
                     (int)$r->request->get('new_parent_id'),
                     (int)$r->request->get('new_pos'),
-                    $r->request->get('csrf_token', '')
+                    $r->request->getString('csrf_token')
                 );
 
                 return new Json(['success' => true]);
             },
-            'delete'              => static function (P $p, R $r, C $c, T $t) {
+            'delete'              => static function (P $p, R $r, C $c, T $_t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
+
                 if (!$r->query->has('id')) {
                     return new Json(['success' => false, 'message' => 'Parameter "id" is required.'], Response::HTTP_BAD_REQUEST);
                 }
-                /** @var ArticleManager $am */
+
                 $am = $c->get(ArticleManager::class);
-                $am->deleteBranch((int)$r->query->get('id'), $r->request->get('csrf_token', ''));
+                $am->deleteBranch($r->query->getInt('id'), $r->request->getString('csrf_token'));
 
                 return new Json(['success' => true]);
             },
-            'create'              => static function (P $p, R $r, C $c, T $t) {
+            'create'              => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
+
                 if (!$p->isGrantedAny(P::PERMISSION_CREATE_ARTICLES)) {
                     return new Json(['success' => false, 'message' => $t->trans('No permission')], Response::HTTP_FORBIDDEN);
                 }
+
                 if (!$r->query->has('id') || !$r->request->has('title')) {
                     return new Json(['success' => false, 'message' => 'Parameters "id" and "title" are required.'], Response::HTTP_BAD_REQUEST);
                 }
-                /** @var ArticleManager $am */
+
                 $am        = $c->get(ArticleManager::class);
-                $parentId  = (int)$r->query->get('id');
-                $newId     = $am->createArticle($parentId, (string)$r->request->get('title'), (string)$r->request->get('csrf_token', ''));
+                $parentId  = $r->query->getInt('id');
+                $newId     = $am->createArticle($parentId, $r->request->getString('title'), $r->request->getString('csrf_token'));
 
                 return new Json(['success' => true, 'id' => $newId, 'csrfToken' => $am->getCsrfToken($newId)]);
             },
-            'rename'              => static function (P $p, R $r, C $c, T $t) {
+            'rename'              => static function (P $p, R $r, C $c, T $_t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
+
                 if (!$r->query->has('id') || !$r->request->has('title')) {
                     return new Json(['success' => false, 'message' => 'Parameters "id" and "title" are required.'], Response::HTTP_BAD_REQUEST);
                 }
-                /** @var ArticleManager $am */
+
                 $am = $c->get(ArticleManager::class);
-                $am->renameArticle((int)$r->query->get('id'), $r->request->get('title'), $r->request->get('csrf_token', ''));
+                $am->renameArticle($r->query->getInt('id'), $r->request->getString('title'), $r->request->getString('csrf_token'));
 
                 return new Json(['success' => true]);
             },
-            'load_tree'           => static function (P $p, R $r, C $c, T $t) {
+            'load_tree'           => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if (!$p->isGranted(P::PERMISSION_VIEW)) {
                     return new Json(['success' => false, 'message' => $t->trans('No permission')], Response::HTTP_FORBIDDEN);
                 }
+
                 if (!$r->query->has('id')) {
                     return new Json(['success' => false, 'message' => 'Parameter "id" is required.'], Response::HTTP_BAD_REQUEST);
                 }
-                /** @var ArticleManager $am */
+
                 $am = $c->get(ArticleManager::class);
 
                 return new Json($am->getChildBranches((int)$r->query->get('id'), $r->query->get('search')));
@@ -147,68 +154,74 @@ class AdminAjaxRequestHandler
 
 
             // Extensions
-            'flip_extension'      => static function (P $p, R $r, C $c, T $t) {
+            'flip_extension'      => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
+
                 if (!$p->isGranted(P::PERMISSION_EDIT_USERS)) {
                     return new Json(['success' => false, 'message' => $t->trans('No permission')], Response::HTTP_FORBIDDEN);
                 }
+
                 if (!$r->query->has('id')) {
                     return new Json(['success' => false, 'message' => 'Parameter "id" is required.'], Response::HTTP_BAD_REQUEST);
                 }
-                /** @var ExtensionManagerAdapter $em */
+
                 $em    = $c->get(ExtensionManagerAdapter::class);
-                $error = $em->flipExtension($r->query->get('id'), $r->request->get('csrf_token', ''));
+                $error = $em->flipExtension($r->query->getString('id'), $r->request->getString('csrf_token'));
 
                 return new Json(['success' => $error === null, 'message' => $error]);
             },
-            'install_extension'   => static function (P $p, R $r, C $c, T $t) {
+            'install_extension'   => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
+
                 if (!$p->isGranted(P::PERMISSION_EDIT_USERS)) {
                     return new Json(['success' => false, 'message' => $t->trans('No permission')], Response::HTTP_FORBIDDEN);
                 }
+
                 if (!$r->query->has('id')) {
                     return new Json(['success' => false, 'message' => 'Parameter "id" is required.'], Response::HTTP_BAD_REQUEST);
                 }
-                /** @var ExtensionManagerAdapter $em */
+
                 $em     = $c->get(ExtensionManagerAdapter::class);
-                $errors = $em->installExtension($r->query->get('id'), $r->request->get('csrf_token', ''));
+                $errors = $em->installExtension($r->query->getString('id'), $r->request->getString('csrf_token'));
 
                 return new Json(['success' => $errors === [], 'message' => implode("\n", $errors)]);
             },
-            'uninstall_extension' => static function (P $p, R $r, C $c, T $t) {
+            'uninstall_extension' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
+
                 if (!$p->isGranted(P::PERMISSION_EDIT_USERS)) {
                     return new Json(['success' => false, 'message' => $t->trans('No permission')], Response::HTTP_FORBIDDEN);
                 }
+
                 if (!$r->query->has('id')) {
                     return new Json(['success' => false, 'message' => 'Parameter "id" is required.'], Response::HTTP_BAD_REQUEST);
                 }
-                /** @var ExtensionManagerAdapter $em */
+
                 $em    = $c->get(ExtensionManagerAdapter::class);
-                $error = $em->uninstallExtension($r->query->get('id'), $r->request->get('csrf_token', ''));
+                $error = $em->uninstallExtension($r->query->getString('id'), $r->request->getString('csrf_token'));
 
                 return new Json(['success' => $error === null, 'message' => $error]);
             },
 
-            'phpinfo' => static function (P $p, R $r, C $c, T $t) {
+            'phpinfo' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\Response|\Symfony\Component\HttpFoundation\StreamedResponse {
                 if (!$p->isGranted(P::PERMISSION_VIEW_HIDDEN)) {
                     return new Response($t->trans('No permission'), Response::HTTP_FORBIDDEN);
                 }
 
-                return new StreamedResponse(static function () {
+                return new StreamedResponse(static function (): void {
                     /** @noinspection ForgottenDebugOutputInspection */
                     phpinfo();
                 });
             },
 
             // pictures
-            'preview' => static function (P $p, R $r, C $c, T $t) {
+            'preview' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\Response {
                 if (!$p->isGranted(P::PERMISSION_VIEW)) {
                     return new Json(['success' => false, 'message' => $t->trans('No permission')], Response::HTTP_FORBIDDEN);
                 }
@@ -222,7 +235,6 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => 'Invalid file name.'], Response::HTTP_BAD_REQUEST);
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
 
                 $response = $pictureManager->getThumbnailResponse($file, 200);
@@ -232,7 +244,7 @@ class AdminAjaxRequestHandler
                 return $response;
             },
 
-            'load_folders' => static function (P $p, R $r, C $c, T $t) {
+            'load_folders' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if (!$p->isGranted(P::PERMISSION_VIEW)) {
                     return new Json(['success' => false, 'message' => $t->trans('No permission')], Response::HTTP_FORBIDDEN);
                 }
@@ -242,17 +254,16 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => 'Invalid path.'], Response::HTTP_BAD_REQUEST);
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
 
                 try {
                     return new Json($pictureManager->getDirContentRecursive($path));
-                } catch (\RuntimeException $e) {
-                    return new Json(['success' => false, 'message' => $e->getMessage()], $e->getCode() ?: Response::HTTP_INTERNAL_SERVER_ERROR);
+                } catch (\RuntimeException $runtimeException) {
+                    return new Json(['success' => false, 'message' => $runtimeException->getMessage()], self::httpStatus($runtimeException));
                 }
             },
 
-            'picture_csrf_token' => static function (P $p, R $r, C $c, T $t) {
+            'picture_csrf_token' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
@@ -270,13 +281,12 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => 'Invalid path.'], Response::HTTP_BAD_REQUEST);
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
 
                 return new Json(['success' => true, 'csrf_token' => $pictureManager->getFolderCsrfToken($path)]);
             },
 
-            'create_subfolder' => static function (P $p, R $r, C $c, T $t) {
+            'create_subfolder' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
@@ -299,7 +309,6 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => 'Invalid name.'], Response::HTTP_BAD_REQUEST);
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
                 try {
                     $pictureManager->assertFolderCsrfToken($path, (string)$r->request->get('csrf_token', ''));
@@ -311,12 +320,12 @@ class AdminAjaxRequestHandler
                         'path'       => $newPath,
                         'csrf_token' => $pictureManager->getFolderCsrfToken($newPath),
                     ]);
-                } catch (\RuntimeException $e) {
-                    return new Json(['success' => false, 'message' => $e->getMessage()], $e->getCode() ?: Response::HTTP_INTERNAL_SERVER_ERROR);
+                } catch (\RuntimeException $runtimeException) {
+                    return new Json(['success' => false, 'message' => $runtimeException->getMessage()], self::httpStatus($runtimeException));
                 }
             },
 
-            'delete_folder' => static function (P $p, R $r, C $c, T $t) {
+            'delete_folder' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
@@ -334,7 +343,6 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => 'Invalid path.'], Response::HTTP_BAD_REQUEST);
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
                 $pictureManager->assertFolderCsrfToken($path, (string)$r->request->get('csrf_token', ''));
 
@@ -345,7 +353,7 @@ class AdminAjaxRequestHandler
                 return new Json(['success' => true]);
             },
 
-            'delete_files' => static function (P $p, R $r, C $c, T $t) {
+            'delete_files' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
@@ -360,21 +368,20 @@ class AdminAjaxRequestHandler
 
                 try {
                     $fileNames = $r->query->all('fname');
-                } catch (BadRequestException $e) {
+                } catch (BadRequestException) {
                     return new Json(['success' => false, 'message' => 'Parameter "fname" must be an array.'], Response::HTTP_BAD_REQUEST);
                 }
 
-                $dir = $r->query->get('path');
+                $dir = $r->query->getString('path');
                 if (str_contains($dir, '..')) {
                     return new Json(['success' => false, 'message' => 'Invalid path.'], Response::HTTP_BAD_REQUEST);
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
                 $pictureManager->assertFolderCsrfToken($dir, (string)$r->request->get('csrf_token', ''));
 
                 foreach ($fileNames as $fileName) {
-                    $path = $dir . '/' . ((string)$fileName);
+                    $path = $dir . '/' . $fileName;
                     while (str_contains($path, '..')) {
                         $path = str_replace('..', '', $path);
                     }
@@ -385,7 +392,7 @@ class AdminAjaxRequestHandler
                 return new Json(['success' => true]);
             },
 
-            'rename_folder' => static function (P $p, R $r, C $c, T $t) {
+            'rename_folder' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
@@ -408,7 +415,6 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => 'Invalid name.'], Response::HTTP_BAD_REQUEST);
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
                 try {
                     $pictureManager->assertFolderCsrfToken($path, (string)$r->request->get('csrf_token', ''));
@@ -418,12 +424,12 @@ class AdminAjaxRequestHandler
                         'new_path'   => $newName,
                         'csrf_token' => $pictureManager->getFolderCsrfToken($newName),
                     ]);
-                } catch (\RuntimeException $e) {
-                    return new Json(['success' => false, 'message' => $e->getMessage()], $e->getCode() ?: Response::HTTP_INTERNAL_SERVER_ERROR);
+                } catch (\RuntimeException $runtimeException) {
+                    return new Json(['success' => false, 'message' => $runtimeException->getMessage()], self::httpStatus($runtimeException));
                 }
             },
 
-            'rename_file' => static function (P $p, R $r, C $c, T $t) {
+            'rename_file' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
@@ -447,11 +453,12 @@ class AdminAjaxRequestHandler
                 }
 
                 $extension = '';
-                if (($ext_pos = strrpos($filename, '.')) !== false) {
+                $ext_pos = strrpos($filename, '.');
+                if ($ext_pos !== false) {
                     $extension = substr($filename, $ext_pos + 1);
                 }
 
-                $allowedExtensions = $c->getParameter('allowed_extensions');
+                $allowedExtensions = $c->getStringParameter('allowed_extensions');
                 if (
                     $extension !== ''
                     && $allowedExtensions !== ''
@@ -461,18 +468,17 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => $t->trans('Forbidden extension', ['{{ ext }}' => $extension])], Response::HTTP_FORBIDDEN);
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
                 try {
                     $pictureManager->assertFileCsrfToken($path, (string)$r->request->get('csrf_token', ''));
                     $newName = $pictureManager->renameFile($path, $filename);
                     return new Json(['success' => true, 'new_name' => $newName]);
-                } catch (\RuntimeException $e) {
-                    return new Json(['success' => false, 'message' => $e->getMessage()], $e->getCode() ?: Response::HTTP_INTERNAL_SERVER_ERROR);
+                } catch (\RuntimeException $runtimeException) {
+                    return new Json(['success' => false, 'message' => $runtimeException->getMessage()], self::httpStatus($runtimeException));
                 }
             },
 
-            'move_folder' => static function (P $p, R $r, C $c, T $t) {
+            'move_folder' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
@@ -495,7 +501,6 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => 'Invalid destination path.'], Response::HTTP_BAD_REQUEST);
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
                 try {
                     $pictureManager->assertFolderCsrfToken($sourcePath, (string)$r->request->get('csrf_token', ''));
@@ -506,12 +511,12 @@ class AdminAjaxRequestHandler
                         'new_path'   => $newPath,
                         'csrf_token' => $pictureManager->getFolderCsrfToken($newPath),
                     ]);
-                } catch (\RuntimeException $e) {
-                    return new Json(['success' => false, 'message' => $e->getMessage()], $e->getCode() ?: Response::HTTP_INTERNAL_SERVER_ERROR);
+                } catch (\RuntimeException $runtimeException) {
+                    return new Json(['success' => false, 'message' => $runtimeException->getMessage()], self::httpStatus($runtimeException));
                 }
             },
 
-            'move_files' => static function (P $p, R $r, C $c, T $t) {
+            'move_files' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
@@ -530,7 +535,7 @@ class AdminAjaxRequestHandler
 
                 try {
                     $fileNames = $r->query->all('fname');
-                } catch (BadRequestException $e) {
+                } catch (BadRequestException) {
                     return new Json(['success' => false, 'message' => 'Parameter "fname" must be an array.'], Response::HTTP_BAD_REQUEST);
                 }
 
@@ -550,19 +555,18 @@ class AdminAjaxRequestHandler
                     }
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
                 try {
                     $pictureManager->assertFolderCsrfToken($sourcePath, (string)$r->request->get('csrf_token', ''));
                     $pictureManager->assertFolderCsrfToken($destinationPath, (string)$r->request->get('destination_csrf_token', ''));
                     $pictureManager->moveFiles($sourcePath, $destinationPath, $fileNames);
                     return new Json(['success' => true]);
-                } catch (\RuntimeException $e) {
-                    return new Json(['success' => false, 'message' => $e->getMessage()], $e->getCode() ?: Response::HTTP_INTERNAL_SERVER_ERROR);
+                } catch (\RuntimeException $runtimeException) {
+                    return new Json(['success' => false, 'message' => $runtimeException->getMessage()], self::httpStatus($runtimeException));
                 }
             },
 
-            'load_files' => static function (P $p, R $r, C $c, T $t) {
+            'load_files' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if (!$p->isGranted(P::PERMISSION_VIEW)) {
                     return new Json(['success' => false, 'message' => $t->trans('No permission')], Response::HTTP_FORBIDDEN);
                 }
@@ -576,13 +580,12 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => 'Invalid path.'], Response::HTTP_BAD_REQUEST);
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
                 $files          = $pictureManager->getFiles($path);
                 return new Json($files);
             },
 
-            'reserve_image' => static function (P $p, R $r, C $c, T $t) {
+            'reserve_image' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
@@ -595,7 +598,7 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => 'Parameters "dir" and "name" are required.'], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
 
-                $path = $r->request->get('dir');
+                $path = $r->request->getString('dir');
                 if (str_contains($path, '..') || str_contains($path, "\0")) {
                     return new Json(['success' => false, 'message' => 'Invalid dir.'], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
@@ -605,31 +608,29 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => 'Invalid file name.'], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
 
-                /** @var PictureManager $pictureManager */
                 $pictureManager = $c->get(PictureManager::class);
                 $pictureManager->assertFolderCsrfToken($path, (string)$r->request->get('csrf_token', ''));
 
-                /** @var PictureReserveManager $reserveManager */
                 $reserveManager = $c->get(PictureReserveManager::class);
 
                 try {
                     $reserve = $reserveManager->reserveFileName($path, $name);
-                } catch (\RuntimeException $e) {
-                    return new Json(['success' => false, 'message' => $e->getMessage()], $e->getCode() ?: Response::HTTP_INTERNAL_SERVER_ERROR);
+                } catch (\RuntimeException $runtimeException) {
+                    return new Json(['success' => false, 'message' => $runtimeException->getMessage()], self::httpStatus($runtimeException));
                 }
 
                 $filePath = $path . '/' . $reserve['name'];
 
                 return new Json([
                     'success'   => true,
-                    'file_path' => $c->getParameter('image_path') . $filePath,
+                    'file_path' => $c->getStringParameter('image_path') . $filePath,
                     'dir'       => $path,
                     'name'      => $reserve['name'],
                     'token'     => $reserve['token'],
                 ]);
             },
 
-            'upload' => static function (P $p, R $r, C $c, T $t) {
+            'upload' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
@@ -641,7 +642,8 @@ class AdminAjaxRequestHandler
                 if (!$r->request->has('dir')) {
                     return new Json(['success' => false, 'message' => $t->trans('No POST data')], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
-                $path = $r->request->get('dir');
+
+                $path = $r->request->getString('dir');
                 if (str_contains($path, '..') || str_contains($path, "\0")) {
                     return new Json(['success' => false, 'message' => 'Invalid dir.'], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
@@ -649,16 +651,28 @@ class AdminAjaxRequestHandler
                 if (!$r->files->has('pictures')) {
                     return new Json(['success' => false, 'message' => $t->trans('No file')], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
-                $uploadedFiles = $r->files->get('pictures');
+
+                try {
+                    $uploadedFiles = $r->files->all('pictures');
+                } catch (BadRequestException) {
+                    return new Json(['success' => false, 'message' => $t->trans('Invalid files')], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
                 if (\count($uploadedFiles) === 0) {
                     return new Json(['success' => false, 'message' => $t->trans('Empty files')], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
 
-                /** @var PictureManager $pictureManager */
+                foreach ($uploadedFiles as $uploadedFile) {
+                    if (!$uploadedFile instanceof \Symfony\Component\HttpFoundation\File\UploadedFile) {
+                        return new Json(['success' => false, 'message' => $t->trans('Invalid file')], Response::HTTP_UNPROCESSABLE_ENTITY);
+                    }
+                }
+
+                /** @var list<\Symfony\Component\HttpFoundation\File\UploadedFile> $uploadedFiles */
+
                 $pictureManager = $c->get(PictureManager::class);
                 $pictureManager->assertFolderCsrfToken($path, (string)$r->request->get('csrf_token', ''));
 
-                /** @var PictureReserveManager $reserveManager */
                 $reserveManager = $c->get(PictureReserveManager::class);
 
                 if ($r->request->has('token') && $r->request->has('name')) {
@@ -681,7 +695,7 @@ class AdminAjaxRequestHandler
                             $uploadedFiles[0],
                             $path,
                             $name,
-                            (bool)$r->request->get('create_dir')
+                            $r->request->getBoolean('create_dir')
                         );
                         $reserveManager->clearReserve($path, $name);
                     } catch (\RuntimeException $e) {
@@ -689,12 +703,12 @@ class AdminAjaxRequestHandler
                             $reserveManager->clearReserve($path, $name);
                         }
 
-                        return new Json(['success' => false, 'message' => $e->getMessage()], $e->getCode() ?: Response::HTTP_INTERNAL_SERVER_ERROR);
+                        return new Json(['success' => false, 'message' => $e->getMessage()], self::httpStatus($e));
                     }
 
                     return new Json([
                         'success'   => true,
-                        'file_path' => $c->getParameter('image_path') . $storedName,
+                        'file_path' => $c->getStringParameter('image_path') . $storedName,
                         ...$r->request->has('return_image_info') ? ['image_info' => $pictureManager->getImageInfo($storedName)] : [],
                     ]);
                 }
@@ -704,7 +718,7 @@ class AdminAjaxRequestHandler
                 $lastFileName = null;
                 foreach ($uploadedFiles as $uploadedFile) {
                     try {
-                        $lastFileName = $pictureManager->processUploadedFile($uploadedFile, $path, (bool)$r->request->get('create_dir'));
+                        $lastFileName = $pictureManager->processUploadedFile($uploadedFile, $path, $r->request->getBoolean('create_dir'));
                     } catch (\RuntimeException $e) {
                         $errors[] = $e->getMessage();
                     }
@@ -714,25 +728,30 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'errors' => $errors]);
                 }
 
+                if ($lastFileName === null) {
+                    return new Json(['success' => false, 'message' => $t->trans('No file')], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
                 return new Json([
                     'success'   => true,
-                    'file_path' => $c->getParameter('image_path') . $lastFileName,
-                    ...$r->request->has('return_image_info') && $lastFileName !== null ? ['image_info' => $pictureManager->getImageInfo($lastFileName)] : [],
+                    'file_path' => $c->getStringParameter('image_path') . $lastFileName,
+                    ...$r->request->has('return_image_info') ? ['image_info' => $pictureManager->getImageInfo($lastFileName)] : [],
                 ]);
             },
 
             // article helpers
-            'load_template' => static function (P $p, R $r, C $c, T $t) {
+            'load_template' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if (!$p->isGranted(P::PERMISSION_CREATE_ARTICLES)) {
                     return new Json(['success' => false, 'message' => $t->trans('No permission')], Response::HTTP_FORBIDDEN);
                 }
+
                 if (!$r->query->has('article_id') && !$r->query->has('template_id')) {
                     return new Json(['success' => false, 'message' => 'One of parameters "article_id" or "template_id" is required.'], Response::HTTP_BAD_REQUEST);
                 }
+
                 $templateId = $r->query->getString('template_id');
                 if ($templateId === '') {
                     $articleId = $r->query->getInt('article_id');
-                    /** @var ArticleProvider $articleProvider */
                     $articleProvider = $c->get(ArticleProvider::class);
                     $templateId      = $articleProvider->findInheritedTemplate($articleId, false);
                 }
@@ -741,13 +760,12 @@ class AdminAjaxRequestHandler
                     $templateId = 'site.php';
                 }
 
-                /** @var HtmlTemplateProvider $htmlTemplateProvider */
                 $htmlTemplateProvider = $c->get(HtmlTemplateProvider::class);
 
-                $template = '';
                 try {
                     $template = $htmlTemplateProvider->getRawTemplateContent($templateId, null);
-                } catch (\RuntimeException $e) {
+                } catch (\RuntimeException) {
+                    $template = '';
                 }
 
                 if ($template === '') {
@@ -766,9 +784,7 @@ class AdminAjaxRequestHandler
         $this->eventDispatcher->dispatch($event = new AdminAjaxControllerMapEvent($controllerMap));
 
         $action     = $request->query->getString('action', $request->request->getString('action'));
-        $controller = $event->controllerMap[$action] ?? static function () {
-            return new Json(['success' => false, 'message' => 'Unknown action.'], Response::HTTP_BAD_REQUEST);
-        };
+        $controller = $event->controllerMap[$action] ?? (static fn(P $_p, R $_r, C $_c, T $_t): \Symfony\Component\HttpFoundation\JsonResponse => new Json(['success' => false, 'message' => 'Unknown action.'], Response::HTTP_BAD_REQUEST));
 
         try {
             $response = $controller($this->permissionChecker, $request, $this->container, $this->translator);
@@ -779,5 +795,13 @@ class AdminAjaxRequestHandler
         }
 
         return $response;
+    }
+
+    private static function httpStatus(\Throwable $throwable): int
+    {
+        $code = $throwable->getCode();
+        return \is_int($code) && $code >= 100 && $code <= 599
+            ? $code
+            : Response::HTTP_INTERNAL_SERVER_ERROR;
     }
 }

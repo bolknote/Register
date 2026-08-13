@@ -5,11 +5,11 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
-
 use S2\Cms\Pdo\DbLayerException;
+
 
 readonly class SelectCommonCompiler implements SelectCompilerInterface
 {
@@ -20,13 +20,15 @@ readonly class SelectCommonCompiler implements SelectCompilerInterface
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function getSql(SelectBuilder $builder): string
     {
         $sql = $this->compileWith($builder);
         $sql .= 'SELECT ' . implode(', ', $builder->getSelect());
 
-        if ($builder->getTable() !== null) {
-            $sql .= ' FROM ' . $this->prefix . $builder->getTable();
+        $table = $builder->getTable();
+        if ($table !== null) {
+            $sql .= ' FROM ' . $this->prefix . $table;
         }
 
         $joins = $builder->getJoins();
@@ -35,6 +37,7 @@ readonly class SelectCommonCompiler implements SelectCompilerInterface
                 match ($join['type']) {
                     SelectBuilder::JOIN_TYPE_INNER => 'INNER JOIN',
                     SelectBuilder::JOIN_TYPE_LEFT => 'LEFT JOIN',
+                    default => throw new \InvalidArgumentException('Unsupported join type: ' . $join['type']),
                 },
                 $this->prefix,
                 $join['table'],

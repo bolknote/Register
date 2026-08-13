@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\Application;
 

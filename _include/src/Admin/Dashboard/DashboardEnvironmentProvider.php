@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Dashboard;
 
@@ -20,6 +20,7 @@ readonly class DashboardEnvironmentProvider implements DashboardStatProviderInte
     ) {
     }
 
+    #[\Override]
     public function getHtml(): string
     {
         $serverLoad = $this->detectLoadAverages() ?? $this->translator->trans('N/A');
@@ -44,13 +45,13 @@ readonly class DashboardEnvironmentProvider implements DashboardStatProviderInte
         if (\function_exists('sys_getloadavg')) {
             $loadAverages = sys_getloadavg();
             if (\is_array($loadAverages)) {
-                $loadAverages = array_map(static fn($value) => round($value, 3), $loadAverages);
-                return $loadAverages[0] . ' ' . $loadAverages[1] . ' ' . $loadAverages[2];
+                $loadAverages = array_map(static fn(float $value): string => number_format($value, 3, '.', ''), $loadAverages);
+                return implode(' ', $loadAverages);
             }
         }
 
-        if (@is_readable('/proc/loadavg')) {
-            $loadAverages = @file_get_contents('/proc/loadavg');
+        if (is_readable('/proc/loadavg')) {
+            $loadAverages = s2_call_without_warnings(static fn(): string|false => file_get_contents('/proc/loadavg'));
             if ($loadAverages !== false) {
                 $loadAverages = explode(' ', $loadAverages);
                 if (isset($loadAverages[2])) {
@@ -64,13 +65,13 @@ readonly class DashboardEnvironmentProvider implements DashboardStatProviderInte
         }
 
         $uptime = shell_exec('uptime');
-        if ($uptime !== null && preg_match('/averages?:\s+([\d.]+),\s+([\d.]+),\s+([\d.]+)/i', $uptime, $matches)) {
+        if (\is_string($uptime) && preg_match('/averages?:\s+([\d.]+),\s+([\d.]+),\s+([\d.]+)/i', $uptime, $matches) === 1) {
             return $matches[1] . ' ' . $matches[2] . ' ' . $matches[3];
         }
 
         if (PHP_OS_FAMILY === 'BSD' || PHP_OS_FAMILY === 'Darwin') {
             $load = shell_exec('sysctl -n vm.loadavg');
-            if ($load !== null) {
+            if (\is_string($load)) {
                 $load = str_replace(['{ ', ' }'], '', $load);
                 $loadAverages = explode(' ', $load);
                 if (isset($loadAverages[2])) {

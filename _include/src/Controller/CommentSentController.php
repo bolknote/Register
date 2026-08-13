@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
@@ -16,13 +16,13 @@ use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Model\User\UserProvider;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\HtmlTemplateProvider;
-use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
+use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 /**
  * Outputs "comment saved" message (used if the pre-moderation mode is enabled)
@@ -50,6 +50,7 @@ readonly class CommentSentController implements ControllerInterface
      * @throws DbLayerException
      * @throws BadRequestException
      */
+    #[\Override]
     public function handle(Request $request): Response
     {
         $targetPath     = $request->query->getString('go');
@@ -59,7 +60,7 @@ readonly class CommentSentController implements ControllerInterface
 
         foreach ($this->commentStrategies as $commentStrategy) {
             $comment = $commentStrategy->getRecentComment($commentHash, $authorIp);
-            if ($comment === null) {
+            if (!$comment instanceof \S2\Cms\Controller\Comment\CommentDto) {
                 continue;
             }
 
@@ -110,10 +111,11 @@ readonly class CommentSentController implements ControllerInterface
     private function publishAndNotifyAndGetRedirectResponse(
         CommentStrategyInterface $commentStrategy,
         Comment\CommentDto       $comment,
-        mixed                    $targetPath
+        string                    $targetPath
     ): RedirectResponse {
         $commentStrategy->notifySubscribers($comment->id);
         $commentStrategy->publishComment($comment->id);
+
         $hash = $commentStrategy->getHashForPublishedComment($comment->targetId);
 
         // Redirect to the last comment

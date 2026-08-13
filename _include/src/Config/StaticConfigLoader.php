@@ -8,16 +8,21 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Config;
 
 final class StaticConfigLoader
 {
-    public const DEFAULT_IMAGE_DIR          = '_pictures';
-    public const DEFAULT_ALLOWED_EXTENSIONS = 'gif bmp jpg jpeg png ico svg mp3 wav ogg flac mp4 avi flv mpg mpeg mkv zip 7z rar doc docx ppt pptx odt odp ods xlsx xls pdf txt rtf csv';
-    public const DEFAULT_COOKIE_NAME        = 's2_cookie_6094033457';
+    public const string DEFAULT_IMAGE_DIR          = '_pictures';
 
+    public const string DEFAULT_ALLOWED_EXTENSIONS = 'gif bmp jpg jpeg png ico svg mp3 wav ogg flac mp4 avi flv mpg mpeg mkv zip 7z rar doc docx ppt pptx odt odp ods xlsx xls pdf txt rtf csv';
+
+    public const string DEFAULT_COOKIE_NAME        = 's2_cookie_6094033457';
+
+    /**
+     * @return array<mixed>
+     */
     public function load(string $filename): array
     {
         if (!\file_exists($filename)) {
@@ -42,11 +47,18 @@ final class StaticConfigLoader
         return $normalized;
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function createDefaultConfig(): array
     {
         return $this->normalizeArrayConfig([]);
     }
 
+    /**
+     * @param array<string, mixed> $config
+     * @return array<string, mixed[]>
+     */
     private function normalizeArrayConfig(array $config): array
     {
         $database  = $config['database'] ?? [];
@@ -66,40 +78,43 @@ final class StaticConfigLoader
 
         return [
             'database' => [
-                'type'      => self::nullableString($database['type'] ?? null),
-                'host'      => self::nullableString($database['host'] ?? null),
-                'name'      => self::nullableString($database['name'] ?? null),
-                'user'      => self::nullableString($database['user'] ?? null),
-                'password'  => self::nullableString($database['password'] ?? null),
-                'prefix'    => self::nullableString($database['prefix'] ?? null),
-                'p_connect' => self::toBool($database['p_connect'] ?? false),
+                'type'      => $this->nullableString($database['type'] ?? null),
+                'host'      => $this->nullableString($database['host'] ?? null),
+                'name'      => $this->nullableString($database['name'] ?? null),
+                'user'      => $this->nullableString($database['user'] ?? null),
+                'password'  => $this->nullableString($database['password'] ?? null),
+                'prefix'    => $this->nullableString($database['prefix'] ?? null),
+                'p_connect' => $this->toBool($database['p_connect'] ?? false),
             ],
             'http' => [
-                'base_url'   => self::nullableString($http['base_url'] ?? null),
-                'base_path'  => self::nullableString($http['base_path'] ?? null, ''),
-                'url_prefix' => self::nullableString($http['url_prefix'] ?? null, ''),
+                'base_url'   => $this->nullableString($http['base_url'] ?? null),
+                'base_path'  => $this->nullableString($http['base_path'] ?? null, ''),
+                'url_prefix' => $this->nullableString($http['url_prefix'] ?? null, ''),
             ],
             'options' => [
-                'force_admin_https' => self::toBool($options['force_admin_https'] ?? false),
-                'canonical_url'     => self::nullableString($options['canonical_url'] ?? null),
-                'disable_cache'     => self::toBool($options['disable_cache'] ?? false),
-                'debug'             => self::toBool($options['debug'] ?? false),
-                'debug_view'        => self::toBool($options['debug_view'] ?? false),
-                'show_queries'      => self::toBool($options['show_queries'] ?? false),
+                'force_admin_https' => $this->toBool($options['force_admin_https'] ?? false),
+                'canonical_url'     => $this->nullableString($options['canonical_url'] ?? null),
+                'disable_cache'     => $this->toBool($options['disable_cache'] ?? false),
+                'debug'             => $this->toBool($options['debug'] ?? false),
+                'debug_view'        => $this->toBool($options['debug_view'] ?? false),
+                'show_queries'      => $this->toBool($options['show_queries'] ?? false),
             ],
             'files' => [
-                'cache_dir'          => $normalizeDir(self::nullableString($files['cache_dir'] ?? null)),
-                'image_dir'          => self::nullableString($files['image_dir'] ?? null, self::DEFAULT_IMAGE_DIR),
-                'allowed_extensions' => self::nullableString($files['allowed_extensions'] ?? null, self::DEFAULT_ALLOWED_EXTENSIONS),
-                'log_dir'            => $normalizeDir(self::nullableString($files['log_dir'] ?? null)),
+                'cache_dir'          => $normalizeDir($this->nullableString($files['cache_dir'] ?? null)),
+                'image_dir'          => $this->nullableString($files['image_dir'] ?? null, self::DEFAULT_IMAGE_DIR),
+                'allowed_extensions' => $this->nullableString($files['allowed_extensions'] ?? null, self::DEFAULT_ALLOWED_EXTENSIONS),
+                'log_dir'            => $normalizeDir($this->nullableString($files['log_dir'] ?? null)),
             ],
             'cookies' => [
-                'name' => self::nullableString($cookies['name'] ?? null, self::DEFAULT_COOKIE_NAME),
+                'name' => $this->nullableString($cookies['name'] ?? null, self::DEFAULT_COOKIE_NAME),
             ],
             'redirects' => \is_array($redirects) ? $redirects : [],
         ];
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private function overrideWithGlobalConstants(array &$config): void
     {
         if (\defined('S2_CACHE_DIR')) {
@@ -147,17 +162,20 @@ final class StaticConfigLoader
         }
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private function applyCompatibilityConstants(array $config, bool $legacyFormatUsed): void
     {
         if ($legacyFormatUsed) {
             return;
         }
 
-        if (isset($config['files']['cache_dir']) && $config['files']['cache_dir'] !== null && !\defined('S2_CACHE_DIR')) {
+        if (isset($config['files']['cache_dir']) && !\defined('S2_CACHE_DIR')) {
             \define('S2_CACHE_DIR', $config['files']['cache_dir']);
         }
 
-        if (isset($config['files']['log_dir']) && $config['files']['log_dir'] !== null && !\defined('S2_LOG_DIR')) {
+        if (isset($config['files']['log_dir']) && !\defined('S2_LOG_DIR')) {
             \define('S2_LOG_DIR', $config['files']['log_dir']);
         }
     }
@@ -166,7 +184,7 @@ final class StaticConfigLoader
      * Includes the config file once and returns both the raw include result
      * and the legacy-style data inferred from globals/constants.
      *
-     * @return array{0:mixed,1:array}
+     * @return array{0:mixed,1:array<mixed>}
      */
     private function includeConfig(string $filename): array
     {
@@ -179,10 +197,10 @@ final class StaticConfigLoader
             $db_prefix   = null;
             $p_connect   = false;
 
-            $s2_cookie_name = null;
-            $s2_redirect    = [];
-
             $config = include $filename;
+            $legacyVariables = get_defined_vars();
+            $legacyCookieName = $legacyVariables['s2_cookie_name'] ?? null;
+            $legacyRedirects  = $legacyVariables['s2_redirect'] ?? [];
 
             return [
                 $config,
@@ -216,15 +234,15 @@ final class StaticConfigLoader
                         'log_dir'            => \defined('S2_LOG_DIR') ? (string)S2_LOG_DIR : null,
                     ],
                     'cookies' => [
-                        'name' => $s2_cookie_name ?? self::DEFAULT_COOKIE_NAME,
+                        'name' => \is_string($legacyCookieName) && $legacyCookieName !== '' ? $legacyCookieName : self::DEFAULT_COOKIE_NAME,
                     ],
-                    'redirects' => \is_array($s2_redirect) ? $s2_redirect : [],
+                    'redirects' => \is_array($legacyRedirects) ? $legacyRedirects : [],
                 ],
             ];
         })($filename);
     }
 
-    private static function nullableString(mixed $value, ?string $default = null): ?string
+    private function nullableString(mixed $value, ?string $default = null): ?string
     {
         if ($value === null) {
             return $default;
@@ -241,7 +259,7 @@ final class StaticConfigLoader
         return $default;
     }
 
-    private static function toBool(mixed $value): bool
+    private function toBool(mixed $value): bool
     {
         return filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
     }

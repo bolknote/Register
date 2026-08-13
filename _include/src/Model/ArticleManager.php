@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
@@ -33,6 +33,7 @@ readonly class ArticleManager
      * Builds HTML tree for the admin panel
      *
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getChildBranches(int $id, ?string $search = null): array
     {
@@ -52,7 +53,8 @@ readonly class ArticleManager
             ->orderBy('priority')
         ;
 
-        if ($search !== null) {
+        $searchActive = $search !== null && trim($search) !== '';
+        if ($searchActive) {
             // This function also can search through the site :)
             $condition  = [];
             $paramIndex = 0;
@@ -60,6 +62,7 @@ readonly class ArticleManager
                 if ($word === '') {
                     continue;
                 }
+
                 if ($word[0] === ':' && \strlen($word) > 1) {
                     $condition[] = '(' . $this->dbLayer
                             ->select('COUNT(*)')
@@ -70,13 +73,13 @@ readonly class ArticleManager
                             ->getSql()
                         . ')';
                     $qb->setParameter('param' . $paramIndex, '%' . substr($word, 1) . '%');
-                    $paramIndex++;
+                    ++$paramIndex;
                 } else {
                     $condition[] = \sprintf("(title LIKE :param%s OR pagetext LIKE :param%s)", $paramIndex, $paramIndex + 1);
                     $qb->setParameter('param' . $paramIndex, '%' . $word . '%');
-                    $paramIndex++;
+                    ++$paramIndex;
                     $qb->setParameter('param' . $paramIndex, '%' . $word . '%');
-                    $paramIndex++;
+                    ++$paramIndex;
                 }
             }
 
@@ -92,51 +95,61 @@ readonly class ArticleManager
                 ;
             }
         }
+
         $result = $qb->execute();
 
         $output = [];
-        while ($article = $result->fetchAssoc()) {
-            $children = (!$search || $article['child_num']) ? $this->getChildBranches($article['id'], $search) : '';
+        while (($article = $result->fetchAssoc()) !== false) {
+            $articleId = (int)$article['id'];
+            $found     = (bool)($article['found'] ?? false);
+            $children  = !$searchActive || (int)($article['child_num'] ?? 0) > 0
+                ? $this->getChildBranches($articleId, $search)
+                : [];
 
-            if ($search && (!$children && !$article['found'])) {
+            if ($searchActive && $children === [] && !$found) {
                 continue;
             }
 
             $item = [
                 'data' => [
-                    'title' => $article['title'],
+                    'title' => (string)$article['title'],
                 ],
                 'attr' => [
-                    'data-id'         => $article['id'],
-                    'data-csrf-token' => $this->getCsrfToken($article['id']),
-                    'id'              => 'node_' . $article['id'],
+                    'data-id'         => $articleId,
+                    'data-csrf-token' => $this->getCsrfToken($articleId),
+                    'id'              => 'node_' . $articleId,
                 ],
             ];
 
             $classes = [];
-            if ($search) {
+            if ($searchActive) {
                 $classes[] = 'Search';
-                if ($article['found']) {
+                if ($found) {
                     $classes[] = 'Match';
                 }
             }
-            if (!$article['published']) {
+
+            if (!(bool)$article['published']) {
                 $classes[] = 'Draft';
             }
+
             if (\count($classes) > 0) {
                 $item['data']['attr']['class'] = implode(' ', $classes);
             }
 
-            if ($article['comment_num']) {
-                $item['attr']['data-comments'] = $article['comment_num'];
+            $commentNum = (int)$article['comment_num'];
+            if ($commentNum > 0) {
+                $item['attr']['data-comments'] = $commentNum;
             }
 
-            if ($children) {
-                if ($search) {
+            if ($children !== []) {
+                if ($searchActive) {
                     $item['state'] = 'open';
                 }
+
                 $item['children'] = $children;
             }
+
             $output[] = $item;
         }
 
@@ -161,7 +174,7 @@ readonly class ArticleManager
             ->execute()
         ;
 
-        if (!$result->fetchAssoc()) {
+        if ($result->fetchAssoc() === false) {
             // parent_id must be an existing article. E.g. it's impossible to create another root with parent_id = 0.
             throw new NotFoundException('Item not found!');
         }
@@ -228,7 +241,8 @@ readonly class ArticleManager
             ->execute()
         ;
 
-        if ($row = $result->fetchRow()) {
+        $row = $result->fetchRow();
+        if ($row !== false) {
             [$userId] = $row;
         } else {
             throw new NotFoundException('Item not found!');
@@ -274,7 +288,8 @@ readonly class ArticleManager
         if (\count($rows) !== 2) {
             throw new NotFoundException('Item not found!');
         }
-        if ($rows[0]['id'] === $sourceId) {
+
+        if ((int)$rows[0]['id'] === $sourceId) {
             $sourcePriority = $rows[0]['priority'];
             $sourceParentId = $rows[0]['parent_id'];
             $sourceUserId   = $rows[0]['user_id'];
@@ -285,7 +300,7 @@ readonly class ArticleManager
         }
 
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) && $sourceUserId !== $this->permissionChecker->getUserId()) {
-            throw new AccessDeniedException('You don\'t have permissions to move this article!');
+            throw new AccessDeniedException("You don't have permissions to move this article!");
         }
 
         $this->dbLayer->startTransaction();
@@ -342,18 +357,19 @@ readonly class ArticleManager
             ->execute()
         ;
 
-        if ($row = $result->fetchRow()) {
+        $row = $result->fetchRow();
+        if ($row !== false) {
             [$priority, $parentId, $userId] = $row;
         } else {
             throw new NotFoundException('Item not found!');
         }
 
         if ($parentId === ArticleProvider::ROOT_ID) {
-            throw new AccessDeniedException('Can\'t delete root item!');
+            throw new AccessDeniedException("Can't delete root item!");
         }
 
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) && $userId !== $this->permissionChecker->getUserId()) {
-            throw new AccessDeniedException('You don\'t have permissions to delete this article!');
+            throw new AccessDeniedException("You don't have permissions to delete this article!");
         }
 
         $this->dbLayer->startTransaction();

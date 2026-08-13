@@ -5,13 +5,13 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Config;
-
 use S2\Cms\Pdo\DbLayerException;
 
-final readonly class StringProxy
+
+final readonly class StringProxy implements \Stringable
 {
     public function __construct(
         private DynamicConfigProvider $provider,
@@ -32,6 +32,7 @@ final readonly class StringProxy
         throw new \LogicException(\sprintf('Dynamic config param "%s" must be a string.', $this->paramName));
     }
 
+    #[\Override]
     public function __toString(): string
     {
         return $this->get();

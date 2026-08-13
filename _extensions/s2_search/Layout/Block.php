@@ -5,36 +5,41 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Layout;
 
-class Block
+final class Block
 {
     private int $titleSize = 1;
+
     private ?int $titleLargeLengthLimit = null;
 
     private bool $hasImage = false;
+
     private float $imageMinRatio = 0.05;
+
     private ?float $imageMaxRatio = null;
+
     private ?int $imageMinWidth = null;
+
     private ?int $imageMaxWidth = null;
+
     private string $imageClass = '';
 
     private bool $hasText = false;
+
     private int $textMinLength = 0;
+
     private ?int $textMaxLength = null;
+
     private float $extraLengthForWideImg = 0;
 
     private ?string $hash = null;
 
-    public function __construct()
-    {
-    }
-
     public static function thumbnail(): self
     {
-        $instance = new static();
+        $instance = new self();
         // http://localhost:8081/?/blog/2012/01/21/churoffmetics - 400
         // http://localhost:8081/?/blog/2011/11/13/free_will 1.8
         return $instance->img(0, 1.2, 90, 400)->imgClass('thumb');
@@ -42,22 +47,22 @@ class Block
 
     public static function img1column(): self
     {
-        return (new static())->img(0, 0.83, 300);
+        return (new self())->img(0, 0.83, 300);
     }
 
     public static function img1columnTall(): self
     {
-        return (new static())->img(0.8, 1.5, 300);
+        return (new self())->img(0.8, 1.5, 300);
     }
 
     public static function imgRight(): self
     {
-        return (new static())->img(1, 4, 180)->imgClass('right');
+        return (new self())->img(1, 4, 180)->imgClass('right');
     }
 
     public static function imgRight2(): self
     {
-        return (new static())->img(1, 6, 80)->imgClass('right2');
+        return (new self())->img(1, 6, 80)->imgClass('right2');
     }
 
     public function text(int $minLength = 0, ?int $maxLength = null, float $extraLengthForWideImg = 0): self
@@ -65,6 +70,7 @@ class Block
         if ($this->hasText) {
             throw new \LogicException('Text config is already specified.');
         }
+
         $this->textMinLength         = $minLength;
         $this->textMaxLength         = $maxLength;
         $this->extraLengthForWideImg = $extraLengthForWideImg;
@@ -175,7 +181,7 @@ class Block
     {
         try {
             return $this->hash ?? $this->hash = json_encode(get_object_vars($this), JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
+        } catch (\JsonException) {
             throw new \LogicException('Impossible json_encode error');
         }
     }

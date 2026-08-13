@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * List of blog tags.
  *
@@ -9,17 +12,18 @@
 
 namespace s2_extensions\s2_blog\Controller;
 
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\HtmlTemplate;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use S2\Cms\Pdo\DbLayerException;
 
 class TagsPageController extends BlogController
 {
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function body(Request $request, HtmlTemplate $template): ?Response
     {
         if ($request->attributes->get('slash') !== '/') {
@@ -37,8 +41,9 @@ class TagsPageController extends BlogController
             ->from('tags')
             ->execute()
         ;
-
-        $tag_name = $tag_url = $tag_count = [];
+        $tag_name = [];
+        $tag_url = [];
+        $tag_count = [];
         while ($row = $result->fetchAssoc()) {
             $tag_name[$row['tag_id']]  = $row['name'];
             $tag_url[$row['tag_id']]   = $row['url'];
@@ -61,7 +66,7 @@ class TagsPageController extends BlogController
 
         $tags = [];
         foreach ($tag_count as $id => $num) {
-            if ($num) {
+            if ($num > 0) {
                 $tags[] = [
                     'title' => $tag_name[$id],
                     'link'  => $this->blogUrlBuilder->tag($tag_url[$id]),
@@ -76,6 +81,7 @@ class TagsPageController extends BlogController
         if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
             $template->addBreadCrumb($this->translator->trans('Blog'), $this->blogUrlBuilder->main());
         }
+
         $template->addBreadCrumb($this->translator->trans('Tags'));
 
         $template

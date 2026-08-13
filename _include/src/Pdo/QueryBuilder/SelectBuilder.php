@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
@@ -21,6 +21,7 @@ class SelectBuilder
      * @var string[]
      */
     private array $selectExpressions = [];
+
     private ?string $table = null;
 
     /**
@@ -39,6 +40,7 @@ class SelectBuilder
     private array $having = [];
 
     private ?int $limit = null;
+
     private ?int $offset = null;
 
     /**
@@ -66,12 +68,14 @@ class SelectBuilder
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getSelect(): array
     {
         if (\count($this->selectExpressions) === 0) {
             throw new DbLayerException('No expressions to select.');
         }
+
         return $this->selectExpressions;
     }
 
@@ -98,6 +102,9 @@ class SelectBuilder
         return $this;
     }
 
+    /**
+     * @return string[]
+     */
     public function getGroupBy(): array
     {
         return $this->groupBy;
@@ -115,6 +122,9 @@ class SelectBuilder
         return $this;
     }
 
+    /**
+     * @return string[]
+     */
     public function getHaving(): array
     {
         return $this->having;
@@ -132,6 +142,9 @@ class SelectBuilder
         return $this;
     }
 
+    /**
+     * @return string[]
+     */
     public function getOrderBy(): array
     {
         return $this->orderBy;

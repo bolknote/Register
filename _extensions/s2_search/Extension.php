@@ -5,12 +5,10 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search;
 
-use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\NotFoundExceptionInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use S2\Cms\Asset\AssetPack;
@@ -30,7 +28,6 @@ use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplateEvent;
 use S2\Cms\Template\Viewer;
-use S2\Cms\Translation\ExtensibleTranslator;
 use S2\Rose\Entity\ExternalId;
 use S2\Rose\Extractor\ExtractorInterface;
 use S2\Rose\Finder;
@@ -50,6 +47,9 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
+use S2\Cms\Translation\ExtensibleTranslator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 class Extension implements ExtensionInterface
@@ -62,68 +62,53 @@ class Extension implements ExtensionInterface
     {
         return new PdoStorage(
             $container->get(\PDO::class),
-            $container->getParameter('db_prefix') . 's2_search_idx_'
+            $container->getStringParameter('db_prefix') . 's2_search_idx_'
         );
     }
 
+    #[\Override]
     public function buildContainer(Container $container): void
     {
         $container->set(PdoStorage::class, self::PdoStorageFactory(...));
-        $container->set(StemmerInterface::class, function (Container $container) {
-            return new PorterStemmerRussian(new PorterStemmerEnglish());
-        });
-        $container->set(Finder::class, function (Container $container) {
-            return (new Finder($container->get(PdoStorage::class), $container->get(StemmerInterface::class)))
-                ->setHighlightTemplate('<span class="s2_search_highlight">%s</span>')
-                ->setSnippetLineSeparator(' ⋄&nbsp;')
-            ;
-        });
+        $container->set(StemmerInterface::class, fn(Container $_container): \S2\Rose\Stemmer\PorterStemmerRussian => new PorterStemmerRussian(new PorterStemmerEnglish()));
+        $container->set(Finder::class, fn(Container $container): \S2\Rose\Finder => (new Finder($container->get(PdoStorage::class), $container->get(StemmerInterface::class)))
+            ->setHighlightTemplate('<span class="s2_search_highlight">%s</span>')
+            ->setSnippetLineSeparator(' ⋄&nbsp;'));
 
         // Note: Indexing is performed in the QueueConsumer, so it cannot be moved to AdminExtension right now.
-        $container->set(Indexer::class, static function (Container $container) {
-            return new Indexer(
-                $container->get(PdoStorage::class),
-                $container->get(StemmerInterface::class),
-                $container->get(ExtractorInterface::class),
-                $container->get(LoggerInterface::class),
-            );
-        });
+        $container->set(Indexer::class, static fn(Container $container): \S2\Rose\Indexer => new Indexer(
+            $container->get(PdoStorage::class),
+            $container->get(StemmerInterface::class),
+            $container->get(ExtractorInterface::class),
+            $container->get(LoggerInterface::class),
+        ));
 
-        $container->set(ArticleIndexer::class, static function (Container $container) {
-            return new ArticleIndexer(
-                $container->get(DbLayer::class),
-                $container->get(ArticleProvider::class),
-                $container->get(Indexer::class),
-                $container->get('recommendations_cache'),
-                $container->get(QueuePublisher::class),
-            );
-        }, [QueueHandlerInterface::class]);
+        $container->set(ArticleIndexer::class, static fn(Container $container): \s2_extensions\s2_search\Service\ArticleIndexer => new ArticleIndexer(
+            $container->get(DbLayer::class),
+            $container->get(ArticleProvider::class),
+            $container->get(Indexer::class),
+            $container->get('recommendations_cache'),
+            $container->get(QueuePublisher::class),
+        ), [QueueHandlerInterface::class]);
 
-        $container->set(ExtractorInterface::class, static function (Container $container) {
-            return new CustomExtractor(
-                $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
-                $container->get(LoggerInterface::class),
-            );
-        });
+        $container->set(ExtractorInterface::class, static fn(Container $container): \s2_extensions\s2_search\Rose\CustomExtractor => new CustomExtractor(
+            $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+            $container->get(LoggerInterface::class),
+        ));
 
         $container->set('s2_search_translator', static function (Container $container) {
             /** @var ExtensibleTranslator $translator */
             $translator = $container->get('translator');
-            $translator->attachLoader('s2_search', static function (string $lang) {
-                return require ($dir = __DIR__ . '/lang/') . (file_exists($dir . $lang . '.php') ? $lang : 'English') . '.php';
-            });
+            $translator->attachLoader('s2_search', static fn(string $lang): array => require ($dir = __DIR__ . '/lang/') . (file_exists($dir . $lang . '.php') ? $lang : 'English') . '.php');
 
             return $translator;
         });
 
-        $container->set(SimilarWordsDetector::class, static function (Container $container) {
-            return new SimilarWordsDetector(
-                $container->get(StemmerInterface::class),
-            );
-        });
+        $container->set(SimilarWordsDetector::class, static fn(Container $container): \s2_extensions\s2_search\Service\SimilarWordsDetector => new SimilarWordsDetector(
+            $container->get(StemmerInterface::class),
+        ));
 
-        $container->set(SearchPageController::class, static function (Container $container) {
-            /** @var DynamicConfigProvider $provider */
+        $container->set(SearchPageController::class, static function (Container $container): \s2_extensions\s2_search\Controller\SearchPageController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new SearchPageController(
                 $container->get(Finder::class),
@@ -138,47 +123,41 @@ class Extension implements ExtensionInterface
                 $container->get(UrlBuilder::class),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
-                $container->getParameter('debug_view'),
+                $container->getBoolParameter('debug_view'),
                 $provider->getStringProxy('S2_TAGS_URL'),
                 $provider->getIntProxy('S2_MAX_ITEMS'),
             );
         });
 
-        $container->set('recommendations_logger', function (Container $container) {
-            return new Logger($container->getParameter('log_dir') . 'recommendations.log', 'recommendations', LogLevel::INFO);
-        });
-        $container->set('recommendations_cache', function (Container $container) {
-            return new FilesystemAdapter('recommendations', 0, $container->getParameter('cache_dir'));
-        });
-        $container->set(LayoutMatcherFactory::class, function (Container $container) {
-            /** @var DynamicConfigProvider $provider */
+        $container->set('recommendations_logger', fn(Container $container): \S2\Cms\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'recommendations.log', 'recommendations', LogLevel::INFO));
+        $container->set('recommendations_cache', fn(Container $container): \Symfony\Component\Cache\Adapter\FilesystemAdapter => new FilesystemAdapter('recommendations', 0, $container->getStringParameter('cache_dir')));
+        $container->set(LayoutMatcherFactory::class, function (Container $container): \s2_extensions\s2_search\Layout\LayoutMatcherFactory {
             $provider = $container->get(DynamicConfigProvider::class);
             return new LayoutMatcherFactory(
                 $container->get('recommendations_logger'),
                 $provider->getIntProxy('S2_SEARCH_RECOMMENDATIONS_LIMIT'),
             );
         });
-        $container->set(RecommendationProvider::class, function (Container $container) {
-            /** @var DynamicConfigProvider $provider */
+        $container->set(RecommendationProvider::class, function (Container $container): \s2_extensions\s2_search\Service\RecommendationProvider {
             $provider = $container->get(DynamicConfigProvider::class);
             return new RecommendationProvider(
                 $container->get(PdoStorage::class),
                 $container->get(LayoutMatcherFactory::class),
                 $container->get('recommendations_cache'),
                 $container->get(QueuePublisher::class),
-                $container->getParameter('db_type'),
+                $container->getStringParameter('db_type'),
                 $provider->getIntProxy('S2_SEARCH_RECOMMENDATIONS_LIMIT'),
             );
         }, [QueueHandlerInterface::class]);
     }
 
     /** @noinspection HtmlUnknownTarget */
+    #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
-        $eventDispatcher->addListener(TemplateEvent::EVENT_CREATED, static function (TemplateEvent $event) use ($container) {
+        $eventDispatcher->addListener(TemplateEvent::EVENT_CREATED, static function (TemplateEvent $event) use ($container): void {
             /** @var TranslatorInterface $translator */
             $translator = $container->get('s2_search_translator');
-            /** @var UrlBuilder $urlBuilder */
             $urlBuilder = $container->get(UrlBuilder::class);
             $event->htmlTemplate->registerPlaceholder(
                 '<!-- s2_search_field -->',
@@ -188,12 +167,10 @@ class Extension implements ExtensionInterface
             );
         });
 
-        $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container) {
+        $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
             $event->assetPack->addCss('../../_extensions/s2_search/style.css', [AssetPack::OPTION_MERGE]);
-            /** @var DynamicConfigProvider $provider */
             $provider = $container->get(DynamicConfigProvider::class);
             if ($provider->getBoolProxy('S2_SEARCH_QUICK')->get()) {
-                /** @var UrlBuilder $urlBuilder */
                 $urlBuilder = $container->get(UrlBuilder::class);
                 $event->assetPack
                     ->addJs('../../_extensions/s2_search/autosearch.js', [AssetPack::OPTION_MERGE])
@@ -208,16 +185,13 @@ class Extension implements ExtensionInterface
             }
         });
 
-        $eventDispatcher->addListener(ArticleRenderedEvent::class, static function (ArticleRenderedEvent $event) use ($container) {
+        $eventDispatcher->addListener(ArticleRenderedEvent::class, static function (ArticleRenderedEvent $event) use ($container): void {
             if ($event->template->hasPlaceholder('<!-- s2_recommendations -->')) {
-                /** @var RecommendationProvider $recommendationProvider */
                 $recommendationProvider = $container->get(RecommendationProvider::class);
-                /** @var RequestStack $requestStack */
                 $requestStack = $container->get(RequestStack::class);
-                $request_uri  = $requestStack->getCurrentRequest()?->getPathInfo();
+                $request_uri  = $requestStack->getCurrentRequest()?->getPathInfo() ?? '/';
                 [$recommendations, $log, $rawRecommendations] = $recommendationProvider->getRecommendations($request_uri, new ExternalId($event->articleId));
 
-                /** @var Viewer $viewer */
                 $viewer = $container->get(Viewer::class);
 
                 $event->template->putInPlaceholder('recommendations', $viewer->render('recommendations', [
@@ -229,7 +203,7 @@ class Extension implements ExtensionInterface
         });
 
         // Thumbnails in search results page
-        $eventDispatcher->addListener(ThumbnailGenerateEvent::class, static function (ThumbnailGenerateEvent $event) {
+        $eventDispatcher->addListener(ThumbnailGenerateEvent::class, static function (ThumbnailGenerateEvent $event): void {
             $maxWidth  = $event->maxWidth;
             $maxHeight = $event->maxHeight;
             $src       = $event->src;
@@ -239,11 +213,12 @@ class Extension implements ExtensionInterface
 
                 $sizeArray = ThumbnailGenerator::reduceSize('320', '180', $maxWidth, $maxHeight);
 
-                $event->setResult(\sprintf('<span class="video-thumbnail"><img src="%s" width="%s" height="%s" alt=""></span>', $src, ...$sizeArray));
+                $event->setResult(\sprintf('<span class="video-thumbnail"><img src="%s" width="%s" height="%s" alt=""></span>', $src, $sizeArray[0], $sizeArray[1]));
             }
         });
     }
 
+    #[\Override]
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
         $routes->add('search', new Route('/search', ['_controller' => SearchPageController::class]));

@@ -5,19 +5,17 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
 readonly class UpsertPgsqlCompiler implements UpsertCompilerInterface
 {
-    /**
-     * @param string $prefix
-     */
     public function __construct(private string $prefix)
     {
     }
 
+    #[\Override]
     public function getSql(UpsertBuilder $builder): string
     {
         $columnExpressions = $builder->getColumnExpressions();
@@ -29,14 +27,10 @@ readonly class UpsertPgsqlCompiler implements UpsertCompilerInterface
         $uniqueColumnsList = implode(', ', $uniqueColumns);
         $updateList        = implode(
             ', ',
-            array_map(static function (string $columnName) {
-                return "$columnName = EXCLUDED.$columnName";
-            }, array_diff(array_keys($columnExpressions), $uniqueColumns))
+            array_map(static fn(string $columnName): string => "$columnName = EXCLUDED.$columnName", array_diff(array_keys($columnExpressions), $uniqueColumns))
         );
 
-        $sql = $this->substituteQueryParts($tableName, $columnList, $valuesList, $uniqueColumnsList, $updateList);
-
-        return $sql;
+        return $this->substituteQueryParts($tableName, $columnList, $valuesList, $uniqueColumnsList, $updateList);
     }
 
     protected function substituteQueryParts(string $tableName, string $columnList, string $valuesList, string $uniqueColumnsList, string $updateList): string

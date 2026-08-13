@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Functions of the counter extension
  *
@@ -10,21 +13,25 @@
 use S2\Cms\Controller\Rss\RssStrategyInterface;
 use Symfony\Component\HttpFoundation\Request;
 
-if (!defined('S2_COUNTER_TOTAL_HITS_FNAME'))
+if (!defined('S2_COUNTER_TOTAL_HITS_FNAME')) {
     define('S2_COUNTER_TOTAL_HITS_FNAME', '/data/total_hits.txt');
+}
 
-if (!defined('S2_COUNTER_TODAY_INFO_FNAME'))
+if (!defined('S2_COUNTER_TODAY_INFO_FNAME')) {
     define('S2_COUNTER_TODAY_INFO_FNAME', '/data/today_info.txt');
+}
 
-if (!defined('S2_COUNTER_ARCH_INFO_FNAME'))
+if (!defined('S2_COUNTER_ARCH_INFO_FNAME')) {
     define('S2_COUNTER_ARCH_INFO_FNAME', '/data/arch_info.txt');
+}
 
-if (!defined('S2_COUNTER_TODAY_DATA_FNAME'))
+if (!defined('S2_COUNTER_TODAY_DATA_FNAME')) {
     define('S2_COUNTER_TODAY_DATA_FNAME', '/data/today_data.txt');
+}
 
-function s2_counter_is_bot()
+function s2_counter_is_bot(): bool
 {
-    $sebot = array(
+    $sebot = [
         'bot',
         'Yahoo!',
         'Mediapartners-Google',
@@ -47,86 +54,116 @@ function s2_counter_is_bot()
         'Parser',
         'Mail.Ru',
         'rulinki.ru',
-    );
+    ];
 
-    if (!isset($_SERVER['HTTP_USER_AGENT']))
+    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+    if (!\is_string($userAgent)) {
         return false;
+    }
 
-    foreach ($sebot as $se1)
-        if (stristr($_SERVER['HTTP_USER_AGENT'], $se1))
+    foreach ($sebot as $se1) {
+        if (stristr($userAgent, $se1) !== false) {
             return true;
+        }
+    }
 
     return false;
 }
 
-function s2_counter_append_file($filename, $str)
+function s2_counter_append_file(string $filename, string $str): void
 {
     $f = fopen($filename, 'a+');
-    flock($f, LOCK_EX);
+    if ($f === false) {
+        throw new \RuntimeException('Unable to open counter file: ' . $filename);
+    }
 
-    fwrite($f, $str);
-    fflush($f);
-    fflush($f);
-
-    flock($f, LOCK_UN);
-    fclose($f);
+    try {
+        flock($f, LOCK_EX);
+        fwrite($f, $str);
+        fflush($f);
+    } finally {
+        flock($f, LOCK_UN);
+        fclose($f);
+    }
 }
 
-function s2_counter_refresh_file($filename, $str)
+function s2_counter_refresh_file(string $filename, string $str): void
 {
     $f = fopen($filename, 'a+');
-    flock($f, LOCK_EX);
+    if ($f === false) {
+        throw new \RuntimeException('Unable to open counter file: ' . $filename);
+    }
 
-    ftruncate($f, 0);
-    fwrite($f, $str);
-    fflush($f);
-    fflush($f);
-
-    flock($f, LOCK_UN);
-    fclose($f);
+    try {
+        flock($f, LOCK_EX);
+        ftruncate($f, 0);
+        fwrite($f, $str);
+        fflush($f);
+    } finally {
+        flock($f, LOCK_UN);
+        fclose($f);
+    }
 }
 
-function s2_counter_get_total_hits($dir)
+function s2_counter_get_total_hits(string $dir): int
 {
     $f = fopen($dir . S2_COUNTER_TOTAL_HITS_FNAME, 'a+');
-    flock($f, LOCK_EX);
+    if ($f === false) {
+        throw new \RuntimeException('Unable to open the total hits counter.');
+    }
 
-    $hits = intval(fread($f, 100)) + 1;
+    try {
+        flock($f, LOCK_EX);
+        $contents = fread($f, 100);
+        $hits = (int)($contents !== false ? $contents : '0') + 1;
 
-    ftruncate($f, 0);
-    fwrite($f, $hits);
-    fflush($f);
-
-    flock($f, LOCK_UN);
-    fclose($f);
+        ftruncate($f, 0);
+        fwrite($f, (string)$hits);
+        fflush($f);
+    } finally {
+        flock($f, LOCK_UN);
+        fclose($f);
+    }
 
     return $hits;
 }
 
-function s2_counter_process()
+function s2_counter_process(): void
 {
-    if (s2_counter_is_bot())
+    if (s2_counter_is_bot()) {
         return;
+    }
 
     $dir = __DIR__;
 
-    if (!is_file($dir . S2_COUNTER_TODAY_DATA_FNAME) && !is_writable(dirname($dir . S2_COUNTER_TODAY_DATA_FNAME)))
+    if (!is_file($dir . S2_COUNTER_TODAY_DATA_FNAME) && !is_writable(dirname($dir . S2_COUNTER_TODAY_DATA_FNAME))) {
         return;
+    }
 
     $f_day_info = fopen($dir . S2_COUNTER_TODAY_DATA_FNAME, 'a+');
+    if ($f_day_info === false) {
+        return;
+    }
+
     flock($f_day_info, LOCK_EX);
 
-    $ips = unserialize(file_get_contents($dir . S2_COUNTER_TODAY_DATA_FNAME));
+    $serializedIps = file_get_contents($dir . S2_COUNTER_TODAY_DATA_FNAME);
+    $decodedIps = $serializedIps !== false ? unserialize($serializedIps, ['allowed_classes' => false]) : [];
+    /** @var array<string, positive-int> $ips */
+    $ips = \is_array($decodedIps) ? $decodedIps : [];
 
     clearstatcache();
-    if (!is_file($dir . S2_COUNTER_TODAY_DATA_FNAME) || date('j', filemtime($dir . S2_COUNTER_TODAY_DATA_FNAME)) == date('j')) {
+    $modifiedAt = filemtime($dir . S2_COUNTER_TODAY_DATA_FNAME);
+    $remoteAddress = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    if ($modifiedAt === false || date('j', $modifiedAt) === date('j')) {
         // We have already some hits today
 
         // Let's correct the data saved before
-        if (isset($ips[$_SERVER['REMOTE_ADDR']]))
-            $ips[$_SERVER['REMOTE_ADDR']]++;
-        else
-            $ips[$_SERVER['REMOTE_ADDR']] = 1;
+        if (isset($ips[$remoteAddress])) {
+            ++$ips[$remoteAddress];
+        } else {
+            $ips[$remoteAddress] = 1;
+        }
 
         $today_hosts = count($ips);
         $today_hits  = array_sum($ips);
@@ -134,18 +171,16 @@ function s2_counter_process()
         // It's a new day!
 
         // Logging yesterday info
-        s2_counter_append_file($dir . S2_COUNTER_ARCH_INFO_FNAME, date('Y-m-d', time() - 86400) . '^' . (is_array($ips) && count($ips) ? array_sum($ips) : 0) . '^' . count($ips) . "\n");
+        s2_counter_append_file($dir . S2_COUNTER_ARCH_INFO_FNAME, date('Y-m-d', time() - 86400) . '^' . ($ips !== [] ? array_sum($ips) : 0) . '^' . count($ips) . "\n");
 
         // Erase yesterday info
-        unset($ips);
-        $ips[$_SERVER['REMOTE_ADDR']] = 1;
-
-        $today_hits = $today_hosts = 1;
+        $ips = [$remoteAddress => 1];
+        $today_hits = 1;
+        $today_hosts = 1;
     }
 
     ftruncate($f_day_info, 0);
     fwrite($f_day_info, serialize($ips));
-    fflush($f_day_info);
     fflush($f_day_info);
 
     flock($f_day_info, LOCK_UN);
@@ -155,6 +190,9 @@ function s2_counter_process()
     s2_counter_refresh_file($dir . S2_COUNTER_TODAY_INFO_FNAME, $total_hits . "\n" . $today_hits . "\n" . $today_hosts);
 }
 
+/**
+ * @return array{string, int}|null
+ */
 function s2_counter_get_aggregator(string $userAgent): ?array
 {
     foreach ([
@@ -163,12 +201,12 @@ function s2_counter_get_aggregator(string $userAgent): ?array
                  'Feedspot'                               => 1,
                  'http://www.google.com/feedfetcher.html' => 0,
              ] as $noStatsAggregator => $readersNum) {
-        if (strpos($userAgent, $noStatsAggregator) !== false) {
+        if (str_contains($userAgent, $noStatsAggregator)) {
             return [$noStatsAggregator, $readersNum];
         }
     }
 
-    $knownAggregators = array(
+    $knownAggregators = [
         'YandexBlog'      => '#(YandexBlog).*?(\d+) (readers)#',
         'AideRSS'         => '#(AideRSS).*?(\d+) (subscribers)#',
         'NewsGatorOnline' => '#(NewsGatorOnline).*?(\d+) (subscribers)#',
@@ -176,34 +214,39 @@ function s2_counter_get_aggregator(string $userAgent): ?array
         'Feedbin'         => '#(Feedbin feed-id:\d+) - (\d+) (subscribers)#',
         'theoldreader'    => '#(theoldreader).* (\d+) (subscribers; feed-id=[^\)]*)#',
         'universal'       => '#(Feedly|Bloglovin|BazQux|inoreader|NewsBlur).* (\d+) (subscribers)#',
-    );
+    ];
 
-    foreach ($knownAggregators as $aggregator => $pattern) {
-        if (false !== strpos($userAgent, $aggregator)) {
+    $pattern = $knownAggregators['universal'];
+    unset($knownAggregators['universal']);
+    foreach ($knownAggregators as $aggregator => $candidatePattern) {
+        if (str_contains($userAgent, $aggregator)) {
+            $pattern = $candidatePattern;
             break;
         }
     }
 
-    if (preg_match($pattern, $userAgent, $matches)) {
-        return array($matches[1] . $matches[3], $matches[2]);
+    if (preg_match($pattern, $userAgent, $matches) === 1) {
+        return [$matches[1] . $matches[3], (int)$matches[2]];
     }
 
     return null;
 }
 
-function s2_counter_rss_count(Request $request, RssStrategyInterface $rssStrategy) {
+function s2_counter_rss_count(Request $request, RssStrategyInterface $rssStrategy): void
+{
     if (s2_counter_is_bot()) {
         return;
     }
 
     $dir = __DIR__;
 
-    $userAgent = $request->headers->get('User-Agent', '');
-    $clientIp  = $request->getClientIp() ?? $_SERVER['REMOTE_ADDR'];
-    $fileName   = match (get_class($rssStrategy)) {
+    $userAgent = $request->headers->get('User-Agent', '') ?? '';
+    $serverAddress = $_SERVER['REMOTE_ADDR'] ?? null;
+    $clientIp  = $request->getClientIp() ?? (\is_string($serverAddress) ? $serverAddress : 'unknown');
+    $fileName   = match ($rssStrategy::class) {
         \S2\Cms\Model\Article\ArticleRssStrategy::class => '/data/rss_main.txt',
         \s2_extensions\s2_blog\Model\BlogRssStrategy::class => '/data/rss_s2_blog.txt',
-        default => '/data/rss_'.array_reverse(explode('\\', get_class($rssStrategy)))[0].'.txt',
+        default => '/data/rss_'.array_reverse(explode('\\', $rssStrategy::class))[0].'.txt',
     };
 
     $fullFileName = $dir . $fileName;
@@ -212,21 +255,25 @@ function s2_counter_rss_count(Request $request, RssStrategyInterface $rssStrateg
     }
 
     clearstatcache();
-    if (!is_file($fullFileName) || date('j', filemtime($fullFileName)) === date('j')) {
+    $modifiedAt = filemtime($fullFileName);
+    if ($modifiedAt === false || date('j', $modifiedAt) === date('j')) {
         s2_counter_append_file($fullFileName, time() . '^' . $clientIp . '^' . $userAgent . "\n");
     } else {
         $fileDayInfo = fopen($fullFileName, 'a+');
+        if ($fileDayInfo === false) {
+            return;
+        }
+
         flock($fileDayInfo, LOCK_EX);
 
-        $yesterdayLog = @file_get_contents($fullFileName);
+        $yesterdayLog = s2_call_without_warnings(static fn(): string|false => file_get_contents($fullFileName));
 
-        $totalReaders = s2_counter_get_total_readers($yesterdayLog);
+        $totalReaders = s2_counter_get_total_readers($yesterdayLog !== false ? $yesterdayLog : '');
 
         s2_counter_append_file($fullFileName . '.log', date('Y-m-d', time() - 86400) . '^' . $totalReaders . "\n");
 
         ftruncate($fileDayInfo, 0);
         fwrite($fileDayInfo, time() . '^' . $clientIp . '^' . $userAgent . "\n");
-        fflush($fileDayInfo);
         fflush($fileDayInfo);
 
         flock($fileDayInfo, LOCK_UN);
@@ -237,19 +284,27 @@ function s2_counter_rss_count(Request $request, RssStrategyInterface $rssStrateg
 
 function s2_counter_get_total_readers(string $logContents): int
 {
-    $rss_readers = $online_aggregators = [];
+    $rss_readers = [];
+    $online_aggregators = [];
     foreach (explode("\n", substr($logContents, 0, -1)) as $line) {
         if ($line === '') {
             continue;
         }
 
-        [, $ip, $ua] = explode('^', $line);
+        $parts = explode('^', $line, 3);
+        if (\count($parts) !== 3) {
+            continue;
+        }
+
+        [, $ip, $ua] = $parts;
 
         $aggregator_info = s2_counter_get_aggregator($ua);
         if ($aggregator_info !== null) {
             $online_aggregators[$aggregator_info[0]] = $aggregator_info[1];
         } else {
-            [$ip0, $ip1] = preg_split('#[.:]#', $ip );
+            $ipParts = preg_split('#[.:]#', $ip);
+            $ip0 = $ipParts[0] ?? $ip;
+            $ip1 = $ipParts[1] ?? '';
             $rss_readers[$ip0 . $ua . $ip1] = 1;
         }
     }

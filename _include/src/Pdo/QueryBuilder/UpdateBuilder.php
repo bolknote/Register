@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
@@ -18,6 +18,10 @@ class UpdateBuilder
     use WhereTrait;
 
     private ?string $table = null;
+
+    /**
+     * @var array<mixed>
+     */
     private array $columnExpressions = [];
 
     public function __construct(
@@ -40,6 +44,7 @@ class UpdateBuilder
         if ($this->table === null) {
             throw new DbLayerException('No table to update has been specified.');
         }
+
         return $this->table;
     }
 
@@ -51,12 +56,14 @@ class UpdateBuilder
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getColumnExpressions(): array
     {
         if (\count($this->columnExpressions) === 0) {
             throw new DbLayerException('No fields to update have been specified.');
         }
+
         return $this->columnExpressions;
     }
 }

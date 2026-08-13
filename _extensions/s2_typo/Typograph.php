@@ -11,7 +11,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_typo;
 
@@ -25,26 +25,28 @@ class Typograph
         $i               = 0;
 
         // Extract sensitive data
-        $contents = preg_replace_callback('#<(script|style|textarea|pre|code|kbd|title).*?</\\1>|\\$\\$[^<]*?\\$\\$#s', static function ($matches) use (&$savedSubstrings, &$i) {
+        $contents = preg_replace_callback('#<(script|style|textarea|pre|code|kbd|title).*?</\\1>|\\$\\$[^<]*?\\$\\$#s', static function (array $matches) use (&$savedSubstrings, &$i): string {
             $savedSubstrings[$i] = $matches[0];
             return '<¬' . ($i++) . '¬>';
-        }, $contents);
+        }, $contents) ?? throw new \RuntimeException('Unable to protect typography-sensitive markup.');
 
-        $contents = preg_replace_callback('#<[^>\-"]*+[\-"][^>]*+>#', static function ($matches) use (&$savedSubstrings, &$i) {
+        $contents = preg_replace_callback('#<[^>\-"]*+[\-"][^>]*+>#', static function (array $matches) use (&$savedSubstrings, &$i): string {
             $savedSubstrings[$i] = $matches[0];
             return '<¬' . ($i++) . '¬>';
-        }, $contents);
+        }, $contents) ?? throw new \RuntimeException('Unable to protect typography-sensitive attributes.');
 
         $contents = "\n" . str_replace('&quot;', '"', $contents);
 
         // Quotation marks
         $quotationMarksRegex = '#(?<=[(\s">]|^)"([^"]*[^\s"(])"#S';
 
-        $contents = preg_replace($quotationMarksRegex, '«\\1»', $contents);
+        $contents = preg_replace($quotationMarksRegex, '«\\1»', $contents)
+            ?? throw new \RuntimeException('Unable to replace quotation marks.');
 
         // Nested quotation marks
         if (str_contains($contents, '"')) {
-            $contents = preg_replace($quotationMarksRegex, '«\\1»', $contents);
+            $contents = preg_replace($quotationMarksRegex, '«\\1»', $contents)
+                ?? throw new \RuntimeException('Unable to replace nested quotation marks.');
             while (true) {
                 /**
                  * This regex is a logical equivalent of '#«([^«»]*+)«([^»]*+)»#u'.
@@ -55,8 +57,10 @@ class Typograph
                  *
                  * @see https://www.rexegg.com/regex-quantifiers.html#explicit_greed for optimization tips
                  */
-                $contents = preg_replace('#«((?:[^«»]++|(?!«|»).)*+)«((?:[^»]++|(?!»).)*+)»#', '«\\1„\\2“', $contents, -1, $count);
-                if ($count === 0) {
+                $previousContents = $contents;
+                $contents = preg_replace('#«((?:[^«»]++|(?!«|»).)*+)«((?:[^»]++|(?!»).)*+)»#', '«\\1„\\2“', $contents)
+                    ?? throw new \RuntimeException('Unable to normalize nested quotation marks.');
+                if ($contents === $previousContents) {
                     break;
                 }
             }
@@ -79,9 +83,9 @@ class Typograph
         ];
         $contents = preg_replace_callback(
             '# - | – | — |>- |\(tm\)|\(c\)|\n- |\.{3}#i',
-            static fn($matches) => $replace[$matches[0]] ?? $matches[0],
+            static fn($matches): string => $replace[$matches[0]] ?? $matches[0],
             $contents
-        );
+        ) ?? throw new \RuntimeException('Unable to normalize typography symbols.');
 
         if (!$soft) {
             /**
@@ -104,9 +108,9 @@ class Typograph
                 -           # Match a hyphen
                 [^\s<]+     # Second word part
                 ~x',
-                static fn(array $matches) => mb_strlen($matches[0]) < 40 ? '<nobr>' . $matches[0] . '</nobr>' : $matches[0],
+                static fn(array $matches): string => mb_strlen($matches[0]) < 40 ? '<nobr>' . $matches[0] . '</nobr>' : $matches[0],
                 $contents
-            );
+            ) ?? throw new \RuntimeException('Unable to protect hyphenated words.');
         }
 
         // Prepositions and particles
@@ -114,16 +118,16 @@ class Typograph
             '#\s++(?=(?:ли|ль|же|ж|бы|б)[ .!?,;):])|(Не|Ни|Но|По|Ко|К|За|Со|С|У|Из|И|А|О|Об|От|До|В|Во|На|(?<=[ (]|' . $nbsp . ')(?:к|с|у|и|а|о|в))\K\s+#',
             $nbsp,
             $contents
-        );
+        ) ?? throw new \RuntimeException('Unable to normalize spaces around short words.');
 
         // Put sensitive data back
         if (\count($savedSubstrings) > 0) {
-            $contents = preg_replace_callback('#<¬(\d+)¬>#S', static function ($matches) use ($savedSubstrings) {
+            $contents = preg_replace_callback('#<¬(\d+)¬>#S', static function ($matches) use ($savedSubstrings): string {
                 $result = $savedSubstrings[$matches[1]] ?? $matches[0];
                 unset($savedSubstrings[$matches[1]]);
 
                 return $result;
-            }, $contents);
+            }, $contents) ?? throw new \RuntimeException('Unable to restore protected typography fragments.');
         }
 
         // Move quotation marks outside links
@@ -131,7 +135,7 @@ class Typograph
             '#<a ([^>]*)>\\s*«([^<]*?)»\\s*</a>#s',
             '«<a \\1>\\2</a>»',
             $contents
-        );
+        ) ?? throw new \RuntimeException('Unable to move quotation marks outside links.');
 
         return trim($contents);
     }

@@ -6,7 +6,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Helper;
 
@@ -24,7 +24,7 @@ class StringHelper
         }
 
         return '<script type="text/javascript">var mailto="' . $parts[0] . '"+"%40"+"' . $parts[1] . '";' .
-            'document.write(\'<a href="mailto:\'+mailto+\'">' . str_replace('\'', '\\\'', $name) . '</a>\');</script>' .
+            'document.write(\'<a href="mailto:\'+mailto+\'">' . str_replace("'", '\\\'', $name) . "</a>');</script>" .
             '<noscript>' . $name . ', <small>[' . $parts[0] . ' at ' . $parts[1] . ']</small></noscript>';
     }
 
@@ -44,15 +44,13 @@ class StringHelper
      * Creates paging navigation (1  2  3 ... total_pages - 1  total_pages)
      *
      * @param int $page Current page
-     * @param int $totalPages
      * @param string $url must have the following form http://example.com/page?num=%d
-     * @param array $linksForNavigation [prev => url, next => url]
-     * @return string
+     * @param array<string, mixed> $linksForNavigation [prev => url, next => url]
      */
     public static function paging(int $page, int $totalPages, string $url, array &$linksForNavigation): string
     {
         $links = '';
-        for ($i = 1; $i <= $totalPages; $i++) {
+        for ($i = 1; $i <= $totalPages; ++$i) {
             $links .= ($i === $page
                 ? ' <span class="current digit">' . $i . '</span>'
                 : ' <a class="digit" href="' . \sprintf($url, $i) . '">' . $i . '</a>');
@@ -86,22 +84,22 @@ class StringHelper
     {
         $s = str_replace(["''", "\r"], ['"', ''], $s);
 
-        $s = preg_replace('#\[I\](.*?)\[/I\]#isS', '<em>\1</em>', $s);
-        $s = preg_replace('#\[B\](.*?)\[/B\]#isS', '<strong>\1</strong>', $s);
+        $s = preg_replace('#\[I\](.*?)\[/I\]#isS', '<em>\1</em>', $s) ?? throw new \RuntimeException('Invalid BBCode pattern.');
+        $s = preg_replace('#\[B\](.*?)\[/B\]#isS', '<strong>\1</strong>', $s) ?? throw new \RuntimeException('Invalid BBCode pattern.');
 
-        while (preg_match('/\[Q\s*=\s*([^\]]*)\].*?\[\/Q\]/isS', $s)) {
-            $s = preg_replace('/\s*\[Q\s*=\s*([^\]]*)\]\s*(.*?)\s*\[\/Q\]\s*/isS', '<blockquote><strong>\\1</strong> ' . $wroteText . '<br/><br/><em>\\2</em></blockquote>', $s);
+        while (preg_match('/\[Q\s*=\s*([^\]]*)\].*?\[\/Q\]/isS', $s) === 1) {
+            $s = preg_replace('/\s*\[Q\s*=\s*([^\]]*)\]\s*(.*?)\s*\[\/Q\]\s*/isS', '<blockquote><strong>\\1</strong> ' . $wroteText . '<br/><br/><em>\\2</em></blockquote>', $s) ?? throw new \RuntimeException('Invalid BBCode pattern.');
         }
 
-        while (preg_match('/\[Q\].*?\[\/Q\]/isS', $s)) {
-            $s = preg_replace('/\s*\[Q\]\s*(.*?)\s*\[\/Q\]\s*/isS', '<blockquote>\\1</blockquote>', $s);
+        while (preg_match('/\[Q\].*?\[\/Q\]/isS', $s) === 1) {
+            $s = preg_replace('/\s*\[Q\]\s*(.*?)\s*\[\/Q\]\s*/isS', '<blockquote>\\1</blockquote>', $s) ?? throw new \RuntimeException('Invalid BBCode pattern.');
         }
 
         $s = preg_replace_callback(
             '#(https?://\S{2,}?)(?=[\s),\'><\]]|&lt;|&gt;|[.;:](?:\s|$)|$)#u',
-            static function ($matches) {
-                $href = $link = $matches[1];
-
+            static function (array $matches): string {
+                $href = $matches[1];
+                $link = $matches[1];
                 if (mb_strlen($matches[1]) > 55) {
                     $link = mb_substr($matches[1], 0, 42) . ' &hellip; ' . mb_substr($matches[1], -10);
                 }
@@ -109,10 +107,9 @@ class StringHelper
                 return '<noindex><a href="' . $href . '" rel="nofollow">' . $link . '</a></noindex>';
             },
             $s
-        );
-        $s = str_replace("\n", '<br />', $s);
+        ) ?? throw new \RuntimeException('Invalid URL pattern.');
 
-        return $s;
+        return str_replace("\n", '<br />', $s);
     }
 
     /**
@@ -122,7 +119,8 @@ class StringHelper
     {
         $a = explode("\n", $string);
         foreach ($a as $k => $str) {
-            $str    = preg_split('#[\s\r]+#', $str);
+            $words  = preg_split('#[\s\r]+#', $str);
+            $str    = $words === false ? [] : $words;
             $len    = 0;
             $return = '';
             foreach ($str as $val) {
@@ -136,8 +134,10 @@ class StringHelper
                     $return .= $val;
                 }
             }
+
             $a[$k] = $return;
         }
+
         return implode("\n", $a);
     }
 
@@ -147,17 +147,18 @@ class StringHelper
     public static function bbcodeToMail(string $s): string
     {
         $s = str_replace(["\r", '&quot;', '&laquo;', '&raquo;'], ['', '"', '"', '"'], $s);
-        $s = preg_replace('/\[I\s*?\](.*?)\[\/I\s*?\]/isu', "_\\1_", $s);
-        $s = preg_replace('/\[B\s*?\](.*?)\[\/B\s*?\]/isu', "*\\1*", $s);
+        $s = preg_replace('/\[I\s*?\](.*?)\[\/I\s*?\]/isu', "_\\1_", $s) ?? throw new \RuntimeException('Invalid BBCode pattern.');
+        $s = preg_replace('/\[B\s*?\](.*?)\[\/B\s*?\]/isu', "*\\1*", $s) ?? throw new \RuntimeException('Invalid BBCode pattern.');
 
         // Do not ask me how the rest of the function works.
         // It just works :)
 
-        while (preg_match('/\[Q\s*?=?\s*?([^\]]*)\s*?\].*?\[\/Q.*?\]/is', $s)) {
-            $s = preg_replace('/\s*\[Q\s*?=?\s*?([^\]]*)\s*?\]\s*(.*?)\s*\[\/Q.*?\]\s*/is', "<q/>\\2</q>", $s);
+        while (preg_match('/\[Q\s*?=?\s*?([^\]]*)\s*?\].*?\[\/Q.*?\]/is', $s) === 1) {
+            $s = preg_replace('/\s*\[Q\s*?=?\s*?([^\]]*)\s*?\]\s*(.*?)\s*\[\/Q.*?\]\s*/is', "<q/>\\2</q>", $s) ?? throw new \RuntimeException('Invalid BBCode pattern.');
         }
 
-        $strings = $levels = [];
+        $strings = [];
+        $levels = [];
 
         $curr  = 0;
         $level = 0;
@@ -169,6 +170,7 @@ class StringHelper
                 if ($down === false) {
                     break;
                 }
+
                 $dl = -1;
                 $c  = $down;
             } elseif ($down === false || $up < $down) {
@@ -178,6 +180,7 @@ class StringHelper
                 $dl = -1;
                 $c  = $down;
             }
+
             $strings[] = substr($s, $curr, $c - $curr);
             $curr      = $c + 4;
             $levels[]  = $level;
@@ -192,6 +195,7 @@ class StringHelper
             if (trim($string) === '') {
                 continue;
             }
+
             $delimiter = "\n" . str_repeat('> ', $levels[$i]);
             $out[]     = $delimiter . self::utf8Wordwrap(str_replace("\n", $delimiter, $string), 70 - 2 * $levels[$i], $delimiter);
         }

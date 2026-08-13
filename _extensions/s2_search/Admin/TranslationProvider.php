@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Admin;
 
@@ -13,6 +13,10 @@ use S2\Cms\Admin\TranslationProviderInterface;
 
 class TranslationProvider implements TranslationProviderInterface
 {
+    /**
+     * @return array<mixed>
+     */
+    #[\Override]
     public function getTranslations(string $language, string $locale): array
     {
         return match ($locale) {
@@ -38,6 +42,7 @@ class TranslationProvider implements TranslationProviderInterface
                 'Reindex title'                        => 'May be time-consuming. You can run it again in case of connection loss.',
                 'Indexing required'                    => 'In order to enable the site search, indexing is required.',
             ],
+            default => [],
         };
     }
 }

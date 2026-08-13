@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 $data = $_POST;
 
 if ($data === []) {

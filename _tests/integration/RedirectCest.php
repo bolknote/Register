@@ -5,7 +5,7 @@
  * @package S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace integration;
 
@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RedirectCest
 {
-    public function tryToTest(IntegrationTester $I)
+    public function tryToTest(IntegrationTester $I): void
     {
         $I->amOnPage('/redirect');
         $I->seeResponseCodeIs(Response::HTTP_MOVED_PERMANENTLY);

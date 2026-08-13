@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Comment;
 
@@ -15,11 +15,12 @@ readonly class SpamDecisionProvider implements SpamDecisionProviderInterface
     {
     }
 
+    #[\Override]
     public function getVerdict(SpamDetectorComment $comment, string $clientIp): SpamDecision
     {
         $report    = $this->detector->getReport($comment, $clientIp);
-        $linkCount = self::linkCount($comment->text);
-        $hasHtml   = self::hasHtmlTags($comment->text);
+        $linkCount = $this->linkCount($comment->text);
+        $hasHtml   = $this->hasHtmlTags($comment->text);
 
         $rejectLinks     = $linkCount > 0 && !$report->isHam();
         $rejectSpam      = $report->isBlatant();
@@ -28,12 +29,14 @@ readonly class SpamDecisionProvider implements SpamDecisionProviderInterface
         return new SpamDecision($report, $rejectLinks, $rejectSpam, $forceModeration);
     }
 
-    private static function linkCount(string $text): int
+    private function linkCount(string $text): int
     {
-        return preg_match_all('#(https?://\S{2,}?)(?=[\s),\'><\]]|&lt;|&gt;|[.;:](?:\s|$)|$)#u', $text) ?: 0;
+        $count = preg_match_all('#(https?://\S{2,}?)(?=[\s),\'><\]]|&lt;|&gt;|[.;:](?:\s|$)|$)#u', $text);
+
+        return $count !== false ? $count : 0;
     }
 
-    private static function hasHtmlTags(string $text): bool
+    private function hasHtmlTags(string $text): bool
     {
         return preg_match('#</?[a-z][^>]*>#i', $text) === 1;
     }

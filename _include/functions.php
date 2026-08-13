@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Loads common functions used throughout the site.
  *
@@ -10,9 +13,39 @@
 /**
  * Encodes the contents of $str so that they are safe to output on an HTML page
  */
-function s2_htmlencode($str): string
+function s2_htmlencode(mixed $str): string
 {
-    return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+    if (!\is_scalar($str) && $str !== null && !$str instanceof \Stringable) {
+        throw new \InvalidArgumentException('Only scalar or stringable values can be HTML-encoded.');
+    }
+
+    return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Executes a warning-prone boundary operation without leaking PHP warnings to the response.
+ *
+ * The warning text is exposed to callers that need to turn it into a domain exception.
+ *
+ * @template T
+ * @param callable(): T $callback
+ * @return T
+ */
+function s2_call_without_warnings(callable $callback, ?string &$warningMessage = null): mixed
+{
+    set_error_handler(
+        static function (int $_severity, string $message) use (&$warningMessage): bool {
+            $warningMessage = $message;
+            return true;
+        },
+        E_WARNING | E_NOTICE | E_USER_WARNING | E_USER_NOTICE | E_DEPRECATED | E_USER_DEPRECATED
+    );
+
+    try {
+        return $callback();
+    } finally {
+        restore_error_handler();
+    }
 }
 
 /**
@@ -25,12 +58,12 @@ function s2_overwrite_file_skip_locked(string $filename, string $content): void
         throw new RuntimeException(sprintf('Cannot create directory "%s".', $dir));
     }
 
-    $fh = @fopen($filename, 'a+b');
+    $fh = s2_call_without_warnings(static fn() => fopen($filename, 'a+b'));
 
     if ($fh === false) {
         // Try to remove the file if it's not writable
-        @unlink($filename);
-        $fh = @fopen($filename, 'a+b');
+        s2_call_without_warnings(static fn(): bool => unlink($filename));
+        $fh = s2_call_without_warnings(static fn() => fopen($filename, 'a+b'));
     }
 
     if ($fh === false) {
@@ -41,9 +74,9 @@ function s2_overwrite_file_skip_locked(string $filename, string $content): void
         ftruncate($fh, 0);
         fwrite($fh, $content);
         fflush($fh);
-        fflush($fh);
         flock($fh, LOCK_UN);
     }
+
     fclose($fh);
 }
 

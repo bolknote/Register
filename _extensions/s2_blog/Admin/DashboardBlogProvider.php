@@ -5,7 +5,7 @@
  * @package   s2_blog
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Admin;
 
@@ -27,6 +27,7 @@ readonly class DashboardBlogProvider implements DashboardStatProviderInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function getHtml(): string
     {
         return $this->templateRenderer->render(

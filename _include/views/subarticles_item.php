@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * An item of <!-- s2_subarticles --> content
  *
@@ -15,7 +18,7 @@
 $postfix = '';
 $class = ['subsection'];
 if (!empty($favorite)) {
-	if ($favorite != 2) {
+	if ($favorite !== 2) {
         $postfix = '<a href="' . s2_htmlencode($favorite_link) . '" class="favorite-star" title="' . $trans('Favorite') . '">★</a>';
     }
 	else {

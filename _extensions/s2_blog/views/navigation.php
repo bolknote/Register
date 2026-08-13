@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 /** @var $title string */
 /** @var $last array */
 /** @var $favorite array */

@@ -5,12 +5,15 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\HttpClient;
 
 readonly class HttpResponse
 {
+    /**
+     * @param array<mixed> $headers
+     */
     public function __construct(
         public array   $headers = [],
         public int     $statusCode = 0,

@@ -7,7 +7,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo;
 
@@ -18,6 +18,7 @@ use S2\Cms\Pdo\QueryBuilder\UpsertPgsqlCompiler;
 
 class DbLayerPostgres extends DbLayer
 {
+    #[\Override]
     public function getVersion(): array
     {
         $result = $this->select('version()')->execute();
@@ -31,6 +32,7 @@ class DbLayerPostgres extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function tableExists(string $tableName): bool
     {
         $result = $this->query('SELECT 1 FROM pg_class WHERE relname = :name', [
@@ -42,6 +44,7 @@ class DbLayerPostgres extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function fieldExists(string $tableName, string $fieldName): bool
     {
         $result = $this->query('SELECT 1 FROM pg_class c INNER JOIN pg_attribute a ON a.attrelid = c.oid WHERE c.relname = :table_name AND a.attname = :field_name', [
@@ -54,6 +57,7 @@ class DbLayerPostgres extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function indexExists(string $tableName, string $indexName): bool
     {
         $result = $this->query('SELECT 1 FROM pg_index i INNER JOIN pg_class c1 ON c1.oid = i.indrelid INNER JOIN pg_class c2 ON c2.oid = i.indexrelid WHERE c1.relname = :table_name AND c2.relname = :index_name', [
@@ -66,6 +70,7 @@ class DbLayerPostgres extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function createTable(string $tableName, callable $tableDefinition): void
     {
         if ($this->tableExists($tableName)) {
@@ -94,10 +99,7 @@ class DbLayerPostgres extends DbLayer
 
             if (isset($fieldData[SchemaBuilder::COLUMN_PROPERTY_DEFAULT])) {
                 $defaultValue = self::convertDefaultValue($fieldData[SchemaBuilder::COLUMN_PROPERTY_DEFAULT], $fieldData[SchemaBuilder::COLUMN_PROPERTY_TYPE]);
-                if (\is_string($defaultValue)) {
-                    $defaultValue = $this->pdo->quote($defaultValue);
-                }
-                $query .= ' DEFAULT ' . $defaultValue;
+                $query .= ' DEFAULT ' . $this->formatDefaultValue($defaultValue);
             }
 
             $query .= ",\n";
@@ -109,7 +111,7 @@ class DbLayerPostgres extends DbLayer
         }
 
         // Add unique keys
-        foreach ($schemaBuilder->uniqueIndexes as $keyName => $keyFields) {
+        foreach ($schemaBuilder->uniqueIndexes as $keyFields) {
             $query .= 'UNIQUE (' . implode(',', $keyFields) . '),' . "\n";
         }
 
@@ -132,8 +134,8 @@ class DbLayerPostgres extends DbLayer
                 $foreignKey[SchemaBuilder::FK_PROPERTY_COLUMNS],
                 $foreignKey[SchemaBuilder::FK_PROPERTY_FOREIGN_TABLE],
                 $foreignKey[SchemaBuilder::FK_PROPERTY_FOREIGN_COLUMNS],
-                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_DELETE] ?? null,
-                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_UPDATE] ?? null,
+                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_DELETE],
+                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_UPDATE],
             );
         }
     }
@@ -142,6 +144,7 @@ class DbLayerPostgres extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function addField(
         string                     $tableName,
         string                     $fieldName,
@@ -165,12 +168,14 @@ class DbLayerPostgres extends DbLayer
         if ($defaultValue !== null) {
             $sql .= ' DEFAULT ' . $this->formatDefaultValue($defaultValue);
         }
+
         $this->query($sql);
     }
 
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function alterField(
         string                     $tableName,
         string                     $fieldName,
@@ -205,7 +210,9 @@ class DbLayerPostgres extends DbLayer
 
     /**
      * @throws DbLayerException
+     * @param list<string> $indexFields
      */
+    #[\Override]
     public function addIndex(string $tableName, string $indexName, array $indexFields, bool $unique = false): void
     {
         if ($this->indexExists($tableName, $indexName)) {
@@ -216,6 +223,7 @@ class DbLayerPostgres extends DbLayer
         $this->query('CREATE ' . ($unique ? 'UNIQUE ' : '') . 'INDEX ' . $tableNameWithPrefix . '_' . $indexName . ' ON ' . $tableNameWithPrefix . '(' . implode(',', $indexFields) . ')');
     }
 
+    #[\Override]
     public function dropIndex(string $tableName, string $indexName): void
     {
         if (!$this->indexExists($tableName, $indexName)) {
@@ -225,6 +233,7 @@ class DbLayerPostgres extends DbLayer
         $this->query('DROP INDEX ' . $this->prefix . $tableName . '_' . $indexName);
     }
 
+    #[\Override]
     public function foreignKeyExists(string $tableName, string $fkName): bool
     {
         $tableNameWithPrefix = $this->prefix . $tableName;
@@ -249,6 +258,7 @@ class DbLayerPostgres extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function dropForeignKey(string $tableName, string $fkName): void
     {
         if (!$this->foreignKeyExists($tableName, $fkName)) {
@@ -262,16 +272,19 @@ class DbLayerPostgres extends DbLayer
         $this->query($query);
     }
 
+    #[\Override]
     public function insert(string $table): InsertBuilder
     {
         return (new InsertBuilder(new InsertCommonCompiler($this->prefix), $this))->insert($table);
     }
 
+    #[\Override]
     public function upsert(string $table): UpsertBuilder
     {
         return (new UpsertBuilder(new UpsertPgsqlCompiler($this->prefix), $this))->upsert($table);
     }
 
+    #[\Override]
     protected static function convertType(string $type, ?int $length): string
     {
         return match ($type) {

@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
@@ -43,9 +43,8 @@ use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Template\HtmlTemplateProvider;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 class AdminConfigProvider implements StatefulServiceInterface
 {
@@ -53,12 +52,12 @@ class AdminConfigProvider implements StatefulServiceInterface
      * @var AdminConfigExtenderInterface[]
      */
     private readonly array $adminConfigExtenders;
+
     private ?AdminConfig $cachedConfig = null;
 
     public function __construct(
         private readonly PermissionChecker        $permissionChecker,
         private readonly AuthManager              $authManager,
-        private readonly HtmlTemplateProvider     $templateProvider,
         private readonly DynamicConfigFormBuilder $dynamicConfigFormBuilder,
         private readonly DynamicConfigProvider    $dynamicConfigProvider,
         private readonly BoolProxy                $adminCut,
@@ -73,15 +72,16 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly string                   $dbPrefix,
         AdminConfigExtenderInterface              ...$adminConfigExtenders
     ) {
-        if (!\in_array($dbType, ['mysql', 'pgsql', 'sqlite'])) {
+        if (!\in_array($dbType, ['mysql', 'pgsql', 'sqlite'], true)) {
             throw new \InvalidArgumentException('Unsupported database type: ' . $dbType);
         }
+
         $this->adminConfigExtenders = $adminConfigExtenders;
     }
 
     public function getAdminConfig(): AdminConfig
     {
-        if ($this->cachedConfig !== null) {
+        if ($this->cachedConfig instanceof \S2\AdminYard\Config\AdminConfig) {
             return $this->cachedConfig;
         }
 
@@ -96,7 +96,7 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->setPluralName($this->translator->trans('Comments'))
             ->setSingularName($this->translator->trans('Comment'))
             ->setEditTitle($this->translator->trans('Edit comment'))
-            ->setEntityDisplayNameBuilder(fn(array $row) => $this->buildCommentDetails($row))
+            ->setEntityDisplayNameBuilder(fn(array $row): string => $this->buildCommentDetails($row))
             ->addField(new FieldConfig(
                 name: 'id',
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT, true),
@@ -182,7 +182,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 $this->translator->trans('Search'),
                 'search_input',
                 'text LIKE %1$s OR nick LIKE %1$s OR email LIKE %1$s OR ip LIKE %1$s',
-                fn(string $value) => $value !== '' ? '%' . $value . '%' : null
+                fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null
             ))
             ->addFilter(new FilterLinkTo(
                 $articleFieldId,
@@ -227,9 +227,9 @@ class AdminConfigProvider implements StatefulServiceInterface
                 ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_COMMENTS) ? [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_DELETE] : [],
             ])
             ->setListActionsTemplate('_admin/templates/comment/list-actions.php.inc')
-            ->addListener(EntityConfig::EVENT_BEFORE_PATCH, function (BeforeSaveEvent $event) {
+            ->addListener(EntityConfig::EVENT_BEFORE_PATCH, function (BeforeSaveEvent $event): void {
                 if (isset($event->data['shown'])) {
-                    $this->commentNotifier->notify($event->primaryKey->getIntId());
+                    $this->commentNotifier->notify($this->requirePrimaryKey($event->primaryKey)->getIntId());
                 }
             })
         ;
@@ -243,7 +243,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         $userEntity
             ->setPluralName($this->translator->trans('Users'))
             ->setNewTitle($this->translator->trans('New user'))
-            ->setEntityDisplayNameBuilder(fn(array $row) => $this->buildUserDisplayName($row))
+            ->setEntityDisplayNameBuilder(fn(array $row): string => $this->buildUserDisplayName($row))
             ->setEnabledActions(
                 [
                     ...$this->permissionChecker->isGrantedAny(PermissionChecker::PERMISSION_VIEW_HIDDEN, PermissionChecker::PERMISSION_EDIT_USERS) ? [FieldConfig::ACTION_LIST] : [],
@@ -355,7 +355,7 @@ class AdminConfigProvider implements StatefulServiceInterface
             ))
             ->addListener(
                 [EntityConfig::EVENT_BEFORE_PATCH, EntityConfig::EVENT_BEFORE_CREATE],
-                function (BeforeSaveEvent $event) {
+                function (BeforeSaveEvent $event): void {
                     if (isset($event->data['password'])) {
                         $event->data['password'] = password_hash($event->data['password'], PASSWORD_DEFAULT);
                     }
@@ -363,7 +363,7 @@ class AdminConfigProvider implements StatefulServiceInterface
             )
             ->addListener(
                 EntityConfig::EVENT_BEFORE_CREATE,
-                function (BeforeSaveEvent $event) {
+                function (BeforeSaveEvent $event): void {
                     // Check that there are no users with the same login.
                     $otherUsersWithSameLogin = $event->dataProvider->getEntityList(
                         $this->dbPrefix . 'users',
@@ -380,17 +380,18 @@ class AdminConfigProvider implements StatefulServiceInterface
             )
             ->addListener(
                 EntityConfig::EVENT_BEFORE_PATCH,
-                function (BeforeSaveEvent $event) {
+                function (BeforeSaveEvent $event): void {
                     if (!isset($event->data['edit_users'])) {
                         return;
                     }
+
                     // Check that there are other admins except the current one to be edited.
                     $otherAdmins = $event->dataProvider->getEntityList(
                         $this->dbPrefix . 'users',
                         ['login' => 'string', 'id' => 'int'], // not really used
                         conditions: [
                             new LogicalExpression('edit_users', 1),
-                            new LogicalExpression('id', $event->primaryKey->getIntId(), 'id != %s'),
+                            new LogicalExpression('id', $this->requirePrimaryKey($event->primaryKey)->getIntId(), 'id != %s'),
                         ]
                     );
 
@@ -399,7 +400,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     }
                 }
             )
-            ->addListener(EntityConfig::EVENT_BEFORE_DELETE, function (BeforeDeleteEvent $event) {
+            ->addListener(EntityConfig::EVENT_BEFORE_DELETE, function (BeforeDeleteEvent $event): void {
                 // Check that there are other admins except the current one to be deleted.
                 $otherAdmins = $event->dataProvider->getEntityList(
                     $this->dbPrefix . 'users',
@@ -440,7 +441,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 name: 'tags',
                 label: $this->translator->trans('Tags'),
                 hint: $this->translator->trans('Tags help'),
-                type: new VirtualFieldType((function () {
+                type: new VirtualFieldType((function (): string {
                     $column     = match ($this->dbType) {
                         'pgsql' => "STRING_AGG(t.name, ', ' ORDER BY pt.id)",
                         'sqlite' => "GROUP_CONCAT(t.name, ', ')", // seems like SQLite does not support ORDER BY
@@ -448,12 +449,11 @@ class AdminConfigProvider implements StatefulServiceInterface
                     };
                     $tableName  = $this->dbPrefix . 'tags';
                     $tableName2 = $this->dbPrefix . 'article_tag';
-                    $sql        = "SELECT $column FROM $tableName AS t JOIN $tableName2 AS pt ON t.id = pt.tag_id WHERE pt.article_id = entity.id";
-                    return $sql;
+                    return "SELECT $column FROM $tableName AS t JOIN $tableName2 AS pt ON t.id = pt.tag_id WHERE pt.article_id = entity.id";
                 })()),
                 control: 'input',
                 validators: [
-                    (static function () {
+                    (static function (): \S2\AdminYard\Validator\Regex {
                         $validator          = new Regex('#^[\p{L}\p{N}_\- ,\.!]*$#u');
                         $validator->message = 'Tags must contain only letters, numbers and spaces.';
                         return $validator;
@@ -493,7 +493,7 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->addField(new FieldConfig(
                 name: 'create_time',
                 label: $this->translator->trans('Create time'),
-                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME, defaultValue: new \DateTimeImmutable()),
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME, defaultValue: time()),
                 control: 'datetime',
                 sortable: true,
                 viewTemplate: '_admin/templates/date.php.inc',
@@ -560,7 +560,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 label: $this->translator->trans('Author'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                 control: 'select',
-                linkToEntity: new LinkTo($userEntity, 'CASE WHEN name IS NULL OR name = \'\' THEN login ELSE name END'),
+                linkToEntity: new LinkTo($userEntity, "CASE WHEN name IS NULL OR name = '' THEN login ELSE name END"),
                 useOnActions: [
                     FieldConfig::ACTION_LIST,
                     ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) ? [FieldConfig::ACTION_EDIT] : [],
@@ -586,7 +586,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     ? null
                     : new LogicalExpression('user_id', $this->permissionChecker->getUserId())
             )
-            ->addListener([EntityConfig::EVENT_AFTER_EDIT_FETCH], function (AfterLoadEvent $event) {
+            ->addListener([EntityConfig::EVENT_AFTER_EDIT_FETCH], function (AfterLoadEvent $event): void {
                 if (\is_array($event->data)) {
                     // Convert NULL to an empty string when the edit form is filled with current data
                     $event->data['virtual_tags'] = (string)$event->data['virtual_tags'];
@@ -596,7 +596,11 @@ class AdminConfigProvider implements StatefulServiceInterface
                     }
                 }
             })
-            ->addListener(EntityConfig::EVENT_BEFORE_EDIT_RENDER, function (BeforeRenderEvent $event) {
+            ->addListener(EntityConfig::EVENT_BEFORE_EDIT_RENDER, function (BeforeRenderEvent $event): void {
+                if (!\is_array($event->data)) {
+                    throw new \LogicException('Article render data must be an array.');
+                }
+
                 $event->data['tagsList'] = $this->tagsProvider->getAllTags();
 
                 $id = (int)$event->data['primaryKey']['id'];
@@ -605,7 +609,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 $event->data['templateList'] = $this->articleProvider->getTemplateList();
                 $event->data['statusData']   = $this->getArticleStatusData($id);
             })
-            ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, function (BeforeSaveEvent $event) use ($articleEntity) {
+            ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, function (BeforeSaveEvent $event) use ($articleEntity): void {
                 $oldData = $event->dataProvider->getEntity(
                     $this->dbPrefix . 'articles',
                     $articleEntity->getFieldDataTypes(FieldConfig::ACTION_EDIT, includePrimaryKey: true),
@@ -613,7 +617,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) ? [] : [
                         new LogicalExpression('user_id', $this->permissionChecker->getUserId()),
                     ],
-                    $event->primaryKey
+                    $this->requirePrimaryKey($event->primaryKey)
                 );
 
                 if ($oldData === null) {
@@ -623,6 +627,9 @@ class AdminConfigProvider implements StatefulServiceInterface
 
                 if ($this->adminCut->get()) {
                     $textParts = preg_split('#(<cut\\s*/?>|<p><cut /></p>)#', $event->data['pagetext'], 2);
+                    if ($textParts === false) {
+                        throw new \RuntimeException('Unable to split an article at the cut marker.');
+                    }
 
                     $event->data['excerpt'] = \count($textParts) > 1 ? $textParts[0] : '';
                 }
@@ -633,6 +640,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                         $changed = true;
                     }
                 }
+
                 if ($changed) {
                     // If the page text has been modified, we check if this modification is done by current user
                     if ($event->data['revision'] !== $oldData['column_revision']) {
@@ -650,10 +658,10 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $event->context['new_revision'] = $oldData['column_revision'];
                 }
 
-                $event->context['article_id'] = $event->primaryKey->getIntId();
+                $event->context['article_id'] = $this->requirePrimaryKey($event->primaryKey)->getIntId();
 
-                $newPublished = $event->data['published'];
-                $oldPublished = $oldData['column_published'];
+                $newPublished = (bool)$event->data['published'];
+                $oldPublished = (bool)$oldData['column_published'];
                 if (
                     ($newPublished && (!$oldPublished || $changed)) // Publish a new article or update an existing one
                     || (!$newPublished && $oldPublished) // Withdraw a published article
@@ -661,9 +669,10 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $event->context['visible_changed_event'] = new VisibleEntityChangedEvent($articleEntity->getName(), $event->context['article_id']);
                 }
             })
-            ->addListener(EntityConfig::EVENT_AFTER_UPDATE, function (AfterSaveEvent $event) {
-                if (isset($event->context['visible_changed_event'])) {
-                    $this->eventDispatcher->dispatch($event->context['visible_changed_event']);
+            ->addListener(EntityConfig::EVENT_AFTER_UPDATE, function (AfterSaveEvent $event): void {
+                $visibleChangedEvent = $event->context['visible_changed_event'] ?? null;
+                if ($visibleChangedEvent instanceof VisibleEntityChangedEvent) {
+                    $this->eventDispatcher->dispatch($visibleChangedEvent);
                 }
 
                 $event->ajaxExtraResponse = [
@@ -671,14 +680,14 @@ class AdminConfigProvider implements StatefulServiceInterface
                     'revision' => $event->context['new_revision'],
                 ];
             })
-            ->addListener([EntityConfig::EVENT_BEFORE_UPDATE, EntityConfig::EVENT_BEFORE_CREATE], function (BeforeSaveEvent $event) {
+            ->addListener([EntityConfig::EVENT_BEFORE_UPDATE, EntityConfig::EVENT_BEFORE_CREATE], function (BeforeSaveEvent $event): void {
                 $event->context['tags'] = $event->data['tags'];
                 unset($event->data['tags']);
             })
-            ->addListener([EntityConfig::EVENT_AFTER_UPDATE, EntityConfig::EVENT_AFTER_CREATE], function (AfterSaveEvent $event) {
+            ->addListener([EntityConfig::EVENT_AFTER_UPDATE, EntityConfig::EVENT_AFTER_CREATE], function (AfterSaveEvent $event): void {
                 $tagStr = $event->context['tags'];
-                $tags   = array_map(static fn(string $tag) => trim($tag), explode(',', $tagStr));
-                $tags   = array_filter($tags, static fn(string $tag) => $tag !== '');
+                $tags   = array_map(trim(...), explode(',', $tagStr));
+                $tags   = array_filter($tags, static fn(string $tag): bool => $tag !== '');
 
                 $newTagIds = self::tagIdsFromTags($event->dataProvider, $tags, $this->dbPrefix);
 
@@ -687,14 +696,14 @@ class AdminConfigProvider implements StatefulServiceInterface
                 $existingLinks = $event->dataProvider->getEntityList($tableName, [
                     'article_id' => FieldConfig::DATA_TYPE_INT,
                     'tag_id'     => FieldConfig::DATA_TYPE_INT,
-                ], conditions: [new LogicalExpression('article_id', $event->primaryKey->getIntId())]);
+                ], conditions: [new LogicalExpression('article_id', $this->requirePrimaryKey($event->primaryKey)->getIntId())]);
 
                 $existingTagIds = array_column($existingLinks, 'column_tag_id');
                 if (implode(',', $existingTagIds) !== implode(',', $newTagIds)) {
                     $event->dataProvider->deleteEntity(
                         $tableName,
                         ['article_id' => FieldConfig::DATA_TYPE_INT],
-                        new Key(['article_id' => $event->primaryKey->getIntId()]),
+                        new Key(['article_id' => $this->requirePrimaryKey($event->primaryKey)->getIntId()]),
                         [],
                     );
 
@@ -702,7 +711,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                         $event->dataProvider->createEntity($tableName, [
                             'article_id' => FieldConfig::DATA_TYPE_INT,
                             'tag_id'     => FieldConfig::DATA_TYPE_INT,
-                        ], ['article_id' => $event->primaryKey->getIntId(), 'tag_id' => $tagId]);
+                        ], ['article_id' => $this->requirePrimaryKey($event->primaryKey)->getIntId(), 'tag_id' => $tagId]);
                     }
                 }
             })
@@ -712,7 +721,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $this->translator->trans('Fulltext Search'),
                     'search_input',
                     'title LIKE %1$s OR pagetext LIKE %1$s OR meta_keys LIKE %1$s OR meta_desc LIKE %1$s OR excerpt LIKE %1$s',
-                    fn(string $value) => $value !== '' ? '%' . $value . '%' : null
+                    fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null
                 )
             )
             ->addFilter(
@@ -721,7 +730,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $this->translator->trans('Tags'),
                     'search_input',
                     'id IN (SELECT at.article_id FROM ' . $this->dbPrefix . 'article_tag AS at JOIN ' . $this->dbPrefix . 'tags AS t ON t.id = at.tag_id WHERE t.name LIKE %1$s)',
-                    fn(string $value) => $value !== '' ? '%' . $value . '%' : null
+                    fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null
                 )
             )
             ->addFilter(
@@ -743,7 +752,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $this->translator->trans('Created after'),
                     'date',
                     'create_time >= %1$s',
-                    fn(?string $value) => $value !== null ? strtotime($value) : null
+                    fn(?string $value): int|false|null => $value !== null ? strtotime($value) : null
                 )
             )
             ->addFilter(
@@ -752,7 +761,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $this->translator->trans('Created before'),
                     'date',
                     'create_time < %1$s',
-                    fn(?string $value) => $value !== null ? strtotime($value) : null
+                    fn(?string $value): int|false|null => $value !== null ? strtotime($value) : null
                 )
             )
             ->addFilter(new FilterLinkTo($userIdField, null))
@@ -778,7 +787,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     validators: [
                         new NotBlank(),
                         new Length(max: 255),
-                        (static function () {
+                        (static function (): \S2\AdminYard\Validator\Regex {
                             $r          = new Regex('#^[\p{L}\p{N}_\- !\.]*$#u');
                             $r->message = 'Tag name must contain only letters, numbers and spaces';
                             return $r;
@@ -824,14 +833,14 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $this->translator->trans('Fulltext Search'),
                     'search_input',
                     'name LIKE %1$s OR description LIKE %1$s OR url LIKE %1$s',
-                    fn(string $value) => $value !== '' ? '%' . $value . '%' : null
+                    fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null
                 ))
             ->setEnabledActions([
                 FieldConfig::ACTION_LIST,
                 ...$this->permissionChecker->isGrantedAny(PermissionChecker::PERMISSION_CREATE_ARTICLES, PermissionChecker::PERMISSION_EDIT_SITE) ? [FieldConfig::ACTION_NEW, FieldConfig::ACTION_EDIT] : [],
                 ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) ? [FieldConfig::ACTION_DELETE] : [],
             ])
-            ->setEntityDisplayNameBuilder(fn(array $row) => $this->buildTagDisplayName($row)),
+            ->setEntityDisplayNameBuilder(fn(array $row): string => $this->buildTagDisplayName($row)),
                 20
             )
         ;
@@ -846,12 +855,19 @@ class AdminConfigProvider implements StatefulServiceInterface
                         ))
                         ->addField($this->dynamicConfigFormBuilder->getValueFieldConfig())
                         ->setEnabledActions([FieldConfig::ACTION_LIST])
-                        ->addListener(EntityConfig::EVENT_BEFORE_LIST_RENDER, function (BeforeRenderEvent $event) {
+                        ->addListener(EntityConfig::EVENT_BEFORE_LIST_RENDER, function (BeforeRenderEvent $event): void {
+                            if (!\is_array($event->data)
+                                || !isset($event->data['header'], $event->data['rows'])
+                                || !\is_array($event->data['header'])
+                                || !\is_array($event->data['rows'])) {
+                                throw new \UnexpectedValueException('Config table render data is incomplete.');
+                            }
+
                             $this->dynamicConfigFormBuilder->transformConfigTable('Config', $event->data['header'], $event->data['rows']);
                         })
-                        ->addListener(EntityConfig::EVENT_AFTER_PATCH, function (AfterSaveEvent $event) {
+                        ->addListener(EntityConfig::EVENT_AFTER_PATCH, function (AfterSaveEvent $event): void {
                             $this->dynamicConfigProvider->regenerate();
-                            switch ($event->primaryKey->toArray()['name']) {
+                            switch ($this->requirePrimaryKey($event->primaryKey)->toArray()['name']) {
                                 case 'S2_FAVORITE_URL':
                                 case 'S2_TAGS_URL':
                                     $this->extensionCache->clearRoutesCache();
@@ -865,7 +881,7 @@ class AdminConfigProvider implements StatefulServiceInterface
             $sessionEntity
                 ->setPluralName($this->translator->trans('Sessions'))
                 ->setSingularName($this->translator->trans('Session'))
-                ->setEntityDisplayNameBuilder(fn(array $row) => $this->buildSessionDetails($row))
+                ->setEntityDisplayNameBuilder(fn(array $row): string => $this->buildSessionDetails($row))
                 ->addField(new FieldConfig(
                     name: 'challenge',
                     type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING, true),
@@ -893,7 +909,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 ))
                 ->addField(new FieldConfig(
                     name: 'current',
-                    type: new VirtualFieldType('(CASE WHEN challenge = \'' . $this->authManager->getCurrentSessionId() . '\' THEN \'1\' ELSE \'\' END)'),
+                    type: new VirtualFieldType("(CASE WHEN challenge = '" . $this->authManager->getCurrentSessionId() . "' THEN '1' ELSE '' END)"),
                 ))
                 ->setEnabledActions([FieldConfig::ACTION_LIST, FieldConfig::ACTION_DELETE])
                 ->setReadAccessControl($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS) ? null : new LogicalExpression('login', $this->permissionChecker->getUserLogin()))
@@ -930,21 +946,27 @@ class AdminConfigProvider implements StatefulServiceInterface
         return $this->cachedConfig = $adminConfig;
     }
 
+    /**
+     * @param array<string, mixed> $row
+     */
     private function buildCommentDetails(array $row): string
     {
         $author = \trim((string)($row['column_nick'] ?? ''));
         $text   = $this->buildTextPreview($row['column_text'] ?? null);
 
-        $parts = array_filter([$author, $text], static fn(string $value) => $value !== '');
+        $parts = array_filter([$author, $text], static fn(string $value): bool => $value !== '');
 
         return implode(' — ', $parts);
     }
 
+    /**
+     * @param array<string, mixed> $row
+     */
     private function buildSessionDetails(array $row): string
     {
         $login  = \trim((string)($row['column_login'] ?? ''));
         $ip     = \trim((string)($row['column_ip'] ?? ''));
-        $pieces = array_filter([$login, $ip], static fn(string $value) => $value !== '');
+        $pieces = array_filter([$login, $ip], static fn(string $value): bool => $value !== '');
 
         return implode(', ', $pieces);
     }
@@ -959,12 +981,15 @@ class AdminConfigProvider implements StatefulServiceInterface
         $text = (string)\preg_replace('/\\s+/u', ' ', $text);
         $limit = 80;
         if (\mb_strlen($text) > $limit) {
-            $text = \mb_substr($text, 0, $limit - 1) . '…';
+            return \mb_substr($text, 0, $limit - 1) . '…';
         }
 
         return $text;
     }
 
+    /**
+     * @param array<string, mixed> $row
+     */
     private function buildUserDisplayName(array $row): string
     {
         $login = \trim((string)($row['column_login'] ?? ''));
@@ -973,11 +998,15 @@ class AdminConfigProvider implements StatefulServiceInterface
         return $name !== '' ? $name . ' (' . $login . ')' : $login;
     }
 
+    /**
+     * @param array<string, mixed> $row
+     */
     private function buildTagDisplayName(array $row): string
     {
         return \trim((string)($row['column_name'] ?? ''));
     }
 
+    #[\Override]
     public function clearState(): void
     {
         $this->cachedConfig = null;
@@ -986,6 +1015,8 @@ class AdminConfigProvider implements StatefulServiceInterface
     /**
      * @throws \S2\AdminYard\Database\DataProviderException
      * @throws \PDOException
+     * @param string[] $tags
+     * @return array<mixed>
      */
     public static function tagIdsFromTags(PdoDataProvider $dataProvider, array $tags, string $dbPrefix): array
     {
@@ -995,11 +1026,11 @@ class AdminConfigProvider implements StatefulServiceInterface
                 'name' => FieldConfig::DATA_TYPE_STRING,
                 'id'   => FieldConfig::DATA_TYPE_INT,
             ],
-            conditions: [new LogicalExpression('name', array_map(static fn(string $tag) => mb_strtolower($tag), $tags), 'LOWER(name) IN (%s)')],
+            conditions: [new LogicalExpression('name', array_map(mb_strtolower(...), $tags), 'LOWER(name) IN (%s)')],
         );
 
         $existingTagsMap = array_column($existingTags, 'column_name', 'column_id');
-        $existingTagsMap = array_map(static fn(string $tag) => mb_strtolower($tag), $existingTagsMap);
+        $existingTagsMap = array_map(mb_strtolower(...), $existingTagsMap);
         $existingTagsMap = array_flip($existingTagsMap);
 
         $tagIds = [];
@@ -1020,6 +1051,7 @@ class AdminConfigProvider implements StatefulServiceInterface
             } else {
                 $newTagId = $existingTagsMap[mb_strtolower($tag)];
             }
+
             $tagIds[] = $newTagId;
         }
 
@@ -1028,25 +1060,34 @@ class AdminConfigProvider implements StatefulServiceInterface
 
     /**
      * @throws DbLayerException
+     * @return array<string, mixed>
      */
     private function getArticleStatusData(int $articleId): array
     {
         [$urlStatus, $templateStatus] = $this->articleProvider->checkUrlAndTemplateStatus($articleId);
+        $path                         = $this->articleProvider->pathFromId($articleId);
 
         return [
-            'url'            => $this->urlBuilder->link($this->articleProvider->pathFromId($articleId)),
+            'url'            => $path === null ? '' : $this->urlBuilder->link($path),
             'urlStatus'      => $urlStatus,
             'urlTitle'       => match ($urlStatus) {
                 'empty' => $this->translator->trans('URL empty'),
                 'not_unique' => $this->translator->trans('URL not unique'),
                 'mainpage' => $this->translator->trans('URL on mainpage'),
                 'ok' => '',
+                default => $this->translator->trans('URL unavailable'),
             },
             'templateStatus' => $templateStatus,
             'templateTitle'  => match ($templateStatus) {
                 'empty' => $this->translator->trans('Template empty'),
                 'ok' => '',
+                default => $this->translator->trans('Template unavailable'),
             }
         ];
+    }
+
+    private function requirePrimaryKey(?Key $primaryKey): Key
+    {
+        return $primaryKey ?? throw new \LogicException('This admin event requires a primary key.');
     }
 }

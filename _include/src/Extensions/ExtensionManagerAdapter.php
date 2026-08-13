@@ -5,11 +5,10 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Extensions;
 
-use Psr\Cache\InvalidArgumentException;
 use S2\AdminYard\Config\AdminConfig;
 use S2\AdminYard\Config\FieldConfig;
 use S2\AdminYard\Form\FormParams;
@@ -19,6 +18,7 @@ use S2\AdminYard\Translator;
 use S2\Cms\Admin\AdminConfigExtenderInterface;
 use S2\Cms\Framework\Exception\AccessDeniedException;
 use S2\Cms\Model\PermissionChecker;
+use Psr\Cache\InvalidArgumentException;
 use S2\Cms\Pdo\DbLayerException;
 
 readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
@@ -27,11 +27,12 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
         private ExtensionManager        $extensionManager,
         private PermissionChecker       $permissionChecker,
         private Translator              $translator,
-        private ?SettingStorageInterface $settingStorage,
+        private SettingStorageInterface  $settingStorage,
         private TemplateRenderer        $templateRenderer,
     ) {
     }
 
+    #[\Override]
     public function extend(AdminConfig $adminConfig): void
     {
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
@@ -39,9 +40,7 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
         }
 
         $adminConfig
-            ->setServicePage('Extension', function () {
-                return $this->getExtensionList();
-            }, 60, $this->translator->trans('Extensions'))
+            ->setServicePage('Extension', fn(): string => $this->getExtensionList(), 60, $this->translator->trans('Extensions'))
         ;
     }
 
@@ -52,15 +51,14 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
     {
         return $this->templateRenderer->render('_admin/templates/extension/extension.php.inc', [
             ... $this->extensionManager->getExtensionList(),
-            'csrfTokenGenerator' => function (string $id) {
-                return $this->getCsrfToken($id);
-            },
+            'csrfTokenGenerator' => $this->getCsrfToken(...),
         ]);
     }
 
     /**
      * @throws DbLayerException
      * @throws InvalidArgumentException
+     * @return array<mixed>
      */
     public function installExtension(string $id, string $csrfToken): array
     {
@@ -112,6 +110,7 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
 
     private function cleanupExtensionId(string $id): string
     {
-        return preg_replace('/[^0-9a-z_]/', '', $id);
+        return preg_replace('/[^0-9a-z_]/', '', $id)
+            ?? throw new \RuntimeException('Unable to normalize the extension identifier.');
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 /** @var string $value From database, normalized and converted to view format */
 /** @var string $label Calculated SQL expression for the label */

@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
@@ -17,6 +17,9 @@ use S2\Cms\Pdo\DbLayerException;
 class TagsProvider implements StatefulServiceInterface
 {
     // Note: Add cache invalidation in case of daemon mode
+    /**
+     * @var array<mixed>|null
+     */
     private ?array $cachedTags = null;
 
     public function __construct(
@@ -30,10 +33,12 @@ class TagsProvider implements StatefulServiceInterface
      * Makes tags list for the tags page and the placeholder
      *
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function tagsList(): array
     {
         if ($this->cachedTags === null) {
+            $this->cachedTags = [];
             $result = $this->dbLayer
                 ->select('id AS tag_id, name, url, (' . $this->dbLayer
                         ->select('COUNT(*)')
@@ -51,11 +56,11 @@ class TagsProvider implements StatefulServiceInterface
 
             while ($row = $result->fetchAssoc()) {
                 if ($row['count'] > 0) {
-                    $this->cachedTags[] = array(
+                    $this->cachedTags[] = [
                         'title' => $row['name'],
                         'link'  => $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($row['url']) . '/'),
                         'num'   => $row['count'],
-                    );
+                    ];
                 }
             }
         }
@@ -65,6 +70,7 @@ class TagsProvider implements StatefulServiceInterface
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getAllTags(): array
     {
@@ -87,6 +93,7 @@ class TagsProvider implements StatefulServiceInterface
         return $result->fetchColumn();
     }
 
+    #[\Override]
     public function clearState(): void
     {
         $this->cachedTags = null;

@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Main blog page with last posts.
  *
@@ -15,7 +18,6 @@ use S2\Cms\Config\StringProxy;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\HtmlTemplate;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\Viewer;
@@ -26,6 +28,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 class MainPageController extends BlogController
 {
@@ -60,6 +63,7 @@ class MainPageController extends BlogController
         );
     }
 
+    #[\Override]
     public function handle(Request $request): Response
     {
         $s2_blog_skip      = (int)$request->attributes->get('page', 0);
@@ -71,6 +75,7 @@ class MainPageController extends BlogController
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function body(Request $request, HtmlTemplate $template): ?Response
     {
         if ($request->attributes->get('slash') !== '/') {
@@ -87,13 +92,13 @@ class MainPageController extends BlogController
         }
 
         $itemsPerPage = $this->itemsPerPage->get();
-        $postsPerPage = $itemsPerPage ?: 10;
+        $postsPerPage = $itemsPerPage > 0 ? $itemsPerPage : 10;
         $posts        = $this->postProvider->lastPostsArray($postsPerPage, $skipLastPostsNum, true);
 
         $output = '';
         $i      = 0;
         foreach ($posts as $post) {
-            $i++;
+            ++$i;
             if ($i > $postsPerPage) {
                 break;
             }
@@ -111,6 +116,7 @@ class MainPageController extends BlogController
             $paging = '<a href="' . $prevLink . '">' . $this->translator->trans('Here') . '</a> ';
             // TODO think about back_forward
         }
+
         if ($i > $postsPerPage) {
             $nextLink = $this->blogUrlBuilder->main() . 'skip/' . ($skipLastPostsNum + $postsPerPage);
             $template->setLink('next', $nextLink);

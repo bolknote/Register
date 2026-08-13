@@ -5,7 +5,7 @@
  * @package   s2_latex
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_latex;
 
@@ -17,17 +17,20 @@ use Symfony\Component\Routing\RouteCollection;
 
 class AdminExtension implements ExtensionInterface
 {
+    #[\Override]
     public function buildContainer(Container $container): void
     {
     }
 
+    #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
-        $eventDispatcher->addListener(CustomTemplateRendererEvent::class, static function (CustomTemplateRendererEvent $event) {
+        $eventDispatcher->addListener(CustomTemplateRendererEvent::class, static function (CustomTemplateRendererEvent $event): void {
             $event->extraScripts[] = $event->basePath . '/_extensions/s2_latex/admin/preview.js';
         });
     }
 
+    #[\Override]
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
     }

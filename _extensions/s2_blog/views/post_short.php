@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * @var $author string
  * @var $title string
@@ -31,4 +34,4 @@ unset($tag);
 <?php
 
 if (!empty($see_also))
-	include 'see_also.php';
+	include __DIR__ . '/see_also.php';

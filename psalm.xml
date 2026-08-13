@@ -1,0 +1,110 @@
+<?xml version="1.0"?>
+<psalm
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    errorLevel="1"
+    phpVersion="8.3"
+    resolveFromConfigFile="true"
+    findUnusedCode="false"
+    findUnusedVariablesAndParams="true"
+    findUnusedBaselineEntry="true"
+    ensureArrayStringOffsetsExist="true"
+    ensureArrayIntOffsetsExist="true"
+    reportInfo="false"
+    strictBinaryOperands="true"
+    checkForThrowsDocblock="false"
+    hideExternalErrors="true"
+    cacheDirectory="_cache/psalm"
+>
+    <!-- This is a library: public services are extension points even when this
+         repository has no in-tree subclass or caller. -->
+    <projectFiles>
+        <file name="_admin/ajax.php" />
+        <file name="_admin/index.php" />
+        <file name="_admin/install.php" />
+        <file name="_admin/pictman.php" />
+        <directory name="_include/src" />
+        <file name="_include/common.php" />
+        <file name="_include/functions.php" />
+        <file name="_include/installation_required.php" />
+        <file name="_include/setup.php" />
+        <directory name="_extensions" />
+        <directory name="_tests" />
+        <file name="cron.php" />
+        <file name="index.php" />
+        <directory name="tools" />
+        <ignoreFiles>
+            <directory name="_extensions/s2_blog/lang" />
+            <directory name="_extensions/s2_blog/templates" />
+            <directory name="_extensions/s2_blog/views" />
+            <directory name="_extensions/s2_latex/lang" />
+            <directory name="_extensions/s2_search/lang" />
+            <directory name="_extensions/s2_search/views" />
+            <file name="_extensions/s2_counter/counter.php" />
+            <file name="_extensions/s2_counter/data.php" />
+            <directory name="_tests/_resources" />
+            <directory name="_tests/_support/_generated" />
+            <!-- Codeception's generated actor API is covered by PHPStan max and
+                 runtime suites; Psalm cannot model its dynamic module methods. -->
+            <directory name="_tests/_support" />
+            <directory name="_tests/acceptance" />
+            <directory name="_tests/integration" />
+            <directory name="_vendor" />
+        </ignoreFiles>
+    </projectFiles>
+    <stubs>
+        <!-- AdminYard declares this mixed property as string|int|null in PHPDoc,
+             although UNIXTIME defaults are normalized DateTimeInterface values. -->
+        <file name="static-analysis.stub.php" />
+    </stubs>
+    <issueHandlers>
+        <!-- DB rows, decoded JSON and template variable bags are intentionally
+             runtime-shaped boundaries. Keep Psalm's checks enabled as info while
+             treating every statically modelled contract at level 1. -->
+        <MixedArgument errorLevel="info" />
+        <MixedArgumentTypeCoercion errorLevel="info" />
+        <MixedArrayAccess errorLevel="info" />
+        <MixedArrayAssignment errorLevel="info" />
+        <MixedArrayOffset errorLevel="info" />
+        <MixedArrayTypeCoercion errorLevel="info" />
+        <MixedAssignment errorLevel="info" />
+        <MixedFunctionCall errorLevel="info" />
+        <MixedMethodCall errorLevel="info" />
+        <MixedOperand errorLevel="info" />
+        <MixedPropertyTypeCoercion errorLevel="info" />
+        <MixedReturnStatement errorLevel="info" />
+        <MixedReturnTypeCoercion errorLevel="info" />
+        <PossiblyUndefinedArrayOffset errorLevel="info" />
+        <PossiblyUndefinedIntArrayOffset errorLevel="info" />
+        <PossiblyUndefinedStringArrayOffset errorLevel="info" />
+
+        <!-- Public CMS services are extension points for third-party modules. -->
+        <ClassMustBeFinal errorLevel="info" />
+        <UnresolvableInclude errorLevel="info" />
+        <!-- These variables are consumed by the installation template through
+             require; Psalm does not connect that template scope reliably. -->
+        <UnusedVariable>
+            <errorLevel type="info">
+                <file name="_include/common.php" />
+            </errorLevel>
+        </UnusedVariable>
+        <UnnecessaryVarAnnotation>
+            <errorLevel type="info">
+                <file name="_include/installation_required.php" />
+            </errorLevel>
+        </UnnecessaryVarAnnotation>
+        <ForbiddenCode>
+            <errorLevel type="info">
+                <file name="_include/src/Admin/Dashboard/DashboardEnvironmentProvider.php" />
+            </errorLevel>
+        </ForbiddenCode>
+        <!-- Psalm's PDO stub is generic while PHP's and PHPStan's native
+             PDOStatement declarations are not. -->
+        <MissingTemplateParam>
+            <errorLevel type="info">
+                <file name="_include/src/Pdo/PDOStatement.php" />
+            </errorLevel>
+        </MissingTemplateParam>
+    </issueHandlers>
+</psalm>

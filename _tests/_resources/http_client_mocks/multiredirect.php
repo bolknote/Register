@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 $redirects = $_GET['redirects'] ?? 0;
 
 if ($redirects > 0) {

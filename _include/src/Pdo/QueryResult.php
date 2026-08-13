@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo;
 
@@ -15,13 +15,20 @@ readonly class QueryResult
     {
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function fetchAssocAll(): array
     {
         return $this->pdoStatement->fetchAll(\PDO::FETCH_ASSOC);
     }
 
-    public function result($row = 0, $col = 0): mixed
+    public function result(int $row = 0, int|string $col = 0): mixed
     {
+        if ($row < 0) {
+            throw new \InvalidArgumentException('Row number cannot be negative.');
+        }
+
         for ($i = $row; $i--;) {
             $curRow = $this->pdoStatement->fetch();
             if ($curRow === false) {
@@ -37,17 +44,26 @@ readonly class QueryResult
         return $curRow[$col] ?? false;
     }
 
+    /**
+     * @return array<mixed>|false
+     */
     public function fetchAssoc(): array|false
     {
         return $this->pdoStatement->fetch(\PDO::FETCH_ASSOC);
     }
 
 
+    /**
+     * @return array<mixed>|false
+     */
     public function fetchRow(): array|false
     {
         return $this->pdoStatement->fetch(\PDO::FETCH_NUM);
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function fetchColumn(): array
     {
         return $this->pdoStatement->fetchAll(\PDO::FETCH_COLUMN);
@@ -64,8 +80,11 @@ readonly class QueryResult
         return true;
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function fetchKeyPair(): array
     {
-        return $this->pdoStatement->fetchAll(\PDO::FETCH_KEY_PAIR) ?: [];
+        return $this->pdoStatement->fetchAll(\PDO::FETCH_KEY_PAIR);
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 /** @var array $row */
 /** @var callable $trans */
 

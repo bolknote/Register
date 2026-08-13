@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Queue;
 
@@ -16,7 +16,7 @@ class QueueConsumer
     /**
      * @var QueueHandlerInterface[]
      */
-    private array $handlers;
+    private readonly array $handlers;
 
     public function __construct(
         private readonly \PDO            $pdo,
@@ -35,11 +35,14 @@ class QueueConsumer
      * NOWAIT prevents parallel job processing for *different* jobs. It can be dangerous in case of several heavy jobs
      * (PHP-FPM workers can be exhausted).
      *
-     * @return bool
      */
     public function runQueue(): bool
     {
         $driverName = $this->pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        if (!\is_string($driverName)) {
+            throw new \RuntimeException('PDO returned an invalid driver name.');
+        }
+
         $sql        = match ($driverName) {
             'mysql', 'pgsql' => 'SELECT * FROM ' . $this->dbPrefix . 'queue LIMIT 1 FOR UPDATE NOWAIT',
             'sqlite' => 'SELECT * FROM ' . $this->dbPrefix . 'queue LIMIT 1',
@@ -63,7 +66,12 @@ class QueueConsumer
             $job = null;
             try {
                 $statement = $this->pdo->query($sql);
-                $job       = $statement->fetch(\PDO::FETCH_ASSOC);
+                if ($statement === false) {
+                    throw new \RuntimeException('Unable to prepare the queue fetch query.');
+                }
+
+                $fetchedJob = $statement->fetch(\PDO::FETCH_ASSOC);
+                $job        = \is_array($fetchedJob) ? $fetchedJob : null;
             } catch (\PDOException $e) {
                 $message = $e->getMessage();
                 if (
@@ -75,19 +83,32 @@ class QueueConsumer
                     $this->logger->warning('Failed to fetch queue item: ' . $message, ['exception' => $e]);
                 }
             }
-            if (!$job) {
+
+            if ($job === null) {
                 if (!$outerTransaction) {
                     $this->pdo->rollBack();
                 }
+
                 return false;
             }
 
-            $payload = json_decode($job['payload'], true, 512, JSON_THROW_ON_ERROR);
+            $jobId = $job['id'] ?? null;
+            $jobCode = $job['code'] ?? null;
+            $encodedPayload = $job['payload'] ?? null;
+            if (!\is_string($jobId) || !\is_string($jobCode) || !\is_string($encodedPayload)) {
+                throw new \UnexpectedValueException('A queue row must contain string id, code and payload fields.');
+            }
+
+            $payload = json_decode($encodedPayload, true, 512, JSON_THROW_ON_ERROR);
+            if (!\is_array($payload)) {
+                throw new \UnexpectedValueException('A queue payload must decode to an array.');
+            }
+
             $this->logger->notice('Found queue item', $job);
 
             try {
                 foreach ($this->handlers as $handler) {
-                    if ($handler->handle($job['id'], $job['code'], $payload)) {
+                    if ($handler->handle($jobId, $jobCode, $payload)) {
                         $this->logger->notice('Queue item has been processed', $job);
                     }
                 }
@@ -96,6 +117,10 @@ class QueueConsumer
             }
 
             $statement = $this->pdo->prepare('DELETE FROM ' . $this->dbPrefix . 'queue WHERE id = :id AND code = :code');
+            if ($statement === false) {
+                throw new \RuntimeException('Unable to prepare the queue deletion query.');
+            }
+
             $statement->execute([
                 'id'   => $job['id'],
                 'code' => $job['code'],
@@ -104,8 +129,8 @@ class QueueConsumer
             if (!$outerTransaction) {
                 $this->pdo->commit();
             }
-        } catch (\Throwable $e) {
-            $this->logger->warning('Unknown throwable occurred, do rollback: ' . $e->getMessage(), ['exception' => $e]);
+        } catch (\Throwable $throwable) {
+            $this->logger->warning('Unknown throwable occurred, do rollback: ' . $throwable->getMessage(), ['exception' => $throwable]);
             if (!$outerTransaction) {
                 $this->pdo->rollBack();
             }

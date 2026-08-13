@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
@@ -15,6 +15,10 @@ readonly class TranslationProvider implements TranslationProviderInterface
     {
     }
 
+    /**
+     * @return array<mixed>
+     */
+    #[\Override]
     public function getTranslations(string $language, string $locale): array
     {
         $translationsS2 = require $this->rootDir . '_admin/lang/' . $locale . '/admin.php';

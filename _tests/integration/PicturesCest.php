@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace integration;
 
@@ -18,6 +18,8 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  */
 class PicturesCest
 {
+    private const string ONE_PIXEL_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==';
+
     public function _before(\IntegrationTester $I): void
     {
         $imagesDir = __DIR__ . '/../_output/images';
@@ -263,8 +265,7 @@ class PicturesCest
         $I->assertArrayHasKey('token', $reserve);
         $I->assertStringContainsString('/reserved.png', $reserve['file_path'] ?? '');
 
-        $tempFilename = tempnam("/tmp", "test_image");
-        file_put_contents($tempFilename, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg=='));
+        $tempFilename = $this->createTemporaryPng();
 
         $I->sendPost(
             'https://localhost/_admin/ajax.php?action=upload',
@@ -324,6 +325,9 @@ class PicturesCest
         $I->assertJsonSubResponseEquals($example['message'], ['message']);
     }
 
+    /**
+     * @return array<string, array<string, array<string, string>|int|string>>
+     */
     public function reserveImageInvalidProvider(): array
     {
         return [
@@ -380,10 +384,8 @@ class PicturesCest
 
         $reserve = $this->reserveImage($I, '', 'multi.png');
 
-        $temp1 = tempnam("/tmp", "test_image");
-        $temp2 = tempnam("/tmp", "test_image");
-        file_put_contents($temp1, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg=='));
-        file_put_contents($temp2, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg=='));
+        $temp1 = $this->createTemporaryPng();
+        $temp2 = $this->createTemporaryPng();
 
         $I->sendPost(
             'https://localhost/_admin/ajax.php?action=upload',
@@ -426,8 +428,7 @@ class PicturesCest
             'expires_at' => time() - 10,
         ], JSON_THROW_ON_ERROR));
 
-        $tempFilename = tempnam("/tmp", "test_image");
-        file_put_contents($tempFilename, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg=='));
+        $tempFilename = $this->createTemporaryPng();
 
         $I->sendPost(
             'https://localhost/_admin/ajax.php?action=upload',
@@ -494,6 +495,9 @@ class PicturesCest
         $I->assertJsonSubResponseEquals($example['message'], ['message']);
     }
 
+    /**
+     * @return array<string, array<array<string, mixed>, mixed>>
+     */
     public function pictureCsrfTokenInvalidProvider(): array
     {
         return [
@@ -520,6 +524,7 @@ class PicturesCest
         if (!is_dir($dir)) {
             return;
         }
+
         $it    = new \RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS);
         $files = new \RecursiveIteratorIterator($it, \RecursiveIteratorIterator::CHILD_FIRST);
         foreach ($files as $file) {
@@ -529,6 +534,7 @@ class PicturesCest
                 unlink($file->getPathname());
             }
         }
+
         rmdir($dir);
     }
 
@@ -537,8 +543,7 @@ class PicturesCest
      */
     private function uploadSimplePngFile(\IntegrationTester $I, string $path, string $fileName): void
     {
-        $tempFilename = tempnam("/tmp", "test_image");
-        file_put_contents($tempFilename, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg=='));
+        $tempFilename = $this->createTemporaryPng();
 
         $I->sendPost(
             'https://localhost/_admin/ajax.php?action=upload',
@@ -554,6 +559,7 @@ class PicturesCest
 
     /**
      * @throws \JsonException
+     * @return array<string, mixed>
      */
     private function reserveImage(\IntegrationTester $I, string $path, string $name): array
     {
@@ -566,6 +572,7 @@ class PicturesCest
             ]
         );
         $I->seeResponseCodeIs(200);
+
         $response = $I->grabJson();
         if (!isset($response['success']) || $response['success'] !== true) {
             $I->fail('Reserve image request failed.');
@@ -585,6 +592,8 @@ class PicturesCest
 
     /**
      * @throws \JsonException
+     * @param array<string, mixed> $data
+     * @param array<string, list<UploadedFile>> $files
      */
     private function sendRequestWithFolderToken(\IntegrationTester $I, string $url, string $pathForToken, array $data = [], array $files = []): void
     {
@@ -594,12 +603,28 @@ class PicturesCest
 
     /**
      * @throws \JsonException
+     * @param array<string, mixed> $data
      */
     private function sendMoveRequestWithTokens(\IntegrationTester $I, string $url, string $sourcePath, string $destinationPath, array $data = []): void
     {
         $data['csrf_token'] = $this->getFolderCsrfToken($I, $sourcePath);
         $data['destination_csrf_token'] = $this->getFolderCsrfToken($I, $destinationPath);
         $I->sendPost($url, $data);
+    }
+
+    private function createTemporaryPng(): string
+    {
+        $filename = tempnam(sys_get_temp_dir(), 's2_test_image_');
+        if ($filename === false) {
+            throw new \RuntimeException('Unable to allocate a temporary image file.');
+        }
+
+        $contents = base64_decode(self::ONE_PIXEL_PNG, true);
+        if ($contents === false || file_put_contents($filename, $contents) === false) {
+            throw new \RuntimeException('Unable to create a temporary image fixture.');
+        }
+
+        return $filename;
     }
 
     /**
@@ -609,6 +634,7 @@ class PicturesCest
     {
         $I->sendPost('https://localhost/_admin/ajax.php?action=picture_csrf_token', ['path' => $path]);
         $I->seeResponseCodeIs(200);
+
         $response = $I->grabJson();
         if (!isset($response['csrf_token'])) {
             $I->fail('CSRF token was not returned.');

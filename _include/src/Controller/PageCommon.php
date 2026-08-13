@@ -7,7 +7,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
@@ -22,15 +22,15 @@ use S2\Cms\Model\Article\ArticleRenderedEvent;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\Viewer;
-use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
+use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 
 readonly class PageCommon implements ControllerInterface
@@ -58,12 +58,14 @@ readonly class PageCommon implements ControllerInterface
      * @throws ConfigurationException
      * @throws BadRequestException
      */
+    #[\Override]
     public function handle(Request $request): Response
     {
         $request_uri = $request->getPathInfo();
 
         $request_array = explode('/', $request_uri);   //   []/[dir1]/[dir2]/[dir3]/[file1]
-        $request_array = array_map('rawurldecode', $request_array);
+        $request_array = array_map(rawurldecode(...), $request_array);
+
         $useHierarchy = $this->useHierarchy->get();
         $showComments = $this->showComments->get();
         $favoriteUrl  = $this->favoriteUrl->get();
@@ -83,6 +85,7 @@ readonly class PageCommon implements ControllerInterface
         $parent_num  = \count($request_array) - 1 - (int)$was_end_slash;
 
         $template_id = '';
+        $i           = 0;
 
         if ($useHierarchy) {
             $urls = array_unique($request_array);
@@ -102,7 +105,7 @@ readonly class PageCommon implements ControllerInterface
              * 2. We build "bread crumbs"
              * 3. We determine the template of the page
              */
-            for ($i = 0; $i < $parent_num; $i++) {
+            for (; $i < $parent_num; ++$i) {
                 $parent_path .= rawurlencode($request_array[$i]) . '/';
 
                 $cur_node       = [];
@@ -110,13 +113,14 @@ readonly class PageCommon implements ControllerInterface
                 foreach ($nodes as $node) {
                     if ($node['parent_id'] === $parent_id) {
                         $cur_node = $node;
-                        $found_node_num++;
+                        ++$found_node_num;
                     }
                 }
 
                 if ($found_node_num === 0) {
                     throw new NotFoundException();
                 }
+
                 if ($found_node_num > 1) {
                     throw new ConfigurationException(
                         $this->translator->trans('DB repeat items') . ($this->debug ? ' (parent_id=' . $parent_id . ', url="' . s2_htmlencode($request_array[$i]) . '")' : ''),
@@ -138,8 +142,10 @@ readonly class PageCommon implements ControllerInterface
             $parent_path = '/';
             $i           = 1;
         }
+
         // Path to the requested page (without trailing slash)
-        $current_path = $parent_path . rawurlencode($request_array[$i]);
+        $requestedPage = $request_array[$i] ?? throw new BadRequestException('The requested page path is incomplete.');
+        $current_path  = $parent_path . rawurlencode($requestedPage);
 
         $raw_query_children = $this->dbLayer
             ->select('1')
@@ -163,7 +169,7 @@ readonly class PageCommon implements ControllerInterface
             ->addSelect('favorite, commented, template')
             ->addSelect('(' . $raw_query_children . ') IS NOT NULL AS children_exist, (' . $raw_query_author . ') AS author')
             ->from('articles AS a')
-            ->where('url = :url')->setParameter('url', $request_array[$i])
+            ->where('url = :url')->setParameter('url', $requestedPage)
             ->andWhere('published = 1')
         ;
         if ($useHierarchy) {
@@ -174,19 +180,19 @@ readonly class PageCommon implements ControllerInterface
         $page   = $result->fetchAssoc();
 
         // Error handling
-        if (!$page) {
+        if ($page === false) {
             throw new NotFoundException();
         }
 
-        if ($result->fetchAssoc()) {
+        if ($result->fetchAssoc() !== false) {
             throw new ConfigurationException(
-                $this->translator->trans('DB repeat items') . ($this->debug ? ' (parent_id=' . $parent_id . ', url="' . s2_htmlencode($request_array[$i]) . '")' : ''),
+                $this->translator->trans('DB repeat items') . ($this->debug ? ' (parent_id=' . $parent_id . ', url="' . s2_htmlencode($requestedPage) . '")' : ''),
                 $this->translator->trans('Error encountered')
             );
         }
 
-        if ($page['template']) {
-            $template_id = $page['template'];
+        if ((string)$page['template'] !== '') {
+            $template_id = (string)$page['template'];
         }
 
         if ($template_id === '') {
@@ -196,9 +202,7 @@ readonly class PageCommon implements ControllerInterface
                     'title' => $page['title'],
                 ];
 
-                $errorMessage = \sprintf($this->translator->trans('Error no template'), implode('<br />', array_map(static function ($a) {
-                    return '<a href="' . $a['link'] . '">' . s2_htmlencode($a['title']) . '</a>';
-                }, $bread_crumbs)));
+                $errorMessage = \sprintf($this->translator->trans('Error no template'), implode('<br />', array_map(static fn(array $a): string => '<a href="' . $a['link'] . '">' . s2_htmlencode($a['title']) . '</a>', $bread_crumbs)));
             } else {
                 $errorMessage = $this->translator->trans('Error no template flat');
             }
@@ -209,7 +213,7 @@ readonly class PageCommon implements ControllerInterface
             );
         }
 
-        if ($useHierarchy && $parent_num && $was_end_slash !== (bool)$page['children_exist']) {
+        if ($useHierarchy && $parent_num > 0 && $was_end_slash !== (bool)$page['children_exist']) {
             return new RedirectResponse($this->urlBuilder->link($current_path . (!$was_end_slash ? '/' : '')), Response::HTTP_MOVED_PERMANENTLY);
         }
 
@@ -237,7 +241,7 @@ readonly class PageCommon implements ControllerInterface
         ];
         $template->putInPlaceholder('title', s2_htmlencode($page['title']));
 
-        if (!empty($page['author'])) {
+        if ($page['author'] !== null && $page['author'] !== '') {
             $template->putInPlaceholder('author', s2_htmlencode($page['author']));
         }
 
@@ -245,6 +249,7 @@ readonly class PageCommon implements ControllerInterface
             foreach ($bread_crumbs as $crumb) {
                 $template->addBreadCrumb($crumb['title'], $crumb['link'] ?? null);
             }
+
             $template->setLink('top', $this->urlBuilder->link('/'));
 
             if (\count($bread_crumbs) > 1) {
@@ -259,7 +264,7 @@ readonly class PageCommon implements ControllerInterface
         // Dealing with sections, subsections, neighbours
         if (
             $useHierarchy
-            && $page['children_exist']
+            && (bool)$page['children_exist']
             && (
                 $template->hasPlaceholder('<!-- s2_subarticles -->')
                 || $template->hasPlaceholder('<!-- s2_menu_children -->')
@@ -279,8 +284,6 @@ readonly class PageCommon implements ControllerInterface
                 ->getSql()
             ;
 
-            $sort_order = SORT_DESC;
-
             $result = $this->dbLayer
                 ->select('title, url, (' . $raw_query1 . ') IS NOT NULL AS children_exist, id, excerpt, favorite, create_time, parent_id')
                 ->from('articles AS a')
@@ -289,10 +292,11 @@ readonly class PageCommon implements ControllerInterface
                 ->orderBy('priority')
                 ->execute()
             ;
-
-            $subarticles = $subsections = $sort_array = [];
-            while ($row = $result->fetchAssoc()) {
-                if ($row['children_exist']) {
+            $subarticles = [];
+            $subsections = [];
+            $sort_array = [];
+            while (($row = $result->fetchAssoc()) !== false) {
+                if ((bool)$row['children_exist']) {
                     // The child is a subsection
                     $item = [
                         'id'            => $row['id'],
@@ -307,7 +311,7 @@ readonly class PageCommon implements ControllerInterface
                     $subsections[] = $item;
                 } else {
                     // The child is an article
-                    $item       = array(
+                    $item       = [
                         'id'            => $row['id'],
                         'title'         => $row['title'],
                         'link'          => $this->urlBuilder->link($current_path . '/' . rawurlencode($row['url'])),
@@ -315,7 +319,7 @@ readonly class PageCommon implements ControllerInterface
                         'date'          => $this->viewer->date($row['create_time']),
                         'excerpt'       => $row['excerpt'],
                         'favorite'      => $row['favorite'],
-                    );
+                    ];
                     $sort_field = $row['create_time'];
 
                     $subarticles[] = $item;
@@ -332,8 +336,8 @@ readonly class PageCommon implements ControllerInterface
                     'class' => 'menu_subsections',
                 ]));
 
-                foreach ($subsections as $item) {
-                    $sections_text .= $this->viewer->render('subarticles_item', $item);
+                foreach ($subsections as $subsection) {
+                    $sections_text .= $this->viewer->render('subarticles_item', $subsection);
                 }
             }
 
@@ -346,21 +350,21 @@ readonly class PageCommon implements ControllerInterface
                     'class' => 'menu_children',
                 ]));
 
-                ($sort_order == SORT_DESC) ? arsort($sort_array) : asort($sort_array);
+                arsort($sort_array);
+
+                $paging = '';
 
                 if ($maxItems > 0) {
                     // Paging navigation
-                    $page_num = $request->query->get('p', 1) - 1;
-                    if ($page_num < 0) {
-                        $page_num = 0;
-                    }
+                    $page_num = max(0, $request->query->getInt('p', 1) - 1);
 
                     $start = $page_num * $maxItems;
                     if ($start >= \count($subarticles)) {
-                        $page_num = $start = 0;
+                        $page_num = 0;
+                        $start = 0;
                     }
 
-                    $total_pages = (int)ceil(1.0 * \count($subarticles) / $maxItems);
+                    $total_pages = intdiv(\count($subarticles) + $maxItems - 1, $maxItems);
 
                     $link_nav = [];
                     $paging   = StringHelper::paging($page_num + 1, $total_pages, $this->urlBuilder->link(str_replace('%', '%%', $current_path . '/'), ['p=%d']), $link_nav) . "\n";
@@ -371,11 +375,11 @@ readonly class PageCommon implements ControllerInterface
                     $sort_array = \array_slice($sort_array, $start, $maxItems, true);
                 }
 
-                foreach ($sort_array as $index => $value) {
+                foreach (array_keys($sort_array) as $index) {
                     $articles_text .= $this->viewer->render('subarticles_item', $subarticles[$index]);
                 }
 
-                if ($maxItems) {
+                if ($maxItems > 0) {
                     $articles_text .= $paging;
                 }
             }
@@ -387,8 +391,8 @@ readonly class PageCommon implements ControllerInterface
         }
 
         if (
-            $this->useHierarchy
-            && !$page['children_exist']
+            $useHierarchy
+            && !(bool)$page['children_exist']
             && (
                 $template->hasPlaceholder('<!-- s2_menu_siblings -->')
                 || $template->hasPlaceholder('<!-- s2_back_forward -->')
@@ -416,12 +420,12 @@ readonly class PageCommon implements ControllerInterface
                 ->orderBy('priority')
                 ->execute()
             ;
-
-            $neighbour_urls = $menu_articles = [];
+            $neighbour_urls = [];
+            $menu_articles = [];
 
             $i         = 0;
             $curr_item = -1;
-            while ($row = $result->fetchAssoc()) {
+            while (($row = $result->fetchAssoc()) !== false) {
                 // A neighbor
                 $url = $this->urlBuilder->link($parent_path . rawurlencode($row['url']));
 
@@ -437,7 +441,7 @@ readonly class PageCommon implements ControllerInterface
 
                 $neighbour_urls[] = $url;
 
-                $i++;
+                ++$i;
             }
 
             if (\count($bread_crumbs) > 1) {
@@ -449,25 +453,29 @@ readonly class PageCommon implements ControllerInterface
             }
 
             if ($curr_item !== -1) {
-                if (isset($neighbour_urls[$curr_item - 1])) {
-                    $template->setLink('prev', $neighbour_urls[$curr_item - 1]);
+                $previousIndex = $curr_item - 1;
+                if ($previousIndex >= 0 && isset($neighbour_urls[$previousIndex])) {
+                    $template->setLink('prev', $neighbour_urls[$previousIndex]);
                 }
+
                 if (isset($neighbour_urls[$curr_item + 1])) {
                     $template->setLink('next', $neighbour_urls[$curr_item + 1]);
                 }
 
+                $previousArticle = $previousIndex >= 0 ? ($menu_articles[$previousIndex] ?? null) : null;
+                $nextArticle = $menu_articles[$curr_item + 1] ?? null;
                 $template->putInPlaceholder('back_forward', [
                     'up'      => \count($bread_crumbs) <= 1 ? null : [
                         'title' => $bread_crumbs[\count($bread_crumbs) - 2]['title'],
                         'link'  => $this->urlBuilder->link($parent_path),
                     ],
-                    'back'    => empty($menu_articles[$curr_item - 1]) ? null : [
-                        'title' => $menu_articles[$curr_item - 1]['title'],
-                        'link'  => $menu_articles[$curr_item - 1]['link'],
+                    'back'    => $previousArticle === null ? null : [
+                        'title' => $previousArticle['title'],
+                        'link'  => $previousArticle['link'],
                     ],
-                    'forward' => empty($menu_articles[$curr_item + 1]) ? null : [
-                        'title' => $menu_articles[$curr_item + 1]['title'],
-                        'link'  => $menu_articles[$curr_item + 1]['link'],
+                    'forward' => $nextArticle === null ? null : [
+                        'title' => $nextArticle['title'],
+                        'link'  => $nextArticle['link'],
                     ],
                 ]);
             }
@@ -483,7 +491,7 @@ readonly class PageCommon implements ControllerInterface
         }
 
         // Comments
-        if ($page['commented'] && $showComments && $template->hasPlaceholder('<!-- s2_comments -->')) {
+        if ((bool)$page['commented'] && $showComments && $template->hasPlaceholder('<!-- s2_comments -->')) {
             $result = $this->dbLayer
                 ->select('nick, time, email, show_email, good, text')
                 ->from('art_comments')
@@ -494,8 +502,8 @@ readonly class PageCommon implements ControllerInterface
             ;
 
             $comments = '';
-            for ($i = 1; $row = $result->fetchAssoc(); $i++) {
-                $row['i'] = $i;
+            for ($commentIndex = 1; $row = $result->fetchAssoc(); ++$commentIndex) {
+                $row['i'] = $commentIndex;
                 $comments .= $this->viewer->render('comment', $row);
             }
 
@@ -521,9 +529,9 @@ readonly class PageCommon implements ControllerInterface
             ->where('atg.article_id = :article_id')->setParameter('article_id', $articleId)
             ->execute()
         ;
-
-        $tag_names = $tag_urls = [];
-        while ($row = $result->fetchAssoc()) {
+        $tag_names = [];
+        $tag_urls = [];
+        while (($row = $result->fetchAssoc()) !== false) {
             $tag_names[$row['tag_id']] = $row['name'];
             $tag_urls[$row['tag_id']]  = $row['url'];
         }
@@ -554,15 +562,19 @@ readonly class PageCommon implements ControllerInterface
         // Build article lists that have the same tags as our article
 
         $hasArticlesInList = false;
-
-        $titles = $parent_ids = $urls = $tag_ids = $original_ids = [];
-        while ($row = $result->fetchAssoc()) {
-            if ($articleId !== $row['id']) {
+        $titles = [];
+        $parent_ids = [];
+        $urls = [];
+        $tag_ids = [];
+        $original_ids = [];
+        while (($row = $result->fetchAssoc()) !== false) {
+            if ($articleId !== (int)$row['id']) {
                 $hasArticlesInList = true;
             }
+
             $titles[]       = $row['title'];
             $parent_ids[]   = $row['parent_id'];
-            $urls[]         = rawurlencode($row['url']) . ($this->useHierarchy && $row['children_exist'] ? '/' : '');
+            $urls[]         = rawurlencode($row['url']) . ($this->useHierarchy->get() && (bool)$row['children_exist'] ? '/' : '');
             $tag_ids[]      = $row['tag_id'];
             $original_ids[] = $row['id'];
         }
@@ -595,11 +607,11 @@ readonly class PageCommon implements ControllerInterface
 
         $output = [];
         foreach ($art_by_tags as $tag_id => $articles) {
-            $output[] = $this->viewer->render('menu_block', array(
+            $output[] = $this->viewer->render('menu_block', [
                 'title' => \sprintf($this->translator->trans('With this tag'), '<a href="' . $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($tag_urls[$tag_id]) . '/') . '">' . $tag_names[$tag_id] . '</a>'),
                 'menu'  => $articles,
                 'class' => 'article_tags',
-            ));
+            ]);
         }
 
         return implode("\n", $output);
@@ -621,11 +633,11 @@ readonly class PageCommon implements ControllerInterface
         ;
 
         $tags = [];
-        while ($row = $result->fetchAssoc()) {
-            $tags[] = array(
+        while (($row = $result->fetchAssoc()) !== false) {
+            $tags[] = [
                 'title' => $row['name'],
                 'link'  => $this->urlBuilder->link('/' . rawurlencode($tagsUrl) . '/' . rawurlencode($row['url']) . '/'),
-            );
+            ];
         }
 
         if (\count($tags) === 0) {

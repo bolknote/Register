@@ -5,7 +5,7 @@
  * @package   s2_typo
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_typo;
 
@@ -19,27 +19,30 @@ use Symfony\Component\Routing\RouteCollection;
 
 class Extension implements ExtensionInterface
 {
+    #[\Override]
     public function buildContainer(Container $container): void
     {
     }
 
+    #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
-        $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, function (TemplateFinalReplaceEvent $event) {
+        $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, function (TemplateFinalReplaceEvent $event): void {
             $event->template = Typograph::processRussianText($event->template);
         });
 
-        $eventDispatcher->addListener(FeedItemRenderEvent::class, static function (FeedItemRenderEvent $event) {
+        $eventDispatcher->addListener(FeedItemRenderEvent::class, static function (FeedItemRenderEvent $event): void {
             $event->feedItemDto->title = Typograph::processRussianText($event->feedItemDto->title, true);
             $event->feedItemDto->text  = Typograph::processRussianText($event->feedItemDto->text);
         }, -10);
 
-        $eventDispatcher->addListener(FeedRenderEvent::class, static function (FeedRenderEvent $event) {
+        $eventDispatcher->addListener(FeedRenderEvent::class, static function (FeedRenderEvent $event): void {
             $event->feedDto->title       = Typograph::processRussianText($event->feedDto->title, true);
             $event->feedDto->description = Typograph::processRussianText($event->feedDto->description, true);
         }, -10);
     }
 
+    #[\Override]
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
     }

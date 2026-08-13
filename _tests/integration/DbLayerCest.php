@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace integration;
 
@@ -19,8 +19,10 @@ use S2\Cms\Pdo\SchemaBuilderInterface;
  */
 class DbLayerCest
 {
-    private ?\Pdo $pdo;
-    private ?DbLayer $dbLayer;
+    private \PDO $pdo;
+
+    private DbLayer $dbLayer;
+
     private string $tableName = 'config_dl_test';
 
     /**
@@ -43,7 +45,7 @@ class DbLayerCest
     public function _after(\IntegrationTester $I): void
     {
         try {
-            $this->dbLayer?->dropTable($this->tableName);
+            $this->dbLayer->dropTable($this->tableName);
         } catch (\Throwable) {
         }
     }
@@ -206,6 +208,7 @@ class DbLayerCest
                 $this->dbLayer->alterField($this->tableName, 'test_field2', SchemaBuilderInterface::TYPE_STRING, 255, false, 'default_test');
             } catch (DbLayerException $e) {
             }
+
             $I->assertInstanceOf(DbLayerException::class, $e);
         }
 
@@ -233,6 +236,10 @@ class DbLayerCest
             ->limit(1)
             ->execute()->fetchAssoc()
         ;
+        if ($data === false) {
+            throw new \RuntimeException('The test table unexpectedly contains no data.');
+        }
+
         $I->assertEquals(['name', 'value'], array_keys($data));
 
         // Start a transaction as if it was an external transaction from tests wrapper
@@ -280,12 +287,13 @@ class DbLayerCest
         $I->assertCount(2, $data);
 
         $this->dbLayer->dropIndex($this->tableName, 'value_idx');
-        $e = null;
+        $exception = null;
         try {
             $this->dbLayer->addIndex($this->tableName, 'value_idx', ['value'], true);
-        } catch (DbLayerException $e) {
+        } catch (DbLayerException $exception) {
         }
-        $I->assertNotNull($e);
+
+        $I->assertNotNull($exception);
 
         $this->dbLayer->delete($this->tableName)->execute();
 
@@ -297,20 +305,21 @@ class DbLayerCest
             ->execute()
         ;
 
-        $e = null;
-
+        $exception = null;
         try {
             $this->dbLayer->insert($this->tableName)
                 ->setValue('name', ':name')->setParameter('name', 'test_name2')
                 ->setValue('value', ':value')->setParameter('value', 'test_value')
                 ->execute()
             ;
-        } catch (DbLayerException $e) {
+        } catch (DbLayerException $exception) {
         }
-        $I->assertNotNull($e);
+
+        $I->assertNotNull($exception);
 
         // Test that creating new field does not break indexes. Useful for SQLite where tables are recreated on field creation
         $I->assertTrue($this->dbLayer->indexExists($this->tableName, 'value_idx'));
+
         $this->dbLayer->addField($this->tableName, 'new_field', SchemaBuilderInterface::TYPE_STRING, 255, true);
         $I->assertTrue($this->dbLayer->indexExists($this->tableName, 'value_idx'));
         $this->dbLayer->dropField($this->tableName, 'new_field');
@@ -352,6 +361,7 @@ class DbLayerCest
                 $this->dbLayer->addField($this->tableName, 'with_bool_default', SchemaBuilderInterface::TYPE_BOOLEAN, null, false, true);
             } catch (DbLayerException $exception) {
             }
+
             $I->assertNull($exception, 'addField should not fail on default value');
 
             $exception = null;
@@ -360,6 +370,7 @@ class DbLayerCest
                 $this->dbLayer->alterField($this->tableName, 'with_bool_default', SchemaBuilderInterface::TYPE_BOOLEAN, null, false, true);
             } catch (DbLayerException $exception) {
             }
+
             $I->assertNull($exception, 'alterField should not fail on default value');
         } finally {
             $this->dbLayer->dropField($this->tableName, 'with_str_default');
@@ -368,6 +379,7 @@ class DbLayerCest
             if ($this->pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) !== 'sqlite') {
                 $this->pdo->setAttribute(\PDO::ATTR_EMULATE_PREPARES, $initialEmulate);
             }
+
             $this->pdo->beginTransaction();
         }
     }
@@ -383,11 +395,10 @@ class DbLayerCest
 
         $tableName = 'tmp_without_length';
         $this->dbLayer->dropTable($tableName);
-
         $exception = null;
         try {
-            $this->dbLayer->createTable($tableName, static function (SchemaBuilderInterface $table) {
-                $table->addColumn('name', SchemaBuilderInterface::TYPE_STRING, false, '', null);
+            $this->dbLayer->createTable($tableName, static function (SchemaBuilderInterface $table): void {
+                $table->addColumn('name', SchemaBuilderInterface::TYPE_STRING, false, '');
             });
         } catch (DbLayerException $exception) {
         }
@@ -413,13 +424,14 @@ class DbLayerCest
     /**
      * @throws DbLayerException
      */
+    /** @return list<array<string, mixed>> */
     private function getAllConfigByName(string $name): array
     {
-        return $this->dbLayer->select('*')
+        return array_values($this->dbLayer->select('*')
             ->from($this->tableName)
             ->where('name = :name')->setParameter('name', $name)
             ->execute()->fetchAssocAll()
-        ;
+        );
     }
 
     /**
@@ -432,7 +444,7 @@ class DbLayerCest
         } catch (DbLayerException) {
         }
 
-        $this->dbLayer->createTable($this->tableName, function (SchemaBuilderInterface $table) {
+        $this->dbLayer->createTable($this->tableName, function (SchemaBuilderInterface $table): void {
             $table
                 ->addString('name', 191)
                 ->addText('value', nullable: false)

@@ -7,10 +7,12 @@
  * @package   s2_blog
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Controller;
 
+use S2\Cms\Config\BoolProxy;
+use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\Viewer;
@@ -19,16 +21,21 @@ use s2_extensions\s2_blog\BlogUrlBuilder;
 class Sitemap extends \S2\Cms\Controller\Sitemap
 {
     public function __construct(
-        protected DbLayer        $dbLayer,
+        DbLayer                  $dbLayer,
         protected BlogUrlBuilder $blogUrlBuilder,
-        protected UrlBuilder     $urlBuilder,
-        protected Viewer         $viewer,
+        ArticleProvider          $articleProvider,
+        UrlBuilder               $urlBuilder,
+        Viewer                   $viewer,
+        BoolProxy                $useHierarchy,
     ) {
+        parent::__construct($dbLayer, $articleProvider, $urlBuilder, $viewer, $useHierarchy);
     }
 
     /**
      * {@inheritdoc}
+     * @return array<mixed>
      */
+    #[\Override]
     protected function getItems(): array
     {
         // Obtaining posts

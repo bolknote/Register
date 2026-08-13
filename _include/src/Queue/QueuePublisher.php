@@ -5,7 +5,7 @@
  * @package S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Queue;
 
@@ -17,22 +17,30 @@ readonly class QueuePublisher
     {
     }
 
+    /**
+     * @param array<mixed> $payload
+     */
     public function publish(string $id, string $code, array $payload = []): void
     {
         if (\strlen($id) > 80) {
             throw new \DomainException('Id length must not exceed 80 characters');
         }
+
         if (\strlen($code) > 80) {
             throw new \DomainException('Code length must not exceed 80 characters');
         }
 
         try {
             $data = json_encode($payload, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
-            throw new \InvalidArgumentException($e->getMessage(), 0, $e);
+        } catch (\JsonException $jsonException) {
+            throw new \InvalidArgumentException($jsonException->getMessage(), 0, $jsonException);
         }
 
         $driverName = $this->pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        if (!\is_string($driverName)) {
+            throw new InvalidEnvironmentException('PDO returned an invalid driver name.');
+        }
+
         switch ($driverName) {
             case 'mysql':
                 // There is a wierd behaviour of INSERT IGNORE in MySQL. Unlike Postgres, INSERT IGNORE waits
@@ -52,21 +60,26 @@ readonly class QueuePublisher
                 throw new InvalidEnvironmentException(sprintf('Driver "%s" is not supported.', $driverName));
         }
 
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the queue publication query.');
+        }
+
         try {
             $statement->execute([
                 'id'      => $id,
                 'code'    => $code,
                 'payload' => $data,
             ]);
-        } catch (\PDOException $e) {
+        } catch (\PDOException $pdoException) {
             if (
-                (1205 === (int)($e->errorInfo[1] ?? 0) && $driverName === 'mysql')
-                || (5 === (int)($e->errorInfo[1] ?? 0) && $driverName === 'sqlite') // SQLSTATE[HY000]: General error: 5 database is locked
+                (1205 === (int)($pdoException->errorInfo[1] ?? 0) && $driverName === 'mysql')
+                || (5 === (int)($pdoException->errorInfo[1] ?? 0) && $driverName === 'sqlite') // SQLSTATE[HY000]: General error: 5 database is locked
             ) {
                 // Cannot insert a new item while the existing one is locked;
                 return;
             }
-            throw $e;
+
+            throw $pdoException;
         } finally {
             switch ($driverName) {
                 case 'mysql':

@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model\User;
 
@@ -22,6 +22,8 @@ readonly class UserProvider
     /**
      * @return Moderator[]
      * @throws DbLayerException
+     * @param array<mixed> $includeEmails
+     * @param array<mixed> $excludeEmails
      */
     public function getModerators(array $includeEmails = [], array $excludeEmails = []): array
     {
@@ -29,7 +31,7 @@ readonly class UserProvider
             ->select('login, email')
             ->from('users')
             ->where('hide_comments = 1')
-            ->andWhere('email <> \'\'')
+            ->andWhere("email <> ''")
         ;
 
         if (\count($includeEmails) > 0) {
@@ -38,6 +40,7 @@ readonly class UserProvider
                 $keys[] = ':email' . $key;
                 $qb->setParameter('email' . $key, $email);
             }
+
             $qb->andWhere('email IN (' . implode(',', $keys) . ')');
         }
 

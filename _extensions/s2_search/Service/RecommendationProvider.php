@@ -5,13 +5,11 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Service;
 
-use Psr\Cache\InvalidArgumentException;
 use S2\Cms\Config\IntProxy;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
 use S2\Rose\Entity\ExternalId;
@@ -21,12 +19,16 @@ use s2_extensions\s2_search\Layout\ContentItem;
 use s2_extensions\s2_search\Layout\LayoutMatcherFactory;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
+use Psr\Cache\InvalidArgumentException;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class RecommendationProvider implements QueueHandlerInterface
 {
-    public const INVALIDATED_AT        = 'invalidatedAt';
-    public const RECOMMENDATIONS_QUEUE = 'recommendations';
-    public const CACHE_KEY_PREFIX      = 'recommendations_';
+    public const string INVALIDATED_AT = 'invalidatedAt';
+
+    public const string RECOMMENDATIONS_QUEUE = 'recommendations';
+
+    public const string CACHE_KEY_PREFIX = 'recommendations_';
 
     public function __construct(
         private PdoStorage           $pdoStorage,
@@ -41,18 +43,20 @@ readonly class RecommendationProvider implements QueueHandlerInterface
     /**
      * @throws InvalidArgumentException
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getRecommendations(string $page, ExternalId $externalId): array
     {
         if ($this->recommendationsLimit->get() <= 0 || $this->dbType === 'sqlite') {
             return [[], [], []];
         }
-        [$recommendations, $generatedAt] = ($this->cache->get(
-            $this->getCacheKey($externalId),
-            fn(ItemInterface $item) => $this->getValueForCache($externalId)
-        ));
 
-        $cacheInvalidatedAt = $this->cache->get(self::INVALIDATED_AT, fn(ItemInterface $item) => time());
+        [$recommendations, $generatedAt] = $this->cache->get(
+            $this->getCacheKey($externalId),
+            fn(ItemInterface $_item): array => $this->getValueForCache($externalId)
+        );
+
+        $cacheInvalidatedAt = $this->cache->get(self::INVALIDATED_AT, fn(ItemInterface $_item): int => time());
         if ($cacheInvalidatedAt > $generatedAt + 1) {
             // +1 to protect from rebuilding
             $this->queuePublisher->publish($externalId->toString(), self::RECOMMENDATIONS_QUEUE);
@@ -64,16 +68,17 @@ readonly class RecommendationProvider implements QueueHandlerInterface
     /**
      * {@inheritdoc}
      * @throws InvalidArgumentException
+     * @param array<mixed> $payload
      */
+    #[\Override]
     public function handle(string $id, string $code, array $payload): bool
     {
         if ($code === self::RECOMMENDATIONS_QUEUE) {
             $externalId = ExternalId::fromString($id);
             $cacheKey   = $this->getCacheKey($externalId);
 
-            $item = $this->cache->getItem($cacheKey);
-            $item->set($this->getValueForCache($externalId));
-            $this->cache->save($item);
+            $this->cache->delete($cacheKey);
+            $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
 
             return true;
         }
@@ -81,7 +86,11 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         return false;
     }
 
-    private function processRecommendations($page, array $recommendations): array
+    /**
+     * @return array<int, mixed>
+     * @param array<mixed> $recommendations
+     */
+    private function processRecommendations(string $page, array $recommendations): array
     {
         $contentItems = [];
         foreach ($recommendations as $recommendation) {
@@ -89,6 +98,7 @@ readonly class RecommendationProvider implements QueueHandlerInterface
             if (!$tocWithMetadata instanceof TocEntryWithMetadata) {
                 throw new \LogicException('tocWithMetadata key must contain TocEntryWithMetadata');
             }
+
             $tocEntry    = $tocWithMetadata->getTocEntry();
             $contentItem = new ContentItem(
                 $tocEntry->getTitle(),
@@ -119,15 +129,26 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         return self::CACHE_KEY_PREFIX . $externalId->toString();
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function getValueForCache(ExternalId $externalId): array
     {
         try {
+            $similar = $this->pdoStorage->getSimilar($externalId, true, null, 4, 9);
+            if ($similar === []) {
+                $similar = $this->pdoStorage->getSimilar($externalId, true, null, 2, 9);
+            }
+
             return [
-                $this->pdoStorage->getSimilar($externalId, true, null, 4, 9)
-                    ?: $this->pdoStorage->getSimilar($externalId, true, null, 2, 9),
+                $similar,
                 time()
             ];
-        } catch (\LogicException $e) {
+        } catch (\Throwable $exception) {
+            if (!$exception instanceof \LogicException) {
+                throw $exception;
+            }
+
             return [[], time()];
         }
     }

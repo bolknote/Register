@@ -1,4 +1,9 @@
 <?php
+
+declare(strict_types = 1);
+
+use S2\Cms\Http\InputSanitizer;
+
 /**
  * Proper environment setup.
  *
@@ -63,19 +68,8 @@ mb_internal_encoding('UTF-8');
         "\xef\xbf\xbb"  // Unassigned - reserved in Unicode
     ];
 
-    function _s2_remove_bad_characters(mixed &$data, array $utf8BadChars): void
-    {
-        if (is_array($data)) {
-            foreach (array_keys($data) as $key) {
-                _s2_remove_bad_characters($data[$key], $utf8BadChars);
-            }
-        } else {
-            $data = str_replace($utf8BadChars, '', $data);
-        }
-    }
-
-    _s2_remove_bad_characters($_GET, $utf8BadChars);
-    _s2_remove_bad_characters($_POST, $utf8BadChars);
-    _s2_remove_bad_characters($_COOKIE, $utf8BadChars);
-    _s2_remove_bad_characters($_REQUEST, $utf8BadChars);
+    InputSanitizer::removeCharacters($_GET, $utf8BadChars);
+    InputSanitizer::removeCharacters($_POST, $utf8BadChars);
+    InputSanitizer::removeCharacters($_COOKIE, $utf8BadChars);
+    InputSanitizer::removeCharacters($_REQUEST, $utf8BadChars);
 })();

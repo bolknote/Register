@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Renders views.
  *
@@ -24,9 +27,13 @@ class Viewer
     ) {
     }
 
+    /**
+     * @param array<mixed> $vars
+     */
     public function render(string $name, array $vars, string ...$extraDirs): string
     {
-        $name     = preg_replace('#[^0-9a-zA-Z._\-]#', '', $name);
+        $name     = preg_replace('#[^0-9a-zA-Z._\-]#', '', $name)
+            ?? throw new \RuntimeException('Unable to sanitize view name.');
         $filename = $name . '.php';
 
         $style                = $this->style->get();
@@ -37,7 +44,7 @@ class Viewer
         $foundFile = null;
         $dirs      = [
             $styleViewDir,
-            ...array_map(static fn(string $dir) => \sprintf($extensionDirPattern, $dir), $extraDirs),
+            ...array_map(static fn(string $dir): string => \sprintf($extensionDirPattern, $dir), $extraDirs),
             $systemViewDir
         ];
         foreach ($dirs as $dir) {
@@ -67,7 +74,12 @@ class Viewer
             echo '</div>';
         }
 
-        return ob_get_clean();
+        $rendered = ob_get_clean();
+        if ($rendered === false) {
+            throw new \RuntimeException('Unable to read rendered view output.');
+        }
+
+        return $rendered;
     }
 
 
@@ -76,14 +88,14 @@ class Viewer
      */
     public function date(int $time): string
     {
-        if (!$time) {
+        if ($time === 0) {
             return '';
         }
 
         $format = $this->translator->trans('Date format');
         $date   = date($format, $time);
         if (str_contains($format, 'F')) {
-            $date = str_replace(date('F', $time), $this->translator->trans(date('F', $time) . ' genitive'), $date);
+            return str_replace(date('F', $time), $this->translator->trans(date('F', $time) . ' genitive'), $date);
         }
 
         return $date;
@@ -94,14 +106,14 @@ class Viewer
      */
     public function dateAndTime(int $time): string
     {
-        if (!$time) {
+        if ($time === 0) {
             return '';
         }
 
         $format = $this->translator->trans('Time format');
         $date   = date($format, $time);
         if (str_contains($format, 'F')) {
-            $date = str_replace(date('F', $time), $this->translator->trans(date('F', $time) . ' genitive'), $date);
+            return str_replace(date('F', $time), $this->translator->trans(date('F', $time) . ' genitive'), $date);
         }
 
         return $date;
@@ -120,7 +132,8 @@ class Viewer
             $this->translator->trans('Thousands separator')
         );
         if (!$trailingZeros) {
-            $result = preg_replace('#' . preg_quote($decimalPoint, '#') . '?0*$#', '', $result);
+            return preg_replace('#' . preg_quote($decimalPoint, '#') . '?0*$#', '', $result)
+                ?? throw new \RuntimeException('Unable to format a number.');
         }
 
         return $result;
@@ -129,46 +142,47 @@ class Viewer
     /**
      * @throws \JsonException
      */
-    private static function jsonFormat($vars, int $level = 0): string
+    private static function jsonFormat(mixed $vars, int $level = 0): string
     {
-        if (\is_array($vars) && !array_is_list($vars)) {
-            $s = "<span style='color:grey'>{</span>\n";
-            $i = \count($vars);
-            foreach ($vars as $k => $v) {
-                $i--;
-                $s .= sprintf("%s<span style='color:grey'>\"</span>%s<span style='color:grey'>\":</span> %s<span style='color:grey'>%s</span>\n",
-                    str_pad(' ', ($level + 1) * 4),
-                    s2_htmlencode($k),
-                    self::jsonFormat($v, $level + 1),
-                    $i > 0 ? ',' : ''
-                );
-            }
-            $s .= str_pad(' ', $level * 4) . '<span style="color:grey">}</span>';
-
-            return $s;
-        }
         if (\is_array($vars)) {
+            if (!array_is_list($vars)) {
+                $s = "<span style='color:grey'>{</span>\n";
+                $i = \count($vars);
+                foreach ($vars as $k => $v) {
+                    --$i;
+                    $s .= sprintf("%s<span style='color:grey'>\"</span>%s<span style='color:grey'>\":</span> %s<span style='color:grey'>%s</span>\n",
+                        str_pad(' ', ($level + 1) * 4),
+                        s2_htmlencode($k),
+                        self::jsonFormat($v, $level + 1),
+                        $i > 0 ? ',' : ''
+                    );
+                }
+
+                return $s . str_pad(' ', $level * 4) . '<span style="color:grey">}</span>';
+            }
+
             $s = "<span style='color:grey'>[</span>\n";
             $i = \count($vars);
-            foreach ($vars as $k => $v) {
-                $i--;
+            foreach ($vars as $v) {
+                --$i;
                 $s .= \sprintf("%s%s<span style='color:grey'>%s</span>\n",
                     str_pad(' ', ($level + 1) * 4),
                     self::jsonFormat($v, $level + 1),
                     $i > 0 ? ',' : ''
                 );
             }
-            $s .= str_pad(' ', $level * 4) . '<span style="color:grey">]</span>';
 
-            return $s;
+            return $s . str_pad(' ', $level * 4) . '<span style="color:grey">]</span>';
         }
 
-        $str = s2_htmlencode(json_encode($vars, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | (\is_array($vars) && \count($vars) > 1 ? JSON_PRETTY_PRINT : 0)));
-        $str = str_replace(["\r", "\n"], ['', "\n" . str_pad(' ', $level * 4)], $str);
+        $str = s2_htmlencode(json_encode($vars, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
-        return $str;
+        return str_replace(["\r", "\n"], ['', "\n" . str_pad(' ', $level * 4)], $str);
     }
 
+    /**
+     * @param array<mixed> $_vars
+     */
     private function includeFile(string $_found_file, array $_vars): void
     {
         $trans        = $this->translator->trans(...);

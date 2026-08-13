@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace unit\Cms\Config;
 
@@ -14,7 +14,7 @@ use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 
-class DynamicConfigProxyTest extends Unit
+final class DynamicConfigProxyTest extends Unit
 {
     /**
      * @throws DbLayerException
@@ -29,9 +29,9 @@ class DynamicConfigProxyTest extends Unit
         $boolProxy = $provider->getBoolProxy('S2_FEATURE');
         $intProxy  = $provider->getIntProxy('S2_LIMIT');
 
-        $this->assertSame($boolProxy, $provider->getBoolProxy('S2_FEATURE'));
-        $this->assertTrue($boolProxy->get());
-        $this->assertSame(15, $intProxy->get());
+        self::assertSame($boolProxy, $provider->getBoolProxy('S2_FEATURE'));
+        self::assertTrue($boolProxy->get());
+        self::assertSame(15, $intProxy->get());
 
         $this->updateConfig($dbLayer, [
             'S2_FEATURE' => '0',
@@ -39,8 +39,8 @@ class DynamicConfigProxyTest extends Unit
         ]);
         $provider->clearState();
 
-        $this->assertFalse($boolProxy->get());
-        $this->assertSame(8, $intProxy->get());
+        self::assertFalse($boolProxy->get());
+        self::assertSame(8, $intProxy->get());
     }
 
     /**
@@ -51,11 +51,10 @@ class DynamicConfigProxyTest extends Unit
     {
         [$provider] = $this->createProvider(['S2_TITLE' => 'Hello']);
 
-        $this->assertSame('Hello', $provider->getStringProxy('S2_TITLE')->get());
+        self::assertSame('Hello', $provider->getStringProxy('S2_TITLE')->get());
 
         $reflection = new \ReflectionClass($provider);
         $paramsProp = $reflection->getProperty('params');
-        $paramsProp->setAccessible(true);
         $paramsProp->setValue($provider, ['S2_TITLE' => 123]);
 
         $this->expectException(\LogicException::class);
@@ -74,9 +73,9 @@ class DynamicConfigProxyTest extends Unit
     }
 
     /**
-     * @param array $data
      * @return array{0:DynamicConfigProvider, 1:DbLayer}
      * @throws DbLayerException
+     * @param array<string, string> $data
      */
     private function createProvider(array $data): array
     {
@@ -88,11 +87,18 @@ class DynamicConfigProxyTest extends Unit
         $this->updateConfig($dbLayer, $data);
 
         $file = \tempnam(\sys_get_temp_dir(), 's2_dyn_cfg_');
+        if ($file === false) {
+            throw new \RuntimeException('Unable to allocate a temporary configuration file.');
+        }
+
         \unlink($file);
 
         return [new DynamicConfigProvider($dbLayer, $file, true), $dbLayer];
     }
 
+    /**
+     * @param array<string, string> $data
+     */
     private function updateConfig(DbLayer $dbLayer, array $data): void
     {
         foreach ($data as $name => $value) {

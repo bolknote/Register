@@ -5,15 +5,15 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Dashboard;
 
 use S2\AdminYard\TemplateRenderer;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Pdo\QueryBuilder\UnionAll;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class DashboardArticleProvider implements DashboardStatProviderInterface
 {
@@ -28,6 +28,7 @@ readonly class DashboardArticleProvider implements DashboardStatProviderInterfac
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function getHtml(): string
     {
         return $this->templateRenderer->render(
@@ -38,6 +39,7 @@ readonly class DashboardArticleProvider implements DashboardStatProviderInterfac
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function countArticles(): array
     {
@@ -73,8 +75,8 @@ readonly class DashboardArticleProvider implements DashboardStatProviderInterfac
             ->setParameter('parent_id', ArticleProvider::ROOT_ID)
             ->execute()
         ;
+        $counts = $result->fetchAssoc();
 
-        $data = $result->fetchAssoc();
-        return $data;
+        return $counts !== false ? $counts : ['articles_num' => 0, 'comments_num' => 0];
     }
 }

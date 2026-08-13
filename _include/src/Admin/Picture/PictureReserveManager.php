@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Picture;
 
@@ -14,11 +14,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PictureReserveManager
 {
-    private const RESERVE_TTL_SECONDS = 900;
-    private const RESERVE_CACHE_SUBDIR = 'picture_reserve';
+    private const int RESERVE_TTL_SECONDS = 900;
 
-    private string $imageDir;
-    private string $cacheDir;
+    private const string RESERVE_CACHE_SUBDIR = 'picture_reserve';
+
+    private readonly string $imageDir;
+
+    private readonly string $cacheDir;
 
     public function __construct(
         private readonly PictureFileNameHelper $fileNameHelper,
@@ -31,6 +33,8 @@ class PictureReserveManager
 
     /**
      * @throws \JsonException
+     * @throws \RuntimeException
+     * @return array<string, string>
      */
     public function reserveFileName(string $path, string $suggestedName): array
     {
@@ -38,6 +42,7 @@ class PictureReserveManager
         if ($normalized === '') {
             throw new \RuntimeException('Empty file name.', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
+
         $this->fileNameHelper->assertAllowedExtension($normalized);
         $this->ensureDirExists($this->imageDir . $path);
         $reserveDir = $this->getReservePathDir($path);
@@ -45,6 +50,7 @@ class PictureReserveManager
         if (!is_writable($reserveDir)) {
             throw new \RuntimeException('Reserve directory is not writable.', Response::HTTP_SERVICE_UNAVAILABLE);
         }
+
         $this->cleanupExpiredReserves($path);
 
         $token     = RandomHelper::getRandomHexString32();
@@ -77,7 +83,7 @@ class PictureReserveManager
             return false;
         }
 
-        $payload = @file_get_contents($reserveFile);
+        $payload = s2_call_without_warnings(static fn(): string|false => file_get_contents($reserveFile));
         if ($payload === false) {
             return false;
         }
@@ -87,13 +93,14 @@ class PictureReserveManager
         } catch (\JsonException) {
             return false;
         }
+
         if (!\is_array($data)) {
             return false;
         }
 
         $expiresAt = (int)($data['expires_at'] ?? 0);
         if ($expiresAt < time()) {
-            @unlink($reserveFile);
+            s2_call_without_warnings(static fn(): bool => unlink($reserveFile));
             return false;
         }
 
@@ -106,7 +113,7 @@ class PictureReserveManager
     {
         $reserveFile = $this->getReserveFilePath($path, $filename);
         if (is_file($reserveFile)) {
-            @unlink($reserveFile);
+            s2_call_without_warnings(static fn(): bool => unlink($reserveFile));
         }
     }
 
@@ -122,13 +129,15 @@ class PictureReserveManager
             if (!$item->isFile()) {
                 continue;
             }
+
             $filename = $item->getFilename();
             if (!str_ends_with($filename, '.json')) {
                 continue;
             }
+
             $reserveFile = $item->getPathname();
             if ($this->isReserveExpired($reserveFile)) {
-                @unlink($reserveFile);
+                s2_call_without_warnings(static fn(): bool => unlink($reserveFile));
             }
         }
     }
@@ -155,17 +164,19 @@ class PictureReserveManager
             if (!$this->isReserveExpired($reserveFile)) {
                 return false;
             }
-            @unlink($reserveFile);
+
+            s2_call_without_warnings(static fn(): bool => unlink($reserveFile));
         } else {
             $dir = \dirname($reserveFile);
             $this->ensureDirExists($dir);
         }
 
-        $fh = @fopen($reserveFile, 'xb');
+        $fh = s2_call_without_warnings(static fn() => fopen($reserveFile, 'xb'));
         if ($fh === false) {
             if ($this->isReserveExpired($reserveFile)) {
-                @unlink($reserveFile);
+                s2_call_without_warnings(static fn(): bool => unlink($reserveFile));
             }
+
             return false;
         }
 
@@ -184,7 +195,7 @@ class PictureReserveManager
 
     private function isReserveExpired(string $reserveFile): bool
     {
-        $payload = @file_get_contents($reserveFile);
+        $payload = s2_call_without_warnings(static fn(): string|false => file_get_contents($reserveFile));
         if ($payload === false) {
             return true;
         }
@@ -194,6 +205,7 @@ class PictureReserveManager
         } catch (\JsonException) {
             return true;
         }
+
         if (!\is_array($data)) {
             return true;
         }
@@ -210,14 +222,15 @@ class PictureReserveManager
         }
 
         $warning = null;
-        set_error_handler(static function ($errno, $errstr) use (&$warning) {
+        set_error_handler(static function (int $errno, string $errstr) use (&$warning): bool {
             $warning = $errstr;
+            return true;
         });
         $created = mkdir($dir, 0777, true);
         restore_error_handler();
 
         if (!$created && !is_dir($dir)) {
-            throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir) . ($warning ? ' (' . $warning . ')' : ''));
+            throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir) . ($warning !== null && $warning !== '' ? ' (' . $warning . ')' : ''));
         }
 
         chmod($dir, 0777);

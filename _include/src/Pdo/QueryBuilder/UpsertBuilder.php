@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
@@ -16,7 +16,12 @@ class UpsertBuilder
     use ParamsExecutableTrait;
 
     private ?string $table = null;
+
+    /**
+     * @var array<mixed>
+     */
     private array $columnExpressions = [];
+
     /**
      * @var string[]
      */
@@ -42,6 +47,7 @@ class UpsertBuilder
         if ($this->table === null) {
             throw new DbLayerException('No table to insert into has been specified.');
         }
+
         return $this->table;
     }
 
@@ -66,15 +72,20 @@ class UpsertBuilder
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getColumnExpressions(): array
     {
         if (\count($this->columnExpressions) === 0) {
             throw new DbLayerException('No fields to insert or update have been specified.');
         }
+
         return $this->columnExpressions;
     }
 
+    /**
+     * @return string[]
+     */
     public function getUniqueColumns(): array
     {
         return $this->uniqueColumns;

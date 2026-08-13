@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
@@ -51,11 +51,11 @@ readonly class CommentNotifier
             ->execute()
         ;
         $comment = $result->fetchAssoc();
-        if (!$comment) {
+        if ($comment === false) {
             return;
         }
 
-        if ($comment['shown'] || $comment['sent']) {
+        if ((bool)$comment['shown'] || (bool)$comment['sent']) {
             // Comment has already been checked by the moderator
             return;
         }
@@ -76,7 +76,7 @@ readonly class CommentNotifier
             ->execute()
         ;
         $article = $result->fetchAssoc();
-        if (!$article) {
+        if ($article === false) {
             return;
         }
 
@@ -147,6 +147,7 @@ readonly class CommentNotifier
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     private function getCommentReceivers(int $articleId, string $email, string $operation): array
     {
@@ -170,6 +171,7 @@ readonly class CommentNotifier
         foreach ($receivers as &$receiver) {
             $receiver['hash'] = substr(base_convert(md5('art_comments' . serialize($receiver)), 16, 36), 0, 13);
         }
+
         unset($receiver);
 
         return $receivers;

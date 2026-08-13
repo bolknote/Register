@@ -6,12 +6,39 @@ Install development dependencies with Composer:
 composer install
 ```
 
+Start a fully isolated SQLite development copy (dependencies, initial database, and web server) with:
+
+```bash
+./dev
+```
+
+It uses `APP_ENV=local`, stores mutable data in `.local/`, and listens on `127.0.0.1:8080` by default.
+Use `S2_DEV_PORT=9000 ./dev` to select another port.
+
 Run unit and integration tests with Codeception:
 
 ```bash
 php _vendor/bin/codecept run unit
 php _vendor/bin/codecept run integration
 ```
+
+Run the complete quality gate:
+
+```bash
+composer check
+```
+
+The gate runs PHP parallel lint, PHPCS with Slevomat, ShellCheck, actionlint, PHPStan at its
+maximum level, Psalm at level 1, strict Phan, PHPMD, PHP 8.3–8.5 compatibility checks,
+dependency analysis, Rector in dry-run mode, and the unit and integration suites. ShellCheck
+and actionlint must be available on `PATH`; the quality CI workflow installs pinned versions.
+
+## Code navigation
+
+The repository includes a CodeGraph MCP configuration in `.codex/config.toml` and indexing
+rules in `.codegraphignore`. Start a new Codex task after cloning the repository so the MCP
+server is loaded; it then keeps the first-party graph current while excluding dependencies,
+generated caches, local data, and bundled third-party frontend libraries.
 
 Acceptance tests require the built-in PHP server and test databases.
 Use the repository helper script to prepare caches, start the server on `localhost:8881`,

@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Blog posts for a year.
  *
@@ -15,7 +18,6 @@ use S2\Cms\Config\StringProxy;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\HtmlTemplate;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\Viewer;
@@ -25,6 +27,7 @@ use s2_extensions\s2_blog\Model\PostProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 class YearPageController extends BlogController
 {
@@ -62,6 +65,7 @@ class YearPageController extends BlogController
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function body(Request $request, HtmlTemplate $template): ?Response
     {
         $year = $request->attributes->getInt('year');
@@ -83,10 +87,12 @@ class YearPageController extends BlogController
             $pageTitle = '<a href="' . $this->blogUrlBuilder->year($year - 1) . '">&larr;</a> ' . $pageTitle;
             $template->setLink('prev', $this->blogUrlBuilder->year($year - 1));
         }
+
         if ($year < date('Y')) {
             $pageTitle .= ' <a href="' . $this->blogUrlBuilder->year($year + 1) . '">&rarr;</a>';
             $template->setLink('next', $this->blogUrlBuilder->year($year + 1));
         }
+
         $template->putInPlaceholder('title', $pageTitle);
 
         $result = $this->dbLayer
@@ -104,7 +110,7 @@ class YearPageController extends BlogController
         }
 
         $content = [];
-        for ($i = 1; $i <= 12; $i++) {
+        for ($i = 1; $i <= 12; ++$i) {
             $content[] = $this->calendarBuilder->calendar($year, $i, null, '', $dayUrlsArray[$i]);
         }
 
@@ -116,7 +122,8 @@ class YearPageController extends BlogController
         if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
             $template->addBreadCrumb($this->translator->trans('Blog'), $this->blogUrlBuilder->main());
         }
-        $template->addBreadCrumb($year);
+
+        $template->addBreadCrumb((string)$year);
 
         return null;
     }

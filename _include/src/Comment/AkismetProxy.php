@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Comment;
 
@@ -17,8 +17,9 @@ use S2\Cms\Model\UrlBuilder;
 
 readonly class AkismetProxy implements SpamDetectorInterface
 {
-    private const SERVICE_ENDPOINT = "https://rest.akismet.com/1.1/comment-check";
-    private const TYPE_COMMENT     = 'comment';
+    private const string SERVICE_ENDPOINT = "https://rest.akismet.com/1.1/comment-check";
+
+    private const string TYPE_COMMENT     = 'comment';
 
     public function __construct(
         private HttpClient      $httpClient,
@@ -28,6 +29,7 @@ readonly class AkismetProxy implements SpamDetectorInterface
     ) {
     }
 
+    #[\Override]
     public function getReport(SpamDetectorComment $comment, string $clientIp): SpamDetectorReport
     {
         $apiKey = $this->apiKey->get();
@@ -47,9 +49,11 @@ readonly class AkismetProxy implements SpamDetectorInterface
         if ($comment->userAgent !== null) {
             $data['user_agent'] = $comment->userAgent;
         }
+
         if ($comment->referrer !== null) {
             $data['referrer'] = $comment->referrer;
         }
+
         if ($comment->permalink !== null) {
             $data['permalink'] = $comment->permalink;
         }
@@ -60,23 +64,26 @@ readonly class AkismetProxy implements SpamDetectorInterface
                 HttpClient::CONNECT_TIMEOUT => 2,
                 HttpClient::READ_TIMEOUT    => 2,
             ]);
-        } catch (HttpClientException $e) {
-            $this->logger->error(\sprintf('Error requesting Akismet: %s', $e->getMessage()), ['exception' => $e]);
+        } catch (HttpClientException $httpClientException) {
+            $this->logger->error(\sprintf('Error requesting Akismet: %s', $httpClientException->getMessage()), ['exception' => $httpClientException]);
 
             return SpamDetectorReport::failed();
         }
+
         $this->logger->info('Akismet response', [
             'headers' => $response->headers,
             'body'    => $response->content,
         ]);
 
-        if ($response->isSuccessful()) {
-            if (trim($response->content) === 'true') {
+        $content = $response->content;
+        if ($response->isSuccessful() && $content !== null) {
+            if (trim($content) === 'true') {
                 return $response->getHeader('X-akismet-pro-tip') === 'discard'
                     ? SpamDetectorReport::blatant()
                     : SpamDetectorReport::spam();
             }
-            if (trim($response->content) === 'false') {
+
+            if (trim($content) === 'false') {
                 return SpamDetectorReport::ham();
             }
         }

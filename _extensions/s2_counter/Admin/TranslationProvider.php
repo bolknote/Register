@@ -5,7 +5,7 @@
  * @package   s2_counter
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_counter\Admin;
 
@@ -13,6 +13,10 @@ use S2\Cms\Admin\TranslationProviderInterface;
 
 class TranslationProvider implements TranslationProviderInterface
 {
+    /**
+     * @return array<mixed>
+     */
+    #[\Override]
     public function getTranslations(string $language, string $locale): array
     {
         return match ($locale) {
@@ -22,6 +26,7 @@ class TranslationProvider implements TranslationProviderInterface
             'en' => [
                 'Data folder not writable' => 'PHP scripts have no write permissions to the “{{ dir }}” directory. Set write permissions (e. g. 777) for proper functioning of the “s2_counter” extension.',
             ],
+            default => [],
         };
     }
 }

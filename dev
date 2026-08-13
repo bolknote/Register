@@ -1,0 +1,37 @@
+#!/bin/sh
+
+set -eu
+
+PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+PHP_BIN=${PHP_BIN:-php}
+COMPOSER_BIN=${COMPOSER_BIN:-composer}
+S2_DEV_HOST=${S2_DEV_HOST:-127.0.0.1}
+S2_DEV_PORT=${S2_DEV_PORT:-8080}
+
+export APP_ENV=local
+export S2_DEV_HOST
+export S2_DEV_PORT
+
+if ! command -v "$PHP_BIN" >/dev/null 2>&1; then
+    echo "PHP executable not found: $PHP_BIN" >&2
+    exit 1
+fi
+
+if [ ! -f "$PROJECT_DIR/_vendor/autoload.php" ]; then
+    if ! command -v "$COMPOSER_BIN" >/dev/null 2>&1; then
+        echo "Composer executable not found: $COMPOSER_BIN" >&2
+        exit 1
+    fi
+
+    echo "Installing Composer dependencies..."
+    (cd "$PROJECT_DIR" && "$COMPOSER_BIN" install --no-interaction --prefer-dist)
+fi
+
+"$PHP_BIN" "$PROJECT_DIR/tools/dev-bootstrap.php"
+
+exec "$PHP_BIN" \
+    -d max_execution_time=-1 \
+    -d opcache.revalidate_freq=0 \
+    -S "$S2_DEV_HOST:$S2_DEV_PORT" \
+    -t "$PROJECT_DIR" \
+    "$PROJECT_DIR/tools/dev-router.php"

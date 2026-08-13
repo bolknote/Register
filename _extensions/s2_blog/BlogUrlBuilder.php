@@ -5,7 +5,7 @@
  * @package   s2_blog
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog;
 
@@ -16,7 +16,9 @@ use S2\Cms\Model\UrlBuilder;
 class BlogUrlBuilder implements StatefulServiceInterface
 {
     private ?string $blogPath = null;
+
     private ?string $absBlogPath = null;
+
     private ?string $blogTagsPath = null;
 
     public function __construct(
@@ -59,7 +61,7 @@ class BlogUrlBuilder implements StatefulServiceInterface
 
     public function month(int $year, int $month): string
     {
-        return $this->main() . $year . '/' . self::extendNumber($month) . '/';
+        return $this->main() . $year . '/' . $this->extendNumber($month) . '/';
     }
 
     public function monthFromTimestamp(int $timestamp): string
@@ -69,12 +71,12 @@ class BlogUrlBuilder implements StatefulServiceInterface
 
     public function day(int $year, int $month, int $day): string
     {
-        return $this->main() . $year . '/' . self::extendNumber($month) . '/' . self::extendNumber($day) . '/';
+        return $this->main() . $year . '/' . $this->extendNumber($month) . '/' . $this->extendNumber($day) . '/';
     }
 
     public function post(int $year, int $month, int $day, string $url): string
     {
-        return $this->main() . $year . '/' . self::extendNumber($month) . '/' . self::extendNumber($day) . '/' . rawurlencode($url);
+        return $this->main() . $year . '/' . $this->extendNumber($month) . '/' . $this->extendNumber($day) . '/' . rawurlencode($url);
     }
 
     public function postFromTimestamp(int $createTime, string $url): string
@@ -97,6 +99,7 @@ class BlogUrlBuilder implements StatefulServiceInterface
         return $this->blogUrl->get() === '';
     }
 
+    #[\Override]
     public function clearState(): void
     {
         $this->blogPath = null;
@@ -104,7 +107,7 @@ class BlogUrlBuilder implements StatefulServiceInterface
         $this->blogTagsPath = null;
     }
 
-    private static function extendNumber(int $month): string
+    private function extendNumber(int $month): string
     {
         return str_pad((string)$month, 2, '0', STR_PAD_LEFT);
     }

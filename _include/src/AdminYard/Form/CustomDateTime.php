@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\AdminYard\Form;
 
@@ -14,14 +14,15 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 class CustomDateTime extends Datetime
 {
-    public function __construct(string $fieldName, private TranslatorInterface $translator)
+    public function __construct(string $fieldName, private readonly TranslatorInterface $translator)
     {
         parent::__construct($fieldName);
     }
 
+    #[\Override]
     public function getHtml(?string $id = null): string
     {
-        $id = $id ?? uniqid('datetime-', true);
+        $id ??= uniqid('datetime-', true);
 
         /**
          * Hack to set the current server time in JS. We pass the current time
@@ -34,7 +35,7 @@ class CustomDateTime extends Datetime
          * regardless of the client's timezone. Because of this, the time offset relative to UTC disappears,
          * and the client's clock inaccuracy cancels out.
          */
-        $serverTime = (new \DateTime())->format('Y-m-d\TH:i:s\Z');
+        $serverTime = (new \DateTimeImmutable())->format('Y-m-d\TH:i:s\Z');
 
         $trans = $this->translator->trans('Now');
 

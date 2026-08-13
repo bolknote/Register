@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /** @var string $id */
 /** @var string $action */
 /** @var string[] $syntaxHelpItems */
@@ -58,9 +61,9 @@ $s += $bbb ? $add1 : -$add1;
 <script type="text/javascript">
 (function ()
 {
-	var a=<?php echo ($s - $add2); ?>;
+	var a=<?php echo $s - $add2; ?>;
 	a=a<?php echo ($bbb ? '-' : '+'), $add1; ?>;
-	document.getElementById("quest").value=parseInt(a)+<?php echo ($c + $add2); ?>;
+	document.getElementById("quest").value=parseInt(a)+<?php echo $c + $add2; ?>;
 	document.getElementById("qsp").style.display="none";
 }());
 </script>

@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace integration;
 
@@ -16,7 +16,7 @@ use S2\Cms\Queue\QueueConsumer;
  */
 class SearchCest
 {
-    public function tryToTest(\IntegrationTester $I)
+    public function tryToTest(\IntegrationTester $I): void
     {
         $I->login('admin', 'admin');
 
@@ -32,30 +32,34 @@ class SearchCest
         $I->seeResponseCodeIs(302);
 
         $url = $I->grabLocation();
-        $I->assertEquals(1, preg_match('~id=(\d+)~', $url, $matches));
+        if (preg_match('~id=(\d+)~', $url, $matches) !== 1) {
+            throw new \RuntimeException('The created post redirect does not contain an identifier.');
+        }
+
         $postId = $matches[1];
 
         $I->followRedirect();
         $userId    = $I->grabAttributeFrom('[data-user-id]', 'data-user-id');
         $csrfToken = $I->grabValueFrom('input[name=__csrf_token]');
+        if ($userId === null) {
+            throw new \RuntimeException('The blog post form does not expose a user identifier.');
+        }
 
-        $dataProvider = static function (string $csrfToken, string $userId) {
-            return [
-                '__csrf_token' => $csrfToken,
-                'title'        => 'New Blog Post Title',
-                'tags'         => 'tag1, blog tag',
-                'create_time'  => '2023-08-12T11:32',
-                'modify_time'  => '2023-08-12T12:15',
-                'text'         => '<p>New blog post with some text</p>',
-                'user_id'      => $userId,
-                'label'        => '',
-                'revision'     => '1',
-                'url'          => 'new_post1',
+        $dataProvider = (static fn(string $csrfToken, string $userId): array => [
+            '__csrf_token' => $csrfToken,
+            'title'        => 'New Blog Post Title',
+            'tags'         => 'tag1, blog tag',
+            'create_time'  => '2023-08-12T11:32',
+            'modify_time'  => '2023-08-12T12:15',
+            'text'         => '<p>New blog post with some text</p>',
+            'user_id'      => $userId,
+            'label'        => '',
+            'revision'     => '1',
+            'url'          => 'new_post1',
 
-                'commented' => '1',
-                'published' => '1',
-            ];
-        };
+            'commented' => '1',
+            'published' => '1',
+        ]);
         // Secondary check beyond the search, but let it be
         $I->sendAjaxPostRequest('https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . ((int)$postId + 1111), $dataProvider($csrfToken, $userId));
         $I->assertJsonSubResponseContains('Unable to confirm security token.', ['errors', 0]);
@@ -69,6 +73,7 @@ class SearchCest
 
         // Reopen the edit form in the admin panel
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId);
+
         $postText = $I->grabValueFrom('textarea[name=text]');
         $I->assertStringContainsString('New blog post', $postText);
 

@@ -5,7 +5,7 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Service;
 
@@ -17,6 +17,9 @@ readonly class SimilarWordsDetector
     {
     }
 
+    /**
+     * @param array<mixed> $otherWords
+     */
     public function wordIsSimilarToOtherWords(string $word, array $otherWords): bool
     {
         $checkingWords = explode(' ', $word);
@@ -25,6 +28,7 @@ readonly class SimilarWordsDetector
             if (mb_strlen($wordToCheck) < 3) {
                 continue;
             }
+
             $stemToCheck = $this->stemmer->stemWord($wordToCheck);
             foreach ($otherWords as $otherWord) {
                 if ($otherWord === $stemToCheck || (str_starts_with($stemToCheck, $otherWord) && mb_strlen($otherWord) >= 5)) {

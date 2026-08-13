@@ -5,7 +5,7 @@
  * @package   s2_blog
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Model;
 

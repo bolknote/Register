@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Blog posts for a specified tag.
  *
@@ -15,7 +18,6 @@ use S2\Cms\Framework\Exception\NotFoundException;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Pdo\QueryBuilder\SelectBuilder;
 use S2\Cms\Template\HtmlTemplate;
 use S2\Cms\Template\HtmlTemplateProvider;
@@ -27,6 +29,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 
 class TagPageController extends BlogController
@@ -65,6 +68,7 @@ class TagPageController extends BlogController
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function body(Request $request, HtmlTemplate $template): ?Response
     {
         $params = $request->attributes->all();
@@ -83,11 +87,15 @@ class TagPageController extends BlogController
             ->execute()
         ;
 
-        if (!($row = $result->fetchRow())) {
+        $row = $result->fetchRow();
+        if ($row === false) {
             throw new NotFoundException();
         }
 
         [$tagId, $tagDescription, $tagName, $tagUrl] = $row;
+        $tagDescription = (string)$tagDescription;
+        $tagName        = (string)$tagName;
+        $tagUrl         = (string)$tagUrl;
 
         if ($params['slash'] !== '/') {
             return new RedirectResponse($this->blogUrlBuilder->tag($tagUrl), Response::HTTP_MOVED_PERMANENTLY);
@@ -98,12 +106,12 @@ class TagPageController extends BlogController
             $tagDescription .= '<p>' . $this->translator->trans('Articles by tag') . '<br />' . implode('<br />', $art_links) . '</p>';
         }
 
-        if ($tagDescription) {
+        if ($tagDescription !== '') {
             $tagDescription .= '<hr />';
         }
 
         $output = $this->getPosts(
-            fn(SelectBuilder $qb) => $qb
+            fn(SelectBuilder $qb): \S2\Cms\Pdo\QueryBuilder\SelectBuilder => $qb
                 ->innerJoin('s2_blog_post_tag AS pt', 'p.id = pt.post_id')
                 ->andWhere('pt.tag_id = :tag_id')
                 ->setParameter('tag_id', $tagId),
@@ -118,6 +126,7 @@ class TagPageController extends BlogController
         if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
             $template->addBreadCrumb($this->translator->trans('Blog'), $this->blogUrlBuilder->main());
         }
+
         $template->addBreadCrumb($this->translator->trans('Tags'), $this->blogUrlBuilder->tags());
         $template->addBreadCrumb($tagName);
 
@@ -135,6 +144,7 @@ class TagPageController extends BlogController
     /**
      * Returns the array of links to the articles with the tag specified
      * @throws DbLayerException
+     * @return string[]
      */
     private function articles_by_tag(int $tag_id): array
     {
@@ -157,15 +167,17 @@ class TagPageController extends BlogController
             ->andWhere('a.published = 1')
             ->execute()
         ;
-
-        $title = $urls = $parentIds = [];
+        $title = [];
+        $urls = [];
+        $parentIds = [];
         $useHierarchy = $this->useHierarchy->get();
 
         while ($row = $result->fetchAssoc()) {
-            $urls[]      = urlencode($row['url']) . ($useHierarchy && $row['children_exist'] ? '/' : '');
+            $urls[]      = urlencode($row['url']) . ($useHierarchy && (bool)$row['children_exist'] ? '/' : '');
             $parentIds[] = $row['parent_id'];
             $title[]     = $row['title'];
         }
+
         $urls = $this->articleProvider->getFullUrlsForArticles($parentIds, $urls);
 
         foreach ($urls as $k => $v) {

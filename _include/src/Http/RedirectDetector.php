@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Http;
 
@@ -16,6 +16,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 readonly class RedirectDetector
 {
+    /**
+     * @param array<mixed> $redirectMap
+     */
     public function __construct(
         private UrlBuilder $urlBuilder,
         private array      $redirectMap,
@@ -24,17 +27,33 @@ readonly class RedirectDetector
 
     public function getRedirectResponse(Request $request): ?RedirectResponse
     {
-        if (empty($this->redirectMap)) {
+        if ($this->redirectMap === []) {
             return null;
         }
 
         $requestUri = $request->getPathInfo();
-        $newUrl     = preg_replace(array_keys($this->redirectMap), array_values($this->redirectMap), $requestUri);
+        $patterns = [];
+        $replacements = [];
+        foreach ($this->redirectMap as $pattern => $replacement) {
+            if (!\is_string($pattern) || !\is_string($replacement)) {
+                throw new \LogicException('Redirect rules must be a string-to-string map.');
+            }
+
+            $patterns[]     = $pattern;
+            $replacements[] = $replacement;
+        }
+
+        /** @var non-empty-list<non-empty-string> $patterns */
+        $newUrl = preg_replace($patterns, $replacements, $requestUri);
+        if ($newUrl === null) {
+            throw new \RuntimeException('Unable to apply redirect rules.');
+        }
+
         if ($newUrl === $requestUri) {
             return null;
         }
 
-        $url = (str_starts_with($newUrl, 'http://') || str_starts_with($newUrl, 'https://')) ? $newUrl : $this->urlBuilder->link($newUrl);
+        $url = str_starts_with($newUrl, 'http://') || str_starts_with($newUrl, 'https://') ? $newUrl : $this->urlBuilder->link($newUrl);
 
         return new RedirectResponse($url, Response::HTTP_MOVED_PERMANENTLY);
     }

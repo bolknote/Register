@@ -5,7 +5,7 @@
  * @package   s2_blog
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Model;
 
@@ -13,8 +13,8 @@ use S2\Cms\Helper\StringHelper;
 use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use s2_extensions\s2_blog\BlogUrlBuilder;
+use S2\Cms\Pdo\DbLayerException;
 
 /**
  * 1. Sends notifications on new comments:
@@ -53,11 +53,11 @@ readonly class BlogCommentNotifier
             ->execute()
         ;
         $comment = $result->fetchAssoc();
-        if (!$comment) {
+        if ($comment === false) {
             return;
         }
 
-        if ($comment['shown'] || $comment['sent']) {
+        if ((bool)$comment['shown'] || (bool)$comment['sent']) {
             // Comment has already been checked by the moderator
             return;
         }
@@ -78,7 +78,7 @@ readonly class BlogCommentNotifier
             ->execute()
         ;
         $post   = $result->fetchAssoc();
-        if (!$post) {
+        if ($post === false) {
             return;
         }
 
@@ -143,6 +143,7 @@ readonly class BlogCommentNotifier
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     private function getCommentReceivers(int $postId, string $email, string $operation): array
     {
@@ -166,6 +167,7 @@ readonly class BlogCommentNotifier
         foreach ($receivers as &$receiver) {
             $receiver['hash'] = substr(base_convert(md5('s2_blog_comments' . serialize($receiver)), 16, 36), 0, 13);
         }
+
         unset($receiver);
 
         return $receivers;

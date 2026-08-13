@@ -5,13 +5,11 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace Helper;
 
 use Codeception\TestInterface;
-use Psr\Container\ContainerExceptionInterface;
-use Psr\Container\NotFoundExceptionInterface;
 use S2\Cms\Admin\AdminAjaxRequestHandler;
 use S2\Cms\Admin\AdminExtension;
 use S2\Cms\Admin\AdminRequestHandler;
@@ -28,13 +26,15 @@ use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Model\Installer;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use s2_extensions\s2_blog\Manifest;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Tests\Support\Helper\AbstractBrowserModule;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 // "Tests\Support\Helper\AbstractBrowserModule" is loaded in AdminYard via autoload-dev and is not available here
 require_once __DIR__ . '/../../../_vendor/s2/admin-yard/tests/Support/Helper/AbstractBrowserModule.php';
@@ -42,13 +42,25 @@ require_once __DIR__ . '/../../../_vendor/s2/admin-yard/tests/Support/Helper/Abs
 class Integration extends AbstractBrowserModule
 {
     protected const ROOT_DIR = __DIR__ . '/../../../';
-    protected ?Application $publicApplication = null;
-    protected ?Application $adminApplication = null;
-    protected ?Session $session;
-    protected ?\PDO $pdo;
+
+    protected Application $publicApplication;
+
+    protected Application $adminApplication;
+
+    protected Session $session;
+
+    protected \PDO $pdo;
+
     private bool $spamDetectorDecorated = false;
+
     private bool $commentMailerDecorated = false;
+
+    /** @var list<string> */
     private array $spamResponses = [];
+
+    /**
+     * @var mixed[][]
+     */
     private array $moderatorMails = [];
 
     /**
@@ -56,7 +68,7 @@ class Integration extends AbstractBrowserModule
      * @throws DbLayerException
      * @throws NotFoundExceptionInterface
      */
-    public function _initialize()
+    public function _initialize(): void
     {
         parent::_initialize();
         $this->clearConfigCache();
@@ -64,9 +76,7 @@ class Integration extends AbstractBrowserModule
         $this->pdo               = $this->publicApplication->container->get(\PDO::class);
 
         $this->adminApplication = $this->createAdminApplication();
-        $this->adminApplication->container->decorate(\PDO::class, function () {
-            return $this->pdo;
-        });
+        $this->adminApplication->container->decorate(\PDO::class, fn(): mixed => $this->pdo);
         $this->decorateSpamDetector();
         $this->decorateCommentMailer();
 
@@ -93,7 +103,7 @@ class Integration extends AbstractBrowserModule
         $this->clearConfigCache();
     }
 
-    public function _before(TestInterface $test)
+    public function _before(TestInterface $test): void
     {
         $this->clearConfigCache();
         $this->pdo->beginTransaction();
@@ -102,13 +112,14 @@ class Integration extends AbstractBrowserModule
         $this->moderatorMails = [];
     }
 
-    public function _after(TestInterface $test)
+    public function _after(TestInterface $test): void
     {
         if ($this->pdo->inTransaction()) {
             $this->pdo->rollBack();
         }
     }
 
+    /** @param array<string, mixed> $parameterOverrides */
     public function createApplication(array $parameterOverrides = []): Application
     {
         $application = new Application();
@@ -120,6 +131,7 @@ class Integration extends AbstractBrowserModule
         return $application;
     }
 
+    /** @param array<string, mixed> $parameterOverrides */
     public function createAdminApplication(array $parameterOverrides = []): Application
     {
         $application = new Application();
@@ -159,11 +171,15 @@ class Integration extends AbstractBrowserModule
         return $this->adminApplication->container->get($serviceName);
     }
 
+    /** @param list<string> $statuses */
     public function setSpamResponses(array $statuses): void
     {
         $this->spamResponses = $statuses;
     }
 
+    /**
+     * @return mixed[][]
+     */
     public function grabModeratorMails(): array
     {
         return $this->moderatorMails;
@@ -174,6 +190,7 @@ class Integration extends AbstractBrowserModule
         return array_shift($this->spamResponses) ?? SpamDetectorReport::STATUS_HAM;
     }
 
+    /** @param array<string, mixed> $mail */
     public function recordModeratorMail(array $mail): void
     {
         $this->moderatorMails[] = $mail;
@@ -185,6 +202,10 @@ class Integration extends AbstractBrowserModule
     public function setConfigValue(string $name, string $value): void
     {
         $statement = $this->pdo->prepare('UPDATE config SET value = :value WHERE name = :name');
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the test configuration update.');
+        }
+
         $statement->execute([':value' => $value, ':name' => $name]);
 
         $this->publicApplication->container->get(DynamicConfigProvider::class)->regenerate();
@@ -204,6 +225,10 @@ class Integration extends AbstractBrowserModule
         }
     }
 
+    /**
+     * @param array<string, mixed> $overrides
+     * @return array<string, mixed>
+     */
     protected function collectParameters(array $overrides = []): array
     {
         $imgDir = '_tests/_output/images';
@@ -294,20 +319,26 @@ class Integration extends AbstractBrowserModule
 
 
             $statement = $this->pdo->prepare('INSERT INTO users (' . implode(', ', array_keys($fields)) . ') VALUES (' . implode(', ', array_fill(0, \count($fields), '?')) . ')');
+            if ($statement === false) {
+                throw new \RuntimeException('Unable to prepare a test user insert.');
+            }
+
             $statement->execute(array_values($fields));
         }
     }
 
-    private static function deleteRecursive($dir): bool
+    private static function deleteRecursive(string $dir): bool
     {
         if (!is_dir($dir)) {
             return false;
         }
+
         $array = scandir($dir);
         if ($array === false) {
             return false;
         }
-        $files = array_diff($array, array('.', '..'));
+
+        $files = array_diff($array, ['.', '..']);
         foreach ($files as $file) {
             is_dir("$dir/$file") ? self::deleteRecursive("$dir/$file") : unlink("$dir/$file");
         }
@@ -317,8 +348,8 @@ class Integration extends AbstractBrowserModule
 
     private function clearConfigCache(): void
     {
-        @self::deleteRecursive(self::ROOT_DIR . '_cache/test/config/');
-        @unlink(self::ROOT_DIR . '_cache/test/cache_config.php');
+        s2_call_without_warnings(static fn(): bool => self::deleteRecursive(self::ROOT_DIR . '_cache/test/config/'));
+        s2_call_without_warnings(static fn(): bool => unlink(self::ROOT_DIR . '_cache/test/cache_config.php'));
     }
 
     private function decorateSpamDetector(): void
@@ -327,25 +358,23 @@ class Integration extends AbstractBrowserModule
             return;
         }
 
-        $decorator = function (Container $container, callable $factory) {
-            return new class($this) implements SpamDetectorInterface {
-                public function __construct(private Integration $helper)
-                {
-                }
+        $decorator = (fn(Container $container, callable $factory): \S2\Cms\Comment\SpamDetectorInterface => new readonly class($this) implements SpamDetectorInterface {
+            public function __construct(private Integration $helper)
+            {
+            }
 
-                public function getReport(SpamDetectorComment $comment, string $clientIp): SpamDetectorReport
-                {
-                    $status = $this->helper->shiftSpamResponse();
-                    return match ($status) {
-                        SpamDetectorReport::STATUS_SPAM => SpamDetectorReport::spam(),
-                        SpamDetectorReport::STATUS_BLATANT => SpamDetectorReport::blatant(),
-                        SpamDetectorReport::STATUS_FAILED => SpamDetectorReport::failed(),
-                        SpamDetectorReport::STATUS_DISABLED => SpamDetectorReport::disabled(),
-                        default => SpamDetectorReport::ham(),
-                    };
-                }
-            };
-        };
+            public function getReport(SpamDetectorComment $comment, string $clientIp): SpamDetectorReport
+            {
+                $status = $this->helper->shiftSpamResponse();
+                return match ($status) {
+                    SpamDetectorReport::STATUS_SPAM => SpamDetectorReport::spam(),
+                    SpamDetectorReport::STATUS_BLATANT => SpamDetectorReport::blatant(),
+                    SpamDetectorReport::STATUS_FAILED => SpamDetectorReport::failed(),
+                    SpamDetectorReport::STATUS_DISABLED => SpamDetectorReport::disabled(),
+                    default => SpamDetectorReport::ham(),
+                };
+            }
+        });
 
         $this->publicApplication->container->decorate(SpamDetectorInterface::class, $decorator);
         $this->adminApplication->container->decorate(SpamDetectorInterface::class, $decorator);
@@ -358,7 +387,7 @@ class Integration extends AbstractBrowserModule
             return;
         }
 
-        $decorator = function (Container $container, callable $factory) {
+        $decorator = function (Container $container, callable $factory): \Helper\IntegrationCommentMailer {
             /** @var DynamicConfigProvider $provider */
             $provider = $container->get(DynamicConfigProvider::class);
 
@@ -397,17 +426,7 @@ readonly class IntegrationCommentMailer extends \S2\Cms\Mail\CommentMailer
         bool   $isPublished,
         string $spamReportStatus,
     ): bool {
-        $this->helper->recordModeratorMail(compact(
-            'moderatorName',
-            'moderatorEmail',
-            'text',
-            'title',
-            'url',
-            'authorName',
-            'authorEmail',
-            'isPublished',
-            'spamReportStatus'
-        ));
+        $this->helper->recordModeratorMail(['moderatorName' => $moderatorName, 'moderatorEmail' => $moderatorEmail, 'text' => $text, 'title' => $title, 'url' => $url, 'authorName' => $authorName, 'authorEmail' => $authorEmail, 'isPublished' => $isPublished, 'spamReportStatus' => $spamReportStatus]);
         return true;
     }
 

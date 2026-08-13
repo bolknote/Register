@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Extensions;
 
@@ -30,6 +30,12 @@ readonly class ExtensionManager
 
     /**
      * @throws DbLayerException
+     * @return array{
+     *     extensionNum: int,
+     *     availableExtensions: list<array<string, mixed>>,
+     *     failedExtensions: list<array<string, string>>,
+     *     installedExtensions: array<array-key, array<mixed>>
+     * }
      */
     public function getExtensionList(): array
     {
@@ -49,12 +55,16 @@ readonly class ExtensionManager
         $failedExtensions    = [];
 
         $d = dir($this->rootDir . '_extensions');
+        if ($d === false) {
+            throw new \RuntimeException('Unable to open the extensions directory.');
+        }
+
         while (($entry = $d->read()) !== false) {
             if ($entry[0] === '.' || !is_dir($this->rootDir . '_extensions/' . $entry)) {
                 continue;
             }
 
-            if (preg_match('/[^0-9a-z_]/', $entry)) {
+            if (preg_match('/[^0-9a-z_]/', $entry) === 1) {
                 $failedExtensions[] = [
                     'entry'   => $entry,
                     'error'   => $this->translator->trans('Extension loading error', ['{{ extension }}' => $entry]),
@@ -94,8 +104,9 @@ readonly class ExtensionManager
 
             if (!\array_key_exists($entry, $installedExtensions) || version_compare($installedExtensions[$entry]['version'], $extensionManifest->getVersion(), '!=')) {
                 $installationNotes = [];
-                if ($extensionManifest->getInstallationNote()) {
-                    $installationNotes[] = $extensionManifest->getInstallationNote();
+                $installationNote = $extensionManifest->getInstallationNote();
+                if ($installationNote !== null && $installationNote !== '') {
+                    $installationNotes[] = $installationNote;
                 }
 
                 $availableExtensions[] = [
@@ -110,6 +121,7 @@ readonly class ExtensionManager
                 ++$extensionNum;
             }
         }
+
         $d->close();
 
         return [
@@ -137,10 +149,12 @@ readonly class ExtensionManager
             if (!class_exists($manifestClass)) {
                 continue;
             }
+
             $extensionManifest = new $manifestClass;
             if (!$extensionManifest instanceof ManifestInterface) {
                 continue;
             }
+
             if (version_compare($currentExtension['version'], $extensionManifest->getVersion(), '<')) {
                 ++$extensionNum;
             }
@@ -175,7 +189,7 @@ readonly class ExtensionManager
 
             $dependencyIds = $result->fetchColumn();
 
-            if (!empty($dependencyIds)) {
+            if ($dependencyIds !== []) {
                 return $this->translator->trans('Disable dependency', [
                     '{{ extension }}'    => $id,
                     '{{ dependencies }}' => implode(', ', $dependencyIds),
@@ -190,7 +204,7 @@ readonly class ExtensionManager
 
             $dependencies = $result->result();
             $dependencies = explode('|', substr($dependencies, 1, -1));
-            $dependencies = array_filter($dependencies, '\strlen');
+            $dependencies = array_filter($dependencies, static fn(string $dependency): bool => $dependency !== '');
 
             $enabledExtensions = $this->getEnabledExtensionIds();
 
@@ -219,6 +233,7 @@ readonly class ExtensionManager
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function installExtension(string $id): array
     {
@@ -247,7 +262,7 @@ readonly class ExtensionManager
 
         $missingDependencies = array_diff($extensionManifest->getDependencies(), $this->getEnabledExtensionIds());
 
-        if (!empty($missingDependencies)) {
+        if ($missingDependencies !== []) {
             return [
                 $this->translator->trans('Missing dependency', [
                     '{{ extension }}'    => $id,
@@ -292,6 +307,7 @@ readonly class ExtensionManager
                 ])
             ;
         }
+
         $qb->execute([
             'id'             => $id,
             'title'          => $extensionManifest->getTitle(),
@@ -332,7 +348,7 @@ readonly class ExtensionManager
         ;
         $dependencies = $result->fetchColumn();
 
-        if (!empty($dependencies)) {
+        if ($dependencies !== []) {
             return $this->translator->trans('Uninstall dependency', [
                 '{{ extension }}'    => $id,
                 '{{ dependencies }}' => implode(', ', $dependencies),
@@ -341,7 +357,10 @@ readonly class ExtensionManager
 
         // Run uninstall code
         $extensionClass = '\\s2_extensions\\' . $id . '\\Manifest';
-        /** @var ManifestInterface $extensionManifest */
+        if (!is_a($extensionClass, ManifestInterface::class, true)) {
+            throw new \RuntimeException(\sprintf('Extension manifest "%s" is missing or invalid.', $extensionClass));
+        }
+
         $extensionManifest = new $extensionClass();
         $extensionManifest->uninstall($this->dbLayer, $this->container);
 
@@ -358,8 +377,8 @@ readonly class ExtensionManager
     }
 
     /**
-     * @return array
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getEnabledExtensionIds(): array
     {
@@ -369,13 +388,13 @@ readonly class ExtensionManager
             ->where('e.disabled = 0')
             ->execute()
         ;
-        $enabledExtensions = $result->fetchColumn();
 
-        return $enabledExtensions;
+        return $result->fetchColumn();
     }
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>|null
      */
     private function fetchExtension(string $id): ?array
     {
@@ -385,8 +404,8 @@ readonly class ExtensionManager
             ->execute()
         ;
 
-        $row = $result->fetchAssoc() ?: null;
+        $extension = $result->fetchAssoc();
 
-        return $row;
+        return $extension !== false ? $extension : null;
     }
 }

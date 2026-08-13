@@ -5,29 +5,33 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Layout;
 
 use s2_extensions\s2_search\Rose\CustomExtractor;
 
+/**
+ * @phpstan-type ImageData array{src: string, w: float, h: float, r: float, class: string}
+ * @psalm-type ImageData = array{src: string, w: float, h: float, r: float, class: string}
+ */
 class ContentItem
 {
-    private string $title;
-    private string $url;
-    private ?\DateTime $createdAt;
+    /**
+     * @var string[]
+     */
     private array $snippets = [];
+
+    /** @var list<ImageData> */
     private array $images = [];
+
     /**
      * @var array|MatchingContext[]
      */
     private array $matchedBlocks = [];
 
-    public function __construct(string $title, string $url, ?\DateTime $createdAt)
+    public function __construct(private readonly string $title, private readonly string $url, private readonly ?\DateTime $createdAt)
     {
-        $this->title     = $title;
-        $this->url       = $url;
-        $this->createdAt = $createdAt;
     }
 
     public function attachTextSnippet(string $snippet): void
@@ -39,10 +43,11 @@ class ContentItem
 
     public function addImage(string $src, string $width, string $height): void
     {
-        if (!is_numeric($width)) {
+        if (!is_numeric($width) || (float)$width <= 0) {
             throw new \InvalidArgumentException('Width must be a number');
         }
-        if (!is_numeric($height)) {
+
+        if (!is_numeric($height) || (float)$height <= 0) {
             throw new \InvalidArgumentException('Height must be a number');
         }
 
@@ -50,7 +55,10 @@ class ContentItem
             $width  = '640';
             $height = '360';
         }
-        $this->images[] = ['src' => $src, 'w' => $width, 'h' => $height, 'r' => $height / $width];
+
+        $numericWidth   = (float)$width;
+        $numericHeight  = (float)$height;
+        $this->images[] = ['src' => $src, 'w' => $numericWidth, 'h' => $numericHeight, 'r' => $numericHeight / $numericWidth, 'class' => ''];
     }
 
     public function getTitle(): string
@@ -77,6 +85,7 @@ class ContentItem
         return $this->matchedBlocks[$block->getHash()]->hasMatch();
     }
 
+    /** @return ImageData|null */
     public function getMatchedImage(Block $block): ?array
     {
         if (!isset($this->matchedBlocks[$block->getHash()])) {
@@ -106,7 +115,7 @@ class ContentItem
     private function getMatchContext(Block $block): MatchingContext
     {
         $trueMatchContext = new MatchingContext(true);
-        $freeSpaceHeight  = 0;
+        $freeSpaceHeight  = 0.0;
 
         if ($block->hasImage()) {
             $foundImage = null;
@@ -118,17 +127,20 @@ class ContentItem
                 if ($minWidth > $image['w'] || ($maxWidth !== null && $maxWidth < $image['w'])) {
                     continue;
                 }
+
                 if ($minRatio >= $image['r'] || ($maxRatio !== null && $maxRatio < $image['r'])) {
                     continue;
                 }
+
                 $foundImage = $image;
                 break;
             }
+
             if ($foundImage === null) {
                 return new MatchingContext(false);
             }
 
-            $freeSpaceHeight = $maxRatio - $foundImage['r'];
+            $freeSpaceHeight = ($maxRatio ?? $foundImage['r']) - $foundImage['r'];
             $trueMatchContext->addImage($foundImage, $block->getImageClass());
         }
 
@@ -142,7 +154,7 @@ class ContentItem
 
             if ($textMaxLength !== null) {
                 // For wide images
-                $textMaxLength += $block->getExtraLengthForWideImg() * $freeSpaceHeight;
+                $textMaxLength += (int)($block->getExtraLengthForWideImg() * $freeSpaceHeight);
                 // For very long titles
                 $textMaxLength -= max(0, mb_strlen($this->title) - 35);
                 $text          = '';
@@ -153,16 +165,20 @@ class ContentItem
                     if ($totalLength > $textMaxLength || $totalLength + $deltaLength > $textMaxLength) {
                         break;
                     }
+
                     $text        .= ($text !== '' ? ' ' : '') . $snippet;
                     $totalLength += $deltaLength;
                 }
+
                 $textNotGreaterMaxLimit = $text;
             } else {
                 $textNotGreaterMaxLimit = implode(' ', $this->snippets);
             }
+
             if (mb_strlen($textNotGreaterMaxLimit) < $textMinLength) {
                 return new MatchingContext(false);
             }
+
             $trueMatchContext->addSnippet($textNotGreaterMaxLimit);
         }
 

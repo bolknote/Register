@@ -5,28 +5,36 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo;
 
 interface SchemaBuilderInterface
 {
-    public const TYPE_SERIAL           = 'SERIAL';
-    public const TYPE_STRING           = 'STRING';
-    public const TYPE_TEXT             = 'TEXT';
-    public const TYPE_LONGTEXT         = 'LONGTEXT';
-    public const TYPE_INTEGER          = 'INTEGER';
-    public const TYPE_UNSIGNED_INTEGER = 'UNSIGNED INTEGER';
-    public const TYPE_BOOLEAN          = 'BOOLEAN';
-    public const TYPE_FLOAT            = 'FLOAT';
-    public const TYPE_DOUBLE           = 'DOUBLE';
+    public const string TYPE_SERIAL = 'SERIAL';
+
+    public const string TYPE_STRING = 'STRING';
+
+    public const string TYPE_TEXT = 'TEXT';
+
+    public const string TYPE_LONGTEXT = 'LONGTEXT';
+
+    public const string TYPE_INTEGER = 'INTEGER';
+
+    public const string TYPE_UNSIGNED_INTEGER = 'UNSIGNED INTEGER';
+
+    public const string TYPE_BOOLEAN = 'BOOLEAN';
+
+    public const string TYPE_FLOAT = 'FLOAT';
+
+    public const string TYPE_DOUBLE = 'DOUBLE';
 
     public function addColumn(
         string               $name,
         string               $type,
         bool                 $nullable = false,
         string|int|bool|null $default = null,
-        int                  $length = null
+        ?int                 $length = null
     ): self;
 
     public function addString(
@@ -63,12 +71,25 @@ interface SchemaBuilderInterface
         string $name = 'id'
     ): self;
 
+    /**
+     * @param list<string> $columns
+     */
     public function setPrimaryKey(array $columns): self;
 
+    /**
+     * @param list<string> $columns
+     */
     public function addUniqueIndex(string $indexName, array $columns): self;
 
+    /**
+     * @param list<string> $columns
+     */
     public function addIndex(string $indexName, array $columns): self;
 
+    /**
+     * @param list<string> $columns
+     * @param list<string> $foreignColumns
+     */
     public function addForeignKey(
         string  $name,
         array   $columns,

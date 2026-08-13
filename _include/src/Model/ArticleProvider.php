@@ -7,20 +7,20 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Pdo\QueryBuilder\UnionAll;
 use S2\Cms\Template\Viewer;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class ArticleProvider
 {
-    public const ROOT_ID = 0;
+    public const int ROOT_ID = 0;
 
     public function __construct(
         private DbLayer     $dbLayer,
@@ -41,6 +41,9 @@ readonly class ArticleProvider
      * Actually it's one of the best things in S2! :)
      *
      * @throws DbLayerException
+     * @param array<mixed> $parentIds
+     * @param string[] $urls
+     * @return array<mixed>
      */
     public function getFullUrlsForArticles(array $parentIds, array $urls): array
     {
@@ -92,7 +95,7 @@ readonly class ArticleProvider
 
             // Chain was cut (published = 0). Remove the entry from $urls.
             foreach ($parentsAreFound as $k => $parentIsFound) {
-                if (!$parentIsFound) {
+                if ($parentIsFound !== true) {
                     unset($urls[$k], $parentIds[$k]);
                 }
             }
@@ -123,6 +126,7 @@ readonly class ArticleProvider
      * Fetching last articles info (for template placeholders and RSS)
      *
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function lastArticlesList(?int $limit = 5): array
     {
@@ -158,9 +162,10 @@ readonly class ArticleProvider
         }
 
         $result = $qb->execute();
-
-        $last = $urls = $parentIds = [];
-        for ($i = 0; $row = $result->fetchAssoc(); $i++) {
+        $last = [];
+        $urls = [];
+        $parentIds = [];
+        for ($i = 0; $row = $result->fetchAssoc(); ++$i) {
             $urls[$i]      = rawurlencode($row['url']);
             $parentIds[$i] = $row['parent_id'];
 
@@ -176,7 +181,7 @@ readonly class ArticleProvider
 
         $urls = $this->getFullUrlsForArticles($parentIds, $urls);
 
-        foreach ($last as $k => $v) {
+        foreach (array_keys($last) as $k) {
             if (isset($urls[$k])) {
                 $last[$k]['rel_path'] = $urls[$k];
             } else {
@@ -201,7 +206,9 @@ readonly class ArticleProvider
             $useHierarchy = $this->useHierarchy->get();
             $favoriteLink = $this->urlBuilder->link('/' . rawurlencode($this->favoriteUrl->get()) . '/');
             foreach ($articles as &$item) {
-                $parentPath            = $useHierarchy ? preg_replace('#/\\K[^/]*$#', '', $item['rel_path']) : '/' . $item['p_url'];
+                $parentPath            = $useHierarchy
+                    ? preg_replace('#/\\K[^/]*$#', '', (string)$item['rel_path']) ?? throw new \RuntimeException('Unable to build an article parent path.')
+                    : '/' . $item['p_url'];
                 $item['date']          = $this->viewer->date($item['time']);
                 $item['link']          = $this->urlBuilder->link($item['rel_path']);
                 $item['parent_link']   = $this->urlBuilder->link($parentPath);
@@ -209,6 +216,7 @@ readonly class ArticleProvider
 
                 $output .= $this->viewer->render('last_articles_item', $item);
             }
+
             unset($item);
         }
 
@@ -217,6 +225,7 @@ readonly class ArticleProvider
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getTemplateList(): array
     {
@@ -262,6 +271,7 @@ readonly class ArticleProvider
             $baseQuery->andWhere('published = 1');
             $recursiveQuery->andWhere('a.published = 1');
         }
+
         $result = $this->dbLayer
             ->withRecursive('path_cte', new UnionAll($baseQuery, $recursiveQuery))
             ->select('url, parent_id')
@@ -285,8 +295,7 @@ readonly class ArticleProvider
             return null;
         }
 
-        $path = implode('/', $urls);
-        return $path === '' ? '/' : $path;
+        return '/' . ltrim(implode('/', $urls), '/');
     }
 
 
@@ -313,11 +322,12 @@ readonly class ArticleProvider
             $baseQuery->andWhere('published = 1');
             $recursiveQuery->andWhere('a.published = 1');
         }
+
         $result = $this->dbLayer
             ->withRecursive('parent_cte', new UnionAll($baseQuery, $recursiveQuery))
             ->select('template')
             ->from('parent_cte')
-            ->where('template != \'\'')
+            ->where("template != ''")
             ->andWhere('id != :skip_id')
             ->orderBy('level ASC')
             ->limit(1)
@@ -328,23 +338,24 @@ readonly class ArticleProvider
 
         $row = $result->fetchAssoc();
 
-        return $row ? $row['template'] : '';
+        return $row === false ? '' : (string)$row['template'];
     }
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>|null
      */
     public function articleFromPath(string $path, bool $publishedOnly): ?array
     {
         $pathArray = explode('/', $path);   // e.g. []/[dir1]/[dir2]/[dir3]/[file1]
-        $pathArray = array_map('rawurldecode', $pathArray);
+        $pathArray = array_map(rawurldecode(...), $pathArray);
 
         // Remove the last empty element
         if ($pathArray[\count($pathArray) - 1] === '') {
             unset($pathArray[\count($pathArray) - 1]);
         }
 
-        if (!$this->useHierarchy) {
+        if (!$this->useHierarchy->get()) {
             $pathArray = \count($pathArray) > 0 ? [$pathArray[1]] : [''];
         }
 
@@ -360,7 +371,7 @@ readonly class ArticleProvider
                 ->where('url = :url')->setParameter('url', $pathItem)
             ;
 
-            if ($this->useHierarchy) {
+            if ($this->useHierarchy->get()) {
                 $qb->andWhere('parent_id = :id')->setParameter('id', $id);
             }
 
@@ -381,6 +392,7 @@ readonly class ArticleProvider
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function checkUrlAndTemplateStatus(int $id): array
     {
@@ -391,9 +403,14 @@ readonly class ArticleProvider
             ->execute()
         ;
 
-        [$parentId, $url, $template] = $result->fetchRow();
+        $row = $result->fetchRow();
+        if ($row === false) {
+            return ['missing', 'empty'];
+        }
 
-        $templateStatus = (!$this->useHierarchy || $template !== '') ? 'ok' : 'empty';
+        [$parentId, $url, $template] = $row;
+
+        $templateStatus = !$this->useHierarchy->get() || $template !== '' ? 'ok' : 'empty';
 
         if ($parentId === self::ROOT_ID) {
             return ['mainpage', $templateStatus];
@@ -409,7 +426,7 @@ readonly class ArticleProvider
             ->where('a.url = :url')->setParameter('url', $url)
         ;
 
-        if ($this->useHierarchy) {
+        if ($this->useHierarchy->get()) {
             $qb->andWhere('a.parent_id = :id')->setParameter('id', $parentId);
         }
 

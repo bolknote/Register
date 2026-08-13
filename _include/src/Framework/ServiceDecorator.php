@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Framework;
 
@@ -14,7 +14,7 @@ use S2\Cms\Framework\Exception\DecoratedServiceNotFoundException;
 class ServiceDecorator
 {
     /**
-     * @var callable|object
+     * @var callable|object|null
      */
     private $factory;
 
@@ -42,6 +42,7 @@ class ServiceDecorator
         if ($this->factory === null) {
             throw new DecoratedServiceNotFoundException('Original factory is not set.');
         }
+
         return ($this->decorator)($this->container, $this->factory);
     }
 }

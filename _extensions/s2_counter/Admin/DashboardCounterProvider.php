@@ -5,7 +5,7 @@
  * @package   s2_counter
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_counter\Admin;
 
@@ -20,6 +20,7 @@ readonly class DashboardCounterProvider implements DashboardBlockProviderInterfa
     ) {
     }
 
+    #[\Override]
     public function getHtml(): string
     {
         return $this->templateRenderer->render(

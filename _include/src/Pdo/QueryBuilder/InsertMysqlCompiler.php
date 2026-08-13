@@ -5,12 +5,13 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
 readonly class InsertMysqlCompiler extends InsertCommonCompiler
 {
+    #[\Override]
     protected function getConflictClause(InsertBuilder $builder): string
     {
         $uniqueColumns = $builder->getUniqueColumnsForConflictDoNothing();
@@ -21,6 +22,7 @@ readonly class InsertMysqlCompiler extends InsertCommonCompiler
         return '';
     }
 
+    #[\Override]
     protected function substituteQueryParts(string $tableName, string $columnList, string $valuesList, string $onConflict): string
     {
         return "INSERT$onConflict INTO $tableName ($columnList) VALUES ($valuesList)";

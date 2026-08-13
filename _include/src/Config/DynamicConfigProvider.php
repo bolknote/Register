@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Config;
 
@@ -16,18 +16,34 @@ use S2\Cms\Pdo\DbLayerException;
 
 class DynamicConfigProvider implements StatefulServiceInterface
 {
+    /**
+     * @var array<mixed>|null
+     */
     private ?array $params = null;
+
+    /**
+     * @var array<mixed>
+     */
     private array $boolProxies = [];
+
+    /**
+     * @var array<mixed>
+     */
     private array $intProxies = [];
+
+    /**
+     * @var array<mixed>
+     */
     private array $stringProxies = [];
 
     public function __construct(
-        private readonly DbLayer $dbLayer,
-        private readonly string  $fileName,
-        private readonly bool    $disableCache,
+        private readonly ?DbLayer $dbLayer = null,
+        private readonly ?string  $fileName = null,
+        private readonly bool     $disableCache = true,
     ) {
     }
 
+    #[\Override]
     public function clearState(): void
     {
         $this->params = null;
@@ -67,6 +83,10 @@ class DynamicConfigProvider implements StatefulServiceInterface
      */
     public function regenerate(): void
     {
+        if ($this->fileName === null) {
+            throw new \LogicException('The callback-only configuration provider cannot regenerate a file cache.');
+        }
+
         $config       = $this->fetchConfig();
         $this->params = $config;
 
@@ -82,12 +102,12 @@ class DynamicConfigProvider implements StatefulServiceInterface
             if (\function_exists('opcache_invalidate')) {
                 opcache_invalidate($this->fileName, true);
             }
-        } catch (\RuntimeException $e) {
+        } catch (\RuntimeException $runtimeException) {
             throw new ConfigurationException(\sprintf(
                 'Unable to write configuration cache file to cache directory. Please make sure PHP has write access to the file "%s" in the directory "%s".',
                 basename($this->fileName),
                 \dirname($this->fileName)
-            ), null, $e);
+            ), null, $runtimeException);
         }
     }
 
@@ -100,7 +120,11 @@ class DynamicConfigProvider implements StatefulServiceInterface
             return;
         }
 
-        $data = @include $this->fileName;
+        if ($this->fileName === null) {
+            throw new \LogicException('No configuration storage has been configured.');
+        }
+
+        $data = s2_call_without_warnings(fn(): mixed => include $this->fileName);
         if (\is_array($data)) {
             $this->params = $data;
             return;
@@ -113,9 +137,14 @@ class DynamicConfigProvider implements StatefulServiceInterface
      * Get the config from the DB
      *
      * @throws DbLayerException
+     * @return array<mixed>
      */
     private function fetchConfig(): array
     {
+        if (!$this->dbLayer instanceof \S2\Cms\Pdo\DbLayer) {
+            throw new \LogicException('No configuration database has been configured.');
+        }
+
         return $this->dbLayer->select('name, value')
             ->from('config')
             ->execute()

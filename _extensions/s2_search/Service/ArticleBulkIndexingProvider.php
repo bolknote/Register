@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Provides data for building the search index
  *
@@ -11,8 +14,8 @@ namespace s2_extensions\s2_search\Service;
 
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Rose\Entity\Indexable;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class ArticleBulkIndexingProvider implements BulkIndexingProviderInterface
 {
@@ -23,7 +26,7 @@ readonly class ArticleBulkIndexingProvider implements BulkIndexingProviderInterf
     /**
      * @throws DbLayerException
      */
-    private function crawl($parent_id, $url): \Generator
+    private function crawl(int $parent_id, string $url): \Generator
     {
         $childrenNumSubquery = $this->dbLayer
             ->select('COUNT(*)')
@@ -46,6 +49,7 @@ readonly class ArticleBulkIndexingProvider implements BulkIndexingProviderInterf
         while ($article = $result->fetchAssoc()) {
             $dateTime = null;
             if ($article['create_time'] > 0) {
+                // Rose currently requires the mutable DateTime implementation.
                 $dateTime = (new \DateTime('@' . $article['create_time']))->setTimezone((new \DateTime())->getTimezone());
             }
 
@@ -54,14 +58,14 @@ readonly class ArticleBulkIndexingProvider implements BulkIndexingProviderInterf
                 ->setKeywords($article['meta_keys'])
                 ->setDescription($article['meta_desc'])
                 ->setDate($dateTime)
-                ->setUrl($url . urlencode($article['url']) . ($article['has_children'] ? '/' : ''))
+                ->setUrl($url . urlencode($article['url']) . ((bool)$article['has_children'] ? '/' : ''))
             ;
 
             yield $indexable;
 
             $article['pagetext'] = '';
 
-            yield from $this->crawl($article['id'], $url . urlencode($article['url']) . '/');
+            yield from $this->crawl((int)$article['id'], $url . urlencode((string)$article['url']) . '/');
         }
 
     }
@@ -69,6 +73,7 @@ readonly class ArticleBulkIndexingProvider implements BulkIndexingProviderInterf
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function getIndexables(): \Generator
     {
         yield from $this->crawl(ArticleProvider::ROOT_ID, '');

@@ -7,7 +7,7 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Rose;
 
@@ -20,10 +20,10 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 class CustomExtractor extends DomExtractor
 {
-    public const YOUTUBE_PROTOCOL = 'youtube://';
+    public const string YOUTUBE_PROTOCOL = 'youtube://';
 
     public function __construct(
-        private EventDispatcherInterface $dispatcher,
+        private readonly EventDispatcherInterface $dispatcher,
         ?LoggerInterface                 $logger = null,
     ) {
         parent::__construct($logger);
@@ -32,30 +32,38 @@ class CustomExtractor extends DomExtractor
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function processTextNode(\DOMText $domNode, DomState $domState, ExtractionErrors $extractionErrors, int $level): void
     {
         $textContent = $domNode->textContent;
 
         $this->checkContentForWarnings($level, $textContent, $extractionErrors, $domNode);
 
-        $event = new TextNodeExtractEvent($domNode->parentNode, $domState, $textContent, $domNode->getNodePath());
+        $parentNode = $domNode->parentNode;
+        $nodePath   = $domNode->getNodePath();
+        if (!$parentNode instanceof \DOMNode || $nodePath === null) {
+            throw new \LogicException('Text node is detached from the indexed document.');
+        }
+
+        $event = new TextNodeExtractEvent($parentNode, $domState, $textContent, $nodePath);
         $this->dispatcher->dispatch($event);
 
         if (!$event->isPropagationStopped()) {
-            $domState->attachContent($domNode->getNodePath(), $textContent);
+            $domState->attachContent($nodePath, $textContent);
         }
     }
 
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     protected static function processDomElement(\DOMNode $domNode, DomState $domState): string
     {
-        switch ($domNode->nodeName) {
-            case 'iframe':
-                if (($youtubeId = self::getYoutubeId($domNode->getAttribute('src'))) !== null) {
-                    $domState->attachImg(self::YOUTUBE_PROTOCOL . $youtubeId, $domNode->getAttribute('width') ?? '', $domNode->getAttribute('height') ?? '', '');
-                }
+        if ($domNode instanceof \DOMElement && $domNode->nodeName === 'iframe') {
+            $youtubeId = self::getYoutubeId($domNode->getAttribute('src'));
+            if ($youtubeId !== null) {
+                $domState->attachImg(self::YOUTUBE_PROTOCOL . $youtubeId, $domNode->getAttribute('width'), $domNode->getAttribute('height'), '');
+            }
         }
 
         return parent::processDomElement($domNode, $domState);
@@ -88,7 +96,7 @@ class CustomExtractor extends DomExtractor
               )                # End recognized pre-linked alts.
             )                  # End negative lookahead assertion.
             [?=&+%\w.-]*       # Consume any URL (query) remainder.
-        ~ix', $src, $matches)) {
+        ~ix', $src, $matches) === 1) {
             return $matches[1];
         }
 

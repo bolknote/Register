@@ -5,7 +5,7 @@
  * @package   s2_blog
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Admin;
 
@@ -34,18 +34,16 @@ use S2\Cms\Admin\Controller\CommentController;
 use S2\Cms\Admin\Event\VisibleEntityChangedEvent;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Template\HtmlTemplateProvider;
 use s2_extensions\s2_blog\BlogUrlBuilder;
 use s2_extensions\s2_blog\Model\BlogCommentNotifier;
 use s2_extensions\s2_blog\Model\PostProvider;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class AdminConfigExtender implements AdminConfigExtenderInterface
 {
     public function __construct(
         private PermissionChecker        $permissionChecker,
-        private HtmlTemplateProvider     $templateProvider,
         private Translator               $translator,
         private TagsProvider             $tagsProvider,
         private PostProvider             $postProvider,
@@ -57,6 +55,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
     ) {
     }
 
+    #[\Override]
     public function extend(AdminConfig $adminConfig): void
     {
         $postEntity    = new EntityConfig('BlogPost', $this->dbPrefix . 's2_blog_posts');
@@ -65,7 +64,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         $commentEntity
             ->setPluralName($this->translator->trans('Blog comments'))
             ->setSingularName($this->translator->trans('Comment'))
-            ->setEntityDisplayNameBuilder(fn(array $row) => $this->buildCommentDetails($row))
+            ->setEntityDisplayNameBuilder(fn(array $row): string => $this->buildCommentDetails($row))
             ->setEditTitle($this->translator->trans('Edit comment'))
             ->addField(new FieldConfig(
                 name: 'id',
@@ -152,7 +151,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 $this->translator->trans('Search'),
                 'search_input',
                 'text LIKE %1$s OR nick LIKE %1$s OR email LIKE %1$s OR ip LIKE %1$s',
-                fn(string $value) => $value !== '' ? '%' . $value . '%' : null
+                fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null
             ))
             ->addFilter(new FilterLinkTo(
                 $postIdField,
@@ -197,9 +196,9 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_COMMENTS) ? [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_DELETE] : [],
             ])
             ->setListActionsTemplate('_admin/templates/comment/list-actions.php.inc')
-            ->addListener(EntityConfig::EVENT_BEFORE_PATCH, function (BeforeSaveEvent $event) {
+            ->addListener(EntityConfig::EVENT_BEFORE_PATCH, function (BeforeSaveEvent $event): void {
                 if (isset($event->data['shown'])) {
-                    $this->blogCommentNotifier->notify($event->primaryKey->getIntId());
+                    $this->blogCommentNotifier->notify($this->requirePrimaryKey($event->primaryKey)->getIntId());
                 }
             })
         ;
@@ -210,7 +209,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
 
         $postEntity
             ->setPluralName($this->translator->trans('Posts'))
-            ->setEntityDisplayNameBuilder(fn(array $row) => (string)($row['column_title'] ?? $this->translator->trans('Post')))
+            ->setEntityDisplayNameBuilder(fn(array $row): string => (string)($row['column_title'] ?? $this->translator->trans('Post')))
             ->setNewTitle($this->translator->trans('New post'))
             ->addField(new FieldConfig(
                 name: 'id',
@@ -230,7 +229,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 name: 'tags',
                 label: $this->translator->trans('Tags'),
                 hint: $this->translator->trans('Tags help'),
-                type: new VirtualFieldType((function () {
+                type: new VirtualFieldType((function (): string {
                     $column     = match ($this->dbType) {
                         'pgsql' => "STRING_AGG(t.name, ', ' ORDER BY pt.id)",
                         'sqlite' => "GROUP_CONCAT(t.name, ', ')", // seems like SQLite does not support ORDER BY
@@ -238,12 +237,11 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     };
                     $tableName  = $this->dbPrefix . 'tags';
                     $tableName2 = $this->dbPrefix . 's2_blog_post_tag';
-                    $sql        = "SELECT $column FROM $tableName AS t JOIN $tableName2 AS pt ON t.id = pt.tag_id WHERE pt.post_id = entity.id";
-                    return $sql;
+                    return "SELECT $column FROM $tableName AS t JOIN $tableName2 AS pt ON t.id = pt.tag_id WHERE pt.post_id = entity.id";
                 })()),
                 control: 'input',
                 validators: [
-                    (static function () {
+                    (static function (): \S2\AdminYard\Validator\Regex {
                         $validator          = new Regex('#^[\p{L}\p{N}_\- ,\.!]*$#u');
                         $validator->message = 'Tags must contain only letters, numbers and spaces.';
                         return $validator;
@@ -255,6 +253,8 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ->addField(new FieldConfig(
                 name: 'create_time',
                 label: $this->translator->trans('Create time'),
+                // AdminYard accepts mixed here; its published PHPDoc is narrower than the runtime contract.
+                // @phan-suppress-next-line PhanTypeMismatchArgumentProbablyReal
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME, defaultValue: new \DateTimeImmutable()),
                 control: 'datetime',
                 sortable: true,
@@ -331,7 +331,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 label: $this->translator->trans('Author'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT, defaultValue: $this->permissionChecker->getUserId()),
                 control: 'select',
-                linkToEntity: new LinkTo($adminConfig->findEntityByName('User'), 'CASE WHEN name IS NULL OR name = \'\' THEN login ELSE name END'),
+                linkToEntity: new LinkTo($adminConfig->findEntityByName('User') ?? throw new \LogicException('User admin entity is missing.'), "CASE WHEN name IS NULL OR name = '' THEN login ELSE name END"),
                 useOnActions: [
                     FieldConfig::ACTION_LIST,
                     ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) ? [FieldConfig::ACTION_EDIT] : [],
@@ -356,7 +356,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     ? null
                     : new LogicalExpression('user_id', $this->permissionChecker->getUserId())
             )
-            ->addListener([EntityConfig::EVENT_AFTER_EDIT_FETCH], function (AfterLoadEvent $event) {
+            ->addListener([EntityConfig::EVENT_AFTER_EDIT_FETCH], function (AfterLoadEvent $event): void {
                 if (\is_array($event->data)) {
                     // Convert NULL to an empty string when the edit form is filled with current data
                     $event->data['virtual_tags'] = (string)$event->data['virtual_tags'];
@@ -366,7 +366,11 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     }
                 }
             })
-            ->addListener(EntityConfig::EVENT_BEFORE_EDIT_RENDER, function (BeforeRenderEvent $event) {
+            ->addListener(EntityConfig::EVENT_BEFORE_EDIT_RENDER, function (BeforeRenderEvent $event): void {
+                if (!\is_array($event->data)) {
+                    throw new \LogicException('Blog post render data must be an array.');
+                }
+
                 $event->data['tagsList']        = $this->tagsProvider->getAllTags();
                 $event->data['labelList']       = $this->postProvider->getAllLabels();
 
@@ -377,7 +381,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 $event->data['commentsNum'] = $this->postProvider->getCommentNum($id, $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN));
                 $event->data['statusData']  = $this->getPostStatusData($createTime, $formData['url']);
             })
-            ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, function (BeforeSaveEvent $event) use ($postEntity) {
+            ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, function (BeforeSaveEvent $event) use ($postEntity): void {
                 $oldData = $event->dataProvider->getEntity(
                     $this->dbPrefix . 's2_blog_posts',
                     $postEntity->getFieldDataTypes(FieldConfig::ACTION_EDIT, includePrimaryKey: true),
@@ -385,7 +389,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) ? [] : [
                         new LogicalExpression('user_id', $this->permissionChecker->getUserId()),
                     ],
-                    $event->primaryKey
+                    $this->requirePrimaryKey($event->primaryKey)
                 );
                 if ($oldData === null) {
                     $event->errorMessages[] = 'Post not found';
@@ -398,6 +402,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                         $changed = true;
                     }
                 }
+
                 if ($changed) {
                     // If the page text has been modified, we check if this modification is done by current user
                     if ($event->data['revision'] !== $oldData['column_revision']) {
@@ -415,8 +420,8 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     $event->context['new_revision'] = $oldData['column_revision'];
                 }
 
-                $newPublished = $event->data['published'];
-                $oldPublished = $oldData['column_published'];
+                $newPublished = (bool)$event->data['published'];
+                $oldPublished = (bool)$oldData['column_published'];
 
                 if (
                     ($newPublished && (!$oldPublished || $changed)) // Publish a new article or update an existing one
@@ -424,30 +429,32 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 ) {
                     $event->context['visible_changed_event'] = new VisibleEntityChangedEvent(
                         $postEntity->getName(),
-                        $event->primaryKey->getIntId()
+                        $this->requirePrimaryKey($event->primaryKey)->getIntId()
                     );
                 }
 
                 $event->context['create_time'] = $event->data['create_time']->getTimestamp();
                 $event->context['url']         = $event->data['url'];
             })
-            ->addListener(EntityConfig::EVENT_AFTER_UPDATE, function (AfterSaveEvent $event) {
-                if (isset($event->context['visible_changed_event'])) {
-                    $this->eventDispatcher->dispatch($event->context['visible_changed_event']);
+            ->addListener(EntityConfig::EVENT_AFTER_UPDATE, function (AfterSaveEvent $event): void {
+                $visibleChangedEvent = $event->context['visible_changed_event'] ?? null;
+                if ($visibleChangedEvent instanceof VisibleEntityChangedEvent) {
+                    $this->eventDispatcher->dispatch($visibleChangedEvent);
                 }
+
                 $event->ajaxExtraResponse = [
                     ...$this->getPostStatusData($event->context['create_time'], $event->context['url']),
                     'revision' => $event->context['new_revision'],
                 ];
             })
-            ->addListener([EntityConfig::EVENT_BEFORE_UPDATE], function (BeforeSaveEvent $event) {
+            ->addListener([EntityConfig::EVENT_BEFORE_UPDATE], function (BeforeSaveEvent $event): void {
                 $event->context['tags'] = $event->data['tags'];
                 unset($event->data['tags']);
             })
-            ->addListener([EntityConfig::EVENT_AFTER_UPDATE], function (AfterSaveEvent $event) {
+            ->addListener([EntityConfig::EVENT_AFTER_UPDATE], function (AfterSaveEvent $event): void {
                 $tagStr = $event->context['tags'];
-                $tags   = array_map(static fn(string $tag) => trim($tag), explode(',', $tagStr));
-                $tags   = array_filter($tags, static fn(string $tag) => $tag !== '');
+                $tags   = array_map(trim(...), explode(',', $tagStr));
+                $tags   = array_filter($tags, static fn(string $tag): bool => $tag !== '');
 
                 $newTagIds = AdminConfigProvider::tagIdsFromTags($event->dataProvider, $tags, $this->dbPrefix);
 
@@ -457,21 +464,21 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 $existingLinks = $event->dataProvider->getEntityList($tableName, [
                     $fieldName => FieldConfig::DATA_TYPE_INT,
                     'tag_id'   => FieldConfig::DATA_TYPE_INT,
-                ], conditions: [new LogicalExpression($fieldName, $event->primaryKey->getIntId())]);
+                ], conditions: [new LogicalExpression($fieldName, $this->requirePrimaryKey($event->primaryKey)->getIntId())]);
 
                 $existingTagIds = array_column($existingLinks, 'column_tag_id');
                 if (implode(',', $existingTagIds) !== implode(',', $newTagIds)) {
                     $event->dataProvider->deleteEntity(
                         $tableName,
                         [$fieldName => FieldConfig::DATA_TYPE_INT],
-                        new Key([$fieldName => $event->primaryKey->getIntId()]),
+                        new Key([$fieldName => $this->requirePrimaryKey($event->primaryKey)->getIntId()]),
                         [],
                     );
                     foreach ($newTagIds as $tagId) {
                         $event->dataProvider->createEntity($tableName, [
                             $fieldName => FieldConfig::DATA_TYPE_INT,
                             'tag_id'   => FieldConfig::DATA_TYPE_INT,
-                        ], [$fieldName => $event->primaryKey->getIntId(), 'tag_id' => $tagId]);
+                        ], [$fieldName => $this->requirePrimaryKey($event->primaryKey)->getIntId(), 'tag_id' => $tagId]);
                     }
                 }
             })
@@ -481,7 +488,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     $this->translator->trans('Fulltext Search'),
                     'search_input',
                     'title LIKE %1$s OR text LIKE %1$s',
-                    fn(string $value) => $value !== '' ? '%' . $value . '%' : null
+                    fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null
                 )
             )
             ->addFilter(
@@ -490,7 +497,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     $this->translator->trans('Tags'),
                     'search_input',
                     'id IN (SELECT pt.post_id FROM ' . $this->dbPrefix . 's2_blog_post_tag AS pt JOIN ' . $this->dbPrefix . 'tags AS t ON t.id = pt.tag_id WHERE t.name LIKE %1$s)',
-                    fn(string $value) => $value !== '' ? '%' . $value . '%' : null
+                    fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null
                 )
             )
             ->addFilter(
@@ -512,7 +519,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     $this->translator->trans('Created after'),
                     'date',
                     'create_time >= %1$s',
-                    fn(?string $value) => $value !== null ? strtotime($value) : null
+                    fn(?string $value): int|false|null => $value !== null ? strtotime($value) : null
                 )
             )
             ->addFilter(
@@ -521,14 +528,14 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     $this->translator->trans('Created before'),
                     'date',
                     'create_time < %1$s',
-                    fn(?string $value) => $value !== null ? strtotime($value) : null
+                    fn(?string $value): int|false|null => $value !== null ? strtotime($value) : null
                 )
             )
             ->addFilter(new FilterLinkTo($userIdField, null))
             ->setEditTemplate(__DIR__ . '/../views/admin/post/edit.php.inc')
         ;
 
-        $tagEntity = $adminConfig->findEntityByName('Tag');
+        $tagEntity = $adminConfig->findEntityByName('Tag') ?? throw new \LogicException('Tag admin entity is missing.');
         $tagEntity
             ->addField(new FieldConfig(
                 name: 'used_in_posts',
@@ -563,12 +570,15 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         ;
     }
 
+    /**
+     * @param array<string, mixed> $row
+     */
     private function buildCommentDetails(array $row): string
     {
         $author = \trim((string)($row['column_nick'] ?? ''));
         $text   = $this->buildTextPreview($row['column_text'] ?? null);
 
-        $parts = array_filter([$author, $text], static fn(string $value) => $value !== '');
+        $parts = array_filter([$author, $text], static fn(string $value): bool => $value !== '');
 
         return implode(' — ', $parts);
     }
@@ -583,7 +593,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         $text = (string)\preg_replace('/\\s+/u', ' ', $text);
         $limit = 80;
         if (\mb_strlen($text) > $limit) {
-            $text = \mb_substr($text, 0, $limit - 1) . '…';
+            return \mb_substr($text, 0, $limit - 1) . '…';
         }
 
         return $text;
@@ -591,6 +601,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
 
     /**
      * @throws DbLayerException
+     * @return array<string, string>
      */
     private function getPostStatusData(int $createTime, string $url): array
     {
@@ -603,7 +614,13 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 'empty' => $this->translator->trans('URL empty'),
                 'not_unique' => $this->translator->trans('URL not unique'),
                 'ok' => '',
+                default => $this->translator->trans('URL unavailable'),
             },
         ];
+    }
+
+    private function requirePrimaryKey(?Key $primaryKey): Key
+    {
+        return $primaryKey ?? throw new \LogicException('This admin event requires a primary key.');
     }
 }

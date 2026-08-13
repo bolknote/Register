@@ -7,7 +7,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
@@ -16,10 +16,10 @@ use S2\Cms\Framework\ControllerInterface;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\Viewer;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use S2\Cms\Pdo\DbLayerException;
 
 class Sitemap implements ControllerInterface
 {
@@ -36,6 +36,7 @@ class Sitemap implements ControllerInterface
      * {@inheritdoc}
      * @throws DbLayerException
      */
+    #[\Override]
     public function handle(Request $request): Response
     {
         $maxContentTime = 0;
@@ -52,7 +53,7 @@ class Sitemap implements ControllerInterface
             $items .= $this->viewer->render('sitemap_item', $item);
         }
 
-        $output = $this->viewer->render('sitemap', compact('items'));
+        $output = $this->viewer->render('sitemap', ['items' => $items]);
 
         $response = new Response($output);
         $response->headers->set('Content-Length', (string)\strlen($output));
@@ -64,6 +65,7 @@ class Sitemap implements ControllerInterface
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     protected function getItems(): array
     {
@@ -83,11 +85,12 @@ class Sitemap implements ControllerInterface
             ->andWhere('a.published = 1')
             ->execute()
         ;
-
-        $articles = $urls = $parentIds = [];
+        $articles = [];
+        $urls = [];
+        $parentIds = [];
         $useHierarchy = $this->useHierarchy->get();
-        for ($i = 0; $row = $result->fetchAssoc(); $i++) {
-            $urls[$i] = rawurlencode($row['url']) . ($useHierarchy && $row['children_exist'] ? '/' : '');
+        for ($i = 0; $row = $result->fetchAssoc(); ++$i) {
+            $urls[$i] = rawurlencode($row['url']) . ($useHierarchy && (bool)$row['children_exist'] ? '/' : '');
 
             $parentIds[$i] = $row['parent_id'];
 
@@ -97,7 +100,7 @@ class Sitemap implements ControllerInterface
 
         $urls = $this->articleProvider->getFullUrlsForArticles($parentIds, $urls);
 
-        foreach ($articles as $k => $v) {
+        foreach (array_keys($articles) as $k) {
             if (isset($urls[$k])) {
                 $articles[$k]['rel_path'] = $urls[$k];
             } else {

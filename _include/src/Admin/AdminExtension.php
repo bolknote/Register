@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
@@ -47,39 +47,30 @@ use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\HtmlTemplateProvider;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\RouteCollection;
 
 class AdminExtension implements ExtensionInterface
 {
+    #[\Override]
     public function buildContainer(Container $container): void
     {
-        $container->set(FormControlFactoryInterface::class, function (Container $container) {
-            return new CustomFormControlFactory(
-                $container->get(Translator::class)
-            );
-        });
+        $container->set(FormControlFactoryInterface::class, fn(Container $container): \S2\Cms\AdminYard\Form\CustomFormControlFactory => new CustomFormControlFactory(
+            $container->get(Translator::class)
+        ));
 
         // AdminYard services
-        $container->set(TypeTransformer::class, function (Container $container) {
-            return new TypeTransformer();
-        });
+        $container->set(TypeTransformer::class, fn(Container $_container): \S2\AdminYard\Database\TypeTransformer => new TypeTransformer());
 
-        $container->set(PdoDataProvider::class, function (Container $container) {
-            return new PdoDataProvider(
-                $container->get(\PDO::class),
-                $container->get(TypeTransformer::class),
-            );
-        });
+        $container->set(PdoDataProvider::class, fn(Container $container): \S2\AdminYard\Database\PdoDataProvider => new PdoDataProvider(
+            $container->get(\PDO::class),
+            $container->get(TypeTransformer::class),
+        ));
 
-        $container->set(TranslationProvider::class, function (Container $container) {
-            return new TranslationProvider($container->getParameter('root_dir'));
-        }, [TranslationProviderInterface::class]);
+        $container->set(TranslationProvider::class, fn(Container $container): \S2\Cms\Admin\TranslationProvider => new TranslationProvider($container->getStringParameter('root_dir')), [TranslationProviderInterface::class]);
 
-        $container->set(Translator::class, function (Container $container) {
-            /** @var DynamicConfigProvider $provider */
+        $container->set(Translator::class, function (Container $container): \S2\AdminYard\Translator {
             $provider = $container->get(DynamicConfigProvider::class);
             $language = $provider->getStringProxy('S2_LANGUAGE')->get();
 
@@ -91,67 +82,55 @@ class AdminExtension implements ExtensionInterface
             };
             $translations = [];
             foreach ($container->getByTag(TranslationProviderInterface::class) as $translationProvider) {
-                /** @var TranslationProviderInterface $translationProvider */
                 $translations[] = $translationProvider->getTranslations($language, $locale);
             }
+
             return new Translator(array_merge(...$translations), $locale);
         });
 
-        $container->set(FormFactory::class, function (Container $container) {
-            return new FormFactory(
-                $container->get(FormControlFactoryInterface::class),
-                $container->get(Translator::class),
-                $container->get(PdoDataProvider::class),
-            );
-        });
+        $container->set(FormFactory::class, fn(Container $container): \S2\AdminYard\Form\FormFactory => new FormFactory(
+            $container->get(FormControlFactoryInterface::class),
+            $container->get(Translator::class),
+            $container->get(PdoDataProvider::class),
+        ));
 
-        $container->set(TemplateRenderer::class, function (Container $container) {
-            return new CustomTemplateRenderer(
-                $container->get(Translator::class),
-                $container->get(DynamicConfigProvider::class),
-                $container->get(PermissionChecker::class),
-                $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
-                $container->getParameter('base_path'),
-                $container->getParameter('root_dir'),
-            );
-        }, [StatefulServiceInterface::class]);
+        $container->set(TemplateRenderer::class, fn(Container $container): \S2\Cms\AdminYard\CustomTemplateRenderer => new CustomTemplateRenderer(
+            $container->get(Translator::class),
+            $container->get(DynamicConfigProvider::class),
+            $container->get(PermissionChecker::class),
+            $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+            $container->getStringParameter('base_path'),
+            $container->getStringParameter('root_dir'),
+        ), [StatefulServiceInterface::class]);
 
-        $container->set(SettingStorageInterface::class, function (Container $container) {
-            return new UserSettingStorage(
-                $container->get(PermissionChecker::class),
-                $container->get(DbLayer::class),
-            );
-        }, [StatefulServiceInterface::class]);
+        $container->set(SettingStorageInterface::class, fn(Container $container): \S2\Cms\AdminYard\UserSettingStorage => new UserSettingStorage(
+            $container->get(PermissionChecker::class),
+            $container->get(DbLayer::class),
+        ), [StatefulServiceInterface::class]);
 
-        $container->set(ResourceProvider::class, function (Container $container) {
-            return new ResourceProvider(
-                $container->getParameter('root_dir'),
-            );
-        });
+        $container->set(ResourceProvider::class, fn(Container $container): \S2\Cms\Admin\ResourceProvider => new ResourceProvider(
+            $container->getStringParameter('root_dir'),
+        ));
 
-        $container->set(DynamicConfigFormBuilder::class, function (Container $container) {
-            return new DynamicConfigFormBuilder(
-                $container->get(PermissionChecker::class),
-                $container->get(Translator::class),
-                $container->get(TypeTransformer::class),
-                $container->get(FormFactory::class),
-                $container->get(TemplateRenderer::class),
-                $container->get(ResourceProvider::class),
-                $container->get(RequestStack::class),
-                $container->get(SettingStorageInterface::class),
-                ...$container->getByTag(DynamicConfigFormExtenderInterface::class),
-            );
-        });
+        $container->set(DynamicConfigFormBuilder::class, fn(Container $container): \S2\Cms\Admin\DynamicConfigFormBuilder => new DynamicConfigFormBuilder(
+            $container->get(PermissionChecker::class),
+            $container->get(Translator::class),
+            $container->get(TypeTransformer::class),
+            $container->get(FormFactory::class),
+            $container->get(TemplateRenderer::class),
+            $container->get(ResourceProvider::class),
+            $container->get(RequestStack::class),
+            $container->get(SettingStorageInterface::class),
+            ...$container->getByTag(DynamicConfigFormExtenderInterface::class),
+        ));
 
-        $container->set(AdminConfigProvider::class, function (Container $container) {
-            $dbType   = $container->getParameter('db_type');
-            $dbPrefix = $container->getParameter('db_prefix');
-            /** @var DynamicConfigProvider $provider */
+        $container->set(AdminConfigProvider::class, function (Container $container): \S2\Cms\Admin\AdminConfigProvider {
+            $dbType   = $container->getStringParameter('db_type');
+            $dbPrefix = $container->getStringParameter('db_prefix');
             $provider = $container->get(DynamicConfigProvider::class);
             return new AdminConfigProvider(
                 $container->get(PermissionChecker::class),
                 $container->get(AuthManager::class),
-                $container->get(HtmlTemplateProvider::class),
                 $container->get(DynamicConfigFormBuilder::class),
                 $provider,
                 $provider->getBoolProxy('S2_ADMIN_CUT'),
@@ -168,16 +147,11 @@ class AdminExtension implements ExtensionInterface
             );
         }, [StatefulServiceInterface::class]);
 
-        $container->set(AdminPanelFactory::class, function (Container $container) {
-            return new AdminPanelFactory($container);
-        });
+        $container->set(AdminPanelFactory::class, fn(Container $container): \S2\Cms\Admin\AdminPanelFactory => new AdminPanelFactory($container));
 
-        $container->set(PermissionChecker::class, function (Container $container) {
-            return new PermissionChecker();
-        }, [StatefulServiceInterface::class]);
+        $container->set(PermissionChecker::class, fn(Container $_container): \S2\Cms\Model\PermissionChecker => new PermissionChecker(), [StatefulServiceInterface::class]);
 
-        $container->set(AuthManager::class, function (Container $container) {
-            /** @var DynamicConfigProvider $provider */
+        $container->set(AuthManager::class, function (Container $container): \S2\Cms\Model\AuthManager {
             $provider = $container->get(DynamicConfigProvider::class);
 
             return new AuthManager(
@@ -186,39 +160,34 @@ class AdminExtension implements ExtensionInterface
                 $container->get(RequestStack::class),
                 $container->get(TemplateRenderer::class),
                 $container->get(Translator::class),
-                $container->getParameter('base_path'),
-                $container->getParameter('base_url'),
-                $container->getParameter('url_prefix'),
-                $container->getParameter('cookie_name'),
-                $container->getParameter('force_admin_https'),
+                $container->getStringParameter('base_path'),
+                $container->getStringParameter('base_url'),
+                $container->getStringParameter('url_prefix'),
+                $container->getStringParameter('cookie_name'),
+                $container->getBoolParameter('force_admin_https'),
                 $provider->getIntProxy('S2_LOGIN_TIMEOUT'),
             );
         });
 
         // Request handlers
-        $container->set(AdminRequestHandler::class, function (Container $container) {
-            return new AdminRequestHandler(
-                $container->get(RequestStack::class),
-                $container->get(AuthManager::class),
-                $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
-                $container,
-            );
-        });
+        $container->set(AdminRequestHandler::class, fn(Container $container): \S2\Cms\Admin\AdminRequestHandler => new AdminRequestHandler(
+            $container->get(RequestStack::class),
+            $container->get(AuthManager::class),
+            $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+            $container,
+        ));
 
-        $container->set(AdminAjaxRequestHandler::class, function (Container $container) {
-            return new AdminAjaxRequestHandler(
-                $container->get(RequestStack::class),
-                $container->get(AuthManager::class),
-                $container->get(PermissionChecker::class),
-                $container->get(Translator::class),
-                $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
-                $container,
-            );
-        });
+        $container->set(AdminAjaxRequestHandler::class, fn(Container $container): \S2\Cms\Admin\AdminAjaxRequestHandler => new AdminAjaxRequestHandler(
+            $container->get(RequestStack::class),
+            $container->get(AuthManager::class),
+            $container->get(PermissionChecker::class),
+            $container->get(Translator::class),
+            $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+            $container,
+        ));
 
         // Structure page
-        $container->set(ArticleManager::class, function (Container $container) {
-            /** @var DynamicConfigProvider $provider */
+        $container->set(ArticleManager::class, function (Container $container): \S2\Cms\Model\ArticleManager {
             $provider = $container->get(DynamicConfigProvider::class);
             return new ArticleManager(
                 $container->get(DbLayer::class),
@@ -229,107 +198,92 @@ class AdminExtension implements ExtensionInterface
             );
         });
 
-        $container->set(SiteStructureExtender::class, function (Container $container) {
-            return new SiteStructureExtender(
-                $container->get(TemplateRenderer::class),
-            );
-        }, [AdminConfigExtenderInterface::class]);
+        $container->set(SiteStructureExtender::class, fn(Container $container): \S2\Cms\Admin\SiteStructureExtender => new SiteStructureExtender(
+            $container->get(TemplateRenderer::class),
+        ), [AdminConfigExtenderInterface::class]);
 
         // Extensions
-        $container->set(ExtensionManager::class, function (Container $container) {
-            return new ExtensionManager(
-                $container->get(DbLayer::class),
-                $container->get(ExtensionCache::class),
-                $container->get(DynamicConfigProvider::class),
-                $container->get(Translator::class),
-                $container,
-                $container->getParameter('root_dir'),
-            );
-        });
+        $container->set(ExtensionManager::class, fn(Container $container): \S2\Cms\Extensions\ExtensionManager => new ExtensionManager(
+            $container->get(DbLayer::class),
+            $container->get(ExtensionCache::class),
+            $container->get(DynamicConfigProvider::class),
+            $container->get(Translator::class),
+            $container,
+            $container->getStringParameter('root_dir'),
+        ));
 
-        $container->set(ExtensionManagerAdapter::class, function (Container $container) {
-            return new ExtensionManagerAdapter(
-                $container->get(ExtensionManager::class),
-                $container->get(PermissionChecker::class),
-                $container->get(Translator::class),
-                $container->get(SettingStorageInterface::class),
-                $container->get(TemplateRenderer::class),
-            );
-        }, [AdminConfigExtenderInterface::class]);
+        $container->set(ExtensionManagerAdapter::class, fn(Container $container): \S2\Cms\Extensions\ExtensionManagerAdapter => new ExtensionManagerAdapter(
+            $container->get(ExtensionManager::class),
+            $container->get(PermissionChecker::class),
+            $container->get(Translator::class),
+            $container->get(SettingStorageInterface::class),
+            $container->get(TemplateRenderer::class),
+        ), [AdminConfigExtenderInterface::class]);
 
         // Dashboard providers
-        $container->set(DashboardConfigExtender::class, function (Container $container) {
-            return new DashboardConfigExtender(
-                $container->getByTag(DashboardStatProviderInterface::class),
-                $container->getByTag(DashboardBlockProviderInterface::class),
-                $container->get(PermissionChecker::class),
-                $container->get(TemplateRenderer::class),
-                $container->getParameter('version'),
-            );
-        }, [AdminConfigExtenderInterface::class]);
-        $container->set(DashboardEnvironmentProvider::class, function (Container $container) {
-            return new DashboardEnvironmentProvider(
-                $container->get(Translator::class),
-                $container->get(TemplateRenderer::class),
-            );
-        }, [DashboardStatProviderInterface::class]);
+        $container->set(DashboardConfigExtender::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardConfigExtender => new DashboardConfigExtender(
+            $container->getByTag(DashboardStatProviderInterface::class),
+            $container->getByTag(DashboardBlockProviderInterface::class),
+            $container->get(PermissionChecker::class),
+            $container->get(TemplateRenderer::class),
+            $container->getStringParameter('version'),
+        ), [AdminConfigExtenderInterface::class]);
+        $container->set(DashboardEnvironmentProvider::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardEnvironmentProvider => new DashboardEnvironmentProvider(
+            $container->get(Translator::class),
+            $container->get(TemplateRenderer::class),
+        ), [DashboardStatProviderInterface::class]);
 
-        $container->set(DashboardDatabaseProvider::class, function (Container $container) {
-            return new DashboardDatabaseProvider(
-                $container->get(TemplateRenderer::class),
-                $container->get(DbLayer::class),
-                $container->getParameter('db_type'),
-                $container->getParameter('db_name'),
-                $container->getParameter('db_prefix'),
-            );
-        }, [DashboardStatProviderInterface::class]);
+        $container->set(DashboardDatabaseProvider::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardDatabaseProvider => new DashboardDatabaseProvider(
+            $container->get(TemplateRenderer::class),
+            $container->get(DbLayer::class),
+            $container->getStringParameter('db_type'),
+            $container->getStringParameter('db_name'),
+            $container->getStringParameter('db_prefix'),
+        ), [DashboardStatProviderInterface::class]);
 
-        $container->set(DashboardArticleProvider::class, function (Container $container) {
-            return new DashboardArticleProvider(
-                $container->get(TemplateRenderer::class),
-                $container->get(DbLayer::class),
-                $container->getParameter('root_dir'),
-            );
-        }, [DashboardStatProviderInterface::class]);
+        $container->set(DashboardArticleProvider::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardArticleProvider => new DashboardArticleProvider(
+            $container->get(TemplateRenderer::class),
+            $container->get(DbLayer::class),
+            $container->getStringParameter('root_dir'),
+        ), [DashboardStatProviderInterface::class]);
 
-        $container->set(PathToAdminEntityConverter::class, function (Container $container) {
-            return new PathToAdminEntityConverter(
-                $container->get(ArticleProvider::class),
-            );
-        });
+        $container->set(PathToAdminEntityConverter::class, fn(Container $container): \S2\Cms\Admin\PathToAdminEntityConverter => new PathToAdminEntityConverter(
+            $container->get(ArticleProvider::class),
+        ));
 
-        $container->set(PictureFileNameHelper::class, function (Container $container) {
-            return new PictureFileNameHelper(
-                $container->get(Translator::class),
-                $container->get(PermissionChecker::class),
-                $container->getParameter('allowed_extensions'),
-            );
-        });
+        $container->set(PictureFileNameHelper::class, fn(Container $container): \S2\Cms\Admin\Picture\PictureFileNameHelper => new PictureFileNameHelper(
+            $container->get(Translator::class),
+            $container->get(PermissionChecker::class),
+            $container->getStringParameter('allowed_extensions'),
+        ));
 
-        $container->set(PictureReserveManager::class, function (Container $container) {
-            return new PictureReserveManager(
-                $container->get(PictureFileNameHelper::class),
-                $container->getParameter('image_dir'),
-                $container->getParameter('cache_dir'),
-            );
-        });
+        $container->set(PictureReserveManager::class, fn(Container $container): \S2\Cms\Admin\Picture\PictureReserveManager => new PictureReserveManager(
+            $container->get(PictureFileNameHelper::class),
+            $container->getStringParameter('image_dir'),
+            $container->getStringParameter('cache_dir'),
+        ));
 
-        $container->set(PictureManager::class, function (Container $container) {
+        $container->set(PictureManager::class, function (Container $container): \S2\Cms\Admin\Picture\PictureManager {
+            $templateRenderer = $container->get(TemplateRenderer::class);
+            if (!$templateRenderer instanceof CustomTemplateRenderer) {
+                throw new \LogicException('The picture manager requires the CMS template renderer.');
+            }
+
             return new PictureManager(
                 $container->get(Translator::class),
-                $container->get(TemplateRenderer::class),
+                $templateRenderer,
                 $container->get(SettingStorageInterface::class),
                 $container->get(PictureFileNameHelper::class),
-                $container->getParameter('base_path'),
-                $container->getParameter('image_dir'),
+                $container->getStringParameter('base_path'),
+                $container->getStringParameter('image_dir'),
             );
         });
     }
 
+    #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
-        $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container) {
-            /** @var CommentProvider $commentProvider */
+        $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container): void {
             $commentProvider = $container->get(CommentProvider::class);
             $size            = $commentProvider->getPendingCommentsCount();
 
@@ -337,14 +291,12 @@ class AdminExtension implements ExtensionInterface
                 $event->addSignal('Comment', new Signal((string)$size, 'New comments', '?entity=Comment&action=list&status=0&apply_filter=0'));
             }
 
-            /** @var ExtensionManager $extensionManager */
             $extensionManager = $container->get(ExtensionManager::class);
             $n                = $extensionManager->getUpgradableExtensionNum();
             if ($n > 0) {
                 $event->addSignal('Extension', new Signal((string)$n, 'New extensions', '?entity=Extension'));
             }
 
-            /** @var AuthManager $authManager */
             $authManager            = $container->get(AuthManager::class);
             $totalUserSessionsCount = $authManager->getTotalUserSessionsCount();
             if ($totalUserSessionsCount > 1) {
@@ -352,19 +304,20 @@ class AdminExtension implements ExtensionInterface
             }
         });
 
-        $eventDispatcher->addListener(RedirectFromPublicEvent::class, function (RedirectFromPublicEvent $event) use ($container) {
-            /** @var PathToAdminEntityConverter $converter */
+        $eventDispatcher->addListener(RedirectFromPublicEvent::class, function (RedirectFromPublicEvent $event) use ($container): void {
             $converter   = $container->get(PathToAdminEntityConverter::class);
             $queryParams = $converter->getQueryParams($event->path);
             if ($queryParams !== null) {
                 foreach ($queryParams as $key => $param) {
-                    $event->request->query->set($key, $param);
+                    $event->request->query->set((string)$key, $param);
                 }
+
                 $event->stopPropagation();
             }
         });
     }
 
+    #[\Override]
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
     }

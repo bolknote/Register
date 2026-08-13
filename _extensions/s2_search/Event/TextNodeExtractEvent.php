@@ -5,7 +5,7 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Event;
 
@@ -15,10 +15,10 @@ use Symfony\Contracts\EventDispatcher\Event;
 class TextNodeExtractEvent extends Event
 {
     public function __construct(
-        readonly public \DOMNode $parentNode,
-        readonly public DomState $domState,
-        readonly public string   $textContent,
-        readonly public string   $path
+        public readonly \DOMNode $parentNode,
+        public readonly DomState $domState,
+        public readonly string   $textContent,
+        public readonly string   $path
     ) {
     }
 }

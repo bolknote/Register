@@ -5,17 +5,17 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Pdo\SchemaBuilderInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 class MigrationManager
 {
-    private const S2_DB_LAST_REVISION = 24;
+    private const int S2_DB_LAST_REVISION = 24;
 
     public function __construct(
         private readonly DbLayer $dbLayer,
@@ -49,9 +49,9 @@ class MigrationManager
         }
 
         if ($currentRevision < 4) {
-            $this->dbLayer->addIndex('articles', 'children_idx', array('parent_id', 'published'));
-            $this->dbLayer->addIndex('art_comments', 'sort_idx', array('article_id', 'time', 'shown'));
-            $this->dbLayer->addIndex('tags', 'url_idx', array('url'));
+            $this->dbLayer->addIndex('articles', 'children_idx', ['parent_id', 'published']);
+            $this->dbLayer->addIndex('art_comments', 'sort_idx', ['article_id', 'time', 'shown']);
+            $this->dbLayer->addIndex('tags', 'url_idx', ['url']);
         }
 
         if ($currentRevision < 5) {
@@ -77,7 +77,7 @@ class MigrationManager
         if ($currentRevision < 8) {
             $this->dbLayer->addField('users_online', 'ua', SchemaBuilderInterface::TYPE_STRING, 200, false, '', 'login');
             $this->dbLayer->addField('users_online', 'ip', SchemaBuilderInterface::TYPE_STRING, 39, false, '', 'login');
-            $this->dbLayer->addIndex('users_online', 'login_idx', array('login'));
+            $this->dbLayer->addIndex('users_online', 'login_idx', ['login']);
         }
 
         if ($currentRevision < 9) {
@@ -89,7 +89,12 @@ class MigrationManager
         }
 
         if ($currentRevision < 10) {
-            $check_for_updates = (\function_exists('curl_init') || \function_exists('fsockopen') || \in_array(strtolower(@\ini_get('allow_url_fopen')), array('on', 'true', '1'))) ? '1' : '0';
+            $allowUrlFopen = \ini_get('allow_url_fopen');
+            $check_for_updates = \function_exists('curl_init')
+                || \function_exists('fsockopen')
+                || (\is_string($allowUrlFopen) && \in_array(strtolower($allowUrlFopen), ['on', 'true', '1'], true))
+                ? '1'
+                : '0';
 
             $this->dbLayer
                 ->insert('config')
@@ -124,7 +129,7 @@ class MigrationManager
         }
 
         if ($currentRevision < 15) {
-            $this->dbLayer->createTable('queue', function (SchemaBuilderInterface $table) {
+            $this->dbLayer->createTable('queue', function (SchemaBuilderInterface $table): void {
                 $table
                     ->addString('id', 80, default: null)
                     ->addString('code', 80, default: null)
@@ -150,6 +155,7 @@ class MigrationManager
                 $this->dbLayer->query(\sprintf('ALTER TABLE `%s` ENGINE=InnoDB;', $this->dbLayer->getPrefix() . $table));
                 $this->dbLayer->query(\sprintf('ALTER TABLE `%s` CONVERT TO CHARACTER SET utf8mb4;', $this->dbLayer->getPrefix() . $table));
             }
+
             foreach ([
                          's2_blog_comments',
                          's2_blog_post_tag',
@@ -189,6 +195,7 @@ class MigrationManager
             if ($this->dbLayer->fieldExists('tags', 'tag_id')) {
                 $this->dbLayer->renameField('tags', 'tag_id', 'id');
             }
+
             $this->dbLayer->dropIndex('tags', 'url_idx');
             $this->dbLayer->addIndex('tags', 'url_idx', ['url'], true);
 
@@ -237,7 +244,7 @@ class MigrationManager
         }
 
         if ($currentRevision < 21) {
-            $this->dbLayer->createTable('user_settings', function (SchemaBuilderInterface $table) {
+            $this->dbLayer->createTable('user_settings', function (SchemaBuilderInterface $table): void {
                 $table
                     ->addInteger('user_id', true, default: null)
                     ->addString('name', 191, default: null)

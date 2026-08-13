@@ -5,14 +5,14 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
 use S2\Cms\Pdo\DbLayer;
+use Symfony\Component\HttpFoundation\Request;
 use S2\Cms\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
-use Symfony\Component\HttpFoundation\Request;
 
 readonly class AuthProvider
 {

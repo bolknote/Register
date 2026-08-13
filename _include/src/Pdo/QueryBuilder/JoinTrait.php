@@ -5,14 +5,15 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
 trait JoinTrait
 {
-    public const JOIN_TYPE_INNER = 'inner';
-    public const JOIN_TYPE_LEFT  = 'left';
+    public const string JOIN_TYPE_INNER = 'inner';
+
+    public const string JOIN_TYPE_LEFT = 'left';
 
     /**
      * @var array{type: string, table: string, condition: string}[]

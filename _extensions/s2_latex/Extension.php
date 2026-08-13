@@ -5,7 +5,7 @@
  * @package   s2_latex
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_latex;
 
@@ -16,25 +16,24 @@ use S2\Cms\Framework\ExtensionInterface;
 use S2\Cms\Image\ThumbnailGenerateEvent;
 use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplatePreCommentRenderEvent;
-use S2\Cms\Translation\ExtensibleTranslator;
 use S2\Rose\Finder;
 use s2_extensions\s2_search\Event\TextNodeExtractEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\RouteCollection;
+use S2\Cms\Translation\ExtensibleTranslator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 class Extension implements ExtensionInterface
 {
-    private const CUSTOM_UPMATH_PROTOCOL = 'upmath://';
+    private const string CUSTOM_UPMATH_PROTOCOL = 'upmath://';
 
+    #[\Override]
     public function buildContainer(Container $container): void
     {
         $container->set('s2_latex_translator', static function (Container $container) {
             /** @var ExtensibleTranslator $translator */
             $translator = $container->get('translator');
-            $translator->attachLoader('s2_latex', static function (string $lang) {
-                return require ($dir = __DIR__ . '/lang/') . (file_exists($dir . $lang . '.php') ? $lang : 'English') . '.php';
-            });
+            $translator->attachLoader('s2_latex', static fn(string $lang): array => require ($dir = __DIR__ . '/lang/') . (file_exists($dir . $lang . '.php') ? $lang : 'English') . '.php');
 
             return $translator;
         });
@@ -49,27 +48,28 @@ class Extension implements ExtensionInterface
         });
     }
 
+    #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
-        $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) {
+        $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event): void {
             $event->assetPack->addJs('//i.upmath.me/latex.js', [AssetPack::OPTION_MERGE, AssetPack::OPTION_DEFER]);
         });
 
-        $eventDispatcher->addListener(TemplatePreCommentRenderEvent::class, static function (TemplatePreCommentRenderEvent $event) use ($container) {
+        $eventDispatcher->addListener(TemplatePreCommentRenderEvent::class, static function (TemplatePreCommentRenderEvent $event) use ($container): void {
             /** @var TranslatorInterface $translator */
             $translator = $container->get('s2_latex_translator');
             array_unshift($event->syntaxHelpItems, $translator->trans('Comment latex syntax'));
         });
 
-        $eventDispatcher->addListener(FeedItemRenderEvent::class, static function (FeedItemRenderEvent $event) {
+        $eventDispatcher->addListener(FeedItemRenderEvent::class, static function (FeedItemRenderEvent $event): void {
             $event->feedItemDto->text = self::convertLatexInHtml($event->feedItemDto->text);
         }, 10);
 
         // Note: Indexing is performed in the QueueConsumer, so it cannot be moved to AdminExtension right now.
-        $eventDispatcher->addListener(TextNodeExtractEvent::class, [self::class, 'textNodeExtractListener']);
+        $eventDispatcher->addListener(TextNodeExtractEvent::class, self::textNodeExtractListener(...));
 
         // Thumbnails in search results page
-        $eventDispatcher->addListener(ThumbnailGenerateEvent::class, static function (ThumbnailGenerateEvent $event) {
+        $eventDispatcher->addListener(ThumbnailGenerateEvent::class, static function (ThumbnailGenerateEvent $event): void {
             $src = $event->src;
             if (str_starts_with($src, self::CUSTOM_UPMATH_PROTOCOL)) {
                 $url = 'https://i.upmath.me/svg/' . self::encodeURIComponent(substr($src, \strlen(self::CUSTOM_UPMATH_PROTOCOL)));
@@ -121,10 +121,10 @@ class Extension implements ExtensionInterface
     public static function convertLatexInHtml(string $text): string
     {
         // NOTE: maybe it would be better to use DOM here
-        return preg_replace_callback('#\\$\\$([^<]*?)\\$\\$#S', static function ($matches) {
+        return preg_replace_callback('#\\$\\$([^<]*?)\\$\\$#S', static function (array $matches): string {
             $formula = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
             return '<img border="0" style="vertical-align: middle;" src="//i.upmath.me/svg/' . s2_htmlencode(self::encodeURIComponent($formula)) . '" alt="' . s2_htmlencode($formula) . '" />';
-        }, $text);
+        }, $text) ?? throw new \RuntimeException('Unable to convert LaTeX formulas in HTML.');
     }
 
     public static function encodeURIComponent(string $str): string
@@ -134,6 +134,7 @@ class Extension implements ExtensionInterface
         return strtr(rawurlencode($str), $revert);
     }
 
+    #[\Override]
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
     }

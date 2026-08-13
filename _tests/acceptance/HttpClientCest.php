@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace acceptance;
 
@@ -28,7 +28,7 @@ class HttpClientCest
         $client = new HttpClient(preferredTransport: $example['transport']);
 
         if (isset($example['exception'])) {
-            $I->expectThrowable(new HttpClientException($example['exception']), function () use ($client, $example) {
+            $I->expectThrowable(new HttpClientException($example['exception']), function () use ($client, $example): void {
                 $client->request($example['method'], $example['file'], [], $example['request_body'] ?? null);
             });
         } else {
@@ -41,6 +41,7 @@ class HttpClientCest
         }
     }
 
+    /** @return list<array<string, mixed>> */
     protected function requestConfigProvider(): array
     {
         $cases     = [];
@@ -60,6 +61,7 @@ class HttpClientCest
                 $cases[] = ['transport' => $transport, ...$example];
             }
         }
+
         return $cases;
     }
 
@@ -146,9 +148,14 @@ class HttpClientCest
                 'http://this-domain-should-not-exist-12345.test',
                 options: [HttpClient::CONNECT_TIMEOUT => 1],
             );
-        } catch (HttpClientException $e) {
+        } catch (HttpClientException $httpClientException) {
+            $e = $httpClientException;
         }
-        $I->assertNotNull($e);
+
+        if (!$e instanceof HttpClientException) {
+            throw new \RuntimeException('The request unexpectedly succeeded.');
+        }
+
         $I->assertEquals(HttpClientException::REASON_HOST_RESOLVE_FAILURE, $e->reason);
     }
 
@@ -167,9 +174,14 @@ class HttpClientCest
                 'http://192.0.2.1',
                 options: [HttpClient::CONNECT_TIMEOUT => 1],
             );
-        } catch (HttpClientException $e) {
+        } catch (HttpClientException $httpClientException) {
+            $e = $httpClientException;
         }
-        $I->assertNotNull($e);
+
+        if (!$e instanceof HttpClientException) {
+            throw new \RuntimeException('The request unexpectedly succeeded.');
+        }
+
         $I->assertEquals(HttpClientException::REASON_TIMEOUT, $e->reason);
         if ($example['transport'] !== HttpClient::TRANSPORT_FILE_GET_CONTENTS) {
             // Cannot control the timeout value in file_get_contents
@@ -192,20 +204,27 @@ class HttpClientCest
                 'http://localhost:8881/_tests/_resources/http_client_mocks/sleep.php?time=2',
                 options: [HttpClient::READ_TIMEOUT => 1, HttpClient::CONNECT_TIMEOUT => 1],
             );
-        } catch (HttpClientException $e) {
+        } catch (HttpClientException $httpClientException) {
+            $e = $httpClientException;
         }
-        $I->assertNotNull($e);
+
+        if (!$e instanceof HttpClientException) {
+            throw new \RuntimeException('The request unexpectedly succeeded.');
+        }
+
         $I->assertEquals(HttpClientException::REASON_TIMEOUT, $e->reason);
         // Curl total timeout is set to connect+read = 2
         $I->assertLessThan(2.5, microtime(true) - $now);
     }
 
+    /** @return list<array{transport: string}> */
     protected function transportProvider(): array
     {
         $cases = [];
         foreach ([HttpClient::TRANSPORT_CURL, HttpClient::TRANSPORT_FSOCKOPEN, HttpClient::TRANSPORT_FILE_GET_CONTENTS] as $transport) {
             $cases[] = ['transport' => $transport];
         }
+
         return $cases;
     }
 }

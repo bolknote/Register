@@ -7,7 +7,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo;
 
@@ -18,6 +18,7 @@ use S2\Cms\Pdo\QueryBuilder\UpsertSqliteCompiler;
 
 class DbLayerSqlite extends DbLayer
 {
+    #[\Override]
     public function getVersion(): array
     {
         $result  = $this->select('sqlite_version()')->execute();
@@ -33,6 +34,7 @@ class DbLayerSqlite extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function tableExists(string $tableName): bool
     {
         $result = $this->query('SELECT 1 FROM sqlite_master WHERE name = :name AND type = :type', [
@@ -48,6 +50,7 @@ class DbLayerSqlite extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function fieldExists(string $tableName, string $fieldName, bool $noPrefix = false): bool
     {
         $preparedTableName = ($noPrefix ? '' : $this->prefix) . $tableName;
@@ -70,6 +73,7 @@ class DbLayerSqlite extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function indexExists(string $tableName, string $indexName, bool $noPrefix = false): bool
     {
         $prefix = $noPrefix ? '' : $this->prefix;
@@ -93,6 +97,7 @@ class DbLayerSqlite extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function createTable(string $tableName, callable $tableDefinition): void
     {
         if ($this->tableExists($tableName)) {
@@ -118,10 +123,7 @@ class DbLayerSqlite extends DbLayer
 
             if (isset($fieldData[SchemaBuilder::COLUMN_PROPERTY_DEFAULT])) {
                 $defaultValue = self::convertDefaultValue($fieldData[SchemaBuilder::COLUMN_PROPERTY_DEFAULT], $fieldData[SchemaBuilder::COLUMN_PROPERTY_TYPE]);
-                if (\is_string($defaultValue)) {
-                    $defaultValue = $this->pdo->quote($defaultValue);
-                }
-                $query .= ' DEFAULT ' . $defaultValue;
+                $query .= ' DEFAULT ' . $this->formatDefaultValue($defaultValue);
             }
 
             $query .= ",\n";
@@ -133,7 +135,7 @@ class DbLayerSqlite extends DbLayer
         }
 
         // Add unique keys
-        foreach ($schemaBuilder->uniqueIndexes as $keyName => $keyFields) {
+        foreach ($schemaBuilder->uniqueIndexes as $keyFields) {
             $query .= 'UNIQUE (' . implode(',', $keyFields) . '),' . "\n";
         }
 
@@ -156,8 +158,8 @@ class DbLayerSqlite extends DbLayer
                 $foreignKey[SchemaBuilder::FK_PROPERTY_COLUMNS],
                 $foreignKey[SchemaBuilder::FK_PROPERTY_FOREIGN_TABLE],
                 $foreignKey[SchemaBuilder::FK_PROPERTY_FOREIGN_COLUMNS],
-                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_DELETE] ?? null,
-                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_UPDATE] ?? null,
+                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_DELETE],
+                $foreignKey[SchemaBuilder::FK_PROPERTY_ON_UPDATE],
             );
         }
     }
@@ -174,7 +176,7 @@ class DbLayerSqlite extends DbLayer
         $sql     = '';
         $indexes = [];
         while ($curIndex = $result->fetchAssoc()) {
-            if (!empty($curIndex['sql'])) {
+            if (isset($curIndex['sql']) && \is_string($curIndex['sql']) && $curIndex['sql'] !== '') {
                 if ('table' === $curIndex['type']) {
                     $sql = $curIndex['sql'];
                 } elseif ('index' === $curIndex['type']) {
@@ -182,6 +184,7 @@ class DbLayerSqlite extends DbLayer
                 }
             }
         }
+
         $result->freeResult();
 
         return new SqliteCreateTableQuery($sql, $indexes);
@@ -190,6 +193,7 @@ class DbLayerSqlite extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function addField(
         string                     $tableName,
         string                     $fieldName,
@@ -220,6 +224,7 @@ class DbLayerSqlite extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function alterField(
         string                     $tableName,
         string                     $fieldName,
@@ -247,6 +252,10 @@ class DbLayerSqlite extends DbLayer
         $this->changeTableStructure($newCreateTable, $createTable);
     }
 
+    /**
+     * @param list<string> $indexFields
+     */
+    #[\Override]
     public function addIndex(string $tableName, string $indexName, array $indexFields, bool $unique = false): void
     {
         if ($this->indexExists($tableName, $indexName)) {
@@ -262,6 +271,7 @@ class DbLayerSqlite extends DbLayer
         $result->freeResult();
     }
 
+    #[\Override]
     public function dropIndex(string $tableName, string $indexName): void
     {
         if (!$this->indexExists($tableName, $indexName)) {
@@ -275,6 +285,7 @@ class DbLayerSqlite extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function foreignKeyExists(string $tableName, string $fkName): bool
     {
         $createTable = $this->getTableInfo($tableName);
@@ -284,7 +295,10 @@ class DbLayerSqlite extends DbLayer
 
     /**
      * @throws DbLayerException
+     * @param string[] $columns
+     * @param string[] $referenceColumns
      */
+    #[\Override]
     public function addForeignKey(string $tableName, string $fkName, array $columns, string $referenceTable, array $referenceColumns, ?string $onDelete = null, ?string $onUpdate = null): void
     {
         if ($this->foreignKeyExists($tableName, $fkName)) {
@@ -306,6 +320,7 @@ class DbLayerSqlite extends DbLayer
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function dropForeignKey(string $tableName, string $fkName): void
     {
         if (!$this->foreignKeyExists($tableName, $fkName)) {
@@ -363,16 +378,19 @@ class DbLayerSqlite extends DbLayer
         $this->query('PRAGMA foreign_keys = ON;');
     }
 
+    #[\Override]
     public function insert(string $table): InsertBuilder
     {
         return (new InsertBuilder(new InsertCommonCompiler($this->prefix), $this))->insert($table);
     }
 
+    #[\Override]
     public function upsert(string $table): UpsertBuilder
     {
         return (new UpsertBuilder(new UpsertSqliteCompiler($this->prefix), $this))->upsert($table);
     }
 
+    #[\Override]
     protected static function convertType(string $type, ?int $length): string
     {
         return match ($type) {

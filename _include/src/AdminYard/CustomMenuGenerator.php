@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\AdminYard;
 
@@ -27,6 +27,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
         parent::__construct($config, $templateRenderer);
     }
 
+    #[\Override]
     public function generateMainMenu(string $baseUrl, ?string $currentEntity = null): string
     {
         $links = $this->config->getPriorities();
@@ -42,6 +43,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
                 unset($links[$name]);
                 continue;
             }
+
             $links[$name] = [
                 'name'    => $entity->getPluralName(),
                 'url'     => $baseUrl . '?entity=' . urlencode($name) . '&action=list',

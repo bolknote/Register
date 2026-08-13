@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * @var \S2\Cms\Controller\Rss\FeedItemDto $item
  */

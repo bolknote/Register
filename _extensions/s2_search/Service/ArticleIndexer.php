@@ -5,21 +5,21 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Service;
 
 use Psr\Cache\CacheItemPoolInterface;
-use Psr\Cache\InvalidArgumentException;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
 use S2\Rose\Entity\Indexable;
+use S2\Rose\Indexer;
+use Psr\Cache\InvalidArgumentException;
+use S2\Cms\Pdo\DbLayerException;
 use S2\Rose\Exception\RuntimeException;
 use S2\Rose\Exception\UnknownException;
-use S2\Rose\Indexer;
 use S2\Rose\Storage\Exception\InvalidEnvironmentException;
 
 readonly class ArticleIndexer implements QueueHandlerInterface
@@ -40,7 +40,9 @@ readonly class ArticleIndexer implements QueueHandlerInterface
      * @throws RuntimeException
      * @throws UnknownException
      * @throws InvalidEnvironmentException
+     * @param array<mixed> $payload
      */
+    #[\Override]
     public function handle(string $id, string $code, array $payload): bool
     {
         if ($code !== 's2_search_Article') {
@@ -48,7 +50,7 @@ readonly class ArticleIndexer implements QueueHandlerInterface
         }
 
         $indexable = $this->getIndexable((int)$id);
-        if ($indexable !== null) {
+        if ($indexable instanceof \S2\Rose\Entity\Indexable) {
             $this->indexer->index($indexable);
             $this->queuePublisher->publish($indexable->getExternalId()->toString(), RecommendationProvider::RECOMMENDATIONS_QUEUE);
         } else {
@@ -83,18 +85,19 @@ readonly class ArticleIndexer implements QueueHandlerInterface
         ;
 
         $article = $result->fetchAssoc();
-        if (!$article) {
+        if ($article === false) {
             return null;
         }
 
         $parentPath = $this->articleProvider->pathFromId($article['parent_id'], true);
-        if ($parentPath === false) {
+        if ($parentPath === null) {
             return null;
         }
 
         $dateTime = null;
         if ($article['create_time'] > 0) {
-            $dateTime = (new \DateTime('@' . $article['create_time']))->setTimezone((new \DateTime())->getTimezone());
+            // Rose currently requires the mutable DateTime implementation.
+            $dateTime = (new \DateTime())->setTimestamp((int)$article['create_time']);
         }
 
         $indexable = new Indexable((string)$article['id'], $article['title'], $article['pagetext'] ?? '');
@@ -102,7 +105,7 @@ readonly class ArticleIndexer implements QueueHandlerInterface
             ->setKeywords($article['meta_keys'])
             ->setDescription($article['meta_desc'])
             ->setDate($dateTime)
-            ->setUrl($parentPath . '/' . urlencode($article['url']) . ($article['url'] && $article['has_children'] ? '/' : ''))
+            ->setUrl($parentPath . '/' . urlencode($article['url']) . ((string)$article['url'] !== '' && (bool)$article['has_children'] ? '/' : ''))
         ;
 
         return $indexable;

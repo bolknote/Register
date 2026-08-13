@@ -5,7 +5,7 @@
  * @package   s2_blog
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog;
 
@@ -27,6 +27,7 @@ readonly class CalendarBuilder
      * @param ?int $day 0 for skipping highlight, null for skipping header
      *
      * @throws \S2\Cms\Pdo\DbLayerException
+     * @param array<int, list<string>>|null $dayUrls
      */
     public function calendar(?int $year = null, ?int $month = null, ?int $day = 0, string $url = '', ?array $dayUrls = null): string
     {
@@ -38,8 +39,8 @@ readonly class CalendarBuilder
             $month = (int)date('m');
         }
 
-        $startTime = mktime(0, 0, 0, $month, 1, $year);
-        $endTime   = mktime(0, 0, 0, $month + 1, 1, $year);
+        $startTime = $this->makeTimestamp($month, 1, $year);
+        $endTime   = $this->makeTimestamp($month + 1, 1, $year);
 
         // Dealing with week days
         $currentColumnIndex = (int)date('w', $startTime);
@@ -51,7 +52,7 @@ readonly class CalendarBuilder
         }
 
         // How many days have the month?
-        $daysInThisMonth = (int)date('j', mktime(0, 0, 0, $month + 1, 0, $year)); // day = 0
+        $daysInThisMonth = (int)date('j', $this->makeTimestamp($month + 1, 0, $year)); // day = 0
 
         // Flags for the days when posts have been written
         if ($dayUrls === null) {
@@ -67,7 +68,7 @@ readonly class CalendarBuilder
                 ->execute()
             ;
             while ($row = $result->fetchRow()) {
-                $dayUrls[1 + (int)(($row[0] - $startTime) / 86400)][] = $row[1];
+                $dayUrls[1 + (int)(((int)$row[0] - $startTime) / 86400)][] = (string)$row[1];
             }
         }
 
@@ -78,6 +79,7 @@ readonly class CalendarBuilder
             if ($startTime < time()) {
                 $monthName = '<a href="' . $this->blogUrlBuilder->monthFromTimestamp($startTime) . '">' . $monthName . '</a>';
             }
+
             $header = '<tr class="nav"><th colspan="7">' . $monthName . '</th></tr>';
         } else {
             if ($day !== 0) {
@@ -87,8 +89,8 @@ readonly class CalendarBuilder
             // Links in the header
             $next_month = $endTime < time() ? '<a class="nav_mon" href="' . $this->blogUrlBuilder->monthFromTimestamp($endTime) . '" title="' . $this->month((int)date('m', $endTime)) . date(', Y', $endTime) . '">&rarr;</a>' : '&rarr;';
 
-            $prevTime  = mktime(0, 0, 0, $month - 1, 1, $year);
-            $prevMonth = $prevTime >= mktime(0, 0, 0, 1, 1, $this->startYear->get()) ? '<a class="nav_mon" href="' . $this->blogUrlBuilder->monthFromTimestamp($prevTime) . '" title="' . $this->month((int)date('m', $prevTime)) . date(', Y', $prevTime) . '">&larr;</a>' : '&larr;';
+            $prevTime  = $this->makeTimestamp($month - 1, 1, $year);
+            $prevMonth = $prevTime >= $this->makeTimestamp(1, 1, $this->startYear->get()) ? '<a class="nav_mon" href="' . $this->blogUrlBuilder->monthFromTimestamp($prevTime) . '" title="' . $this->month((int)date('m', $prevTime)) . date(', Y', $prevTime) . '">&larr;</a>' : '&larr;';
 
             $header = '<tr class="nav"><th>' . $prevMonth . '</th><th align="center" colspan="5">'
                 . $monthName . ', <a href="' . $this->blogUrlBuilder->year($year) . '">' . $year . '</a></th><th>' . $next_month . '</th></tr>';
@@ -98,19 +100,20 @@ readonly class CalendarBuilder
         $output = '<table class="cal">' . $header . '<tr>';
 
         // Empty cells before
-        for ($i = 0; $i < $currentColumnIndex; $i++) {
+        for ($i = 0; $i < $currentColumnIndex; ++$i) {
             $output .= '<td' . ($this->isWeekend($i) ? ' class="sun"' : '') . '></td>';
         }
 
         // Days
-        for ($currentDayInMonth = 1; $currentDayInMonth <= $daysInThisMonth; $currentDayInMonth++) {
-            $currentColumnIndex++;
+        for ($currentDayInMonth = 1; $currentDayInMonth <= $daysInThisMonth; ++$currentDayInMonth) {
+            ++$currentColumnIndex;
             $cellContent = $currentDayInMonth; // Simple text content
             if (isset($dayUrls[$currentDayInMonth])) {
                 if (\count($dayUrls[$currentDayInMonth]) !== 1 && ($currentDayInMonth !== $day || $url !== '')) {
                     // Several posts, link to the day page (if this is not the day selected)
                     $cellContent = '<a href="' . $this->blogUrlBuilder->day($year, $month, $currentDayInMonth) . '">' . $currentDayInMonth . '</a>';
                 }
+
                 if (\count($dayUrls[$currentDayInMonth]) === 1 && ($currentDayInMonth !== $day || $url === '')) {
                     // One post, link to it (if this is not the post selected)
                     $cellContent = '<a href="' . $this->blogUrlBuilder->post($year, $month, $currentDayInMonth, $dayUrls[$currentDayInMonth][0]) . '">' . $currentDayInMonth . '</a>';
@@ -128,23 +131,22 @@ readonly class CalendarBuilder
                 $classes[] = 'sun';
             }
 
-            $output .= '<td' . (!empty($classes) ? ' class="' . implode(' ', $classes) . '"' : '') . '>'
+            $output .= '<td' . ($classes !== [] ? ' class="' . implode(' ', $classes) . '"' : '') . '>'
                 . $cellContent
                 . '</td>';
 
-            if (!($currentColumnIndex % 7) && ($currentDayInMonth !== $daysInThisMonth)) {
+            if ($currentColumnIndex % 7 === 0 && $currentDayInMonth !== $daysInThisMonth) {
                 $output .= '</tr><tr>';
             }
         }
 
         // Empty cells in the end
-        while ($currentColumnIndex % 7) {
-            $currentColumnIndex++;
+        while ($currentColumnIndex % 7 !== 0) {
+            ++$currentColumnIndex;
             $output .= '<td' . ($this->isWeekend($currentColumnIndex) ? ' class="sun"' : '') . '></td>';
         }
 
-        $output .= '</tr></table>';
-        return $output;
+        return $output . '</tr></table>';
     }
 
     public function month(int $month): string
@@ -152,7 +154,8 @@ readonly class CalendarBuilder
         if ($month < 1 || $month > 12) {
             throw new \InvalidArgumentException('Month must be between 1 and 12');
         }
-        $months = array('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December');
+
+        $months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
         return $this->translator->trans($months[$month - 1]);
     }
@@ -162,12 +165,16 @@ readonly class CalendarBuilder
         if ($n % 7 === 0) {
             return true;
         }
-        if ($n % 7 === 6 && $this->translator->trans('Sunday starts week') != '1') {
+
+        if ($n % 7 === 6 && $this->translator->trans('Sunday starts week') !== '1') {
             return true;
         }
-        if ($n % 7 === 1 && $this->translator->trans('Sunday starts week') == '1') {
-            return true;
-        }
-        return false;
+
+        return $n % 7 === 1 && $this->translator->trans('Sunday starts week') === '1';
+    }
+
+    private function makeTimestamp(int $month, int $day, int $year): int
+    {
+        return (new \DateTimeImmutable())->setDate($year, $month, $day)->setTime(0, 0)->getTimestamp();
     }
 }

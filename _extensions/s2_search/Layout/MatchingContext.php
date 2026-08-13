@@ -5,19 +5,21 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Layout;
 
+/** @phpstan-import-type ImageData from ContentItem */
+/** @psalm-import-type ImageData from ContentItem */
 class MatchingContext
 {
-    private bool $hasMatch;
+    /** @var ImageData|null */
     private ?array $image = null;
+
     private string $snippet = '';
 
-    public function __construct(bool $hasMatch)
+    public function __construct(private readonly bool $hasMatch)
     {
-        $this->hasMatch = $hasMatch;
     }
 
     public function hasMatch(): bool
@@ -25,6 +27,7 @@ class MatchingContext
         return $this->hasMatch;
     }
 
+    /** @return ImageData|null */
     public function getImage(): ?array
     {
         return $this->image;
@@ -35,6 +38,7 @@ class MatchingContext
         return $this->snippet;
     }
 
+    /** @param ImageData $image */
     public function addImage(array $image, string $class = ''): self
     {
         $this->image          = $image;

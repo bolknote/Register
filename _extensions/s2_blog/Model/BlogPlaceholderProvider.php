@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Content for blog placeholders.
  *
@@ -9,21 +12,21 @@
 
 namespace s2_extensions\s2_blog\Model;
 
-use Psr\Cache\InvalidArgumentException;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\Viewer;
 use s2_extensions\s2_blog\BlogUrlBuilder;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Psr\Cache\InvalidArgumentException;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class BlogPlaceholderProvider
 {
-    private const CACHE_KEY_NAVIGATION = 's2_blog_navigation';
+    private const string CACHE_KEY_NAVIGATION = 's2_blog_navigation';
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -40,19 +43,25 @@ readonly class BlogPlaceholderProvider
 
     /**
      * @throws InvalidArgumentException
+     * @return array<mixed>
      */
     public function getBlogNavigationData(): array
     {
-        $request_uri = $this->urlPrefix . $this->requestStack->getCurrentRequest()?->getPathInfo();
+        $request_uri = $this->urlPrefix . ($this->requestStack->getCurrentRequest()?->getPathInfo() ?? '');
+        $linkIsCurrent = (static fn(mixed $navigationItem): bool => \is_array($navigationItem)
+            && isset($navigationItem['link'])
+            && \is_string($navigationItem['link'])
+            && $navigationItem['link'] === $request_uri);
 
-        $result = $this->cache->get(self::CACHE_KEY_NAVIGATION, function (ItemInterface $item) {
+        $result = $this->cache->get(self::CACHE_KEY_NAVIGATION, function (ItemInterface $item): array {
             $item->expiresAfter(900);
 
             $blogNavigation = ['title' => $this->translator->trans('Navigation')];
 
             // Last posts on the blog main page
+            $maxItems = $this->maxItems->get();
             $blogNavigation['last'] = [
-                'title' => \sprintf($this->translator->trans('Nav last'), $this->maxItems->get() ?: 10),
+                'title' => \sprintf($this->translator->trans('Nav last'), $maxItems > 0 ? $maxItems : 10),
                 'link'  => $this->blogUrlBuilder->main(),
             ];
 
@@ -65,7 +74,7 @@ readonly class BlogPlaceholderProvider
                 ->execute()
             ;
 
-            if ($result->fetchRow()) {
+            if ($result->fetchRow() !== false) {
                 $blogNavigation['favorite'] = [
                     'title' => $this->translator->trans('Nav favorite'),
                     'link'  => $this->blogUrlBuilder->favorite(),
@@ -104,18 +113,20 @@ readonly class BlogPlaceholderProvider
 
         foreach ($result as &$item) {
             if (\is_array($item)) {
-                if (isset($item['link'])) {
-                    $item['is_current'] = $item['link'] === $request_uri;
-                } else {
+                if (array_is_list($item)) {
                     foreach ($item as &$sub_item) {
-                        if (\is_array($sub_item) && isset($sub_item['link'])) {
-                            $sub_item['is_current'] = $sub_item['link'] === $request_uri;
+                        if (\is_array($sub_item)) {
+                            $sub_item['is_current'] = $linkIsCurrent($sub_item);
                         }
                     }
+
                     unset($sub_item);
+                } else {
+                    $item['is_current'] = $linkIsCurrent($item);
                 }
             }
         }
+
         unset($item);
 
         return $result;
@@ -123,6 +134,7 @@ readonly class BlogPlaceholderProvider
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getRecentComments(): array
     {
@@ -152,7 +164,7 @@ readonly class BlogPlaceholderProvider
         ;
 
         $output      = [];
-        $request_uri = $this->urlPrefix . $this->requestStack->getCurrentRequest()?->getPathInfo();
+        $request_uri = $this->urlPrefix . ($this->requestStack->getCurrentRequest()?->getPathInfo() ?? '');
         while ($row = $result->fetchAssoc()) {
             $cur_url  = $this->blogUrlBuilder->postFromTimestamp($row['create_time'], $row['url']);
             $output[] = [
@@ -168,6 +180,7 @@ readonly class BlogPlaceholderProvider
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getRecentDiscussions(): array
     {
@@ -199,15 +212,15 @@ readonly class BlogPlaceholderProvider
         ;
 
         $output      = [];
-        $request_uri = $this->urlPrefix . $this->requestStack->getCurrentRequest()?->getPathInfo();
+        $request_uri = $this->urlPrefix . ($this->requestStack->getCurrentRequest()?->getPathInfo() ?? '');
         while ($row = $result->fetchAssoc()) {
             $cur_url  = $this->blogUrlBuilder->postFromTimestamp($row['create_time'], $row['url']);
-            $output[] = array(
+            $output[] = [
                 'title'      => $row['title'],
                 'link'       => $cur_url,
                 'hint'       => $row['nick'] . ' (' . $this->viewer->dateAndTime($row['time']) . ')',
                 'is_current' => $request_uri === $cur_url,
-            );
+            ];
         }
 
         return $output;
@@ -215,6 +228,7 @@ readonly class BlogPlaceholderProvider
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getBlogTagsForArticle(int $articleId): array
     {

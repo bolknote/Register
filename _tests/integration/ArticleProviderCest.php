@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace integration;
 
@@ -19,11 +19,13 @@ use S2\Cms\Pdo\DbLayerException;
  */
 class ArticleProviderCest
 {
-    private ?ArticleProvider $articleProvider;
-    private ?DbLayer $dbLayer;
-    private ?DashboardArticleProvider $dashboardArticleProvider;
+    private ArticleProvider $articleProvider;
 
-    public function _before(\IntegrationTester $I)
+    private DbLayer $dbLayer;
+
+    private DashboardArticleProvider $dashboardArticleProvider;
+
+    public function _before(\IntegrationTester $I): void
     {
         $this->articleProvider          = $I->grabService(ArticleProvider::class);
         $this->dbLayer                  = $I->grabService(DbLayer::class);
@@ -48,8 +50,8 @@ class ArticleProviderCest
             ->setValue('published', ':published')->setParameter('published', 1)
             ->setValue('template', ':template')->setParameter('template', 'site.php')
             ->setValue('url', ':url')->setParameter('url', 'level1')
-            ->setValue('excerpt', '\'\'')
-            ->setValue('pagetext', '\'\'')
+            ->setValue('excerpt', "''")
+            ->setValue('pagetext', "''")
         ;
 
         $qb->execute();

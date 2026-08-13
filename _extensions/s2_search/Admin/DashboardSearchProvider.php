@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Admin;
 
@@ -22,11 +22,12 @@ readonly class DashboardSearchProvider implements DashboardStatProviderInterface
     ) {
     }
 
+    #[\Override]
     public function getHtml(): string
     {
         try {
             $stat = $this->pdoStorage->getIndexStat();
-        } catch (\Exception $e) {
+        } catch (\Throwable) {
             $stat = ['rows' => 0, 'bytes' => 0];
         }
 

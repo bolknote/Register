@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Image;
 
@@ -29,6 +29,7 @@ class ThumbnailGenerateEvent implements StoppableEventInterface
         if ($this->result !== null) {
             throw new \LogicException('Result has already been set');
         }
+
         $this->result = $result;
     }
 
@@ -37,6 +38,7 @@ class ThumbnailGenerateEvent implements StoppableEventInterface
         return $this->result;
     }
 
+    #[\Override]
     public function isPropagationStopped(): bool
     {
         return $this->result !== null;

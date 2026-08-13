@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Install;
 
@@ -18,17 +18,18 @@ use Symfony\Component\Routing\RouteCollection;
 
 class InstallExtension implements ExtensionInterface
 {
+    #[\Override]
     public function buildContainer(Container $container): void
     {
-        $container->decorate(DynamicConfigProvider::class, static function (Container $container) {
-            return new InstallationConfigProvider();
-        });
+        $container->decorate(DynamicConfigProvider::class, static fn(Container $_container): \S2\Cms\Config\InstallationConfigProvider => new InstallationConfigProvider());
     }
 
+    #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
     }
 
+    #[\Override]
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
     }

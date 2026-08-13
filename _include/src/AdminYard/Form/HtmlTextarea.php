@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\AdminYard\Form;
 
@@ -13,6 +13,7 @@ use S2\AdminYard\Form\Textarea;
 
 class HtmlTextarea extends Textarea
 {
+    #[\Override]
     public function getHtml(?string $id = null): string
     {
         $escapedFileName = htmlspecialchars($this->fieldName, ENT_QUOTES, 'UTF-8');

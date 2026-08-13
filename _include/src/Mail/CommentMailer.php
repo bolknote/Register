@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Mail;
 
@@ -106,6 +106,9 @@ readonly class CommentMailer
         return $this->sendMail($moderatorEmail, $subject, $message, $headers);
     }
 
+    /**
+     * @param array<string, string> $headers
+     */
     private function sendMail(string $email, string $subject, string $message, array $headers): bool
     {
         $headersFormatted = $this->formatHeaders($headers);
@@ -124,21 +127,26 @@ readonly class CommentMailer
         return mail($email, $subject, $message, $headersFormatted);
     }
 
+    /**
+     * @param array<string, string> $headers
+     */
     private function formatHeaders(array $headers): string
     {
         $formatted = '';
         foreach ($headers as $key => $value) {
             $formatted .= $key . ': ' . $value . "\r\n";
         }
+
         return $formatted;
     }
 
     private function getWebmasterNameAndEmail(): string
     {
-        $email = $this->webmasterEmail->get() ?: 'example@example.com';
+        $configuredEmail = $this->webmasterEmail->get();
+        $email = $configuredEmail !== '' ? $configuredEmail : 'example@example.com';
         $name  = $this->webmasterName->get();
 
-        if ($name) {
+        if ($name !== '') {
             return "=?UTF-8?B?" . base64_encode($name) . "?=" . ' <' . $email . '>';
         }
 

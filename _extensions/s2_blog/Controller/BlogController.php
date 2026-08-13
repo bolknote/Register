@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * General blog page.
  *
@@ -15,7 +18,6 @@ use S2\Cms\Framework\ControllerInterface;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\HtmlTemplate;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\Viewer;
@@ -25,6 +27,7 @@ use s2_extensions\s2_blog\Model\PostProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 abstract class BlogController implements ControllerInterface
 {
@@ -51,6 +54,7 @@ abstract class BlogController implements ControllerInterface
     /**
      * @throws DbLayerException
      */
+    #[\Override]
     public function handle(Request $request): Response
     {
         $template = $this->templateProvider->getTemplate($this->template_id, 's2_blog');
@@ -67,7 +71,7 @@ abstract class BlogController implements ControllerInterface
         ;
 
         $result = $this->body($request, $template);
-        if ($result !== null) {
+        if ($result instanceof \Symfony\Component\HttpFoundation\Response) {
             return $result;
         }
 
@@ -107,22 +111,27 @@ abstract class BlogController implements ControllerInterface
         $queryModifier($qb);
 
         $result = $qb->execute();
-
-        $posts = $merge_labels = $labels = $ids = $sort_array = [];
+        $posts = [];
+        $merge_labels = [];
+        $labels = [];
+        $ids = [];
+        $sort_array = [];
         while ($row = $result->fetchAssoc()) {
             $posts[$row['id']]  = $row;
             $ids[]              = $row['id'];
             $sort_array[]       = $row[$sortField];
             $labels[$row['id']] = $row['label'];
-            if ($row['label']) {
+            if ((string)$row['label'] !== '') {
                 $merge_labels[$row['label']] = 1;
             }
         }
+
         if (\count($posts) === 0) {
             return '';
         }
 
-        $see_also = $tags = [];
+        $see_also = [];
+        $tags = [];
         $this->postProvider->postsLinks($ids, $merge_labels, $see_also, $tags);
 
         array_multisort($sort_array, $sortAsc ? SORT_ASC : SORT_DESC, $ids);
@@ -139,13 +148,15 @@ abstract class BlogController implements ControllerInterface
             $post['tags']       = $tags[$id] ?? [];
 
             $post['see_also'] = [];
-            if (!empty($labels[$id]) && isset($see_also[$labels[$id]])) {
+            if (isset($labels[$id]) && (string)$labels[$id] !== '' && isset($see_also[$labels[$id]])) {
                 $label_copy = $see_also[$labels[$id]];
                 if (isset($label_copy[$id])) {
                     unset($label_copy[$id]);
                 }
+
                 $post['see_also'] = $label_copy;
             }
+
             $post['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
             $post['showComments']     = $showComments;
             $post['enabledComments']  = $enabledComments;

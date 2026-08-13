@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Single blog post.
  *
@@ -9,13 +12,11 @@
 
 namespace s2_extensions\s2_blog\Controller;
 
-use Psr\Cache\InvalidArgumentException;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\HtmlTemplate;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\Viewer;
@@ -27,6 +28,8 @@ use s2_extensions\s2_search\Service\RecommendationProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Psr\Cache\InvalidArgumentException;
+use S2\Cms\Pdo\DbLayerException;
 
 class PostPageController extends BlogController
 {
@@ -65,11 +68,14 @@ class PostPageController extends BlogController
      * @throws DbLayerException
      * @throws InvalidArgumentException
      */
+    #[\Override]
     public function body(Request $request, HtmlTemplate $template): ?Response
     {
         $year  = (int)($textYear = $request->attributes->get('year'));
-        $month = (int)($textMonth = $request->attributes->get('month')); // Note: "01" is not parsed with getInt() correctly
-        $day   = (int)($textDay = $request->attributes->get('day'));
+        $textMonth = $request->attributes->get('month');
+        $textDay   = $request->attributes->get('day');
+        $month     = (int)$textMonth; // Note: "01" is not parsed with getInt() correctly
+        $day       = (int)$textDay;
         $url   = $request->attributes->get('url');
 
         if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
@@ -78,7 +84,8 @@ class PostPageController extends BlogController
 
         $template->putInPlaceholder('title', '');
 
-        if (($result = $this->get_post($request, $template, $year, $month, $day, $url)) !== null) {
+        $result = $this->get_post($request, $template, $year, $month, $day, $url);
+        if ($result instanceof \Symfony\Component\HttpFoundation\Response) {
             return $result;
         }
 
@@ -86,6 +93,7 @@ class PostPageController extends BlogController
         if (!$this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
             $template->addBreadCrumb($this->translator->trans('Blog'), $this->blogUrlBuilder->main());
         }
+
         $template
             ->addBreadCrumb($textYear, $this->blogUrlBuilder->year($year))
             ->addBreadCrumb($textMonth, $this->blogUrlBuilder->month($year, $month))
@@ -101,7 +109,7 @@ class PostPageController extends BlogController
      */
     private function get_post(Request $request, HtmlTemplate $template, int $year, int $month, int $day, string $url): ?Response
     {
-        $startTime = mktime(0, 0, 0, $month, $day, $year);
+        $startTime = (new \DateTimeImmutable())->setDate($year, $month, $day)->setTime(0, 0)->getTimestamp();
         $endTime   = $startTime + 86400;
 
         $template->setLink('up', $this->blogUrlBuilder->day($year, $month, $day));
@@ -124,7 +132,8 @@ class PostPageController extends BlogController
             ->execute()
         ;
 
-        if (!$row = $result->fetchAssoc()) {
+        $row = $result->fetchAssoc();
+        if ($row === false) {
             $template
                 ->putInPlaceholder('head_title', $this->translator->trans('Not found'))
                 ->putInPlaceholder('text', '<p>' . $this->translator->trans('Not found') . '</p>')
@@ -134,14 +143,14 @@ class PostPageController extends BlogController
         }
 
         $post_id = $row['id'];
-        $label   = $row['label'];
+        $label   = (string)$row['label'];
 
         $template->putInPlaceholder('canonical_path', $this->blogUrlBuilder->postFromTimestamp((int)$row['create_time'], $row['url']));
 
         $is_back_forward = $template->hasPlaceholder('<!-- s2_blog_back_forward -->');
-
-        $queries = $params = [];
-        if ($label) {
+        $queries = [];
+        $params = [];
+        if ($label !== '') {
             // Getting posts that have the same label
             $queries[]         = $this->dbLayer->select('title, create_time, url, "label" AS type')
                 ->from('s2_blog_posts')
@@ -180,10 +189,10 @@ class PostPageController extends BlogController
             $params['time_prev'] = (int)$row['create_time'];
         }
 
-        $result = !empty($queries) ? $this->dbLayer->query('(' . implode(') UNION (', $queries) . ')', $params) : null;
+        $result = $queries !== [] ? $this->dbLayer->query('(' . implode(') UNION (', $queries) . ')', $params) : null;
 
         $back_forward = [];
-        while ($result !== null && $row1 = $result->fetchAssoc()) {
+        while ($result instanceof \S2\Cms\Pdo\QueryResult && ($row1 = $result->fetchAssoc()) !== false) {
             $post_info = [
                 'title' => $row1['title'],
                 'link'  => $this->blogUrlBuilder->postFromTimestamp((int)$row1['create_time'], $row1['url']),
@@ -200,7 +209,7 @@ class PostPageController extends BlogController
             }
         }
 
-        if (!empty($back_forward)) {
+        if ($back_forward !== []) {
             $template->registerPlaceholder('<!-- s2_blog_back_forward -->', $this->viewer->render('back_forward_post', $back_forward, 's2_blog'));
         }
 
@@ -224,7 +233,7 @@ class PostPageController extends BlogController
         }
 
         $template->putInPlaceholder('commented', $row['commented']);
-        if ($row['commented'] && $this->showComments && $template->hasPlaceholder('<!-- s2_comments -->')) {
+        if ((bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- s2_comments -->')) {
             $template->putInPlaceholder('comments', $this->getComments($post_id));
         }
 
@@ -232,17 +241,17 @@ class PostPageController extends BlogController
         $row['commented']        = 0; // for template
         $row['tags']             = $tags;
         $row['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
-        $row['showComments']     = $this->showComments;
-        $row['enabledComments']  = $this->enabledComments;
+        $row['showComments']     = $this->showComments->get();
+        $row['enabledComments']  = $this->enabledComments->get();
 
         $template
-            ->putInPlaceholder('meta_description', self::extractMetaDescriptions($row['text']))
+            ->putInPlaceholder('meta_description', $this->extractMetaDescriptions($row['text']))
             ->putInPlaceholder('text', $this->viewer->render('post', $row, 's2_blog'))
             ->putInPlaceholder('id', md5('s2_blog_post_' . $post_id))
             ->putInPlaceholder('head_title', s2_htmlencode($row['title']))
         ;
 
-        if ($this->recommendationProvider !== null && $template->hasPlaceholder('<!-- s2_recommendations -->')) {
+        if ($this->recommendationProvider instanceof \s2_extensions\s2_search\Service\RecommendationProvider && $template->hasPlaceholder('<!-- s2_recommendations -->')) {
             $request_uri = $request->getPathInfo();
             [$recommendations, $log, $rawRecommendations] = $this->recommendationProvider->getRecommendations($request_uri, new ExternalId('s2_blog_' . $post_id));
             $template->putInPlaceholder('recommendations', $this->viewer->render('recommendations', [
@@ -272,15 +281,15 @@ class PostPageController extends BlogController
             ->execute()
         ;
 
-        for ($i = 1; $row = $statement->fetchAssoc(); $i++) {
+        for ($i = 1; $row = $statement->fetchAssoc(); ++$i) {
             $row['i'] = $i;
             $comments .= $this->viewer->render('comment', $row);
         }
 
-        return $comments ? $this->viewer->render('comments', ['comments' => $comments]) : '';
+        return $comments !== '' ? $this->viewer->render('comments', ['comments' => $comments]) : '';
     }
 
-    private static function extractMetaDescriptions(string $text): string
+    private function extractMetaDescriptions(string $text): string
     {
         $replace_what = ["\r", '&nbsp;', '&mdash;', '&ndash;', '&laquo;', '&raquo;'];
         $replace_to   = ['', ' ', '—', '–', '«', '»',];
@@ -288,9 +297,16 @@ class PostPageController extends BlogController
             $replace_what[] = $tag;
             $replace_to[]   = $tag . "\r";
         }
+
         $text = str_replace($replace_what, $replace_to, $text);
         $text = strip_tags($text);
-        $text = preg_replace('#(?<=[.?!;])[ \n\t]+#S', "\r", $text);
+
+        $normalizedText = preg_replace('#(?<=[.?!;])[ \n\t]+#S', "\r", $text);
+        if ($normalizedText === null) {
+            throw new \RuntimeException('Unable to normalize the blog post description.');
+        }
+
+        $text = $normalizedText;
         $text = trim($text);
 
         $start = 0;
@@ -299,11 +315,10 @@ class PostPageController extends BlogController
                 $text = mb_substr($text, 0, $start);
                 break;
             }
+
             $start = $pos + 1;
         }
 
-        $text = str_replace("\r", ' ', $text);
-
-        return $text;
+        return str_replace("\r", ' ', $text);
     }
 }

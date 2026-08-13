@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 // Language definitions used in install.php
 $lang_install = array(
 

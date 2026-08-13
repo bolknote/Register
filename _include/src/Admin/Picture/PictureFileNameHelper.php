@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Picture;
 
@@ -23,7 +23,7 @@ readonly class PictureFileNameHelper
 
     public function normalizeFileName(string $filename): string
     {
-        $filename = mb_strtolower(self::baseName($filename));
+        $filename = mb_strtolower($this->baseName($filename));
         $filename = str_replace("\0", '', $filename);
         while (str_contains($filename, '..')) {
             $filename = str_replace('..', '', $filename);
@@ -35,7 +35,8 @@ readonly class PictureFileNameHelper
     public function assertAllowedExtension(string $filename): void
     {
         $extension = '';
-        if (($dotPos = strrpos($filename, '.')) !== false) {
+        $dotPos = strrpos($filename, '.');
+        if ($dotPos !== false) {
             $extension = substr($filename, $dotPos + 1);
         }
 
@@ -46,14 +47,14 @@ readonly class PictureFileNameHelper
             && !str_contains(' ' . $this->allowedExtensions . ' ', ' ' . $extension . ' ')
         ) {
             $errorMessage = $this->translator->trans('Forbidden extension', ['{{ ext }}' => $extension]);
-            $error        = $filename ? \sprintf($this->translator->trans('Upload file error'), $filename, $errorMessage) : $errorMessage;
+            $error        = $filename !== '' ? \sprintf($this->translator->trans('Upload file error'), $filename, $errorMessage) : $errorMessage;
             throw new \RuntimeException($error);
         }
     }
 
     public function incrementCopySuffix(string $filename): string
     {
-        return preg_replace_callback('#(?:|_copy|_copy\((\d+)\))(?=(?:\.[^\.]*)?$)#', static function ($match) {
+        return preg_replace_callback('#(?:|_copy|_copy\((\d+)\))(?=(?:\.[^\.]*)?$)#', static function (array $match): string {
             if ($match[0] === '') {
                 return '_copy';
             }
@@ -62,11 +63,11 @@ readonly class PictureFileNameHelper
                 return '_copy(2)';
             }
 
-            return '_copy(' . ($match[1] + 1) . ')';
-        }, $filename, 1);
+            return '_copy(' . ((int)($match[1] ?? 1) + 1) . ')';
+        }, $filename, 1) ?? throw new \RuntimeException('Unable to increment the file copy suffix.');
     }
 
-    private static function baseName(string $dir): string
+    private function baseName(string $dir): string
     {
         return false !== ($pos = strrpos($dir, '/')) ? substr($dir, $pos + 1) : $dir;
     }

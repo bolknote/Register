@@ -5,7 +5,7 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Layout;
 
@@ -23,13 +23,13 @@ readonly class LayoutMatcherFactory
     public function createLayoutMatcher(): LayoutMatcher
     {
         $layoutMatcher = new LayoutMatcher($this->logger, $this->recommendationsLimit->get());
-        self::fillFourColumns($layoutMatcher);
+        $this->fillFourColumns($layoutMatcher);
 
         return $layoutMatcher;
     }
 
     /** @noinspection PhpUnnecessarySpreadOperatorForFunctionCallArgumentInspection */
-    private static function fillFourColumns(LayoutMatcher $r): void
+    private function fillFourColumns(LayoutMatcher $r): void
     {
         // Blocks for more important (relevant) content go first
         $minImgWidth2 = 560;

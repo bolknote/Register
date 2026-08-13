@@ -5,7 +5,7 @@
  * @package   s2_blog
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Admin;
 
@@ -24,6 +24,7 @@ readonly class PathToAdminEntityConverter
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>|null
      */
     public function getQueryParams(string $path): ?array
     {
@@ -38,9 +39,9 @@ readonly class PathToAdminEntityConverter
             return ['entity' => 'BlogPost', 'action' => FieldConfig::ACTION_LIST];
         }
 
-        $start_time = mktime(0, 0, 0, (int)$pathArray[2], (int)$pathArray[3], (int)$pathArray[1]);
-        $end_time   = mktime(0, 0, 0, (int)$pathArray[2], (int)$pathArray[3] + 1, (int)$pathArray[1]);
-
+        $date       = new \DateTimeImmutable();
+        $start_time = $date->setDate((int)$pathArray[1], (int)$pathArray[2], (int)$pathArray[3])->setTime(0, 0)->getTimestamp();
+        $end_time   = $date->setDate((int)$pathArray[1], (int)$pathArray[2], (int)$pathArray[3] + 1)->setTime(0, 0)->getTimestamp();
         $result = $this->dbLayer
             ->select('id')
             ->from('s2_blog_posts')
@@ -50,7 +51,8 @@ readonly class PathToAdminEntityConverter
             ->execute()
         ;
 
-        if ($row = $result->fetchAssoc()) {
+        $row = $result->fetchAssoc();
+        if ($row !== false) {
             return ['entity' => 'BlogPost', 'action' => FieldConfig::ACTION_EDIT, 'id' => $row['id']];
         }
 

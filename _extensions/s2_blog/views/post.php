@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 /** @var callable $trans */
 /** @var $author string */
 /** @var $title string */
@@ -23,7 +25,7 @@
 <?php } else {?>
 	<?php echo s2_htmlencode($title); ?>
 <?php } ?>
-<?php if (!empty($favorite) && $favorite != 2) {?>
+<?php if (!empty($favorite) && $favorite !== 2) {?>
     <a href="<?php echo $favoritePostsUrl; ?>" class="favorite-star" title="<?php echo $trans('Favorite posts'); ?>">★</a>
 <?php } elseif (!empty($favorite)) {?>
     <span class="favorite-star" title="<?php echo $trans('Favorite posts'); ?>">★</span>
@@ -33,11 +35,11 @@
 <?php
 	echo $text;
 	if (!empty($see_also))
-		include 'see_also.php';
+		include __DIR__ . '/see_also.php';
 ?>
 <div class="post foot">
 <?php
-	$footer = array();
+	$footer = [];
 
 	if (!empty($tags))
 	{

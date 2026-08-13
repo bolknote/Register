@@ -1,4 +1,8 @@
-<?php if (!isset($this)) die; ?>
+<?php
+
+declare(strict_types = 1);
+
+if (!isset($this)) die; ?>
 <!DOCTYPE html>
 <html>
 <head>

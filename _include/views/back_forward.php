@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * Content of <!-- s2_back_forward --> placeholder
  *

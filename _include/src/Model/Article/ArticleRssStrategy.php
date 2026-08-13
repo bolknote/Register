@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Model\Article;
 
@@ -15,8 +15,8 @@ use S2\Cms\Controller\Rss\FeedItemDto;
 use S2\Cms\Controller\Rss\RssStrategyInterface;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayerException;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class ArticleRssStrategy implements RssStrategyInterface
 {
@@ -31,6 +31,7 @@ readonly class ArticleRssStrategy implements RssStrategyInterface
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function getFeedInfo(): FeedDto
     {
         $siteName = $this->siteName->get();
@@ -44,7 +45,9 @@ readonly class ArticleRssStrategy implements RssStrategyInterface
     /**
      * {@inheritdoc}
      * @throws DbLayerException
+     * @return \S2\Cms\Controller\Rss\FeedItemDto[]
      */
+    #[\Override]
     public function getFeedItems(): array
     {
         $result = [];
@@ -58,6 +61,7 @@ readonly class ArticleRssStrategy implements RssStrategyInterface
                 $article['modify_time'],
             );
         }
+
         return $result;
     }
 }

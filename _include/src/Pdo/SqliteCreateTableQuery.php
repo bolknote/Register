@@ -5,18 +5,32 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo;
 
-class SqliteCreateTableQuery
+class SqliteCreateTableQuery implements \Stringable
 {
+    /** @var array<string, string> */
     private array $columns = [];
+
+    /**
+     * @var string[]
+     */
     private array $unique = [];
+
+    /**
+     * @var string[]
+     */
     private array $foreignKeys = [];
+
     private ?string $primaryKey = null;
+
     private ?string $tableName = null;
 
+    /**
+     * @param list<string> $indexes
+     */
     public function __construct(
         private readonly string $sql,
         private array           $indexes
@@ -24,6 +38,9 @@ class SqliteCreateTableQuery
         $this->parseSql();
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getIndexes(): array
     {
         return $this->indexes;
@@ -34,27 +51,39 @@ class SqliteCreateTableQuery
         return $this->primaryKey;
     }
 
+    /**
+     * @return string[]
+     */
     public function getForeignKeys(): array
     {
         return $this->foreignKeys;
     }
 
+    /**
+     * @return string[]
+     */
     public function getUnique(): array
     {
         return $this->unique;
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getColumns(): array
     {
         return $this->columns;
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getColumnNames(): array
     {
         return array_keys($this->columns);
     }
 
-    public function withNewField(string $fieldName, string $fieldType, bool $allowNull, $defaultValue = null, ?string $afterField = null): self
+    public function withNewField(string $fieldName, string $fieldType, bool $allowNull, string|int|float|bool|null $defaultValue = null, ?string $afterField = null): self
     {
         $instance = clone $this;
         $instance->addField($fieldName, $fieldType, $allowNull, $defaultValue, $afterField);
@@ -70,6 +99,10 @@ class SqliteCreateTableQuery
         return $instance;
     }
 
+    /**
+     * @param array<mixed> $columns
+     * @param array<mixed> $referenceColumns
+     */
     public function withNewForeignKey(string $fkName, array $columns, string $referenceTable, array $referenceColumns, ?string $onDelete, ?string $onUpdate): self
     {
         $instance = clone $this;
@@ -88,7 +121,7 @@ class SqliteCreateTableQuery
 
     public function getTableName(): string
     {
-        return $this->tableName;
+        return $this->tableName ?? throw new \LogicException('CREATE TABLE statement has no table name.');
     }
 
     public function withTableName(string $tableName): self
@@ -99,15 +132,16 @@ class SqliteCreateTableQuery
         return $instance;
     }
 
+    #[\Override]
     public function __toString(): string
     {
-        $newTable = 'CREATE TABLE ' . $this->tableName . ' (';
+        $newTable = 'CREATE TABLE ' . $this->getTableName() . ' (';
 
         foreach ($this->columns as $columnName => $columnDetails) {
             $newTable .= "\n{$columnName} {$columnDetails},";
         }
 
-        if ($this->primaryKey) {
+        if ($this->primaryKey !== null && $this->primaryKey !== '') {
             $newTable .= "\n{$this->primaryKey},";
         }
 
@@ -126,7 +160,7 @@ class SqliteCreateTableQuery
     {
         $fieldDefinition = $this->getFieldDefinition($fieldType, $allowNull, $defaultValue);
 
-        $this->columns = self::arrayInsert($this->columns, [$fieldName => $fieldDefinition], $afterField);
+        $this->columns = $this->arrayInsert($this->columns, [$fieldName => $fieldDefinition], $afterField);
     }
 
     private function alterField(string $fieldName, string $fieldType, bool $allowNull, string|int|float|bool|null $defaultValue = null, ?string $afterField = null): void
@@ -136,10 +170,14 @@ class SqliteCreateTableQuery
             $this->columns[$fieldName] = $fieldDefinition;
         } else {
             unset($this->columns[$fieldName]);
-            $this->columns = self::arrayInsert($this->columns, [$fieldName => $fieldDefinition], $afterField);
+            $this->columns = $this->arrayInsert($this->columns, [$fieldName => $fieldDefinition], $afterField);
         }
     }
 
+    /**
+     * @param array<mixed> $columns
+     * @param array<mixed> $referenceColumns
+     */
     private function addForeignKey(string $fkName, array $columns, string $referenceTable, array $referenceColumns, ?string $onDelete, ?string $onUpdate): void
     {
         $foreignKeySQL = 'CONSTRAINT ' . $fkName . ' FOREIGN KEY (' . implode(',', $columns) . ')' .
@@ -156,7 +194,12 @@ class SqliteCreateTableQuery
         $this->foreignKeys[] = $foreignKeySQL;
     }
 
-    private static function arrayInsert(array $input, array $replacement, ?string $afterKey): array
+    /**
+     * @param array<mixed> $input
+     * @param array<mixed> $replacement
+     * @return array<mixed>
+     */
+    private function arrayInsert(array $input, array $replacement, ?string $afterKey): array
     {
         // Determine the proper offset if we're using a string
         if (\is_string($afterKey)) {
@@ -182,9 +225,10 @@ class SqliteCreateTableQuery
             if (\is_bool($defaultValue)) {
                 $defaultValue = $defaultValue ? '1' : '0';
             } elseif (\is_string($defaultValue)) {
-                $defaultValue = '\'' . addslashes($defaultValue) . '\'';
+                $defaultValue = "'" . addslashes($defaultValue) . "'";
             }
-            $fieldDefinition .= ' DEFAULT ' . $defaultValue;
+
+            $fieldDefinition .= ' DEFAULT ' . (string)$defaultValue;
         }
 
         return $fieldDefinition;
@@ -193,6 +237,9 @@ class SqliteCreateTableQuery
     private function parseSql(): void
     {
         $lines = preg_split("#[\n\r]#", $this->sql);
+        if ($lines === false) {
+            throw new \RuntimeException('Unable to split a CREATE TABLE statement.');
+        }
 
         foreach ($lines as $line) {
             $line = trim($line);
@@ -205,6 +252,7 @@ class SqliteCreateTableQuery
                 } else {
                     throw new \RuntimeException('Parse error: ' . $line);
                 }
+
                 continue;
             }
 
@@ -219,13 +267,17 @@ class SqliteCreateTableQuery
                 } else {
                     throw new \RuntimeException('Parse error: ' . $line);
                 }
+
                 $this->foreignKeys[$constraintName] = $line;
             } elseif (str_starts_with($line, 'CREATE INDEX') || str_starts_with($line, 'CREATE UNIQUE INDEX')) {
                 $this->indexes[] = $line;
             } else {
-                $columnName = substr($line, 0, (int)strpos($line, ' '));
-                if ($columnName) {
-                    $this->columns[$columnName] = trim(substr($line, strpos($line, ' ')));
+                $spaceOffset = strpos($line, ' ');
+                if ($spaceOffset !== false) {
+                    $columnName = substr($line, 0, $spaceOffset);
+                    if ($columnName !== '') {
+                        $this->columns[$columnName] = trim(substr($line, $spaceOffset));
+                    }
                 }
             }
         }

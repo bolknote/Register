@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Image;
 
@@ -15,7 +15,7 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 class ThumbnailGenerator implements QueueHandlerInterface
 {
-    private const CACHE_SUBDIRECTORY = '/cache/';
+    private const string CACHE_SUBDIRECTORY = '/cache/';
 
     public function __construct(
         private readonly EventDispatcherInterface $eventDispatcher,
@@ -39,7 +39,8 @@ class ThumbnailGenerator implements QueueHandlerInterface
     {
         $event = new ThumbnailGenerateEvent($src, $originalWidth, $originalHeight, $maxWidth, $maxHeight);
         $this->eventDispatcher->dispatch($event);
-        if (($result = $event->getResult()) !== null) {
+        $result = $event->getResult();
+        if ($result !== null) {
             return $result;
         }
 
@@ -48,18 +49,31 @@ class ThumbnailGenerator implements QueueHandlerInterface
             $src = $this->getThumbnailSrc($src, 2 * $newWidth, 2 * $newHeight); // 2 for retina
 
             return sprintf('<img src="%s" width="%s" height="%s" alt="">', $src, $newWidth, $newHeight);
-        } catch (\InvalidArgumentException $e) {
+        } catch (\InvalidArgumentException) {
             return sprintf('<img src="%s" alt="">', $src);
         }
     }
 
     /**
      * {@inheritdoc}
+     * @param array<mixed> $payload
      */
+    #[\Override]
     public function handle(string $id, string $code, array $payload): bool
     {
         if ($code !== 'thumbnail') {
             return false;
+        }
+
+        if (
+            \count($payload) !== 3
+            || !\is_string($payload[0] ?? null)
+            || !\is_int($payload[1] ?? null)
+            || !\is_int($payload[2] ?? null)
+            || $payload[1] < 1
+            || $payload[2] < 1
+        ) {
+            throw new \InvalidArgumentException('Invalid thumbnail queue payload.');
         }
 
         [$src, $width, $height] = $payload;
@@ -67,20 +81,17 @@ class ThumbnailGenerator implements QueueHandlerInterface
         // Check if $src file is in the pictures dir
         $canBeHandled = str_starts_with($src, $this->cacheUrlPrefix . '/');
         if ($canBeHandled) {
-            $filename = $this->cacheFilesystemPrefix . self::getCachedFilename($id);
+            $filename = $this->cacheFilesystemPrefix . $this->getCachedFilename($id);
             $dirname  = \dirname($filename);
             if (!is_dir($dirname)) {
                 if (!mkdir($dirname, 0777, true) && !is_dir($dirname)) {
                     throw new \RuntimeException(sprintf('Directory "%s" was not created', $dirname));
                 }
+
                 chmod($dirname, 0777);
             }
-            self::makeThumbnail(
-                $this->cacheFilesystemPrefix . substr($src, \strlen($this->cacheUrlPrefix)),
-                $filename,
-                $width,
-                $height
-            );
+
+            $this->makeThumbnail($this->cacheFilesystemPrefix . substr($src, \strlen($this->cacheUrlPrefix)), $filename, $width, $height);
         }
 
         return $canBeHandled;
@@ -89,78 +100,67 @@ class ThumbnailGenerator implements QueueHandlerInterface
     public static function createImageFromFile(string $inputFilename): \GdImage
     {
         $imageInfo = getimagesize($inputFilename);
-
-        switch ($imageInfo['mime']) {
-            case 'image/gif':
-                if (imagetypes() & IMG_GIF) {
-                    return imagecreatefromgif($inputFilename);
-                }
-                throw new \RuntimeException('GIF images are not supported');
-
-            case 'image/jpeg':
-                if (imagetypes() & IMG_JPG) {
-                    return imagecreatefromjpeg($inputFilename);
-                }
-                throw new \RuntimeException('JPEG images are not supported');
-
-            case 'image/png':
-                if (imagetypes() & IMG_PNG) {
-                    return imagecreatefrompng($inputFilename);
-                }
-                throw new \RuntimeException('PNG images are not supported');
-
-            case 'image/wbmp':
-                if (imagetypes() & IMG_WBMP) {
-                    return imagecreatefromwbmp($inputFilename);
-                }
-                throw new \RuntimeException('WBMP images are not supported');
-
-            case 'image/webp':
-                if (imagetypes() & IMG_WEBP) {
-                    return imagecreatefromwebp($inputFilename);
-                }
-                throw new \RuntimeException('WebP images are not supported');
-
-            case 'image/avif':
-                if (imagetypes() & IMG_AVIF) {
-                    return imagecreatefromavif($inputFilename);
-                }
-                throw new \RuntimeException('AVIF images are not supported');
-
-            case 'image/bmp':
-                if (imagetypes() & IMG_BMP) {
-                    return imagecreatefrombmp($inputFilename);
-                }
-                throw new \RuntimeException('BMP images are not supported');
+        if ($imageInfo === false) {
+            throw new \RuntimeException('Unable to read image metadata.');
         }
 
-        throw new \RuntimeException($imageInfo['mime'] . ' images are not supported');
+        [$typeFlag, $typeLabel, $loader] = match ($imageInfo['mime']) {
+            'image/gif' => [IMG_GIF, 'GIF', imagecreatefromgif(...)],
+            'image/jpeg' => [IMG_JPG, 'JPEG', imagecreatefromjpeg(...)],
+            'image/png' => [IMG_PNG, 'PNG', imagecreatefrompng(...)],
+            'image/wbmp' => [IMG_WBMP, 'WBMP', imagecreatefromwbmp(...)],
+            'image/webp' => [IMG_WEBP, 'WebP', imagecreatefromwebp(...)],
+            'image/avif' => [IMG_AVIF, 'AVIF', imagecreatefromavif(...)],
+            'image/bmp' => [IMG_BMP, 'BMP', imagecreatefrombmp(...)],
+            default => throw new \RuntimeException($imageInfo['mime'] . ' images are not supported'),
+        };
+
+        if ((imagetypes() & $typeFlag) === 0) {
+            throw new \RuntimeException($typeLabel . ' images are not supported');
+        }
+
+        $image = $loader($inputFilename);
+        if (!$image instanceof \GdImage) {
+            throw new \RuntimeException('Unable to decode the ' . $typeLabel . ' image.');
+        }
+
+        return $image;
     }
 
+    /**
+     * @return array<int, int>
+     */
     public static function reduceSize(string $width, string $height, int $maxWidth, int $maxHeight, float $zoom = 1.0): array
     {
         if (!is_numeric($height) || !is_numeric($width)) {
             throw new \InvalidArgumentException();
         }
 
-        if ($maxWidth * $height > $maxHeight * $width) {
-            $ratio = $zoom * $maxHeight / $height;
-        } else {
-            $ratio = $zoom * $maxWidth / $width;
-        }
-        if ($ratio > 1) {
-            $ratio = 1;
+        $widthValue  = (float)$width;
+        $heightValue = (float)$height;
+        if ($widthValue <= 0.0 || $heightValue <= 0.0 || $maxWidth < 1 || $maxHeight < 1 || $zoom <= 0.0) {
+            throw new \InvalidArgumentException('Image dimensions and zoom must be positive.');
         }
 
-        return [(int)($width * $ratio), (int)($height * $ratio)];
+        if ((float)$maxWidth * $heightValue > (float)$maxHeight * $widthValue) {
+            $ratio = $zoom * (float)$maxHeight / $heightValue;
+        } else {
+            $ratio = $zoom * (float)$maxWidth / $widthValue;
+        }
+
+        if ($ratio > 1) {
+            $ratio = 1.0;
+        }
+
+        return [max(1, (int)($widthValue * $ratio)), max(1, (int)($heightValue * $ratio))];
     }
 
     private function getThumbnailSrc(string $src, int $newWidth, int $newHeight): string
     {
         $args = \func_get_args();
         $hash = md5(serialize($args));
-        if (file_exists($this->cacheFilesystemPrefix . self::getCachedFilename($hash))) {
-            return $this->cacheUrlPrefix . self::getCachedFilename($hash);
+        if (file_exists($this->cacheFilesystemPrefix . $this->getCachedFilename($hash))) {
+            return $this->cacheUrlPrefix . $this->getCachedFilename($hash);
         }
 
         // No cache. Add a job to queue and fallback to original image
@@ -169,27 +169,38 @@ class ThumbnailGenerator implements QueueHandlerInterface
         return $src;
     }
 
-    private static function makeThumbnail(string $inputFilename, string $outputFilename, int $width, int $height): void
+    private function makeThumbnail(string $inputFilename, string $outputFilename, int $width, int $height): void
     {
+        if ($width < 1 || $height < 1) {
+            throw new \InvalidArgumentException('Thumbnail dimensions must be positive.');
+        }
+
         $image = self::createImageFromFile($inputFilename);
 
         $inputWidth  = imagesx($image);
         $inputHeight = imagesy($image);
         $thumbnail   = imagecreatetruecolor($width, $height);
+        if (!$thumbnail instanceof \GdImage) {
+            throw new \RuntimeException('Unable to create thumbnail canvas.');
+        }
 
         $white = imagecolorallocate($thumbnail, 255, 255, 255);
+        if ($white === false) {
+            throw new \RuntimeException('Unable to allocate thumbnail background color.');
+        }
+
         imagefilledrectangle($thumbnail, 0, 0, $width, $height, $white);
         imagecolortransparent($thumbnail, $white);
 
         imagecopyresampled($thumbnail, $image, 0, 0, 0, 0, $width, $height, $inputWidth, $inputHeight);
 
-        imagejpeg($thumbnail, $outputFilename, 90);
+        if (!imagejpeg($thumbnail, $outputFilename, 90)) {
+            throw new \RuntimeException('Unable to save thumbnail: ' . $outputFilename);
+        }
 
-        imagedestroy($image);
-        imagedestroy($thumbnail);
     }
 
-    private static function getCachedFilename(string $hash): string
+    private function getCachedFilename(string $hash): string
     {
         return self::CACHE_SUBDIRECTORY . substr($hash, 0, 2) . '/' . substr($hash, 2, 2) . '/' . substr($hash, 4) . '.jpg';
     }

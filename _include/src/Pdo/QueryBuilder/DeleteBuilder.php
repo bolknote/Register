@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
@@ -38,6 +38,7 @@ class DeleteBuilder
         if ($this->table === null) {
             throw new DbLayerException('No table to delete from has been specified.');
         }
+
         return $this->table;
     }
 }

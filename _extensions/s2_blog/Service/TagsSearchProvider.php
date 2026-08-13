@@ -5,14 +5,14 @@
  * @package   s2_blog
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Service;
 
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
 use s2_extensions\s2_blog\BlogUrlBuilder;
 use s2_extensions\s2_search\Service\SimilarWordsDetector;
+use S2\Cms\Pdo\DbLayerException;
 
 readonly class TagsSearchProvider
 {
@@ -25,6 +25,8 @@ readonly class TagsSearchProvider
 
     /**
      * @throws DbLayerException
+     * @param string[] $words
+     * @return string[]
      */
     public function findBlogTags(array $words): array
     {
@@ -44,8 +46,8 @@ readonly class TagsSearchProvider
             ->where('EXISTS (' . $tagIsUsedSql . ')')
             ->andWhere('(' . implode(' OR ', array_fill(0, 2 * \count($words), 'name LIKE ?')) . ')')
             ->execute(array_merge(
-                array_map(static fn(string $word) => $word . '%', $words),
-                array_map(static fn(string $word) => '% ' . $word . '%', $words),
+                array_map(static fn(string $word): string => $word . '%', $words),
+                array_map(static fn(string $word): string => '% ' . $word . '%', $words),
             ))
         ;
 

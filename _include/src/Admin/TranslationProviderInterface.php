@@ -5,11 +5,14 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
 interface TranslationProviderInterface
 {
+    /**
+     * @return array<mixed>
+     */
     public function getTranslations(string $language, string $locale): array;
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 use Codeception\Actor;
 
 
@@ -51,6 +53,7 @@ class AcceptanceTester extends Actor
         if (!\is_array($config)) {
             throw new \RuntimeException('Unable to read config.test.php');
         }
+
         // We need '/index.php?' prefix to test urls like /rss.xml
         $config['http']['url_prefix'] = '/index.php?';
 
@@ -66,8 +69,12 @@ class AcceptanceTester extends Actor
         $I->fillField('email', 'roman@example.com');
         $I->checkOption('subscribed');
         $I->fillField('text', 'This is my first comment! 👪🐶');
+
         $text = $I->grabTextFrom('p#qsp');
-        preg_match('#(\d\d)\+(\d)#', $text, $matches);
+        if (preg_match('#(\d\d)\+(\d)#', $text, $matches) !== 1) {
+            throw new RuntimeException('The anti-spam question has an unexpected format.');
+        }
+
         $I->fillField('question', (int)$matches[1] + (int)$matches[2]);
         $I->click('submit');
 
@@ -87,8 +94,12 @@ class AcceptanceTester extends Actor
         $I->fillField('name', $name);
         $I->fillField('email', $email);
         $I->fillField('text', $text);
+
         $text = $I->grabTextFrom('p#qsp');
-        preg_match('#(\d\d)\+(\d)#', $text, $matches);
+        if (preg_match('#(\d\d)\+(\d)#', $text, $matches) !== 1) {
+            throw new RuntimeException('The anti-spam question has an unexpected format.');
+        }
+
         $I->fillField('question', (int)$matches[1] + (int)$matches[2]);
         $I->click('submit');
     }
@@ -142,16 +153,26 @@ class AcceptanceTester extends Actor
     {
         $fi = new FilesystemIterator($this->getEmailDir(), FilesystemIterator::SKIP_DOTS);
         foreach ($fi as $f) {
-            unlink($f);
+            $filePath = $f instanceof SplFileInfo ? $f->getPathname() : $f;
+            unlink($filePath);
         }
     }
 
+    /**
+     * @return string[]
+     */
     public function getEmails(): array
     {
         $result = [];
         $fi     = new FilesystemIterator($this->getEmailDir(), FilesystemIterator::SKIP_DOTS);
         foreach ($fi as $f) {
-            $result[] = file_get_contents($f);
+            $filePath = $f instanceof SplFileInfo ? $f->getPathname() : $f;
+            $contents = file_get_contents($filePath);
+            if ($contents === false) {
+                throw new RuntimeException('Unable to read a captured email.');
+            }
+
+            $result[] = $contents;
         }
 
         return $result;

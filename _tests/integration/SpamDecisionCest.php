@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace integration;
 
@@ -17,7 +17,7 @@ use S2\Cms\Comment\SpamDetectorReport;
  */
 class SpamDecisionCest
 {
-    private const COMMENT_URL = 'http://s2.localhost/';
+    private const string COMMENT_URL = 'http://s2.localhost/';
 
     /**
      * @dataProvider decisionProvider
@@ -26,6 +26,7 @@ class SpamDecisionCest
     {
         $I->setConfigValue('S2_PREMODERATION', $example['premoderation']);
         $I->setSpamResponses([$example['status']]);
+
         $startCount = $this->commentCount($I);
 
         $I->sendPost(self::COMMENT_URL, $this->commentData($example['text']));
@@ -44,7 +45,7 @@ class SpamDecisionCest
 
         $I->seeResponseCodeIs(302);
         $location = $I->grabLocation();
-        if ($example['expectCommentSent']) {
+        if ($example['expectCommentSent'] === true) {
             $I->assertStringContainsString('comment_sent', $location);
         } else {
             $I->assertStringNotContainsString('comment_sent', $location);
@@ -53,7 +54,7 @@ class SpamDecisionCest
         $this->assertLastComment($I, shown: $example['expectShown'], totalStart: $startCount);
 
         $mails = $I->grabModeratorMails();
-        if ($example['expectMail']) {
+        if ($example['expectMail'] === true) {
             $I->assertNotEmpty($mails);
             $I->assertEquals($example['mailStatus'], $mails[0]['spamReportStatus']);
             $I->assertEquals($example['mailPublished'], $mails[0]['isPublished']);
@@ -73,6 +74,7 @@ class SpamDecisionCest
         );
 
         $I->seeResponseCodeIs(302);
+
         $location = $I->grabLocation();
         $I->assertStringContainsString('comment_sent', $location);
         $I->assertStringContainsString('go=', $location);
@@ -91,6 +93,9 @@ class SpamDecisionCest
         $I->assertEquals('moderator@example.com', $lastMail['moderatorEmail']);
     }
 
+    /**
+     * @return array<int, array<string, string|bool|int|null>|array<string, string|bool|int>>
+     */
     protected function decisionProvider(): array
     {
         return [
@@ -384,6 +389,9 @@ class SpamDecisionCest
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
     private function commentData(string $text, string $email = 'tester@example.com'): array
     {
         $key = str_repeat('a', 21);
@@ -423,6 +431,7 @@ class SpamDecisionCest
         if ($html) {
             $textParts[] = '<b>bold</b>';
         }
+
         if ($link) {
             $textParts[] = 'http://example.com';
         }

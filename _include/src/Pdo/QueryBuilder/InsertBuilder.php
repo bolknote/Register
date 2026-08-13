@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Pdo\QueryBuilder;
 
@@ -16,7 +16,12 @@ class InsertBuilder
     use ParamsExecutableTrait;
 
     private ?string $table = null;
+
+    /**
+     * @var array<mixed>
+     */
     private array $columnExpressions = [];
+
     /**
      * @var string[]
      */
@@ -42,9 +47,13 @@ class InsertBuilder
         if ($this->table === null) {
             throw new DbLayerException('No table to insert into has been specified.');
         }
+
         return $this->table;
     }
 
+    /**
+     * @param array<mixed> $columnExpressions
+     */
     public function values(array $columnExpressions): self
     {
         $this->columnExpressions = $columnExpressions;
@@ -59,12 +68,14 @@ class InsertBuilder
 
     /**
      * @throws DbLayerException
+     * @return array<mixed>
      */
     public function getColumnExpressions(): array
     {
         if (\count($this->columnExpressions) === 0) {
             throw new DbLayerException('No fields to insert have been specified.');
         }
+
         return $this->columnExpressions;
     }
 
@@ -74,6 +85,9 @@ class InsertBuilder
         return $this;
     }
 
+    /**
+     * @return string[]
+     */
     public function getUniqueColumnsForConflictDoNothing(): array
     {
         return $this->uniqueColumns;

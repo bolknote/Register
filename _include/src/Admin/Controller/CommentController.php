@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Controller;
 
@@ -30,9 +30,10 @@ class CommentController extends EntityController
         $csrfToken  = $request->request->get('csrf_token');
 
         $field = $this->entityConfig->findFieldByName('shown');
-        if ($field === null) {
+        if (!$field instanceof \S2\AdminYard\Config\FieldConfig) {
             throw new \LogicException('Field "shown" is not defined.');
         }
+
         if (!$field->inlineEdit) {
             return new JsonResponse(['errors' => [
                 sprintf($this->translator->trans('Action "%s" is not allowed for entity "%s".'), 'reject', $this->entityConfig->getName())
@@ -58,8 +59,9 @@ class CommentController extends EntityController
                 ['sent' => true],
             );
         } catch (SafeDataProviderException $e) {
-            return new JsonResponse(['errors' => [$this->translator->trans($e->getMessage())]], $e->getCode() ?: Response::HTTP_INTERNAL_SERVER_ERROR);
-        } catch (\Exception $e) {
+            $statusCode = $e->getCode();
+            return new JsonResponse(['errors' => [$this->translator->trans($e->getMessage())]], $statusCode > 0 ? $statusCode : Response::HTTP_INTERNAL_SERVER_ERROR);
+        } catch (\Throwable) {
             return new JsonResponse(['errors' => ['Unable to update entity']], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 

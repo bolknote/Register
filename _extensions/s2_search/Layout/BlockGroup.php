@@ -5,20 +5,19 @@
  * @package   s2_search
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace s2_extensions\s2_search\Layout;
 
 class BlockGroup
 {
-    private Block $block;
-    private array $positions;
     private ?int $cachedCount = null;
 
-    public function __construct(array $positions, Block $block)
+    /**
+     * @param array<mixed> $positions
+     */
+    public function __construct(private readonly array $positions, private readonly Block $block)
     {
-        $this->block     = $block;
-        $this->positions = $positions;
     }
 
     public function getBlock(): Block
@@ -26,6 +25,9 @@ class BlockGroup
         return $this->block;
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getPositions(): array
     {
         return $this->positions;

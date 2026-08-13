@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types = 1);
+
 /**
  * @var callable $trans
  * @var callable $makeLink
@@ -69,12 +72,12 @@ $getReducedImg = function (ImgDto $img): ImgDto
 {
     $src = $img->getSrc();
     if (str_starts_with($src, CustomExtractor::YOUTUBE_PROTOCOL)) {
-        return (new ImgDto(
+        return new ImgDto(
             'https://img.youtube.com/vi/' . substr($src, \strlen(CustomExtractor::YOUTUBE_PROTOCOL)) . '/hq720.jpg',
             640,
             360,
             $img->getClass()
-        ))/*->addSrc('https://img.youtube.com/vi/' . substr($src, \strlen(CustomExtractor::YOUTUBE_PROTOCOL)) . '/hq720.jpg')*/ ;
+        )/*->addSrc('https://img.youtube.com/vi/' . substr($src, \strlen(CustomExtractor::YOUTUBE_PROTOCOL)) . '/hq720.jpg')*/ ;
     }
 
     return $img;

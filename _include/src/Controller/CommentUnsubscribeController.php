@@ -5,7 +5,7 @@
  * @package   S2
  */
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
@@ -31,6 +31,7 @@ readonly class CommentUnsubscribeController implements ControllerInterface
         $this->commentStrategies = $commentStrategies;
     }
 
+    #[\Override]
     public function handle(Request $request): Response
     {
         $id   = $request->query->get('id');
