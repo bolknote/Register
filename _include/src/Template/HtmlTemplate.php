@@ -349,7 +349,7 @@ class HtmlTemplate
             '<span class="engine-credit">' . $engineCredit . '</span>' .
             '<a class="visual-login" href="' . $this->urlBuilder->link('/_admin/index.php') .
             '" aria-label="' . $loginLabel . '" title="' . $loginLabel . '">' .
-            '<span aria-hidden="true">🔒</span></a>';
+            '<span aria-hidden="true">π</span></a>';
     }
 
     private function hasContent(string $placeholder): bool

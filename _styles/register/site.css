@@ -906,19 +906,22 @@ ul.back_forward .empty {
 }
 
 .visual-login {
-    display: inline-flex;
-    width: 22px;
-    height: 22px;
-    margin-left: 0.1rem;
+    position: fixed;
+    right: calc(18px + env(safe-area-inset-right));
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    z-index: 20;
+    display: flex;
+    width: 24px;
+    height: 24px;
     align-items: center;
     justify-content: center;
     color: var(--text-color) !important;
-    filter: grayscale(1);
-    font-family: "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
-    font-size: 14px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    font-style: italic;
     line-height: 1;
     text-decoration: none;
-    opacity: 0.25;
+    opacity: 0.28;
 }
 
 .visual-login:hover,
