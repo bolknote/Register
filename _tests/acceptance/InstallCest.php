@@ -84,6 +84,8 @@ class InstallCest
         $I->seeElement('meta[name="Generator"][content="Register"]');
         $I->seeElement('link[href$="/_styles/register/favicon.svg"]');
         $I->seeElement('a.visual-login[href$="/_admin/index.php"]');
+        $I->see('🔒', 'a.visual-login');
+        $I->dontSeeElement('a.visual-login svg');
         $I->amOnPage('/?search=1&q=personal+blog');
         $I->see('A place to write');
         $I->see('small, fast engine');

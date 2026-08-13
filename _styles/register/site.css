@@ -571,7 +571,6 @@ ul.back_forward .empty {
     opacity: 0.7;
 }
 
-
 #queries {
     flex-basis: 100%;
     color: var(--quiet-color);
