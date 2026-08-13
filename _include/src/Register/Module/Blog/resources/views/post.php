@@ -35,7 +35,7 @@ declare(strict_types = 1);
 </h2>
 <div class="post time"><time datetime="<?php echo gmdate(DATE_ATOM, (int)$create_time); ?>"<?php if (trim($display_date ?? '') === ''): ?> data-local-time="datetime" data-locale="<?php echo s2_htmlencode($trans('locale')); ?>"<?php endif; ?>><?php echo s2_htmlencode($time); ?></time></div>
 <?php
-	echo $text;
+	echo '<div class="post body">' . $text . '</div>';
 	if (!empty($see_also))
 		include __DIR__ . '/see_also.php';
 ?>

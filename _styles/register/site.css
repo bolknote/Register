@@ -290,6 +290,67 @@ hr {
     max-width: var(--text-width);
 }
 
+.lj-identity-name {
+    color: #00a3d9;
+    font-weight: 600;
+}
+
+.lj-cut {
+    max-width: var(--text-width);
+    margin: 1.5em 0;
+}
+
+.lj-cut > summary {
+    display: inline-flex;
+    min-height: 2.15em;
+    margin-left: -0.45em;
+    padding: 0.25em 0.65em 0.3em 0.5em;
+    align-items: center;
+    background: color-mix(in srgb, var(--accent-color) 13%, transparent);
+    color: var(--accent-color);
+    cursor: pointer;
+    font-family: var(--ui-font);
+    font-size: 0.82em;
+    font-weight: 650;
+    line-height: 1.25;
+    list-style: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.lj-cut > summary::-webkit-details-marker {
+    display: none;
+}
+
+.lj-cut > summary::before {
+    width: 0.55em;
+    height: 0.55em;
+    margin-right: 0.55em;
+    flex: 0 0 auto;
+    background: currentColor;
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+    content: "";
+    transition: transform 120ms ease;
+}
+
+.lj-cut[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.lj-cut > summary:hover {
+    background: color-mix(in srgb, var(--accent-color) 20%, transparent);
+    color: var(--link-hover-color);
+}
+
+.lj-cut > summary:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 3px;
+}
+
+.lj-cut-body {
+    margin-top: 1.25em;
+}
+
 #content :where(img, video, iframe, figure) {
     max-width: min(100%, var(--text-width));
 }
