@@ -5,11 +5,16 @@ declare(strict_types = 1);
 use Register\Installation\WelcomePostInstaller;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
+use Register\RegisterKernel;
 use Register\Schema\SchemaMigrator;
+use Register\Search\SearchIndexRebuilder;
+use S2\Cms\Framework\Application;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\Installer;
+use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Pdo\DbLayerSqlite;
 use S2\Cms\Pdo\PdoSqliteFactory;
+use S2\Rose\Storage\Database\PdoStorage;
 
 const S2_DEV_REQUIRED_EXTENSIONS = [
     'dom',
@@ -150,6 +155,41 @@ if ($isNew) {
 
         throw $throwable;
     }
+}
+
+$application = new Application();
+(new RegisterKernel(new BaseModuleRegistry()))->registerBaseModules($application, false);
+$application->boot([
+    'root_dir'           => $rootDir . '/',
+    'cache_dir'          => $rootDir . '/_cache/local/',
+    'log_dir'            => $rootDir . '/_cache/local/',
+    'base_url'           => $baseUrl,
+    'base_path'          => '',
+    'url_prefix'         => '',
+    'disable_cache'      => false,
+    'debug'              => true,
+    'debug_view'         => false,
+    'show_queries'       => false,
+    'force_admin_https'  => false,
+    'canonical_url'      => null,
+    'version'            => '2.0dev',
+    'redirect_map'       => [],
+    'cookie_name'        => $config['cookies']['name'],
+    'db_type'            => $config['database']['type'],
+    'db_host'            => $config['database']['host'],
+    'db_name'            => $config['database']['name'],
+    'db_username'        => $config['database']['user'],
+    'db_password'        => $config['database']['password'],
+    'db_prefix'          => $config['database']['prefix'],
+    'p_connect'          => $config['database']['p_connect'],
+    'image_dir'          => $rootDir . '/_pictures',
+    'image_path'         => '/_pictures',
+    'allowed_extensions' => [],
+    'boot_timestamp'     => microtime(true),
+]);
+$application->container->get(ExtensionCache::class)->clear();
+if ($application->container->get(PdoStorage::class)->getTocSize(null) === 0) {
+    $application->container->get(SearchIndexRebuilder::class)->rebuild();
 }
 
 echo PHP_EOL;

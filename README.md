@@ -36,7 +36,8 @@ is a blog engine, not a universal site builder.
 
 A fresh installation opens with a welcome note that explains the engine and points to the first
 useful actions. Edit or delete that note, publish the first post, choose the site name, and the blog
-is ready. The unobtrusive lock in the public footer opens the control panel.
+is ready. Built-in search is indexed during installation; no module installation or initial rebuild
+is required. The unobtrusive lock in the public footer opens the control panel.
 
 ## Requirements
 

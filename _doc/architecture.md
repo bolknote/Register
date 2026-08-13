@@ -58,6 +58,13 @@ state may be stored in the database, and they retain independent version and mig
 Optional modules must use public Register services and events. Direct access to product tables is not
 a supported integration boundary.
 
+## Search lifecycle
+
+Search is initialized with the product schema and a fresh installation synchronously indexes its
+welcome post and starter pages before reporting success. Adopting a pre-ledger database also rebuilds
+the index after its base-schema migration. Later editorial changes publish small indexing jobs to the
+shared queue; the control-panel rebuild remains repair tooling rather than an installation step.
+
 ## Configuration
 
 Register has two configuration layers:

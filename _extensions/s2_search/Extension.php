@@ -11,6 +11,7 @@ namespace s2_extensions\s2_search;
 
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
+use Register\Search\SearchIndexRebuilder;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\Container;
@@ -40,6 +41,8 @@ use s2_extensions\s2_search\Controller\SearchPageController;
 use s2_extensions\s2_search\Layout\LayoutMatcherFactory;
 use s2_extensions\s2_search\Rose\CustomExtractor;
 use s2_extensions\s2_search\Service\ArticleIndexer;
+use s2_extensions\s2_search\Service\ArticleBulkIndexingProvider;
+use s2_extensions\s2_search\Service\BulkIndexingProviderInterface;
 use s2_extensions\s2_search\Service\RecommendationProvider;
 use s2_extensions\s2_search\Service\SimilarWordsDetector;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
@@ -90,6 +93,21 @@ class Extension implements ExtensionInterface
             $container->get('recommendations_cache'),
             $container->get(QueuePublisher::class),
         ), [QueueHandlerInterface::class]);
+
+        $container->set(
+            ArticleBulkIndexingProvider::class,
+            static fn(Container $container): ArticleBulkIndexingProvider => new ArticleBulkIndexingProvider(
+                $container->get(DbLayer::class),
+            ),
+            [BulkIndexingProviderInterface::class],
+        );
+
+        $container->set(SearchIndexRebuilder::class, static fn(Container $container): SearchIndexRebuilder => new SearchIndexRebuilder(
+            $container->get(PdoStorage::class),
+            $container->get(Indexer::class),
+            $container->get('recommendations_cache'),
+            ...$container->getByTag(BulkIndexingProviderInterface::class),
+        ));
 
         $container->set(ExtractorInterface::class, static fn(Container $container): \s2_extensions\s2_search\Rose\CustomExtractor => new CustomExtractor(
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),

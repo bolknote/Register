@@ -14,6 +14,7 @@ use Psr\Log\LoggerInterface;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaMigrator;
+use Register\Search\SearchIndexRebuilder;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Config\StaticConfigLoader;
 use S2\Cms\Framework\Application;
@@ -233,6 +234,7 @@ if ($dynamicConfigProvider->getIntProxy('S2_DB_REVISION')->get() < Installer::DB
 $registerSchemaMigrator = $app->container->get(SchemaMigrator::class);
 if ($registerSchemaMigrator->migrate()) {
     $dynamicConfigProvider->regenerate();
+    $app->container->get(SearchIndexRebuilder::class)->rebuild();
 }
 
 return $app;

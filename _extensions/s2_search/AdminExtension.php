@@ -22,7 +22,6 @@ use S2\Cms\AdminYard\Signal;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ExtensionInterface;
 use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Queue\QueuePublisher;
 use S2\Rose\Indexer;
 use S2\Rose\Storage\Database\PdoStorage;
@@ -30,7 +29,6 @@ use s2_extensions\s2_search\Admin\DashboardSearchProvider;
 use s2_extensions\s2_search\Admin\DynamicConfigFormExtender;
 use s2_extensions\s2_search\Admin\IndexManager;
 use s2_extensions\s2_search\Admin\TranslationProvider;
-use s2_extensions\s2_search\Service\ArticleBulkIndexingProvider;
 use s2_extensions\s2_search\Service\BulkIndexingProviderInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -52,8 +50,6 @@ class AdminExtension implements ExtensionInterface
             $container->get(PdoStorage::class),
             $container->getStringParameter('root_dir')
         ), [DashboardStatProviderInterface::class]);
-
-        $container->set(ArticleBulkIndexingProvider::class, fn(Container $container): \s2_extensions\s2_search\Service\ArticleBulkIndexingProvider => new ArticleBulkIndexingProvider($container->get(DbLayer::class)), [BulkIndexingProviderInterface::class]);
 
         $container->set(IndexManager::class, fn(Container $container): \s2_extensions\s2_search\Admin\IndexManager => new IndexManager(
             $container->getStringParameter('cache_dir'),

@@ -14,8 +14,9 @@ declare(strict_types = 1);
 use Psr\Log\LogLevel;
 use Register\Installation\WelcomePostInstaller;
 use Register\Module\BaseModuleRegistry;
-use Register\ProductModule;
+use Register\RegisterKernel;
 use Register\Schema\SchemaMigrator;
+use Register\Search\SearchIndexRebuilder;
 use S2\Cms\Admin\AdminExtension;
 use S2\Cms\CmsExtension;
 use S2\Cms\Framework\Application;
@@ -305,14 +306,18 @@ function installApplicationParameters(
     ?string $dbUsername = null,
     ?string $dbPassword = null,
     ?string $dbPrefix = null,
+    string $baseUrl = '',
 ): array {
+    $basePath = preg_replace('#^[^:/]+://[^/]*#', '', $baseUrl) ?? '';
+
     return [
         'root_dir'      => S2_ROOT,
         'cache_dir'     => s2_get_default_cache_dir(),
         'disable_cache' => false,
         'log_dir'       => s2_get_default_cache_dir(),
-        'base_url'      => null,
-        'base_path'     => null,
+        'base_url'      => $baseUrl,
+        'base_path'     => $basePath,
+        'url_prefix'    => '',
         'debug'         => defined('S2_DEBUG'),
         'debug_view'    => defined('S2_DEBUG_VIEW'),
         'redirect_map'  => [],
@@ -334,11 +339,20 @@ function createInstallationApplication(
     string $dbUsername,
     string $dbPassword,
     string $dbPrefix,
+    string $baseUrl,
 ): array {
     $application = new Application();
-    $application->addExtension(new CmsExtension());
-    $application->addModule(new ProductModule(new BaseModuleRegistry()));
-    $application->boot(installApplicationParameters($dbType, $dbHost, $dbName, $dbUsername, $dbPassword, $dbPrefix));
+    $baseModuleRegistry = new BaseModuleRegistry();
+    (new RegisterKernel($baseModuleRegistry))->registerBaseModules($application, false);
+    $application->boot(installApplicationParameters(
+        $dbType,
+        $dbHost,
+        $dbName,
+        $dbUsername,
+        $dbPassword,
+        $dbPrefix,
+        $baseUrl,
+    ));
 
     $dbLayer = $application->container->get(DbLayer::class);
     $dbLayer->query('SELECT 1;');
@@ -810,7 +824,15 @@ if ($validationErrors !== []) {
 }
 
 try {
-    [$app, $s2_db] = createInstallationApplication($db_type, $db_host, $db_name, $db_username, $db_password, $db_prefix);
+    [$app, $s2_db] = createInstallationApplication(
+        $db_type,
+        $db_host,
+        $db_name,
+        $db_username,
+        $db_password,
+        $db_prefix,
+        $base_url,
+    );
 } catch (\Throwable $throwable) {
     $validationErrors['db_error'][] = $throwable->getMessage();
     renderInstallForm($lang_install, $languages, $language, $submittedValues, $validationErrors);
@@ -892,6 +914,8 @@ $s2_db
     ->setValue('user_id', ':user_id')->setParameter('user_id', $admin_uid)
     ->execute()
 ;
+
+$app->container->get(SearchIndexRebuilder::class)->rebuild();
 
 if ($db_type !== 'mysql') {
     $s2_db->endTransaction();
