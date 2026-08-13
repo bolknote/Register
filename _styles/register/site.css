@@ -917,9 +917,9 @@ ul.back_forward .empty {
     align-items: center;
     justify-content: center;
     color: var(--text-color) !important;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: "Times New Roman", Georgia, serif;
     font-size: 17px;
-    font-style: italic;
+    font-style: normal;
     line-height: 1;
     text-decoration: none;
     opacity: 0.28;
