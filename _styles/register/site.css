@@ -212,10 +212,10 @@ hr {
     order: -2;
     padding-top: var(--header-top);
     font-family: var(--ui-font);
-    font-size: clamp(1.9rem, 3.5vw, 2.35rem);
+    font-size: 3.28125rem;
     font-weight: 700;
     letter-spacing: -0.045em;
-    line-height: 1.05;
+    line-height: 1;
 }
 
 #header a,
@@ -434,9 +434,7 @@ h2.post.head {
 
 .blog h2.post.head {
     max-width: 820px;
-    font-size: clamp(2.25rem, 5vw, 3.6rem);
     letter-spacing: -0.04em;
-    line-height: 1.03;
 }
 
 h2.post.head + .post.time {

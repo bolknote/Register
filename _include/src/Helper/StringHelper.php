@@ -49,14 +49,17 @@ class StringHelper
      */
     public static function paging(int $page, int $totalPages, string $url, array &$linksForNavigation): string
     {
+        $linksForNavigation = [];
+        if ($totalPages <= 1) {
+            return '';
+        }
+
         $links = '';
         for ($i = 1; $i <= $totalPages; ++$i) {
             $links .= ($i === $page
                 ? ' <span class="current digit">' . $i . '</span>'
                 : ' <a class="digit" href="' . \sprintf($url, $i) . '">' . $i . '</a>');
         }
-
-        $linksForNavigation = [];
 
         if ($page <= 1 || $page > $totalPages) {
             $prevLink = '<span class="arrow left">&larr;</span>';

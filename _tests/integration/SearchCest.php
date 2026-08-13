@@ -145,6 +145,7 @@ class SearchCest
 
         $I->amOnPage('https://localhost/?search=1&q=some+text');
         $I->see('New blog post with <span class="s2_search_highlight">some text</span>');
+        $I->dontSeeElement('.paging');
 
         // $I->canWriteComment();
 

@@ -86,6 +86,12 @@ final class StringHelperTest extends Unit
         $result = StringHelper::paging($page, $totalPages, $url, $linksForNavigation);
 
         self::assertEquals($expectedLinks, $linksForNavigation);
+        if ($totalPages <= 1) {
+            self::assertSame($expectedOutput, $result);
+
+            return;
+        }
+
         self::assertStringContainsString($expectedOutput, $result);
     }
 
@@ -117,7 +123,7 @@ final class StringHelperTest extends Unit
             1,
             'http://example.com/page?num=%d',
             [],
-            '<span class="current digit">1</span>'
+            ''
         ];
         yield 'invalid page' => [
             0,
