@@ -55,7 +55,7 @@ The control panel targets Chrome/Edge 111+, Firefox 113+ (ESR 115+), and Safari 
 ## Installation
 
 ```bash
-git clone https://github.com/parpalak/s2.git register
+git clone https://github.com/bolknote/Register.git register
 cd register
 composer install --no-dev -o
 ```
