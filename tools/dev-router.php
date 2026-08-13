@@ -2,29 +2,24 @@
 
 declare(strict_types = 1);
 
+use S2\Cms\Http\DevelopmentRouterPolicy;
+
 if (PHP_SAPI !== 'cli-server') {
     throw new RuntimeException('The development router must run under the PHP built-in server.');
 }
 
 $rootDir     = dirname(__DIR__);
+$policyFile  = $rootDir . '/_include/src/Http/DevelopmentRouterPolicy.php';
+require_once $policyFile;
+
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 $requestPath = is_string($requestPath) ? rawurldecode($requestPath) : '/';
 $filePath    = realpath($rootDir . $requestPath);
 
 if ($filePath !== false && is_file($filePath) && str_starts_with($filePath, $rootDir . DIRECTORY_SEPARATOR)) {
-    $phpEndpoints = [
-        '/index.php',
-        '/_admin/ajax.php',
-        '/_admin/index.php',
-        '/_admin/install.php',
-        '/_admin/pictman.php',
-        '/_extensions/s2_counter/counter.php',
-        '/_extensions/s2_counter/data.php',
-    ];
-
     $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
     if ($extension === 'php') {
-        if (in_array($requestPath, $phpEndpoints, true)) {
+        if (DevelopmentRouterPolicy::isAllowedPhpEndpoint($requestPath)) {
             return false;
         }
 
@@ -32,22 +27,8 @@ if ($filePath !== false && is_file($filePath) && str_starts_with($filePath, $roo
         return true;
     }
 
-    $publicPrefixes = [
-        '/_admin/',
-        '/_cache/',
-        '/_extensions/',
-        '/_pictures/',
-        '/_styles/',
-    ];
-    $publicExtensions = [
-        'avif', 'bmp', 'css', 'gif', 'html', 'ico', 'jpeg', 'jpg', 'js', 'json', 'map',
-        'mp3', 'mp4', 'ogg', 'png', 'svg', 'wasm', 'wav', 'webm', 'webp', 'woff', 'woff2',
-    ];
-
-    foreach ($publicPrefixes as $prefix) {
-        if (str_starts_with($requestPath, $prefix) && in_array($extension, $publicExtensions, true)) {
-            return false;
-        }
+    if (DevelopmentRouterPolicy::isAllowedStaticFile($requestPath, $extension)) {
+        return false;
     }
 
     http_response_code(404);

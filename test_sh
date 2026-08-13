@@ -85,4 +85,4 @@ until "$PHP_BIN" -r '$socket = @fsockopen("127.0.0.1", 8881); if ($socket === fa
     sleep 0.1
 done
 
-XDEBUG_MODE=off "$PHP_BIN" _vendor/bin/codecept run acceptance --no-interaction "$@"
+APP_DB_TYPE="$DB_TYPE" XDEBUG_MODE=off "$PHP_BIN" _vendor/bin/codecept run acceptance --no-interaction "$@"
