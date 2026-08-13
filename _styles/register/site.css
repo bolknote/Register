@@ -17,14 +17,14 @@
     --error-color: #a52e22;
     --star-color: #c58b00;
     --sunday-color: #b22b25;
-    --page-width: 1400px;
+    --page-width: 1280px;
     --article-width: 1280px;
     --text-width: 1000px;
     --comments-width: 900px;
     --form-width: 760px;
     --remark-width: clamp(180px, 15vw, 220px);
     --remark-gap: clamp(32px, 4vw, 60px);
-    --page-margin: clamp(18px, 4vw, 64px);
+    --page-margin: clamp(18px, calc(10vw - 48px), 80px);
     --header-top: clamp(2rem, 4vw, 3.5rem);
     --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     --text-font: Georgia, "Times New Roman", serif;
@@ -956,8 +956,9 @@ ul.back_forward .empty {
     border: 1px solid var(--border-color);
 }
 
-@media (min-width: 1320px) {
-    :root {
+@media (min-width: 1335px) {
+    body:has(.remark, .sidenote) {
+        --page-width: 1400px;
         --page-margin: 32px;
     }
 
@@ -972,10 +973,6 @@ ul.back_forward .empty {
 }
 
 @media (max-width: 720px) {
-    :root {
-        --page-margin: 18px;
-    }
-
     #header {
         padding-top: 2.4rem;
     }
