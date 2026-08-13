@@ -51,6 +51,12 @@
         --star-color: #e4b755;
         --sunday-color: #ee8a7e;
     }
+
+    img.latex-svg,
+    img[src*="i.upmath.me/svg/"],
+    img[src*="i.upmath.me/svgb/"] {
+        filter: invert(0.9);
+    }
 }
 
 * {
