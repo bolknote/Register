@@ -78,8 +78,13 @@ readonly class CommentController implements ControllerInterface
             $id = '';
         }
 
-        $requestedParentId = $request->request->getInt('parent_id');
-        $parentId          = $requestedParentId > 0 ? $requestedParentId : null;
+        $requestedParentId = $request->request->filter(
+            'parent_id',
+            null,
+            \FILTER_VALIDATE_INT,
+            ['flags' => \FILTER_REQUIRE_SCALAR | \FILTER_NULL_ON_FAILURE],
+        );
+        $parentId          = \is_int($requestedParentId) && $requestedParentId > 0 ? $requestedParentId : null;
         $replyNumber       = max(0, $request->request->getInt('reply_number'));
         $replyName         = mb_substr(trim($request->request->getString('reply_name')), 0, 50);
 
@@ -142,11 +147,21 @@ readonly class CommentController implements ControllerInterface
             // Handling "Preview" button
             $text_preview = '<p>' . $this->translator->trans('Comment preview info') . '</p>' . "\n" .
                 $this->viewer->render('comment', [
-                    'text'       => $text,
-                    'nick'       => $name,
-                    'time'       => time(),
-                    'email'      => $email,
-                    'show_email' => $showEmail,
+                    'text'           => $text,
+                    'nick'           => $name,
+                    'time'           => time(),
+                    'email'          => $email,
+                    'show_email'     => $showEmail,
+                    'good'           => false,
+                    'is_author'      => $this->authProvider->isOnline($email),
+                    'id'             => 0,
+                    'i'              => 0,
+                    'depth'          => 0,
+                    'visual_depth'   => 0,
+                    'show_addressee' => false,
+                    'parent'         => null,
+                    'children'       => '',
+                    'is_preview'     => true,
                 ]);
 
             $template = $this->templateProvider->getTemplate('service.php');

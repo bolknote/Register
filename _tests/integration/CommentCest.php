@@ -13,6 +13,55 @@ use S2\Cms\Pdo\DbLayer;
 
 class CommentCest
 {
+    public function testPreviewAcceptsAnEmptyParentId(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertArticle($dbLayer);
+        $countBefore = (int)$dbLayer->select('COUNT(*)')->from('art_comments')->execute()->result();
+
+        $I->sendPost('https://localhost/thread-test', [
+            'name'         => 'Preview author',
+            'email'        => 'preview@example.test',
+            'text'         => 'Top-level preview text',
+            'parent_id'    => '',
+            'reply_number' => '0',
+            'reply_name'   => '',
+            'preview'      => '1',
+        ]);
+
+        $I->seeResponseCodeIs(200);
+        $I->see('Top-level preview text');
+        $I->seeElement('.comment-preview-item');
+        $I->dontSeeElement('.comment-preview-item .comment-reply');
+        $I->assertSame($countBefore, (int)$dbLayer->select('COUNT(*)')->from('art_comments')->execute()->result());
+    }
+
+    public function testSavesATopLevelCommentWithAnEmptyParentId(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertArticle($dbLayer);
+
+        $I->sendPost('https://localhost/thread-test', [
+            'name'      => 'Top-level author',
+            'email'     => 'top-level@example.test',
+            'text'      => 'Top-level comment text',
+            'parent_id' => '',
+        ]);
+
+        $I->seeResponseCodeIs(302);
+        $comment = $dbLayer
+            ->select('parent_id')
+            ->from('art_comments')
+            ->where('text = :text')->setParameter('text', 'Top-level comment text')
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $I->assertIsArray($comment);
+        $I->assertNull($comment['parent_id']);
+    }
+
     public function testNonExistentPage(\IntegrationTester $I): void
     {
         $I->sendPost('https://localhost/some-non-existent-url', [
