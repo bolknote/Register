@@ -374,12 +374,11 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 $event->data['tagsList']        = $this->tagsProvider->getAllTags();
                 $event->data['labelList']       = $this->postProvider->getAllLabels();
 
-                $formData   = $event->data['form']->getData();
-                $createTime = $formData['create_time']?->getTimeStamp() ?? 0;
-                $id         = (int)$event->data['primaryKey']['id'];
+                $formData = $event->data['form']->getData();
+                $id       = (int)$event->data['primaryKey']['id'];
 
                 $event->data['commentsNum'] = $this->postProvider->getCommentNum($id, $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN));
-                $event->data['statusData']  = $this->getPostStatusData($createTime, $formData['url']);
+                $event->data['statusData']  = $this->getPostStatusData($id, $formData['url']);
             })
             ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, function (BeforeSaveEvent $event) use ($postEntity): void {
                 $oldData = $event->dataProvider->getEntity(
@@ -393,6 +392,13 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 );
                 if ($oldData === null) {
                     $event->errorMessages[] = 'Post not found';
+                    return;
+                }
+
+                $postId    = $this->requirePrimaryKey($event->primaryKey)->getIntId();
+                $urlStatus = $this->postProvider->checkUrlStatus($postId, $event->data['url']);
+                if ((bool)$event->data['published'] && $urlStatus !== 'ok') {
+                    $event->errorMessages[] = $this->getUrlStatusTitle($urlStatus);
                     return;
                 }
 
@@ -429,12 +435,12 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 ) {
                     $event->context['visible_changed_event'] = new VisibleEntityChangedEvent(
                         $postEntity->getName(),
-                        $this->requirePrimaryKey($event->primaryKey)->getIntId()
+                        $postId
                     );
                 }
 
-                $event->context['create_time'] = $event->data['create_time']->getTimestamp();
-                $event->context['url']         = $event->data['url'];
+                $event->context['post_id'] = $postId;
+                $event->context['url']     = $event->data['url'];
             })
             ->addListener(EntityConfig::EVENT_AFTER_UPDATE, function (AfterSaveEvent $event): void {
                 $visibleChangedEvent = $event->context['visible_changed_event'] ?? null;
@@ -443,7 +449,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 }
 
                 $event->ajaxExtraResponse = [
-                    ...$this->getPostStatusData($event->context['create_time'], $event->context['url']),
+                    ...$this->getPostStatusData($event->context['post_id'], $event->context['url']),
                     'revision' => $event->context['new_revision'],
                 ];
             })
@@ -603,20 +609,25 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
      * @throws DbLayerException
      * @return array<string, string>
      */
-    private function getPostStatusData(int $createTime, string $url): array
+    private function getPostStatusData(int $postId, string $url): array
     {
-        $urlStatus = $this->postProvider->checkUrlStatus($createTime, $url);
+        $urlStatus = $this->postProvider->checkUrlStatus($postId, $url);
 
         return [
-            'url'       => $this->blogUrlBuilder->postFromTimestamp($createTime, $url),
+            'url'       => $this->blogUrlBuilder->post($url),
             'urlStatus' => $urlStatus,
-            'urlTitle'  => match ($urlStatus) {
-                'empty' => $this->translator->trans('URL empty'),
-                'not_unique' => $this->translator->trans('URL not unique'),
-                'ok' => '',
-                default => $this->translator->trans('URL unavailable'),
-            },
+            'urlTitle'  => $this->getUrlStatusTitle($urlStatus),
         ];
+    }
+
+    private function getUrlStatusTitle(string $urlStatus): string
+    {
+        return match ($urlStatus) {
+            'empty'      => $this->translator->trans('URL empty'),
+            'not_unique' => $this->translator->trans('URL not unique'),
+            'ok'         => '',
+            default      => $this->translator->trans('URL unavailable'),
+        };
     }
 
     private function requirePrimaryKey(?Key $primaryKey): Key

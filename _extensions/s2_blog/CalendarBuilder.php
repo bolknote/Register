@@ -116,7 +116,7 @@ readonly class CalendarBuilder
 
                 if (\count($dayUrls[$currentDayInMonth]) === 1 && ($currentDayInMonth !== $day || $url === '')) {
                     // One post, link to it (if this is not the post selected)
-                    $cellContent = '<a href="' . $this->blogUrlBuilder->post($year, $month, $currentDayInMonth, $dayUrls[$currentDayInMonth][0]) . '">' . $currentDayInMonth . '</a>';
+                    $cellContent = '<a href="' . $this->blogUrlBuilder->post($dayUrls[$currentDayInMonth][0]) . '">' . $currentDayInMonth . '</a>';
                 }
             }
 

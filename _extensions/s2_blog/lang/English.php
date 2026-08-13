@@ -59,7 +59,7 @@ return [
     'Important tag info' => 'Important tags are used in the blog navigation menu',
 
     'Blog URL'          => 'Blog URL',
-    'Blog URL label'    => 'Blog URL prefix (it should contain a leading slash and no trailing slash). E.g. “/blog”. Leave it blank to put the blog on the site main page.',
+    'Blog URL label'    => 'Optional blog prefix. An empty value and “/” both mean the site root.',
     'Blog title'        => 'Blog title',
     'Blog title label'  => 'Used in &lt;title&gt; tag, available in templates.',
     'Blog crumbs'       => '“Bread crumbs” prefix',

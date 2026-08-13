@@ -60,7 +60,7 @@ readonly class BlogRssStrategy implements RssStrategyInterface
             $items[] = new FeedItemDto(
                 $post['title'],
                 $post['author'],
-                $this->blogUrlBuilder->absPostFromTimestamp($post['create_time'], $post['url']),
+                $this->blogUrlBuilder->absPost($post['url']),
                 $post['text'] .
                 ($post['see_also'] === [] ? '' : $viewer->render('see_also', [
                     'see_also' => $post['see_also']

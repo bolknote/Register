@@ -297,23 +297,22 @@ class InstallCest
         $I->amOnPage('/index.php?/rss.xml'); // Other URL scheme because the built-in PHP server looks for a file rss.xml
         $I->seeResponseCodeIsSuccessful();
         $I->canSee('Register');
-        $I->canSee('New Page Title');
-        $I->canSee('New Page 4');
-        $I->canSee('New Page 5');
-        $I->canSee('/section1/new_page1');
-        $I->canSee(gmdate('D, d M Y H:i:s', strtotime('2023-08-10 11:32:00')) . ' GMT');
-        $I->see('New Excerpt');
+        $I->canSee('My blog');
+        $I->canSee('New Blog Post Title');
+        $I->canSee('/new_post1');
+        $I->canSee(gmdate('D, d M Y H:i:s', strtotime('2023-08-12 11:32:00')) . ' GMT');
+        $I->see('New blog post');
+        $I->dontSee('New Page Title');
 
-        $I->haveHttpHeader('If-Modified-Since', 'Sat, 12 Aug 2023 00:00:00 GMT');
+        $I->haveHttpHeader('If-Modified-Since', 'Sun, 13 Aug 2023 00:00:00 GMT');
         $I->amOnPage('/index.php?/rss.xml');
-        $I->dontSee('New Page Title'); // Modified before this date, skip in output
-        $I->see('New Page 4');
-        $I->see('New Page 5');
-
+        $I->seeResponseCodeIs(304);
+        $I->dontSee('New Blog Post Title');
 
         $I->amOnPage('/index.php?/sitemap.xml'); // Same as above
         $I->seeResponseCodeIsSuccessful();
         $I->see('/section1/new_page1');
+        $I->see('/new_post1');
         $I->see(gmdate('c', strtotime('2023-08-11 12:15')));
     }
 
@@ -323,8 +322,9 @@ class InstallCest
     private function testBlogExtension(AcceptanceTester $I): void
     {
         $I->installExtension('s2_blog');
+        $I->changeSetting('S2_BLOG_URL', '/');
 
-        $I->amOnPage('/blog/tags/blog tag');
+        $I->amOnPage('/tags/blog tag');
         $I->seeResponseCodeIsClientError();
 
         $I->amOnPage('/_admin/index.php?entity=BlogPost&action=new');
@@ -371,52 +371,52 @@ class InstallCest
         $I->canSee('2023-08-12');
         $I->see('New Blog Post Title');
 
-        foreach (['/blog/2023/08/12/', '/blog/2023/08/'] as $url) {
+        foreach (['/2023/08/12/', '/2023/08/'] as $url) {
             $I->amOnPage($url);
             $I->see('New Blog Post Title');
             $I->see('New blog post');
             $I->see('August 12, 2023');
         }
 
-        $I->amOnPage('/blog/2023/08/12/new_post1');
+        $I->amOnPage('/new_post1');
         $I->see('New Blog Post Title');
         $I->see('New blog post');
         $I->see('August 12, 2023');
         $I->canWriteComment();
 
+        $I->amOnPage('/2023/08/12/new_post1');
+        $I->seeResponseCodeIsClientError();
+
         $I->stopFollowingRedirects();
 
-        $I->amOnPage('/blog/tags/blog tag');
+        $I->amOnPage('/tags/blog tag');
         $I->seeResponseCodeIs(301);
         $I->followRedirect();
-        $I->seeCurrentUrlEquals(self::URL_PREFIX . '/blog/tags/blog%20tag/');
+        $I->seeCurrentUrlEquals(self::URL_PREFIX . '/tags/blog%20tag/');
         $I->seeResponseCodeIsSuccessful();
 
-        $I->amOnPage('/blog');
-        $I->seeResponseCodeIs(301);
-        $I->followRedirect();
-        $I->seeCurrentUrlEquals(self::URL_PREFIX . '/blog/');
+        $I->startFollowingRedirects();
+
+        $I->amOnPage('/');
         $I->seeResponseCodeIsSuccessful();
         $I->see('New Blog Post Title');
         $I->see('New blog post');
         $I->see('August 12, 2023');
-
-        $I->startFollowingRedirects();
     }
 
     private function testBlogRssAndSitemap(AcceptanceTester $I): void
     {
-        $I->amOnPage('/index.php?/blog/rss.xml'); // Other URL scheme because the built-in PHP server looks for a file rss.xml
+        $I->amOnPage('/index.php?/rss.xml'); // Other URL scheme because the built-in PHP server looks for a file rss.xml
         $I->seeResponseCodeIsSuccessful();
         $I->canSee('My blog');
         $I->canSee('New Blog Post Title');
-        $I->canSee('/blog/2023/08/12/new_post1');
+        $I->canSee('/new_post1');
         $I->canSee(gmdate('D, d M Y H:i:s', strtotime('2023-08-12 11:32:00')) . ' GMT');
         $I->see('New blog post');
 
-        $I->amOnPage('/index.php?/blog/sitemap.xml'); // Same as above
+        $I->amOnPage('/index.php?/sitemap.xml'); // Same as above
         $I->seeResponseCodeIsSuccessful();
-        $I->see('/blog/2023/08/12/new_post1');
+        $I->see('/new_post1');
         $I->see(gmdate('c', strtotime('2023-08-12 12:15')));
     }
 
@@ -439,10 +439,10 @@ class InstallCest
         $I->sendAjaxGetRequest('/_admin/ajax.php?action=s2_search_makeindex');
         $I->see('stop');
 
-        $I->amOnPage('/blog/2023/08/12/new_post1');
+        $I->amOnPage('/new_post1');
         $I->dontSeeElement('h2.recommendation-title#recommendations');
         $I->changeSetting('S2_SEARCH_RECOMMENDATIONS_LIMIT', 10);
-        $I->amOnPage('/blog/2023/08/12/new_post1');
+        $I->amOnPage('/new_post1');
         if ($dbType !== 'sqlite') {
             $I->seeElement('h2.recommendation-title#recommendations');
             $I->seeElement('div.recommendations > div.recommendation > a.recommendation-link');
@@ -519,7 +519,7 @@ class InstallCest
         $I->see('{"success":true}');
 
         $this->testComments($I, '/section1/new_page1', 'New Page Title', 'Some new page text', 3, 'Comment', 'article_id');
-        $this->testComments($I, '/blog/2023/08/12/new_post1', 'New Blog Post Title', 'New blog post', 1, 'BlogComment', 'post_id');
+        $this->testComments($I, '/new_post1', 'New Blog Post Title', 'New blog post', 1, 'BlogComment', 'post_id');
     }
 
     private function testETag(AcceptanceTester $I): void

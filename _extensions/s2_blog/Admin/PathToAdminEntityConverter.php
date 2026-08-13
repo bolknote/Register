@@ -10,15 +10,15 @@ declare(strict_types = 1);
 namespace s2_extensions\s2_blog\Admin;
 
 use S2\AdminYard\Config\FieldConfig;
-use S2\Cms\Config\StringProxy;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
+use s2_extensions\s2_blog\BlogUrlBuilder;
 
 readonly class PathToAdminEntityConverter
 {
     public function __construct(
-        private DbLayer    $dbLayer,
-        private StringProxy $blogUrl,
+        private DbLayer        $dbLayer,
+        private BlogUrlBuilder $blogUrlBuilder,
     ) {
     }
 
@@ -28,31 +28,25 @@ readonly class PathToAdminEntityConverter
      */
     public function getQueryParams(string $path): ?array
     {
-        $blogUrl = $this->blogUrl->get();
-        if (!str_starts_with($path, $blogUrl)) {
+        $blogUrl = $this->blogUrlBuilder->pathPrefix();
+        if ($blogUrl !== '' && $path !== $blogUrl && !str_starts_with($path, $blogUrl . '/')) {
             return null;
         }
 
-        $path      = substr($path, \strlen($blogUrl));
-        $pathArray = explode('/', $path);   //   []/[2006]/[12]/[31]/[newyear]
-        if (\count($pathArray) < 5) {
+        $relativePath = trim(substr($path, \strlen($blogUrl)), '/');
+        if ($relativePath === '' || str_contains($relativePath, '/')) {
             return ['entity' => 'BlogPost', 'action' => FieldConfig::ACTION_LIST];
         }
 
-        $date       = new \DateTimeImmutable();
-        $start_time = $date->setDate((int)$pathArray[1], (int)$pathArray[2], (int)$pathArray[3])->setTime(0, 0)->getTimestamp();
-        $end_time   = $date->setDate((int)$pathArray[1], (int)$pathArray[2], (int)$pathArray[3] + 1)->setTime(0, 0)->getTimestamp();
         $result = $this->dbLayer
             ->select('id')
             ->from('s2_blog_posts')
-            ->where('create_time < :end_time')->setParameter('end_time', $end_time)
-            ->andWhere('create_time >= :start_time')->setParameter('start_time', $start_time)
-            ->andWhere('url = :url')->setParameter('url', $pathArray[4])
+            ->where('url = :url')->setParameter('url', rawurldecode($relativePath))
             ->execute()
         ;
 
         $row = $result->fetchAssoc();
-        if ($row !== false) {
+        if ($row !== false && $result->fetchAssoc() === false) {
             return ['entity' => 'BlogPost', 'action' => FieldConfig::ACTION_EDIT, 'id' => $row['id']];
         }
 

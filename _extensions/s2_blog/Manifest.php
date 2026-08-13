@@ -2,7 +2,7 @@
 /**
  * Blog
  *
- * Allows to add a blog to your S2 site
+ * Provides the blog functionality for Register.
  *
  * @copyright 2007-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
@@ -39,13 +39,13 @@ class Manifest implements ManifestInterface
     #[\Override]
     public function getDescription(): string
     {
-        return 'Adds a blog to your site.';
+        return 'Adds posts, archives, tags, RSS, and comments.';
     }
 
     #[\Override]
     public function getVersion(): string
     {
-        return '2.0a2';
+        return '2.0a3';
     }
 
     #[\Override]
@@ -161,7 +161,7 @@ class Manifest implements ManifestInterface
 
         // Add extension options to the config table
         $config = [
-            'S2_BLOG_URL'   => '/blog',
+            'S2_BLOG_URL'   => '',
             'S2_BLOG_TITLE' => 'My blog',
         ];
 

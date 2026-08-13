@@ -21,6 +21,8 @@ class BlogUrlBuilder implements StatefulServiceInterface
 
     private ?string $blogTagsPath = null;
 
+    private ?string $normalizedBlogUrl = null;
+
     public function __construct(
         private readonly UrlBuilder  $urlBuilder,
         private readonly StringProxy $tagsUrl,
@@ -74,29 +76,56 @@ class BlogUrlBuilder implements StatefulServiceInterface
         return $this->main() . $year . '/' . $this->extendNumber($month) . '/' . $this->extendNumber($day) . '/';
     }
 
-    public function post(int $year, int $month, int $day, string $url): string
+    public function post(string $url): string
     {
-        return $this->main() . $year . '/' . $this->extendNumber($month) . '/' . $this->extendNumber($day) . '/' . rawurlencode($url);
+        return $this->main() . rawurlencode($url);
     }
 
-    public function postFromTimestamp(int $createTime, string $url): string
+    public function absPost(string $url): string
     {
-        return $this->main() . date('Y/m/d/', $createTime) . rawurlencode($url);
+        return $this->absMain() . rawurlencode($url);
     }
 
-    public function absPostFromTimestamp(int $createTime, string $url): string
+    public function postWithoutPrefix(string $url): string
     {
-        return $this->absMain() . date('Y/m/d/', $createTime) . rawurlencode($url);
-    }
-
-    public function postFromTimestampWithoutPrefix(int $createTime, string $url): string
-    {
-        return $this->encodedBlogUrl() . date('/Y/m/d', $createTime) . '/' . rawurlencode($url);
+        return $this->encodedBlogUrl() . '/' . rawurlencode($url);
     }
 
     public function blogIsOnTheSiteRoot(): bool
     {
-        return $this->blogUrl->get() === '';
+        return $this->pathPrefix() === '';
+    }
+
+    public function pathPrefix(): string
+    {
+        return $this->normalizedBlogUrl ??= self::normalizePathPrefix($this->blogUrl->get());
+    }
+
+    public function isReservedPostSlug(string $url): bool
+    {
+        $reserved = [
+            $this->favoriteUrl->get(),
+            $this->tagsUrl->get(),
+            'rss.xml',
+            'sitemap.xml',
+            'skip',
+        ];
+
+        if ($this->blogIsOnTheSiteRoot()) {
+            $reserved[] = 'comment_sent';
+            $reserved[] = 'comment_unsubscribe';
+            $reserved[] = 'search';
+        }
+
+        return \in_array($url, $reserved, true);
+    }
+
+    public static function normalizePathPrefix(string $path): string
+    {
+        $path = trim($path);
+        $path = trim($path, '/');
+
+        return $path === '' ? '' : '/' . $path;
     }
 
     #[\Override]
@@ -105,6 +134,7 @@ class BlogUrlBuilder implements StatefulServiceInterface
         $this->blogPath = null;
         $this->absBlogPath = null;
         $this->blogTagsPath = null;
+        $this->normalizedBlogUrl = null;
     }
 
     private function extendNumber(int $month): string
@@ -114,6 +144,6 @@ class BlogUrlBuilder implements StatefulServiceInterface
 
     private function encodedBlogUrl(): string
     {
-        return str_replace(rawurlencode('/'), '/', rawurlencode($this->blogUrl->get()));
+        return str_replace(rawurlencode('/'), '/', rawurlencode($this->pathPrefix()));
     }
 }

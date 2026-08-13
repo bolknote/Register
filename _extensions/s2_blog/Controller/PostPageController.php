@@ -71,20 +71,11 @@ class PostPageController extends BlogController
     #[\Override]
     public function body(Request $request, HtmlTemplate $template): ?Response
     {
-        $year  = (int)($textYear = $request->attributes->get('year'));
-        $textMonth = $request->attributes->get('month');
-        $textDay   = $request->attributes->get('day');
-        $month     = (int)$textMonth; // Note: "01" is not parsed with getInt() correctly
-        $day       = (int)$textDay;
-        $url   = $request->attributes->get('url');
-
-        if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
-            $template->registerPlaceholder('<!-- s2_blog_calendar -->', $this->calendarBuilder->calendar($year, $month, $day, $url));
-        }
+        $url = $request->attributes->getString('url');
 
         $template->putInPlaceholder('title', '');
 
-        $result = $this->get_post($request, $template, $year, $month, $day, $url);
+        $result = $this->getPost($request, $template, $url);
         if ($result instanceof \Symfony\Component\HttpFoundation\Response) {
             return $result;
         }
@@ -94,12 +85,6 @@ class PostPageController extends BlogController
             $template->addBreadCrumb($this->translator->trans('Blog'), $this->blogUrlBuilder->main());
         }
 
-        $template
-            ->addBreadCrumb($textYear, $this->blogUrlBuilder->year($year))
-            ->addBreadCrumb($textMonth, $this->blogUrlBuilder->month($year, $month))
-            ->addBreadCrumb($textDay, $this->blogUrlBuilder->day($year, $month, $day))
-        ;
-
         return null;
     }
 
@@ -107,12 +92,9 @@ class PostPageController extends BlogController
      * @throws InvalidArgumentException
      * @throws DbLayerException
      */
-    private function get_post(Request $request, HtmlTemplate $template, int $year, int $month, int $day, string $url): ?Response
+    private function getPost(Request $request, HtmlTemplate $template, string $url): ?Response
     {
-        $startTime = (new \DateTimeImmutable())->setDate($year, $month, $day)->setTime(0, 0)->getTimestamp();
-        $endTime   = $startTime + 86400;
-
-        $template->setLink('up', $this->blogUrlBuilder->day($year, $month, $day));
+        $template->setLink('up', $this->blogUrlBuilder->main());
 
         $result = $this->dbLayer
             ->select(
@@ -125,9 +107,7 @@ class PostPageController extends BlogController
                 'url'
             )
             ->from('s2_blog_posts AS p')
-            ->where('create_time < :end_time')->setParameter('end_time', $endTime)
-            ->andWhere('create_time >= :start_time')->setParameter('start_time', $startTime)
-            ->andWhere('url = :url')->setParameter('url', $url)
+            ->where('url = :url')->setParameter('url', $url)
             ->andWhere('published = 1')
             ->execute()
         ;
@@ -145,7 +125,17 @@ class PostPageController extends BlogController
         $post_id = $row['id'];
         $label   = (string)$row['label'];
 
-        $template->putInPlaceholder('canonical_path', $this->blogUrlBuilder->postFromTimestamp((int)$row['create_time'], $row['url']));
+        if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
+            $createTime = (int)$row['create_time'];
+            $template->registerPlaceholder('<!-- s2_blog_calendar -->', $this->calendarBuilder->calendar(
+                (int)date('Y', $createTime),
+                (int)date('m', $createTime),
+                (int)date('d', $createTime),
+                $url
+            ));
+        }
+
+        $template->putInPlaceholder('canonical_path', $this->blogUrlBuilder->post($row['url']));
 
         $is_back_forward = $template->hasPlaceholder('<!-- s2_blog_back_forward -->');
         $queries = [];
@@ -195,7 +185,7 @@ class PostPageController extends BlogController
         while ($result instanceof \S2\Cms\Pdo\QueryResult && ($row1 = $result->fetchAssoc()) !== false) {
             $post_info = [
                 'title' => $row1['title'],
-                'link'  => $this->blogUrlBuilder->postFromTimestamp((int)$row1['create_time'], $row1['url']),
+                'link'  => $this->blogUrlBuilder->post($row1['url']),
             ];
 
             if ($row1['type'] === 'label') {

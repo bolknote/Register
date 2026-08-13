@@ -11,6 +11,8 @@ use SQLite, MySQL/MariaDB, or PostgreSQL.
 ## What Register already does
 
 - Publishes blog posts and permanent pages, including drafts and scheduled dates.
+- Gives every post a short permalink such as `/post-name`; the blog lives at `/` by default and can
+  optionally be placed under a prefix such as `/notes`.
 - Organizes material with tags, sections, archives, favorites, RSS, and a sitemap.
 - Supports comments, moderation, subscriptions, and spam filtering.
 - Provides accounts and permissions for authors, moderators, editors, and administrators.

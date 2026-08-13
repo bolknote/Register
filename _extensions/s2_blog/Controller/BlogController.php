@@ -141,7 +141,7 @@ abstract class BlogController implements ControllerInterface
         $output = '';
         foreach ($ids as $id) {
             $post               = &$posts[$id];
-            $link               = $this->blogUrlBuilder->postFromTimestamp((int)$post['create_time'], $post['url']);
+            $link               = $this->blogUrlBuilder->post($post['url']);
             $post['link']       = $link;
             $post['title_link'] = $link;
             $post['time']       = $this->viewer->dateAndTime($post['create_time']);

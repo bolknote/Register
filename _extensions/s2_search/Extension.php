@@ -224,6 +224,6 @@ class Extension implements ExtensionInterface
         $routes->add('search', new Route('/search', ['_controller' => SearchPageController::class]));
 
         // Hack for alternative URL schemes
-        $routes->add('search2', new Route('/', ['_controller' => SearchPageController::class], condition: "request.query.get('search') !== null"));
+        $routes->add('search2', new Route('/', ['_controller' => SearchPageController::class], condition: "request.query.get('search') !== null"), 2);
     }
 }

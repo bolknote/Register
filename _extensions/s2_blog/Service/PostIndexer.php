@@ -134,7 +134,7 @@ readonly class PostIndexer implements QueueHandlerInterface, BulkIndexingProvide
         $indexable = new Indexable('s2_blog_' . $post['id'], $post['title'], $post['text']);
         $indexable
             ->setDate($dateTime)
-            ->setUrl($this->blogUrlBuilder->postFromTimestampWithoutPrefix($post['create_time'], $post['url']))
+            ->setUrl($this->blogUrlBuilder->postWithoutPrefix($post['url']))
         ;
         return $indexable;
     }

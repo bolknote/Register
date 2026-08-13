@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace s2_extensions\s2_blog\Model;
 
+use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\Viewer;
 use s2_extensions\s2_blog\BlogUrlBuilder;
@@ -17,9 +18,10 @@ use S2\Cms\Pdo\DbLayerException;
 readonly class PostProvider
 {
     public function __construct(
-        private DbLayer        $dbLayer,
-        private BlogUrlBuilder $blogUrlBuilder,
-        private Viewer         $viewer,
+        private DbLayer         $dbLayer,
+        private BlogUrlBuilder  $blogUrlBuilder,
+        private ArticleProvider $articleProvider,
+        private Viewer          $viewer,
     ) {
     }
 
@@ -106,7 +108,7 @@ readonly class PostProvider
                 $post['author'] = '';
             }
 
-            $link               = $this->blogUrlBuilder->postFromTimestamp($post['create_time'], $post['url']);
+            $link               = $this->blogUrlBuilder->post($post['url']);
             $post['title_link'] = $link;
             $post['link']       = $link;
             $post['time']       = $this->viewer->dateAndTime($post['create_time']);
@@ -147,7 +149,7 @@ readonly class PostProvider
             foreach ($rows as $row) {
                 $see_also[$row['label']][$row['id']] = [
                     'title' => $row['title'],
-                    'link'  => $this->blogUrlBuilder->postFromTimestamp($row['create_time'], $row['url']),
+                    'link'  => $this->blogUrlBuilder->post($row['url']),
                 ];
             }
         }
@@ -181,28 +183,34 @@ readonly class PostProvider
     /**
      * @throws DbLayerException
      */
-    public function checkUrlStatus(int $createTime, string $url): string
+    public function checkUrlStatus(int $postId, string $url): string
     {
         if ($url === '') {
             return 'empty';
         }
 
-        $startTime = (new \DateTimeImmutable())->setTimestamp($createTime)->setTime(0, 0)->getTimestamp();
-        $endTime   = $startTime + 86400;
+        if (
+            str_contains($url, '/')
+            || $this->blogUrlBuilder->isReservedPostSlug($url)
+            || $this->articleProvider->articleFromPath(
+                $this->blogUrlBuilder->pathPrefix() . '/' . rawurlencode($url),
+                false
+            ) !== null
+        ) {
+            return 'unavailable';
+        }
 
         $result = $this->dbLayer
             ->select('COUNT(*)')
             ->from('s2_blog_posts')
             ->where('url = :url')
             ->setParameter('url', $url)
-            ->andWhere('create_time < :end_time')
-            ->setParameter('end_time', $endTime)
-            ->andWhere('create_time >= :start_time')
-            ->setParameter('start_time', $startTime)
+            ->andWhere('id <> :id')
+            ->setParameter('id', $postId)
             ->execute()
         ;
 
-        if ($result->result() !== 1) {
+        if ((int)$result->result() > 0) {
             return 'not_unique';
         }
 

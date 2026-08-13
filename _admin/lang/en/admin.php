@@ -75,6 +75,7 @@ return [
     'Comments'                   => 'Comments',
     'URL not unique'             => 'This Slug is already used. Choose another one.',
     'URL empty'                  => 'Set the Slug to form the page address.',
+    'URL unavailable'            => 'This Slug is reserved or belongs to a permanent page. Choose another one.',
     'URL on mainpage'            => 'You cannot change the URL fragment of the main page.',
     'inherited'                  => 'inherited',
     'Preview template not found' => 'Preview is unavailable: template “{{ template }}” not found.',

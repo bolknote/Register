@@ -615,7 +615,7 @@ class CmsExtension implements ExtensionInterface
             '/{path<.*>}',
             ['_controller' => PageCommon::class],
             methods: ['GET']
-        ), -1); // -1 for last route
+        ), -1024); // Generic content fallback must remain below extension routes.
         $routes->add('comment_sent', new Route(
             '/comment_sent',
             ['_controller' => CommentSentController::class],
@@ -630,6 +630,6 @@ class CmsExtension implements ExtensionInterface
             '/{path<.*>}',
             ['_controller' => CommentController::class],
             methods: ['POST']
-        ), -1); // -1 for last route
+        ), -1024); // Generic comment fallback must remain below extension routes.
     }
 }

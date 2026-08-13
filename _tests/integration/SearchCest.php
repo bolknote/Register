@@ -82,7 +82,7 @@ class SearchCest
         $I->canSee('2023-08-12');
         $I->see('New Blog Post Title');
 
-//        foreach (['/blog/2023/08/12/', '/blog/2023/08/'] as $url) {
+//        foreach (['/2023/08/12/', '/2023/08/'] as $url) {
 //            $I->amOnPage($url);
 //            $I->see('New Blog Post Title');
 //            $I->see('New blog post');
@@ -90,7 +90,7 @@ class SearchCest
 //        }
 
         // Open a public page
-        $I->amOnPage('https://localhost/blog/2023/08/12/new_post1');
+        $I->amOnPage('https://localhost/new_post1');
         $I->see('New Blog Post Title');
         $I->see('New blog post');
         $I->see('August 12, 2023');
@@ -117,6 +117,6 @@ class SearchCest
         // $I->canWriteComment();
 
         $I->amOnPage('https://localhost/?search=1&q=another+tag');
-        $I->see('<a href="/blog/tags/blog%20tag/">blog tag</a>');
+        $I->see('<a href="/tags/blog%20tag/">blog tag</a>');
     }
 }

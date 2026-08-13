@@ -166,7 +166,7 @@ readonly class BlogPlaceholderProvider
         $output      = [];
         $request_uri = $this->urlPrefix . ($this->requestStack->getCurrentRequest()?->getPathInfo() ?? '');
         while ($row = $result->fetchAssoc()) {
-            $cur_url  = $this->blogUrlBuilder->postFromTimestamp($row['create_time'], $row['url']);
+            $cur_url  = $this->blogUrlBuilder->post($row['url']);
             $output[] = [
                 'title'      => $row['title'],
                 'link'       => $cur_url . '#' . $row['count'],
@@ -214,7 +214,7 @@ readonly class BlogPlaceholderProvider
         $output      = [];
         $request_uri = $this->urlPrefix . ($this->requestStack->getCurrentRequest()?->getPathInfo() ?? '');
         while ($row = $result->fetchAssoc()) {
-            $cur_url  = $this->blogUrlBuilder->postFromTimestamp($row['create_time'], $row['url']);
+            $cur_url  = $this->blogUrlBuilder->post($row['url']);
             $output[] = [
                 'title'      => $row['title'],
                 'link'       => $cur_url,

@@ -82,7 +82,7 @@ readonly class BlogCommentNotifier
             return;
         }
 
-        $link = $this->blogUrlBuilder->absPostFromTimestamp($post['create_time'], $post['url']);
+        $link = $this->blogUrlBuilder->absPost($post['url']);
 
         // Fetching receivers' names and addresses
         $allReceivers = $this->getCommentReceivers($comment['post_id'], $comment['email'], '<>');

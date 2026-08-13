@@ -35,6 +35,8 @@ use S2\Cms\Template\Viewer;
 use S2\Rose\Indexer;
 use s2_extensions\s2_blog\Controller\DayPageController;
 use s2_extensions\s2_blog\Controller\FavoritePageController;
+use s2_extensions\s2_blog\Controller\FlatCommentController;
+use s2_extensions\s2_blog\Controller\FlatContentController;
 use s2_extensions\s2_blog\Controller\MainPageController;
 use s2_extensions\s2_blog\Controller\MonthPageController;
 use s2_extensions\s2_blog\Controller\PostPageController;
@@ -195,6 +197,11 @@ class Extension implements ExtensionInterface
                 $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
             );
         });
+        $container->set(FlatContentController::class, static fn(Container $container): \s2_extensions\s2_blog\Controller\FlatContentController => new FlatContentController(
+            $container->get(ArticleProvider::class),
+            $container->get(\S2\Cms\Controller\PageCommon::class),
+            $container->get(PostPageController::class),
+        ));
         $container->set(TagsPageController::class, static function (Container $container): \s2_extensions\s2_blog\Controller\TagsPageController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new TagsPageController(
@@ -300,10 +307,16 @@ class Extension implements ExtensionInterface
                 $provider->getBoolProxy('S2_PREMODERATION'),
             );
         }, ['dynamic_config_dependent']);
+        $container->set(FlatCommentController::class, static fn(Container $container): \s2_extensions\s2_blog\Controller\FlatCommentController => new FlatCommentController(
+            $container->get(ArticleProvider::class),
+            $container->get(CommentController::class),
+            $container->get('s2_blog.comment_controller'),
+        ));
 
         $container->set(PostProvider::class, static fn(Container $container): \s2_extensions\s2_blog\Model\PostProvider => new PostProvider(
             $container->get(DbLayer::class),
             $container->get(BlogUrlBuilder::class),
+            $container->get(ArticleProvider::class),
             $container->get(Viewer::class),
         ));
 
@@ -439,10 +452,11 @@ class Extension implements ExtensionInterface
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
         $configProvider = $container->get(DynamicConfigProvider::class);
-        $s2BlogUrl      = $configProvider->getStringProxy('S2_BLOG_URL')->get();
+        $s2BlogUrl      = $container->get(BlogUrlBuilder::class)->pathPrefix();
         $favoriteUrl    = $configProvider->getStringProxy('S2_FAVORITE_URL')->get();
         $tagsUrl        = $configProvider->getStringProxy('S2_TAGS_URL')->get();
         $priority       = 1;
+        $flatPriority   = -1;
 
         if ($s2BlogUrl !== '') {
             $routes->add('blog_main', new Route(
@@ -519,16 +533,16 @@ class Extension implements ExtensionInterface
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_post', new Route(
-            $s2BlogUrl . '/{year<\d+>}/{month<\d+>}/{day<\d+>}/{url}',
-            ['_controller' => PostPageController::class],
+            $s2BlogUrl . '/{url}',
+            ['_controller' => FlatContentController::class],
             options: ['utf8' => true],
             methods: ['GET'],
-        ), $priority);
+        ), $flatPriority);
         $routes->add('blog_comment', new Route(
-            $s2BlogUrl . '/{year<\d+>}/{month<\d+>}/{day<\d+>}/{url}',
-            ['_controller' => 's2_blog.comment_controller'],
+            $s2BlogUrl . '/{url}',
+            ['_controller' => FlatCommentController::class],
             options: ['utf8' => true],
             methods: ['POST'],
-        ), $priority);
+        ), $flatPriority);
     }
 }

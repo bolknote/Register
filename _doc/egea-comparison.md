@@ -180,6 +180,7 @@ automatic URL lifecycle management.
 | Clipboard image paste | Available | Implemented. |
 | Alt-drag media replacement | Missing | No matching interaction. |
 | Custom item and tag URLs | Available | Both are editable. |
+| Short post permalinks | Available | Posts use `/<slug>` at the site root; dates remain archive navigation only. |
 | Automatic title transliteration | Missing | New content initially receives a technical URL. |
 | Automatic redirects from every previous URL | Missing | URL history is not stored. |
 | Manually configured redirects | Available | Supported by the redirect map. |

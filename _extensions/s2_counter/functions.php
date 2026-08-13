@@ -255,7 +255,7 @@ function s2_counter_rss_count(Request $request, RssStrategyInterface $rssStrateg
     }
 
     clearstatcache();
-    $modifiedAt = filemtime($fullFileName);
+    $modifiedAt = is_file($fullFileName) ? filemtime($fullFileName) : false;
     if ($modifiedAt === false || date('j', $modifiedAt) === date('j')) {
         s2_counter_append_file($fullFileName, time() . '^' . $clientIp . '^' . $userAgent . "\n");
     } else {

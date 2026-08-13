@@ -32,20 +32,12 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
     #[\Override]
     public function getTargetByRequest(Request $request): ?TargetDto
     {
-        $year  = (int)($request->attributes->get('year'));
-        $month = (int)($request->attributes->get('month')); // Note: "01" is not parsed with getInt() correctly
-        $day   = (int)($request->attributes->get('day'));
-        $url   = $request->attributes->get('url');
+        $url = $request->attributes->getString('url');
 
-        $startTime = (new \DateTimeImmutable())->setDate($year, $month, $day)->setTime(0, 0)->getTimestamp();
         $result = $this->dbLayer
             ->select('id', 'title')
             ->from('s2_blog_posts AS p')
-            ->where('create_time < :end_time')
-            ->setParameter('end_time', $startTime + 86400)
-            ->andWhere('create_time >= :start_time')
-            ->setParameter('start_time', $startTime)
-            ->andWhere('url = :url')
+            ->where('url = :url')
             ->setParameter('url', $url)
             ->andWhere('published = 1')
             ->andWhere('commented = 1')

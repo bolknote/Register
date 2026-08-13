@@ -48,8 +48,12 @@ class Sitemap extends \S2\Cms\Controller\Sitemap
 
         $posts = [];
         while ($row = $result->fetchAssoc()) {
-            $row['rel_path'] = $this->blogUrlBuilder->postFromTimestamp($row['time'], $row['url']);
+            $row['rel_path'] = $this->blogUrlBuilder->post($row['url']);
             $posts[]         = $row;
+        }
+
+        if ($this->blogUrlBuilder->blogIsOnTheSiteRoot()) {
+            return [...parent::getItems(), ...$posts];
         }
 
         return $posts;

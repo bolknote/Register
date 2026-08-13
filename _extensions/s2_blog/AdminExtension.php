@@ -19,7 +19,6 @@ use S2\Cms\Admin\TranslationProviderInterface;
 use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
 use S2\Cms\AdminYard\CustomTemplateRendererEvent;
 use S2\Cms\AdminYard\Signal;
-use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ExtensionInterface;
 use S2\Cms\Model\PermissionChecker;
@@ -65,13 +64,10 @@ class AdminExtension implements ExtensionInterface
 
         $container->set(BlogCommentProvider::class, fn(Container $container): \s2_extensions\s2_blog\Model\BlogCommentProvider => new BlogCommentProvider($container->get(DbLayer::class)));
 
-        $container->set(PathToAdminEntityConverter::class, function (Container $container): \s2_extensions\s2_blog\Admin\PathToAdminEntityConverter {
-            $provider = $container->get(DynamicConfigProvider::class);
-            return new PathToAdminEntityConverter(
-                $container->get(DbLayer::class),
-                $provider->getStringProxy('S2_BLOG_URL'),
-            );
-        });
+        $container->set(PathToAdminEntityConverter::class, fn(Container $container): \s2_extensions\s2_blog\Admin\PathToAdminEntityConverter => new PathToAdminEntityConverter(
+            $container->get(DbLayer::class),
+            $container->get(BlogUrlBuilder::class),
+        ));
     }
 
     #[\Override]
