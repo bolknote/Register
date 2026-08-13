@@ -5,6 +5,7 @@ declare(strict_types = 1);
 return [
 
     'N Comments'   => '{{ count }} комментарий|{{ count }} комментария|{{ count }} комментариев',
+    'N Posts'      => '{{ count }} заметка|{{ count }} заметки|{{ count }} заметок',
     'Post comment' => 'Оставить комментарий',
     'Pagination'   => 'Страницы блога',
     'Previous page' => 'Предыдущая страница',

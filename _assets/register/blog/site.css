@@ -77,3 +77,18 @@ a.nav_mon:hover { background: var(--highlight-color, #ffa); }
 .s2_blog_pages a {
 	margin-right: 1.75em;
 	}
+
+#content > .blog-all-posts {
+	width: 100%;
+	max-width: var(--text-width, 680px);
+	}
+
+.blog-all-posts-title {
+	margin: 0 0 8px;
+	font-size: clamp(2rem, 4vw, 36px);
+	line-height: 1.111;
+	}
+
+#content .blog-all-posts-list p {
+	margin: 0 0 10px;
+	}

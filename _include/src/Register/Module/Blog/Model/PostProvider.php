@@ -40,6 +40,31 @@ readonly class PostProvider
     }
 
     /**
+     * @throws DbLayerException
+     * @return list<array{title: string, link: string}>
+     */
+    public function allPublishedPostLinks(): array
+    {
+        $result = $this->dbLayer
+            ->select('title', 'url')
+            ->from('s2_blog_posts')
+            ->where('published = 1')
+            ->orderBy('create_time DESC')
+            ->execute()
+        ;
+
+        $posts = [];
+        while ($row = $result->fetchAssoc()) {
+            $posts[] = [
+                'title' => (string)$row['title'],
+                'link'  => $this->blogUrlBuilder->post((string)$row['url']),
+            ];
+        }
+
+        return $posts;
+    }
+
+    /**
      * Returns an array containing info about last N posts
      *
      * @throws DbLayerException

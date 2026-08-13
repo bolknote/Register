@@ -5,6 +5,7 @@ declare(strict_types = 1);
 return [
 
     'N Comments'   => '{{ count }} comment|{{ count }} comments',
+    'N Posts'      => '{{ count }} post|{{ count }} posts',
     'Post comment' => 'Leave a comment',
     'Pagination'   => 'Blog pages',
     'Previous page' => 'Previous page',

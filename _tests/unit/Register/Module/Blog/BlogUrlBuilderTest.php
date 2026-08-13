@@ -41,10 +41,12 @@ final class BlogUrlBuilderTest extends Unit
             self::assertSame('', $builder->pathPrefix());
             self::assertTrue($builder->blogIsOnTheSiteRoot());
             self::assertSame('/', $builder->main());
+            self::assertSame('/all/', $builder->all());
             self::assertSame('/hello%20world', $builder->post('hello world'));
             self::assertSame('https://example.test/hello%20world', $builder->absPost('hello world'));
             self::assertSame('/hello%20world', $builder->postWithoutPrefix('hello world'));
             self::assertTrue($builder->isReservedPostSlug('search'));
+            self::assertTrue($builder->isReservedPostSlug('all'));
         } finally {
             if (file_exists($configFile)) {
                 unlink($configFile);
@@ -60,8 +62,10 @@ final class BlogUrlBuilderTest extends Unit
             self::assertSame('/notes', $builder->pathPrefix());
             self::assertFalse($builder->blogIsOnTheSiteRoot());
             self::assertSame('/notes/', $builder->main());
+            self::assertSame('/notes/all/', $builder->all());
             self::assertSame('/notes/hello', $builder->post('hello'));
             self::assertFalse($builder->isReservedPostSlug('search'));
+            self::assertTrue($builder->isReservedPostSlug('all'));
         } finally {
             if (file_exists($configFile)) {
                 unlink($configFile);

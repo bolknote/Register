@@ -37,6 +37,7 @@ use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplateEvent;
 use S2\Cms\Template\Viewer;
+use Register\Module\Blog\Controller\AllPostsController;
 use Register\Module\Blog\Controller\DayPageController;
 use Register\Module\Blog\Controller\FavoritePageController;
 use Register\Module\Blog\Controller\FlatCommentController;
@@ -209,6 +210,23 @@ final class Module implements ModuleInterface
             $container->get(\S2\Cms\Controller\PageCommon::class),
             $container->get(PostPageController::class),
         ));
+        $container->set(AllPostsController::class, static function (Container $container): \Register\Module\Blog\Controller\AllPostsController {
+            $provider = $container->get(DynamicConfigProvider::class);
+            return new AllPostsController(
+                $container->get(DbLayer::class),
+                $container->get(CalendarBuilder::class),
+                $container->get(BlogUrlBuilder::class),
+                $container->get(ArticleProvider::class),
+                $container->get(PostProvider::class),
+                $container->get(UrlBuilder::class),
+                $container->get('register_blog_translator'),
+                $container->get(HtmlTemplateProvider::class),
+                $container->get(Viewer::class),
+                $provider->getStringProxy('S2_BLOG_TITLE'),
+                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
+                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+            );
+        });
         $container->set(TagsPageController::class, static function (Container $container): \Register\Module\Blog\Controller\TagsPageController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new TagsPageController(
@@ -493,6 +511,13 @@ final class Module implements ModuleInterface
         $routes->add('blog_sitemap', new Route(
             $s2BlogUrl . '/sitemap.xml',
             ['_controller' => Sitemap::class],
+            options: ['utf8' => true],
+            methods: ['GET'],
+        ), $priority);
+
+        $routes->add('blog_all', new Route(
+            $s2BlogUrl . '/all{slash</?>}',
+            ['_controller' => AllPostsController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);

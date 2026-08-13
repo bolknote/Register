@@ -51,6 +51,11 @@ class BlogUrlBuilder implements StatefulServiceInterface
         return $this->blogTagsPath ?? $this->blogTagsPath = $this->main() . rawurlencode($this->tagsUrl->get()) . '/';
     }
 
+    public function all(): string
+    {
+        return $this->main() . 'all/';
+    }
+
     public function tag(string $tagUrl): string
     {
         return $this->tags() . rawurlencode($tagUrl) . '/';
@@ -109,6 +114,7 @@ class BlogUrlBuilder implements StatefulServiceInterface
             'rss.xml',
             'sitemap.xml',
             'skip',
+            'all',
         ];
 
         if ($this->blogIsOnTheSiteRoot()) {
