@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Template;
 
+use S2\Cms\Comment\Antispam\CommentFormTokenManager;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Config\StringProxy;
@@ -44,6 +45,7 @@ class HtmlTemplateProvider
         private readonly string                   $rootDir,
         private readonly string                   $basePath, // to be used in templates
         private readonly ?string                  $canonicalUrl,
+        private readonly CommentFormTokenManager  $commentFormTokenManager,
     ) {
     }
 
@@ -69,6 +71,7 @@ class HtmlTemplateProvider
             $this->startYear,
             $this->debugView,
             $this->canonicalUrl,
+            $this->commentFormTokenManager,
         );
 
         $this->dispatcher->dispatch(new TemplateEvent($htmlTemplate), TemplateEvent::EVENT_CREATED);

@@ -9,35 +9,28 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Comment;
 
+use S2\Cms\Comment\Antispam\SpamFeatureExtractor;
+
 readonly class SpamDecisionProvider implements SpamDecisionProviderInterface
 {
-    public function __construct(private SpamDetectorInterface $detector)
-    {
+    public function __construct(
+        private SpamDetectorInterface $detector,
+        private SpamFeatureExtractor  $featureExtractor,
+    ) {
     }
 
     #[\Override]
     public function getVerdict(SpamDetectorComment $comment, string $clientIp): SpamDecision
     {
         $report    = $this->detector->getReport($comment, $clientIp);
-        $linkCount = $this->linkCount($comment->text);
-        $hasHtml   = $this->hasHtmlTags($comment->text);
+        $linkCount = $this->featureExtractor->linkCount($comment->text);
+        $hasHtml   = $this->featureExtractor->hasHtml($comment->text);
 
-        $rejectLinks     = $linkCount > 0 && !$report->isHam();
-        $rejectSpam      = $report->isBlatant();
+        $rejectLinks     = false;
+        $rejectSpam      = $report->shouldReject();
         $forceModeration = $report->isHam() && ($linkCount > 0 || $hasHtml);
 
         return new SpamDecision($report, $rejectLinks, $rejectSpam, $forceModeration);
     }
 
-    private function linkCount(string $text): int
-    {
-        $count = preg_match_all('#(https?://\S{2,}?)(?=[\s),\'><\]]|&lt;|&gt;|[.;:](?:\s|$)|$)#u', $text);
-
-        return $count !== false ? $count : 0;
-    }
-
-    private function hasHtmlTags(string $text): bool
-    {
-        return preg_match('#</?[a-z][^>]*>#i', $text) === 1;
-    }
 }

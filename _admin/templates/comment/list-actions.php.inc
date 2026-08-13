@@ -8,6 +8,29 @@
 /** @var string $entityName */
 /** @var array $primaryKey */
 
+$spamLabel = (string)($row['column_spam_label'] ?? '');
+if ($isGranted(\S2\Cms\Model\PermissionChecker::PERMISSION_HIDE_COMMENTS)) {
+    foreach ([
+                 'ham'  => ['label' => $trans('Not spam'), 'title' => $trans('Publish and learn as ham')],
+                 'spam' => ['label' => $trans('Spam'), 'title' => $trans('Hide and learn as spam')],
+             ] as $feedbackAction => $feedback) {
+        if ($spamLabel === $feedbackAction) {
+            continue;
+        }
+
+        $feedbackParams = http_build_query(array_merge([
+            'entity' => $entityName,
+            'action' => $feedbackAction,
+        ], $primaryKey));
+        ?>
+        <a class="list-action-link list-action-link-<?= $feedbackAction ?>"
+           onclick="fetch(this.href, {method: 'POST', body: new URLSearchParams('csrf_token=<?= $csrfToken ?>') }).then(function () { window.location.reload(); }); return false;"
+           title="<?= $feedback['title'] ?>"
+           href="?<?= $feedbackParams ?>"><span><?= $feedback['label'] ?></span></a>
+        <?php
+    }
+}
+
 $actionName = $trans('reject');
 $actionTitle = $trans('Leave hidden');
 

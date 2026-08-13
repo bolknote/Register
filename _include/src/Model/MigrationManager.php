@@ -9,13 +9,14 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
+use S2\Cms\Comment\Antispam\AntispamSchema;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
 use S2\Cms\Pdo\DbLayerException;
 
 class MigrationManager
 {
-    private const int S2_DB_LAST_REVISION = 24;
+    private const int S2_DB_LAST_REVISION = 25;
 
     public function __construct(
         private readonly DbLayer $dbLayer,
@@ -283,6 +284,49 @@ class MigrationManager
             );
 
             $this->dbLayer->dropField('users_online', 'salt');
+        }
+
+        if ($currentRevision < 25) {
+            AntispamSchema::create($this->dbLayer);
+
+            $akismetKey = $this->dbLayer
+                ->select('value')
+                ->from('config')
+                ->where('name = :name')->setParameter('name', 'S2_AKISMET_KEY')
+                ->execute()
+                ->result()
+            ;
+
+            foreach ([
+                         'S2_ANTISPAM_MODE'           => \is_string($akismetKey) && trim($akismetKey) !== '' ? 'shadow' : 'local',
+                         'S2_ANTISPAM_SECRET'         => bin2hex(random_bytes(32)),
+                         'S2_ANTISPAM_SPAM_SCORE'     => '35',
+                         'S2_ANTISPAM_BLATANT_SCORE' => '80',
+                     ] as $name => $value) {
+                $this->dbLayer
+                    ->insert('config')
+                    ->setValue('name', ':name')->setParameter('name', $name)
+                    ->setValue('value', ':value')->setParameter('value', $value)
+                    ->onConflictDoNothing('name')
+                    ->execute()
+                ;
+            }
+
+            $antispamSecret = $this->dbLayer
+                ->select('value')
+                ->from('config')
+                ->where('name = :name')->setParameter('name', 'S2_ANTISPAM_SECRET')
+                ->execute()
+                ->result()
+            ;
+            if (!\is_string($antispamSecret) || \strlen($antispamSecret) < 32) {
+                $this->dbLayer
+                    ->update('config')
+                    ->set('value', ':value')->setParameter('value', bin2hex(random_bytes(32)))
+                    ->where('name = :name')->setParameter('name', 'S2_ANTISPAM_SECRET')
+                    ->execute()
+                ;
+            }
         }
 
         $this->dbLayer->update('config')

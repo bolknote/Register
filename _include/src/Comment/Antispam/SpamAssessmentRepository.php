@@ -1,0 +1,191 @@
+<?php
+/**
+ * @copyright 2026 Roman Parpalak
+ * @license   https://opensource.org/license/mit MIT
+ * @package   S2
+ */
+
+declare(strict_types = 1);
+
+namespace S2\Cms\Comment\Antispam;
+
+use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Pdo\DbLayerException;
+
+final readonly class SpamAssessmentRepository
+{
+    public function __construct(private DbLayer $dbLayer)
+    {
+    }
+
+    /**
+     * @throws DbLayerException
+     * @throws \JsonException
+     */
+    public function save(
+        SpamAssessment $assessment,
+        string         $status,
+        string         $source = 'local',
+        ?string        $targetType = null,
+        ?int           $commentId = null,
+    ): int {
+        $this->validateTargetType($targetType);
+
+        $this->dbLayer
+            ->insert('spam_assessments')
+            ->setValue('target_type', ':target_type')->setParameter('target_type', $targetType, $targetType === null ? \PDO::PARAM_NULL : \PDO::PARAM_STR)
+            ->setValue('comment_id', ':comment_id')->setParameter('comment_id', $commentId, $commentId === null ? \PDO::PARAM_NULL : \PDO::PARAM_INT)
+            ->setValue('created_at', ':created_at')->setParameter('created_at', time())
+            ->setValue('source', ':source')->setParameter('source', $source)
+            ->setValue('score', ':score')->setParameter('score', $assessment->score)
+            ->setValue('status', ':status')->setParameter('status', $status)
+            ->setValue('shadow_status', 'NULL')
+            ->setValue('reasons', ':reasons')->setParameter('reasons', json_encode($assessment->reasons, JSON_THROW_ON_ERROR))
+            ->setValue('text_hash', ':text_hash')->setParameter('text_hash', $assessment->textHash)
+            ->setValue('email_hash', ':email_hash')->setParameter('email_hash', $assessment->emailHash)
+            ->setValue('ip_hash', ':ip_hash')->setParameter('ip_hash', $assessment->ipHash)
+            ->setValue('moderator_label', 'NULL')
+            ->setValue('model_version', ':model_version')->setParameter('model_version', SpamRiskScorer::VERSION)
+            ->execute()
+        ;
+
+        return (int)$this->dbLayer->insertId();
+    }
+
+    /**
+     * @throws DbLayerException
+     */
+    public function attachComment(int $assessmentId, string $targetType, int $commentId): void
+    {
+        $this->validateTargetType($targetType);
+
+        $this->dbLayer
+            ->update('spam_assessments')
+            ->set('target_type', ':target_type')->setParameter('target_type', $targetType)
+            ->set('comment_id', ':comment_id')->setParameter('comment_id', $commentId)
+            ->where('id = :id')->setParameter('id', $assessmentId)
+            ->andWhere('target_type IS NULL')
+            ->andWhere('comment_id IS NULL')
+            ->execute()
+        ;
+    }
+
+    /**
+     * @throws DbLayerException
+     */
+    public function setShadowStatus(int $assessmentId, string $status): void
+    {
+        $this->dbLayer
+            ->update('spam_assessments')
+            ->set('shadow_status', ':status')->setParameter('status', $status)
+            ->where('id = :id')->setParameter('id', $assessmentId)
+            ->execute()
+        ;
+    }
+
+    /**
+     * Sets the explicit moderator label on the latest assessment.
+     *
+     * @return string|null Previous label.
+     * @throws DbLayerException
+     * @throws \JsonException
+     */
+    public function labelComment(
+        int            $commentId,
+        string         $label,
+        SpamAssessment $fallbackAssessment,
+        string         $targetType = 'article',
+    ): ?string
+    {
+        $this->validateTargetType($targetType);
+
+        $row = $this->dbLayer
+            ->select('id', 'moderator_label')
+            ->from('spam_assessments')
+            ->where('target_type = :target_type')->setParameter('target_type', $targetType)
+            ->andWhere('comment_id = :comment_id')->setParameter('comment_id', $commentId)
+            ->orderBy('id DESC')
+            ->limit(1)
+            ->execute()
+            ->fetchAssoc()
+        ;
+
+        if ($row === false) {
+            $assessmentId = $this->save($fallbackAssessment, $label, 'moderator', $targetType, $commentId);
+            $previousLabel = null;
+        } else {
+            $assessmentId  = (int)$row['id'];
+            $previousLabel = \is_string($row['moderator_label']) && $row['moderator_label'] !== ''
+                ? $row['moderator_label']
+                : null;
+        }
+
+        $this->dbLayer
+            ->update('spam_assessments')
+            ->set('moderator_label', ':label')->setParameter('label', $label)
+            ->where('id = :id')->setParameter('id', $assessmentId)
+            ->execute()
+        ;
+
+        return $previousLabel;
+    }
+
+    /**
+     * @throws DbLayerException
+     */
+    public function deleteUnattachedOlderThan(int $timestamp): int
+    {
+        return $this->dbLayer
+            ->delete('spam_assessments')
+            ->where('(target_type IS NULL OR comment_id IS NULL)')
+            ->andWhere('created_at < :timestamp')->setParameter('timestamp', $timestamp)
+            ->execute()
+            ->affectedRows()
+        ;
+    }
+
+    /**
+     * @throws DbLayerException
+     */
+    public function deleteUnlabelledOlderThan(int $timestamp): int
+    {
+        return $this->dbLayer
+            ->delete('spam_assessments')
+            ->where('moderator_label IS NULL')
+            ->andWhere('created_at < :timestamp')->setParameter('timestamp', $timestamp)
+            ->execute()
+            ->affectedRows()
+        ;
+    }
+
+    /**
+     * @throws DbLayerException
+     */
+    public function deleteOrphans(string $targetType, ?string $commentTable): int
+    {
+        $this->validateTargetType($targetType);
+        if ($commentTable !== null && preg_match('#^[a-z][a-z0-9_]*$#', $commentTable) !== 1) {
+            throw new \InvalidArgumentException('Invalid comment table name.');
+        }
+
+        $delete = $this->dbLayer
+            ->delete('spam_assessments')
+            ->where('target_type = :target_type')->setParameter('target_type', $targetType)
+            ->andWhere('comment_id IS NOT NULL')
+        ;
+        if ($commentTable !== null) {
+            $delete->andWhere(
+                'comment_id NOT IN (SELECT id FROM ' . $this->dbLayer->getPrefix() . $commentTable . ')',
+            );
+        }
+
+        return $delete->execute()->affectedRows();
+    }
+
+    private function validateTargetType(?string $targetType): void
+    {
+        if ($targetType !== null && preg_match('#^[a-z][a-z0-9_]{0,19}$#', $targetType) !== 1) {
+            throw new \InvalidArgumentException('Invalid antispam target type.');
+        }
+    }
+}

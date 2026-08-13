@@ -7,6 +7,7 @@
 
 declare(strict_types = 1);
 
+use S2\Cms\Comment\Antispam\SpamMaintenance;
 use S2\Cms\Queue\QueueConsumer;
 
 if (PHP_SAPI !== 'cli') {
@@ -17,4 +18,6 @@ $app = require __DIR__ . '/_include/common.php';
 
 $consumer = $app->container->get(QueueConsumer::class);
 $startedAt = microtime(true);
-while ($consumer->runQueue() && microtime(true) - $startedAt < 50);
+while ($consumer->runQueue() && microtime(true) - $startedAt < 45);
+
+$app->container->get(SpamMaintenance::class)->run();

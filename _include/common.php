@@ -122,6 +122,7 @@ function s2_build_base_static_parameters(array $config): array
         'version'            => S2_VERSION,
         'redirect_map'       => $config['redirects'] ?? [],
         'cookie_name'        => $config['cookies']['name'] ?? StaticConfigLoader::DEFAULT_COOKIE_NAME,
+        'antispam_secret'    => $config['security']['antispam_secret'] ?? null,
         'db_type'            => $config['database']['type'] ?? null,
         'db_host'            => $config['database']['host'] ?? null,
         'db_name'            => $config['database']['name'] ?? null,

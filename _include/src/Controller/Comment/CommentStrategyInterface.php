@@ -13,6 +13,9 @@ use Symfony\Component\HttpFoundation\Request;
 
 interface CommentStrategyInterface
 {
+    /** Stable storage discriminator used by polymorphic antispam assessments. */
+    public function getAntispamTargetType(): string;
+
     /**
      * @return TargetDto|null Info about the entity to be commented
      */

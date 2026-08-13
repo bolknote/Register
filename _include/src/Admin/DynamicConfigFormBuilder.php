@@ -51,6 +51,10 @@ class DynamicConfigFormBuilder
         'Comments config'     => 'title',
         'S2_SHOW_COMMENTS'    => 'boolean',
         'S2_ENABLED_COMMENTS' => 'boolean',
+        'S2_ANTISPAM_MODE'    => 'antispam_mode',
+        'S2_ANTISPAM_SECRET'  => 'hidden',
+        'S2_ANTISPAM_SPAM_SCORE' => 'int',
+        'S2_ANTISPAM_BLATANT_SCORE' => 'int',
         'S2_AKISMET_KEY'      => 'string',
         'S2_PREMODERATION'    => 'boolean',
 
@@ -231,6 +235,16 @@ class DynamicConfigFormBuilder
                 control: 'select',
                 options: array_combine($styles = $this->resourceProvider->readStyles(), $styles),
                 inlineEdit: $inlineEdit
+            ),
+            'antispam_mode' => new FieldConfig(
+                'value',
+                control: 'select',
+                options: [
+                    'local'   => $this->translator->trans('Local filter'),
+                    'shadow'  => $this->translator->trans('Shadow comparison'),
+                    'akismet' => 'Akismet',
+                ],
+                inlineEdit: $inlineEdit,
             ),
             default => throw new \LogicException(\sprintf('Unsupported dynamic configuration field type for "%s".', $paramName)),
         };

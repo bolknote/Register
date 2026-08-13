@@ -11,6 +11,9 @@ namespace Register\Module\Blog;
 
 use Psr\Log\LoggerInterface;
 use S2\Cms\Asset\AssetPack;
+use S2\Cms\Comment\Antispam\CommentFormTokenManager;
+use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
+use S2\Cms\Comment\Antispam\SpamRateLimiter;
 use S2\Cms\Comment\SpamDecisionProviderInterface;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
@@ -305,6 +308,9 @@ final class Module implements ModuleInterface
                 $container->get(LoggerInterface::class),
                 $container->get(CommentMailer::class),
                 $container->get(SpamDecisionProviderInterface::class),
+                $container->get(CommentFormTokenManager::class),
+                $container->get(SpamRateLimiter::class),
+                $container->get(SpamAssessmentRepository::class),
                 $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
                 $provider->getBoolProxy('S2_PREMODERATION'),
             );

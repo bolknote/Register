@@ -16,6 +16,7 @@ use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
 use S2\Cms\Admin\DynamicConfigFormExtenderInterface;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Admin\TranslationProviderInterface;
+use S2\Cms\Comment\Antispam\SpamFeedbackService;
 use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
 use S2\Cms\AdminYard\CustomTemplateRendererEvent;
 use S2\Cms\AdminYard\Signal;
@@ -48,6 +49,7 @@ final class AdminModule implements ModuleInterface
             $container->get(PostProvider::class),
             $container->get(BlogUrlBuilder::class),
             $container->get(BlogCommentNotifier::class),
+            $container->get(SpamFeedbackService::class),
             $container->get(UniqueSlugGenerator::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container->getStringParameter('db_type'),

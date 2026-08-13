@@ -13,6 +13,18 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use S2\Cms\Asset\AssetMergeFactory;
 use S2\Cms\Comment\AkismetProxy;
+use S2\Cms\Comment\Antispam\CommentFormTokenManager;
+use S2\Cms\Comment\Antispam\ConfigurableSpamDetector;
+use S2\Cms\Comment\Antispam\LocalSpamDetector;
+use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
+use S2\Cms\Comment\Antispam\SpamFeatureExtractor;
+use S2\Cms\Comment\Antispam\SpamFeedbackService;
+use S2\Cms\Comment\Antispam\SpamIdentityHasher;
+use S2\Cms\Comment\Antispam\SpamMaintenance;
+use S2\Cms\Comment\Antispam\SpamRateLimiter;
+use S2\Cms\Comment\Antispam\SpamReputationRepository;
+use S2\Cms\Comment\Antispam\SpamRiskScorer;
+use S2\Cms\Comment\Antispam\SpamRuleRepository;
 use S2\Cms\Comment\SpamDetectorInterface;
 use S2\Cms\Comment\SpamDecisionProvider;
 use S2\Cms\Comment\SpamDecisionProviderInterface;
@@ -187,6 +199,49 @@ class CmsExtension implements ExtensionInterface
 
         $container->set(RequestStack::class, fn(Container $_container): \Symfony\Component\HttpFoundation\RequestStack => new RequestStack());
 
+        $container->set(SpamIdentityHasher::class, function (Container $container): \S2\Cms\Comment\Antispam\SpamIdentityHasher {
+            $staticSecret = $container->getNullableStringParameter('antispam_secret');
+            $secret       = \is_string($staticSecret) && \strlen($staticSecret) >= 32
+                ? $staticSecret
+                : $container->get(DynamicConfigProvider::class)->getStringProxy('S2_ANTISPAM_SECRET');
+
+            return new SpamIdentityHasher($secret);
+        });
+        $container->set(SpamFeatureExtractor::class, new SpamFeatureExtractor());
+        $container->set(SpamAssessmentRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamAssessmentRepository => new SpamAssessmentRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(SpamReputationRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamReputationRepository => new SpamReputationRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(SpamRuleRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRuleRepository => new SpamRuleRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(SpamRiskScorer::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRiskScorer => new SpamRiskScorer(
+            $container->get(SpamIdentityHasher::class),
+            $container->get(SpamFeatureExtractor::class),
+            $container->get(SpamReputationRepository::class),
+            $container->get(SpamRuleRepository::class),
+        ));
+        $container->set(CommentFormTokenManager::class, fn(Container $container): \S2\Cms\Comment\Antispam\CommentFormTokenManager => new CommentFormTokenManager(
+            $container->get(SpamIdentityHasher::class),
+            $container->get(DbLayer::class),
+            $container->getStringParameter('cookie_name'),
+            $container->getStringParameter('base_path'),
+        ));
+        $container->set(SpamRateLimiter::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRateLimiter => new SpamRateLimiter(
+            $container->get(DbLayer::class),
+            $container->get(SpamIdentityHasher::class),
+            $container->get(LoggerInterface::class),
+        ));
+        $container->set(SpamMaintenance::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamMaintenance => new SpamMaintenance(
+            $container->get(DbLayer::class),
+            $container->get(SpamRateLimiter::class),
+            $container->get(SpamAssessmentRepository::class),
+            $container->get(SpamReputationRepository::class),
+            $container->get(LoggerInterface::class),
+        ));
+
         $container->set(HttpClient::class, fn(Container $_container): \S2\Cms\HttpClient\HttpClient => new HttpClient());
         $container->set('asset_http_client', fn(Container $_container): \S2\Cms\HttpClient\HttpClient => new HttpClient(verifySsl: true));
 
@@ -219,6 +274,7 @@ class CmsExtension implements ExtensionInterface
                 $container->getStringParameter('root_dir'),
                 $container->getStringParameter('base_path'),
                 $container->getNullableStringParameter('canonical_url'),
+                $container->get(CommentFormTokenManager::class),
             );
         });
 
@@ -366,6 +422,15 @@ class CmsExtension implements ExtensionInterface
             $container->get(CommentMailer::class),
         ));
 
+        $container->set(SpamFeedbackService::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamFeedbackService => new SpamFeedbackService(
+            $container->get(DbLayer::class),
+            $container->get(SpamIdentityHasher::class),
+            $container->get(SpamFeatureExtractor::class),
+            $container->get(SpamAssessmentRepository::class),
+            $container->get(SpamReputationRepository::class),
+            $container->get(CommentNotifier::class),
+        ));
+
         $container->set('comments_translator', function (Container $container) {
             /** @var ExtensibleTranslator $translator */
             $translator = $container->get('translator');
@@ -389,7 +454,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(DbLayer::class),
         ));
 
-        $container->set(SpamDetectorInterface::class, function (Container $container): \S2\Cms\Comment\AkismetProxy {
+        $container->set(AkismetProxy::class, function (Container $container): \S2\Cms\Comment\AkismetProxy {
             $provider = $container->get(DynamicConfigProvider::class);
             return new AkismetProxy(
                 $container->get(HttpClient::class),
@@ -397,10 +462,33 @@ class CmsExtension implements ExtensionInterface
                 $container->get(LoggerInterface::class),
                 $provider->getStringProxy('S2_AKISMET_KEY'),
             );
+        });
+
+        $container->set(LocalSpamDetector::class, function (Container $container): \S2\Cms\Comment\Antispam\LocalSpamDetector {
+            $provider = $container->get(DynamicConfigProvider::class);
+            return new LocalSpamDetector(
+                $container->get(SpamRiskScorer::class),
+                $container->get(SpamAssessmentRepository::class),
+                $container->get(LoggerInterface::class),
+                $provider->getIntProxy('S2_ANTISPAM_SPAM_SCORE'),
+                $provider->getIntProxy('S2_ANTISPAM_BLATANT_SCORE'),
+            );
+        });
+
+        $container->set(SpamDetectorInterface::class, function (Container $container): \S2\Cms\Comment\Antispam\ConfigurableSpamDetector {
+            $provider = $container->get(DynamicConfigProvider::class);
+            return new ConfigurableSpamDetector(
+                $container->get(LocalSpamDetector::class),
+                $container->get(AkismetProxy::class),
+                $container->get(SpamAssessmentRepository::class),
+                $provider->getStringProxy('S2_ANTISPAM_MODE'),
+                $container->get(LoggerInterface::class),
+            );
         }, ['dynamic_config_dependent']);
 
         $container->set(SpamDecisionProviderInterface::class, fn(Container $container): \S2\Cms\Comment\SpamDecisionProvider => new SpamDecisionProvider(
             $container->get(SpamDetectorInterface::class),
+            $container->get(SpamFeatureExtractor::class),
         ));
 
         $container->set(CommentController::class, function (Container $container): \S2\Cms\Controller\CommentController {
@@ -416,6 +504,9 @@ class CmsExtension implements ExtensionInterface
                 $container->get(LoggerInterface::class),
                 $container->get(CommentMailer::class),
                 $container->get(SpamDecisionProviderInterface::class),
+                $container->get(CommentFormTokenManager::class),
+                $container->get(SpamRateLimiter::class),
+                $container->get(SpamAssessmentRepository::class),
                 $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
                 $provider->getBoolProxy('S2_PREMODERATION'),
             );

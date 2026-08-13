@@ -9,12 +9,15 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Template;
 
+use S2\Cms\Comment\Antispam\CommentFormTokenManager;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Helper\StringHelper;
 use S2\Cms\Model\UrlBuilder;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -52,6 +55,7 @@ class HtmlTemplate
         private readonly IntProxy                 $startYear,
         private readonly bool                     $debugView,
         private readonly ?string                  $canonicalUrlPrefix,
+        private readonly CommentFormTokenManager  $commentFormTokenManager,
     ) {
     }
 
@@ -134,6 +138,7 @@ class HtmlTemplate
             $replace['<!-- s2_' . $placeholderName . ' -->'] = $this->renderValue($this->page[$placeholderName] ?? '');
         }
 
+        $antispamVisitorCookie = null;
         if ($this->hasContent('commented') && $this->enabledComments->get()) {
             $comment_array = [
                 'id' => $this->page['id'],
@@ -145,10 +150,21 @@ class HtmlTemplate
 
             $event = new TemplatePreCommentRenderEvent([$this->translator->trans('Comment syntax info')]);
             $this->eventDispatcher->dispatch($event);
+            $antispamRequest = $this->requestStack->getCurrentRequest();
+            if (!$antispamRequest instanceof Request) {
+                throw new \LogicException('A request is required to render the comment form.');
+            }
+
+            $antispamVisitorToken = $this->commentFormTokenManager->getOrCreateVisitorToken($antispamRequest);
+            $antispamVisitorCookie = $this->commentFormTokenManager->createVisitorCookie($antispamVisitorToken, $antispamRequest);
             $replace['<!-- s2_comment_form -->'] = $this->viewer->render('comment_form', [
                 ...$comment_array,
                 'syntaxHelpItems' => $event->syntaxHelpItems,
                 'action'          => '',
+                'antispamToken'   => $this->commentFormTokenManager->issue(
+                    $antispamRequest->getPathInfo(),
+                    $antispamVisitorToken,
+                ),
             ]);
         } else {
             $replace['<!-- s2_comment_form -->'] = '';
@@ -164,8 +180,6 @@ class HtmlTemplate
         $replace = array_merge($replace, $this->replace);
 
         $etag = md5($template);
-        // Add here placeholders to be excluded from the ETag calculation
-        $etag_skip = ['<!-- s2_comment_form -->'];
 
         // Replacing placeholders and calculating hash for ETag header
         foreach ($replace as $what => $to) {
@@ -177,9 +191,7 @@ class HtmlTemplate
                     '</div>';
             }
 
-            if (!\in_array($what, $etag_skip, true)) {
-                $etag .= md5($to);
-            }
+            $etag .= md5($to);
 
             $template = str_replace($what, $to, $template);
         }
@@ -189,6 +201,10 @@ class HtmlTemplate
         $etag .= $finalReplaceEvent->getHash();
 
         $response = new Response($template);
+        if ($antispamVisitorCookie instanceof Cookie) {
+            $response->headers->setCookie($antispamVisitorCookie);
+        }
+
         $response->setEtag(md5($etag));
         if ($this->notFound) {
             $response->setStatusCode(Response::HTTP_NOT_FOUND);

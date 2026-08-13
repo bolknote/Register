@@ -219,15 +219,15 @@ class SpamDecisionCest
                 'mailPublished'     => false,
             ],
 
-            // Spam with link → reject because of link
+            // Spam with link → save for moderation instead of losing a possible false positive
             [
                 'text'              => $this->composeText(true, false),
                 'status'            => SpamDetectorReport::STATUS_SPAM,
                 'premoderation'     => '0',
-                'expectErrorKey'    => 'links_in_text',
-                'expectCommentSent' => false,
+                'expectErrorKey'    => null,
+                'expectCommentSent' => true,
                 'expectShown'       => 0,
-                'expectMail'        => false,
+                'expectMail'        => true,
                 'mailStatus'        => SpamDetectorReport::STATUS_SPAM,
                 'mailPublished'     => false,
             ],
@@ -235,10 +235,10 @@ class SpamDecisionCest
                 'text'              => $this->composeText(true, false),
                 'status'            => SpamDetectorReport::STATUS_SPAM,
                 'premoderation'     => '1',
-                'expectErrorKey'    => 'links_in_text',
-                'expectCommentSent' => false,
+                'expectErrorKey'    => null,
+                'expectCommentSent' => true,
                 'expectShown'       => 0,
-                'expectMail'        => false,
+                'expectMail'        => true,
                 'mailStatus'        => SpamDetectorReport::STATUS_SPAM,
                 'mailPublished'     => false,
             ],
@@ -267,15 +267,15 @@ class SpamDecisionCest
                 'mailPublished'     => false,
             ],
 
-            // Spam with link + HTML → reject because of link
+            // Spam with link + HTML → save for moderation
             [
                 'text'              => $this->composeText(true, true),
                 'status'            => SpamDetectorReport::STATUS_SPAM,
                 'premoderation'     => '0',
-                'expectErrorKey'    => 'links_in_text',
-                'expectCommentSent' => false,
+                'expectErrorKey'    => null,
+                'expectCommentSent' => true,
                 'expectShown'       => 0,
-                'expectMail'        => false,
+                'expectMail'        => true,
                 'mailStatus'        => SpamDetectorReport::STATUS_SPAM,
                 'mailPublished'     => false,
             ],
@@ -283,10 +283,10 @@ class SpamDecisionCest
                 'text'              => $this->composeText(true, true),
                 'status'            => SpamDetectorReport::STATUS_SPAM,
                 'premoderation'     => '1',
-                'expectErrorKey'    => 'links_in_text',
-                'expectCommentSent' => false,
+                'expectErrorKey'    => null,
+                'expectCommentSent' => true,
                 'expectShown'       => 0,
-                'expectMail'        => false,
+                'expectMail'        => true,
                 'mailStatus'        => SpamDetectorReport::STATUS_SPAM,
                 'mailPublished'     => false,
             ],
@@ -315,12 +315,12 @@ class SpamDecisionCest
                 'mailPublished'     => false,
             ],
 
-            // Blatant spam with link → reject because of link check
+            // Blatant spam with link → use the same neutral rejection message
             [
                 'text'              => $this->composeText(true, false),
                 'status'            => SpamDetectorReport::STATUS_BLATANT,
                 'premoderation'     => '0',
-                'expectErrorKey'    => 'links_in_text',
+                'expectErrorKey'    => 'spam_message_rejected',
                 'expectCommentSent' => false,
                 'expectShown'       => 0,
                 'expectMail'        => false,
@@ -331,7 +331,7 @@ class SpamDecisionCest
                 'text'              => $this->composeText(true, false),
                 'status'            => SpamDetectorReport::STATUS_BLATANT,
                 'premoderation'     => '1',
-                'expectErrorKey'    => 'links_in_text',
+                'expectErrorKey'    => 'spam_message_rejected',
                 'expectCommentSent' => false,
                 'expectShown'       => 0,
                 'expectMail'        => false,
@@ -363,12 +363,12 @@ class SpamDecisionCest
                 'mailPublished'     => false,
             ],
 
-            // Blatant spam with link + HTML → reject because of link check
+            // Blatant spam with link + HTML → use the same neutral rejection message
             [
                 'text'              => $this->composeText(true, true),
                 'status'            => SpamDetectorReport::STATUS_BLATANT,
                 'premoderation'     => '0',
-                'expectErrorKey'    => 'links_in_text',
+                'expectErrorKey'    => 'spam_message_rejected',
                 'expectCommentSent' => false,
                 'expectShown'       => 0,
                 'expectMail'        => false,
@@ -379,7 +379,7 @@ class SpamDecisionCest
                 'text'              => $this->composeText(true, true),
                 'status'            => SpamDetectorReport::STATUS_BLATANT,
                 'premoderation'     => '1',
-                'expectErrorKey'    => 'links_in_text',
+                'expectErrorKey'    => 'spam_message_rejected',
                 'expectCommentSent' => false,
                 'expectShown'       => 0,
                 'expectMail'        => false,

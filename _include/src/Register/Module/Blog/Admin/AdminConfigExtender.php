@@ -31,8 +31,9 @@ use S2\AdminYard\Validator\Length;
 use S2\AdminYard\Validator\Regex;
 use S2\Cms\Admin\AdminConfigExtenderInterface;
 use S2\Cms\Admin\AdminConfigProvider;
-use S2\Cms\Admin\Controller\CommentController;
+use S2\Cms\Admin\Controller\CommentControllerFactory;
 use S2\Cms\Admin\Event\VisibleEntityChangedEvent;
+use S2\Cms\Comment\Antispam\SpamFeedbackService;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use Register\Module\Blog\BlogUrlBuilder;
@@ -50,6 +51,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private PostProvider             $postProvider,
         private BlogUrlBuilder           $blogUrlBuilder,
         private BlogCommentNotifier      $blogCommentNotifier,
+        private SpamFeedbackService      $spamFeedbackService,
         private UniqueSlugGenerator      $uniqueSlugGenerator,
         private EventDispatcherInterface $eventDispatcher,
         private string                   $dbType,
@@ -148,6 +150,33 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 inlineEdit: $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_COMMENTS),
                 useOnActions: [FieldConfig::ACTION_LIST],
             ))
+            ->addField(new FieldConfig(
+                name: 'spam_score',
+                label: $this->translator->trans('Spam score'),
+                type: new VirtualFieldType(
+                    "SELECT score FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'blog' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                ),
+                sortable: true,
+                useOnActions: [FieldConfig::ACTION_LIST],
+            ))
+            ->addField(new FieldConfig(
+                name: 'spam_label',
+                label: $this->translator->trans('Spam label'),
+                type: new VirtualFieldType(
+                    "SELECT moderator_label FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'blog' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                ),
+                sortable: true,
+                useOnActions: [FieldConfig::ACTION_LIST],
+            ))
+            ->addField(new FieldConfig(
+                name: 'spam_reasons',
+                label: $this->translator->trans('Spam reasons'),
+                type: new VirtualFieldType(
+                    "SELECT reasons FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'blog' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                ),
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/comment/view-spam-reasons.php',
+            ))
             ->addFilter(new Filter(
                 'search',
                 $this->translator->trans('Search'),
@@ -192,7 +221,12 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     1  => $this->translator->trans('Considered'),
                 ]
             ))
-            ->setControllerClassOrFactory(CommentController::class)
+            ->setControllerClassOrFactory(new CommentControllerFactory(
+                $this->spamFeedbackService,
+                'blog',
+                's2_blog_comments',
+                $this->blogCommentNotifier->notify(...),
+            ))
             ->setEnabledActions([
                 FieldConfig::ACTION_LIST,
                 ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_COMMENTS) ? [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_DELETE] : [],

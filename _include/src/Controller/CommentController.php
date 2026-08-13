@@ -11,6 +11,10 @@ namespace S2\Cms\Controller;
 
 use Psr\Log\LoggerInterface;
 use S2\Cms\Config\BoolProxy;
+use S2\Cms\Comment\Antispam\CommentFormTokenManager;
+use S2\Cms\Comment\Antispam\CommentFormTokenValidation;
+use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
+use S2\Cms\Comment\Antispam\SpamRateLimiter;
 use S2\Cms\Comment\SpamDetectorComment;
 use S2\Cms\Comment\SpamDecision;
 use S2\Cms\Comment\SpamDecisionProviderInterface;
@@ -45,6 +49,9 @@ readonly class CommentController implements ControllerInterface
         private LoggerInterface               $logger,
         private CommentMailer                 $commentMailer,
         private SpamDecisionProviderInterface $spamDecisionProvider,
+        private CommentFormTokenManager        $commentFormTokenManager,
+        private SpamRateLimiter                $spamRateLimiter,
+        private SpamAssessmentRepository       $spamAssessmentRepository,
         private BoolProxy                     $commentsEnabled,
         private BoolProxy                     $premoderationEnabled,
     ) {
@@ -72,11 +79,15 @@ readonly class CommentController implements ControllerInterface
         }
 
         $path = $request->getPathInfo();
+        $isPreview = $request->request->get('preview') !== null;
 
         /**
          * Input validation
          */
         $errors = [];
+        $errorStatus = Response::HTTP_OK;
+        $forceModeration = false;
+        $formValidation = null;
 
         if (!$this->commentsEnabled->get()) {
             $errors[] = $this->translator->trans('disabled');
@@ -106,11 +117,23 @@ readonly class CommentController implements ControllerInterface
             $errors[] = $this->translator->trans('long_nick');
         }
 
-        if (\count($errors) === 0 && !$this->checkCommentQuestion($request->request->getString('key'), $request->request->getString('question'))) {
-            $errors[] = $this->translator->trans('question');
+        if (\count($errors) === 0) {
+            if (trim($request->request->getString('homepage')) !== '') {
+                $errors[] = $this->translator->trans('spam_message_rejected');
+                $this->logger->notice('Comment honeypot was filled.', ['path' => $path]);
+            } else {
+                $formValidation = $this->validateFormToken($request, !$isPreview, $forceModeration);
+                if (!$formValidation->valid) {
+                    $errors[] = $this->translator->trans('form_expired');
+                    $this->logger->notice('Comment form token validation failed.', [
+                        'path'   => $path,
+                        'reason' => $formValidation->error,
+                    ]);
+                }
+            }
         }
 
-        if ($request->request->get('preview') !== null) {
+        if ($isPreview && \count($errors) === 0) {
             // Handling "Preview" button
             $text_preview = '<p>' . $this->translator->trans('Comment preview info') . '</p>' . "\n" .
                 $this->viewer->render('comment', [
@@ -129,10 +152,31 @@ readonly class CommentController implements ControllerInterface
                 ->putInPlaceholder('text', $text_preview)
                 ->putInPlaceholder('id', $id)
                 ->putInPlaceholder('commented', true)
-                ->putInPlaceholder('comment_form', ['name' => $name, 'email' => $email, 'showEmail' => $showEmail, 'subscribed' => $subscribed, 'text' => $text])
+                ->putInPlaceholder('comment_form', ['name' => $name, 'email' => $email, 'show_email' => $showEmail, 'subscribed' => $subscribed, 'text' => $text])
             ;
 
             return $template->toHttpResponse();
+        }
+
+        if (\count($errors) === 0 && $formValidation instanceof CommentFormTokenValidation && $formValidation->visitorId !== null) {
+            $rateLimit = $this->spamRateLimiter->consume(
+                (string)$request->getClientIp(),
+                $email,
+                $text,
+                $formValidation->visitorId,
+            );
+            if ($rateLimit->isLimited()) {
+                $errors[]    = $this->translator->trans('spam_message_rejected');
+                $errorStatus = Response::HTTP_TOO_MANY_REQUESTS;
+                $this->logger->notice('Comment rate limit exceeded.', [
+                    'path'       => $path,
+                    'violations' => $rateLimit->violations,
+                ]);
+            }
+
+            if (!$rateLimit->available) {
+                $forceModeration = true;
+            }
         }
 
         $spamDecision = SpamDecision::empty();
@@ -144,7 +188,8 @@ readonly class CommentController implements ControllerInterface
                     $text,
                     $request->headers->get('User-Agent'),
                     $request->headers->get('Referer'),
-                    $this->urlBuilder->absLink($path)
+                    $this->urlBuilder->absLink($path),
+                    $formValidation?->ageSeconds,
                 ),
                 (string)$request->getClientIp()
             );
@@ -179,14 +224,20 @@ readonly class CommentController implements ControllerInterface
                 ->putInPlaceholder('text', $errorText . ($target instanceof \S2\Cms\Controller\Comment\TargetDto ? '<p>' . $this->translator->trans('Fix error') . '</p>' : ''))
                 ->putInPlaceholder('id', $id)
                 ->putInPlaceholder('commented', $target instanceof \S2\Cms\Controller\Comment\TargetDto) // can be commented, i.e. render comment form
-                ->putInPlaceholder('comment_form', ['name' => $name, 'email' => $email, 'showEmail' => $showEmail, 'subscribed' => $subscribed, 'text' => $text])
+                ->putInPlaceholder('comment_form', ['name' => $name, 'email' => $email, 'show_email' => $showEmail, 'subscribed' => $subscribed, 'text' => $text])
             ;
 
             $this->logger->notice('Comment was not saved due to errors.', [
                 'errors' => $errors,
                 'path'   => $path,
             ]);
-            return $template->toHttpResponse();
+            $response = $template->toHttpResponse();
+            $response->setStatusCode($errorStatus);
+            if ($errorStatus === Response::HTTP_TOO_MANY_REQUESTS) {
+                $response->headers->set('Retry-After', '600');
+            }
+
+            return $response;
         }
 
         $link = $this->urlBuilder->absLink($path);
@@ -200,10 +251,26 @@ readonly class CommentController implements ControllerInterface
         // Detect if there is a user logged in
         $isOnline = $this->authProvider->isOnline($email);
 
-        $moderationRequired = $spamDecision->shouldModerate($this->premoderationEnabled->get());
+        $moderationRequired = $forceModeration || $spamDecision->shouldModerate($this->premoderationEnabled->get());
 
         // Save the comment
         $commentId = $this->commentStrategy->save($target->id, $name, $email, $showEmail, $subscribed, $text, (string)$request->getClientIp());
+        $assessmentId = $spamDecision->getReport()->getAssessmentId();
+        if ($assessmentId !== null) {
+            try {
+                $this->spamAssessmentRepository->attachComment(
+                    $assessmentId,
+                    $this->commentStrategy->getAntispamTargetType(),
+                    $commentId,
+                );
+            } catch (\Throwable $throwable) {
+                $this->logger->error('Unable to attach spam assessment to comment.', [
+                    'comment_id'    => $commentId,
+                    'assessment_id' => $assessmentId,
+                    'exception'     => $throwable,
+                ]);
+            }
+        }
 
         $message = StringHelper::bbcodeToMail($text);
 
@@ -252,13 +319,31 @@ readonly class CommentController implements ControllerInterface
         return $response;
     }
 
-    private function checkCommentQuestion(string $key, string $answer): bool
+    private function validateFormToken(Request $request, bool $consume, bool &$forceModeration): CommentFormTokenValidation
     {
-        if (\strlen($key) < 21) {
-            return false;
-        }
+        $token = $request->request->getString('antispam_token');
+        try {
+            return $this->commentFormTokenManager->validateAndMaybeConsume(
+                $token,
+                $request,
+                $consume,
+            );
+        } catch (\Throwable $throwable) {
+            $this->logger->error('Comment form replay protection failed.', ['exception' => $throwable]);
+            $forceModeration = true;
 
-        return ((int)($key[10] . $key[12]) + (int)($key[20]) === (int)trim($answer));
+            try {
+                return $this->commentFormTokenManager->validateAndMaybeConsume(
+                    $token,
+                    $request,
+                    false,
+                );
+            } catch (\Throwable $validationThrowable) {
+                $this->logger->error('Comment form token fallback validation failed.', ['exception' => $validationThrowable]);
+
+                return CommentFormTokenValidation::invalid('unavailable');
+            }
+        }
     }
 
     private function requireTarget(?TargetDto $target): TargetDto
