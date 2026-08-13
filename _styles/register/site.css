@@ -1,5 +1,5 @@
 :root {
-    color-scheme: light;
+    color-scheme: light dark;
     --page-background: #f6f1e7;
     --surface-background: #ece5d8;
     --field-background: #fffaf1;
@@ -27,6 +27,29 @@
     --page-margin: clamp(18px, 4vw, 64px);
     --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     --text-font: Georgia, "Times New Roman", serif;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: dark;
+        --page-background: #1b1a18;
+        --surface-background: #27241f;
+        --field-background: #302c26;
+        --text-color: #e7e0d4;
+        --minor-color: #b6aea2;
+        --quiet-color: #8b8378;
+        --link-color: #8db8e8;
+        --link-visited-color: #c39a87;
+        --link-hover-color: #ef8068;
+        --accent-color: #ef8068;
+        --link-underline-color: color-mix(in srgb, var(--link-color) 40%, transparent);
+        --border-color: color-mix(in srgb, var(--text-color) 18%, transparent);
+        --highlight-color: #645422;
+        --success-color: #79bc87;
+        --error-color: #ed8d79;
+        --star-color: #e4b755;
+        --sunday-color: #ee8a7e;
+    }
 }
 
 * {
@@ -104,7 +127,7 @@ a {
     color: var(--link-color);
     text-decoration-color: var(--link-underline-color);
     text-decoration-line: underline;
-    text-decoration-thickness: 0.06em;
+    text-decoration-thickness: 1px;
     text-underline-offset: 0.14em;
     transition: color 120ms ease, text-decoration-color 120ms ease;
 }
@@ -438,7 +461,12 @@ h2.post.head + .post.time {
 }
 
 .post.foot {
+    display: flex;
     margin: 0.9rem 0 clamp(3.5rem, 8vw, 6rem);
+    align-items: baseline;
+    flex-wrap: wrap;
+    column-gap: clamp(2.5rem, 7vw, 6rem);
+    row-gap: 0.65rem;
 }
 
 a.favorite-star,
@@ -790,22 +818,41 @@ h2.comment {
     margin: 0;
 }
 
-.comment-submit {
-    min-height: 2.7rem;
-    padding: 0.55rem 1rem;
+input.comment-submit {
+    min-height: 2.85rem;
+    padding: 0.6rem 1.1rem;
     background: var(--text-color);
     color: var(--page-background);
     font-weight: 700;
+    transition: background-color 120ms ease, color 120ms ease;
 }
 
-.comment-preview {
-    min-height: 0;
-    padding: 0.3rem 0;
-    background: transparent;
-    color: var(--link-color);
-    text-decoration: underline;
-    text-decoration-color: var(--link-underline-color);
-    text-underline-offset: 0.14em;
+input.comment-submit:hover,
+input.comment-submit:focus-visible {
+    background: var(--accent-color);
+    color: var(--page-background);
+}
+
+input.comment-submit:disabled {
+    cursor: not-allowed;
+    background: var(--surface-background);
+    color: var(--quiet-color);
+}
+
+input.comment-preview {
+    min-height: 2.85rem;
+    padding: 0.6rem 0.9rem;
+    background: var(--surface-background);
+    color: var(--text-color);
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 120ms ease, color 120ms ease;
+}
+
+input.comment-preview:hover,
+input.comment-preview:focus-visible {
+    background: var(--field-background);
+    color: var(--accent-color);
 }
 
 .e404 h1 {
@@ -856,10 +903,6 @@ ul.back_forward .empty {
     flex-wrap: wrap;
     align-items: center;
     gap: 0.2rem 0.45rem;
-}
-
-.footer-separator {
-    color: var(--quiet-color);
 }
 
 .visual-login {
@@ -979,6 +1022,7 @@ ul.back_forward .empty {
 
 @media print {
     :root {
+        color-scheme: light;
         --page-background: #fff;
         --text-color: #000;
         --minor-color: #333;

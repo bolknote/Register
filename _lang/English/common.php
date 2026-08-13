@@ -28,7 +28,7 @@ return [
     'Powered by'             => 'Engine — %s',
     'Engine credit'          => 'Engine — %s',
     'Administration login'   => 'Open the control panel',
-    'Performance info'       => 'Rendered in %1$s ms · %2$d database queries',
+    'Performance info'       => 'Rendered in %1$s ms, %2$d database queries',
     'Last comments'          => 'Last comments on&nbsp;the site',
     'Last discussions'       => 'Last discussions on&nbsp;the site',
     'Here'                   => '← here',

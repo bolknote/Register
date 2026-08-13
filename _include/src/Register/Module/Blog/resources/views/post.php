@@ -41,23 +41,23 @@ declare(strict_types = 1);
 <?php
 	$footer = [];
 
+	if ($commented && $showComments) {
+        if ($comment_num) {
+            $footer['comments'] = '<span class="post-foot-comments"><a href="' . $link . '#comment">' . $trans('N Comments', ['%count%' => $comment_num, '{{ count }}' => $comment_num]) . '</a></span>';
+        } else {
+            $footer['comments'] = '<span class="post-foot-comments"><a href="' . $link . '#add-comment">' . ($enabledComments ? $trans('Post comment') : '') . '</a></span>';
+        }
+    }
+
 	if (!empty($tags))
 	{
 		foreach ($tags as &$tag)
 			$tag = '<a href="'.$tag['link'].'">'.$tag['title'].'</a>';
 		unset($tag);
 
-		$footer['tags'] = $trans('Tags') . ': ' . implode(', ', $tags);
+		$footer['tags'] = '<span class="post-foot-tags">' . $trans('Tags') . ': ' . implode(', ', $tags) . '</span>';
 	}
 
-	if ($commented && $showComments) {
-        if ($comment_num) {
-            $footer['comments'] = '<a href="' . $link . '#comment">' . $trans('N Comments', ['%count%' => $comment_num, '{{ count }}' => $comment_num]) . '</a>';
-        } else {
-            $footer['comments'] = '<a href="' . $link . '#add-comment">' . ($enabledComments ? $trans('Post comment') : '') . '</a>';
-        }
-    }
-
-	echo implode(' · ', $footer);
+	echo implode("\n", $footer);
 ?>
 </div>

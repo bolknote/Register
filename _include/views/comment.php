@@ -43,7 +43,7 @@ $replyQuery = http_build_query([
             <span class="comment-author-mark"><?php echo $trans('Site author'); ?></span>
         <?php endif; ?>
         <a class="comment-permalink" href="#<?php echo $i; ?>" aria-label="<?php echo $trans('Comment permalink', ['%number%' => $i]); ?>">
-            <time datetime="<?php echo date(DATE_ATOM, (int)$time); ?>"><?php echo $dateAndTime((int)$time); ?></time><span aria-hidden="true"> · </span><span>№&nbsp;<?php echo $i; ?></span>
+            <time datetime="<?php echo date(DATE_ATOM, (int)$time); ?>"><?php echo $dateAndTime((int)$time); ?></time><span aria-hidden="true">, </span><span>№&nbsp;<?php echo $i; ?></span>
         </a>
     </header>
     <div class="comment-body">

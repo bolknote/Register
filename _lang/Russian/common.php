@@ -28,7 +28,7 @@ return [
     'Powered by'             => 'Движок — %s',
     'Engine credit'          => 'Движок — %s',
     'Administration login'   => 'Войти в панель управления',
-    'Performance info'       => 'Страница собрана за %1$s мс · %2$d запросов к базе',
+    'Performance info'       => 'Страница собрана за %1$s мс, запросов к базе: %2$d',
     'Last comments'          => 'Последние комментарии на&nbsp;сайте',
     'Last discussions'       => 'Обсуждаемое на&nbsp;сайте',
     'Here'                   => '← сюда',
@@ -61,7 +61,7 @@ return [
     'Formatting help'        => 'Как оформить текст',
 
     'Submit'      => 'Отправить',
-    'Preview'     => 'Предварительный просмотр',
+    'Preview'     => 'Предпросмотр',
     'Error'       => 'Oшибка!',
 
     // Locale settings
