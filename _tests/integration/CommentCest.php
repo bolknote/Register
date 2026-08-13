@@ -107,6 +107,33 @@ class CommentCest
         $I->seeElement('[data-comment-id="' . $parentId . '"] .comment-reply');
     }
 
+    public function testRendersAStoredUserpicWithoutAPlaceholder(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+
+        $dbLayer
+            ->insert('userpics')
+            ->setValue('storage_key', "'userpics/example.jpg'")
+            ->setValue('content_hash', ':content_hash')->setParameter('content_hash', str_repeat('a', 64))
+            ->setValue('mime_type', "'image/jpeg'")
+            ->setValue('width', '80')
+            ->setValue('height', '80')
+            ->setValue('byte_size', '1024')
+            ->setValue('created_time', ':time')->setParameter('time', time())
+            ->execute()
+        ;
+        $userpicId = (int)$dbLayer->insertId();
+        $commentId = $this->insertComment($dbLayer, $articleId, 'Userpic author', 'avatar@example.test', $userpicId);
+
+        $I->amOnPage('https://localhost/thread-test');
+        $I->seeElement('[data-comment-id="' . $commentId . '"].has-userpic');
+        $I->seeElement(
+            '[data-comment-id="' . $commentId . '"] .comment-userpic img[src="/_tests/_output/images/userpics/example.jpg"]'
+        );
+    }
+
     public function testRejectsAReplyToAnUnavailableComment(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -148,12 +175,13 @@ class CommentCest
         return (int)$dbLayer->insertId();
     }
 
-    private function insertComment(DbLayer $dbLayer, int $articleId, string $nick, string $email): int
+    private function insertComment(DbLayer $dbLayer, int $articleId, string $nick, string $email, ?int $userpicId = null): int
     {
         $dbLayer
             ->insert('art_comments')
             ->setValue('article_id', ':article_id')->setParameter('article_id', $articleId)
             ->setValue('parent_id', 'NULL')
+            ->setValue('userpic_id', ':userpic_id')->setParameter('userpic_id', $userpicId)
             ->setValue('time', ':time')->setParameter('time', time())
             ->setValue('ip', "'127.0.0.1'")
             ->setValue('nick', ':nick')->setParameter('nick', $nick)

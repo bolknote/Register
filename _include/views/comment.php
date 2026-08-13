@@ -20,6 +20,7 @@ declare(strict_types = 1);
  * @var array{id: int, i: int, nick: string}|null $parent
  * @var string $children
  * @var bool|null $is_preview
+ * @var string|null $userpic_url
  */
 
 $encodedNick = s2_htmlencode($nick);
@@ -27,6 +28,7 @@ $name        = !empty($show_email)
     ? \S2\Cms\Helper\StringHelper::jsMailTo($encodedNick, $email)
     : $encodedNick;
 $isPreview = $is_preview ?? false;
+$userpicUrl = $userpic_url ?? null;
 $replyQuery = $isPreview ? '' : http_build_query([
     'reply_to'     => $id,
     'reply_number' => $i,
@@ -34,11 +36,16 @@ $replyQuery = $isPreview ? '' : http_build_query([
 ]);
 
 ?>
-<article class="comment-item depth-<?php echo $visual_depth, !empty($good) ? ' good' : '', $is_author ? ' by-author' : '', $isPreview ? ' comment-preview-item' : ''; ?>"<?php if (!$isPreview): ?>
+<article class="comment-item depth-<?php echo $visual_depth, !empty($good) ? ' good' : '', $is_author ? ' by-author' : '', $isPreview ? ' comment-preview-item' : '', $userpicUrl !== null ? ' has-userpic' : ''; ?>"<?php if (!$isPreview): ?>
          id="<?php echo $i; ?>"
          data-comment-id="<?php echo $id; ?>"
          data-comment-depth="<?php echo $depth; ?>"
          role="listitem"<?php endif; ?>>
+    <?php if ($userpicUrl !== null): ?>
+        <div class="comment-userpic" aria-hidden="true">
+            <img src="<?php echo s2_htmlencode($userpicUrl); ?>" alt="" width="40" height="40" loading="lazy" decoding="async">
+        </div>
+    <?php endif; ?>
     <header class="comment-meta">
         <span class="comment-name"><?php echo $name; ?></span>
         <?php if ($is_author): ?>

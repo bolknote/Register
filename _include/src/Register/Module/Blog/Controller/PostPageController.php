@@ -272,14 +272,16 @@ class PostPageController extends BlogController
             ->select('COUNT(*)')
             ->from('users AS u')
             ->where('LOWER(u.email) = LOWER(c.email)')
+            ->andWhere("c.email <> ''")
             ->getSql()
         ;
         $statement = $this->dbLayer
             ->select(
-                'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text',
+                'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text, p.storage_key AS userpic_storage_key',
                 '(' . $authorComment . ') AS is_author',
             )
             ->from('s2_blog_comments AS c')
+            ->leftJoin('userpics AS p', 'p.id = c.userpic_id')
             ->where('post_id = :post_id')
             ->setParameter('post_id', $id)
             ->andWhere('shown = 1')

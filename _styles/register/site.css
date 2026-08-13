@@ -626,6 +626,55 @@ h2.comment {
     scroll-margin-top: 1rem;
 }
 
+.comment-item.has-userpic {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    column-gap: 12px;
+}
+
+.has-userpic > .comment-userpic {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    margin-top: 0.3rem;
+}
+
+.comment-userpic img {
+    display: block;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.has-userpic > .comment-meta,
+.has-userpic > .comment-body,
+.has-userpic > .comment-actions,
+.has-userpic > .comment-form-block {
+    min-width: 0;
+    grid-column: 2;
+}
+
+.has-userpic > .comment-meta {
+    grid-row: 1;
+}
+
+.has-userpic > .comment-body {
+    grid-row: 2;
+}
+
+.has-userpic > .comment-actions {
+    grid-row: 3;
+}
+
+.has-userpic > .comment-form-block {
+    grid-row: 4;
+}
+
+.has-userpic > .comment-children {
+    grid-column: 1 / -1;
+    grid-row: 5;
+}
+
 .comment-item:target {
     background: color-mix(in srgb, var(--highlight-color) 45%, transparent);
     box-shadow: 0 0 0 0.7rem color-mix(in srgb, var(--highlight-color) 45%, transparent);
@@ -641,6 +690,10 @@ h2.comment {
 
 .comment-children > .comment-item {
     margin-bottom: 2.2rem;
+}
+
+.comment-children > .comment-item:last-child {
+    margin-bottom: 0;
 }
 
 .comment-meta {

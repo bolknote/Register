@@ -312,6 +312,7 @@ class CmsExtension implements ExtensionInterface
         $container->set(CommentThreadRenderer::class, static fn(Container $container): CommentThreadRenderer => new CommentThreadRenderer(
             $container->get(Viewer::class),
             $container->get(CommentThreadBuilder::class),
+            $container->getStringParameter('image_path'),
         ));
 
         $container->set('strict_viewer', function (Container $container): \S2\Cms\Template\Viewer {

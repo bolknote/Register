@@ -16,6 +16,7 @@ namespace Register\Module\Blog;
 use S2\Cms\Extensions\ManifestInterface;
 use S2\Cms\Extensions\ManifestTrait;
 use S2\Cms\Framework\Container;
+use S2\Cms\Model\UserpicSchema;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
 use S2\Cms\Pdo\DbLayerException;
@@ -101,6 +102,9 @@ class Manifest implements ManifestInterface
                     ->addIdColumn()
                     ->addInteger('post_id', true, default: null)
                     ->addInteger('parent_id', true, true, null)
+                ;
+                UserpicSchema::addCommentReferenceToDefinition($table);
+                $table
                     ->addInteger('time', true)
                     ->addString('ip', 39)
                     ->addString('nick', 50)

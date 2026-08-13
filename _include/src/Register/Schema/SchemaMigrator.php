@@ -13,6 +13,7 @@ use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\ExtensionCache;
+use S2\Cms\Model\UserpicSchema;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
 
@@ -26,7 +27,7 @@ final readonly class SchemaMigrator
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_REVISION';
 
-    public const int LATEST_REVISION = 6;
+    public const int LATEST_REVISION = 7;
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -174,6 +175,17 @@ final readonly class SchemaMigrator
         }
     }
 
+    private function migrateToRevisionSeven(): void
+    {
+        UserpicSchema::create($this->dbLayer);
+
+        foreach (['art_comments', 's2_blog_comments'] as $commentTable) {
+            if ($this->dbLayer->tableExists($commentTable)) {
+                UserpicSchema::addCommentReference($this->dbLayer, $commentTable, 'parent_id');
+            }
+        }
+    }
+
     /** @return array<int, \Closure(): void> */
     private function migrations(): array
     {
@@ -195,6 +207,9 @@ final readonly class SchemaMigrator
             },
             6 => function (): void {
                 $this->migrateToRevisionSix();
+            },
+            7 => function (): void {
+                $this->migrateToRevisionSeven();
             },
         ];
     }

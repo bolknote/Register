@@ -16,6 +16,7 @@ final readonly class CommentThreadRenderer
     public function __construct(
         private Viewer               $viewer,
         private CommentThreadBuilder $threadBuilder,
+        private string               $imagePath,
     ) {
     }
 
@@ -57,9 +58,26 @@ final readonly class CommentThreadRenderer
                 'depth'          => $depth,
                 'visual_depth'   => min($depth, 3),
                 'show_addressee' => $depth > 3,
+                'userpic_url'    => $this->userpicUrl($node['userpic_storage_key'] ?? null),
             ]);
         }
 
         return $html;
+    }
+
+    private function userpicUrl(mixed $storageKey): ?string
+    {
+        if (!\is_string($storageKey) || $storageKey === '' || str_starts_with($storageKey, '/')) {
+            return null;
+        }
+
+        $segments = explode('/', $storageKey);
+        foreach ($segments as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return null;
+            }
+        }
+
+        return rtrim($this->imagePath, '/') . '/' . implode('/', array_map(rawurlencode(...), $segments));
     }
 }

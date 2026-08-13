@@ -70,6 +70,8 @@ readonly class Installer
             ;
         });
 
+        UserpicSchema::create($this->dbLayer);
+
         $this->dbLayer->createTable('articles', function (SchemaBuilderInterface $table): void {
             $table
                 ->addIdColumn()
@@ -108,6 +110,9 @@ readonly class Installer
                 ->addIdColumn()
                 ->addInteger('article_id', true, false, null)
                 ->addInteger('parent_id', true, true, null)
+            ;
+            UserpicSchema::addCommentReferenceToDefinition($table);
+            $table
                 ->addInteger('time', true)
                 ->addString('ip', 39)
                 ->addString('nick', 50)
@@ -225,6 +230,7 @@ readonly class Installer
         $this->dbLayer->dropTable('tags');
         $this->dbLayer->dropTable('art_comments');
         $this->dbLayer->dropTable('articles');
+        UserpicSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('extensions');
         $this->dbLayer->dropTable('config');
         $this->dbLayer->dropTable(UserSettingStorage::TABLE_NAME);

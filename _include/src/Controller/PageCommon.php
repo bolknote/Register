@@ -498,14 +498,16 @@ readonly class PageCommon implements ControllerInterface
                 ->select('COUNT(*)')
                 ->from('users AS u')
                 ->where('LOWER(u.email) = LOWER(c.email)')
+                ->andWhere("c.email <> ''")
                 ->getSql()
             ;
             $result = $this->dbLayer
                 ->select(
-                    'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text',
+                    'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text, p.storage_key AS userpic_storage_key',
                     '(' . $authorComment . ') AS is_author',
                 )
                 ->from('art_comments AS c')
+                ->leftJoin('userpics AS p', 'p.id = c.userpic_id')
                 ->where('article_id = :article_id')->setParameter('article_id', $articleId)
                 ->andWhere('shown = 1')
                 ->orderBy('time, c.id')
