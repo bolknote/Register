@@ -64,7 +64,6 @@ readonly class ProductModule implements ModuleInterface
             $container->get(DbLayer::class),
             $container,
             $container->get(BaseModuleInstaller::class),
-            $this->baseModuleRegistry,
         ));
         $container->set(SlugGenerator::class, static fn(Container $_container): SlugGenerator => new SlugGenerator(
             new PortableAsciiTransliterator(),

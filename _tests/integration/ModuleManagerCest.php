@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Module\BaseModuleRegistry;
+use Register\Comment\CommentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Schema\SchemaMigrator;
 use S2\Cms\Extensions\ExtensionManager;
@@ -51,20 +52,6 @@ final class ModuleManagerCest
         /** @var SchemaMigrator $schemaMigrator */
         $schemaMigrator = $I->grabAdminService(SchemaMigrator::class);
 
-        $dbLayer->insert('extensions')->values([
-            'id'             => ':id',
-            'title'          => ':title',
-            'version'        => ':version',
-            'description'    => "''",
-            'author'         => "''",
-            'uninstall_note' => "''",
-            'disabled'       => '0',
-            'dependencies'   => "''",
-        ])->execute([
-            'id'      => BaseModuleRegistry::BLOG,
-            'title'   => 'Legacy Blog',
-            'version' => '2.0a3',
-        ]);
         $I->setConfigValue(SchemaMigrator::CONFIG_KEY, '0');
 
         /** @var ExtensionCache $extensionCache */
@@ -78,29 +65,18 @@ final class ModuleManagerCest
         $I->assertSame(SchemaMigrator::LATEST_REVISION, $schemaMigrator->currentRevision());
         $I->assertFileDoesNotExist($routesCache);
         $I->assertFalse($schemaMigrator->migrate());
-        $I->assertTrue($dbLayer->fieldExists('art_comments', 'parent_id'));
-        $I->assertTrue($dbLayer->indexExists('art_comments', 'thread_idx'));
-        $I->assertTrue($dbLayer->fieldExists('s2_blog_comments', 'parent_id'));
-        $I->assertTrue($dbLayer->indexExists('s2_blog_comments', 'thread_idx'));
+        $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'parent_id'));
+        $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'thread_idx'));
         $I->assertTrue($dbLayer->tableExists('userpics'));
-        $I->assertTrue($dbLayer->fieldExists('art_comments', 'userpic_id'));
-        $I->assertTrue($dbLayer->indexExists('art_comments', 'userpic_idx'));
-        $I->assertTrue($dbLayer->fieldExists('s2_blog_comments', 'userpic_id'));
-        $I->assertTrue($dbLayer->indexExists('s2_blog_comments', 'userpic_idx'));
-        $I->assertTrue($dbLayer->fieldExists('art_comments', 'deleted'));
-        $I->assertTrue($dbLayer->fieldExists('s2_blog_comments', 'deleted'));
+        $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'userpic_id'));
+        $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'userpic_idx'));
+        $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'deleted'));
+        $I->assertFalse($dbLayer->tableExists('art_comments'));
+        $I->assertFalse($dbLayer->tableExists('s2_blog_comments'));
         $I->assertTrue($dbLayer->fieldExists('s2_blog_posts', 'display_date'));
         $I->assertTrue($dbLayer->tableExists(ContentTagSchema::TABLE_NAME));
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'content_tag_idx'));
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'tag_content_idx'));
-
-        $legacyRows = $dbLayer->select('COUNT(*)')
-            ->from('extensions')
-            ->where('id = :id')->setParameter('id', BaseModuleRegistry::BLOG)
-            ->execute()
-            ->result()
-        ;
-        $I->assertSame(0, (int)$legacyRows);
     }
 
     public function baseManifestsCannotDestroyProductData(\IntegrationTester $I): void

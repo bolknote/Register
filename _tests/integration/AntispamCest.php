@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace integration;
 
 use Psr\Log\LoggerInterface;
+use Register\Comment\CommentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Comment\AkismetProxy;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
 use S2\Cms\Comment\Antispam\ConfigurableSpamDetector;
@@ -30,8 +32,6 @@ use S2\Cms\Comment\Antispam\SpamSignalPolicyRepository;
 use S2\Cms\Comment\SpamDetectorComment;
 use S2\Cms\Comment\SpamDetectorReport;
 use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Model\Installer;
-use S2\Cms\Model\MigrationManager;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerSqlite;
 use Symfony\Component\HttpFoundation\Request;
@@ -383,7 +383,7 @@ final class AntispamCest
         $I->assertNotNull($assessmentId);
         /** @var SpamAssessmentRepository $repository */
         $repository = $I->grabService(SpamAssessmentRepository::class);
-        $repository->attachComment($assessmentId, 'blog', 123_456);
+        $repository->attachComment($assessmentId, ContentType::POST, 123_456);
 
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -398,7 +398,7 @@ final class AntispamCest
             throw new \RuntimeException('The blog assessment attachment was not found.');
         }
 
-        $I->assertSame('blog', $attachment['target_type']);
+        $I->assertSame(ContentType::POST->value, $attachment['target_type']);
         $I->assertSame(123_456, (int)$attachment['comment_id']);
     }
 
@@ -467,8 +467,9 @@ final class AntispamCest
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
         $dbLayer
-            ->insert('art_comments')
-            ->setValue('article_id', '1')
+            ->insert(CommentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
+            ->setValue('content_id', '1')
             ->setValue('time', ':time')->setParameter('time', time() - 60)
             ->setValue('ip', "'198.51.100.20'")
             ->setValue('nick', "'Subscriber'")
@@ -482,8 +483,9 @@ final class AntispamCest
             ->execute()
         ;
         $dbLayer
-            ->insert('art_comments')
-            ->setValue('article_id', '1')
+            ->insert(CommentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
+            ->setValue('content_id', '1')
             ->setValue('time', ':time')->setParameter('time', time())
             ->setValue('ip', "'203.0.113.5'")
             ->setValue('nick', "'Reader'")
@@ -500,11 +502,11 @@ final class AntispamCest
 
         /** @var SpamFeedbackService $feedback */
         $feedback = $I->grabService(SpamFeedbackService::class);
-        $I->assertTrue($feedback->markSpam($commentId));
+        $I->assertTrue($feedback->markSpam($commentId, ContentType::PAGE));
 
         $comment = $dbLayer
             ->select('shown', 'sent')
-            ->from('art_comments')
+            ->from(CommentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $commentId)
             ->execute()
             ->fetchAssoc()
@@ -523,11 +525,11 @@ final class AntispamCest
         $I->assertSame(0, (int)$reputation['ham_count']);
         $I->assertSame(1, (int)$reputation['spam_count']);
 
-        $I->assertTrue($feedback->markHam($commentId));
+        $I->assertTrue($feedback->markHam($commentId, ContentType::PAGE));
 
         $comment = $dbLayer
             ->select('shown')
-            ->from('art_comments')
+            ->from(CommentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $commentId)
             ->execute()
             ->fetchAssoc()
@@ -566,8 +568,9 @@ final class AntispamCest
         $postId = (int)$dbLayer->insertId();
 
         $dbLayer
-            ->insert('s2_blog_comments')
-            ->setValue('post_id', ':post_id')->setParameter('post_id', $postId)
+            ->insert(CommentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::POST->value)
+            ->setValue('content_id', ':content_id')->setParameter('content_id', $postId)
             ->setValue('time', ':time')->setParameter('time', time())
             ->setValue('ip', "'203.0.113.6'")
             ->setValue('nick', "'Blog reader'")
@@ -584,18 +587,18 @@ final class AntispamCest
 
         /** @var SpamFeedbackService $feedback */
         $feedback = $I->grabService(SpamFeedbackService::class);
-        $I->assertTrue($feedback->markSpam($commentId, 'blog', 's2_blog_comments'));
+        $I->assertTrue($feedback->markSpam($commentId, ContentType::POST));
 
         $notifiedCommentId = null;
         $notifier          = static function (int $id) use (&$notifiedCommentId): void {
             $notifiedCommentId = $id;
         };
-        $I->assertTrue($feedback->markHam($commentId, 'blog', 's2_blog_comments', $notifier));
+        $I->assertTrue($feedback->markHam($commentId, ContentType::POST, $notifier));
         $I->assertSame($commentId, $notifiedCommentId);
 
         $comment = $dbLayer
             ->select('shown', 'sent')
-            ->from('s2_blog_comments')
+            ->from(CommentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $commentId)
             ->execute()
             ->fetchAssoc()
@@ -611,7 +614,7 @@ final class AntispamCest
             ->select('target_type', 'moderator_label')
             ->from('spam_assessments')
             ->where('comment_id = :comment_id')->setParameter('comment_id', $commentId)
-            ->andWhere('target_type = :target_type')->setParameter('target_type', 'blog')
+            ->andWhere('target_type = :target_type')->setParameter('target_type', ContentType::POST->value)
             ->orderBy('id DESC')
             ->limit(1)
             ->execute()
@@ -621,7 +624,7 @@ final class AntispamCest
             throw new \RuntimeException('The blog spam assessment was not found.');
         }
 
-        $I->assertSame('blog', $assessment['target_type']);
+        $I->assertSame(ContentType::POST->value, $assessment['target_type']);
         $I->assertSame('ham', $assessment['moderator_label']);
     }
 
@@ -630,8 +633,9 @@ final class AntispamCest
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
         $dbLayer
-            ->insert('art_comments')
-            ->setValue('article_id', '1')
+            ->insert(CommentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
+            ->setValue('content_id', '1')
             ->setValue('time', ':time')->setParameter('time', time() - 60)
             ->setValue('ip', "'198.51.100.21'")
             ->setValue('nick', "'Subscriber'")
@@ -645,8 +649,9 @@ final class AntispamCest
             ->execute()
         ;
         $dbLayer
-            ->insert('art_comments')
-            ->setValue('article_id', '1')
+            ->insert(CommentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
+            ->setValue('content_id', '1')
             ->setValue('time', ':time')->setParameter('time', time())
             ->setValue('ip', "'203.0.113.7'")
             ->setValue('nick', "'Rejected reader'")
@@ -663,12 +668,12 @@ final class AntispamCest
 
         /** @var SpamFeedbackService $feedback */
         $feedback = $I->grabService(SpamFeedbackService::class);
-        $I->assertTrue($feedback->markHam($commentId));
+        $I->assertTrue($feedback->markHam($commentId, ContentType::PAGE));
         $I->assertCount(1, $I->grabSubscriberMails());
 
         $comment = $dbLayer
             ->select('shown', 'sent')
-            ->from('art_comments')
+            ->from(CommentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $commentId)
             ->execute()
             ->fetchAssoc()
@@ -697,29 +702,29 @@ final class AntispamCest
         $falsePositiveId = $assessments->save(
             $assessment,
             SpamDetectorReport::STATUS_SPAM,
-            targetType: 'article',
+            contentType: ContentType::PAGE,
             commentId: 101,
         );
         $assessments->setShadowStatus($falsePositiveId, SpamDetectorReport::STATUS_HAM);
-        $assessments->labelComment(101, 'ham', $assessment);
+        $assessments->labelComment(101, 'ham', $assessment, ContentType::PAGE);
 
         $falseNegativeId = $assessments->save(
             $assessment,
             SpamDetectorReport::STATUS_HAM,
-            targetType: 'article',
+            contentType: ContentType::PAGE,
             commentId: 102,
         );
         $assessments->setShadowStatus($falseNegativeId, SpamDetectorReport::STATUS_SPAM);
-        $assessments->labelComment(102, 'spam', $assessment);
+        $assessments->labelComment(102, 'spam', $assessment, ContentType::PAGE);
 
         $failedId = $assessments->save(
             $assessment,
             SpamDetectorReport::STATUS_FAILED,
-            targetType: 'article',
+            contentType: ContentType::PAGE,
             commentId: 103,
         );
         $assessments->setShadowStatus($failedId, SpamDetectorReport::STATUS_FAILED);
-        $assessments->labelComment(103, 'ham', $assessment);
+        $assessments->labelComment(103, 'ham', $assessment, ContentType::PAGE);
 
         /** @var SpamMetricsRepository $metricsRepository */
         $metricsRepository = $I->grabService(SpamMetricsRepository::class);
@@ -818,18 +823,18 @@ final class AntispamCest
         $detector = $I->grabService(LocalSpamDetector::class);
         /** @var SpamAssessmentRepository $assessmentRepository */
         $assessmentRepository = $I->grabService(SpamAssessmentRepository::class);
-        foreach (['article', 'blog'] as $targetType) {
+        foreach (ContentType::cases() as $contentType) {
             $report = $detector->getReport(new SpamDetectorComment(
                 'Reader',
                 'reader@example.test',
-                'Orphan assessment for ' . $targetType,
+                'Orphan assessment for ' . $contentType->value,
             ), '203.0.113.30');
             $assessmentId = $report->getAssessmentId();
             if ($assessmentId === null) {
                 throw new \RuntimeException('The orphan assessment was not stored.');
             }
 
-            $assessmentRepository->attachComment($assessmentId, $targetType, 999_999);
+            $assessmentRepository->attachComment($assessmentId, $contentType, 999_999);
         }
 
         /** @var SpamMaintenance $maintenance */
@@ -837,77 +842,10 @@ final class AntispamCest
         $deleted     = $maintenance->run($now);
         $I->assertSame(1, $deleted['rate_events']);
         $I->assertSame(1, $deleted['form_nonces']);
-        $I->assertSame(1, $deleted['article_assessment_orphans']);
-        $I->assertSame(1, $deleted['blog_assessment_orphans']);
+        $I->assertSame(2, $deleted['comment_assessment_orphans']);
 
         $I->assertSame(1, $this->rowCount($dbLayer, 'spam_rate_events'));
         $I->assertSame(1, $this->rowCount($dbLayer, 'spam_form_nonces'));
-    }
-
-    public function testRevision26MigrationCreatesPoliciesAndShadowModeForExistingAkismetKey(\IntegrationTester $I): void
-    {
-        $legacyDb = new DbLayerSqlite(new \S2\Cms\Pdo\PDO('sqlite::memory:'));
-        $installer = new Installer($legacyDb);
-        $installer->createTables();
-        $installer->insertConfigData('Legacy site', 'admin@example.test', 'English', 24);
-        foreach ([
-                     'spam_rate_policies',
-                     'spam_signal_policies',
-                     'spam_rules',
-                     'spam_form_nonces',
-                     'spam_rate_events',
-                     'spam_reputation',
-                     'spam_assessments',
-                 ] as $table) {
-            $legacyDb->dropTable($table);
-        }
-
-        foreach ([
-                     'S2_ANTISPAM_MODE',
-                     'S2_ANTISPAM_SPAM_SCORE',
-                     'S2_ANTISPAM_BLATANT_SCORE',
-                 ] as $name) {
-            $legacyDb
-                ->delete('config')
-                ->where('name = :name')->setParameter('name', $name)
-                ->execute()
-            ;
-        }
-
-        $legacyDb
-            ->update('config')
-            ->set('value', ':value')->setParameter('value', 'short')
-            ->where('name = :name')->setParameter('name', 'S2_ANTISPAM_SECRET')
-            ->execute()
-        ;
-
-        $legacyDb
-            ->update('config')
-            ->set('value', ':value')->setParameter('value', 'existing-key')
-            ->where('name = :name')->setParameter('name', 'S2_AKISMET_KEY')
-            ->execute()
-        ;
-
-        (new MigrationManager($legacyDb, 'sqlite'))->migrate(24, Installer::DB_REVISION);
-
-        foreach ([
-                     'spam_assessments',
-                     'spam_reputation',
-                     'spam_rate_events',
-                     'spam_form_nonces',
-                     'spam_rules',
-                     'spam_signal_policies',
-                     'spam_rate_policies',
-                 ] as $table) {
-            $I->assertTrue($legacyDb->tableExists($table));
-        }
-
-        $I->assertTrue($legacyDb->fieldExists('spam_assessments', 'target_type'));
-        $I->assertSame(\count(SpamSignalPolicyRepository::DEFAULT_WEIGHTS), $this->rowCount($legacyDb, 'spam_signal_policies'));
-        $I->assertSame(\count(SpamRatePolicyRepository::DEFAULT_POLICIES), $this->rowCount($legacyDb, 'spam_rate_policies'));
-        $I->assertSame('shadow', $this->configValue($legacyDb, 'S2_ANTISPAM_MODE'));
-        $I->assertSame('26', $this->configValue($legacyDb, 'S2_DB_REVISION'));
-        $I->assertSame(64, \strlen($this->configValue($legacyDb, 'S2_ANTISPAM_SECRET')));
     }
 
     /** @return array<string, string> */
@@ -925,7 +863,12 @@ final class AntispamCest
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
 
-        return $this->rowCount($dbLayer, 'art_comments');
+        return (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+            ->execute()
+            ->result();
     }
 
     private function rowCount(DbLayer $dbLayer, string $table): int
@@ -933,17 +876,6 @@ final class AntispamCest
         return (int)$dbLayer
             ->select('COUNT(*)')
             ->from($table)
-            ->execute()
-            ->result()
-        ;
-    }
-
-    private function configValue(DbLayer $dbLayer, string $name): string
-    {
-        return (string)$dbLayer
-            ->select('value')
-            ->from('config')
-            ->where('name = :name')->setParameter('name', $name)
             ->execute()
             ->result()
         ;

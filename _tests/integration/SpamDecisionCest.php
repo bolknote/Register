@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace integration;
 
 use Codeception\Example;
+use Register\Comment\CommentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Comment\SpamDetectorReport;
 
 /**
@@ -411,7 +413,9 @@ class SpamDecisionCest
     private function commentCount(\IntegrationTester $I): int
     {
         $pdo   = $I->grabService(\PDO::class);
-        $count = $pdo->query('SELECT COUNT(*) FROM art_comments')->fetchColumn();
+        $count = $pdo->query(
+            "SELECT COUNT(*) FROM " . CommentSchema::TABLE_NAME . " WHERE content_type = '" . ContentType::PAGE->value . "'"
+        )->fetchColumn();
 
         return (int)$count;
     }
@@ -419,7 +423,10 @@ class SpamDecisionCest
     private function assertLastComment(\IntegrationTester $I, int $shown, int $totalStart): void
     {
         $pdo    = $I->grabService(\PDO::class);
-        $result = $pdo->query('SELECT shown FROM art_comments ORDER BY id DESC LIMIT 1')->fetchColumn();
+        $result = $pdo->query(
+            "SELECT shown FROM " . CommentSchema::TABLE_NAME
+            . " WHERE content_type = '" . ContentType::PAGE->value . "' ORDER BY id DESC LIMIT 1"
+        )->fetchColumn();
 
         $I->assertEquals($totalStart + 1, $this->commentCount($I));
         $I->assertEquals($shown, (int)$result);

@@ -141,7 +141,6 @@ if ($isNew) {
             'Register',
             'admin@example.test',
             'English',
-            Installer::DB_REVISION,
         );
         $moduleContainer = new Container(['db_prefix' => '']);
         $moduleContainer->set(\PDO::class, $pdo);
@@ -150,7 +149,6 @@ if ($isNew) {
             $dbLayer,
             $moduleContainer,
             new BaseModuleInstaller($baseModuleRegistry),
-            $baseModuleRegistry,
         ))->migrate();
 
         $now = time();

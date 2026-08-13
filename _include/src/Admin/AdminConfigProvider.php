@@ -20,7 +20,6 @@ use S2\AdminYard\Config\EntityConfig;
 use S2\AdminYard\Config\FieldConfig;
 use S2\AdminYard\Config\Filter;
 use S2\AdminYard\Config\FilterLinkTo;
-use S2\AdminYard\Config\LinkedByFieldType;
 use S2\AdminYard\Config\LinkTo;
 use S2\AdminYard\Config\LinkToEntityParams;
 use S2\AdminYard\Config\VirtualFieldType;
@@ -583,7 +582,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     new LinkToEntityParams($commentEntity->getName(), ['content_id'], ['id']),
                 ),
                 sortable: true,
-                useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
+                useOnActions: [FieldConfig::ACTION_LIST],
                 viewTemplate: '_admin/templates/article/view-comments.php'
             ))
             ->addField(new FieldConfig(

@@ -92,7 +92,7 @@ class Integration extends AbstractBrowserModule
         $installer->dropTables();
         $installer->createTables();
 
-        $installer->insertConfigData('Test site', 'admin@example.com', 'English', 19);
+        $installer->insertConfigData('Test site', 'admin@example.com', 'English');
         $installer->insertMainPage('Main page', time());
         $this->createUsers();
 
@@ -261,8 +261,6 @@ class Integration extends AbstractBrowserModule
         $this->adminApplication->container->get(PdoStorage::class)->drop();
         $dbLayer->dropTable('register_analytics_visitor');
         $dbLayer->dropTable('register_analytics_daily');
-        $dbLayer->dropTable('s2_blog_post_tag');
-        $dbLayer->dropTable('s2_blog_comments');
         $dbLayer->dropTable('s2_blog_posts');
     }
 

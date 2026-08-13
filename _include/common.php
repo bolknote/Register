@@ -22,8 +22,6 @@ use S2\Cms\Framework\Exception\ConfigurationException;
 use S2\Cms\Framework\Exception\ParameterNotFoundException;
 use S2\Cms\Framework\ModuleInterface;
 use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Model\Installer;
-use S2\Cms\Model\MigrationManager;
 use Symfony\Component\ErrorHandler\Debug;
 use Symfony\Component\ErrorHandler\ErrorHandler;
 use Symfony\Component\ErrorHandler\ErrorRenderer\HtmlErrorRenderer;
@@ -223,13 +221,6 @@ if (defined('S2_ADMIN_MODE') && session_status() !== PHP_SESSION_ACTIVE) {
     ini_set('session.cookie_lifetime', '0');
     ini_set('session.gc_maxlifetime', (string)\S2\Cms\Model\AuthManager::PERSISTENT_SESSION_LIFETIME);
     ini_set('session.cookie_httponly', true);
-}
-
-if ($dynamicConfigProvider->getIntProxy('S2_DB_REVISION')->get() < Installer::DB_REVISION) {
-    $migrationManager = $app->container->get(MigrationManager::class);
-    $migrationManager->migrate($dynamicConfigProvider->getIntProxy('S2_DB_REVISION')->get(), Installer::DB_REVISION);
-
-    $dynamicConfigProvider->regenerate();
 }
 
 $registerSchemaMigrator = $app->container->get(SchemaMigrator::class);

@@ -10,30 +10,26 @@ declare(strict_types = 1);
 namespace Register\Schema;
 
 use Register\Module\BaseModuleInstaller;
-use Register\Module\BaseModuleRegistry;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Model\UserpicSchema;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
 
 /**
  * Owns the single schema revision for all mandatory Register modules.
  *
- * Optional modules keep their own migration state. The legacy base-module rows are consumed only
- * when an existing S2 database is adopted and are removed after the first Register migration.
+ * Optional modules keep their own migration state. Register starts with its current clean schema;
+ * importing data from other engines is a separate, explicit operation.
  */
 final readonly class SchemaMigrator
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_REVISION';
 
-    public const int LATEST_REVISION = 9;
+    public const int LATEST_REVISION = 1;
 
     public function __construct(
         private DbLayer             $dbLayer,
         private Container           $container,
         private BaseModuleInstaller $baseModuleInstaller,
-        private BaseModuleRegistry  $baseModuleRegistry,
     ) {
     }
 
@@ -109,111 +105,9 @@ final readonly class SchemaMigrator
         return (int)$value;
     }
 
-    private function removeLegacyBaseModuleRows(): void
-    {
-        foreach ($this->baseModuleRegistry->ids() as $id) {
-            $this->dbLayer
-                ->delete('extensions')
-                ->where('id = :id')->setParameter('id', $id)
-                ->execute()
-            ;
-        }
-    }
-
     private function migrateToRevisionOne(): void
     {
         $this->baseModuleInstaller->installFresh($this->dbLayer, $this->container);
-        $this->removeLegacyBaseModuleRows();
-    }
-
-    private function migrateToRevisionTwo(): void
-    {
-        $manifestClass = $this->baseModuleRegistry->manifestClass(BaseModuleRegistry::ANALYTICS);
-        (new $manifestClass())->install($this->dbLayer, $this->container, null);
-    }
-
-    private function migrateToRevisionThree(): void
-    {
-        // The search module moved into the Register namespace. The schema itself is unchanged;
-        // advancing the ledger invalidates compiled routes that contain controller class names.
-    }
-
-    private function migrateToRevisionFour(): void
-    {
-        // The blog module moved into the Register namespace. The schema itself is unchanged;
-        // advancing the ledger invalidates compiled routes that contain controller class names.
-    }
-
-    private function migrateToRevisionFive(): void
-    {
-        // Search now uses canonical page:<id> and post:<id> content identifiers. The application
-        // rebuilds the index after every product migration, removing inherited identifiers.
-    }
-
-    private function migrateToRevisionSix(): void
-    {
-        $commentTables = [
-            'art_comments'     => 'article_id',
-            's2_blog_comments' => 'post_id',
-        ];
-
-        foreach ($commentTables as $table => $targetColumn) {
-            if (!$this->dbLayer->tableExists($table)) {
-                continue;
-            }
-
-            $this->dbLayer->addField(
-                $table,
-                'parent_id',
-                SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER,
-                null,
-                true,
-                null,
-                $targetColumn,
-            );
-            $this->dbLayer->addIndex($table, 'thread_idx', [$targetColumn, 'parent_id', 'shown']);
-        }
-    }
-
-    private function migrateToRevisionSeven(): void
-    {
-        UserpicSchema::create($this->dbLayer);
-
-        foreach (['art_comments', 's2_blog_comments'] as $commentTable) {
-            if ($this->dbLayer->tableExists($commentTable)) {
-                UserpicSchema::addCommentReference($this->dbLayer, $commentTable, 'parent_id');
-            }
-        }
-    }
-
-    private function migrateToRevisionEight(): void
-    {
-        foreach (['art_comments', 's2_blog_comments'] as $commentTable) {
-            if ($this->dbLayer->tableExists($commentTable)) {
-                $this->dbLayer->addField(
-                    $commentTable,
-                    'deleted',
-                    SchemaBuilderInterface::TYPE_BOOLEAN,
-                    null,
-                    false,
-                    '0',
-                    'shown',
-                );
-            }
-        }
-    }
-
-    private function migrateToRevisionNine(): void
-    {
-        $this->dbLayer->addField(
-            's2_blog_posts',
-            'display_date',
-            SchemaBuilderInterface::TYPE_STRING,
-            255,
-            false,
-            '',
-            'create_time',
-        );
     }
 
     /** @return array<int, \Closure(): void> */
@@ -222,30 +116,6 @@ final readonly class SchemaMigrator
         return [
             1 => function (): void {
                 $this->migrateToRevisionOne();
-            },
-            2 => function (): void {
-                $this->migrateToRevisionTwo();
-            },
-            3 => function (): void {
-                $this->migrateToRevisionThree();
-            },
-            4 => function (): void {
-                $this->migrateToRevisionFour();
-            },
-            5 => function (): void {
-                $this->migrateToRevisionFive();
-            },
-            6 => function (): void {
-                $this->migrateToRevisionSix();
-            },
-            7 => function (): void {
-                $this->migrateToRevisionSeven();
-            },
-            8 => function (): void {
-                $this->migrateToRevisionEight();
-            },
-            9 => function (): void {
-                $this->migrateToRevisionNine();
             },
         ];
     }

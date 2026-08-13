@@ -20,8 +20,6 @@ use S2\Cms\Pdo\DbLayerException;
 
 readonly class Installer
 {
-    public const int DB_REVISION = 26;
-
     public function __construct(private DbLayer $dbLayer)
     {
     }
@@ -107,38 +105,6 @@ readonly class Installer
             ;
         });
 
-        $this->dbLayer->createTable('art_comments', function (SchemaBuilderInterface $table): void {
-            $table
-                ->addIdColumn()
-                ->addInteger('article_id', true, false, null)
-                ->addInteger('parent_id', true, true, null)
-            ;
-            UserpicSchema::addCommentReferenceToDefinition($table);
-            $table
-                ->addInteger('time', true)
-                ->addString('ip', 39)
-                ->addString('nick', 50)
-                ->addString('email', 80)
-                ->addBoolean('show_email')
-                ->addBoolean('subscribed')
-                ->addBoolean('shown', false, true)
-                ->addBoolean('deleted')
-                ->addBoolean('sent', false, true)
-                ->addBoolean('good')
-                ->addText('text', nullable: false)
-                ->addForeignKey(
-                    'fk_article',
-                    ['article_id'],
-                    'articles',
-                    ['id'],
-                    'CASCADE'
-                )
-                ->addIndex('sort_idx', ['article_id', 'time', 'shown'])
-                ->addIndex('thread_idx', ['article_id', 'parent_id', 'shown'])
-                ->addIndex('time_idx', ['time'])
-            ;
-        });
-
         CommentSchema::create($this->dbLayer);
 
         $this->dbLayer->createTable('tags', function (SchemaBuilderInterface $table): void {
@@ -212,7 +178,6 @@ readonly class Installer
         ContentTagSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('tags');
         CommentSchema::drop($this->dbLayer);
-        $this->dbLayer->dropTable('art_comments');
         $this->dbLayer->dropTable('articles');
         UserpicSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('extensions');
@@ -229,7 +194,6 @@ readonly class Installer
         string $siteName,
         string $email,
         string $defaultLanguage,
-        int    $dbRevision,
     ): void
     {
         $antispamFallbackSecret = bin2hex(random_bytes(32));
@@ -259,7 +223,6 @@ readonly class Installer
             'S2_ADMIN_NEW_POS'    => '0',
             'S2_ADMIN_CUT'        => '0',
             'S2_LOGIN_TIMEOUT'    => '60',
-            'S2_DB_REVISION'      => (string)$dbRevision,
             SchemaMigrator::CONFIG_KEY => '0',
         ];
 

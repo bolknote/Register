@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentType;
 use S2\Cms\Comment\Antispam\SpamAssessment;
 use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
 use S2\Cms\Comment\SpamDetectorReport;
@@ -165,10 +166,10 @@ class AdminCest
         $assessmentRepository->save(
             $assessment,
             SpamDetectorReport::STATUS_SPAM,
-            targetType: 'article',
+            contentType: ContentType::PAGE,
             commentId: 1,
         );
-        $assessmentRepository->labelComment(1, 'ham', $assessment);
+        $assessmentRepository->labelComment(1, 'ham', $assessment, ContentType::PAGE);
 
         $I->login('admin', 'admin');
 

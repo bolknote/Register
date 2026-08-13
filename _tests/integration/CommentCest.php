@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Comment\CommentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Pdo\DbLayer;
 
 class CommentCest
@@ -18,7 +20,7 @@ class CommentCest
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
         $this->insertArticle($dbLayer);
-        $countBefore = (int)$dbLayer->select('COUNT(*)')->from('art_comments')->execute()->result();
+        $countBefore = (int)$dbLayer->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->execute()->result();
 
         $I->sendPost('https://localhost/thread-test', [
             'name'         => 'Preview author',
@@ -34,7 +36,7 @@ class CommentCest
         $I->see('Top-level preview text');
         $I->seeElement('.comment-preview-item');
         $I->dontSeeElement('.comment-preview-item .comment-reply');
-        $I->assertSame($countBefore, (int)$dbLayer->select('COUNT(*)')->from('art_comments')->execute()->result());
+        $I->assertSame($countBefore, (int)$dbLayer->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->execute()->result());
     }
 
     public function testSavesATopLevelCommentWithAnEmptyParentId(\IntegrationTester $I): void
@@ -54,7 +56,7 @@ class CommentCest
 
         $comment = $dbLayer
             ->select('parent_id')
-            ->from('art_comments')
+            ->from(CommentSchema::TABLE_NAME)
             ->where('text = :text')->setParameter('text', 'Top-level comment text')
             ->execute()
             ->fetchAssoc()
@@ -92,7 +94,7 @@ class CommentCest
 
         $reply = $dbLayer
             ->select('id', 'parent_id')
-            ->from('art_comments')
+            ->from(CommentSchema::TABLE_NAME)
             ->where('text = :text')->setParameter('text', 'A nested reply')
             ->execute()
             ->fetchAssoc()
@@ -138,7 +140,7 @@ class CommentCest
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
-        $countBefore = (int)$dbLayer->select('COUNT(*)')->from('art_comments')->execute()->result();
+        $countBefore = (int)$dbLayer->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->execute()->result();
 
         $I->sendPost('https://localhost/', [
             'name'      => 'Reply author',
@@ -149,7 +151,7 @@ class CommentCest
 
         $I->seeResponseCodeIs(200);
         $I->see('The comment you replied to is no longer available');
-        $I->assertSame($countBefore, (int)$dbLayer->select('COUNT(*)')->from('art_comments')->execute()->result());
+        $I->assertSame($countBefore, (int)$dbLayer->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->execute()->result());
     }
 
     public function testModeratorCanEditAndHideSpamWithoutBreakingTheThread(\IntegrationTester $I): void
@@ -173,7 +175,7 @@ class CommentCest
         );
         $I->sendPost('https://localhost/comment-moderate', [
             'moderation_action' => 'edit',
-            'target_type'       => 'article',
+            'target_type'       => ContentType::PAGE->value,
             'comment_id'        => (string)$parentId,
             'comment_anchor'    => '1',
             'moderation_token'  => $editToken,
@@ -190,7 +192,7 @@ class CommentCest
         );
         $I->sendPost('https://localhost/comment-moderate', [
             'moderation_action' => 'spam',
-            'target_type'       => 'article',
+            'target_type'       => ContentType::PAGE->value,
             'comment_id'        => (string)$parentId,
             'comment_anchor'    => '1',
             'moderation_token'  => $spamToken,
@@ -210,7 +212,7 @@ class CommentCest
         );
         $I->sendPost('https://localhost/comment-moderate', [
             'moderation_action' => 'ham',
-            'target_type'       => 'article',
+            'target_type'       => ContentType::PAGE->value,
             'comment_id'        => (string)$parentId,
             'comment_anchor'    => '1',
             'moderation_token'  => $hamToken,
@@ -230,7 +232,7 @@ class CommentCest
         );
         $I->sendPost('https://localhost/comment-moderate', [
             'moderation_action' => 'spam',
-            'target_type'       => 'article',
+            'target_type'       => ContentType::PAGE->value,
             'comment_id'        => (string)$parentId,
             'comment_anchor'    => '1',
             'moderation_token'  => $spamToken,
@@ -263,7 +265,7 @@ class CommentCest
         );
         $I->sendPost('https://localhost/comment-moderate', [
             'moderation_action' => 'delete',
-            'target_type'       => 'article',
+            'target_type'       => ContentType::PAGE->value,
             'comment_id'        => (string)$parentId,
             'comment_anchor'    => '1',
             'moderation_token'  => $deleteToken,
@@ -273,7 +275,7 @@ class CommentCest
 
         $I->sendPost('https://localhost/comment-moderate', [
             'moderation_action' => 'edit',
-            'target_type'       => 'article',
+            'target_type'       => ContentType::PAGE->value,
             'comment_id'        => (string)$parentId,
             'comment_anchor'    => '1',
             'moderation_token'  => $deleteToken,
@@ -349,8 +351,9 @@ class CommentCest
     ): int
     {
         $dbLayer
-            ->insert('art_comments')
-            ->setValue('article_id', ':article_id')->setParameter('article_id', $articleId)
+            ->insert(CommentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
+            ->setValue('content_id', ':content_id')->setParameter('content_id', $articleId)
             ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $parentId)
             ->setValue('userpic_id', ':userpic_id')->setParameter('userpic_id', $userpicId)
             ->setValue('time', ':time')->setParameter('time', time())

@@ -66,7 +66,6 @@ use S2\Cms\Model\CommentNotifier;
 use S2\Cms\Model\CommentProvider;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\FavoriteArticleProvider;
-use S2\Cms\Model\MigrationManager;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Model\User\UserProvider;
@@ -136,11 +135,6 @@ class CmsExtension implements ExtensionInterface
                 default => throw new \RuntimeException(\sprintf('Unsupported db_type="%s"', $db_type)),
             };
         }, [StatefulServiceInterface::class]);
-
-        $container->set(MigrationManager::class, fn(Container $container): \S2\Cms\Model\MigrationManager => new MigrationManager(
-            $container->get(DbLayer::class),
-            $container->getStringParameter('db_type'),
-        ));
 
         $container->set(ExtensionCache::class, fn(Container $container): \S2\Cms\Model\ExtensionCache => new ExtensionCache(
             $container->get(DbLayer::class),

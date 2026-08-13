@@ -16,7 +16,6 @@ namespace Register\Module\Blog;
 use S2\Cms\Extensions\ManifestInterface;
 use S2\Cms\Extensions\ManifestTrait;
 use S2\Cms\Framework\Container;
-use S2\Cms\Model\UserpicSchema;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
 use S2\Cms\Pdo\DbLayerException;
@@ -86,53 +85,7 @@ class Manifest implements ManifestInterface
                     ->addIndex('label_idx', ['label'])
                 ;
             });
-        } else {
-            $dbLayer->addField('s2_blog_posts', 'revision', SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, null, false, '1', 'modify_time');
-            $dbLayer->addField('s2_blog_posts', 'user_id', SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, null, false, '0', 'url');
         }
-
-        // For old installations
-        $dbLayer->addIndex('s2_blog_posts', 'create_time_published_idx', ['create_time', 'published']);
-        $dbLayer->addIndex('s2_blog_posts', 'id_published_idx', ['id', 'published']);
-        $dbLayer->addIndex('s2_blog_posts', 'favorite_idx', ['favorite']);
-
-        // Setup blog comments table
-        if (!$dbLayer->tableExists('s2_blog_comments')) {
-            $dbLayer->createTable('s2_blog_comments', function (SchemaBuilderInterface $table): void {
-                $table
-                    ->addIdColumn()
-                    ->addInteger('post_id', true, default: null)
-                    ->addInteger('parent_id', true, true, null)
-                ;
-                UserpicSchema::addCommentReferenceToDefinition($table);
-                $table
-                    ->addInteger('time', true)
-                    ->addString('ip', 39)
-                    ->addString('nick', 50)
-                    ->addString('email', 80)
-                    ->addBoolean('show_email')
-                    ->addBoolean('subscribed')
-                    ->addBoolean('shown', default: true)
-                    ->addBoolean('deleted')
-                    ->addBoolean('sent', default: true)
-                    ->addBoolean('good')
-                    ->addText('text', nullable: false)
-                    ->addForeignKey(
-                        'fk_post',
-                        ['post_id'],
-                        's2_blog_posts',
-                        ['id'],
-                        'CASCADE',
-                    )
-                    ->addIndex('sort_idx', ['post_id', 'time', 'shown'])
-                    ->addIndex('thread_idx', ['post_id', 'parent_id', 'shown'])
-                    ->addIndex('time_idx', ['time'])
-                ;
-            });
-        }
-
-        // For old installations
-        $dbLayer->addIndex('s2_blog_comments', 'sort_idx', ['post_id', 'time', 'shown']);
 
         // Add extension options to the config table
         $config = [
@@ -149,40 +102,12 @@ class Manifest implements ManifestInterface
             ;
         }
 
-        // User permissions
-        if ($dbLayer->fieldExists('users', 'edit_s2_blog')) {
-            $dbLayer->dropField('users', 'edit_s2_blog');
-        }
-
         // A field in tags table for important tags displaying
         $dbLayer->addField('tags', 's2_blog_important', SchemaBuilderInterface::TYPE_BOOLEAN, null, false, 0);
 
         $dbLayer->addIndex('tags', 's2_blog_important_idx', ['s2_blog_important']);
 
-        if ($currentVersion !== null && version_compare($currentVersion, '2.0a1', '<')) {
-            $dbLayer->alterField('s2_blog_posts', 'user_id', SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, null, true);
-            $dbLayer->update('s2_blog_posts')
-                ->set('user_id', 'NULL')
-                ->where('user_id = 0')
-                ->execute()
-            ;
-        }
-
-        if ($currentVersion !== null && version_compare($currentVersion, '2.0a2', '<')) {
-            $dbLayer->dropIndex('s2_blog_posts', 'create_time_idx');
-            $existingUsers = $dbLayer->select('id')->from('users')->execute()->fetchColumn();
-            $dbLayer->update('s2_blog_posts')
-                ->set('user_id', 'NULL')
-                ->where('user_id NOT IN (' . implode(',', array_fill(0, \count($existingUsers), '?')) . ')')
-                ->execute($existingUsers)
-            ;
-            $dbLayer->addForeignKey('s2_blog_posts', 'fk_user', ['user_id'], 'users', ['id'], 'SET NULL');
-
-            $dbLayer->alterField('s2_blog_comments', 'post_id', SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER, null, false);
-            $dbLayer->addForeignKey('s2_blog_comments', 'fk_post', ['post_id'], 's2_blog_posts', ['id'], 'CASCADE');
-            $dbLayer->dropIndex('s2_blog_comments', 'post_id_idx');
-
-        }
+        unset($currentVersion);
     }
 
     /**

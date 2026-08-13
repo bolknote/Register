@@ -26,7 +26,6 @@ use S2\Cms\HttpClient\HttpClientException;
 use S2\Cms\Install\InstallExtension;
 use S2\Cms\Logger\Logger;
 use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Model\Installer;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 use Symfony\Component\ErrorHandler\Debug;
@@ -897,7 +896,6 @@ $installer->insertConfigData(
     $lang_install['Site name'],
     $email,
     $default_lang,
-    Installer::DB_REVISION,
 );
 
 $app->container->get(SchemaMigrator::class)->migrate();

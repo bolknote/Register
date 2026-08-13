@@ -73,8 +73,8 @@ class DbLayerCest
      */
     public function testIndexExists(\IntegrationTester $I): void
     {
-        $I->assertTrue($this->dbLayer->indexExists('art_comments', 'sort_idx'));
-        $I->assertFalse($this->dbLayer->indexExists('art_comments', 'not_an_index'));
+        $I->assertTrue($this->dbLayer->indexExists('comments', 'content_sort_idx'));
+        $I->assertFalse($this->dbLayer->indexExists('comments', 'not_an_index'));
     }
 
     /**
