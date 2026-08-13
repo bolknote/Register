@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Dashboard;
 
+use Register\Comment\CommentSchema;
+use Register\Content\ContentType;
 use S2\AdminYard\TemplateRenderer;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
@@ -66,8 +68,9 @@ readonly class DashboardArticleProvider implements DashboardStatProviderInterfac
                 . ') WHEN 0 THEN 1 ELSE 0 END) AS articles_num')
             ->addSelect('SUM((' .
                 $this->dbLayer->select('COUNT(*)')
-                    ->from('art_comments')
-                    ->where('article_id = at.id')
+                    ->from(CommentSchema::TABLE_NAME)
+                    ->where("content_type = '" . ContentType::PAGE->value . "'")
+                    ->andWhere('content_id = at.id')
                     ->andWhere('shown = 1')
                     ->getSql()
                 . ')) AS comments_num')

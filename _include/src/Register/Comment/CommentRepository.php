@@ -82,6 +82,13 @@ final readonly class CommentRepository
         return $row === false ? null : $this->hydrate($row);
     }
 
+    public function findOfType(int $commentId, ContentType $contentType): ?Comment
+    {
+        $comment = $this->find($commentId);
+
+        return $comment?->contentId->type === $contentType ? $comment : null;
+    }
+
     /** @return list<Comment> */
     public function findForContent(ContentId $contentId): array
     {
@@ -150,14 +157,64 @@ final readonly class CommentRepository
         return (int)$query->execute()->result();
     }
 
-    public function publish(int $commentId): void
+    public function publish(int $commentId, ContentType $contentType): void
     {
         $this->dbLayer
             ->update(CommentSchema::TABLE_NAME)
             ->set('shown', '1')
             ->where('id = :id')->setParameter('id', $commentId)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
             ->execute()
         ;
+    }
+
+    public function setSent(int $commentId, ContentType $contentType, bool $sent): void
+    {
+        $this->dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('sent', $sent ? '1' : '0')
+            ->where('id = :id')->setParameter('id', $commentId)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
+            ->execute()
+        ;
+    }
+
+    public function markSpam(int $commentId, ContentType $contentType): void
+    {
+        $this->dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('shown', '0')
+            ->set('sent', '1')
+            ->where('id = :id')->setParameter('id', $commentId)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
+            ->execute()
+        ;
+    }
+
+    public function edit(int $commentId, ContentType $contentType, string $text): bool
+    {
+        return $this->dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('text', ':text')->setParameter('text', $text)
+            ->where('id = :id')->setParameter('id', $commentId)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
+            ->andWhere('deleted = 0')
+            ->execute()
+            ->affectedRows() > 0;
+    }
+
+    public function tombstone(int $commentId, ContentType $contentType): bool
+    {
+        return $this->dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('deleted', '1')
+            ->set('shown', '0')
+            ->set('sent', '1')
+            ->set('subscribed', '0')
+            ->where('id = :id')->setParameter('id', $commentId)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
+            ->execute()
+            ->affectedRows() > 0;
     }
 
     public function removeForContent(ContentId $contentId): void

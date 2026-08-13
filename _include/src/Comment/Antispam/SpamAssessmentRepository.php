@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Comment\Antispam;
 
+use Register\Comment\CommentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 
@@ -26,14 +28,12 @@ final readonly class SpamAssessmentRepository
         SpamAssessment $assessment,
         string         $status,
         string         $source = 'local',
-        ?string        $targetType = null,
+        ?ContentType   $contentType = null,
         ?int           $commentId = null,
     ): int {
-        $this->validateTargetType($targetType);
-
         $this->dbLayer
             ->insert('spam_assessments')
-            ->setValue('target_type', ':target_type')->setParameter('target_type', $targetType, $targetType === null ? \PDO::PARAM_NULL : \PDO::PARAM_STR)
+            ->setValue('target_type', ':target_type')->setParameter('target_type', $contentType?->value, $contentType === null ? \PDO::PARAM_NULL : \PDO::PARAM_STR)
             ->setValue('comment_id', ':comment_id')->setParameter('comment_id', $commentId, $commentId === null ? \PDO::PARAM_NULL : \PDO::PARAM_INT)
             ->setValue('created_at', ':created_at')->setParameter('created_at', time())
             ->setValue('source', ':source')->setParameter('source', $source)
@@ -55,13 +55,11 @@ final readonly class SpamAssessmentRepository
     /**
      * @throws DbLayerException
      */
-    public function attachComment(int $assessmentId, string $targetType, int $commentId): void
+    public function attachComment(int $assessmentId, ContentType $contentType, int $commentId): void
     {
-        $this->validateTargetType($targetType);
-
         $this->dbLayer
             ->update('spam_assessments')
-            ->set('target_type', ':target_type')->setParameter('target_type', $targetType)
+            ->set('target_type', ':target_type')->setParameter('target_type', $contentType->value)
             ->set('comment_id', ':comment_id')->setParameter('comment_id', $commentId)
             ->where('id = :id')->setParameter('id', $assessmentId)
             ->andWhere('target_type IS NULL')
@@ -94,15 +92,13 @@ final readonly class SpamAssessmentRepository
         int            $commentId,
         string         $label,
         SpamAssessment $fallbackAssessment,
-        string         $targetType = 'article',
+        ContentType    $contentType,
     ): ?string
     {
-        $this->validateTargetType($targetType);
-
         $row = $this->dbLayer
             ->select('id', 'moderator_label')
             ->from('spam_assessments')
-            ->where('target_type = :target_type')->setParameter('target_type', $targetType)
+            ->where('target_type = :target_type')->setParameter('target_type', $contentType->value)
             ->andWhere('comment_id = :comment_id')->setParameter('comment_id', $commentId)
             ->orderBy('id DESC')
             ->limit(1)
@@ -111,7 +107,7 @@ final readonly class SpamAssessmentRepository
         ;
 
         if ($row === false) {
-            $assessmentId = $this->save($fallbackAssessment, $label, 'moderator', $targetType, $commentId);
+            $assessmentId = $this->save($fallbackAssessment, $label, 'moderator', $contentType, $commentId);
             $previousLabel = null;
         } else {
             $assessmentId  = (int)$row['id'];
@@ -161,31 +157,16 @@ final readonly class SpamAssessmentRepository
     /**
      * @throws DbLayerException
      */
-    public function deleteOrphans(string $targetType, ?string $commentTable): int
+    public function deleteOrphans(): int
     {
-        $this->validateTargetType($targetType);
-        if ($commentTable !== null && preg_match('#^[a-z][a-z0-9_]*$#', $commentTable) !== 1) {
-            throw new \InvalidArgumentException('Invalid comment table name.');
-        }
-
-        $delete = $this->dbLayer
+        return $this->dbLayer
             ->delete('spam_assessments')
-            ->where('target_type = :target_type')->setParameter('target_type', $targetType)
+            ->where('target_type IS NOT NULL')
             ->andWhere('comment_id IS NOT NULL')
-        ;
-        if ($commentTable !== null) {
-            $delete->andWhere(
-                'comment_id NOT IN (SELECT id FROM ' . $this->dbLayer->getPrefix() . $commentTable . ')',
-            );
-        }
-
-        return $delete->execute()->affectedRows();
-    }
-
-    private function validateTargetType(?string $targetType): void
-    {
-        if ($targetType !== null && preg_match('#^[a-z][a-z0-9_]{0,19}$#', $targetType) !== 1) {
-            throw new \InvalidArgumentException('Invalid antispam target type.');
-        }
+            ->andWhere(
+                'comment_id NOT IN (SELECT id FROM ' . $this->dbLayer->getPrefix() . CommentSchema::TABLE_NAME . ')',
+            )
+            ->execute()
+            ->affectedRows();
     }
 }

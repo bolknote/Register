@@ -9,6 +9,9 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Model;
 
+use Register\Comment\CommentRepository;
+use Register\Content\ContentId;
+use Register\Content\ContentType;
 use S2\Cms\Controller\Comment\CommentDto;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Controller\Comment\TargetDto;
@@ -20,13 +23,14 @@ use S2\Cms\Pdo\DbLayerException;
 readonly class BlogCommentStrategy implements CommentStrategyInterface
 {
     #[\Override]
-    public function getAntispamTargetType(): string
+    public function getContentType(): ContentType
     {
-        return 'blog';
+        return ContentType::POST;
     }
 
     public function __construct(
         private DbLayer             $dbLayer,
+        private CommentRepository   $commentRepository,
         private BlogCommentNotifier $commentNotifier,
     ) {
     }
@@ -81,16 +85,7 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
     #[\Override]
     public function isValidParent(int $targetId, int $parentId): bool
     {
-        $result = $this->dbLayer
-            ->select('COUNT(*)')
-            ->from('s2_blog_comments')
-            ->where('id = :id')->setParameter('id', $parentId)
-            ->andWhere('post_id = :post_id')->setParameter('post_id', $targetId)
-            ->andWhere('shown = 1')
-            ->execute()
-        ;
-
-        return (int)$result->result() === 1;
+        return $this->commentRepository->isValidParent(ContentId::post($targetId), $parentId);
     }
 
     /**
@@ -100,24 +95,16 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
     #[\Override]
     public function save(int $targetId, string $name, string $email, bool $showEmail, bool $subscribed, string $text, string $ip, ?int $parentId): int
     {
-        $this->dbLayer
-            ->insert('s2_blog_comments')
-            ->setValue('post_id', ':post_id')->setParameter('post_id', $targetId)
-            ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $parentId)
-            ->setValue('time', ':time')->setParameter('time', time())
-            ->setValue('ip', ':ip')->setParameter('ip', $ip)
-            ->setValue('nick', ':nick')->setParameter('nick', $name)
-            ->setValue('email', ':email')->setParameter('email', $email)
-            ->setValue('show_email', ':show_email')->setParameter('show_email', $showEmail ? 1 : 0)
-            ->setValue('subscribed', ':subscribed')->setParameter('subscribed', $subscribed ? 1 : 0)
-            ->setValue('sent', '0')
-            ->setValue('shown', '0')
-            ->setValue('good', '0')
-            ->setValue('text', ':text')->setParameter('text', $text)
-            ->execute()
-        ;
-
-        return (int)$this->dbLayer->insertId();
+        return $this->commentRepository->save(
+            ContentId::post($targetId),
+            $name,
+            $email,
+            $showEmail,
+            $subscribed,
+            $text,
+            $ip,
+            $parentId,
+        );
     }
 
     /**
@@ -137,17 +124,9 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
     #[\Override]
     public function getHashForPublishedComment(int $targetId): ?string
     {
-        $result = $this->dbLayer->select('COUNT(id)')
-            ->from('s2_blog_comments')
-            ->where('post_id = :post_id')
-            ->setParameter('post_id', $targetId)
-            ->andWhere('shown = 1')
-            ->execute()
-        ;
+        $num = $this->commentRepository->count(ContentId::post($targetId));
 
-        $num = $result->result();
-
-        return (int)$num > 0 ? (string)$num : null;
+        return $num > 0 ? (string)$num : null;
     }
 
     /**
@@ -157,21 +136,9 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
     #[\Override]
     public function getRecentComment(string $hash, string $ip): ?CommentDto
     {
-        $result = $this->dbLayer->select('id, post_id AS target_id, email, text, nick AS name')
-            ->from('s2_blog_comments')
-            ->where('ip = :ip')
-            ->setParameter('ip', $ip)
-            ->andWhere('shown = 0')
-            ->andWhere('sent = 0')
-            ->andWhere('time >= :time')
-            ->setParameter('time', time() - 5 * 60) // 5 minutes
-            ->orderBy('time DESC')
-            ->execute()
-        ;
-
-        foreach ($result->fetchAssocAll() as $comment) {
-            if ($hash === CommentController::commentHash($comment['id'], $comment['target_id'], $comment['email'], $ip, static::class)) {
-                return new CommentDto($comment['id'], $comment['target_id'], $comment['name'], $comment['email'], $comment['text']);
+        foreach ($this->commentRepository->findRecentPending(ContentType::POST, $ip, time() - 5 * 60) as $comment) {
+            if ($hash === CommentController::commentHash($comment->id, $comment->contentId->value, $comment->email, $ip, static::class)) {
+                return new CommentDto($comment->id, $comment->contentId->value, $comment->name, $comment->email, $comment->text);
             }
         }
 
@@ -185,13 +152,7 @@ readonly class BlogCommentStrategy implements CommentStrategyInterface
     #[\Override]
     public function publishComment(int $commentId): void
     {
-        $this->dbLayer
-            ->update('s2_blog_comments')
-            ->set('shown', '1')
-            ->where('id = :id')
-            ->setParameter('id', $commentId)
-            ->execute()
-        ;
+        $this->commentRepository->publish($commentId, ContentType::POST);
     }
 
     /**

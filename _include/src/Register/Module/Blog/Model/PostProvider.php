@@ -9,7 +9,10 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Model;
 
+use Register\Comment\CommentRepository;
+use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
@@ -21,6 +24,7 @@ readonly class PostProvider
 {
     public function __construct(
         private DbLayer         $dbLayer,
+        private CommentRepository $commentRepository,
         private TagRepository   $tagRepository,
         private BlogUrlBuilder  $blogUrlBuilder,
         private ArticleProvider $articleProvider,
@@ -82,8 +86,9 @@ readonly class PostProvider
         // Obtaining last posts
         $rawQueryCount = $this->dbLayer
             ->select('count(*)')
-            ->from('s2_blog_comments AS c')
-            ->where('c.post_id = p.id')
+            ->from(CommentSchema::TABLE_NAME . ' AS c')
+            ->where('c.content_type = :comment_content_type')
+            ->andWhere('c.content_id = p.id')
             ->andWhere('c.shown = 1')
             ->getSql()
         ;
@@ -101,6 +106,7 @@ readonly class PostProvider
             ->addSelect('(' . $rawQueryUser . ') AS author, p.label')
             ->from('s2_blog_posts AS p')
             ->where('p.published = 1')
+            ->setParameter('comment_content_type', ContentType::POST->value)
             ->orderBy('p.create_time DESC')
             ->limit($postsNum)
             ->offset($skip)
@@ -276,17 +282,6 @@ readonly class PostProvider
      */
     public function getCommentNum(int $postId, bool $includeHidden): int
     {
-        $qb = $this->dbLayer
-            ->select('COUNT(*)')
-            ->from('s2_blog_comments')
-            ->where('post_id = :post_id')
-            ->setParameter('post_id', $postId)
-        ;
-
-        if (!$includeHidden) {
-            $qb->andWhere('shown = 1');
-        }
-
-        return (int)$qb->execute()->result();
+        return $this->commentRepository->count(ContentId::post($postId), $includeHidden);
     }
 }

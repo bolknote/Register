@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
@@ -100,7 +101,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         $articleEntity = new EntityConfig('Article', $this->dbPrefix . 'articles');
         $articleEntity->setEditTemplate('_admin/templates/article/edit.php.inc');
 
-        $commentEntity = new EntityConfig('Comment', $this->dbPrefix . 'art_comments');
+        $commentEntity = new EntityConfig('Comment', $this->dbPrefix . CommentSchema::TABLE_NAME);
         $commentEntity
             ->setPluralName($this->translator->trans('Comments'))
             ->setSingularName($this->translator->trans('Comment'))
@@ -112,7 +113,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 useOnActions: []
             ))
             ->addField($articleFieldId = new FieldConfig(
-                name: 'article_id',
+                name: 'content_id',
                 label: $this->translator->trans('Article'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                 control: 'autocomplete',
@@ -190,7 +191,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 name: 'spam_score',
                 label: $this->translator->trans('Spam score'),
                 type: new VirtualFieldType(
-                    "SELECT score FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'article' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                    "SELECT score FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'page' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
                 ),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
@@ -199,7 +200,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 name: 'spam_label',
                 label: $this->translator->trans('Spam label'),
                 type: new VirtualFieldType(
-                    "SELECT moderator_label FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'article' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                    "SELECT moderator_label FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'page' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
                 ),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
@@ -208,7 +209,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 name: 'spam_reasons',
                 label: $this->translator->trans('Spam reasons'),
                 type: new VirtualFieldType(
-                    "SELECT reasons FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'article' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                    "SELECT reasons FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'page' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
                 ),
                 useOnActions: [FieldConfig::ACTION_LIST],
                 viewTemplate: '_admin/templates/comment/view-spam-reasons.php',
@@ -270,9 +271,12 @@ class AdminConfigProvider implements StatefulServiceInterface
             })
         ;
 
-        if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
-            $commentEntity->setReadAccessControl(new LogicalExpression('shown', 1));
-        }
+        $commentEntity
+            ->setReadAccessControl($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)
+                ? new LogicalExpression('content_type', ContentType::PAGE->value)
+                : new LogicalExpression('content_type', ContentType::PAGE->value, 'content_type = %s AND shown = 1'))
+            ->setWriteAccessControl(new LogicalExpression('content_type', ContentType::PAGE->value))
+        ;
 
         $isAdmin    = $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS);
         $userEntity = new EntityConfig('User', $this->dbPrefix . 'users');
@@ -574,7 +578,10 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->addField(new FieldConfig(
                 name: 'comments',
                 label: $this->translator->trans('Comments'),
-                type: new LinkedByFieldType($commentEntity, 'CASE WHEN COUNT(*) > 0 THEN COUNT(*) ELSE NULL END', 'article_id'),
+                type: new VirtualFieldType(
+                    "SELECT CASE WHEN COUNT(*) > 0 THEN COUNT(*) ELSE NULL END FROM {$this->dbPrefix}" . CommentSchema::TABLE_NAME . " WHERE content_type = 'page' AND content_id = entity.id",
+                    new LinkToEntityParams($commentEntity->getName(), ['content_id'], ['id']),
+                ),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
                 viewTemplate: '_admin/templates/article/view-comments.php'
@@ -1028,8 +1035,8 @@ class AdminConfigProvider implements StatefulServiceInterface
                         'target_type = %1$s',
                         options: [
                             ''        => $this->translator->trans('All'),
-                            'article' => $this->translator->trans('Article comments'),
-                            'blog'    => $this->translator->trans('Blog comments'),
+                            'page' => $this->translator->trans('Article comments'),
+                            'post' => $this->translator->trans('Blog comments'),
                         ],
                     ))
                     ->addFilter(new Filter(

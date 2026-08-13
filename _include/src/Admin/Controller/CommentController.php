@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Controller;
 
+use Register\Content\ContentType;
 use S2\AdminYard\Config\EntityConfig;
 use S2\AdminYard\Config\FieldConfig;
 use S2\AdminYard\Controller\EntityController;
@@ -39,8 +40,7 @@ class CommentController extends EntityController
         FormFactory             $formFactory,
         SettingStorageInterface $settingStorage,
         private readonly SpamFeedbackService $spamFeedbackService,
-        private readonly string              $antispamTargetType = 'article',
-        private readonly string              $commentTable = 'art_comments',
+        private readonly ContentType         $contentType = ContentType::PAGE,
         private readonly ?\Closure           $commentNotifier = null,
     ) {
         parent::__construct(
@@ -141,14 +141,12 @@ class CommentController extends EntityController
             $updated = $label === 'ham'
                 ? $this->spamFeedbackService->markHam(
                     $primaryKey->getIntId(),
-                    $this->antispamTargetType,
-                    $this->commentTable,
+                    $this->contentType,
                     $this->commentNotifier,
                 )
                 : $this->spamFeedbackService->markSpam(
                     $primaryKey->getIntId(),
-                    $this->antispamTargetType,
-                    $this->commentTable,
+                    $this->contentType,
                 );
         } catch (\Throwable $throwable) {
             $this->logger?->error('Unable to store spam feedback.', ['exception' => $throwable]);

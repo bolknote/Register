@@ -460,7 +460,7 @@ class CmsExtension implements ExtensionInterface
         ));
 
         $container->set(SpamFeedbackService::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamFeedbackService => new SpamFeedbackService(
-            $container->get(DbLayer::class),
+            $container->get(\Register\Comment\CommentRepository::class),
             $container->get(SpamIdentityHasher::class),
             $container->get(SpamFeatureExtractor::class),
             $container->get(SpamAssessmentRepository::class),
@@ -469,7 +469,7 @@ class CmsExtension implements ExtensionInterface
         ));
 
         $container->set(CommentModerationController::class, fn(Container $container): \S2\Cms\Controller\CommentModerationController => new CommentModerationController(
-            $container->get(DbLayer::class),
+            $container->get(\Register\Comment\CommentRepository::class),
             $container->get(AuthProvider::class),
             $container->get(CommentModerationTokenManager::class),
             $container->get(SpamFeedbackService::class),
@@ -488,6 +488,7 @@ class CmsExtension implements ExtensionInterface
 
         $container->set(ArticleCommentStrategy::class, fn(Container $container): \S2\Cms\Model\Comment\ArticleCommentStrategy => new ArticleCommentStrategy(
             $container->get(DbLayer::class),
+            $container->get(\Register\Comment\CommentRepository::class),
             $container->get(ArticleProvider::class),
             $container->get(CommentNotifier::class),
         ), [CommentStrategyInterface::class]);

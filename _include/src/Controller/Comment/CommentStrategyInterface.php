@@ -9,12 +9,12 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Controller\Comment;
 
+use Register\Content\ContentType;
 use Symfony\Component\HttpFoundation\Request;
 
 interface CommentStrategyInterface
 {
-    /** Stable storage discriminator used by polymorphic antispam assessments. */
-    public function getAntispamTargetType(): string;
+    public function getContentType(): ContentType;
 
     /**
      * @return TargetDto|null Info about the entity to be commented

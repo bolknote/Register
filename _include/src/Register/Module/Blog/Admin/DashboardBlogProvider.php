@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Admin;
 
+use Register\Comment\CommentSchema;
+use Register\Content\ContentType;
 use S2\AdminYard\TemplateRenderer;
 use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
 use S2\Cms\Pdo\DbLayer;
@@ -56,9 +58,10 @@ readonly class DashboardBlogProvider implements DashboardStatProviderInterface
     private function countComments(): int
     {
         return $this->dbLayer->select('count(*)')
-            ->from('s2_blog_comments AS c')
-            ->innerJoin('s2_blog_posts AS p', 'p.id = c.post_id')
-            ->where('c.shown = 1')
+            ->from(CommentSchema::TABLE_NAME . ' AS c')
+            ->innerJoin('s2_blog_posts AS p', 'p.id = c.content_id')
+            ->where('c.content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('c.shown = 1')
             ->andWhere('p.published = 1')
             ->execute()
             ->result()

@@ -11,6 +11,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
+use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
@@ -512,7 +513,7 @@ readonly class PageCommon implements ControllerInterface
             $moderatorLabel = $this->dbLayer
                 ->select('sa.moderator_label')
                 ->from('spam_assessments AS sa')
-                ->where("sa.target_type = 'article'")
+                ->where("sa.target_type = 'page'")
                 ->andWhere('sa.comment_id = c.id')
                 ->orderBy('sa.id DESC')
                 ->limit(1)
@@ -524,9 +525,10 @@ readonly class PageCommon implements ControllerInterface
                     '(' . $authorComment . ') AS is_author',
                     '(' . $moderatorLabel . ') AS moderator_label',
                 )
-                ->from('art_comments AS c')
+                ->from(CommentSchema::TABLE_NAME . ' AS c')
                 ->leftJoin('userpics AS p', 'p.id = c.userpic_id')
-                ->where('article_id = :article_id')->setParameter('article_id', $articleId)
+                ->where('c.content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+                ->andWhere('c.content_id = :content_id')->setParameter('content_id', $articleId)
                 ->orderBy('time, c.id')
                 ->execute()
             ;
@@ -534,7 +536,7 @@ readonly class PageCommon implements ControllerInterface
             $moderator = $this->authProvider->getAuthenticatedCommentModerator($request);
             $comments  = $this->commentThreadRenderer->render(
                 $result->fetchAssocAll(),
-                $moderator === null ? null : new CommentModerationContext($moderator, 'article', $request->getPathInfo()),
+                $moderator === null ? null : new CommentModerationContext($moderator, ContentType::PAGE, $request->getPathInfo()),
             );
             if ($comments !== '') {
                 $template->putInPlaceholder('comments', $comments);

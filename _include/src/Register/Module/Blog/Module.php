@@ -319,6 +319,7 @@ final class Module implements ModuleInterface
 
         $container->set(BlogCommentStrategy::class, static fn(Container $container): \Register\Module\Blog\Model\BlogCommentStrategy => new BlogCommentStrategy(
             $container->get(DbLayer::class),
+            $container->get(\Register\Comment\CommentRepository::class),
             $container->get(BlogCommentNotifier::class),
         ), [CommentStrategyInterface::class]);
         $container->set('register_blog.comment_controller', static function (Container $container): \S2\Cms\Controller\CommentController {

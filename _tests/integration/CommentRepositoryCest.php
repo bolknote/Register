@@ -38,7 +38,7 @@ final class CommentRepositoryCest
             null,
             100,
         );
-        $repository->publish($pageCommentId);
+        $repository->publish($pageCommentId, ContentType::PAGE);
         $replyId = $repository->save(
             $page,
             'Reply author',

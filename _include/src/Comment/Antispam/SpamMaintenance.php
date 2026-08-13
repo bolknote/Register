@@ -45,14 +45,7 @@ final readonly class SpamMaintenance
             'unlabelled_assessments' => fn(): int => $this->assessmentRepository->deleteUnlabelledOlderThan(
                 $now - self::UNLABELLED_ASSESSMENT_RETENTION,
             ),
-            'article_assessment_orphans' => fn(): int => $this->assessmentRepository->deleteOrphans(
-                'article',
-                'art_comments',
-            ),
-            'blog_assessment_orphans' => fn(): int => $this->assessmentRepository->deleteOrphans(
-                'blog',
-                $this->dbLayer->tableExists('s2_blog_comments') ? 's2_blog_comments' : null,
-            ),
+            'comment_assessment_orphans' => fn(): int => $this->assessmentRepository->deleteOrphans(),
         ];
 
         $deleted = [];

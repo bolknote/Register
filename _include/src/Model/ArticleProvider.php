@@ -11,6 +11,8 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
+use Register\Comment\CommentRepository;
+use Register\Content\ContentId;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Pdo\DbLayer;
@@ -24,6 +26,7 @@ readonly class ArticleProvider
 
     public function __construct(
         private DbLayer     $dbLayer,
+        private CommentRepository $commentRepository,
         private UrlBuilder  $urlBuilder,
         private Viewer      $viewer,
         private StringProxy $favoriteUrl,
@@ -444,16 +447,6 @@ readonly class ArticleProvider
      */
     public function getCommentNum(int $id, bool $includeHidden): int
     {
-        $qb = $this->dbLayer
-            ->select('COUNT(*)')
-            ->from('art_comments')
-            ->where('article_id = :article_id')->setParameter('article_id', $id)
-        ;
-
-        if (!$includeHidden) {
-            $qb->andWhere('shown = 1');
-        }
-
-        return (int)$qb->execute()->result();
+        return $this->commentRepository->count(ContentId::page($id), $includeHidden);
     }
 }

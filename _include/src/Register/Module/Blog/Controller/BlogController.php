@@ -12,6 +12,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
+use Register\Comment\CommentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Framework\ControllerInterface;
@@ -94,8 +96,9 @@ abstract class BlogController implements ControllerInterface
                 'p.create_time', 'p.display_date', 'p.title', 'p.text', 'p.url', 'p.id', 'p.commented', 'p.favorite',
                 '(' . $this->dbLayer
                     ->select('count(*)')
-                    ->from('s2_blog_comments AS c')
-                    ->where('c.post_id = p.id')
+                    ->from(CommentSchema::TABLE_NAME . ' AS c')
+                    ->where("c.content_type = '" . ContentType::POST->value . "'")
+                    ->andWhere('c.content_id = p.id')
                     ->andWhere('c.shown = 1')
                     ->getSql() . ') AS comment_num',
                 '(' . $this->dbLayer

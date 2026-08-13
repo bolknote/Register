@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Admin;
 
+use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
@@ -69,7 +70,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
     public function extend(AdminConfig $adminConfig): void
     {
         $postEntity    = new EntityConfig('BlogPost', $this->dbPrefix . 's2_blog_posts');
-        $commentEntity = new EntityConfig('BlogComment', $this->dbPrefix . 's2_blog_comments');
+        $commentEntity = new EntityConfig('BlogComment', $this->dbPrefix . CommentSchema::TABLE_NAME);
 
         $commentEntity
             ->setPluralName($this->translator->trans('Blog comments'))
@@ -82,7 +83,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 useOnActions: []
             ))
             ->addField($postIdField = new FieldConfig(
-                name: 'post_id',
+                name: 'content_id',
                 label: $this->translator->trans('Post'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                 control: 'autocomplete',
@@ -160,7 +161,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 name: 'spam_score',
                 label: $this->translator->trans('Spam score'),
                 type: new VirtualFieldType(
-                    "SELECT score FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'blog' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                    "SELECT score FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'post' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
                 ),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
@@ -169,7 +170,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 name: 'spam_label',
                 label: $this->translator->trans('Spam label'),
                 type: new VirtualFieldType(
-                    "SELECT moderator_label FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'blog' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                    "SELECT moderator_label FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'post' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
                 ),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
@@ -178,7 +179,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 name: 'spam_reasons',
                 label: $this->translator->trans('Spam reasons'),
                 type: new VirtualFieldType(
-                    "SELECT reasons FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'blog' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                    "SELECT reasons FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'post' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
                 ),
                 useOnActions: [FieldConfig::ACTION_LIST],
                 viewTemplate: '_admin/templates/comment/view-spam-reasons.php',
@@ -229,8 +230,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ))
             ->setControllerClassOrFactory(new CommentControllerFactory(
                 $this->spamFeedbackService,
-                'blog',
-                's2_blog_comments',
+                ContentType::POST,
                 $this->blogCommentNotifier->notify(...),
             ))
             ->setEnabledActions([
@@ -245,9 +245,12 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             })
         ;
 
-        if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
-            $commentEntity->setReadAccessControl(new LogicalExpression('shown', 1));
-        }
+        $commentEntity
+            ->setReadAccessControl($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)
+                ? new LogicalExpression('content_type', ContentType::POST->value)
+                : new LogicalExpression('content_type', ContentType::POST->value, 'content_type = %s AND shown = 1'))
+            ->setWriteAccessControl(new LogicalExpression('content_type', ContentType::POST->value))
+        ;
 
         $postEntity
             ->setPluralName($this->translator->trans('Posts'))
@@ -357,7 +360,10 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ->addField(new FieldConfig(
                 name: 'comments',
                 label: $this->translator->trans('Comments'),
-                type: new LinkedByFieldType($commentEntity, 'CASE WHEN COUNT(*) > 0 THEN COUNT(*) ELSE NULL END', 'post_id'),
+                type: new VirtualFieldType(
+                    "SELECT CASE WHEN COUNT(*) > 0 THEN COUNT(*) ELSE NULL END FROM {$this->dbPrefix}" . CommentSchema::TABLE_NAME . " WHERE content_type = 'post' AND content_id = entity.id",
+                    new LinkToEntityParams($commentEntity->getName(), ['content_id'], ['id']),
+                ),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
                 viewTemplate: '_admin/templates/article/view-comments.php'

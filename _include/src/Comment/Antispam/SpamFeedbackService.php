@@ -9,14 +9,15 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Comment\Antispam;
 
+use Register\Comment\CommentRepository;
+use Register\Content\ContentType;
 use S2\Cms\Model\CommentNotifier;
-use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 
 final readonly class SpamFeedbackService
 {
     public function __construct(
-        private DbLayer                    $dbLayer,
+        private CommentRepository          $commentRepository,
         private SpamIdentityHasher         $hasher,
         private SpamFeatureExtractor       $featureExtractor,
         private SpamAssessmentRepository   $assessmentRepository,
@@ -31,12 +32,11 @@ final readonly class SpamFeedbackService
      */
     public function markHam(
         int       $commentId,
-        string    $targetType = 'article',
-        string    $commentTable = 'art_comments',
+        ContentType $contentType,
         ?\Closure $notifier = null,
     ): bool
     {
-        return $this->mark($commentId, SpamReputationRepository::LABEL_HAM, $targetType, $commentTable, $notifier);
+        return $this->mark($commentId, SpamReputationRepository::LABEL_HAM, $contentType, $notifier);
     }
 
     /**
@@ -44,12 +44,11 @@ final readonly class SpamFeedbackService
      * @throws \JsonException
      */
     public function markSpam(
-        int    $commentId,
-        string $targetType = 'article',
-        string $commentTable = 'art_comments',
+        int         $commentId,
+        ContentType $contentType,
     ): bool
     {
-        return $this->mark($commentId, SpamReputationRepository::LABEL_SPAM, $targetType, $commentTable, null);
+        return $this->mark($commentId, SpamReputationRepository::LABEL_SPAM, $contentType, null);
     }
 
     /**
@@ -59,38 +58,27 @@ final readonly class SpamFeedbackService
     private function mark(
         int       $commentId,
         string    $label,
-        string    $targetType,
-        string    $commentTable,
+        ContentType $contentType,
         ?\Closure $notifier,
     ): bool
     {
-        if (preg_match('#^[a-z][a-z0-9_]*$#', $commentTable) !== 1) {
-            throw new \InvalidArgumentException('Invalid comment table name.');
-        }
-
-        $comment = $this->dbLayer
-            ->select('ip', 'email', 'text', 'shown', 'sent')
-            ->from($commentTable)
-            ->where('id = :id')->setParameter('id', $commentId)
-            ->execute()
-            ->fetchAssoc()
-        ;
-        if ($comment === false) {
+        $comment = $this->commentRepository->findOfType($commentId, $contentType);
+        if ($comment === null) {
             return false;
         }
 
-        $domains      = $this->featureExtractor->domains((string)$comment['text']);
+        $domains      = $this->featureExtractor->domains($comment->text);
         $domainHashes = array_map($this->hasher->domain(...), $domains);
         $assessment   = new SpamAssessment(
             0,
             [],
-            $this->hasher->text((string)$comment['text']),
-            $this->hasher->email((string)$comment['email']),
-            $this->hasher->ip((string)$comment['ip']),
+            $this->hasher->text($comment->text),
+            $this->hasher->email($comment->email),
+            $this->hasher->ip($comment->ip),
             $domainHashes,
         );
 
-        $previousLabel = $this->assessmentRepository->labelComment($commentId, $label, $assessment, $targetType);
+        $previousLabel = $this->assessmentRepository->labelComment($commentId, $label, $assessment, $contentType);
         $this->reputationRepository->replaceLabel([
             'text'   => [$assessment->textHash],
             'email'  => [$assessment->emailHash],
@@ -99,39 +87,23 @@ final readonly class SpamFeedbackService
         ], $previousLabel, $label);
 
         if ($label === SpamReputationRepository::LABEL_HAM) {
-            if (!(bool)$comment['shown'] && (bool)$comment['sent']) {
-                $this->dbLayer
-                    ->update($commentTable)
-                    ->set('sent', '0')
-                    ->where('id = :id')->setParameter('id', $commentId)
-                    ->execute()
-                ;
+            if (!$comment->shown && $comment->sent) {
+                $this->commentRepository->setSent($commentId, $contentType, false);
             }
 
-            if (!(bool)$comment['shown']) {
+            if (!$comment->shown) {
                 if ($notifier instanceof \Closure) {
                     $notifier($commentId);
-                } elseif ($targetType === 'article') {
+                } elseif ($contentType === ContentType::PAGE) {
                     $this->commentNotifier->notify($commentId);
                 } else {
-                    throw new \LogicException('A notifier is required for non-article comments.');
+                    throw new \LogicException('A notifier is required for post comments.');
                 }
             }
 
-            $this->dbLayer
-                ->update($commentTable)
-                ->set('shown', '1')
-                ->where('id = :id')->setParameter('id', $commentId)
-                ->execute()
-            ;
+            $this->commentRepository->publish($commentId, $contentType);
         } else {
-            $this->dbLayer
-                ->update($commentTable)
-                ->set('shown', '0')
-                ->set('sent', '1')
-                ->where('id = :id')->setParameter('id', $commentId)
-                ->execute()
-            ;
+            $this->commentRepository->markSpam($commentId, $contentType);
         }
 
         return true;

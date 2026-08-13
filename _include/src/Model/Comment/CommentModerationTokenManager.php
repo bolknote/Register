@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Model\Comment;
 
+use Register\Content\ContentType;
 use S2\Cms\Comment\Antispam\SpamIdentityHasher;
 
 final readonly class CommentModerationTokenManager
@@ -17,26 +18,26 @@ final readonly class CommentModerationTokenManager
     {
     }
 
-    public function issue(CommentModerator $moderator, string $targetType, int $commentId): string
+    public function issue(CommentModerator $moderator, ContentType $contentType, int $commentId): string
     {
-        return $this->hasher->sign('comment-moderation', $this->payload($moderator, $targetType, $commentId));
+        return $this->hasher->sign('comment-moderation', $this->payload($moderator, $contentType, $commentId));
     }
 
     public function isValid(
         string           $token,
         CommentModerator $moderator,
-        string           $targetType,
+        ContentType      $contentType,
         int              $commentId,
     ): bool {
         if (preg_match('#^[0-9a-f]{64}$#D', $token) !== 1) {
             return false;
         }
 
-        return hash_equals($this->issue($moderator, $targetType, $commentId), $token);
+        return hash_equals($this->issue($moderator, $contentType, $commentId), $token);
     }
 
-    private function payload(CommentModerator $moderator, string $targetType, int $commentId): string
+    private function payload(CommentModerator $moderator, ContentType $contentType, int $commentId): string
     {
-        return $moderator->login . "\0" . $moderator->sessionHash . "\0" . $targetType . "\0" . $commentId;
+        return $moderator->login . "\0" . $moderator->sessionHash . "\0" . $contentType->value . "\0" . $commentId;
     }
 }

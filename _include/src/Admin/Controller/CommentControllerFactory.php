@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Controller;
 
+use Register\Content\ContentType;
 use S2\AdminYard\Config\EntityConfig;
 use S2\AdminYard\Controller\ControllerFactoryInterface;
 use S2\AdminYard\Database\PdoDataProvider;
@@ -24,8 +25,7 @@ final readonly class CommentControllerFactory implements ControllerFactoryInterf
 {
     public function __construct(
         private SpamFeedbackService $spamFeedbackService,
-        private string              $targetType = 'article',
-        private string              $commentTable = 'art_comments',
+        private ContentType         $contentType = ContentType::PAGE,
         private ?\Closure           $notifier = null,
     ) {
     }
@@ -51,8 +51,7 @@ final readonly class CommentControllerFactory implements ControllerFactoryInterf
             $formFactory,
             $settingStorage,
             $this->spamFeedbackService,
-            $this->targetType,
-            $this->commentTable,
+            $this->contentType,
             $this->notifier,
         );
     }

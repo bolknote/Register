@@ -324,7 +324,7 @@ readonly class CommentController implements ControllerInterface
             try {
                 $this->spamAssessmentRepository->attachComment(
                     $assessmentId,
-                    $this->commentStrategy->getAntispamTargetType(),
+                    $this->commentStrategy->getContentType(),
                     $commentId,
                 );
             } catch (\Throwable $throwable) {

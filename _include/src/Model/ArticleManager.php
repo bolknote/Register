@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
+use Register\Comment\CommentRepository;
+use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
@@ -26,6 +28,7 @@ readonly class ArticleManager
 {
     public function __construct(
         private DbLayer                 $dbLayer,
+        private CommentRepository       $commentRepository,
         private TagRepository           $tagRepository,
         private SettingStorageInterface $settingStorage,
         private PermissionChecker       $permissionChecker,
@@ -46,8 +49,9 @@ readonly class ArticleManager
 
         $commentNumQuery = $this->dbLayer
             ->select('COUNT(*)')
-            ->from('art_comments AS c')
-            ->where('a.id = c.article_id')
+            ->from(CommentSchema::TABLE_NAME . ' AS c')
+            ->where("c.content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere('a.id = c.content_id')
             ->getSql()
         ;
 
@@ -426,10 +430,6 @@ readonly class ArticleManager
 
         $this->tagRepository->remove(ContentId::page($id));
 
-        $this->dbLayer
-            ->delete('art_comments')
-            ->where('article_id = :id')->setParameter('id', $id)
-            ->execute()
-        ;
+        $this->commentRepository->removeForContent(ContentId::page($id));
     }
 }

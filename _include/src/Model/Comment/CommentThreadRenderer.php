@@ -186,8 +186,8 @@ final readonly class CommentThreadRenderer
 
         return [
             'action_url' => $this->urlBuilder->link('/comment-moderate'),
-            'token'      => $this->moderationTokenManager->issue($context->moderator, $context->targetType, $id),
-            'target'     => $context->targetType,
+            'token'      => $this->moderationTokenManager->issue($context->moderator, $context->contentType, $id),
+            'target'     => $context->contentType->value,
             'return_to'  => $context->returnPath,
             'can_edit'   => $context->moderator->canEdit,
             'can_delete' => $context->moderator->canHide,

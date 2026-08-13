@@ -12,7 +12,9 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
+use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
@@ -274,7 +276,7 @@ class PostPageController extends BlogController
         $moderatorLabel = $this->dbLayer
             ->select('sa.moderator_label')
             ->from('spam_assessments AS sa')
-            ->where("sa.target_type = 'blog'")
+            ->where("sa.target_type = 'post'")
             ->andWhere('sa.comment_id = c.id')
             ->orderBy('sa.id DESC')
             ->limit(1)
@@ -286,10 +288,10 @@ class PostPageController extends BlogController
                 '(' . $authorComment . ') AS is_author',
                 '(' . $moderatorLabel . ') AS moderator_label',
             )
-            ->from('s2_blog_comments AS c')
+            ->from(CommentSchema::TABLE_NAME . ' AS c')
             ->leftJoin('userpics AS p', 'p.id = c.userpic_id')
-            ->where('post_id = :post_id')
-            ->setParameter('post_id', $id)
+            ->where('c.content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('c.content_id = :content_id')->setParameter('content_id', $id)
             ->orderBy('time, c.id')
             ->execute()
         ;
@@ -298,7 +300,7 @@ class PostPageController extends BlogController
 
         return $this->commentThreadRenderer->render(
             $statement->fetchAssocAll(),
-            $moderator === null ? null : new CommentModerationContext($moderator, 'blog', $request->getPathInfo()),
+            $moderator === null ? null : new CommentModerationContext($moderator, ContentType::POST, $request->getPathInfo()),
         );
     }
 
