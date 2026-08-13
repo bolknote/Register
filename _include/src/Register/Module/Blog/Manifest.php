@@ -13,17 +13,13 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog;
 
-use S2\Cms\Extensions\ManifestInterface;
-use S2\Cms\Extensions\ManifestTrait;
-use S2\Cms\Framework\Container;
+use Register\Module\BaseModuleInstallerInterface;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
 use S2\Cms\Pdo\DbLayerException;
 
-class Manifest implements ManifestInterface
+class Manifest implements BaseModuleInstallerInterface
 {
-    use ManifestTrait;
-
     #[\Override]
     public function getTitle(): string
     {
@@ -52,7 +48,7 @@ class Manifest implements ManifestInterface
      * @throws DbLayerException
      */
     #[\Override]
-    public function install(DbLayer $dbLayer, Container $container, ?string $currentVersion): void
+    public function installFresh(DbLayer $dbLayer): void
     {
         // Setup posts table
         if (!$dbLayer->tableExists('s2_blog_posts')) {
@@ -106,16 +102,5 @@ class Manifest implements ManifestInterface
         $dbLayer->addField('tags', 's2_blog_important', SchemaBuilderInterface::TYPE_BOOLEAN, null, false, 0);
 
         $dbLayer->addIndex('tags', 's2_blog_important_idx', ['s2_blog_important']);
-
-        unset($currentVersion);
-    }
-
-    /**
-     * @throws DbLayerException
-     */
-    #[\Override]
-    public function uninstall(DbLayer $dbLayer, Container $container): void
-    {
-        throw new \LogicException('The Blog module is part of Register and cannot be uninstalled.');
     }
 }

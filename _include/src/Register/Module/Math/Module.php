@@ -12,18 +12,18 @@ namespace Register\Module\Math;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Controller\Rss\FeedItemRenderEvent;
 use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ModuleInterface;
+use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
+use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Image\ThumbnailGenerateEvent;
 use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplatePreCommentRenderEvent;
 use S2\Rose\Finder;
 use Register\Module\Search\Event\TextNodeExtractEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\Routing\RouteCollection;
 use S2\Cms\Translation\ExtensibleTranslator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-class Module implements ModuleInterface
+class Module implements ContainerModuleInterface, ContainerAwareListenerModuleInterface
 {
     private const string CUSTOM_UPMATH_PROTOCOL = 'upmath://';
 
@@ -134,8 +134,4 @@ class Module implements ModuleInterface
         return strtr(rawurlencode($str), $revert);
     }
 
-    #[\Override]
-    public function registerRoutes(RouteCollection $routes, Container $container): void
-    {
-    }
 }

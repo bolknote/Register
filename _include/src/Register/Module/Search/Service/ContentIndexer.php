@@ -24,10 +24,6 @@ final readonly class ContentIndexer implements QueueHandlerInterface, BulkIndexi
 {
     public const string QUEUE_CODE = 'register_content_index';
 
-    private const string LEGACY_PAGE_QUEUE_CODE = 's2_search_Article';
-
-    private const string LEGACY_POST_QUEUE_CODE = 's2_search_BlogPost';
-
     public function __construct(
         private ContentRepository      $contentRepository,
         private SearchDocumentFactory  $documentFactory,
@@ -44,12 +40,15 @@ final readonly class ContentIndexer implements QueueHandlerInterface, BulkIndexi
     #[\Override]
     public function handle(string $id, string $code, array $payload): bool
     {
-        unset($payload);
-
-        $contentId = $this->contentIdFromJob($id, $code);
-        if (!$contentId instanceof ContentId) {
+        if ($code !== self::QUEUE_CODE) {
             return false;
         }
+
+        if ($payload !== []) {
+            throw new \InvalidArgumentException('A content indexing job must not contain a payload.');
+        }
+
+        $contentId = ContentId::fromString($id);
 
         $content = $this->contentRepository->find($contentId);
         if ($content instanceof ContentItem) {
@@ -77,23 +76,4 @@ final readonly class ContentIndexer implements QueueHandlerInterface, BulkIndexi
         }
     }
 
-    private function contentIdFromJob(string $id, string $code): ?ContentId
-    {
-        return match ($code) {
-            self::QUEUE_CODE => ContentId::fromString($id),
-            self::LEGACY_PAGE_QUEUE_CODE => ContentId::page($this->legacyNumericId($id)),
-            self::LEGACY_POST_QUEUE_CODE => ContentId::post($this->legacyNumericId($id)),
-            default => null,
-        };
-    }
-
-    private function legacyNumericId(string $id): int
-    {
-        $numericId = filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        if ($numericId === false) {
-            throw new \InvalidArgumentException(\sprintf('Invalid legacy content identifier "%s".', $id));
-        }
-
-        return $numericId;
-    }
 }

@@ -13,18 +13,15 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search;
 
-use S2\Cms\Extensions\ManifestInterface;
-use S2\Cms\Extensions\ManifestTrait;
+use Register\Module\ContainerAwareBaseModuleInstallerInterface;
 use S2\Cms\Framework\Container;
 use S2\Cms\Pdo\DbLayer;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use S2\Cms\Pdo\DbLayerException;
 
-final class Manifest implements ManifestInterface
+final class Manifest implements ContainerAwareBaseModuleInstallerInterface
 {
-    use ManifestTrait;
-
     #[\Override]
     public function getTitle(): string
     {
@@ -55,7 +52,7 @@ final class Manifest implements ManifestInterface
      * @throws NotFoundExceptionInterface
      */
     #[\Override]
-    public function install(DbLayer $dbLayer, Container $container, ?string $currentVersion): void
+    public function installFresh(DbLayer $dbLayer, Container $container): void
     {
         $config = [
             'S2_SEARCH_QUICK'                 => '0',
@@ -76,9 +73,4 @@ final class Manifest implements ManifestInterface
         $pdoStorage->erase();
     }
 
-    #[\Override]
-    public function uninstall(DbLayer $dbLayer, Container $container): void
-    {
-        throw new \LogicException('The Search module is part of Register and cannot be uninstalled.');
-    }
 }

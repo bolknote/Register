@@ -9,16 +9,12 @@ declare(strict_types = 1);
 
 namespace Register\Module\Analytics;
 
-use S2\Cms\Extensions\ManifestInterface;
-use S2\Cms\Extensions\ManifestTrait;
-use S2\Cms\Framework\Container;
+use Register\Module\BaseModuleInstallerInterface;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
 
-class Manifest implements ManifestInterface
+class Manifest implements BaseModuleInstallerInterface
 {
-    use ManifestTrait;
-
     public const string SALT_CONFIG_KEY = 'REGISTER_ANALYTICS_SALT';
 
     #[\Override]
@@ -46,10 +42,8 @@ class Manifest implements ManifestInterface
     }
 
     #[\Override]
-    public function install(DbLayer $dbLayer, Container $container, ?string $currentVersion): void
+    public function installFresh(DbLayer $dbLayer): void
     {
-        unset($container, $currentVersion);
-
         $dbLayer->createTable('register_analytics_daily', static function (SchemaBuilderInterface $table): void {
             $table
                 ->addString('day', 10)
@@ -79,11 +73,4 @@ class Manifest implements ManifestInterface
         ;
     }
 
-    #[\Override]
-    public function uninstall(DbLayer $dbLayer, Container $container): void
-    {
-        unset($dbLayer, $container);
-
-        throw new \LogicException('The Analytics module is part of Register and cannot be uninstalled.');
-    }
 }

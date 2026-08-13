@@ -11,21 +11,14 @@ namespace Register\Module\Typography;
 
 use S2\Cms\Controller\Rss\FeedItemRenderEvent;
 use S2\Cms\Controller\Rss\FeedRenderEvent;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ModuleInterface;
+use S2\Cms\Framework\ListenerModuleInterface;
 use S2\Cms\Template\TemplateFinalReplaceEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\Routing\RouteCollection;
 
-class Module implements ModuleInterface
+class Module implements ListenerModuleInterface
 {
     #[\Override]
-    public function buildContainer(Container $container): void
-    {
-    }
-
-    #[\Override]
-    public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
+    public function registerListeners(EventDispatcherInterface $eventDispatcher): void
     {
         $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, function (TemplateFinalReplaceEvent $event): void {
             $event->template = Typograph::processRussianText($event->template);
@@ -42,8 +35,4 @@ class Module implements ModuleInterface
         }, -10);
     }
 
-    #[\Override]
-    public function registerRoutes(RouteCollection $routes, Container $container): void
-    {
-    }
 }

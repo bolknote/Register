@@ -14,13 +14,10 @@ declare(strict_types = 1);
 
 namespace Register\Module\Typography;
 
-use S2\Cms\Extensions\ManifestInterface;
-use S2\Cms\Extensions\ManifestTrait;
+use Register\Module\BaseModuleManifestInterface;
 
-final class Manifest implements ManifestInterface
+final class Manifest implements BaseModuleManifestInterface
 {
-    use ManifestTrait;
-
     #[\Override]
     public function getTitle(): string
     {

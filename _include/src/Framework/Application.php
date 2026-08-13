@@ -79,8 +79,15 @@ class Application
         $this->container->set(EventDispatcherInterface::class, $eventDispatcher);
 
         foreach ($this->modules as $module) {
-            $module->buildContainer($this->container);
-            $module->registerListeners($eventDispatcher, $this->container);
+            if ($module instanceof ContainerModuleInterface) {
+                $module->buildContainer($this->container);
+            }
+
+            if ($module instanceof ContainerAwareListenerModuleInterface) {
+                $module->registerListeners($eventDispatcher, $this->container);
+            } elseif ($module instanceof ListenerModuleInterface) {
+                $module->registerListeners($eventDispatcher);
+            }
         }
     }
 
@@ -200,7 +207,11 @@ class Application
         if (!$this->routes instanceof \Symfony\Component\Routing\RouteCollection) {
             $this->routes = new RouteCollection();
             foreach ($this->modules as $module) {
-                $module->registerRoutes($this->routes, $this->container);
+                if ($module instanceof ContainerAwareRoutingModuleInterface) {
+                    $module->registerRoutes($this->routes, $this->container);
+                } elseif ($module instanceof RoutingModuleInterface) {
+                    $module->registerRoutes($this->routes);
+                }
             }
         }
 

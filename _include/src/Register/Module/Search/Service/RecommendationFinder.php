@@ -48,13 +48,11 @@ final readonly class RecommendationFinder
             return array_values($this->storage->getSimilar($externalId, $includeFormatting, $instanceId, $minCommonWords, $limit));
         }
 
-        $this->registerSqliteMathFunctions();
-
         $tocTable      = $this->tablePrefix . 'toc';
         $snippetTable  = $this->tablePrefix . 'snippet';
         $fulltextTable = $this->tablePrefix . 'fulltext_index';
         $metadataTable = $this->tablePrefix . 'metadata';
-        $instanceWhere = $instanceId === null ? '' : 'WHERE t.instance_id = :candidate_instance_id';
+        $instanceWhere = $instanceId === null ? '' : 'AND candidate_toc.instance_id = :candidate_instance_id';
 
         $sql = <<<SQL
             WITH original_words AS (
@@ -78,62 +76,20 @@ final readonly class RecommendationFinder
                 JOIN {$fulltextTable} AS all_items ON all_items.word_id = original_words.word_id
                 GROUP BY original_words.word_id, original_words.toc_id, original_words.original_repeat
                 HAVING count(all_items.toc_id) < 100
-            ),
-            relevance_info AS (
-                SELECT
-                    candidate.toc_id,
-                    sum(
-                        original_info.original_repeat
-                        + register_recommendation_exp(-original_info.abundance / 30.0)
-                            * (1 + length(candidate.positions) - length(replace(candidate.positions, ',', '')))
-                    ) * register_recommendation_pow(metadata.word_count, -0.5) AS relevance,
-                    metadata.word_count
-                FROM {$fulltextTable} AS candidate
-                JOIN {$metadataTable} AS metadata ON metadata.toc_id = candidate.toc_id
-                JOIN original_info
-                    ON original_info.word_id = candidate.word_id
-                    AND original_info.toc_id <> candidate.toc_id
-                GROUP BY candidate.toc_id, metadata.word_count
-                HAVING count(*) >= :min_common_words
             )
             SELECT
-                relevance_info.*,
-                metadata.images,
-                t.*,
-                (
-                    SELECT snippet
-                    FROM {$snippetTable} AS snippet
-                    WHERE snippet.toc_id = t.id
-                    ORDER BY snippet.max_word_pos
-                    LIMIT 1
-                ) AS snippet,
-                (
-                    SELECT format_id
-                    FROM {$snippetTable} AS snippet
-                    WHERE snippet.toc_id = t.id
-                    ORDER BY snippet.max_word_pos
-                    LIMIT 1
-                ) AS snippet_format_id,
-                (
-                    SELECT snippet
-                    FROM {$snippetTable} AS snippet
-                    WHERE snippet.toc_id = t.id
-                    ORDER BY snippet.max_word_pos
-                    LIMIT 1 OFFSET 1
-                ) AS snippet2,
-                (
-                    SELECT format_id
-                    FROM {$snippetTable} AS snippet
-                    WHERE snippet.toc_id = t.id
-                    ORDER BY snippet.max_word_pos
-                    LIMIT 1 OFFSET 1
-                ) AS snippet2_format_id
-            FROM relevance_info
-            JOIN {$tocTable} AS t ON t.id = relevance_info.toc_id
-            JOIN {$metadataTable} AS metadata ON metadata.toc_id = t.id
+                candidate.toc_id,
+                original_info.original_repeat,
+                original_info.abundance,
+                length(candidate.positions) - length(replace(candidate.positions, ',', '')) AS candidate_repeat,
+                metadata.word_count
+            FROM {$fulltextTable} AS candidate
+            JOIN {$tocTable} AS candidate_toc ON candidate_toc.id = candidate.toc_id
+            JOIN {$metadataTable} AS metadata ON metadata.toc_id = candidate.toc_id
+            JOIN original_info
+                ON original_info.word_id = candidate.word_id
+                AND original_info.toc_id <> candidate.toc_id
             {$instanceWhere}
-            ORDER BY relevance DESC
-            LIMIT :limit
             SQL;
 
         try {
@@ -144,39 +100,163 @@ final readonly class RecommendationFinder
 
             $statement->bindValue('external_id', $externalId->getId(), \PDO::PARAM_STR);
             $statement->bindValue('instance_id', (int)$externalId->getInstanceId(), \PDO::PARAM_INT);
-            $statement->bindValue('min_common_words', $minCommonWords, \PDO::PARAM_INT);
-            $statement->bindValue('limit', $limit, \PDO::PARAM_INT);
             if ($instanceId !== null) {
                 $statement->bindValue('candidate_instance_id', $instanceId, \PDO::PARAM_INT);
             }
 
             $statement->execute();
 
-            /** @var list<array<string, mixed>> $rows */
-            $rows = $statement->fetchAll(\PDO::FETCH_ASSOC);
+            $scoreRows = $statement->fetchAll(\PDO::FETCH_ASSOC);
         } catch (\PDOException $exception) {
             throw new UnknownException('Unable to fetch similar items from SQLite: ' . $exception->getMessage(), 0, $exception);
         }
 
-        return array_map(
-            fn(array $row): array => $this->hydrateRecommendation($row, $includeFormatting),
-            $rows,
-        );
+        $candidates = $this->rankCandidates($scoreRows, $minCommonWords, $limit);
+        if ($candidates === []) {
+            return [];
+        }
+
+        $rows = $this->fetchCandidateRows($candidates, $tocTable, $snippetTable, $metadataTable);
+
+        $recommendations = [];
+        foreach ($candidates as $candidate) {
+            $row = $rows[$candidate['toc_id']] ?? null;
+            if ($row === null) {
+                continue;
+            }
+
+            $row['relevance'] = $candidate['relevance'];
+            $recommendations[] = $this->hydrateRecommendation($row, $includeFormatting);
+        }
+
+        return $recommendations;
     }
 
-    private function registerSqliteMathFunctions(): void
+    /**
+     * @param array<array-key, array<string, scalar|null>> $rows
+     * @return list<array{toc_id: int, relevance: float}>
+     */
+    private function rankCandidates(array $rows, int $minCommonWords, int $limit): array
     {
-        $registerFunction = $this->pdo->sqliteCreateFunction(...);
-        $registerFunction(
-            'register_recommendation_exp',
-            static fn(mixed $value): float => exp((float)$value),
-            1,
-        );
-        $registerFunction(
-            'register_recommendation_pow',
-            static fn(mixed $base, mixed $exponent): float => $base > 0 ? ((float)$base) ** (float)$exponent : 0.0,
-            2,
-        );
+        /** @var array<int, array{score: float, common_words: int, word_count: int}> $scores */
+        $scores = [];
+        foreach ($rows as $row) {
+            $tocId = (int)$row['toc_id'];
+            if (!isset($scores[$tocId])) {
+                $scores[$tocId] = [
+                    'score'        => 0.0,
+                    'common_words' => 0,
+                    'word_count'   => max(1, (int)$row['word_count']),
+                ];
+            }
+
+            $originalRepeat  = (float)$row['original_repeat'];
+            $abundance       = (float)$row['abundance'];
+            $candidateRepeat = (float)$row['candidate_repeat'];
+            $scores[$tocId]['score'] += $originalRepeat
+                + exp(-$abundance / 30.0) * (1.0 + $candidateRepeat);
+            ++$scores[$tocId]['common_words'];
+        }
+
+        $candidates = [];
+        foreach ($scores as $tocId => $score) {
+            if ($score['common_words'] < $minCommonWords) {
+                continue;
+            }
+
+            $candidates[] = [
+                'toc_id'    => $tocId,
+                'relevance' => $score['score'] / sqrt((float)$score['word_count']),
+            ];
+        }
+
+        usort($candidates, static function (array $left, array $right): int {
+            $relevanceOrder = $right['relevance'] <=> $left['relevance'];
+
+            return $relevanceOrder !== 0 ? $relevanceOrder : $left['toc_id'] <=> $right['toc_id'];
+        });
+
+        return array_slice($candidates, 0, max(0, $limit));
+    }
+
+    /**
+     * @param list<array{toc_id: int, relevance: float}> $candidates
+     * @return array<int, array<string, mixed>>
+     * @throws UnknownException
+     */
+    private function fetchCandidateRows(
+        array $candidates,
+        string $tocTable,
+        string $snippetTable,
+        string $metadataTable,
+    ): array {
+        $placeholders = [];
+        foreach (array_keys($candidates) as $index) {
+            $placeholders[] = ':toc_id_' . $index;
+        }
+
+        $sql = <<<SQL
+            SELECT
+                metadata.word_count,
+                metadata.images,
+                toc.*,
+                (
+                    SELECT snippet
+                    FROM {$snippetTable} AS snippet
+                    WHERE snippet.toc_id = toc.id
+                    ORDER BY snippet.max_word_pos
+                    LIMIT 1
+                ) AS snippet,
+                (
+                    SELECT format_id
+                    FROM {$snippetTable} AS snippet
+                    WHERE snippet.toc_id = toc.id
+                    ORDER BY snippet.max_word_pos
+                    LIMIT 1
+                ) AS snippet_format_id,
+                (
+                    SELECT snippet
+                    FROM {$snippetTable} AS snippet
+                    WHERE snippet.toc_id = toc.id
+                    ORDER BY snippet.max_word_pos
+                    LIMIT 1 OFFSET 1
+                ) AS snippet2,
+                (
+                    SELECT format_id
+                    FROM {$snippetTable} AS snippet
+                    WHERE snippet.toc_id = toc.id
+                    ORDER BY snippet.max_word_pos
+                    LIMIT 1 OFFSET 1
+                ) AS snippet2_format_id
+            FROM {$tocTable} AS toc
+            JOIN {$metadataTable} AS metadata ON metadata.toc_id = toc.id
+            WHERE toc.id IN (%s)
+            SQL;
+
+        try {
+            $statement = $this->pdo->prepare(sprintf($sql, implode(', ', $placeholders)));
+            if (!$statement instanceof \PDOStatement) {
+                throw new UnknownException('Unable to prepare the SQLite recommendation details query.');
+            }
+
+            foreach ($candidates as $index => $candidate) {
+                $statement->bindValue('toc_id_' . $index, $candidate['toc_id'], \PDO::PARAM_INT);
+            }
+
+            $statement->execute();
+
+            /** @var list<array<string, mixed>> $fetchedRows */
+            $fetchedRows = $statement->fetchAll(\PDO::FETCH_ASSOC);
+        } catch (\PDOException $exception) {
+            throw new UnknownException('Unable to fetch SQLite recommendation details: ' . $exception->getMessage(), 0, $exception);
+        }
+
+        $rows = [];
+        foreach ($fetchedRows as $row) {
+            $rows[(int)$row['id']] = $row;
+        }
+
+        return $rows;
     }
 
     /**

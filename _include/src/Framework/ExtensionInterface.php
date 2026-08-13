@@ -19,6 +19,6 @@ namespace S2\Cms\Framework;
  * New Register code should depend on ModuleInterface. This interface remains while third-party
  * extensions migrate without requiring an all-at-once ecosystem break.
  */
-interface ExtensionInterface extends ModuleInterface
+interface ExtensionInterface extends ContainerModuleInterface, ContainerAwareListenerModuleInterface, ContainerAwareRoutingModuleInterface
 {
 }

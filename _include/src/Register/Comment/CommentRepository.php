@@ -85,8 +85,11 @@ final readonly class CommentRepository
     public function findOfType(int $commentId, ContentType $contentType): ?Comment
     {
         $comment = $this->find($commentId);
+        if (!$comment instanceof Comment) {
+            return null;
+        }
 
-        return $comment?->contentId->type === $contentType ? $comment : null;
+        return $comment->contentId->type === $contentType ? $comment : null;
     }
 
     /** @return list<Comment> */

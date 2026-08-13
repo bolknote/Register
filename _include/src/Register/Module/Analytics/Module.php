@@ -12,7 +12,9 @@ namespace Register\Module\Analytics;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Controller\Rss\RssHitEvent;
 use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ModuleInterface;
+use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
+use S2\Cms\Framework\ContainerModuleInterface;
+use S2\Cms\Framework\RoutingModuleInterface;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\TemplateEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -20,7 +22,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
-class Module implements ModuleInterface
+class Module implements ContainerModuleInterface, ContainerAwareListenerModuleInterface, RoutingModuleInterface
 {
     #[\Override]
     public function buildContainer(Container $container): void
@@ -68,10 +70,8 @@ class Module implements ModuleInterface
     }
 
     #[\Override]
-    public function registerRoutes(RouteCollection $routes, Container $container): void
+    public function registerRoutes(RouteCollection $routes): void
     {
-        unset($container);
-
         $routes->add('register_analytics_counter', new Route(
             '/_analytics/counter.png',
             ['_controller' => CounterImageController::class],

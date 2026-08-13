@@ -22,7 +22,9 @@ use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Controller\CommentController;
 use S2\Cms\Controller\RssController;
 use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ModuleInterface;
+use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
+use S2\Cms\Framework\ContainerAwareRoutingModuleInterface;
+use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Model\Article\ArticleRenderedEvent;
@@ -67,7 +69,7 @@ use Psr\Container\NotFoundExceptionInterface;
 use S2\Cms\Translation\ExtensibleTranslator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-final class Module implements ModuleInterface
+final class Module implements ContainerModuleInterface, ContainerAwareListenerModuleInterface, ContainerAwareRoutingModuleInterface
 {
     #[\Override]
     public function buildContainer(Container $container): void

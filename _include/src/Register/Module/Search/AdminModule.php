@@ -22,7 +22,8 @@ use S2\Cms\Admin\TranslationProviderInterface;
 use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
 use S2\Cms\AdminYard\Signal;
 use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ModuleInterface;
+use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
+use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Queue\QueuePublisher;
 use S2\Rose\Indexer;
@@ -38,16 +39,15 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\RouteCollection;
 
-final class AdminModule implements ModuleInterface
+final class AdminModule implements ContainerModuleInterface, ContainerAwareListenerModuleInterface
 {
     #[\Override]
     public function buildContainer(Container $container): void
     {
-        $container->set(DynamicConfigFormExtender::class, fn(Container $_container): DynamicConfigFormExtender => new DynamicConfigFormExtender(), [DynamicConfigFormExtenderInterface::class]);
+        $container->set(DynamicConfigFormExtender::class, new DynamicConfigFormExtender(), [DynamicConfigFormExtenderInterface::class]);
 
-        $container->set(TranslationProvider::class, fn(Container $_container): TranslationProvider => new TranslationProvider(), [TranslationProviderInterface::class]);
+        $container->set(TranslationProvider::class, new TranslationProvider(), [TranslationProviderInterface::class]);
 
         $container->set(ReindexToken::class, fn(Container $container): ReindexToken => new ReindexToken(
             $container->get(SettingStorageInterface::class),
@@ -123,9 +123,4 @@ final class AdminModule implements ModuleInterface
         });
     }
 
-    #[\Override]
-    public function registerRoutes(RouteCollection $routes, Container $container): void
-    {
-        unset($routes, $container);
-    }
 }

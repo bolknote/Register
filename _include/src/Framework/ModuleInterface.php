@@ -11,14 +11,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Framework;
 
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\Routing\RouteCollection;
-
+/** Marker shared by every Register application module. */
 interface ModuleInterface
 {
-    public function buildContainer(Container $container): void;
-
-    public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void;
-
-    public function registerRoutes(RouteCollection $routes, Container $container): void;
 }

@@ -28,7 +28,13 @@ final readonly class BaseModuleInstaller
     {
         foreach ($this->baseModuleRegistry->ids() as $id) {
             $manifestClass = $this->baseModuleRegistry->manifestClass($id);
-            (new $manifestClass())->install($dbLayer, $container, null);
+            $manifest      = new $manifestClass();
+
+            if ($manifest instanceof ContainerAwareBaseModuleInstallerInterface) {
+                $manifest->installFresh($dbLayer, $container);
+            } elseif ($manifest instanceof BaseModuleInstallerInterface) {
+                $manifest->installFresh($dbLayer);
+            }
         }
     }
 }

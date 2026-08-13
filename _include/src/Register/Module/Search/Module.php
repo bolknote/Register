@@ -16,7 +16,9 @@ use Register\Content\ContentRepository;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ModuleInterface;
+use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
+use S2\Cms\Framework\ContainerModuleInterface;
+use S2\Cms\Framework\RoutingModuleInterface;
 use S2\Cms\Image\ThumbnailGenerateEvent;
 use S2\Cms\Image\ThumbnailGenerator;
 use S2\Cms\Logger\Logger;
@@ -56,7 +58,7 @@ use Psr\Container\NotFoundExceptionInterface;
 use S2\Cms\Translation\ExtensibleTranslator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-final class Module implements ModuleInterface
+final class Module implements ContainerModuleInterface, ContainerAwareListenerModuleInterface, RoutingModuleInterface
 {
     /**
      * @throws ContainerExceptionInterface
@@ -74,7 +76,7 @@ final class Module implements ModuleInterface
     public function buildContainer(Container $container): void
     {
         $container->set(PdoStorage::class, self::createPdoStorage(...));
-        $container->set(StemmerInterface::class, fn(Container $_container): \S2\Rose\Stemmer\PorterStemmerRussian => new PorterStemmerRussian(new PorterStemmerEnglish()));
+        $container->set(StemmerInterface::class, new PorterStemmerRussian(new PorterStemmerEnglish()));
         $container->set(Finder::class, fn(Container $container): \S2\Rose\Finder => (new Finder($container->get(PdoStorage::class), $container->get(StemmerInterface::class)))
             ->setHighlightTemplate('<span class="s2_search_highlight">%s</span>')
             ->setSnippetLineSeparator(' ⋄&nbsp;'));
@@ -239,10 +241,8 @@ final class Module implements ModuleInterface
     }
 
     #[\Override]
-    public function registerRoutes(RouteCollection $routes, Container $container): void
+    public function registerRoutes(RouteCollection $routes): void
     {
-        unset($container);
-
         $routes->add('search', new Route('/search', ['_controller' => SearchPageController::class]));
 
         // Hack for alternative URL schemes

@@ -14,15 +14,15 @@ use S2\AdminYard\TemplateRenderer;
 use S2\Cms\Admin\Dashboard\DashboardBlockProviderInterface;
 use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
 use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ModuleInterface;
+use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
+use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Model\PermissionChecker;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\RouteCollection;
 
-class AdminModule implements ModuleInterface
+class AdminModule implements ContainerModuleInterface, ContainerAwareListenerModuleInterface
 {
     #[\Override]
     public function buildContainer(Container $container): void
@@ -69,9 +69,4 @@ class AdminModule implements ModuleInterface
         });
     }
 
-    #[\Override]
-    public function registerRoutes(RouteCollection $routes, Container $container): void
-    {
-        unset($routes, $container);
-    }
 }

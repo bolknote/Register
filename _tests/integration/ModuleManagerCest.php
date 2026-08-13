@@ -14,7 +14,7 @@ use Register\Comment\CommentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Schema\SchemaMigrator;
 use S2\Cms\Extensions\ExtensionManager;
-use S2\Cms\Framework\Container;
+use S2\Cms\Extensions\ManifestInterface;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Pdo\DbLayer;
 
@@ -79,18 +79,13 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'tag_content_idx'));
     }
 
-    public function baseManifestsCannotDestroyProductData(\IntegrationTester $I): void
+    public function baseManifestsDoNotExposeOptionalLifecycle(\IntegrationTester $I): void
     {
-        /** @var DbLayer $dbLayer */
-        $dbLayer   = $I->grabAdminService(DbLayer::class);
-        $container = new Container([]);
-
-        foreach ([
-            new \Register\Module\Blog\Manifest(),
-            new \Register\Module\Search\Manifest(),
-            new \Register\Module\Analytics\Manifest(),
-        ] as $manifest) {
-            $I->expectThrowable(\LogicException::class, static fn() => $manifest->uninstall($dbLayer, $container));
+        $registry = new BaseModuleRegistry();
+        foreach ($registry->ids() as $id) {
+            $manifestClass = $registry->manifestClass($id);
+            $I->assertFalse(is_a($manifestClass, ManifestInterface::class, true));
+            $I->assertFalse((new \ReflectionClass($manifestClass))->hasMethod('uninstall'));
         }
     }
 }

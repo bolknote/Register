@@ -21,7 +21,8 @@ use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
 use S2\Cms\AdminYard\CustomTemplateRendererEvent;
 use S2\Cms\AdminYard\Signal;
 use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ModuleInterface;
+use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
+use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
@@ -36,9 +37,8 @@ use Register\Comment\CommentRepository;
 use Register\Content\ContentType;
 use Register\Module\Blog\Model\PostProvider;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\Routing\RouteCollection;
 
-final class AdminModule implements ModuleInterface
+final class AdminModule implements ContainerModuleInterface, ContainerAwareListenerModuleInterface
 {
     #[\Override]
     public function buildContainer(Container $container): void
@@ -58,9 +58,9 @@ final class AdminModule implements ModuleInterface
             $container->getStringParameter('db_prefix'),
         ), [AdminConfigExtenderInterface::class]);
 
-        $container->set(DynamicConfigFormExtender::class, fn(Container $_container): \Register\Module\Blog\Admin\DynamicConfigFormExtender => new DynamicConfigFormExtender(), [DynamicConfigFormExtenderInterface::class]);
+        $container->set(DynamicConfigFormExtender::class, new DynamicConfigFormExtender(), [DynamicConfigFormExtenderInterface::class]);
 
-        $container->set(TranslationProvider::class, fn(Container $_container): \Register\Module\Blog\Admin\TranslationProvider => new TranslationProvider(), [TranslationProviderInterface::class]);
+        $container->set(TranslationProvider::class, new TranslationProvider(), [TranslationProviderInterface::class]);
 
         $container->set(DashboardBlogProvider::class, fn(Container $container): \Register\Module\Blog\Admin\DashboardBlogProvider => new DashboardBlogProvider(
             $container->get(TemplateRenderer::class),
@@ -101,8 +101,4 @@ final class AdminModule implements ModuleInterface
         });
     }
 
-    #[\Override]
-    public function registerRoutes(RouteCollection $routes, Container $container): void
-    {
-    }
 }

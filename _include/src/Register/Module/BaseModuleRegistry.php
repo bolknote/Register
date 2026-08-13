@@ -9,7 +9,6 @@ declare(strict_types = 1);
 
 namespace Register\Module;
 
-use S2\Cms\Extensions\ManifestInterface;
 use S2\Cms\Framework\ModuleInterface;
 
 /**
@@ -34,7 +33,7 @@ final class BaseModuleRegistry
      * The order preserves the established listener and route registration order.
      *
      * @var array<string, array{
-     *     manifest: class-string<ManifestInterface>,
+     *     manifest: class-string<BaseModuleManifestInterface>,
      *     application: class-string<ModuleInterface>,
      *     admin: class-string<ModuleInterface>|null
      * }>
@@ -78,7 +77,7 @@ final class BaseModuleRegistry
         return isset(self::MODULES[$id]);
     }
 
-    /** @return class-string<ManifestInterface> */
+    /** @return class-string<BaseModuleManifestInterface> */
     public function manifestClass(string $id): string
     {
         return $this->module($id)['manifest'];
@@ -105,7 +104,7 @@ final class BaseModuleRegistry
 
     /**
      * @return array{
-     *     manifest: class-string<ManifestInterface>,
+     *     manifest: class-string<BaseModuleManifestInterface>,
      *     application: class-string<ModuleInterface>,
      *     admin: class-string<ModuleInterface>|null
      * }
