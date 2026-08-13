@@ -20,6 +20,32 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class ViewerTest extends Unit
 {
+    public function testFallbackDateFormattingIsAlwaysUtc(): void
+    {
+        $translator = self::createStub(TranslatorInterface::class);
+        $translator
+            ->method('trans')
+            ->willReturnCallback(static fn(string $id): string => match ($id) {
+                'Time format' => 'Y-m-d H:i',
+                default       => $id,
+            });
+        $viewer = new Viewer(
+            $translator,
+            new UrlBuilder('', '', ''),
+            \dirname(__DIR__, 4) . '/',
+            $this->styleProxy(),
+            false,
+        );
+
+        $originalTimezone = date_default_timezone_get();
+        date_default_timezone_set('Asia/Vladivostok');
+        try {
+            self::assertSame('2011-11-06 09:26', $viewer->dateAndTime(1_320_571_560));
+        } finally {
+            date_default_timezone_set($originalTimezone);
+        }
+    }
+
     public function testBuiltInModuleViewsAreLoadedFromModuleResources(): void
     {
         $viewer = new Viewer(

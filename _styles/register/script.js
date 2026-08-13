@@ -58,6 +58,35 @@
         }
     }
 
+    function initLocalTimes() {
+        if (typeof window.Intl === 'undefined' || typeof window.Intl.DateTimeFormat === 'undefined') {
+            return;
+        }
+
+        document.querySelectorAll('time[data-local-time]').forEach(function (element) {
+            var date = new Date(element.getAttribute('datetime') || '');
+            if (Number.isNaN(date.getTime())) {
+                return;
+            }
+
+            var locale = element.getAttribute('data-locale') || document.documentElement.lang || undefined;
+
+            try {
+                var dateText = new Intl.DateTimeFormat(locale, {dateStyle: 'long'}).format(date);
+                var timeText = new Intl.DateTimeFormat(locale, {timeStyle: 'short'}).format(date);
+
+                if (locale && locale.toLowerCase().indexOf('ru') === 0) {
+                    dateText = dateText.replace(/\s+г\.$/, ' года');
+                    element.textContent = dateText + ', ' + timeText;
+                } else {
+                    element.textContent = dateText + '. ' + timeText;
+                }
+            } catch (error) {
+                // The UTC server-rendered value remains available in old browsers.
+            }
+        });
+    }
+
     function initKeyboardNavigation() {
         var links = {};
 
@@ -365,6 +394,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        initLocalTimes();
         initCommentReplies();
         initCommentModeration();
         initCommentStorage();

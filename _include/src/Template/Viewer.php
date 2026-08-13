@@ -94,9 +94,11 @@ class Viewer
         }
 
         $format = $this->translator->trans('Date format');
-        $date   = date($format, $time);
+        $date   = gmdate($format, $time);
         if (str_contains($format, 'F')) {
-            return str_replace(date('F', $time), $this->translator->trans(date('F', $time) . ' genitive'), $date);
+            $month = gmdate('F', $time);
+
+            return str_replace($month, $this->translator->trans($month . ' genitive'), $date);
         }
 
         return $date;
@@ -112,9 +114,11 @@ class Viewer
         }
 
         $format = $this->translator->trans('Time format');
-        $date   = date($format, $time);
+        $date   = gmdate($format, $time);
         if (str_contains($format, 'F')) {
-            return str_replace(date('F', $time), $this->translator->trans(date('F', $time) . ' genitive'), $date);
+            $month = gmdate('F', $time);
+
+            return str_replace($month, $this->translator->trans($month . ' genitive'), $date);
         }
 
         return $date;

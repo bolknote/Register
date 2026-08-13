@@ -8,6 +8,7 @@ declare(strict_types = 1);
  * @var string $title_link
  * @var string $time
  * @var int $create_time
+ * @var string $display_date
  * @var string $text
  * @var array<int, array{link: string, title: string}> $tags
  * @var bool $commented
@@ -30,7 +31,7 @@ foreach ($tags as $tag) {
 <?php } ?>
 </h2>
 <div class="preview meta">
-    <span class="preview time"><time datetime="<?php echo date(DATE_ATOM, (int)$create_time); ?>"><?php echo s2_htmlencode($time); ?></time></span>
+    <span class="preview time"><time datetime="<?php echo gmdate(DATE_ATOM, (int)$create_time); ?>"<?php if (trim($display_date ?? '') === ''): ?> data-local-time="datetime" data-locale="<?php echo s2_htmlencode($trans('locale')); ?>"<?php endif; ?>><?php echo s2_htmlencode($time); ?></time></span>
 <?php if ($tagLinks !== []) { ?>
     <span class="preview tags"><?php echo implode(', ', $tagLinks); ?></span>
 <?php } ?>

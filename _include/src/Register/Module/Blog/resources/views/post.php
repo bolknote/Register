@@ -8,6 +8,7 @@ declare(strict_types = 1);
 /** @var $title_link string */
 /** @var $time string */
 /** @var $create_time int */
+/** @var $display_date string */
 /** @var $text string */
 /** @var $tags array */
 /** @var $link string */
@@ -32,7 +33,7 @@ declare(strict_types = 1);
     <span class="favorite-star" title="<?php echo $trans('Favorite posts'); ?>">★</span>
 <?php } ?>
 </h2>
-<div class="post time"><time datetime="<?php echo date(DATE_ATOM, (int)$create_time); ?>"><?php echo s2_htmlencode($time); ?></time></div>
+<div class="post time"><time datetime="<?php echo gmdate(DATE_ATOM, (int)$create_time); ?>"<?php if (trim($display_date ?? '') === ''): ?> data-local-time="datetime" data-locale="<?php echo s2_htmlencode($trans('locale')); ?>"<?php endif; ?>><?php echo s2_htmlencode($time); ?></time></div>
 <?php
 	echo $text;
 	if (!empty($see_also))

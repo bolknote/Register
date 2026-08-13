@@ -110,10 +110,10 @@ $replyQuery = $isPreview ? '' : http_build_query([
             <span class="comment-state-mark"><?php echo $trans('Comment is hidden'); ?></span>
         <?php endif; ?>
         <?php if ($isPreview): ?>
-            <time datetime="<?php echo date(DATE_ATOM, (int)$time); ?>"><?php echo $dateAndTime((int)$time); ?></time>
+            <time datetime="<?php echo gmdate(DATE_ATOM, (int)$time); ?>" data-local-time="datetime" data-locale="<?php echo s2_htmlencode($trans('locale')); ?>"><?php echo $dateAndTime((int)$time); ?></time>
         <?php else: ?>
             <a class="comment-permalink" href="#<?php echo $i; ?>" aria-label="<?php echo $trans('Comment permalink', ['%number%' => $i]); ?>">
-                <time datetime="<?php echo date(DATE_ATOM, (int)$time); ?>"><?php echo $dateAndTime((int)$time); ?></time><span aria-hidden="true">, </span><span>№&nbsp;<?php echo $i; ?></span>
+                <time datetime="<?php echo gmdate(DATE_ATOM, (int)$time); ?>" data-local-time="datetime" data-locale="<?php echo s2_htmlencode($trans('locale')); ?>"><?php echo $dateAndTime((int)$time); ?></time><span aria-hidden="true">, </span><span>№&nbsp;<?php echo $i; ?></span>
             </a>
         <?php endif; ?>
     </header>
