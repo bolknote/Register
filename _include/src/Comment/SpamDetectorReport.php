@@ -45,9 +45,9 @@ class SpamDetectorReport
         }
     }
 
-    public static function failed(): self
+    public static function failed(?int $assessmentId = null): self
     {
-        return new self(self::STATUS_FAILED);
+        return new self(self::STATUS_FAILED, $assessmentId);
     }
 
     /** @param array<string, int> $reasons */

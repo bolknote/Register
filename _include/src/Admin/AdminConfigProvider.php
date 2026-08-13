@@ -33,6 +33,8 @@ use S2\AdminYard\Validator\NotBlank;
 use S2\AdminYard\Validator\Regex;
 use S2\Cms\Admin\Controller\CommentControllerFactory;
 use S2\Cms\Admin\Event\VisibleEntityChangedEvent;
+use S2\Cms\Admin\Validator\IntegerRange;
+use S2\Cms\Comment\Antispam\SpamMetricsRepository;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\StatefulServiceInterface;
@@ -69,6 +71,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly ExtensionCache           $extensionCache,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly CommentControllerFactory $commentControllerFactory,
+        private readonly SpamMetricsRepository     $spamMetricsRepository,
         private readonly string                   $dbType,
         private readonly string                   $dbPrefix,
         AdminConfigExtenderInterface              ...$adminConfigExtenders
@@ -947,6 +950,218 @@ class AdminConfigProvider implements StatefulServiceInterface
         }
 
         if ($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS)) {
+            $adminConfig->addEntity(
+                (new EntityConfig('SpamAssessment', $this->dbPrefix . 'spam_assessments'))
+                    ->setSingularName($this->translator->trans('Antispam decision'))
+                    ->setPluralName($this->translator->trans('Antispam report'))
+                    ->setEntityDisplayNameBuilder(static fn(array $row): string => '#' . (string)($row['column_id'] ?? ''))
+                    ->addField(new FieldConfig(
+                        name: 'id',
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT, true),
+                        sortable: true,
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'created_at',
+                        label: $this->translator->trans('Date'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
+                        sortable: true,
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'target_type',
+                        label: $this->translator->trans('Comment type'),
+                        sortable: true,
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'comment_id',
+                        label: $this->translator->trans('Comment ID'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                        sortable: true,
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'score',
+                        label: $this->translator->trans('Spam score'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                        sortable: true,
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'status',
+                        label: $this->translator->trans('Local decision'),
+                        sortable: true,
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                        viewTemplate: '_admin/templates/antispam/view-status.php',
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'shadow_status',
+                        label: $this->translator->trans('Akismet decision'),
+                        sortable: true,
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                        viewTemplate: '_admin/templates/antispam/view-status.php',
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'moderator_label',
+                        label: $this->translator->trans('Moderator decision'),
+                        sortable: true,
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                        viewTemplate: '_admin/templates/antispam/view-status.php',
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'quality',
+                        label: $this->translator->trans('Quality result'),
+                        type: new VirtualFieldType(
+                            "CASE WHEN moderator_label IS NULL OR status NOT IN ('ham', 'spam', 'blatant') THEN NULL WHEN moderator_label = 'ham' AND status IN ('spam', 'blatant') THEN 'false_positive' WHEN moderator_label = 'spam' AND status = 'ham' THEN 'false_negative' ELSE 'correct' END",
+                        ),
+                        sortable: true,
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                        viewTemplate: '_admin/templates/antispam/view-status.php',
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'reasons',
+                        label: $this->translator->trans('Spam reasons'),
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                        viewTemplate: '_admin/templates/comment/view-spam-reasons.php',
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'model_version',
+                        label: $this->translator->trans('Model version'),
+                        useOnActions: [FieldConfig::ACTION_SHOW],
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'source',
+                        label: $this->translator->trans('Decision source'),
+                        useOnActions: [FieldConfig::ACTION_SHOW],
+                    ))
+                    ->addFilter(new Filter(
+                        'target_type',
+                        $this->translator->trans('Comment type'),
+                        'radio',
+                        'target_type = %1$s',
+                        options: [
+                            ''        => $this->translator->trans('All'),
+                            'article' => $this->translator->trans('Article comments'),
+                            'blog'    => $this->translator->trans('Blog comments'),
+                        ],
+                    ))
+                    ->addFilter(new Filter(
+                        'local_status',
+                        $this->translator->trans('Local decision'),
+                        'radio',
+                        'status = %1$s',
+                        options: [
+                            ''        => $this->translator->trans('All'),
+                            'ham'     => $this->translator->trans('Not spam'),
+                            'spam'    => $this->translator->trans('Spam'),
+                            'blatant' => $this->translator->trans('Quarantine'),
+                        ],
+                    ))
+                    ->addFilter(new Filter(
+                        'quality',
+                        $this->translator->trans('Quality result'),
+                        'radio',
+                        "(CASE WHEN moderator_label IS NULL OR status NOT IN ('ham', 'spam', 'blatant') THEN NULL WHEN moderator_label = 'ham' AND status IN ('spam', 'blatant') THEN 'false_positive' WHEN moderator_label = 'spam' AND status = 'ham' THEN 'false_negative' ELSE 'correct' END) = %1\$s",
+                        options: [
+                            ''               => $this->translator->trans('All'),
+                            'false_positive' => $this->translator->trans('False positive'),
+                            'false_negative' => $this->translator->trans('False negative'),
+                            'correct'        => $this->translator->trans('Correct decision'),
+                        ],
+                    ))
+                    ->setEnabledActions([FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW])
+                    ->setLimit(100)
+                    ->addListener(EntityConfig::EVENT_BEFORE_LIST_RENDER, function (BeforeRenderEvent $event): void {
+                        if (!\is_array($event->data)) {
+                            throw new \UnexpectedValueException('Antispam report render data is incomplete.');
+                        }
+
+                        $event->data['metrics'] = $this->spamMetricsRepository->summarize();
+                    })
+                    ->setListTemplate('_admin/templates/antispam/report-list.php.inc'),
+                67,
+            );
+
+            $adminConfig->addEntity(
+                (new EntityConfig('SpamSignalPolicy', $this->dbPrefix . 'spam_signal_policies'))
+                    ->setSingularName($this->translator->trans('Spam signal weight'))
+                    ->setPluralName($this->translator->trans('Spam signal weights'))
+                    ->setEditTitle($this->translator->trans('Edit spam signal weight'))
+                    ->setEntityDisplayNameBuilder(fn(array $row): string => $this->translator->trans(
+                        'Spam policy ' . (string)($row['column_signal'] ?? ''),
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'signal',
+                        label: $this->translator->trans('Spam signal'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING, true),
+                        sortable: true,
+                        useOnActions: [FieldConfig::ACTION_LIST],
+                        viewTemplate: '_admin/templates/antispam/view-policy-name.php',
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'weight',
+                        label: $this->translator->trans('Signal weight'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                        control: 'int_input',
+                        validators: [new IntegerRange(-100, 100)],
+                        sortable: true,
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'enabled',
+                        label: $this->translator->trans('Enabled'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
+                        control: 'checkbox',
+                        inlineEdit: true,
+                    ))
+                    ->setEnabledActions([FieldConfig::ACTION_LIST, FieldConfig::ACTION_EDIT]),
+                68,
+            );
+
+            $adminConfig->addEntity(
+                (new EntityConfig('SpamRatePolicy', $this->dbPrefix . 'spam_rate_policies'))
+                    ->setSingularName($this->translator->trans('Comment rate limit'))
+                    ->setPluralName($this->translator->trans('Comment rate limits'))
+                    ->setEditTitle($this->translator->trans('Edit comment rate limit'))
+                    ->setEntityDisplayNameBuilder(fn(array $row): string => $this->translator->trans(
+                        'Spam policy ' . (string)($row['column_bucket_type'] ?? ''),
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'bucket_type',
+                        label: $this->translator->trans('Rate limit key'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING, true),
+                        sortable: true,
+                        useOnActions: [FieldConfig::ACTION_LIST],
+                        viewTemplate: '_admin/templates/antispam/view-policy-name.php',
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'request_limit',
+                        label: $this->translator->trans('Request limit'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                        control: 'int_input',
+                        validators: [new IntegerRange(1, 1_000)],
+                        sortable: true,
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'window_seconds',
+                        label: $this->translator->trans('Rate window, seconds'),
+                        hint: $this->translator->trans('Rate window help'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                        control: 'int_input',
+                        validators: [new IntegerRange(10, 30 * 24 * 60 * 60)],
+                        sortable: true,
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'enabled',
+                        label: $this->translator->trans('Enabled'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
+                        control: 'checkbox',
+                        inlineEdit: true,
+                    ))
+                    ->setEnabledActions([FieldConfig::ACTION_LIST, FieldConfig::ACTION_EDIT]),
+                69,
+            );
+
             $adminConfig->addEntity(
                 (new EntityConfig('SpamRule', $this->dbPrefix . 'spam_rules'))
                     ->setSingularName($this->translator->trans('Spam rule'))

@@ -111,6 +111,7 @@ function s2_build_base_static_parameters(array $config): array
 
         // path prefix for the web URL, i.e. main page URL supposed to be 'http://example.com' . BASE_PATH . URL_PREFIX . '/'
         'base_path'          => $basePath,
+        'trusted_proxies'    => $config['http']['trusted_proxies'] ?? [],
 
         // one of '', '/?', '/index.php', '/index.php?'
         'url_prefix'         => $urlPrefix,

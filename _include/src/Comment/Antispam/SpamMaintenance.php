@@ -14,8 +14,6 @@ use S2\Cms\Pdo\DbLayer;
 
 final readonly class SpamMaintenance
 {
-    private const int RATE_EVENT_RETENTION = 25 * 60 * 60;
-
     private const int UNATTACHED_ASSESSMENT_RETENTION = 24 * 60 * 60;
 
     private const int UNLABELLED_ASSESSMENT_RETENTION = 180 * 24 * 60 * 60;
@@ -38,7 +36,7 @@ final readonly class SpamMaintenance
 
         /** @var array<string, \Closure(): int> $operations */
         $operations = [
-            'rate_events' => fn(): int => $this->rateLimiter->deleteOlderThan($now - self::RATE_EVENT_RETENTION),
+            'rate_events' => fn(): int => $this->rateLimiter->deleteExpired($now),
             'form_nonces' => fn(): int => $this->deleteExpiredNonces($now),
             'reputation' => fn(): int => $this->reputationRepository->deleteExpired($now),
             'unattached_assessments' => fn(): int => $this->assessmentRepository->deleteUnattachedOlderThan(

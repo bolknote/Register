@@ -21,10 +21,13 @@ use S2\Cms\Comment\Antispam\SpamFeatureExtractor;
 use S2\Cms\Comment\Antispam\SpamFeedbackService;
 use S2\Cms\Comment\Antispam\SpamIdentityHasher;
 use S2\Cms\Comment\Antispam\SpamMaintenance;
+use S2\Cms\Comment\Antispam\SpamMetricsRepository;
 use S2\Cms\Comment\Antispam\SpamRateLimiter;
+use S2\Cms\Comment\Antispam\SpamRatePolicyRepository;
 use S2\Cms\Comment\Antispam\SpamReputationRepository;
 use S2\Cms\Comment\Antispam\SpamRiskScorer;
 use S2\Cms\Comment\Antispam\SpamRuleRepository;
+use S2\Cms\Comment\Antispam\SpamSignalPolicyRepository;
 use S2\Cms\Comment\SpamDetectorInterface;
 use S2\Cms\Comment\SpamDecisionProvider;
 use S2\Cms\Comment\SpamDecisionProviderInterface;
@@ -46,6 +49,7 @@ use S2\Cms\Framework\Exception\ConfigurationException;
 use S2\Cms\Framework\ExtensionInterface;
 use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Http\RedirectDetector;
+use S2\Cms\Http\TrustedProxyConfigurator;
 use S2\Cms\HttpClient\HttpClient;
 use S2\Cms\Image\ThumbnailGenerator;
 use S2\Cms\Logger\Logger;
@@ -93,6 +97,8 @@ class CmsExtension implements ExtensionInterface
     #[\Override]
     public function buildContainer(Container $container): void
     {
+        TrustedProxyConfigurator::configure(array_values($container->getArrayParameter('trusted_proxies')));
+
         $container->set(DbLayer::class, function (Container $container): \S2\Cms\Pdo\DbLayer|\S2\Cms\Pdo\DbLayerSqlite|\S2\Cms\Pdo\DbLayerPostgres {
             $db_prefix = $container->getStringParameter('db_prefix');
             $db_type   = $container->getStringParameter('db_type');
@@ -213,10 +219,19 @@ class CmsExtension implements ExtensionInterface
         $container->set(SpamAssessmentRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamAssessmentRepository => new SpamAssessmentRepository(
             $container->get(DbLayer::class),
         ));
+        $container->set(SpamMetricsRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamMetricsRepository => new SpamMetricsRepository(
+            $container->get(DbLayer::class),
+        ));
         $container->set(SpamReputationRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamReputationRepository => new SpamReputationRepository(
             $container->get(DbLayer::class),
         ));
         $container->set(SpamRuleRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRuleRepository => new SpamRuleRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(SpamSignalPolicyRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamSignalPolicyRepository => new SpamSignalPolicyRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(SpamRatePolicyRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRatePolicyRepository => new SpamRatePolicyRepository(
             $container->get(DbLayer::class),
         ));
         $container->set(SpamRiskScorer::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRiskScorer => new SpamRiskScorer(
@@ -224,6 +239,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(SpamFeatureExtractor::class),
             $container->get(SpamReputationRepository::class),
             $container->get(SpamRuleRepository::class),
+            $container->get(SpamSignalPolicyRepository::class),
         ));
         $container->set(CommentFormTokenManager::class, fn(Container $container): \S2\Cms\Comment\Antispam\CommentFormTokenManager => new CommentFormTokenManager(
             $container->get(SpamIdentityHasher::class),
@@ -234,6 +250,7 @@ class CmsExtension implements ExtensionInterface
         $container->set(SpamRateLimiter::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRateLimiter => new SpamRateLimiter(
             $container->get(DbLayer::class),
             $container->get(SpamIdentityHasher::class),
+            $container->get(SpamRatePolicyRepository::class),
             $container->get(LoggerInterface::class),
         ));
         $container->set(SpamMaintenance::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamMaintenance => new SpamMaintenance(
@@ -478,6 +495,8 @@ class CmsExtension implements ExtensionInterface
             return new LocalSpamDetector(
                 $container->get(SpamRiskScorer::class),
                 $container->get(SpamAssessmentRepository::class),
+                $container->get(SpamIdentityHasher::class),
+                $container->get(SpamFeatureExtractor::class),
                 $container->get(LoggerInterface::class),
                 $provider->getIntProxy('S2_ANTISPAM_SPAM_SCORE'),
                 $provider->getIntProxy('S2_ANTISPAM_BLATANT_SCORE'),

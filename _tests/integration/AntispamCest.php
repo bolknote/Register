@@ -14,11 +14,19 @@ use S2\Cms\Comment\AkismetProxy;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
 use S2\Cms\Comment\Antispam\ConfigurableSpamDetector;
 use S2\Cms\Comment\Antispam\LocalSpamDetector;
+use S2\Cms\Comment\Antispam\SpamAssessment;
 use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
 use S2\Cms\Comment\Antispam\SpamFeedbackService;
+use S2\Cms\Comment\Antispam\SpamFeatureExtractor;
 use S2\Cms\Comment\Antispam\SpamIdentityHasher;
 use S2\Cms\Comment\Antispam\SpamMaintenance;
+use S2\Cms\Comment\Antispam\SpamMetricsRepository;
 use S2\Cms\Comment\Antispam\SpamRateLimiter;
+use S2\Cms\Comment\Antispam\SpamRatePolicyRepository;
+use S2\Cms\Comment\Antispam\SpamReputationRepository;
+use S2\Cms\Comment\Antispam\SpamRiskScorer;
+use S2\Cms\Comment\Antispam\SpamRuleRepository;
+use S2\Cms\Comment\Antispam\SpamSignalPolicyRepository;
 use S2\Cms\Comment\SpamDetectorComment;
 use S2\Cms\Comment\SpamDetectorReport;
 use S2\Cms\Config\DynamicConfigProvider;
@@ -167,7 +175,10 @@ final class AntispamCest
             'antispam_token' => $manager->issue('/', $visitorToken, time() - 5),
         ], $visitorToken);
         $I->seeResponseCodeIs(429);
-        $I->seeHttpHeader('Retry-After', '600');
+
+        $retryAfter = (int)$I->grabHttpHeader('Retry-After');
+        $I->assertGreaterThanOrEqual(600, $retryAfter);
+        $I->assertLessThanOrEqual(601, $retryAfter);
     }
 
     public function testIndependentSqlRateLimits(\IntegrationTester $I): void
@@ -190,6 +201,130 @@ final class AntispamCest
 
         $ipLimit = $limiter->consume('198.51.100.10', 'ip-6@example.test', 'unique ip text 6', 'ip-visitor-6');
         $I->assertContains('ip', $ipLimit->violations);
+    }
+
+    public function testRateLimitPoliciesAreAppliedWithoutCodeChanges(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $dbLayer
+            ->update('spam_rate_policies')
+            ->set('request_limit', '1')
+            ->set('window_seconds', '120')
+            ->where("bucket_type = 'email'")
+            ->execute()
+        ;
+
+        /** @var SpamRateLimiter $limiter */
+        $limiter = $I->grabService(SpamRateLimiter::class);
+        $first = $limiter->consume('192.0.2.1', 'policy@example.test', 'first policy text', 'policy-visitor-1');
+        $second = $limiter->consume('192.0.2.2', 'policy@example.test', 'second policy text', 'policy-visitor-2');
+
+        $I->assertFalse($first->isLimited());
+        $I->assertSame(['email'], $second->violations);
+        $I->assertGreaterThanOrEqual(120, $second->retryAfter);
+        $I->assertLessThanOrEqual(121, $second->retryAfter);
+    }
+
+    public function testRateLimitPoliciesCanBeDisabledAndAreClampedOnRead(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $dbLayer
+            ->update('spam_rate_policies')
+            ->set('request_limit', '5000')
+            ->set('window_seconds', '1')
+            ->where("bucket_type = 'ip'")
+            ->execute()
+        ;
+
+        /** @var SpamRatePolicyRepository $policies */
+        $policies = $I->grabService(SpamRatePolicyRepository::class);
+        $ipPolicy = $policies->getPolicies()['ip'];
+        $I->assertSame(1_000, $ipPolicy->limit);
+        $I->assertSame(10, $ipPolicy->windowSeconds);
+
+        $dbLayer
+            ->update('spam_rate_policies')
+            ->set('enabled', '0')
+            ->execute()
+        ;
+
+        /** @var SpamRateLimiter $limiter */
+        $limiter = $I->grabService(SpamRateLimiter::class);
+        $result = $limiter->consume('192.0.2.1', 'disabled@example.test', 'Disabled policies', 'disabled-visitor');
+
+        $I->assertTrue($result->available);
+        $I->assertFalse($result->isLimited());
+        $I->assertSame(0, $this->rowCount($dbLayer, 'spam_rate_events'));
+    }
+
+    public function testSignalWeightsAreAppliedWithoutCodeChanges(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $dbLayer
+            ->update('spam_signal_policies')
+            ->set('weight', '47')
+            ->where("signal = 'links_one'")
+            ->execute()
+        ;
+
+        /** @var LocalSpamDetector $detector */
+        $detector = $I->grabService(LocalSpamDetector::class);
+        $report = $detector->getReport(new SpamDetectorComment(
+            'Reader',
+            'reader@example.test',
+            str_repeat('Useful context ', 6) . 'https://example.test/details',
+            'Mozilla/5.0',
+            'https://s2.localhost/',
+            'https://s2.localhost/',
+            10,
+        ), '203.0.113.40');
+
+        $I->assertSame(SpamDetectorReport::STATUS_SPAM, $report->status);
+        $I->assertSame(47, $report->getScore());
+        $I->assertSame(47, $report->getReasons()['links']);
+    }
+
+    public function testDisablingConfirmedDuplicateRemovesItsHardBlock(\IntegrationTester $I): void
+    {
+        $text = 'A previously confirmed duplicate';
+        /** @var SpamIdentityHasher $hasher */
+        $hasher = $I->grabService(SpamIdentityHasher::class);
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $dbLayer
+            ->insert('spam_reputation')
+            ->setValue('key_type', "'text'")
+            ->setValue('key_hash', ':key_hash')->setParameter('key_hash', $hasher->text($text))
+            ->setValue('ham_count', '0')
+            ->setValue('spam_count', '2')
+            ->setValue('last_seen', ':now')->setParameter('now', time())
+            ->setValue('expires_at', ':expires_at')->setParameter('expires_at', time() + 3_600)
+            ->execute()
+        ;
+        $dbLayer
+            ->update('spam_signal_policies')
+            ->set('enabled', '0')
+            ->where("signal = 'confirmed_spam_duplicate'")
+            ->execute()
+        ;
+
+        /** @var SpamRiskScorer $scorer */
+        $scorer = $I->grabService(SpamRiskScorer::class);
+        $assessment = $scorer->assess(new SpamDetectorComment(
+            'Reader',
+            'reader@example.test',
+            $text,
+            'Mozilla/5.0',
+            'https://s2.localhost/',
+            'https://s2.localhost/',
+            10,
+        ), '203.0.113.41');
+
+        $I->assertFalse($assessment->hardBlock);
+        $I->assertArrayNotHasKey('confirmed_spam_duplicate', $assessment->reasons);
     }
 
     public function testLocalDetectorAuditsRulesAndScores(\IntegrationTester $I): void
@@ -546,6 +681,115 @@ final class AntispamCest
         $I->assertSame(1, (int)$comment['sent']);
     }
 
+    public function testMetricsCompareLocalShadowAndModeratorDecisions(\IntegrationTester $I): void
+    {
+        /** @var SpamAssessmentRepository $assessments */
+        $assessments = $I->grabService(SpamAssessmentRepository::class);
+        $assessment = new SpamAssessment(
+            50,
+            ['links' => 50],
+            str_repeat('a', 64),
+            str_repeat('b', 64),
+            str_repeat('c', 64),
+            [],
+        );
+
+        $falsePositiveId = $assessments->save(
+            $assessment,
+            SpamDetectorReport::STATUS_SPAM,
+            targetType: 'article',
+            commentId: 101,
+        );
+        $assessments->setShadowStatus($falsePositiveId, SpamDetectorReport::STATUS_HAM);
+        $assessments->labelComment(101, 'ham', $assessment);
+
+        $falseNegativeId = $assessments->save(
+            $assessment,
+            SpamDetectorReport::STATUS_HAM,
+            targetType: 'article',
+            commentId: 102,
+        );
+        $assessments->setShadowStatus($falseNegativeId, SpamDetectorReport::STATUS_SPAM);
+        $assessments->labelComment(102, 'spam', $assessment);
+
+        $failedId = $assessments->save(
+            $assessment,
+            SpamDetectorReport::STATUS_FAILED,
+            targetType: 'article',
+            commentId: 103,
+        );
+        $assessments->setShadowStatus($failedId, SpamDetectorReport::STATUS_FAILED);
+        $assessments->labelComment(103, 'ham', $assessment);
+
+        /** @var SpamMetricsRepository $metricsRepository */
+        $metricsRepository = $I->grabService(SpamMetricsRepository::class);
+        $metrics = $metricsRepository->summarize();
+
+        $I->assertSame(3, $metrics['total']);
+        $I->assertSame(1, $metrics['failed']);
+        $I->assertSame(1, $metrics['labelled_ham']);
+        $I->assertSame(1, $metrics['labelled_spam']);
+        $I->assertSame(1, $metrics['local_false_positive']);
+        $I->assertSame(1, $metrics['local_false_negative']);
+        $I->assertSame(2, $metrics['shadow_total']);
+        $I->assertSame(0, $metrics['shadow_agreement']);
+        $I->assertSame(1, $metrics['shadow_labelled_ham']);
+        $I->assertSame(1, $metrics['shadow_labelled_spam']);
+        $I->assertSame(0, $metrics['shadow_false_positive']);
+        $I->assertSame(0, $metrics['shadow_false_negative']);
+    }
+
+    public function testLocalDetectorAuditsEngineFailureWhenStorageIsAvailable(\IntegrationTester $I): void
+    {
+        $unavailableDb = new DbLayerSqlite(new \S2\Cms\Pdo\PDO('sqlite::memory:'));
+        /** @var SpamIdentityHasher $hasher */
+        $hasher = $I->grabService(SpamIdentityHasher::class);
+        /** @var SpamFeatureExtractor $featureExtractor */
+        $featureExtractor = $I->grabService(SpamFeatureExtractor::class);
+        $configProvider = new class extends DynamicConfigProvider {
+            #[\Override]
+            public function get(string $paramName): mixed
+            {
+                return match ($paramName) {
+                    'spam_threshold' => 35,
+                    'blatant_threshold' => 80,
+                    default => throw new \LogicException('Unexpected test configuration parameter.'),
+                };
+            }
+        };
+
+        $detector = new LocalSpamDetector(
+            new SpamRiskScorer(
+                $hasher,
+                $featureExtractor,
+                new SpamReputationRepository($unavailableDb),
+                new SpamRuleRepository($unavailableDb),
+                new SpamSignalPolicyRepository($unavailableDb),
+            ),
+            $I->grabService(SpamAssessmentRepository::class),
+            $hasher,
+            $featureExtractor,
+            $I->grabService(LoggerInterface::class),
+            $configProvider->getIntProxy('spam_threshold'),
+            $configProvider->getIntProxy('blatant_threshold'),
+        );
+
+        $report = $detector->getReport(new SpamDetectorComment(
+            'Reader',
+            'reader@example.test',
+            'A comment whose scoring engine fails',
+        ), '203.0.113.99');
+
+        $I->assertSame(SpamDetectorReport::STATUS_FAILED, $report->status);
+        $I->assertNotNull($report->getAssessmentId());
+
+        /** @var SpamMetricsRepository $metricsRepository */
+        $metricsRepository = $I->grabService(SpamMetricsRepository::class);
+        $metrics = $metricsRepository->summarize();
+        $I->assertSame(1, $metrics['total']);
+        $I->assertSame(1, $metrics['failed']);
+    }
+
     public function testMaintenanceKeepsCurrentRows(\IntegrationTester $I): void
     {
         $now = time();
@@ -600,13 +844,21 @@ final class AntispamCest
         $I->assertSame(1, $this->rowCount($dbLayer, 'spam_form_nonces'));
     }
 
-    public function testRevision25MigrationCreatesShadowModeForExistingAkismetKey(\IntegrationTester $I): void
+    public function testRevision26MigrationCreatesPoliciesAndShadowModeForExistingAkismetKey(\IntegrationTester $I): void
     {
         $legacyDb = new DbLayerSqlite(new \S2\Cms\Pdo\PDO('sqlite::memory:'));
         $installer = new Installer($legacyDb);
         $installer->createTables();
         $installer->insertConfigData('Legacy site', 'admin@example.test', 'English', 24);
-        foreach (['spam_assessments', 'spam_reputation', 'spam_rate_events', 'spam_form_nonces'] as $table) {
+        foreach ([
+                     'spam_rate_policies',
+                     'spam_signal_policies',
+                     'spam_rules',
+                     'spam_form_nonces',
+                     'spam_rate_events',
+                     'spam_reputation',
+                     'spam_assessments',
+                 ] as $table) {
             $legacyDb->dropTable($table);
         }
 
@@ -638,13 +890,23 @@ final class AntispamCest
 
         (new MigrationManager($legacyDb, 'sqlite'))->migrate(24, Installer::DB_REVISION);
 
-        foreach (['spam_assessments', 'spam_reputation', 'spam_rate_events', 'spam_form_nonces', 'spam_rules'] as $table) {
+        foreach ([
+                     'spam_assessments',
+                     'spam_reputation',
+                     'spam_rate_events',
+                     'spam_form_nonces',
+                     'spam_rules',
+                     'spam_signal_policies',
+                     'spam_rate_policies',
+                 ] as $table) {
             $I->assertTrue($legacyDb->tableExists($table));
         }
 
         $I->assertTrue($legacyDb->fieldExists('spam_assessments', 'target_type'));
+        $I->assertSame(\count(SpamSignalPolicyRepository::DEFAULT_WEIGHTS), $this->rowCount($legacyDb, 'spam_signal_policies'));
+        $I->assertSame(\count(SpamRatePolicyRepository::DEFAULT_POLICIES), $this->rowCount($legacyDb, 'spam_rate_policies'));
         $I->assertSame('shadow', $this->configValue($legacyDb, 'S2_ANTISPAM_MODE'));
-        $I->assertSame('25', $this->configValue($legacyDb, 'S2_DB_REVISION'));
+        $I->assertSame('26', $this->configValue($legacyDb, 'S2_DB_REVISION'));
         $I->assertSame(64, \strlen($this->configValue($legacyDb, 'S2_ANTISPAM_SECRET')));
     }
 

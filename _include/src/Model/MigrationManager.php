@@ -16,7 +16,7 @@ use S2\Cms\Pdo\DbLayerException;
 
 class MigrationManager
 {
-    private const int S2_DB_LAST_REVISION = 25;
+    private const int S2_DB_LAST_REVISION = 26;
 
     public function __construct(
         private readonly DbLayer $dbLayer,
@@ -327,6 +327,10 @@ class MigrationManager
                     ->execute()
                 ;
             }
+        }
+
+        if ($currentRevision < 26) {
+            AntispamSchema::createPolicies($this->dbLayer);
         }
 
         $this->dbLayer->update('config')

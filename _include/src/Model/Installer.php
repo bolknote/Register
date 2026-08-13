@@ -18,7 +18,7 @@ use S2\Cms\Pdo\DbLayerException;
 
 readonly class Installer
 {
-    public const int DB_REVISION = 25;
+    public const int DB_REVISION = 26;
 
     public function __construct(private DbLayer $dbLayer)
     {

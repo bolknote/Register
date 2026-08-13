@@ -15,6 +15,7 @@ final readonly class SpamRateLimitResult
     public function __construct(
         public array $violations = [],
         public bool  $available = true,
+        public int   $retryAfter = 0,
     ) {
     }
 

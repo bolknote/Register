@@ -284,6 +284,7 @@ class Integration extends AbstractBrowserModule
             'disable_cache'      => false,
             'base_url'           => 'http://s2.localhost',
             'base_path'          => '',
+            'trusted_proxies'    => [],
             'url_prefix'         => '',
             'debug'              => false,
             'debug_view'         => false,

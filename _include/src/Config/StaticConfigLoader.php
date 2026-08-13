@@ -91,6 +91,7 @@ final class StaticConfigLoader
                 'base_url'   => $this->nullableString($http['base_url'] ?? null),
                 'base_path'  => $this->nullableString($http['base_path'] ?? null, ''),
                 'url_prefix' => $this->nullableString($http['url_prefix'] ?? null, ''),
+                'trusted_proxies' => $this->stringList($http['trusted_proxies'] ?? []),
             ],
             'options' => [
                 'force_admin_https' => $this->toBool($options['force_admin_https'] ?? false),
@@ -222,6 +223,7 @@ final class StaticConfigLoader
                         'base_url'   => \defined('S2_BASE_URL') ? (string)S2_BASE_URL : null,
                         'base_path'  => \defined('S2_PATH') ? (string)S2_PATH : '',
                         'url_prefix' => \defined('S2_URL_PREFIX') ? (string)S2_URL_PREFIX : '',
+                        'trusted_proxies' => [],
                     ],
                     'options' => [
                         'force_admin_https' => \defined('S2_FORCE_ADMIN_HTTPS'),
@@ -264,6 +266,37 @@ final class StaticConfigLoader
         }
 
         return $default;
+    }
+
+    /** @return list<string> */
+    private function stringList(mixed $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        if (\is_string($value)) {
+            $items = preg_split('/[\s,]+/', $value, -1, PREG_SPLIT_NO_EMPTY);
+            return $items === false ? [] : $items;
+        }
+
+        if (!\is_array($value)) {
+            throw new \InvalidArgumentException('Trusted proxies must be configured as an array or a comma-separated string.');
+        }
+
+        $result = [];
+        foreach ($value as $item) {
+            if (!\is_string($item)) {
+                throw new \InvalidArgumentException('Every trusted proxy must be a string containing an IP or CIDR.');
+            }
+
+            $item = trim($item);
+            if ($item !== '') {
+                $result[] = $item;
+            }
+        }
+
+        return $result;
     }
 
     private function toBool(mixed $value): bool

@@ -145,6 +145,7 @@ class AdminExtension implements ExtensionInterface
                 $container->get(ExtensionCache::class),
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
                 $container->get(CommentControllerFactory::class),
+                $container->get(\S2\Cms\Comment\Antispam\SpamMetricsRepository::class),
                 $dbType,
                 $dbPrefix,
                 ...$container->getByTag(AdminConfigExtenderInterface::class)

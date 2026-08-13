@@ -31,6 +31,14 @@ final class SpamDecisionTest extends Unit
         self::assertTrue($decision->shouldModerate(true));
     }
 
+    public function testHamVerdictDoesNotBypassPremoderationSetting(): void
+    {
+        $decision = new SpamDecision(SpamDetectorReport::ham(), false, false, false);
+
+        self::assertFalse($decision->shouldModerate(false));
+        self::assertTrue($decision->shouldModerate(true));
+    }
+
     public function testHighSoftRiskIsQuarantinedInsteadOfRejected(): void
     {
         $decision = new SpamDecision(SpamDetectorReport::blatant(hardReject: false), false, false, false);

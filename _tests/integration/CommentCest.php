@@ -51,6 +51,7 @@ class CommentCest
         ]);
 
         $I->seeResponseCodeIs(302);
+
         $comment = $dbLayer
             ->select('parent_id')
             ->from('art_comments')

@@ -252,6 +252,7 @@ function generate_config_file(
             'base_url'   => $baseUrl,
             'base_path'  => $path,
             'url_prefix' => $urlPrefix,
+            'trusted_proxies' => [],
         ],
         'options'  => [
             'force_admin_https' => $useHttps,
@@ -325,6 +326,7 @@ function installApplicationParameters(
         'log_dir'       => s2_get_default_cache_dir(),
         'base_url'      => $baseUrl,
         'base_path'     => $basePath,
+        'trusted_proxies' => [],
         'url_prefix'    => '',
         'debug'         => defined('S2_DEBUG'),
         'debug_view'    => defined('S2_DEBUG_VIEW'),

@@ -15,18 +15,11 @@ use S2\Cms\Pdo\DbLayerException;
 
 final readonly class SpamRateLimiter
 {
-    /** @var array<string, array{limit: int, window: int}> */
-    private const array POLICIES = [
-        'ip'      => ['limit' => 5, 'window' => 10 * 60],
-        'email'   => ['limit' => 4, 'window' => 10 * 60],
-        'visitor' => ['limit' => 5, 'window' => 10 * 60],
-        'text'    => ['limit' => 3, 'window' => 24 * 60 * 60],
-    ];
-
     public function __construct(
-        private DbLayer              $dbLayer,
-        private SpamIdentityHasher   $hasher,
-        private LoggerInterface      $logger,
+        private DbLayer                  $dbLayer,
+        private SpamIdentityHasher       $hasher,
+        private SpamRatePolicyRepository $policyRepository,
+        private LoggerInterface          $logger,
     ) {
     }
 
@@ -40,19 +33,30 @@ final readonly class SpamRateLimiter
         ];
 
         try {
-            $now        = time();
+            $policies = $this->policyRepository->getPolicies();
+            if ($policies === []) {
+                return new SpamRateLimitResult();
+            }
+
+            $now       = time();
+            $maxWindow = max(array_map(static fn(SpamRatePolicy $policy): int => $policy->windowSeconds, $policies));
+            $this->deleteOlderThan($now - $maxWindow);
+
             $violations = [];
-            foreach ($bucketKeys as $type => $bucketKey) {
-                $policy = self::POLICIES[$type];
+            $retryAfter = 0;
+            foreach ($policies as $type => $policy) {
+                $bucketKey = $bucketKeys[$type];
                 $this->record($type, $bucketKey, $now);
 
-                $count = $this->countSince($type, $bucketKey, $now - $policy['window']);
-                if ($count > $policy['limit']) {
+                $windowStart = $now - $policy->windowSeconds;
+                $stats = $this->statsSince($type, $bucketKey, $windowStart);
+                if ($stats['count'] > $policy->limit) {
                     $violations[] = $type;
+                    $retryAfter = max($retryAfter, $stats['oldest'] + $policy->windowSeconds - $now + 1);
                 }
             }
 
-            return new SpamRateLimitResult($violations);
+            return new SpamRateLimitResult($violations, retryAfter: max(0, $retryAfter));
         } catch (\Throwable $throwable) {
             $this->logger->error('Comment rate limiter failed.', ['exception' => $throwable]);
 
@@ -76,6 +80,19 @@ final readonly class SpamRateLimiter
     /**
      * @throws DbLayerException
      */
+    public function deleteExpired(int $now): int
+    {
+        $policies = $this->policyRepository->getPolicies();
+        $retention = $policies === []
+            ? 25 * 60 * 60
+            : max(array_map(static fn(SpamRatePolicy $policy): int => $policy->windowSeconds, $policies)) + 60 * 60;
+
+        return $this->deleteOlderThan($now - $retention);
+    }
+
+    /**
+     * @throws DbLayerException
+     */
     private function record(string $type, string $bucketKey, int $now): void
     {
         $this->dbLayer
@@ -90,16 +107,22 @@ final readonly class SpamRateLimiter
     /**
      * @throws DbLayerException
      */
-    private function countSince(string $type, string $bucketKey, int $timestamp): int
+    /** @return array{count: int, oldest: int} */
+    private function statsSince(string $type, string $bucketKey, int $timestamp): array
     {
-        return (int)$this->dbLayer
-            ->select('COUNT(*)')
+        $row = $this->dbLayer
+            ->select('COUNT(*) AS event_count', 'MIN(created_at) AS oldest_event')
             ->from('spam_rate_events')
             ->where('bucket_type = :bucket_type')->setParameter('bucket_type', $type)
             ->andWhere('bucket_key = :bucket_key')->setParameter('bucket_key', $bucketKey)
             ->andWhere('created_at >= :timestamp')->setParameter('timestamp', $timestamp)
             ->execute()
-            ->result()
+            ->fetchAssoc()
         ;
+
+        return [
+            'count'  => $row === false ? 0 : (int)$row['event_count'],
+            'oldest' => $row === false ? $timestamp : (int)$row['oldest_event'],
+        ];
     }
 }

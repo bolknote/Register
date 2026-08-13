@@ -90,6 +90,56 @@ final class AntispamSchema
                 ->addIndex('active_idx', ['enabled', 'expires_at'])
             ;
         });
+
+        self::createPolicies($dbLayer);
+    }
+
+    /**
+     * @throws DbLayerException
+     */
+    public static function createPolicies(DbLayer $dbLayer): void
+    {
+        $dbLayer->createTable('spam_signal_policies', function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('signal', 50, default: null)
+                ->addInteger('weight')
+                ->addBoolean('enabled', false, true)
+                ->setPrimaryKey(['signal'])
+            ;
+        });
+
+        $dbLayer->createTable('spam_rate_policies', function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('bucket_type', 20, default: null)
+                ->addInteger('request_limit', true)
+                ->addInteger('window_seconds', true)
+                ->addBoolean('enabled', false, true)
+                ->setPrimaryKey(['bucket_type'])
+            ;
+        });
+
+        foreach (SpamSignalPolicyRepository::DEFAULT_WEIGHTS as $signal => $weight) {
+            $dbLayer
+                ->insert('spam_signal_policies')
+                ->setValue('signal', ':signal')->setParameter('signal', $signal)
+                ->setValue('weight', ':weight')->setParameter('weight', $weight)
+                ->setValue('enabled', '1')
+                ->onConflictDoNothing('signal')
+                ->execute()
+            ;
+        }
+
+        foreach (SpamRatePolicyRepository::DEFAULT_POLICIES as $bucketType => $policy) {
+            $dbLayer
+                ->insert('spam_rate_policies')
+                ->setValue('bucket_type', ':bucket_type')->setParameter('bucket_type', $bucketType)
+                ->setValue('request_limit', ':request_limit')->setParameter('request_limit', $policy['limit'])
+                ->setValue('window_seconds', ':window_seconds')->setParameter('window_seconds', $policy['window'])
+                ->setValue('enabled', '1')
+                ->onConflictDoNothing('bucket_type')
+                ->execute()
+            ;
+        }
     }
 
     /**
@@ -97,6 +147,8 @@ final class AntispamSchema
      */
     public static function drop(DbLayer $dbLayer): void
     {
+        $dbLayer->dropTable('spam_rate_policies');
+        $dbLayer->dropTable('spam_signal_policies');
         $dbLayer->dropTable('spam_rules');
         $dbLayer->dropTable('spam_form_nonces');
         $dbLayer->dropTable('spam_rate_events');

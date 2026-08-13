@@ -99,7 +99,7 @@ class SpamDecisionCest
     protected function decisionProvider(): array
     {
         return [
-            // Ham, no markup, publishes immediately
+            // Ham without markup follows the global premoderation setting
             [
                 'text'              => $this->composeText(false, false),
                 'status'            => SpamDetectorReport::STATUS_HAM,
@@ -116,11 +116,11 @@ class SpamDecisionCest
                 'status'            => SpamDetectorReport::STATUS_HAM,
                 'premoderation'     => '1',
                 'expectErrorKey'    => null,
-                'expectCommentSent' => false,
-                'expectShown'       => 1,
+                'expectCommentSent' => true,
+                'expectShown'       => 0,
                 'expectMail'        => true,
                 'mailStatus'        => SpamDetectorReport::STATUS_HAM,
-                'mailPublished'     => true,
+                'mailPublished'     => false,
             ],
 
             // Ham with link → force moderation

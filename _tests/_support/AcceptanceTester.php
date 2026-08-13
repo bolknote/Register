@@ -60,7 +60,10 @@ class AcceptanceTester extends Actor
         file_put_contents($configFileName, '<?php return ' . \var_export($config, true) . ';');
     }
 
-    public function canWriteComment(bool $premoderation = false): void
+    public function canWriteComment(
+        bool $premoderation = false,
+        string $text = 'This is my first comment! 👪🐶',
+    ): void
     {
         $I = $this;
 
@@ -68,15 +71,15 @@ class AcceptanceTester extends Actor
         $I->fillField('name', $name);
         $I->fillField('email', 'roman@example.com');
         $I->checkOption('subscribed');
-        $I->fillField('text', 'This is my first comment! 👪🐶');
+        $I->fillField('text', $text);
         $I->click('submit');
 
         $I->seeResponseCodeIs(200);
         if ($premoderation) {
             $I->see('Your comment has been successfully sent. It will be published after the verification.');
         } else {
-            $I->see($name . ' wrote:');
-            $I->see('This is my first comment!');
+            $I->see($name, '.comment-name');
+            $I->see($text);
         }
     }
 

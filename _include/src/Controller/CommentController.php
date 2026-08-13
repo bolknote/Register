@@ -78,15 +78,19 @@ readonly class CommentController implements ControllerInterface
             $id = '';
         }
 
-        $requestedParentId = $request->request->filter(
-            'parent_id',
-            null,
-            \FILTER_VALIDATE_INT,
-            ['flags' => \FILTER_REQUIRE_SCALAR | \FILTER_NULL_ON_FAILURE],
+        $requestedParentId = filter_var(
+            $request->request->getString('parent_id'),
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]],
         );
-        $parentId          = \is_int($requestedParentId) && $requestedParentId > 0 ? $requestedParentId : null;
-        $replyNumber       = max(0, $request->request->getInt('reply_number'));
-        $replyName         = mb_substr(trim($request->request->getString('reply_name')), 0, 50);
+        $requestedReplyNumber = filter_var(
+            $request->request->getString('reply_number'),
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 0]],
+        );
+        $parentId    = \is_int($requestedParentId) ? $requestedParentId : null;
+        $replyNumber = \is_int($requestedReplyNumber) ? $requestedReplyNumber : 0;
+        $replyName   = mb_substr(trim($request->request->getString('reply_name')), 0, 50);
 
         $path = $request->getPathInfo();
         $isPreview = $request->request->get('preview') !== null;
@@ -96,6 +100,7 @@ readonly class CommentController implements ControllerInterface
          */
         $errors = [];
         $errorStatus = Response::HTTP_OK;
+        $retryAfter = 0;
         $forceModeration = false;
         $formValidation = null;
 
@@ -187,7 +192,11 @@ readonly class CommentController implements ControllerInterface
             return $template->toHttpResponse();
         }
 
-        if (\count($errors) === 0 && $formValidation instanceof CommentFormTokenValidation && $formValidation->visitorId !== null) {
+        if (
+            \count($errors) === 0
+            && $formValidation instanceof CommentFormTokenValidation
+            && $formValidation->visitorId !== null
+        ) {
             $rateLimit = $this->spamRateLimiter->consume(
                 (string)$request->getClientIp(),
                 $email,
@@ -197,6 +206,7 @@ readonly class CommentController implements ControllerInterface
             if ($rateLimit->isLimited()) {
                 $errors[]    = $this->translator->trans('spam_message_rejected');
                 $errorStatus = Response::HTTP_TOO_MANY_REQUESTS;
+                $retryAfter  = $rateLimit->retryAfter;
                 $this->logger->notice('Comment rate limit exceeded.', [
                     'path'       => $path,
                     'violations' => $rateLimit->violations,
@@ -279,7 +289,7 @@ readonly class CommentController implements ControllerInterface
             $response = $template->toHttpResponse();
             $response->setStatusCode($errorStatus);
             if ($errorStatus === Response::HTTP_TOO_MANY_REQUESTS) {
-                $response->headers->set('Retry-After', '600');
+                $response->headers->set('Retry-After', (string)max(1, $retryAfter));
             }
 
             return $response;

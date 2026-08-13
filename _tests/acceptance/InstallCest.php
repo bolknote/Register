@@ -422,7 +422,7 @@ class InstallCest
         $I->see('New Blog Post Title');
         $I->see('New blog post');
         $I->see('August 12, 2023');
-        $I->canWriteComment();
+        $I->canWriteComment(text: 'This is my first blog comment! 👪🐶');
 
         $I->amOnPage('/2023/08/12/new_post1');
         $I->seeResponseCodeIsClientError();
@@ -475,6 +475,7 @@ class InstallCest
         $I->dontSee('New Page Title');
 
         $I->amOnPage('/_admin/index.php?entity=Dashboard');
+
         $csrfToken = $I->grabValueFrom('input[name=register_search_csrf_token]');
         $I->sendAjaxGetRequest('/_admin/ajax.php?action=register_search_reindex');
         $I->seeResponseCodeIs(405);
@@ -563,6 +564,17 @@ class InstallCest
         ]);
         $I->seeResponseCodeIsSuccessful();
         $I->see('{"success":true}');
+
+        // This scenario intentionally posts many comments from one browser in a few seconds.
+        // Raise only the acceptance installation's configurable identity limits so that the
+        // test exercises comment moderation instead of tripping production rate defaults.
+        foreach (['ip', 'email', 'visitor'] as $bucketType) {
+            $I->amOnPage('/_admin/index.php?entity=SpamRatePolicy&action=edit&bucket_type=' . $bucketType);
+            $I->submitForm('form', [
+                'request_limit' => 1_000,
+            ]);
+            $I->seeResponseCodeIsSuccessful();
+        }
 
         $this->testComments($I, '/section1/new_page1', 'New Page Title', 'Some new page text', 3, 'Comment', 'article_id');
         $this->testComments($I, '/new_post1', 'New Blog Post Title', 'New blog post', $this->blogPostId, 'BlogComment', 'post_id');
@@ -668,7 +680,7 @@ class InstallCest
             'This is my first comment! 👪🐶' . "\r\n" .
             '----------------------------------------------------------------------' . "\r\n" .
             '' . "\r\n" .
-            '🔴 Comment has been hidden (report=disabled). Publish it if it is appropriate.' . "\r\n" .
+            'Hidden: the comment failed the check (report=ham). Publish it if it is appropriate.' . "\r\n" .
             '' . "\r\n" .
             'This e-mail has been sent automatically. If you reply, the author' . "\r\n" .
             'of the comment will receive your answer.' . "\r\n" .
@@ -685,7 +697,7 @@ class InstallCest
         $I->sendComment('Moderator', 'admin@example.com', 'This is a comment from a moderator.');
         $I->seeResponseCodeIs(200);
         $I->dontSee('Your comment has been successfully sent. It will be published after the verification.');
-        $I->see('Moderator wrote:');
+        $I->see('Moderator', '.comment-name');
         $I->see('This is a comment from a moderator.');
 
         // Email to subscribed user
@@ -737,7 +749,7 @@ class InstallCest
         $I->sendComment('Moderator2', 'admin@example.com', 'This is a comment from a moderator2.');
         $I->seeResponseCodeIs(200);
         $I->see('Your comment has been successfully sent. It will be published after the verification.');
-        $I->dontSee('Moderator2 wrote:');
+        $I->dontSee('Moderator2', '.comment-name');
         $I->dontSee('This is a comment from a moderator2.');
 
         $emails = $I->getEmails();
@@ -769,7 +781,7 @@ class InstallCest
             'This is a comment from a moderator2.' . "\r\n" .
             '----------------------------------------------------------------------' . "\r\n" .
             '' . "\r\n" .
-            '🔴 Comment has been hidden (report=unknown). Publish it if it is appropriate.' . "\r\n" .
+            'Hidden: the comment failed the check (report=unknown). Publish it if it is appropriate.' . "\r\n" .
             '' . "\r\n" .
             'This e-mail has been sent automatically. If you reply, the author' . "\r\n" .
             'of the comment will receive your answer.' . "\r\n" .
@@ -818,7 +830,7 @@ class InstallCest
         $unsubscribeLink = $matches[1];
 
         $I->amOnPage($publicUrl);
-        $I->see('Moderator2 wrote:');
+        $I->see('Moderator2', '.comment-name');
         $I->see('This is a comment from a moderator2.');
 
 
@@ -829,7 +841,7 @@ class InstallCest
         $I->uncheckOption('form[action="?entity=' . $commentEntity . '&action=patch&field=shown&id=4"] input[name="shown"]');
         $I->submitForm('form[action="?entity=' . $commentEntity . '&action=patch&field=shown&id=4"]', []);
         $I->amOnPage($publicUrl);
-        $I->dontSee('Moderator2 wrote:');
+        $I->dontSee('Moderator2', '.comment-name');
         $I->dontSee('This is a comment from a moderator2.');
 
         /**
@@ -841,7 +853,7 @@ class InstallCest
             'shown' => 'on',
         ]);
         $I->amOnPage($publicUrl);
-        $I->see('Moderator2 wrote:');
+        $I->see('Moderator2', '.comment-name');
         $I->see('This is a comment from a moderator2.');
         $I->assertCount(0, $I->getEmails());
 
@@ -863,7 +875,7 @@ class InstallCest
         $I->amOnPage($publicUrl);
         $I->setCookie($this->getCookieName() . '_c', $commentCookie);
         $I->sendComment('Moderator3', 'admin@example.com', 'This is a comment from a moderator3.');
-        $I->see('Moderator3 wrote:');
+        $I->see('Moderator3', '.comment-name');
         $I->see('This is a comment from a moderator3.');
         $I->assertCount(0, $I->getEmails());
 
@@ -880,7 +892,7 @@ class InstallCest
         $csrfToken = substr($onClickHandler, $tokenPosition + 11, 40);
         $I->sendAjaxPostRequest('/_admin/index.php?entity=' . $commentEntity . '&action=delete&id=5', ['csrf_token' => $csrfToken]);
         $I->amOnPage($publicUrl);
-        $I->dontSee('Moderator3 wrote:');
+        $I->dontSee('Moderator3', '.comment-name');
         $I->dontSee('This is a comment from a moderator3.');
     }
 

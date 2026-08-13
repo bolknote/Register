@@ -20,6 +20,8 @@ final readonly class LocalSpamDetector implements SpamDetectorInterface
     public function __construct(
         private SpamRiskScorer           $scorer,
         private SpamAssessmentRepository $assessmentRepository,
+        private SpamIdentityHasher       $hasher,
+        private SpamFeatureExtractor     $featureExtractor,
         private LoggerInterface          $logger,
         private IntProxy                 $spamThreshold,
         private IntProxy                 $blatantThreshold,
@@ -56,7 +58,30 @@ final readonly class LocalSpamDetector implements SpamDetectorInterface
         } catch (\Throwable $throwable) {
             $this->logger->error('Local spam assessment failed.', ['exception' => $throwable]);
 
-            return SpamDetectorReport::failed();
+            $assessmentId = null;
+            try {
+                $assessment = new SpamAssessment(
+                    0,
+                    ['engine_failure' => 0],
+                    $this->hasher->text($comment->text),
+                    $this->hasher->email($comment->email),
+                    $this->hasher->ip($clientIp),
+                    array_map(
+                        $this->hasher->domain(...),
+                        $this->featureExtractor->domains($comment->text),
+                    ),
+                );
+                $assessmentId = $this->assessmentRepository->save(
+                    $assessment,
+                    SpamDetectorReport::STATUS_FAILED,
+                );
+            } catch (\Throwable $auditThrowable) {
+                $this->logger->error('Unable to audit the local spam assessment failure.', [
+                    'exception' => $auditThrowable,
+                ]);
+            }
+
+            return SpamDetectorReport::failed($assessmentId);
         }
     }
 }

@@ -42,8 +42,8 @@ readonly class SpamDecision
 
         return match ($this->report->status) {
             SpamDetectorReport::STATUS_FAILED => true,
-            SpamDetectorReport::STATUS_DISABLED => $premoderationEnabled,
-            SpamDetectorReport::STATUS_HAM => false,
+            SpamDetectorReport::STATUS_DISABLED,
+            SpamDetectorReport::STATUS_HAM => $premoderationEnabled,
             default => true,
         };
     }

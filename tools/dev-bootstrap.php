@@ -87,6 +87,7 @@ $config = [
         'base_url'   => $baseUrl,
         'base_path'  => '',
         'url_prefix' => '',
+        'trusted_proxies' => [],
     ],
     'options' => [
         'force_admin_https' => false,
@@ -173,6 +174,7 @@ $application->boot([
     'log_dir'            => $rootDir . '/_cache/local/',
     'base_url'           => $baseUrl,
     'base_path'          => '',
+    'trusted_proxies'    => $config['http']['trusted_proxies'],
     'url_prefix'         => '',
     'disable_cache'      => false,
     'debug'              => true,
