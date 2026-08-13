@@ -19,8 +19,8 @@ Register has two module tiers.
 
 **Base modules** form the product. Content/Blog, permanent Pages, Comments, Tags, Search,
 Typography, Analytics, Math, and Admin are present in every installation. They are loaded in a
-deterministic order, upgraded with Register, and cannot be disabled or uninstalled. The transitional
-extension-packaged base modules are identified by `Register\Module\BaseModuleRegistry`.
+deterministic order, upgraded with Register, and cannot be disabled or uninstalled. They are
+identified by `Register\Module\BaseModuleRegistry` and live outside the optional-module directory.
 
 **Optional modules** add integrations and specialized behavior. They may be discovered, installed,
 enabled, disabled, and upgraded independently. Disabling an optional module preserves its data;
@@ -46,5 +46,5 @@ that is reusable without Register's blog domain.
   absorbs and removes inherited base-module rows from the optional-module registry.
 - Optional modules integrate through public Register contracts and events rather than querying base
   module tables directly.
-- Existing extension class names and directories remain transitional until base modules are moved
-  into `Register\*` namespaces.
+- Base-module code and resources live in `Register\*` namespaces; `_extensions` is reserved for the
+  optional lifecycle.

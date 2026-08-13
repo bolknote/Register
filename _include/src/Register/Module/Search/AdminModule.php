@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Search;
 
 use Psr\Log\LoggerInterface;
+use Register\Content\ContentId;
 use S2\AdminYard\SettingStorage\SettingStorageInterface;
 use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
@@ -32,6 +33,7 @@ use Register\Module\Search\Admin\IndexManager;
 use Register\Module\Search\Admin\ReindexToken;
 use Register\Module\Search\Admin\TranslationProvider;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
+use Register\Module\Search\Service\ContentIndexer;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -71,8 +73,17 @@ final class AdminModule implements ModuleInterface
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(VisibleEntityChangedEvent::class, function (VisibleEntityChangedEvent $event) use ($container): void {
+            $contentId = match ($event->entityName) {
+                'Article' => ContentId::page($event->entityId),
+                'BlogPost' => ContentId::post($event->entityId),
+                default => null,
+            };
+            if (!$contentId instanceof ContentId) {
+                return;
+            }
+
             $queuePublisher = $container->get(QueuePublisher::class);
-            $queuePublisher->publish((string)$event->entityId, 's2_search_' . $event->entityName);
+            $queuePublisher->publish((string)$contentId, ContentIndexer::QUEUE_CODE);
         });
 
         $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event): void {

@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
+use Register\Content\ContentId;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Model\ArticleProvider;
@@ -27,6 +28,7 @@ use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Search\Service\RecommendationProvider;
+use Register\Module\Search\Service\SearchDocumentFactory;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -245,7 +247,10 @@ class PostPageController extends BlogController
 
         if ($this->recommendationProvider instanceof RecommendationProvider && $template->hasPlaceholder('<!-- s2_recommendations -->')) {
             $request_uri = $request->getPathInfo();
-            [$recommendations, $log, $rawRecommendations] = $this->recommendationProvider->getRecommendations($request_uri, new ExternalId('s2_blog_' . $post_id));
+            [$recommendations, $log, $rawRecommendations] = $this->recommendationProvider->getRecommendations(
+                $request_uri,
+                new ExternalId(SearchDocumentFactory::externalId(ContentId::post((int)$post_id))),
+            );
             $template->putInPlaceholder('recommendations', $this->viewer->render('recommendations', [
                 'raw'     => $rawRecommendations,
                 'content' => $recommendations,

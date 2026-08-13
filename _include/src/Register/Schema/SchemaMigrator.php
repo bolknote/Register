@@ -25,7 +25,7 @@ final readonly class SchemaMigrator
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_REVISION';
 
-    public const int LATEST_REVISION = 4;
+    public const int LATEST_REVISION = 5;
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -139,6 +139,12 @@ final readonly class SchemaMigrator
         // advancing the ledger invalidates compiled routes that contain controller class names.
     }
 
+    private function migrateToRevisionFive(): void
+    {
+        // Search now uses canonical page:<id> and post:<id> content identifiers. The application
+        // rebuilds the index after every product migration, removing inherited identifiers.
+    }
+
     /** @return array<int, \Closure(): void> */
     private function migrations(): array
     {
@@ -154,6 +160,9 @@ final readonly class SchemaMigrator
             },
             4 => function (): void {
                 $this->migrateToRevisionFour();
+            },
+            5 => function (): void {
+                $this->migrateToRevisionFive();
             },
         ];
     }

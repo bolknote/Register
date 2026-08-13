@@ -9,6 +9,9 @@ declare(strict_types = 1);
 
 namespace Register;
 
+use Register\Content\ContentRepository;
+use Register\Content\ContentSourceInterface;
+use Register\Content\PageContentSource;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Schema\SchemaMigrator;
@@ -18,6 +21,7 @@ use Register\Url\SlugGenerator;
 use Register\Url\UniqueSlugGenerator;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ModuleInterface;
+use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\RouteCollection;
@@ -35,6 +39,13 @@ readonly class ProductModule implements ModuleInterface
     public function buildContainer(Container $container): void
     {
         $container->set(BaseModuleRegistry::class, $this->baseModuleRegistry);
+        $container->set(PageContentSource::class, static fn(Container $container): PageContentSource => new PageContentSource(
+            $container->get(DbLayer::class),
+            $container->get(ArticleProvider::class),
+        ), [ContentSourceInterface::class]);
+        $container->set(ContentRepository::class, static fn(Container $container): ContentRepository => new ContentRepository(
+            ...$container->getByTag(ContentSourceInterface::class),
+        ));
         $container->set(
             BaseModuleInstaller::class,
             fn(Container $container): BaseModuleInstaller => new BaseModuleInstaller(

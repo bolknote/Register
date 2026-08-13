@@ -11,6 +11,8 @@ namespace Register\Module\Search;
 
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
+use Register\Content\ContentId;
+use Register\Content\ContentRepository;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\Container;
@@ -39,10 +41,10 @@ use S2\Rose\Storage\Database\PdoStorage;
 use Register\Module\Search\Controller\SearchPageController;
 use Register\Module\Search\Layout\LayoutMatcherFactory;
 use Register\Module\Search\Rose\CustomExtractor;
-use Register\Module\Search\Service\ArticleIndexer;
-use Register\Module\Search\Service\ArticleBulkIndexingProvider;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
+use Register\Module\Search\Service\ContentIndexer;
 use Register\Module\Search\Service\RecommendationProvider;
+use Register\Module\Search\Service\SearchDocumentFactory;
 use Register\Module\Search\Service\SimilarWordsDetector;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -85,21 +87,14 @@ final class Module implements ModuleInterface
             $container->get(LoggerInterface::class),
         ));
 
-        $container->set(ArticleIndexer::class, static fn(Container $container): ArticleIndexer => new ArticleIndexer(
-            $container->get(DbLayer::class),
-            $container->get(ArticleProvider::class),
+        $container->set(SearchDocumentFactory::class, new SearchDocumentFactory());
+        $container->set(ContentIndexer::class, static fn(Container $container): ContentIndexer => new ContentIndexer(
+            $container->get(ContentRepository::class),
+            $container->get(SearchDocumentFactory::class),
             $container->get(Indexer::class),
             $container->get('recommendations_cache'),
             $container->get(QueuePublisher::class),
-        ), [QueueHandlerInterface::class]);
-
-        $container->set(
-            ArticleBulkIndexingProvider::class,
-            static fn(Container $container): ArticleBulkIndexingProvider => new ArticleBulkIndexingProvider(
-                $container->get(DbLayer::class),
-            ),
-            [BulkIndexingProviderInterface::class],
-        );
+        ), [QueueHandlerInterface::class, BulkIndexingProviderInterface::class]);
 
         $container->set(SearchIndexRebuilder::class, static fn(Container $container): SearchIndexRebuilder => new SearchIndexRebuilder(
             $container->get(PdoStorage::class),
@@ -207,7 +202,10 @@ final class Module implements ModuleInterface
                 $recommendationProvider = $container->get(RecommendationProvider::class);
                 $requestStack = $container->get(RequestStack::class);
                 $request_uri  = $requestStack->getCurrentRequest()?->getPathInfo() ?? '/';
-                [$recommendations, $log, $rawRecommendations] = $recommendationProvider->getRecommendations($request_uri, new ExternalId($event->articleId));
+                [$recommendations, $log, $rawRecommendations] = $recommendationProvider->getRecommendations(
+                    $request_uri,
+                    new ExternalId(SearchDocumentFactory::externalId(ContentId::page($event->articleId))),
+                );
 
                 $viewer = $container->get(Viewer::class);
 

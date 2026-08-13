@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace Register\Module\Blog;
 
 use Psr\Log\LoggerInterface;
+use Register\Content\ContentSourceInterface;
+use Register\Module\Blog\Content\BlogContentSource;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Comment\SpamDecisionProviderInterface;
 use S2\Cms\Config\DynamicConfigProvider;
@@ -27,13 +29,10 @@ use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Model\User\UserProvider;
 use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplateEvent;
 use S2\Cms\Template\Viewer;
-use S2\Rose\Indexer;
 use Register\Module\Blog\Controller\DayPageController;
 use Register\Module\Blog\Controller\FavoritePageController;
 use Register\Module\Blog\Controller\FlatCommentController;
@@ -50,10 +49,8 @@ use Register\Module\Blog\Model\BlogCommentStrategy;
 use Register\Module\Blog\Model\BlogPlaceholderProvider;
 use Register\Module\Blog\Model\BlogRssStrategy;
 use Register\Module\Blog\Model\PostProvider;
-use Register\Module\Blog\Service\PostIndexer;
 use Register\Module\Blog\Service\TagsSearchProvider;
 use Register\Module\Search\Event\TagsSearchEvent;
-use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SimilarWordsDetector;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -79,6 +76,10 @@ final class Module implements ModuleInterface
                 $provider->getStringProxy('S2_BLOG_URL'),
             );
         }, [StatefulServiceInterface::class]);
+        $container->set(BlogContentSource::class, static fn(Container $container): BlogContentSource => new BlogContentSource(
+            $container->get(DbLayer::class),
+            $container->get(BlogUrlBuilder::class),
+        ), [ContentSourceInterface::class]);
         $container->set('register_blog_translator', static function (Container $container) {
             /** @var ExtensibleTranslator $translator */
             $translator = $container->get('translator');
@@ -328,14 +329,6 @@ final class Module implements ModuleInterface
             $container->get(BlogUrlBuilder::class),
             $container->get(CommentMailer::class),
         ));
-
-        $container->set(PostIndexer::class, static fn(Container $container): \Register\Module\Blog\Service\PostIndexer => new PostIndexer(
-            $container->get(DbLayer::class),
-            $container->get(BlogUrlBuilder::class),
-            $container->getIfDefined(Indexer::class),
-            $container->getIfDefined('recommendations_cache'),
-            $container->get(QueuePublisher::class),
-        ), [QueueHandlerInterface::class, BulkIndexingProviderInterface::class]);
 
         $container->set(TagsSearchProvider::class, static fn(Container $container): \Register\Module\Blog\Service\TagsSearchProvider => new TagsSearchProvider(
             $container->get(DbLayer::class),

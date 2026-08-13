@@ -43,9 +43,9 @@ Base modules form every Register installation and cannot be disabled or uninstal
 - Math;
 - Admin.
 
-Some of these concerns currently live in S2 core and others still live under `_extensions`. This is
-a transitional layout. Base product code will move into `Register\*` namespaces. All base schemas
-already use the integer `REGISTER_SCHEMA_REVISION` ledger managed by
+All feature modules live under `Register\Module`; `_extensions` is reserved for optional modules.
+Some inherited page and administration infrastructure still lives in `S2\Cms` and moves only when a
+Register-owned replacement exists. All base schemas use the integer `REGISTER_SCHEMA_REVISION` ledger managed by
 [`SchemaMigrator`](../_include/src/Register/Schema/SchemaMigrator.php); manifest versions are only
 transitional metadata and are not product migration state.
 
@@ -65,10 +65,13 @@ a supported integration boundary.
 
 ## Search lifecycle
 
-Search is initialized with the product schema and a fresh installation synchronously indexes its
-welcome post and starter pages before reporting success. Adopting a pre-ledger database also rebuilds
-the index after its base-schema migration. Later editorial changes publish small indexing jobs to the
-shared queue; the control-panel rebuild remains repair tooling rather than an installation step.
+Search consumes the storage-independent [`ContentRepository`](../_include/src/Register/Content/ContentRepository.php)
+rather than querying post and page tables itself. Published posts and pages are represented by one
+`ContentItem` contract and have typed `post:<id>` and `page:<id>` identities. A fresh installation
+synchronously indexes its welcome post and starter pages before reporting success. Product
+migrations that change the search identity or storage rebuild the index. Later editorial changes
+publish `register_content_index` jobs to the shared queue; the control-panel rebuild remains repair
+tooling rather than an installation step.
 
 ## Configuration
 
@@ -90,16 +93,20 @@ Controllers implement
 [`ControllerInterface`](../_include/src/Framework/ControllerInterface.php), receive a matched request,
 and return a response. Route matching decides which controller runs.
 
-Page templates define the large-scale HTML structure. Views render individual blocks. During the
-namespace transition, lookup still supports `_include`, themes, and `_extensions`; base-module
-resources will move to Register-owned resource directories while optional-module resource lookup
-remains isolated.
+Page templates define the large-scale HTML structure. Views render individual blocks. Themes can
+override presentation, base-module resources are resolved from their `resources` directories by
+module class, and optional-module resource lookup remains isolated by validated module identifier.
 
 ## Content and URL direction
 
 Posts are the primary content type and pages are a secondary permanent content type. They will share
 publication, revision, author, comment, tag, search, feed, and sitemap infrastructure while retaining
 type-specific policies such as page hierarchy.
+
+The first unification layer is deliberately storage-independent: `ContentRepository` aggregates a
+page source and a blog-post source behind typed IDs and a normalized published-content shape. Search
+already uses this contract. The inherited `articles` and `s2_blog_posts` tables remain temporary
+adapters until their write paths, comments, and tags are migrated without a flag day.
 
 The blog lives at `/`. Post permalinks are `/<slug>`; publication dates belong to archive navigation,
 not post addresses. One canonical URL service must be used by public rendering, the control panel,

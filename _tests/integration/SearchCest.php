@@ -9,6 +9,11 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentId;
+use Register\Content\ContentItem;
+use Register\Content\ContentRepository;
+use Register\Module\Search\Service\ContentIndexer;
+use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Queue\QueueConsumer;
 
 /**
@@ -72,6 +77,31 @@ class SearchCest
         $I->see('"urlStatus":"ok"');
         $I->see('"urlTitle":""');
         $I->see('"revision":"2"');
+
+        /** @var ContentRepository $contentRepository */
+        $contentRepository = $I->grabService(ContentRepository::class);
+        $post              = $contentRepository->find(ContentId::post((int)$postId));
+        $mainPage          = $contentRepository->find(ContentId::page(1));
+        if (!$post instanceof ContentItem || !$mainPage instanceof ContentItem) {
+            throw new \RuntimeException('The unified content repository did not expose the created post and main page.');
+        }
+
+        $I->assertSame('New Blog Post Title', $post->title);
+        $I->assertSame('/new_post1', $post->path);
+        $I->assertSame('Main page', $mainPage->title);
+        $I->assertSame('/', $mainPage->path);
+
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $queued  = $dbLayer
+            ->select('COUNT(*)')
+            ->from('queue')
+            ->where('id = :id')->setParameter('id', (string)ContentId::post((int)$postId))
+            ->andWhere('code = :code')->setParameter('code', ContentIndexer::QUEUE_CODE)
+            ->execute()
+            ->result()
+        ;
+        $I->assertSame(1, (int)$queued);
 
         // Reopen the edit form in the admin panel
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId);
