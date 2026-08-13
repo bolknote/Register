@@ -69,13 +69,6 @@ class AcceptanceTester extends Actor
         $I->fillField('email', 'roman@example.com');
         $I->checkOption('subscribed');
         $I->fillField('text', 'This is my first comment! 👪🐶');
-
-        $text = $I->grabTextFrom('p#qsp');
-        if (preg_match('#(\d\d)\+(\d)#', $text, $matches) !== 1) {
-            throw new RuntimeException('The anti-spam question has an unexpected format.');
-        }
-
-        $I->fillField('question', (int)$matches[1] + (int)$matches[2]);
         $I->click('submit');
 
         $I->seeResponseCodeIs(200);
@@ -94,13 +87,6 @@ class AcceptanceTester extends Actor
         $I->fillField('name', $name);
         $I->fillField('email', $email);
         $I->fillField('text', $text);
-
-        $text = $I->grabTextFrom('p#qsp');
-        if (preg_match('#(\d\d)\+(\d)#', $text, $matches) !== 1) {
-            throw new RuntimeException('The anti-spam question has an unexpected format.');
-        }
-
-        $I->fillField('question', (int)$matches[1] + (int)$matches[2]);
         $I->click('submit');
     }
 

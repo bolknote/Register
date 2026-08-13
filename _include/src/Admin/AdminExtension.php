@@ -23,6 +23,7 @@ use S2\Cms\Admin\Dashboard\DashboardConfigExtender;
 use S2\Cms\Admin\Dashboard\DashboardDatabaseProvider;
 use S2\Cms\Admin\Dashboard\DashboardEnvironmentProvider;
 use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
+use S2\Cms\Admin\Controller\CommentControllerFactory;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Admin\Picture\PictureFileNameHelper;
 use S2\Cms\Admin\Picture\PictureManager;
@@ -33,6 +34,7 @@ use S2\Cms\AdminYard\Form\CustomFormControlFactory;
 use S2\Cms\AdminYard\Signal;
 use S2\Cms\AdminYard\UserSettingStorage;
 use S2\Cms\Config\DynamicConfigProvider;
+use S2\Cms\Comment\Antispam\SpamFeedbackService;
 use S2\Cms\Extensions\ExtensionManager;
 use S2\Cms\Extensions\ExtensionManagerAdapter;
 use S2\Cms\Framework\Container;
@@ -142,11 +144,16 @@ class AdminExtension implements ExtensionInterface
                 $container->get(CommentNotifier::class),
                 $container->get(ExtensionCache::class),
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+                $container->get(CommentControllerFactory::class),
                 $dbType,
                 $dbPrefix,
                 ...$container->getByTag(AdminConfigExtenderInterface::class)
             );
         }, [StatefulServiceInterface::class]);
+
+        $container->set(CommentControllerFactory::class, fn(Container $container): \S2\Cms\Admin\Controller\CommentControllerFactory => new CommentControllerFactory(
+            $container->get(SpamFeedbackService::class),
+        ));
 
         $container->set(AdminPanelFactory::class, fn(Container $container): \S2\Cms\Admin\AdminPanelFactory => new AdminPanelFactory($container));
 

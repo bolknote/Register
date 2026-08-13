@@ -99,6 +99,9 @@ $config = [
     'cookies' => [
         'name' => 's2_local_' . substr(hash('sha256', $rootDir), 0, 16),
     ],
+    'security' => [
+        'antispam_secret' => hash('sha256', 'register-local-antispam:' . $rootDir),
+    ],
 ];
 
 $configContent = "<?php\n\ndeclare(strict_types = 1);\n\nreturn " . var_export($config, true) . ";\n";
@@ -133,7 +136,12 @@ if ($isNew) {
         ;
         $adminUserId = (int)$dbLayer->insertId();
 
-        $installer->insertConfigData('Register', 'admin@example.test', 'English', Installer::DB_REVISION);
+        $installer->insertConfigData(
+            'Register',
+            'admin@example.test',
+            'English',
+            Installer::DB_REVISION,
+        );
         $moduleContainer = new Container(['db_prefix' => '']);
         $moduleContainer->set(\PDO::class, $pdo);
         $baseModuleRegistry = new BaseModuleRegistry();
@@ -175,6 +183,7 @@ $application->boot([
     'version'            => '2.0dev',
     'redirect_map'       => [],
     'cookie_name'        => $config['cookies']['name'],
+    'antispam_secret'    => $config['security']['antispam_secret'],
     'db_type'            => $config['database']['type'],
     'db_host'            => $config['database']['host'],
     'db_name'            => $config['database']['name'],

@@ -202,8 +202,13 @@ function generate_config_file(
     string $dbPrefix,
     string $baseUrl,
     string $cookieName,
+    ?string $antispamSecret = null,
 ): string
 {
+    if ($antispamSecret === null || \strlen($antispamSecret) < 32) {
+        $antispamSecret = bin2hex(random_bytes(32));
+    }
+
     $urlPrefix = '';
     foreach (['', '/?', '/index.php', '/index.php?'] as $prefix) {
         $urlPrefix = $prefix;
@@ -257,6 +262,9 @@ function generate_config_file(
         ],
         'cookies'  => [
             'name' => $cookieName,
+        ],
+        'security' => [
+            'antispam_secret' => $antispamSecret,
         ],
     ];
 
@@ -419,6 +427,7 @@ if (isset($_POST['generate_config'])) {
         installPostString('db_prefix'),
         installPostString('base_url'),
         installPostString('cookie_name'),
+        installPostString('antispam_secret'),
     );
     exit;
 }
@@ -881,7 +890,13 @@ $s2_db
 ;
 $admin_uid = $s2_db->insertId();
 
-$installer->insertConfigData($lang_install['Site name'], $email, $default_lang, Installer::DB_REVISION);
+$antispamSecret = bin2hex(random_bytes(32));
+$installer->insertConfigData(
+    $lang_install['Site name'],
+    $email,
+    $default_lang,
+    Installer::DB_REVISION,
+);
 
 $app->container->get(SchemaMigrator::class)->migrate();
 
@@ -955,6 +970,7 @@ $config = generate_config_file(
     $db_prefix,
     $base_url,
     $s2_cookie_name,
+    $antispamSecret,
 );
 
 // Attempt to write config.php and serve it up for download if writing fails
@@ -1017,6 +1033,7 @@ if (is_writable(S2_ROOT)) {
             <input type="hidden" name="db_prefix" value="<?php echo s2_htmlencode($db_prefix); ?>"/>
             <input type="hidden" name="base_url" value="<?php echo s2_htmlencode($base_url); ?>"/>
             <input type="hidden" name="cookie_name" value="<?php echo s2_htmlencode($s2_cookie_name); ?>"/>
+            <input type="hidden" name="antispam_secret" value="<?php echo s2_htmlencode($antispamSecret); ?>"/>
             <div class="button-wrapper"><input type="submit" value="<?php echo $lang_install['Download config'] ?>"/>
             </div>
         </form>

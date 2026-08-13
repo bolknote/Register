@@ -21,6 +21,12 @@ use S2\Cms\Pdo\DbLayerException;
 
 readonly class ArticleCommentStrategy implements CommentStrategyInterface
 {
+    #[\Override]
+    public function getAntispamTargetType(): string
+    {
+        return 'article';
+    }
+
     public function __construct(
         private DbLayer         $dbLayer,
         private ArticleProvider $articleProvider,

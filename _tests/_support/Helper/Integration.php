@@ -15,6 +15,7 @@ use Register\RegisterKernel;
 use Register\Schema\SchemaMigrator;
 use S2\Cms\Admin\AdminAjaxRequestHandler;
 use S2\Cms\Admin\AdminRequestHandler;
+use S2\Cms\Comment\Antispam\CommentFormTokenManager;
 use S2\Cms\Comment\SpamDetectorComment;
 use S2\Cms\Comment\SpamDetectorInterface;
 use S2\Cms\Comment\SpamDetectorReport;
@@ -64,6 +65,11 @@ class Integration extends AbstractBrowserModule
     private array $moderatorMails = [];
 
     /**
+     * @var mixed[][]
+     */
+    private array $subscriberMails = [];
+
+    /**
      * @throws ContainerExceptionInterface
      * @throws DbLayerException
      * @throws NotFoundExceptionInterface
@@ -104,6 +110,7 @@ class Integration extends AbstractBrowserModule
         $this->session->clear();
         $this->spamResponses  = [];
         $this->moderatorMails = [];
+        $this->subscriberMails = [];
     }
 
     public function _after(TestInterface $test): void
@@ -164,6 +171,18 @@ class Integration extends AbstractBrowserModule
         $this->doRequest(Request::create($url, Request::METHOD_GET, server: $server));
     }
 
+    /** @param array<string, mixed> $postData */
+    public function sendPostWithAntispamVisitor(string $url, array $postData, string $visitorToken): void
+    {
+        $request = Request::create($url, Request::METHOD_POST, $postData);
+        $manager = $this->publicApplication->container->get(CommentFormTokenManager::class);
+        $cookie  = $manager->createVisitorCookie($visitorToken, $request);
+        $cookieJar = $this->cookieJar ?? throw new \LogicException('The test cookie jar is not initialized.');
+        $cookieJar->updateFromSetCookie([(string)$cookie], $url);
+
+        $this->doRequest($request);
+    }
+
     public function grabAdminService(string $serviceName): mixed
     {
         return $this->adminApplication->container->get($serviceName);
@@ -183,6 +202,14 @@ class Integration extends AbstractBrowserModule
         return $this->moderatorMails;
     }
 
+    /**
+     * @return mixed[][]
+     */
+    public function grabSubscriberMails(): array
+    {
+        return $this->subscriberMails;
+    }
+
     public function shiftSpamResponse(): string
     {
         return array_shift($this->spamResponses) ?? SpamDetectorReport::STATUS_HAM;
@@ -192,6 +219,12 @@ class Integration extends AbstractBrowserModule
     public function recordModeratorMail(array $mail): void
     {
         $this->moderatorMails[] = $mail;
+    }
+
+    /** @param array<string, mixed> $mail */
+    public function recordSubscriberMail(array $mail): void
+    {
+        $this->subscriberMails[] = $mail;
     }
 
     /**
@@ -262,6 +295,7 @@ class Integration extends AbstractBrowserModule
             'canonical_url'      => null,
 
             'cookie_name'       => 's2_cookie_904732485',
+            'antispam_secret'   => str_repeat('ab', 32),
             'force_admin_https' => true,
             'db_host'           => '127.0.0.1',
             'db_name'           => 's2_test',
@@ -294,6 +328,14 @@ class Integration extends AbstractBrowserModule
             /** @var AdminAjaxRequestHandler $handler */
             $handler = $this->adminApplication->container->get(AdminAjaxRequestHandler::class);
             return $handler->handle($request);
+        }
+
+        if ($request->isMethod(Request::METHOD_POST) && !$request->request->has('antispam_token')) {
+            $tokenManager = $this->publicApplication->container->get(CommentFormTokenManager::class);
+            $visitorToken = $tokenManager->getOrCreateVisitorToken($request);
+            $request->request->set('antispam_token', $tokenManager->issue($request->getPathInfo(), $visitorToken, time() - 5));
+            $visitorCookie = $tokenManager->createVisitorCookie($visitorToken, $request);
+            $request->cookies->set($visitorCookie->getName(), $visitorToken);
         }
 
         return $this->publicApplication->handle($request);
@@ -447,6 +489,16 @@ readonly class IntegrationCommentMailer extends \S2\Cms\Mail\CommentMailer
         string $authorName,
         string $unsubscribeLink
     ): bool {
+        $this->helper->recordSubscriberMail([
+            'subscriberName'  => $subscriberName,
+            'subscriberEmail' => $subscriberEmail,
+            'text'            => $text,
+            'title'           => $title,
+            'url'             => $url,
+            'authorName'      => $authorName,
+            'unsubscribeLink' => $unsubscribeLink,
+        ]);
+
         return true;
     }
 }

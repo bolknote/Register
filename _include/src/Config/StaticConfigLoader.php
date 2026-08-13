@@ -66,6 +66,7 @@ final class StaticConfigLoader
         $options   = $config['options'] ?? [];
         $files     = $config['files'] ?? [];
         $cookies   = $config['cookies'] ?? [];
+        $security  = $config['security'] ?? [];
         $redirects = $config['redirects'] ?? [];
 
         $normalizeDir = static function (?string $dir): ?string {
@@ -107,6 +108,9 @@ final class StaticConfigLoader
             ],
             'cookies' => [
                 'name' => $this->nullableString($cookies['name'] ?? null, self::DEFAULT_COOKIE_NAME),
+            ],
+            'security' => [
+                'antispam_secret' => $this->nullableString($security['antispam_secret'] ?? null),
             ],
             'redirects' => \is_array($redirects) ? $redirects : [],
         ];
@@ -235,6 +239,9 @@ final class StaticConfigLoader
                     ],
                     'cookies' => [
                         'name' => \is_string($legacyCookieName) && $legacyCookieName !== '' ? $legacyCookieName : self::DEFAULT_COOKIE_NAME,
+                    ],
+                    'security' => [
+                        'antispam_secret' => null,
                     ],
                     'redirects' => \is_array($legacyRedirects) ? $legacyRedirects : [],
                 ],

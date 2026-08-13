@@ -31,7 +31,7 @@ use S2\AdminYard\Translator;
 use S2\AdminYard\Validator\Length;
 use S2\AdminYard\Validator\NotBlank;
 use S2\AdminYard\Validator\Regex;
-use S2\Cms\Admin\Controller\CommentController;
+use S2\Cms\Admin\Controller\CommentControllerFactory;
 use S2\Cms\Admin\Event\VisibleEntityChangedEvent;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\DynamicConfigProvider;
@@ -68,6 +68,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly CommentNotifier          $commentNotifier,
         private readonly ExtensionCache           $extensionCache,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly CommentControllerFactory $commentControllerFactory,
         private readonly string                   $dbType,
         private readonly string                   $dbPrefix,
         AdminConfigExtenderInterface              ...$adminConfigExtenders
@@ -177,6 +178,33 @@ class AdminConfigProvider implements StatefulServiceInterface
                 inlineEdit: $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_COMMENTS),
                 useOnActions: [FieldConfig::ACTION_LIST],
             ))
+            ->addField(new FieldConfig(
+                name: 'spam_score',
+                label: $this->translator->trans('Spam score'),
+                type: new VirtualFieldType(
+                    "SELECT score FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'article' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                ),
+                sortable: true,
+                useOnActions: [FieldConfig::ACTION_LIST],
+            ))
+            ->addField(new FieldConfig(
+                name: 'spam_label',
+                label: $this->translator->trans('Spam label'),
+                type: new VirtualFieldType(
+                    "SELECT moderator_label FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'article' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                ),
+                sortable: true,
+                useOnActions: [FieldConfig::ACTION_LIST],
+            ))
+            ->addField(new FieldConfig(
+                name: 'spam_reasons',
+                label: $this->translator->trans('Spam reasons'),
+                type: new VirtualFieldType(
+                    "SELECT reasons FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'article' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                ),
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/comment/view-spam-reasons.php',
+            ))
             ->addFilter(new Filter(
                 'search',
                 $this->translator->trans('Search'),
@@ -221,7 +249,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     1  => $this->translator->trans('Considered'),
                 ]
             ))
-            ->setControllerClassOrFactory(CommentController::class)
+            ->setControllerClassOrFactory($this->commentControllerFactory)
             ->setEnabledActions([
                 FieldConfig::ACTION_LIST,
                 ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_COMMENTS) ? [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_DELETE] : [],
@@ -919,6 +947,92 @@ class AdminConfigProvider implements StatefulServiceInterface
         }
 
         if ($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS)) {
+            $adminConfig->addEntity(
+                (new EntityConfig('SpamRule', $this->dbPrefix . 'spam_rules'))
+                    ->setSingularName($this->translator->trans('Spam rule'))
+                    ->setPluralName($this->translator->trans('Spam rules'))
+                    ->setNewTitle($this->translator->trans('New spam rule'))
+                    ->setEditTitle($this->translator->trans('Edit spam rule'))
+                    ->setEntityDisplayNameBuilder(static fn(array $row): string => (string)($row['column_pattern'] ?? ''))
+                    ->addField(new FieldConfig(
+                        name: 'id',
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT, true),
+                        useOnActions: [],
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'type',
+                        label: $this->translator->trans('Rule type'),
+                        control: 'select',
+                        options: [
+                            'domain'       => $this->translator->trans('Link domain'),
+                            'email_domain' => $this->translator->trans('Email domain'),
+                            'phrase'       => $this->translator->trans('Text phrase'),
+                        ],
+                        validators: [new NotBlank()],
+                        sortable: true,
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'pattern',
+                        label: $this->translator->trans('Rule pattern'),
+                        hint: $this->translator->trans('Rule pattern help'),
+                        control: 'input',
+                        validators: [new NotBlank(), new Length(max: 255)],
+                        sortable: true,
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'weight',
+                        label: $this->translator->trans('Rule weight'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT, defaultValue: 20),
+                        control: 'int_input',
+                        sortable: true,
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'action',
+                        label: $this->translator->trans('Rule action'),
+                        type: new DbColumnFieldType(defaultValue: 'score'),
+                        control: 'select',
+                        options: [
+                            'score' => $this->translator->trans('Add to score'),
+                            'block' => $this->translator->trans('Block immediately'),
+                        ],
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'enabled',
+                        label: $this->translator->trans('Enabled'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL, defaultValue: 1),
+                        control: 'checkbox',
+                        inlineEdit: true,
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'expires_at',
+                        label: $this->translator->trans('Rule expires'),
+                        hint: $this->translator->trans('Rule expires help'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
+                        control: 'datetime',
+                        sortable: true,
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'note',
+                        label: $this->translator->trans('Note'),
+                        control: 'textarea',
+                        useOnActions: [FieldConfig::ACTION_SHOW, FieldConfig::ACTION_EDIT, FieldConfig::ACTION_NEW],
+                    ))
+                    ->addFilter(new Filter(
+                        'search',
+                        $this->translator->trans('Search'),
+                        'search_input',
+                        'pattern LIKE %1$s OR note LIKE %1$s',
+                        fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null,
+                    ))
+                    ->setEnabledActions([
+                        FieldConfig::ACTION_LIST,
+                        FieldConfig::ACTION_NEW,
+                        FieldConfig::ACTION_EDIT,
+                        FieldConfig::ACTION_DELETE,
+                    ]),
+                70,
+            );
+
             $adminConfig->addEntity(
                 (new EntityConfig('Queue', $this->dbPrefix . 'queue'))
                     ->addField(new FieldConfig(

@@ -18,6 +18,7 @@ class SpamDetectorComment
         public ?string $userAgent = null,
         public ?string $referrer = null,
         public ?string $permalink = null,
+        public ?int    $formAgeSeconds = null,
     ) {
     }
 

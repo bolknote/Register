@@ -58,7 +58,11 @@ readonly class AkismetProxy implements SpamDetectorInterface
             $data['permalink'] = $comment->permalink;
         }
 
-        $this->logger->info('Sending comment to Akismet', $comment->toArray());
+        $this->logger->info('Sending comment to Akismet', [
+            'permalink'      => $comment->permalink,
+            'has_user_agent' => $comment->userAgent !== null,
+            'has_referrer'   => $comment->referrer !== null,
+        ]);
         try {
             $response = $this->httpClient->post(self::SERVICE_ENDPOINT, $data, [
                 HttpClient::CONNECT_TIMEOUT => 2,

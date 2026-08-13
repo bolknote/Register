@@ -23,10 +23,16 @@ class SpamDetectorReport
     public const string STATUS_SPAM = 'spam';
 
      // The comment is spam
-    public const string STATUS_BLATANT = 'blatant'; // The comment is blatant spam that can be safely dropped
+    public const string STATUS_BLATANT = 'blatant'; // The comment has a very high spam score; hardReject decides whether it can be dropped
 
-    private function __construct(public string $status)
-    {
+    /** @param array<string, int> $reasons */
+    private function __construct(
+        public string $status,
+        private readonly ?int $assessmentId = null,
+        private readonly ?int $score = null,
+        private readonly array $reasons = [],
+        private readonly bool $hardReject = false,
+    ) {
         if (!\in_array($this->status, [
             self::STATUS_FAILED,
             self::STATUS_DISABLED,
@@ -44,9 +50,10 @@ class SpamDetectorReport
         return new self(self::STATUS_FAILED);
     }
 
-    public static function ham(): self
+    /** @param array<string, int> $reasons */
+    public static function ham(?int $assessmentId = null, ?int $score = null, array $reasons = []): self
     {
-        return new self(self::STATUS_HAM);
+        return new self(self::STATUS_HAM, $assessmentId, $score, $reasons);
 
     }
 
@@ -55,14 +62,21 @@ class SpamDetectorReport
         return new self(self::STATUS_DISABLED);
     }
 
-    public static function spam(): self
+    /** @param array<string, int> $reasons */
+    public static function spam(?int $assessmentId = null, ?int $score = null, array $reasons = []): self
     {
-        return new self(self::STATUS_SPAM);
+        return new self(self::STATUS_SPAM, $assessmentId, $score, $reasons);
     }
 
-    public static function blatant(): self
+    /** @param array<string, int> $reasons */
+    public static function blatant(
+        ?int  $assessmentId = null,
+        ?int  $score = null,
+        array $reasons = [],
+        bool  $hardReject = true,
+    ): self
     {
-        return new self(self::STATUS_BLATANT);
+        return new self(self::STATUS_BLATANT, $assessmentId, $score, $reasons, $hardReject);
     }
 
     public function isBlatant(): bool
@@ -78,5 +92,37 @@ class SpamDetectorReport
     public function isSpam(): bool
     {
         return $this->status === self::STATUS_SPAM;
+    }
+
+    public function getAssessmentId(): ?int
+    {
+        return $this->assessmentId;
+    }
+
+    public function getScore(): ?int
+    {
+        return $this->score;
+    }
+
+    /** @return array<string, int> */
+    public function getReasons(): array
+    {
+        return $this->reasons;
+    }
+
+    public function shouldReject(): bool
+    {
+        return $this->hardReject;
+    }
+
+    public function withAssessmentFrom(self $assessmentReport): self
+    {
+        return new self(
+            $this->status,
+            $assessmentReport->assessmentId,
+            $assessmentReport->score,
+            $assessmentReport->reasons,
+            $this->hardReject,
+        );
     }
 }

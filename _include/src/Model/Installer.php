@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace S2\Cms\Model;
 
 use S2\Cms\AdminYard\UserSettingStorage;
+use S2\Cms\Comment\Antispam\AntispamSchema;
 use Register\Schema\SchemaMigrator;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
@@ -17,7 +18,7 @@ use S2\Cms\Pdo\DbLayerException;
 
 readonly class Installer
 {
-    public const int DB_REVISION = 24;
+    public const int DB_REVISION = 25;
 
     public function __construct(private DbLayer $dbLayer)
     {
@@ -207,6 +208,8 @@ readonly class Installer
                 ->setPrimaryKey(['id', 'code'])
             ;
         });
+
+        AntispamSchema::create($this->dbLayer);
     }
 
     /**
@@ -214,6 +217,7 @@ readonly class Installer
      */
     public function dropTables(): void
     {
+        AntispamSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('queue');
         $this->dbLayer->dropTable('article_tag');
         $this->dbLayer->dropTable('tags');
@@ -229,8 +233,15 @@ readonly class Installer
     /**
      * @throws DbLayerException
      */
-    public function insertConfigData(string $siteName, string $email, string $defaultLanguage, int $dbRevision): void
+    public function insertConfigData(
+        string $siteName,
+        string $email,
+        string $defaultLanguage,
+        int    $dbRevision,
+    ): void
     {
+        $antispamFallbackSecret = bin2hex(random_bytes(32));
+
         // Insert config data
         $config = [
             'S2_SITE_NAME'        => $siteName,
@@ -247,6 +258,10 @@ readonly class Installer
             'S2_SHOW_COMMENTS'    => '1',
             'S2_ENABLED_COMMENTS' => '1',
             'S2_PREMODERATION'    => '0',
+            'S2_ANTISPAM_MODE'    => 'local',
+            'S2_ANTISPAM_SECRET'  => $antispamFallbackSecret,
+            'S2_ANTISPAM_SPAM_SCORE' => '35',
+            'S2_ANTISPAM_BLATANT_SCORE' => '80',
             'S2_AKISMET_KEY'      => '',
             'S2_ADMIN_COLOR'      => '#eeeeee',
             'S2_ADMIN_NEW_POS'    => '0',
