@@ -94,38 +94,39 @@ class MainPageController extends BlogController
 
         $itemsPerPage = $this->itemsPerPage->get();
         $postsPerPage = $itemsPerPage > 0 ? $itemsPerPage : 10;
-        $posts        = $this->postProvider->lastPostsArray($postsPerPage, $skipLastPostsNum, true);
+        $posts        = $this->postProvider->lastPostsArray($postsPerPage, $skipLastPostsNum);
 
         $output = '';
-        $i      = 0;
         foreach ($posts as $post) {
-            ++$i;
-            if ($i > $postsPerPage) {
-                break;
-            }
-
             $post['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
             $post['showComments']     = $this->showComments->get();
             $post['enabledComments']  = $this->enabledComments->get();
             $output                   .= $this->viewer->render('post', $post, BlogModule::class);
         }
 
-        $paging = '';
-        if ($skipLastPostsNum > 0) {
-            $prevLink = $this->blogUrlBuilder->main() . ($skipLastPostsNum > $postsPerPage ? 'skip/' . ($skipLastPostsNum - $postsPerPage) : '');
+        $totalPosts = $this->postProvider->publishedPostCount();
+        $totalPages = (int)ceil($totalPosts / $postsPerPage);
+        $currentPage = intdiv($skipLastPostsNum, $postsPerPage) + 1;
+
+        if ($totalPages > 1) {
+            $prevLink = $currentPage > 1 ? $this->pageUrl($currentPage - 1, $postsPerPage) : null;
+            $nextLink = $currentPage < $totalPages ? $this->pageUrl($currentPage + 1, $postsPerPage) : null;
+
+            if ($prevLink !== null) {
+                $template->setLink('prev', $prevLink);
+            }
+            if ($nextLink !== null) {
+                $template->setLink('next', $nextLink);
+            }
+
+            $output .= $this->viewer->render('pagination', [
+                'pages'        => $this->paginationItems($currentPage, $totalPages, $postsPerPage),
+                'previous_url' => $prevLink,
+                'next_url'     => $nextLink,
+            ], BlogModule::class);
+        } elseif ($skipLastPostsNum > 0) {
+            $prevLink = $this->blogUrlBuilder->main();
             $template->setLink('prev', $prevLink);
-            $paging = '<a href="' . $prevLink . '">' . $this->translator->trans('Here') . '</a> ';
-            // TODO think about back_forward
-        }
-
-        if ($i > $postsPerPage) {
-            $nextLink = $this->blogUrlBuilder->main() . 'skip/' . ($skipLastPostsNum + $postsPerPage);
-            $template->setLink('next', $nextLink);
-            $paging .= '<a href="' . $nextLink . '">' . $this->translator->trans('There') . '</a>';
-        }
-
-        if ($paging !== '') {
-            $output .= '<p class="s2_blog_pages">' . $paging . '</p>';
         }
 
         $template->putInPlaceholder('text', $output);
@@ -145,5 +146,46 @@ class MainPageController extends BlogController
         }
 
         return null;
+    }
+
+    private function pageUrl(int $page, int $postsPerPage): string
+    {
+        if ($page <= 1) {
+            return $this->blogUrlBuilder->main();
+        }
+
+        return $this->blogUrlBuilder->main() . 'skip/' . (($page - 1) * $postsPerPage);
+    }
+
+    /**
+     * @return list<array{number: int|null, url: string|null, current: bool}>
+     */
+    private function paginationItems(int $currentPage, int $totalPages, int $postsPerPage): array
+    {
+        $visiblePages = [1, $totalPages];
+        for ($page = max(1, $currentPage - 2); $page <= min($totalPages, $currentPage + 2); ++$page) {
+            $visiblePages[] = $page;
+        }
+
+        $visiblePages = array_values(array_unique($visiblePages));
+        sort($visiblePages);
+
+        $items = [];
+        $previousPage = null;
+        foreach ($visiblePages as $page) {
+            if ($previousPage !== null && $page - $previousPage > 1) {
+                $items[] = ['number' => null, 'url' => null, 'current' => false];
+            }
+
+            $isCurrent = $page === $currentPage;
+            $items[] = [
+                'number'  => $page,
+                'url'     => $isCurrent ? null : $this->pageUrl($page, $postsPerPage),
+                'current' => $isCurrent,
+            ];
+            $previousPage = $page;
+        }
+
+        return $items;
     }
 }

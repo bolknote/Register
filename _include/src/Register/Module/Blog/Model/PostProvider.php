@@ -26,6 +26,20 @@ readonly class PostProvider
     }
 
     /**
+     * @throws DbLayerException
+     */
+    public function publishedPostCount(): int
+    {
+        return (int)$this->dbLayer
+            ->select('COUNT(*)')
+            ->from('s2_blog_posts')
+            ->where('published = 1')
+            ->execute()
+            ->result()
+        ;
+    }
+
+    /**
      * Returns an array containing info about last N posts
      *
      * @throws DbLayerException

@@ -6,6 +6,9 @@ return [
 
     'N Comments'   => '{{ count }} комментарий|{{ count }} комментария|{{ count }} комментариев',
     'Post comment' => 'Оставить комментарий',
+    'Pagination'   => 'Страницы блога',
+    'Previous page' => 'Предыдущая страница',
+    'Next page'     => 'Следующая страница',
 
     'Favorite posts'        => 'Избранные записи',
     'See also'              => 'Смотрите также:',

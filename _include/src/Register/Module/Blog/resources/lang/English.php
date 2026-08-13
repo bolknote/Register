@@ -6,6 +6,9 @@ return [
 
     'N Comments'   => '{{ count }} comment|{{ count }} comments',
     'Post comment' => 'Leave a comment',
+    'Pagination'   => 'Blog pages',
+    'Previous page' => 'Previous page',
+    'Next page'     => 'Next page',
 
     'Favorite posts'        => 'Favorite posts',
     'See also'              => 'See also:',

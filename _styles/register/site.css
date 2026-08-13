@@ -470,6 +470,51 @@ h2.post.head + .post.time {
     row-gap: 0.65rem;
 }
 
+.blog-pagination {
+    display: flex;
+    max-width: var(--text-width) !important;
+    margin: 0 0 clamp(3.5rem, 8vw, 6rem);
+    align-items: baseline;
+    gap: 1rem;
+    color: var(--minor-color);
+    font-family: var(--ui-font);
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+}
+
+.blog-pagination ol {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    align-items: baseline;
+    gap: 0.8rem;
+    list-style: none;
+}
+
+.blog-pagination li {
+    margin: 0;
+}
+
+.blog-pagination a,
+.blog-pagination a:visited {
+    color: var(--link-color);
+    text-decoration-thickness: 1px;
+}
+
+.blog-pagination-current {
+    color: var(--text-color);
+    font-weight: 750;
+}
+
+.blog-pagination-arrow {
+    font-size: 1.2em;
+    text-decoration: none;
+}
+
+.blog-pagination-ellipsis {
+    color: var(--quiet-color);
+}
+
 a.favorite-star,
 span.favorite-star {
     color: var(--star-color);

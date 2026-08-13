@@ -28,10 +28,6 @@ if (!isset($this)) die; ?>
             <!-- s2_comments -->
             <!-- s2_comment_form -->
         </div>
-        <div id="menu">
-            <!-- s2_blog_calendar -->
-            <!-- s2_blog_navigation -->
-        </div>
     </div>
 <!-- s2_debug -->
 
