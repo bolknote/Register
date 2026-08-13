@@ -13,6 +13,6 @@ declare(strict_types = 1);
 <?php else: ?>
     <?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?>
 <?php endif; ?>
-<?php if ($row['column_commented'] === false): ?>
+<?php if ($row['column_comments_enabled'] === false): ?>
     <i class="icon icon-comments-disabled"></i>
 <?php endif; ?>

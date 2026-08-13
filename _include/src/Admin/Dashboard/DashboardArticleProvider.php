@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace S2\Cms\Admin\Dashboard;
 
 use Register\Comment\CommentSchema;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\QueryBuilder\UnionAll;
 use S2\Cms\Pdo\DbLayerException;
@@ -47,22 +47,25 @@ readonly class DashboardArticleProvider implements DashboardStatProviderInterfac
     {
         $baseQuery      = $this->dbLayer
             ->select('id')
-            ->from('articles')
-            ->where('parent_id = :parent_id')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('parent_id IS NULL')
+            ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('published = 1')
         ;
         $recursiveQuery = $this->dbLayer
             ->select('a.id')
-            ->from('articles AS a')
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
             ->innerJoin('article_tree AS at', 'a.parent_id = at.id')
-            ->where('a.published = 1')
+            ->where("a.content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere('a.published = 1')
         ;
         $result         = $this->dbLayer
             ->withRecursive('article_tree', new UnionAll($baseQuery, $recursiveQuery))
             ->select('SUM(CASE (' .
                 $this->dbLayer->select('COUNT(*)')
-                    ->from('articles')
+                    ->from(ContentSchema::TABLE_NAME)
                     ->where('parent_id = at.id')
+                    ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
                     ->andWhere('published = 1')
                     ->getSql()
                 . ') WHEN 0 THEN 1 ELSE 0 END) AS articles_num')
@@ -75,7 +78,6 @@ readonly class DashboardArticleProvider implements DashboardStatProviderInterfac
                     ->getSql()
                 . ')) AS comments_num')
             ->from('article_tree AS at')
-            ->setParameter('parent_id', ArticleProvider::ROOT_ID)
             ->execute()
         ;
         $counts = $result->fetchAssoc();

@@ -12,6 +12,8 @@ declare(strict_types = 1);
 
 
 use Psr\Log\LogLevel;
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use Register\Installation\WelcomePostInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
@@ -901,34 +903,39 @@ $installer->insertConfigData(
 $app->container->get(SchemaManager::class)->ensureCurrent();
 
 // Insert some other default data
-$installer->insertMainPage($lang_install['Main Page'], $now);
-(new WelcomePostInstaller($s2_db))->create($lang_install['Welcome title'], $lang_install['Welcome text'], (int)$admin_uid, $now);
-$s2_db->insert('articles')
-    ->setValue('parent_id', '1')
+$rootPageId = $installer->insertMainPage($lang_install['Main Page'], $now);
+$s2_db->insert(ContentSchema::TABLE_NAME)
+    ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
+    ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $rootPageId)
     ->setValue('title', ':title')->setParameter('title', $lang_install['Section example'])
-    ->setValue('create_time', ':create_time')->setParameter('create_time', $now)
-    ->setValue('modify_time', ':modify_time')->setParameter('modify_time', $now)
+    ->setValue('created_at', ':created_at')->setParameter('created_at', $now)
+    ->setValue('published_at', ':published_at')->setParameter('published_at', $now)
+    ->setValue('updated_at', ':updated_at')->setParameter('updated_at', $now)
     ->setValue('published', '1')
     ->setValue('template', "'site.php'")
-    ->setValue('url', "'section1'")
+    ->setValue('slug', "'section1'")
     ->setValue('excerpt', "''")
-    ->setValue('pagetext', "''")
+    ->setValue('body', "''")
     ->execute()
 ;
+$sectionId = (int)$s2_db->insertId();
 $s2_db
-    ->insert('articles')
-    ->setValue('parent_id', '2')
+    ->insert(ContentSchema::TABLE_NAME)
+    ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
+    ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $sectionId)
     ->setValue('title', ':title')->setParameter('title', $lang_install['Page example'])
-    ->setValue('create_time', ':create_time')->setParameter('create_time', $now)
-    ->setValue('modify_time', ':modify_time')->setParameter('modify_time', $now)
+    ->setValue('created_at', ':created_at')->setParameter('created_at', $now)
+    ->setValue('published_at', ':published_at')->setParameter('published_at', $now)
+    ->setValue('updated_at', ':updated_at')->setParameter('updated_at', $now)
     ->setValue('published', '1')
     ->setValue('template', "''")
-    ->setValue('url', "'page1'")
-    ->setValue('pagetext', ':pagetext')->setParameter('pagetext', $lang_install['Page text'])
+    ->setValue('slug', "'page1'")
+    ->setValue('body', ':body')->setParameter('body', $lang_install['Page text'])
     ->setValue('excerpt', ':excerpt')->setParameter('excerpt', $lang_install['Page text'])
-    ->setValue('user_id', ':user_id')->setParameter('user_id', $admin_uid)
+    ->setValue('author_id', ':author_id')->setParameter('author_id', $admin_uid)
     ->execute()
 ;
+(new WelcomePostInstaller($s2_db))->create($lang_install['Welcome title'], $lang_install['Welcome text'], (int)$admin_uid, $now);
 
 $app->container->get(SearchIndexRebuilder::class)->rebuild();
 

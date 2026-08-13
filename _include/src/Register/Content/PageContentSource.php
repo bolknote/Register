@@ -13,7 +13,7 @@ use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 
-/** Adapts the inherited page table to Register's content contract. */
+/** Exposes published pages through Register's shared content contract. */
 final readonly class PageContentSource implements ContentSourceInterface
 {
     public function __construct(
@@ -38,19 +38,21 @@ final readonly class PageContentSource implements ContentSourceInterface
 
         $childrenQuery = $this->dbLayer
             ->select('1')
-            ->from('articles AS child')
+            ->from(ContentSchema::TABLE_NAME . ' AS child')
             ->where('child.parent_id = page.id')
+            ->andWhere("child.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('child.published = 1')
             ->limit(1)
             ->getSql()
         ;
 
         $page = $this->dbLayer
-            ->select('page.id, page.parent_id, page.title, page.pagetext, page.url')
-            ->addSelect('page.create_time, page.meta_keys, page.meta_desc')
+            ->select('page.id, page.parent_id, page.title, page.body, page.slug')
+            ->addSelect('page.published_at, page.meta_keywords, page.meta_description')
             ->addSelect('(' . $childrenQuery . ') IS NOT NULL AS has_children')
-            ->from('articles AS page')
+            ->from(ContentSchema::TABLE_NAME . ' AS page')
             ->where('page.id = :id')->setParameter('id', $id->value)
+            ->andWhere("page.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('page.published = 1')
             ->execute()
             ->fetchAssoc()
@@ -59,27 +61,30 @@ final readonly class PageContentSource implements ContentSourceInterface
             return null;
         }
 
-        $parentPath = $this->articleProvider->pathFromId((int)$page['parent_id'], true);
+        $parentPath = $this->articleProvider->pathFromId(
+            $page['parent_id'] === null ? ArticleProvider::ROOT_ID : (int)$page['parent_id'],
+            true,
+        );
         if ($parentPath === null) {
             return null;
         }
 
-        $slug = (string)$page['url'];
+        $slug = (string)$page['slug'];
         $path = rtrim($parentPath, '/') . '/' . rawurlencode($slug);
         if ($slug !== '' && (bool)$page['has_children']) {
             $path .= '/';
         }
 
-        $timestamp = (int)$page['create_time'];
+        $timestamp = $page['published_at'] === null ? 0 : (int)$page['published_at'];
 
         return new ContentItem(
             id: $id,
             title: (string)$page['title'],
-            body: (string)$page['pagetext'],
+            body: (string)$page['body'],
             path: $path,
             publishedAt: $timestamp > 0 ? $timestamp : null,
-            keywords: (string)$page['meta_keys'],
-            description: (string)$page['meta_desc'],
+            keywords: (string)$page['meta_keywords'],
+            description: (string)$page['meta_description'],
         );
     }
 
@@ -101,40 +106,48 @@ final readonly class PageContentSource implements ContentSourceInterface
     {
         $childrenQuery = $this->dbLayer
             ->select('1')
-            ->from('articles AS child')
+            ->from(ContentSchema::TABLE_NAME . ' AS child')
             ->where('child.parent_id = page.id')
+            ->andWhere("child.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('child.published = 1')
             ->limit(1)
             ->getSql()
         ;
 
-        $result = $this->dbLayer
-            ->select('page.id, page.title, page.pagetext, page.url, page.create_time')
-            ->addSelect('page.meta_keys, page.meta_desc')
+        $query = $this->dbLayer
+            ->select('page.id, page.title, page.body, page.slug, page.published_at')
+            ->addSelect('page.meta_keywords, page.meta_description')
             ->addSelect('(' . $childrenQuery . ') IS NOT NULL AS has_children')
-            ->from('articles AS page')
-            ->where('page.parent_id = :parent_id')->setParameter('parent_id', $parentId)
+            ->from(ContentSchema::TABLE_NAME . ' AS page')
+            ->where("page.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('page.published = 1')
             ->orderBy('page.id')
-            ->execute()
         ;
 
+        if ($parentId === ArticleProvider::ROOT_ID) {
+            $query->andWhere('page.parent_id IS NULL');
+        } else {
+            $query->andWhere('page.parent_id = :parent_id')->setParameter('parent_id', $parentId);
+        }
+
+        $result = $query->execute();
+
         while ($page = $result->fetchAssoc()) {
-            $slug = (string)$page['url'];
+            $slug = (string)$page['slug'];
             $path = rtrim($parentPath, '/') . '/' . rawurlencode($slug);
             if ($slug !== '' && (bool)$page['has_children']) {
                 $path .= '/';
             }
 
-            $timestamp = (int)$page['create_time'];
+            $timestamp = $page['published_at'] === null ? 0 : (int)$page['published_at'];
             yield new ContentItem(
                 id: ContentId::page((int)$page['id']),
                 title: (string)$page['title'],
-                body: (string)$page['pagetext'],
+                body: (string)$page['body'],
                 path: $path,
                 publishedAt: $timestamp > 0 ? $timestamp : null,
-                keywords: (string)$page['meta_keys'],
-                description: (string)$page['meta_desc'],
+                keywords: (string)$page['meta_keywords'],
+                description: (string)$page['meta_description'],
             );
 
             yield from $this->crawl((int)$page['id'], rtrim($path, '/') . '/');

@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Comment\CommentSchema;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use S2\Cms\Pdo\DbLayer;
 
@@ -322,19 +323,21 @@ class CommentCest
     private function insertArticle(DbLayer $dbLayer): int
     {
         $dbLayer
-            ->insert('articles')
+            ->insert(ContentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->setValue('parent_id', '1')
             ->setValue('title', "'Thread test'")
             ->setValue('excerpt', "''")
-            ->setValue('pagetext', "'Page text'")
-            ->setValue('create_time', ':time')->setParameter('time', time())
-            ->setValue('modify_time', ':time')
+            ->setValue('body', "'Page text'")
+            ->setValue('created_at', ':time')->setParameter('time', time())
+            ->setValue('published_at', ':time')
+            ->setValue('updated_at', ':time')
             ->setValue('revision', '1')
-            ->setValue('priority', '0')
+            ->setValue('sort_order', '0')
             ->setValue('published', '1')
-            ->setValue('favorite', '0')
-            ->setValue('commented', '1')
-            ->setValue('url', "'thread-test'")
+            ->setValue('featured', '0')
+            ->setValue('comments_enabled', '1')
+            ->setValue('slug', "'thread-test'")
             ->setValue('template', "'site.php'")
             ->execute()
         ;

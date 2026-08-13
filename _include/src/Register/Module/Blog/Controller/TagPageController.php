@@ -13,6 +13,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Controller;
 
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use S2\Cms\Config\BoolProxy;
@@ -165,8 +166,9 @@ class TagPageController extends BlogController
     {
         $rawQuery = $this->dbLayer
             ->select('1')
-            ->from('articles AS a1')
+            ->from(ContentSchema::TABLE_NAME . ' AS a1')
             ->where('a1.parent_id = a.id')
+            ->andWhere("a1.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('a1.published = 1')
             ->limit(1)
             ->getSql()
@@ -183,10 +185,11 @@ class TagPageController extends BlogController
         );
         if ($pageIds !== []) {
             $result = $this->dbLayer
-                ->select('a.id, a.url, a.title, a.parent_id')
+                ->select('a.id, a.slug AS url, a.title, a.parent_id')
                 ->addSelect('(' . $rawQuery . ') IS NOT NULL AS children_exist')
-                ->from('articles AS a')
+                ->from(ContentSchema::TABLE_NAME . ' AS a')
                 ->where('a.id IN (' . implode(', ', array_fill(0, \count($pageIds), '?')) . ')')
+                ->andWhere("a.content_type = '" . ContentType::PAGE->value . "'")
                 ->andWhere('a.published = 1')
                 ->execute($pageIds)
             ;

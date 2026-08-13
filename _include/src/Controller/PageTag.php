@@ -11,6 +11,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use S2\Cms\Config\BoolProxy;
@@ -74,8 +75,9 @@ readonly class PageTag implements ControllerInterface
 
         $rawQuery = $this->dbLayer
             ->select('1')
-            ->from('articles AS a1')
+            ->from(ContentSchema::TABLE_NAME . ' AS a1')
             ->where('a1.parent_id = a.id')
+            ->andWhere("a1.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('a1.published = 1')
             ->limit(1)
             ->getSql()
@@ -89,9 +91,11 @@ readonly class PageTag implements ControllerInterface
         if ($contentIds !== []) {
             $ids = array_map(static fn(\Register\Content\ContentId $contentId): int => $contentId->value, $contentIds);
             $result = $this->dbLayer
-                ->select('a.title, a.url, (' . $rawQuery . ') IS NOT NULL AS children_exist, a.id, a.excerpt, a.favorite, a.create_time, a.parent_id')
-                ->from('articles AS a')
+                ->select('a.title, a.slug AS url, (' . $rawQuery . ') IS NOT NULL AS children_exist')
+                ->addSelect('a.id, a.excerpt, a.featured AS favorite, a.published_at AS create_time, a.parent_id')
+                ->from(ContentSchema::TABLE_NAME . ' AS a')
                 ->where('a.id IN (' . implode(', ', array_fill(0, \count($ids), '?')) . ')')
+                ->andWhere("a.content_type = '" . ContentType::PAGE->value . "'")
                 ->andWhere('a.published = 1')
                 ->execute($ids)
             ;

@@ -11,6 +11,7 @@ namespace S2\Cms\Admin;
 
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
@@ -97,7 +98,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         $adminConfig = new AdminConfig();
         $adminConfig->setMenuTemplate('_admin/templates/menu.php.inc');
 
-        $articleEntity = new EntityConfig('Article', $this->dbPrefix . 'articles');
+        $articleEntity = new EntityConfig('Article', $this->dbPrefix . ContentSchema::TABLE_NAME);
         $articleEntity->setEditTemplate('_admin/templates/article/edit.php.inc');
 
         $commentEntity = new EntityConfig('Comment', $this->dbPrefix . CommentSchema::TABLE_NAME);
@@ -468,6 +469,17 @@ class AdminConfigProvider implements StatefulServiceInterface
                 useOnActions: []
             ))
             ->addField(new FieldConfig(
+                name: 'content_type',
+                type: new DbColumnFieldType(defaultValue: ContentType::PAGE->value),
+                useOnActions: [],
+            ))
+            ->addField(new FieldConfig(
+                name: 'created_at',
+                // @phan-suppress-next-line PhanTypeMismatchArgumentProbablyReal
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME, defaultValue: new \DateTimeImmutable()),
+                useOnActions: [],
+            ))
+            ->addField(new FieldConfig(
                 name: 'title',
                 label: $this->translator->trans('Title'),
                 control: 'input',
@@ -502,7 +514,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
             ))
             ->addField(new FieldConfig(
-                name: 'meta_keys',
+                name: 'meta_keywords',
                 label: $this->translator->trans('Meta keywords'),
                 hint: $this->translator->trans('Meta help'),
                 control: 'input',
@@ -510,7 +522,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 useOnActions: [FieldConfig::ACTION_EDIT],
             ))
             ->addField(new FieldConfig(
-                name: 'meta_desc',
+                name: 'meta_description',
                 label: $this->translator->trans('Meta description'),
                 hint: $this->translator->trans('Meta help'),
                 control: 'input',
@@ -525,20 +537,21 @@ class AdminConfigProvider implements StatefulServiceInterface
                 useOnActions: [FieldConfig::ACTION_EDIT],
             ))
             ->addField(new FieldConfig(
-                name: 'pagetext',
+                name: 'body',
                 control: 'html_textarea',
                 useOnActions: [FieldConfig::ACTION_EDIT],
             ))
             ->addField(new FieldConfig(
-                name: 'create_time',
+                name: 'published_at',
                 label: $this->translator->trans('Create time'),
-                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME, defaultValue: time()),
+                // @phan-suppress-next-line PhanTypeMismatchArgumentProbablyReal
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME, defaultValue: new \DateTimeImmutable()),
                 control: 'datetime',
                 sortable: true,
                 viewTemplate: '_admin/templates/date.php.inc',
             ))
             ->addField(new FieldConfig(
-                name: 'modify_time',
+                name: 'updated_at',
                 label: $this->translator->trans('Modify time'),
                 hint: $this->translator->trans('Modify time help'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
@@ -555,7 +568,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
             ))
             ->addField(new FieldConfig(
-                name: 'favorite',
+                name: 'featured',
                 label: $this->translator->trans('Favorite'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
@@ -567,7 +580,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 viewTemplate: '_admin/templates/article/view-favorite.php',
             ))
             ->addField(new FieldConfig(
-                name: 'commented',
+                name: 'comments_enabled',
                 label: $this->translator->trans('Commented'),
                 hint: $this->translator->trans('Commented info'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
@@ -586,7 +599,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 viewTemplate: '_admin/templates/article/view-comments.php'
             ))
             ->addField(new FieldConfig(
-                name: 'url',
+                name: 'slug',
                 label: $this->translator->trans('URL part'),
                 control: 'input',
                 validators: [new Length(max: 255)],
@@ -598,7 +611,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'input',
             ))
             ->addField($userIdField = new FieldConfig(
-                name: 'user_id',
+                name: 'author_id',
                 label: $this->translator->trans('Author'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                 control: 'select',
@@ -620,13 +633,13 @@ class AdminConfigProvider implements StatefulServiceInterface
             ])// new and delete actions are on a custom structure page, disable them here
             ->setReadAccessControl(
                 $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)
-                    ? null
-                    : new LogicalExpression('read_access_control_user_id', $this->permissionChecker->getUserId(), 'published = 1 OR user_id = %s')
+                    ? new LogicalExpression('page_content_type', ContentType::PAGE->value, 'content_type = %s')
+                    : new LogicalExpression('read_access_control_author_id', $this->permissionChecker->getUserId(), "content_type = 'page' AND (published = 1 OR author_id = %s)")
             )
             ->setWriteAccessControl(
                 $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE)
-                    ? null
-                    : new LogicalExpression('user_id', $this->permissionChecker->getUserId())
+                    ? new LogicalExpression('page_content_type', ContentType::PAGE->value, 'content_type = %s')
+                    : new LogicalExpression('write_access_control_author_id', $this->permissionChecker->getUserId(), "content_type = 'page' AND author_id = %s")
             )
             ->addListener([EntityConfig::EVENT_AFTER_EDIT_FETCH], function (AfterLoadEvent $event): void {
                 if (\is_array($event->data)) {
@@ -653,11 +666,14 @@ class AdminConfigProvider implements StatefulServiceInterface
             })
             ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, function (BeforeSaveEvent $event) use ($articleEntity): void {
                 $oldData = $event->dataProvider->getEntity(
-                    $this->dbPrefix . 'articles',
+                    $this->dbPrefix . ContentSchema::TABLE_NAME,
                     $articleEntity->getFieldDataTypes(FieldConfig::ACTION_EDIT, includePrimaryKey: true),
                     [],
-                    $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) ? [] : [
-                        new LogicalExpression('user_id', $this->permissionChecker->getUserId()),
+                    [
+                        new LogicalExpression('content_type', ContentType::PAGE->value),
+                        ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) ? [] : [
+                            new LogicalExpression('author_id', $this->permissionChecker->getUserId()),
+                        ],
                     ],
                     $this->requirePrimaryKey($event->primaryKey)
                 );
@@ -668,7 +684,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 }
 
                 if ($this->adminCut->get()) {
-                    $textParts = preg_split('#(<cut\\s*/?>|<p><cut /></p>)#', $event->data['pagetext'], 2);
+                    $textParts = preg_split('#(<cut\\s*/?>|<p><cut /></p>)#', $event->data['body'], 2);
                     if ($textParts === false) {
                         throw new \RuntimeException('Unable to split an article at the cut marker.');
                     }
@@ -677,7 +693,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 }
 
                 $changed = false;
-                foreach (['pagetext', 'title', 'url', 'meta_keys', 'meta_desc'] as $field) {
+                foreach (['body', 'title', 'slug', 'meta_keywords', 'meta_description'] as $field) {
                     if ($event->data[$field] !== $oldData['column_' . $field]) {
                         $changed = true;
                     }
@@ -743,7 +759,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     'search',
                     $this->translator->trans('Fulltext Search'),
                     'search_input',
-                    'title LIKE %1$s OR pagetext LIKE %1$s OR meta_keys LIKE %1$s OR meta_desc LIKE %1$s OR excerpt LIKE %1$s',
+                    'title LIKE %1$s OR body LIKE %1$s OR meta_keywords LIKE %1$s OR meta_description LIKE %1$s OR excerpt LIKE %1$s',
                     fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null
                 )
             )
@@ -774,7 +790,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     'created_from',
                     $this->translator->trans('Created after'),
                     'date',
-                    'create_time >= %1$s',
+                    'published_at >= %1$s',
                     fn(?string $value): int|false|null => $value !== null ? strtotime($value) : null
                 )
             )
@@ -783,7 +799,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     'created_to',
                     $this->translator->trans('Created before'),
                     'date',
-                    'create_time < %1$s',
+                    'published_at < %1$s',
                     fn(?string $value): int|false|null => $value !== null ? strtotime($value) : null
                 )
             )

@@ -30,17 +30,17 @@ $columnMap = [
     // NOTE: order affects the order in HTML and focus (implicit taborder)
     'title'         => ['column' => 1,],
     'tags'          => ['column' => 1,],
-    'pagetext'      => ['column' => 1, 'input_area' => '4/1/5/5'],
-    'meta_desc'     => ['column' => 1,],
+    'body'          => ['column' => 1, 'input_area' => '4/1/5/5'],
+    'meta_description' => ['column' => 1,],
     'meta_keywords' => ['column' => 1,],
     'excerpt'       => ['column' => 1, 'label_area' => '3/1/4/2', 'input_area' => '3/2/4/5'],
-    'user_id'       => ['column' => 2,],
+    'author_id'     => ['column' => 2,],
     'template'      => ['column' => 2,],
-    'create_time'   => ['column' => 2,],
-    'modify_time'   => ['column' => 2,],
-    'favorite'      => ['column' => 2,],
-    'commented'     => ['column' => 2,],
-    'url'           => ['column' => 2,],
+    'published_at'  => ['column' => 2,],
+    'updated_at'    => ['column' => 2,],
+    'featured'      => ['column' => 2,],
+    'comments_enabled' => ['column' => 2,],
+    'slug'          => ['column' => 2,],
     'published'     => ['column' => 2,],
 ];
 
@@ -126,7 +126,7 @@ $jsvarencode = static function ($var) {
                                 <?php foreach ($control->getValidationErrors() as $error): ?>
                                     <span class="validation-error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></span>
                                 <?php endforeach; ?>
-                                <?php if ($fieldName === 'commented') {
+                                <?php if ($fieldName === 'comments_enabled') {
                                     if ($commentsNum > 0) {
                                         echo '<div><a href="?' . http_build_query([
                                                         'entity'  => 'Comment',
@@ -188,7 +188,8 @@ $jsvarencode = static function ($var) {
     window.S2_EDITOR_CONFIG = {
         formName: 'article-form',
         entityName: 'Article',
-        textareaName: 'pagetext',
+        textareaName: 'body',
+        slugFieldName: 'slug',
         templateId: null,
         statusData: <?= json_encode($statusData) ?>,
         tagsInputId: 'id-tags',

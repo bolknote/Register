@@ -137,17 +137,15 @@ final readonly class TagRepository
             throw new \InvalidArgumentException('A tag identifier must be a positive integer.');
         }
 
-        $table = $this->contentTable($contentType);
-        $timeColumn = $contentType === ContentType::POST ? 'published_at' : 'create_time';
         $rows  = $this->dbLayer
             ->select('ct.content_id')
             ->from(ContentTagSchema::TABLE_NAME . ' AS ct')
-            ->innerJoin($table . ' AS c', 'c.id = ct.content_id')
+            ->innerJoin(ContentSchema::TABLE_NAME . ' AS c', 'c.id = ct.content_id')
             ->where('ct.content_type = :content_type')->setParameter('content_type', $contentType->value)
             ->andWhere('ct.tag_id = :tag_id')->setParameter('tag_id', $tagId)
             ->andWhere('c.published = 1')
-            ->andWhere($contentType === ContentType::POST ? "c.content_type = 'post'" : '1 = 1')
-            ->orderBy('c.' . $timeColumn . ' DESC', 'c.id DESC')
+            ->andWhere('c.content_type = :content_type')
+            ->orderBy('c.published_at DESC', 'c.id DESC')
             ->execute()
             ->fetchColumn()
         ;
@@ -179,11 +177,11 @@ final readonly class TagRepository
             $countSql[]                   = '(' . $this->dbLayer
                 ->select('COUNT(*)')
                 ->from(ContentTagSchema::TABLE_NAME . ' AS ct')
-                ->innerJoin($this->contentTable($contentType) . ' AS c', 'c.id = ct.content_id')
+                ->innerJoin(ContentSchema::TABLE_NAME . ' AS c', 'c.id = ct.content_id')
                 ->where('ct.content_type = :' . $parameter)
                 ->andWhere('ct.tag_id = t.id')
                 ->andWhere('c.published = 1')
-                ->andWhere($contentType === ContentType::POST ? "c.content_type = 'post'" : '1 = 1')
+                ->andWhere('c.content_type = :' . $parameter)
                 ->getSql() . ')';
         }
 
@@ -253,13 +251,5 @@ final readonly class TagRepository
             (string)$row['url'],
             (string)$row['description'],
         );
-    }
-
-    private function contentTable(ContentType $contentType): string
-    {
-        return match ($contentType) {
-            ContentType::PAGE => 'articles',
-            ContentType::POST => ContentSchema::TABLE_NAME,
-        };
     }
 }

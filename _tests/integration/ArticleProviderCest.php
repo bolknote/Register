@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Admin\Dashboard\DashboardArticleProvider;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
@@ -42,16 +44,18 @@ class ArticleProviderCest
         $id1 = $this->getChildId($id0);
 
         $qb = $this->dbLayer
-            ->insert('articles')
+            ->insert(ContentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $id1)
             ->setValue('title', ':title')->setParameter('title', 'level1')
-            ->setValue('create_time', '0')
-            ->setValue('modify_time', '1')
+            ->setValue('created_at', '0')
+            ->setValue('published_at', '0')
+            ->setValue('updated_at', '1')
             ->setValue('published', ':published')->setParameter('published', 1)
             ->setValue('template', ':template')->setParameter('template', 'site.php')
-            ->setValue('url', ':url')->setParameter('url', 'level1')
+            ->setValue('slug', ':url')->setParameter('url', 'level1')
             ->setValue('excerpt', "''")
-            ->setValue('pagetext', "''")
+            ->setValue('body', "''")
         ;
 
         $qb->execute();
@@ -118,11 +122,16 @@ class ArticleProviderCest
     {
         $result = $this->dbLayer
             ->select('id')
-            ->from('articles')
-            ->where('parent_id = :id')->setParameter('id', $parentId)
-            ->execute()
+            ->from(ContentSchema::TABLE_NAME)
+            ->where("content_type = '" . ContentType::PAGE->value . "'")
         ;
 
-        return $result->result();
+        if ($parentId === ArticleProvider::ROOT_ID) {
+            $result->andWhere('parent_id IS NULL');
+        } else {
+            $result->andWhere('parent_id = :id')->setParameter('id', $parentId);
+        }
+
+        return (int)$result->execute()->result();
     }
 }

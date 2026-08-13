@@ -12,6 +12,7 @@ namespace S2\Cms\Model;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
@@ -56,11 +57,16 @@ readonly class ArticleManager
         ;
 
         $qb = $this->dbLayer
-            ->select('title, id, create_time, priority, published, (' . $commentNumQuery . ') as comment_num, parent_id')
-            ->from('articles AS a')
-            ->where('parent_id = :id')->setParameter('id', $id)
-            ->orderBy('priority')
+            ->select('title, id, published_at AS create_time, sort_order AS priority, published, (' . $commentNumQuery . ') as comment_num, parent_id')
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+            ->orderBy('sort_order')
         ;
+        if ($id === ArticleProvider::ROOT_ID) {
+            $qb->andWhere('parent_id IS NULL');
+        } else {
+            $qb->andWhere('parent_id = :id')->setParameter('id', $id);
+        }
 
         $searchActive = $search !== null && trim($search) !== '';
         if ($searchActive) {
@@ -85,7 +91,7 @@ readonly class ArticleManager
                     $qb->setParameter('param' . $paramIndex, '%' . substr($word, 1) . '%');
                     ++$paramIndex;
                 } else {
-                    $condition[] = \sprintf("(title LIKE :param%s OR pagetext LIKE :param%s)", $paramIndex, $paramIndex + 1);
+                    $condition[] = \sprintf("(title LIKE :param%s OR body LIKE :param%s)", $paramIndex, $paramIndex + 1);
                     $qb->setParameter('param' . $paramIndex, '%' . $word . '%');
                     ++$paramIndex;
                     $qb->setParameter('param' . $paramIndex, '%' . $word . '%');
@@ -98,8 +104,9 @@ readonly class ArticleManager
                     ->addSelect('(' . implode(' AND ', $condition) . ') AS found')
                     ->addSelect('(' . $this->dbLayer
                             ->select('COUNT(*)')
-                            ->from('articles AS a2')
+                            ->from(ContentSchema::TABLE_NAME . ' AS a2')
                             ->where('a2.parent_id = a.id')
+                            ->andWhere("a2.content_type = '" . ContentType::PAGE->value . "'")
                             ->getSql()
                         . ') AS child_num')
                 ;
@@ -179,8 +186,9 @@ readonly class ArticleManager
 
         $result = $this->dbLayer
             ->select('1')
-            ->from('articles')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $parentId)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
 
@@ -193,33 +201,38 @@ readonly class ArticleManager
 
         if ($this->newPositionOnTop->get()) {
             $this->dbLayer
-                ->update('articles')
-                ->set('priority', 'priority + 1')
+                ->update(ContentSchema::TABLE_NAME)
+                ->set('sort_order', 'sort_order + 1')
                 ->where('parent_id = :id')->setParameter('id', $parentId)
+                ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
                 ->execute()
             ;
             $newPriority = 0;
 
         } else {
             $result      = $this->dbLayer
-                ->select('MAX(priority + 1)')
-                ->from('articles')
+                ->select('MAX(sort_order + 1)')
+                ->from(ContentSchema::TABLE_NAME)
                 ->where('parent_id = :id')->setParameter('id', $parentId)
+                ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
                 ->execute()
             ;
             $newPriority = (int)$result->result();
         }
 
         $this->dbLayer
-            ->insert('articles')
+            ->insert(ContentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $parentId)
             ->setValue('title', ':title')->setParameter('title', $title)
-            ->setValue('priority', ':priority')->setParameter('priority', $newPriority)
-            ->setValue('url', ':url')->setParameter('url', 'new')
-            ->setValue('user_id', ':user_id')->setParameter('user_id', $this->permissionChecker->getUserId())
+            ->setValue('sort_order', ':sort_order')->setParameter('sort_order', $newPriority)
+            ->setValue('slug', ':slug')->setParameter('slug', 'new')
+            ->setValue('author_id', ':author_id')->setParameter('author_id', $this->permissionChecker->getUserId())
             ->setValue('template', ':template')->setParameter('template', $this->useHierarchy->get() ? '' : 'site.php')
             ->setValue('excerpt', ':excerpt')->setParameter('excerpt', '')
-            ->setValue('pagetext', ':pagetext')->setParameter('pagetext', '')
+            ->setValue('body', ':body')->setParameter('body', '')
+            ->setValue('created_at', ':created_at')->setParameter('created_at', time())
+            ->setValue('updated_at', ':updated_at')->setParameter('updated_at', time())
             ->execute()
         ;
         $insertId = (int)$this->dbLayer->insertId();
@@ -245,9 +258,10 @@ readonly class ArticleManager
         }
 
         $result = $this->dbLayer
-            ->select('user_id')
-            ->from('articles')
+            ->select('author_id')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $id)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
 
@@ -263,9 +277,10 @@ readonly class ArticleManager
         }
 
         $this->dbLayer
-            ->update('articles')
+            ->update(ContentSchema::TABLE_NAME)
             ->set('title', ':title')->setParameter('title', $title)
             ->where('id = :id')->setParameter('id', $id)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
     }
@@ -286,11 +301,13 @@ readonly class ArticleManager
         }
 
         $result = $this->dbLayer
-            ->select('priority, parent_id, user_id, id')
-            ->from('articles')
+            ->select('sort_order AS priority, parent_id, author_id AS user_id, id')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('id IN (:source_id, :destination_id)')
+            ->andWhere('content_type = :content_type')
             ->setParameter('source_id', $sourceId)
             ->setParameter('destination_id', $destinationId)
+            ->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
 
@@ -316,26 +333,29 @@ readonly class ArticleManager
         $this->dbLayer->startTransaction();
 
         $this->dbLayer
-            ->update('articles')
-            ->set('priority', 'priority + 1')
-            ->where('priority >= :priority')->setParameter('priority', $position)
+            ->update(ContentSchema::TABLE_NAME)
+            ->set('sort_order', 'sort_order + 1')
+            ->where('sort_order >= :priority')->setParameter('priority', $position)
             ->andWhere('parent_id = :parent_id')->setParameter('parent_id', $destinationId)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
 
         $this->dbLayer
-            ->update('articles')
-            ->set('priority', ':priority')->setParameter('priority', $position)
+            ->update(ContentSchema::TABLE_NAME)
+            ->set('sort_order', ':priority')->setParameter('priority', $position)
             ->set('parent_id', ':parent_id')->setParameter('parent_id', $destinationId)
             ->where('id = :id')->setParameter('id', $sourceId)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
 
         $this->dbLayer
-            ->update('articles')
-            ->set('priority', 'priority - 1')
+            ->update(ContentSchema::TABLE_NAME)
+            ->set('sort_order', 'sort_order - 1')
             ->where('parent_id = :parent_id')->setParameter('parent_id', $sourceParentId)
-            ->andWhere('priority > :priority')->setParameter('priority', $sourcePriority)
+            ->andWhere('sort_order > :priority')->setParameter('priority', $sourcePriority)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
 
@@ -361,9 +381,10 @@ readonly class ArticleManager
         }
 
         $result = $this->dbLayer
-            ->select('priority, parent_id, user_id')
-            ->from('articles')
+            ->select('sort_order AS priority, parent_id, author_id AS user_id')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $id)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
 
@@ -374,7 +395,7 @@ readonly class ArticleManager
             throw new NotFoundException('Item not found!');
         }
 
-        if ($parentId === ArticleProvider::ROOT_ID) {
+        if ($parentId === null) {
             throw new AccessDeniedException("Can't delete root item!");
         }
 
@@ -385,10 +406,11 @@ readonly class ArticleManager
         $this->dbLayer->startTransaction();
 
         $this->dbLayer
-            ->update('articles')
-            ->set('priority', 'priority - 1')
+            ->update(ContentSchema::TABLE_NAME)
+            ->set('sort_order', 'sort_order - 1')
             ->where('parent_id = :parent_id')->setParameter('parent_id', $parentId)
-            ->andWhere('priority > :priority')->setParameter('priority', $priority)
+            ->andWhere('sort_order > :priority')->setParameter('priority', $priority)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
 
@@ -413,8 +435,9 @@ readonly class ArticleManager
     {
         $result = $this->dbLayer
             ->select('id')
-            ->from('articles')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('parent_id = :id')->setParameter('id', $id)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
 
@@ -423,8 +446,9 @@ readonly class ArticleManager
         }
 
         $this->dbLayer
-            ->delete('articles')
+            ->delete(ContentSchema::TABLE_NAME)
             ->where('id  = :id')->setParameter('id', $id)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
 

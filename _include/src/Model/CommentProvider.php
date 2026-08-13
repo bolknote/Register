@@ -11,6 +11,7 @@ namespace S2\Cms\Model;
 
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Pdo\DbLayer;
@@ -53,11 +54,12 @@ readonly class CommentProvider
         ;
 
         $result = $this->dbLayer
-            ->select('c.time, a.url, a.title, c.nick, a.parent_id, (' . $countRawQuery . ') AS count')
-            ->from('articles AS a')
+            ->select('c.time, a.slug AS url, a.title, c.nick, a.parent_id, (' . $countRawQuery . ') AS count')
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
             ->innerJoin(CommentSchema::TABLE_NAME . ' AS c', 'c.content_id = a.id')
-            ->where('published = 1')
-            ->andWhere('commented = 1')
+            ->where("a.content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere('a.published = 1')
+            ->andWhere('a.comments_enabled = 1')
             ->andWhere('c.content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->andWhere('c.shown = 1')
             ->orderBy('time DESC')
@@ -118,11 +120,12 @@ readonly class CommentProvider
 
         // NOTE: no sorting is specified, random order is used. What order should be used?
         $result = $this->dbLayer
-            ->select('a.url, a.title, a.parent_id, c2.nick, c2.time')
-            ->from('articles AS a, (' . $activeArticlesRawQuery . ') AS c1')
+            ->select('a.slug AS url, a.title, a.parent_id, c2.nick, c2.time')
+            ->from(ContentSchema::TABLE_NAME . ' AS a, (' . $activeArticlesRawQuery . ') AS c1')
             ->innerJoin(CommentSchema::TABLE_NAME . ' AS c2', 'c2.id = c1.max_id')
             ->where('c1.article_id = a.id')
-            ->andWhere('a.commented = 1')
+            ->andWhere("a.content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere('a.comments_enabled = 1')
             ->andWhere('a.published = 1')
             ->limit(10)
             ->setParameter('content_type', ContentType::PAGE->value)

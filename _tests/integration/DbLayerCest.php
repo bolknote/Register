@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentSchema;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Pdo\DbLayerSqlite;
@@ -414,11 +415,11 @@ class DbLayerCest
      */
     public function testForeignKeyManagement(\IntegrationTester $I): void
     {
-        $I->assertTrue($this->dbLayer->foreignKeyExists('articles', 'fk_user'));
-        $this->dbLayer->dropForeignKey('articles', 'fk_user');
-        $I->assertFalse($this->dbLayer->foreignKeyExists('articles', 'fk_user'));
-        $this->dbLayer->addForeignKey('articles', 'fk_user', ['user_id'], 'users', ['id'], 'SET NULL');
-        $I->assertTrue($this->dbLayer->foreignKeyExists('articles', 'fk_user'));
+        $I->assertTrue($this->dbLayer->foreignKeyExists(ContentSchema::TABLE_NAME, 'fk_author'));
+        $this->dbLayer->dropForeignKey(ContentSchema::TABLE_NAME, 'fk_author');
+        $I->assertFalse($this->dbLayer->foreignKeyExists(ContentSchema::TABLE_NAME, 'fk_author'));
+        $this->dbLayer->addForeignKey(ContentSchema::TABLE_NAME, 'fk_author', ['author_id'], 'users', ['id'], 'SET NULL');
+        $I->assertTrue($this->dbLayer->foreignKeyExists(ContentSchema::TABLE_NAME, 'fk_author'));
     }
 
     /**

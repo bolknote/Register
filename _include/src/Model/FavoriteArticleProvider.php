@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Pdo\DbLayer;
@@ -34,17 +36,20 @@ final readonly class FavoriteArticleProvider
     {
         $rawQuery = $this->dbLayer
             ->select('1')
-            ->from('articles AS a1')
+            ->from(ContentSchema::TABLE_NAME . ' AS a1')
             ->where('a1.parent_id = a.id')
+            ->andWhere("a1.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('a1.published = 1')
             ->limit(1)
             ->getSql()
         ;
 
         $result = $this->dbLayer
-            ->select('a.title, a.url, (' . $rawQuery . ') IS NOT NULL AS children_exist, a.id, a.excerpt, 2 AS favorite, a.create_time, a.parent_id')
-            ->from('articles AS a')
-            ->where('a.favorite = 1')
+            ->select('a.title, a.slug AS url, (' . $rawQuery . ') IS NOT NULL AS children_exist')
+            ->addSelect('a.id, a.excerpt, 2 AS favorite, a.published_at AS create_time, a.parent_id')
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
+            ->where("a.content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere('a.featured = 1')
             ->andWhere('a.published = 1')
             ->execute()
         ;

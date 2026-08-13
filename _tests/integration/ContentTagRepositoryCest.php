@@ -78,21 +78,24 @@ final class ContentTagRepositoryCest
     private function createPublishedContent(DbLayer $dbLayer, string $suffix): array
     {
         $timestamp = time();
-        $dbLayer->insert('articles')->values([
-            'parent_id'   => '0',
-            'title'       => ':title',
-            'excerpt'     => "''",
-            'pagetext'    => "'<p>Page text</p>'",
-            'create_time' => ':time',
-            'modify_time' => ':time',
-            'published'   => '1',
-            'url'         => ':url',
-            'template'    => "'mainpage.php'",
-            'user_id'     => 'NULL',
+        $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
+            'content_type' => ':content_type',
+            'parent_id'    => 'NULL',
+            'title'        => ':title',
+            'excerpt'      => "''",
+            'body'         => "'<p>Page text</p>'",
+            'created_at'   => ':time',
+            'published_at' => ':time',
+            'updated_at'   => ':time',
+            'published'    => '1',
+            'slug'         => ':url',
+            'template'     => "'mainpage.php'",
+            'author_id'    => 'NULL',
         ])->execute([
-            'title' => 'Page ' . $suffix,
-            'time'  => $timestamp,
-            'url'   => 'page-' . $suffix,
+            'content_type' => ContentType::PAGE->value,
+            'title'        => 'Page ' . $suffix,
+            'time'         => $timestamp,
+            'url'          => 'page-' . $suffix,
         ]);
         $pageId = (int)$dbLayer->insertId();
 

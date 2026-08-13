@@ -11,6 +11,7 @@ namespace S2\Cms\Model\Comment;
 
 use Register\Comment\CommentRepository;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use S2\Cms\Controller\Comment\CommentDto;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
@@ -65,8 +66,9 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
     {
         $result = $this->dbLayer
             ->select('id', 'title')
-            ->from('articles')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $targetId)
+            ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
             ->execute()
         ;
 

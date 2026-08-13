@@ -13,6 +13,7 @@ namespace S2\Cms\Controller;
 
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
@@ -101,9 +102,10 @@ readonly class PageCommon implements ControllerInterface
         if ($useHierarchy) {
             $urls = array_unique($request_array);
 
-            $result = $this->dbLayer->select('id, parent_id, title, template')
-                ->from('articles')
-                ->where('url IN (' . implode(',', array_fill(0, \count($urls), '?')) . ')')
+            $result = $this->dbLayer->select('id, parent_id, slug, title, template')
+                ->from(ContentSchema::TABLE_NAME)
+                ->where('slug IN (' . implode(',', array_fill(0, \count($urls), '?')) . ')')
+                ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
                 ->andWhere('published=1')
                 ->execute($urls)
             ;
@@ -122,7 +124,10 @@ readonly class PageCommon implements ControllerInterface
                 $cur_node       = [];
                 $found_node_num = 0;
                 foreach ($nodes as $node) {
-                    if ($node['parent_id'] === $parent_id) {
+                    $nodeParentId = $node['parent_id'] === null
+                        ? ArticleProvider::ROOT_ID
+                        : (int)$node['parent_id'];
+                    if ($nodeParentId === $parent_id && $node['slug'] === $request_array[$i]) {
                         $cur_node = $node;
                         ++$found_node_num;
                     }
@@ -139,7 +144,7 @@ readonly class PageCommon implements ControllerInterface
                     );
                 }
 
-                $parent_id = $cur_node['id'];
+                $parent_id = (int)$cur_node['id'];
                 if ($cur_node['template'] !== '') {
                     $template_id = $cur_node['template'];
                 }
@@ -160,8 +165,9 @@ readonly class PageCommon implements ControllerInterface
 
         $raw_query_children = $this->dbLayer
             ->select('1')
-            ->from('articles AS a1')
+            ->from(ContentSchema::TABLE_NAME . ' AS a1')
             ->where('a1.parent_id = a.id')
+            ->andWhere("a1.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('a1.published = 1')
             ->limit(1)
             ->getSql()
@@ -170,21 +176,26 @@ readonly class PageCommon implements ControllerInterface
         $raw_query_author = $this->dbLayer
             ->select('u.name')
             ->from('users AS u')
-            ->where('u.id = a.user_id')
+            ->where('u.id = a.author_id')
             ->getSql()
         ;
 
         $qb = $this->dbLayer
-            ->select('a.id, a.title, a.meta_keys as meta_keywords, a.meta_desc as meta_description')
-            ->addSelect('a.excerpt as excerpt, a.pagetext as text, a.create_time as date')
-            ->addSelect('favorite, commented, template')
+            ->select('a.id, a.title, a.meta_keywords, a.meta_description')
+            ->addSelect('a.excerpt, a.body AS text, a.published_at AS date')
+            ->addSelect('a.featured AS favorite, a.comments_enabled AS commented, a.template')
             ->addSelect('(' . $raw_query_children . ') IS NOT NULL AS children_exist, (' . $raw_query_author . ') AS author')
-            ->from('articles AS a')
-            ->where('url = :url')->setParameter('url', $requestedPage)
-            ->andWhere('published = 1')
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
+            ->where("a.content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere('a.slug = :url')->setParameter('url', $requestedPage)
+            ->andWhere('a.published = 1')
         ;
         if ($useHierarchy) {
-            $qb->andWhere('parent_id = :parent_id')->setParameter('parent_id', $parent_id);
+            if ($parent_id === ArticleProvider::ROOT_ID) {
+                $qb->andWhere('a.parent_id IS NULL');
+            } else {
+                $qb->andWhere('a.parent_id = :parent_id')->setParameter('parent_id', $parent_id);
+            }
         }
 
         $result = $qb->execute();
@@ -288,19 +299,22 @@ readonly class PageCommon implements ControllerInterface
             // Fetching children
             $raw_query1 = $this->dbLayer
                 ->select('a1.id')
-                ->from('articles AS a1')
+                ->from(ContentSchema::TABLE_NAME . ' AS a1')
                 ->where('a1.parent_id = a.id')
-                ->andWhere('published = 1')
+                ->andWhere("a1.content_type = '" . ContentType::PAGE->value . "'")
+                ->andWhere('a1.published = 1')
                 ->limit(1)
                 ->getSql()
             ;
 
             $result = $this->dbLayer
-                ->select('title, url, (' . $raw_query1 . ') IS NOT NULL AS children_exist, id, excerpt, favorite, create_time, parent_id')
-                ->from('articles AS a')
-                ->where('parent_id = :parent_id')->setParameter('parent_id', $articleId)
+                ->select('title, slug AS url, (' . $raw_query1 . ') IS NOT NULL AS children_exist')
+                ->addSelect('id, excerpt, featured AS favorite, published_at AS create_time, parent_id')
+                ->from(ContentSchema::TABLE_NAME . ' AS a')
+                ->where("content_type = '" . ContentType::PAGE->value . "'")
+                ->andWhere('parent_id = :parent_id')->setParameter('parent_id', $articleId)
                 ->andWhere('published = 1')
-                ->orderBy('priority')
+                ->orderBy('sort_order')
                 ->execute()
             ;
             $subarticles = [];
@@ -415,20 +429,22 @@ readonly class PageCommon implements ControllerInterface
             // Fetching "siblings"
             $raw_query_child_num = $this->dbLayer
                 ->select('1')
-                ->from('articles AS a2')
+                ->from(ContentSchema::TABLE_NAME . ' AS a2')
                 ->where('a2.parent_id = a.id')
+                ->andWhere("a2.content_type = '" . ContentType::PAGE->value . "'")
                 ->andWhere('a2.published = 1')
                 ->limit(1)
                 ->getSql()
             ;
 
             $result = $this->dbLayer
-                ->select('title, url, id, excerpt, create_time, parent_id')
-                ->from('articles AS a')
-                ->where('parent_id = :parent_id')->setParameter('parent_id', $parent_id)
+                ->select('title, slug AS url, id, excerpt, published_at AS create_time, parent_id')
+                ->from(ContentSchema::TABLE_NAME . ' AS a')
+                ->where("content_type = '" . ContentType::PAGE->value . "'")
+                ->andWhere('parent_id = :parent_id')->setParameter('parent_id', $parent_id)
                 ->andWhere('published = 1')
                 ->andWhere('(' . $raw_query_child_num . ') IS NULL')
-                ->orderBy('priority')
+                ->orderBy('sort_order')
                 ->execute()
             ;
             $neighbour_urls = [];
@@ -567,18 +583,20 @@ readonly class PageCommon implements ControllerInterface
 
         $raw_query1 = $this->dbLayer
             ->select('1')
-            ->from('articles AS a1')
+            ->from(ContentSchema::TABLE_NAME . ' AS a1')
             ->where('a1.parent_id = atg.content_id')
+            ->andWhere("a1.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('a1.published = 1')
             ->limit(1)
             ->getSql()
         ;
 
         $result = $this->dbLayer
-            ->select('title, tag_id, parent_id, url, a.id AS id, (' . $raw_query1 . ') IS NOT NULL AS children_exist')
-            ->from('articles AS a')
+            ->select('title, tag_id, parent_id, slug AS url, a.id AS id, (' . $raw_query1 . ') IS NOT NULL AS children_exist')
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
             ->innerJoin(ContentTagSchema::TABLE_NAME . ' AS atg', 'atg.content_id = a.id')
             ->where("atg.content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere("a.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('atg.tag_id IN (' . implode(', ', array_fill(0, \count($tag_names), '?')) . ')')
             ->andWhere('a.published = 1')
             // ->orderBy('create_time') // no temp table is created but order by ID is almost the same

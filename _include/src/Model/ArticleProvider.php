@@ -13,6 +13,8 @@ namespace S2\Cms\Model;
 
 use Register\Comment\CommentRepository;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Pdo\DbLayer;
@@ -72,9 +74,10 @@ readonly class ArticleProvider
             // Step to fetch parent articles
             $idsToSelect = array_unique($parentIds);
             $result      = $this->dbLayer
-                ->select('id, parent_id, url')
-                ->from('articles')
+                ->select('id, parent_id, slug AS url')
+                ->from(ContentSchema::TABLE_NAME)
                 ->where('id IN (' . implode(', ', array_fill(0, \count($idsToSelect), '?')) . ')')
+                ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
                 ->andWhere('published = 1')
                 ->execute($idsToSelect)
             ;
@@ -88,7 +91,7 @@ readonly class ArticleProvider
                         $parentIds[$k]       = $row['parent_id'];
                         $urls[$k]            = rawurlencode($row['url']) . '/' . $urls[$k];
                         $parentsAreFound[$k] = true;
-                        if (self::ROOT_ID === (int)$row['parent_id']) {
+                        if ($row['parent_id'] === null) {
                             // The chain is finished - we are at the root.
                             unset($parentIds[$k]);
                         }
@@ -117,12 +120,18 @@ readonly class ArticleProvider
         // TODO cache?
         $result = $this->dbLayer
             ->select('title')
-            ->from('articles')
-            ->where('parent_id = ' . self::ROOT_ID)
+            ->from(ContentSchema::TABLE_NAME)
+            ->where("content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere('parent_id IS NULL')
             ->execute()
         ;
 
-        return $result->result();
+        $title = $result->result();
+        if (!\is_string($title)) {
+            throw new \UnexpectedValueException('The published root page is missing from the content table.');
+        }
+
+        return $title;
     }
 
     /**
@@ -135,8 +144,9 @@ readonly class ArticleProvider
     {
         $raw_query_child_num = $this->dbLayer
             ->select('1')
-            ->from('articles AS a2')
+            ->from(ContentSchema::TABLE_NAME . ' AS a2')
             ->where('a2.parent_id = a.id')
+            ->andWhere("a2.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('a2.published = 1')
             ->limit(1)
             ->getSql()
@@ -145,19 +155,21 @@ readonly class ArticleProvider
         $raw_query_user = $this->dbLayer
             ->select('u.name')
             ->from('users AS u')
-            ->where('u.id = a.user_id')
+            ->where('u.id = a.author_id')
             ->getSql()
         ;
 
         $qb = $this->dbLayer
-            ->select('a.id, a.title, a.create_time, a.modify_time, a.excerpt, a.favorite, a.url')
-            ->addSelect('a.parent_id, a1.title AS parent_title, a1.url AS p_url, (' . $raw_query_user . ') AS author')
-            ->from('articles AS a')
-            ->innerJoin('articles AS a1', 'a1.id = a.parent_id')
+            ->select('a.id, a.title, a.published_at AS create_time, a.updated_at AS modify_time, a.excerpt, a.featured AS favorite, a.slug AS url')
+            ->addSelect('a.parent_id, a1.title AS parent_title, a1.slug AS p_url, (' . $raw_query_user . ') AS author')
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
+            ->innerJoin(ContentSchema::TABLE_NAME . ' AS a1', 'a1.id = a.parent_id')
             ->where('(' . $raw_query_child_num . ') IS NULL')
-            ->andWhere('a.create_time <> 0 OR a.modify_time <> 0')
+            ->andWhere("a.content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere("a1.content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere('a.published_at <> 0 OR a.updated_at <> 0')
             ->andWhere('a.published = 1')
-            ->orderBy('a.create_time DESC')
+            ->orderBy('a.published_at DESC')
         ;
 
         if ($limit !== null) {
@@ -234,7 +246,8 @@ readonly class ArticleProvider
     {
         $result        = $this->dbLayer
             ->select('DISTINCT a.template')
-            ->from('articles AS a')
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
+            ->where("a.content_type = '" . ContentType::PAGE->value . "'")
             ->execute()
         ;
         $usedTemplates = $result->fetchColumn();
@@ -261,14 +274,16 @@ readonly class ArticleProvider
         }
 
         $baseQuery      = $this->dbLayer
-            ->select('id, url, parent_id, 1 AS level')
-            ->from('articles')
+            ->select('id, slug AS url, parent_id, 1 AS level')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')
+            ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
         ;
         $recursiveQuery = $this->dbLayer
-            ->select('a.id, a.url, a.parent_id, p.level + 1')
-            ->from('articles AS a')
+            ->select('a.id, a.slug AS url, a.parent_id, p.level + 1')
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
             ->innerJoin('path_cte AS p', 'a.id = p.parent_id')
+            ->where("a.content_type = '" . ContentType::PAGE->value . "'")
         ;
         if ($visibleForAll) {
             $baseQuery->andWhere('published = 1');
@@ -289,7 +304,7 @@ readonly class ArticleProvider
         $rootIsFound = false;
         while ($row = $result->fetchAssoc()) {
             $urls[] = rawurlencode($row['url']);
-            if ($row['parent_id'] === self::ROOT_ID) {
+            if ($row['parent_id'] === null) {
                 $rootIsFound = true;
             }
         }
@@ -313,13 +328,15 @@ readonly class ArticleProvider
 
         $baseQuery      = $this->dbLayer
             ->select('id, template, parent_id, 1 AS level')
-            ->from('articles')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')
+            ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
         ;
         $recursiveQuery = $this->dbLayer
             ->select('a.id, a.template, a.parent_id, p.level + 1')
-            ->from('articles AS a')
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
             ->innerJoin('parent_cte AS p', 'a.id = p.parent_id')
+            ->where("a.content_type = '" . ContentType::PAGE->value . "'")
         ;
         if ($visibleForAll) {
             $baseQuery->andWhere('published = 1');
@@ -369,13 +386,18 @@ readonly class ArticleProvider
         // Walking through page parents
         foreach ($pathArray as $pathItem) {
             $qb = $this->dbLayer
-                ->select('a.id, a.title, a.commented')
-                ->from('articles AS a')
-                ->where('url = :url')->setParameter('url', $pathItem)
+                ->select('a.id, a.title, a.comments_enabled AS commented')
+                ->from(ContentSchema::TABLE_NAME . ' AS a')
+                ->where('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+                ->andWhere('slug = :url')->setParameter('url', $pathItem)
             ;
 
             if ($this->useHierarchy->get()) {
-                $qb->andWhere('parent_id = :id')->setParameter('id', $id);
+                if ($id === self::ROOT_ID) {
+                    $qb->andWhere('parent_id IS NULL');
+                } else {
+                    $qb->andWhere('parent_id = :id')->setParameter('id', $id);
+                }
             }
 
             if ($publishedOnly) {
@@ -400,9 +422,10 @@ readonly class ArticleProvider
     public function checkUrlAndTemplateStatus(int $id): array
     {
         $result = $this->dbLayer
-            ->select('parent_id, url, template')
-            ->from('articles')
+            ->select('parent_id, slug AS url, template')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $id)
+            ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
             ->execute()
         ;
 
@@ -415,7 +438,7 @@ readonly class ArticleProvider
 
         $templateStatus = !$this->useHierarchy->get() || $template !== '' ? 'ok' : 'empty';
 
-        if ($parentId === self::ROOT_ID) {
+        if ($parentId === null) {
             return ['mainpage', $templateStatus];
         }
 
@@ -425,8 +448,9 @@ readonly class ArticleProvider
 
         $qb = $this->dbLayer
             ->select('COUNT(*)')
-            ->from('articles AS a')
-            ->where('a.url = :url')->setParameter('url', $url)
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
+            ->where('a.content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+            ->andWhere('a.slug = :url')->setParameter('url', $url)
         ;
 
         if ($this->useHierarchy->get()) {

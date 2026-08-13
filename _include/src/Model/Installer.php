@@ -13,6 +13,7 @@ use S2\Cms\AdminYard\UserSettingStorage;
 use S2\Cms\Comment\Antispam\AntispamSchema;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use Register\Content\ContentTagSchema;
 use Register\Schema\SchemaManager;
 use S2\Cms\Pdo\DbLayer;
@@ -73,39 +74,6 @@ readonly class Installer
 
         ContentSchema::create($this->dbLayer);
         UserpicSchema::create($this->dbLayer);
-
-        $this->dbLayer->createTable('articles', function (SchemaBuilderInterface $table): void {
-            $table
-                ->addIdColumn()
-                ->addInteger('parent_id', true) // NOTE think about adding a foreign key here. What value must be set in parent_id for root article? Null? Now it is 0.
-                ->addString('meta_keys', 255)
-                ->addString('meta_desc', 255)
-                ->addString('title', 255)
-                ->addText('excerpt', nullable: false)
-                ->addLongText('pagetext', nullable: false)
-                ->addInteger('create_time', true)
-                ->addInteger('modify_time', true)
-                ->addInteger('revision', true, false, 1)
-                ->addInteger('priority', true)
-                ->addBoolean('published')
-                ->addBoolean('favorite')
-                ->addBoolean('commented', false, true)
-                ->addString('url', 255)
-                ->addString('template', 30)
-                ->addInteger('user_id', true, nullable: true, default: null)
-                ->addForeignKey(
-                    'fk_user',
-                    ['user_id'],
-                    'users',
-                    ['id'],
-                    'SET NULL',
-                )
-                ->addIndex('url_idx', ['url'])
-                ->addIndex('create_time_idx', ['create_time'])
-                ->addIndex('children_idx', ['parent_id', 'published'])
-                ->addIndex('template_idx', ['template'])
-            ;
-        });
 
         CommentSchema::create($this->dbLayer);
 
@@ -180,7 +148,6 @@ readonly class Installer
         ContentTagSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('tags');
         CommentSchema::drop($this->dbLayer);
-        $this->dbLayer->dropTable('articles');
         ContentSchema::drop($this->dbLayer);
         UserpicSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('extensions');
@@ -242,19 +209,24 @@ readonly class Installer
     /**
      * @throws DbLayerException
      */
-    public function insertMainPage(string $title, int $time, string $pageText = ''): void
+    public function insertMainPage(string $title, int $time, string $pageText = ''): int
     {
         $this->dbLayer
-            ->insert('articles')
-            ->setValue('parent_id', ':parent_id')->setParameter('parent_id', ArticleProvider::ROOT_ID)
+            ->insert(ContentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
+            ->setValue('parent_id', 'NULL')
+            ->setValue('slug', "''")
             ->setValue('title', ':title')->setParameter('title', $title)
-            ->setValue('create_time', '0')
-            ->setValue('modify_time', ':modify_time')->setParameter('modify_time', $time)
+            ->setValue('created_at', ':created_at')->setParameter('created_at', $time)
+            ->setValue('published_at', '0')
+            ->setValue('updated_at', ':updated_at')->setParameter('updated_at', $time)
             ->setValue('published', '1')
             ->setValue('template', ':template')->setParameter('template', 'mainpage.php')
             ->setValue('excerpt', ':excerpt')->setParameter('excerpt', $pageText)
-            ->setValue('pagetext', ':pagetext')->setParameter('pagetext', $pageText)
+            ->setValue('body', ':body')->setParameter('body', $pageText)
             ->execute()
         ;
+
+        return (int)$this->dbLayer->insertId();
     }
 }

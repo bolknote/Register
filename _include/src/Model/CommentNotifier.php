@@ -12,6 +12,7 @@ namespace S2\Cms\Model;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSubscriptionService;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use S2\Cms\Helper\StringHelper;
 use S2\Cms\Mail\CommentMailer;
@@ -61,12 +62,13 @@ readonly class CommentNotifier
 
         // Getting some info about the article commented
         $result = $this->dbLayer
-            ->select('title, parent_id, url')
-            ->from('articles')
+            ->select('title, parent_id, slug AS url')
+            ->from(ContentSchema::TABLE_NAME)
             ->where('id = :article_id')
             ->setParameter('article_id', $comment->contentId->value)
+            ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('published = 1')
-            ->andWhere('commented = 1')
+            ->andWhere('comments_enabled = 1')
             ->execute()
         ;
         $article = $result->fetchAssoc();
@@ -74,7 +76,10 @@ readonly class CommentNotifier
             return;
         }
 
-        $path = $this->articleProvider->pathFromId($article['parent_id'], true);
+        $path = $this->articleProvider->pathFromId(
+            $article['parent_id'] === null ? ArticleProvider::ROOT_ID : (int)$article['parent_id'],
+            true,
+        );
         if ($path === null) {
             // Article is hidden via parent sections.
             return;

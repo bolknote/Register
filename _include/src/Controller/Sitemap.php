@@ -11,6 +11,8 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Framework\ControllerInterface;
 use S2\Cms\Model\ArticleProvider;
@@ -71,17 +73,20 @@ class Sitemap implements ControllerInterface
     {
         $rawQuery = $this->dbLayer
             ->select('1')
-            ->from('articles AS a2')
+            ->from(ContentSchema::TABLE_NAME . ' AS a2')
             ->where('a2.parent_id = a.id')
+            ->andWhere("a2.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('a2.published = 1')
             ->limit(1)
             ->getSql()
         ;
 
         $result = $this->dbLayer
-            ->select('a.id, a.title, a.create_time, a.modify_time, a.url, a.parent_id, (' . $rawQuery . ') IS NOT NULL AS children_exist')
-            ->from('articles AS a')
-            ->where('(a.create_time <> 0 OR a.modify_time <> 0)')
+            ->select('a.id, a.title, a.published_at AS create_time, a.updated_at AS modify_time')
+            ->addSelect('a.slug AS url, a.parent_id, (' . $rawQuery . ') IS NOT NULL AS children_exist')
+            ->from(ContentSchema::TABLE_NAME . ' AS a')
+            ->where("a.content_type = '" . ContentType::PAGE->value . "'")
+            ->andWhere('(a.published_at <> 0 OR a.updated_at <> 0)')
             ->andWhere('a.published = 1')
             ->execute()
         ;
