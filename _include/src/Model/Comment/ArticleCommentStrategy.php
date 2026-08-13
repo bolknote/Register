@@ -80,11 +80,31 @@ readonly class ArticleCommentStrategy implements CommentStrategyInterface
      * @throws DbLayerException
      */
     #[\Override]
-    public function save(int $targetId, string $name, string $email, bool $showEmail, bool $subscribed, string $text, string $ip): int
+    public function isValidParent(int $targetId, int $parentId): bool
+    {
+        $result = $this->dbLayer
+            ->select('COUNT(*)')
+            ->from('art_comments')
+            ->where('id = :id')->setParameter('id', $parentId)
+            ->andWhere('article_id = :article_id')->setParameter('article_id', $targetId)
+            ->andWhere('shown = 1')
+            ->execute()
+        ;
+
+        return (int)$result->result() === 1;
+    }
+
+    /**
+     * {@inheritdoc}
+     * @throws DbLayerException
+     */
+    #[\Override]
+    public function save(int $targetId, string $name, string $email, bool $showEmail, bool $subscribed, string $text, string $ip, ?int $parentId): int
     {
         $this->dbLayer
             ->insert('art_comments')
             ->setValue('article_id', ':article_id')->setParameter('article_id', $targetId)
+            ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $parentId)
             ->setValue('time', ':time')->setParameter('time', time())
             ->setValue('ip', ':ip')->setParameter('ip', $ip)
             ->setValue('nick', ':nick')->setParameter('nick', $name)

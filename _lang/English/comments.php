@@ -20,8 +20,8 @@ return [
 	'Comment preview'          => 'Comment preview',
 	'Comment preview info'     => 'Your comment has not been saved yet! Do not forget to press the “Submit” button after editing.',
 
-    'Comment check passed'     => '🟢 Comment has been published (report=%s). Hide it if it is not appropriate.',
-    'Comment check failed'     => '🔴 Comment has been hidden (report=%s). Publish it if it is appropriate.',
+    'Comment check passed'     => 'Published: the comment passed the check (report=%s). Hide it if it is not appropriate.',
+    'Comment check failed'     => 'Hidden: the comment failed the check (report=%s). Publish it if it is appropriate.',
 
     'Email pattern'            =>
 		'Hello, <name>.
@@ -74,5 +74,6 @@ of the comment will receive your answer.',
 	'email'                    => 'Invalid e-mail. Please enter the correct e-mail, and the author of the site will contact you if it is needed. If you clear the “Show to other visitors” checkbox, your e-mail will not be shown.',
 	'disabled'                 => 'Sorry, but&nbsp;you cannot send comments&nbsp;to this site at&nbsp;this moment. Try it later.',
 	'no_item'                  => 'The destination page cannot be detected due to an error. Go to the page you have commented and try again (you can copy and paste the comment text).',
+	'invalid_parent'           => 'The comment you replied to is no longer available. Choose another comment or post a new top-level comment.',
 
 ];

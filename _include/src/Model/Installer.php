@@ -107,6 +107,7 @@ readonly class Installer
             $table
                 ->addIdColumn()
                 ->addInteger('article_id', true, false, null)
+                ->addInteger('parent_id', true, true, null)
                 ->addInteger('time', true)
                 ->addString('ip', 39)
                 ->addString('nick', 50)
@@ -125,6 +126,7 @@ readonly class Installer
                     'CASCADE'
                 )
                 ->addIndex('sort_idx', ['article_id', 'time', 'shown'])
+                ->addIndex('thread_idx', ['article_id', 'parent_id', 'shown'])
                 ->addIndex('time_idx', ['time'])
             ;
         });

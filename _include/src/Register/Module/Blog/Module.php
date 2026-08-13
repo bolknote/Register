@@ -29,6 +29,7 @@ use S2\Cms\Model\Article\ArticleRenderedEvent;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\FavoriteArticleProvider;
 use S2\Cms\Model\AuthProvider;
+use S2\Cms\Model\Comment\CommentThreadRenderer;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Model\User\UserProvider;
 use S2\Cms\Pdo\DbLayer;
@@ -197,6 +198,7 @@ final class Module implements ModuleInterface
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
+                $container->get(CommentThreadRenderer::class),
                 $provider->getStringProxy('S2_BLOG_TITLE'),
                 $provider->getBoolProxy('S2_SHOW_COMMENTS'),
                 $provider->getBoolProxy('S2_ENABLED_COMMENTS'),

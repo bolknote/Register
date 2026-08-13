@@ -23,7 +23,9 @@ interface CommentStrategyInterface
 
     public function getTargetById(int $targetId): ?TargetDto;
 
-    public function save(int $targetId, string $name, string $email, bool $showEmail, bool $subscribed, string $text, string $ip): int;
+    public function isValidParent(int $targetId, int $parentId): bool;
+
+    public function save(int $targetId, string $name, string $email, bool $showEmail, bool $subscribed, string $text, string $ip, ?int $parentId): int;
 
     public function notifySubscribers(int $commentId): void;
 

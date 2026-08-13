@@ -78,6 +78,11 @@ readonly class CommentController implements ControllerInterface
             $id = '';
         }
 
+        $requestedParentId = $request->request->getInt('parent_id');
+        $parentId          = $requestedParentId > 0 ? $requestedParentId : null;
+        $replyNumber       = max(0, $request->request->getInt('reply_number'));
+        $replyName         = mb_substr(trim($request->request->getString('reply_name')), 0, 50);
+
         $path = $request->getPathInfo();
         $isPreview = $request->request->get('preview') !== null;
 
@@ -152,7 +157,16 @@ readonly class CommentController implements ControllerInterface
                 ->putInPlaceholder('text', $text_preview)
                 ->putInPlaceholder('id', $id)
                 ->putInPlaceholder('commented', true)
-                ->putInPlaceholder('comment_form', ['name' => $name, 'email' => $email, 'show_email' => $showEmail, 'subscribed' => $subscribed, 'text' => $text])
+                ->putInPlaceholder('comment_form', [
+                    'name'         => $name,
+                    'email'        => $email,
+                    'show_email'   => $showEmail,
+                    'subscribed'   => $subscribed,
+                    'text'         => $text,
+                    'parent_id'    => $parentId,
+                    'reply_number' => $replyNumber,
+                    'reply_name'   => $replyName,
+                ])
             ;
 
             return $template->toHttpResponse();
@@ -208,6 +222,13 @@ readonly class CommentController implements ControllerInterface
             $errors[] = $this->translator->trans('no_item');
         }
 
+        if ($target instanceof \S2\Cms\Controller\Comment\TargetDto && $parentId !== null && !$this->commentStrategy->isValidParent($target->id, $parentId)) {
+            $errors[]    = $this->translator->trans('invalid_parent');
+            $parentId    = null;
+            $replyNumber = 0;
+            $replyName   = '';
+        }
+
         if (\count($errors) > 0) {
             $errorText = '<p>' . $this->translator->trans('Error message') . '</p><ul>';
             foreach ($errors as $error) {
@@ -219,12 +240,21 @@ readonly class CommentController implements ControllerInterface
             $template = $this->templateProvider->getTemplate('service.php');
 
             $template
-                ->putInPlaceholder('head_title', '❌ ' . $this->translator->trans('Error'))
-                ->putInPlaceholder('title', '<span class="icon-error">✖</span>' . $this->translator->trans('Error'))
+                ->putInPlaceholder('head_title', $this->translator->trans('Error'))
+                ->putInPlaceholder('title', $this->translator->trans('Error'))
                 ->putInPlaceholder('text', $errorText . ($target instanceof \S2\Cms\Controller\Comment\TargetDto ? '<p>' . $this->translator->trans('Fix error') . '</p>' : ''))
                 ->putInPlaceholder('id', $id)
                 ->putInPlaceholder('commented', $target instanceof \S2\Cms\Controller\Comment\TargetDto) // can be commented, i.e. render comment form
-                ->putInPlaceholder('comment_form', ['name' => $name, 'email' => $email, 'show_email' => $showEmail, 'subscribed' => $subscribed, 'text' => $text])
+                ->putInPlaceholder('comment_form', [
+                    'name'         => $name,
+                    'email'        => $email,
+                    'show_email'   => $showEmail,
+                    'subscribed'   => $subscribed,
+                    'text'         => $text,
+                    'parent_id'    => $parentId,
+                    'reply_number' => $replyNumber,
+                    'reply_name'   => $replyName,
+                ])
             ;
 
             $this->logger->notice('Comment was not saved due to errors.', [
@@ -254,7 +284,16 @@ readonly class CommentController implements ControllerInterface
         $moderationRequired = $forceModeration || $spamDecision->shouldModerate($this->premoderationEnabled->get());
 
         // Save the comment
-        $commentId = $this->commentStrategy->save($target->id, $name, $email, $showEmail, $subscribed, $text, (string)$request->getClientIp());
+        $commentId = $this->commentStrategy->save(
+            $target->id,
+            $name,
+            $email,
+            $showEmail,
+            $subscribed,
+            $text,
+            (string)$request->getClientIp(),
+            $parentId,
+        );
         $assessmentId = $spamDecision->getReport()->getAssessmentId();
         if ($assessmentId !== null) {
             try {

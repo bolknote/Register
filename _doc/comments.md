@@ -7,7 +7,8 @@ Register includes a flexible and secure comment system designed to handle valida
 1. **Request Handling**
    Incoming comments are sent to the `CommentController`. This controller performs initial validation:
    comments must be enabled, the target item must exist, the text and author name must be present,
-   the text must fit the size limit, the email must be valid, and the anti-bot question must be answered correctly.
+   the text must fit the size limit, and the email must be valid. Replies additionally require a visible
+   parent comment that belongs to the same page or post.
 
 2. **Preview Mode**
    If the comment is submitted with the preview flag, it is formatted and returned without being stored or processed further.
@@ -44,9 +45,20 @@ Register includes a flexible and secure comment system designed to handle valida
 ### Comment Publishing
 
 If the decision is to publish the comment, the following actions are performed in `CommentController`:
-- The comment is stored and visible on the page.
+- The comment is stored with its optional parent and is visible on the page.
 - Notification emails are sent to moderators and to users who subscribed to comment replies.
 - The user is redirected to the commented page.
+
+### Thread Rendering
+
+Comments are fetched in chronological order and assembled into a tree on the server. Missing parents,
+forward references, and cycles in imported data are shown safely as top-level comments. The public theme
+uses no connector lines: nesting is communicated through spacing and indentation. Visual indentation stops
+after three levels; deeper replies keep their logical parent and show the addressee explicitly.
+
+The reply form works without client-side rendering. Its links carry the parent in the query string as a
+no-JavaScript fallback. A small progressive-enhancement script moves the same server-rendered form below
+the selected comment and updates the hidden parent field; submission remains a normal HTML POST.
 
 ### Manual Moderation Flow
 

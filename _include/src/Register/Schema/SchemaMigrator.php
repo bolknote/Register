@@ -14,6 +14,7 @@ use Register\Module\BaseModuleRegistry;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Pdo\SchemaBuilderInterface;
 
 /**
  * Owns the single schema revision for all mandatory Register modules.
@@ -25,7 +26,7 @@ final readonly class SchemaMigrator
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_REVISION';
 
-    public const int LATEST_REVISION = 5;
+    public const int LATEST_REVISION = 6;
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -67,7 +68,10 @@ final readonly class SchemaMigrator
         }
 
         if ($migrated) {
-            $this->container->get(ExtensionCache::class)->clearRoutesCache();
+            $extensionCache = $this->container->getIfDefined(ExtensionCache::class);
+            if ($extensionCache instanceof ExtensionCache) {
+                $extensionCache->clearRoutesCache();
+            }
         }
 
         return $migrated;
@@ -145,6 +149,31 @@ final readonly class SchemaMigrator
         // rebuilds the index after every product migration, removing inherited identifiers.
     }
 
+    private function migrateToRevisionSix(): void
+    {
+        $commentTables = [
+            'art_comments'     => 'article_id',
+            's2_blog_comments' => 'post_id',
+        ];
+
+        foreach ($commentTables as $table => $targetColumn) {
+            if (!$this->dbLayer->tableExists($table)) {
+                continue;
+            }
+
+            $this->dbLayer->addField(
+                $table,
+                'parent_id',
+                SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER,
+                null,
+                true,
+                null,
+                $targetColumn,
+            );
+            $this->dbLayer->addIndex($table, 'thread_idx', [$targetColumn, 'parent_id', 'shown']);
+        }
+    }
+
     /** @return array<int, \Closure(): void> */
     private function migrations(): array
     {
@@ -163,6 +192,9 @@ final readonly class SchemaMigrator
             },
             5 => function (): void {
                 $this->migrateToRevisionFive();
+            },
+            6 => function (): void {
+                $this->migrateToRevisionSix();
             },
         ];
     }

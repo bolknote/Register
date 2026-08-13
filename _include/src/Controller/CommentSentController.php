@@ -101,7 +101,7 @@ readonly class CommentSentController implements ControllerInterface
 
         $template
             ->putInPlaceholder('head_title', '✅ ' . $this->translator->trans('Comment sent'))
-            ->putInPlaceholder('title', '<span class="icon-success">✔</span>' . $this->translator->trans('Comment sent'))
+            ->putInPlaceholder('title', $this->translator->trans('Comment sent'))
             ->putInPlaceholder('text', \sprintf($this->translator->trans('Comment sent info'), s2_htmlencode($this->urlBuilder->link($targetPath)), $this->urlBuilder->link('/')))
         ;
 
