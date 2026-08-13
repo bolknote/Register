@@ -73,3 +73,106 @@ p.search-result {
 		border-radius: 11px;
 		opacity: 0.5;
 		}
+
+.recommendation-title {
+	margin-bottom: clamp(1.4rem, 3vw, 2.25rem);
+	}
+
+.recommendations {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	align-items: start;
+	gap: clamp(2rem, 4vw, 3.5rem) clamp(1.25rem, 3vw, 2.5rem);
+	}
+	.recommendation {
+		display: flow-root;
+		min-width: 0;
+		}
+		.recommendation-link {
+			display: block;
+			}
+		.recommendation-header {
+			font-family: var(--ui-font, sans-serif);
+			font-weight: 700;
+			letter-spacing: -0.025em;
+			line-height: 1.2;
+			text-wrap: balance;
+			}
+		.recommendation-header-1 {
+			font-size: clamp(1.05rem, 1.5vw, 1.25rem);
+			}
+		.recommendation-header-2 {
+			font-size: clamp(1.35rem, 2.4vw, 1.875rem);
+			}
+		.recommendation-snippet {
+			margin-top: 0.55rem;
+			font-size: clamp(1rem, 1.4vw, 1.125rem);
+			line-height: 1.5;
+			}
+		.recommendation-date {
+			margin-top: 0.45rem;
+			color: var(--minor-color, #777);
+			font-family: var(--ui-font, sans-serif);
+			font-size: 0.875rem;
+			font-variant-numeric: tabular-nums;
+			line-height: 1.4;
+			}
+
+.recommendation-img-wrapper,
+.recommendation-img-right-wrapper,
+.recommendation-img-thumb-wrapper {
+	position: relative;
+	overflow: hidden;
+	background: var(--surface-background, #eee);
+	}
+	.recommendation-img-wrapper {
+		width: 100%;
+		margin-bottom: 0.85rem;
+		}
+	.recommendation-img-right-wrapper {
+		float: right;
+		margin: 0.2rem 0 0.8rem 1.1rem;
+		}
+	.recommendation-img-thumb-wrapper {
+		float: left;
+		margin: 0.2rem 1rem 0.75rem 0;
+		}
+	#content .recommendation-img {
+		position: absolute;
+		inset: 0;
+		display: block;
+		width: 100%;
+		max-width: none;
+		height: 100%;
+		object-fit: cover;
+		}
+
+.recommendation-video-wrapper:after {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 2.75rem;
+	height: 2.75rem;
+	border-radius: 50%;
+	background: rgb(0 0 0 / 58%);
+	color: #fff;
+	content: '\25b6';
+	font-family: sans-serif;
+	font-size: 1.15rem;
+	line-height: 2.75rem;
+	text-align: center;
+	transform: translate(-50%, -50%);
+	}
+
+@media (max-width: 720px) {
+	.recommendation-title {
+		margin-bottom: 1.25rem;
+		}
+
+	.recommendations {
+		display: block;
+		}
+		.recommendation + .recommendation {
+			margin-top: 2.5rem;
+			}
+	}
