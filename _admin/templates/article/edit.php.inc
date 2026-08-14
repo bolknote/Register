@@ -228,17 +228,6 @@ $renderControl = static function (string $fieldName, object $control) use (
                             <?php endif; ?>
                         </div>
                         <div class="ai-tools-status" id="ai-tools-status" aria-live="polite"></div>
-                        <section class="ai-result-panel" id="ai-result-panel" hidden>
-                            <div class="ai-result-heading">
-                                <strong><?= $trans('AI result') ?></strong>
-                                <button type="button" class="ai-result-close" id="ai-result-close" title="<?= $trans('Close AI result') ?>" aria-label="<?= $trans('Close AI result') ?>">&times;</button>
-                            </div>
-                            <textarea id="ai-result-text" readonly></textarea>
-                            <div class="ai-result-actions">
-                                <button type="button" class="primary" id="ai-result-apply"><?= $trans('Apply AI result') ?></button>
-                                <button type="button" id="ai-result-copy"><?= $trans('Copy AI result') ?></button>
-                            </div>
-                        </section>
                     <?php else: ?>
                         <p class="ai-setup-note">
                             <?= $trans('AI setup required') ?>
@@ -370,10 +359,9 @@ $renderControl = static function (string $fieldName, object $control) use (
             'contentId'     => isset($primaryKey['id']) ? (int)$primaryKey['id'] : 0,
             'working'       => $trans('AI working'),
             'requestFailed' => $trans('AI request failed'),
-            'copied'        => $trans('AI result copied'),
+            'unchanged'     => $trans('AI result unchanged'),
             'sourceChanged' => $trans('AI source changed'),
             'emptyText'     => $trans('AI empty text'),
-            'proofreadApplied' => $trans('AI proofreading applied'),
             'proofreadClean'   => $trans('AI proofreading clean'),
         ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>
     };

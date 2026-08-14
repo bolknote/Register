@@ -1,4 +1,4 @@
-/** AI-assisted editorial actions. Proofreading is applied inline; rewrites are reviewed first. */
+/** AI-assisted editorial actions. Every result is applied immediately. */
 
 import {s2_codemirror} from './codemirror.js';
 import {findCorrectionRanges} from './text/corrections.js';
@@ -10,18 +10,12 @@ export function initAiTools(form, config) {
 
     const container = document.getElementById('content-editor-ai-tools');
     const status = document.getElementById('ai-tools-status');
-    const resultPanel = document.getElementById('ai-result-panel');
-    const resultText = document.getElementById('ai-result-text');
-    const applyButton = document.getElementById('ai-result-apply');
-    const copyButton = document.getElementById('ai-result-copy');
-    const closeButton = document.getElementById('ai-result-close');
     const actionButtons = Array.from(container ? container.querySelectorAll('[data-ai-action]') : []);
-    if (!container || !status || !resultPanel || !resultText || !applyButton || !copyButton || !closeButton) {
+    if (!container || !status) {
         return;
     }
 
     let activeController = null;
-    let pendingResult = null;
 
     function setBusy(busy) {
         container.setAttribute('aria-busy', busy ? 'true' : 'false');
@@ -33,12 +27,6 @@ export function initAiTools(form, config) {
     function setStatus(message, error) {
         status.textContent = message || '';
         status.classList.toggle('is-error', !!error);
-    }
-
-    function closeResult() {
-        pendingResult = null;
-        resultText.value = '';
-        resultPanel.hidden = true;
     }
 
     async function runAction(action) {
@@ -53,7 +41,6 @@ export function initAiTools(form, config) {
         }
         const controller = new AbortController();
         activeController = controller;
-        closeResult();
         setBusy(true);
         setStatus(config.working, false);
 
@@ -83,7 +70,33 @@ export function initAiTools(form, config) {
                 throw new Error(responseData && responseData.message ? responseData.message : config.requestFailed);
             }
 
-            if (action === 'proofread') {
+            if (action === 'title') {
+                const titleInput = form.elements.title;
+                if (titleInput) {
+                    titleInput.value = responseData.result;
+                    titleInput.dispatchEvent(new Event('input', {bubbles: true}));
+                    titleInput.focus();
+                }
+                setStatus('', false);
+                return;
+            }
+
+            if (action === 'tags') {
+                const tagsInput = form.elements.tags;
+                if (tagsInput) {
+                    tagsInput.value = responseData.result;
+                    tagsInput.dispatchEvent(new Event('input', {bubbles: true}));
+                    const details = tagsInput.closest('details');
+                    if (details) {
+                        details.open = true;
+                    }
+                    tagsInput.focus();
+                }
+                setStatus('', false);
+                return;
+            }
+
+            {
                 const currentText = s2_codemirror.getValue().slice(snapshot.start, snapshot.end);
                 if (currentText !== snapshot.text) {
                     setStatus(config.sourceChanged, true);
@@ -91,7 +104,7 @@ export function initAiTools(form, config) {
                 }
 
                 if (responseData.result === snapshot.text) {
-                    setStatus(config.proofreadClean, false);
+                    setStatus(action === 'proofread' ? config.proofreadClean : config.unchanged, false);
                     return;
                 }
 
@@ -101,21 +114,8 @@ export function initAiTools(form, config) {
                     snapshot.end,
                     findCorrectionRanges(snapshot.text, responseData.result)
                 );
-                setStatus(config.proofreadApplied, false);
-                return;
+                setStatus('', false);
             }
-
-            pendingResult = {
-                action: action,
-                source: snapshot.text,
-                start: snapshot.start,
-                end: snapshot.end,
-                result: responseData.result
-            };
-            resultText.value = responseData.result;
-            resultPanel.hidden = false;
-            setStatus('', false);
-            resultText.focus();
         } catch (error) {
             if (error.name !== 'AbortError') {
                 setStatus(error.message || config.requestFailed, true);
@@ -128,61 +128,9 @@ export function initAiTools(form, config) {
         }
     }
 
-    function applyResult() {
-        if (!pendingResult) {
-            return;
-        }
-
-        if (pendingResult.action === 'title') {
-            const titleInput = form.elements.title;
-            if (titleInput) {
-                titleInput.value = pendingResult.result;
-                titleInput.dispatchEvent(new Event('input', {bubbles: true}));
-                titleInput.focus();
-            }
-        } else if (pendingResult.action === 'tags') {
-            const tagsInput = form.elements.tags;
-            if (tagsInput) {
-                tagsInput.value = pendingResult.result;
-                tagsInput.dispatchEvent(new Event('input', {bubbles: true}));
-                const details = tagsInput.closest('details');
-                if (details) {
-                    details.open = true;
-                }
-                tagsInput.focus();
-            }
-        } else {
-            const currentText = s2_codemirror.getValue().slice(pendingResult.start, pendingResult.end);
-            if (currentText !== pendingResult.source) {
-                setStatus(config.sourceChanged, true);
-                return;
-            }
-            s2_codemirror.replaceRangeByIndex(pendingResult.result, pendingResult.start, pendingResult.end);
-        }
-
-        closeResult();
-        setStatus('', false);
-    }
-
-    async function copyResult() {
-        if (!pendingResult) {
-            return;
-        }
-        try {
-            await navigator.clipboard.writeText(pendingResult.result);
-        } catch {
-            resultText.select();
-            document.execCommand('copy');
-        }
-        setStatus(config.copied, false);
-    }
-
     actionButtons.forEach(function (button) {
         button.addEventListener('click', function () {
             runAction(button.dataset.aiAction);
         });
     });
-    applyButton.addEventListener('click', applyResult);
-    copyButton.addEventListener('click', copyResult);
-    closeButton.addEventListener('click', closeResult);
 }

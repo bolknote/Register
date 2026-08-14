@@ -1468,8 +1468,7 @@ section.large-edit-form form {
     font-size: 0.78rem;
 }
 
-.ai-tool-actions,
-.ai-result-actions {
+.ai-tool-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 0.45rem;
@@ -1479,9 +1478,7 @@ section.large-edit-form form {
     margin-top: 0.65rem;
 }
 
-.ai-tool-actions button,
-.ai-result-actions button,
-.ai-result-close {
+.ai-tool-actions button {
     min-height: 2.1rem;
     padding: 0.32rem 0.65rem;
     border: 1px solid var(--admin-border-color);
@@ -1493,8 +1490,7 @@ section.large-edit-form form {
     cursor: pointer;
 }
 
-.ai-tool-actions button:hover,
-.ai-result-actions button:hover {
+.ai-tool-actions button:hover {
     border-color: var(--admin-accent-color);
     background: var(--admin-secondary-background);
 }
@@ -1523,48 +1519,6 @@ section.large-edit-form form {
     margin: 0.3rem 0 0;
     color: var(--admin-secondary-text-color);
     font-size: 0.82rem;
-}
-
-.ai-result-panel {
-    margin-top: 0.75rem;
-    padding: 0.75rem;
-    border: 1px solid var(--admin-border-color);
-    border-radius: 0.45rem;
-    background: var(--admin-field-background);
-}
-
-.ai-result-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-    font-size: 0.85rem;
-}
-
-.ai-result-close {
-    width: 1.8rem;
-    min-height: 1.8rem;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    font-size: 1.25rem;
-    line-height: 1;
-}
-
-.ai-result-panel textarea {
-    width: 100%;
-    min-height: 10rem;
-    margin-bottom: 0.55rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.82rem;
-    line-height: 1.45;
-}
-
-.ai-result-actions .primary {
-    border-color: var(--admin-accent-color);
-    background: var(--admin-accent-color);
-    color: var(--admin-field-background);
 }
 
 #error-dialog[open],
@@ -1728,7 +1682,7 @@ html .CodeMirror-focused .CodeMirror-selected {
     background: color-mix(in srgb, var(--admin-accent-color) 24%, var(--admin-field-background));
 }
 
-html .CodeMirror .ai-proofread-fix {
+html .CodeMirror .ai-editor-change {
     background-image: linear-gradient(var(--admin-accent-color), var(--admin-accent-color));
     background-position: 0 calc(100% - 0.08em);
     background-repeat: no-repeat;
@@ -1737,7 +1691,7 @@ html .CodeMirror .ai-proofread-fix {
 }
 
 @media (min-resolution: 2dppx), (-webkit-min-device-pixel-ratio: 2) {
-    html .CodeMirror .ai-proofread-fix {
+    html .CodeMirror .ai-editor-change {
         background-size: 100% 0.5px;
     }
 }

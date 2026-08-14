@@ -10,6 +10,8 @@ Current product assets:
 - `_styles/register/favicon.svg`, `.png`, and `.ico` are original Register artwork created from the
   user's supplied low-resolution **R / Register** reference; the SVG is the source of the raster
   variants.
+- `_styles/pixel-forest/forest-header.svg` and `favicon.svg` are original, repository-native pixel
+  artwork created for the Pixel Forest theme. They have no external source material or bundled font.
 - `_include/src/Register/Module/Analytics/resources/counter-pattern.png` is inherited from the S2
   repository (`_extensions/s2_counter/pattern.png`) and remains byte-for-byte identical.
 - `_admin/i/*` are inherited S2 administration assets and predate Register.

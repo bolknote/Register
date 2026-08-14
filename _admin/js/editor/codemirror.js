@@ -16,14 +16,14 @@ function getCodeMirror() {
 
 const s2_codemirror = (function () {
     let instance, scrollTop = null;
-    let correctionMarkers = [];
-    let applyingCorrections = false;
+    let aiChangeMarkers = [];
+    let applyingAiChanges = false;
 
-    function clearCorrectionMarkers() {
-        correctionMarkers.forEach(function (marker) {
+    function clearAiChangeMarkers() {
+        aiChangeMarkers.forEach(function (marker) {
             marker.clear();
         });
-        correctionMarkers = [];
+        aiChangeMarkers = [];
     }
 
     /** Duplicate a current line in CodeMirror doc */
@@ -62,7 +62,6 @@ const s2_codemirror = (function () {
         if (!codeMirrorInitialized) {
             // from https://gist.github.com/Boorj/eb020e14487329431bdabc9141ee7ca1
             CodeMirror.keyMap.pcDefault["Ctrl-D"] = cmDuplicateLine;
-            CodeMirror.keyMap.pcDefault["Ctrl-Y"] = CodeMirror.commands.deleteLine;
             codeMirrorInitialized = true;
         }
         return CodeMirror;
@@ -83,7 +82,12 @@ const s2_codemirror = (function () {
                     "Ctrl-F": "findPersistent",
                     "F3": "findNext",
                     "Shift-F3": "findPrev",
-                    "Ctrl-H": "replace"
+                    "Ctrl-H": "replace",
+                    "Ctrl-Z": "undo",
+                    "Cmd-Z": "undo",
+                    "Ctrl-Y": "redo",
+                    "Shift-Ctrl-Z": "redo",
+                    "Shift-Cmd-Z": "redo"
                 },
                 mode: "text/html",
                 smartIndent: false,
@@ -99,8 +103,8 @@ const s2_codemirror = (function () {
                 selectionPointer: true
             });
             instance.on('change', function () {
-                if (!applyingCorrections && correctionMarkers.length > 0) {
-                    clearCorrectionMarkers();
+                if (!applyingAiChanges && aiChangeMarkers.length > 0) {
+                    clearAiChangeMarkers();
                 }
             });
 
@@ -111,7 +115,7 @@ const s2_codemirror = (function () {
 
         close: function () {
             if (instance) {
-                clearCorrectionMarkers();
+                clearAiChangeMarkers();
                 api.store_scroll();
 
                 var eText = instance.getTextArea();
@@ -227,10 +231,10 @@ const s2_codemirror = (function () {
             }
 
             const doc = instance.getDoc();
-            applyingCorrections = true;
+            applyingAiChanges = true;
             try {
                 instance.operation(function () {
-                    clearCorrectionMarkers();
+                    clearAiChangeMarkers();
                     doc.replaceRange(
                         text,
                         doc.posFromIndex(startIndex),
@@ -244,17 +248,33 @@ const s2_codemirror = (function () {
                         if (start === end) {
                             return;
                         }
-                        correctionMarkers.push(doc.markText(
+                        aiChangeMarkers.push(doc.markText(
                             doc.posFromIndex(startIndex + start),
                             doc.posFromIndex(startIndex + end),
-                            {className: 'ai-proofread-fix'}
+                            {className: 'ai-editor-change'}
                         ));
                     });
                 });
             } finally {
-                applyingCorrections = false;
+                applyingAiChanges = false;
             }
             instance.focus();
+        },
+        undo: function () {
+            if (!instance) {
+                return false;
+            }
+            instance.undo();
+            instance.focus();
+            return true;
+        },
+        redo: function () {
+            if (!instance) {
+                return false;
+            }
+            instance.redo();
+            instance.focus();
+            return true;
         },
         getLineCount: function () {
             return instance ? instance.lineCount() : 0;

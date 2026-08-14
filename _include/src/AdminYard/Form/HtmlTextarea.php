@@ -28,6 +28,10 @@ HTML;
     {
         return <<<HTML
 <div class="toolbar html-toolbar" id="{$id}-toolbar">
+    <span class="toolbar-group toolbar-history">
+        <button type="button" tabindex="-1" class="undo" data-editor-action="undo" title="{$trans('Undo')}"></button>
+        <button type="button" tabindex="-1" class="redo" data-editor-action="redo" title="{$trans('Redo')}"></button>
+    </span>
     <span class="toolbar-group">
         <button type="button" tabindex="-1" class="b" title="{$trans('Bold')}"></button>
         <button type="button" tabindex="-1" class="i" title="{$trans('Italic')}"></button>

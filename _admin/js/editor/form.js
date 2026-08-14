@@ -141,22 +141,25 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         let previousText = '';
         let currentFormHash = '';
 
+        function persistDraft(currentText) {
+            if (savedText !== currentText) {
+                localStorage.setItem(draftStorageKey, currentText);
+            } else {
+                localStorage.removeItem(draftStorageKey);
+            }
+        }
+
         function checkChanges() {
             document.dispatchEvent(new Event('check_changes_start.s2'));
 
             const currentText = eForm.elements[sTextareaName].value;
+            persistDraft(currentText);
 
             if (previousText !== currentText) {
                 const absoluteUrl = new URL(eForm.action);
                 const id = absoluteUrl.searchParams.get('id');
                 Preview(eForm.elements['title'].value, eForm.elements[sTextareaName].value, id, sTemplateId || eForm.elements['template'].value, sTemplateScope);
                 previousText = currentText;
-
-                if (savedText !== currentText) {
-                    localStorage.setItem(draftStorageKey, currentText);
-                } else {
-                    localStorage.removeItem(draftStorageKey);
-                }
             }
         }
 
@@ -166,7 +169,11 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
                 checkChanges();
             }, 300, 3000);
 
-            s2_codemirror.onChange(updatePreview);
+            s2_codemirror.onChange(function () {
+                s2_codemirror.flip();
+                persistDraft(eForm.elements[sTextareaName].value);
+                updatePreview();
+            });
         }
 
         const recoveredText = localStorage.getItem(draftStorageKey);

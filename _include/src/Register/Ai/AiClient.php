@@ -30,7 +30,7 @@ final readonly class AiClient
         self::ACTION_IMPROVE => 'Correct grammar and punctuation and make the text clearer. Preserve its meaning, voice, facts, names, links, and HTML structure. Do not make it longer unless necessary.',
         self::ACTION_SHORTEN => 'Shorten the text by roughly 25 to 35 percent. Preserve its meaning, important facts, names, links, voice, and valid HTML structure.',
         self::ACTION_TITLE   => 'Write one concise, specific title for this text. Return only the title, without quotation marks, Markdown, commentary, or alternatives.',
-        self::ACTION_TAGS    => 'Suggest 3 to 7 useful topic tags for this text. Return only a comma-separated list. Do not use hashtags, explanations, or numbering.',
+        self::ACTION_TAGS    => 'Suggest 3 to 5 concise, conventional topic tags suitable for a blog archive. Prefer stable, reusable subjects over phrases copied from the text. Use complete words and standard terminology; avoid questions, slang, casual shortenings, malformed fragments, and overly specific descriptions. Return only a comma-separated list without hashtags, explanations, or numbering.',
     ];
 
     public function __construct(
@@ -219,8 +219,21 @@ final readonly class AiClient
             $tags = [];
             $seen = [];
             foreach ($rawTags as $rawTag) {
-                $tag = trim($rawTag, " \t\n\r\0\x0B#-*•.\"'«»");
+                // PHP trim() treats its character mask as bytes. A mask containing Unicode
+                // punctuation can therefore cut the last byte from a Cyrillic letter.
+                $tag = preg_replace('/\A[\s#*•."\'«»-]+|[\s#*•."\'«»-]+\z/u', '', $rawTag) ?? '';
+                $tag = preg_replace('/\A(?:tags?|теги)\s*:\s*/ui', '', $tag) ?? $tag;
+                $tag = preg_replace('/\s+/u', ' ', trim($tag)) ?? '';
+                $tag = preg_replace(
+                    '/(?<![\p{L}\p{N}])кооп(?![\p{L}\p{N}])/ui',
+                    'кооператив',
+                    $tag,
+                ) ?? $tag;
                 if ($tag === '') {
+                    continue;
+                }
+
+                if (mb_strlen($tag) > 60 || preg_match('/[?!\x{FFFD}]/u', $tag) === 1) {
                     continue;
                 }
 
@@ -231,7 +244,7 @@ final readonly class AiClient
 
                 $seen[$key] = true;
                 $tags[] = $tag;
-                if (\count($tags) === 7) {
+                if (\count($tags) === 5) {
                     break;
                 }
             }

@@ -371,6 +371,14 @@ section.large-edit-form {
     border-color: #bbb;
 }
 
+.toolbar button.undo {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23000' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6' d='M6 3 2 7l4 4M2.5 7H9a4 4 0 0 1 4 4'/%3E%3C/svg%3E");
+}
+
+.toolbar button.redo {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23000' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6' d='m10 3 4 4-4 4m3.5-4H7a4 4 0 0 0-4 4'/%3E%3C/svg%3E");
+}
+
 .toolbar button.b {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' xml:space='preserve' width='16' height='16' viewBox='0 0 512 512'%3E%3Cpath d='M376 281a79 79 0 0 0-50-31c18-7 32-18 40-32 9-14 13-31 13-49 0-35-13-61-40-79s-64-26-112-26H96v384h150c47 0 83-10 109-29 25-19 37-47 37-85 0-20-5-38-16-53zM185 132h42c22 0 37 4 47 11 11 8 16 20 16 36 0 15-5 26-15 33s-25 11-46 12h-44zm104 236c-9 7-24 11-43 11h-61v-96h66c19 0 32 4 40 13 8 8 12 21 12 38 0 15-4 26-14 34z'/%3E%3C/svg%3E");
 }

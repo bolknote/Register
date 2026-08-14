@@ -391,6 +391,20 @@ hr {
     max-width: 100%;
 }
 
+#content .e2-text-proportional-wrapper {
+    position: relative;
+    width: 100%;
+    height: 0;
+}
+
+#content .e2-text-proportional-wrapper > :where(img, video) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
 #content figcaption,
 #content .e2-text-caption {
     max-width: 760px;

@@ -76,6 +76,17 @@ export function initHtmlToolbar(eToolbar) {
     if (!eToolbar) {
         return;
     }
+
+    const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
+    const undoButton = eToolbar.querySelector('[data-editor-action="undo"]');
+    const redoButton = eToolbar.querySelector('[data-editor-action="redo"]');
+    if (undoButton) {
+        undoButton.title += ' (' + (isMac ? '⌘Z' : 'Ctrl+Z') + ')';
+    }
+    if (redoButton) {
+        redoButton.title += ' (' + (isMac ? '⌘⇧Z' : 'Ctrl+Y') + ')';
+    }
+
     function insertParagraph(sType) {
         document.dispatchEvent(new CustomEvent('insert_paragraph.s2', {detail: {sType: sType}}));
     }
@@ -91,6 +102,8 @@ export function initHtmlToolbar(eToolbar) {
     eToolbar.addEventListener('click', function (e) {
         if (e.target.tagName === 'BUTTON') {
             const actions = {
+                'undo': () => s2_codemirror.undo(),
+                'redo': () => s2_codemirror.redo(),
                 'b': () => tagSelection('strong'),
                 'i': () => tagSelection('em'),
                 'strike': () => tagSelection('s'),
@@ -127,7 +140,10 @@ export function initHtmlToolbar(eToolbar) {
                     }
                 }
             };
-            actions[e.target.className]();
+            const action = e.target.dataset.editorAction || e.target.className;
+            if (actions[action]) {
+                actions[action]();
+            }
         }
     });
 }

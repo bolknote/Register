@@ -130,6 +130,9 @@ class AdminCest
         $I->seeElement('main.editor-main-column > .editor-title-block');
         $I->seeElement('main.editor-main-column > .content-editor-ai-tools');
         $I->seeElement('main.editor-main-column > .editor-body-block');
+        $I->seeElement('.html-toolbar button[data-editor-action="undo"]');
+        $I->seeElement('.html-toolbar button[data-editor-action="redo"]');
+        $I->dontSeeElement('#ai-result-panel');
         $I->seeElement('main.editor-main-column > .editor-tags-panel:last-child');
         $I->seeElement('aside.editor-sidebar-column > .editor-publication-card');
         $I->seeElement('a.main-menu-link[aria-current="page"][href="?entity=BlogPost&action=new"]');
