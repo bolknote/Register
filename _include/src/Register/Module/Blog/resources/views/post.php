@@ -45,9 +45,11 @@ declare(strict_types = 1);
 
 	if ($commented && $showComments) {
         if ($comment_num) {
-            $footer['comments'] = '<span class="post-foot-comments"><a href="' . $link . '#comment">' . $trans('N Comments', ['%count%' => $comment_num, '{{ count }}' => $comment_num]) . '</a></span>';
+            $commentLabel = $trans('N Comments', ['%count%' => $comment_num, '{{ count }}' => $comment_num]);
+            $footer['comments'] = '<span class="post-foot-comments"><a href="' . $link . '#comment" data-comment-count="' . $comment_num . '" aria-label="' . s2_htmlencode($commentLabel) . '">' . $commentLabel . '</a></span>';
         } else {
-            $footer['comments'] = '<span class="post-foot-comments"><a href="' . $link . '#add-comment">' . ($enabledComments ? $trans('Post comment') : '') . '</a></span>';
+            $commentLabel = $enabledComments ? $trans('Post comment') : '';
+            $footer['comments'] = '<span class="post-foot-comments"><a href="' . $link . '#add-comment" data-comment-count="0"' . ($commentLabel !== '' ? ' aria-label="' . s2_htmlencode($commentLabel) . '"' : '') . '>' . $commentLabel . '</a></span>';
         }
     }
 
