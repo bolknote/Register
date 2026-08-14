@@ -8,9 +8,9 @@
     --reaction-accent-soft: color-mix(in srgb, var(--reaction-accent) 12%, var(--reaction-surface));
     position: relative;
     box-sizing: border-box;
-    margin: 1.7rem 0 1.25rem;
-    padding-top: .85rem;
-    border-top: 1px solid color-mix(in srgb, var(--reaction-border) 72%, transparent);
+    margin: 2.25rem 0 1.25rem;
+    padding: 0;
+    border: 0;
     color: var(--reaction-text);
     font-family: var(--register-ui-font, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
 }
@@ -84,20 +84,52 @@
 }
 
 .register-reaction-add {
+    position: relative;
+    width: 2.25rem;
+    min-width: 2.25rem;
+    padding: 0;
+    border-color: transparent;
     color: var(--reaction-muted);
-    background: transparent;
+    background: color-mix(in srgb, var(--reaction-field) 72%, transparent);
+    box-shadow: none;
 }
 
-.register-reaction-add > span:first-child {
+.register-reaction-add-glyph {
+    position: relative;
+    display: inline-grid;
+    width: 1.45rem;
+    height: 1.45rem;
+    place-items: center;
+}
+
+.register-reaction-add-emoji {
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-    font-size: 1.18rem;
+    font-size: 1.28rem;
     line-height: 1;
     filter: saturate(.82);
 }
 
-.register-reaction-add > span:last-child {
-    font-size: .82rem;
-    font-weight: 570;
+.register-reaction-add-plus {
+    position: absolute;
+    right: -.24rem;
+    bottom: -.16rem;
+    display: grid;
+    width: .82rem;
+    height: .82rem;
+    place-items: center;
+    border: 1px solid var(--reaction-border);
+    border-radius: 50%;
+    color: var(--reaction-muted);
+    background: var(--reaction-surface);
+    font-family: var(--register-ui-font, system-ui, sans-serif);
+    font-size: .7rem;
+    font-weight: 750;
+    line-height: 1;
+}
+
+.register-reaction-add:hover .register-reaction-add-plus {
+    border-color: color-mix(in srgb, var(--reaction-accent) 45%, var(--reaction-border));
+    color: var(--reaction-accent);
 }
 
 .register-reaction-picker {

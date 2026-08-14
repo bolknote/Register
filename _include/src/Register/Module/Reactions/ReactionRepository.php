@@ -19,38 +19,76 @@ final readonly class ReactionRepository
 
     public function state(int $contentId, ?string $visitorId = null): ReactionState
     {
-        $counts = [];
-        foreach (ReactionType::cases() as $reaction) {
-            $counts[$reaction->value] = 0;
+        return $this->states([$contentId], $visitorId)[$contentId];
+    }
+
+    /**
+     * @param list<int> $contentIds
+     * @return array<int, ReactionState>
+     */
+    public function states(array $contentIds, ?string $visitorId = null): array
+    {
+        $normalizedIds = [];
+        foreach ($contentIds as $contentId) {
+            if ($contentId <= 0) {
+                throw new \InvalidArgumentException('A content identifier must be a positive integer.');
+            }
+
+            $normalizedIds[$contentId] = $contentId;
         }
 
-        $rows = $this->dbLayer->select('reaction', 'COUNT(*) AS reaction_count')
+        if ($normalizedIds === []) {
+            return [];
+        }
+
+        $parameters   = [];
+        $placeholders = [];
+        $counts       = [];
+        foreach ($normalizedIds as $normalizedId) {
+            $parameter               = 'content_id_' . $normalizedId;
+            $parameters[$parameter]  = $normalizedId;
+            $placeholders[]          = ':' . $parameter;
+            $counts[$normalizedId]   = $this->emptyCounts();
+        }
+
+        $rows = $this->dbLayer->select('content_id', 'reaction', 'COUNT(*) AS reaction_count')
             ->from(Manifest::TABLE_NAME)
-            ->where('content_id = :content_id')->setParameter('content_id', $contentId)
-            ->groupBy('reaction')
-            ->execute()
+            ->where('content_id IN (' . implode(', ', $placeholders) . ')')
+            ->groupBy('content_id', 'reaction')
+            ->execute($parameters)
             ->fetchAssocAll()
         ;
         foreach ($rows as $row) {
-            $reaction = ReactionType::tryFrom((string)$row['reaction']);
-            if ($reaction instanceof ReactionType) {
-                $counts[$reaction->value] = (int)$row['reaction_count'];
+            $rowContentId = (int)$row['content_id'];
+            $reaction     = ReactionType::tryFrom((string)$row['reaction']);
+            if ($reaction instanceof ReactionType && isset($counts[$rowContentId])) {
+                $counts[$rowContentId][$reaction->value] = (int)$row['reaction_count'];
             }
         }
 
-        $selected = null;
+        $selected = array_fill_keys(array_keys($normalizedIds), null);
         if ($visitorId !== null) {
-            $value = $this->dbLayer->select('reaction')
+            $rows = $this->dbLayer->select('content_id', 'reaction')
                 ->from(Manifest::TABLE_NAME)
-                ->where('content_id = :content_id')->setParameter('content_id', $contentId)
+                ->where('content_id IN (' . implode(', ', $placeholders) . ')')
                 ->andWhere('visitor_id = :visitor_id')->setParameter('visitor_id', $visitorId)
-                ->execute()
-                ->result()
+                ->execute($parameters)
+                ->fetchAssocAll()
             ;
-            $selected = \is_string($value) ? ReactionType::tryFrom($value) : null;
+            foreach ($rows as $row) {
+                $rowContentId = (int)$row['content_id'];
+                if (array_key_exists($rowContentId, $selected)) {
+                    $selected[$rowContentId] = ReactionType::tryFrom((string)$row['reaction']);
+                }
+            }
         }
 
-        return new ReactionState($counts, $selected);
+        $states = [];
+        foreach ($normalizedIds as $normalizedId) {
+            $states[$normalizedId] = new ReactionState($counts[$normalizedId], $selected[$normalizedId]);
+        }
+
+        return $states;
     }
 
     public function toggle(int $contentId, string $visitorId, ReactionType $reaction): ReactionState
@@ -82,5 +120,16 @@ final readonly class ReactionRepository
         }
 
         return $this->state($contentId, $visitorId);
+    }
+
+    /** @return array<string, int> */
+    private function emptyCounts(): array
+    {
+        $counts = [];
+        foreach (ReactionType::cases() as $reaction) {
+            $counts[$reaction->value] = 0;
+        }
+
+        return $counts;
     }
 }

@@ -17,6 +17,32 @@ use S2\Cms\Pdo\DbLayer;
 
 final class ReactionsCest
 {
+    public function rendersCompactReactionsOnEveryPostInTheBlogList(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $firstId = $this->insertPost($dbLayer, 'first-list-reaction-post');
+        $secondId = $this->insertPost($dbLayer, 'second-list-reaction-post');
+
+        $I->sendJson('https://localhost/_visitor/resolve', [
+            'fingerprint' => 'cccccccccccccccccccccccccccccccc',
+        ], headers: ['Origin' => 'https://localhost']);
+        $this->react($I, 'https://localhost/_reactions/post/' . $firstId, 'love');
+        $this->react($I, 'https://localhost/_reactions/post/' . $secondId, 'like');
+
+        $I->amOnPage('https://localhost/');
+        $I->seeResponseCodeIs(200);
+        $I->assertCount(2, $I->grabMultiple('[data-register-reactions]'));
+        $I->seeElement('[data-register-reactions][data-endpoint="/_reactions/post/' . $firstId . '"]');
+        $I->seeElement('[data-register-reactions][data-endpoint="/_reactions/post/' . $secondId . '"]');
+        $I->seeElement('[data-endpoint="/_reactions/post/' . $firstId . '"] [data-reaction="love"][data-count="1"]');
+        $I->seeElement('[data-endpoint="/_reactions/post/' . $secondId . '"] [data-reaction="like"][data-count="1"]');
+        $I->assertCount(2, $I->grabMultiple('.register-reaction-add'));
+        $I->dontSee('Choose a reaction', '.register-reaction-add');
+        $I->seeElement('.register-reaction-add[aria-label="Choose a reaction"]');
+        $I->dontSee('register_reactions:post', 'body');
+    }
+
     public function rendersAndTogglesFacebookStyleReactions(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

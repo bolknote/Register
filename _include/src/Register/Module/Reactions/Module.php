@@ -9,8 +9,10 @@ declare(strict_types = 1);
 
 namespace Register\Module\Reactions;
 
+use Register\Content\ContentId;
 use Register\Content\ContentRenderedEvent;
 use Register\Content\ContentRepository;
+use Register\Content\ContentType;
 use Register\Module\VisitorIdentity\JsonMutationGuard;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use S2\Cms\Asset\AssetPack;
@@ -20,6 +22,7 @@ use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Framework\RoutingModuleInterface;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\TemplateAssetEvent;
+use S2\Cms\Template\TemplateEvent;
 use S2\Cms\Translation\ExtensibleTranslator;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\Route;
@@ -28,7 +31,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class Module implements ContainerModuleInterface, ContainerAwareListenerModuleInterface, RoutingModuleInterface
 {
-    private const string MARKER = '<!-- register_reactions -->';
+    private const string MARKER_PATTERN = '~<!-- register_reactions:(page|post):([1-9][0-9]*) -->~';
 
     #[\Override]
     public function buildContainer(Container $container): void
@@ -65,11 +68,28 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 return;
             }
 
-            $reactions = $container->get(ReactionRenderer::class)->render($event->contentId);
-            $text      = str_contains($text, self::MARKER)
-                ? str_replace(self::MARKER, $reactions, $text)
-                : $text . "\n" . $reactions;
-            $event->template->putInPlaceholder('text', $text);
+            if (preg_match(self::MARKER_PATTERN, $text) !== 1) {
+                $reactions = $container->get(ReactionRenderer::class)->render($event->contentId);
+                $event->template->putInPlaceholder('text', $text . "\n" . $reactions);
+            }
+        });
+
+        $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, static function (TemplateEvent $event) use ($container): void {
+            $text    = $event->htmlTemplate->getFromPlaceholder('text');
+            $matches = [];
+            if (!\is_string($text) || preg_match_all(self::MARKER_PATTERN, $text, $matches, PREG_SET_ORDER) < 1) {
+                return;
+            }
+
+            $contentIdsByMarker = [];
+            foreach ($matches as $match) {
+                $contentIdsByMarker[$match[0]] = new ContentId(ContentType::from($match[1]), (int)$match[2]);
+            }
+
+            $rendered = $container->get(ReactionRenderer::class)->renderMany(array_values($contentIdsByMarker));
+            foreach ($contentIdsByMarker as $marker => $contentId) {
+                $event->htmlTemplate->registerPlaceholder($marker, $rendered[(string)$contentId]);
+            }
         });
 
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {

@@ -23,7 +23,34 @@ final readonly class ReactionRenderer
 
     public function render(ContentId $contentId): string
     {
-        $state    = $this->repository->state($contentId->value);
+        return $this->renderState($contentId, $this->repository->state($contentId->value));
+    }
+
+    /**
+     * @param list<ContentId> $contentIds
+     * @return array<string, string>
+     */
+    public function renderMany(array $contentIds): array
+    {
+        $indexed = [];
+        foreach ($contentIds as $contentId) {
+            $indexed[(string)$contentId] = $contentId;
+        }
+
+        $states   = $this->repository->states(array_values(array_map(
+            static fn(ContentId $contentId): int => $contentId->value,
+            $indexed,
+        )));
+        $rendered = [];
+        foreach ($indexed as $key => $contentId) {
+            $rendered[$key] = $this->renderState($contentId, $states[$contentId->value]);
+        }
+
+        return $rendered;
+    }
+
+    private function renderState(ContentId $contentId, ReactionState $state): string
+    {
         $pickerId = 'register-reaction-picker-' . $contentId->type->value . '-' . $contentId->value;
         $endpoint = rtrim($this->basePath, '/') . '/_reactions/' . $contentId->type->value . '/' . $contentId->value;
         $chips    = '';
@@ -65,7 +92,8 @@ final readonly class ReactionRenderer
         return sprintf(
             '<div class="register-reactions" data-register-reactions data-endpoint="%s" data-message-saved="%s" data-message-error="%s">' .
             '<div class="register-reaction-toolbar" role="group" aria-label="%s">%s' .
-            '<button class="register-reaction-add" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="%s" title="%s"><span aria-hidden="true">😊</span><span>%s</span></button>' .
+            '<button class="register-reaction-add" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="%s" title="%s" aria-label="%s">' .
+            '<span class="register-reaction-add-glyph" aria-hidden="true"><span class="register-reaction-add-emoji">😊</span><span class="register-reaction-add-plus">+</span></span></button>' .
             '</div>' .
             '<div class="register-reaction-picker" id="%s" role="menu" aria-label="%s" hidden>%s</div>' .
             '<p class="register-reaction-status register-visually-hidden" aria-live="polite"></p>' .
