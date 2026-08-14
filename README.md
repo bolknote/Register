@@ -34,6 +34,8 @@ retry a reviewed failed job with `php tools/retry-background-job.php <id> <code>
 - Highlights code blocks in common programming languages with a local, lazily loaded Highlight.js
   build that can be extended with additional languages and plugins.
 - Creates private daily database-and-media backups with retention and control-panel download.
+- Automatically serves compressible public responses with Brotli or gzip when the corresponding
+  optional PHP extension is available and the client accepts it.
 - Keeps the public theme deliberately small, responsive, readable, and compatible with light and
   dark system appearance.
 
@@ -57,7 +59,8 @@ is required. The unobtrusive lock in the public footer opens the control panel.
 - A web server.
 - PHP 8.3 or newer. The codebase is continuously checked for PHP 8.3–8.5 compatibility.
 - PHP extensions: DOM, Filter, GD, JSON, PDO, and Session. Intl improves URL transliteration;
-  cURL and zlib are also optional. Register does not require iconv.
+  Brotli and zlib enable automatic response compression, while cURL is also optional. Register does
+  not require iconv.
 - One supported database:
   - MariaDB 10.5+ or MySQL 8.0+;
   - PostgreSQL 14+;

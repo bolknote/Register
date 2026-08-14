@@ -414,7 +414,6 @@ return [
     'S2_SITE_NAME_help'        => 'Used in titles and RSS.',
     'S2_WEBMASTER_help'        => 'Used in the copyright, RSS and as the sender name in subscription e-mails; you can leave it empty.',
     'S2_WEBMASTER_EMAIL_help'  => 'Used in the copyright and as the sender address.',
-    'S2_COMPRESS_help'         => 'This will reduce bandwidth usage, but use a little more CPU.',
     'S2_SHOW_COMMENTS_help'    => 'You can hide all comments for a while by turning this off.',
     'S2_ENABLED_COMMENTS_help' => 'Show the comment form (at pages where it was not explicitly disabled).',
     'S2_AKISMET_KEY_help'      => 'Optional key for shadow comparison or rollback. Comments are sent to Akismet only in shadow or akismet mode.',
@@ -438,7 +437,6 @@ return [
     'S2_SITE_NAME'       => 'Site name',
     'S2_WEBMASTER'       => 'Webmaster name',
     'S2_WEBMASTER_EMAIL' => 'Webmaster e-mail',
-    'S2_COMPRESS'        => 'Output gzip compression',
 
     'Comments config'     => 'Comments',
     'S2_SHOW_COMMENTS'    => 'Show comments',

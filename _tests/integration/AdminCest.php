@@ -102,6 +102,9 @@ class AdminCest
         $I->see('System modules', 'h1');
         $I->amOnPage('https://localhost/_admin/index.php?entity=Extension');
         $I->see('Optional modules', 'h1');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Config&action=list');
+        $I->dontSee('Output gzip compression');
     }
 
     public function testNewPostUsesEditorialEditor(\IntegrationTester $I): void

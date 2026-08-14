@@ -190,7 +190,6 @@ readonly class Installer
             'S2_MAX_ITEMS'        => '0',
             'S2_FAVORITE_URL'     => 'favorite',
             'S2_TAGS_URL'         => 'tags',
-            'S2_COMPRESS'         => '0',
             'S2_STYLE'            => 'register',
             'S2_LANGUAGE'         => $defaultLanguage,
             'S2_SHOW_COMMENTS'    => '1',

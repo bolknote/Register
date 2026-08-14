@@ -10,7 +10,7 @@ declare(strict_types = 1);
  * @package   S2
  */
 
-use S2\Cms\Config\DynamicConfigProvider;
+use Register\Http\ResponseCompressor;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -62,24 +62,16 @@ $shutdownCoordinator->closeSession();
 if ($response->isInformational() || $response->isEmpty() || $response->getContent() === false || $response->getContent() === '') {
     $response->send(false);
 } else {
-    // Custom response sending to set Content-Length properly and to enable compression
-    ob_start();
+    $compressor = ResponseCompressor::fromEnvironment();
+    $compressor->compress($request, $response);
 
-    $useCompression = $app->container->get(DynamicConfigProvider::class)->getBoolProxy('S2_COMPRESS')->get();
-    if ($useCompression === true) {
-        ob_start('ob_gzhandler');
+    if ($compressor->canSetContentLength()) {
+        $response->headers->set('Content-Length', (string)\strlen((string)$response->getContent()));
+    } else {
+        $response->headers->remove('Content-Length');
     }
 
-    $response->sendContent();
-
-    if ($useCompression === true) {
-        ob_end_flush();
-    }
-
-    $response->headers->set('Content-Length', (string)ob_get_length());
-    $response->sendHeaders();
-
-    ob_end_flush();
+    $response->send(false);
 }
 
 $shutdownCoordinator->finishResponse();

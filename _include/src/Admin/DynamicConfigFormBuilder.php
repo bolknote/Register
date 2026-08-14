@@ -46,7 +46,6 @@ class DynamicConfigFormBuilder
         'S2_START_YEAR'      => 'int',
         'S2_LANGUAGE'        => 'language',
         'S2_STYLE'           => 'style',
-        'S2_COMPRESS'        => 'boolean',
 
         'Comments config'     => 'title',
         'S2_SHOW_COMMENTS'    => 'boolean',
