@@ -16,6 +16,15 @@ function getCodeMirror() {
 
 const s2_codemirror = (function () {
     let instance, scrollTop = null;
+    let correctionMarkers = [];
+    let applyingCorrections = false;
+
+    function clearCorrectionMarkers() {
+        correctionMarkers.forEach(function (marker) {
+            marker.clear();
+        });
+        correctionMarkers = [];
+    }
 
     /** Duplicate a current line in CodeMirror doc */
     function cmDuplicateLine(cm) {
@@ -89,6 +98,11 @@ const s2_codemirror = (function () {
                 gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
                 selectionPointer: true
             });
+            instance.on('change', function () {
+                if (!applyingCorrections && correctionMarkers.length > 0) {
+                    clearCorrectionMarkers();
+                }
+            });
 
             api.restore_scroll();
 
@@ -97,6 +111,7 @@ const s2_codemirror = (function () {
 
         close: function () {
             if (instance) {
+                clearCorrectionMarkers();
                 api.store_scroll();
 
                 var eText = instance.getTextArea();
@@ -204,6 +219,41 @@ const s2_codemirror = (function () {
             }
             const doc = instance.getDoc();
             doc.replaceRange(text, doc.posFromIndex(startIndex), doc.posFromIndex(endIndex));
+            instance.focus();
+        },
+        replaceRangeWithHighlights: function (text, startIndex, endIndex, ranges) {
+            if (!instance) {
+                return;
+            }
+
+            const doc = instance.getDoc();
+            applyingCorrections = true;
+            try {
+                instance.operation(function () {
+                    clearCorrectionMarkers();
+                    doc.replaceRange(
+                        text,
+                        doc.posFromIndex(startIndex),
+                        doc.posFromIndex(endIndex),
+                        'ai-proofread'
+                    );
+
+                    ranges.forEach(function (range) {
+                        const start = Math.max(0, Math.min(text.length, range.start));
+                        const end = Math.max(start, Math.min(text.length, range.end));
+                        if (start === end) {
+                            return;
+                        }
+                        correctionMarkers.push(doc.markText(
+                            doc.posFromIndex(startIndex + start),
+                            doc.posFromIndex(startIndex + end),
+                            {className: 'ai-proofread-fix'}
+                        ));
+                    });
+                });
+            } finally {
+                applyingCorrections = false;
+            }
             instance.focus();
         },
         getLineCount: function () {

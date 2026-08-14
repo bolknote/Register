@@ -113,6 +113,9 @@ class AdminCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Config&action=list');
         $I->dontSee('Output gzip compression');
+        $I->see('AI assistant', 'table.list-table');
+        $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] select[name="value"]');
+        $I->seeElement('form[action*="name=REGISTER_AI_API_KEY"] input[type="password"]');
     }
 
     public function testNewPostUsesEditorialEditor(\IntegrationTester $I): void
@@ -124,6 +127,11 @@ class AdminCest
         $I->seeElement('section.post-edit-content.is-new');
         $I->seeElement('form[name="article-form"][action="?entity=BlogPost&action=new"]');
         $I->seeElement('script[type="module"][src="/_admin/js/editor/entry.js"]');
+        $I->seeElement('main.editor-main-column > .editor-title-block');
+        $I->seeElement('main.editor-main-column > .content-editor-ai-tools');
+        $I->seeElement('main.editor-main-column > .editor-body-block');
+        $I->seeElement('main.editor-main-column > .editor-tags-panel:last-child');
+        $I->seeElement('aside.editor-sidebar-column > .editor-publication-card');
         $I->seeElement('a.main-menu-link[aria-current="page"][href="?entity=BlogPost&action=new"]');
         $I->dontSeeElement('a.main-menu-link[aria-current="page"][href="?entity=BlogPost&action=list"]');
         $I->see('Create draft', '.article-form-buttons button[type="submit"]');

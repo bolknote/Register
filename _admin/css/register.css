@@ -228,7 +228,25 @@ h3 {
 }
 
 .admin-shell li.main-menu-item {
-    align-items: stretch;
+    align-items: center;
+}
+
+.admin-shell ul.main-menu-sublist {
+    position: static;
+    display: flex;
+    width: max-content;
+    height: auto;
+    margin: 0 0.25rem 0 -0.35rem;
+    padding: 0;
+    align-items: center;
+    align-self: center;
+    gap: 0.15rem;
+    line-height: 1;
+    list-style: none;
+}
+
+.admin-shell li.main-menu-subitem {
+    display: block;
 }
 
 .admin-shell nav a.main-menu-link,
@@ -284,8 +302,17 @@ h3 {
 }
 
 .admin-shell a.main-menu-sublink {
+    display: inline-flex;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3rem;
+    border-radius: 999px;
     background: var(--admin-warning-color);
     color: var(--admin-field-background);
+    font-size: 0.68rem;
+    line-height: 1;
     box-shadow: none;
 }
 
@@ -607,25 +634,56 @@ section.list-header h1 {
 }
 
 .admin-content table.list-table:has(th.field-Config-name) :is(th, td).field-Config-name {
-    width: 24%;
+    width: 21%;
 }
 
 .admin-content table.list-table:has(th.field-Config-name) :is(th, td).field-Config-value {
-    width: 31%;
+    width: 37%;
 }
 
 .admin-content table.list-table:has(th.field-Config-name) :is(th, td).field-Config-help {
-    width: 45%;
+    width: 42%;
     color: var(--admin-secondary-text-color);
     font-size: 0.82rem;
+    line-height: 1.45;
     white-space: normal;
 }
 
-.admin-content table.list-table td.type-config-title {
-    padding-top: 1.4rem;
+.admin-content table.list-table:has(th.field-Config-name) tbody tr:not(:has(.type-config-title)) > td {
+    vertical-align: top;
+}
+
+.admin-content table.list-table:has(th.field-Config-name) tbody tr:not(:has(.type-config-title)) > :is(td.field-Config-name, td.field-Config-help) {
+    padding: 1.05rem 1rem;
+}
+
+.admin-content table.list-table:has(th.field-Config-name) tbody tr:not(:has(.type-config-title)) > td.field-Config-name {
+    font-weight: 550;
+}
+
+.admin-content table.list-table:has(th.field-Config-name) tbody tr:not(:has(.type-config-title)) > td.field-Config-value {
+    padding: 0.7rem 1rem;
+}
+
+.admin-content table.list-table:has(th.field-Config-name) tbody tr:has(.secret-value-state) > :is(td.field-Config-name, td.field-Config-help) {
+    padding-top: 0.8rem;
+}
+
+.admin-content table.list-table:has(th.field-Config-name) tbody tr:has(.type-config-title) > td {
+    padding: 0.7rem 1rem;
+    border-top: 0.7rem solid var(--admin-page-background);
     border-bottom: 1px solid var(--admin-border-color);
+    background: var(--admin-secondary-background);
+}
+
+.admin-content table.list-table:has(th.field-Config-name) tbody tr:first-child:has(.type-config-title) > td {
+    border-top: 0;
+}
+
+.admin-content table.list-table td.type-config-title {
     color: var(--admin-text-color);
-    font-size: 1rem;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
 }
 
 .admin-content table.list-table td.type-config-title ~ td {
@@ -1668,6 +1726,20 @@ html .CodeMirror div.CodeMirror-secondarycursor {
 html .CodeMirror-selected,
 html .CodeMirror-focused .CodeMirror-selected {
     background: color-mix(in srgb, var(--admin-accent-color) 24%, var(--admin-field-background));
+}
+
+html .CodeMirror .ai-proofread-fix {
+    background-image: linear-gradient(var(--admin-accent-color), var(--admin-accent-color));
+    background-position: 0 calc(100% - 0.08em);
+    background-repeat: no-repeat;
+    background-size: 100% 1px;
+    font-weight: 700;
+}
+
+@media (min-resolution: 2dppx), (-webkit-min-device-pixel-ratio: 2) {
+    html .CodeMirror .ai-proofread-fix {
+        background-size: 100% 0.5px;
+    }
 }
 
 html .cm-s-default .cm-header,

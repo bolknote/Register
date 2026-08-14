@@ -1,6 +1,7 @@
-/** AI-assisted editorial actions. Results are reviewed before they replace source text. */
+/** AI-assisted editorial actions. Proofreading is applied inline; rewrites are reviewed first. */
 
 import {s2_codemirror} from './codemirror.js';
+import {findCorrectionRanges} from './text/corrections.js';
 
 export function initAiTools(form, config) {
     if (!form || !config || !config.enabled) {
@@ -75,11 +76,33 @@ export function initAiTools(form, config) {
             let responseData = null;
             try {
                 responseData = await response.json();
-            } catch (error) {
+            } catch {
                 throw new Error(config.requestFailed);
             }
             if (!response.ok || !responseData.success || typeof responseData.result !== 'string') {
                 throw new Error(responseData && responseData.message ? responseData.message : config.requestFailed);
+            }
+
+            if (action === 'proofread') {
+                const currentText = s2_codemirror.getValue().slice(snapshot.start, snapshot.end);
+                if (currentText !== snapshot.text) {
+                    setStatus(config.sourceChanged, true);
+                    return;
+                }
+
+                if (responseData.result === snapshot.text) {
+                    setStatus(config.proofreadClean, false);
+                    return;
+                }
+
+                s2_codemirror.replaceRangeWithHighlights(
+                    responseData.result,
+                    snapshot.start,
+                    snapshot.end,
+                    findCorrectionRanges(snapshot.text, responseData.result)
+                );
+                setStatus(config.proofreadApplied, false);
+                return;
             }
 
             pendingResult = {
@@ -147,7 +170,7 @@ export function initAiTools(form, config) {
         }
         try {
             await navigator.clipboard.writeText(pendingResult.result);
-        } catch (error) {
+        } catch {
             resultText.select();
             document.execCommand('copy');
         }

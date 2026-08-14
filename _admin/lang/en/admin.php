@@ -241,6 +241,8 @@ return [
     'Close AI result'                      => 'Close',
     'AI source changed'                    => 'The source changed after the request was sent. Run the action again.',
     'AI empty text'                        => 'Write or select some text first.',
+    'AI proofreading applied'              => 'Corrections were applied and underlined. The highlights disappear when you edit the text.',
+    'AI proofreading clean'                => 'No errors found.',
     'AI is not configured'                 => 'The AI assistant is not configured.',
     'Invalid AI security token'            => 'The request could not be verified. Reload the page.',
     'Invalid AI request'                   => 'The AI request is empty or unknown.',

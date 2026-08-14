@@ -373,6 +373,8 @@ $renderControl = static function (string $fieldName, object $control) use (
             'copied'        => $trans('AI result copied'),
             'sourceChanged' => $trans('AI source changed'),
             'emptyText'     => $trans('AI empty text'),
+            'proofreadApplied' => $trans('AI proofreading applied'),
+            'proofreadClean'   => $trans('AI proofreading clean'),
         ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>
     };
 
