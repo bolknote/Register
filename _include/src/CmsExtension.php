@@ -23,6 +23,7 @@ use S2\Cms\Comment\Antispam\SpamFeatureExtractor;
 use S2\Cms\Comment\Antispam\SpamFeedbackService;
 use S2\Cms\Comment\Antispam\SpamIdentityHasher;
 use S2\Cms\Comment\Antispam\SpamMaintenance;
+use S2\Cms\Comment\Antispam\SpamMaintenanceQueueHandler;
 use S2\Cms\Comment\Antispam\SpamMetricsRepository;
 use S2\Cms\Comment\Antispam\SpamRateLimiter;
 use S2\Cms\Comment\Antispam\SpamRatePolicyRepository;
@@ -73,9 +74,17 @@ use S2\Cms\Pdo\DbLayerPostgres;
 use S2\Cms\Pdo\DbLayerSqlite;
 use S2\Cms\Pdo\PDO;
 use S2\Cms\Pdo\PdoSqliteFactory;
+use S2\Cms\Queue\BackgroundWorkRunner;
 use S2\Cms\Queue\QueueConsumer;
 use S2\Cms\Queue\QueueHandlerInterface;
+use S2\Cms\Queue\QueueHandlerRegistry;
+use S2\Cms\Queue\QueueMonitor;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Queue\QueueRecovery;
+use S2\Cms\Queue\QueueRunnerLease;
+use S2\Cms\Queue\NativeShutdownRuntime;
+use S2\Cms\Queue\ScheduledMaintenance;
+use S2\Cms\Queue\ShutdownWorkCoordinator;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\TemplateEvent;
 use S2\Cms\Template\TemplateFinalReplaceEvent;
@@ -187,11 +196,46 @@ class CmsExtension implements ExtensionInterface
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
         ));
+        $container->set(QueueMonitor::class, fn(Container $container): \S2\Cms\Queue\QueueMonitor => new QueueMonitor(
+            $container->get(\PDO::class),
+            $container->getStringParameter('db_prefix'),
+        ));
+        $container->set(QueueRecovery::class, fn(Container $container): \S2\Cms\Queue\QueueRecovery => new QueueRecovery(
+            $container->get(\PDO::class),
+            $container->getStringParameter('db_prefix'),
+        ));
+        $container->set(QueueHandlerRegistry::class, fn(Container $container): \S2\Cms\Queue\QueueHandlerRegistry => new QueueHandlerRegistry(
+            ...$container->getByTag(QueueHandlerInterface::class)
+        ));
         $container->set(QueueConsumer::class, fn(Container $container): \S2\Cms\Queue\QueueConsumer => new QueueConsumer(
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
             $container->get(LoggerInterface::class),
-            ...$container->getByTag(QueueHandlerInterface::class)
+            $container->get(QueueHandlerRegistry::class),
+        ));
+        $container->set(QueueRunnerLease::class, fn(Container $container): \S2\Cms\Queue\QueueRunnerLease => new QueueRunnerLease(
+            $container->get(\PDO::class),
+            $container->getStringParameter('db_prefix'),
+        ));
+        $container->set(ScheduledMaintenance::class, fn(Container $container): \S2\Cms\Queue\ScheduledMaintenance => new ScheduledMaintenance(
+            $container->get(\PDO::class),
+            $container->getStringParameter('db_prefix'),
+            $container->get(QueuePublisher::class),
+            $container->getBoolParameter('backup_enabled'),
+        ));
+        $container->set(BackgroundWorkRunner::class, fn(Container $container): \S2\Cms\Queue\BackgroundWorkRunner => new BackgroundWorkRunner(
+            $container->get(\PDO::class),
+            $container->get(QueueRunnerLease::class),
+            $container->get(QueueConsumer::class),
+            $container->get(ScheduledMaintenance::class),
+            $container->get(LoggerInterface::class),
+        ));
+        $container->set(ShutdownWorkCoordinator::class, fn(Container $container): \S2\Cms\Queue\ShutdownWorkCoordinator => new ShutdownWorkCoordinator(
+            $container->get(\PDO::class),
+            $container->get(LoggerInterface::class),
+            new NativeShutdownRuntime(),
+            fn(): BackgroundWorkRunner => $container->get(BackgroundWorkRunner::class),
+            $container->getFloatParameter('boot_timestamp'),
         ));
 
         $container->set(UrlBuilder::class, fn(Container $container): \S2\Cms\Model\UrlBuilder => new UrlBuilder(
@@ -267,6 +311,10 @@ class CmsExtension implements ExtensionInterface
             $container->get(SpamReputationRepository::class),
             $container->get(LoggerInterface::class),
         ));
+        $container->set(SpamMaintenanceQueueHandler::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamMaintenanceQueueHandler => new SpamMaintenanceQueueHandler(
+            $container->get(SpamMaintenance::class),
+            $container->get(QueuePublisher::class),
+        ), [QueueHandlerInterface::class]);
 
         $container->set(HttpClient::class, fn(Container $_container): \S2\Cms\HttpClient\HttpClient => new HttpClient());
         $container->set('asset_http_client', fn(Container $_container): \S2\Cms\HttpClient\HttpClient => new HttpClient(verifySsl: true));

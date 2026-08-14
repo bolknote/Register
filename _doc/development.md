@@ -17,10 +17,13 @@ and starts a queue worker beside the web server. The worker applies search-index
 automatically; both processes stop together on Ctrl+C. Use `S2_DEV_PORT=9000 ./dev` to select
 another port.
 
-Production installations must run `php cron.php` regularly (normally once per minute). The command
-drains asynchronous jobs, publishes scheduled content, performs anti-spam maintenance, and creates
-the daily private backup when it is due. The control-panel search rebuild is repair tooling, not part
-of normal publishing. See [Backups](backups.md) for storage and restore details.
+Production installations do not need cron. Successful HTTP requests detach their response where the
+SAPI permits it and advance a bounded slice of durable background work from a shutdown callback.
+That work publishes scheduled content, drains asynchronous jobs, performs anti-spam maintenance,
+and creates the daily private backup when it is due. With no traffic, work waits until the next
+request. Use `php tools/run-background.php` for an explicit operational drain, especially on SAPIs
+that cannot detach a response and therefore leave heavyweight jobs queued. The control-panel search
+rebuild remains repair tooling. See [Backups](backups.md) for storage and restore details.
 
 Run unit and integration tests with Codeception:
 

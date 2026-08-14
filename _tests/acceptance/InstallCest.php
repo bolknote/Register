@@ -475,17 +475,18 @@ class InstallCest
 
     private function testSearchModule(AcceptanceTester $I): void
     {
+        // The preceding HTTP requests have advanced the request-driven background queue.
         $I->amOnPage('/?search=1&q=new');
         $I->see('Search', 'h1');
-        $I->dontSee('New Blog Post Title');
-        $I->dontSee('New Page Title');
+        $I->see('New Blog Post Title');
+        $I->see('New Page Title');
 
         $I->amOnPage('/section1/new-page1');
         $I->submitForm('.s2_search_form', ['q' => 'new']);
         $I->seeCurrentUrlEquals('/index.php?search=1&q=new');
         $I->see('Search', 'h1');
-        $I->dontSee('New Blog Post Title');
-        $I->dontSee('New Page Title');
+        $I->see('New Blog Post Title');
+        $I->see('New Page Title');
 
         $I->amOnPage('/_admin/index.php?entity=Dashboard');
 
@@ -799,7 +800,7 @@ class InstallCest
 
         /**
          * Check comment notifications to subscribers after moderation approval
-         */
+        */
         $I->clearEmails();
 
         $commentListUrl = '/_admin/index.php?entity=Comment&action=list&content_type=' . $contentType . '&content_id=' . $targetId . '&apply_filter=1';

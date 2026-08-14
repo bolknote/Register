@@ -286,6 +286,7 @@ class Integration extends AbstractBrowserModule
             'debug'              => false,
             'debug_view'         => false,
             'show_queries'       => false,
+            'boot_timestamp'     => microtime(true),
             'redirect_map'       => [
                 '#^/redirect$#' => '/redirected',
             ],

@@ -35,7 +35,6 @@ final readonly class ReservedRouteRegistry
         'comment-moderate',
         'comment_sent',
         'comment_unsubscribe',
-        'cron.php',
         'favicon.ico',
         'index.php',
         'robots.txt',

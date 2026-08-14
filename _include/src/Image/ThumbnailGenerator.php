@@ -1,6 +1,6 @@
 <?php /** @noinspection HtmlUnknownTarget */
 /**
- * @copyright 2023-2024 Roman Parpalak
+ * @copyright 2023-2026 Roman Parpalak
  * @license   https://opensource.org/license/MIT MIT
  * @package   S2
  */
@@ -11,10 +11,13 @@ namespace S2\Cms\Image;
 
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Queue\QueueExecutionBudget;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 class ThumbnailGenerator implements QueueHandlerInterface
 {
+    private const string QUEUE_CODE = 'thumbnail';
+
     private const string CACHE_SUBDIRECTORY = '/cache/';
 
     public function __construct(
@@ -54,15 +57,25 @@ class ThumbnailGenerator implements QueueHandlerInterface
         }
     }
 
-    /**
-     * {@inheritdoc}
-     * @param array<mixed> $payload
-     */
+    /** @return non-empty-list<non-empty-string> */
     #[\Override]
-    public function handle(string $id, string $code, array $payload): bool
+    public function codes(): array
     {
-        if ($code !== 'thumbnail') {
-            return false;
+        return [self::QUEUE_CODE];
+    }
+
+    #[\Override]
+    public function minimumExecutionTime(): float
+    {
+        return 0.5;
+    }
+
+    /** @param array<mixed> $payload */
+    #[\Override]
+    public function handle(string $id, string $code, array $payload, QueueExecutionBudget $budget): void
+    {
+        if ($code !== self::QUEUE_CODE) {
+            throw new \LogicException(\sprintf('Unsupported thumbnail queue code "%s".', $code));
         }
 
         if (
@@ -78,23 +91,34 @@ class ThumbnailGenerator implements QueueHandlerInterface
 
         [$src, $width, $height] = $payload;
 
+        $budget->checkpoint($this->minimumExecutionTime());
+
         // Check if $src file is in the pictures dir
-        $canBeHandled = str_starts_with($src, $this->cacheUrlPrefix . '/');
-        if ($canBeHandled) {
-            $filename = $this->cacheFilesystemPrefix . $this->getCachedFilename($id);
-            $dirname  = \dirname($filename);
-            if (!is_dir($dirname)) {
-                if (!mkdir($dirname, 0777, true) && !is_dir($dirname)) {
-                    throw new \RuntimeException(sprintf('Directory "%s" was not created', $dirname));
-                }
-
-                chmod($dirname, 0777);
-            }
-
-            $this->makeThumbnail($this->cacheFilesystemPrefix . substr($src, \strlen($this->cacheUrlPrefix)), $filename, $width, $height);
+        if (!str_starts_with($src, $this->cacheUrlPrefix . '/')) {
+            throw new \InvalidArgumentException('Thumbnail source is outside of the configured picture directory.');
         }
 
-        return $canBeHandled;
+        $filename = $this->cacheFilesystemPrefix . $this->getCachedFilename($id);
+        if (file_exists($filename)) {
+            return;
+        }
+
+        $dirname  = \dirname($filename);
+        if (!is_dir($dirname)) {
+            if (!mkdir($dirname, 0777, true) && !is_dir($dirname)) {
+                throw new \RuntimeException(sprintf('Directory "%s" was not created', $dirname));
+            }
+
+            chmod($dirname, 0777);
+        }
+
+        $this->makeThumbnail(
+            $this->cacheFilesystemPrefix . substr($src, \strlen($this->cacheUrlPrefix)),
+            $filename,
+            $width,
+            $height,
+            $budget,
+        );
     }
 
     public static function createImageFromFile(string $inputFilename): \GdImage
@@ -164,19 +188,27 @@ class ThumbnailGenerator implements QueueHandlerInterface
         }
 
         // No cache. Add a job to queue and fallback to original image
-        $this->publisher->publish($hash, 'thumbnail', $args);
+        $this->publisher->publish($hash, self::QUEUE_CODE, $args);
 
         return $src;
     }
 
-    private function makeThumbnail(string $inputFilename, string $outputFilename, int $width, int $height): void
+    private function makeThumbnail(
+        string               $inputFilename,
+        string               $outputFilename,
+        int                  $width,
+        int                  $height,
+        QueueExecutionBudget $budget,
+    ): void
     {
         if ($width < 1 || $height < 1) {
             throw new \InvalidArgumentException('Thumbnail dimensions must be positive.');
         }
 
+        $budget->checkpoint(0.5);
         $image = self::createImageFromFile($inputFilename);
 
+        $budget->checkpoint(0.25);
         $inputWidth  = imagesx($image);
         $inputHeight = imagesy($image);
         $thumbnail   = imagecreatetruecolor($width, $height);
@@ -194,10 +226,25 @@ class ThumbnailGenerator implements QueueHandlerInterface
 
         imagecopyresampled($thumbnail, $image, 0, 0, 0, 0, $width, $height, $inputWidth, $inputHeight);
 
-        if (!imagejpeg($thumbnail, $outputFilename, 90)) {
-            throw new \RuntimeException('Unable to save thumbnail: ' . $outputFilename);
+        $budget->checkpoint(0.1);
+        $temporaryFilename = tempnam(\dirname($outputFilename), '.thumbnail-');
+        if ($temporaryFilename === false) {
+            throw new \RuntimeException('Unable to create a temporary thumbnail file.');
         }
 
+        try {
+            if (!imagejpeg($thumbnail, $temporaryFilename, 90)) {
+                throw new \RuntimeException('Unable to save thumbnail: ' . $outputFilename);
+            }
+
+            if (!rename($temporaryFilename, $outputFilename)) {
+                throw new \RuntimeException('Unable to publish thumbnail: ' . $outputFilename);
+            }
+        } finally {
+            if (file_exists($temporaryFilename)) {
+                unlink($temporaryFilename);
+            }
+        }
     }
 
     private function getCachedFilename(string $hash): string

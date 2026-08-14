@@ -24,7 +24,6 @@ return RectorConfig::configure()
         __DIR__ . '/_include/setup.php',
         __DIR__ . '/_extensions',
         __DIR__ . '/_tests',
-        __DIR__ . '/cron.php',
         __DIR__ . '/index.php',
         __DIR__ . '/tools',
     ])

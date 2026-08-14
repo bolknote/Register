@@ -16,7 +16,6 @@ return $config
     ->addPathToScan(__DIR__ . '/tools', isDev: true)
     ->addPathToScan(__DIR__ . '/dependency-analyser.php', isDev: true)
     ->addPathToScan(__DIR__ . '/rector.php', isDev: true)
-    ->addPathToScan(__DIR__ . '/cron.php', isDev: false)
     ->addPathToScan(__DIR__ . '/index.php', isDev: false)
     // Codeception creates these actors and traits from suite configuration at runtime.
     ->ignoreUnknownClasses([

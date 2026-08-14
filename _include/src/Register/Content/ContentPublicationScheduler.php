@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Content;
 
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Queue\QueueExecutionBudget;
 
 /** Publishes due drafts without exposing future content to public readers. */
 final readonly class ContentPublicationScheduler
@@ -43,8 +44,25 @@ final readonly class ContentPublicationScheduler
     public function publishDue(?int $now = null): int
     {
         $now ??= time();
+        return $this->publishDueRows($now, PHP_INT_MAX);
+    }
+
+    public function publishDueBatch(int $now, int $limit, QueueExecutionBudget $budget): int
+    {
+        return $this->publishDueRows($now, $limit, $budget);
+    }
+
+    private function publishDueRows(
+        int $now,
+        int $limit,
+        ?QueueExecutionBudget $budget = null,
+    ): int {
         if ($now <= 0) {
             throw new \InvalidArgumentException('The publication timestamp must be positive.');
+        }
+
+        if ($limit < 1) {
+            throw new \InvalidArgumentException('The publication batch limit must be positive.');
         }
 
         $result = $this->dbLayer
@@ -54,11 +72,13 @@ final readonly class ContentPublicationScheduler
             ->andWhere('scheduled_at > 0')
             ->andWhere('scheduled_at <= :now')->setParameter('now', $now)
             ->orderBy('scheduled_at ASC', 'id ASC')
+            ->limit($limit)
             ->execute()
         ;
 
         $published = 0;
         while (($row = $result->fetchAssoc()) !== false) {
+            $budget?->checkpoint(0.1);
             $published += $this->publishRow($row);
         }
 

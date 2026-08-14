@@ -13,6 +13,12 @@ documentation.
 Register is free software distributed under the MIT license. It runs on an ordinary PHP host and can
 use SQLite, MySQL/MariaDB, or PostgreSQL.
 
+Background work is advanced opportunistically after normal HTTP responses; installing a cron job is
+not required. A site without incoming traffic consequently has no bounded background-delivery time.
+The queue is safe across application nodes through a database lease. Operators can inspect it with
+`php tools/queue-status.php`, drain it manually with `php tools/run-background.php`, and explicitly
+retry a reviewed failed job with `php tools/retry-background-job.php <id> <code>`.
+
 ## What Register already does
 
 - Publishes blog posts and permanent pages, including drafts and scheduled dates.

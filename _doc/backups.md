@@ -13,15 +13,19 @@ content, email addresses, and other editorial data.
 
 ## Automatic and manual creation
 
-Run the production maintenance command regularly, normally once per minute:
+No cron entry is required. Normal HTTP traffic places one durable automatic-backup job in the
+request-driven queue and creates an archive when no backup newer than 24 hours exists. The job is
+protected by both the shared queue lease and a non-blocking filesystem lock; a killed PHP process
+leaves the job available for a later request, and the next attempt removes narrowly matched
+abandoned work files. Backup failures follow the normal visible retry/dead-letter policy and do not
+stop unrelated runnable jobs.
 
-```bash
-php cron.php
-```
-
-It creates a backup when no archive newer than 24 hours exists. Backup failures are logged and do not
-stop the other maintenance jobs. Administrators with user-management permission can inspect the
-latest archive, create a new one, and download it from **Search & statistics** in the control panel.
+A full database-and-media snapshot cannot be safely interrupted in the middle of a database utility
+or filesystem call. Register therefore starts it only when at least four seconds remain in the
+background slice. On a SAPI that cannot detach the response, or for a site whose full snapshot takes
+longer than the host permits, drain it explicitly with `php tools/run-background.php`. Administrators
+with user-management permission can also inspect the latest archive, create a new one, and download
+it from **Search & statistics** in the control panel.
 
 A command-line backup can be forced at any time:
 
@@ -52,8 +56,8 @@ New installations include this section in `config.php`:
 `enabled` controls only scheduled creation; manual creation remains available. `retention` accepts
 1–365 archives. With `directory` set to `null`, Register uses an installation-specific private
 directory next to the document root. A relative path is resolved from the Register root; an absolute
-path is used as written. The directory must be writable by the PHP and cron users and must not be
-served by the web server.
+path is used as written. The directory must be writable by the PHP user and any operator running the
+CLI tools, and must not be served by the web server.
 
 The local development bootstrap stores three archives under `.local/backups/`.
 
@@ -71,13 +75,13 @@ installation.
 ## Restore
 
 1. Keep the archive private and verify `manifest.json` before restoring.
-2. Stop all writes, including the web process, queue worker, and cron command.
+2. Stop all writes, including the web process and any manually started queue worker.
 3. For SQLite, replace the configured database file with `database.sqlite`. For MySQL/MariaDB,
    import `database.sql` into an empty configured database with `mysql`. For PostgreSQL, import it
    with `psql`.
 4. Copy the contents of `media/` into the configured media directory.
-5. Restore deployment configuration separately, clear Register's cache, then restart normal cron and
-   queue processing.
+5. Restore deployment configuration separately, clear Register's cache, then resume normal
+   request-driven queue processing.
 
 Automatic backups are daily full snapshots. They are not continuous or incremental, and they do not
 replace an off-site backup policy. Copy retained archives to storage with independent credentials and

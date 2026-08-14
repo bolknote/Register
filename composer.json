@@ -107,7 +107,7 @@
             "composer-dependency-analyser --config=dependency-analyser.php"
         ],
         "analyse:phan": "phan --config-file .phan/config.php --allow-polyfill-parser",
-        "analyse:phpmd": "php -d error_reporting=8191 _vendor/bin/phpmd analyze _admin/ajax.php _admin/index.php _admin/install.php _admin/pictman.php _include/src _include/common.php _include/functions.php _include/setup.php _extensions cron.php index.php tools --format ansi --ruleset phpmd.xml --no-progress",
+        "analyse:phpmd": "php -d error_reporting=8191 _vendor/bin/phpmd analyze _admin/ajax.php _admin/index.php _admin/install.php _admin/pictman.php _include/src _include/common.php _include/functions.php _include/setup.php _extensions index.php tools --format ansi --ruleset phpmd.xml --no-progress",
         "analyse:phpstan": "phpstan analyse --configuration=phpstan.neon --no-progress --memory-limit=1G",
         "analyse:psalm": "psalm --config=psalm.xml --no-cache --no-progress",
         "check": [

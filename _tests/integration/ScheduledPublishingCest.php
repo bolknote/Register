@@ -9,12 +9,18 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Psr\Log\NullLogger;
 use Register\Content\ContentId;
+use Register\Content\ContentPublicationQueueHandler;
 use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Module\Search\Service\ContentIndexer;
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Queue\QueueConsumer;
+use S2\Cms\Queue\QueueExecutionBudget;
+use S2\Cms\Queue\QueueHandlerRegistry;
+use S2\Cms\Queue\QueuePublisher;
 
 final class ScheduledPublishingCest
 {
@@ -42,6 +48,45 @@ final class ScheduledPublishingCest
         $data = ['published' => true, 'scheduled_at' => $now + 120];
         $scheduler->prepareForSave($data);
         $I->assertNull($data['scheduled_at']);
+    }
+
+    public function queueHandlerContinuesLargePublicationSetsInBoundedBatches(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var \PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        /** @var ContentPublicationQueueHandler $handler */
+        $handler = $I->grabService(ContentPublicationQueueHandler::class);
+
+        $now = time();
+        for ($number = 1; $number <= ContentPublicationQueueHandler::BATCH_SIZE + 1; ++$number) {
+            $this->insertScheduledContent($dbLayer, ContentType::POST, 'batch-' . $number, $now - 1);
+        }
+
+        $publisher = new QueuePublisher($pdo, '');
+        $publisher->publish(
+            ContentPublicationQueueHandler::JOB_ID,
+            ContentPublicationQueueHandler::CODE,
+        );
+        $consumer = new QueueConsumer(
+            $pdo,
+            '',
+            new NullLogger(),
+            new QueueHandlerRegistry($handler),
+        );
+
+        $runAt = time();
+        $I->assertTrue($consumer->runQueue($runAt, new QueueExecutionBudget(5.0)));
+        $I->assertSame(ContentPublicationQueueHandler::BATCH_SIZE, $this->publishedCount($dbLayer));
+
+        $continuation = $this->publicationJob($pdo);
+        $I->assertSame(2, (int)$continuation['generation']);
+
+        $pdo->exec("DELETE FROM queue WHERE code = '" . ContentIndexer::QUEUE_CODE . "'");
+        $I->assertTrue($consumer->runQueue($runAt + 2, new QueueExecutionBudget(5.0)));
+        $I->assertSame(ContentPublicationQueueHandler::BATCH_SIZE + 1, $this->publishedCount($dbLayer));
+        $I->assertFalse($this->findPublicationJob($pdo));
     }
 
     private function insertScheduledContent(
@@ -120,5 +165,43 @@ final class ScheduledPublishingCest
         ;
 
         $I->assertSame(1, (int)$count);
+    }
+
+    private function publishedCount(DbLayer $dbLayer): int
+    {
+        return (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('slug LIKE :prefix')->setParameter('prefix', 'batch-%')
+            ->andWhere('published = 1')
+            ->execute()
+            ->result()
+        ;
+    }
+
+    /** @return array<string, mixed> */
+    private function publicationJob(\PDO $pdo): array
+    {
+        $job = $this->findPublicationJob($pdo);
+        if (!\is_array($job)) {
+            throw new \RuntimeException('The scheduled-publication continuation is missing.');
+        }
+
+        return $job;
+    }
+
+    /** @return array<string, mixed>|false */
+    private function findPublicationJob(\PDO $pdo): array|false
+    {
+        $statement = $pdo->prepare('SELECT * FROM queue WHERE id = :id AND code = :code');
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the scheduled-publication queue query.');
+        }
+
+        $statement->execute([
+            'id'   => ContentPublicationQueueHandler::JOB_ID,
+            'code' => ContentPublicationQueueHandler::CODE,
+        ]);
+        return $statement->fetch(\PDO::FETCH_ASSOC);
     }
 }

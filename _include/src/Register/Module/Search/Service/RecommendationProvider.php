@@ -12,6 +12,7 @@ namespace Register\Module\Search\Service;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Queue\QueueExecutionBudget;
 use S2\Rose\Entity\ExternalId;
 use S2\Rose\Entity\TocEntryWithMetadata;
 use Register\Module\Search\Layout\ContentItem;
@@ -36,6 +37,19 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         private QueuePublisher       $queuePublisher,
         private IntProxy             $recommendationsLimit,
     ) {
+    }
+
+    /** @return non-empty-list<non-empty-string> */
+    #[\Override]
+    public function codes(): array
+    {
+        return [self::RECOMMENDATIONS_QUEUE];
+    }
+
+    #[\Override]
+    public function minimumExecutionTime(): float
+    {
+        return 0.5;
     }
 
     /**
@@ -69,19 +83,21 @@ readonly class RecommendationProvider implements QueueHandlerInterface
      * @param array<mixed> $payload
      */
     #[\Override]
-    public function handle(string $id, string $code, array $payload): bool
+    public function handle(string $id, string $code, array $payload, QueueExecutionBudget $budget): void
     {
-        if ($code === self::RECOMMENDATIONS_QUEUE) {
-            $externalId = ExternalId::fromString($id);
-            $cacheKey   = $this->getCacheKey($externalId);
+        unset($payload);
+        $budget->checkpoint($this->minimumExecutionTime());
 
-            $this->cache->delete($cacheKey);
-            $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
-
-            return true;
+        if ($code !== self::RECOMMENDATIONS_QUEUE) {
+            throw new \LogicException(\sprintf('Unsupported recommendations queue code "%s".', $code));
         }
 
-        return false;
+        $externalId = ExternalId::fromString($id);
+        $cacheKey   = $this->getCacheKey($externalId);
+
+        $this->cache->delete($cacheKey);
+        $budget->checkpoint(0.5);
+        $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
     }
 
     /**

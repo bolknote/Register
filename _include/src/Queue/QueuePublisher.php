@@ -1,6 +1,6 @@
 <?php
 /**
- * @copyright 2023-2024 Roman Parpalak
+ * @copyright 2023-2026 Roman Parpalak
  * @license MIT
  * @package S2
  */
@@ -20,7 +20,92 @@ readonly class QueuePublisher
     /**
      * @param array<mixed> $payload
      */
-    public function publish(string $id, string $code, array $payload = []): void
+    public function publish(string $id, string $code, array $payload = [], ?int $availableAt = null): void
+    {
+        [$data, $driverName, $table, $now, $availableAt] = $this->prepareJob(
+            $id,
+            $code,
+            $payload,
+            $availableAt,
+        );
+
+        $statement = match ($driverName) {
+            'mysql' => $this->pdo->prepare(
+                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, attempts, last_error, failed_at) '
+                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, 0, NULL, NULL) '
+                . 'ON DUPLICATE KEY UPDATE generation = generation + 1, payload = VALUES(payload), '
+                . 'updated_at = VALUES(updated_at), available_at = VALUES(available_at), attempts = 0, last_error = NULL, failed_at = NULL'
+            ),
+            'sqlite', 'pgsql' => $this->pdo->prepare(
+                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, attempts, last_error, failed_at) '
+                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, 0, NULL, NULL) '
+                . 'ON CONFLICT (id, code) DO UPDATE SET generation = ' . $table . '.generation + 1, payload = excluded.payload, '
+                . 'updated_at = excluded.updated_at, available_at = excluded.available_at, attempts = 0, last_error = NULL, failed_at = NULL'
+            ),
+            default => throw new InvalidEnvironmentException(sprintf('Driver "%s" is not supported.', $driverName)),
+        };
+
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the queue publication query.');
+        }
+
+        $statement->execute([
+            'id'           => $id,
+            'code'         => $code,
+            'payload'      => $data,
+            'created_at'   => $now,
+            'updated_at'   => $now,
+            'available_at' => $availableAt,
+        ]);
+    }
+
+    /**
+     * Inserts scheduled work without replacing its current generation, retry state, or backoff.
+     *
+     * @param array<mixed> $payload
+     */
+    public function publishIfAbsent(string $id, string $code, array $payload = [], ?int $availableAt = null): void
+    {
+        [$data, $driverName, $table, $now, $availableAt] = $this->prepareJob(
+            $id,
+            $code,
+            $payload,
+            $availableAt,
+        );
+
+        $statement = match ($driverName) {
+            'mysql' => $this->pdo->prepare(
+                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, attempts, last_error, failed_at) '
+                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, 0, NULL, NULL) '
+                . 'ON DUPLICATE KEY UPDATE code = VALUES(code)'
+            ),
+            'sqlite', 'pgsql' => $this->pdo->prepare(
+                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, attempts, last_error, failed_at) '
+                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, 0, NULL, NULL) '
+                . 'ON CONFLICT (id, code) DO NOTHING'
+            ),
+            default => throw new InvalidEnvironmentException(sprintf('Driver "%s" is not supported.', $driverName)),
+        };
+
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the conditional queue publication query.');
+        }
+
+        $statement->execute([
+            'id'           => $id,
+            'code'         => $code,
+            'payload'      => $data,
+            'created_at'   => $now,
+            'updated_at'   => $now,
+            'available_at' => $availableAt,
+        ]);
+    }
+
+    /**
+     * @param array<mixed> $payload
+     * @return array{string, string, string, int, int}
+     */
+    private function prepareJob(string $id, string $code, array $payload, ?int $availableAt): array
     {
         if (\strlen($id) > 80) {
             throw new \DomainException('Id length must not exceed 80 characters');
@@ -28,6 +113,10 @@ readonly class QueuePublisher
 
         if (\strlen($code) > 80) {
             throw new \DomainException('Code length must not exceed 80 characters');
+        }
+
+        if ($code === '') {
+            throw new \DomainException('Code must not be empty');
         }
 
         try {
@@ -41,55 +130,12 @@ readonly class QueuePublisher
             throw new InvalidEnvironmentException('PDO returned an invalid driver name.');
         }
 
-        switch ($driverName) {
-            case 'mysql':
-                // There is a wierd behaviour of INSERT IGNORE in MySQL. Unlike Postgres, INSERT IGNORE waits
-                // for releasing a lock even if the row was just locked with SELECT ... FOR UPDATE and not modified yet.
-                // Moreover, there is no INSERT ... NOWAIT operator. Let's make it by hands.
-                $this->pdo->exec('SET innodb_lock_wait_timeout = 0;');
-                $statement = $this->pdo->prepare('INSERT IGNORE INTO ' . $this->dbPrefix . 'queue (id, code, payload) VALUES (:id, :code, :payload)');
-                break;
-
-            case 'sqlite':
-                $this->pdo->setAttribute(\PDO::ATTR_TIMEOUT, 1);
-            case 'pgsql':
-                $statement = $this->pdo->prepare('INSERT INTO ' . $this->dbPrefix . 'queue (id, code, payload) VALUES (:id, :code, :payload) ON CONFLICT DO NOTHING');
-                break;
-
-            default:
-                throw new InvalidEnvironmentException(sprintf('Driver "%s" is not supported.', $driverName));
+        $now         = time();
+        $availableAt ??= $now;
+        if ($availableAt < 0) {
+            throw new \DomainException('Availability timestamp must not be negative');
         }
 
-        if ($statement === false) {
-            throw new \RuntimeException('Unable to prepare the queue publication query.');
-        }
-
-        try {
-            $statement->execute([
-                'id'      => $id,
-                'code'    => $code,
-                'payload' => $data,
-            ]);
-        } catch (\PDOException $pdoException) {
-            if (
-                (1205 === (int)($pdoException->errorInfo[1] ?? 0) && $driverName === 'mysql')
-                || (5 === (int)($pdoException->errorInfo[1] ?? 0) && $driverName === 'sqlite') // SQLSTATE[HY000]: General error: 5 database is locked
-            ) {
-                // Cannot insert a new item while the existing one is locked;
-                return;
-            }
-
-            throw $pdoException;
-        } finally {
-            switch ($driverName) {
-                case 'mysql':
-                    $this->pdo->exec('SET innodb_lock_wait_timeout = 5;');
-                    break;
-
-                case 'sqlite':
-                    $this->pdo->setAttribute(\PDO::ATTR_TIMEOUT, 5);
-                    break;
-            }
-        }
+        return [$data, $driverName, $this->dbPrefix . 'queue', $now, $availableAt];
     }
 }

@@ -69,6 +69,7 @@ class DynamicConfigFormBuilder
         'S2_ADMIN_NEW_POS' => 'boolean',
         'S2_ADMIN_CUT'     => 'boolean',
         'S2_LOGIN_TIMEOUT' => 'hidden',
+        'S2_LAST_MAINTENANCE' => 'hidden',
         SchemaManager::CONFIG_KEY => 'hidden',
         AnalyticsManifest::SALT_CONFIG_KEY => 'hidden',
     ];

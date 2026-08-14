@@ -16,7 +16,6 @@
     <file>_styles</file>
     <file>_tests</file>
     <file>tools</file>
-    <file>cron.php</file>
     <file>index.php</file>
 
     <exclude-pattern>*/_vendor/*</exclude-pattern>

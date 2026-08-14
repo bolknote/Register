@@ -67,11 +67,47 @@ final readonly class SpamRateLimiter
     /**
      * @throws DbLayerException
      */
-    public function deleteOlderThan(int $timestamp): int
+    public function deleteOlderThan(int $timestamp, ?int $limit = null): int
     {
-        return $this->dbLayer
+        if ($limit === null) {
+            return $this->dbLayer
+                ->delete('spam_rate_events')
+                ->where('created_at < :timestamp')->setParameter('timestamp', $timestamp)
+                ->execute()
+                ->affectedRows()
+            ;
+        }
+
+        if ($limit < 1) {
+            throw new \InvalidArgumentException('Maintenance batch size must be positive.');
+        }
+
+        $ids = $this->dbLayer
+            ->select('id')
+            ->from('spam_rate_events')
+            ->where('created_at < :timestamp')->setParameter('timestamp', $timestamp)
+            ->orderBy('id')
+            ->limit($limit)
+            ->execute()
+            ->fetchColumn()
+        ;
+        if ($ids === []) {
+            return 0;
+        }
+
+        $delete       = $this->dbLayer
             ->delete('spam_rate_events')
             ->where('created_at < :timestamp')->setParameter('timestamp', $timestamp)
+        ;
+        $placeholders = [];
+        foreach ($ids as $index => $id) {
+            $parameter      = 'id_' . $index;
+            $placeholders[] = ':' . $parameter;
+            $delete->setParameter($parameter, (int)$id, \PDO::PARAM_INT);
+        }
+
+        return $delete
+            ->andWhere('id IN (' . implode(', ', $placeholders) . ')')
             ->execute()
             ->affectedRows()
         ;
@@ -80,14 +116,14 @@ final readonly class SpamRateLimiter
     /**
      * @throws DbLayerException
      */
-    public function deleteExpired(int $now): int
+    public function deleteExpired(int $now, ?int $limit = null): int
     {
         $policies = $this->policyRepository->getPolicies();
         $retention = $policies === []
             ? 25 * 60 * 60
             : max(array_map(static fn(SpamRatePolicy $policy): int => $policy->windowSeconds, $policies)) + 60 * 60;
 
-        return $this->deleteOlderThan($now - $retention);
+        return $this->deleteOlderThan($now - $retention, $limit);
     }
 
     /**

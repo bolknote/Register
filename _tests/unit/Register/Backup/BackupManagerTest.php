@@ -103,6 +103,51 @@ final class BackupManagerTest extends Unit
         self::assertSame($createdAfterClockCorrection->path, $manager->latest()?->path);
     }
 
+    public function testRemovesOnlyAbandonedGeneratedWorkFiles(): void
+    {
+        [$manager, $directory] = $this->manager(retention: 2);
+        $backupDirectory = $directory . '/backups';
+        if (!mkdir($backupDirectory, 0700, true) && !is_dir($backupDirectory)) {
+            throw new \RuntimeException('Unable to create the test backup directory.');
+        }
+
+        $abandonedArchive  = $backupDirectory . '/.0123456789abcdef.zip';
+        $abandonedSnapshot = $backupDirectory . '/.fedcba9876543210-database.sqlite';
+        $unrelatedFile     = $backupDirectory . '/.keep';
+        file_put_contents($abandonedArchive, 'partial archive');
+        file_put_contents($abandonedSnapshot, 'partial database');
+        file_put_contents($unrelatedFile, 'keep');
+
+        $manager->createNow(1_700_000_000);
+
+        self::assertFileDoesNotExist($abandonedArchive);
+        self::assertFileDoesNotExist($abandonedSnapshot);
+        self::assertFileExists($unrelatedFile);
+    }
+
+    public function testDoesNotWaitForAnotherBackupProcess(): void
+    {
+        [$manager, $directory] = $this->manager(retention: 2);
+        $backupDirectory = $directory . '/backups';
+        if (!mkdir($backupDirectory, 0700, true) && !is_dir($backupDirectory)) {
+            throw new \RuntimeException('Unable to create the test backup directory.');
+        }
+
+        $lock = fopen($backupDirectory . '/.backup.lock', 'c+b');
+        if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+            throw new \RuntimeException('Unable to acquire the test backup lock.');
+        }
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Another backup is already in progress.');
+            $manager->createNow(1_700_000_000);
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
     /** @return array{0:BackupManager,1:string} */
     private function manager(int $retention): array
     {

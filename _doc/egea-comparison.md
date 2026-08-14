@@ -54,7 +54,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Preview plus explicit draft/publish choice | Available | The shared editor has live preview and explicit draft, scheduled, and immediate publication states. |
 | Continuous browser crash recovery | Available | Editor content is periodically stored in `localStorage`. |
 | Save with Ctrl/Cmd-S | Partial | Ctrl-S is implemented; modifier handling is not fully uniform across platforms. |
-| Scheduled publishing | Available | The editor stores a future publication time; `cron.php` publishes due content and updates dependent views and search. |
+| Scheduled publishing | Available | The editor stores a future publication time; the request-driven shutdown queue publishes due content in bounded batches and updates dependent views and search. |
 | Backdated publishing | Available | The creation timestamp is editable. |
 | Rename a media file from the editor | Partial | Available through the picture manager rather than directly on an editor media fragment. |
 | Ten bundled themes | Missing | Register deliberately bundles one first-party theme. |
@@ -207,7 +207,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Upgrade an existing Register database | Missing | The pre-release product supports one clean schema generation and intentionally rejects old generations; an explicit importer can be added later. |
 | Import an existing Aegea database | Missing | No importer. |
 | Semi-automatic code and database update | Missing | Code deployment and future data import are external; Register currently performs no in-place product migration. |
-| Automatic database backup | Available | Regular `cron.php` execution creates a private daily database-and-media archive and prunes it to configured retention. |
+| Automatic database backup | Available | A durable request-driven queue job creates a private daily database-and-media archive and prunes it to configured retention; the CLI drain covers hosts without response detachment. |
 | Downloadable backup ZIP | Available | Administrators can create or download the latest standard ZIP in Search & statistics; the CLI offers the same operation. |
 | Continuous incremental backup | Missing | No first-party implementation. |
 | HTTP and HTTPS | Available | Supported, including optional forced HTTPS for administration. |

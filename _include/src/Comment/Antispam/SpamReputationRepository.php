@@ -64,11 +64,57 @@ final readonly class SpamReputationRepository
     /**
      * @throws DbLayerException
      */
-    public function deleteExpired(int $now): int
+    public function deleteExpired(int $now, ?int $limit = null): int
     {
-        return $this->dbLayer
+        if ($limit === null) {
+            return $this->dbLayer
+                ->delete('spam_reputation')
+                ->where('expires_at < :now')->setParameter('now', $now)
+                ->execute()
+                ->affectedRows()
+            ;
+        }
+
+        if ($limit < 1) {
+            throw new \InvalidArgumentException('Maintenance batch size must be positive.');
+        }
+
+        $keys = $this->dbLayer
+            ->select('key_type', 'key_hash')
+            ->from('spam_reputation')
+            ->where('expires_at < :now')->setParameter('now', $now)
+            ->orderBy('expires_at', 'key_type', 'key_hash')
+            ->limit($limit)
+            ->execute()
+            ->fetchAssocAll()
+        ;
+        if ($keys === []) {
+            return 0;
+        }
+
+        $delete     = $this->dbLayer
             ->delete('spam_reputation')
             ->where('expires_at < :now')->setParameter('now', $now)
+        ;
+        $conditions = [];
+        foreach ($keys as $index => $key) {
+            $keyType = $key['key_type'] ?? null;
+            $keyHash = $key['key_hash'] ?? null;
+            if (!\is_string($keyType) || !\is_string($keyHash)) {
+                throw new \UnexpectedValueException('Invalid spam reputation maintenance key.');
+            }
+
+            $typeParameter = 'key_type_' . $index;
+            $hashParameter = 'key_hash_' . $index;
+            $conditions[]  = \sprintf('(key_type = :%s AND key_hash = :%s)', $typeParameter, $hashParameter);
+            $delete
+                ->setParameter($typeParameter, $keyType)
+                ->setParameter($hashParameter, $keyHash)
+            ;
+        }
+
+        return $delete
+            ->andWhere('(' . implode(' OR ', $conditions) . ')')
             ->execute()
             ->affectedRows()
         ;

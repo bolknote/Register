@@ -74,6 +74,49 @@ schema-generation changes that affect search identity or storage rebuild the ind
 publish `register_content_index` jobs to the shared queue; the control-panel rebuild remains repair
 tooling rather than an installation step.
 
+## Background work lifecycle
+
+Register does not require cron. Every successfully completed web request registers a shutdown
+callback, closes the PHP session, sends and detaches the response where the SAPI supports that, and
+then offers a small time-limited slice to the durable queue. `ignore_user_abort(true)` is enabled
+before the callback is registered, so a client disconnect does not cancel recovery work.
+
+Only one runner may execute at once. A non-blocking lease in the application database serializes
+workers across hosts and independent filesystems; it uses the database clock so application-node
+clock skew cannot create overlapping ownership. The lease outlives the bounded runner slice and
+expires automatically if PHP is killed before it can release ownership.
+
+Queue delivery is at least once. A job remains in the database until a generation-aware
+acknowledgement succeeds; failures use exponential backoff and become visible as failed jobs after
+the retry limit. Handlers must therefore be idempotent. Republishing the same `(id, code)` advances
+its generation, replaces stale payload, and revives failed work. A monotonic execution budget is
+shared with the handler and checked before every independently repeatable expensive step. Budget
+exhaustion defers the job without consuming a retry attempt. Handler-aware selection skips every
+known job that cannot fit the remaining slice, so expensive work cannot starve runnable jobs behind
+it. PHP cannot safely interrupt an active extension or database call, so handler inputs and I/O
+still need finite server-side limits.
+
+Scheduled publication is seeded after every completed request and processes at most ten due records
+per job. Each publication and its lifecycle outbox writes share a transaction; additional batches
+republish the same generation-aware trigger. Antispam maintenance is seeded hourly. Each cleanup
+operation is a separate retryable queue job, deletes at most 100 records per attempt, and schedules
+another small batch when work remains.
+
+Automatic full backups use the same queue but advertise a four-second start reserve, so short
+foreground-only slices skip them without blocking lighter work. Backup creation has an additional
+non-blocking filesystem lock, retries after termination, and removes only strictly named abandoned
+work files on the next attempt. Database dump utilities and individual filesystem calls cannot be
+cooperatively interrupted; an operator can use the manual drain on hosts whose request lifetime is
+too short for a full snapshot.
+
+With no incoming HTTP traffic, background work waits indefinitely. This follows directly from the
+request-driven contract: there is no PHP process to execute code between requests.
+`tools/run-background.php` provides a manual recovery/drain command but is not a scheduled
+entrypoint. `tools/queue-status.php` reports ready, delayed, failed, oldest-job and active-runner
+state as JSON and returns status 2 when dead-letter jobs exist. An operator can requeue one reviewed
+dead-letter job with `tools/retry-background-job.php <id> <code>`; bulk blind retries are deliberately
+not provided.
+
 ## Configuration
 
 Register has two configuration layers:

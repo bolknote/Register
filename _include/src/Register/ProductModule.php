@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register;
 
 use Register\Backup\BackupManager;
+use Register\Backup\BackupQueueHandler;
 use Register\Backup\BackupScheduler;
 use Register\Backup\DatabaseSnapshotter;
 use Register\Comment\CommentRepository;
@@ -18,6 +19,7 @@ use Register\Comment\ContentCommentStrategy;
 use Register\Comment\ContentCommentTargetResolver;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentPublicationScheduler;
+use Register\Content\ContentPublicationQueueHandler;
 use Register\Content\ContentRepository;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSourceInterface;
@@ -45,6 +47,8 @@ use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Queue\QueueHandlerInterface;
+use S2\Cms\Queue\QueuePublisher;
 
 /**
  * Registers services owned by the Register product rather than the reusable S2 foundation.
@@ -80,6 +84,11 @@ readonly class ProductModule implements ContainerModuleInterface
             $container->get(\Psr\Log\LoggerInterface::class),
             $container->getBoolParameter('backup_enabled'),
         ));
+        $container->set(BackupQueueHandler::class, static fn(Container $container): BackupQueueHandler => new BackupQueueHandler(
+            $container->get(BackupManager::class),
+            $container->get(QueuePublisher::class),
+            $container->getBoolParameter('backup_enabled'),
+        ), [QueueHandlerInterface::class]);
         $container->set(ContentUrlGenerator::class, static fn(Container $container): ContentUrlGenerator => new ContentUrlGenerator(
             $container->get(DbLayer::class),
             $container->get(UrlBuilder::class),
@@ -100,6 +109,10 @@ readonly class ProductModule implements ContainerModuleInterface
             $container->get(\PDO::class),
             $container->get(ContentChangeDispatcher::class),
         ));
+        $container->set(ContentPublicationQueueHandler::class, static fn(Container $container): ContentPublicationQueueHandler => new ContentPublicationQueueHandler(
+            $container->get(ContentPublicationScheduler::class),
+            $container->get(QueuePublisher::class),
+        ), [QueueHandlerInterface::class]);
         $container->set(ContentStatisticsRepository::class, static fn(Container $container): ContentStatisticsRepository => new ContentStatisticsRepository(
             $container->get(DbLayer::class),
         ));

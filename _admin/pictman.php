@@ -14,6 +14,7 @@ declare(strict_types = 1);
 
 use S2\AdminYard\TemplateRenderer;
 use S2\Cms\Model\AuthManager;
+use S2\Cms\Queue\ShutdownWorkCoordinator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -34,4 +35,7 @@ if ($response === null) {
 
 // direct call of header() to override default PHP header
 header('X-Powered-By: Register/' . $app->container->getParameter('version'));
-$response->send();
+$shutdownCoordinator = $app->container->get(ShutdownWorkCoordinator::class);
+$shutdownCoordinator->closeSession();
+$response->send(false);
+$shutdownCoordinator->finishResponse();
