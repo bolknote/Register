@@ -349,6 +349,7 @@ $renderControl = static function (string $fieldName, object $control, bool $show
         tags: <?= json_encode([
             'inputId'          => 'id-tags',
             'suggestions'      => $tagsList,
+            'suggestionsUrl'   => $basePath . '/_admin/ajax.php?action=register_tag_suggestions',
             'placeholder'      => $trans('Tags'),
             'removeLabel'      => $trans('Remove tag'),
             'suggestionsLabel' => $trans('Tag suggestions'),

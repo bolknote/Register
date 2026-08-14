@@ -40,7 +40,7 @@ export function initTagsInput(config) {
         return;
     }
 
-    const suggestions = uniqueTags(config.suggestions || []);
+    let suggestions = uniqueTags(config.suggestions || []);
     const suggestionListId = config.inputId + '-suggestions';
     const root = document.createElement('div');
     const surface = document.createElement('div');
@@ -348,4 +348,26 @@ export function initTagsInput(config) {
     });
 
     renderTags();
+
+    if (config.suggestionsUrl) {
+        fetch(config.suggestionsUrl, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Unable to load tag suggestions.');
+                }
+                return response.json();
+            })
+            .then(function (data) {
+                if (!data || !Array.isArray(data.tags)) {
+                    return;
+                }
+                suggestions = uniqueTags([...suggestions, ...data.tags]);
+                if (document.activeElement === input) {
+                    renderSuggestions(true);
+                }
+            })
+            .catch(function (error) {
+                console.warn(error.message);
+            });
+    }
 }

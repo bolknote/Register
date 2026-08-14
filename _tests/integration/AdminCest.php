@@ -142,6 +142,10 @@ class AdminCest
         $I->seeElement('main.editor-main-column > .editor-tags-block:last-child');
         $I->seeElement('.editor-tags-block input[name="tags"][placeholder="Tags"]');
         $I->dontSeeElement('.editor-tags-block details');
+        $I->assertStringContainsString(
+            'register_tag_suggestions',
+            $I->grabResponse(),
+        );
         $I->seeElement('aside.editor-sidebar-column > .editor-publication-card');
         $I->seeElement('a.main-menu-link[aria-current="page"][href="?entity=BlogPost&action=new"]');
         $I->dontSeeElement('a.main-menu-link[aria-current="page"][href="?entity=BlogPost&action=list"]');

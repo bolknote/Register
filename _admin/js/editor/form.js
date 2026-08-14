@@ -81,6 +81,17 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             }
             const response = await fetch(eForm.action, {method: 'POST', headers: headers, body: formData});
 
+            if (response.redirected) {
+                document.dispatchEvent(new Event('save_article_end.s2'));
+                try {
+                    localStorage.removeItem(draftStorageKey);
+                } catch (error) {
+                    console.warn('Unable to remove the local editor draft:', error);
+                }
+                window.location.assign(response.url);
+                return;
+            }
+
             if (response.ok) {
                 successHandler(await response.json());
             } else if (response.status === 422) {

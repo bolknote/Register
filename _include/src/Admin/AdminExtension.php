@@ -344,6 +344,19 @@ class AdminExtension implements ExtensionInterface
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event) use ($container): void {
+            $event->controllerMap['register_tag_suggestions'] = static function (PermissionChecker $permissionChecker) use ($container): \Symfony\Component\HttpFoundation\JsonResponse {
+                if (!$permissionChecker->isGranted(PermissionChecker::PERMISSION_CREATE_ARTICLES)) {
+                    return new \Symfony\Component\HttpFoundation\JsonResponse(
+                        ['success' => false, 'message' => 'No permission'],
+                        \Symfony\Component\HttpFoundation\Response::HTTP_FORBIDDEN,
+                    );
+                }
+
+                return new \Symfony\Component\HttpFoundation\JsonResponse([
+                    'success' => true,
+                    'tags'    => array_values($container->get(TagsProvider::class)->getAllTags()),
+                ]);
+            };
             $event->controllerMap['register_ai_generate'] = static fn(PermissionChecker $permissionChecker, Request $request): \Symfony\Component\HttpFoundation\JsonResponse => $container
                 ->get(AiEditorController::class)
                 ->generate($permissionChecker, $request);
