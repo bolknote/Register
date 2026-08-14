@@ -35,9 +35,11 @@ final readonly class BackupAdminController
         if (!$request->isMethod(Request::METHOD_POST)) {
             return new Response('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
+
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS)) {
             return new Response($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
         }
+
         if (!$this->backupToken->matches($request->request->getString('csrf_token'))) {
             return new Response($this->translator->trans('Invalid backup token'), Response::HTTP_FORBIDDEN);
         }
@@ -56,6 +58,7 @@ final readonly class BackupAdminController
         if (!$request->isMethod(Request::METHOD_GET)) {
             return new Response('Only GET requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
+
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS)) {
             return new Response($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
         }

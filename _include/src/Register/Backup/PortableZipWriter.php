@@ -36,7 +36,7 @@ final class PortableZipWriter
 
     private bool $finalized = false;
 
-    public function __construct(private readonly string $path)
+    public function __construct(string $path)
     {
         $stream = fopen($path, 'x+b');
         if ($stream === false) {
@@ -84,6 +84,7 @@ final class PortableZipWriter
                 if ($written === false || $written === 0) {
                     throw new \RuntimeException('Unable to prepare a backup entry.');
                 }
+
                 $offset += $written;
             }
 
@@ -127,8 +128,8 @@ final class PortableZipWriter
         }
 
         $centralSize = $this->position() - $centralOffset;
-        self::assertUint32($centralOffset, 'ZIP central-directory offset');
-        self::assertUint32($centralSize, 'ZIP central-directory size');
+        $this->assertUint32($centralOffset, 'ZIP central-directory offset');
+        $this->assertUint32($centralSize, 'ZIP central-directory size');
         $entryCount = \count($this->entries);
         if ($entryCount > self::MAX_UINT16) {
             throw new \RuntimeException('The backup has too many files for a portable ZIP archive.');
@@ -149,6 +150,7 @@ final class PortableZipWriter
         if (!fflush($stream)) {
             throw new \RuntimeException('Unable to flush the backup archive.');
         }
+
         fclose($stream);
         $this->stream    = null;
         $this->finalized = true;
@@ -161,6 +163,7 @@ final class PortableZipWriter
             $this->stream = null;
             fclose($stream);
         }
+
         $this->stream = null;
     }
 
@@ -172,13 +175,14 @@ final class PortableZipWriter
         if (isset($this->entryNames[$entryName])) {
             throw new \RuntimeException('Duplicate backup archive entry: ' . $entryName);
         }
+
         if (\count($this->entries) >= self::MAX_UINT16) {
             throw new \RuntimeException('The backup has too many files for a portable ZIP archive.');
         }
 
-        [$dosTime, $dosDate] = self::dosDateTime($timestamp);
+        [$dosTime, $dosDate] = $this->dosDateTime($timestamp);
         $offset = $this->position();
-        self::assertUint32($offset, 'ZIP file offset');
+        $this->assertUint32($offset, 'ZIP file offset');
 
         $this->write(pack(
             'VvvvvvVVVvv',
@@ -202,6 +206,7 @@ final class PortableZipWriter
             if ($chunk === false || ($chunk === '' && !feof($source))) {
                 throw new \RuntimeException('Unable to read data while building a backup archive.');
             }
+
             if ($chunk === '') {
                 continue;
             }
@@ -209,7 +214,7 @@ final class PortableZipWriter
             hash_update($hash, $chunk);
             $this->write($chunk);
             $size += \strlen($chunk);
-            self::assertUint32($size, 'ZIP entry size');
+            $this->assertUint32($size, 'ZIP entry size');
         }
 
         $crc = (int)hexdec(hash_final($hash));
@@ -245,7 +250,7 @@ final class PortableZipWriter
     }
 
     /** @return array{0:int,1:int} */
-    private static function dosDateTime(int $timestamp): array
+    private function dosDateTime(int $timestamp): array
     {
         $date = getdate(max(315532800, min(4354819199, $timestamp)));
         $year = max(1980, min(2107, $date['year']));
@@ -286,11 +291,12 @@ final class PortableZipWriter
             if ($written === false || $written === 0) {
                 throw new \RuntimeException('Unable to write the backup archive.');
             }
+
             $offset += $written;
         }
     }
 
-    private static function assertUint32(int $value, string $description): void
+    private function assertUint32(int $value, string $description): void
     {
         if ($value < 0 || $value > self::MAX_UINT32) {
             throw new \RuntimeException($description . ' exceeds the portable ZIP limit.');

@@ -167,6 +167,8 @@ class InstallCest
         $I->seeElement('script[src$="/_assets/register/search/index-manager.js"]');
         $I->dontSeeElement('script[src*="/_extensions/s2_search/"]');
         $I->seeElement('input[name=register_search_csrf_token]');
+        $I->seeElement('a[href="https://github.com/bolknote/Register"]');
+        $I->dontSeeElement('a[href="https://github.com/parpalak/s2"]');
 
         $I->amOnPage('/_admin/index.php?entity=Configuration');
         $I->dontSee('REGISTER_ANALYTICS_SALT');

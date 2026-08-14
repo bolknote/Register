@@ -21,7 +21,9 @@ use SQLite, MySQL/MariaDB, or PostgreSQL.
 - Supports comments, moderation, subscriptions, and spam filtering.
 - Provides accounts and permissions for authors, moderators, editors, and administrators.
 - Recovers unsaved editor text after a browser or power failure.
-- Handles image uploads and thumbnails and provides a module API for additional integrations.
+- Handles image, audio, and video uploads and thumbnails and provides a module API for additional
+  integrations.
+- Creates private daily database-and-media backups with retention and control-panel download.
 - Keeps the public theme deliberately small, responsive, readable, and compatible with light and
   dark system appearance.
 
@@ -50,7 +52,9 @@ is required. The unobtrusive lock in the public footer opens the control panel.
   - PostgreSQL 14+;
   - SQLite 3.37+.
 
-The control panel targets Chrome/Edge 111+, Firefox 113+ (ESR 115+), and Safari 16.2+.
+The control panel targets Chrome/Edge 111+, Firefox 113+ (ESR 115+), and Safari 16.2+. SQLite
+backups need no additional extension or utility. MySQL/MariaDB backups require `proc_open` and
+`mysqldump`; PostgreSQL backups require `proc_open` and `pg_dump`.
 
 ## Installation
 
@@ -60,8 +64,8 @@ cd register
 composer install --no-dev -o
 ```
 
-See the [installation documentation](https://github.com/parpalak/s2/wiki/Installation) for web-server
-and database setup.
+Point the web-server document root at the checkout, make the cache and media directories writable,
+then open `/_admin/install.php` and follow the installer.
 
 ## Local development in one command
 
@@ -88,12 +92,11 @@ composer check
 - [Development](_doc/development.md)
 - [Architecture](_doc/architecture.md)
 - [URL slug generation](_doc/url-slugs.md)
+- [Backups](_doc/backups.md)
 - [Comments](_doc/comments.md)
 - [Register and Aegea feature comparison](_doc/egea-comparison.md)
 - [Optional modules](_doc/extensions.md)
 - [Architecture decision: module tiers](_doc/decisions/0001-register-module-tiers.md)
-- [Control panel](https://github.com/parpalak/s2/wiki/Control-Panel)
-- [Styles](https://github.com/parpalak/s2/wiki/Styles)
 
 ## Compatibility note
 

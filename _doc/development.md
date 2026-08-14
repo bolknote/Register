@@ -18,8 +18,9 @@ automatically; both processes stop together on Ctrl+C. Use `S2_DEV_PORT=9000 ./d
 another port.
 
 Production installations must run `php cron.php` regularly (normally once per minute). The command
-drains asynchronous jobs and performs anti-spam maintenance; the control-panel search rebuild is
-repair tooling, not part of normal publishing.
+drains asynchronous jobs, publishes scheduled content, performs anti-spam maintenance, and creates
+the daily private backup when it is due. The control-panel search rebuild is repair tooling, not part
+of normal publishing. See [Backups](backups.md) for storage and restore details.
 
 Run unit and integration tests with Codeception:
 

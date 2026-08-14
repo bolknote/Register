@@ -17,7 +17,7 @@ Register includes a flexible and secure comment system designed to handle valida
    If the comment is valid, it is passed to the `SpamDetectorInterface`. Register includes a single implementation of this interface, which uses the Akismet service for spam detection. A `SpamDecisionProvider` wraps the detector and applies local heuristics.
 
    `SpamDetectorInterface` may return one of the following statuses:
-    - `disabled`: The spam detection service is not enabled (API key not configured in the [control panel](https://github.com/parpalak/s2/wiki/Control-Panel#configuration)).
+    - `disabled`: The spam detection service is not enabled (API key not configured under Settings → Comments in the control panel).
     - `failed`: An error occurred while calling the service.
     - `ham`: The comment is classified as not spam.
     - `spam`: The comment is considered spam.
@@ -30,7 +30,7 @@ Register includes a flexible and secure comment system designed to handle valida
 
 4. **Moderation Logic**
    The engine supports optional manual moderation, controlled via the `S2_PREMODERATION` parameter,
-   which can be enabled in the [control panel](https://github.com/parpalak/s2/wiki/Control-Panel#configuration).
+   which can be enabled under Settings → Comments in the control panel.
 
    The moderation decision is made by the `SpamDecision`:
 

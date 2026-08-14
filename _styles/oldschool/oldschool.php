@@ -1,0 +1,15 @@
+<?php
+
+declare(strict_types = 1);
+
+use S2\Cms\Asset\AssetPack;
+
+return (new AssetPack(__DIR__))
+    ->addMeta('<meta name="viewport" content="width=device-width, initial-scale=1">')
+    ->addMeta('<meta name="color-scheme" content="light">')
+    ->addMeta('<meta name="theme-color" content="#004d4e">')
+    ->addCss('../register/site.css', [AssetPack::OPTION_MERGE])
+    ->addCss('oldschool.css', [AssetPack::OPTION_MERGE])
+    ->addJs('../register/script.js', [AssetPack::OPTION_MERGE, AssetPack::OPTION_DEFER])
+    ->setFavIcon('../register/favicon.svg')
+;

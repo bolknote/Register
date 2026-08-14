@@ -13,7 +13,7 @@
         ?>
         <div class="stat-item">
             <h3><?php echo $trans('S2 version'); ?></h3>
-            <a href="https://github.com/parpalak/s2" target="_blank" rel="noreferrer">Register <?= $version ?> &uarr;</a><br>
+            <a href="https://github.com/bolknote/Register" target="_blank" rel="noreferrer">Register <?= $version ?> &uarr;</a><br>
             © 2007–<?= date('Y') ?> Roman Parpalak
         </div>
     </div>

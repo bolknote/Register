@@ -1,4 +1,6 @@
 *
 !register/
 !register/**
+!oldschool/
+!oldschool/**
 !rss.xslt

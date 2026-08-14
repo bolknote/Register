@@ -59,9 +59,11 @@ final readonly class DatabaseSnapshotter
         if ($this->host !== '') {
             $command[] = '--host=' . $this->host;
         }
+
         if ($this->username !== '') {
             $command[] = '--user=' . $this->username;
         }
+
         $command[] = '--';
         $command[] = $this->requiredDatabaseName();
 
@@ -83,9 +85,11 @@ final readonly class DatabaseSnapshotter
         if ($this->host !== '') {
             $command[] = '--host=' . $this->host;
         }
+
         if ($this->username !== '') {
             $command[] = '--username=' . $this->username;
         }
+
         $command[] = '--dbname=' . $this->requiredDatabaseName();
 
         $this->runDumpCommand($command, $targetPath, 'PGPASSWORD');
@@ -105,6 +109,7 @@ final readonly class DatabaseSnapshotter
         foreach (getenv() as $name => $value) {
             $environment[$name] = $value;
         }
+
         if ($this->password !== '') {
             $environment[$passwordVariable] = $this->password;
         }
@@ -124,12 +129,17 @@ final readonly class DatabaseSnapshotter
                 ['bypass_shell' => true],
             );
         } catch (\Throwable $throwable) {
-            self::removeIncompleteFile($targetPath);
-            throw new \RuntimeException('Unable to start the database dump utility.', previous: $throwable);
+            $this->removeIncompleteFile($targetPath);
+            $exceptionCode = $throwable->getCode();
+            throw new \RuntimeException(
+                'Unable to start the database dump utility.',
+                \is_int($exceptionCode) ? $exceptionCode : 0,
+                previous: $throwable,
+            );
         }
 
         if (!\is_resource($process)) {
-            self::removeIncompleteFile($targetPath);
+            $this->removeIncompleteFile($targetPath);
             throw new \RuntimeException('Unable to start the database dump utility.');
         }
 
@@ -139,11 +149,12 @@ final readonly class DatabaseSnapshotter
         $exitCode = proc_close($process);
 
         if ($exitCode !== 0 || !is_file($targetPath)) {
-            self::removeIncompleteFile($targetPath);
+            $this->removeIncompleteFile($targetPath);
             $details = \is_string($stderr) ? trim($stderr) : '';
             if ($details !== '') {
                 $details = ' ' . substr($details, 0, 2000);
             }
+
             throw new \RuntimeException('The database dump utility failed.' . $details);
         }
     }
@@ -164,7 +175,7 @@ final readonly class DatabaseSnapshotter
         }
     }
 
-    private static function removeIncompleteFile(string $targetPath): void
+    private function removeIncompleteFile(string $targetPath): void
     {
         if (is_file($targetPath)) {
             s2_call_without_warnings(static fn(): bool => unlink($targetPath));

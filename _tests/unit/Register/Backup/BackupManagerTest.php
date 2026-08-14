@@ -22,7 +22,7 @@ final class BackupManagerTest extends Unit
     protected function _after(): void
     {
         if ($this->temporaryDirectory !== null) {
-            self::deleteDirectory($this->temporaryDirectory);
+            $this->deleteDirectory($this->temporaryDirectory);
         }
     }
 
@@ -44,26 +44,32 @@ final class BackupManagerTest extends Unit
         self::assertStringContainsString('media/nested/photo.webp', $rawArchive);
         self::assertStringContainsString('image bytes', $rawArchive);
 
-        if (class_exists(\ZipArchive::class)) {
-            $zip = new \ZipArchive();
-            self::assertTrue($zip->open($backup->path));
-            self::assertSame('image bytes', $zip->getFromName('media/nested/photo.webp'));
-            $manifest = $zip->getFromName('manifest.json');
+        $zipClassName = 'ZipArchive';
+        if (class_exists($zipClassName)) {
+            $zip      = new $zipClassName();
+            $zipClass = new \ReflectionObject($zip);
+            self::assertTrue($zipClass->getMethod('open')->invoke($zip, $backup->path));
+            self::assertSame(
+                'image bytes',
+                $zipClass->getMethod('getFromName')->invoke($zip, 'media/nested/photo.webp'),
+            );
+            $manifest = $zipClass->getMethod('getFromName')->invoke($zip, 'manifest.json');
             self::assertIsString($manifest);
             self::assertStringContainsString('"format": "register-backup"', $manifest);
             self::assertStringContainsString('"driver": "sqlite"', $manifest);
 
-            $database = $zip->getFromName('database.sqlite');
+            $database = $zipClass->getMethod('getFromName')->invoke($zip, 'database.sqlite');
             self::assertIsString($database);
             $restoredPath = $directory . '/restored.sqlite';
             self::assertSame(\strlen($database), file_put_contents($restoredPath, $database));
-            self::assertTrue($zip->close());
+            self::assertTrue($zipClass->getMethod('close')->invoke($zip));
 
             $restored = new \PDO('sqlite:' . $restoredPath);
             $statement = $restored->query('SELECT title FROM notes');
             if (!$statement instanceof \PDOStatement) {
                 throw new \RuntimeException('Unable to query the restored backup database.');
             }
+
             self::assertSame('Saved note', $statement->fetchColumn());
         }
     }
@@ -110,6 +116,7 @@ final class BackupManagerTest extends Unit
         if (!mkdir($mediaDirectory, 0700, true) && !is_dir($mediaDirectory)) {
             throw new \RuntimeException('Unable to create the test media directory.');
         }
+
         file_put_contents($mediaDirectory . '/photo.webp', 'image bytes');
 
         return [
@@ -131,16 +138,18 @@ final class BackupManagerTest extends Unit
         if (!mkdir($directory, 0700, true) && !is_dir($directory)) {
             throw new \RuntimeException('Unable to create a temporary test directory.');
         }
+
         $this->temporaryDirectory = $directory;
 
         return $directory;
     }
 
-    private static function deleteDirectory(string $directory): void
+    private function deleteDirectory(string $directory): void
     {
         if (!is_dir($directory)) {
             return;
         }
+
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
             \RecursiveIteratorIterator::CHILD_FIRST,
@@ -152,6 +161,7 @@ final class BackupManagerTest extends Unit
                 unlink($item->getPathname());
             }
         }
+
         rmdir($directory);
     }
 }

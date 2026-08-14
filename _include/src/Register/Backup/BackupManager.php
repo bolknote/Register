@@ -42,11 +42,11 @@ final readonly class BackupManager
 
     public function createIfDue(?int $now = null): ?BackupFile
     {
-        $now = $now ?? time();
+        $now ??= time();
 
         return $this->withLock(function () use ($now): ?BackupFile {
-            $latest = $this->latestUnlocked();
-            if ($latest instanceof BackupFile && $latest->createdAt > $now - self::AUTOMATIC_INTERVAL_SECONDS) {
+            $latestCreatedAt = $this->latestUnlocked()?->createdAt;
+            if ($latestCreatedAt !== null && $latestCreatedAt > $now - self::AUTOMATIC_INTERVAL_SECONDS) {
                 return null;
             }
 
@@ -64,7 +64,6 @@ final readonly class BackupManager
         return $this->retention;
     }
 
-    /** @param callable(): ?BackupFile $callback */
     private function withLock(callable $callback): ?BackupFile
     {
         $this->ensureDirectory();
@@ -78,7 +77,12 @@ final readonly class BackupManager
                 throw new \RuntimeException('Unable to acquire the backup lock.');
             }
 
-            return $callback();
+            $result = $callback();
+            if ($result !== null && !$result instanceof BackupFile) {
+                throw new \LogicException('The backup lock callback returned an invalid result.');
+            }
+
+            return $result;
         } finally {
             flock($lock, LOCK_UN);
             fclose($lock);
@@ -138,12 +142,14 @@ final readonly class BackupManager
             if (!touch($archivePath, $now) || !rename($archivePath, $finalPath)) {
                 throw new \RuntimeException('Unable to publish the completed backup archive.');
             }
+
             s2_call_without_warnings(static fn(): bool => chmod($finalPath, 0600));
 
             $size = filesize($finalPath);
             if ($size === false) {
                 throw new \RuntimeException('Unable to determine the completed backup size.');
             }
+
             $backup = new BackupFile($finalPath, $name, $now, $size);
             $this->prune($backup);
             $this->logger->info('Register backup created.', [
@@ -157,9 +163,11 @@ final readonly class BackupManager
             if ($writer instanceof PortableZipWriter) {
                 $writer->abort();
             }
+
             if (is_file($archivePath)) {
                 s2_call_without_warnings(static fn(): bool => unlink($archivePath));
             }
+
             if ($snapshot instanceof DatabaseSnapshot && is_file($snapshot->path)) {
                 s2_call_without_warnings(static fn(): bool => unlink($snapshot->path));
             }
@@ -189,11 +197,13 @@ final readonly class BackupManager
             if ($relativePath === '') {
                 continue;
             }
+
             $files[] = [
                 'archive' => 'media/' . str_replace('\\', '/', $relativePath),
                 'path'    => $path,
             ];
         }
+
         usort($files, static fn(array $left, array $right): int => $left['archive'] <=> $right['archive']);
 
         return $files;
@@ -272,13 +282,16 @@ TEXT;
             if (preg_match(self::FILE_PATTERN, $name) !== 1 || !is_file($path) || is_link($path)) {
                 continue;
             }
+
             $createdAt = filemtime($path);
             $size      = filesize($path);
             if ($createdAt === false || $size === false) {
                 continue;
             }
+
             $backups[] = new BackupFile($path, $name, $createdAt, $size);
         }
+
         usort($backups, static fn(BackupFile $left, BackupFile $right): int => [$left->createdAt, $left->name] <=> [$right->createdAt, $right->name]);
 
         return $backups;
@@ -289,6 +302,7 @@ TEXT;
         if (!is_dir($this->backupDirectory) && !mkdir($this->backupDirectory, 0700, true) && !is_dir($this->backupDirectory)) {
             throw new \RuntimeException('Unable to create the private backup directory.');
         }
+
         if (!is_writable($this->backupDirectory)) {
             throw new \RuntimeException('The backup directory is not writable.');
         }

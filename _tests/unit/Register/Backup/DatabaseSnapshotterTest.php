@@ -20,7 +20,7 @@ final class DatabaseSnapshotterTest extends Unit
     protected function _after(): void
     {
         if ($this->temporaryDirectory !== null) {
-            self::deleteDirectory($this->temporaryDirectory);
+            $this->deleteDirectory($this->temporaryDirectory);
         }
     }
 
@@ -44,6 +44,7 @@ final class DatabaseSnapshotterTest extends Unit
         if (!$statement instanceof \PDOStatement) {
             throw new \RuntimeException('Unable to query the SQLite snapshot.');
         }
+
         self::assertSame('Back me up', $statement->fetchColumn());
     }
 
@@ -60,16 +61,18 @@ final class DatabaseSnapshotterTest extends Unit
         if (!mkdir($directory, 0700, true) && !is_dir($directory)) {
             throw new \RuntimeException('Unable to create a temporary test directory.');
         }
+
         $this->temporaryDirectory = $directory;
 
         return $directory;
     }
 
-    private static function deleteDirectory(string $directory): void
+    private function deleteDirectory(string $directory): void
     {
         if (!is_dir($directory)) {
             return;
         }
+
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
             \RecursiveIteratorIterator::CHILD_FIRST,
@@ -81,6 +84,7 @@ final class DatabaseSnapshotterTest extends Unit
                 unlink($item->getPathname());
             }
         }
+
         rmdir($directory);
     }
 }

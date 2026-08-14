@@ -4,7 +4,7 @@ This document compares Register with the capabilities advertised on the
 [Aegea feature page](https://blogengine.ru/features/). It is intended as a product-gap inventory for
 future planning, not as a commitment to reproduce every Aegea feature.
 
-The snapshot was reviewed on 2026-08-13 against first-party Register source code, routes, database schema,
+The snapshot was reviewed on 2026-08-14 against first-party Register source code, routes, database schema,
 tests, and the CodeGraph index. Repeated items from Aegea's release summaries and thematic sections
 are consolidated. A feature that can only be recreated with arbitrary HTML, a custom theme, or a new
 extension is not marked as built in.
@@ -20,12 +20,11 @@ Status legend:
 
 Register already has a solid blog foundation: pages and posts, unpublished drafts, tags, comments,
 email subscriptions, favourites, calendar archives, RSS, sitemaps, morphological search, related-content
-recommendations, an extension system, and browser-based administration. It additionally supports
+recommendations, a mandatory/optional module system, and browser-based administration. It additionally supports
 multiple users with roles and three database families: MySQL/MariaDB, PostgreSQL, and SQLite.
 
-The largest product gaps are in the authoring and media experience, social publishing and identity,
-popularity analytics, automatic backups, scheduled publishing, bundled themes and languages, and
-automatic URL lifecycle management.
+The largest product gaps are in the authoring experience, social publishing and identity, per-item
+popularity analytics, bundled themes and languages, and automatic URL lifecycle management.
 
 ## Editor, media, and presentation
 
@@ -40,8 +39,9 @@ automatic URL lifecycle management.
 | Fully offline editor | Missing | There is no service worker or offline save queue. |
 | Batch drag-and-drop uploads | Partial | The file manager handles uploads; direct editor drag-and-drop is focused on JPEG and PNG images. |
 | Paste an image from the clipboard | Available | Implemented in the editor image pipeline. |
-| JPG, GIF, PNG, SVG, MP3, Ogg, and MP4 uploads | Available | Included in the default extension allow-list. |
-| WebP, AVIF, and MOV uploads | Partial | AVIF processing code exists, but these formats are not all enabled in the default upload allow-list. |
+| JPG, GIF, PNG, MP3, Ogg, and MP4 uploads | Available | Included in the default extension allow-list. |
+| WebP, AVIF, MOV, and WebM uploads | Available | Included in the default extension allow-list and covered by the media validation pipeline. |
+| SVG uploads | Partial | SVG is deliberately excluded by default because it can contain active content; a trusted deployment can opt in explicitly. |
 | Play audio inside the editor | Missing | There is no dedicated editor audio player. |
 | Replace a file with Alt while retaining its name | Missing | Name collisions produce a new name instead. |
 | Rename an uploaded file | Partial | Supported by the picture manager, but not inline in the text media workflow. |
@@ -51,10 +51,10 @@ automatic URL lifecycle management.
 | Audio and video media fragments | Missing | There is no dedicated authoring syntax. |
 | Silent looping video (`@loop`) | Missing | No first-party implementation. |
 | Public code highlighting for 18 languages | Missing | CodeMirror highlights editor source, but Register does not bundle a public article code renderer. |
-| Preview plus explicit draft/publish choice | Partial | Live preview and a publication flag exist, but the workflow differs. |
+| Preview plus explicit draft/publish choice | Available | The shared editor has live preview and explicit draft, scheduled, and immediate publication states. |
 | Continuous browser crash recovery | Available | Editor content is periodically stored in `localStorage`. |
 | Save with Ctrl/Cmd-S | Partial | Ctrl-S is implemented; modifier handling is not fully uniform across platforms. |
-| Scheduled publishing | Missing | The content schema has no publication-start timestamp. |
+| Scheduled publishing | Available | The editor stores a future publication time; `cron.php` publishes due content and updates dependent views and search. |
 | Backdated publishing | Available | The creation timestamp is editable. |
 | Rename a media file from the editor | Partial | Available through the picture manager rather than directly on an editor media fragment. |
 | Ten bundled themes | Missing | Register deliberately bundles one first-party theme. |
@@ -89,7 +89,7 @@ automatic URL lifecycle management.
 | Comment formatting equivalent to posts | Partial | Comments have limited BBCode and preview, not the full article editor. |
 | Social identities for commenters | Missing | No Twitter, Facebook, VK, or Telegram authentication. |
 | Configure or require social providers | Missing | No social-login provider layer. |
-| Nested author replies | Missing | Comments do not have a parent-comment field. |
+| Nested author replies | Available | Comments have parent identities and render as bounded-indentation threads with a no-JavaScript reply fallback. |
 | Edit and moderate comments | Available | Supported in the control panel. |
 | Mark a comment as important | Available | Stored using the comment quality flag. |
 | Configurable maximum comment length | Partial | A fixed storage limit exists, but there is no product setting. |
@@ -108,7 +108,7 @@ automatic URL lifecycle management.
 | Favourites, tags, and calendar navigation | Available | Corresponding pages and routes exist. |
 | Popular, hot, and random-item navigation | Missing | No first-party popularity model or random route. |
 | Promote selected tags into navigation | Partial | Possible through navigation/templates, but not a dedicated setting. |
-| Year, month, and day calendar | Available | Implemented by the blog extension. |
+| Year, month, and day calendar | Available | Implemented by the built-in Blog module. |
 | Semantic related-content recommendations | Available | Implemented through the search index on SQLite, MySQL/MariaDB, and PostgreSQL. |
 | Adaptive recommendations with images | Available | Recommendation snippets account for available images. |
 | Restrict recommendations to favourites | Missing | The favourite flag is not part of recommendation ranking. |
@@ -118,7 +118,7 @@ automatic URL lifecycle management.
 | Built-in social share buttons | Missing | Can be added by a theme or extension. |
 | Image-aware Pinterest sharing | Missing | No built-in sharing pipeline. |
 | Social/YouTube/TikTok subscription popup | Missing | No first-party implementation. |
-| Main RSS feed | Available | Provided by core and blog routes. |
+| Main RSS feed | Available | Provided by the unified Content and Blog modules. |
 | Configurable RSS size | Available | Controlled by the common item limit. |
 | Tag and search-result RSS feeds | Missing | No dedicated routes. |
 | JSON Feed | Missing | No JSON Feed route or serializer. |
@@ -152,13 +152,13 @@ automatic URL lifecycle management.
 | Open search in a new window when initiated from a form | Missing | No context-specific target behaviour. |
 | Automatic search indexing | Available | Index updates are queued automatically. |
 | Generated snippets in tags and archives | Partial | Excerpts are shown, but those pages do not use the full search snippet generator. |
-| Favourite marker and page | Available | Implemented in core and blog functionality. |
+| Favourite marker and page | Available | Implemented by the built-in Content and Blog modules. |
 | Favourites influence search/recommendations | Missing | Not used as a ranking input. |
 | Monthly popular/hot pages | Missing | Per-item popularity is not stored. |
 | Popular gallery on the 404 page | Missing | No first-party implementation. |
 | Year, month, and day archives | Available | Implemented by blog routes. |
 | Calendar archive navigation | Available | Implemented. |
-| `/all` archive | Missing | No dedicated route. |
+| `/all` archive | Available | `/all/` is a compact technical index of every published post. |
 | Configurable popularity period | Missing | No popularity subsystem. |
 | Russian and English interface | Available | Bundled. |
 | French, Italian, Ukrainian, and Belarusian interface | Missing | Not bundled. |
@@ -192,8 +192,8 @@ automatic URL lifecycle management.
 | Browser-based login | Available | Implemented. |
 | Password-only login without a username | Missing | Register requires both login and password. |
 | Indefinite remembered login | Partial | Cookie sessions and a configurable timeout exist, but sessions are not unconditional and permanent. |
-| “Foreign computer” session option | Missing | No matching login control. |
-| Brute-force rate limiting | Missing | No dedicated authentication rate limiter was found. |
+| “Foreign computer” session option | Available | The “Shared computer” option creates session-only authentication cookies. |
+| Brute-force rate limiting | Available | Failed attempts are limited by hashed IP and login buckets without storing their raw values. |
 | Author photo and settings-managed favicon | Missing | A favicon can be supplied by a theme; there is no equivalent author profile feature. |
 | Multiple device sessions with revocation | Available | Active sessions can be inspected and revoked. |
 | Password reset through email or a file | Missing | No first-party reset workflow. |
@@ -204,11 +204,11 @@ automatic URL lifecycle management.
 | MySQL/MariaDB, PostgreSQL, and SQLite | Available | All three database families are supported. |
 | Table prefixes and multiple installations per database | Available | Supported. |
 | Production database settings from environment variables | Missing | Production configuration is file-based. |
-| Upgrade an existing Register database | Available | Schema migrations are implemented. |
+| Upgrade an existing Register database | Missing | The pre-release product supports one clean schema generation and intentionally rejects old generations; an explicit importer can be added later. |
 | Import an existing Aegea database | Missing | No importer. |
-| Semi-automatic code and database update | Partial | Database migration is automatic after code deployment; deployment itself is external. |
-| Automatic database backup | Missing | No backup subsystem. |
-| Downloadable backup ZIP | Missing | No first-party implementation. |
+| Semi-automatic code and database update | Missing | Code deployment and future data import are external; Register currently performs no in-place product migration. |
+| Automatic database backup | Available | Regular `cron.php` execution creates a private daily database-and-media archive and prunes it to configured retention. |
+| Downloadable backup ZIP | Available | Administrators can create or download the latest standard ZIP in Search & statistics; the CLI offers the same operation. |
 | Continuous incremental backup | Missing | No first-party implementation. |
 | HTTP and HTTPS | Available | Supported, including optional forced HTTPS for administration. |
 | Modern PHP support | Available | Register requires PHP 8.3 and is checked for PHP 8.3–8.5 compatibility. |
@@ -230,7 +230,7 @@ Closing selected product gaps should not weaken the capabilities that distinguis
 
 - multiple users and role-based permissions;
 - MySQL/MariaDB, PostgreSQL, and SQLite support;
-- an extension-oriented architecture;
+- mandatory base modules plus a separate API for optional integrations;
 - morphological search and related-content recommendations;
 - lightweight server requirements and high performance;
 - PHP 8.3–8.5 compatibility and the strict automated quality gate;
@@ -243,13 +243,10 @@ and implementation scope; it is not an approved roadmap.
 
 ### Smaller, high-value increments
 
-- enable and verify WebP, AVIF, and MOV upload workflows;
 - add JSON Feed plus tag/search feeds;
 - add social/SEO metadata and a social-card preview;
-- add scheduled publishing;
 - track URL history and create automatic redirects;
 - add per-item view counts and basic popular-content routes;
-- add automatic downloadable database backups;
 - make editor shortcuts consistent across Windows, Linux, and macOS.
 
 ### Medium product projects
@@ -280,11 +277,16 @@ The main implementation anchors used during review are:
 - content, comment, tag, session, and user schema: [`_include/src/Model/Installer.php`](../_include/src/Model/Installer.php);
 - comment subscriptions: [`_include/src/Model/CommentNotifier.php`](../_include/src/Model/CommentNotifier.php);
 - authentication and sessions: [`_include/src/Model/AuthManager.php`](../_include/src/Model/AuthManager.php);
+- login rate limiting: [`S2\Cms\Model\LoginRateLimiter`](../_include/src/Model/LoginRateLimiter.php);
+- scheduled publication: [`Register\Content\ContentPublicationScheduler`](../_include/src/Register/Content/ContentPublicationScheduler.php);
+- threaded comments: [`S2\Cms\Model\Comment\CommentThreadBuilder`](../_include/src/Model/Comment/CommentThreadBuilder.php);
 - typography: [`Register\Module\Typography\Typograph`](../_include/src/Register/Module/Typography/Typograph.php);
 - formula rendering: [`Register\Module\Math\Module`](../_include/src/Register/Module/Math/Module.php);
 - search and indexing: [`Register\Module\Search\Module`](../_include/src/Register/Module/Search/Module.php);
 - recommendations: [`Register\Module\Search\Service\RecommendationProvider`](../_include/src/Register/Module/Search/Service/RecommendationProvider.php);
-- blog routes and archives: [`Register\\Module\\Blog\\Module`](../_include/src/Register/Module/Blog/Module.php);
+- blog routes and archives: [`Register\Module\Blog\Module`](../_include/src/Register/Module/Blog/Module.php);
+- full post index: [`Register\Module\Blog\Controller\AllPostsController`](../_include/src/Register/Module/Blog/Controller/AllPostsController.php);
+- daily and manual backups: [`Register\Backup\BackupManager`](../_include/src/Register/Backup/BackupManager.php);
 - asset processing: [`_include/src/Asset/AssetMerge.php`](../_include/src/Asset/AssetMerge.php);
 - local development bootstrap: [`tools/dev-bootstrap.php`](../tools/dev-bootstrap.php).
 
