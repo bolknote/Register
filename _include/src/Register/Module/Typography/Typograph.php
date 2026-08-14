@@ -141,9 +141,9 @@ final class Typograph
             }, $contents) ?? throw new \RuntimeException('Unable to restore protected typography fragments.');
         }
 
-        // Move quotation marks outside links
+        // Move one unambiguous pair of enclosing quotation marks outside a link
         $contents = preg_replace(
-            '#<a ([^>]*)>(\\s*(?:<nobr>)?)«((?:(?!</a>).)*?)»((?:</nobr>)?\\s*)</a>#s',
+            '#<a ([^>]*)>(\\s*(?:<nobr>)?)«((?:(?!</a>|«|»).)*?)»((?:</nobr>)?\\s*)</a>#s',
             '«<a \\1>\\2\\3\\4</a>»',
             $contents
         ) ?? throw new \RuntimeException('Unable to move quotation marks outside links.');

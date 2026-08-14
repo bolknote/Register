@@ -88,6 +88,14 @@ final class TypographTest extends Unit
         yield ['<p class="header">Some text.</p><p class="subheader">Another-text</p>', '<p class="header">Some text.</p><p class="subheader"><nobr>Another-text</nobr></p>'];
         yield ['SOCKS5-прокси', '<nobr>SOCKS5-прокси</nobr>'];
         yield ['<a href="/some/url.html">"CSS-стилей"</a>', '«<a href="/some/url.html"><nobr>CSS-стилей</nobr></a>»'];
+        yield 'nested quotation keeps only the enclosing pair outside a link' => [
+            '<a href="/book">«Роман „Анна Каренина“»</a>',
+            '«<a href="/book">Роман „Анна Каренина“</a>»',
+        ];
+        yield 'separate quotations stay inside a link' => [
+            '<a href="/lj-299046">«ОБС» или «Один Британский учёный Сказал»</a>',
+            '<a href="/lj-299046">«ОБС» или «Один Британский учёный Сказал»</a>',
+        ];
         yield ['"First level "second level "and third level"" and "second" level again".', '«First level „second level „and third level““ and „second“ level again».'];
         yield ['
   <title>Приключения Кода и Типо-графа</title>
