@@ -32,10 +32,10 @@ final readonly class SpamFeedbackService
      */
     public function markHam(
         int         $commentId,
-        ContentType $contentType,
+        ?ContentType $expectedContentType = null,
     ): bool
     {
-        return $this->mark($commentId, SpamReputationRepository::LABEL_HAM, $contentType);
+        return $this->mark($commentId, SpamReputationRepository::LABEL_HAM, $expectedContentType);
     }
 
     /**
@@ -44,10 +44,10 @@ final readonly class SpamFeedbackService
      */
     public function markSpam(
         int         $commentId,
-        ContentType $contentType,
+        ?ContentType $expectedContentType = null,
     ): bool
     {
-        return $this->mark($commentId, SpamReputationRepository::LABEL_SPAM, $contentType);
+        return $this->mark($commentId, SpamReputationRepository::LABEL_SPAM, $expectedContentType);
     }
 
     /**
@@ -57,13 +57,18 @@ final readonly class SpamFeedbackService
     private function mark(
         int         $commentId,
         string      $label,
-        ContentType $contentType,
+        ?ContentType $expectedContentType,
     ): bool
     {
-        $comment = $this->commentRepository->findOfType($commentId, $contentType);
-        if (!$comment instanceof \Register\Comment\Comment) {
+        $comment = $this->commentRepository->find($commentId);
+        if (
+            !$comment instanceof \Register\Comment\Comment
+            || ($expectedContentType !== null && $comment->contentId->type !== $expectedContentType)
+        ) {
             return false;
         }
+
+        $contentType = $comment->contentId->type;
 
         $domains      = $this->featureExtractor->domains($comment->text);
         $domainHashes = array_map($this->hasher->domain(...), $domains);

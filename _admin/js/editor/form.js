@@ -15,6 +15,9 @@ import {sanitizeUrlForAttribute} from './utils/escape.js';
 
 export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaName, sTemplateId, sSlugFieldName = 'url') {
     const sLowerEntityName = sEntityName.toLowerCase();
+    const formUrl = new URL(eForm.action);
+    const contentId = formUrl.searchParams.get('id') || 'new';
+    const draftStorageKey = 'register_content_draft:' + sLowerEntityName + ':' + contentId;
 
     function decorateForm(statusData) {
         const urlWrapper = eForm.querySelector('.field-' + sSlugFieldName);
@@ -138,9 +141,9 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
                 previousText = currentText;
 
                 if (savedText !== currentText) {
-                    localStorage.setItem('s2_curr_text', currentText);
+                    localStorage.setItem(draftStorageKey, currentText);
                 } else {
-                    localStorage.removeItem('s2_curr_text');
+                    localStorage.removeItem(draftStorageKey);
                 }
             }
         }
@@ -154,7 +157,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             s2_codemirror.onChange(updatePreview);
         }
 
-        const recoveredText = localStorage.getItem('s2_curr_text');
+        const recoveredText = localStorage.getItem(draftStorageKey);
         setInterval(checkChanges, 5000);
         wireLivePreview();
 
@@ -187,7 +190,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
 
         function handleChanges() {
             currentFormHash = getFormHash();
-            localStorage.removeItem('s2_curr_text');
+            localStorage.removeItem(draftStorageKey);
             savedText = eForm.elements[sTextareaName].value;
         }
 

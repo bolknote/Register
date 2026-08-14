@@ -10,8 +10,10 @@ declare(strict_types = 1);
 namespace S2\Cms\Admin;
 
 use Register\Content\Admin\DashboardContentProvider;
+use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentType;
+use Register\Comment\CommentRepository;
 use Register\Module\BaseModuleRegistry;
 use Register\Url\ContentSlugService;
 use S2\AdminYard\Database\PdoDataProvider;
@@ -47,7 +49,6 @@ use S2\Cms\Model\ArticleManager;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthManager;
 use Register\Comment\ContentCommentNotifier;
-use S2\Cms\Model\CommentProvider;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
@@ -141,6 +142,7 @@ class AdminExtension implements ExtensionInterface
                 $provider->getBoolProxy('S2_ADMIN_CUT'),
                 $container->get(Translator::class),
                 $container->get(ArticleProvider::class),
+                $container->get(ContentRevisionService::class),
                 $container->get(ContentSlugService::class),
                 $container->get(\Register\Url\ContentUrlGenerator::class),
                 $container->get(TagsProvider::class),
@@ -297,8 +299,7 @@ class AdminExtension implements ExtensionInterface
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container): void {
-            $commentProvider = $container->get(CommentProvider::class);
-            $size            = $commentProvider->getPendingCommentsCount();
+            $size = $container->get(CommentRepository::class)->countPending();
 
             if ($size > 0) {
                 $event->addSignal('Comment', new Signal((string)$size, 'New comments', '?entity=Comment&action=list&status=0&apply_filter=0'));

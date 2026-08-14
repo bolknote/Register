@@ -31,10 +31,13 @@ final readonly class ContentCommentNotifier
     }
 
     /** @throws DbLayerException */
-    public function notify(int $commentId, ContentType $contentType): void
+    public function notify(int $commentId, ?ContentType $expectedContentType = null): void
     {
-        $comment = $this->commentRepository->findOfType($commentId, $contentType);
-        if (!$comment instanceof Comment) {
+        $comment = $this->commentRepository->find($commentId);
+        if (
+            !$comment instanceof Comment
+            || ($expectedContentType !== null && $comment->contentId->type !== $expectedContentType)
+        ) {
             return;
         }
 
@@ -72,7 +75,7 @@ final readonly class ContentCommentNotifier
             );
         }
 
-        $this->commentRepository->setSent($commentId, $contentType, true);
+        $this->commentRepository->setSent($commentId, $comment->contentId->type, true);
     }
 
     /** @throws DbLayerException */

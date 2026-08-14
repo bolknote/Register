@@ -146,7 +146,7 @@ $(function () {
                 selectedId = d.rslt.obj.attr('id').replace('node_', '');
                 commentNum = d.rslt.obj.attr('data-comments');
                 eButtons.find('.edit').attr('href', '?entity=Article&action=edit&id=' + selectedId);
-                eButtons.find('.comments').attr('href', '?entity=Comment&action=list&article_id=' + selectedId);
+                eButtons.find('.comments').attr('href', '?entity=Comment&action=list&content_type=page&content_id=' + selectedId + '&apply_filter=1');
                 $('.jstree-clicked').append(eButtons);
             }
             let attempts = 0;
@@ -286,7 +286,7 @@ $(function () {
                 },
                 'c': function () {
                     if (commentNum) {
-                        window.location = '?entity=Comment&action=list&articleA_id=' + selectedId;
+                        window.location = '?entity=Comment&action=list&content_type=page&content_id=' + selectedId + '&apply_filter=1';
                     }
                 },
                 'n': function () {

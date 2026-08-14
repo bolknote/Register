@@ -3,27 +3,7 @@
 }
 
 /* Comments page */
-.admin-content tbody tr:has(.field-BlogComment-good input[type=checkbox]:checked) {
-    background-color: color-mix(in srgb, var(--color-success) 10%, var(--page-background));
-}
-.admin-content tbody tr:has(.field-BlogComment-shown input[type=checkbox]:not(:checked)) {
-    background-color: color-mix(in srgb, var(--base-2) 50%, var(--page-background));
-}
-
 .list-content .field-BlogPost-published,
-.list-content .field-BlogPost-commented,
-.list-content .field-BlogComment-email,
-.list-content .field-BlogComment-sent,
-.list-content .field-BlogComment-subscribed,
-.list-content .field-BlogComment-show_email {
+.list-content .field-BlogPost-commented {
     display: none;
-}
-
-.admin-content .list-content td.field-BlogComment-text,
-.admin-content .list-content td.field-BlogComment-post_id,
-.admin-content .list-content td.field-BlogComment-nick
-{
-    white-space: pre-wrap;
-    line-height: 1.25;
-    padding-block: 0.25em;
 }

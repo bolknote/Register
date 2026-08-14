@@ -14,6 +14,7 @@ use Register\Comment\ContentCommentNotifier;
 use Register\Comment\ContentCommentStrategy;
 use Register\Comment\ContentCommentTargetResolver;
 use Register\Content\ContentRepository;
+use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentType;
@@ -66,6 +67,7 @@ readonly class ProductModule implements ContainerModuleInterface
         $container->set(ContentStatisticsRepository::class, static fn(Container $container): ContentStatisticsRepository => new ContentStatisticsRepository(
             $container->get(DbLayer::class),
         ));
+        $container->set(ContentRevisionService::class, new ContentRevisionService());
         $container->set(ContentSitemapController::SERVICE_ID, static fn(Container $container): ContentSitemapController => new ContentSitemapController(
             $container->get(ContentRepository::class),
             $container->get(ContentUrlGenerator::class),

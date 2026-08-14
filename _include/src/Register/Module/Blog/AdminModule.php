@@ -16,10 +16,7 @@ use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
 use S2\Cms\Admin\DynamicConfigFormExtenderInterface;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Admin\TranslationProviderInterface;
-use S2\Cms\Comment\Antispam\SpamFeedbackService;
-use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
 use S2\Cms\AdminYard\CustomTemplateRendererEvent;
-use S2\Cms\AdminYard\Signal;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
 use S2\Cms\Framework\ContainerModuleInterface;
@@ -29,12 +26,11 @@ use S2\Cms\Pdo\DbLayer;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlGenerator;
 use Register\Content\Admin\DashboardContentProvider;
+use Register\Content\Admin\ContentRevisionService;
 use Register\Module\Blog\Admin\AdminConfigExtender;
 use Register\Module\Blog\Admin\DynamicConfigFormExtender;
 use Register\Module\Blog\Admin\PathToAdminEntityConverter;
 use Register\Module\Blog\Admin\TranslationProvider;
-use Register\Comment\ContentCommentNotifier;
-use Register\Comment\CommentRepository;
 use Register\Content\ContentType;
 use Register\Content\ContentStatisticsRepository;
 use Register\Module\Blog\Model\PostProvider;
@@ -52,8 +48,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(\Register\Content\TagRepository::class),
             $container->get(PostProvider::class),
             $container->get(ContentUrlGenerator::class),
-            $container->get(ContentCommentNotifier::class),
-            $container->get(SpamFeedbackService::class),
+            $container->get(ContentRevisionService::class),
             $container->get(ContentSlugService::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container->getStringParameter('db_type'),
@@ -82,14 +77,6 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
     {
         $eventDispatcher->addListener(CustomTemplateRendererEvent::class, function (CustomTemplateRendererEvent $event) : void {
             $event->extraStyles[] = $event->basePath . '/_assets/register/blog/admin.css';
-        });
-
-        $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container): void {
-            $size = $container->get(CommentRepository::class)->countPending(ContentType::POST);
-
-            if ($size > 0) {
-                $event->addSignal('BlogComment', new Signal((string)$size, 'Blog new comments', '?entity=BlogComment&action=list&status=0&apply_filter=0'));
-            }
         });
 
         $eventDispatcher->addListener(RedirectFromPublicEvent::class, function (RedirectFromPublicEvent $event) use ($container): void {

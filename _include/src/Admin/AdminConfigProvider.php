@@ -12,6 +12,7 @@ namespace S2\Cms\Admin;
 use Register\Comment\CommentSchema;
 use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentId;
+use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
@@ -71,6 +72,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly BoolProxy                $adminCut,
         private readonly Translator               $translator,
         private readonly ArticleProvider          $articleProvider,
+        private readonly ContentRevisionService   $contentRevisionService,
         private readonly ContentSlugService       $contentSlugService,
         private readonly ContentUrlGenerator      $contentUrlGenerator,
         private readonly TagsProvider             $tagsProvider,
@@ -114,13 +116,33 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT, true),
                 useOnActions: []
             ))
-            ->addField($articleFieldId = new FieldConfig(
-                name: 'content_id',
-                label: $this->translator->trans('Article'),
-                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
-                control: 'autocomplete',
-                linkToEntity: new LinkTo($articleEntity, 'title'),
+            ->addField(new FieldConfig(
+                name: 'content_type',
+                label: $this->translator->trans('Content type'),
+                control: 'select',
+                options: [
+                    ContentType::POST->value => $this->translator->trans('Post'),
+                    ContentType::PAGE->value => $this->translator->trans('Article'),
+                ],
+                sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
+            ))
+            ->addField(new FieldConfig(
+                name: 'content_id',
+                label: $this->translator->trans('Content ID'),
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                control: 'int_input',
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
+            ))
+            ->addField(new FieldConfig(
+                name: 'content_title',
+                label: $this->translator->trans('Content'),
+                type: new VirtualFieldType(
+                    "SELECT title FROM {$this->dbPrefix}" . ContentSchema::TABLE_NAME . ' AS content WHERE content.id = entity.content_id AND content.content_type = entity.content_type',
+                ),
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/comment/view-content.php.inc',
             ))
             ->addField(new FieldConfig(
                 name: 'nick',
@@ -193,7 +215,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 name: 'spam_score',
                 label: $this->translator->trans('Spam score'),
                 type: new VirtualFieldType(
-                    "SELECT score FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'page' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                    "SELECT score FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = entity.content_type AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
                 ),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
@@ -202,7 +224,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 name: 'spam_label',
                 label: $this->translator->trans('Spam label'),
                 type: new VirtualFieldType(
-                    "SELECT moderator_label FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'page' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                    "SELECT moderator_label FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = entity.content_type AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
                 ),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
@@ -211,7 +233,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 name: 'spam_reasons',
                 label: $this->translator->trans('Spam reasons'),
                 type: new VirtualFieldType(
-                    "SELECT reasons FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = 'page' AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
+                    "SELECT reasons FROM {$this->dbPrefix}spam_assessments AS sa WHERE sa.target_type = entity.content_type AND sa.comment_id = entity.id ORDER BY sa.id DESC LIMIT 1"
                 ),
                 useOnActions: [FieldConfig::ACTION_LIST],
                 viewTemplate: '_admin/templates/comment/view-spam-reasons.php',
@@ -223,9 +245,23 @@ class AdminConfigProvider implements StatefulServiceInterface
                 'text LIKE %1$s OR nick LIKE %1$s OR email LIKE %1$s OR ip LIKE %1$s',
                 fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null
             ))
-            ->addFilter(new FilterLinkTo(
-                $articleFieldId,
-                $this->translator->trans('Article'),
+            ->addFilter(new Filter(
+                'content_type',
+                $this->translator->trans('Content type'),
+                'radio',
+                'content_type = %1$s',
+                options: [
+                    '' => $this->translator->trans('All'),
+                    ContentType::POST->value => $this->translator->trans('Post'),
+                    ContentType::PAGE->value => $this->translator->trans('Article'),
+                ],
+            ))
+            ->addFilter(new Filter(
+                'content_id',
+                $this->translator->trans('Content ID'),
+                'int_input',
+                'content_id = %1$s',
+                static fn(?string $value): ?int => $value !== null && $value !== '' ? (int)$value : null,
             ))
             ->addFilter(new Filter(
                 'good',
@@ -270,18 +306,14 @@ class AdminConfigProvider implements StatefulServiceInterface
                 if (isset($event->data['shown'])) {
                     $this->commentNotifier->notify(
                         $this->requirePrimaryKey($event->primaryKey)->getIntId(),
-                        ContentType::PAGE,
                     );
                 }
             })
         ;
 
-        $commentEntity
-            ->setReadAccessControl($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)
-                ? new LogicalExpression('content_type', ContentType::PAGE->value)
-                : new LogicalExpression('content_type', ContentType::PAGE->value, 'content_type = %s AND shown = 1'))
-            ->setWriteAccessControl(new LogicalExpression('content_type', ContentType::PAGE->value))
-        ;
+        if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
+            $commentEntity->setReadAccessControl(new LogicalExpression('shown', 1));
+        }
 
         $isAdmin    = $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS);
         $userEntity = new EntityConfig('User', $this->dbPrefix . 'users');
@@ -704,29 +736,19 @@ class AdminConfigProvider implements StatefulServiceInterface
                     return;
                 }
 
-                $changed = false;
-                foreach (['body', 'title', 'slug', 'meta_keywords', 'meta_description'] as $field) {
-                    if ($event->data[$field] !== $oldData['column_' . $field]) {
-                        $changed = true;
-                    }
+                $revision = $this->contentRevisionService->resolve(
+                    $event->data,
+                    $oldData,
+                    ['body', 'title', 'slug', 'meta_keywords', 'meta_description'],
+                );
+                if ($revision === null) {
+                    $event->errorMessages[] = $this->translator->trans('Outdated version');
+                    return;
                 }
 
-                if ($changed) {
-                    // If the page text has been modified, we check if this modification is done by current user
-                    if ($event->data['revision'] !== $oldData['column_revision']) {
-                        // No, it's somebody else
-                        $event->errorMessages[] = $this->translator->trans('Outdated version');
-                        return;
-                    }
-
-                    $event->data['revision']        = (string)($event->data['revision'] + 1);
-                    $event->context['new_revision'] = $event->data['revision'];
-                } else {
-                    // Changes might be in unimportant fields only.
-                    // So we ignore $event->data['revision'] and refresh it on client side to the current value.
-                    $event->data['revision']        = $oldData['column_revision'];
-                    $event->context['new_revision'] = $oldData['column_revision'];
-                }
+                $event->data['revision']        = $revision->value;
+                $event->context['new_revision'] = $revision->value;
+                $changed                        = $revision->contentChanged;
 
                 $event->context['article_id'] = $articleId;
 

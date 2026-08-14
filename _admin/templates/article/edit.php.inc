@@ -5,6 +5,7 @@ declare(strict_types=1);
 /** @var string $basePath */
 /** @var array $tagsList */
 /** @var array $templateList */
+/** @var array $labelList */
 /** @var array $statusData Info about URL status */
 /** @var callable $trans */
 /** @var callable $param */
@@ -26,27 +27,47 @@ $formQueryParams = http_build_query(array_merge([
 
 $errorMessages = array_merge($errorMessages, $form->getGlobalFormErrors());
 
-$columnMap = [
-    // NOTE: order affects the order in HTML and focus (implicit taborder)
-    'title'         => ['column' => 1,],
-    'tags'          => ['column' => 1,],
-    'body'          => ['column' => 1, 'input_area' => '4/1/5/5'],
-    'meta_description' => ['column' => 1,],
-    'meta_keywords' => ['column' => 1,],
-    'excerpt'       => ['column' => 1, 'label_area' => '3/1/4/2', 'input_area' => '3/2/4/5'],
-    'author_id'     => ['column' => 2,],
-    'template'      => ['column' => 2,],
-    'published_at'  => ['column' => 2,],
-    'updated_at'    => ['column' => 2,],
-    'featured'      => ['column' => 2,],
-    'comments_enabled' => ['column' => 2,],
-    'slug'          => ['column' => 2,],
-    'published'     => ['column' => 2,],
-];
+$isPost = match ($entityName) {
+    'BlogPost' => true,
+    'Article' => false,
+    default => throw new \LogicException('The content editor supports posts and pages only.'),
+};
+$contentType = $isPost ? 'post' : 'page';
+
+// NOTE: order affects the order in HTML and focus (implicit tab order).
+$columnMap = $isPost
+    ? [
+        'body'             => ['column' => 1, 'input_area' => '2/1/3/5'],
+        'author_id'        => ['column' => 2,],
+        'series'           => ['column' => 2,],
+        'published_at'     => ['column' => 2,],
+        'date_label'       => ['column' => 2,],
+        'updated_at'       => ['column' => 2,],
+        'featured'         => ['column' => 2,],
+        'comments_enabled' => ['column' => 2,],
+        'slug'             => ['column' => 2,],
+        'published'        => ['column' => 2,],
+    ]
+    : [
+        'title'            => ['column' => 1,],
+        'tags'             => ['column' => 1,],
+        'body'             => ['column' => 1, 'input_area' => '4/1/5/5'],
+        'meta_description' => ['column' => 1,],
+        'meta_keywords'    => ['column' => 1,],
+        'excerpt'          => ['column' => 1, 'label_area' => '3/1/4/2', 'input_area' => '3/2/4/5'],
+        'author_id'        => ['column' => 2,],
+        'template'         => ['column' => 2,],
+        'published_at'     => ['column' => 2,],
+        'updated_at'       => ['column' => 2,],
+        'featured'         => ['column' => 2,],
+        'comments_enabled' => ['column' => 2,],
+        'slug'             => ['column' => 2,],
+        'published'        => ['column' => 2,],
+    ];
 
 $visibleControls = $form->getVisibleControls();
 
-if ($param('S2_ADMIN_CUT')) {
+if (!$isPost && $param('S2_ADMIN_CUT')) {
     unset($visibleControls['excerpt'], $columnMap['excerpt']);
 }
 
@@ -61,10 +82,6 @@ foreach ($columnMap as $fieldName => $columnInfo) {
 }
 
 $columns[1] = array_merge($columns[1], $visibleControls);
-
-$jsvarencode = static function ($var) {
-    return str_replace(array('\\', '\'', '</script>', "\n", "\r"), array('\\\\', '\\\'', '</scr\' + \'ipt>', "\\\n", ''), $var);
-};
 
 ?>
 <link rel="stylesheet" href="<?php echo $basePath; ?>/_admin/lib/codemirror.css"/>
@@ -93,7 +110,7 @@ $jsvarencode = static function ($var) {
 
 <script src="<?php echo $basePath; ?>/_admin/lib/image-q.min.js"></script>
 
-<section class="edit-content large-edit-form article-edit-content">
+<section class="edit-content large-edit-form content-edit-content <?= $isPost ? 'post' : 'article' ?>-edit-content">
     <?php if (!empty($errorMessages)): ?>
         <div class="error-message-box">
             <p><?php printf($trans('Cannot save %s due to the following errors:'), $entityName) ?></p>
@@ -131,7 +148,9 @@ $jsvarencode = static function ($var) {
                                         echo '<div><a href="?' . http_build_query([
                                                         'entity'  => 'Comment',
                                                         'action'  => 'list',
-                                                        'article_id' => $primaryKey['id']
+                                                        'content_type' => $contentType,
+                                                        'content_id' => $primaryKey['id'],
+                                                        'apply_filter' => 1,
                                                 ]) . '">' . $trans('N comments', ['{{ count }}' => $commentsNum, '%count%' => $commentsNum]) . ' &rarr;</a></div>';
                                     } else {
                                         echo '<div>' . $trans('No comments') . '</div>';
@@ -171,12 +190,23 @@ $jsvarencode = static function ($var) {
                 </div>
             <?php endforeach; ?>
         </div>
-        <datalist id="article-templates-datalist">
-            <?php foreach ($templateList as $templateItem): ?>
-                <option value="<?= htmlspecialchars($templateItem, ENT_QUOTES, 'UTF-8') ?>">
-                    <?= htmlspecialchars($templateItem, ENT_QUOTES, 'UTF-8') ?>
-                </option>
-            <?php endforeach; ?></datalist>
+        <?php if ($isPost): ?>
+            <datalist id="post-labels-datalist">
+                <?php foreach ($labelList as $labelItem): ?>
+                    <option value="<?= htmlspecialchars($labelItem, ENT_QUOTES, 'UTF-8') ?>">
+                        <?= htmlspecialchars($labelItem, ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                <?php endforeach; ?>
+            </datalist>
+        <?php else: ?>
+            <datalist id="article-templates-datalist">
+                <?php foreach ($templateList as $templateItem): ?>
+                    <option value="<?= htmlspecialchars($templateItem, ENT_QUOTES, 'UTF-8') ?>">
+                        <?= htmlspecialchars($templateItem, ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                <?php endforeach; ?>
+            </datalist>
+        <?php endif; ?>
     </form>
 </section>
 <dialog id="picture_dialog">
@@ -187,21 +217,22 @@ $jsvarencode = static function ($var) {
 <script>
     window.S2_EDITOR_CONFIG = {
         formName: 'article-form',
-        entityName: 'Article',
+        entityName: <?= json_encode($entityName, JSON_THROW_ON_ERROR) ?>,
         textareaName: 'body',
         slugFieldName: 'slug',
-        templateId: null,
-        statusData: <?= json_encode($statusData) ?>,
+        templateId: <?= json_encode($isPost ? 'blog.php' : null, JSON_THROW_ON_ERROR) ?>,
+        statusData: <?= json_encode($statusData, JSON_THROW_ON_ERROR) ?>,
         tagsInputId: 'id-tags',
-        tagsList: <?= json_encode($tagsList) ?>,
+        tagsList: <?= json_encode($tagsList, JSON_THROW_ON_ERROR) ?>,
         sUrl: '<?php echo $basePath; ?>/_admin/ajax.php?',
-        datalists: [
-            {
-                inputName: 'template',
-                listId: 'article-templates-datalist',
-                placeholder: <?= json_encode($trans('inherited')) ?>
-            }
-        ]
+        datalists: <?= json_encode($isPost ? [[
+            'inputName' => 'series',
+            'listId' => 'post-labels-datalist',
+        ]] : [[
+            'inputName' => 'template',
+            'listId' => 'article-templates-datalist',
+            'placeholder' => $trans('inherited'),
+        ]], JSON_THROW_ON_ERROR) ?>
     };
 
 </script>

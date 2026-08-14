@@ -575,8 +575,8 @@ class InstallCest
             $I->seeResponseCodeIsSuccessful();
         }
 
-        $this->testComments($I, '/section1/new-page1', 'New Page Title', 'Some new page text', 3, 'Comment', 'article_id');
-        $this->testComments($I, '/new-post1', 'New Blog Post Title', 'New blog post', $this->blogPostId, 'BlogComment', 'post_id');
+        $this->testComments($I, '/section1/new-page1', 'New Page Title', 'Some new page text', 3, 'page');
+        $this->testComments($I, '/new-post1', 'New Blog Post Title', 'New blog post', $this->blogPostId, 'post');
     }
 
     private function testETag(AcceptanceTester $I): void
@@ -620,8 +620,7 @@ class InstallCest
         string           $pageTitle,
         string           $pageText,
         int              $targetId,
-        string           $commentEntity,
-        string           $targetIdName
+        string           $contentType,
     ): void {
         /**
          * Empty form validation and preview
@@ -791,8 +790,11 @@ class InstallCest
          * Check comment notifications to subscribers after moderation approval
          */
         $I->clearEmails();
-        $I->amOnPage('/_admin/index.php?entity=' . $commentEntity . '&action=list&' . $targetIdName . '=' . $targetId);
-        $I->submitForm('form[action="?entity=' . $commentEntity . '&action=patch&field=shown&id=4"]', [
+        $commentListUrl = '/_admin/index.php?entity=Comment&action=list&content_type=' . $contentType . '&content_id=' . $targetId . '&apply_filter=1';
+        $I->amOnPage($commentListUrl);
+        $moderator2CommentId = $this->findCommentId($I, 'This is a comment from a moderator2.');
+        $moderator2PatchForm = 'form[action="?entity=Comment&action=patch&field=shown&id=' . $moderator2CommentId . '"]';
+        $I->submitForm($moderator2PatchForm, [
             'shown' => 'on',
         ]);
 
@@ -835,20 +837,20 @@ class InstallCest
 
         /**
          * Test hiding
-         */
-        $I->amOnPage('/_admin/index.php?entity=' . $commentEntity . '&action=list&' . $targetIdName . '=' . $targetId);
-        $I->uncheckOption('form[action="?entity=' . $commentEntity . '&action=patch&field=shown&id=4"] input[name="shown"]');
-        $I->submitForm('form[action="?entity=' . $commentEntity . '&action=patch&field=shown&id=4"]', []);
+        */
+        $I->amOnPage($commentListUrl);
+        $I->uncheckOption($moderator2PatchForm . ' input[name="shown"]');
+        $I->submitForm($moderator2PatchForm, []);
         $I->amOnPage($publicUrl);
         $I->dontSee('Moderator2', '.comment-name');
         $I->dontSee('This is a comment from a moderator2.');
 
         /**
          * Test no emails on republication
-         */
+        */
         $I->clearEmails();
-        $I->amOnPage('/_admin/index.php?entity=' . $commentEntity . '&action=list&' . $targetIdName . '=' . $targetId);
-        $I->submitForm('form[action="?entity=' . $commentEntity . '&action=patch&field=shown&id=4"]', [
+        $I->amOnPage($commentListUrl);
+        $I->submitForm($moderator2PatchForm, [
             'shown' => 'on',
         ]);
         $I->amOnPage($publicUrl);
@@ -880,19 +882,44 @@ class InstallCest
 
         /**
          * Test deleting
-         */
-        $I->amOnPage('/_admin/index.php?entity=' . $commentEntity . '&action=list&' . $targetIdName . '=' . $targetId);
+        */
+        $I->amOnPage($commentListUrl);
 
-        $onClickHandler = $I->grabAttributeFrom('[href="?entity=' . $commentEntity . '&action=delete&id=5"]', 'onclick');
+        $moderator3CommentId = $this->findCommentId($I, 'This is a comment from a moderator3.');
+        $deleteUrl = '?entity=Comment&action=delete&id=' . $moderator3CommentId;
+        $onClickHandler = $I->grabAttributeFrom('[href="' . $deleteUrl . '"]', 'onclick');
         if ($onClickHandler === null || ($tokenPosition = strrpos($onClickHandler, 'csrf_token=')) === false) {
             throw new \RuntimeException('The delete action does not contain a CSRF token.');
         }
 
         $csrfToken = substr($onClickHandler, $tokenPosition + 11, 40);
-        $I->sendAjaxPostRequest('/_admin/index.php?entity=' . $commentEntity . '&action=delete&id=5', ['csrf_token' => $csrfToken]);
+        $I->sendAjaxPostRequest('/_admin/index.php' . $deleteUrl, ['csrf_token' => $csrfToken]);
         $I->amOnPage($publicUrl);
         $I->dontSee('Moderator3', '.comment-name');
         $I->dontSee('This is a comment from a moderator3.');
+    }
+
+    private function findCommentId(AcceptanceTester $I, string $commentText): int
+    {
+        $xpath = '//tr[contains(., ' . self::xpathLiteral($commentText) . ')]//a[contains(@href, "action=delete")]';
+        $href  = $I->grabAttributeFrom($xpath, 'href');
+        if ($href === null || preg_match('/[?&]id=(\d+)/', $href, $matches) !== 1) {
+            throw new \RuntimeException(sprintf('Cannot determine the ID for comment "%s".', $commentText));
+        }
+
+        return (int)$matches[1];
+    }
+
+    private static function xpathLiteral(string $value): string
+    {
+        if (!str_contains($value, "'")) {
+            return "'" . $value . "'";
+        }
+        if (!str_contains($value, '"')) {
+            return '"' . $value . '"';
+        }
+
+        return "concat('" . implode("', \"'\", '", explode("'", $value)) . "')";
     }
 
     private function getArticleCsrfToken(AcceptanceTester $I, int $articleId): string

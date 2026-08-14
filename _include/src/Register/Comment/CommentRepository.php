@@ -160,16 +160,22 @@ final readonly class CommentRepository
         return (int)$query->execute()->result();
     }
 
-    public function countPending(ContentType $contentType): int
+    public function countPending(?ContentType $contentType = null): int
     {
-        return (int)$this->dbLayer
+        $query = $this->dbLayer
             ->select('COUNT(*)')
             ->from(CommentSchema::TABLE_NAME)
-            ->where('content_type = :content_type')->setParameter('content_type', $contentType->value)
-            ->andWhere('shown = 0')
+            ->where('shown = 0')
             ->andWhere('sent = 0')
-            ->execute()
-            ->result();
+        ;
+        if ($contentType !== null) {
+            $query
+                ->andWhere('content_type = :content_type')
+                ->setParameter('content_type', $contentType->value)
+            ;
+        }
+
+        return (int)$query->execute()->result();
     }
 
     /** @return list<Comment> */
