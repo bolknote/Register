@@ -31,12 +31,13 @@
     color: var(--oldschool-teal-deep);
 }
 
-h2.post.head {
-    max-width: 820px;
+#content > h2.post.head {
+    max-width: var(--text-width);
     padding: 0.32rem 0.6rem 0.4rem;
     border-radius: 4px 4px 0 0;
     background: var(--oldschool-teal);
     color: var(--oldschool-white);
+    letter-spacing: -0.04em;
     text-shadow: 0 1px 0 color-mix(in srgb, var(--oldschool-teal-deep) 65%, transparent);
 }
 
@@ -54,7 +55,7 @@ h2.post.head a:focus-visible {
 }
 
 #content > h2.post.head + .post.time {
-    max-width: 820px;
+    max-width: var(--text-width);
     margin-top: -0.35rem;
     padding: 0.38rem 0.6rem 0.45rem;
     border-bottom: 1px solid #ddd;
@@ -170,7 +171,7 @@ h2.comment .comment-count {
 }
 
 .comment-item {
-    margin: 0 20px 10px 0;
+    margin: 0 0 10px;
 }
 
 .comment-item::before {
@@ -390,10 +391,6 @@ input.comment-submit:focus-visible,
         padding-top: 0;
     }
 
-    .comment-item {
-        margin-right: 0;
-    }
-
     .comment-item::before {
         display: none;
     }
@@ -444,7 +441,7 @@ input.comment-submit:focus-visible,
         --link-visited-color: #000;
     }
 
-    h2.post.head,
+    #content > h2.post.head,
     #content > h2.post.head + .post.time {
         padding: 0;
         border: 0;
@@ -453,8 +450,8 @@ input.comment-submit:focus-visible,
         text-shadow: none;
     }
 
-    h2.post.head a,
-    h2.post.head a:visited {
+    #content > h2.post.head a,
+    #content > h2.post.head a:visited {
         color: #000;
     }
 
