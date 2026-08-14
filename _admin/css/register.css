@@ -226,7 +226,7 @@ h3 {
     padding-right: 1.6rem;
 }
 
-.admin-shell nav .main-menu-system-list {
+.admin-shell nav ul.main-menu-system-list {
     top: calc(100% - 1px);
     min-width: 16rem;
     padding: 0.4rem;
