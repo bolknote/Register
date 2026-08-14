@@ -72,7 +72,7 @@ automatic URL lifecycle management.
 | Automatic typography | Available | The built-in Typography module processes rendered HTML and RSS. |
 | Nested quotes, dashes, non-breaking spaces, and abbreviation protection | Available | Implemented by the typographer. |
 | Move quotation marks outside links | Available | Implemented. |
-| Typography traditions for every interface language | Partial | The bundled typographer is focused on Russian typography. |
+| Typography traditions for every interface language | Partial | Typography follows the active locale and is idempotent. Russian rules are bundled; content in other locales is preserved until a matching ruleset is added. |
 | Typography in posts, comments, and subtitles | Available | Applied to the final rendered page. |
 | Create and list drafts | Available | Unpublished records are stored and filterable in the control panel. |
 | Draft thumbnails in the draft list | Missing | No specialised draft-card view. |

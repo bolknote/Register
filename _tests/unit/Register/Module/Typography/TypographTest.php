@@ -22,8 +22,19 @@ final class TypographTest extends Unit
      */
     public function testRussian(string $source, string $expected): void
     {
-        $val = Typograph::processRussianText($source);
+        $val = Typograph::process($source, 'ru');
         self::assertSame($expected, $val);
+        self::assertSame($val, Typograph::process($val, 'ru'), 'Russian typography must be idempotent.');
+    }
+
+    /**
+     * @dataProvider localeProvider
+     */
+    public function testLocaleSelection(string $locale, string $expected): void
+    {
+        $source = 'He said "Hello" - and left...';
+
+        self::assertSame($expected, Typograph::process($source, $locale));
     }
 
     /**
@@ -36,7 +47,7 @@ final class TypographTest extends Unit
 
         for ($i = 0; $i < $iterations; ++$i) {
             $start            = microtime(true);
-            Typograph::processRussianText($source);
+            Typograph::process($source, 'ru');
             $end              = microtime(true);
             $executionTime    = $end - $start;
             $executionTimes[] = $executionTime;
@@ -46,7 +57,20 @@ final class TypographTest extends Unit
         $medianIndex         = intdiv($iterations, 2);
         $medianExecutionTime = $executionTimes[$medianIndex];
         codecept_debug("Median execution time for $iterations iterations: $medianExecutionTime seconds");
-        self::assertNotSame('', Typograph::processRussianText($source));
+        self::assertNotSame('', Typograph::process($source, 'ru'));
+    }
+
+    public static function localeProvider(): \Iterator
+    {
+        $source  = 'He said "Hello" - and left...';
+        $russian = 'He said «Hello»&nbsp;— and left…';
+
+        yield 'Russian' => ['ru', $russian];
+        yield 'Russian territory with hyphen' => ['ru-RU', $russian];
+        yield 'Russian territory with underscore' => ['RU_ru', $russian];
+        yield 'English remains intact' => ['en', $source];
+        yield 'Unknown locale remains intact' => ['de-DE', $source];
+        yield 'Empty locale remains intact' => ['', $source];
     }
 
     /** @noinspection HtmlUnknownTarget */
@@ -63,9 +87,8 @@ final class TypographTest extends Unit
         // No replacement in LaTeX
         yield ['<p class="header">Some text.</p><p class="subheader">Another-text</p>', '<p class="header">Some text.</p><p class="subheader"><nobr>Another-text</nobr></p>'];
         yield ['SOCKS5-прокси', '<nobr>SOCKS5-прокси</nobr>'];
-        yield ['<a href="/some/url.html">"CSS-стилей"</a>', '<a href="/some/url.html"><nobr>«CSS-стилей»</nobr></a>'];
-        // a bug, should be '«<a href="/some/url.html"><nobr>CSS-стилей</nobr></a>»'
-        yield ['"First level "second level "and third level"" and "second" level again".', '"First level «second level „and third level“» and «second» level again".'];
+        yield ['<a href="/some/url.html">"CSS-стилей"</a>', '«<a href="/some/url.html"><nobr>CSS-стилей</nobr></a>»'];
+        yield ['"First level "second level "and third level"" and "second" level again".', '«First level „second level „and third level““ and „second“ level again».'];
         yield ['
   <title>Приключения Кода и Типо-графа</title>
   <h1>Приключения Кода и Типографа</h1>
@@ -111,7 +134,7 @@ final class TypographTest extends Unit
       <p>«Эй, Кодик, слышал, Типограф мог&nbsp;бы даже кавычки расставлять в&nbsp;„нужном“ порядке!»&nbsp;— шептали ему соседние теги.</p>
     </blockquote>
 
-    <p>В&nbsp;конце концов, Кодик нашел Типографа, скрытого в&nbsp;глубинах <a href="/some/url.html"><nobr>«CSS-стилей»</nobr></a>, разыгрывающего танец преобразования текста. Типограф приветствовал его с&nbsp;улыбкой и&nbsp;сказал: «Привет, Кодик! Давай сделаем этот текст не просто текстом, а&nbsp;настоящим произведением искусства!»</p>
+    <p>В&nbsp;конце концов, Кодик нашел Типографа, скрытого в&nbsp;глубинах «<a href="/some/url.html"><nobr>CSS-стилей</nobr></a>», разыгрывающего танец преобразования текста. Типограф приветствовал его с&nbsp;улыбкой и&nbsp;сказал: «Привет, Кодик! Давай сделаем этот текст не просто текстом, а&nbsp;настоящим произведением искусства!»</p>
 
     <pre>
       <code>

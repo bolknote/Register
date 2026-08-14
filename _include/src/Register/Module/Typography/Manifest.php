@@ -1,9 +1,9 @@
 <?php
 /**
- * Russian typography
+ * Locale-aware typography
  *
- * Converts '""' quotation marks to '«»' and '„“' and puts non-breaking space
- * characters according to Russian typography conventions.
+ * Applies the conventions defined for the active interface locale without
+ * changing content when no locale-specific ruleset exists.
  *
  * @copyright 2010-2024 Roman Parpalak
  * @license MIT
@@ -21,7 +21,7 @@ final class Manifest implements BaseModuleManifestInterface
     #[\Override]
     public function getTitle(): string
     {
-        return 'Russian typography';
+        return 'Typography';
     }
 
     #[\Override]
@@ -33,7 +33,7 @@ final class Manifest implements BaseModuleManifestInterface
     #[\Override]
     public function getDescription(): string
     {
-        return 'Converts \'""\' quotation marks to \'«»\' and \'„“\' and puts non-breaking space characters according to Russian typography conventions.';
+        return 'Applies locale-specific quotation marks, dashes, and non-breaking spaces to rendered content.';
     }
 
     #[\Override]

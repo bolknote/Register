@@ -1,9 +1,10 @@
 <?php
 /**
- * Library for Russian typography
+ * Locale-aware typography for rendered content.
  *
- * Converts '""' quotation marks to '«»' and '„“' and puts non-breaking space
- * characters according to Russian typography conventions.
+ * Russian content gets quotation marks, dashes, and non-breaking spaces according
+ * to Russian conventions. Content in locales without an explicit ruleset is kept
+ * byte-for-byte intact.
  *
  * @copyright 2010-2024 Roman Parpalak, partially based on code (C) by Dmitry Smirnov
  * @see       http://spectator.ru/technology/php/quotation_marks_stike_back
@@ -17,7 +18,14 @@ namespace Register\Module\Typography;
 
 final class Typograph
 {
-    public static function processRussianText(string $contents, bool $soft = false): string
+    public static function process(string $contents, string $locale, bool $soft = false): string
+    {
+        $language = strtolower(explode('-', str_replace('_', '-', trim($locale)), 2)[0]);
+
+        return $language === 'ru' ? self::processRussianText($contents, $soft) : $contents;
+    }
+
+    private static function processRussianText(string $contents, bool $soft): string
     {
         $nbsp = $soft ? "\xc2\xa0" : '&nbsp;';
 
@@ -25,7 +33,7 @@ final class Typograph
         $i               = 0;
 
         // Extract sensitive data
-        $contents = preg_replace_callback('#<(script|style|textarea|pre|code|kbd|title).*?</\\1>|\\$\\$[^<]*?\\$\\$#s', static function (array $matches) use (&$savedSubstrings, &$i): string {
+        $contents = preg_replace_callback('#<(script|style|textarea|pre|code|kbd|title|nobr).*?</\\1>|\\$\\$[^<]*?\\$\\$#s', static function (array $matches) use (&$savedSubstrings, &$i): string {
             $savedSubstrings[$i] = $matches[0];
             return '<¬' . ($i++) . '¬>';
         }, $contents) ?? throw new \RuntimeException('Unable to protect typography-sensitive markup.');
@@ -40,13 +48,12 @@ final class Typograph
         // Quotation marks
         $quotationMarksRegex = '#(?<=[(\s">]|^)"([^"]*[^\s"(])"#S';
 
-        $contents = preg_replace($quotationMarksRegex, '«\\1»', $contents)
-            ?? throw new \RuntimeException('Unable to replace quotation marks.');
-
-        // Nested quotation marks
-        if (str_contains($contents, '"')) {
+        while (str_contains($contents, '"')) {
+            $previousQuotationContents = $contents;
             $contents = preg_replace($quotationMarksRegex, '«\\1»', $contents)
-                ?? throw new \RuntimeException('Unable to replace nested quotation marks.');
+                ?? throw new \RuntimeException('Unable to replace quotation marks.');
+
+            // Nested quotation marks
             while (true) {
                 /**
                  * This regex is a logical equivalent of '#«([^«»]*+)«([^»]*+)»#u'.
@@ -63,6 +70,10 @@ final class Typograph
                 if ($contents === $previousContents) {
                     break;
                 }
+            }
+
+            if ($contents === $previousQuotationContents) {
+                break;
             }
         }
 
@@ -132,8 +143,8 @@ final class Typograph
 
         // Move quotation marks outside links
         $contents = preg_replace(
-            '#<a ([^>]*)>\\s*«([^<]*?)»\\s*</a>#s',
-            '«<a \\1>\\2</a>»',
+            '#<a ([^>]*)>(\\s*(?:<nobr>)?)«((?:(?!</a>).)*?)»((?:</nobr>)?\\s*)</a>#s',
+            '«<a \\1>\\2\\3\\4</a>»',
             $contents
         ) ?? throw new \RuntimeException('Unable to move quotation marks outside links.');
 
