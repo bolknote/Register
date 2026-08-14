@@ -17,6 +17,7 @@ use S2\Cms\AdminYard\CustomMenuGenerator;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\PermissionChecker;
 use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
@@ -47,6 +48,7 @@ readonly class AdminPanelFactory
             $this->container->get(TemplateRenderer::class),
             $this->container->get(PermissionChecker::class),
             $this->container->get(EventDispatcherInterface::class),
+            $this->container->get(RequestStack::class),
         );
 
         $adminPanel = new AdminPanel(

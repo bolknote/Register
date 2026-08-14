@@ -29,7 +29,10 @@ $echoLinks = static function (array $links) use ($echoSignal, $trans): void {
     foreach ($links as $link) {
         ?>
         <li class="main-menu-item <?= $link['active'] ? 'active' : '' ?>">
-            <a class="main-menu-link" href="<?= htmlspecialchars($link['url'], ENT_QUOTES, 'UTF-8') ?>">
+            <a class="main-menu-link"
+               href="<?= htmlspecialchars($link['url'], ENT_QUOTES, 'UTF-8') ?>"
+                <?= $link['active'] ? 'aria-current="page"' : '' ?>
+            >
                 <?= htmlspecialchars($trans($link['name']), ENT_QUOTES, 'UTF-8') ?>
             </a>
 
@@ -70,13 +73,15 @@ $echoLinks = static function (array $links) use ($echoSignal, $trans): void {
         <ul class="main-menu-list main-menu-system-list"><?php $echoLinks($systemLinks) ?></ul>
     </details>
 <?php endif; ?>
-<ul class="main-menu-list">
+<ul class="main-menu-list main-menu-account-list">
     <li class="main-menu-item" data-user-id="<?= $userId ?>">
         <?php if ($seeUsers): ?>
-            <a class="main-menu-link" href="?entity=User&action=list"><?php printf($trans('Welcome'), $login); ?></a>
+            <a class="main-menu-link main-menu-user-link" href="?entity=User&action=list"><?php printf($trans('Welcome'), $login); ?></a>
         <?php else: ?>
-            <a class="main-menu-link" href="?"><?php printf($trans('Welcome'), $login); ?></a>
+            <a class="main-menu-link main-menu-user-link" href="?"><?php printf($trans('Welcome'), $login); ?></a>
         <?php endif; ?>
-        <a class="main-menu-link" href="?action=logout" title="<?= $trans('Logout info') ?>"><?= $trans('Logout') ?></a>
+    </li>
+    <li class="main-menu-item">
+        <a class="main-menu-link main-menu-logout-link" href="?action=logout" title="<?= $trans('Logout info') ?>"><?= $trans('Logout') ?></a>
     </li>
 </ul>

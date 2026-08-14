@@ -38,10 +38,13 @@ $maxFileSize = $bytesFromString(ini_get('upload_max_filesize'))
 <html lang="<?= $locale ?>">
 <head>
     <meta charset="utf-8">
-    <title><?php echo $trans('Pictures'); ?></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title><?php echo $trans('Media'); ?></title>
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_vendor/s2/admin-yard/demo/style.css">
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_admin/css/admin-override.css"/>
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_admin/css/pictures.css"/>
+    <link rel="stylesheet" href="<?php echo $basePath; ?>/_admin/css/register.css"/>
     <script src="<?php echo $basePath; ?>/_admin/js/lib.js"></script>
     <script src="<?php echo $basePath; ?>/_admin/js/ajax.js"></script>
     <script>
@@ -60,7 +63,15 @@ $maxFileSize = $bytesFromString(ini_get('upload_max_filesize'))
     <script src="<?php echo $basePath; ?>/_admin/lang/<?php echo $locale; ?>/ui.js"></script>
 </head>
 
-<body>
+<body class="picture-manager-page">
+<header class="picture-manager-header">
+    <a class="picture-manager-brand" href="<?php echo $basePath; ?>/_admin/index.php" target="_top">
+        <span aria-hidden="true">ℜ</span>
+        <span>Register</span>
+    </a>
+    <h1><?= $trans('Media') ?></h1>
+    <a href="<?php echo $basePath; ?>/_admin/index.php" target="_top"><?= $trans('Back to administration') ?></a>
+</header>
 <div id="tree_div">
     <div class="treetree">
         <div id="fupload">

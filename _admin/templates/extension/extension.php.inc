@@ -10,6 +10,7 @@ $htmlEncode = static fn(string $str) => htmlspecialchars($str, ENT_QUOTES, 'UTF-
 /** @var string $basePath */
 ?>
 <section class="admin-extensions">
+    <h1><?= $trans('Optional modules') ?></h1>
     <h2><?= $trans('Extensions available') ?></h2>
 
     <?php if (count($availableExtensions) > 0): ?>

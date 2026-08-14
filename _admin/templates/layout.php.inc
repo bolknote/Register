@@ -28,6 +28,7 @@ if (!isset($this)) {
     <link rel="icon" type="image/svg+xml" href="<?= $basePath ?>/_styles/register/favicon.svg">
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_vendor/s2/admin-yard/demo/style.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css">
+    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css">
     <?php foreach ($extraStyles as $style): ?>
         <link rel="stylesheet" href="<?= $style ?>">
     <?php endforeach; ?>
@@ -45,9 +46,15 @@ if (!isset($this)) {
 </head>
 <body>
 <div id="loading" class="loading-indicator"></div>
-<nav>
-    <?= $menu ?>
-</nav>
+<header class="admin-shell">
+    <a class="admin-brand" href="<?= $basePath ?>/" title="<?= $trans('Open site') ?>">
+        <span class="admin-brand-mark" aria-hidden="true">ℜ</span>
+        <span>Register</span>
+    </a>
+    <nav aria-label="<?= $trans('Admin navigation') ?>">
+        <?= $menu ?>
+    </nav>
+</header>
 <?php
 foreach ($flashMessages as $type => $messages) {
     foreach ($messages as $message) {

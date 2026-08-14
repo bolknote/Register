@@ -6,14 +6,15 @@
 
 ?>
 <section class="admin-structure">
+    <h1><?= $trans('Page structure') ?></h1>
     <div class="toolbar">
-        <img class="expand" src="i/1.gif" onclick="OpenAll(); return false;"
-             alt="<?php echo $trans('Expand'); ?>"/>
-        <img class="separator" src="i/1.gif" alt=""/>
-        <img class="collapse" src="i/1.gif" onclick="CloseAll(); return false;"
-             alt="<?php echo $trans('Collapse'); ?>"/>
-        <img class="separator" src="i/1.gif" alt=""/>
-        <img class="refresh" src="i/1.gif" alt="<?php echo $trans('Refresh'); ?>"/>
+        <button type="button" class="tree-tool expand" onclick="OpenAll(); return false;"
+                title="<?php echo $trans('Expand'); ?>" aria-label="<?php echo $trans('Expand'); ?>">⤢</button>
+        <button type="button" class="tree-tool collapse" onclick="CloseAll(); return false;"
+                title="<?php echo $trans('Collapse'); ?>" aria-label="<?php echo $trans('Collapse'); ?>">⤡</button>
+        <button type="button" class="tree-tool refresh"
+                title="<?php echo $trans('Refresh'); ?>" aria-label="<?php echo $trans('Refresh'); ?>">↻</button>
+        <button type="button" class="tree-create-page" id="create_page_button">+ <?= $trans('Create page') ?></button>
         <input type="search" name="search" id="search_field" placeholder="<?php echo $trans('Search'); ?>" autocomplete="off" />
     </div>
     <span id="context_buttons">

@@ -16,6 +16,7 @@
     <link rel="icon" type="image/svg+xml" href="<?= $basePath ?>/_styles/register/favicon.svg">
     <link rel="stylesheet" href="<?= $basePath ?>/_vendor/s2/admin-yard/demo/style.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css">
+    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css">
     <style>:root {
             --page-secondary-background: <?= $param('S2_ADMIN_COLOR') ?>;
         }</style></head>

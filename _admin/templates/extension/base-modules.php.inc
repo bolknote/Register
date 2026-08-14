@@ -8,7 +8,7 @@ $htmlEncode = static fn(string $str): string => htmlspecialchars($str, ENT_QUOTE
 /** @var callable $trans */
 ?>
 <section class="admin-extensions admin-system-modules">
-    <h2><?= $trans('System modules') ?></h2>
+    <h1><?= $trans('System modules') ?></h1>
     <div class="info-box">
         <p><?= $trans('Base modules description') ?></p>
     </div>

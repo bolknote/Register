@@ -14,6 +14,7 @@ use S2\AdminYard\Config\FieldConfig;
 use S2\AdminYard\MenuGenerator;
 use S2\AdminYard\TemplateRenderer;
 use S2\Cms\Model\PermissionChecker;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 readonly class CustomMenuGenerator extends MenuGenerator
@@ -34,6 +35,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
         TemplateRenderer         $templateRenderer,
         private PermissionChecker        $permissionChecker,
         private EventDispatcherInterface $eventDispatcher,
+        private RequestStack             $requestStack,
     ) {
         parent::__construct($config, $templateRenderer);
     }
@@ -41,6 +43,11 @@ readonly class CustomMenuGenerator extends MenuGenerator
     #[\Override]
     public function generateMainMenu(string $baseUrl, ?string $currentEntity = null): string
     {
+        $request       = $this->requestStack->getCurrentRequest();
+        $currentAction = $request instanceof \Symfony\Component\HttpFoundation\Request
+            ? $request->query->getString('action')
+            : null;
+        $newPostActive = $currentEntity === 'BlogPost' && $currentAction === FieldConfig::ACTION_NEW;
         $links = $this->config->getPriorities();
         asort($links);
 
@@ -58,7 +65,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
             $links[$name] = [
                 'name'    => $entity->getPluralName(),
                 'url'     => $baseUrl . '?entity=' . urlencode($name) . '&action=list',
-                'active'  => $currentEntity === $name,
+                'active'  => $currentEntity === $name && ($name !== 'BlogPost' || !$newPostActive),
                 'signals' => $signals[$name] ?? [],
             ];
         }
@@ -78,7 +85,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
             $primaryLinks['NewPost'] = [
                 'name'    => 'New post',
                 'url'     => $baseUrl . '?entity=BlogPost&action=new',
-                'active'  => false,
+                'active'  => $newPostActive,
                 'signals' => [],
             ];
         }

@@ -101,6 +101,7 @@ $(function () {
     }
 
     $('.toolbar .refresh').click(refreshTree);
+    $('#create_page_button').click(createArticle);
 
     var eButtons = $('#context_buttons');
     eButtons.detach();

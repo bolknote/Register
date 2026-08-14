@@ -16,11 +16,17 @@ $entityName  = match ($contentType) {
     null => null,
 };
 $title = trim((string)$value);
+$typeLabel = match ($contentType) {
+    ContentType::POST => $trans('Post'),
+    ContentType::PAGE => $trans('Article'),
+    null => '',
+};
 ?>
 <?php if ($entityName !== null && $contentId > 0): ?>
     <a href="?<?= http_build_query(['entity' => $entityName, 'action' => 'edit', 'id' => $contentId]) ?>">
         <?= htmlspecialchars($title !== '' ? $title : '#' . $contentId, ENT_QUOTES, 'UTF-8') ?>
     </a>
+    <small class="content-type-label"><?= htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8') ?></small>
 <?php else: ?>
     <span class="null"><?= htmlspecialchars($trans('Content unavailable'), ENT_QUOTES, 'UTF-8') ?></span>
 <?php endif; ?>

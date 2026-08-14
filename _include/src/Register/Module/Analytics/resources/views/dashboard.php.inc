@@ -1,11 +1,36 @@
 <?php
 /** @var string $basePath */
+/** @var callable $trans */
 ?>
-<section class="register-analytics" data-endpoint="<?= $basePath ?>/_admin/ajax.php?action=register_analytics_series">
-    <h2>Analytics</h2>
-    <p class="technical-data">Daily aggregates only. Salted visitor fingerprints are pruned when the next day receives traffic.</p>
+<section
+    class="register-analytics"
+    data-endpoint="<?= $basePath ?>/_admin/ajax.php?action=register_analytics_series"
+    data-page-views="<?= htmlspecialchars($trans('Page views'), ENT_QUOTES, 'UTF-8') ?>"
+    data-unique-visitors="<?= htmlspecialchars($trans('Unique visitors'), ENT_QUOTES, 'UTF-8') ?>"
+    data-blog-feed-readers="<?= htmlspecialchars($trans('Blog feed readers'), ENT_QUOTES, 'UTF-8') ?>"
+    data-request-failed="<?= htmlspecialchars($trans('Analytics request failed'), ENT_QUOTES, 'UTF-8') ?>"
+    data-load-failed="<?= htmlspecialchars($trans('Unable to load analytics'), ENT_QUOTES, 'UTF-8') ?>"
+    data-day="<?= htmlspecialchars($trans('Analytics day'), ENT_QUOTES, 'UTF-8') ?>"
+>
+    <h2><?= $trans('Analytics') ?></h2>
+    <p class="technical-data"><?= $trans('Analytics privacy note') ?></p>
     <script src="<?= $basePath ?>/_assets/register/analytics/highstock.js"></script>
     <script src="<?= $basePath ?>/_assets/register/analytics/charts.js"></script>
-    <div id="register-analytics-pages" style="height: 320px;"></div>
-    <div id="register-analytics-feeds" style="height: 320px;"></div>
+    <?php foreach ([
+        'register-analytics-pages' => $trans('Page analytics chart'),
+        'register-analytics-feeds' => $trans('Blog feed analytics chart'),
+    ] as $chartId => $chartLabel): ?>
+        <figure class="analytics-presentation">
+            <div
+                id="<?= $chartId ?>"
+                class="analytics-chart"
+                role="img"
+                aria-label="<?= htmlspecialchars($chartLabel, ENT_QUOTES, 'UTF-8') ?>"
+            ></div>
+            <details class="analytics-data" hidden>
+                <summary><?= $trans('Show analytics data') ?></summary>
+                <div data-analytics-table="<?= $chartId ?>"></div>
+            </details>
+        </figure>
+    <?php endforeach; ?>
 </section>

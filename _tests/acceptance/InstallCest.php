@@ -141,7 +141,7 @@ class InstallCest
     private function testBaseModules(AcceptanceTester $I): void
     {
         $I->amOnPage('/_admin/index.php?entity=SystemModules');
-        $I->see('System modules', 'h2');
+        $I->see('System modules', 'h1');
 
         foreach (['s2_blog', 's2_search', 's2_latex', 's2_counter', 's2_typo', 'register_syntax_highlighting'] as $moduleId) {
             $I->seeElement('.base-module [title=' . $moduleId . ']');
