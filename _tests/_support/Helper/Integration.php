@@ -171,6 +171,38 @@ class Integration extends AbstractBrowserModule
         $this->doRequest(Request::create($url, Request::METHOD_GET, server: $server));
     }
 
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<string, string> $headers
+     */
+    public function sendJson(string $url, array $payload, string $method = Request::METHOD_POST, array $headers = []): void
+    {
+        $server = [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT'  => 'application/json',
+        ];
+        foreach ($headers as $name => $value) {
+            $server['HTTP_' . strtoupper(str_replace('-', '_', $name))] = $value;
+        }
+
+        $this->doRequest(Request::create(
+            $url,
+            $method,
+            server: $server,
+            content: json_encode($payload, JSON_THROW_ON_ERROR),
+        ));
+    }
+
+    public function grabTestCookie(string $name, string $path = '/'): ?string
+    {
+        return $this->cookieJar?->get($name, $path)?->getValue();
+    }
+
+    public function resetTestCookie(string $name, string $path = '/'): void
+    {
+        $this->cookieJar?->expire($name, $path);
+    }
+
     /** @param array<string, mixed> $postData */
     public function sendPostWithAntispamVisitor(string $url, array $postData, string $visitorToken): void
     {
@@ -259,6 +291,9 @@ class Integration extends AbstractBrowserModule
     private function dropBaseModuleTables(DbLayer $dbLayer): void
     {
         $this->adminApplication->container->get(PdoStorage::class)->drop();
+        $dbLayer->dropTable('register_reaction');
+        $dbLayer->dropTable('register_visitor_fingerprint');
+        $dbLayer->dropTable('register_visitor');
         $dbLayer->dropTable('register_analytics_visitor');
         $dbLayer->dropTable('register_analytics_daily');
     }

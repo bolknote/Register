@@ -1,0 +1,88 @@
+<?php
+/**
+ * Anonymous visitor identity
+ *
+ * @copyright 2026 Roman Parpalak
+ * @license   https://opensource.org/license/mit MIT
+ * @package   Register
+ */
+
+declare(strict_types = 1);
+
+namespace Register\Module\VisitorIdentity;
+
+use Register\Module\BaseModuleInstallerInterface;
+use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Pdo\SchemaBuilderInterface;
+
+final class Manifest implements BaseModuleInstallerInterface
+{
+    public const string SECRET_CONFIG_KEY = 'REGISTER_VISITOR_SECRET';
+
+    public const string VISITOR_TABLE = 'register_visitor';
+
+    public const string FINGERPRINT_TABLE = 'register_visitor_fingerprint';
+
+    #[\Override]
+    public function getTitle(): string
+    {
+        return 'Anonymous visitor identity';
+    }
+
+    #[\Override]
+    public function getAuthor(): string
+    {
+        return 'Roman Parpalak';
+    }
+
+    #[\Override]
+    public function getDescription(): string
+    {
+        return 'Restores a signed anonymous visitor identifier across browser storage resets.';
+    }
+
+    #[\Override]
+    public function getVersion(): string
+    {
+        return '1.0dev';
+    }
+
+    #[\Override]
+    public function installFresh(DbLayer $dbLayer): void
+    {
+        $dbLayer->createTable(self::VISITOR_TABLE, static function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('visitor_id', 32)
+                ->addInteger('created_at', true)
+                ->addInteger('last_seen_at', true)
+                ->setPrimaryKey(['visitor_id'])
+                ->addIndex('last_seen_idx', ['last_seen_at'])
+            ;
+        });
+
+        $dbLayer->createTable(self::FINGERPRINT_TABLE, static function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('fingerprint_hash', 64)
+                ->addString('visitor_id', 32)
+                ->addInteger('created_at', true)
+                ->addInteger('last_seen_at', true)
+                ->setPrimaryKey(['fingerprint_hash'])
+                ->addIndex('visitor_idx', ['visitor_id'])
+                ->addForeignKey(
+                    'fk_visitor',
+                    ['visitor_id'],
+                    self::VISITOR_TABLE,
+                    ['visitor_id'],
+                    'CASCADE',
+                )
+            ;
+        });
+
+        $dbLayer->insert('config')
+            ->setValue('name', ':name')->setParameter('name', self::SECRET_CONFIG_KEY)
+            ->setValue('value', ':value')->setParameter('value', bin2hex(random_bytes(32)))
+            ->onConflictDoNothing('name')
+            ->execute()
+        ;
+    }
+}

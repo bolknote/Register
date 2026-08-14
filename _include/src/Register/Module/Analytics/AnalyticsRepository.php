@@ -28,13 +28,7 @@ final readonly class AnalyticsRepository
         bool $countRepeatedHits = true,
     ): void
     {
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $day) !== 1) {
-            throw new \InvalidArgumentException('Analytics day must use the YYYY-MM-DD format.');
-        }
-
-        if (preg_match('/^[a-z0-9:_-]{1,64}$/D', $channel) !== 1) {
-            throw new \InvalidArgumentException('Analytics channel contains unsupported characters.');
-        }
+        $this->validateCoordinates($day, $channel);
 
         if (preg_match('/^[a-f0-9]{64}$/D', $fingerprint) !== 1) {
             throw new \InvalidArgumentException('Analytics fingerprint must be a SHA-256 digest.');
@@ -57,6 +51,17 @@ final readonly class AnalyticsRepository
             return;
         }
 
+        $this->incrementDaily($day, $channel, $hitWeight, $newVisitor ? $uniqueWeight : 0);
+    }
+
+    public function recordHit(string $day, string $channel): void
+    {
+        $this->validateCoordinates($day, $channel);
+        $this->incrementDaily($day, $channel, 1, 0);
+    }
+
+    private function incrementDaily(string $day, string $channel, int $hits, int $uniqueCount): void
+    {
         $this->dbLayer->insert('register_analytics_daily')
             ->setValue('day', ':day')->setParameter('day', $day)
             ->setValue('channel', ':channel')->setParameter('channel', $channel)
@@ -67,12 +72,23 @@ final readonly class AnalyticsRepository
         ;
 
         $this->dbLayer->update('register_analytics_daily')
-            ->set('hits', 'hits + :hits')->setParameter('hits', $hitWeight)
-            ->set('unique_count', 'unique_count + :unique_count')->setParameter('unique_count', $newVisitor ? $uniqueWeight : 0)
+            ->set('hits', 'hits + :hits')->setParameter('hits', $hits)
+            ->set('unique_count', 'unique_count + :unique_count')->setParameter('unique_count', $uniqueCount)
             ->where('day = :day')->setParameter('day', $day)
             ->andWhere('channel = :channel')->setParameter('channel', $channel)
             ->execute()
         ;
+    }
+
+    private function validateCoordinates(string $day, string $channel): void
+    {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $day) !== 1) {
+            throw new \InvalidArgumentException('Analytics day must use the YYYY-MM-DD format.');
+        }
+
+        if (preg_match('/^[a-z0-9:_-]{1,64}$/D', $channel) !== 1) {
+            throw new \InvalidArgumentException('Analytics channel contains unsupported characters.');
+        }
     }
 
     public function forgetVisitorFingerprintsBefore(string $day): void

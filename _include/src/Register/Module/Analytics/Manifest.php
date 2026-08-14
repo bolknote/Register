@@ -32,7 +32,7 @@ class Manifest implements BaseModuleInstallerInterface
     #[\Override]
     public function getDescription(): string
     {
-        return 'Privacy-conscious daily page-view and feed-reader statistics.';
+        return 'Daily page-view and feed-reader statistics without raw IP or User-Agent storage.';
     }
 
     #[\Override]

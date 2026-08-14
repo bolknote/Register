@@ -25,7 +25,11 @@ final class BaseModuleRegistry
 
     public const string MATH       = 's2_latex';
 
+    public const string VISITOR_IDENTITY = 'register_visitor_identity';
+
     public const string ANALYTICS  = 's2_counter';
+
+    public const string REACTIONS  = 'register_reactions';
 
     public const string TYPOGRAPHY = 's2_typo';
 
@@ -58,10 +62,20 @@ final class BaseModuleRegistry
             'application' => Math\Module::class,
             'admin'       => Math\AdminModule::class,
         ],
+        self::VISITOR_IDENTITY => [
+            'manifest'    => VisitorIdentity\Manifest::class,
+            'application' => VisitorIdentity\Module::class,
+            'admin'       => VisitorIdentity\AdminModule::class,
+        ],
         self::ANALYTICS => [
             'manifest'    => Analytics\Manifest::class,
             'application' => Analytics\Module::class,
             'admin'       => Analytics\AdminModule::class,
+        ],
+        self::REACTIONS => [
+            'manifest'    => Reactions\Manifest::class,
+            'application' => Reactions\Module::class,
+            'admin'       => null,
         ],
         self::TYPOGRAPHY => [
             'manifest'    => Typography\Manifest::class,

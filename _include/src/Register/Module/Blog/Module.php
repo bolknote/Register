@@ -210,6 +210,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(CommentThreadRenderer::class),
                 $container->get(AuthProvider::class),
                 $container->get(\Register\Content\TagRepository::class),
+                $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
                 $provider->getStringProxy('S2_BLOG_TITLE'),
                 $provider->getBoolProxy('S2_SHOW_COMMENTS'),
                 $provider->getBoolProxy('S2_ENABLED_COMMENTS'),

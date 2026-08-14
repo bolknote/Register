@@ -18,10 +18,13 @@ use Register\Module\Blog\AdminModule as BlogAdminModule;
 use Register\Module\Blog\Module as BlogModule;
 use Register\Module\Math\AdminModule as MathAdminModule;
 use Register\Module\Math\Module as MathModule;
+use Register\Module\Reactions\Module as ReactionsModule;
 use Register\Module\Search\AdminModule as SearchAdminModule;
 use Register\Module\Search\Module as SearchModule;
 use Register\Module\SyntaxHighlighting\Module as SyntaxHighlightingModule;
 use Register\Module\Typography\Module as TypographyModule;
+use Register\Module\VisitorIdentity\AdminModule as VisitorIdentityAdminModule;
+use Register\Module\VisitorIdentity\Module as VisitorIdentityModule;
 use Register\ProductModule;
 use Register\RegisterKernel;
 use Register\Url\SlugGenerator;
@@ -45,7 +48,9 @@ final class RegisterKernelTest extends Unit
             BlogModule::class,
             SearchModule::class,
             MathModule::class,
+            VisitorIdentityModule::class,
             AnalyticsModule::class,
+            ReactionsModule::class,
             TypographyModule::class,
             SyntaxHighlightingModule::class,
             AudioPlayerModule::class,
@@ -65,13 +70,16 @@ final class RegisterKernelTest extends Unit
             BlogModule::class,
             SearchModule::class,
             MathModule::class,
+            VisitorIdentityModule::class,
             AnalyticsModule::class,
+            ReactionsModule::class,
             TypographyModule::class,
             SyntaxHighlightingModule::class,
             AudioPlayerModule::class,
             BlogAdminModule::class,
             SearchAdminModule::class,
             MathAdminModule::class,
+            VisitorIdentityAdminModule::class,
             AnalyticsAdminModule::class,
         ], $application->moduleClasses);
     }

@@ -88,6 +88,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Sequential new-comment marker | Partial | Administrative counters exist, but not Aegea's sequential marker. |
 | Comment formatting equivalent to posts | Partial | Comments have limited BBCode and preview, not the full article editor. |
 | Social identities for commenters | Missing | No Twitter, Facebook, VK, or Telegram authentication. |
+| Login-free emoji reactions | Available | A visitor can keep one of six reactions on a post or page; clicking it again removes it and choosing another switches it. |
 | Configure or require social providers | Missing | No social-login provider layer. |
 | Nested author replies | Available | Comments have parent identities and render as bounded-indentation threads with a no-JavaScript reply fallback. |
 | Edit and moderate comments | Available | Supported in the control panel. |
@@ -97,7 +98,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Subscribe to and unsubscribe from a discussion | Available | Email notification and unsubscribe links are implemented. |
 | Notify authors/moderators about new comments | Available | Implemented by the comment notification services. |
 | Toggle author email in the footer | Missing | No dedicated setting. |
-| Per-post view count | Missing | Register Analytics records privacy-conscious site-level daily aggregates rather than a counter for each post. |
+| Per-post view count | Missing | Register Analytics records site-level daily aggregates without raw IP or User-Agent storage rather than a counter for each post. |
 
 ## Navigation, recommendations, and broadcasting
 
@@ -285,6 +286,7 @@ The main implementation anchors used during review are:
 - search and indexing: [`Register\Module\Search\Module`](../_include/src/Register/Module/Search/Module.php);
 - recommendations: [`Register\Module\Search\Service\RecommendationProvider`](../_include/src/Register/Module/Search/Service/RecommendationProvider.php);
 - blog routes and archives: [`Register\Module\Blog\Module`](../_include/src/Register/Module/Blog/Module.php);
+- anonymous identity and reactions: [`Register\Module\VisitorIdentity\Module`](../_include/src/Register/Module/VisitorIdentity/Module.php) and [`Register\Module\Reactions\Module`](../_include/src/Register/Module/Reactions/Module.php);
 - full post index: [`Register\Module\Blog\Controller\AllPostsController`](../_include/src/Register/Module/Blog/Controller/AllPostsController.php);
 - daily and manual backups: [`Register\Backup\BackupManager`](../_include/src/Register/Backup/BackupManager.php);
 - asset processing: [`_include/src/Asset/AssetMerge.php`](../_include/src/Asset/AssetMerge.php);

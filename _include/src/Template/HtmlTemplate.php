@@ -39,6 +39,9 @@ class HtmlTemplate
     /** @var array<string, string> */
     private array $replace = [];
 
+    /** @var list<string> */
+    private array $extraMetaTags = [];
+
     private bool $notFound = false;
 
     public function __construct(
@@ -77,6 +80,14 @@ class HtmlTemplate
     public function addBreadCrumb(string $title, ?string $link = null): static
     {
         $this->breadCrumbs[] = ['title' => $title, 'link' => $link];
+
+        return $this;
+    }
+
+    /** Adds a product-owned tag to the document head before the template is finalized. */
+    public function addMetaTag(string $tag): static
+    {
+        $this->extraMetaTags[] = $tag;
 
         return $this;
     }
@@ -187,6 +198,10 @@ class HtmlTemplate
         $replace['<!-- s2_copyright -->'] = $this->buildFooter();
 
         $this->eventDispatcher->dispatch(new TemplateEvent($this), TemplateEvent::EVENT_PRE_REPLACE);
+
+        if ($this->extraMetaTags !== []) {
+            $replace['<!-- s2_meta -->'] = implode("\n", [...$meta_tags, ...$this->extraMetaTags]);
+        }
 
         $replace = array_merge($replace, $this->replace);
 

@@ -1,0 +1,264 @@
+(() => {
+    'use strict';
+
+    const reactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
+
+    class ReactionWidget {
+        constructor(root) {
+            this.root = root;
+            this.endpoint = root.dataset.endpoint || '';
+            this.toolbar = root.querySelector('.register-reaction-toolbar');
+            this.addButton = root.querySelector('.register-reaction-add');
+            this.picker = root.querySelector('.register-reaction-picker');
+            this.status = root.querySelector('.register-reaction-status');
+            this.chips = new Map();
+            this.choices = new Map();
+            this.counts = Object.fromEntries(reactionTypes.map((type) => [type, 0]));
+            this.selected = null;
+            this.busy = false;
+            this.openTimer = 0;
+            this.closeTimer = 0;
+
+            for (const button of root.querySelectorAll('[data-reaction]')) {
+                const type = button.dataset.reaction;
+                if (reactionTypes.includes(type)) {
+                    this.chips.set(type, button);
+                    this.counts[type] = Math.max(0, Number.parseInt(button.dataset.count || '0', 10) || 0);
+                }
+            }
+            for (const button of root.querySelectorAll('[data-picker-reaction]')) {
+                const type = button.dataset.pickerReaction;
+                if (reactionTypes.includes(type)) {
+                    this.choices.set(type, button);
+                }
+            }
+
+            this.bind();
+            this.render();
+            void this.hydrate();
+        }
+
+        bind() {
+            for (const [type, button] of this.chips) {
+                button.addEventListener('click', () => void this.select(type));
+            }
+            for (const [type, button] of this.choices) {
+                button.addEventListener('click', () => void this.select(type));
+            }
+
+            this.addButton?.addEventListener('click', () => {
+                if (this.picker?.hidden) {
+                    this.openPicker(true);
+                } else {
+                    this.closePicker(true);
+                }
+            });
+
+            this.root.addEventListener('keydown', (event) => this.onKeyDown(event));
+            document.addEventListener('pointerdown', (event) => {
+                if (!this.root.contains(event.target)) {
+                    this.closePicker(false);
+                }
+            });
+
+            if (window.matchMedia('(hover: hover)').matches) {
+                this.addButton?.addEventListener('pointerenter', () => {
+                    window.clearTimeout(this.closeTimer);
+                    this.openTimer = window.setTimeout(() => this.openPicker(false), 220);
+                });
+                this.root.addEventListener('pointerleave', () => {
+                    window.clearTimeout(this.openTimer);
+                    this.closeTimer = window.setTimeout(() => this.closePicker(false), 450);
+                });
+                this.root.addEventListener('pointerenter', () => window.clearTimeout(this.closeTimer));
+            }
+        }
+
+        async hydrate() {
+            try {
+                await this.identity().ensure();
+                const response = await fetch(this.endpoint, {
+                    credentials: 'same-origin',
+                    headers: {'Accept': 'application/json'},
+                });
+                const payload = await response.json();
+                if (response.ok && payload.success === true) {
+                    this.applyPayload(payload);
+                }
+            } catch (_error) {
+                // Server-rendered counts remain usable if hydration is unavailable.
+            }
+        }
+
+        identity() {
+            const identity = window.RegisterVisitorIdentity;
+            if (!identity || typeof identity.ensure !== 'function') {
+                throw new Error('Visitor identity is unavailable.');
+            }
+            return identity;
+        }
+
+        async select(type) {
+            if (this.busy || !reactionTypes.includes(type)) {
+                return;
+            }
+
+            this.closePicker(false);
+            const snapshot = {
+                counts: {...this.counts},
+                selected: this.selected,
+            };
+            this.optimisticToggle(type);
+            this.setBusy(true);
+
+            try {
+                await this.identity().ensure();
+                let response = await this.post(type);
+                if (response.status === 401 && typeof this.identity().refresh === 'function') {
+                    await this.identity().refresh();
+                    response = await this.post(type);
+                }
+
+                const payload = await response.json().catch(() => null);
+                if (!response.ok || !payload || payload.success !== true) {
+                    throw new Error(payload?.message || 'Unable to save the reaction.');
+                }
+
+                this.applyPayload(payload);
+                this.setStatus(this.root.dataset.messageSaved || 'Reaction saved.', false);
+            } catch (_error) {
+                this.counts = snapshot.counts;
+                this.selected = snapshot.selected;
+                this.render();
+                this.setStatus(this.root.dataset.messageError || 'Unable to save the reaction.', true);
+            } finally {
+                this.setBusy(false);
+            }
+        }
+
+        post(type) {
+            return fetch(this.endpoint, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({reaction: type}),
+            });
+        }
+
+        optimisticToggle(type) {
+            if (this.selected === type) {
+                this.counts[type] = Math.max(0, this.counts[type] - 1);
+                this.selected = null;
+            } else {
+                if (this.selected !== null) {
+                    this.counts[this.selected] = Math.max(0, this.counts[this.selected] - 1);
+                }
+                this.counts[type] += 1;
+                this.selected = type;
+            }
+            this.render();
+        }
+
+        applyPayload(payload) {
+            for (const type of reactionTypes) {
+                const count = Number(payload.counts?.[type]);
+                this.counts[type] = Number.isSafeInteger(count) && count >= 0 ? count : 0;
+            }
+            this.selected = reactionTypes.includes(payload.selected) ? payload.selected : null;
+            this.render();
+        }
+
+        render() {
+            for (const [type, button] of this.chips) {
+                const count = this.counts[type];
+                const active = this.selected === type;
+                const countNode = button.querySelector('.register-reaction-count');
+                button.hidden = type !== 'like' && count === 0 && !active;
+                button.classList.toggle('is-visible', !button.hidden);
+                button.setAttribute('aria-pressed', String(active));
+                button.dataset.count = String(count);
+                if (countNode) {
+                    countNode.textContent = String(count);
+                    countNode.hidden = count === 0;
+                }
+            }
+
+            for (const [type, button] of this.choices) {
+                button.setAttribute('aria-checked', String(this.selected === type));
+            }
+        }
+
+        openPicker(moveFocus) {
+            if (!this.picker || !this.addButton || this.busy) {
+                return;
+            }
+            window.clearTimeout(this.closeTimer);
+            this.picker.hidden = false;
+            this.addButton.setAttribute('aria-expanded', 'true');
+            if (moveFocus) {
+                (this.choices.get(this.selected) || this.choices.values().next().value)?.focus();
+            }
+        }
+
+        closePicker(returnFocus) {
+            if (!this.picker || !this.addButton || this.picker.hidden) {
+                return;
+            }
+            window.clearTimeout(this.openTimer);
+            this.picker.hidden = true;
+            this.addButton.setAttribute('aria-expanded', 'false');
+            if (returnFocus) {
+                this.addButton.focus();
+            }
+        }
+
+        onKeyDown(event) {
+            if (event.key === 'Escape' && !this.picker?.hidden) {
+                event.preventDefault();
+                this.closePicker(true);
+                return;
+            }
+
+            const currentIndex = [...this.choices.values()].indexOf(document.activeElement);
+            if (currentIndex < 0 || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                return;
+            }
+
+            event.preventDefault();
+            const buttons = [...this.choices.values()];
+            let nextIndex = currentIndex;
+            if (event.key === 'Home') {
+                nextIndex = 0;
+            } else if (event.key === 'End') {
+                nextIndex = buttons.length - 1;
+            } else {
+                nextIndex = (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length;
+            }
+            buttons[nextIndex].focus();
+        }
+
+        setBusy(busy) {
+            this.busy = busy;
+            this.root.classList.toggle('is-busy', busy);
+            this.root.setAttribute('aria-busy', String(busy));
+            for (const button of this.root.querySelectorAll('button')) {
+                button.disabled = busy;
+            }
+        }
+
+        setStatus(message, error) {
+            if (!this.status) {
+                return;
+            }
+            this.status.textContent = message;
+            this.root.classList.toggle('is-error', error);
+        }
+    }
+
+    for (const root of document.querySelectorAll('[data-register-reactions]')) {
+        new ReactionWidget(root);
+    }
+})();

@@ -39,6 +39,7 @@ declare(strict_types = 1);
 	if (!empty($see_also))
 		include __DIR__ . '/see_also.php';
 ?>
+<!-- register_reactions -->
 <div class="post foot">
 <?php
 	$footer = [];

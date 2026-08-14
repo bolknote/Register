@@ -14,6 +14,7 @@ namespace Register\Module\Blog\Controller;
 
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentRenderedEvent;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
@@ -40,6 +41,7 @@ use Register\Url\ContentUrlGenerator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Psr\Cache\InvalidArgumentException;
 use S2\Cms\Pdo\DbLayerException;
 
@@ -60,6 +62,7 @@ class PostPageController extends BlogController
         private readonly CommentThreadRenderer   $commentThreadRenderer,
         private readonly AuthProvider             $authProvider,
         private readonly TagRepository            $tagRepository,
+        private readonly EventDispatcherInterface $eventDispatcher,
         StringProxy                              $blogTitle,
         BoolProxy                                $showComments,
         BoolProxy                                $enabledComments,
@@ -262,6 +265,8 @@ class PostPageController extends BlogController
                 'log'     => $log,
             ], SearchModule::class));
         }
+
+        $this->eventDispatcher->dispatch(new ContentRenderedEvent($template, ContentId::post((int)$post_id)));
 
         return null;
     }

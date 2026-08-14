@@ -17,10 +17,11 @@ boundaries would make the product harder to maintain and would prevent third-par
 
 Register has two module tiers.
 
-**Base modules** form the product. Content/Blog, permanent Pages, Comments, Tags, Search,
-Typography, Analytics, Math, and Admin are present in every installation. They are loaded in a
-deterministic order, upgraded with Register, and cannot be disabled or uninstalled. They are
-identified by `Register\Module\BaseModuleRegistry` and live outside the optional-module directory.
+**Base modules** form the product. Content/Blog, permanent Pages, Comments, Tags, Search, anonymous
+Visitor Identity, Reactions, Typography, Analytics, Math, and Admin are present in every
+installation. They are loaded in a deterministic order, upgraded with Register, and cannot be
+disabled or uninstalled. They are identified by `Register\Module\BaseModuleRegistry` and live
+outside the optional-module directory.
 
 **Optional modules** add integrations and specialized behavior. They may be discovered, installed,
 enabled, disabled, and upgraded independently. Disabling an optional module preserves its data;

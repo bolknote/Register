@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Analytics;
 
+use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Controller\Rss\RssStrategyInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,12 +25,38 @@ final class AnalyticsRecorder
         private readonly BotDetector          $botDetector,
         private readonly RssReaderParser      $rssReaderParser,
         private readonly StringProxy          $salt,
+        private readonly VisitorIdentityManager $visitorIdentityManager,
     ) {
     }
 
-    public function recordPageView(Request $request): void
+    /** @return bool Whether the browser must resolve an identity to finish unique counting. */
+    public function recordPageView(Request $request): bool
     {
         if ($this->skipRequest($request)) {
+            return false;
+        }
+
+        $day = date('Y-m-d');
+        $this->pruneFingerprints($day);
+        $visitorId = $this->visitorIdentityManager->visitorIdFromRequest($request);
+        if ($visitorId === null) {
+            $this->repository->recordHit($day, AnalyticsRepository::PAGE_CHANNEL);
+
+            return true;
+        }
+
+        $this->repository->record(
+            $day,
+            AnalyticsRepository::PAGE_CHANNEL,
+            $this->visitorFingerprint($day, $visitorId),
+        );
+
+        return false;
+    }
+
+    public function recordResolvedPageVisitor(Request $request, string $visitorId): void
+    {
+        if ($this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '')) {
             return;
         }
 
@@ -38,7 +65,8 @@ final class AnalyticsRecorder
         $this->repository->record(
             $day,
             AnalyticsRepository::PAGE_CHANNEL,
-            $this->fingerprint($day, $request),
+            $this->visitorFingerprint($day, $visitorId),
+            hitWeight: 0,
         );
     }
 
@@ -73,18 +101,14 @@ final class AnalyticsRecorder
             return true;
         }
 
-        if ($request->headers->get('DNT') === '1' || $request->headers->get('Sec-GPC') === '1') {
-            return true;
-        }
-
         return $this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '');
     }
 
-    private function fingerprint(string $day, Request $request): string
+    private function visitorFingerprint(string $day, string $visitorId): string
     {
         return hash_hmac(
             'sha256',
-            $day . "\0" . ($request->getClientIp() ?? 'unknown') . "\0" . ($request->headers->get('User-Agent', '') ?? ''),
+            $day . "\0visitor\0" . $visitorId,
             $this->salt->get(),
         );
     }

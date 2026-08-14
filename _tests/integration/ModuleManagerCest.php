@@ -107,6 +107,14 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->tableExists(ContentTagSchema::TABLE_NAME));
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'content_tag_idx'));
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'tag_content_idx'));
+        $I->assertTrue($dbLayer->tableExists('register_visitor'));
+        $I->assertTrue($dbLayer->indexExists('register_visitor', 'last_seen_idx'));
+        $I->assertTrue($dbLayer->tableExists('register_visitor_fingerprint'));
+        $I->assertTrue($dbLayer->foreignKeyExists('register_visitor_fingerprint', 'fk_visitor'));
+        $I->assertTrue($dbLayer->tableExists('register_reaction'));
+        $I->assertTrue($dbLayer->indexExists('register_reaction', 'content_reaction_idx'));
+        $I->assertTrue($dbLayer->foreignKeyExists('register_reaction', 'fk_content'));
+        $I->assertTrue($dbLayer->foreignKeyExists('register_reaction', 'fk_visitor'));
     }
 
     public function staleProductSchemaIsRejectedInsteadOfMigrated(\IntegrationTester $I): void

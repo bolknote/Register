@@ -144,7 +144,7 @@ class InstallCest
         $I->amOnPage('/_admin/index.php?entity=SystemModules');
         $I->see('System modules', 'h1');
 
-        foreach (['s2_blog', 's2_search', 's2_latex', 's2_counter', 's2_typo', 'register_syntax_highlighting', 'register_audio_player'] as $moduleId) {
+        foreach (['s2_blog', 's2_search', 's2_latex', 'register_visitor_identity', 's2_counter', 'register_reactions', 's2_typo', 'register_syntax_highlighting', 'register_audio_player'] as $moduleId) {
             $I->seeElement('.base-module [title=' . $moduleId . ']');
             $I->dontSeeElement('.extension.available [title=' . $moduleId . ']');
             $I->dontSeeElement('.extension:not(.base-module) [title=' . $moduleId . ']');
@@ -174,6 +174,7 @@ class InstallCest
 
         $I->amOnPage('/_admin/index.php?entity=Configuration');
         $I->dontSee('REGISTER_ANALYTICS_SALT');
+        $I->dontSee('REGISTER_VISITOR_SECRET');
     }
 
     /**

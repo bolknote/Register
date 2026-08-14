@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Analytics;
 
+use Register\Module\VisitorIdentity\VisitorIdentityManager;
+use Register\Module\VisitorIdentity\VisitorResolvedEvent;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Controller\Rss\RssHitEvent;
 use S2\Cms\Framework\Container;
@@ -37,6 +39,7 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
             $container->get(BotDetector::class),
             $container->get(RssReaderParser::class),
             $container->get(DynamicConfigProvider::class)->getStringProxy(Manifest::SALT_CONFIG_KEY),
+            $container->get(VisitorIdentityManager::class),
         ));
         $container->set(CounterImageController::class, static fn(Container $container): CounterImageController => new CounterImageController(
             $container->get(AnalyticsRepository::class),
@@ -60,7 +63,16 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
 
             $request = $container->get(RequestStack::class)->getCurrentRequest();
             if ($request !== null) {
-                $container->get(AnalyticsRecorder::class)->recordPageView($request);
+                $needsVisitorResolution = $container->get(AnalyticsRecorder::class)->recordPageView($request);
+                if ($needsVisitorResolution) {
+                    $event->htmlTemplate->addMetaTag('<meta name="register-analytics-page" content="1">');
+                }
+            }
+        });
+
+        $eventDispatcher->addListener(VisitorResolvedEvent::class, static function (VisitorResolvedEvent $event) use ($container): void {
+            if ($event->trackPageView) {
+                $container->get(AnalyticsRecorder::class)->recordResolvedPageVisitor($event->request, $event->visitorId);
             }
         });
 

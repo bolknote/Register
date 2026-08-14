@@ -25,6 +25,7 @@ retry a reviewed failed job with `php tools/retry-background-job.php <id> <code>
 - Gives every post a short permalink such as `/post-name`; the blog lives at `/`.
 - Organizes material with tags, sections, archives, favorites, RSS, and a sitemap.
 - Supports comments, moderation, subscriptions, and spam filtering.
+- Adds login-free emoji reactions to posts and pages, with one active reaction per anonymous visitor.
 - Provides accounts and permissions for authors, moderators, editors, and administrators.
 - Recovers unsaved editor text after a browser or power failure.
 - Handles image, audio, and video uploads and thumbnails and provides a module API for additional
@@ -39,10 +40,10 @@ retry a reviewed failed job with `php tools/retry-background-job.php <id> <code>
 - Keeps the public theme deliberately small, responsive, readable, and compatible with light and
   dark system appearance.
 
-Blog, permanent pages, comments, tags, search, typography, analytics, formula rendering, code
-highlighting, and the control panel are base modules. They ship with Register, are always available,
-and cannot be disabled or uninstalled. Optional modules remain available for integrations and
-specialized behavior.
+Blog, permanent pages, comments, tags, anonymous visitor identity, reactions, search, typography,
+analytics, formula rendering, code highlighting, and the control panel are base modules. They ship
+with Register, are always available, and cannot be disabled or uninstalled. Optional modules remain
+available for integrations and specialized behavior.
 
 The project follows the 80/20 principle: the everyday publishing path should be excellent. Register
 is a blog engine, not a universal site builder.
@@ -108,6 +109,7 @@ composer check
 - [URL slug generation](_doc/url-slugs.md)
 - [Backups](_doc/backups.md)
 - [Comments](_doc/comments.md)
+- [Anonymous identity and reactions](_doc/anonymous-identity-and-reactions.md)
 - [Code highlighting](_doc/code-highlighting.md)
 - [Register and Aegea feature comparison](_doc/egea-comparison.md)
 - [Optional modules](_doc/extensions.md)

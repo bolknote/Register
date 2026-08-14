@@ -13,6 +13,7 @@ namespace S2\Cms\Controller;
 
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentRenderedEvent;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
@@ -560,6 +561,7 @@ readonly class PageCommon implements ControllerInterface
         }
 
         $this->eventDispatcher->dispatch(new ArticleRenderedEvent($template, $articleId));
+        $this->eventDispatcher->dispatch(new ContentRenderedEvent($template, ContentId::page($articleId)));
 
         return $template->toHttpResponse();
     }

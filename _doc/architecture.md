@@ -5,8 +5,9 @@ provides the publishing domain and product experience. The boundary is intention
 
 - `S2\Cms` contains HTTP, dependency injection, events, database access, queues, caching, and reusable
   administration infrastructure.
-- `Register` contains posts, pages, comments, tags, search, typography, analytics, formula rendering,
-  code highlighting, editorial workflows, public presentation, and product policy.
+- `Register` contains posts, pages, comments, tags, anonymous identity, reactions, search,
+  typography, analytics, formula rendering, code highlighting, editorial workflows, public
+  presentation, and product policy.
 
 See [ADR 0001](decisions/0001-register-module-tiers.md) for the module-tier decision.
 
@@ -38,6 +39,7 @@ Base modules form every Register installation and cannot be disabled or uninstal
 - Content/Blog and permanent Pages;
 - Comments and Tags;
 - Search;
+- Anonymous visitor identity and Reactions;
 - Typography;
 - Analytics;
 - Math;
@@ -51,10 +53,16 @@ marker managed by [`SchemaManager`](../_include/src/Register/Schema/SchemaManage
 pre-release and deliberately supports only a fresh current schema; manifest versions are only
 transitional metadata and are not product schema state.
 
-Built-in Analytics stores daily aggregates in product tables. It retains only salted visitor
-fingerprints for the active aggregation day, pruning older fingerprints on subsequent traffic. It
-honors DNT and Global Privacy Control and exposes chart data through the authenticated
-administration endpoint. Raw IP addresses and User-Agent strings are not stored.
+The Visitor Identity module signs a random anonymous identifier and mirrors it into a cookie,
+`localStorage`, and IndexedDB. When all three copies are absent, a self-hosted FingerprintJS build
+can recover the identifier through a server-side keyed digest. Raw browser fingerprints, IP
+addresses, and User-Agent strings are not stored in visitor identity tables. DNT and Global Privacy
+Control do not change this behavior.
+
+Built-in Analytics stores daily aggregates in product tables. It derives each active-day unique key
+from the anonymous visitor identifier and prunes those daily keys on subsequent traffic. DNT and
+Global Privacy Control do not disable counting. Chart data is exposed only through the authenticated
+administration endpoint. See [Anonymous identity and reactions](anonymous-identity-and-reactions.md).
 
 ### Optional modules
 
