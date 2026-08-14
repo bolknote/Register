@@ -136,6 +136,51 @@ class HttpClientCest
 
     /**
      * @dataProvider transportProvider
+     * @throws HttpClientException
+     */
+    public function testRedirectsCanBeDisabled(AcceptanceTester $I, Example $example): void
+    {
+        $client = new HttpClient(preferredTransport: $example['transport']);
+
+        $response = $client->request(
+            'GET',
+            'http://localhost:8881/_tests/_resources/http_client_mocks/302.php',
+            options: [HttpClient::FOLLOW_REDIRECTS => false],
+        );
+
+        $I->assertEquals(302, $response->statusCode);
+    }
+
+    /**
+     * @dataProvider transportProvider
+     * @throws HttpClientException
+     */
+    public function testSensitiveHeadersAreRemovedOnCrossOriginRedirect(AcceptanceTester $I, Example $example): void
+    {
+        $client = new HttpClient(preferredTransport: $example['transport']);
+
+        $response = $client->request(
+            'GET',
+            'http://localhost:8881/_tests/_resources/http_client_mocks/cross_origin_redirect.php',
+            [
+                'Authorization' => 'Bearer secret',
+                'Cookie'        => 'secret=value',
+                'X-Test'        => 'kept',
+            ],
+        );
+
+        if (!\is_string($response->content)) {
+            throw new \RuntimeException('Redirected response unexpectedly has no body.');
+        }
+
+        $I->assertEquals(
+            ['authorization' => null, 'cookie' => null, 'x_test' => 'kept'],
+            json_decode($response->content, true, flags: JSON_THROW_ON_ERROR),
+        );
+    }
+
+    /**
+     * @dataProvider transportProvider
      */
     public function testHostResolveError(AcceptanceTester $I, Example $example): void
     {

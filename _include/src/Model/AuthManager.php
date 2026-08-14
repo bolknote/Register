@@ -61,11 +61,7 @@ readonly class AuthManager
     public function checkAuth(Request $request): ?Response
     {
         if ($this->forceAdminHttps && !$request->isSecure()) {
-            $uri       = $request->getUri();
-            $secureUri = preg_replace('/^http:/i', 'https:', $uri)
-                ?? throw new \RuntimeException('Unable to construct a secure admin URL.');
-
-            return new RedirectResponse($secureUri);
+            return new RedirectResponse($this->configuredOrigin('https') . $request->getRequestUri());
         }
 
         $this->cleanupExpiredSessions();
@@ -74,7 +70,10 @@ readonly class AuthManager
 
         if ($request->query->get('action') === 'logout') {
             $this->deleteSession($sessionId);
-            $response      = new RedirectResponse($request->getSchemeAndHttpHost() . $request->getBaseUrl());
+            $baseUrl = $this->shouldUseSecureCookies($request)
+                ? (preg_replace('/^http:/i', 'https:', $this->baseUrl) ?? $this->baseUrl)
+                : $this->baseUrl;
+            $response      = new RedirectResponse(rtrim($baseUrl, '/') . '/_admin/index.php');
             $secureCookies = $this->shouldUseSecureCookies($request);
             $response->headers->setCookie(Cookie::create(
                 name: $this->cookieName,
@@ -109,11 +108,7 @@ readonly class AuthManager
     public function checkAuthenticatedUser(Request $request): ?Response
     {
         if ($this->forceAdminHttps && !$request->isSecure()) {
-            $uri       = $request->getUri();
-            $secureUri = preg_replace('/^http:/i', 'https:', $uri)
-                ?? throw new \RuntimeException('Unable to construct a secure admin URL.');
-
-            return new RedirectResponse($secureUri);
+            return new RedirectResponse($this->configuredOrigin('https') . $request->getRequestUri());
         }
 
         $sessionId = $request->cookies->get($this->cookieName, '');
@@ -496,6 +491,17 @@ readonly class AuthManager
          * - base_url is configured as HTTPS, which is the webmaster's canonical-site setting.
          */
         return $this->forceAdminHttps || $request->isSecure() || str_starts_with(strtolower($this->baseUrl), 'https://');
+    }
+
+    private function configuredOrigin(string $scheme): string
+    {
+        $parsedBaseUrl = parse_url($this->baseUrl);
+        if (!\is_array($parsedBaseUrl) || !isset($parsedBaseUrl['host']) || $parsedBaseUrl['host'] === '') {
+            throw new \RuntimeException('Unable to construct a configured admin URL.');
+        }
+
+        return $scheme . '://' . $parsedBaseUrl['host']
+            . (isset($parsedBaseUrl['port']) ? ':' . $parsedBaseUrl['port'] : '');
     }
 
     /**

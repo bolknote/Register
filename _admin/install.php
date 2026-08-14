@@ -193,6 +193,75 @@ function has_register_generator(?string $content): bool
         str_contains($content, '<meta name="Generator" content="S2">');
 }
 
+function normalize_install_base_url(string $baseUrl): ?string
+{
+    $baseUrl = rtrim(trim($baseUrl), '/');
+    if ($baseUrl === '' || \strlen($baseUrl) > 2048) {
+        return null;
+    }
+
+    if (preg_match('/[\x00-\x20\x7f]/', $baseUrl) === 1 || str_contains($baseUrl, '\\')) {
+        return null;
+    }
+
+    $parsedBaseUrl = parse_url($baseUrl);
+    if (!\is_array($parsedBaseUrl) || !isset($parsedBaseUrl['scheme'], $parsedBaseUrl['host'])) {
+        return null;
+    }
+
+    $scheme = strtolower($parsedBaseUrl['scheme']);
+    if (!\in_array($scheme, ['http', 'https'], true)
+        || $parsedBaseUrl['host'] === ''
+        || isset($parsedBaseUrl['user'])
+        || isset($parsedBaseUrl['pass'])
+        || isset($parsedBaseUrl['query'])
+        || isset($parsedBaseUrl['fragment'])
+    ) {
+        return null;
+    }
+
+    return $scheme . substr($baseUrl, \strlen($parsedBaseUrl['scheme']));
+}
+
+/**
+ * URL-prefix probing is only needed for legacy routing modes. Restrict it to the local server so
+ * the public installer cannot be used as a blind HTTP proxy into an arbitrary network.
+ */
+function can_probe_install_base_url(string $baseUrl): bool
+{
+    $host = parse_url($baseUrl, PHP_URL_HOST);
+    if (!\is_string($host) || $host === '') {
+        return false;
+    }
+
+    $serverAddress = $_SERVER['SERVER_ADDR'] ?? null;
+    if (!\is_string($serverAddress) || filter_var($serverAddress, FILTER_VALIDATE_IP) === false) {
+        return false;
+    }
+
+    $scheme = parse_url($baseUrl, PHP_URL_SCHEME);
+    $targetPort = parse_url($baseUrl, PHP_URL_PORT);
+    $targetPort ??= $scheme === 'https' ? 443 : 80;
+    $serverPort = $_SERVER['SERVER_PORT'] ?? null;
+    if (!\is_int($targetPort) || !\is_string($serverPort) || !ctype_digit($serverPort) || $targetPort !== (int)$serverPort) {
+        return false;
+    }
+
+    $host = trim($host, '[]');
+    if (strtolower($host) === 'localhost') {
+        return $serverAddress === '::1' || str_starts_with($serverAddress, '127.');
+    }
+
+    if (filter_var($host, FILTER_VALIDATE_IP) === false) {
+        return false;
+    }
+
+    $packedHost = inet_pton($host);
+    $packedServerAddress = inet_pton($serverAddress);
+
+    return $packedHost !== false && $packedServerAddress !== false && hash_equals($packedServerAddress, $packedHost);
+}
+
 function generate_config_file(
     HttpClient $httpClient,
     string $dbType,
@@ -204,40 +273,37 @@ function generate_config_file(
     string $baseUrl,
     string $cookieName,
     ?string $antispamSecret = null,
+    bool $probeBaseUrl = false,
 ): string
 {
+    $baseUrl = normalize_install_base_url($baseUrl)
+        ?? throw new \InvalidArgumentException('Invalid installation base URL.');
+
     if ($antispamSecret === null || \strlen($antispamSecret) < 32) {
         $antispamSecret = bin2hex(random_bytes(32));
     }
 
     $urlPrefix = '';
-    foreach (['', '/?', '/index.php', '/index.php?'] as $prefix) {
-        $urlPrefix = $prefix;
-        try {
-            $response = $httpClient->fetch($baseUrl . $urlPrefix . '/this/URL/_DoEs_/_NoT_/_eXiSt');
-            if (has_register_generator($response->content)) {
-                break;
+    if ($probeBaseUrl) {
+        foreach (['', '/?', '/index.php', '/index.php?'] as $prefix) {
+            $urlPrefix = $prefix;
+            try {
+                $response = $httpClient->request(
+                    'GET',
+                    $baseUrl . $urlPrefix . '/this/URL/_DoEs_/_NoT_/_eXiSt',
+                    options: [HttpClient::FOLLOW_REDIRECTS => false],
+                );
+                if (has_register_generator($response->content)) {
+                    break;
+                }
+            } catch (HttpClientException) {
+                continue;
             }
-        } catch (HttpClientException) {
-            continue;
         }
     }
 
-    $path = preg_replace('#^[^:/]+://[^/]*#', '', $baseUrl) ?? '';
-
-    $useHttps = false;
-    if (str_starts_with($baseUrl, 'https://')) {
-        $useHttps = true;
-    } else {
-        try {
-            $response = $httpClient->fetch('https://' . substr($baseUrl, 7) . $urlPrefix . '/this/URL/_DoEs_/_NoT_/_eXiSt');
-            if (has_register_generator($response->content)) {
-                $useHttps = true;
-            }
-        } catch (HttpClientException) {
-            $useHttps = false;
-        }
-    }
+    $path = (string)(parse_url($baseUrl, PHP_URL_PATH) ?? '');
+    $useHttps = str_starts_with($baseUrl, 'https://');
 
     $config = [
         'database' => [
@@ -422,8 +488,14 @@ require S2_ROOT . '_admin/lang/' . $translator->getLocale() . '/install.php';
 /** @var array<string, string> $lang_install */
 
 if (isset($_POST['generate_config'])) {
-    header(sprintf('Content-Type: text/x-delimtext; name="%s"', s2_get_config_filename()));
+    $baseUrl = normalize_install_base_url(installPostString('base_url'));
+    if ($baseUrl === null) {
+        error($lang_install['Invalid base url']);
+    }
+
+    header(sprintf('Content-Type: text/plain; charset=utf-8; name="%s"', s2_get_config_filename()));
     header(sprintf("Content-disposition: attachment; filename=%s", s2_get_config_filename()));
+    header('X-Content-Type-Options: nosniff');
 
     echo generate_config_file(
         $emptyApp->container->get(HttpClient::class),
@@ -433,9 +505,10 @@ if (isset($_POST['generate_config'])) {
         installPostString('db_username'),
         installPostString('db_password'),
         installPostString('db_prefix'),
-        installPostString('base_url'),
+        $baseUrl,
         installPostString('cookie_name'),
-        installPostString('antispam_secret'),
+        null,
+        can_probe_install_base_url($baseUrl),
     );
     exit;
 }
@@ -453,11 +526,7 @@ function guessBaseUrl(): string
         . (preg_replace('/:80$/', '', $host) ?? $host)
         . substr(str_replace('\\', '/', dirname($scriptName)), 0, -6);
 
-    if (str_ends_with($result, '/')) {
-        return substr($result, 0, -1);
-    }
-
-    return $result;
+    return normalize_install_base_url($result) ?? 'http://localhost';
 }
 
 /**
@@ -547,7 +616,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
     <?php endif; ?>
     <?php if (isset($validationErrors['db_is_used'])): ?>
         <div class="error-box">
-            <p><?php echo $validationErrors['db_is_used'][0]; ?></p>
+            <p><?php echo s2_htmlencode($validationErrors['db_is_used'][0]); ?></p>
             <p><?php echo $lang_install['S2 already installed 2'] ?></p>
             <p><?php echo $lang_install['S2 already installed 3'] ?></p>
             <form method="post" accept-charset="utf-8" action="install.php">
@@ -606,7 +675,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                               value="<?php echo s2_htmlencode($values['req_db_host'] ?? 'localhost'); ?>" size="50"
                               maxlength="100"/>
                 <?php foreach ($validationErrors['req_db_host'] ?? [] as $error) {
-                    echo '<small class="error">' . $error . '</small>';
+                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Database server help'] ?></small>
             </label>
@@ -618,7 +687,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                               value="<?php echo s2_htmlencode($values['req_db_name'] ?? ''); ?>" size="35"
                               maxlength="50"/>
                 <?php foreach ($validationErrors['req_db_name'] ?? [] as $error) {
-                    echo '<small class="error">' . $error . '</small>';
+                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Database name help'] ?></small>
             </label>
@@ -630,7 +699,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                               value="<?php echo s2_htmlencode($values['db_username'] ?? ''); ?>" size="35"
                               maxlength="50"/>
                 <?php foreach ($validationErrors['db_username'] ?? [] as $error) {
-                    echo '<small class="error">' . $error . '</small>';
+                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Database username help'] ?></small>
             </label>
@@ -641,7 +710,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                 </span><input id="fld5" type="password" name="db_password"
                               value="<?php echo s2_htmlencode($values['db_password'] ?? ''); ?>" size="35"/>
                 <?php foreach ($validationErrors['db_password'] ?? [] as $error) {
-                    echo '<small class="error">' . $error . '</small>';
+                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Database password help'] ?></small>
             </label>
@@ -652,7 +721,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                 </span><input id="fld6" type="text" name="db_prefix" size="20" maxlength="30"
                               value="<?php echo s2_htmlencode($values['db_prefix'] ?? ''); ?>">
                 <?php foreach ($validationErrors['db_prefix'] ?? [] as $error) {
-                    echo '<small class="error">' . $error . '</small>';
+                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Table prefix help'] ?></small>
             </label>
@@ -668,7 +737,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                 </span><input id="fld7" type="text" name="req_username" size="35" maxlength="40"
                               value="<?php echo s2_htmlencode($values['req_username'] ?? 'admin'); ?>"/>
                 <?php foreach ($validationErrors['req_username'] ?? [] as $error) {
-                    echo '<small class="error">' . $error . '</small>';
+                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
             </label>
         </div>
@@ -678,7 +747,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                 </span><input id="fld8" type="password" name="req_password" size="35" maxlength="200"
                               value="<?php echo s2_htmlencode($values['req_password'] ?? ''); ?>"/>
                 <?php foreach ($validationErrors['req_password'] ?? [] as $error) {
-                    echo '<small class="error">' . $error . '</small>';
+                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
             </label>
         </div>
@@ -688,7 +757,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                 </span><input id="fld10" type="text" name="adm_email" size="50" maxlength="80"
                               value="<?php echo s2_htmlencode($values['adm_email'] ?? ''); ?>"/>
                 <?php foreach ($validationErrors['adm_email'] ?? [] as $error) {
-                    echo '<small class="error">' . $error . '</small>';
+                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['E-mail address help'] ?></small>
             </label>
@@ -700,7 +769,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                 </span><input id="fld13" type="text" name="req_base_url" maxlength="100" size="50"
                               value="<?php echo s2_htmlencode($values['req_base_url'] ?? $base_url_guess); ?>">
                 <?php foreach ($validationErrors['req_base_url'] ?? [] as $error) {
-                    echo '<small class="error">' . $error . '</small>';
+                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Base URL help'] ?></small>
             </label>
@@ -723,7 +792,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                     </select>
                     <br/>
                     <?php foreach ($validationErrors['req_language'] ?? [] as $error) {
-                        echo '<small class="error">' . $error . '</small>';
+                        echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                     } ?>
                     <small><?php echo $lang_install['Default language help'] ?></small>
                 </label>
@@ -768,14 +837,14 @@ $default_lang = preg_replace('#[\.\\\/]#', '', trim(installPostString('req_langu
 
 // Make sure base_url doesn't end with a slash
 $requestedBaseUrl = installPostString('req_base_url');
-if (str_ends_with($requestedBaseUrl, '/')) {
-    $base_url = substr($requestedBaseUrl, 0, -1);
-} else {
-    $base_url = $requestedBaseUrl;
-}
+$normalizedBaseUrl = normalize_install_base_url($requestedBaseUrl);
+$base_url = $normalizedBaseUrl ?? rtrim(trim($requestedBaseUrl), '/');
 
 // Validate form
 $validationErrors = [];
+if (!\in_array($db_type, ['mysql', 'sqlite', 'pgsql'], true)) {
+    $validationErrors['req_db_type'][] = sprintf($lang_install['No such database type'], $db_type);
+}
 if (mb_strlen($db_name) === 0) {
     $validationErrors['req_db_name'][] = $lang_install['Missing database name'];
 }
@@ -804,6 +873,9 @@ if (mb_strlen($username) > 40) {
 }
 
 // Validate password
+if (mb_strlen($password) < 4) {
+    $validationErrors['req_password'][] = $lang_install['Password too short'];
+}
 if (mb_strlen($password) > 100) {
     $validationErrors['req_password'][] = $lang_install['Password too long'];
 }
@@ -815,6 +887,8 @@ if ($email !== '' && !StringHelper::isValidEmail($email)) {
 
 if ($base_url === '') {
     $validationErrors['req_base_url'][] = $lang_install['Missing base url'];
+} elseif ($normalizedBaseUrl === null) {
+    $validationErrors['req_base_url'][] = $lang_install['Invalid base url'];
 }
 
 if (!file_exists(S2_ROOT . '_lang/' . $default_lang . '/common.php')) {
@@ -985,6 +1059,7 @@ $config = generate_config_file(
     $base_url,
     $s2_cookie_name,
     $antispamSecret,
+    can_probe_install_base_url($base_url),
 );
 
 // Attempt to write config.php and serve it up for download if writing fails

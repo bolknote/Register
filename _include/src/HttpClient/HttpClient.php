@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace S2\Cms\HttpClient;
 
 /**
- * @phpstan-type RequestOptions array{connect_timeout?: positive-int, read_timeout?: positive-int}
- * @psalm-type RequestOptions = array{connect_timeout?: positive-int, read_timeout?: positive-int}
+ * @phpstan-type RequestOptions array{connect_timeout?: positive-int, read_timeout?: positive-int, follow_redirects?: bool}
+ * @psalm-type RequestOptions = array{connect_timeout?: positive-int, read_timeout?: positive-int, follow_redirects?: bool}
  * @phpstan-type ParsedUrl array{scheme?: string, host?: string, port?: int, user?: string, pass?: string, path?: string, query?: string, fragment?: string}
  * @psalm-type ParsedUrl = array{scheme?: string, host?: string, port?: int, user?: string, pass?: string, path?: string, query?: string, fragment?: string}
  */
@@ -27,7 +27,22 @@ readonly class HttpClient
 
     public const string READ_TIMEOUT = 'read_timeout';
 
+    public const string FOLLOW_REDIRECTS = 'follow_redirects';
+
     private const array ALLOWED_METHODS             = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+
+    private const array MANAGED_REQUEST_HEADERS = [
+        'connection',
+        'content-length',
+        'host',
+        'proxy-connection',
+        'te',
+        'trailer',
+        'transfer-encoding',
+        'upgrade',
+    ];
+
+    private const array SENSITIVE_REDIRECT_HEADERS = ['authorization', 'cookie', 'proxy-authorization'];
 
     /** @var non-empty-string */
     private string $userAgent;
@@ -36,11 +51,11 @@ readonly class HttpClient
         private int     $timeout = 10,
         private int     $maxRedirects = 10,
         string          $userAgent = 'Register',
-        private bool    $verifySsl = false,
+        private bool    $verifySsl = true,
         private ?string $preferredTransport = null,
     ) {
-        if ($userAgent === '') {
-            throw new \InvalidArgumentException('User-Agent cannot be empty.');
+        if ($userAgent === '' || preg_match('/[\x00-\x1f\x7f]/', $userAgent) === 1) {
+            throw new \InvalidArgumentException('User-Agent cannot be empty or contain control characters.');
         }
 
         $this->userAgent = $userAgent;
@@ -68,6 +83,7 @@ readonly class HttpClient
     ): HttpResponse {
         $method = $this->normalizeMethod($method);
         $url = $this->normalizeUrl($url);
+        $this->validateHeaders($headers);
 
         return match ($this->getPreferredTransport()) {
             self::TRANSPORT_CURL => $this->requestWithCurl($method, $url, $headers, $body, $options),
@@ -139,28 +155,117 @@ readonly class HttpClient
             throw new HttpClientException('URL cannot be empty');
         }
 
+        if (preg_match('/[\x00-\x20\x7f]/', $url) === 1 || str_contains($url, '\\')) {
+            throw new HttpClientException('Invalid URL: ' . $url);
+        }
+
         $parsedUrl = parse_url($url);
         if (!\is_array($parsedUrl) || !isset($parsedUrl['host']) || $parsedUrl['host'] === '') {
             throw new HttpClientException('Invalid URL: ' . $url);
         }
 
-        if (!isset($parsedUrl['scheme'])) {
-            return 'https://' . ltrim($url, '/');
+        $scheme = strtolower($parsedUrl['scheme'] ?? '');
+        if (!\in_array($scheme, ['http', 'https'], true)) {
+            throw new HttpClientException('Unsupported URL scheme: ' . ($scheme === '' ? '(missing)' : $scheme));
         }
 
-        return $url;
+        if (isset($parsedUrl['user']) || isset($parsedUrl['pass'])) {
+            throw new HttpClientException('URL credentials are not allowed');
+        }
+
+        if (isset($parsedUrl['fragment'])) {
+            $fragmentPosition = strpos($url, '#');
+            if ($fragmentPosition !== false) {
+                $url = substr($url, 0, $fragmentPosition);
+            }
+        }
+
+        return $scheme . substr($url, \strlen($scheme));
     }
 
     /** @return non-empty-string */
     private function newUrlFromLocation(string $location, string $currentUrl): string
     {
+        if ($location === '' || preg_match('/[\x00-\x20\x7f]/', $location) === 1 || str_contains($location, '\\')) {
+            throw new HttpClientException('Invalid redirect URL: ' . $location);
+        }
+
         $parsedCurrentUrl = parse_url($currentUrl);
         $parsedLocation   = parse_url($location);
         if (!\is_array($parsedCurrentUrl) || !\is_array($parsedLocation)) {
             throw new HttpClientException('Invalid redirect URL: ' . $location);
         }
 
-        return $this->normalizeUrl($this->unparseUrl(array_merge($parsedCurrentUrl, $parsedLocation)));
+        if (isset($parsedLocation['scheme'])) {
+            return $this->normalizeRedirectTarget($location, $currentUrl);
+        }
+
+        if (str_starts_with($location, '//')) {
+            return $this->normalizeRedirectTarget(($parsedCurrentUrl['scheme'] ?? 'https') . ':' . $location, $currentUrl);
+        }
+
+        $target = [
+            'scheme' => $parsedCurrentUrl['scheme'] ?? '',
+            'host'   => $parsedCurrentUrl['host'] ?? '',
+        ];
+        if (isset($parsedCurrentUrl['port'])) {
+            $target['port'] = $parsedCurrentUrl['port'];
+        }
+
+        $currentPath = $parsedCurrentUrl['path'] ?? '/';
+        $locationPath = $parsedLocation['path'] ?? '';
+        if ($locationPath === '') {
+            $target['path'] = $currentPath;
+            if (isset($parsedLocation['query'])) {
+                $target['query'] = $parsedLocation['query'];
+            } elseif (isset($parsedCurrentUrl['query'])) {
+                $target['query'] = $parsedCurrentUrl['query'];
+            }
+        } else {
+            $target['path'] = str_starts_with($locationPath, '/')
+                ? $this->normalizePath($locationPath)
+                : $this->normalizePath(substr($currentPath, 0, (int)strrpos($currentPath, '/') + 1) . $locationPath);
+            if (isset($parsedLocation['query'])) {
+                $target['query'] = $parsedLocation['query'];
+            }
+        }
+
+        return $this->normalizeRedirectTarget($this->unparseUrl($target), $currentUrl);
+    }
+
+    /** @return non-empty-string */
+    private function normalizeRedirectTarget(string $targetUrl, string $currentUrl): string
+    {
+        $targetUrl = $this->normalizeUrl($targetUrl);
+        if (parse_url($currentUrl, PHP_URL_SCHEME) === 'https' && parse_url($targetUrl, PHP_URL_SCHEME) === 'http') {
+            throw new HttpClientException('HTTPS redirects must not downgrade to HTTP');
+        }
+
+        return $targetUrl;
+    }
+
+    private function normalizePath(string $path): string
+    {
+        $segments = [];
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+
+            if ($segment === '..') {
+                array_pop($segments);
+                continue;
+            }
+
+            $segments[] = $segment;
+        }
+
+        $normalized = '/' . implode('/', $segments);
+        if ($normalized !== '/' && (str_ends_with($path, '/') || str_ends_with($path, '/.') || str_ends_with($path, '/..'))) {
+            $normalized .= '/';
+        }
+
+        return $normalized;
     }
 
     /**
@@ -186,6 +291,67 @@ readonly class HttpClient
             ($query !== '' ? "?$query" : "") .
             ($fragment !== '' ? "#$fragment" : "")
         );
+    }
+
+    /**
+     * @param array<string, string> $headers
+     */
+    private function validateHeaders(array $headers): void
+    {
+        foreach ($headers as $name => $value) {
+            if (preg_match('/^[!#$%&\'*+\-.^_`|~0-9A-Za-z]+$/D', $name) !== 1) {
+                throw new \InvalidArgumentException('Invalid HTTP header name: ' . $name);
+            }
+
+            if (\in_array(strtolower($name), self::MANAGED_REQUEST_HEADERS, true)) {
+                throw new \InvalidArgumentException('HTTP header is managed by the client: ' . $name);
+            }
+
+            if (preg_match('/[\x00-\x08\x0a-\x1f\x7f]/', $value) === 1) {
+                throw new \InvalidArgumentException('HTTP header values cannot contain unsafe control characters.');
+            }
+        }
+    }
+
+    /**
+     * @param array<string, string> $headers
+     * @return array<string, string>
+     */
+    private function headersForRedirect(array $headers, string $currentUrl, string $targetUrl): array
+    {
+        if ($this->origin($currentUrl) === $this->origin($targetUrl)) {
+            return $headers;
+        }
+
+        foreach (array_keys($headers) as $name) {
+            if (\in_array(strtolower($name), self::SENSITIVE_REDIRECT_HEADERS, true)) {
+                unset($headers[$name]);
+            }
+        }
+
+        return $headers;
+    }
+
+    private function origin(string $url): string
+    {
+        $scheme = (string)parse_url($url, PHP_URL_SCHEME);
+        $host   = strtolower((string)parse_url($url, PHP_URL_HOST));
+        $port   = parse_url($url, PHP_URL_PORT);
+        $port   = \is_int($port) ? $port : ($scheme === 'https' ? 443 : 80);
+
+        return $scheme . '://' . $host . ':' . $port;
+    }
+
+    /** @return array<string, bool|string> */
+    private function sslContextOptions(string $host): array
+    {
+        return [
+            'verify_peer'       => $this->verifySsl,
+            'verify_peer_name'  => $this->verifySsl,
+            'allow_self_signed' => !$this->verifySsl,
+            'peer_name'         => trim($host, '[]'),
+            'SNI_enabled'       => true,
+        ];
     }
 
     /**
@@ -220,6 +386,7 @@ readonly class HttpClient
         curl_setopt($ch, CURLOPT_USERAGENT, $this->userAgent);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+        curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
 
         if ($requestBody !== null) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
@@ -258,8 +425,21 @@ readonly class HttpClient
 
         $responseHeaders = explode("\r\n", $rawHeaders);
 
-        if (preg_match('/^Location:\s*(.*)/mi', $rawHeaders, $matches) === 1) {
-            return $this->requestWithCurl($method, $this->newUrlFromLocation(trim($matches[1]), $url), $requestHeaders, $requestBody, $options, $redirects + 1);
+        if (($options[self::FOLLOW_REDIRECTS] ?? true)
+            && $responseCode >= 300
+            && $responseCode < 400
+            && preg_match('/^Location:\s*(.*)/mi', $rawHeaders, $matches) === 1
+        ) {
+            $targetUrl = $this->newUrlFromLocation(trim($matches[1]), $url);
+
+            return $this->requestWithCurl(
+                $method,
+                $targetUrl,
+                $this->headersForRedirect($requestHeaders, $url, $targetUrl),
+                $requestBody,
+                $options,
+                $redirects + 1,
+            );
         }
 
         return $this->createResponse($responseCode, $responseHeaders, $content);
@@ -289,18 +469,27 @@ readonly class HttpClient
         $scheme        = $parsedUrl['scheme'] ?? 'http';
         $host          = $parsedUrl['host'] ?? '';
         $port          = $parsedUrl['port'] ?? ($scheme === 'https' ? 443 : 80);
+        $socketHost    = str_contains($host, ':') && !str_starts_with($host, '[') ? '[' . $host . ']' : $host;
+        $socketContext = stream_context_create($scheme === 'https' ? ['ssl' => $this->sslContextOptions($host)] : []);
         $errno         = 0;
         $errstr        = '';
         $socketWarning = null;
         $remote        = s2_call_without_warnings(
-            static function () use ($scheme, $host, $port, $connectTimeout, &$errno, &$errstr) {
-                return fsockopen(($scheme === 'https' ? 'ssl://' : '') . $host, $port, $errno, $errstr, $connectTimeout);
+            static function () use ($scheme, $socketHost, $port, $connectTimeout, $socketContext, &$errno, &$errstr) {
+                return stream_socket_client(
+                    ($scheme === 'https' ? 'ssl://' : 'tcp://') . $socketHost . ':' . $port,
+                    $errno,
+                    $errstr,
+                    $connectTimeout,
+                    STREAM_CLIENT_CONNECT,
+                    $socketContext,
+                );
             },
             $socketWarning
         );
 
         if ($remote === false) {
-            $errorMessage = $errstr !== '' ? $errstr : ($socketWarning ?? 'Connection failed');
+            $errorMessage = $this->connectionErrorMessage($errstr, $socketWarning);
             throw new HttpClientException($errorMessage, match (true) {
                 $errno === 110 || preg_match('/timed?[\s_-]?out/i', $errorMessage) === 1 => HttpClientException::REASON_TIMEOUT,
                 str_contains($errorMessage, 'getaddrinfo') => HttpClientException::REASON_HOST_RESOLVE_FAILURE,
@@ -311,11 +500,13 @@ readonly class HttpClient
         stream_set_timeout($remote, $readTimeout);
 
         $path = ($parsedUrl['path'] ?? '/')
-            . (isset($parsedUrl['query']) ? '?' . $parsedUrl['query'] : '')
-            . (isset($parsedUrl['fragment']) ? '#' . $parsedUrl['fragment'] : '');
+            . (isset($parsedUrl['query']) ? '?' . $parsedUrl['query'] : '');
+
+        $defaultPort = $scheme === 'https' ? 443 : 80;
+        $hostHeader  = $host . ($port !== $defaultPort ? ':' . $port : '');
 
         $request = strtoupper($method) . ' ' . $path . " HTTP/1.0\r\n";
-        $request .= "Host: $host\r\n";
+        $request .= "Host: $hostHeader\r\n";
         $request .= "User-Agent: {$this->userAgent}\r\n";
         $request .= "Connection: Close\r\n";
 
@@ -352,13 +543,35 @@ readonly class HttpClient
 
         $responseHeaders = explode("\r\n", $rawHeaders);
 
-        if (preg_match('/^Location:\s*(.*)/mi', $rawHeaders, $matches) === 1) {
-            return $this->requestWithFsockopen($method, $this->newUrlFromLocation(trim($matches[1]), $url), $requestHeaders, $requestBody, $options, $redirects + 1);
-        }
-
         $responseCode = preg_match('/\d{3}/', $responseHeaders[0], $matches) === 1 ? (int)$matches[0] : 0;
 
+        if (($options[self::FOLLOW_REDIRECTS] ?? true)
+            && $responseCode >= 300
+            && $responseCode < 400
+            && preg_match('/^Location:\s*(.*)/mi', $rawHeaders, $matches) === 1
+        ) {
+            $targetUrl = $this->newUrlFromLocation(trim($matches[1]), $url);
+
+            return $this->requestWithFsockopen(
+                $method,
+                $targetUrl,
+                $this->headersForRedirect($requestHeaders, $url, $targetUrl),
+                $requestBody,
+                $options,
+                $redirects + 1,
+            );
+        }
+
         return $this->createResponse($responseCode, $responseHeaders, $content);
+    }
+
+    private function connectionErrorMessage(mixed $socketError, ?string $socketWarning): string
+    {
+        if (\is_string($socketError) && $socketError !== '') {
+            return $socketError;
+        }
+
+        return $socketWarning ?? 'Connection failed';
     }
 
     /**
@@ -372,10 +585,15 @@ readonly class HttpClient
         array   $requestHeaders,
         ?string $requestBody,
         array   $options = [],
+        int     $redirects = 0,
     ): HttpResponse {
+        if ($redirects > $this->maxRedirects) {
+            throw new HttpClientException('Too many redirects');
+        }
 
         // NOTE: it seems like the PHP HTTP stream wrapper does not support connection timeout
-        $readTimeout    = $options[self::READ_TIMEOUT] ?? $this->timeout;
+        $readTimeout = $options[self::READ_TIMEOUT] ?? $this->timeout;
+        $host        = (string)parse_url($url, PHP_URL_HOST);
 
         $headerLines = array_map(static fn($k, $v): string => "$k: $v", array_keys($requestHeaders), $requestHeaders);
         $context     = stream_context_create([
@@ -384,10 +602,12 @@ readonly class HttpClient
                 'header'        => implode("\r\n", $headerLines),
                 'content'       => $requestBody ?? '',
                 'user_agent'    => $this->userAgent,
-                'max_redirects' => $this->maxRedirects + 1,
+                'follow_location' => 0,
+                'max_redirects' => 1,
                 'timeout'       => $readTimeout,
                 'ignore_errors' => true,
-            ]
+            ],
+            'ssl' => $this->sslContextOptions($host),
         ]);
 
         $fetch = static function () use ($url, $context): array {
@@ -442,7 +662,7 @@ readonly class HttpClient
         $responseCode       = 0;
         $responseHeaders    = [];
         foreach ($rawResponseHeaders as $value) {
-            if (preg_match('#^HTTP/1.[01] (\d{3})#', $value, $matches) === 1) {
+            if (preg_match('#^HTTP/\S+ (\d{3})#', $value, $matches) === 1) {
                 $responseCode    = (int)$matches[1];
                 $responseHeaders = []; // Reset old headers from previous request
             }
@@ -450,8 +670,21 @@ readonly class HttpClient
             $responseHeaders[] = $value;
         }
 
-        if ($responseCode >= 300 && $responseCode < 400) {
-            throw new HttpClientException('Too many redirects');
+        if (($options[self::FOLLOW_REDIRECTS] ?? true) && $responseCode >= 300 && $responseCode < 400) {
+            foreach ($responseHeaders as $header) {
+                if (preg_match('/^Location:\s*(.*)/i', $header, $matches) === 1) {
+                    $targetUrl = $this->newUrlFromLocation(trim($matches[1]), $url);
+
+                    return $this->requestWithFileGetContents(
+                        $method,
+                        $targetUrl,
+                        $this->headersForRedirect($requestHeaders, $url, $targetUrl),
+                        $requestBody,
+                        $options,
+                        $redirects + 1,
+                    );
+                }
+            }
         }
 
         return $this->createResponse($responseCode, $responseHeaders, $content);

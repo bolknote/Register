@@ -51,7 +51,8 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
         $basePath         = $this->basePath;
         [$extraStyles, $extraScripts] = $this->getExtraAssets();
 
-        extract($data);
+        // Template data must not be able to replace the selected file or renderer helpers.
+        extract($data, EXTR_SKIP);
         ob_start();
         if ($_template_path[0] === '/' || $_template_path[0] === '.') {
             require $_template_path;

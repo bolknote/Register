@@ -51,6 +51,7 @@ $lang_install = array(
 'Password too long'			=>	'Passwords must be no more than 100 characters long.',
 'Invalid email'				=>	'The administrator email address you entered is invalid.',
 'Missing base url'			=>	'You must enter a base URL.',
+'Invalid base url'			=>	'Enter a valid HTTP or HTTPS base URL without credentials, a query string, or a fragment.',
 'No such database type'		=>	'“%s” is not a valid database type.',
 'Invalid table prefix'		=>	'The table prefix “%s” contains illegal characters. The prefix may contain the letters a to z, any numbers and the underscore character. They must however not start with a number. Please choose a different prefix.',
 'Too long table prefix'		=>	'The table prefix “%s” is too long. The maximum length is 40 characters. Please choose a different prefix.',

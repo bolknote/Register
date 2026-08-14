@@ -196,7 +196,8 @@ class Viewer
         $dateAndTime  = $this->dateAndTime(...);
         $numberFormat = $this->numberFormat(...);
 
-        extract($_vars, EXTR_OVERWRITE);
+        // Template variables must not be able to replace the selected view file or helper closures.
+        extract($_vars, EXTR_SKIP);
         include $_found_file;
     }
 }

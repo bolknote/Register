@@ -15,6 +15,7 @@ namespace Register\Module\Search\Admin;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use S2\Rose\Entity\Indexable;
+use S2\Rose\Entity\ExternalId;
 use S2\Rose\Exception\RuntimeException;
 use S2\Rose\Indexer;
 use S2\Rose\Storage\Database\PdoStorage;
@@ -125,7 +126,9 @@ class IndexManager
                     throw new \RuntimeException('Search index buffer contains invalid Base64 data.');
                 }
 
-                $indexable = unserialize($serializedIndexable, ['allowed_classes' => true]);
+                $indexable = unserialize($serializedIndexable, [
+                    'allowed_classes' => [Indexable::class, ExternalId::class, \DateTime::class],
+                ]);
                 if ($indexable instanceof Indexable) {
                     try {
                         $this->indexer->index($indexable);
