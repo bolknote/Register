@@ -219,6 +219,7 @@ class AdminExtension implements ExtensionInterface
                 $provider->getBoolProxy('S2_USE_HIERARCHY'),
                 $container->get(ContentSlugService::class),
                 $container->get(ContentChangeDispatcher::class),
+                ...$container->getByTag(\Register\Content\ContentDeletionGuardInterface::class),
             );
         });
 

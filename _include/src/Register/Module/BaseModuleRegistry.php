@@ -37,6 +37,8 @@ final class BaseModuleRegistry
 
     public const string AUDIO_PLAYER = 'register_audio_player';
 
+    public const string LINK_HEALTH = 'register_link_health';
+
     /**
      * The order preserves the established listener and route registration order.
      *
@@ -91,6 +93,11 @@ final class BaseModuleRegistry
             'manifest'    => AudioPlayer\Manifest::class,
             'application' => AudioPlayer\Module::class,
             'admin'       => null,
+        ],
+        self::LINK_HEALTH => [
+            'manifest'    => LinkHealth\Manifest::class,
+            'application' => LinkHealth\Module::class,
+            'admin'       => LinkHealth\AdminModule::class,
         ],
     ];
 

@@ -18,6 +18,8 @@ use Register\Module\Blog\AdminModule as BlogAdminModule;
 use Register\Module\Blog\Module as BlogModule;
 use Register\Module\Math\AdminModule as MathAdminModule;
 use Register\Module\Math\Module as MathModule;
+use Register\Module\LinkHealth\AdminModule as LinkHealthAdminModule;
+use Register\Module\LinkHealth\Module as LinkHealthModule;
 use Register\Module\Reactions\Module as ReactionsModule;
 use Register\Module\Search\AdminModule as SearchAdminModule;
 use Register\Module\Search\Module as SearchModule;
@@ -54,6 +56,7 @@ final class RegisterKernelTest extends Unit
             TypographyModule::class,
             SyntaxHighlightingModule::class,
             AudioPlayerModule::class,
+            LinkHealthModule::class,
         ], $application->moduleClasses);
     }
 
@@ -76,11 +79,13 @@ final class RegisterKernelTest extends Unit
             TypographyModule::class,
             SyntaxHighlightingModule::class,
             AudioPlayerModule::class,
+            LinkHealthModule::class,
             BlogAdminModule::class,
             SearchAdminModule::class,
             MathAdminModule::class,
             VisitorIdentityAdminModule::class,
             AnalyticsAdminModule::class,
+            LinkHealthAdminModule::class,
         ], $application->moduleClasses);
     }
 

@@ -224,6 +224,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(QueuePublisher::class),
             $container->get(ContentPublicationScheduler::class),
             $container->getBoolParameter('backup_enabled'),
+            ...$container->getByTag(\S2\Cms\Queue\ScheduledMaintenanceTaskInterface::class),
         ));
         $container->set(BackgroundWorkRunner::class, fn(Container $container): \S2\Cms\Queue\BackgroundWorkRunner => new BackgroundWorkRunner(
             $container->get(\PDO::class),

@@ -24,7 +24,7 @@ final readonly class SchemaManager
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_GENERATION';
 
-    public const int CURRENT_GENERATION = 8;
+    public const int CURRENT_GENERATION = 9;
 
     public function __construct(
         private DbLayer             $dbLayer,
