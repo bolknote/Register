@@ -8,7 +8,7 @@
             this.root = root;
             this.endpoint = root.dataset.endpoint || '';
             this.toolbar = root.querySelector('.register-reaction-toolbar');
-            this.addButton = root.querySelector('.register-reaction-add');
+            this.primaryButton = root.querySelector('.register-reaction-primary');
             this.picker = root.querySelector('.register-reaction-picker');
             this.status = root.querySelector('.register-reaction-status');
             this.chips = new Map();
@@ -19,6 +19,8 @@
             this.stateRevision = 0;
             this.openTimer = 0;
             this.closeTimer = 0;
+            this.longPressTimer = 0;
+            this.suppressPrimaryClick = false;
 
             for (const button of root.querySelectorAll('[data-reaction]')) {
                 const type = button.dataset.reaction;
@@ -41,19 +43,36 @@
 
         bind() {
             for (const [type, button] of this.chips) {
-                button.addEventListener('click', () => void this.select(type));
+                button.addEventListener('click', (event) => {
+                    if (button === this.primaryButton && this.suppressPrimaryClick) {
+                        event.preventDefault();
+                        this.suppressPrimaryClick = false;
+                        return;
+                    }
+                    void this.select(type);
+                });
             }
             for (const [type, button] of this.choices) {
-                button.addEventListener('click', () => void this.select(type));
+                button.addEventListener('click', () => {
+                    this.suppressPrimaryClick = false;
+                    void this.select(type);
+                });
             }
 
-            this.addButton?.addEventListener('click', () => {
-                if (this.picker?.hidden) {
-                    this.openPicker(true);
-                } else {
-                    this.closePicker(true);
+            const cancelLongPress = () => window.clearTimeout(this.longPressTimer);
+            this.primaryButton?.addEventListener('pointerdown', (event) => {
+                if (event.pointerType === 'mouse') {
+                    return;
                 }
+                cancelLongPress();
+                this.longPressTimer = window.setTimeout(() => {
+                    this.suppressPrimaryClick = true;
+                    this.openPicker(false);
+                }, 420);
             });
+            this.primaryButton?.addEventListener('pointerup', cancelLongPress);
+            this.primaryButton?.addEventListener('pointercancel', cancelLongPress);
+            this.primaryButton?.addEventListener('pointerleave', cancelLongPress);
 
             this.root.addEventListener('keydown', (event) => this.onKeyDown(event));
             document.addEventListener('pointerdown', (event) => {
@@ -63,7 +82,7 @@
             });
 
             if (window.matchMedia('(hover: hover)').matches) {
-                this.addButton?.addEventListener('pointerenter', () => {
+                this.primaryButton?.addEventListener('pointerenter', () => {
                     window.clearTimeout(this.closeTimer);
                     this.openTimer = window.setTimeout(() => this.openPicker(false), 220);
                 });
@@ -195,30 +214,37 @@
         }
 
         openPicker(moveFocus) {
-            if (!this.picker || !this.addButton || this.busy) {
+            if (!this.picker || !this.primaryButton || this.busy) {
                 return;
             }
             window.clearTimeout(this.closeTimer);
             this.picker.hidden = false;
-            this.addButton.setAttribute('aria-expanded', 'true');
+            this.primaryButton.setAttribute('aria-expanded', 'true');
             if (moveFocus) {
                 (this.choices.get(this.selected) || this.choices.values().next().value)?.focus();
             }
         }
 
         closePicker(returnFocus) {
-            if (!this.picker || !this.addButton || this.picker.hidden) {
+            if (!this.picker || !this.primaryButton || this.picker.hidden) {
                 return;
             }
             window.clearTimeout(this.openTimer);
             this.picker.hidden = true;
-            this.addButton.setAttribute('aria-expanded', 'false');
+            this.primaryButton.setAttribute('aria-expanded', 'false');
+            this.suppressPrimaryClick = false;
             if (returnFocus) {
-                this.addButton.focus();
+                this.primaryButton.focus();
             }
         }
 
         onKeyDown(event) {
+            if (event.target === this.primaryButton && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
+                event.preventDefault();
+                this.openPicker(true);
+                return;
+            }
+
             if (event.key === 'Escape' && !this.picker?.hidden) {
                 event.preventDefault();
                 this.closePicker(true);

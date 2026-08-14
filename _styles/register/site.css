@@ -559,6 +559,61 @@ h2.post.head + .post.time {
     row-gap: 0.65rem;
 }
 
+.post.foot:has(> .register-reactions) {
+    align-items: center;
+    column-gap: .45rem;
+}
+
+.post.foot > .register-reactions + .post-foot-comments > a,
+.post.foot > .register-reactions + .post-foot-comments > a:visited {
+    min-height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .28rem;
+    color: var(--minor-color);
+    font-size: 0;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.post.foot > .register-reactions + .post-foot-comments > a:empty {
+    display: none;
+}
+
+.post.foot > .register-reactions + .post-foot-comments > a::before {
+    width: 1.28rem;
+    height: 1.28rem;
+    display: block;
+    flex: 0 0 auto;
+    background: currentColor;
+    content: "";
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20.5 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h9.5a4 4 0 0 1 4 4Z' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20.5 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h9.5a4 4 0 0 1 4 4Z' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.post.foot > .register-reactions + .post-foot-comments > a::after {
+    min-width: .7ch;
+    content: attr(data-comment-count);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.post.foot > .register-reactions + .post-foot-comments > a[data-comment-count="0"]::after {
+    display: none;
+}
+
+.post.foot > .register-reactions + .post-foot-comments > a:hover,
+.post.foot > .register-reactions + .post-foot-comments > a:focus-visible {
+    color: var(--text-color);
+}
+
+.post.foot > .register-reactions + .post-foot-comments > a:focus-visible {
+    border-radius: .35rem;
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
 .blog-pagination {
     display: flex;
     max-width: var(--text-width) !important;

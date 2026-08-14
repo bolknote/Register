@@ -32,14 +32,14 @@ final class ReactionsCest
 
         $I->amOnPage('https://localhost/');
         $I->seeResponseCodeIs(200);
-        $I->assertCount(2, $I->grabMultiple('[data-register-reactions]'));
+        $I->assertCount(2, $I->grabMultiple('.post.foot > [data-register-reactions]'));
         $I->seeElement('[data-register-reactions][data-endpoint="/_reactions/post/' . $firstId . '"]');
         $I->seeElement('[data-register-reactions][data-endpoint="/_reactions/post/' . $secondId . '"]');
         $I->seeElement('[data-endpoint="/_reactions/post/' . $firstId . '"] [data-reaction="love"][data-count="1"]');
         $I->seeElement('[data-endpoint="/_reactions/post/' . $secondId . '"] [data-reaction="like"][data-count="1"]');
-        $I->assertCount(2, $I->grabMultiple('.register-reaction-add'));
-        $I->dontSee('Choose a reaction', '.register-reaction-add');
-        $I->seeElement('.register-reaction-add[aria-label="Choose a reaction"]');
+        $I->assertCount(2, $I->grabMultiple('.register-reaction-primary[aria-haspopup="menu"]'));
+        $I->assertCount(2, $I->grabMultiple('.register-reaction-like-icon'));
+        $I->dontSeeElement('.register-reaction-add');
         $I->dontSee('register_reactions:post', 'body');
     }
 

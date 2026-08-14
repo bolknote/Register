@@ -5,25 +5,30 @@
     --reaction-muted: var(--register-minor, #697078);
     --reaction-border: var(--register-border, #dfe2e6);
     --reaction-accent: var(--register-accent, #1677ff);
-    --reaction-accent-soft: color-mix(in srgb, var(--reaction-accent) 12%, var(--reaction-surface));
     position: relative;
+    display: inline-flex;
     box-sizing: border-box;
+    max-width: 100%;
     margin: 2.25rem 0 1.25rem;
     padding: 0;
     border: 0;
     color: var(--reaction-text);
     font-family: var(--register-ui-font, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+    vertical-align: middle;
+}
+
+.post.foot > .register-reactions {
+    margin: 0;
 }
 
 .register-reaction-toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: .42rem;
+    gap: .62rem;
 }
 
 .register-reaction-chip,
-.register-reaction-add,
 .register-reaction-choice {
     box-sizing: border-box;
     margin: 0;
@@ -31,41 +36,53 @@
     color: inherit;
     font: inherit;
     cursor: pointer;
+    touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }
 
-.register-reaction-chip,
-.register-reaction-add {
-    min-height: 2.25rem;
+.register-reaction-chip {
+    min-height: 1.5rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: .34rem;
-    padding: .28rem .7rem;
-    border-radius: 999px;
-    background: var(--reaction-field);
-    box-shadow: 0 1px 0 rgb(0 0 0 / .025);
-    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease, transform 140ms ease;
+    gap: .28rem;
+    padding: .08rem .12rem;
+    border-color: transparent;
+    border-radius: .35rem;
+    color: var(--reaction-muted);
+    background: transparent;
+    box-shadow: none;
+    line-height: 1;
+    transition: background-color 140ms ease, color 140ms ease;
 }
 
-.register-reaction-chip:hover,
-.register-reaction-add:hover {
-    border-color: color-mix(in srgb, var(--reaction-accent) 45%, var(--reaction-border));
-    background: color-mix(in srgb, var(--reaction-field) 78%, var(--reaction-accent-soft));
-    transform: translateY(-1px);
+.register-reaction-chip:hover {
+    color: var(--reaction-text);
+    background: color-mix(in srgb, var(--reaction-field) 64%, transparent);
 }
 
 .register-reaction-chip[aria-pressed="true"] {
-    border-color: color-mix(in srgb, var(--reaction-accent) 58%, var(--reaction-border));
-    background: var(--reaction-accent-soft);
     color: var(--reaction-accent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--reaction-accent) 12%, transparent);
+    background: transparent;
+}
+
+.register-reaction-like-icon {
+    width: 1.34rem;
+    height: 1.34rem;
+    display: block;
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transform: translateY(-.2rem);
 }
 
 .register-reaction-emoji {
-    min-width: 1.35rem;
+    min-width: 1.16rem;
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-    font-size: 1.32rem;
+    font-size: 1.1rem;
     line-height: 1;
     text-align: center;
     transform: translateY(.02em);
@@ -83,60 +100,11 @@
     color: inherit;
 }
 
-.register-reaction-add {
-    position: relative;
-    width: 2.25rem;
-    min-width: 2.25rem;
-    padding: 0;
-    border-color: transparent;
-    color: var(--reaction-muted);
-    background: color-mix(in srgb, var(--reaction-field) 72%, transparent);
-    box-shadow: none;
-}
-
-.register-reaction-add-glyph {
-    position: relative;
-    display: inline-grid;
-    width: 1.45rem;
-    height: 1.45rem;
-    place-items: center;
-}
-
-.register-reaction-add-emoji {
-    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-    font-size: 1.28rem;
-    line-height: 1;
-    filter: saturate(.82);
-}
-
-.register-reaction-add-plus {
-    position: absolute;
-    right: -.24rem;
-    bottom: -.16rem;
-    display: grid;
-    width: .82rem;
-    height: .82rem;
-    place-items: center;
-    border: 1px solid var(--reaction-border);
-    border-radius: 50%;
-    color: var(--reaction-muted);
-    background: var(--reaction-surface);
-    font-family: var(--register-ui-font, system-ui, sans-serif);
-    font-size: .7rem;
-    font-weight: 750;
-    line-height: 1;
-}
-
-.register-reaction-add:hover .register-reaction-add-plus {
-    border-color: color-mix(in srgb, var(--reaction-accent) 45%, var(--reaction-border));
-    color: var(--reaction-accent);
-}
-
 .register-reaction-picker {
     position: absolute;
     z-index: 20;
     left: 0;
-    bottom: calc(100% - .46rem);
+    bottom: calc(100% + .5rem);
     display: flex;
     align-items: center;
     gap: .12rem;
@@ -177,7 +145,6 @@
 }
 
 .register-reaction-chip:focus-visible,
-.register-reaction-add:focus-visible,
 .register-reaction-choice:focus-visible {
     outline: 2px solid var(--reaction-accent);
     outline-offset: 2px;
@@ -259,7 +226,6 @@
 
 @media (prefers-reduced-motion: reduce) {
     .register-reaction-chip,
-    .register-reaction-add,
     .register-reaction-choice,
     .register-reaction-picker {
         animation: none;
