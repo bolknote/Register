@@ -213,7 +213,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Continuous incremental backup | Missing | No first-party implementation. |
 | HTTP and HTTPS | Available | Supported, including optional forced HTTPS for administration. |
 | Modern PHP support | Available | Register requires PHP 8.3 and is checked for PHP 8.3–8.5 compatibility. |
-| Sitemap | Available | Core and blog sitemap routes exist. |
+| Sitemap | Available | `/robots.txt` advertises a standards-compliant sitemap index containing published canonical pages and posts, split into bounded XML files. |
 | Merge and minify CSS/JavaScript | Available | Registered assets can be merged, minified, hashed, and compressed. |
 | Configurable mail sender | Available | Uses the configured webmaster email. |
 | Known-vulnerability monitor in the application | Missing | Dependency scanning is available in development/CI, not as an admin feature. |

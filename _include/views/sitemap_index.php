@@ -1,0 +1,14 @@
+<?php
+
+declare(strict_types = 1);
+
+/**
+ * @var string $items
+ */
+
+echo '<?xml version="1.0" encoding="utf-8"?>'."\n";
+
+?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<?php echo $items; ?>
+</sitemapindex>

@@ -25,7 +25,8 @@ response.
 
 - Publishes blog posts and permanent pages, including drafts and scheduled dates.
 - Gives every post a short permalink such as `/post-name`; the blog lives at `/`.
-- Organizes material with tags, sections, archives, favorites, RSS, and a sitemap.
+- Organizes material with tags, sections, archives, favorites, RSS, and an automatically advertised
+  XML sitemap.
 - Supports comments, moderation, subscriptions, and spam filtering.
 - Adds login-free emoji reactions to posts and pages, with one active reaction per anonymous visitor.
 - Provides accounts and permissions for authors, moderators, editors, and administrators.
@@ -83,6 +84,12 @@ composer install --no-dev -o
 
 Point the web-server document root at the checkout, make the cache and media directories writable,
 then open `/_admin/install.php` and follow the installer.
+
+Register publishes `/robots.txt`, which advertises the canonical `/sitemap.xml`. The latter is a
+sitemap index split into conservative 10,000-URL files. Sitemap entries contain only published
+canonical post and page URLs, use absolute addresses, and report the last significant content
+modification when it is known. Site owners can additionally submit `/sitemap.xml` in Google Search
+Console to inspect processing and indexing diagnostics.
 
 ## Local development in one command
 

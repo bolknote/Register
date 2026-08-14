@@ -27,17 +27,58 @@ final class ContentSitemapCest
         $I->amOnPage('/sitemap.xml');
         $I->seeResponseCodeIs(Response::HTTP_OK);
 
+        $indexXml = $I->grabResponse();
+        $indexDocument = new \DOMDocument();
+        $I->assertTrue($indexDocument->loadXML($indexXml));
+        $I->assertStringContainsString(
+            '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+            $indexXml,
+        );
+        $I->assertStringContainsString('<loc>http://s2.localhost/sitemap-1.xml</loc>', $indexXml);
+        $I->assertSame('application/xml; charset=utf-8', $I->grabHttpHeader('Content-Type'));
+
+        $indexEtag = $I->grabHttpHeader('ETag');
+        $I->assertNotNull($indexEtag);
+        $I->sendRequestWithHeaders('/sitemap.xml', ['If-None-Match' => $indexEtag]);
+        $I->seeResponseCodeIs(Response::HTTP_NOT_MODIFIED);
+
+        $I->amOnPage('/sitemap-1.xml');
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
         $xml = $I->grabResponse();
+        $document = new \DOMDocument();
+        $I->assertTrue($document->loadXML($xml));
 
         $I->assertStringContainsString('/sitemap-page', $xml);
         $I->assertStringContainsString('/sitemap-post', $xml);
         $I->assertStringContainsString(gmdate('c', 1_700_000_300), $xml);
         $I->assertStringNotContainsString('/sitemap-draft', $xml);
-        $I->assertSame('text/xml; charset=utf-8', $I->grabHttpHeader('Content-Type'));
+        $I->assertStringNotContainsString('<priority>', $xml);
+        $I->assertStringNotContainsString('<changefreq>', $xml);
+        $I->assertSame('application/xml; charset=utf-8', $I->grabHttpHeader('Content-Type'));
 
-        $lastModified = $I->grabHttpHeader('Last-Modified');
-        $I->assertNotNull($lastModified);
-        $I->sendRequestWithHeaders('/sitemap.xml', ['If-Modified-Since' => $lastModified]);
+        $etag = $I->grabHttpHeader('ETag');
+        $I->assertNotNull($etag);
+        $I->sendRequestWithHeaders('/sitemap-1.xml', ['If-None-Match' => $etag]);
+        $I->seeResponseCodeIs(Response::HTTP_NOT_MODIFIED);
+
+        $I->amOnPage('/sitemap-2.xml');
+        $I->seeResponseCodeIs(Response::HTTP_NOT_FOUND);
+    }
+
+    public function robotsTxtAdvertisesTheSitemap(\IntegrationTester $I): void
+    {
+        $I->amOnPage('/robots.txt');
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->assertSame('text/plain; charset=utf-8', $I->grabHttpHeader('Content-Type'));
+        $I->assertSame(
+            "User-agent: *\nDisallow: /_admin/\nSitemap: http://s2.localhost/sitemap.xml\n",
+            $I->grabResponse(),
+        );
+
+        $etag = $I->grabHttpHeader('ETag');
+        $I->assertNotNull($etag);
+        $I->sendRequestWithHeaders('/robots.txt', ['If-None-Match' => $etag]);
         $I->seeResponseCodeIs(Response::HTTP_NOT_MODIFIED);
     }
 

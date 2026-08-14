@@ -26,6 +26,7 @@ use Register\Content\ContentSourceInterface;
 use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentType;
 use Register\Content\Controller\ContentSitemapController;
+use Register\Content\Controller\RobotsTxtController;
 use Register\Content\PageContentSource;
 use Register\Content\TagRepository;
 use Register\Module\BaseModuleInstaller;
@@ -123,6 +124,10 @@ readonly class ProductModule implements ContainerModuleInterface
             $container->get('strict_viewer'),
             ContentType::PAGE,
             ContentType::POST,
+        ));
+        $container->set(RobotsTxtController::class, static fn(Container $container): RobotsTxtController => new RobotsTxtController(
+            $container->get(ContentUrlGenerator::class),
+            $container->getStringParameter('base_path'),
         ));
         $container->set(TagRepository::class, static fn(Container $container): TagRepository => new TagRepository(
             $container->get(DbLayer::class),

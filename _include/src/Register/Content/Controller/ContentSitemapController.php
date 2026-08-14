@@ -22,6 +22,14 @@ final readonly class ContentSitemapController implements ControllerInterface
 {
     public const string SERVICE_ID = self::class . '.all';
 
+    /**
+     * Keeping each file well below both protocol limits (50,000 URLs and 50 MB)
+     * leaves enough room even for URLs close to the 2,048-character limit.
+     */
+    private const int URLS_PER_SITEMAP = 10_000;
+
+    private const int MAX_URL_LENGTH = 2_047;
+
     /** @var list<ContentType> */
     private array $contentTypes;
 
@@ -41,26 +49,90 @@ final readonly class ContentSitemapController implements ControllerInterface
     #[\Override]
     public function handle(Request $request): Response
     {
-        $maxContentTime = 0;
-        $items          = '';
+        $part = $request->attributes->get('part');
+        if ($part === null) {
+            return $this->indexResponse($request);
+        }
 
-        foreach ($this->contentRepository->published(...$this->contentTypes) as $content) {
-            $publishedAt   = $content->publishedAt ?? 0;
-            $updatedAt     = max($content->updatedAt ?? 0, $publishedAt);
-            $maxContentTime = max($maxContentTime, $updatedAt);
+        $part = (int)$part;
+        if ($part < 1 || $part > intdiv(PHP_INT_MAX, self::URLS_PER_SITEMAP)) {
+            return new Response('', Response::HTTP_NOT_FOUND);
+        }
 
-            $items .= $this->viewer->render('sitemap_item', [
-                'link'        => $this->contentUrlGenerator->absolutePath($content->path),
-                'time'        => $publishedAt,
-                'modify_time' => $updatedAt,
+        return $this->partResponse($request, $part);
+    }
+
+    private function indexResponse(Request $request): Response
+    {
+        $urlCount = 0;
+        foreach ($this->entries() as $_entry) {
+            ++$urlCount;
+        }
+
+        $partCount = max(1, (int)ceil($urlCount / self::URLS_PER_SITEMAP));
+        $items     = '';
+        for ($part = 1; $part <= $partCount; ++$part) {
+            $items .= $this->viewer->render('sitemap_index_item', [
+                'link' => $this->contentUrlGenerator->rawAbsolutePath('/sitemap-' . $part . '.xml'),
             ]);
         }
 
-        $output   = $this->viewer->render('sitemap', ['items' => $items]);
+        return $this->xmlResponse($this->viewer->render('sitemap_index', ['items' => $items]), $request);
+    }
+
+    private function partResponse(Request $request, int $part): Response
+    {
+        $start = ($part - 1) * self::URLS_PER_SITEMAP;
+        $end   = $start + self::URLS_PER_SITEMAP;
+        $index = 0;
+        $items = '';
+
+        foreach ($this->entries() as $entry) {
+            if ($index >= $end) {
+                break;
+            }
+
+            if ($index >= $start) {
+                $items .= $this->viewer->render('sitemap_item', $entry);
+            }
+
+            ++$index;
+        }
+
+        if ($part > 1 && $items === '') {
+            return new Response('', Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->xmlResponse($this->viewer->render('sitemap', ['items' => $items]), $request);
+    }
+
+    /**
+     * @return \Generator<int, array{link: string, modify_time: int|null}>
+     */
+    private function entries(): \Generator
+    {
+        foreach ($this->contentRepository->published(...$this->contentTypes) as $content) {
+            $link = $this->contentUrlGenerator->rawAbsolutePath($content->path);
+            if (\strlen($link) > self::MAX_URL_LENGTH) {
+                continue;
+            }
+
+            $publishedAt = $content->publishedAt ?? 0;
+            $updatedAt   = max($content->updatedAt ?? 0, $publishedAt);
+
+            yield [
+                'link'        => $link,
+                'modify_time' => $updatedAt > 0 ? $updatedAt : null,
+            ];
+        }
+    }
+
+    private function xmlResponse(string $output, Request $request): Response
+    {
         $response = new Response($output);
         $response->headers->set('Content-Length', (string)\strlen($output));
-        $response->headers->set('Content-Type', 'text/xml; charset=utf-8');
-        $response->setLastModified(new \DateTimeImmutable('@' . $maxContentTime));
+        $response->headers->set('Content-Type', 'application/xml; charset=utf-8');
+        $response->setEtag(hash('sha256', $output));
         $response->isNotModified($request);
 
         return $response;

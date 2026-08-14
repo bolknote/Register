@@ -47,6 +47,7 @@ use S2\Cms\Controller\PageFavorite;
 use S2\Cms\Controller\PageTag;
 use S2\Cms\Controller\PageTags;
 use Register\Content\Controller\ContentSitemapController;
+use Register\Content\Controller\RobotsTxtController;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\Event\NotFoundEvent;
 use S2\Cms\Framework\Exception\ConfigurationException;
@@ -748,6 +749,16 @@ class CmsExtension implements ExtensionInterface
         $routes->add('sitemap', new Route(
             '/sitemap.xml',
             ['_controller' => ContentSitemapController::SERVICE_ID],
+            methods: ['GET']
+        ));
+        $routes->add('sitemap_part', new Route(
+            '/sitemap-{part<[1-9]\\d*>}.xml',
+            ['_controller' => ContentSitemapController::SERVICE_ID],
+            methods: ['GET']
+        ));
+        $routes->add('robots', new Route(
+            '/robots.txt',
+            ['_controller' => RobotsTxtController::class],
             methods: ['GET']
         ));
         $routes->add('favorite', new Route(

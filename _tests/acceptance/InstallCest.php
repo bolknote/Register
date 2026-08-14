@@ -367,9 +367,17 @@ class InstallCest
 
         $I->amOnPage('/index.php?/sitemap.xml'); // Same as above
         $I->seeResponseCodeIsSuccessful();
+        $I->see('/index.php?/sitemap-1.xml');
+
+        $I->amOnPage('/index.php?/sitemap-1.xml');
+        $I->seeResponseCodeIsSuccessful();
         $I->see('/section1/new-page1');
         $I->see('/new-post1');
         $I->see(gmdate('c', strtotime('2023-08-11 12:15')));
+
+        $I->amOnPage('/index.php?/robots.txt');
+        $I->seeResponseCodeIsSuccessful();
+        $I->see('Sitemap: http://localhost:8881/index.php?/sitemap.xml');
     }
 
     /**
@@ -471,6 +479,10 @@ class InstallCest
         $I->see('New blog post');
 
         $I->amOnPage('/index.php?/sitemap.xml'); // Same as above
+        $I->seeResponseCodeIsSuccessful();
+        $I->see('/index.php?/sitemap-1.xml');
+
+        $I->amOnPage('/index.php?/sitemap-1.xml');
         $I->seeResponseCodeIsSuccessful();
         $I->see('/new-post1');
         $I->see(gmdate('c', strtotime('2023-08-12 12:15')));
