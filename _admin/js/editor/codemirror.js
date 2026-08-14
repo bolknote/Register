@@ -197,6 +197,18 @@ const s2_codemirror = (function () {
             }
             return instance.getValue();
         },
+        setValue: function (value, clearHistory) {
+            if (!instance) {
+                return false;
+            }
+            clearAiChangeMarkers();
+            instance.setValue(value);
+            if (clearHistory) {
+                instance.clearHistory();
+            }
+            instance.save();
+            return true;
+        },
         getSelectionSnapshot: function () {
             if (!instance) {
                 return {text: '', start: 0, end: 0, hasSelection: false};

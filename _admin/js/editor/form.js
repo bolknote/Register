@@ -9,7 +9,6 @@
 import {editorDeps} from './deps.js';
 import {hex_md5} from './hash.js';
 import {Preview, initPreviewSync} from './preview.js';
-import {PopupWindow} from './dialogs.js';
 import {s2_codemirror} from './codemirror.js';
 import {escapeHtml, sanitizeUrlForAttribute} from './utils/escape.js';
 
@@ -20,6 +19,9 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
     const draftStorageKey = 'register_content_draft:' + sLowerEntityName + ':' + contentId;
 
     function decorateForm(statusData) {
+        if (!statusData) {
+            return;
+        }
         const urlWrapper = eForm.querySelector('.field-' + sSlugFieldName);
         const urlLabel = eForm.querySelector('label[for="id-' + sSlugFieldName + '"]');
         urlWrapper.setAttribute('data-url-status', statusData['urlStatus']);
@@ -33,8 +35,10 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         eForm.querySelector('.field-published').setAttribute('data-published-status', isPublished ? '1' : '0');
 
         const ePreviewLink = eForm.querySelector('#preview_link');
-        ePreviewLink.href = statusData['url'];
-        ePreviewLink.style.display = isPublished ? 'inline' : 'none';
+        if (ePreviewLink) {
+            ePreviewLink.href = statusData['url'];
+            ePreviewLink.style.display = isPublished ? 'inline' : 'none';
+        }
     }
 
     decorateForm(statusData);
@@ -137,28 +141,56 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
     });
 
     var Changes = (function () {
-        let savedText = '';
-        let previousText = '';
+        const eTextarea = eForm.elements[sTextareaName];
+        let savedText = eTextarea.value;
+        let previousText = savedText;
         let currentFormHash = '';
 
-        function persistDraft(currentText) {
-            if (savedText !== currentText) {
-                localStorage.setItem(draftStorageKey, currentText);
-            } else {
-                localStorage.removeItem(draftStorageKey);
+        function readDraft() {
+            try {
+                return localStorage.getItem(draftStorageKey);
+            } catch (error) {
+                console.warn('Unable to read the local editor draft:', error);
+                return null;
             }
+        }
+
+        function removeDraft() {
+            try {
+                localStorage.removeItem(draftStorageKey);
+            } catch (error) {
+                console.warn('Unable to remove the local editor draft:', error);
+            }
+        }
+
+        function persistDraft(currentText) {
+            try {
+                if (savedText !== currentText) {
+                    localStorage.setItem(draftStorageKey, currentText);
+                } else {
+                    localStorage.removeItem(draftStorageKey);
+                }
+            } catch (error) {
+                console.warn('Unable to save the local editor draft:', error);
+            }
+        }
+
+        function persistCurrentText() {
+            s2_codemirror.flip();
+            persistDraft(eTextarea.value);
         }
 
         function checkChanges() {
             document.dispatchEvent(new Event('check_changes_start.s2'));
 
-            const currentText = eForm.elements[sTextareaName].value;
+            s2_codemirror.flip();
+            const currentText = eTextarea.value;
             persistDraft(currentText);
 
             if (previousText !== currentText) {
                 const absoluteUrl = new URL(eForm.action);
                 const id = absoluteUrl.searchParams.get('id');
-                Preview(eForm.elements['title'].value, eForm.elements[sTextareaName].value, id, sTemplateId || eForm.elements['template'].value, sTemplateScope);
+                Preview(eForm.elements['title'].value, currentText, id, sTemplateId || eForm.elements['template'].value, sTemplateScope);
                 previousText = currentText;
             }
         }
@@ -169,24 +201,17 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
                 checkChanges();
             }, 300, 3000);
 
-            s2_codemirror.onChange(function () {
+            function handleTextChange() {
                 s2_codemirror.flip();
-                persistDraft(eForm.elements[sTextareaName].value);
+                persistDraft(eTextarea.value);
                 updatePreview();
-            });
-        }
+            }
 
-        const recoveredText = localStorage.getItem(draftStorageKey);
-        setInterval(checkChanges, 5000);
-        wireLivePreview();
-
-        if (recoveredText) {
-            editorDeps.PopupMessages.show(editorDeps.s2_lang.recovered_text_alert, [{
-                name: editorDeps.s2_lang.recovered_open,
-                action: function () {
-                    PopupWindow(editorDeps.s2_lang.recovered_text_alert, editorDeps.s2_lang.recovered_text, editorDeps.s2_lang.recovered_text_info, recoveredText);
-                }
-            }]);
+            if (s2_codemirror.isReady()) {
+                s2_codemirror.onChange(handleTextChange);
+            } else {
+                eTextarea.addEventListener('input', handleTextChange);
+            }
         }
 
         function getFormHash() {
@@ -207,19 +232,35 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             return hex_md5(serializedData);
         }
 
-        function handleChanges() {
+        function markSaved() {
+            s2_codemirror.flip();
             currentFormHash = getFormHash();
-            localStorage.removeItem(draftStorageKey);
-            savedText = eForm.elements[sTextareaName].value;
+            savedText = eTextarea.value;
+            removeDraft();
         }
 
+        const recoveredText = readDraft();
+        currentFormHash = getFormHash();
+        wireLivePreview();
+
+        if (recoveredText !== null && recoveredText !== savedText) {
+            if (!s2_codemirror.setValue(recoveredText, true)) {
+                eTextarea.value = recoveredText;
+            }
+            s2_codemirror.flip();
+            previousText = recoveredText;
+        } else if (recoveredText !== null) {
+            removeDraft();
+        }
+
+        setInterval(checkChanges, 5000);
         const absoluteUrl = new URL(eForm.action);
         const id = absoluteUrl.searchParams.get('id');
-        Preview(eForm.elements['title'].value, eForm.elements[sTextareaName].value, id, sTemplateId || eForm.elements['template'].value, sTemplateScope);
-        handleChanges();
-        document.addEventListener('save_article_end.s2', handleChanges);
+        Preview(eForm.elements['title'].value, eTextarea.value, id, sTemplateId || eForm.elements['template'].value, sTemplateScope);
+        document.addEventListener('save_article_end.s2', markSaved);
 
         return {
+            persist: persistCurrentText,
             present: function () {
                 document.dispatchEvent(new Event('changes_present.s2'));
 
@@ -228,7 +269,9 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         };
     })();
 
+    window.addEventListener('pagehide', Changes.persist);
     window.onbeforeunload = function () {
+        Changes.persist();
         if (Changes.present()) {
             return editorDeps.s2_lang.unsaved_exit;
         }

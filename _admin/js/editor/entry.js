@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function () {
         initAiTools(form, {...config.ai, entityName: config.entityName});
     }
 
-    if (form && config.statusData && config.entityName && config.textareaName) {
+    if (form && config.entityName && config.textareaName) {
         initArticleEditForm(
             form,
             config.statusData,
