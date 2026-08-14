@@ -72,6 +72,22 @@ final class SlugGeneratorTest extends Unit
     {
         yield 'russian' => ['Привет, мир!', 'privet-mir'];
         yield 'russian letters' => ['Ёжик в тумане', 'yozhik-v-tumane'];
+        yield 'pre-reform Russian' => [
+            'Міръ и вѣра: Ѳеодоръ и мѵро',
+            'mir-i-vera-feodor-i-miro',
+        ];
+        yield 'Old Church Slavonic letters' => [
+            'Ѹ Ꙑ Ѧ Ѫ Ѭ Ѯ Ѱ Ѡ Ѿ Ꙁ ꙃ ꙇ ꙉ ꙍ ꙓ ꙕ ꙗ',
+            'u-y-ya-u-yu-ks-ps-o-ot-z-dz-i-dj-o-ye-yu-ya',
+        ];
+        yield 'Belarusian and Bulgarian letters' => [
+            'Ў нескладовае; Ѐ и Ѝ',
+            'u-neskladovae-e-i-i',
+        ];
+        yield 'historic Cyrillic glyph variants' => [
+            'ꙑ ѹ ꙙ ꙝ ꙡ ꙣ ꙥ ꙧ ꙩ ꙫ ꙭ ꙮ ꚙ ꚛ ᲀᲁᲂᲃᲄᲅᲆᲇᲈ',
+            'y-u-ya-ya-ts-d-l-m-o-o-o-o-o-o-vdostteu',
+        ];
         yield 'latin diacritics' => ['Crème brûlée', 'creme-brulee'];
         yield 'normalization' => ['  Repeated___separators -- ', 'repeated-separators'];
         yield 'empty input' => ['', ''];

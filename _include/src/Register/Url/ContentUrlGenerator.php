@@ -104,7 +104,7 @@ final readonly class ContentUrlGenerator
 
         $baseQuery = $this->dbLayer
             ->select('page.id, page.slug, page.parent_id, 1 AS level')
-            ->addSelect('(' . $publishedChildQuery->getSql() . ') IS NOT NULL AS has_children')
+            ->addSelect('CASE WHEN EXISTS (' . $publishedChildQuery->getSql() . ') THEN 1 ELSE 0 END AS has_children')
             ->from(ContentSchema::TABLE_NAME . ' AS page')
             ->where('page.id = :id')
             ->andWhere("page.content_type = '" . ContentType::PAGE->value . "'")

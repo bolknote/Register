@@ -115,7 +115,11 @@ class AdminCest
         $I->dontSee('Output gzip compression');
         $I->see('AI assistant', 'table.list-table');
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] select[name="value"]');
+        $I->seeElement('button[data-ai-key-help-open]');
         $I->seeElement('form[action*="name=REGISTER_AI_API_KEY"] input[type="password"]');
+        $I->seeElement('dialog#ai-key-help-dialog');
+        $I->seeElement('[data-ai-key-help-panel="gemini"] a[href="https://aistudio.google.com/apikey"]');
+        $I->seeElement('[data-ai-key-help-panel="groq"] a[href="https://console.groq.com/keys"]');
     }
 
     public function testNewPostUsesEditorialEditor(\IntegrationTester $I): void
@@ -454,7 +458,9 @@ class AdminCest
         $I->see('Spam signal weights');
         $I->see('One link');
 
-        $I->amOnPage('https://localhost/_admin/index.php?entity=SpamSignalPolicy&action=edit&signal=links_one');
+        $I->amOnPage(
+            'https://localhost/_admin/index.php?entity=SpamSignalPolicy&action=edit&signal_code=links_one',
+        );
         $I->seeResponseCodeIs(200);
         $I->see('Edit spam signal weight');
         $I->see('Score adjustment');

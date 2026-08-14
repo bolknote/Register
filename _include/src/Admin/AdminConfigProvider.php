@@ -1200,10 +1200,10 @@ class AdminConfigProvider implements StatefulServiceInterface
                     ->setPluralName($this->translator->trans('Spam signal weights'))
                     ->setEditTitle($this->translator->trans('Edit spam signal weight'))
                     ->setEntityDisplayNameBuilder(fn(array $row): string => $this->translator->trans(
-                        'Spam policy ' . (string)($row['column_signal'] ?? ''),
+                        'Spam policy ' . (string)($row['column_signal_code'] ?? ''),
                     ))
                     ->addField(new FieldConfig(
-                        name: 'signal',
+                        name: 'signal_code',
                         label: $this->translator->trans('Spam signal'),
                         type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING, true),
                         sortable: true,

@@ -136,7 +136,7 @@ class InstallCest
         $I->dontSee('You have entered incorrect username or password.');
 
         $I->amOnPage('/---');
-        $I->see('👤 admin');
+        $I->see('admin', '.main-menu-user-link');
     }
 
     private function testBaseModules(AcceptanceTester $I): void
@@ -169,7 +169,7 @@ class InstallCest
         $I->seeElement('script[src$="/_assets/register/search/index-manager.js"]');
         $I->dontSeeElement('script[src*="/_extensions/s2_search/"]');
         $I->seeElement('input[name=register_search_csrf_token]');
-        $I->seeElement('a[href="https://github.com/bolknote/Register"]');
+        $I->dontSeeElement('a[href="https://github.com/bolknote/Register"]');
         $I->dontSeeElement('a[href="https://github.com/parpalak/s2"]');
 
         $I->amOnPage('/_admin/index.php?entity=Configuration');

@@ -25,7 +25,10 @@ final class ViewerSecurityTest extends Unit
 
         $safeView = $viewDir . 'safe.php';
         $unsafeView = $rootDir . 'unsafe.php';
-        self::assertNotFalse(file_put_contents($safeView, '<?php echo "safe:" . $trans("message");'));
+        self::assertNotFalse(file_put_contents(
+            $safeView,
+            '<?php echo "safe:" . $trans("message") . ":" . $date;',
+        ));
         self::assertNotFalse(file_put_contents($unsafeView, '<?php echo "unsafe";'));
 
         try {
@@ -40,9 +43,10 @@ final class ViewerSecurityTest extends Unit
                 false,
             );
 
-            self::assertSame('safe:MESSAGE', $viewer->render('safe', [
+            self::assertSame('safe:MESSAGE:published-date', $viewer->render('safe', [
                 '_found_file' => $unsafeView,
                 'trans'       => 'not-callable',
+                'date'        => 'published-date',
             ]));
         } finally {
             @unlink($safeView);

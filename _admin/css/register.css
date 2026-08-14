@@ -263,21 +263,31 @@ h3 {
     text-decoration: none;
 }
 
-.admin-shell nav a.main-menu-link:hover,
+.admin-shell nav li.main-menu-item:hover > a.main-menu-link,
 .admin-shell .main-menu-system > summary:hover {
     color: var(--admin-text-color);
-    background: var(--admin-secondary-background);
 }
 
-.admin-shell nav li.main-menu-item.active,
 .admin-shell .main-menu-system.active > summary {
     background: transparent;
+}
+
+.admin-shell nav li.main-menu-item.active {
+    background: transparent;
+    box-shadow: inset 0 -3px var(--admin-accent-color);
+}
+
+.admin-shell nav li.main-menu-item:hover {
+    background: var(--admin-secondary-background);
 }
 
 .admin-shell nav li.main-menu-item.active > a.main-menu-link,
 .admin-shell nav a.main-menu-link[aria-current="page"],
 .admin-shell .main-menu-system.active > summary {
     color: var(--admin-text-color);
+}
+
+.admin-shell .main-menu-system.active > summary {
     box-shadow: inset 0 -3px var(--admin-accent-color);
 }
 

@@ -4,7 +4,7 @@ declare(strict_types = 1);
 
 /**
  * @var callable $thumbnailHtml
- * @var callable $date
+ * @var callable $formatDate
  * @var $title string
  * @var $link string
  * @var $descr string
@@ -27,6 +27,6 @@ foreach ($images as $image) {
     </a><br />
 	<?php echo trim($descr) ? $descr . '<br />' : '';  ?>
 	<small class="stuff">
-		<?php if (!empty($time)) echo $date($time); ?>
+		<?php if (!empty($time)) echo $formatDate($time); ?>
 	</small>
 </p>

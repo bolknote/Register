@@ -9,6 +9,8 @@ The generation pipeline is:
    `Any-Latin; Latin-ASCII; Lower()`.
 2. If ICU is unavailable or leaves non-ASCII characters, `voku/portable-ascii` provides the
    deterministic pure-PHP fallback. The fallback does not need `intl`, `iconv`, or `mbstring`.
+   It includes modern Slavic alphabets, pre-reform Russian letters such as `ѣ`, `і`, `ѳ`, and
+   `ѵ`, and the principal historical Cyrillic letters used in Old Church Slavonic texts.
 3. Everything except lowercase ASCII letters and digits becomes a hyphen. Repeated separators and
    leading or trailing hyphens are removed.
 4. A collision receives the first available numeric suffix: `post`, `post-2`, `post-3`, and so on.

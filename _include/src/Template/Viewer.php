@@ -192,7 +192,7 @@ class Viewer
     {
         $trans        = $this->translator->trans(...);
         $makeLink     = $this->urlBuilder->link(...);
-        $date         = $this->date(...);
+        $formatDate   = $this->date(...);
         $dateAndTime  = $this->dateAndTime(...);
         $numberFormat = $this->numberFormat(...);
 

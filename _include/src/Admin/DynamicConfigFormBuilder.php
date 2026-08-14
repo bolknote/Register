@@ -264,6 +264,7 @@ class DynamicConfigFormBuilder
                     AiSettings::PROVIDER_GROQ     => 'Groq',
                 ],
                 inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/ai-provider-inline.php.inc',
             ),
             'secret' => new FieldConfig(
                 'value',

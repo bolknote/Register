@@ -415,6 +415,109 @@ hr {
     line-height: 1.45;
 }
 
+#content .readme-card {
+    display: flow-root;
+    max-width: var(--text-width);
+}
+
+#content .readme-card + .readme-card {
+    margin-top: clamp(3rem, 5vw, 4.5rem);
+}
+
+#content .readme-card > :first-child {
+    margin-top: 0;
+}
+
+#content .readme-card > :last-child {
+    margin-bottom: 0;
+}
+
+#content :where(.readme-picture-float-left, .readme-picture-float-right) {
+    width: max-content;
+    max-width: min(48%, var(--text-width));
+    margin-top: 0.2em;
+    margin-bottom: 1em;
+}
+
+#content .readme-picture-float-left {
+    float: left;
+    clear: left;
+    margin-right: 1.25em;
+}
+
+#content .readme-picture-float-right {
+    float: right;
+    clear: right;
+    margin-left: 1.25em;
+}
+
+/* The old 600px layout put text below adjacent pictures floated to opposite sides. */
+#content :where(
+    .readme-picture-float-left + .readme-picture-float-right,
+    .readme-picture-float-right + .readme-picture-float-left
+) + * {
+    clear: both;
+}
+
+#content .readme-picture-centered > :first-child {
+    margin-right: auto;
+    margin-left: auto;
+}
+
+#content .readme-picture-centered :where(.e2-text-caption, figcaption) {
+    margin-right: auto;
+    margin-left: auto;
+    text-align: center;
+}
+
+#content .readme-picture-inline {
+    display: inline-block;
+    width: max-content;
+    margin: 0.15em 0.35em 0.15em 0;
+    vertical-align: middle;
+}
+
+#content .readme-missing-visual {
+    display: flex;
+    width: min(12rem, 48%);
+    min-height: 8rem;
+    padding: 1rem;
+    flex-direction: column;
+    justify-content: flex-end;
+    background: var(--surface-background);
+    color: var(--minor-color);
+    font-family: var(--ui-font);
+    font-size: 0.68em;
+    line-height: 1.35;
+}
+
+#content .readme-missing-visual-description {
+    margin-top: 0.25rem;
+    color: var(--text-color);
+    font-size: 1.15em;
+    font-weight: 650;
+}
+
+#content .readme-small-note {
+    color: var(--minor-color);
+    font-family: var(--ui-font);
+    font-size: 0.7em;
+    line-height: 1.45;
+}
+
+#content .readme-align-left {
+    text-align: left;
+}
+
+#content .readme-align-center {
+    text-align: center;
+}
+
+#content .readme-align-right {
+    margin-right: 0 !important;
+    text-align: right;
+}
+
 #content > :first-child,
 #content > :first-child > :first-child {
     margin-top: 0;
@@ -1569,6 +1672,13 @@ ul.back_forward .empty {
 
     blockquote {
         margin-left: 1rem !important;
+    }
+
+    #content :where(.readme-picture-float-left, .readme-picture-float-right) {
+        float: none;
+        max-width: 100%;
+        margin-right: 0;
+        margin-left: 0;
     }
 
     .comment-children {

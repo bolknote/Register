@@ -270,7 +270,7 @@ final class AntispamCest
         $dbLayer
             ->update('spam_signal_policies')
             ->set('weight', '47')
-            ->where("signal = 'links_one'")
+            ->where("signal_code = 'links_one'")
             ->execute()
         ;
 
@@ -311,7 +311,7 @@ final class AntispamCest
         $dbLayer
             ->update('spam_signal_policies')
             ->set('enabled', '0')
-            ->where("signal = 'confirmed_spam_duplicate'")
+            ->where("signal_code = 'confirmed_spam_duplicate'")
             ->execute()
         ;
 

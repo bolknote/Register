@@ -117,11 +117,13 @@
         "analyse:phpstan": "phpstan analyse --configuration=phpstan.neon --no-progress --memory-limit=1G",
         "analyse:psalm": "psalm --config=psalm.xml --no-cache --no-progress",
         "check": [
+            "@codeception:build",
             "@lint",
             "@analyse",
             "@rector",
             "@test"
         ],
+        "codeception:build": "XDEBUG_MODE=off codecept build --no-interaction",
         "dev": "./dev",
         "lint": [
             "parallel-lint --exclude _vendor --exclude _cache .",
@@ -134,8 +136,10 @@
         "rector": "rector process --dry-run --config=rector.php",
         "test": [
             "@test:unit",
-            "@test:integration"
+            "@test:integration",
+            "@test:acceptance"
         ],
+        "test:acceptance": "APP_DB_TYPE=sqlite XDEBUG_MODE=off ./test_sh",
         "test:integration": "APP_DB_TYPE=sqlite XDEBUG_MODE=off codecept run integration --no-interaction",
         "test:unit": "XDEBUG_MODE=off codecept run unit --no-interaction"
     }

@@ -101,10 +101,10 @@ final class AntispamSchema
     {
         $dbLayer->createTable('spam_signal_policies', function (SchemaBuilderInterface $table): void {
             $table
-                ->addString('signal', 50, default: null)
+                ->addString('signal_code', 50, default: null)
                 ->addInteger('weight')
                 ->addBoolean('enabled', false, true)
-                ->setPrimaryKey(['signal'])
+                ->setPrimaryKey(['signal_code'])
             ;
         });
 
@@ -121,10 +121,10 @@ final class AntispamSchema
         foreach (SpamSignalPolicyRepository::DEFAULT_WEIGHTS as $signal => $weight) {
             $dbLayer
                 ->insert('spam_signal_policies')
-                ->setValue('signal', ':signal')->setParameter('signal', $signal)
+                ->setValue('signal_code', ':signal')->setParameter('signal', $signal)
                 ->setValue('weight', ':weight')->setParameter('weight', $weight)
                 ->setValue('enabled', '1')
-                ->onConflictDoNothing('signal')
+                ->onConflictDoNothing('signal_code')
                 ->execute()
             ;
         }

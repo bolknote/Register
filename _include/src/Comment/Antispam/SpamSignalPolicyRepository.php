@@ -53,14 +53,14 @@ final readonly class SpamSignalPolicyRepository
     {
         $weights = $this->getDefaultWeights();
         $rows = $this->dbLayer
-            ->select('signal', 'weight', 'enabled')
+            ->select('signal_code', 'weight', 'enabled')
             ->from('spam_signal_policies')
             ->execute()
             ->fetchAssocAll()
         ;
 
         foreach ($rows as $row) {
-            $signal = (string)$row['signal'];
+            $signal = (string)$row['signal_code'];
             if (!\array_key_exists($signal, self::DEFAULT_WEIGHTS)) {
                 continue;
             }
