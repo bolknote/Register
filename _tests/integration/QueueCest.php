@@ -13,6 +13,9 @@ use IntegrationTester;
 use Psr\Log\NullLogger;
 use Register\Backup\BackupQueueHandler;
 use Register\Content\ContentPublicationQueueHandler;
+use Register\Content\ContentPublicationScheduler;
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use S2\Cms\Comment\Antispam\SpamMaintenance;
 use S2\Cms\Comment\Antispam\SpamMaintenanceQueueHandler;
 use S2\Cms\Pdo\DbLayer;
@@ -91,6 +94,15 @@ final class QueueCest
         $maintenance = $I->grabService(ScheduledMaintenance::class);
         $maintenance->scheduleRequestWork($now);
 
+        $I->assertFalse($this->findJob(
+            $pdo,
+            ContentPublicationQueueHandler::JOB_ID,
+            ContentPublicationQueueHandler::CODE,
+        ));
+
+        $this->insertScheduledContent($pdo, $now);
+        $maintenance->scheduleRequestWork($now);
+
         $pdo->exec(
             "UPDATE queue SET attempts = 3, last_error = 'keep-me', failed_at = 123 "
             . "WHERE id = '" . ContentPublicationQueueHandler::JOB_ID . "' "
@@ -109,7 +121,9 @@ final class QueueCest
         $I->assertSame(123, (int)$publicationJob['failed_at']);
 
         $pdo->exec("UPDATE config SET value = '0' WHERE name = 'S2_LAST_MAINTENANCE'");
-        $enabledMaintenance = new ScheduledMaintenance($pdo, '', $publisher, true);
+        /** @var ContentPublicationScheduler $publicationScheduler */
+        $publicationScheduler = $I->grabService(ContentPublicationScheduler::class);
+        $enabledMaintenance   = new ScheduledMaintenance($pdo, '', $publisher, $publicationScheduler, true);
         $I->assertTrue($enabledMaintenance->runIfDue($now));
         $I->assertIsArray($this->findJob($pdo, BackupQueueHandler::JOB_ID, BackupQueueHandler::CODE));
     }
@@ -435,6 +449,27 @@ final class QueueCest
         $row = $this->job($pdo, 'unknown', 'missing');
         $I->assertSame(1, (int)$row['attempts']);
         $I->assertStringContainsString('No queue handler', (string)$row['last_error']);
+    }
+
+    private function insertScheduledContent(\PDO $pdo, int $scheduledAt): void
+    {
+        $statement = $pdo->prepare(
+            'INSERT INTO ' . ContentSchema::TABLE_NAME . ' '
+            . '(content_type, slug_scope, slug, title, excerpt, body, created_at, published_at, scheduled_at, updated_at, published) '
+            . "VALUES (:content_type, 'root', :slug, :title, '', '<p>Scheduled content</p>', :created_at, NULL, :scheduled_at, :updated_at, 0)"
+        );
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the scheduled-content queue fixture.');
+        }
+
+        $statement->execute([
+            'content_type' => ContentType::POST->value,
+            'slug'         => 'queue-scheduled-content-' . $scheduledAt,
+            'title'        => 'Queue scheduled content',
+            'created_at'   => $scheduledAt - 60,
+            'scheduled_at' => $scheduledAt,
+            'updated_at'   => $scheduledAt - 60,
+        ]);
     }
 
     private function pdo(IntegrationTester $I): \PDO

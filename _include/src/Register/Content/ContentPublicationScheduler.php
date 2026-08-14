@@ -52,6 +52,24 @@ final readonly class ContentPublicationScheduler
         return $this->publishDueRows($now, $limit, $budget);
     }
 
+    public function hasDue(int $now): bool
+    {
+        if ($now <= 0) {
+            throw new \InvalidArgumentException('The publication timestamp must be positive.');
+        }
+
+        return $this->dbLayer
+            ->select('1')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('published = 0')
+            ->andWhere('scheduled_at > 0')
+            ->andWhere('scheduled_at <= :now')->setParameter('now', $now)
+            ->limit(1)
+            ->execute()
+            ->fetchAssoc() !== false
+        ;
+    }
+
     private function publishDueRows(
         int $now,
         int $limit,

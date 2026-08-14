@@ -13,6 +13,7 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Register\Comment\ContentCommentNotifier;
 use Register\Comment\ContentCommentStrategy;
+use Register\Content\ContentPublicationScheduler;
 use S2\Cms\Asset\AssetMergeFactory;
 use S2\Cms\Comment\AkismetProxy;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
@@ -221,6 +222,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
             $container->get(QueuePublisher::class),
+            $container->get(ContentPublicationScheduler::class),
             $container->getBoolParameter('backup_enabled'),
         ));
         $container->set(BackgroundWorkRunner::class, fn(Container $container): \S2\Cms\Queue\BackgroundWorkRunner => new BackgroundWorkRunner(

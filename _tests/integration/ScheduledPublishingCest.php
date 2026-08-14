@@ -36,6 +36,7 @@ final class ScheduledPublishingCest
         $pageId   = $this->insertScheduledContent($dbLayer, ContentType::PAGE, 'scheduled-page', $now);
         $futureId = $this->insertScheduledContent($dbLayer, ContentType::POST, 'future-post', $now + 60);
 
+        $I->assertTrue($scheduler->hasDue($now));
         $I->assertSame(2, $scheduler->publishDue($now));
         $this->assertPublished($I, $dbLayer, $postId, $now - 60);
         $this->assertPublished($I, $dbLayer, $pageId, $now);
@@ -43,6 +44,8 @@ final class ScheduledPublishingCest
         $this->assertQueued($I, $dbLayer, ContentId::post($postId));
         $this->assertQueued($I, $dbLayer, ContentId::page($pageId));
 
+        $I->assertFalse($scheduler->hasDue($now));
+        $I->assertTrue($scheduler->hasDue($now + 60));
         $I->assertSame(0, $scheduler->publishDue($now));
 
         $data = ['published' => true, 'scheduled_at' => $now + 120];

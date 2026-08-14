@@ -11,6 +11,7 @@ namespace S2\Cms\Queue;
 
 use Register\Backup\BackupQueueHandler;
 use Register\Content\ContentPublicationQueueHandler;
+use Register\Content\ContentPublicationScheduler;
 use S2\Cms\Comment\Antispam\SpamMaintenance;
 use S2\Cms\Comment\Antispam\SpamMaintenanceQueueHandler;
 
@@ -26,6 +27,7 @@ final readonly class ScheduledMaintenance
         private \PDO          $pdo,
         private string        $dbPrefix,
         private QueuePublisher $queuePublisher,
+        private ContentPublicationScheduler $publicationScheduler,
         private bool           $automaticBackupEnabled,
     ) {
     }
@@ -35,6 +37,11 @@ final readonly class ScheduledMaintenance
     {
         $now ??= time();
         $budget ??= new QueueExecutionBudget(30.0);
+        $budget->checkpoint(0.02);
+        if (!$this->publicationScheduler->hasDue($now)) {
+            return;
+        }
+
         $budget->checkpoint(0.02);
         $this->queuePublisher->publishIfAbsent(
             ContentPublicationQueueHandler::JOB_ID,
