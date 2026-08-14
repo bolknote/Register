@@ -75,7 +75,7 @@ class PicturesCest
         $I->login('editor', 'editor');
         $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/test1.png&name=test1.php', \dirname('/test1.png'));
         $I->seeResponseCodeIs(403);
-        $I->assertJsonSubResponseEquals('You are not allowed to create “php” files here. Contact administrators or developers if you really need this.', ['message']);
+        $I->assertJsonSubResponseContains('php', ['message']);
 
         $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/test1.png&name=cest1.png', \dirname('/test1.png'));
         $I->seeResponseCodeIs(200);
@@ -96,12 +96,37 @@ class PicturesCest
         $I->assertJsonSubResponseContains('cest1.png', [0, 'data', 'title']);
         $I->assertJsonResponseHasNoKey([1]);
 
-        // Admin can rename files, even if extension is not allowed
+        // The allowlist also applies to administrators: executable files never appear by accident.
         $I->logout();
         $I->login('admin', 'admin');
         $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/cest1.png&name=test1.php', \dirname('/cest1.png'));
-        $I->seeResponseCodeIs(200);
-        $I->assertJsonSubResponseEquals('test1.php', ['new_name']);
+        $I->seeResponseCodeIs(403);
+        $I->assertJsonSubResponseContains('php', ['message']);
+    }
+
+    public function testModernMediaExtensionsAreAccepted(\IntegrationTester $I): void
+    {
+        $I->login('author', 'author');
+
+        foreach (['avif', 'webp', 'mov', 'webm'] as $extension) {
+            $filename = tempnam(sys_get_temp_dir(), 'register_media_');
+            if ($filename === false || file_put_contents($filename, 'media fixture') === false) {
+                throw new \RuntimeException('Unable to create a temporary media fixture.');
+            }
+
+            $I->sendPost(
+                'https://localhost/_admin/ajax.php?action=upload',
+                [
+                    'dir'        => '',
+                    'csrf_token' => $this->getFolderCsrfToken($I, ''),
+                ],
+                ['pictures' => [
+                    new UploadedFile($filename, 'modern.' . $extension, null, null, true),
+                ]],
+            );
+            $I->seeResponseCodeIs(200);
+            $I->assertJsonSubResponseEquals(true, ['success']);
+        }
     }
 
     /**

@@ -10,14 +10,13 @@ declare(strict_types = 1);
 namespace S2\Cms\Admin\Picture;
 
 use S2\AdminYard\Translator;
-use S2\Cms\Model\PermissionChecker;
+use Symfony\Component\HttpFoundation\Response;
 
 readonly class PictureFileNameHelper
 {
     public function __construct(
-        private Translator        $translator,
-        private PermissionChecker $permissionChecker,
-        private string            $allowedExtensions,
+        private Translator $translator,
+        private string     $allowedExtensions,
     ) {
     }
 
@@ -37,18 +36,17 @@ readonly class PictureFileNameHelper
         $extension = '';
         $dotPos = strrpos($filename, '.');
         if ($dotPos !== false) {
-            $extension = substr($filename, $dotPos + 1);
+            $extension = mb_strtolower(substr($filename, $dotPos + 1));
         }
 
         if (
             $this->allowedExtensions !== ''
             && $extension !== ''
-            && !$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS)
             && !str_contains(' ' . $this->allowedExtensions . ' ', ' ' . $extension . ' ')
         ) {
             $errorMessage = $this->translator->trans('Forbidden extension', ['{{ ext }}' => $extension]);
             $error        = $filename !== '' ? \sprintf($this->translator->trans('Upload file error'), $filename, $errorMessage) : $errorMessage;
-            throw new \RuntimeException($error);
+            throw new \RuntimeException($error, Response::HTTP_FORBIDDEN);
         }
     }
 

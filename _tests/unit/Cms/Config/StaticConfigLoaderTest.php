@@ -14,6 +14,18 @@ use S2\Cms\Config\StaticConfigLoader;
 
 final class StaticConfigLoaderTest extends Unit
 {
+    public function testDefaultMediaAllowlistSupportsModernFormatsWithoutActiveContent(): void
+    {
+        $extensions = explode(' ', StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS);
+
+        self::assertContains('avif', $extensions);
+        self::assertContains('webp', $extensions);
+        self::assertContains('mov', $extensions);
+        self::assertContains('webm', $extensions);
+        self::assertNotContains('php', $extensions);
+        self::assertNotContains('svg', $extensions);
+    }
+
     public function testNormalizesTrustedProxyString(): void
     {
         $method = new \ReflectionMethod(StaticConfigLoader::class, 'stringList');

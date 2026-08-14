@@ -64,6 +64,7 @@ use S2\Cms\Model\Comment\CommentThreadRenderer;
 use S2\Cms\Model\CommentProvider;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\FavoriteArticleProvider;
+use S2\Cms\Model\LoginRateLimiter;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Model\User\UserProvider;
@@ -252,6 +253,11 @@ class CmsExtension implements ExtensionInterface
             $container->get(DbLayer::class),
             $container->get(SpamIdentityHasher::class),
             $container->get(SpamRatePolicyRepository::class),
+            $container->get(LoggerInterface::class),
+        ));
+        $container->set(LoginRateLimiter::class, fn(Container $container): LoginRateLimiter => new LoginRateLimiter(
+            $container->get(DbLayer::class),
+            $container->get(SpamIdentityHasher::class),
             $container->get(LoggerInterface::class),
         ));
         $container->set(SpamMaintenance::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamMaintenance => new SpamMaintenance(

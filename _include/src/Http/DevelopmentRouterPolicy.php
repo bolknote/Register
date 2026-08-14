@@ -34,8 +34,10 @@ final class DevelopmentRouterPolicy
     ];
 
     private const array PUBLIC_EXTENSIONS = [
-        'avif', 'bmp', 'css', 'gif', 'html', 'ico', 'jpeg', 'jpg', 'js', 'json', 'map',
-        'mp3', 'mp4', 'ogg', 'png', 'svg', 'wasm', 'wav', 'webm', 'webp', 'woff', 'woff2',
+        '7z', 'avi', 'avif', 'bmp', 'css', 'csv', 'doc', 'docx', 'flac', 'flv', 'gif', 'html',
+        'ico', 'jpeg', 'jpg', 'js', 'json', 'map', 'mkv', 'mov', 'mp3', 'mp4', 'mpeg', 'mpg',
+        'odp', 'ods', 'odt', 'ogg', 'pdf', 'png', 'ppt', 'pptx', 'rar', 'rtf', 'svg', 'txt',
+        'wasm', 'wav', 'webm', 'webp', 'woff', 'woff2', 'xls', 'xlsx', 'zip',
     ];
 
     public static function isAllowedPhpEndpoint(string $requestPath): bool

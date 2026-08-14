@@ -174,6 +174,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(RequestStack::class),
             $container->get(TemplateRenderer::class),
             $container->get(Translator::class),
+            $container->get(\S2\Cms\Model\LoginRateLimiter::class),
             $container->getStringParameter('base_path'),
             $container->getStringParameter('base_url'),
             $container->getStringParameter('cookie_name'),
@@ -272,7 +273,6 @@ class AdminExtension implements ExtensionInterface
 
         $container->set(PictureFileNameHelper::class, fn(Container $container): \S2\Cms\Admin\Picture\PictureFileNameHelper => new PictureFileNameHelper(
             $container->get(Translator::class),
-            $container->get(PermissionChecker::class),
             $container->getStringParameter('allowed_extensions'),
         ));
 

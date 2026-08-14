@@ -78,6 +78,7 @@ return [
     'Now'                        => 'now',
     'Paragraphs info'            => '“Smart” inserting &lt;p&gt; and &lt;br&gt; tags',
     'Published'                  => 'Published',
+    'Too many login attempts'    => 'Too many failed login attempts. Try again later.',
     'Favorite'                   => 'Favorite',
     'Commented'                  => 'Allow comments',
     'Commented info'             => 'Display the comment form at this page.',

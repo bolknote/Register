@@ -33,12 +33,16 @@ readonly class AuthManager
 
     private const string LEGACY_PASSWORD_PEPPER  = 'Life is not so easy :-)';
 
+    /** A fixed modern hash keeps unknown-user checks comparable to valid-user checks. */
+    private const string DUMMY_PASSWORD_HASH = '$2y$12$sEo8P2Bkb56lN9bNRbs6wuAsbAyQjeLBVR8Z1nzkLi03mGY.649mK';
+
     public function __construct(
         private DbLayer           $dbLayer,
         private PermissionChecker $permissionChecker,
         private RequestStack      $requestStack,
         private TemplateRenderer  $templateRenderer,
         private Translator        $translator,
+        private LoginRateLimiter  $loginRateLimiter,
         private string            $basePath,
         private string            $baseUrl,
         private string            $cookieName,
@@ -280,31 +284,45 @@ readonly class AuthManager
     {
         $login    = $request->request->getString('login');
         $password = $request->request->getString('pass');
+        $clientIp = $request->getClientIp() ?? '';
+
+        $retryAfter = $this->loginRateLimiter->retryAfter($clientIp, $login);
+        if ($retryAfter > 0) {
+            return $this->createRateLimitedLoginResponse($retryAfter);
+        }
 
         if ($login === '') {
+            $this->loginRateLimiter->recordFailure($clientIp, $login);
             return $this->createAjaxErrorLoginPasswordResponse();
         }
 
         if ($password === '') {
+            $this->loginRateLimiter->recordFailure($clientIp, $login);
             return $this->createAjaxErrorLoginPasswordResponse();
         }
 
         // Getting user password hash
         $passwordHash = $this->getPasswordHash($login);
-        if ($passwordHash === null) {
-            return $this->createAjaxErrorLoginPasswordResponse();
-        }
 
         // Verifying password
-        $hashMatches    = password_verify($password, $passwordHash);
-        $oldHashMatches = hash_equals($passwordHash, md5($password . self::LEGACY_PASSWORD_PEPPER));
-        if (!$hashMatches && !$oldHashMatches) {
+        $hashToVerify = $passwordHash;
+        if ($hashToVerify === null) {
+            $hashToVerify = self::DUMMY_PASSWORD_HASH;
+        }
+
+        $hashMatches = password_verify($password, $hashToVerify);
+        $oldHashMatches = $passwordHash !== null
+            && hash_equals($passwordHash, md5($password . self::LEGACY_PASSWORD_PEPPER));
+        if ($passwordHash === null || (!$hashMatches && !$oldHashMatches)) {
+            $this->loginRateLimiter->recordFailure($clientIp, $login);
             return $this->createAjaxErrorLoginPasswordResponse();
         }
 
         if (!$hashMatches || password_needs_rehash($passwordHash, PASSWORD_DEFAULT)) {
             $this->updatePasswordHash($login, $password);
         }
+
+        $this->loginRateLimiter->clear($clientIp, $login);
 
         // Everything is Ok.
         return $this->successLogin($request, $login, $request->request->getBoolean('foreign_computer'));
@@ -411,6 +429,17 @@ readonly class AuthManager
             'success' => false,
             'message' => $this->translator->trans('Error login page'),
         ], Response::HTTP_UNAUTHORIZED);
+    }
+
+    private function createRateLimitedLoginResponse(int $retryAfter): JsonResponse
+    {
+        $response = new JsonResponse([
+            'success' => false,
+            'message' => $this->translator->trans('Too many login attempts'),
+        ], Response::HTTP_TOO_MANY_REQUESTS);
+        $response->headers->set('Retry-After', (string)$retryAfter);
+
+        return $response;
     }
 
     private function createLoginFormResponse(string $errorMessage = ''): Response

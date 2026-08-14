@@ -277,7 +277,7 @@ class Integration extends AbstractBrowserModule
             'log_dir'            => '_cache/test/',
             'image_dir'          => self::ROOT_DIR . $imgDir . '/', // filesystem
             'image_path'         => '/' . $imgDir, // web URL prefix
-            'allowed_extensions' => 'gif bmp jpg jpeg png ico svg mp3 wav ogg flac mp4 avi flv mpg mpeg mkv zip 7z rar doc docx ppt pptx odt odt odp ods xlsx xls pdf txt rtf csv',
+            'allowed_extensions' => \S2\Cms\Config\StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS,
             'disable_cache'      => false,
             'base_url'           => 'http://s2.localhost',
             'base_path'          => '',

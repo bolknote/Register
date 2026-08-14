@@ -455,22 +455,6 @@ class AdminAjaxRequestHandler
                     return new Json(['success' => false, 'message' => 'Invalid name.'], Response::HTTP_BAD_REQUEST);
                 }
 
-                $extension = '';
-                $ext_pos = strrpos($filename, '.');
-                if ($ext_pos !== false) {
-                    $extension = substr($filename, $ext_pos + 1);
-                }
-
-                $allowedExtensions = $c->getStringParameter('allowed_extensions');
-                if (
-                    $extension !== ''
-                    && $allowedExtensions !== ''
-                    && !$p->isGranted(P::PERMISSION_EDIT_USERS)
-                    && !str_contains(' ' . $allowedExtensions . ' ', ' ' . $extension . ' ')
-                ) {
-                    return new Json(['success' => false, 'message' => $t->trans('Forbidden extension', ['{{ ext }}' => $extension])], Response::HTTP_FORBIDDEN);
-                }
-
                 $pictureManager = $c->get(PictureManager::class);
                 try {
                     $pictureManager->assertFileCsrfToken($path, (string)$r->request->get('csrf_token', ''));

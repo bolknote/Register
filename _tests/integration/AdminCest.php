@@ -14,6 +14,7 @@ use S2\Cms\Comment\Antispam\SpamAssessment;
 use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
 use S2\Cms\Comment\SpamDetectorReport;
 use S2\Cms\Model\AuthManager;
+use S2\Cms\Model\LoginRateLimiter;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -33,6 +34,65 @@ class AdminCest
 
         $I->login('admin', 'admin');
         $I->seeResponseCodeIs(200);
+    }
+
+    public function testFailedLoginsAreRateLimitedWithoutRawIdentifiers(\IntegrationTester $I): void
+    {
+        /** @var AuthManager $authManager */
+        $authManager = $I->grabAdminService(AuthManager::class);
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        $clientIp = '198.51.100.41';
+
+        for ($attempt = 0; $attempt < LoginRateLimiter::FAILURE_LIMIT; ++$attempt) {
+            $response = $this->loginResponse($authManager, 'missing-user', 'wrong-password', $clientIp);
+            $I->assertSame(401, $response->getStatusCode());
+        }
+
+        $blocked = $this->loginResponse($authManager, 'missing-user', 'wrong-password', $clientIp);
+        $I->assertSame(429, $blocked->getStatusCode());
+        $retryAfter = $blocked->headers->get('Retry-After');
+        $I->assertNotNull($retryAfter);
+        $I->assertGreaterThan(0, (int)$retryAfter);
+        $I->assertLessThanOrEqual(LoginRateLimiter::WINDOW_SECONDS + 1, (int)$retryAfter);
+
+        $rows = $dbLayer
+            ->select('bucket_type, bucket_key')
+            ->from('spam_rate_events')
+            ->where("bucket_type IN ('auth_ip', 'auth_login')")
+            ->execute()
+            ->fetchAssocAll()
+        ;
+        $I->assertCount(2 * LoginRateLimiter::FAILURE_LIMIT, $rows);
+        foreach ($rows as $row) {
+            $I->assertContains($row['bucket_type'], ['auth_ip', 'auth_login']);
+            $I->assertSame(64, \strlen((string)$row['bucket_key']));
+            $I->assertStringNotContainsString($clientIp, (string)$row['bucket_key']);
+            $I->assertStringNotContainsString('missing-user', (string)$row['bucket_key']);
+        }
+    }
+
+    public function testSuccessfulLoginClearsPreviousFailures(\IntegrationTester $I): void
+    {
+        /** @var AuthManager $authManager */
+        $authManager = $I->grabAdminService(AuthManager::class);
+        $clientIp = '198.51.100.42';
+
+        for ($attempt = 0; $attempt < 2; ++$attempt) {
+            $response = $this->loginResponse($authManager, 'admin', 'wrong-password', $clientIp);
+            $I->assertSame(401, $response->getStatusCode());
+        }
+
+        $success = $this->loginResponse($authManager, 'admin', 'admin', $clientIp);
+        $I->assertSame(200, $success->getStatusCode());
+
+        for ($attempt = 0; $attempt < LoginRateLimiter::FAILURE_LIMIT; ++$attempt) {
+            $response = $this->loginResponse($authManager, 'admin', 'wrong-password', $clientIp);
+            $I->assertSame(401, $response->getStatusCode());
+        }
+
+        $blocked = $this->loginResponse($authManager, 'admin', 'wrong-password', $clientIp);
+        $I->assertSame(429, $blocked->getStatusCode());
     }
 
     public function testBlogPreviewLoadsTemplateFromBaseModule(\IntegrationTester $I): void
@@ -225,5 +285,17 @@ class AdminCest
         $method = new \ReflectionMethod(AuthManager::class, 'shouldUseSecureCookies');
 
         $I->assertSame($expected, $method->invoke($authManager, Request::create($url)));
+    }
+
+    private function loginResponse(AuthManager $authManager, string $login, string $password, string $clientIp): \Symfony\Component\HttpFoundation\Response
+    {
+        $response = $authManager->checkAuth(Request::create(
+            'https://localhost/_admin/index.php?action=login',
+            'POST',
+            ['login' => $login, 'pass' => $password],
+            server: ['REMOTE_ADDR' => $clientIp, 'HTTP_USER_AGENT' => 'Rate limiter test'],
+        ));
+
+        return $response ?? throw new \RuntimeException('A login attempt must return a response.');
     }
 }

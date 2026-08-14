@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PictureManager
 {
-    private const array EXTENSIONS_FOR_PREVIEW = ['gif', 'bmp', 'jpg', 'jpeg', 'png'];
+    private const array EXTENSIONS_FOR_PREVIEW = ['avif', 'bmp', 'gif', 'jpeg', 'jpg', 'png', 'webp'];
 
     public function __construct(
         private readonly Translator              $translator,
@@ -226,6 +226,8 @@ class PictureManager
 
     public function renameFile(string $path, string $newName): string
     {
+        $this->fileNameHelper->assertAllowedExtension($newName);
+
         $parentPath = $this->s2_dirname($path);
 
         $newFullPath = $this->imageDir . $parentPath . '/' . $newName;

@@ -43,6 +43,8 @@ final class DevelopmentRouterPolicyTest extends Unit
         self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_admin/css/admin-override.css', 'CSS'));
         self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_assets/register/math/loader.js', 'js'));
         self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_assets/register/math/vendor/katex/fonts/KaTeX_Main-Regular.woff2', 'woff2'));
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_pictures/video.mov', 'mov'));
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_pictures/archive.zip', 'zip'));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_admin/templates/layout.php.inc', 'inc'));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_include/src/Register/ProductModule.php', 'php'));
     }
