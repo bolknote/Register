@@ -1350,6 +1350,138 @@ section.large-edit-form form {
     letter-spacing: -0.02em;
 }
 
+.editor-tags-block,
+.editor-tags-input {
+    position: relative;
+}
+
+.editor-tags-surface {
+    display: flex;
+    min-height: 3rem;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.35rem 0.45rem;
+    border: 1px solid var(--admin-border-color);
+    border-radius: 0.45rem;
+    background: var(--admin-field-background);
+    cursor: text;
+}
+
+.editor-tags-surface:hover {
+    border-color: color-mix(in srgb, var(--admin-accent-color) 45%, var(--admin-border-color));
+}
+
+.editor-tags-surface:focus-within {
+    border-color: var(--admin-accent-color);
+    box-shadow: 0 0 0 1px var(--admin-accent-color);
+}
+
+.editor-tag-chip {
+    display: inline-flex;
+    max-width: 100%;
+    min-height: 2rem;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.18rem 0.25rem 0.18rem 0.6rem;
+    border: 1px solid color-mix(in srgb, var(--admin-accent-color) 32%, var(--admin-border-color));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--admin-accent-color) 11%, var(--admin-secondary-background));
+    color: var(--admin-text-color);
+    font-size: 0.82rem;
+    font-weight: 590;
+    line-height: 1.2;
+}
+
+.editor-tag-chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-tag-chip .editor-tag-chip-remove {
+    display: inline-grid;
+    width: 1.45rem;
+    min-width: 1.45rem;
+    height: 1.45rem;
+    min-height: 1.45rem;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--admin-secondary-text-color);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.editor-tag-chip .editor-tag-chip-remove:hover {
+    background: color-mix(in srgb, var(--admin-accent-color) 18%, transparent);
+    color: var(--admin-text-color);
+}
+
+.content-edit-content .article-form-control .editor-tags-surface input.editor-tags-text-input {
+    width: auto;
+    min-width: 8rem;
+    min-height: 2rem;
+    flex: 1 1 10rem;
+    padding: 0.2rem 0.25rem;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.9rem;
+}
+
+.editor-tag-suggestions {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    left: 0;
+    display: grid;
+    max-height: 18rem;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0.35rem;
+    overflow-y: auto;
+    border: 1px solid var(--admin-border-color);
+    border-radius: 0.45rem;
+    background: var(--admin-surface-background);
+    box-shadow: var(--admin-shadow);
+    list-style: none;
+}
+
+.editor-tag-suggestions[hidden],
+.editor-tag-suggestions:empty {
+    display: none;
+}
+
+.editor-tag-suggestions > li {
+    display: flex;
+    min-height: 2.25rem;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.42rem 0.55rem;
+    border-radius: 0.3rem;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.84rem;
+    cursor: pointer;
+}
+
+.editor-tag-suggestions > li::before {
+    color: var(--admin-accent-color);
+    font-weight: 750;
+    content: "#";
+}
+
+.editor-tag-suggestions > li:hover,
+.editor-tag-suggestions > li[aria-selected="true"] {
+    background: color-mix(in srgb, var(--admin-accent-color) 10%, var(--admin-secondary-background));
+    color: var(--admin-text-color);
+}
+
 .editor-field + .editor-field,
 .editor-detail-fields .editor-field + .editor-field,
 .editor-publication-fields .editor-field + .editor-field {

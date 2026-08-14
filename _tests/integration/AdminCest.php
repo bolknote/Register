@@ -137,7 +137,11 @@ class AdminCest
         $I->seeElement('.html-toolbar button[data-editor-action="undo"]');
         $I->seeElement('.html-toolbar button[data-editor-action="redo"]');
         $I->dontSeeElement('#ai-result-panel');
-        $I->seeElement('main.editor-main-column > .editor-tags-panel:last-child');
+        $I->seeElement('.editor-title-block input[name="title"][placeholder="Title"]');
+        $I->dontSeeElement('.editor-title-block label[for="id-title"]');
+        $I->seeElement('main.editor-main-column > .editor-tags-block:last-child');
+        $I->seeElement('.editor-tags-block input[name="tags"][placeholder="Tags"]');
+        $I->dontSeeElement('.editor-tags-block details');
         $I->seeElement('aside.editor-sidebar-column > .editor-publication-card');
         $I->seeElement('a.main-menu-link[aria-current="page"][href="?entity=BlogPost&action=new"]');
         $I->dontSeeElement('a.main-menu-link[aria-current="page"][href="?entity=BlogPost&action=list"]');
@@ -158,7 +162,7 @@ class AdminCest
         $I->assertStringContainsString('?entity=BlogPost&action=edit&id=', $location);
         $I->amOnPage('https://localhost/_admin/index.php' . $location);
         $I->assertSame('Editorial editor draft', $I->grabValueFrom('input[name="title"]'));
-        $I->assertSame('register, admin, ', $I->grabValueFrom('input[name="tags"]'));
+        $I->assertSame('register, admin', $I->grabValueFrom('input[name="tags"]'));
         $I->seeElement('section.post-edit-content.is-edit');
     }
 

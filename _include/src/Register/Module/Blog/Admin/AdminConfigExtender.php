@@ -273,10 +273,6 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 if (\is_array($event->data)) {
                     // Convert NULL to an empty string when the edit form is filled with current data
                     $event->data['virtual_tags'] = (string)$event->data['virtual_tags'];
-                    if (trim($event->data['virtual_tags']) !== '') {
-                        // Add an extra comma to simplify adding a new tag
-                        $event->data['virtual_tags'] .= ', ';
-                    }
                 }
             })
             ->addListener(EntityConfig::EVENT_BEFORE_CREATE, function (BeforeSaveEvent $event): void {

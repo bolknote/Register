@@ -72,7 +72,6 @@ $detailControls      = array_merge(
 );
 
 $formData = $form->getData();
-$tagsHaveValue = trim((string)($formData['tags'] ?? '')) !== '';
 $additionalHaveValue = false;
 foreach (array_keys($additionalControls) as $fieldName) {
     if (trim((string)($formData[$fieldName] ?? '')) !== '') {
@@ -91,7 +90,7 @@ $aiProviderLabel = match ($aiProvider) {
     default => '',
 };
 
-$renderControl = static function (string $fieldName, object $control) use (
+$renderControl = static function (string $fieldName, object $control, bool $showLabel = true) use (
     $commentsNum,
     $contentType,
     $header,
@@ -135,13 +134,25 @@ $renderControl = static function (string $fieldName, object $control) use (
         </div>
         <?php
     } else {
+        $controlHtml = $control->getHtml('id-' . $fieldName);
+        if (!$showLabel) {
+            $placeholder = htmlspecialchars($header[$fieldName], ENT_QUOTES, 'UTF-8');
+            $controlHtml = preg_replace(
+                '/<input\b/',
+                '<input placeholder="' . $placeholder . '" aria-label="' . $placeholder . '"',
+                $controlHtml,
+                1,
+            ) ?? $controlHtml;
+        }
         ?>
-        <div class="editor-field editor-field-<?= $fieldName ?>">
-            <label class="field-name" title="<?= htmlspecialchars($hint[$fieldName] ?? '', ENT_QUOTES, 'UTF-8') ?>" for="id-<?= $fieldName ?>">
-                <?= htmlspecialchars($header[$fieldName], ENT_QUOTES, 'UTF-8') ?>
-            </label>
+        <div class="editor-field editor-field-<?= $fieldName ?><?= $showLabel ? '' : ' editor-placeholder-field' ?>">
+            <?php if ($showLabel): ?>
+                <label class="field-name" title="<?= htmlspecialchars($hint[$fieldName] ?? '', ENT_QUOTES, 'UTF-8') ?>" for="id-<?= $fieldName ?>">
+                    <?= htmlspecialchars($header[$fieldName], ENT_QUOTES, 'UTF-8') ?>
+                </label>
+            <?php endif; ?>
             <div class="article-form-control form-control-<?= $controlClass ?> field-<?= $fieldName ?>">
-                <?= $control->getHtml('id-' . $fieldName) ?>
+                <?= $controlHtml ?>
                 <?php foreach ($control->getValidationErrors() as $error): ?>
                     <span class="validation-error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></span>
                 <?php endforeach; ?>
@@ -205,7 +216,7 @@ $renderControl = static function (string $fieldName, object $control) use (
             <main class="article-form-column article-form-column-1 editor-main-column">
                 <div class="editor-title-block">
                     <?php foreach ($titleControls as $fieldName => $control): ?>
-                        <?= $renderControl($fieldName, $control) ?>
+                        <?= $renderControl($fieldName, $control, false) ?>
                     <?php endforeach; ?>
                 </div>
 
@@ -259,17 +270,11 @@ $renderControl = static function (string $fieldName, object $control) use (
                 <?php endif; ?>
 
                 <?php if ($tagControls !== []): ?>
-                    <details class="editor-secondary-panel editor-tags-panel" <?= $tagsHaveValue ? 'open' : '' ?>>
-                        <summary>
-                            <span><?= $trans('Tags') ?></span>
-                            <small><?= $trans('Optional field') ?></small>
-                        </summary>
-                        <div class="editor-secondary-fields">
-                            <?php foreach ($tagControls as $fieldName => $control): ?>
-                                <?= $renderControl($fieldName, $control) ?>
-                            <?php endforeach; ?>
-                        </div>
-                    </details>
+                    <div class="editor-tags-block">
+                        <?php foreach ($tagControls as $fieldName => $control): ?>
+                            <?= $renderControl($fieldName, $control, false) ?>
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
             </main>
 
@@ -332,7 +337,6 @@ $renderControl = static function (string $fieldName, object $control) use (
     <button class="picture-dialog-close" onclick="this.parentNode.close()">&times;</button>
     <iframe src="" frameborder="0" id="picture_frame" name="picture_frame"></iframe>
 </dialog>
-<script src="<?php echo $basePath; ?>/_admin/lib/autoComplete.min.js"></script>
 <script>
     window.S2_EDITOR_CONFIG = {
         formName: 'article-form',
@@ -342,8 +346,13 @@ $renderControl = static function (string $fieldName, object $control) use (
         templateId: <?= json_encode($isPost ? 'blog.php' : null, JSON_THROW_ON_ERROR) ?>,
         templateScope: <?= json_encode($contentType, JSON_THROW_ON_ERROR) ?>,
         statusData: <?= json_encode($statusData, JSON_THROW_ON_ERROR) ?>,
-        tagsInputId: 'id-tags',
-        tagsList: <?= json_encode($tagsList, JSON_THROW_ON_ERROR) ?>,
+        tags: <?= json_encode([
+            'inputId'          => 'id-tags',
+            'suggestions'      => $tagsList,
+            'placeholder'      => $trans('Tags'),
+            'removeLabel'      => $trans('Remove tag'),
+            'suggestionsLabel' => $trans('Tag suggestions'),
+        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>,
         sUrl: '<?php echo $basePath; ?>/_admin/ajax.php?',
         datalists: <?= json_encode($isPost ? [[
             'inputName' => 'series',

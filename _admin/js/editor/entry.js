@@ -8,7 +8,7 @@
 
 import {initArticleEditForm} from './form.js';
 import {initHtmlTextarea, initHtmlToolbar} from './shortcuts.js';
-import {initTagsAutocomplete} from './tags.js';
+import {initTagsInput} from './tags.js';
 import {initImagePipeline} from './images/pipeline.js';
 import {ClosePictureDialog, ReturnAudio, ReturnImage} from './dialogs.js';
 import {setEditorDeps} from './deps.js';
@@ -18,7 +18,6 @@ const config = window.S2_EDITOR_CONFIG || {};
 
 setEditorDeps({
     PopupMessages: window.PopupMessages,
-    autoComplete: window.autoComplete,
     s2_lang: window.s2_lang,
     CodeMirror: window.CodeMirror,
     loadingIndicator: window.loadingIndicator,
@@ -86,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function () {
         );
     }
 
-    if (config.tagsInputId && Array.isArray(config.tagsList)) {
-        initTagsAutocomplete(config.tagsInputId, config.tagsList);
+    if (config.tags && config.tags.inputId && Array.isArray(config.tags.suggestions)) {
+        initTagsInput(config.tags);
     }
 });

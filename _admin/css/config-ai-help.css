@@ -9,6 +9,18 @@
     min-width: 0;
 }
 
+.ai-provider-inline-form .input-wrapper {
+    display: block;
+    height: auto;
+}
+
+.admin-content table.list-table .ai-provider-inline-form select {
+    position: static;
+    height: 2.35rem;
+    border: 1px solid var(--admin-border-color);
+    background: var(--admin-field-background);
+}
+
 .ai-key-help-trigger {
     display: inline-flex;
     min-height: 2.35rem;

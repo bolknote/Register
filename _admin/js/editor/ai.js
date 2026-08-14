@@ -86,11 +86,7 @@ export function initAiTools(form, config) {
                 if (tagsInput) {
                     tagsInput.value = responseData.result;
                     tagsInput.dispatchEvent(new Event('input', {bubbles: true}));
-                    const details = tagsInput.closest('details');
-                    if (details) {
-                        details.open = true;
-                    }
-                    tagsInput.focus();
+                    tagsInput.dispatchEvent(new Event('focus_tag_editor.s2'));
                 }
                 setStatus('', false);
                 return;
