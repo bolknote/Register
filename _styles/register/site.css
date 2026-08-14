@@ -294,6 +294,10 @@ hr {
     font-weight: 600;
 }
 
+.register-autolink {
+    white-space: nowrap;
+}
+
 .lj-missing-image {
     display: inline-flex;
     max-width: 100%;
