@@ -10,7 +10,7 @@ import {initArticleEditForm} from './form.js';
 import {initHtmlTextarea, initHtmlToolbar} from './shortcuts.js';
 import {initTagsAutocomplete} from './tags.js';
 import {initImagePipeline} from './images/pipeline.js';
-import {ClosePictureDialog, ReturnImage} from './dialogs.js';
+import {ClosePictureDialog, ReturnAudio, ReturnImage} from './dialogs.js';
 import {setEditorDeps} from './deps.js';
 
 const config = window.S2_EDITOR_CONFIG || {};
@@ -27,6 +27,7 @@ setEditorDeps({
 });
 
 window.ReturnImage = ReturnImage;
+window.ReturnAudio = ReturnAudio;
 window.ClosePictureDialog = ClosePictureDialog;
 
 function bindDatalists(form, datalists) {

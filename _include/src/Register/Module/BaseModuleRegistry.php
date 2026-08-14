@@ -31,6 +31,8 @@ final class BaseModuleRegistry
 
     public const string SYNTAX_HIGHLIGHTING = 'register_syntax_highlighting';
 
+    public const string AUDIO_PLAYER = 'register_audio_player';
+
     /**
      * The order preserves the established listener and route registration order.
      *
@@ -69,6 +71,11 @@ final class BaseModuleRegistry
         self::SYNTAX_HIGHLIGHTING => [
             'manifest'    => SyntaxHighlighting\Manifest::class,
             'application' => SyntaxHighlighting\Module::class,
+            'admin'       => null,
+        ],
+        self::AUDIO_PLAYER => [
+            'manifest'    => AudioPlayer\Manifest::class,
+            'application' => AudioPlayer\Module::class,
             'admin'       => null,
         ],
     ];

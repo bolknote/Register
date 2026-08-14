@@ -84,6 +84,7 @@ class InstallCest
         $I->seeElement('meta[name="Generator"][content="Register"]');
         $I->seeElement('link[href$="/_styles/register/favicon.svg"]');
         $I->seeElement('script[src$="/_assets/register/syntax-highlighting/loader.js"]');
+        $I->seeElement('script[src$="/_assets/register/audio-player/loader.js"]');
         $I->seeElement('a.visual-login[href$="/_admin/index.php"]');
         $I->see('ℜ', 'a.visual-login');
         $I->dontSeeElement('a.visual-login svg');
@@ -143,7 +144,7 @@ class InstallCest
         $I->amOnPage('/_admin/index.php?entity=SystemModules');
         $I->see('System modules', 'h1');
 
-        foreach (['s2_blog', 's2_search', 's2_latex', 's2_counter', 's2_typo', 'register_syntax_highlighting'] as $moduleId) {
+        foreach (['s2_blog', 's2_search', 's2_latex', 's2_counter', 's2_typo', 'register_syntax_highlighting', 'register_audio_player'] as $moduleId) {
             $I->seeElement('.base-module [title=' . $moduleId . ']');
             $I->dontSeeElement('.extension.available [title=' . $moduleId . ']');
             $I->dontSeeElement('.extension:not(.base-module) [title=' . $moduleId . ']');

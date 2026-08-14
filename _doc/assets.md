@@ -20,6 +20,9 @@ Current product assets:
   11.11.2 custom browser build under the BSD 3-Clause license. It combines the common set with eight
   explicitly selected languages. Its source tag, commit, checksum, complete language manifest, and
   license are recorded beside the bundle.
+- `_assets/register/audio-player` contains an original native-audio implementation whose compact
+  visual presentation is inspired by Jouele. No Jouele JavaScript, CSS, or artwork is bundled. The
+  original authors' complete MIT notice and source link are recorded beside the player.
 
 When adding a binary or SVG asset, record its origin and license here. A visual resemblance is not
 enough provenance: do not import artwork from a reference product merely because its interface is

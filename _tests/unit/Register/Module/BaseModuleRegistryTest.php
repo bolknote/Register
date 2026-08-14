@@ -23,6 +23,7 @@ final class BaseModuleRegistryTest extends Unit
             's2_counter',
             's2_typo',
             'register_syntax_highlighting',
+            'register_audio_player',
         ], $this->registry()->ids());
     }
 

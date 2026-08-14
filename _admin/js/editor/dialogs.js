@@ -1,7 +1,7 @@
 /**
  * Dialog helpers for editor actions in S2.
  *
- * @copyright 2007-2025 Roman Parpalak
+ * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
  * @package   S2
  */
@@ -46,6 +46,10 @@ function ReturnImage(s, w, h) {
     document.dispatchEvent(new CustomEvent('return_image.s2', {detail: {file_path: s, width: w, height: h}}));
 }
 
+function ReturnAudio(filePath, title) {
+    document.dispatchEvent(new CustomEvent('return_audio.s2', {detail: {file_path: filePath, title: title}}));
+}
+
 function ClosePictureDialog() {
     const dialog = document.getElementById('picture_dialog');
     if (dialog) {
@@ -63,6 +67,7 @@ export {
     PopupWindow,
     GetImage,
     ReturnImage,
+    ReturnAudio,
     ClosePictureDialog,
     showErrorDialog
 };

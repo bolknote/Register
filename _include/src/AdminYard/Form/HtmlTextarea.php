@@ -41,7 +41,7 @@ HTML;
     <button type="button" tabindex="-1" class="nobr" title="{$trans('NOBR')}"></button>
     <span class="separator"></span>
     <button type="button" tabindex="-1" class="a" title="{$trans('Link')}"></button>
-    <button type="button" tabindex="-1" class="img" title="{$trans('Image')}"></button>
+    <button type="button" tabindex="-1" class="img" title="{$trans('Media')}"></button>
     <span class="separator"></span>
     <button type="button" tabindex="-1" class="h2" title="{$trans('Header 2')}"></button>
     <button type="button" tabindex="-1" class="h3" title="{$trans('Header 3')}"></button>

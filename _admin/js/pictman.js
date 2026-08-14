@@ -3,7 +3,7 @@
  *
  * Drag & drop, event handlers for the picture manager
  *
- * @copyright 2007-2025 Roman Parpalak
+ * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
  * @package S2
  */
@@ -68,6 +68,16 @@ var s2Retina = (function () {
 var parentWnd = opener || window.top || null,
     fExecDouble = function () {
     };
+
+function isAudioFile(fileName) {
+    var extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
+
+    return ['mp3', 'wav', 'ogg', 'flac'].includes(extension);
+}
+
+function audioTitle(fileName) {
+    return fileName.replace(/\.[^.]*$/, '').replace(/[_-]+/g, ' ').trim();
+}
 
 $(function () {
     $(document).keydown(function (e) {
@@ -371,7 +381,8 @@ $(function () {
             var str = '';
 
             if (fileTree.jstree('get_selected').length === 1) {
-                var filePath = sPicturePrefix + path + '/' + d.rslt.obj.attr('data-fname');
+                var fileName = d.rslt.obj.attr('data-fname');
+                var filePath = sPicturePrefix + path + '/' + fileName;
                 str = s2_lang.file + '<a href="' + encodeURI(filePath) + '" target="_blank">' + filePath + ' &uarr;</a>';
 
                 if (d.rslt.obj.attr('data-fsize')) {
@@ -394,6 +405,16 @@ $(function () {
                     };
 
                     str += '<br /><input type="button" class="link-as-button" onclick="fExecDouble(); return false;" value="' + s2_lang.insert + '">';
+                } else if (isAudioFile(fileName)) {
+                    fExecDouble = function () {
+                        if (parentWnd.ReturnAudio) {
+                            parentWnd.ReturnAudio(filePath, audioTitle(fileName));
+                        }
+                    };
+
+                    if (parentWnd.ReturnAudio) {
+                        str += '<br /><input type="button" class="link-as-button" onclick="fExecDouble(); return false;" value="' + s2_lang.insert + '">';
+                    }
                 }
             } else {
                 fExecDouble = function () {

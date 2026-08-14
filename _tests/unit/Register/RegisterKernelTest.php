@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace unit\Register;
 
 use Codeception\Test\Unit;
+use Register\Module\AudioPlayer\Module as AudioPlayerModule;
 use Register\Module\Analytics\AdminModule as AnalyticsAdminModule;
 use Register\Module\Analytics\Module as AnalyticsModule;
 use Register\Module\BaseModuleRegistry;
@@ -47,6 +48,7 @@ final class RegisterKernelTest extends Unit
             AnalyticsModule::class,
             TypographyModule::class,
             SyntaxHighlightingModule::class,
+            AudioPlayerModule::class,
         ], $application->moduleClasses);
     }
 
@@ -66,6 +68,7 @@ final class RegisterKernelTest extends Unit
             AnalyticsModule::class,
             TypographyModule::class,
             SyntaxHighlightingModule::class,
+            AudioPlayerModule::class,
             BlogAdminModule::class,
             SearchAdminModule::class,
             MathAdminModule::class,

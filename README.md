@@ -29,6 +29,8 @@ retry a reviewed failed job with `php tools/retry-background-job.php <id> <code>
 - Recovers unsaved editor text after a browser or power failure.
 - Handles image, audio, and video uploads and thumbnails and provides a module API for additional
   integrations.
+- Plays native HTML audio through a compact accessible player, loaded only on pages that use it and
+  kept in sync with the live editor preview.
 - Highlights code blocks in common programming languages with a local, lazily loaded Highlight.js
   build that can be extended with additional languages and plugins.
 - Creates private daily database-and-media backups with retention and control-panel download.

@@ -1,0 +1,262 @@
+/**
+ * Register audio player
+ *
+ * Original implementation. Visual design inspired by Jouele, distributed
+ * under the MIT License; see THIRD_PARTY_NOTICES.md in this directory.
+ *
+ * @copyright 2026 Roman Parpalak
+ * @license   https://opensource.org/license/mit MIT
+ * @package   Register
+ */
+
+.register-audio-player {
+    --register-audio-active: var(--link-color, #8f4633);
+    --register-audio-buffered-color: var(--quiet-color, #999);
+    --register-audio-track-color: var(--border-color, #c9c9c9);
+    --register-audio-played: 0%;
+    --register-audio-buffered: 0%;
+    display: grid;
+    width: min(100%, var(--text-width, 62.5rem));
+    margin: 1.35em 0;
+    grid-template-columns: 1.8rem minmax(0, 1fr) auto;
+    grid-template-rows: 1rem auto;
+    gap: 0.08rem 0.58rem;
+    align-items: center;
+    color: inherit;
+    font-family: var(--ui-font, system-ui, sans-serif);
+    font-size: 1rem;
+    line-height: 1.2;
+    vertical-align: top;
+}
+
+.register-audio-player--playing {
+    --register-audio-active: var(--accent-color, #bd321f);
+}
+
+.register-audio-player--error {
+    --register-audio-active: var(--error-color, #a52e22);
+}
+
+.register-audio-player__media,
+.register-audio-player__status {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    clip-path: inset(50%) !important;
+    border: 0 !important;
+    white-space: nowrap !important;
+}
+
+.register-audio-player__play {
+    display: grid;
+    width: 1.8rem;
+    min-width: 0;
+    height: 1.8rem;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    grid-column: 1;
+    grid-row: 1 / 3;
+    place-items: center;
+    align-self: end;
+    appearance: none;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--register-audio-active);
+    cursor: pointer;
+    position: relative;
+    transition: color 120ms ease, transform 120ms ease;
+}
+
+.register-audio-player__play:hover {
+    color: var(--link-hover-color, #bd321f);
+    transform: scale(1.08);
+}
+
+.register-audio-player__play:focus-visible {
+    outline: 2px solid var(--accent-color, #bd321f);
+    outline-offset: 2px;
+}
+
+.register-audio-player__play:disabled {
+    color: var(--quiet-color, #999);
+    cursor: not-allowed;
+    transform: none;
+}
+
+.register-audio-player__icon {
+    display: block;
+    width: 1.35rem;
+    height: 1.35rem;
+    overflow: visible;
+    fill: currentColor;
+}
+
+.register-audio-player__icon-pause,
+.register-audio-player--playing .register-audio-player__icon-play {
+    display: none;
+}
+
+.register-audio-player--playing .register-audio-player__icon-pause {
+    display: block;
+}
+
+.register-audio-player--loading .register-audio-player__play::after {
+    position: absolute;
+    width: 1.7rem;
+    height: 1.7rem;
+    border: 1px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    content: '';
+    animation: register-audio-spin 700ms linear infinite;
+}
+
+.register-audio-player__timeline {
+    width: 100%;
+    min-width: 0;
+    height: 1rem;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    grid-column: 2 / 4;
+    grid-row: 1;
+    appearance: none;
+    border: 0;
+    border-radius: 0;
+    outline-offset: 1px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.register-audio-player__timeline::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 2px;
+    border: 0;
+    background: linear-gradient(
+        to right,
+        var(--register-audio-active) 0%,
+        var(--register-audio-active) var(--register-audio-played),
+        var(--register-audio-buffered-color) var(--register-audio-played),
+        var(--register-audio-buffered-color) var(--register-audio-buffered),
+        var(--register-audio-track-color) var(--register-audio-buffered),
+        var(--register-audio-track-color) 100%
+    );
+}
+
+.register-audio-player__timeline::-moz-range-track {
+    width: 100%;
+    height: 2px;
+    border: 0;
+    background: linear-gradient(
+        to right,
+        var(--register-audio-active) 0%,
+        var(--register-audio-active) var(--register-audio-played),
+        var(--register-audio-buffered-color) var(--register-audio-played),
+        var(--register-audio-buffered-color) var(--register-audio-buffered),
+        var(--register-audio-track-color) var(--register-audio-buffered),
+        var(--register-audio-track-color) 100%
+    );
+}
+
+.register-audio-player__timeline::-webkit-slider-thumb {
+    width: 7px;
+    height: 7px;
+    margin-top: -2.5px;
+    appearance: none;
+    border: 0;
+    border-radius: 50%;
+    background: var(--register-audio-active);
+    box-shadow: 0 0 0 1px var(--page-background, #fff);
+    transition: width 120ms ease, height 120ms ease, margin 120ms ease;
+}
+
+.register-audio-player__timeline::-moz-range-thumb {
+    width: 7px;
+    height: 7px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--register-audio-active);
+    box-shadow: 0 0 0 1px var(--page-background, #fff);
+    transition: width 120ms ease, height 120ms ease;
+}
+
+.register-audio-player__timeline:hover::-webkit-slider-thumb {
+    width: 9px;
+    height: 9px;
+    margin-top: -3.5px;
+}
+
+.register-audio-player__timeline:hover::-moz-range-thumb {
+    width: 9px;
+    height: 9px;
+}
+
+.register-audio-player__timeline:focus-visible {
+    outline: 2px solid var(--accent-color, #bd321f);
+}
+
+.register-audio-player__timeline:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.register-audio-player__title {
+    min-width: 0;
+    grid-column: 2;
+    grid-row: 2;
+    overflow: hidden;
+    font-size: 0.94rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.register-audio-player__time {
+    grid-column: 3;
+    grid-row: 2;
+    color: var(--minor-color, #706b63);
+    font-size: 0.76rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+@keyframes register-audio-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 420px) {
+    .register-audio-player {
+        grid-template-columns: 1.8rem minmax(0, 1fr);
+    }
+
+    .register-audio-player__timeline {
+        grid-column-end: 3;
+    }
+
+    .register-audio-player__time {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .register-audio-player__play {
+        transition: none;
+    }
+
+    .register-audio-player__timeline::-webkit-slider-thumb {
+        transition: none;
+    }
+
+    .register-audio-player__timeline::-moz-range-thumb {
+        transition: none;
+    }
+}

@@ -1,7 +1,7 @@
 /**
  * Article editor form logic for S2.
  *
- * @copyright 2007-2025 Roman Parpalak
+ * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
  * @package   S2
  */
@@ -11,7 +11,7 @@ import {hex_md5} from './hash.js';
 import {Preview, initPreviewSync} from './preview.js';
 import {PopupWindow} from './dialogs.js';
 import {s2_codemirror} from './codemirror.js';
-import {sanitizeUrlForAttribute} from './utils/escape.js';
+import {escapeHtml, sanitizeUrlForAttribute} from './utils/escape.js';
 
 export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaName, sTemplateId, sSlugFieldName = 'url', sTemplateScope = '') {
     const sLowerEntityName = sEntityName.toLowerCase();
@@ -117,6 +117,18 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         const sOpenTag = '<img src="' + s + '" width="' + w + '" height="' + h + '" ' + 'loading="lazy" alt="',
             sCloseTag = '" />';
         document.dispatchEvent(new CustomEvent('insert_tag.s2', {detail: {sStart: sOpenTag, sEnd: sCloseTag}}));
+
+        const dialog = document.getElementById('picture_dialog');
+        if (dialog) {
+            dialog.close();
+        }
+    });
+
+    document.addEventListener('return_audio.s2', function (e) {
+        const src = sanitizeUrlForAttribute(e.detail.file_path);
+        const title = escapeHtml(e.detail.title || '');
+        const audio = '<audio controls preload="metadata" src="' + src + '" data-title="' + title + '"></audio>';
+        document.dispatchEvent(new CustomEvent('insert_tag.s2', {detail: {sStart: audio, sEnd: ''}}));
 
         const dialog = document.getElementById('picture_dialog');
         if (dialog) {

@@ -42,13 +42,13 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | JPG, GIF, PNG, MP3, Ogg, and MP4 uploads | Available | Included in the default extension allow-list. |
 | WebP, AVIF, MOV, and WebM uploads | Available | Included in the default extension allow-list and covered by the media validation pipeline. |
 | SVG uploads | Partial | SVG is deliberately excluded by default because it can contain active content; a trusted deployment can opt in explicitly. |
-| Play audio inside the editor | Missing | There is no dedicated editor audio player. |
+| Play audio inside the editor | Available | Native HTML audio is enhanced by Register's accessible local player in the live preview. |
 | Replace a file with Alt while retaining its name | Missing | Name collisions produce a new name instead. |
 | Rename an uploaded file | Partial | Supported by the picture manager, but not inline in the text media workflow. |
 | Automatic gallery from consecutive images | Missing | A gallery can only be assembled manually. |
 | Automatic image captions | Missing | Captions require manual markup. |
 | Special syntax for external audio | Missing | Manual HTML is required. |
-| Audio and video media fragments | Missing | There is no dedicated authoring syntax. |
+| Audio and video media fragments | Partial | The media manager inserts first-party audio markup; video still requires manual HTML. |
 | Silent looping video (`@loop`) | Missing | No first-party implementation. |
 | Public code highlighting for 18 languages | Missing | CodeMirror highlights editor source, but Register does not bundle a public article code renderer. |
 | Preview plus explicit draft/publish choice | Available | The shared editor has live preview and explicit draft, scheduled, and immediate publication states. |
