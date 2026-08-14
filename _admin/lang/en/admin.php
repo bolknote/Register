@@ -69,6 +69,8 @@ return [
     'Tags'                       => 'Tags',
     'Tags help'                  => 'Comma-separated tags list. Go to the “Tags” tab to edit them.',
     'Create time'                => 'Created',
+    'Scheduled publication'      => 'Publish at',
+    'Scheduled publication help' => 'Leave “Published” off and choose a date. Checking “Published” publishes immediately and clears this schedule.',
     'Created before'             => 'Created before',
     'Created after'              => 'Created after',
     'Modify time'                => 'Modified',

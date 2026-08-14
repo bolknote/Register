@@ -13,6 +13,7 @@ use Register\Comment\CommentSchema;
 use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentId;
 use Register\Content\ContentChangeDispatcher;
+use Register\Content\ContentPublicationScheduler;
 use Register\Content\Admin\ContentRevision;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSchema;
@@ -80,6 +81,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly ContentCommentNotifier   $commentNotifier,
         private readonly ExtensionCache           $extensionCache,
         private readonly ContentChangeDispatcher  $contentChangeDispatcher,
+        private readonly ContentPublicationScheduler $contentPublicationScheduler,
         private readonly CommentControllerFactory $commentControllerFactory,
         private readonly SpamMetricsRepository     $spamMetricsRepository,
         private readonly string                   $dbType,
@@ -588,6 +590,16 @@ class AdminConfigProvider implements StatefulServiceInterface
                 viewTemplate: '_admin/templates/date.php.inc',
             ))
             ->addField(new FieldConfig(
+                name: 'scheduled_at',
+                label: $this->translator->trans('Scheduled publication'),
+                hint: $this->translator->trans('Scheduled publication help'),
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
+                control: 'datetime',
+                sortable: true,
+                useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/date.php.inc',
+            ))
+            ->addField(new FieldConfig(
                 name: 'updated_at',
                 label: $this->translator->trans('Modify time'),
                 hint: $this->translator->trans('Modify time help'),
@@ -702,6 +714,8 @@ class AdminConfigProvider implements StatefulServiceInterface
                 $event->data['statusData']   = $this->getArticleStatusData($id);
             })
             ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, function (BeforeSaveEvent $event) use ($articleEntity): void {
+                $this->contentPublicationScheduler->prepareForSave($event->data);
+
                 $oldData = $event->dataProvider->getEntity(
                     $this->dbPrefix . ContentSchema::TABLE_NAME,
                     $articleEntity->getFieldDataTypes(FieldConfig::ACTION_EDIT, includePrimaryKey: true),
@@ -739,7 +753,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 $revision = $this->contentRevisionService->resolve(
                     $event->data,
                     $oldData,
-                    ['body', 'title', 'slug', 'meta_keywords', 'meta_description'],
+                    ['body', 'title', 'slug', 'meta_keywords', 'meta_description', 'scheduled_at'],
                 );
                 if (!$revision instanceof ContentRevision) {
                     $event->errorMessages[] = $this->translator->trans('Outdated version');

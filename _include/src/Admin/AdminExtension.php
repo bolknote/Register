@@ -151,6 +151,7 @@ class AdminExtension implements ExtensionInterface
                 $container->get(ContentCommentNotifier::class),
                 $container->get(ExtensionCache::class),
                 $container->get(ContentChangeDispatcher::class),
+                $container->get(\Register\Content\ContentPublicationScheduler::class),
                 $container->get(CommentControllerFactory::class),
                 $container->get(\S2\Cms\Comment\Antispam\SpamMetricsRepository::class),
                 $dbType,

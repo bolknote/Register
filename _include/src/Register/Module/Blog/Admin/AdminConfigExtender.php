@@ -12,6 +12,7 @@ namespace Register\Module\Blog\Admin;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentChangeDispatcher;
+use Register\Content\ContentPublicationScheduler;
 use Register\Content\Admin\ContentRevision;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSchema;
@@ -58,6 +59,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private ContentRevisionService   $contentRevisionService,
         private ContentSlugService       $contentSlugService,
         private ContentChangeDispatcher  $contentChangeDispatcher,
+        private ContentPublicationScheduler $contentPublicationScheduler,
         private string                   $dbType,
         private string                   $dbPrefix
     ) {
@@ -141,6 +143,16 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 // AdminYard accepts mixed here; its published PHPDoc is narrower than the runtime contract.
                 // @phan-suppress-next-line PhanTypeMismatchArgumentProbablyReal
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME, defaultValue: new \DateTimeImmutable()),
+                control: 'datetime',
+                sortable: true,
+                useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/date.php.inc',
+            ))
+            ->addField(new FieldConfig(
+                name: 'scheduled_at',
+                label: $this->translator->trans('Scheduled publication'),
+                hint: $this->translator->trans('Scheduled publication help'),
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
                 control: 'datetime',
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
@@ -282,6 +294,8 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 $event->data['statusData']  = $this->getPostStatusData($id, $formData['slug']);
             })
             ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, function (BeforeSaveEvent $event) use ($postEntity): void {
+                $this->contentPublicationScheduler->prepareForSave($event->data);
+
                 $oldData = $event->dataProvider->getEntity(
                     $this->dbPrefix . ContentSchema::TABLE_NAME,
                     $postEntity->getFieldDataTypes(FieldConfig::ACTION_EDIT, includePrimaryKey: true),
@@ -309,7 +323,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 $revision = $this->contentRevisionService->resolve(
                     $event->data,
                     $oldData,
-                    ['body', 'title', 'slug', 'date_label'],
+                    ['body', 'title', 'slug', 'date_label', 'scheduled_at'],
                 );
                 if (!$revision instanceof ContentRevision) {
                     $event->errorMessages[] = $this->translator->trans('Outdated version');

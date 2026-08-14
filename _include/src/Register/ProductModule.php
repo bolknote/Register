@@ -14,6 +14,7 @@ use Register\Comment\ContentCommentNotifier;
 use Register\Comment\ContentCommentStrategy;
 use Register\Comment\ContentCommentTargetResolver;
 use Register\Content\ContentChangeDispatcher;
+use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentRepository;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSourceInterface;
@@ -70,6 +71,11 @@ readonly class ProductModule implements ContainerModuleInterface
             $container->get(DbLayer::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
         ), [StatefulServiceInterface::class]);
+        $container->set(ContentPublicationScheduler::class, static fn(Container $container): ContentPublicationScheduler => new ContentPublicationScheduler(
+            $container->get(DbLayer::class),
+            $container->get(\PDO::class),
+            $container->get(ContentChangeDispatcher::class),
+        ));
         $container->set(ContentStatisticsRepository::class, static fn(Container $container): ContentStatisticsRepository => new ContentStatisticsRepository(
             $container->get(DbLayer::class),
         ));

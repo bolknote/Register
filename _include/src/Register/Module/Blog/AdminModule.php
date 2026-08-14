@@ -33,6 +33,7 @@ use Register\Module\Blog\Admin\PathToAdminEntityConverter;
 use Register\Module\Blog\Admin\TranslationProvider;
 use Register\Content\ContentType;
 use Register\Content\ContentChangeDispatcher;
+use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentStatisticsRepository;
 use Register\Module\Blog\Model\PostProvider;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -52,6 +53,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(ContentRevisionService::class),
             $container->get(ContentSlugService::class),
             $container->get(ContentChangeDispatcher::class),
+            $container->get(ContentPublicationScheduler::class),
             $container->getStringParameter('db_type'),
             $container->getStringParameter('db_prefix'),
         ), [AdminConfigExtenderInterface::class]);

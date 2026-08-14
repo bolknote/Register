@@ -7,6 +7,7 @@
 
 declare(strict_types = 1);
 
+use Register\Content\ContentPublicationScheduler;
 use S2\Cms\Comment\Antispam\SpamMaintenance;
 use S2\Cms\Queue\QueueConsumer;
 
@@ -15,6 +16,8 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $app = require __DIR__ . '/_include/common.php';
+
+$app->container->get(ContentPublicationScheduler::class)->publishDue();
 
 $consumer = $app->container->get(QueueConsumer::class);
 $startedAt = microtime(true);
