@@ -2,13 +2,15 @@
 
 /** @var callable $trans */
 /** @var callable $param */
+/** @var callable $styleColorScheme */
+/** @var callable $adminStyleVersion */
 /** @var string $locale */
 /** @var string $basePath */
 /** @var string $errorMessage */
 
 ?>
 <!DOCTYPE html>
-<html lang="<?= $locale ?>">
+<html lang="<?= $locale ?>" data-color-scheme="<?= s2_htmlencode($styleColorScheme()) ?>">
 <head>
     <meta charset="UTF-8">
     <title><?php echo $trans('Admin panel'), $param('S2_SITE_NAME') ? ' - ' . $param('S2_SITE_NAME') : ''; ?></title>
@@ -16,7 +18,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/svg+xml" href="<?= $basePath ?>/_styles/register/favicon.svg">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css">
-    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css">
+    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
     <script src="<?= $basePath ?>/_admin/js/lib.js"></script>
 </head>
 <body class="login_page" onload="LoginInit();">

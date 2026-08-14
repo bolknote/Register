@@ -239,6 +239,47 @@ function DisplayError(sError) {
     closeButton.focus();
 }
 
+function localizeTimes() {
+    if (typeof window.Intl === 'undefined' || typeof window.Intl.DateTimeFormat === 'undefined') {
+        return;
+    }
+
+    document.querySelectorAll('time[data-local-time]').forEach(function (element) {
+        const date = new Date(element.getAttribute('datetime') || '');
+        if (Number.isNaN(date.getTime())) {
+            return;
+        }
+
+        try {
+            const formatter = new Intl.DateTimeFormat(document.documentElement.lang || undefined, {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hourCycle: 'h23',
+                timeZoneName: 'short'
+            });
+            const parts = {};
+            formatter.formatToParts(date).forEach(function (part) {
+                if (part.type !== 'literal') {
+                    parts[part.type] = part.value;
+                }
+            });
+
+            if (parts.year && parts.month && parts.day && parts.hour && parts.minute) {
+                element.textContent = parts.year + '-' + parts.month + '-' + parts.day
+                    + ' ' + parts.hour + ':' + parts.minute
+                    + (parts.timeZoneName ? ' ' + parts.timeZoneName : '');
+            } else {
+                element.textContent = formatter.format(date);
+            }
+        } catch (error) {
+            // The explicit UTC server-rendered value remains available in old browsers.
+        }
+    });
+}
+
 // Ajax login form processing
 
 let shakeTimerId = null;
@@ -330,6 +371,8 @@ function LoginInit() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    localizeTimes();
+
     document.body.addEventListener('keydown', function(e) {
         // Disable sending form on Enter on new and edit forms to prevent partial submission
         if (e.key === 'Enter' && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) {

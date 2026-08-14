@@ -6,7 +6,7 @@ use S2\Cms\Asset\AssetPack;
 
 return (new AssetPack(__DIR__))
     ->addMeta('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    ->addMeta('<meta name="color-scheme" content="light">')
+    ->setColorScheme(AssetPack::COLOR_SCHEME_LIGHT)
     ->addMeta('<meta name="theme-color" content="#004d4e">')
     ->addCss('../register/site.css', [AssetPack::OPTION_MERGE])
     ->addCss('oldschool.css', [AssetPack::OPTION_MERGE])

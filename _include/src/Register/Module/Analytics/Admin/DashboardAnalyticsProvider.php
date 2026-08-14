@@ -9,13 +9,16 @@ declare(strict_types = 1);
 
 namespace Register\Module\Analytics\Admin;
 
+use Register\Module\VisitorIdentity\VisitorIdentityRepository;
 use S2\AdminYard\TemplateRenderer;
 use S2\Cms\Admin\Dashboard\DashboardBlockProviderInterface;
 
 final readonly class DashboardAnalyticsProvider implements DashboardBlockProviderInterface
 {
-    public function __construct(private TemplateRenderer $templateRenderer)
-    {
+    public function __construct(
+        private TemplateRenderer          $templateRenderer,
+        private VisitorIdentityRepository $visitorIdentityRepository,
+    ) {
     }
 
     #[\Override]
@@ -23,6 +26,7 @@ final readonly class DashboardAnalyticsProvider implements DashboardBlockProvide
     {
         return $this->templateRenderer->render(
             \dirname(__DIR__) . '/resources/views/dashboard.php.inc',
+            ['uniqueVisitorsTotal' => $this->visitorIdentityRepository->totalVisitors()],
         );
     }
 }

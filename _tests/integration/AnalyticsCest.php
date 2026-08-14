@@ -11,6 +11,7 @@ namespace integration;
 
 use Register\Module\Analytics\AnalyticsRepository;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
+use Register\Module\VisitorIdentity\VisitorIdentityRepository;
 use S2\Cms\Pdo\DbLayer;
 
 final class AnalyticsCest
@@ -55,6 +56,10 @@ final class AnalyticsCest
         $I->assertSame('fingerprint', $recovered['source']);
         $I->assertSame($resolved['token'], $recovered['token']);
 
+        /** @var VisitorIdentityRepository $visitorRepository */
+        $visitorRepository = $I->grabService(VisitorIdentityRepository::class);
+        $I->assertSame(1, $visitorRepository->totalVisitors());
+
         $I->sendRequestWithHeaders('https://localhost/', $headers);
 
         /** @var DbLayer $dbLayer */
@@ -93,6 +98,11 @@ final class AnalyticsCest
         $I->amOnPage('https://localhost/_analytics/counter.png');
         $I->seeResponseCodeIs(200);
         $I->seeHttpHeader('Content-Type', 'image/png');
+
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Dashboard');
+        $I->see('Unique visitors', '.analytics-summary');
+        $I->see('1', '.analytics-summary-value');
     }
 
     public function ignoresBrowserPrivacySignalsAndRejectsPublicAnalyticsData(\IntegrationTester $I): void

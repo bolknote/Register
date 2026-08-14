@@ -31,6 +31,7 @@ class AdminModule implements ContainerModuleInterface, ContainerAwareListenerMod
             DashboardAnalyticsProvider::class,
             static fn(Container $container): DashboardAnalyticsProvider => new DashboardAnalyticsProvider(
                 $container->get(TemplateRenderer::class),
+                $container->get(\Register\Module\VisitorIdentity\VisitorIdentityRepository::class),
             ),
             [DashboardBlockProviderInterface::class],
         );

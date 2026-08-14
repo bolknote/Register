@@ -27,6 +27,8 @@ $maxFileSize = $bytesFromString(ini_get('upload_max_filesize'))
 /** @var string $locale */
 /** @var callable $trans */
 /** @var callable $param */
+/** @var callable $styleColorScheme */
+/** @var callable $adminStyleVersion */
 /** @var callable $isGranted */
 /** @var callable $friendlyFilesize */
 
@@ -35,7 +37,7 @@ $maxFileSize = $bytesFromString(ini_get('upload_max_filesize'))
 
 ?>
 <!DOCTYPE html>
-<html lang="<?= $locale ?>">
+<html lang="<?= $locale ?>" data-color-scheme="<?= s2_htmlencode($styleColorScheme()) ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -44,7 +46,7 @@ $maxFileSize = $bytesFromString(ini_get('upload_max_filesize'))
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_vendor/s2/admin-yard/demo/style.css">
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_admin/css/admin-override.css"/>
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_admin/css/pictures.css"/>
-    <link rel="stylesheet" href="<?php echo $basePath; ?>/_admin/css/register.css"/>
+    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>"/>
     <script src="<?php echo $basePath; ?>/_admin/js/lib.js"></script>
     <script src="<?php echo $basePath; ?>/_admin/js/ajax.js"></script>
     <script>

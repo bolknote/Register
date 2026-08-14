@@ -12,6 +12,12 @@ namespace S2\Cms\Asset;
 
 class AssetPack
 {
+    public const string COLOR_SCHEME_LIGHT = 'light';
+
+    public const string COLOR_SCHEME_DARK = 'dark';
+
+    public const string COLOR_SCHEME_SYSTEM = 'light dark';
+
     public const string OPTION_PRELOAD = 'preload';
 
     public const string OPTION_DEFER = 'defer';
@@ -48,6 +54,10 @@ class AssetPack
     private array $preload = [];
 
     private ?string $favIcon = null;
+
+    private ?string $colorScheme = null;
+
+    private ?int $colorSchemeMetaIndex = null;
 
     private readonly string $localDir;
 
@@ -116,6 +126,33 @@ class AssetPack
         $this->meta[] = $code;
 
         return $this;
+    }
+
+    public function setColorScheme(string $colorScheme): self
+    {
+        if (!\in_array($colorScheme, [
+            self::COLOR_SCHEME_LIGHT,
+            self::COLOR_SCHEME_DARK,
+            self::COLOR_SCHEME_SYSTEM,
+        ], true)) {
+            throw new \InvalidArgumentException('Unsupported color scheme "' . $colorScheme . '".');
+        }
+
+        $this->colorScheme = $colorScheme;
+        $meta = '<meta name="color-scheme" content="' . $colorScheme . '">';
+        if ($this->colorSchemeMetaIndex === null) {
+            $this->colorSchemeMetaIndex = \count($this->meta);
+            $this->meta[] = $meta;
+        } else {
+            $this->meta[$this->colorSchemeMetaIndex] = $meta;
+        }
+
+        return $this;
+    }
+
+    public function getColorScheme(): string
+    {
+        return $this->colorScheme ?? self::COLOR_SCHEME_SYSTEM;
     }
 
     /**

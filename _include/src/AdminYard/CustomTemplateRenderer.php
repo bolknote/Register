@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace S2\Cms\AdminYard;
 
 use S2\AdminYard\TemplateRenderer;
+use S2\Cms\Asset\AssetPack;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Model\PermissionChecker;
@@ -42,13 +43,15 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
     #[\Override]
     public function render(string $_template_path, array $data = []): string
     {
-        $trans            = $this->translator->trans(...);
-        $locale           = $this->translator->getLocale();
-        $param            = $this->dynamicConfigProvider->get(...);
-        $isGranted        = $this->permissionChecker->isGranted(...);
-        $friendlyFilesize = $this->friendlyFilesize(...);
-        $numberFormat     = $this->numberFormat(...);
-        $basePath         = $this->basePath;
+        $trans             = $this->translator->trans(...);
+        $locale            = $this->translator->getLocale();
+        $param             = $this->dynamicConfigProvider->get(...);
+        $isGranted         = $this->permissionChecker->isGranted(...);
+        $friendlyFilesize  = $this->friendlyFilesize(...);
+        $numberFormat      = $this->numberFormat(...);
+        $styleColorScheme  = $this->styleColorScheme(...);
+        $adminStyleVersion = $this->adminStyleVersion(...);
+        $basePath          = $this->basePath;
         [$extraStyles, $extraScripts] = $this->getExtraAssets();
 
         // Template data must not be able to replace the selected file or renderer helpers.
@@ -126,6 +129,41 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
         $this->eventDispatcher->dispatch($event);
 
         return $this->extraAssets = [$event->extraStyles, $event->extraScripts];
+    }
+
+    private function styleColorScheme(): string
+    {
+        $styleName = $this->dynamicConfigProvider->get('S2_STYLE');
+        if (!\is_string($styleName) || preg_match('#\A[0-9a-zA-Z_-]+\z#D', $styleName) !== 1) {
+            throw new \LogicException('The selected style name is invalid.');
+        }
+
+        $styleFilename = $this->rootDir . '_styles/' . $styleName . '/' . $styleName . '.php';
+        if (!is_file($styleFilename)) {
+            throw new \LogicException('The selected style definition does not exist.');
+        }
+
+        $assetPack = require $styleFilename;
+        if (!$assetPack instanceof AssetPack) {
+            throw new \LogicException('The selected style definition must return an AssetPack object.');
+        }
+
+        return $assetPack->getColorScheme();
+    }
+
+    private function adminStyleVersion(): string
+    {
+        $filename = $this->rootDir . '_admin/css/register.css';
+        if (!\is_file($filename)) {
+            throw new \LogicException('The administration stylesheet does not exist.');
+        }
+
+        $modifiedAt = \filemtime($filename);
+        if ($modifiedAt === false) {
+            throw new \LogicException('Unable to read the administration stylesheet modification time.');
+        }
+
+        return (string)$modifiedAt;
     }
 
     #[\Override]

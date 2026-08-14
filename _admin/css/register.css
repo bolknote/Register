@@ -13,6 +13,12 @@
     --admin-success-color: #2d7a45;
     --admin-error-color: #a52e22;
     --admin-warning-color: #9a6800;
+    --admin-code-blue: #0645ad;
+    --admin-code-green: #176b29;
+    --admin-code-purple: #6f42c1;
+    --admin-code-red: #9f1c1c;
+    --admin-code-orange: #8a5700;
+    --admin-code-cyan: #087f8c;
     --admin-border-color: color-mix(in srgb, var(--admin-text-color) 16%, transparent);
     --admin-soft-border-color: color-mix(in srgb, var(--admin-text-color) 10%, transparent);
     --admin-shadow: 0 0.35rem 1.4rem rgb(67 49 34 / 0.08);
@@ -31,8 +37,37 @@
     --color-btn-primary: var(--admin-accent-color);
 }
 
+:root[data-color-scheme="light"] {
+    color-scheme: light;
+}
+
+:root[data-color-scheme="dark"] {
+    color-scheme: dark;
+    --admin-page-background: #1b1a18;
+    --admin-surface-background: #27241f;
+    --admin-secondary-background: #302c26;
+    --admin-field-background: #211f1b;
+    --admin-text-color: #e7e0d4;
+    --admin-secondary-text-color: #b6aea2;
+    --admin-quiet-color: #8b8378;
+    --admin-link-color: #d1a08b;
+    --admin-link-hover-color: #ef8068;
+    --admin-accent-color: #ef8068;
+    --admin-success-color: #79bc87;
+    --admin-error-color: #ed8d79;
+    --admin-warning-color: #e4b755;
+    --admin-code-blue: #82aaff;
+    --admin-code-green: #c3e88d;
+    --admin-code-purple: #c792ea;
+    --admin-code-red: #f07178;
+    --admin-code-orange: #ffcb6b;
+    --admin-code-cyan: #89ddff;
+    --admin-shadow: 0 0.35rem 1.4rem rgb(0 0 0 / 0.28);
+}
+
 @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-color-scheme]),
+    :root[data-color-scheme="light dark"] {
         color-scheme: dark;
         --admin-page-background: #1b1a18;
         --admin-surface-background: #27241f;
@@ -47,6 +82,12 @@
         --admin-success-color: #79bc87;
         --admin-error-color: #ed8d79;
         --admin-warning-color: #e4b755;
+        --admin-code-blue: #82aaff;
+        --admin-code-green: #c3e88d;
+        --admin-code-purple: #c792ea;
+        --admin-code-red: #f07178;
+        --admin-code-orange: #ffcb6b;
+        --admin-code-cyan: #89ddff;
         --admin-shadow: 0 0.35rem 1.4rem rgb(0 0 0 / 0.28);
     }
 }
@@ -682,6 +723,10 @@ section.list-header h1 {
     margin-top: 0.35rem;
 }
 
+.backup-actions {
+    margin: 0.8rem 0 0;
+}
+
 .publication-statistics {
     display: grid;
     gap: 0.2rem;
@@ -717,6 +762,21 @@ section.list-header h1 {
     border: 1px solid var(--admin-soft-border-color);
     border-radius: 0.45rem;
     background: var(--admin-surface-background);
+}
+
+.analytics-summary {
+    display: flex;
+    gap: 0.55rem;
+    align-items: baseline;
+    width: fit-content;
+    margin: 0 0 0.35rem;
+}
+
+.analytics-summary-value {
+    color: var(--admin-text-color);
+    font-size: 1.75rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
 }
 
 .analytics-presentation {
@@ -1063,10 +1123,92 @@ section.large-edit-form {
     content: none;
 }
 
-.CodeMirror {
+html .CodeMirror {
     border-color: var(--admin-border-color);
-    background: #fff;
-    color: #1d1b18;
+    background: var(--admin-field-background);
+    color: var(--admin-text-color);
+}
+
+html .CodeMirror-gutters {
+    border-color: var(--admin-border-color);
+    background: var(--admin-secondary-background);
+}
+
+html .CodeMirror-linenumber,
+html .CodeMirror-guttermarker-subtle {
+    color: var(--admin-quiet-color);
+}
+
+html .CodeMirror-guttermarker {
+    color: var(--admin-text-color);
+}
+
+html .CodeMirror-scrollbar-filler,
+html .CodeMirror-gutter-filler {
+    background: var(--admin-field-background);
+}
+
+html .CodeMirror-cursor,
+html .CodeMirror div.CodeMirror-secondarycursor {
+    border-left-color: var(--admin-text-color);
+}
+
+html .CodeMirror-selected,
+html .CodeMirror-focused .CodeMirror-selected {
+    background: color-mix(in srgb, var(--admin-accent-color) 24%, var(--admin-field-background));
+}
+
+html .cm-s-default .cm-header,
+html .cm-s-default .cm-def,
+html .cm-s-default .cm-variable-2,
+html .cm-s-default .cm-link {
+    color: var(--admin-code-blue);
+}
+
+html .cm-s-default .cm-quote,
+html .cm-s-default .cm-positive,
+html .cm-s-default .cm-variable-3,
+html .cm-s-default .cm-type,
+html .cm-s-default .cm-string {
+    color: var(--admin-code-green);
+}
+
+html .cm-s-default .cm-keyword {
+    color: var(--admin-code-purple);
+}
+
+html .cm-s-default .cm-negative,
+html .cm-s-default .cm-error,
+html .cm-s-default .cm-invalidchar,
+html .cm-s-default .cm-tag {
+    color: var(--admin-code-red);
+}
+
+html .cm-s-default .cm-comment,
+html .cm-s-default .cm-builtin,
+html .cm-s-default .cm-attribute,
+html .cm-s-default .cm-string-2 {
+    color: var(--admin-code-orange);
+}
+
+html .cm-s-default .cm-atom,
+html .cm-s-default .cm-number,
+html .cm-s-default .cm-bracket {
+    color: var(--admin-code-cyan);
+}
+
+html .cm-s-default .cm-meta,
+html .cm-s-default .cm-qualifier,
+html .cm-s-default .cm-hr {
+    color: var(--admin-secondary-text-color);
+}
+
+html div.CodeMirror span.CodeMirror-matchingbracket {
+    color: var(--admin-success-color);
+}
+
+html div.CodeMirror span.CodeMirror-nonmatchingbracket {
+    color: var(--admin-error-color);
 }
 
 .flash-message {
@@ -1354,8 +1496,14 @@ body.login_page {
     }
 }
 
+:root[data-color-scheme="dark"] .toolbar button {
+    filter: grayscale(1) invert(1);
+    opacity: 0.78;
+}
+
 @media (prefers-color-scheme: dark) {
-    .toolbar button {
+    :root:not([data-color-scheme]) .toolbar button,
+    :root[data-color-scheme="light dark"] .toolbar button {
         filter: grayscale(1) invert(1);
         opacity: 0.78;
     }

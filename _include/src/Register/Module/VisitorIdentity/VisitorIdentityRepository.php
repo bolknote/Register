@@ -29,6 +29,15 @@ final readonly class VisitorIdentityRepository
         return \is_string($visitorId) ? $visitorId : null;
     }
 
+    public function totalVisitors(): int
+    {
+        return (int)$this->dbLayer->select('COUNT(*)')
+            ->from(Manifest::VISITOR_TABLE)
+            ->execute()
+            ->result()
+        ;
+    }
+
     public function touchVisitor(string $visitorId, int $now): void
     {
         $this->dbLayer->insert(Manifest::VISITOR_TABLE)

@@ -10,6 +10,8 @@ if (!isset($this)) {
 /** @var string $basePath */
 /** @var callable $trans */
 /** @var callable $param */
+/** @var callable $styleColorScheme */
+/** @var callable $adminStyleVersion */
 /** @var string $menu */
 /** @var ?string $content */
 /** @var ?string $errorMessage */
@@ -19,7 +21,7 @@ if (!isset($this)) {
 
 ?>
 <!DOCTYPE html>
-<html lang="<?= $locale ?>">
+<html lang="<?= $locale ?>" data-color-scheme="<?= s2_htmlencode($styleColorScheme()) ?>">
 <head>
     <meta charset="utf-8">
     <title><?php echo $trans('Admin panel'), $param('S2_SITE_NAME') ? ' - ' . $param('S2_SITE_NAME') : ''; ?></title>
@@ -28,7 +30,7 @@ if (!isset($this)) {
     <link rel="icon" type="image/svg+xml" href="<?= $basePath ?>/_styles/register/favicon.svg">
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_vendor/s2/admin-yard/demo/style.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css">
-    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css">
+    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
     <?php foreach ($extraStyles as $style): ?>
         <link rel="stylesheet" href="<?= $style ?>">
     <?php endforeach; ?>

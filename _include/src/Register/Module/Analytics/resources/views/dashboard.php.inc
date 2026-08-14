@@ -1,6 +1,7 @@
 <?php
 /** @var string $basePath */
 /** @var callable $trans */
+/** @var int $uniqueVisitorsTotal */
 ?>
 <section
     class="register-analytics"
@@ -13,6 +14,10 @@
     data-day="<?= htmlspecialchars($trans('Analytics day'), ENT_QUOTES, 'UTF-8') ?>"
 >
     <h2><?= $trans('Analytics') ?></h2>
+    <div class="analytics-summary" aria-label="<?= htmlspecialchars($trans('Unique visitors'), ENT_QUOTES, 'UTF-8') ?>">
+        <strong class="analytics-summary-value"><?= $uniqueVisitorsTotal ?></strong>
+        <span><?= $trans('Unique visitors') ?></span>
+    </div>
     <p class="technical-data"><?= $trans('Analytics privacy note') ?></p>
     <script src="<?= $basePath ?>/_assets/register/analytics/highstock.js"></script>
     <script src="<?= $basePath ?>/_assets/register/analytics/charts.js"></script>

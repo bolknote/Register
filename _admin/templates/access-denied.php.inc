@@ -2,12 +2,14 @@
 
 /** @var callable $trans */
 /** @var callable $param */
+/** @var callable $styleColorScheme */
+/** @var callable $adminStyleVersion */
 /** @var string $locale */
 /** @var string $basePath */
 
 ?>
 <!DOCTYPE html>
-<html lang="<?= $locale ?>">
+<html lang="<?= $locale ?>" data-color-scheme="<?= s2_htmlencode($styleColorScheme()) ?>">
 <head>
     <meta charset="utf-8">
     <title><?= $trans('Admin panel'), $param('S2_SITE_NAME') ? ' - ' . $param('S2_SITE_NAME') : '' ?></title>
@@ -16,7 +18,7 @@
     <link rel="icon" type="image/svg+xml" href="<?= $basePath ?>/_styles/register/favicon.svg">
     <link rel="stylesheet" href="<?= $basePath ?>/_vendor/s2/admin-yard/demo/style.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css">
-    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css">
+    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
     <style>:root {
             --page-secondary-background: <?= $param('S2_ADMIN_COLOR') ?>;
         }</style></head>

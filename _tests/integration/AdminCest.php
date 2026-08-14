@@ -42,7 +42,8 @@ class AdminCest
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
 
-        $I->seeElement('link[rel="stylesheet"][href="/_admin/css/register.css"]');
+        $I->seeElement('link[rel="stylesheet"][href^="/_admin/css/register.css?v="]');
+        $I->seeElement('html[data-color-scheme="light dark"]');
         $I->seeElement('header.admin-shell');
         $I->seeElement('a.admin-brand[href="/"]');
         $I->see('Register', 'a.admin-brand');
