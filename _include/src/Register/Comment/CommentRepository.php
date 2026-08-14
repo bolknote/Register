@@ -168,7 +168,7 @@ final readonly class CommentRepository
             ->where('shown = 0')
             ->andWhere('sent = 0')
         ;
-        if ($contentType !== null) {
+        if ($contentType instanceof ContentType) {
             $query
                 ->andWhere('content_type = :content_type')
                 ->setParameter('content_type', $contentType->value)

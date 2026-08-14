@@ -24,6 +24,14 @@ return [
     'No'                         => 'No',
     'Delete'                     => 'Delete',
     'Edit'                       => 'Edit',
+    'New post'                   => 'New post',
+    'Media'                      => 'Media',
+    'Search & statistics'        => 'Search & statistics',
+    'Settings'                   => 'Settings',
+    'System'                     => 'System',
+    'Page structure'             => 'Page structure',
+    'System modules'             => 'System modules',
+    'Optional modules'           => 'Optional modules',
 
     // Session tab
     'Session'                    => 'Session',

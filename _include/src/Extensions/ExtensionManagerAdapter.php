@@ -40,8 +40,16 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
         }
 
         $adminConfig
-            ->setServicePage('Extension', fn(): string => $this->getExtensionList(), 60, $this->translator->trans('Extensions'))
+            ->setServicePage('SystemModules', fn(): string => $this->getBaseModuleList(), 60, $this->translator->trans('System modules'))
+            ->setServicePage('Extension', fn(): string => $this->getExtensionList(), 61, $this->translator->trans('Optional modules'))
         ;
+    }
+
+    public function getBaseModuleList(): string
+    {
+        return $this->templateRenderer->render('_admin/templates/extension/base-modules.php.inc', [
+            'baseModules' => $this->extensionManager->getBaseModules(),
+        ]);
     }
 
     /**

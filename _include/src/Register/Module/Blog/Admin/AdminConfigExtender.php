@@ -11,6 +11,7 @@ namespace Register\Module\Blog\Admin;
 
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\Admin\ContentRevision;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
@@ -311,7 +312,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     $oldData,
                     ['body', 'title', 'slug', 'date_label'],
                 );
-                if ($revision === null) {
+                if (!$revision instanceof ContentRevision) {
                     $event->errorMessages[] = $this->translator->trans('Outdated version');
                     return;
                 }

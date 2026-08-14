@@ -36,7 +36,7 @@ final readonly class ContentCommentNotifier
         $comment = $this->commentRepository->find($commentId);
         if (
             !$comment instanceof Comment
-            || ($expectedContentType !== null && $comment->contentId->type !== $expectedContentType)
+            || ($expectedContentType instanceof ContentType && $comment->contentId->type !== $expectedContentType)
         ) {
             return;
         }

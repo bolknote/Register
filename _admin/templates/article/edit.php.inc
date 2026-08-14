@@ -221,6 +221,7 @@ $columns[1] = array_merge($columns[1], $visibleControls);
         textareaName: 'body',
         slugFieldName: 'slug',
         templateId: <?= json_encode($isPost ? 'blog.php' : null, JSON_THROW_ON_ERROR) ?>,
+        templateScope: <?= json_encode($contentType, JSON_THROW_ON_ERROR) ?>,
         statusData: <?= json_encode($statusData, JSON_THROW_ON_ERROR) ?>,
         tagsInputId: 'id-tags',
         tagsList: <?= json_encode($tagsList, JSON_THROW_ON_ERROR) ?>,

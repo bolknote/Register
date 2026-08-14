@@ -69,7 +69,15 @@ document.addEventListener('DOMContentLoaded', function () {
     initImagePipeline();
 
     if (form && config.statusData && config.entityName && config.textareaName) {
-        initArticleEditForm(form, config.statusData, config.entityName, config.textareaName, config.templateId, config.slugFieldName || 'url');
+        initArticleEditForm(
+            form,
+            config.statusData,
+            config.entityName,
+            config.textareaName,
+            config.templateId,
+            config.slugFieldName || 'url',
+            config.templateScope || ''
+        );
     }
 
     if (config.tagsInputId && Array.isArray(config.tagsList)) {

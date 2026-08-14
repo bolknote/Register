@@ -14,16 +14,9 @@ use Register\Content\Admin\ContentRevisionService;
 
 final class ContentRevisionServiceTest extends Unit
 {
-    private ContentRevisionService $service;
-
-    protected function _before(): void
-    {
-        $this->service = new ContentRevisionService();
-    }
-
     public function testAdvancesRevisionWhenEditorialContentChanged(): void
     {
-        $revision = $this->service->resolve(
+        $revision = $this->service()->resolve(
             ['title' => 'New title', 'body' => 'Body', 'revision' => '4'],
             ['column_title' => 'Old title', 'column_body' => 'Body', 'column_revision' => '4'],
             ['title', 'body'],
@@ -36,7 +29,7 @@ final class ContentRevisionServiceTest extends Unit
 
     public function testKeepsStoredRevisionForSecondaryChanges(): void
     {
-        $revision = $this->service->resolve(
+        $revision = $this->service()->resolve(
             ['title' => 'Title', 'revision' => '1'],
             ['column_title' => 'Title', 'column_revision' => '7'],
             ['title'],
@@ -49,7 +42,7 @@ final class ContentRevisionServiceTest extends Unit
 
     public function testRejectsConcurrentEditorialChange(): void
     {
-        self::assertNull($this->service->resolve(
+        self::assertNull($this->service()->resolve(
             ['title' => 'New title', 'revision' => '3'],
             ['column_title' => 'Old title', 'column_revision' => '4'],
             ['title'],
@@ -59,10 +52,15 @@ final class ContentRevisionServiceTest extends Unit
     public function testRejectsMissingTrackedField(): void
     {
         $this->expectException(\LogicException::class);
-        $this->service->resolve(
+        $this->service()->resolve(
             ['revision' => '1'],
             ['column_title' => 'Title', 'column_revision' => '1'],
             ['title'],
         );
+    }
+
+    private function service(): ContentRevisionService
+    {
+        return new ContentRevisionService();
     }
 }

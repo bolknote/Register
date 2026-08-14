@@ -35,6 +35,18 @@ class AdminCest
         $I->seeResponseCodeIs(200);
     }
 
+    public function testBlogPreviewLoadsTemplateFromBaseModule(\IntegrationTester $I): void
+    {
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/_admin/ajax.php?action=load_template&template_id=blog.php&article_id=2&content_type=post');
+        $I->seeResponseCodeIs(200);
+
+        $response = json_decode($I->grabResponse(), true, 512, JSON_THROW_ON_ERROR);
+        $I->assertIsArray($response);
+        $I->assertTrue($response['success'] ?? false);
+        $I->assertStringContainsString('<!-- s2_text -->', (string)($response['template'] ?? ''));
+    }
+
     public function testLoginLifetimeAndSharedComputerMode(\IntegrationTester $I): void
     {
         /** @var AuthManager $authManager */

@@ -13,7 +13,7 @@ import {PopupWindow} from './dialogs.js';
 import {s2_codemirror} from './codemirror.js';
 import {sanitizeUrlForAttribute} from './utils/escape.js';
 
-export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaName, sTemplateId, sSlugFieldName = 'url') {
+export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaName, sTemplateId, sSlugFieldName = 'url', sTemplateScope = '') {
     const sLowerEntityName = sEntityName.toLowerCase();
     const formUrl = new URL(eForm.action);
     const contentId = formUrl.searchParams.get('id') || 'new';
@@ -137,7 +137,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             if (previousText !== currentText) {
                 const absoluteUrl = new URL(eForm.action);
                 const id = absoluteUrl.searchParams.get('id');
-                Preview(eForm.elements['title'].value, eForm.elements[sTextareaName].value, id, sTemplateId || eForm.elements['template'].value);
+                Preview(eForm.elements['title'].value, eForm.elements[sTextareaName].value, id, sTemplateId || eForm.elements['template'].value, sTemplateScope);
                 previousText = currentText;
 
                 if (savedText !== currentText) {
@@ -196,7 +196,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
 
         const absoluteUrl = new URL(eForm.action);
         const id = absoluteUrl.searchParams.get('id');
-        Preview(eForm.elements['title'].value, eForm.elements[sTextareaName].value, id, sTemplateId || eForm.elements['template'].value);
+        Preview(eForm.elements['title'].value, eForm.elements[sTextareaName].value, id, sTemplateId || eForm.elements['template'].value, sTemplateScope);
         handleChanges();
         document.addEventListener('save_article_end.s2', handleChanges);
 

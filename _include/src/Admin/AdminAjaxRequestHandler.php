@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Content\ContentType;
+use Register\Module\Blog\Module as BlogModule;
 use Register\Url\ContentUrlCollisionException;
 use S2\AdminYard\Translator;
 use S2\AdminYard\Translator as T;
@@ -761,10 +763,20 @@ class AdminAjaxRequestHandler
                     $templateId = 'site.php';
                 }
 
+                $contentType = $r->query->getString('content_type');
+                if (!\in_array($contentType, ['', ContentType::PAGE->value, ContentType::POST->value], true)) {
+                    return new Json([
+                        'success' => false,
+                        'message' => 'Unsupported content type.',
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
+                $resourceOwner = $contentType === ContentType::POST->value ? BlogModule::class : null;
+
                 $htmlTemplateProvider = $c->get(HtmlTemplateProvider::class);
 
                 try {
-                    $template = $htmlTemplateProvider->getRawTemplateContent($templateId, null);
+                    $template = $htmlTemplateProvider->getRawTemplateContent($templateId, $resourceOwner);
                 } catch (\RuntimeException) {
                     $template = '';
                 }

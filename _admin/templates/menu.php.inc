@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-/** @var array $links */
+/** @var array $primaryLinks */
+/** @var array $systemLinks */
+/** @var bool $systemActive */
 /** @var callable $trans */
 /** @var bool $seeUsers */
 /** @var string $login */
@@ -21,11 +23,11 @@ $echoSignal = static function (Signal $signal) use ($trans): void {
         </a>
     </li>
     <?php
-}
+};
 
-?>
-<ul class="main-menu-list">
-    <?php foreach ($links as $link): ?>
+$echoLinks = static function (array $links) use ($echoSignal, $trans): void {
+    foreach ($links as $link) {
+        ?>
         <li class="main-menu-item <?= $link['active'] ? 'active' : '' ?>">
             <a class="main-menu-link" href="<?= htmlspecialchars($link['url'], ENT_QUOTES, 'UTF-8') ?>">
                 <?= htmlspecialchars($trans($link['name']), ENT_QUOTES, 'UTF-8') ?>
@@ -56,8 +58,18 @@ $echoSignal = static function (Signal $signal) use ($trans): void {
                 </ul>
             <?php endif; ?>
         </li>
-    <?php endforeach; ?>
-</ul>
+        <?php
+    }
+};
+
+?>
+<ul class="main-menu-list main-menu-primary-list"><?php $echoLinks($primaryLinks) ?></ul>
+<?php if ($systemLinks !== []): ?>
+    <details class="main-menu-system <?= $systemActive ? 'active' : '' ?>">
+        <summary class="main-menu-link"><?= htmlspecialchars($trans('System'), ENT_QUOTES, 'UTF-8') ?></summary>
+        <ul class="main-menu-list main-menu-system-list"><?php $echoLinks($systemLinks) ?></ul>
+    </details>
+<?php endif; ?>
 <ul class="main-menu-list">
     <li class="main-menu-item" data-user-id="<?= $userId ?>">
         <?php if ($seeUsers): ?>

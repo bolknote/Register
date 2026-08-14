@@ -225,6 +225,8 @@ readonly class ArticleManager
             $newPriority = (int)$result->result();
         }
 
+        $now = time();
+
         $this->dbLayer
             ->insert(ContentSchema::TABLE_NAME)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
@@ -237,8 +239,9 @@ readonly class ArticleManager
             ->setValue('template', ':template')->setParameter('template', $this->useHierarchy->get() ? '' : 'site.php')
             ->setValue('excerpt', ':excerpt')->setParameter('excerpt', '')
             ->setValue('body', ':body')->setParameter('body', '')
-            ->setValue('created_at', ':created_at')->setParameter('created_at', time())
-            ->setValue('updated_at', ':updated_at')->setParameter('updated_at', time())
+            ->setValue('created_at', ':created_at')->setParameter('created_at', $now)
+            ->setValue('published_at', ':published_at')->setParameter('published_at', $now)
+            ->setValue('updated_at', ':updated_at')->setParameter('updated_at', $now)
             ->execute()
         ;
         $insertId = (int)$this->dbLayer->insertId();

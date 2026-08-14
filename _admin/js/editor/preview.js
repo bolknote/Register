@@ -117,7 +117,7 @@ function renderPreviewError(doc, message) {
     doc.close();
 }
 
-export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId) {
+export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTemplateScope = '') {
     if (!assertDeps(['s2_lang', 'sUrl'], 'Preview')) {
         return;
     }
@@ -128,10 +128,16 @@ export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId) {
     const sUrl = editorDeps.sUrl;
     const morphdom = editorDeps.morphdom;
 
-    if (sTemplateId !== Preview.lastTemplateId) {
+    const templateCacheKey = sTemplateScope + ':' + sTemplateId;
+    if (templateCacheKey !== Preview.lastTemplateId) {
         let response;
         try {
-            response = await fetch(sUrl + 'action=load_template&template_id=' + encodeURIComponent(sTemplateId) + '&article_id=' + encodeURIComponent(iArticleId));
+            response = await fetch(
+                sUrl
+                + 'action=load_template&template_id=' + encodeURIComponent(sTemplateId)
+                + '&article_id=' + encodeURIComponent(iArticleId)
+                + '&content_type=' + encodeURIComponent(sTemplateScope)
+            );
         } catch (error) {
             console.warn('Failed to load template preview:', error);
             renderPreviewError(d, editorDeps.s2_lang.unknown_error);
@@ -149,7 +155,7 @@ export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId) {
             return;
         }
         Preview.template = data.template;
-        Preview.lastTemplateId = sTemplateId;
+        Preview.lastTemplateId = templateCacheKey;
     } else {
         eHeader = d.getElementById('preview-header-wrapper');
         eText = d.getElementById('preview-text-wrapper');

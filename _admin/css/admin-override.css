@@ -14,6 +14,7 @@
 nav {
     display: flex;
     justify-content: space-between;
+    align-items: stretch;
 }
 
 nav ul.main-menu-list {
@@ -60,6 +61,59 @@ a.main-menu-sublink {
     text-decoration: none;
     color: var(--color-text);
     box-shadow: 2px 2px 0 0 rgb(0 0 0 / 0.2);
+}
+
+.main-menu-system {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.main-menu-system > summary {
+    display: block;
+    padding: 0.25em 1.2em 0.25em 0.5em;
+    cursor: pointer;
+    white-space: nowrap;
+    position: relative;
+}
+
+.main-menu-system > summary::-webkit-details-marker {
+    display: none;
+}
+
+.main-menu-system > summary::after {
+    content: "▾";
+    position: absolute;
+    right: 0.35em;
+    color: color-mix(in srgb, currentcolor 55%, transparent);
+}
+
+.main-menu-system.active > summary {
+    background: var(--page-secondary-background);
+}
+
+nav .main-menu-system-list {
+    position: absolute;
+    z-index: 20;
+    top: 100%;
+    right: 0;
+    min-width: 14em;
+    display: flex;
+    flex-direction: column;
+    padding: 0.35em;
+    background: var(--page-background);
+    border: 1px solid var(--table-border);
+    box-shadow: 0 0.4em 1.2em rgb(0 0 0 / 0.18);
+    mask-image: none;
+    overflow: visible;
+}
+
+nav .main-menu-system-list .main-menu-item {
+    width: 100%;
+}
+
+nav .main-menu-system-list .main-menu-link {
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /*=======================[Login screen]=======================================*/

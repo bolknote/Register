@@ -12,6 +12,7 @@ namespace S2\Cms\Admin;
 use Register\Comment\CommentSchema;
 use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentId;
+use Register\Content\Admin\ContentRevision;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
@@ -259,7 +260,7 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->addFilter(new Filter(
                 'content_id',
                 $this->translator->trans('Content ID'),
-                'int_input',
+                'input',
                 'content_id = %1$s',
                 static fn(?string $value): ?int => $value !== null && $value !== '' ? (int)$value : null,
             ))
@@ -741,7 +742,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $oldData,
                     ['body', 'title', 'slug', 'meta_keywords', 'meta_description'],
                 );
-                if ($revision === null) {
+                if (!$revision instanceof ContentRevision) {
                     $event->errorMessages[] = $this->translator->trans('Outdated version');
                     return;
                 }
@@ -921,7 +922,7 @@ class AdminConfigProvider implements StatefulServiceInterface
             $adminConfig
                 ->addEntity(
                     (new EntityConfig('Config', $this->dbPrefix . 'config'))
-                        ->setPluralName($this->translator->trans('Config'))
+                        ->setPluralName($this->translator->trans('Settings'))
                         ->addField(new FieldConfig(
                             name: 'name',
                             type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING, true),

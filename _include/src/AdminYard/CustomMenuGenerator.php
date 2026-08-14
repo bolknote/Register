@@ -18,6 +18,17 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 readonly class CustomMenuGenerator extends MenuGenerator
 {
+    /** @var list<string> */
+    private const array PRIMARY_ENTITY_ORDER = [
+        'BlogPost',
+        'Comment',
+        'Article',
+        'Tag',
+        'Dashboard',
+        'Config',
+        'User',
+    ];
+
     public function __construct(
         AdminConfig              $config,
         TemplateRenderer         $templateRenderer,
@@ -61,8 +72,45 @@ readonly class CustomMenuGenerator extends MenuGenerator
             ];
         }
 
+        $primaryLinks = [];
+        $postEntity   = $this->config->findEntityByName('BlogPost');
+        if ($postEntity?->isAllowedAction(FieldConfig::ACTION_NEW) === true) {
+            $primaryLinks['NewPost'] = [
+                'name'    => 'New post',
+                'url'     => $baseUrl . '?entity=BlogPost&action=new',
+                'active'  => false,
+                'signals' => [],
+            ];
+        }
+
+        foreach (self::PRIMARY_ENTITY_ORDER as $name) {
+            if (isset($links[$name])) {
+                $primaryLinks[$name] = $links[$name];
+                unset($links[$name]);
+            }
+
+            if ($name === 'Tag') {
+                $primaryLinks['Media'] = [
+                    'name'    => 'Media',
+                    'url'     => $baseUrl . 'pictman.php',
+                    'active'  => false,
+                    'signals' => [],
+                ];
+            }
+        }
+
+        $systemActive = false;
+        foreach ($links as $link) {
+            if (($link['active'] ?? false) === true) {
+                $systemActive = true;
+                break;
+            }
+        }
+
         return $this->templateRenderer->render($this->config->getMenuTemplate(), [
-            'links'    => $links,
+            'primaryLinks' => $primaryLinks,
+            'systemLinks'  => $links,
+            'systemActive' => $systemActive,
             'login'    => $this->permissionChecker->getUserLogin(),
             'userId'   => $this->permissionChecker->getUserId(),
             'seeUsers' => $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN),

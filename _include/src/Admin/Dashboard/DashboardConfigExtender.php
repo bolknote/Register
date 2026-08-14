@@ -44,7 +44,7 @@ readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
                     'dashboardBlockProviders' => $this->dashboardBlockProviders,
                     'version'                 => $this->version,
                 ]
-            ), 30)
+            ), 30, 'Search & statistics')
         ;
     }
 }

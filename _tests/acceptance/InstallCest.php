@@ -139,8 +139,8 @@ class InstallCest
 
     private function testBaseModules(AcceptanceTester $I): void
     {
-        $I->amOnPage('/_admin/index.php?entity=Extension');
-        $I->see('Built-in modules', 'h2');
+        $I->amOnPage('/_admin/index.php?entity=SystemModules');
+        $I->see('System modules', 'h2');
 
         foreach (['s2_blog', 's2_search', 's2_latex', 's2_counter', 's2_typo'] as $moduleId) {
             $I->seeElement('.base-module [title=' . $moduleId . ']');
@@ -153,6 +153,10 @@ class InstallCest
         $I->dontSeeElement('link[href*="/_extensions/s2_blog/"]');
         $I->seeElement('script[src$="/_assets/register/math-preview.js"]');
         $I->dontSeeElement('script[src*="/_extensions/s2_latex/"]');
+
+        $I->amOnPage('/_admin/index.php?entity=Extension');
+        $I->dontSee('Built-in modules', 'h2');
+        $I->see('Optional modules available for install or upgrade', 'h2');
 
         $I->amOnPage('/_admin/index.php?entity=Dashboard');
         $I->see('Analytics', 'h2');
@@ -180,25 +184,25 @@ class InstallCest
         $I->dontSee('another tag');
 
         $I->amOnPage('/_admin/index.php?entity=Article&action=edit&id=3');
-        $I->assertStringContainsString('Register was installed successfully.', $I->grabValueFrom('textarea[name=pagetext]'));
+        $I->assertStringContainsString('Register was installed successfully.', $I->grabValueFrom('textarea[name=body]'));
 
         $dataProvider = (static fn(string $csrfToken): array => [
             '__csrf_token' => $csrfToken,
             'title'        => 'New Page Title',
-            'meta_keys'    => 'New Meta Keywords',
-            'meta_desc'    => 'New Meta Description',
+            'meta_keywords' => 'New Meta Keywords',
+            'meta_description' => 'New Meta Description',
             'excerpt'      => 'New Excerpt',
             'tags'         => 'tag1, another tag',
-            'create_time'  => '2023-08-10T11:32',
-            'modify_time'  => '2023-08-11T12:15',
-            'pagetext'     => '<p>Some new page text</p>',
+            'published_at' => '2023-08-10T11:32',
+            'updated_at'   => '2023-08-11T12:15',
+            'body'         => '<p>Some new page text</p>',
             'revision'     => '1',
-            'user_id'      => '1',
+            'author_id'    => '1',
             'template'     => 'site.php',
-            'url'          => 'new-page1',
-            'favorite'     => '1',
+            'slug'         => 'new-page1',
+            'featured'     => '1',
             'published'    => '1',
-            'commented'    => '1',
+            'comments_enabled' => '1',
         ]);
         $csrfToken    = $I->grabValueFrom('input[name=__csrf_token]');
         $I->sendAjaxPostRequest('/_admin/index.php?entity=Article&action=edit&id=333', $dataProvider($csrfToken));
@@ -242,41 +246,45 @@ class InstallCest
     {
         $parentCsrfToken = $this->getArticleCsrfToken($I, 2);
 
-        foreach ([4, 5] as $newId) {
+        $createdIds = [];
+        foreach ([4, 5] as $pageNumber) {
             $I->sendAjaxPostRequest('/_admin/ajax.php?action=create&id=2', [
-                'title'      => 'New page ' . $newId,
+                'title'      => 'New page ' . $pageNumber,
                 'csrf_token' => $parentCsrfToken,
             ]);
             $data = json_decode($I->grabPageSource(), true, 512, JSON_THROW_ON_ERROR);
             $I->assertArrayHasKey('success', $data);
             $I->assertTrue($data['success']);
             $I->assertArrayHasKey('id', $data);
-            $I->assertEquals($newId, $data['id']);
+            $newId = (int)$data['id'];
+            $I->assertGreaterThan(3, $newId);
+            $I->assertNotContains($newId, $createdIds);
+            $createdIds[] = $newId;
 
             $I->amOnPage('/_admin/index.php?entity=Article&action=edit&id=' . $newId);
             $csrfToken = $I->grabValueFrom('input[name=__csrf_token]');
-            $I->assertSame('new-page-' . $newId, $I->grabValueFrom('input[name=slug]'));
+            $I->assertSame('new-page-' . $pageNumber, $I->grabValueFrom('input[name=slug]'));
 
             $dataProvider = static fn(string $id, string $csrfToken): array => [
                 '__csrf_token' => $csrfToken,
                 'title'        => 'New Page ' . $id,
-                'meta_keys'    => 'New Meta Keywords',
-                'meta_desc'    => 'New Meta Description',
+                'meta_keywords' => 'New Meta Keywords',
+                'meta_description' => 'New Meta Description',
                 'excerpt'      => 'New Excerpt',
                 'tags'         => 'tag1, another tag',
-                'create_time'  => '2023-08-10T11:32',
-                'modify_time'  => '2023-08-12T12:15',
-                'pagetext'     => '<p>Some new page text</p>',
+                'published_at' => '2023-08-10T11:32',
+                'updated_at'   => '2023-08-12T12:15',
+                'body'         => '<p>Some new page text</p>',
                 'revision'     => '1',
-                'user_id'      => '1',
+                'author_id'    => '1',
                 'template'     => 'site.php',
-                'url'          => 'new-page' . $id,
-                'favorite'     => '1',
+                'slug'         => 'new-page' . $id,
+                'featured'     => '1',
                 'published'    => '1',
-                'commented'    => '1',
+                'comments_enabled' => '1',
             ];
 
-            $I->sendAjaxPostRequest('/_admin/index.php?entity=Article&action=edit&id=' . $newId, $dataProvider((string)$newId, $csrfToken));
+            $I->sendAjaxPostRequest('/_admin/index.php?entity=Article&action=edit&id=' . $newId, $dataProvider((string)$pageNumber, $csrfToken));
             $I->seeResponseCodeIsSuccessful();
             $I->see('"success":true');
             $I->see('"urlStatus":"ok"');
@@ -790,6 +798,7 @@ class InstallCest
          * Check comment notifications to subscribers after moderation approval
          */
         $I->clearEmails();
+
         $commentListUrl = '/_admin/index.php?entity=Comment&action=list&content_type=' . $contentType . '&content_id=' . $targetId . '&apply_filter=1';
         $I->amOnPage($commentListUrl);
         $moderator2CommentId = $this->findCommentId($I, 'This is a comment from a moderator2.');
@@ -901,7 +910,7 @@ class InstallCest
 
     private function findCommentId(AcceptanceTester $I, string $commentText): int
     {
-        $xpath = '//tr[contains(., ' . self::xpathLiteral($commentText) . ')]//a[contains(@href, "action=delete")]';
+        $xpath = '//tr[contains(., ' . $this->xpathLiteral($commentText) . ')]//a[contains(@href, "action=delete")]';
         $href  = $I->grabAttributeFrom($xpath, 'href');
         if ($href === null || preg_match('/[?&]id=(\d+)/', $href, $matches) !== 1) {
             throw new \RuntimeException(sprintf('Cannot determine the ID for comment "%s".', $commentText));
@@ -910,11 +919,12 @@ class InstallCest
         return (int)$matches[1];
     }
 
-    private static function xpathLiteral(string $value): string
+    private function xpathLiteral(string $value): string
     {
         if (!str_contains($value, "'")) {
             return "'" . $value . "'";
         }
+
         if (!str_contains($value, '"')) {
             return '"' . $value . '"';
         }

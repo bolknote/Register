@@ -50,10 +50,13 @@ final class ModuleManagerCest
         }
 
         $I->login('admin', 'admin');
-        $I->amOnPage('https://localhost/_admin/index.php?entity=Extension');
-        $I->see('Built-in modules', 'h2');
+        $I->amOnPage('https://localhost/_admin/index.php?entity=SystemModules');
+        $I->see('System modules', 'h2');
         $I->assertCount(count($registry->ids()), $I->grabMultiple('.base-module'));
         $I->dontSeeElement('.base-module button');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Extension');
+        $I->dontSeeElement('.base-module');
     }
 
     public function registerSchemaUsesOneCleanGeneration(\IntegrationTester $I): void

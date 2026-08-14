@@ -24,6 +24,14 @@ return [
     'No'                         => 'Нет',
     'Delete'                     => 'Удалить',
     'Edit'                       => 'Редактировать',
+    'New post'                   => 'Новый пост',
+    'Media'                      => 'Медиа',
+    'Search & statistics'        => 'Поиск и статистика',
+    'Settings'                   => 'Настройки',
+    'System'                     => 'Система',
+    'Page structure'             => 'Структура страниц',
+    'System modules'             => 'Системные модули',
+    'Optional modules'           => 'Опциональные модули',
 
     // Session tab
     'Session'                    => 'Сеанс',

@@ -53,18 +53,9 @@ readonly class ExtensionManager
             $installedExtensions[$currentExtension['id']] = $currentExtension;
         }
 
-        $baseModules = [];
-        foreach ($this->baseModuleRegistry->ids() as $id) {
-            $manifestClass = $this->baseModuleRegistry->manifestClass($id);
-            $manifest      = new $manifestClass();
-            $baseModules[] = [
-                'id'          => $id,
-                'title'       => $manifest->getTitle(),
-                'version'     => $manifest->getVersion(),
-                'author'      => $manifest->getAuthor(),
-                'description' => $manifest->getDescription(),
-            ];
-            unset($installedExtensions[$id]);
+        $baseModules = $this->getBaseModules();
+        foreach ($baseModules as $baseModule) {
+            unset($installedExtensions[$baseModule['id']]);
         }
 
         $extensionNum        = 0;
@@ -152,6 +143,25 @@ readonly class ExtensionManager
             'failedExtensions'    => $failedExtensions,
             'installedExtensions' => $installedExtensions,
         ];
+    }
+
+    /** @return list<array{id: string, title: string, version: string, author: string, description: string}> */
+    public function getBaseModules(): array
+    {
+        $baseModules = [];
+        foreach ($this->baseModuleRegistry->ids() as $id) {
+            $manifestClass = $this->baseModuleRegistry->manifestClass($id);
+            $manifest      = new $manifestClass();
+            $baseModules[] = [
+                'id'          => $id,
+                'title'       => $manifest->getTitle(),
+                'version'     => $manifest->getVersion(),
+                'author'      => $manifest->getAuthor(),
+                'description' => $manifest->getDescription(),
+            ];
+        }
+
+        return $baseModules;
     }
 
     /**
