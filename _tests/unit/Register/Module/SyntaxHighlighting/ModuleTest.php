@@ -44,5 +44,26 @@ final class ModuleTest extends Unit
         self::assertFileExists($assetDirectory . '/vendor/highlight.js/highlight.min.js');
         self::assertFileExists($assetDirectory . '/vendor/highlight.js/LICENSE');
         self::assertFileExists($assetDirectory . '/vendor/highlight.js/README.md');
+        self::assertFileExists($assetDirectory . '/vendor/highlight.js/languages.json');
+    }
+
+    public function testPinnedBuildManifestMatchesTheBundleAndRequiredLanguages(): void
+    {
+        $vendorDirectory = '_assets/register/syntax-highlighting/vendor/highlight.js';
+
+        /** @var array{version: string, sha256: string, languages: list<string>} $manifest */
+        $manifest = json_decode(
+            (string)file_get_contents($vendorDirectory . '/languages.json'),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+
+        self::assertSame('11.11.2', $manifest['version']);
+        self::assertSame(hash_file('sha256', $vendorDirectory . '/highlight.min.js'), $manifest['sha256']);
+        self::assertCount(44, $manifest['languages']);
+
+        foreach (['applescript', 'basic', 'delphi', 'dos', 'fortran', 'lisp', 'vbscript', 'x86asm'] as $language) {
+            self::assertContains($language, $manifest['languages']);
+        }
     }
 }

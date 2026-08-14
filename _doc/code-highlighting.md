@@ -21,10 +21,11 @@ The inherited bare `<pre>...</pre>` form is still recognized so imported posts r
 Add `nohighlight` or `no-highlight` to the `<code>` or `<pre>` class list when a block must stay
 plain.
 
-Only the small loader is present on ordinary pages. The local theme and the 36-language common
-bundle are requested when the page contains a code block. The theme follows Register's light and
-dark palettes. The exact Highlight.js release, checksum, license, build command, and language list
-are recorded in
+Only the small loader is present on ordinary pages. The local theme and the 44-language bundle are
+requested when the page contains a code block. It combines Highlight.js's common set with
+AppleScript, BASIC, Delphi, DOS batch files, Fortran, Lisp, VBScript, and Intel x86 assembly. The
+theme follows Register's light and dark palettes. The exact Highlight.js release, checksum,
+license, build command, and language list are recorded in
 [`_assets/register/syntax-highlighting/vendor/highlight.js/README.md`](../_assets/register/syntax-highlighting/vendor/highlight.js/README.md).
 
 ## Additional languages and plugins

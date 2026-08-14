@@ -16,9 +16,10 @@ Current product assets:
 - Highstock is third-party software distributed under its own terms and is not Register artwork.
 - `_assets/register/math/vendor/katex` contains the official KaTeX 0.18.4 browser distribution and
   fonts under the MIT license. Its source release, checksum, and license are recorded beside the files.
-- `_assets/register/syntax-highlighting/vendor/highlight.js` contains the official Highlight.js
-  11.11.2 common browser build under the BSD 3-Clause license. Its source tag, commit, checksum,
-  included languages, and license are recorded beside the bundle.
+- `_assets/register/syntax-highlighting/vendor/highlight.js` contains an official Highlight.js
+  11.11.2 custom browser build under the BSD 3-Clause license. It combines the common set with eight
+  explicitly selected languages. Its source tag, commit, checksum, complete language manifest, and
+  license are recorded beside the bundle.
 
 When adding a binary or SVG asset, record its origin and license here. A visual resemblance is not
 enough provenance: do not import artwork from a reference product merely because its interface is
