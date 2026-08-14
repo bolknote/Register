@@ -1,0 +1,21 @@
+.register-math-source {
+    max-width: 100%;
+}
+
+.register-math-block {
+    display: block;
+    overflow-x: auto;
+    overflow-y: hidden;
+    text-align: center;
+}
+
+.register-math-block > .katex-display {
+    margin: 1em 0;
+}
+
+.register-math-error {
+    color: var(--error-color, #b42318);
+    font-family: monospace;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}

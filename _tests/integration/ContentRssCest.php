@@ -29,6 +29,7 @@ final class ContentRssCest
                 'rss-post-' . $number,
                 true,
                 1_700_000_000 + $number,
+                $number === 11 ? '<p>RSS post 11 body $$x^2$$</p>' : null,
             );
         }
 
@@ -44,6 +45,8 @@ final class ContentRssCest
         $I->assertStringNotContainsString('RSS post 1</title>', $xml);
         $I->assertStringNotContainsString('RSS draft', $xml);
         $I->assertStringNotContainsString('RSS page', $xml);
+        $I->assertStringContainsString('$$x^2$$', $xml);
+        $I->assertStringNotContainsString('<img', $xml);
         $I->assertSame(10, substr_count($xml, '<item>'));
 
         $lastModified = $I->grabHttpHeader('Last-Modified');
@@ -68,6 +71,7 @@ final class ContentRssCest
         string      $slug,
         bool        $published,
         int         $timestamp,
+        ?string     $body = null,
     ): void {
         $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
             'content_type' => ':content_type',
@@ -85,7 +89,7 @@ final class ContentRssCest
             'content_type' => $contentType->value,
             'slug'         => $slug,
             'title'        => $title,
-            'body'         => '<p>' . $title . ' body</p>',
+            'body'         => $body ?? '<p>' . $title . ' body</p>',
             'timestamp'    => $timestamp,
             'published'    => (int)$published,
         ]);

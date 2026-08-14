@@ -166,7 +166,7 @@ final class TypographTest extends Unit
 <meta name="description" content="Отзыв о книге &quot;Апгрейд обезьяны&quot; Александра Никонова" />
 <link rel="canonical" href="https://parpalak.com/articles/books/Monkey_Upgrade" />
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="preload" href="//i.upmath.me/latex.js" as="script">
+<link rel="preload" href="/_assets/register/math/loader.js" as="script">
 <link rel="stylesheet" href="/_styles/written_ru/highlight-js/default.min.css">
 <link rel="stylesheet" href="/_cache/written_ru_styles.css?v=66e8b902571fd954a0567de9f0ac5dbe" />
 <script src="https://www.googletagmanager.com/gtag/js?id=G-LZD7Q0K8SM" async></script>
@@ -644,7 +644,7 @@ final class TypographTest extends Unit
 <!--/noindex-->
 	<div id="copyright">© <script type="text/javascript">var mailto="roman"+"%40"+"parpalak.com";document.write('<a href="mailto:'+mailto+'">Роман Парпалак</a>');</script><noscript>Роман Парпалак, <small>[roman at parpalak.com]</small></noscript>, 2005–2024. Сайт работает на движке <a href="http://s2cms.ru/">S2</a>.<br />t = 0,064; q = 7</div>
 <script src="/_styles/written_ru/highlight-js/highlight.min.js" defer></script>
-<script src="//i.upmath.me/latex.js" defer></script>
+<script src="/_assets/register/math/loader.js" defer></script>
 <script src="/_cache/written_ru_scripts.js?v=82697bb590e61a8340e5450d946051a4" defer></script>
 <script>document.addEventListener('DOMContentLoaded', function () { hljs.initHighlightingOnLoad(); });</script>
 </body>

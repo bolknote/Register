@@ -19,7 +19,8 @@ class AdminModule implements ListenerModuleInterface
     public function registerListeners(EventDispatcherInterface $eventDispatcher): void
     {
         $eventDispatcher->addListener(CustomTemplateRendererEvent::class, static function (CustomTemplateRendererEvent $event): void {
-            $event->extraScripts[] = $event->basePath . '/_assets/register/math-preview.js';
+            $event->extraStyles[]  = $event->basePath . '/_assets/register/math/math.css';
+            $event->extraScripts[] = $event->basePath . '/_assets/register/math/loader.js';
         });
     }
 }

@@ -10,11 +10,9 @@ declare(strict_types = 1);
 namespace Register\Module\Math;
 
 use S2\Cms\Asset\AssetPack;
-use S2\Cms\Controller\Rss\FeedItemRenderEvent;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
 use S2\Cms\Framework\ContainerModuleInterface;
-use S2\Cms\Image\ThumbnailGenerateEvent;
 use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplatePreCommentRenderEvent;
 use S2\Rose\Finder;
@@ -25,8 +23,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 class Module implements ContainerModuleInterface, ContainerAwareListenerModuleInterface
 {
-    private const string CUSTOM_UPMATH_PROTOCOL = 'upmath://';
-
     #[\Override]
     public function buildContainer(Container $container): void
     {
@@ -51,8 +47,12 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
     #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
-        $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event): void {
-            $event->assetPack->addJs('//i.upmath.me/latex.js', [AssetPack::OPTION_MERGE, AssetPack::OPTION_DEFER]);
+        $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
+            $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $event->assetPack
+                ->addCss($basePath . '/_assets/register/math/math.css')
+                ->addJs($basePath . '/_assets/register/math/loader.js', [AssetPack::OPTION_DEFER])
+            ;
         });
 
         $eventDispatcher->addListener(TemplatePreCommentRenderEvent::class, static function (TemplatePreCommentRenderEvent $event) use ($container): void {
@@ -61,29 +61,14 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
             array_unshift($event->syntaxHelpItems, $translator->trans('Comment latex syntax'));
         });
 
-        $eventDispatcher->addListener(FeedItemRenderEvent::class, static function (FeedItemRenderEvent $event): void {
-            $event->feedItemDto->text = self::convertLatexInHtml($event->feedItemDto->text);
-        }, 10);
-
         // Note: Indexing is performed in the QueueConsumer, so it cannot be moved to AdminExtension right now.
         $eventDispatcher->addListener(TextNodeExtractEvent::class, self::textNodeExtractListener(...));
-
-        // Thumbnails in search results page
-        $eventDispatcher->addListener(ThumbnailGenerateEvent::class, static function (ThumbnailGenerateEvent $event): void {
-            $src = $event->src;
-            if (str_starts_with($src, self::CUSTOM_UPMATH_PROTOCOL)) {
-                $url = 'https://i.upmath.me/svg/' . self::encodeURIComponent(substr($src, \strlen(self::CUSTOM_UPMATH_PROTOCOL)));
-                $event->setResult(\sprintf('<img src="%s" style="background: white" alt="">', $url));
-            }
-        });
     }
 
     public static function textNodeExtractListener(TextNodeExtractEvent $event): void
     {
         /**
-         * These conditions must be in sync with client script for inserting formulas
-         *
-         * @see https://github.com/parpalak/i.upmath.me/blob/master/src/latex.js#L146
+         * These conditions mirror isBlockFormula() in the local math loader.
          */
         $contentPieces = explode('$$', $event->textContent);
 
@@ -97,41 +82,6 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
         ) {
             // A block formula encountered. We do not index it and do not add to snippets.
             $event->stopPropagation();
-            $formula = $contentPieces[1];
-
-            // Skip non-picture formulas for thumbnails
-            // TODO come up with a more complete list
-            if (
-                str_contains($formula, 'tikzpicture')
-                || str_contains($formula, 'sequencediagram')
-                || str_contains($formula, 'circuitikz')
-            ) {
-                /**
-                 * Decode all entities. '&' was encoded before and decoded in DOM processing.
-                 *
-                 * @see \S2\Rose\Extractor\HtmlDom\DomExtractor::getDomDocument
-                 */
-                $formula = html_entity_decode($formula, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5);
-
-                $event->domState->attachImg(self::CUSTOM_UPMATH_PROTOCOL . $formula, '', '', '');
-            }
         }
     }
-
-    public static function convertLatexInHtml(string $text): string
-    {
-        // NOTE: maybe it would be better to use DOM here
-        return preg_replace_callback('#\\$\\$([^<]*?)\\$\\$#S', static function (array $matches): string {
-            $formula = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            return '<img border="0" style="vertical-align: middle;" src="//i.upmath.me/svg/' . s2_htmlencode(self::encodeURIComponent($formula)) . '" alt="' . s2_htmlencode($formula) . '" />';
-        }, $text) ?? throw new \RuntimeException('Unable to convert LaTeX formulas in HTML.');
-    }
-
-    public static function encodeURIComponent(string $str): string
-    {
-        $revert = ['%21' => '!', '%2A' => '*', '%27' => "'", '%28' => '(', '%29' => ')'];
-
-        return strtr(rawurlencode($str), $revert);
-    }
-
 }

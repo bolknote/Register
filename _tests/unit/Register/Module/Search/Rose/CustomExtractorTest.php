@@ -92,7 +92,7 @@ $$(1a)
 <p>Еще 1 раз проверим, как gt работает защита против &lt;script&gt;alert();&lt;/script&gt; xss-уязвимостей.</p>',
             'Как-то мы должны были рассчитать сопротивление между точками \\iA\\I и \\iB\\I, если сопротивление каждого резистора 300 Ом: Внешнее кольцо позволяет пренебречь. Ошибка \\iастатически\\I даёт более простую систему. Еще 1 раз проверим, как gt работает защита против <script>alert();</script> xss-уязвимостей.',
             null,
-            '[{"src":"upmath:\/\/\\\\begin{circuitikz}\n\\\\draw\n(0,0) node[above] {$A$} to[short, o-*] ++(0.7,0) coordinate (A) to[generic, *-*] ++(2,0)\ncoordinate (B) to[generic, *-*] ++(2,0)\ncoordinate (E) to[generic, *-*] ++(2,0)\ncoordinate (D) to[short, *-o] ++(0.7,0) node[above] {$B$};\n\\\\draw (A)-- ++(0,-0.7)-| (E) (B)-- ++(0,0.7)-| (D);\n\\\\end{circuitikz}","width":"","height":"","alt":""},{"src":"1.jpg","width":"10","height":"10","alt":""}]'
+            '[{"src":"1.jpg","width":"10","height":"10","alt":""}]'
         ];
     }
 }

@@ -2,7 +2,7 @@
 /**
  * LaTeX
  *
- * Integrates site with i.upmath.me service
+ * Renders TeX formulas locally with a lazily loaded KaTeX distribution.
  *
  * @copyright 2011-2024 Roman Parpalak
  * @license MIT
@@ -32,7 +32,7 @@ final class Manifest implements BaseModuleManifestInterface
     #[\Override]
     public function getDescription(): string
     {
-        return 'Allows to write LaTeX formulas.';
+        return 'Renders TeX formulas locally and loads the renderer only on pages that use it.';
     }
 
     #[\Override]
