@@ -64,6 +64,10 @@ class AdminCest
         $I->see('Overview', 'h1#dashboard-title');
         $I->seeElement('[data-analytics-table="register-analytics-pages"]');
         $I->seeElement('[data-analytics-table="register-analytics-feeds"]');
+        $I->see('Register source code', 'a[href="https://github.com/bolknote/Register"]');
+        $I->see('Register is based on', '.stat-item .technical-data');
+        $I->see('S2 2.0dev', 'a[href="https://github.com/parpalak/s2"]');
+        $I->dontSee('© 2007–');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Queue&action=list');
         $I->see('Queue', 'h1');

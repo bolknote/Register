@@ -15,9 +15,14 @@
         }
         ?>
         <div class="stat-item">
-            <h3><?php echo $trans('S2 version'); ?></h3>
-            <a href="https://github.com/bolknote/Register" target="_blank" rel="noreferrer">Register <?= $version ?> &uarr;</a><br>
-            © 2007–<?= date('Y') ?> Roman Parpalak
+            <h3>Register</h3>
+            <a href="https://github.com/bolknote/Register" target="_blank" rel="noreferrer"><?= $trans('Register source code') ?> &uarr;</a>
+            <small class="technical-data">
+                <?php printf(
+                    $trans('Register is based on %s by Roman Parpalak'),
+                    '<a href="https://github.com/parpalak/s2" target="_blank" rel="noreferrer">S2 ' . htmlspecialchars($version, ENT_QUOTES, 'UTF-8') . ' &uarr;</a>',
+                ) ?>
+            </small>
         </div>
     </div>
 </section>
