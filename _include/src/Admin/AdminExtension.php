@@ -13,6 +13,7 @@ use Register\Content\Admin\DashboardContentProvider;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentType;
+use Register\Content\ContentChangeDispatcher;
 use Register\Comment\CommentRepository;
 use Register\Module\BaseModuleRegistry;
 use Register\Url\ContentSlugService;
@@ -149,7 +150,7 @@ class AdminExtension implements ExtensionInterface
                 $container->get(\Register\Content\TagRepository::class),
                 $container->get(ContentCommentNotifier::class),
                 $container->get(ExtensionCache::class),
-                $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+                $container->get(ContentChangeDispatcher::class),
                 $container->get(CommentControllerFactory::class),
                 $container->get(\S2\Cms\Comment\Antispam\SpamMetricsRepository::class),
                 $dbType,
@@ -184,6 +185,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(AuthManager::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container,
+            $container->get(ContentChangeDispatcher::class),
         ));
 
         $container->set(AdminAjaxRequestHandler::class, fn(Container $container): \S2\Cms\Admin\AdminAjaxRequestHandler => new AdminAjaxRequestHandler(
@@ -207,6 +209,7 @@ class AdminExtension implements ExtensionInterface
                 $provider->getBoolProxy('S2_ADMIN_NEW_POS'),
                 $provider->getBoolProxy('S2_USE_HIERARCHY'),
                 $container->get(ContentSlugService::class),
+                $container->get(ContentChangeDispatcher::class),
             );
         });
 

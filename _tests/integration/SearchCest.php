@@ -54,21 +54,27 @@ class SearchCest
         $I->assertSame('privet-mir', $I->grabValueFrom('input[name=slug]'));
         $I->assertSame('', $I->grabValueFrom('input[name=date_label]'));
 
-        $dataProvider = (static fn(string $csrfToken, string $userId): array => [
+        $dataProvider = (static fn(
+            string $csrfToken,
+            string $userId,
+            string $revision = '1',
+            string $body = '<p>New blog post with some text</p>',
+            bool $published = true,
+        ): array => [
             '__csrf_token' => $csrfToken,
             'title'        => 'New Blog Post Title',
             'tags'         => 'tag1, blog tag',
             'published_at' => '2023-08-12T11:32',
             'date_label'   => 'лето 1977 года',
             'updated_at'   => '2023-08-12T12:15',
-            'body'         => '<p>New blog post with some text</p>',
+            'body'         => $body,
             'author_id'    => $userId,
             'series'       => '',
-            'revision'     => '1',
+            'revision'     => $revision,
             'slug'         => 'new-post1',
 
             'comments_enabled' => '1',
-            'published'        => '1',
+            ...$published ? ['published' => '1'] : [],
         ]);
         // Secondary check beyond the search, but let it be
         $I->sendAjaxPostRequest('https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . ((int)$postId + 1111), $dataProvider($csrfToken, $userId));
@@ -169,6 +175,59 @@ class SearchCest
 
         $I->amOnPage('https://localhost/?search=1&q=another+tag');
         $I->see('<a href="/tags/blog%20tag/">blog tag</a>');
+
+        /**
+         * 3. Automatic lifecycle updates
+         */
+        $I->sendAjaxPostRequest(
+            'https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId,
+            $dataProvider($csrfToken, $userId, '2', published: false),
+        );
+        $I->seeResponseCodeIs(200);
+        $I->see('"revision":"3"');
+        while ($consumer->runQueue());
+
+        $I->amOnPage('https://localhost/?search=1&q=some+text');
+        $I->see('No results found for your query.');
+
+        $I->sendAjaxPostRequest(
+            'https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId,
+            $dataProvider(
+                $csrfToken,
+                $userId,
+                '3',
+                '<p>Replacement searchable text</p>',
+            ),
+        );
+        $I->seeResponseCodeIs(200);
+        $I->see('"revision":"4"');
+        while ($consumer->runQueue());
+
+        $I->amOnPage('https://localhost/?search=1&q=replacement+searchable');
+        $I->see('Replacement');
+        $I->see('searchable');
+        $I->dontSee('No results found for your query.');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
+
+        $deleteUrl      = '?entity=BlogPost&action=delete&id=' . $postId;
+        $onClickHandler = $I->grabAttributeFrom('[href="' . $deleteUrl . '"]', 'onclick');
+        if ($onClickHandler === null || ($tokenPosition = strrpos($onClickHandler, 'csrf_token=')) === false) {
+            throw new \RuntimeException('The post delete action does not contain a CSRF token.');
+        }
+
+        $deleteToken = substr($onClickHandler, $tokenPosition + 11, 40);
+        $I->sendAjaxPostRequest(
+            'https://localhost/_admin/index.php' . $deleteUrl,
+            ['csrf_token' => $deleteToken],
+        );
+        $I->seeResponseCodeIs(200);
+        $I->see('"success":true');
+        while ($consumer->runQueue());
+
+        $I->amOnPage('https://localhost/?search=1&q=replacement+searchable');
+        $I->see('No results found for your query.');
+        $I->assertNull($contentRepository->find(ContentId::post((int)$postId)));
 
     }
 }

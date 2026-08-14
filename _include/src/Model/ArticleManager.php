@@ -12,6 +12,7 @@ namespace S2\Cms\Model;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
@@ -38,6 +39,7 @@ readonly class ArticleManager
         private BoolProxy               $newPositionOnTop,
         private BoolProxy               $useHierarchy,
         private ContentSlugService      $contentSlugService,
+        private ContentChangeDispatcher $contentChangeDispatcher,
     ) {
     }
 
@@ -247,6 +249,7 @@ readonly class ArticleManager
         $insertId = (int)$this->dbLayer->insertId();
 
         $this->dbLayer->endTransaction();
+        $this->contentChangeDispatcher->dispatch(ContentId::page($insertId));
 
         return $insertId;
     }
@@ -273,6 +276,7 @@ readonly class ArticleManager
             ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
         ;
+        $this->contentChangeDispatcher->dispatch(ContentId::page($id));
 
         $row = $result->fetchRow();
         if ($row !== false) {
@@ -376,6 +380,7 @@ readonly class ArticleManager
         ;
 
         $this->dbLayer->endTransaction();
+        $this->contentChangeDispatcher->dispatchPageBranch($sourceId);
     }
 
     /**
@@ -419,6 +424,7 @@ readonly class ArticleManager
             throw new AccessDeniedException("You don't have permissions to delete this article!");
         }
 
+        $changedContent = $this->contentChangeDispatcher->pageBranch($id);
         $this->dbLayer->startTransaction();
 
         $this->dbLayer
@@ -433,6 +439,7 @@ readonly class ArticleManager
         $this->deleteItemAndChildren($id);
 
         $this->dbLayer->endTransaction();
+        $this->contentChangeDispatcher->dispatch(...$changedContent);
     }
 
     public function getCsrfToken(int $id): string

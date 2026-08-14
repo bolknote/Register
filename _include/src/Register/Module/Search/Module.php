@@ -12,6 +12,7 @@ namespace Register\Module\Search;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Register\Content\ContentId;
+use Register\Content\ContentChangedEvent;
 use Register\Content\ContentRepository;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Config\DynamicConfigProvider;
@@ -174,6 +175,13 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
+        $eventDispatcher->addListener(ContentChangedEvent::class, static function (ContentChangedEvent $event) use ($container): void {
+            $container->get(QueuePublisher::class)->publish(
+                (string)$event->contentId,
+                ContentIndexer::QUEUE_CODE,
+            );
+        });
+
         $eventDispatcher->addListener(TemplateEvent::EVENT_CREATED, static function (TemplateEvent $event) use ($container): void {
             /** @var TranslatorInterface $translator */
             $translator = $container->get('register_search_translator');

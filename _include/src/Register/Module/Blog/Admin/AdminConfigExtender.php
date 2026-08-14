@@ -11,6 +11,7 @@ namespace Register\Module\Blog\Admin;
 
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentChangeDispatcher;
 use Register\Content\Admin\ContentRevision;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSchema;
@@ -40,11 +41,9 @@ use S2\AdminYard\Validator\Length;
 use S2\AdminYard\Validator\Regex;
 use S2\Cms\Admin\AdminConfigExtenderInterface;
 use S2\Cms\Admin\AdminConfigProvider;
-use S2\Cms\Admin\Event\VisibleEntityChangedEvent;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use Register\Module\Blog\Model\PostProvider;
-use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use S2\Cms\Pdo\DbLayerException;
 
 readonly class AdminConfigExtender implements AdminConfigExtenderInterface
@@ -58,7 +57,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private ContentUrlGenerator      $contentUrlGenerator,
         private ContentRevisionService   $contentRevisionService,
         private ContentSlugService       $contentSlugService,
-        private EventDispatcherInterface $eventDispatcher,
+        private ContentChangeDispatcher  $contentChangeDispatcher,
         private string                   $dbType,
         private string                   $dbPrefix
     ) {
@@ -319,29 +318,11 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
 
                 $event->data['revision']        = $revision->value;
                 $event->context['new_revision'] = $revision->value;
-                $changed                        = $revision->contentChanged;
-
-                $newPublished = (bool)$event->data['published'];
-                $oldPublished = (bool)$oldData['column_published'];
-
-                if (
-                    ($newPublished && (!$oldPublished || $changed)) // Publish a new article or update an existing one
-                    || (!$newPublished && $oldPublished) // Withdraw a published article
-                ) {
-                    $event->context['visible_changed_event'] = new VisibleEntityChangedEvent(
-                        $postEntity->getName(),
-                        $postId
-                    );
-                }
-
                 $event->context['post_id'] = $postId;
                 $event->context['url']     = $event->data['slug'];
             })
             ->addListener(EntityConfig::EVENT_AFTER_UPDATE, function (AfterSaveEvent $event): void {
-                $visibleChangedEvent = $event->context['visible_changed_event'] ?? null;
-                if ($visibleChangedEvent instanceof VisibleEntityChangedEvent) {
-                    $this->eventDispatcher->dispatch($visibleChangedEvent);
-                }
+                $this->contentChangeDispatcher->dispatch(ContentId::post($event->context['post_id']));
 
                 $event->ajaxExtraResponse = [
                     ...$this->getPostStatusData($event->context['post_id'], $event->context['url']),
@@ -364,8 +345,15 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     array_values(array_map(intval(...), $newTagIds)),
                 );
             })
+            ->addListener(EntityConfig::EVENT_AFTER_CREATE, function (AfterSaveEvent $event): void {
+                $this->contentChangeDispatcher->dispatch(
+                    ContentId::post($this->requirePrimaryKey($event->primaryKey)->getIntId()),
+                );
+            })
             ->addListener(EntityConfig::EVENT_BEFORE_DELETE, function (BeforeDeleteEvent $event): void {
-                $this->tagRepository->remove(ContentId::post($this->requirePrimaryKey($event->primaryKey)->getIntId()));
+                $contentId = ContentId::post($this->requirePrimaryKey($event->primaryKey)->getIntId());
+                $this->tagRepository->remove($contentId);
+                $this->contentChangeDispatcher->defer($contentId);
             })
             ->addFilter(
                 new Filter(

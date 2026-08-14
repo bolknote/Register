@@ -32,6 +32,7 @@ use Register\Module\Blog\Admin\DynamicConfigFormExtender;
 use Register\Module\Blog\Admin\PathToAdminEntityConverter;
 use Register\Module\Blog\Admin\TranslationProvider;
 use Register\Content\ContentType;
+use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentStatisticsRepository;
 use Register\Module\Blog\Model\PostProvider;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -50,7 +51,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(ContentUrlGenerator::class),
             $container->get(ContentRevisionService::class),
             $container->get(ContentSlugService::class),
-            $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+            $container->get(ContentChangeDispatcher::class),
             $container->getStringParameter('db_type'),
             $container->getStringParameter('db_prefix'),
         ), [AdminConfigExtenderInterface::class]);

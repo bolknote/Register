@@ -7,10 +7,12 @@ PHP_BIN=${PHP_BIN:-php}
 COMPOSER_BIN=${COMPOSER_BIN:-composer}
 S2_DEV_HOST=${S2_DEV_HOST:-127.0.0.1}
 S2_DEV_PORT=${S2_DEV_PORT:-8080}
+S2_DEV_WORKER_RUNNING=1
 
 export APP_ENV=local
 export S2_DEV_HOST
 export S2_DEV_PORT
+export S2_DEV_WORKER_RUNNING
 
 if ! command -v "$PHP_BIN" >/dev/null 2>&1; then
     echo "PHP executable not found: $PHP_BIN" >&2
@@ -29,7 +31,22 @@ fi
 
 "$PHP_BIN" "$PROJECT_DIR/tools/dev-bootstrap.php"
 
-exec "$PHP_BIN" \
+WORKER_PID=''
+
+cleanup() {
+    if [ -n "$WORKER_PID" ]; then
+        kill "$WORKER_PID" 2>/dev/null || true
+        wait "$WORKER_PID" 2>/dev/null || true
+    fi
+}
+
+trap cleanup EXIT
+trap 'exit 130' HUP INT TERM
+
+"$PHP_BIN" "$PROJECT_DIR/tools/dev-worker.php" &
+WORKER_PID=$!
+
+"$PHP_BIN" \
     -d max_execution_time=-1 \
     -d opcache.revalidate_freq=0 \
     -S "$S2_DEV_HOST:$S2_DEV_PORT" \

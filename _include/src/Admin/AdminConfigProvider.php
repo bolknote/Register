@@ -12,6 +12,7 @@ namespace S2\Cms\Admin;
 use Register\Comment\CommentSchema;
 use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentId;
+use Register\Content\ContentChangeDispatcher;
 use Register\Content\Admin\ContentRevision;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSchema;
@@ -42,7 +43,6 @@ use S2\AdminYard\Validator\Length;
 use S2\AdminYard\Validator\NotBlank;
 use S2\AdminYard\Validator\Regex;
 use S2\Cms\Admin\Controller\CommentControllerFactory;
-use S2\Cms\Admin\Event\VisibleEntityChangedEvent;
 use S2\Cms\Admin\Validator\IntegerRange;
 use S2\Cms\Comment\Antispam\SpamMetricsRepository;
 use S2\Cms\Config\BoolProxy;
@@ -53,7 +53,6 @@ use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
-use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use S2\Cms\Pdo\DbLayerException;
 
 class AdminConfigProvider implements StatefulServiceInterface
@@ -80,7 +79,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly TagRepository             $tagRepository,
         private readonly ContentCommentNotifier   $commentNotifier,
         private readonly ExtensionCache           $extensionCache,
-        private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly ContentChangeDispatcher  $contentChangeDispatcher,
         private readonly CommentControllerFactory $commentControllerFactory,
         private readonly SpamMetricsRepository     $spamMetricsRepository,
         private readonly string                   $dbType,
@@ -749,23 +748,19 @@ class AdminConfigProvider implements StatefulServiceInterface
 
                 $event->data['revision']        = $revision->value;
                 $event->context['new_revision'] = $revision->value;
-                $changed                        = $revision->contentChanged;
-
                 $event->context['article_id'] = $articleId;
 
                 $newPublished = (bool)$event->data['published'];
                 $oldPublished = (bool)$oldData['column_published'];
-                if (
-                    ($newPublished && (!$oldPublished || $changed)) // Publish a new article or update an existing one
-                    || (!$newPublished && $oldPublished) // Withdraw a published article
-                ) {
-                    $event->context['visible_changed_event'] = new VisibleEntityChangedEvent($articleEntity->getName(), $event->context['article_id']);
-                }
+                $event->context['page_branch_changed'] = $newPublished !== $oldPublished
+                    || (string)$event->data['slug'] !== (string)$oldData['column_slug'];
             })
             ->addListener(EntityConfig::EVENT_AFTER_UPDATE, function (AfterSaveEvent $event): void {
-                $visibleChangedEvent = $event->context['visible_changed_event'] ?? null;
-                if ($visibleChangedEvent instanceof VisibleEntityChangedEvent) {
-                    $this->eventDispatcher->dispatch($visibleChangedEvent);
+                $articleId = $event->context['article_id'];
+                if ((bool)$event->context['page_branch_changed']) {
+                    $this->contentChangeDispatcher->dispatchPageBranch($articleId);
+                } else {
+                    $this->contentChangeDispatcher->dispatch(ContentId::page($articleId));
                 }
 
                 $event->ajaxExtraResponse = [

@@ -10,14 +10,12 @@ declare(strict_types = 1);
 namespace Register\Module\Search;
 
 use Psr\Log\LoggerInterface;
-use Register\Content\ContentId;
 use S2\AdminYard\SettingStorage\SettingStorageInterface;
 use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
 use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
 use S2\Cms\Admin\DynamicConfigFormExtenderInterface;
 use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
-use S2\Cms\Admin\Event\VisibleEntityChangedEvent;
 use S2\Cms\Admin\TranslationProviderInterface;
 use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
 use S2\Cms\AdminYard\Signal;
@@ -25,13 +23,13 @@ use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
 use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Queue\QueuePublisher;
 use S2\Rose\Indexer;
 use S2\Rose\Storage\Database\PdoStorage;
 use Register\Module\Search\Admin\DashboardSearchProvider;
 use Register\Module\Search\Admin\DynamicConfigFormExtender;
 use Register\Module\Search\Admin\IndexManager;
 use Register\Module\Search\Admin\ReindexToken;
+use Register\Module\Search\Admin\SearchIndexHealth;
 use Register\Module\Search\Admin\TranslationProvider;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\ContentIndexer;
@@ -53,10 +51,17 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(SettingStorageInterface::class),
         ));
 
+        $container->set(SearchIndexHealth::class, fn(Container $container): SearchIndexHealth => new SearchIndexHealth(
+            $container->get(PdoStorage::class),
+            $container->get(\S2\Cms\Pdo\DbLayer::class),
+            $container->get(ContentIndexer::class),
+        ));
+
         $container->set(DashboardSearchProvider::class, fn(Container $container): DashboardSearchProvider => new DashboardSearchProvider(
             $container->get(TemplateRenderer::class),
             $container->get(PdoStorage::class),
             $container->get(ReindexToken::class),
+            $container->get(SearchIndexHealth::class),
         ), [DashboardStatProviderInterface::class]);
 
         $container->set(IndexManager::class, fn(Container $container): IndexManager => new IndexManager(
@@ -72,20 +77,6 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
     #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
-        $eventDispatcher->addListener(VisibleEntityChangedEvent::class, function (VisibleEntityChangedEvent $event) use ($container): void {
-            $contentId = match ($event->entityName) {
-                'Article' => ContentId::page($event->entityId),
-                'BlogPost' => ContentId::post($event->entityId),
-                default => null,
-            };
-            if (!$contentId instanceof ContentId) {
-                return;
-            }
-
-            $queuePublisher = $container->get(QueuePublisher::class);
-            $queuePublisher->publish((string)$contentId, ContentIndexer::QUEUE_CODE);
-        });
-
         $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event): void {
             $event->controllerMap['register_search_reindex'] = static function (PermissionChecker $p, Request $r, Container $c): JsonResponse {
                 if ($r->getRealMethod() !== Request::METHOD_POST) {
@@ -109,16 +100,9 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
         });
 
         $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container): void {
-            try {
-                $pdoStorage = $container->get(PdoStorage::class);
-                $size       = $pdoStorage->getTocSize(null);
-            } catch (\Throwable) {
-                $size = 0;
-            }
-
-            if ($size === 0) {
+            if ($container->get(SearchIndexHealth::class)->inspect()->repairRequired) {
                 $translator = $container->get(Translator::class);
-                $event->addSignal('Dashboard', Signal::createEmpty($translator->trans('Indexing required')));
+                $event->addSignal('Dashboard', Signal::createEmpty($translator->trans('Search repair required')));
             }
         });
     }

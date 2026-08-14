@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Content\ContentChangeDispatcher;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\StatefulServiceInterface;
@@ -29,6 +30,7 @@ readonly class AdminRequestHandler
         private AuthManager              $authManager,
         private EventDispatcherInterface $eventDispatcher,
         private Container                $container,
+        private ContentChangeDispatcher  $contentChangeDispatcher,
     ) {
     }
 
@@ -60,6 +62,7 @@ readonly class AdminRequestHandler
             $response          = $adminPanel->handleRequest($request);
         }
 
+        $this->contentChangeDispatcher->flush();
         $this->authManager->renewPersistentCookies($request, $response);
         $this->requestStack->pop();
 

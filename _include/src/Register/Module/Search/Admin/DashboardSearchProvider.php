@@ -16,9 +16,10 @@ use S2\Rose\Storage\Database\PdoStorage;
 readonly class DashboardSearchProvider implements DashboardStatProviderInterface
 {
     public function __construct(
-        private TemplateRenderer $templateRenderer,
-        private PdoStorage       $pdoStorage,
+        private TemplateRenderer  $templateRenderer,
+        private PdoStorage        $pdoStorage,
         private ReindexToken      $reindexToken,
+        private SearchIndexHealth $searchIndexHealth,
     ) {
     }
 
@@ -36,6 +37,7 @@ readonly class DashboardSearchProvider implements DashboardStatProviderInterface
             [
                 ...$stat,
                 'csrfToken' => $this->reindexToken->value(),
+                'health'    => $this->searchIndexHealth->inspect(),
             ],
         );
     }

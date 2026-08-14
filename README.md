@@ -70,9 +70,11 @@ and database setup.
 ```
 
 The command installs missing Composer dependencies, creates an isolated SQLite site in `.local/`,
-and serves it at `http://127.0.0.1:8080`. On first launch it prints the local credentials. Existing
-`config.php` and production data are never modified. Override the host, port, PHP executable, or
-initial credentials with `S2_DEV_HOST`, `S2_DEV_PORT`, `PHP_BIN`, `S2_DEV_ADMIN_LOGIN`, and
+serves it at `http://127.0.0.1:8080`, and runs the local queue worker so search and thumbnails update
+automatically. On first launch it prints the local credentials. Existing `config.php` and production
+data are never modified. An incompatible local schema is discarded and recreated because Register
+does not migrate pre-release data generations. Override the host, port, PHP executable, or initial
+credentials with `S2_DEV_HOST`, `S2_DEV_PORT`, `PHP_BIN`, `S2_DEV_ADMIN_LOGIN`, and
 `S2_DEV_ADMIN_PASSWORD`.
 
 Run maximum-level static analysis, compatibility checks, linters, and tests with:

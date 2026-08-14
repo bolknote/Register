@@ -13,6 +13,7 @@ use Register\Comment\CommentRepository;
 use Register\Comment\ContentCommentNotifier;
 use Register\Comment\ContentCommentStrategy;
 use Register\Comment\ContentCommentTargetResolver;
+use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentRepository;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSourceInterface;
@@ -34,6 +35,7 @@ use Register\Url\UniqueSlugGenerator;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ContainerModuleInterface;
+use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Model\ArticleProvider;
@@ -64,6 +66,10 @@ readonly class ProductModule implements ContainerModuleInterface
         $container->set(ContentRepository::class, static fn(Container $container): ContentRepository => new ContentRepository(
             ...$container->getByTag(ContentSourceInterface::class),
         ));
+        $container->set(ContentChangeDispatcher::class, static fn(Container $container): ContentChangeDispatcher => new ContentChangeDispatcher(
+            $container->get(DbLayer::class),
+            $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+        ), [StatefulServiceInterface::class]);
         $container->set(ContentStatisticsRepository::class, static fn(Container $container): ContentStatisticsRepository => new ContentStatisticsRepository(
             $container->get(DbLayer::class),
         ));

@@ -35,6 +35,7 @@ class QueueConsumer
      * NOWAIT prevents parallel job processing for *different* jobs. It can be dangerous in case of several heavy jobs
      * (PHP-FPM workers can be exhausted).
      *
+     * @phpstan-impure Consumes and deletes a database row and may enqueue follow-up jobs.
      */
     public function runQueue(): bool
     {

@@ -12,8 +12,14 @@ Start a fully isolated SQLite development copy (dependencies, initial database, 
 ./dev
 ```
 
-It uses `APP_ENV=local`, stores mutable data in `.local/`, and listens on `127.0.0.1:8080` by default.
-Use `S2_DEV_PORT=9000 ./dev` to select another port.
+It uses `APP_ENV=local`, stores mutable data in `.local/`, listens on `127.0.0.1:8080` by default,
+and starts a queue worker beside the web server. The worker applies search-index and thumbnail jobs
+automatically; both processes stop together on Ctrl+C. Use `S2_DEV_PORT=9000 ./dev` to select
+another port.
+
+Production installations must run `php cron.php` regularly (normally once per minute). The command
+drains asynchronous jobs and performs anti-spam maintenance; the control-panel search rebuild is
+repair tooling, not part of normal publishing.
 
 Run unit and integration tests with Codeception:
 
