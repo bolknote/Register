@@ -415,55 +415,19 @@ readonly class ArticleProvider
         return ['id' => $id, 'title' => $title, 'commented' => $commented];
     }
 
-    /**
-     * @throws DbLayerException
-     * @return array<mixed>
-     */
-    public function checkUrlAndTemplateStatus(int $id): array
+    /** @throws DbLayerException */
+    public function templateStatus(int $id): string
     {
-        $result = $this->dbLayer
-            ->select('parent_id, slug AS url, template')
+        $template = $this->dbLayer
+            ->select('template')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $id)
             ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
             ->execute()
+            ->result()
         ;
 
-        $row = $result->fetchRow();
-        if ($row === false) {
-            return ['missing', 'empty'];
-        }
-
-        [$parentId, $url, $template] = $row;
-
-        $templateStatus = !$this->useHierarchy->get() || $template !== '' ? 'ok' : 'empty';
-
-        if ($parentId === null) {
-            return ['mainpage', $templateStatus];
-        }
-
-        if ($url === '') {
-            return ['empty', $templateStatus];
-        }
-
-        $qb = $this->dbLayer
-            ->select('COUNT(*)')
-            ->from(ContentSchema::TABLE_NAME . ' AS a')
-            ->where('a.content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
-            ->andWhere('a.slug = :url')->setParameter('url', $url)
-        ;
-
-        if ($this->useHierarchy->get()) {
-            $qb->andWhere('a.parent_id = :id')->setParameter('id', $parentId);
-        }
-
-        if ($qb->execute()->result() !== 1) {
-            // NOTE: seems that this condition must be also checked above in if ($parentId === self::ROOT_ID) {} for root items.
-            // However, somewhere must be a more strict constraint that allows only one root item.
-            return ['not_unique', $templateStatus];
-        }
-
-        return ['ok', $templateStatus];
+        return \is_string($template) && (!$this->useHierarchy->get() || $template !== '') ? 'ok' : 'empty';
     }
 
     /**

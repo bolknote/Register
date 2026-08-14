@@ -16,7 +16,7 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
-use Register\Url\UniqueSlugGenerator;
+use Register\Url\ContentSlugService;
 use S2\AdminYard\Config\AdminConfig;
 use S2\AdminYard\Config\DbColumnFieldType;
 use S2\AdminYard\Config\EntityConfig;
@@ -59,7 +59,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private BlogUrlBuilder           $blogUrlBuilder,
         private ContentCommentNotifier   $commentNotifier,
         private SpamFeedbackService      $spamFeedbackService,
-        private UniqueSlugGenerator      $uniqueSlugGenerator,
+        private ContentSlugService       $contentSlugService,
         private EventDispatcherInterface $eventDispatcher,
         private string                   $dbType,
         private string                   $dbPrefix
@@ -269,6 +269,11 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 useOnActions: [],
             ))
             ->addField(new FieldConfig(
+                name: 'slug_scope',
+                type: new DbColumnFieldType(defaultValue: 'root'),
+                useOnActions: [],
+            ))
+            ->addField(new FieldConfig(
                 name: 'created_at',
                 // AdminYard accepts mixed here; its published PHPDoc is narrower than the runtime contract.
                 // @phan-suppress-next-line PhanTypeMismatchArgumentProbablyReal
@@ -444,10 +449,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 }
             })
             ->addListener(EntityConfig::EVENT_BEFORE_CREATE, function (BeforeSaveEvent $event): void {
-                $event->data['slug'] = $this->uniqueSlugGenerator->generate(
-                    (string)$event->data['title'],
-                    fn(string $slug): bool => $this->postProvider->checkUrlStatus(0, $slug) === 'ok',
-                );
+                $event->data['slug'] = $this->contentSlugService->generatePost((string)$event->data['title']);
             })
             ->addListener(EntityConfig::EVENT_BEFORE_EDIT_RENDER, function (BeforeRenderEvent $event): void {
                 if (!\is_array($event->data)) {
@@ -482,7 +484,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 }
 
                 $postId    = $this->requirePrimaryKey($event->primaryKey)->getIntId();
-                $urlStatus = $this->postProvider->checkUrlStatus($postId, $event->data['slug']);
+                $urlStatus = $this->contentSlugService->postStatus($postId, $event->data['slug']);
                 if ((bool)$event->data['published'] && $urlStatus !== 'ok') {
                     $event->errorMessages[] = $this->getUrlStatusTitle($urlStatus);
                     return;
@@ -681,7 +683,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
      */
     private function getPostStatusData(int $postId, string $url): array
     {
-        $urlStatus = $this->postProvider->checkUrlStatus($postId, $url);
+        $urlStatus = $this->contentSlugService->postStatus($postId, $url);
 
         return [
             'url'       => $this->blogUrlBuilder->post($url),

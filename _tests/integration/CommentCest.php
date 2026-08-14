@@ -326,6 +326,7 @@ class CommentCest
             ->insert(ContentSchema::TABLE_NAME)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->setValue('parent_id', '1')
+            ->setValue('slug_scope', "'root'")
             ->setValue('title', "'Thread test'")
             ->setValue('excerpt', "''")
             ->setValue('body', "'Page text'")

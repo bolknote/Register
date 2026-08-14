@@ -65,7 +65,7 @@ class SearchCest
             'author_id'    => $userId,
             'series'       => '',
             'revision'     => '1',
-            'slug'         => 'new_post1',
+            'slug'         => 'new-post1',
 
             'comments_enabled' => '1',
             'published'        => '1',
@@ -90,7 +90,7 @@ class SearchCest
         }
 
         $I->assertSame('New Blog Post Title', $post->title);
-        $I->assertSame('/new_post1', $post->path);
+        $I->assertSame('/new-post1', $post->path);
         $I->assertSame(strtotime('2023-08-12T11:32'), $post->publishedAt);
         $I->assertSame('Main page', $mainPage->title);
         $I->assertSame('/', $mainPage->path);
@@ -127,7 +127,7 @@ class SearchCest
 //        }
 
         // Open a public page
-        $I->amOnPage('https://localhost/new_post1');
+        $I->amOnPage('https://localhost/new-post1');
         $I->see('New Blog Post Title');
         $I->see('New blog post');
         $I->see('лето 1977 года');
@@ -148,7 +148,7 @@ class SearchCest
             ->where('id = :id')->setParameter('id', $postId)
             ->execute()
         ;
-        $I->amOnPage('https://localhost/new_post1');
+        $I->amOnPage('https://localhost/new-post1');
         $I->see('August 12, 2023');
         $I->dontSee('лето 1977 года');
 

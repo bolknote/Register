@@ -23,10 +23,13 @@ use Register\Content\TagRepository;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Schema\SchemaManager;
+use Register\Url\ContentSlugService;
 use Register\Url\IcuTransliterator;
 use Register\Url\PortableAsciiTransliterator;
+use Register\Url\ReservedRouteRegistry;
 use Register\Url\SlugGenerator;
 use Register\Url\UniqueSlugGenerator;
+use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
@@ -111,6 +114,19 @@ readonly class ProductModule implements ContainerModuleInterface
         ));
         $container->set(UniqueSlugGenerator::class, static fn(Container $container): UniqueSlugGenerator => new UniqueSlugGenerator(
             $container->get(SlugGenerator::class),
+        ));
+        $container->set(ReservedRouteRegistry::class, static function (Container $container): ReservedRouteRegistry {
+            $provider = $container->get(DynamicConfigProvider::class);
+
+            return new ReservedRouteRegistry(
+                $provider->getStringProxy('S2_TAGS_URL'),
+                $provider->getStringProxy('S2_FAVORITE_URL'),
+            );
+        });
+        $container->set(ContentSlugService::class, static fn(Container $container): ContentSlugService => new ContentSlugService(
+            $container->get(DbLayer::class),
+            $container->get(UniqueSlugGenerator::class),
+            $container->get(ReservedRouteRegistry::class),
         ));
     }
 

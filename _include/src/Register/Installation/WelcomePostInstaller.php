@@ -25,6 +25,7 @@ final readonly class WelcomePostInstaller
             ->insert(ContentSchema::TABLE_NAME)
             ->values([
                 'content_type'     => ':content_type',
+                'slug_scope'       => "'root'",
                 'slug'             => "'welcome-to-register'",
                 'title'            => ':title',
                 'excerpt'          => "''",

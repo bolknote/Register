@@ -215,6 +215,7 @@ readonly class Installer
             ->insert(ContentSchema::TABLE_NAME)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->setValue('parent_id', 'NULL')
+            ->setValue('slug_scope', "'main'")
             ->setValue('slug', "''")
             ->setValue('title', ':title')->setParameter('title', $title)
             ->setValue('created_at', ':created_at')->setParameter('created_at', $time)

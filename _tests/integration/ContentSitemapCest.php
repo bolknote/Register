@@ -52,6 +52,7 @@ final class ContentSitemapCest
         $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
             'content_type' => ':content_type',
             'parent_id'    => 'NULL',
+            'slug_scope'   => $contentType === ContentType::POST ? "'root'" : "'main'",
             'slug'         => ':slug',
             'title'        => ':title',
             'excerpt'      => "''",

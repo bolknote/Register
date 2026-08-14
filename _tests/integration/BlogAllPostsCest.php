@@ -68,6 +68,7 @@ final class BlogAllPostsCest
         $dbLayer
             ->insert(ContentSchema::TABLE_NAME)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::POST->value)
+            ->setValue('slug_scope', "'root'")
             ->setValue('created_at', ':time')->setParameter('time', $timestamp)
             ->setValue('published_at', ':time')
             ->setValue('updated_at', ':time')

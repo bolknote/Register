@@ -41,6 +41,7 @@ final class ContentStatisticsRepositoryCest
         $time = time();
         $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
             'content_type' => ':content_type',
+            'slug_scope'   => "'root'",
             'slug'         => ':slug',
             'title'        => ':title',
             'excerpt'      => "''",

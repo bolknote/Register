@@ -28,11 +28,11 @@ final class UniqueSlugGeneratorTest extends Unit
         self::assertSame('new-post-3', $slug);
     }
 
-    public function testUsesPostAsFallbackForTitleWithoutLetters(): void
+    public function testUsesCallerFallbackForTitleWithoutLetters(): void
     {
         $generator = new UniqueSlugGenerator(new SlugGenerator(new FixedTransliterator('')));
 
-        self::assertSame('post', $generator->generate('💥', static fn(string $candidate): bool => $candidate === 'post'));
+        self::assertSame('post', $generator->generate('💥', static fn(string $candidate): bool => $candidate === 'post', 'post'));
     }
 
     public function testKeepsNumericSuffixWithinDatabaseColumnLength(): void
@@ -47,6 +47,14 @@ final class UniqueSlugGeneratorTest extends Unit
 
         self::assertSame(SlugGenerator::MAX_LENGTH, strlen($slug));
         self::assertStringEndsWith('-2', $slug);
+    }
+
+    public function testStopsWhenAvailabilityCheckNeverSucceeds(): void
+    {
+        $generator = new UniqueSlugGenerator(new SlugGenerator(new FixedTransliterator('occupied')));
+
+        $this->expectException(\OverflowException::class);
+        $generator->generate('Occupied', static fn(string $_candidate): bool => false);
     }
 }
 

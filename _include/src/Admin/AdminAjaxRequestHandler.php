@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Url\ContentUrlCollisionException;
 use S2\AdminYard\Translator;
 use S2\AdminYard\Translator as T;
 use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
@@ -788,6 +789,8 @@ class AdminAjaxRequestHandler
 
         try {
             $response = $controller($this->permissionChecker, $request, $this->container, $this->translator);
+        } catch (ContentUrlCollisionException $e) {
+            $response = new Json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (AccessDeniedException $e) {
             $response = new Json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         } catch (NotFoundException $e) {

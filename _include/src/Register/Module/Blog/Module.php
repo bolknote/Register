@@ -58,6 +58,7 @@ use Register\Module\Blog\Service\TagsSearchProvider;
 use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SimilarWordsDetector;
+use Register\Url\ReservedRouteRegistry;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
@@ -78,6 +79,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(UrlBuilder::class),
                 $provider->getStringProxy('S2_TAGS_URL'),
                 $provider->getStringProxy('S2_FAVORITE_URL'),
+                $container->get(ReservedRouteRegistry::class),
             );
         }, [StatefulServiceInterface::class]);
         $container->set(BlogContentSource::class, static fn(Container $container): BlogContentSource => new BlogContentSource(
@@ -340,7 +342,6 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(\Register\Comment\CommentRepository::class),
             $container->get(\Register\Content\TagRepository::class),
             $container->get(BlogUrlBuilder::class),
-            $container->get(ArticleProvider::class),
             $container->get(Viewer::class),
         ));
 

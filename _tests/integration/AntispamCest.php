@@ -50,6 +50,7 @@ final class AntispamCest
             ->insert(ContentSchema::TABLE_NAME)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->setValue('parent_id', '1')
+            ->setValue('slug_scope', "'root'")
             ->setValue('title', "'Form test'")
             ->setValue('excerpt', "''")
             ->setValue('body', "'Page text'")
@@ -556,6 +557,7 @@ final class AntispamCest
         $dbLayer
             ->insert(ContentSchema::TABLE_NAME)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::POST->value)
+            ->setValue('slug_scope', "'root'")
             ->setValue('created_at', ':time')->setParameter('time', time())
             ->setValue('published_at', ':time')
             ->setValue('updated_at', ':time')

@@ -24,6 +24,7 @@ final class ContentSchema
                 ->addIdColumn()
                 ->addString('content_type', 8)
                 ->addInteger('parent_id', true, true, null)
+                ->addString('slug_scope', 64)
                 ->addString('slug', 255)
                 ->addString('title', 255)
                 ->addText('excerpt', nullable: false)
@@ -65,6 +66,14 @@ final class ContentSchema
                 ->addIndex('template_idx', ['template'])
             ;
         });
+        // Root content shares the "root" scope. Nested pages use "page:<parent id>". This portable
+        // key enforces post/root-page collisions and sibling-page uniqueness on every supported DB.
+        $dbLayer->addIndex(
+            self::TABLE_NAME,
+            'slug_scope_idx',
+            ['slug_scope', 'slug'],
+            true,
+        );
     }
 
     public static function drop(DbLayer $dbLayer): void

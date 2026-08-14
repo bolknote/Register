@@ -47,6 +47,7 @@ class ArticleProviderCest
             ->insert(ContentSchema::TABLE_NAME)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $id1)
+            ->setValue('slug_scope', ':slug_scope')->setParameter('slug_scope', 'root')
             ->setValue('title', ':title')->setParameter('title', 'level1')
             ->setValue('created_at', '0')
             ->setValue('published_at', '0')
@@ -64,6 +65,7 @@ class ArticleProviderCest
 
         $qb
             ->setParameter('parent_id', $id2)
+            ->setParameter('slug_scope', 'page:' . $id2)
             ->setParameter('title', 'level2')
             ->setParameter('url', 'level2')
             ->setParameter('published', 1)
@@ -75,6 +77,7 @@ class ArticleProviderCest
 
         $qb
             ->setParameter('parent_id', $id3)
+            ->setParameter('slug_scope', 'page:' . $id3)
             ->setParameter('title', 'level3')
             ->setParameter('url', 'level3')
             ->setParameter('published', 0)
@@ -84,6 +87,7 @@ class ArticleProviderCest
 
         $qb
             ->setParameter('parent_id', $id4)
+            ->setParameter('slug_scope', 'page:' . $id4)
             ->setParameter('title', 'level4')
             ->setParameter('url', 'level4')
             ->setParameter('published', 1)

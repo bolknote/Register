@@ -26,7 +26,7 @@ use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
-use Register\Url\UniqueSlugGenerator;
+use Register\Url\ContentSlugService;
 use Register\Content\Admin\DashboardContentProvider;
 use Register\Module\Blog\Admin\AdminConfigExtender;
 use Register\Module\Blog\Admin\DynamicConfigFormExtender;
@@ -53,7 +53,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(BlogUrlBuilder::class),
             $container->get(ContentCommentNotifier::class),
             $container->get(SpamFeedbackService::class),
-            $container->get(UniqueSlugGenerator::class),
+            $container->get(ContentSlugService::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container->getStringParameter('db_type'),
             $container->getStringParameter('db_prefix'),

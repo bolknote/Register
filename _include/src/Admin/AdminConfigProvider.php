@@ -16,6 +16,7 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
+use Register\Url\ContentSlugService;
 use S2\AdminYard\Config\AdminConfig;
 use S2\AdminYard\Config\DbColumnFieldType;
 use S2\AdminYard\Config\EntityConfig;
@@ -70,6 +71,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly BoolProxy                $adminCut,
         private readonly Translator               $translator,
         private readonly ArticleProvider          $articleProvider,
+        private readonly ContentSlugService       $contentSlugService,
         private readonly TagsProvider             $tagsProvider,
         private readonly TagRepository             $tagRepository,
         private readonly UrlBuilder               $urlBuilder,
@@ -695,6 +697,13 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $event->data['excerpt'] = \count($textParts) > 1 ? $textParts[0] : '';
                 }
 
+                $articleId = $this->requirePrimaryKey($event->primaryKey)->getIntId();
+                $urlStatus = $this->contentSlugService->pageStatus($articleId, (string)$event->data['slug']);
+                if ((bool)$event->data['published'] && !\in_array($urlStatus, [ContentSlugService::STATUS_OK, ContentSlugService::STATUS_MAIN_PAGE], true)) {
+                    $event->errorMessages[] = $this->urlStatusTitle($urlStatus);
+                    return;
+                }
+
                 $changed = false;
                 foreach (['body', 'title', 'slug', 'meta_keywords', 'meta_description'] as $field) {
                     if ($event->data[$field] !== $oldData['column_' . $field]) {
@@ -719,7 +728,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $event->context['new_revision'] = $oldData['column_revision'];
                 }
 
-                $event->context['article_id'] = $this->requirePrimaryKey($event->primaryKey)->getIntId();
+                $event->context['article_id'] = $articleId;
 
                 $newPublished = (bool)$event->data['published'];
                 $oldPublished = (bool)$oldData['column_published'];
@@ -1404,19 +1413,14 @@ class AdminConfigProvider implements StatefulServiceInterface
      */
     private function getArticleStatusData(int $articleId): array
     {
-        [$urlStatus, $templateStatus] = $this->articleProvider->checkUrlAndTemplateStatus($articleId);
+        $urlStatus                    = $this->contentSlugService->pageStatus($articleId);
+        $templateStatus               = $this->articleProvider->templateStatus($articleId);
         $path                         = $this->articleProvider->pathFromId($articleId);
 
         return [
             'url'            => $path === null ? '' : $this->urlBuilder->link($path),
             'urlStatus'      => $urlStatus,
-            'urlTitle'       => match ($urlStatus) {
-                'empty' => $this->translator->trans('URL empty'),
-                'not_unique' => $this->translator->trans('URL not unique'),
-                'mainpage' => $this->translator->trans('URL on mainpage'),
-                'ok' => '',
-                default => $this->translator->trans('URL unavailable'),
-            },
+            'urlTitle'       => $this->urlStatusTitle($urlStatus),
             'templateStatus' => $templateStatus,
             'templateTitle'  => match ($templateStatus) {
                 'empty' => $this->translator->trans('Template empty'),
@@ -1424,6 +1428,17 @@ class AdminConfigProvider implements StatefulServiceInterface
                 default => $this->translator->trans('Template unavailable'),
             }
         ];
+    }
+
+    private function urlStatusTitle(string $urlStatus): string
+    {
+        return match ($urlStatus) {
+            ContentSlugService::STATUS_EMPTY => $this->translator->trans('URL empty'),
+            ContentSlugService::STATUS_NOT_UNIQUE => $this->translator->trans('URL not unique'),
+            ContentSlugService::STATUS_MAIN_PAGE => $this->translator->trans('URL on mainpage'),
+            ContentSlugService::STATUS_OK => '',
+            default => $this->translator->trans('URL unavailable'),
+        };
     }
 
     private function requirePrimaryKey(?Key $primaryKey): Key

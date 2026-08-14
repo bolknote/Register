@@ -81,6 +81,7 @@ final class ContentTagRepositoryCest
         $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
             'content_type' => ':content_type',
             'parent_id'    => 'NULL',
+            'slug_scope'   => "'main'",
             'title'        => ':title',
             'excerpt'      => "''",
             'body'         => "'<p>Page text</p>'",
@@ -101,6 +102,7 @@ final class ContentTagRepositoryCest
 
         $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
             'content_type'     => ':content_type',
+            'slug_scope'       => "'root'",
             'created_at'       => ':time',
             'published_at'     => ':time',
             'updated_at'       => ':time',

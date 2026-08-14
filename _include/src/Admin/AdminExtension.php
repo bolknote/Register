@@ -13,6 +13,7 @@ use Register\Content\Admin\DashboardContentProvider;
 use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentType;
 use Register\Module\BaseModuleRegistry;
+use Register\Url\ContentSlugService;
 use S2\AdminYard\Database\PdoDataProvider;
 use S2\AdminYard\Database\TypeTransformer;
 use S2\AdminYard\Form\FormControlFactoryInterface;
@@ -141,6 +142,7 @@ class AdminExtension implements ExtensionInterface
                 $provider->getBoolProxy('S2_ADMIN_CUT'),
                 $container->get(Translator::class),
                 $container->get(ArticleProvider::class),
+                $container->get(ContentSlugService::class),
                 $container->get(TagsProvider::class),
                 $container->get(\Register\Content\TagRepository::class),
                 $container->get(UrlBuilder::class),
@@ -203,6 +205,7 @@ class AdminExtension implements ExtensionInterface
                 $container->get(PermissionChecker::class),
                 $provider->getBoolProxy('S2_ADMIN_NEW_POS'),
                 $provider->getBoolProxy('S2_USE_HIERARCHY'),
+                $container->get(ContentSlugService::class),
             );
         });
 

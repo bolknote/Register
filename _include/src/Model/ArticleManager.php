@@ -16,6 +16,8 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
+use Register\Url\ContentSlugService;
+use Register\Url\ContentUrlCollisionException;
 use S2\Cms\Config\BoolProxy;
 use S2\AdminYard\Config\FieldConfig;
 use S2\AdminYard\Form\FormParams;
@@ -35,6 +37,7 @@ readonly class ArticleManager
         private PermissionChecker       $permissionChecker,
         private BoolProxy               $newPositionOnTop,
         private BoolProxy               $useHierarchy,
+        private ContentSlugService      $contentSlugService,
     ) {
     }
 
@@ -199,6 +202,8 @@ readonly class ArticleManager
 
         $this->dbLayer->startTransaction();
 
+        $slug = $this->contentSlugService->generatePage($parentId, $title);
+
         if ($this->newPositionOnTop->get()) {
             $this->dbLayer
                 ->update(ContentSchema::TABLE_NAME)
@@ -224,9 +229,10 @@ readonly class ArticleManager
             ->insert(ContentSchema::TABLE_NAME)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $parentId)
+            ->setValue('slug_scope', ':slug_scope')->setParameter('slug_scope', $this->contentSlugService->pageScope($parentId))
             ->setValue('title', ':title')->setParameter('title', $title)
             ->setValue('sort_order', ':sort_order')->setParameter('sort_order', $newPriority)
-            ->setValue('slug', ':slug')->setParameter('slug', 'new')
+            ->setValue('slug', ':slug')->setParameter('slug', $slug)
             ->setValue('author_id', ':author_id')->setParameter('author_id', $this->permissionChecker->getUserId())
             ->setValue('template', ':template')->setParameter('template', $this->useHierarchy->get() ? '' : 'site.php')
             ->setValue('excerpt', ':excerpt')->setParameter('excerpt', '')
@@ -301,7 +307,7 @@ readonly class ArticleManager
         }
 
         $result = $this->dbLayer
-            ->select('sort_order AS priority, parent_id, author_id AS user_id, id')
+            ->select('sort_order AS priority, parent_id, author_id AS user_id, id, slug')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id IN (:source_id, :destination_id)')
             ->andWhere('content_type = :content_type')
@@ -320,14 +326,20 @@ readonly class ArticleManager
             $sourcePriority = $rows[0]['priority'];
             $sourceParentId = $rows[0]['parent_id'];
             $sourceUserId   = $rows[0]['user_id'];
+            $sourceSlug     = (string)$rows[0]['slug'];
         } else {
             $sourcePriority = $rows[1]['priority'];
             $sourceParentId = $rows[1]['parent_id'];
             $sourceUserId   = $rows[1]['user_id'];
+            $sourceSlug     = (string)$rows[1]['slug'];
         }
 
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) && $sourceUserId !== $this->permissionChecker->getUserId()) {
             throw new AccessDeniedException("You don't have permissions to move this article!");
+        }
+
+        if ($this->contentSlugService->pageStatusAtParent($sourceId, $destinationId, $sourceSlug) !== ContentSlugService::STATUS_OK) {
+            throw new ContentUrlCollisionException('A page with this URL already exists at the destination.');
         }
 
         $this->dbLayer->startTransaction();
@@ -345,6 +357,7 @@ readonly class ArticleManager
             ->update(ContentSchema::TABLE_NAME)
             ->set('sort_order', ':priority')->setParameter('priority', $position)
             ->set('parent_id', ':parent_id')->setParameter('parent_id', $destinationId)
+            ->set('slug_scope', ':slug_scope')->setParameter('slug_scope', $this->contentSlugService->pageScope($destinationId))
             ->where('id = :id')->setParameter('id', $sourceId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()

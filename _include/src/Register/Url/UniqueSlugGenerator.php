@@ -11,6 +11,8 @@ namespace Register\Url;
 
 final readonly class UniqueSlugGenerator
 {
+    private const int MAX_ATTEMPTS = 10_000;
+
     public function __construct(private SlugGenerator $slugGenerator)
     {
     }
@@ -18,16 +20,20 @@ final readonly class UniqueSlugGenerator
     /**
      * @param callable(string): bool $isAvailable
      */
-    public function generate(string $title, callable $isAvailable): string
+    public function generate(string $title, callable $isAvailable, string $emptyFallback = 'content'): string
     {
         $base = $this->slugGenerator->generate($title);
         if ($base === '') {
-            $base = 'post';
+            $base = $emptyFallback;
         }
 
         $slug   = $base;
         $suffix = 2;
         while (!$isAvailable($slug)) {
+            if ($suffix > self::MAX_ATTEMPTS) {
+                throw new \OverflowException('Unable to generate a unique content slug.');
+            }
+
             $suffixPart = '-' . $suffix;
             $slug       = rtrim(
                 substr($base, 0, SlugGenerator::MAX_LENGTH - strlen($suffixPart)),

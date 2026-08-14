@@ -15,7 +15,6 @@ use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
-use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
@@ -28,7 +27,6 @@ readonly class PostProvider
         private CommentRepository $commentRepository,
         private TagRepository   $tagRepository,
         private BlogUrlBuilder  $blogUrlBuilder,
-        private ArticleProvider $articleProvider,
         private Viewer          $viewer,
     ) {
     }
@@ -227,45 +225,6 @@ readonly class PostProvider
                 ];
             }
         }
-    }
-
-    /**
-     * @throws DbLayerException
-     */
-    public function checkUrlStatus(int $postId, string $url): string
-    {
-        if ($url === '') {
-            return 'empty';
-        }
-
-        if (
-            str_contains($url, '/')
-            || $this->blogUrlBuilder->isReservedPostSlug($url)
-            || $this->articleProvider->articleFromPath(
-                $this->blogUrlBuilder->postPath($url),
-                false
-            ) !== null
-        ) {
-            return 'unavailable';
-        }
-
-        $result = $this->dbLayer
-            ->select('COUNT(*)')
-            ->from(ContentSchema::TABLE_NAME)
-            ->where('content_type = :content_type')
-            ->setParameter('content_type', ContentType::POST->value)
-            ->andWhere('slug = :url')
-            ->setParameter('url', $url)
-            ->andWhere('id <> :id')
-            ->setParameter('id', $postId)
-            ->execute()
-        ;
-
-        if ((int)$result->result() > 0) {
-            return 'not_unique';
-        }
-
-        return 'ok';
     }
 
     /**

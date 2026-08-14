@@ -195,7 +195,7 @@ class InstallCest
             'revision'     => '1',
             'user_id'      => '1',
             'template'     => 'site.php',
-            'url'          => 'new_page1',
+            'url'          => 'new-page1',
             'favorite'     => '1',
             'published'    => '1',
             'commented'    => '1',
@@ -223,7 +223,7 @@ class InstallCest
         $I->amOnPage('/section1/page1');
         $I->seeResponseCodeIsClientError();
 
-        $I->amOnPage('/section1/new_page1');
+        $I->amOnPage('/section1/new-page1');
         $I->see('Some new page text');
         $I->see('August 10, 2023');
 
@@ -255,6 +255,7 @@ class InstallCest
 
             $I->amOnPage('/_admin/index.php?entity=Article&action=edit&id=' . $newId);
             $csrfToken = $I->grabValueFrom('input[name=__csrf_token]');
+            $I->assertSame('new-page-' . $newId, $I->grabValueFrom('input[name=slug]'));
 
             $dataProvider = static fn(string $id, string $csrfToken): array => [
                 '__csrf_token' => $csrfToken,
@@ -269,7 +270,7 @@ class InstallCest
                 'revision'     => '1',
                 'user_id'      => '1',
                 'template'     => 'site.php',
-                'url'          => 'new_page' . $id,
+                'url'          => 'new-page' . $id,
                 'favorite'     => '1',
                 'published'    => '1',
                 'commented'    => '1',
@@ -284,7 +285,7 @@ class InstallCest
         }
 
         // Links to related pages in section and by tags
-        $I->amOnPage('/section1/new_page4');
+        $I->amOnPage('/section1/new-page4');
         $I->see('New Page 4', 'h1');
         $I->see('Some new page text', '#content');
 
@@ -337,7 +338,7 @@ class InstallCest
         $I->canSee('Register');
         $I->canSee('My blog');
         $I->canSee('New Blog Post Title');
-        $I->canSee('/new_post1');
+        $I->canSee('/new-post1');
         $I->canSee(gmdate('D, d M Y H:i:s', strtotime('2023-08-12 11:32:00')) . ' GMT');
         $I->see('New blog post');
         $I->dontSee('New Page Title');
@@ -352,8 +353,8 @@ class InstallCest
 
         $I->amOnPage('/index.php?/sitemap.xml'); // Same as above
         $I->seeResponseCodeIsSuccessful();
-        $I->see('/section1/new_page1');
-        $I->see('/new_post1');
+        $I->see('/section1/new-page1');
+        $I->see('/new-post1');
         $I->see(gmdate('c', strtotime('2023-08-11 12:15')));
     }
 
@@ -388,7 +389,7 @@ class InstallCest
             'author_id'    => '1',
             'series'       => '',
             'revision'     => '1',
-            'slug'         => 'new_post1',
+            'slug'         => 'new-post1',
 
             'comments_enabled' => '1',
             'published'        => '1',
@@ -419,13 +420,13 @@ class InstallCest
             $I->see('August 12, 2023');
         }
 
-        $I->amOnPage('/new_post1');
+        $I->amOnPage('/new-post1');
         $I->see('New Blog Post Title');
         $I->see('New blog post');
         $I->see('August 12, 2023');
         $I->canWriteComment(text: 'This is my first blog comment! 👪🐶');
 
-        $I->amOnPage('/2023/08/12/new_post1');
+        $I->amOnPage('/2023/08/12/new-post1');
         $I->seeResponseCodeIsClientError();
 
         $I->stopFollowingRedirects();
@@ -451,13 +452,13 @@ class InstallCest
         $I->seeResponseCodeIsSuccessful();
         $I->canSee('My blog');
         $I->canSee('New Blog Post Title');
-        $I->canSee('/new_post1');
+        $I->canSee('/new-post1');
         $I->canSee(gmdate('D, d M Y H:i:s', strtotime('2023-08-12 11:32:00')) . ' GMT');
         $I->see('New blog post');
 
         $I->amOnPage('/index.php?/sitemap.xml'); // Same as above
         $I->seeResponseCodeIsSuccessful();
-        $I->see('/new_post1');
+        $I->see('/new-post1');
         $I->see(gmdate('c', strtotime('2023-08-12 12:15')));
     }
 
@@ -468,7 +469,7 @@ class InstallCest
         $I->dontSee('New Blog Post Title');
         $I->dontSee('New Page Title');
 
-        $I->amOnPage('/section1/new_page1');
+        $I->amOnPage('/section1/new-page1');
         $I->submitForm('.s2_search_form', ['q' => 'new']);
         $I->seeCurrentUrlEquals('/index.php?search=1&q=new');
         $I->see('Search', 'h1');
@@ -487,10 +488,10 @@ class InstallCest
         $I->sendAjaxPostRequest('/_admin/ajax.php?action=register_search_reindex', ['csrf_token' => $csrfToken]);
         $I->see('stop');
 
-        $I->amOnPage('/new_post1');
+        $I->amOnPage('/new-post1');
         $I->dontSeeElement('h2.recommendation-title#recommendations');
         $I->changeSetting('S2_SEARCH_RECOMMENDATIONS_LIMIT', 10);
-        $I->amOnPage('/new_post1');
+        $I->amOnPage('/new-post1');
         $I->seeElement('h2.recommendation-title#recommendations');
         $I->seeElement('div.recommendations > div.recommendation > a.recommendation-link');
         $I->see('Read next', 'h2.recommendation-title');
@@ -525,7 +526,7 @@ class InstallCest
             'name'         => 'New Tag Name',
             'modify_time'  => '2023-08-12T12:15',
             'description'  => 'New tag description text',
-            'url'          => 'new_tag_url1',
+            'url'          => 'new-tag-url1',
 
             'commented' => '1',
             'published' => '1',
@@ -540,7 +541,7 @@ class InstallCest
         $I->amOnPage('/tags/tag1');
         $I->seeResponseCodeIsClientError();
 
-        $I->amOnPage('/tags/new_tag_url1');
+        $I->amOnPage('/tags/new-tag-url1');
         $I->seeResponseCodeIsSuccessful();
         $I->see('New tag description text');
     }
@@ -574,8 +575,8 @@ class InstallCest
             $I->seeResponseCodeIsSuccessful();
         }
 
-        $this->testComments($I, '/section1/new_page1', 'New Page Title', 'Some new page text', 3, 'Comment', 'article_id');
-        $this->testComments($I, '/new_post1', 'New Blog Post Title', 'New blog post', $this->blogPostId, 'BlogComment', 'post_id');
+        $this->testComments($I, '/section1/new-page1', 'New Page Title', 'Some new page text', 3, 'Comment', 'article_id');
+        $this->testComments($I, '/new-post1', 'New Blog Post Title', 'New blog post', $this->blogPostId, 'BlogComment', 'post_id');
     }
 
     private function testETag(AcceptanceTester $I): void
@@ -591,11 +592,11 @@ class InstallCest
 
         // Check conditional get when the comment form is disabled. Otherwise, there are some random tokens.
         // Last comments must be also hidden.
-        $I->amOnPage('/section1/new_page1');
+        $I->amOnPage('/section1/new-page1');
 
         $headers = $I->grabHeaders();
         $I->haveHttpHeader('If-None-Match', $headers['ETag'][0]);
-        $I->amOnPage('/section1/new_page1');
+        $I->amOnPage('/section1/new-page1');
         $I->seeResponseCodeIs(304);
     }
 

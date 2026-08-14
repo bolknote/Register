@@ -9,6 +9,7 @@ use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use Register\Module\Blog\BlogUrlBuilder;
+use Register\Url\ReservedRouteRegistry;
 
 final class BlogUrlBuilderTest extends Unit
 {
@@ -59,11 +60,17 @@ final class BlogUrlBuilderTest extends Unit
         unlink($configFile);
         $provider = new DynamicConfigProvider($dbLayer, $configFile, true);
 
+        $reservedRoutes = new ReservedRouteRegistry(
+            $provider->getStringProxy('S2_TAGS_URL'),
+            $provider->getStringProxy('S2_FAVORITE_URL'),
+        );
+
         return [
             new BlogUrlBuilder(
                 new UrlBuilder('', 'https://example.test', ''),
                 $provider->getStringProxy('S2_TAGS_URL'),
                 $provider->getStringProxy('S2_FAVORITE_URL'),
+                $reservedRoutes,
             ),
             $configFile,
         ];
