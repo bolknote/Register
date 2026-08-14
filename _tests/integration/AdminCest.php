@@ -62,6 +62,11 @@ class AdminCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Dashboard');
         $I->see('Overview', 'h1#dashboard-title');
+        $I->assertCount(1, $I->grabMultiple('.publication-stat-item'));
+        $I->see('Published', '.publication-stat-item h3');
+        $I->see('page', '.publication-statistics li:first-child');
+        $I->see('post', '.publication-statistics li:last-child');
+        $I->see('comment', '.publication-comments');
         $I->seeElement('[data-analytics-table="register-analytics-pages"]');
         $I->seeElement('[data-analytics-table="register-analytics-feeds"]');
         $I->see('Environment', '.environment-stat-item h3');

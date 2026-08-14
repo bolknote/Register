@@ -332,8 +332,8 @@ return [
     'Tag description info'                 => 'Выводится на странице тега перед списком статей',
 
     // Stat tab
-    'Already published'                    => 'На сайте опубликовано',
-    'Articles num'                         => '{{ articles }} статья|{{ articles }} статьи|{{ articles }} статей',
+    'Published content'                    => 'Опубликовано',
+    'Pages num'                            => '{{ pages }} страница|{{ pages }} страницы|{{ pages }} страниц',
     'Comments num'                         => '{{ comments }} комментарий|{{ comments }} комментария|{{ comments }} комментариев',
     'Server load'                          => 'Нагрузка на сервер: %s',
     'Dashboard'                            => 'Дашборд',

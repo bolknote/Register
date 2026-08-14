@@ -682,6 +682,25 @@ section.list-header h1 {
     margin-top: 0.35rem;
 }
 
+.publication-statistics {
+    display: grid;
+    gap: 0.2rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.publication-statistics li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.65rem;
+    align-items: baseline;
+}
+
+.publication-comments {
+    color: var(--admin-secondary-text-color);
+}
+
 .environment-details {
     display: grid;
     gap: 0.2rem;

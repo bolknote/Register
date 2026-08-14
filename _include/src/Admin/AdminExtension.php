@@ -17,7 +17,6 @@ use Register\Backup\BackupScheduler;
 use Register\Content\Admin\DashboardContentProvider;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentStatisticsRepository;
-use Register\Content\ContentType;
 use Register\Content\ContentChangeDispatcher;
 use Register\Comment\CommentRepository;
 use Register\Module\BaseModuleRegistry;
@@ -285,12 +284,10 @@ class AdminExtension implements ExtensionInterface
             $container->getStringParameter('db_prefix'),
         ));
 
-        $container->set(DashboardContentProvider::PAGE_SERVICE_ID, fn(Container $container): DashboardContentProvider => new DashboardContentProvider(
+        $container->set(DashboardContentProvider::class, fn(Container $container): DashboardContentProvider => new DashboardContentProvider(
             $container->get(TemplateRenderer::class),
             $container->get(ContentStatisticsRepository::class),
-            ContentType::PAGE,
-            $container->getStringParameter('root_dir') . '_admin/templates/dashboard/article-item.php.inc',
-            'articles_num',
+            $container->getStringParameter('root_dir') . '_admin/templates/dashboard/publication-item.php.inc',
         ), [DashboardStatProviderInterface::class]);
 
         $container->set(PathToAdminEntityConverter::class, fn(Container $container): \S2\Cms\Admin\PathToAdminEntityConverter => new PathToAdminEntityConverter(

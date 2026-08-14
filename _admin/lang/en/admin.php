@@ -332,8 +332,8 @@ return [
     'Tag description info'                 => 'Displayed on the tag page.',
 
     // Stat tab
-    'Already published'                    => 'Published on the website',
-    'Articles num'                         => '{{ articles }} article|{{ articles }} articles',
+    'Published content'                    => 'Published',
+    'Pages num'                            => '{{ pages }} page|{{ pages }} pages',
     'Comments num'                         => '{{ comments }} comment|{{ comments }} comments',
     'Server load'                          => 'Server load: %s',
     'Dashboard'                            => 'Dashboard',

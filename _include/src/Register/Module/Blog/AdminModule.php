@@ -9,10 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog;
 
-use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
 use S2\Cms\Admin\AdminConfigExtenderInterface;
-use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
 use S2\Cms\Admin\DynamicConfigFormExtenderInterface;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Admin\TranslationProviderInterface;
@@ -25,16 +23,13 @@ use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlGenerator;
-use Register\Content\Admin\DashboardContentProvider;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Module\Blog\Admin\AdminConfigExtender;
 use Register\Module\Blog\Admin\DynamicConfigFormExtender;
 use Register\Module\Blog\Admin\PathToAdminEntityConverter;
 use Register\Module\Blog\Admin\TranslationProvider;
-use Register\Content\ContentType;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentPublicationScheduler;
-use Register\Content\ContentStatisticsRepository;
 use Register\Module\Blog\Model\PostProvider;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -61,14 +56,6 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
         $container->set(DynamicConfigFormExtender::class, new DynamicConfigFormExtender(), [DynamicConfigFormExtenderInterface::class]);
 
         $container->set(TranslationProvider::class, new TranslationProvider(), [TranslationProviderInterface::class]);
-
-        $container->set(DashboardContentProvider::POST_SERVICE_ID, fn(Container $container): DashboardContentProvider => new DashboardContentProvider(
-            $container->get(TemplateRenderer::class),
-            $container->get(ContentStatisticsRepository::class),
-            ContentType::POST,
-            __DIR__ . '/resources/views/dashboard/blog-item.php.inc',
-            'posts_num',
-        ), [DashboardStatProviderInterface::class]);
 
         $container->set(PathToAdminEntityConverter::class, fn(Container $container): \Register\Module\Blog\Admin\PathToAdminEntityConverter => new PathToAdminEntityConverter(
             $container->get(DbLayer::class),
