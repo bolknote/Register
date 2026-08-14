@@ -144,7 +144,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Semantically related tags | Partial | Morphological/prefix matching exists; there is no semantic tag graph. |
 | Tag RSS and JSON feeds | Missing | No dedicated feed routes. |
 | Built-in full-text search | Available | Implemented with Rose. |
-| Russian and English morphology | Available | Russian and English Porter stemmers are configured. |
+| Russian and English morphology | Available | Russian uses bundled OpenCorpora dictionary lemmatization with Porter fallback; English uses Porter. The behavior is identical on SQLite, MySQL/MariaDB, and PostgreSQL. |
 | Tag suggestions | Partial | Autocomplete and morphological matches exist. |
 | Start searching by typing anywhere | Missing | The search field must be focused. |
 | Boost favourites in search ranking | Missing | The favourite flag is not indexed as a ranking signal. |

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8290b1c942ebb7bb35d8537d713da88a",
+    "content-hash": "9c0ed7531ce27d07901c7c5562b89e6d",
     "packages": [
         {
             "name": "matthiasmullie/minify",
@@ -387,16 +387,16 @@
         },
         {
             "name": "s2/rose",
-            "version": "dev-master",
+            "version": "dev-codex/multi-lexeme-morphology",
             "source": {
                 "type": "git",
-                "url": "https://github.com/parpalak/rose.git",
-                "reference": "0d3c3a57671ab4e4e8f9a30bf147026461a1986c"
+                "url": "https://github.com/bolknote/rose.git",
+                "reference": "230e2260e0eacf4d794430f710f6a12d3619e2fd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/parpalak/rose/zipball/0d3c3a57671ab4e4e8f9a30bf147026461a1986c",
-                "reference": "0d3c3a57671ab4e4e8f9a30bf147026461a1986c",
+                "url": "https://api.github.com/repos/bolknote/rose/zipball/230e2260e0eacf4d794430f710f6a12d3619e2fd",
+                "reference": "230e2260e0eacf4d794430f710f6a12d3619e2fd",
                 "shasum": ""
             },
             "require": {
@@ -413,14 +413,17 @@
                 "ext-dom": "*",
                 "ext-pdo": "*"
             },
-            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
                     "S2\\Rose\\": "src/S2/Rose"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
+            "autoload-dev": {
+                "psr-4": {
+                    "S2\\Rose\\Test\\": "tests/unit/Rose"
+                }
+            },
             "license": [
                 "MIT"
             ],
@@ -432,10 +435,9 @@
             ],
             "description": "Search engine for PHP sites",
             "support": {
-                "issues": "https://github.com/parpalak/rose/issues",
-                "source": "https://github.com/parpalak/rose/tree/master"
+                "source": "https://github.com/bolknote/rose/tree/codex/multi-lexeme-morphology"
             },
-            "time": "2026-04-19T22:07:26+00:00"
+            "time": "2026-08-14T22:23:11+00:00"
         },
         {
             "name": "symfony/cache",

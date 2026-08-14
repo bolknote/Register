@@ -13,6 +13,7 @@ use Codeception\Test\Unit;
 use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Module\Search\Service\SearchDocumentFactory;
+use S2\Rose\Entity\Indexable;
 
 final class SearchDocumentFactoryTest extends Unit
 {
@@ -37,6 +38,11 @@ final class SearchDocumentFactoryTest extends Unit
         ));
 
         self::assertSame(':page:7', $page->getExternalId()->toString());
+        $legacyDocument = (new Indexable('page:7', 'Page', 'Text'))
+            ->setKeywords('one, two')
+            ->setDescription('Description')
+        ;
+        self::assertNotSame($legacyDocument->calcHash(), $page->calcHash());
         self::assertSame('/section/page', $page->getUrl());
         self::assertSame(123, $page->getDate()?->getTimestamp());
         self::assertSame(':post:9', $post->getExternalId()->toString());

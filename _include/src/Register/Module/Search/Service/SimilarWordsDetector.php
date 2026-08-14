@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Service;
 
+use S2\Rose\Stemmer\StemmerHelper;
 use S2\Rose\Stemmer\StemmerInterface;
 
 readonly class SimilarWordsDetector
@@ -29,10 +30,11 @@ readonly class SimilarWordsDetector
                 continue;
             }
 
-            $stemToCheck = $this->stemmer->stemWord($wordToCheck);
-            foreach ($otherWords as $otherWord) {
-                if ($otherWord === $stemToCheck || (str_starts_with($stemToCheck, $otherWord) && mb_strlen($otherWord) >= 5)) {
-                    return true;
+            foreach (StemmerHelper::stemWords($this->stemmer, $wordToCheck) as $stemToCheck) {
+                foreach ($otherWords as $otherWord) {
+                    if ($otherWord === $stemToCheck || (str_starts_with($stemToCheck, $otherWord) && mb_strlen($otherWord) >= 5)) {
+                        return true;
+                    }
                 }
             }
         }

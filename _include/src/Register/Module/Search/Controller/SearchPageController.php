@@ -27,6 +27,7 @@ use S2\Rose\Entity\ExternalId;
 use S2\Rose\Entity\Query;
 use S2\Rose\Finder;
 use S2\Rose\Helper\ProfileHelper;
+use S2\Rose\Stemmer\StemmerHelper;
 use S2\Rose\Stemmer\StemmerInterface;
 use S2\Rose\Storage\Database\PdoStorage;
 use S2\Rose\Storage\Exception\EmptyIndexException;
@@ -165,8 +166,12 @@ readonly class SearchPageController implements ControllerInterface
             return '';
         }
 
-        $stemmedWords = array_map(fn(string $word): string => $this->stemmer->stemWord($word), $words);
-        $words        = array_unique(array_merge($words, $stemmedWords));
+        $normalizedWords = [];
+        foreach ($words as $word) {
+            array_push($normalizedWords, ...StemmerHelper::stemWords($this->stemmer, $word));
+        }
+
+        $words = array_unique(array_merge($words, $normalizedWords));
 
         $tags = [];
         foreach ($this->tagRepository->findPublishedMatching(array_values($words), ContentType::PAGE) as $tag) {

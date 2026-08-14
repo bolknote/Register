@@ -40,10 +40,13 @@ use S2\Rose\Indexer;
 use S2\Rose\Stemmer\PorterStemmerEnglish;
 use S2\Rose\Stemmer\PorterStemmerRussian;
 use S2\Rose\Stemmer\StemmerInterface;
+use S2\Rose\Stemmer\WordNormalizerInterface;
 use S2\Rose\Storage\Database\PdoStorage;
 use Register\Module\Search\Controller\SearchPageController;
 use Register\Module\Search\Admin\SearchIndexHealth;
 use Register\Module\Search\Layout\LayoutMatcherFactory;
+use Register\Module\Search\Morphology\HybridWordNormalizer;
+use Register\Module\Search\Morphology\OpenCorporaDictionary;
 use Register\Module\Search\Rose\CustomExtractor;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\ContentIndexer;
@@ -81,8 +84,18 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     public function buildContainer(Container $container): void
     {
         $container->set(PdoStorage::class, self::createPdoStorage(...));
-        $container->set(StemmerInterface::class, new PorterStemmerRussian(new PorterStemmerEnglish()));
-        $container->set(Finder::class, fn(Container $container): \S2\Rose\Finder => (new Finder($container->get(PdoStorage::class), $container->get(StemmerInterface::class)))
+        $container->set(OpenCorporaDictionary::class, static fn(): OpenCorporaDictionary => new OpenCorporaDictionary(
+            __DIR__ . '/resources/morphology/ru',
+        ));
+        $container->set(WordNormalizerInterface::class, static fn(Container $container): HybridWordNormalizer => new HybridWordNormalizer(
+            $container->get(OpenCorporaDictionary::class),
+            new PorterStemmerRussian(new PorterStemmerEnglish()),
+        ));
+        $container->set(StemmerInterface::class, static fn(Container $container): WordNormalizerInterface => $container->get(WordNormalizerInterface::class));
+        $container->set(Finder::class, fn(Container $container): \S2\Rose\Finder => (new Finder(
+            $container->get(PdoStorage::class),
+            $container->get(StemmerInterface::class),
+        ))
             ->setHighlightTemplate('<span class="s2_search_highlight">%s</span>')
             ->setSnippetLineSeparator(' ⋄&nbsp;'));
 

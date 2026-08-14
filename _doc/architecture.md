@@ -83,6 +83,14 @@ schema-generation changes that affect search identity or storage rebuild the ind
 publish `register_content_index` jobs to the shared queue; the control-panel rebuild remains repair
 tooling rather than an installation step.
 
+Russian words known to OpenCorpora are indexed by all their dictionary normal forms; this covers
+irregular and suppletive forms such as `люди` → `человек` and preserves ambiguity such as `стали` →
+`стать`/`сталь`. Unknown Russian words and non-Russian words fall back to the existing Russian/English
+Porter chain. Morphology runs in PHP above Rose's storage layer, so SQLite, MySQL/MariaDB, and PostgreSQL
+share the same index and query semantics. The bundled search subset is
+`pymorphy3-dicts-ru` 2.4.417150.4580142; its version is part of each document hash, which makes the
+normal index-health repair path reindex unchanged documents after a morphology upgrade.
+
 ## Background work lifecycle
 
 Register does not require cron. Every successfully completed web request registers a shutdown

@@ -11,18 +11,16 @@ namespace Register\Module\Search\Service;
 
 use Register\Content\ContentId;
 use Register\Content\ContentItem;
-use S2\Rose\Entity\Indexable;
-
 /** Maps Register content to the current Rose search-index format. */
 final class SearchDocumentFactory
 {
-    public function create(ContentItem $content): Indexable
+    public function create(ContentItem $content): SearchIndexable
     {
         $publishedAt = $content->publishedAt === null
             ? null
             : (new \DateTime())->setTimestamp($content->publishedAt);
 
-        $indexable = new Indexable(
+        $indexable = new SearchIndexable(
             self::externalId($content->id),
             $content->title,
             $content->body,

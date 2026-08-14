@@ -15,6 +15,12 @@
     },
     "name": "register/blog-engine",
     "description": "Small and fast blog engine",
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/bolknote/rose"
+        }
+    ],
     "minimum-stability": "dev",
     "prefer-stable": true,
     "license": "MIT",
@@ -38,7 +44,7 @@
         "psr/event-dispatcher": "^1.0",
         "psr/log": "^3.0",
         "s2/admin-yard": "dev-master",
-        "s2/rose": "dev-master",
+        "s2/rose": "dev-codex/multi-lexeme-morphology",
         "symfony/cache": "^7.0",
         "symfony/cache-contracts": "^3.0",
         "symfony/error-handler": "^7.0",
