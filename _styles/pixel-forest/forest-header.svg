@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="240" viewBox="0 0 1440 240" shape-rendering="crispEdges">
+  <title>Night forest in an eight-bit game style</title>
+  <rect width="1440" height="240" fill="#0a2230"/>
+  <path fill="#0d2c38" d="M0 132h40v-8h48v8h48v-16h48v8h48v-24h48v16h48v8h48v-16h48v8h48v-24h48v16h48v8h48v-16h48v8h48v-32h48v24h48v8h48v-16h48v8h48v-24h48v16h48v8h48v-8h48v-24h48v16h48v16h48v120H0z"/>
+  <g fill="#d7efb0">
+    <rect x="72" y="36" width="4" height="4"/>
+    <rect x="160" y="68" width="8" height="4"/>
+    <rect x="252" y="28" width="4" height="8"/>
+    <rect x="340" y="62" width="4" height="4"/>
+    <rect x="444" y="34" width="8" height="4"/>
+    <rect x="552" y="78" width="4" height="4"/>
+    <rect x="636" y="26" width="4" height="8"/>
+    <rect x="724" y="58" width="8" height="4"/>
+    <rect x="836" y="38" width="4" height="4"/>
+    <rect x="916" y="78" width="4" height="8"/>
+    <rect x="1012" y="30" width="8" height="4"/>
+    <rect x="1328" y="42" width="4" height="8"/>
+    <rect x="1380" y="84" width="8" height="4"/>
+  </g>
+  <path fill="#f4d35e" d="M1160 20h40v4h12v8h8v12h4v40h-4v12h-8v8h-12v4h-40v-4h-12v-8h-8V84h-4V44h4V32h8v-8h12z"/>
+  <path fill="#0a2230" d="M1184 20h24v4h12v8h8v12h4v40h-4v12h-8v8h-12v4h-24v-8h12v-8h8V80h4V40h-4V28h-8v-4h-12z"/>
+  <g fill="#89c96a">
+    <rect x="982" y="82" width="4" height="4"/><rect x="994" y="92" width="4" height="4"/>
+    <rect x="1278" y="116" width="4" height="4"/><rect x="1290" y="108" width="4" height="4"/>
+    <rect x="744" y="102" width="4" height="4"/><rect x="758" y="94" width="4" height="4"/>
+  </g>
+  <path fill="#173c31" d="M0 142h32v-12h16v-20h16V94h16v16h16v20h16v12h40v-20h16v-24h16V74h16v24h16v24h16v20h36v-12h16v-20h16V90h16v20h16v20h16v12h40v-24h16V86h16V58h16v28h16v32h16v24h40v-16h16v-20h16V82h16v24h16v20h16v16h40v-20h16V98h16V70h16v28h16v24h16v20h40v-12h16v-20h16V90h16v20h16v20h16v12h40v-28h16V82h16V50h16v32h16v32h16v28h40v-20h16v-24h16V74h16v24h16v24h16v20h40v-16h16v-20h16V86h16v20h16v20h16v16h32v98H0z"/>
+  <path fill="#24553a" d="M0 170h24v-20h12v-20h12v20h12v20h28v-28h12v-28h12V82h12v32h12v28h12v28h36v-20h12v-24h12v-20h12v20h12v24h12v20h32v-24h12v-28h12V86h12v32h12v28h12v24h40v-20h12v-24h12v-24h12v24h12v24h12v20h36v-28h12v-32h12V70h12v40h12v32h12v28h40v-20h12v-24h12v-20h12v20h12v24h12v20h32v-28h12v-28h12V78h12v36h12v28h12v28h40v-20h12v-24h12v-24h12v24h12v24h12v20h36v-24h12v-28h12V90h12v28h12v28h12v24h36v70H0z"/>
+  <path fill="#3f7d4f" d="M0 194h36v-12h12v-20h12v20h12v12h44v-16h12v-24h12v24h12v16h48v-12h12v-20h12v20h12v12h44v-16h12v-28h12v28h12v16h48v-12h12v-24h12v24h12v12h48v-20h12v-28h12v28h12v20h48v-12h12v-24h12v24h12v12h48v-16h12v-28h12v28h12v16h48v-12h12v-20h12v20h12v12h48v-16h12v-24h12v24h12v16h48v-12h12v-24h12v24h12v12h48v46H0z"/>
+  <rect y="198" width="1440" height="42" fill="#102a25"/>
+  <path fill="#29543b" d="M0 198h20v-8h8v8h20v-12h8v12h28v-8h8v8h24v-16h8v16h28v-8h8v8h24v-12h8v12h32v-8h8v8h28v-16h8v16h24v-8h8v8h28v-12h8v12h28v-8h8v8h28v-16h8v16h28v-8h8v8h24v-12h8v12h32v-8h8v8h28v-16h8v16h24v-8h8v8h28v-12h8v12h32v-8h8v8h24v-16h8v16h28v-8h8v8h28v-12h8v12h28v-8h8v8h28v-16h8v16h32v-8h8v8h24v-12h8v12h28v-8h8v8h28v-16h8v16h32v-8h8v8h24v42H0z"/>
+  <g fill="#f4d35e">
+    <rect x="100" y="170" width="4" height="4"/><rect x="108" y="166" width="4" height="4"/>
+    <rect x="580" y="160" width="4" height="4"/><rect x="588" y="168" width="4" height="4"/>
+    <rect x="932" y="174" width="4" height="4"/><rect x="940" y="166" width="4" height="4"/>
+    <rect x="1340" y="158" width="4" height="4"/><rect x="1348" y="166" width="4" height="4"/>
+  </g>
+  <g>
+    <rect x="312" y="202" width="12" height="6" fill="#f4d35e"/><rect x="316" y="208" width="4" height="8" fill="#e9e0bf"/>
+    <rect x="1060" y="206" width="16" height="6" fill="#e37a54"/><rect x="1066" y="212" width="4" height="8" fill="#e9e0bf"/>
+  </g>
+</svg>
