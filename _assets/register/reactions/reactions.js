@@ -60,19 +60,21 @@
             }
 
             const cancelLongPress = () => window.clearTimeout(this.longPressTimer);
-            this.primaryButton?.addEventListener('pointerdown', (event) => {
-                if (event.pointerType === 'mouse') {
-                    return;
-                }
-                cancelLongPress();
-                this.longPressTimer = window.setTimeout(() => {
-                    this.suppressPrimaryClick = true;
-                    this.openPicker(false);
-                }, 420);
-            });
-            this.primaryButton?.addEventListener('pointerup', cancelLongPress);
-            this.primaryButton?.addEventListener('pointercancel', cancelLongPress);
-            this.primaryButton?.addEventListener('pointerleave', cancelLongPress);
+            for (const button of this.chips.values()) {
+                button.addEventListener('pointerdown', (event) => {
+                    if (button !== this.primaryButton || event.pointerType === 'mouse') {
+                        return;
+                    }
+                    cancelLongPress();
+                    this.longPressTimer = window.setTimeout(() => {
+                        this.suppressPrimaryClick = true;
+                        this.openPicker(false);
+                    }, 420);
+                });
+                button.addEventListener('pointerup', cancelLongPress);
+                button.addEventListener('pointercancel', cancelLongPress);
+                button.addEventListener('pointerleave', cancelLongPress);
+            }
 
             this.root.addEventListener('keydown', (event) => this.onKeyDown(event));
             document.addEventListener('pointerdown', (event) => {
@@ -82,10 +84,15 @@
             });
 
             if (window.matchMedia('(hover: hover)').matches) {
-                this.primaryButton?.addEventListener('pointerenter', () => {
-                    window.clearTimeout(this.closeTimer);
-                    this.openTimer = window.setTimeout(() => this.openPicker(false), 220);
-                });
+                for (const button of this.chips.values()) {
+                    button.addEventListener('pointerenter', () => {
+                        if (button !== this.primaryButton) {
+                            return;
+                        }
+                        window.clearTimeout(this.closeTimer);
+                        this.openTimer = window.setTimeout(() => this.openPicker(false), 220);
+                    });
+                }
                 this.root.addEventListener('pointerleave', () => {
                     window.clearTimeout(this.openTimer);
                     this.closeTimer = window.setTimeout(() => this.closePicker(false), 450);
@@ -194,11 +201,13 @@
         }
 
         render() {
+            this.setPrimaryButton(this.chips.get(this.primaryType()) || null);
+
             for (const [type, button] of this.chips) {
                 const count = this.counts[type];
                 const active = this.selected === type;
                 const countNode = button.querySelector('.register-reaction-count');
-                button.hidden = type !== 'like' && count === 0 && !active;
+                button.hidden = button !== this.primaryButton && count === 0 && !active;
                 button.classList.toggle('is-visible', !button.hidden);
                 button.setAttribute('aria-pressed', String(active));
                 button.dataset.count = String(count);
@@ -211,6 +220,47 @@
             for (const [type, button] of this.choices) {
                 button.setAttribute('aria-checked', String(this.selected === type));
             }
+        }
+
+        primaryType() {
+            if (this.selected !== null) {
+                return this.selected;
+            }
+
+            let primary = 'like';
+            let maxCount = 0;
+            for (const type of reactionTypes) {
+                if (this.counts[type] > maxCount) {
+                    primary = type;
+                    maxCount = this.counts[type];
+                }
+            }
+
+            return primary;
+        }
+
+        setPrimaryButton(button) {
+            if (!(button instanceof HTMLButtonElement)) {
+                return;
+            }
+
+            const expanded = this.picker?.hidden === false;
+            for (const chip of this.chips.values()) {
+                const primary = chip === button;
+                chip.classList.toggle('register-reaction-primary', primary);
+                if (primary) {
+                    chip.setAttribute('aria-haspopup', 'menu');
+                    chip.setAttribute('aria-expanded', String(expanded));
+                    if (this.picker?.id) {
+                        chip.setAttribute('aria-controls', this.picker.id);
+                    }
+                } else {
+                    chip.removeAttribute('aria-haspopup');
+                    chip.removeAttribute('aria-expanded');
+                    chip.removeAttribute('aria-controls');
+                }
+            }
+            this.primaryButton = button;
         }
 
         openPicker(moveFocus) {

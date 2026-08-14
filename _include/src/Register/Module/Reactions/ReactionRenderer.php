@@ -51,17 +51,18 @@ final readonly class ReactionRenderer
 
     private function renderState(ContentId $contentId, ReactionState $state): string
     {
-        $pickerId = 'register-reaction-picker-' . $contentId->type->value . '-' . $contentId->value;
-        $endpoint = rtrim($this->basePath, '/') . '/_reactions/' . $contentId->type->value . '/' . $contentId->value;
-        $chips    = '';
-        $picker   = '';
+        $pickerId        = 'register-reaction-picker-' . $contentId->type->value . '-' . $contentId->value;
+        $endpoint        = rtrim($this->basePath, '/') . '/_reactions/' . $contentId->type->value . '/' . $contentId->value;
+        $chips           = '';
+        $picker          = '';
+        $primaryReaction = $this->primaryReaction($state);
 
         foreach (ReactionType::cases() as $reaction) {
             $count     = $state->counts[$reaction->value];
             $label     = $this->translator->trans($reaction->labelKey());
-            $isPrimary = $reaction === ReactionType::LIKE;
+            $isPrimary = $reaction === $primaryReaction;
             $visible   = $isPrimary || $count > 0;
-            $icon      = $isPrimary
+            $icon      = $reaction === ReactionType::LIKE
                 ? '<svg class="register-reaction-like-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5 11 3.8a2.6 2.6 0 0 1 2.5 3.2l-.8 3.5h5.5a2 2 0 0 1 2 2.4l-1.3 6.5a2 2 0 0 1-2 1.6H7.5m0-10.5V21H4a2 2 0 0 1-2-2v-6.5a2 2 0 0 1 2-2h3.5Z"/></svg>'
                 : '<span class="register-reaction-emoji" aria-hidden="true">' . $reaction->emoji() . '</span>';
             $chips .= sprintf(
@@ -109,5 +110,24 @@ final readonly class ReactionRenderer
             $chooseLabel,
             $picker,
         );
+    }
+
+    private function primaryReaction(ReactionState $state): ReactionType
+    {
+        if ($state->selected instanceof ReactionType) {
+            return $state->selected;
+        }
+
+        $primary  = ReactionType::LIKE;
+        $maxCount = 0;
+        foreach (ReactionType::cases() as $reaction) {
+            $count = $state->counts[$reaction->value];
+            if ($count > $maxCount) {
+                $primary  = $reaction;
+                $maxCount = $count;
+            }
+        }
+
+        return $primary;
     }
 }

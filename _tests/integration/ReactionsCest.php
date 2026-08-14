@@ -37,6 +37,9 @@ final class ReactionsCest
         $I->seeElement('[data-register-reactions][data-endpoint="/_reactions/post/' . $secondId . '"]');
         $I->seeElement('[data-endpoint="/_reactions/post/' . $firstId . '"] [data-reaction="love"][data-count="1"]');
         $I->seeElement('[data-endpoint="/_reactions/post/' . $secondId . '"] [data-reaction="like"][data-count="1"]');
+        $I->seeElement('[data-endpoint="/_reactions/post/' . $firstId . '"] [data-reaction="love"].register-reaction-primary');
+        $I->seeElement('[data-endpoint="/_reactions/post/' . $firstId . '"] [data-reaction="like"][hidden]');
+        $I->assertCount(1, $I->grabMultiple('[data-endpoint="/_reactions/post/' . $firstId . '"] .register-reaction-chip:not([hidden])'));
         $I->assertCount(2, $I->grabMultiple('.register-reaction-primary[aria-haspopup="menu"]'));
         $I->assertCount(2, $I->grabMultiple('.register-reaction-like-icon'));
         $I->dontSeeElement('.register-reaction-add');

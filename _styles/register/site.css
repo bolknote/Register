@@ -564,6 +564,24 @@ h2.post.head + .post.time {
     column-gap: .45rem;
 }
 
+.post.foot:has(> .register-reactions) > .post-foot-comments {
+    min-height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    margin-inline-end: 1rem;
+    line-height: 1;
+}
+
+.post.foot:has(> .register-reactions) > .post-foot-tags {
+    min-height: 1.5rem;
+    line-height: 1.5rem;
+    transform: translateY(.05rem);
+}
+
+.post.foot:has(> .register-reactions) > .register-reactions + .post-foot-tags {
+    margin-inline-start: 1rem;
+}
+
 .post.foot > .register-reactions + .post-foot-comments > a,
 .post.foot > .register-reactions + .post-foot-comments > a:visited {
     min-height: 1.5rem;
@@ -587,6 +605,7 @@ h2.post.head + .post.time {
     flex: 0 0 auto;
     background: currentColor;
     content: "";
+    transform: translateY(-1px);
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20.5 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h9.5a4 4 0 0 1 4 4Z' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20.5 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h9.5a4 4 0 0 1 4 4Z' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
@@ -597,6 +616,7 @@ h2.post.head + .post.time {
     font-size: 14px;
     font-variant-numeric: tabular-nums;
     line-height: 1;
+    transform: translateY(.05rem);
 }
 
 .post.foot > .register-reactions + .post-foot-comments > a[data-comment-count="0"]::after {

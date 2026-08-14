@@ -25,7 +25,11 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: .62rem;
+    gap: .5rem;
+}
+
+.register-reaction-primary {
+    order: -1;
 }
 
 .register-reaction-chip,
@@ -85,7 +89,7 @@
     font-size: 1.1rem;
     line-height: 1;
     text-align: center;
-    transform: translateY(.02em);
+    transform: translateY(-.04rem);
 }
 
 .register-reaction-count {
@@ -97,7 +101,7 @@
 }
 
 .register-reaction-chip[aria-pressed="true"] .register-reaction-count {
-    color: inherit;
+    color: var(--reaction-muted);
 }
 
 .register-reaction-picker {
