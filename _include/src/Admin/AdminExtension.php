@@ -51,7 +51,6 @@ use S2\Cms\Model\CommentProvider;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
-use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -143,9 +142,9 @@ class AdminExtension implements ExtensionInterface
                 $container->get(Translator::class),
                 $container->get(ArticleProvider::class),
                 $container->get(ContentSlugService::class),
+                $container->get(\Register\Url\ContentUrlGenerator::class),
                 $container->get(TagsProvider::class),
                 $container->get(\Register\Content\TagRepository::class),
-                $container->get(UrlBuilder::class),
                 $container->get(ContentCommentNotifier::class),
                 $container->get(ExtensionCache::class),
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),

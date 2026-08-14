@@ -14,11 +14,11 @@ use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\Module as BlogModule;
+use Register\Url\ContentUrlGenerator;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Controller\Rss\FeedDto;
 use S2\Cms\Controller\Rss\FeedItemDto;
 use S2\Cms\Controller\Rss\RssStrategyInterface;
-use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayerException;
 use S2\Cms\Template\Viewer;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -32,7 +32,7 @@ final readonly class ContentRssStrategy implements RssStrategyInterface
         private ContentRepository   $contentRepository,
         private PostProvider        $postProvider,
         private BlogUrlBuilder      $blogUrlBuilder,
-        private UrlBuilder          $urlBuilder,
+        private ContentUrlGenerator $contentUrlGenerator,
         private TranslatorInterface $translator,
         private Viewer              $viewer,
         private StringProxy         $blogTitle,
@@ -87,7 +87,7 @@ final readonly class ContentRssStrategy implements RssStrategyInterface
             $feedItems[] = new FeedItemDto(
                 $contentItem->title,
                 $contentItem->author,
-                $this->urlBuilder->absLink($contentItem->path),
+                $this->contentUrlGenerator->absolutePath($contentItem->path),
                 $this->renderBody($contentItem, $related, $tags),
                 $publishedAt,
                 $updatedAt,

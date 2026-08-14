@@ -18,6 +18,7 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
+use Register\Url\ContentUrlGenerator;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Pdo\DbLayer;
@@ -38,6 +39,7 @@ readonly class BlogPlaceholderProvider
         private DbLayer             $dbLayer,
         private TagRepository       $tagRepository,
         private BlogUrlBuilder      $blogUrlBuilder,
+        private ContentUrlGenerator $contentUrlGenerator,
         private TranslatorInterface $translator,
         private Viewer              $viewer,
         private RequestStack        $requestStack,
@@ -180,7 +182,7 @@ readonly class BlogPlaceholderProvider
         $output      = [];
         $request_uri = $this->urlPrefix . ($this->requestStack->getCurrentRequest()?->getPathInfo() ?? '');
         while ($row = $result->fetchAssoc()) {
-            $cur_url  = $this->blogUrlBuilder->post($row['url']);
+            $cur_url  = $this->contentUrlGenerator->post((string)$row['url']);
             $output[] = [
                 'title'      => $row['title'],
                 'link'       => $cur_url . '#' . $row['count'],
@@ -231,7 +233,7 @@ readonly class BlogPlaceholderProvider
         $output      = [];
         $request_uri = $this->urlPrefix . ($this->requestStack->getCurrentRequest()?->getPathInfo() ?? '');
         while ($row = $result->fetchAssoc()) {
-            $cur_url  = $this->blogUrlBuilder->post($row['url']);
+            $cur_url  = $this->contentUrlGenerator->post((string)$row['url']);
             $output[] = [
                 'title'      => $row['title'],
                 'link'       => $cur_url,

@@ -11,8 +11,8 @@ namespace Register\Content\Controller;
 
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
+use Register\Url\ContentUrlGenerator;
 use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Template\Viewer;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,7 +27,7 @@ final readonly class ContentSitemapController implements ControllerInterface
 
     public function __construct(
         private ContentRepository $contentRepository,
-        private UrlBuilder        $urlBuilder,
+        private ContentUrlGenerator $contentUrlGenerator,
         private Viewer            $viewer,
         ContentType ...$contentTypes,
     ) {
@@ -50,7 +50,7 @@ final readonly class ContentSitemapController implements ControllerInterface
             $maxContentTime = max($maxContentTime, $updatedAt);
 
             $items .= $this->viewer->render('sitemap_item', [
-                'link'        => $this->urlBuilder->absLink($content->path),
+                'link'        => $this->contentUrlGenerator->absolutePath($content->path),
                 'time'        => $publishedAt,
                 'modify_time' => $updatedAt,
             ]);

@@ -13,6 +13,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Controller;
 
 use Register\Content\TagRepository;
+use Register\Url\ContentUrlGenerator;
 use S2\Cms\Template\HtmlTemplate;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,6 +28,7 @@ class TagsPageController extends BlogController
         \Register\Module\Blog\BlogUrlBuilder $blogUrlBuilder,
         \S2\Cms\Model\ArticleProvider $articleProvider,
         \Register\Module\Blog\Model\PostProvider $postProvider,
+        ContentUrlGenerator $contentUrlGenerator,
         \S2\Cms\Model\UrlBuilder $urlBuilder,
         \Symfony\Contracts\Translation\TranslatorInterface $translator,
         \S2\Cms\Template\HtmlTemplateProvider $templateProvider,
@@ -42,6 +44,7 @@ class TagsPageController extends BlogController
             $blogUrlBuilder,
             $articleProvider,
             $postProvider,
+            $contentUrlGenerator,
             $urlBuilder,
             $translator,
             $templateProvider,

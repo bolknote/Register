@@ -36,6 +36,7 @@ use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SearchDocumentFactory;
+use Register\Url\ContentUrlGenerator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -50,6 +51,7 @@ class PostPageController extends BlogController
         BlogUrlBuilder                           $blogUrlBuilder,
         ArticleProvider                          $articleProvider,
         PostProvider                             $postProvider,
+        ContentUrlGenerator                      $contentUrlGenerator,
         UrlBuilder                               $urlBuilder,
         private readonly ?RecommendationProvider $recommendationProvider,
         TranslatorInterface                      $translator,
@@ -68,6 +70,7 @@ class PostPageController extends BlogController
             $blogUrlBuilder,
             $articleProvider,
             $postProvider,
+            $contentUrlGenerator,
             $urlBuilder,
             $translator,
             $templateProvider,
@@ -147,7 +150,7 @@ class PostPageController extends BlogController
             ));
         }
 
-        $template->putInPlaceholder('canonical_path', $this->blogUrlBuilder->post($row['url']));
+        $template->putInPlaceholder('canonical_path', $this->contentUrlGenerator->post((string)$row['url']));
 
         $is_back_forward = $template->hasPlaceholder('<!-- s2_blog_back_forward -->');
         $queries = [];
@@ -200,7 +203,7 @@ class PostPageController extends BlogController
         while ($result instanceof \S2\Cms\Pdo\QueryResult && ($row1 = $result->fetchAssoc()) !== false) {
             $post_info = [
                 'title' => $row1['title'],
-                'link'  => $this->blogUrlBuilder->post($row1['url']),
+                'link'  => $this->contentUrlGenerator->post((string)$row1['url']),
             ];
 
             if ($row1['type'] === 'label') {

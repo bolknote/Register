@@ -15,6 +15,7 @@ use Register\Comment\CommentRepository;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Url\ContentUrlGenerator;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Pdo\DbLayer;
@@ -29,6 +30,7 @@ readonly class ArticleProvider
     public function __construct(
         private DbLayer     $dbLayer,
         private CommentRepository $commentRepository,
+        private ContentUrlGenerator $contentUrlGenerator,
         private UrlBuilder  $urlBuilder,
         private Viewer      $viewer,
         private StringProxy $favoriteUrl,
@@ -61,53 +63,7 @@ readonly class ArticleProvider
             return $urls;
         }
 
-        /**
-         * We build a parent chain for every article. The chain either goes up to the root
-         * or stops at an unpublished article.
-         *
-         * If the chain goes up to the root, parent URLs are added to the $urls elements on each step up.
-         * If the chain stops at an unpublished article, the URL is removed from the $urls array.
-         */
-        while (\count($parentIds) > 0) {
-            $parentsAreFound = array_combine(array_keys($parentIds), array_fill(0, \count($parentIds), false));
-
-            // Step to fetch parent articles
-            $idsToSelect = array_unique($parentIds);
-            $result      = $this->dbLayer
-                ->select('id, parent_id, slug AS url')
-                ->from(ContentSchema::TABLE_NAME)
-                ->where('id IN (' . implode(', ', array_fill(0, \count($idsToSelect), '?')) . ')')
-                ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
-                ->andWhere('published = 1')
-                ->execute($idsToSelect)
-            ;
-
-            while ($row = $result->fetchAssoc()) {
-                // Well, the loop may seem not pretty much.
-                // But $parent_ids values don't have to be unique, we have to process all duplicates.
-                foreach ($parentIds as $k => $parentId) {
-                    // Note: check for && !$parentsAreFound[$k] seems to be useless after adding array_unique in query before
-                    if ($parentId === $row['id'] && !$parentsAreFound[$k]) {
-                        $parentIds[$k]       = $row['parent_id'];
-                        $urls[$k]            = rawurlencode($row['url']) . '/' . $urls[$k];
-                        $parentsAreFound[$k] = true;
-                        if ($row['parent_id'] === null) {
-                            // The chain is finished - we are at the root.
-                            unset($parentIds[$k]);
-                        }
-                    }
-                }
-            }
-
-            // Chain was cut (published = 0). Remove the entry from $urls.
-            foreach ($parentsAreFound as $k => $parentIsFound) {
-                if ($parentIsFound !== true) {
-                    unset($urls[$k], $parentIds[$k]);
-                }
-            }
-        }
-
-        return $urls;
+        return $this->contentUrlGenerator->completePublishedPagePaths($parentIds, $urls);
     }
 
     /**
@@ -273,47 +229,7 @@ readonly class ArticleProvider
             return '';
         }
 
-        $baseQuery      = $this->dbLayer
-            ->select('id, slug AS url, parent_id, 1 AS level')
-            ->from(ContentSchema::TABLE_NAME)
-            ->where('id = :id')
-            ->andWhere("content_type = '" . ContentType::PAGE->value . "'")
-        ;
-        $recursiveQuery = $this->dbLayer
-            ->select('a.id, a.slug AS url, a.parent_id, p.level + 1')
-            ->from(ContentSchema::TABLE_NAME . ' AS a')
-            ->innerJoin('path_cte AS p', 'a.id = p.parent_id')
-            ->where("a.content_type = '" . ContentType::PAGE->value . "'")
-        ;
-        if ($visibleForAll) {
-            $baseQuery->andWhere('published = 1');
-            $recursiveQuery->andWhere('a.published = 1');
-        }
-
-        $result = $this->dbLayer
-            ->withRecursive('path_cte', new UnionAll($baseQuery, $recursiveQuery))
-            ->select('url, parent_id')
-            ->from('path_cte')
-            ->orderBy('level DESC')
-            ->setParameter('id', $id)
-            ->execute()
-        ;
-
-        $urls = [];
-
-        $rootIsFound = false;
-        while ($row = $result->fetchAssoc()) {
-            $urls[] = rawurlencode($row['url']);
-            if ($row['parent_id'] === null) {
-                $rootIsFound = true;
-            }
-        }
-
-        if (!$rootIsFound) {
-            return null;
-        }
-
-        return '/' . ltrim(implode('/', $urls), '/');
+        return $this->contentUrlGenerator->pagePath($id, $visibleForAll);
     }
 
 

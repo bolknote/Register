@@ -58,7 +58,7 @@ use Register\Module\Blog\Service\TagsSearchProvider;
 use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SimilarWordsDetector;
-use Register\Url\ReservedRouteRegistry;
+use Register\Url\ContentUrlGenerator;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
@@ -79,12 +79,11 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(UrlBuilder::class),
                 $provider->getStringProxy('S2_TAGS_URL'),
                 $provider->getStringProxy('S2_FAVORITE_URL'),
-                $container->get(ReservedRouteRegistry::class),
             );
         }, [StatefulServiceInterface::class]);
         $container->set(BlogContentSource::class, static fn(Container $container): BlogContentSource => new BlogContentSource(
             $container->get(DbLayer::class),
-            $container->get(BlogUrlBuilder::class),
+            $container->get(ContentUrlGenerator::class),
         ), [ContentSourceInterface::class]);
         $container->set('register_blog_translator', static function (Container $container) {
             /** @var ExtensibleTranslator $translator */
@@ -98,6 +97,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             return new CalendarBuilder(
                 $container->get(DbLayer::class),
                 $container->get(BlogUrlBuilder::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get('register_blog_translator'),
                 $provider->getIntProxy('S2_START_YEAR'),
             );
@@ -108,6 +108,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(DbLayer::class),
                 $container->get(\Register\Content\TagRepository::class),
                 $container->get(BlogUrlBuilder::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get('register_blog_translator'),
                 $container->get(Viewer::class),
                 $container->get(RequestStack::class),
@@ -125,6 +126,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get(ArticleProvider::class),
                 $container->get(PostProvider::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
@@ -143,6 +145,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get(ArticleProvider::class),
                 $container->get(PostProvider::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
@@ -160,6 +163,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get(ArticleProvider::class),
                 $container->get(PostProvider::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
@@ -178,6 +182,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get(ArticleProvider::class),
                 $container->get(PostProvider::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
@@ -196,6 +201,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get(ArticleProvider::class),
                 $container->get(PostProvider::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->getIfDefined(RecommendationProvider::class),
                 $container->get('register_blog_translator'),
@@ -222,6 +228,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get(ArticleProvider::class),
                 $container->get(PostProvider::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
@@ -239,6 +246,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get(ArticleProvider::class),
                 $container->get(PostProvider::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
@@ -257,6 +265,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get(ArticleProvider::class),
                 $container->get(PostProvider::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
@@ -276,6 +285,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get(ArticleProvider::class),
                 $container->get(PostProvider::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
@@ -292,7 +302,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(ContentRepository::class),
                 $container->get(PostProvider::class),
                 $container->get(BlogUrlBuilder::class),
-                $container->get(UrlBuilder::class),
+                $container->get(ContentUrlGenerator::class),
                 $container->get('register_blog_translator'),
                 $container->get('strict_viewer'),
                 $provider->getStringProxy('S2_BLOG_TITLE'),
@@ -342,6 +352,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(\Register\Comment\CommentRepository::class),
             $container->get(\Register\Content\TagRepository::class),
             $container->get(BlogUrlBuilder::class),
+            $container->get(ContentUrlGenerator::class),
             $container->get(Viewer::class),
         ));
 

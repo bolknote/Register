@@ -26,6 +26,7 @@ use S2\Cms\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Model\PostProvider;
+use Register\Url\ContentUrlGenerator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -39,6 +40,7 @@ class MonthPageController extends BlogController
         BlogUrlBuilder       $blogUrlBuilder,
         ArticleProvider      $articleProvider,
         PostProvider         $postProvider,
+        ContentUrlGenerator  $contentUrlGenerator,
         UrlBuilder           $urlBuilder,
         TranslatorInterface  $translator,
         HtmlTemplateProvider $templateProvider,
@@ -54,6 +56,7 @@ class MonthPageController extends BlogController
             $blogUrlBuilder,
             $articleProvider,
             $postProvider,
+            $contentUrlGenerator,
             $urlBuilder,
             $translator,
             $templateProvider,

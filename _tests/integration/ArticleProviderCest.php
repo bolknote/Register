@@ -97,13 +97,13 @@ class ArticleProviderCest
 
         $I->assertEquals('', $this->articleProvider->pathFromId($id0));
         $I->assertEquals('/', $this->articleProvider->pathFromId($id1));
-        $I->assertEquals('/level1', $this->articleProvider->pathFromId($id2));
-        $I->assertEquals('/level1/level2', $this->articleProvider->pathFromId($id3));
-        $I->assertEquals('/level1/level2/level3', $this->articleProvider->pathFromId($id4));
+        $I->assertEquals('/level1/', $this->articleProvider->pathFromId($id2));
+        $I->assertEquals('/level1/level2/', $this->articleProvider->pathFromId($id3));
+        $I->assertEquals('/level1/level2/level3/', $this->articleProvider->pathFromId($id4));
         $I->assertEquals('/level1/level2/level3/level4', $this->articleProvider->pathFromId($id5));
         $I->assertEquals('', $this->articleProvider->pathFromId($id0, true));
         $I->assertEquals('/', $this->articleProvider->pathFromId($id1, true));
-        $I->assertEquals('/level1', $this->articleProvider->pathFromId($id2, true));
+        $I->assertEquals('/level1/', $this->articleProvider->pathFromId($id2, true));
         $I->assertEquals('/level1/level2', $this->articleProvider->pathFromId($id3, true));
         $I->assertEquals(null, $this->articleProvider->pathFromId($id4, true));
         $I->assertEquals(null, $this->articleProvider->pathFromId($id5, true));

@@ -9,7 +9,6 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog;
 
-use Register\Url\ReservedRouteRegistry;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Model\UrlBuilder;
@@ -26,7 +25,6 @@ class BlogUrlBuilder implements StatefulServiceInterface
         private readonly UrlBuilder  $urlBuilder,
         private readonly StringProxy $tagsUrl,
         private readonly StringProxy $favoriteUrl,
-        private readonly ReservedRouteRegistry $reservedRouteRegistry,
     ) {
     }
 
@@ -78,26 +76,6 @@ class BlogUrlBuilder implements StatefulServiceInterface
     public function day(int $year, int $month, int $day): string
     {
         return $this->main() . $year . '/' . $this->extendNumber($month) . '/' . $this->extendNumber($day) . '/';
-    }
-
-    public function post(string $url): string
-    {
-        return $this->main() . rawurlencode($url);
-    }
-
-    public function absPost(string $url): string
-    {
-        return $this->absMain() . rawurlencode($url);
-    }
-
-    public function postPath(string $url): string
-    {
-        return '/' . rawurlencode($url);
-    }
-
-    public function isReservedPostSlug(string $url): bool
-    {
-        return $this->reservedRouteRegistry->contains($url);
     }
 
     #[\Override]

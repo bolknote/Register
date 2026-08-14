@@ -17,6 +17,7 @@ use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Url\ContentSlugService;
+use Register\Url\ContentUrlGenerator;
 use S2\AdminYard\Config\AdminConfig;
 use S2\AdminYard\Config\DbColumnFieldType;
 use S2\AdminYard\Config\EntityConfig;
@@ -50,7 +51,6 @@ use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
-use S2\Cms\Model\UrlBuilder;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use S2\Cms\Pdo\DbLayerException;
 
@@ -72,9 +72,9 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly Translator               $translator,
         private readonly ArticleProvider          $articleProvider,
         private readonly ContentSlugService       $contentSlugService,
+        private readonly ContentUrlGenerator      $contentUrlGenerator,
         private readonly TagsProvider             $tagsProvider,
         private readonly TagRepository             $tagRepository,
-        private readonly UrlBuilder               $urlBuilder,
         private readonly ContentCommentNotifier   $commentNotifier,
         private readonly ExtensionCache           $extensionCache,
         private readonly EventDispatcherInterface $eventDispatcher,
@@ -1415,10 +1415,10 @@ class AdminConfigProvider implements StatefulServiceInterface
     {
         $urlStatus                    = $this->contentSlugService->pageStatus($articleId);
         $templateStatus               = $this->articleProvider->templateStatus($articleId);
-        $path                         = $this->articleProvider->pathFromId($articleId);
+        $path                         = $this->contentUrlGenerator->pagePath($articleId);
 
         return [
-            'url'            => $path === null ? '' : $this->urlBuilder->link($path),
+            'url'            => $path === null ? '' : $this->contentUrlGenerator->linkPath($path),
             'urlStatus'      => $urlStatus,
             'urlTitle'       => $this->urlStatusTitle($urlStatus),
             'templateStatus' => $templateStatus,

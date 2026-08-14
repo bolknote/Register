@@ -17,6 +17,7 @@ use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Url\ContentSlugService;
+use Register\Url\ContentUrlGenerator;
 use S2\AdminYard\Config\AdminConfig;
 use S2\AdminYard\Config\DbColumnFieldType;
 use S2\AdminYard\Config\EntityConfig;
@@ -43,7 +44,6 @@ use S2\Cms\Admin\Event\VisibleEntityChangedEvent;
 use S2\Cms\Comment\Antispam\SpamFeedbackService;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
-use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\Model\PostProvider;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use S2\Cms\Pdo\DbLayerException;
@@ -56,7 +56,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private TagsProvider             $tagsProvider,
         private TagRepository            $tagRepository,
         private PostProvider             $postProvider,
-        private BlogUrlBuilder           $blogUrlBuilder,
+        private ContentUrlGenerator      $contentUrlGenerator,
         private ContentCommentNotifier   $commentNotifier,
         private SpamFeedbackService      $spamFeedbackService,
         private ContentSlugService       $contentSlugService,
@@ -686,7 +686,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         $urlStatus = $this->contentSlugService->postStatus($postId, $url);
 
         return [
-            'url'       => $this->blogUrlBuilder->post($url),
+            'url'       => $this->contentUrlGenerator->post($url),
             'urlStatus' => $urlStatus,
             'urlTitle'  => $this->getUrlStatusTitle($urlStatus),
         ];

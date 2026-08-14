@@ -13,9 +13,9 @@ use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
+use Register\Url\ContentUrlGenerator;
 use S2\Cms\Helper\StringHelper;
 use S2\Cms\Mail\CommentMailer;
-use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayerException;
 
 /** Sends notifications and manages subscriptions for every Register content type. */
@@ -25,7 +25,7 @@ final readonly class ContentCommentNotifier
         private CommentRepository          $commentRepository,
         private CommentSubscriptionService $subscriptionService,
         private ContentRepository           $contentRepository,
-        private UrlBuilder                  $urlBuilder,
+        private ContentUrlGenerator         $contentUrlGenerator,
         private CommentMailer               $commentMailer,
     ) {
     }
@@ -52,10 +52,10 @@ final readonly class ContentCommentNotifier
         }
 
         $message = StringHelper::bbcodeToMail($comment->text);
-        $link    = $this->urlBuilder->absLink($content->path);
+        $link    = $this->contentUrlGenerator->absolutePath($content->path);
 
         foreach ($this->subscriptionService->receivers($comment->contentId, $comment->email) as $receiver) {
-            $unsubscribeLink = $this->urlBuilder->rawAbsLink('/comment_unsubscribe', [
+            $unsubscribeLink = $this->contentUrlGenerator->rawAbsolutePath('/comment_unsubscribe', [
                 'mail=' . urlencode($receiver->email),
                 'id=' . $comment->contentId->value,
                 'code=' . $receiver->unsubscribeToken,

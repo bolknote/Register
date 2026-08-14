@@ -334,6 +334,7 @@ class CmsExtension implements ExtensionInterface
             return new ArticleProvider(
                 $container->get(DbLayer::class),
                 $container->get(\Register\Comment\CommentRepository::class),
+                $container->get(\Register\Url\ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->get(Viewer::class),
                 $provider->getStringProxy('S2_FAVORITE_URL'),

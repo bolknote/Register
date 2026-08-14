@@ -27,6 +27,7 @@ use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
 use Register\Url\ContentSlugService;
+use Register\Url\ContentUrlGenerator;
 use Register\Content\Admin\DashboardContentProvider;
 use Register\Module\Blog\Admin\AdminConfigExtender;
 use Register\Module\Blog\Admin\DynamicConfigFormExtender;
@@ -50,7 +51,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(TagsProvider::class),
             $container->get(\Register\Content\TagRepository::class),
             $container->get(PostProvider::class),
-            $container->get(BlogUrlBuilder::class),
+            $container->get(ContentUrlGenerator::class),
             $container->get(ContentCommentNotifier::class),
             $container->get(SpamFeedbackService::class),
             $container->get(ContentSlugService::class),

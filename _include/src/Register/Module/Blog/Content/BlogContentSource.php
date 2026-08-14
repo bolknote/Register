@@ -14,7 +14,7 @@ use Register\Content\ContentItem;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\RecentContentSourceInterface;
-use Register\Module\Blog\BlogUrlBuilder;
+use Register\Url\ContentUrlGenerator;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 
@@ -22,8 +22,8 @@ use S2\Cms\Pdo\DbLayerException;
 final readonly class BlogContentSource implements RecentContentSourceInterface
 {
     public function __construct(
-        private DbLayer        $dbLayer,
-        private BlogUrlBuilder $urlBuilder,
+        private DbLayer             $dbLayer,
+        private ContentUrlGenerator $contentUrlGenerator,
     ) {
     }
 
@@ -110,7 +110,7 @@ final readonly class BlogContentSource implements RecentContentSourceInterface
             id: ContentId::post((int)$post['id']),
             title: (string)$post['title'],
             body: (string)$post['body'],
-            path: $this->urlBuilder->postPath((string)$post['slug']),
+            path: $this->contentUrlGenerator->postPath((string)$post['slug']),
             publishedAt: $publishedAt !== null && $publishedAt > 0 ? $publishedAt : null,
             updatedAt: (int)$post['updated_at'],
             author: (string)($post['author'] ?? ''),

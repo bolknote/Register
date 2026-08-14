@@ -28,6 +28,7 @@ use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Module as BlogModule;
 use Register\Module\Blog\Model\PostProvider;
+use Register\Url\ContentUrlGenerator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -43,6 +44,7 @@ abstract class BlogController implements ControllerInterface
         protected BlogUrlBuilder       $blogUrlBuilder,
         protected ArticleProvider      $articleProvider,
         protected PostProvider         $postProvider,
+        protected ContentUrlGenerator  $contentUrlGenerator,
         protected UrlBuilder           $urlBuilder,
         protected TranslatorInterface  $translator,
         protected HtmlTemplateProvider $templateProvider,
@@ -149,7 +151,7 @@ abstract class BlogController implements ControllerInterface
         $output = '';
         foreach ($ids as $id) {
             $post               = &$posts[$id];
-            $link               = $this->blogUrlBuilder->post($post['url']);
+            $link               = $this->contentUrlGenerator->post((string)$post['url']);
             $post['link']       = $link;
             $post['title_link'] = $link;
             $post['time']       = $this->postProvider->displayDate((int)$post['create_time'], (string)$post['display_date']);

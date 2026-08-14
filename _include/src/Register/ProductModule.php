@@ -24,6 +24,7 @@ use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Schema\SchemaManager;
 use Register\Url\ContentSlugService;
+use Register\Url\ContentUrlGenerator;
 use Register\Url\IcuTransliterator;
 use Register\Url\PortableAsciiTransliterator;
 use Register\Url\ReservedRouteRegistry;
@@ -51,9 +52,13 @@ readonly class ProductModule implements ContainerModuleInterface
     public function buildContainer(Container $container): void
     {
         $container->set(BaseModuleRegistry::class, $this->baseModuleRegistry);
+        $container->set(ContentUrlGenerator::class, static fn(Container $container): ContentUrlGenerator => new ContentUrlGenerator(
+            $container->get(DbLayer::class),
+            $container->get(UrlBuilder::class),
+        ));
         $container->set(PageContentSource::class, static fn(Container $container): PageContentSource => new PageContentSource(
             $container->get(DbLayer::class),
-            $container->get(ArticleProvider::class),
+            $container->get(ContentUrlGenerator::class),
         ), [ContentSourceInterface::class]);
         $container->set(ContentRepository::class, static fn(Container $container): ContentRepository => new ContentRepository(
             ...$container->getByTag(ContentSourceInterface::class),
@@ -63,7 +68,7 @@ readonly class ProductModule implements ContainerModuleInterface
         ));
         $container->set(ContentSitemapController::SERVICE_ID, static fn(Container $container): ContentSitemapController => new ContentSitemapController(
             $container->get(ContentRepository::class),
-            $container->get(UrlBuilder::class),
+            $container->get(ContentUrlGenerator::class),
             $container->get('strict_viewer'),
             ContentType::PAGE,
             ContentType::POST,
@@ -82,7 +87,7 @@ readonly class ProductModule implements ContainerModuleInterface
             $container->get(CommentRepository::class),
             $container->get(\Register\Comment\CommentSubscriptionService::class),
             $container->get(ContentRepository::class),
-            $container->get(UrlBuilder::class),
+            $container->get(ContentUrlGenerator::class),
             $container->get(CommentMailer::class),
         ));
         $container->set(ContentCommentStrategy::PAGE_SERVICE_ID, static fn(Container $container): ContentCommentStrategy => new ContentCommentStrategy(

@@ -11,6 +11,7 @@ namespace Register\Module\Blog;
 
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Url\ContentUrlGenerator;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -20,6 +21,7 @@ readonly class CalendarBuilder
     public function __construct(
         private DbLayer             $dbLayer,
         private BlogUrlBuilder      $blogUrlBuilder,
+        private ContentUrlGenerator $contentUrlGenerator,
         private TranslatorInterface $translator,
         private IntProxy            $startYear,
     ) {
@@ -119,7 +121,7 @@ readonly class CalendarBuilder
 
                 if (\count($dayUrls[$currentDayInMonth]) === 1 && ($currentDayInMonth !== $day || $url === '')) {
                     // One post, link to it (if this is not the post selected)
-                    $cellContent = '<a href="' . $this->blogUrlBuilder->post($dayUrls[$currentDayInMonth][0]) . '">' . $currentDayInMonth . '</a>';
+                    $cellContent = '<a href="' . $this->contentUrlGenerator->post($dayUrls[$currentDayInMonth][0]) . '">' . $currentDayInMonth . '</a>';
                 }
             }
 

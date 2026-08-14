@@ -9,7 +9,6 @@ use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use Register\Module\Blog\BlogUrlBuilder;
-use Register\Url\ReservedRouteRegistry;
 
 final class BlogUrlBuilderTest extends Unit
 {
@@ -20,11 +19,6 @@ final class BlogUrlBuilderTest extends Unit
         try {
             self::assertSame('/', $builder->main());
             self::assertSame('/all/', $builder->all());
-            self::assertSame('/hello%20world', $builder->post('hello world'));
-            self::assertSame('https://example.test/hello%20world', $builder->absPost('hello world'));
-            self::assertSame('/hello%20world', $builder->postPath('hello world'));
-            self::assertTrue($builder->isReservedPostSlug('search'));
-            self::assertTrue($builder->isReservedPostSlug('all'));
         } finally {
             if (file_exists($configFile)) {
                 unlink($configFile);
@@ -60,17 +54,11 @@ final class BlogUrlBuilderTest extends Unit
         unlink($configFile);
         $provider = new DynamicConfigProvider($dbLayer, $configFile, true);
 
-        $reservedRoutes = new ReservedRouteRegistry(
-            $provider->getStringProxy('S2_TAGS_URL'),
-            $provider->getStringProxy('S2_FAVORITE_URL'),
-        );
-
         return [
             new BlogUrlBuilder(
                 new UrlBuilder('', 'https://example.test', ''),
                 $provider->getStringProxy('S2_TAGS_URL'),
                 $provider->getStringProxy('S2_FAVORITE_URL'),
-                $reservedRoutes,
             ),
             $configFile,
         ];

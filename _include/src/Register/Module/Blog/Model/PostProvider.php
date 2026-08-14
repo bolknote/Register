@@ -15,6 +15,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
+use Register\Url\ContentUrlGenerator;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
@@ -27,6 +28,7 @@ readonly class PostProvider
         private CommentRepository $commentRepository,
         private TagRepository   $tagRepository,
         private BlogUrlBuilder  $blogUrlBuilder,
+        private ContentUrlGenerator $contentUrlGenerator,
         private Viewer          $viewer,
     ) {
     }
@@ -65,7 +67,7 @@ readonly class PostProvider
         while ($row = $result->fetchAssoc()) {
             $posts[] = [
                 'title' => (string)$row['title'],
-                'link'  => $this->blogUrlBuilder->post((string)$row['url']),
+                'link'  => $this->contentUrlGenerator->post((string)$row['url']),
             ];
         }
 
@@ -159,7 +161,7 @@ readonly class PostProvider
                 $post['author'] = '';
             }
 
-            $link               = $this->blogUrlBuilder->post($post['url']);
+            $link               = $this->contentUrlGenerator->post((string)$post['url']);
             $post['title_link'] = $link;
             $post['link']       = $link;
             $post['time']       = $this->displayDate((int)$post['create_time'], (string)$post['display_date']);
@@ -208,7 +210,7 @@ readonly class PostProvider
             foreach ($rows as $row) {
                 $see_also[$row['label']][$row['id']] = [
                     'title' => $row['title'],
-                    'link'  => $this->blogUrlBuilder->post($row['url']),
+                    'link'  => $this->contentUrlGenerator->post((string)$row['url']),
                 ];
             }
         }
