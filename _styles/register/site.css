@@ -193,6 +193,10 @@ hr {
     background: var(--border-color);
 }
 
+.post.body .lj-separator {
+    width: min(100%, var(--text-width));
+}
+
 #header,
 #crumbs,
 #container,
