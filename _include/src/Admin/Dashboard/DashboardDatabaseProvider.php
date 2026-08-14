@@ -9,27 +9,24 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Dashboard;
 
-use S2\AdminYard\TemplateRenderer;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 
-readonly class DashboardDatabaseProvider implements DashboardStatProviderInterface
+readonly class DashboardDatabaseProvider
 {
     public function __construct(
-        private TemplateRenderer $templateRenderer,
-        private DbLayer          $dbLayer,
-        private string           $dbType,
-        private string           $dbName,
-        private string           $dbPrefix,
+        private DbLayer $dbLayer,
+        private string  $dbType,
+        private string  $dbName,
+        private string  $dbPrefix,
     ) {
     }
 
     /**
-     * {@inheritdoc}
+     * @return array{size: int|null, records: int|null, type: string, version: string}
      * @throws DbLayerException
      */
-    #[\Override]
-    public function getHtml(): string
+    public function getInfo(): array
     {
         $totalSize = null;
         $totalRecords = null;
@@ -48,11 +45,11 @@ readonly class DashboardDatabaseProvider implements DashboardStatProviderInterfa
 
         $versionInfo = $this->dbLayer->getVersion();
 
-        return $this->templateRenderer->render('_admin/templates/dashboard/database-item.php.inc', [
-            'dbSize'    => $totalSize,
-            'dbRecords' => $totalRecords,
-            'dbType'    => $versionInfo['name'],
-            'dbVersion' => $versionInfo['version'],
-        ]);
+        return [
+            'size'    => $totalSize,
+            'records' => $totalRecords,
+            'type'    => $versionInfo['name'],
+            'version' => $versionInfo['version'],
+        ];
     }
 }

@@ -64,6 +64,10 @@ class AdminCest
         $I->see('Overview', 'h1#dashboard-title');
         $I->seeElement('[data-analytics-table="register-analytics-pages"]');
         $I->seeElement('[data-analytics-table="register-analytics-feeds"]');
+        $I->see('Environment', '.environment-stat-item h3');
+        $I->see('PHP:', '.environment-stat-item');
+        $I->see('Database', '.environment-stat-item');
+        $I->dontSee('Database', '.stat-item > h3');
         $I->see('Register source code', 'a[href="https://github.com/bolknote/Register"]');
         $I->see('Register is based on', '.stat-item .technical-data');
         $I->see('S2 2.0dev', 'a[href="https://github.com/parpalak/s2"]');

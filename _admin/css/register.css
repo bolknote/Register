@@ -682,6 +682,15 @@ section.list-header h1 {
     margin-top: 0.35rem;
 }
 
+.environment-details {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.environment-details > .technical-data {
+    margin: 0.1rem 0;
+}
+
 .analytics-chart {
     height: 20rem;
     margin: 0 0 1rem;

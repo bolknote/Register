@@ -15,8 +15,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 readonly class DashboardEnvironmentProvider implements DashboardStatProviderInterface
 {
     public function __construct(
-        private TranslatorInterface $translator,
-        private TemplateRenderer    $templateRenderer,
+        private TranslatorInterface       $translator,
+        private TemplateRenderer          $templateRenderer,
+        private DashboardDatabaseProvider $databaseProvider,
     ) {
     }
 
@@ -25,15 +26,11 @@ readonly class DashboardEnvironmentProvider implements DashboardStatProviderInte
     {
         $serverLoad = $this->detectLoadAverages() ?? $this->translator->trans('N/A');
 
-        $environment = [
-            sprintf($this->translator->trans('OS'), PHP_OS),
-            '<a href="ajax.php?action=phpinfo" title="' . $this->translator->trans('PHP info') . '" target="_blank">PHP: ' . PHP_VERSION . ' &uarr;</a>',
-            sprintf($this->translator->trans('Server load'), $serverLoad),
-        ];
-
-        return $this->templateRenderer->render( '_admin/templates/dashboard/stat-item.php.inc', [
-            'title'  => $this->translator->trans('Environment'),
-            'output' => implode('<br>', $environment),
+        return $this->templateRenderer->render('_admin/templates/dashboard/environment-item.php.inc', [
+            'databaseInfo'   => $this->databaseProvider->getInfo(),
+            'operatingSystem' => PHP_OS,
+            'phpVersion'      => PHP_VERSION,
+            'serverLoad'      => $serverLoad,
         ]);
     }
 

@@ -257,6 +257,7 @@ class AdminExtension implements ExtensionInterface
         $container->set(DashboardEnvironmentProvider::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardEnvironmentProvider => new DashboardEnvironmentProvider(
             $container->get(Translator::class),
             $container->get(TemplateRenderer::class),
+            $container->get(DashboardDatabaseProvider::class),
         ), [DashboardStatProviderInterface::class]);
 
         $container->set(BackupToken::class, fn(Container $container): BackupToken => new BackupToken(
@@ -278,12 +279,11 @@ class AdminExtension implements ExtensionInterface
         ), [DashboardStatProviderInterface::class]);
 
         $container->set(DashboardDatabaseProvider::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardDatabaseProvider => new DashboardDatabaseProvider(
-            $container->get(TemplateRenderer::class),
             $container->get(DbLayer::class),
             $container->getStringParameter('db_type'),
             $container->getStringParameter('db_name'),
             $container->getStringParameter('db_prefix'),
-        ), [DashboardStatProviderInterface::class]);
+        ));
 
         $container->set(DashboardContentProvider::PAGE_SERVICE_ID, fn(Container $container): DashboardContentProvider => new DashboardContentProvider(
             $container->get(TemplateRenderer::class),
