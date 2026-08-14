@@ -6,7 +6,7 @@ declare(strict_types=1);
 /** @var array $tagsList */
 /** @var array $templateList */
 /** @var array $labelList */
-/** @var array $statusData Info about URL status */
+/** @var ?array $statusData Info about URL status */
 /** @var callable $trans */
 /** @var callable $param */
 /** @var string $title */
@@ -15,14 +15,23 @@ declare(strict_types=1);
 /** @var array $hint */
 /** @var array $errorMessages */
 /** @var \S2\AdminYard\Form\Form $form */
-/** @var string $csrfToken */
-/** @var array $primaryKey */
+/** @var string|null $csrfToken */
+/** @var array|null $primaryKey */
 /** @var array $actions */
-/** @var int $commentsNum */
+/** @var int|null $commentsNum */
+
+$primaryKey   = $primaryKey ?? [];
+$csrfToken    = $csrfToken ?? null;
+$tagsList     = $tagsList ?? [];
+$templateList = $templateList ?? [];
+$labelList    = $labelList ?? [];
+$statusData   = $statusData ?? null;
+$commentsNum  = $commentsNum ?? 0;
+$isNew        = $primaryKey === [];
 
 $formQueryParams = http_build_query(array_merge([
     'entity' => $entityName,
-    'action' => 'edit'
+    'action' => $isNew ? 'new' : 'edit'
 ], $primaryKey));
 
 $errorMessages = array_merge($errorMessages, $form->getGlobalFormErrors());
@@ -37,6 +46,8 @@ $contentType = $isPost ? 'post' : 'page';
 // NOTE: order affects the order in HTML and focus (implicit tab order).
 $columnMap = $isPost
     ? [
+        'title'            => ['column' => 1,],
+        'tags'             => ['column' => 1,],
         'body'             => ['column' => 1, 'input_area' => '2/1/3/5'],
         'author_id'        => ['column' => 2,],
         'series'           => ['column' => 2,],
@@ -112,10 +123,16 @@ $columns[1] = array_merge($columns[1], $visibleControls);
 
 <script src="<?php echo $basePath; ?>/_admin/lib/image-q.min.js"></script>
 
-<section class="edit-content large-edit-form content-edit-content <?= $isPost ? 'post' : 'article' ?>-edit-content">
+<section class="edit-content large-edit-form content-edit-content <?= $isPost ? 'post' : 'article' ?>-edit-content <?= $isNew ? 'is-new' : 'is-edit' ?>">
+    <header class="content-editor-header">
+        <h1><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
+        <a href="?<?= http_build_query(['entity' => $entityName, 'action' => 'list']) ?>">
+            <?= htmlspecialchars($trans('Back to list'), ENT_QUOTES, 'UTF-8') ?>
+        </a>
+    </header>
     <?php if (!empty($errorMessages)): ?>
         <div class="error-message-box">
-            <p><?php printf($trans('Cannot save %s due to the following errors:'), $entityName) ?></p>
+            <p><?php printf($trans($isNew ? 'Cannot create new %s due to the following errors:' : 'Cannot save %s due to the following errors:'), $entityName) ?></p>
             <ul class="error-messages">
                 <?php foreach ($errorMessages as $message): ?>
                     <li><?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?></li>
@@ -181,13 +198,19 @@ $columns[1] = array_merge($columns[1], $visibleControls);
                     <?php endforeach; ?>
                     <?php if ($columnIndex === 2): ?>
                         <p class="article-form-buttons">
-                            <button type="submit" title="<?= $trans('Save info') ?>"><?= $trans('Save') ?></button>
+                            <button type="submit" title="<?= $trans('Save info') ?>">
+                                <?= $trans($isNew ? 'Create draft' : 'Save') ?>
+                            </button>
                         </p>
                         <hr>
-                        <p>
-                            <a target="_blank" title="<?= $trans('Preview published') ?>"
-                               href="#" id="preview_link"><?= $trans('Preview ready') ?></a>
-                        </p>
+                        <?php if ($isNew): ?>
+                            <p class="content-editor-note"><?= $trans('Preview after first save') ?></p>
+                        <?php else: ?>
+                            <p>
+                                <a target="_blank" title="<?= $trans('Preview published') ?>"
+                                   href="#" id="preview_link"><?= $trans('Preview ready') ?></a>
+                            </p>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>

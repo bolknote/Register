@@ -45,6 +45,7 @@ use S2\AdminYard\Validator\NotBlank;
 use S2\AdminYard\Validator\Regex;
 use S2\Cms\Admin\Controller\CommentControllerFactory;
 use S2\Cms\Admin\Validator\IntegerRange;
+use S2\Cms\Admin\Validator\Optional;
 use S2\Cms\Comment\Antispam\SpamMetricsRepository;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\DynamicConfigProvider;
@@ -55,6 +56,7 @@ use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayerException;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 class AdminConfigProvider implements StatefulServiceInterface
 {
@@ -84,6 +86,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly ContentPublicationScheduler $contentPublicationScheduler,
         private readonly CommentControllerFactory $commentControllerFactory,
         private readonly SpamMetricsRepository     $spamMetricsRepository,
+        private readonly RequestStack              $requestStack,
         private readonly string                   $dbType,
         private readonly string                   $dbPrefix,
         AdminConfigExtenderInterface              ...$adminConfigExtenders
@@ -105,10 +108,16 @@ class AdminConfigProvider implements StatefulServiceInterface
         $adminConfig->setMenuTemplate('_admin/templates/menu.php.inc');
 
         $articleEntity = new EntityConfig('Article', $this->dbPrefix . ContentSchema::TABLE_NAME);
-        $articleEntity->setEditTemplate('_admin/templates/article/edit.php.inc');
+        $articleEntity
+            ->setEditTemplate('_admin/templates/article/edit.php.inc')
+            ->setLimit(50)
+            ->setSingularName($this->translator->trans('Article'))
+            ->setEditTitle($this->translator->trans('Edit page'))
+        ;
 
         $commentEntity = new EntityConfig('Comment', $this->dbPrefix . CommentSchema::TABLE_NAME);
         $commentEntity
+            ->setLimit(50)
             ->setPluralName($this->translator->trans('Comments'))
             ->setSingularName($this->translator->trans('Comment'))
             ->setEditTitle($this->translator->trans('Edit comment'))
@@ -128,6 +137,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 ],
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'content_id',
@@ -159,18 +169,21 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'input',
                 validators: [new Length(max: 80)],
                 useOnActions: $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN) ? [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST] : [],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'show_email',
                 label: $this->translator->trans('Show email'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'subscribed',
                 label: $this->translator->trans('Subscribed to comments'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'time',
@@ -190,6 +203,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 label: $this->translator->trans('IP address'),
                 sortable: true,
                 useOnActions: $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN) ? [FieldConfig::ACTION_LIST] : [],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'shown',
@@ -204,6 +218,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
                 useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'good',
@@ -230,6 +245,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 ),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'spam_reasons',
@@ -321,12 +337,14 @@ class AdminConfigProvider implements StatefulServiceInterface
         $userEntity = new EntityConfig('User', $this->dbPrefix . 'users');
         $userEntity
             ->setPluralName($this->translator->trans('Users'))
+            ->setSingularName($this->translator->trans('User'))
             ->setNewTitle($this->translator->trans('New user'))
+            ->setEditTitle($this->translator->trans('Edit user'))
             ->setEntityDisplayNameBuilder(fn(array $row): string => $this->buildUserDisplayName($row))
             ->setEnabledActions(
                 [
                     ...$this->permissionChecker->isGrantedAny(PermissionChecker::PERMISSION_VIEW_HIDDEN, PermissionChecker::PERMISSION_EDIT_USERS) ? [FieldConfig::ACTION_LIST] : [],
-                    ...$isAdmin ? [FieldConfig::ACTION_DELETE, FieldConfig::ACTION_NEW] : [],
+                    ...$isAdmin ? [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_DELETE, FieldConfig::ACTION_NEW] : [],
                 ]
             )
             ->addField(new FieldConfig(
@@ -347,9 +365,8 @@ class AdminConfigProvider implements StatefulServiceInterface
                 label: $this->translator->trans('Password'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_PASSWORD),
                 control: 'password',
-                validators: [new Length(min: 8)],
-                inlineEdit: true,
-                useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_NEW],
+                validators: [new Optional(new Length(min: 8))],
+                useOnActions: [FieldConfig::ACTION_NEW, FieldConfig::ACTION_EDIT],
             ))
             ->addField(new FieldConfig(
                 name: 'name',
@@ -377,6 +394,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'checkbox',
                 sortable: true,
                 inlineEdit: $isAdmin,
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'view_hidden',
@@ -386,6 +404,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'checkbox',
                 sortable: true,
                 inlineEdit: $isAdmin,
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'hide_comments',
@@ -395,6 +414,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'checkbox',
                 sortable: true,
                 inlineEdit: $isAdmin,
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'edit_comments',
@@ -404,6 +424,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'checkbox',
                 sortable: true,
                 inlineEdit: $isAdmin,
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'create_articles',
@@ -413,6 +434,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'checkbox',
                 sortable: true,
                 inlineEdit: $isAdmin,
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'edit_site',
@@ -422,6 +444,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'checkbox',
                 sortable: true,
                 inlineEdit: $isAdmin,
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'edit_users',
@@ -431,17 +454,50 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'checkbox',
                 sortable: true,
                 inlineEdit: $isAdmin,
+                viewTemplate: null,
             ))
+            ->addField(new FieldConfig(
+                name: 'roles',
+                label: $this->translator->trans('Roles'),
+                type: new VirtualFieldType('1'),
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/user/view-roles.php.inc',
+            ))
+            ->addListener(EntityConfig::EVENT_AFTER_EDIT_FETCH, function (AfterLoadEvent $event): void {
+                if (\is_array($event->data)) {
+                    $event->data['column_password'] = '';
+                }
+            })
+            ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, function (BeforeSaveEvent $event): void {
+                $request = $this->requestStack->getCurrentRequest();
+                if (!$request instanceof \Symfony\Component\HttpFoundation\Request) {
+                    return;
+                }
+
+                foreach (['view', 'view_hidden', 'hide_comments', 'edit_comments', 'create_articles', 'edit_site', 'edit_users'] as $permission) {
+                    $event->data[$permission] = $request->request->has($permission);
+                }
+            })
+            ->addListener(EntityConfig::EVENT_BEFORE_CREATE, function (BeforeSaveEvent $event): void {
+                if (($event->data['password'] ?? '') === '') {
+                    array_push(
+                        $event->errorMessages,
+                        ...(new NotBlank())->getValidationErrors('', $this->translator),
+                    );
+                }
+            })
             ->addListener(
-                [EntityConfig::EVENT_BEFORE_PATCH, EntityConfig::EVENT_BEFORE_CREATE],
+                [EntityConfig::EVENT_BEFORE_PATCH, EntityConfig::EVENT_BEFORE_CREATE, EntityConfig::EVENT_BEFORE_UPDATE],
                 function (BeforeSaveEvent $event): void {
-                    if (isset($event->data['password'])) {
+                    if (($event->data['password'] ?? '') !== '') {
                         $event->data['password'] = password_hash($event->data['password'], PASSWORD_DEFAULT);
+                    } else {
+                        unset($event->data['password']);
                     }
                 }
             )
             ->addListener(
-                EntityConfig::EVENT_BEFORE_CREATE,
+                [EntityConfig::EVENT_BEFORE_CREATE, EntityConfig::EVENT_BEFORE_UPDATE],
                 function (BeforeSaveEvent $event): void {
                     // Check that there are no users with the same login.
                     $otherUsersWithSameLogin = $event->dataProvider->getEntityList(
@@ -449,6 +505,9 @@ class AdminConfigProvider implements StatefulServiceInterface
                         ['login' => 'string', 'id' => 'int'], // not really used
                         conditions: [
                             new LogicalExpression('login', $event->data['login']),
+                            ...$event->primaryKey instanceof Key ? [
+                                new LogicalExpression('id', $event->primaryKey->getIntId(), 'id != %s'),
+                            ] : [],
                         ]
                     );
 
@@ -458,9 +517,9 @@ class AdminConfigProvider implements StatefulServiceInterface
                 }
             )
             ->addListener(
-                EntityConfig::EVENT_BEFORE_PATCH,
+                [EntityConfig::EVENT_BEFORE_PATCH, EntityConfig::EVENT_BEFORE_UPDATE],
                 function (BeforeSaveEvent $event): void {
-                    if (!isset($event->data['edit_users'])) {
+                    if (!array_key_exists('edit_users', $event->data) || (bool)$event->data['edit_users']) {
                         return;
                     }
 
@@ -1302,43 +1361,57 @@ class AdminConfigProvider implements StatefulServiceInterface
 
             $adminConfig->addEntity(
                 (new EntityConfig('Queue', $this->dbPrefix . 'queue'))
+                    ->setLimit(50)
+                    ->setSingularName($this->translator->trans('Queue item'))
+                    ->setPluralName($this->translator->trans('Queue'))
                     ->addField(new FieldConfig(
                         name: 'id',
+                        label: $this->translator->trans('Job identifier'),
                         type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING, true),
                     ))
                     ->addField(new FieldConfig(
                         name: 'code',
+                        label: $this->translator->trans('Handler'),
                         type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING, true),
                     ))
                     ->addField(new FieldConfig(
                         name: 'payload',
+                        label: $this->translator->trans('Payload'),
                     ))
                     ->addField(new FieldConfig(
                         name: 'generation',
+                        label: $this->translator->trans('Generation'),
                         type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                     ))
                     ->addField(new FieldConfig(
                         name: 'created_at',
+                        label: $this->translator->trans('Created'),
                         type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
                     ))
                     ->addField(new FieldConfig(
                         name: 'updated_at',
+                        label: $this->translator->trans('Updated'),
                         type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
                     ))
                     ->addField(new FieldConfig(
                         name: 'available_at',
+                        label: $this->translator->trans('Available'),
                         type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
                     ))
                     ->addField(new FieldConfig(
                         name: 'attempts',
+                        label: $this->translator->trans('Attempts'),
                         type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                     ))
                     ->addField(new FieldConfig(
                         name: 'last_error',
+                        label: $this->translator->trans('Last error'),
                     ))
                     ->addField(new FieldConfig(
                         name: 'failed_at',
-                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
+                        label: $this->translator->trans('Failed'),
+                        type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING),
+                        viewTemplate: '_admin/templates/unixtime.php.inc',
                     ))
                     ->setEnabledActions([FieldConfig::ACTION_LIST])
                 , 90

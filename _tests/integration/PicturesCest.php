@@ -11,6 +11,7 @@ namespace integration;
 
 use Codeception\Example;
 use FilesystemIterator;
+use S2\Cms\Admin\Picture\PictureManager;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
@@ -102,6 +103,24 @@ class PicturesCest
         $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/cest1.png&name=test1.php', \dirname('/cest1.png'));
         $I->seeResponseCodeIs(403);
         $I->assertJsonSubResponseContains('php', ['message']);
+    }
+
+    public function testMediaListHidesInfrastructureFiles(\IntegrationTester $I): void
+    {
+        $imagesDir = __DIR__ . '/../_output/images';
+        file_put_contents($imagesDir . '/.htaccess', 'deny');
+        file_put_contents($imagesDir . '/index.html', '<!doctype html>');
+        file_put_contents($imagesDir . '/note.txt', 'visible');
+
+        /** @var PictureManager $pictureManager */
+        $pictureManager = $I->grabAdminService(PictureManager::class);
+        $files = $pictureManager->getFiles('');
+        $titles = array_map(
+            static fn(array $file): string => (string)$file['data']['title'],
+            $files,
+        );
+
+        $I->assertSame(['note.txt'], $titles);
     }
 
     public function testModernMediaExtensionsAreAccepted(\IntegrationTester $I): void

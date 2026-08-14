@@ -73,9 +73,12 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ?? throw new \LogicException('Comment admin entity is missing.');
 
         $postEntity
+            ->setLimit(50)
             ->setPluralName($this->translator->trans('Posts'))
+            ->setSingularName($this->translator->trans('Post'))
             ->setEntityDisplayNameBuilder(fn(array $row): string => (string)($row['column_title'] ?? $this->translator->trans('Post')))
             ->setNewTitle($this->translator->trans('New post'))
+            ->setEditTitle($this->translator->trans('Edit post'))
             ->addField(new FieldConfig(
                 name: 'id',
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT, true),
@@ -135,7 +138,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     })(),
                 ],
                 sortable: true,
-                useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
+                useOnActions: [FieldConfig::ACTION_NEW, FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
             ))
             ->addField(new FieldConfig(
                 name: 'published_at',
@@ -343,11 +346,11 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     'revision' => $event->context['new_revision'],
                 ];
             })
-            ->addListener([EntityConfig::EVENT_BEFORE_UPDATE], function (BeforeSaveEvent $event): void {
+            ->addListener([EntityConfig::EVENT_BEFORE_CREATE, EntityConfig::EVENT_BEFORE_UPDATE], function (BeforeSaveEvent $event): void {
                 $event->context['tags'] = $event->data['tags'];
                 unset($event->data['tags']);
             })
-            ->addListener([EntityConfig::EVENT_AFTER_UPDATE], function (AfterSaveEvent $event): void {
+            ->addListener([EntityConfig::EVENT_AFTER_CREATE, EntityConfig::EVENT_AFTER_UPDATE], function (AfterSaveEvent $event): void {
                 $tagStr = $event->context['tags'];
                 $tags   = array_map(trim(...), explode(',', $tagStr));
                 $tags   = array_filter($tags, static fn(string $tag): bool => $tag !== '');
@@ -419,6 +422,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 )
             )
             ->addFilter(new FilterLinkTo($userIdField, null))
+            ->setNewTemplate('_admin/templates/article/edit.php.inc')
             ->setEditTemplate('_admin/templates/article/edit.php.inc')
         ;
 

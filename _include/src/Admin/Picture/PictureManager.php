@@ -307,7 +307,12 @@ class PictureManager
 
         $files = [];
         while (($item = readdir($dirHandle)) !== false) {
-            if ($item === '.' || $item === '..' || is_dir($this->imageDir . $dir . '/' . $item)) {
+            if (
+                $item === '.'
+                || $item === '..'
+                || is_dir($this->imageDir . $dir . '/' . $item)
+                || !$this->fileNameHelper->isAllowedExtension($item)
+            ) {
                 continue;
             }
 

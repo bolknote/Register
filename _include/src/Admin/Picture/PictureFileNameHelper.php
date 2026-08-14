@@ -33,21 +33,24 @@ readonly class PictureFileNameHelper
 
     public function assertAllowedExtension(string $filename): void
     {
-        $extension = '';
-        $dotPos = strrpos($filename, '.');
-        if ($dotPos !== false) {
-            $extension = mb_strtolower(substr($filename, $dotPos + 1));
-        }
-
-        if (
-            $this->allowedExtensions !== ''
-            && $extension !== ''
-            && !str_contains(' ' . $this->allowedExtensions . ' ', ' ' . $extension . ' ')
-        ) {
+        if (!$this->isAllowedExtension($filename)) {
+            $extension = $this->getExtension($filename);
             $errorMessage = $this->translator->trans('Forbidden extension', ['{{ ext }}' => $extension]);
             $error        = $filename !== '' ? \sprintf($this->translator->trans('Upload file error'), $filename, $errorMessage) : $errorMessage;
             throw new \RuntimeException($error, Response::HTTP_FORBIDDEN);
         }
+    }
+
+    public function isAllowedExtension(string $filename): bool
+    {
+        if ($this->allowedExtensions === '') {
+            return true;
+        }
+
+        $extension = $this->getExtension($filename);
+
+        return $extension !== ''
+            && str_contains(' ' . $this->allowedExtensions . ' ', ' ' . $extension . ' ');
     }
 
     public function incrementCopySuffix(string $filename): string
@@ -68,5 +71,12 @@ readonly class PictureFileNameHelper
     private function baseName(string $dir): string
     {
         return false !== ($pos = strrpos($dir, '/')) ? substr($dir, $pos + 1) : $dir;
+    }
+
+    private function getExtension(string $filename): string
+    {
+        $dotPos = strrpos($filename, '.');
+
+        return $dotPos === false ? '' : mb_strtolower(substr($filename, $dotPos + 1));
     }
 }
