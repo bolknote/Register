@@ -103,6 +103,11 @@ $config = [
     'security' => [
         'antispam_secret' => hash('sha256', 'register-local-antispam:' . $rootDir),
     ],
+    'backups' => [
+        'enabled'   => true,
+        'directory' => '.local/backups',
+        'retention' => 3,
+    ],
 ];
 
 $configContent = "<?php\n\ndeclare(strict_types = 1);\n\nreturn " . var_export($config, true) . ";\n";
@@ -218,6 +223,9 @@ $application->boot([
     'redirect_map'       => [],
     'cookie_name'        => $config['cookies']['name'],
     'antispam_secret'    => $config['security']['antispam_secret'],
+    'backup_enabled'     => $config['backups']['enabled'],
+    'backup_dir'         => $rootDir . '/.local/backups',
+    'backup_retention'   => $config['backups']['retention'],
     'db_type'            => $config['database']['type'],
     'db_host'            => $config['database']['host'],
     'db_name'            => $config['database']['name'],

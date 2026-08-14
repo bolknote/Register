@@ -56,4 +56,15 @@ final class StaticConfigLoaderTest extends Unit
 
         $method->invoke(new StaticConfigLoader(), ['10.0.0.1', 123]);
     }
+
+    public function testBackupRetentionIsStrictlyBounded(): void
+    {
+        $method = new \ReflectionMethod(StaticConfigLoader::class, 'boundedInt');
+        $loader = new StaticConfigLoader();
+
+        self::assertSame(14, $method->invoke($loader, '14', 7, 1, 365));
+        self::assertSame(7, $method->invoke($loader, 0, 7, 1, 365));
+        self::assertSame(7, $method->invoke($loader, 366, 7, 1, 365));
+        self::assertSame(7, $method->invoke($loader, '7 days', 7, 1, 365));
+    }
 }

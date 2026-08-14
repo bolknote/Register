@@ -67,6 +67,7 @@ final class StaticConfigLoader
         $files     = $config['files'] ?? [];
         $cookies   = $config['cookies'] ?? [];
         $security  = $config['security'] ?? [];
+        $backups   = $config['backups'] ?? [];
         $redirects = $config['redirects'] ?? [];
 
         $normalizeDir = static function (?string $dir): ?string {
@@ -112,6 +113,11 @@ final class StaticConfigLoader
             ],
             'security' => [
                 'antispam_secret' => $this->nullableString($security['antispam_secret'] ?? null),
+            ],
+            'backups' => [
+                'enabled'   => $this->toBool($backups['enabled'] ?? true),
+                'directory' => $normalizeDir($this->nullableString($backups['directory'] ?? null)),
+                'retention' => $this->boundedInt($backups['retention'] ?? 7, 7, 1, 365),
             ],
             'redirects' => \is_array($redirects) ? $redirects : [],
         ];
@@ -245,6 +251,11 @@ final class StaticConfigLoader
                     'security' => [
                         'antispam_secret' => null,
                     ],
+                    'backups' => [
+                        'enabled'   => true,
+                        'directory' => null,
+                        'retention' => 7,
+                    ],
                     'redirects' => \is_array($legacyRedirects) ? $legacyRedirects : [],
                 ],
             ];
@@ -266,6 +277,19 @@ final class StaticConfigLoader
         }
 
         return $default;
+    }
+
+    private function boundedInt(mixed $value, int $default, int $minimum, int $maximum): int
+    {
+        if (\is_int($value)) {
+            $number = $value;
+        } elseif (\is_string($value) && preg_match('/^(?:0|[1-9][0-9]*)$/D', $value) === 1) {
+            $number = (int)$value;
+        } else {
+            return $default;
+        }
+
+        return $number >= $minimum && $number <= $maximum ? $number : $default;
     }
 
     /** @return list<string> */

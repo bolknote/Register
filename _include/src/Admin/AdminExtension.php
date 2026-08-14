@@ -9,6 +9,11 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Backup\Admin\BackupAdminController;
+use Register\Backup\Admin\BackupToken;
+use Register\Backup\Admin\DashboardBackupProvider;
+use Register\Backup\BackupManager;
+use Register\Backup\BackupScheduler;
 use Register\Content\Admin\DashboardContentProvider;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentStatisticsRepository;
@@ -31,6 +36,7 @@ use S2\Cms\Admin\Dashboard\DashboardEnvironmentProvider;
 use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
 use S2\Cms\Admin\Controller\CommentControllerFactory;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
+use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
 use S2\Cms\Admin\Picture\PictureFileNameHelper;
 use S2\Cms\Admin\Picture\PictureManager;
 use S2\Cms\Admin\Picture\PictureReserveManager;
@@ -56,6 +62,7 @@ use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\RouteCollection;
 
 class AdminExtension implements ExtensionInterface
@@ -251,6 +258,24 @@ class AdminExtension implements ExtensionInterface
             $container->get(TemplateRenderer::class),
         ), [DashboardStatProviderInterface::class]);
 
+        $container->set(BackupToken::class, fn(Container $container): BackupToken => new BackupToken(
+            $container->get(SettingStorageInterface::class),
+        ));
+        $container->set(BackupAdminController::class, fn(Container $container): BackupAdminController => new BackupAdminController(
+            $container->get(BackupManager::class),
+            $container->get(BackupToken::class),
+            $container->get(PermissionChecker::class),
+            $container->get(Translator::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+        ));
+        $container->set(DashboardBackupProvider::class, fn(Container $container): DashboardBackupProvider => new DashboardBackupProvider(
+            $container->get(TemplateRenderer::class),
+            $container->get(BackupManager::class),
+            $container->get(BackupScheduler::class),
+            $container->get(BackupToken::class),
+            $container->get(PermissionChecker::class),
+        ), [DashboardStatProviderInterface::class]);
+
         $container->set(DashboardDatabaseProvider::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardDatabaseProvider => new DashboardDatabaseProvider(
             $container->get(TemplateRenderer::class),
             $container->get(DbLayer::class),
@@ -302,6 +327,15 @@ class AdminExtension implements ExtensionInterface
     #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
+        $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event) use ($container): void {
+            $event->controllerMap['register_backup_create'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
+                ->get(BackupAdminController::class)
+                ->create($request);
+            $event->controllerMap['register_backup_download'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
+                ->get(BackupAdminController::class)
+                ->downloadLatest($request);
+        });
+
         $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container): void {
             $size = $container->get(CommentRepository::class)->countPending();
 

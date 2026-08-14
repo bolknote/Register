@@ -32,6 +32,15 @@ return [
     'Page structure'             => 'Структура страниц',
     'System modules'             => 'Системные модули',
     'Optional modules'           => 'Опциональные модули',
+    'Backups'                    => 'Резервные копии',
+    'Latest backup'              => 'Последняя: {{ date }}, {{ size }}',
+    'Download backup'            => 'Скачать копию',
+    'No backups yet'             => 'Резервных копий пока нет.',
+    'Automatic backup status'    => 'Создаются ежедневно; хранятся последние {{ count }} копий.',
+    'Automatic backups disabled' => 'Автоматические копии отключены в config.php.',
+    'Create backup'              => 'Создать и скачать сейчас',
+    'Invalid backup token'       => 'Запрос устарел. Перезагрузите дашборд и повторите.',
+    'Backup failed'              => 'Не удалось создать копию. Подробности записаны в журнал Register.',
 
     // Session tab
     'Session'                    => 'Сеанс',

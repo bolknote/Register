@@ -11,6 +11,7 @@ declare(strict_types = 1);
  */
 
 use Psr\Log\LoggerInterface;
+use Register\Backup\BackupDirectoryResolver;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
@@ -122,6 +123,14 @@ function s2_build_base_static_parameters(array $config): array
         'redirect_map'       => $config['redirects'] ?? [],
         'cookie_name'        => $config['cookies']['name'] ?? StaticConfigLoader::DEFAULT_COOKIE_NAME,
         'antispam_secret'    => $config['security']['antispam_secret'] ?? null,
+        'backup_enabled'     => $config['backups']['enabled'] ?? true,
+        'backup_dir'         => BackupDirectoryResolver::resolve(
+            $rootDir,
+            isset($config['backups']['directory']) && is_string($config['backups']['directory'])
+                ? $config['backups']['directory']
+                : null,
+        ),
+        'backup_retention'   => $config['backups']['retention'] ?? 7,
         'db_type'            => $config['database']['type'] ?? null,
         'db_host'            => $config['database']['host'] ?? null,
         'db_name'            => $config['database']['name'] ?? null,

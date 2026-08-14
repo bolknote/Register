@@ -268,6 +268,11 @@ function generate_config_file(
         'security' => [
             'antispam_secret' => $antispamSecret,
         ],
+        'backups' => [
+            'enabled'   => true,
+            'directory' => null,
+            'retention' => 7,
+        ],
     ];
 
     return "<?php\n\nreturn " . render_install_config_array($config) . ";\n";

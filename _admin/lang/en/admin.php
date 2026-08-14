@@ -32,6 +32,15 @@ return [
     'Page structure'             => 'Page structure',
     'System modules'             => 'System modules',
     'Optional modules'           => 'Optional modules',
+    'Backups'                    => 'Backups',
+    'Latest backup'              => 'Latest: {{ date }}, {{ size }}',
+    'Download backup'            => 'Download backup',
+    'No backups yet'             => 'No backups have been created yet.',
+    'Automatic backup status'    => 'Created daily; the latest {{ count }} archives are kept.',
+    'Automatic backups disabled' => 'Automatic backups are disabled in config.php.',
+    'Create backup'              => 'Create and download now',
+    'Invalid backup token'       => 'The backup request has expired. Reload the dashboard and try again.',
+    'Backup failed'              => 'The backup could not be created. Check the Register log.',
 
     // Session tab
     'Session'                    => 'Session',

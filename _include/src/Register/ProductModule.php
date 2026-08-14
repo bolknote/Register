@@ -9,6 +9,9 @@ declare(strict_types = 1);
 
 namespace Register;
 
+use Register\Backup\BackupManager;
+use Register\Backup\BackupScheduler;
+use Register\Backup\DatabaseSnapshotter;
 use Register\Comment\CommentRepository;
 use Register\Comment\ContentCommentNotifier;
 use Register\Comment\ContentCommentStrategy;
@@ -56,6 +59,27 @@ readonly class ProductModule implements ContainerModuleInterface
     public function buildContainer(Container $container): void
     {
         $container->set(BaseModuleRegistry::class, $this->baseModuleRegistry);
+        $container->set(DatabaseSnapshotter::class, static fn(Container $container): DatabaseSnapshotter => new DatabaseSnapshotter(
+            $container->get(\PDO::class),
+            $container->getStringParameter('db_type'),
+            $container->getStringParameter('db_host'),
+            $container->getStringParameter('db_name'),
+            $container->getStringParameter('db_username'),
+            $container->getStringParameter('db_password'),
+        ));
+        $container->set(BackupManager::class, static fn(Container $container): BackupManager => new BackupManager(
+            $container->get(DatabaseSnapshotter::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+            $container->getStringParameter('backup_dir'),
+            $container->getStringParameter('image_dir'),
+            $container->getIntParameter('backup_retention'),
+            $container->getStringParameter('version'),
+        ));
+        $container->set(BackupScheduler::class, static fn(Container $container): BackupScheduler => new BackupScheduler(
+            $container->get(BackupManager::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+            $container->getBoolParameter('backup_enabled'),
+        ));
         $container->set(ContentUrlGenerator::class, static fn(Container $container): ContentUrlGenerator => new ContentUrlGenerator(
             $container->get(DbLayer::class),
             $container->get(UrlBuilder::class),

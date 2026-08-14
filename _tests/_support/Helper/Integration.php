@@ -294,6 +294,9 @@ class Integration extends AbstractBrowserModule
 
             'cookie_name'       => 's2_cookie_904732485',
             'antispam_secret'   => str_repeat('ab', 32),
+            'backup_enabled'    => false,
+            'backup_dir'        => self::ROOT_DIR . '_tests/_output/backups',
+            'backup_retention'  => 2,
             'force_admin_https' => true,
             'db_host'           => '127.0.0.1',
             'db_name'           => 's2_test',

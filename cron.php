@@ -8,6 +8,7 @@
 declare(strict_types = 1);
 
 use Register\Content\ContentPublicationScheduler;
+use Register\Backup\BackupScheduler;
 use S2\Cms\Comment\Antispam\SpamMaintenance;
 use S2\Cms\Queue\QueueConsumer;
 
@@ -24,3 +25,4 @@ $startedAt = microtime(true);
 while ($consumer->runQueue() && microtime(true) - $startedAt < 45);
 
 $app->container->get(SpamMaintenance::class)->run();
+$app->container->get(BackupScheduler::class)->run();
