@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\VisitorIdentity;
 
-use S2\Cms\Config\StringProxy;
+use S2\Cms\Config\DynamicConfigProvider;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -23,7 +23,7 @@ final readonly class VisitorIdentityManager
 
     public function __construct(
         private VisitorIdentityRepository $repository,
-        private StringProxy               $secret,
+        private DynamicConfigProvider      $configProvider,
         string                            $cookieName,
         string                            $basePath,
     ) {
@@ -120,7 +120,7 @@ final readonly class VisitorIdentityManager
 
     private function signature(string $visitorId): string
     {
-        return hash_hmac('sha256', "register-visitor\0" . $visitorId, $this->secret->get());
+        return hash_hmac('sha256', "register-visitor\0" . $visitorId, $this->secret());
     }
 
     private function fingerprintHash(?string $fingerprint): ?string
@@ -129,6 +129,24 @@ final readonly class VisitorIdentityManager
             return null;
         }
 
-        return hash_hmac('sha256', "browser-fingerprint\0" . $fingerprint, $this->secret->get());
+        return hash_hmac('sha256', "browser-fingerprint\0" . $fingerprint, $this->secret());
+    }
+
+    private function secret(): string
+    {
+        try {
+            $secret = $this->configProvider->get(Manifest::SECRET_CONFIG_KEY);
+        } catch (\LogicException) {
+            // A schema update can replace the config file while a long-running PHP process still
+            // has the previous version loaded. Refresh it once before treating the install as bad.
+            $this->configProvider->regenerate();
+            $secret = $this->configProvider->get(Manifest::SECRET_CONFIG_KEY);
+        }
+
+        if (!\is_string($secret) || preg_match('/^[a-f0-9]{64}$/D', $secret) !== 1) {
+            throw new \LogicException('The anonymous visitor secret is missing or invalid.');
+        }
+
+        return $secret;
     }
 }

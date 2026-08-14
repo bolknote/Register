@@ -16,6 +16,7 @@
             this.counts = Object.fromEntries(reactionTypes.map((type) => [type, 0]));
             this.selected = null;
             this.busy = false;
+            this.stateRevision = 0;
             this.openTimer = 0;
             this.closeTimer = 0;
 
@@ -75,6 +76,7 @@
         }
 
         async hydrate() {
+            const stateRevision = this.stateRevision;
             try {
                 await this.identity().ensure();
                 const response = await fetch(this.endpoint, {
@@ -82,7 +84,7 @@
                     headers: {'Accept': 'application/json'},
                 });
                 const payload = await response.json();
-                if (response.ok && payload.success === true) {
+                if (response.ok && payload.success === true && stateRevision === this.stateRevision) {
                     this.applyPayload(payload);
                 }
             } catch (_error) {
@@ -104,6 +106,7 @@
             }
 
             this.closePicker(false);
+            this.stateRevision += 1;
             const snapshot = {
                 counts: {...this.counts},
                 selected: this.selected,

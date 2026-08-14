@@ -31,7 +31,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         ));
         $container->set(VisitorIdentityManager::class, static fn(Container $container): VisitorIdentityManager => new VisitorIdentityManager(
             $container->get(VisitorIdentityRepository::class),
-            $container->get(DynamicConfigProvider::class)->getStringProxy(Manifest::SECRET_CONFIG_KEY),
+            $container->get(DynamicConfigProvider::class),
             $container->getStringParameter('cookie_name'),
             $container->getStringParameter('base_path'),
         ));

@@ -51,6 +51,7 @@ class DynamicConfigProvider implements StatefulServiceInterface
 
     /**
      * @throws DbLayerException
+     * @throws \LogicException If no storage is configured or the parameter is missing.
      */
     public function get(string $paramName): mixed
     {
