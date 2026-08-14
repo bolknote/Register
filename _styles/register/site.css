@@ -459,6 +459,138 @@ hr {
     clear: both;
 }
 
+#content .readme-picture-group {
+    margin-top: 0.2em;
+    margin-bottom: 1em;
+}
+
+#content .readme-picture-group-row {
+    display: grid;
+    width: min(100%, 600px);
+    margin-right: auto;
+    margin-left: auto;
+    grid-template-columns: repeat(var(--readme-picture-columns), minmax(0, 1fr));
+    gap: var(--readme-picture-gap);
+    align-items: start;
+}
+
+#content .readme-picture-group-row > * {
+    max-width: 100%;
+    margin: 0;
+}
+
+#content .readme-picture-cell-start {
+    justify-self: start;
+}
+
+#content .readme-picture-cell-center {
+    justify-self: center;
+}
+
+#content .readme-picture-cell-end {
+    justify-self: end;
+}
+
+#content .readme-picture-group-column {
+    display: flex;
+    width: max-content;
+    max-width: min(48%, var(--text-width));
+    flex-direction: column;
+    gap: var(--readme-picture-gap);
+}
+
+#content .readme-picture-group-column > * {
+    max-width: 100%;
+    margin: 0;
+}
+
+#content .readme-picture-group-float-left {
+    float: left;
+    clear: left;
+    margin-right: 1.25em;
+}
+
+#content .readme-picture-group-float-right {
+    float: right;
+    clear: right;
+    margin-left: 1.25em;
+}
+
+#content table.readme-legacy-layout-table {
+    width: var(--readme-legacy-table-width) !important;
+    max-width: 100%;
+    margin-top: var(--readme-legacy-vertical-space);
+    margin-bottom: var(--readme-legacy-vertical-space);
+    border-spacing: var(--readme-legacy-cell-spacing);
+    border-collapse: separate;
+    font-family: var(--ui-font);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+#content table.readme-legacy-layout-table-fixed {
+    table-layout: fixed;
+}
+
+#content table.readme-legacy-layout-table :where(td, th) {
+    padding: var(--readme-legacy-cell-padding);
+    border: 0;
+    font: inherit;
+}
+
+#content table.readme-legacy-layout-table p {
+    margin: 0;
+}
+
+#content table.readme-legacy-layout-table br + br {
+    display: none;
+}
+
+#content table.readme-legacy-layout-table img {
+    max-width: 100%;
+    margin: 0;
+}
+
+#content table.readme-legacy-layout-table:not(.readme-legacy-layout-table-fixed) img {
+    max-width: none;
+}
+
+#content table.readme-legacy-layout-table-images {
+    background: #fff;
+}
+
+#content table.readme-legacy-layout-table-images img {
+    display: block;
+}
+
+#content table.readme-legacy-layout-table-images br {
+    display: none;
+}
+
+#content table.readme-legacy-layout-table .small {
+    font-family: var(--ui-font);
+    font-size: 8px;
+    line-height: 1.25;
+}
+
+#content table.readme-legacy-layout-table .s {
+    font-family: var(--ui-font);
+    font-size: 9px;
+    line-height: 1.25;
+}
+
+#content table.readme-legacy-table-float-left {
+    float: left;
+    clear: left;
+    margin-right: var(--readme-legacy-horizontal-space);
+}
+
+#content table.readme-legacy-table-float-right {
+    float: right;
+    clear: right;
+    margin-left: var(--readme-legacy-horizontal-space);
+}
+
 #content .readme-picture-centered > :first-child {
     margin-right: auto;
     margin-left: auto;
@@ -1675,6 +1807,18 @@ ul.back_forward .empty {
     }
 
     #content :where(.readme-picture-float-left, .readme-picture-float-right) {
+        float: none;
+        max-width: 100%;
+        margin-right: 0;
+        margin-left: 0;
+    }
+
+    #content :where(
+        .readme-picture-group-float-left,
+        .readme-picture-group-float-right,
+        .readme-legacy-table-float-left,
+        .readme-legacy-table-float-right
+    ) {
         float: none;
         max-width: 100%;
         margin-right: 0;
