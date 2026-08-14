@@ -358,9 +358,15 @@ class HtmlTemplate
             '<a href="https://github.com/bolknote/Register">Register</a>'
         );
         $loginLabel = s2_htmlencode($this->translator->trans('Administration login'));
+        $rssLabel   = s2_htmlencode('RSS — ' . $this->translator->trans('RSS link title'));
+        $rssIcon    = $this->urlBuilder->link('/_assets/register/rss-badge.svg');
 
-        return '<span class="copyright-text">' . $copyright . '</span>' .
-            '<a class="footer-rss" href="' . $this->urlBuilder->link('/rss.xml') . '">RSS</a>' .
+        return '<span class="footer-primary">' .
+            '<span class="copyright-text">' . $copyright . '</span>' .
+            '<a class="footer-rss" href="' . $this->urlBuilder->link('/rss.xml') .
+            '" aria-label="' . $rssLabel . '" title="' . $rssLabel . '">' .
+            '<img src="' . $rssIcon . '" width="48" height="18" alt=""></a>' .
+            '</span>' .
             '<span class="engine-credit">' . $engineCredit . '</span>' .
             '<a class="visual-login" href="' . $this->urlBuilder->link('/_admin/index.php') .
             '" aria-label="' . $loginLabel . '" title="' . $loginLabel . '">' .

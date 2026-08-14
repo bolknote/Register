@@ -4,7 +4,7 @@
  * A dependency-free progressive enhancement for native HTML audio. The visual
  * design is inspired by Jouele; see THIRD_PARTY_NOTICES.md in this directory.
  *
- * @copyright 2026 Roman Parpalak
+ * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
  * @package   Register
  */

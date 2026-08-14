@@ -6,6 +6,7 @@
  * changing content when no locale-specific ruleset exists.
  *
  * @copyright 2010-2024 Roman Parpalak
+ * @copyright 2026 Evgeny Stepanischev
  * @license MIT
  * @package Register
  */
@@ -27,7 +28,7 @@ final class Manifest implements BaseModuleManifestInterface
     #[\Override]
     public function getAuthor(): string
     {
-        return 'Roman Parpalak';
+        return 'Roman Parpalak and Evgeny Stepanischev; based in part on Dmitry Smirnov';
     }
 
     #[\Override]

@@ -25,7 +25,6 @@ readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
         private array             $dashboardBlockProviders,
         private PermissionChecker $permissionChecker,
         private TemplateRenderer  $templateRenderer,
-        private string            $version,
     ) {
     }
 
@@ -42,7 +41,6 @@ readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
                 [
                     'dashboardStatProviders'  => $this->dashboardStatProviders,
                     'dashboardBlockProviders' => $this->dashboardBlockProviders,
-                    'version'                 => $this->version,
                 ]
             ), 30, 'Search & statistics')
         ;

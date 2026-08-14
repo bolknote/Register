@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
+use Register\Ai\AiSettings;
 use S2\Cms\AdminYard\UserSettingStorage;
 use S2\Cms\Comment\Antispam\AntispamSchema;
 use Register\Comment\CommentSchema;
@@ -205,6 +206,9 @@ readonly class Installer
             'S2_ADMIN_CUT'        => '0',
             'S2_LOGIN_TIMEOUT'    => '60',
             'S2_LAST_MAINTENANCE' => '0',
+            AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_DISABLED,
+            AiSettings::API_KEY_CONFIG_KEY  => '',
+            AiSettings::MODEL_CONFIG_KEY    => '',
             SchemaManager::CONFIG_KEY => '0',
         ];
 

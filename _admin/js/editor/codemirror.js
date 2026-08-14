@@ -178,12 +178,33 @@ const s2_codemirror = (function () {
             }
             return instance.getValue();
         },
+        getSelectionSnapshot: function () {
+            if (!instance) {
+                return {text: '', start: 0, end: 0, hasSelection: false};
+            }
+            const doc = instance.getDoc();
+            const hasSelection = instance.somethingSelected();
+            if (!hasSelection) {
+                const text = instance.getValue();
+                return {text: text, start: 0, end: text.length, hasSelection: false};
+            }
+
+            const from = doc.getCursor('from');
+            const to = doc.getCursor('to');
+            return {
+                text: doc.getRange(from, to),
+                start: doc.indexFromPos(from),
+                end: doc.indexFromPos(to),
+                hasSelection: true
+            };
+        },
         replaceRangeByIndex: function (text, startIndex, endIndex) {
             if (!instance) {
                 return;
             }
             const doc = instance.getDoc();
             doc.replaceRange(text, doc.posFromIndex(startIndex), doc.posFromIndex(endIndex));
+            instance.focus();
         },
         getLineCount: function () {
             return instance ? instance.lineCount() : 0;

@@ -9,6 +9,9 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Ai\Admin\AiEditorController;
+use Register\Ai\AiClient;
+use Register\Ai\AiSettings;
 use Register\Backup\Admin\BackupAdminController;
 use Register\Backup\Admin\BackupToken;
 use Register\Backup\Admin\DashboardBackupProvider;
@@ -51,6 +54,7 @@ use S2\Cms\Extensions\ExtensionManagerAdapter;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ExtensionInterface;
 use S2\Cms\Framework\StatefulServiceInterface;
+use S2\Cms\HttpClient\HttpClient;
 use S2\Cms\Model\ArticleManager;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthManager;
@@ -167,6 +171,21 @@ class AdminExtension implements ExtensionInterface
             );
         }, [StatefulServiceInterface::class]);
 
+        $container->set(AiSettings::class, fn(Container $container): AiSettings => new AiSettings(
+            $container->get(DynamicConfigProvider::class),
+        ));
+        $container->set(AiClient::class, fn(Container $container): AiClient => new AiClient(
+            $container->get(HttpClient::class),
+            $container->get(AiSettings::class),
+        ));
+        $container->set(AiEditorController::class, fn(Container $container): AiEditorController => new AiEditorController(
+            $container->get(AiClient::class),
+            $container->get(AiSettings::class),
+            $container->get(AdminConfigProvider::class),
+            $container->get(SettingStorageInterface::class),
+            $container->get(Translator::class),
+        ));
+
         $container->set(CommentControllerFactory::class, fn(Container $container): \S2\Cms\Admin\Controller\CommentControllerFactory => new CommentControllerFactory(
             $container->get(SpamFeedbackService::class),
         ));
@@ -251,7 +270,6 @@ class AdminExtension implements ExtensionInterface
             $container->getByTag(DashboardBlockProviderInterface::class),
             $container->get(PermissionChecker::class),
             $container->get(TemplateRenderer::class),
-            $container->getStringParameter('version'),
         ), [AdminConfigExtenderInterface::class]);
         $container->set(DashboardEnvironmentProvider::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardEnvironmentProvider => new DashboardEnvironmentProvider(
             $container->get(Translator::class),
@@ -326,6 +344,9 @@ class AdminExtension implements ExtensionInterface
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event) use ($container): void {
+            $event->controllerMap['register_ai_generate'] = static fn(PermissionChecker $permissionChecker, Request $request): \Symfony\Component\HttpFoundation\JsonResponse => $container
+                ->get(AiEditorController::class)
+                ->generate($permissionChecker, $request);
             $event->controllerMap['register_backup_create'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
                 ->get(BackupAdminController::class)
                 ->create($request);

@@ -39,6 +39,11 @@ class PdoSqliteFactory
             $pdo = new PDO('sqlite:' . $dbFilename);
         }
 
+        // Register serves normal page requests alongside its background worker. WAL lets readers
+        // continue while either process commits a short write and prevents transient lock errors.
+        $pdo->exec('PRAGMA busy_timeout = 60000;');
+        $pdo->exec('PRAGMA journal_mode = WAL;');
+        $pdo->exec('PRAGMA synchronous = NORMAL;');
         $pdo->exec('PRAGMA foreign_keys = ON;');
 
         return $pdo;

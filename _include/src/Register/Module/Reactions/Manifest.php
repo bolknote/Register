@@ -2,7 +2,7 @@
 /**
  * Content reactions
  *
- * @copyright 2026 Roman Parpalak
+ * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
  * @package   Register
  */
@@ -30,7 +30,7 @@ final class Manifest implements BaseModuleInstallerInterface
     #[\Override]
     public function getAuthor(): string
     {
-        return 'Roman Parpalak';
+        return 'Evgeny Stepanischev';
     }
 
     #[\Override]

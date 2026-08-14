@@ -1,6 +1,7 @@
 <?php
 /**
- * @copyright 2024-2026 Roman Parpalak
+ * @copyright 2024-2025 Roman Parpalak
+ * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
  * @package   Register
  */

@@ -1,5 +1,11 @@
 <?php
 
+/** @var string $basePath */
+
+?>
+<script src="<?= $basePath ?>/_admin/js/config-secret.js"></script>
+<?php
+
 require __DIR__ . '/../../../_vendor/s2/admin-yard/templates/list.php.inc';
 
 ?>

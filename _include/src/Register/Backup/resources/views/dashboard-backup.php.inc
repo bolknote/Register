@@ -7,21 +7,29 @@
 /** @var int $retention */
 /** @var \Register\Backup\BackupFile|null $latestBackup */
 ?>
-<div class="stat-item">
+<div class="stat-item backup-stat-item">
     <h3><?= $trans('Backups') ?></h3>
     <?php if ($latestBackup instanceof \Register\Backup\BackupFile): ?>
-        <?= $trans('Latest backup') ?>:
-        <time datetime="<?= gmdate(\DateTimeInterface::ATOM, $latestBackup->createdAt) ?>" data-local-time>
-            <?= gmdate('Y-m-d H:i', $latestBackup->createdAt) ?> UTC
-        </time>,
-        <?= $friendlyFilesize($latestBackup->size) ?><br>
-        <a href="<?= $basePath ?>/_admin/ajax.php?action=register_backup_download"><?= $trans('Download backup') ?></a><br>
+        <dl class="stat-details backup-details">
+            <div>
+                <dt><?= $trans('Latest backup') ?></dt>
+                <dd>
+                    <time datetime="<?= gmdate(\DateTimeInterface::ATOM, $latestBackup->createdAt) ?>" data-local-time>
+                        <?= gmdate('Y-m-d H:i', $latestBackup->createdAt) ?> UTC
+                    </time>
+                    <small class="technical-data"><?= $friendlyFilesize($latestBackup->size) ?></small>
+                </dd>
+            </div>
+        </dl>
+        <p class="stat-item-actions backup-download">
+            <a href="<?= $basePath ?>/_admin/ajax.php?action=register_backup_download"><?= $trans('Download backup') ?></a>
+        </p>
     <?php else: ?>
-        <?= $trans('No backups yet') ?><br>
+        <p class="stat-status"><?= $trans('No backups yet') ?></p>
     <?php endif; ?>
-    <?= $automatic
+    <p class="technical-data backup-schedule"><?= $automatic
         ? $trans('Automatic backup status', ['%count%' => $retention, '{{ count }}' => $retention])
-        : $trans('Automatic backups disabled') ?><br>
+        : $trans('Automatic backups disabled') ?></p>
     <form class="backup-actions" method="post" action="<?= $basePath ?>/_admin/ajax.php?action=register_backup_create">
         <input type="hidden" name="csrf_token" value="<?= s2_htmlencode($csrfToken) ?>">
         <button type="submit"><?= $trans('Create backup') ?></button>

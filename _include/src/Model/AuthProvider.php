@@ -17,6 +17,8 @@ use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 readonly class AuthProvider
 {
+    private const string REQUEST_USER_ATTRIBUTE = '_register_authenticated_public_user';
+
     public function __construct(
         private DbLayer $dbLayer,
         private string  $cookieName,
@@ -61,6 +63,21 @@ readonly class AuthProvider
     }
 
     /**
+     * Authenticates the public-side cookie and checks the actual administrator permission.
+     *
+     * @throws DbLayerException
+     */
+    public function isAuthenticatedAdministrator(Request $request): bool
+    {
+        $user = $this->getAuthenticatedUser($request);
+        if (!$user instanceof \S2\Cms\Model\AuthenticatedPublicUser) {
+            return false;
+        }
+
+        return $user->isAdministrator;
+    }
+
+    /**
      * Authenticates the public-side moderator cookie issued by the admin login.
      *
      * @throws DbLayerException
@@ -68,33 +85,63 @@ readonly class AuthProvider
      */
     public function getAuthenticatedCommentModerator(Request $request): ?CommentModerator
     {
+        $user = $this->getAuthenticatedUser($request);
+        if (!$user instanceof \S2\Cms\Model\AuthenticatedPublicUser || (!$user->canHideComments && !$user->canEditComments)) {
+            return null;
+        }
+
+        return new CommentModerator(
+            $user->login,
+            $user->email,
+            $user->canHideComments,
+            $user->canEditComments,
+            $user->sessionHash,
+        );
+    }
+
+    /**
+     * @throws DbLayerException
+     */
+    private function getAuthenticatedUser(Request $request): ?AuthenticatedPublicUser
+    {
+        if ($request->attributes->has(self::REQUEST_USER_ATTRIBUTE)) {
+            $cachedUser = $request->attributes->get(self::REQUEST_USER_ATTRIBUTE);
+
+            return $cachedUser instanceof AuthenticatedPublicUser ? $cachedUser : null;
+        }
+
         $cookie = $request->cookies->get($this->cookieName . '_c', '');
         if ($cookie === '') {
+            $request->attributes->set(self::REQUEST_USER_ATTRIBUTE, false);
             return null;
         }
 
         $result = $this->dbLayer
-            ->select('u.login, u.email, u.hide_comments, u.edit_comments')
+            ->select('u.login, u.email, u.hide_comments, u.edit_comments, u.edit_users')
             ->from('users AS u')
             ->innerJoin('users_online AS o', 'o.login = u.login')
             ->where('o.comment_cookie = :cookie')
             ->setParameter('cookie', $cookie)
-            ->andWhere('(u.hide_comments = 1 OR u.edit_comments = 1)')
             ->limit(1)
             ->execute()
         ;
 
         $row = $result->fetchAssoc();
         if ($row === false) {
+            $request->attributes->set(self::REQUEST_USER_ATTRIBUTE, false);
             return null;
         }
 
-        return new CommentModerator(
+        $user = new AuthenticatedPublicUser(
             (string)$row['login'],
             (string)$row['email'],
             (bool)$row['hide_comments'],
             (bool)$row['edit_comments'],
+            (bool)$row['edit_users'],
             hash('sha256', $cookie),
         );
+        $request->attributes->set(self::REQUEST_USER_ATTRIBUTE, $user);
+
+        return $user;
     }
 }

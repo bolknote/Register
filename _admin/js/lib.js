@@ -26,6 +26,8 @@ window.fetch = async (...args) => {
     if (!config.headers) {
         config.headers = {};
     }
+    const handleErrorsInline = config.s2HandleErrorsInline === true;
+    delete config.s2HandleErrorsInline;
     if (!resource.includes('action=delete')) {
         // By default, AdminYard deletes records via fetch but does it only to display a confirmation dialog.
         // After that, it refreshes the page and displays the flash message.
@@ -35,10 +37,11 @@ window.fetch = async (...args) => {
     }
 
     loadingIndicator(true);
+    let response;
     try {
-        const response = await originalFetch(resource, config);
+        response = await originalFetch(resource, config);
 
-        if (response.ok || response.status === 422 || response.status === 409 || response.status === 503) {
+        if (handleErrorsInline || response.ok || response.status === 422 || response.status === 409 || response.status === 503) {
             return response;
         }
 
@@ -89,7 +92,7 @@ window.fetch = async (...args) => {
     }
     console.warn('Form submission failed');
 
-    return Promise.reject(response);
+    return Promise.reject(response ?? new Error('Request failed'));
 };
 
 window.PopupMessages = {
@@ -227,7 +230,21 @@ function DisplayError(sError) {
         sError = '<pre>' + sError.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;') + '</pre>';
     }
 
+    const rootStyle = getComputedStyle(document.documentElement);
+    const background = rootStyle.getPropertyValue('--admin-page-background').trim()
+        || rootStyle.getPropertyValue('--page-background').trim()
+        || '#fff';
+    const colorScheme = document.documentElement.dataset.colorScheme === 'dark' ? 'dark' : 'light';
+    const themeStyle = '<style id="s2-error-theme">html,body{background:' + background
+        + ' !important;color-scheme:' + colorScheme + ';}</style>';
+    if (/<\/head\s*>/i.test(sError)) {
+        sError = sError.replace(/<\/head\s*>/i, themeStyle + '</head>');
+    } else {
+        sError = '<!doctype html><html><head>' + themeStyle + '</head><body>' + sError + '</body></html>';
+    }
+
     const blob = new Blob([sError], {type: 'text/html'});
+    iframe.style.colorScheme = colorScheme;
     iframe.src = URL.createObjectURL(blob);
     dialog.showModal();
 

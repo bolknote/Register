@@ -5,6 +5,7 @@
  * Renders TeX formulas locally with a lazily loaded KaTeX distribution.
  *
  * @copyright 2011-2024 Roman Parpalak
+ * @copyright 2026 Evgeny Stepanischev
  * @license MIT
  * @package Register
  */
@@ -26,7 +27,7 @@ final class Manifest implements BaseModuleManifestInterface
     #[\Override]
     public function getAuthor(): string
     {
-        return 'Roman Parpalak';
+        return 'Roman Parpalak and Evgeny Stepanischev; KaTeX contributors';
     }
 
     #[\Override]

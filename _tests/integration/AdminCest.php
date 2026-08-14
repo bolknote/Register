@@ -71,12 +71,12 @@ class AdminCest
         $I->seeElement('[data-analytics-table="register-analytics-pages"]');
         $I->seeElement('[data-analytics-table="register-analytics-feeds"]');
         $I->see('Environment', '.environment-stat-item h3');
-        $I->see('PHP:', '.environment-stat-item');
+        $I->see('PHP', '.environment-stat-item dt');
         $I->see('Database', '.environment-stat-item');
         $I->dontSee('Database', '.stat-item > h3');
-        $I->see('Register source code', 'a[href="https://github.com/bolknote/Register"]');
-        $I->see('Register is based on', '.stat-item .technical-data');
-        $I->see('S2 2.0dev', 'a[href="https://github.com/parpalak/s2"]');
+        $I->assertCount(4, $I->grabMultiple('.stat-items > .stat-item'));
+        $I->dontSee('Register source code', '.stat-items');
+        $I->dontSee('Register is based on', '.stat-items');
         $I->dontSee('© 2007–');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Queue&action=list');
@@ -102,6 +102,8 @@ class AdminCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Site');
         $I->see('Page structure', 'h1');
+        $I->seeElement('.admin-structure > .structure-toolbar');
+        $I->dontSeeElement('.admin-structure > .toolbar');
         $I->seeElement('button#create_page_button');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=SystemModules');

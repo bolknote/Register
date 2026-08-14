@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Schema;
 
+use Register\Ai\AiSettings;
 use Register\Module\BaseModuleInstaller;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\ExtensionCache;
@@ -26,6 +27,12 @@ final readonly class SchemaManager
 
     public const int CURRENT_GENERATION = 8;
 
+    private const array CONFIG_DEFAULTS = [
+        AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_DISABLED,
+        AiSettings::API_KEY_CONFIG_KEY  => '',
+        AiSettings::MODEL_CONFIG_KEY    => '',
+    ];
+
     public function __construct(
         private DbLayer             $dbLayer,
         private Container           $container,
@@ -42,7 +49,7 @@ final readonly class SchemaManager
     {
         $currentGeneration = $this->currentGeneration();
         if ($currentGeneration === self::CURRENT_GENERATION) {
-            return false;
+            return $this->ensureConfigDefaults();
         }
 
         if ($currentGeneration !== 0) {
@@ -54,6 +61,7 @@ final readonly class SchemaManager
         }
 
         $this->baseModuleInstaller->installFresh($this->dbLayer, $this->container);
+        $this->ensureConfigDefaults();
         $this->storeGeneration(self::CURRENT_GENERATION);
 
         $extensionCache = $this->container->getIfDefined(ExtensionCache::class);
@@ -62,6 +70,33 @@ final readonly class SchemaManager
         }
 
         return true;
+    }
+
+    /** Adds newly introduced optional settings without changing the schema generation. */
+    private function ensureConfigDefaults(): bool
+    {
+        $existingNames = array_flip($this->dbLayer
+            ->select('name')
+            ->from('config')
+            ->execute()
+            ->fetchColumn());
+        $changed = false;
+
+        foreach (self::CONFIG_DEFAULTS as $name => $value) {
+            if (isset($existingNames[$name])) {
+                continue;
+            }
+
+            $this->dbLayer
+                ->insert('config')
+                ->setValue('name', ':name')->setParameter('name', $name)
+                ->setValue('value', ':value')->setParameter('value', $value)
+                ->onConflictDoNothing('name')
+                ->execute();
+            $changed = true;
+        }
+
+        return $changed;
     }
 
     public function currentGeneration(): int

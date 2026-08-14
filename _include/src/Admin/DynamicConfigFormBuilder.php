@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Ai\AiSettings;
 use Register\Module\Analytics\Manifest as AnalyticsManifest;
 use Register\Schema\SchemaManager;
 use S2\AdminYard\Config\DbColumnFieldType;
@@ -62,6 +63,11 @@ class DynamicConfigFormBuilder
         'S2_MAX_ITEMS'      => 'int',
         'S2_FAVORITE_URL'   => 'string',
         'S2_TAGS_URL'       => 'string',
+
+        'AI config'                         => 'title',
+        AiSettings::PROVIDER_CONFIG_KEY     => 'ai_provider',
+        AiSettings::API_KEY_CONFIG_KEY      => 'secret',
+        AiSettings::MODEL_CONFIG_KEY        => 'string',
 
         'Admin config'     => 'title',
         'S2_ADMIN_COLOR'   => 'color',
@@ -128,6 +134,7 @@ class DynamicConfigFormBuilder
                 continue;
             }
 
+            $paramType = $paramTypes[$paramName] ?? 'string';
             $field = $this->createDynamicFieldConfig($paramName);
             if ($field->inlineEdit) {
                 if (!$field->type instanceof DbColumnFieldType) {
@@ -142,7 +149,9 @@ class DynamicConfigFormBuilder
                     $row['primary_key'],
                 ));
                 $form->fillFromArray([
-                    $valFieldName => $this->typeTransformer->normalizedFromDb($row['cells']['value']['content'], $field->type->dataType),
+                    $valFieldName => $paramType === 'secret'
+                        ? ''
+                        : $this->typeTransformer->normalizedFromDb($row['cells']['value']['content'], $field->type->dataType),
                 ]);
 
                 $row['cells']['value']['content'] = $this->templateRenderer->render($field->inlineFormTemplate, [
@@ -244,6 +253,24 @@ class DynamicConfigFormBuilder
                     'akismet' => 'Akismet',
                 ],
                 inlineEdit: $inlineEdit,
+            ),
+            'ai_provider' => new FieldConfig(
+                'value',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING),
+                control: 'select',
+                options: [
+                    AiSettings::PROVIDER_DISABLED => $this->translator->trans('AI disabled'),
+                    AiSettings::PROVIDER_GEMINI   => 'Gemini',
+                    AiSettings::PROVIDER_GROQ     => 'Groq',
+                ],
+                inlineEdit: $inlineEdit,
+            ),
+            'secret' => new FieldConfig(
+                'value',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING),
+                control: 'password',
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/secret-inline.php.inc',
             ),
             default => throw new \LogicException(\sprintf('Unsupported dynamic configuration field type for "%s".', $paramName)),
         };

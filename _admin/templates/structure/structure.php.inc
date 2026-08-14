@@ -7,7 +7,7 @@
 ?>
 <section class="admin-structure">
     <h1><?= $trans('Page structure') ?></h1>
-    <div class="toolbar">
+    <div class="structure-toolbar">
         <button type="button" class="tree-tool expand" onclick="OpenAll(); return false;"
                 title="<?php echo $trans('Expand'); ?>" aria-label="<?php echo $trans('Expand'); ?>">⤢</button>
         <button type="button" class="tree-tool collapse" onclick="CloseAll(); return false;"

@@ -93,6 +93,7 @@ use S2\Cms\Template\Viewer;
 use S2\Cms\Translation\ExtensibleTranslator;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
@@ -711,7 +712,12 @@ class CmsExtension implements ExtensionInterface
 
         $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, function (TemplateFinalReplaceEvent $event) use ($container): void {
             $content = '';
-            if ($container->getBoolParameter('debug') || defined('S2_SHOW_TIME')) {
+            $request = $container->get(RequestStack::class)->getCurrentRequest();
+            if (
+                ($container->getBoolParameter('debug') || defined('S2_SHOW_TIME'))
+                && $request instanceof Request
+                && $container->get(AuthProvider::class)->isAuthenticatedAdministrator($request)
+            ) {
                 $viewer = $container->get(Viewer::class);
 
                 /** @var TranslatorInterface $translator */

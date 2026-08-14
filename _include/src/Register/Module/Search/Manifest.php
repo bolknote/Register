@@ -5,6 +5,7 @@
  * Adds full-text search with English and Russian morphology.
  *
  * @copyright 2011-2025 Roman Parpalak
+ * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
  * @package   Register
  */
@@ -31,7 +32,7 @@ final class Manifest implements ContainerAwareBaseModuleInstallerInterface
     #[\Override]
     public function getAuthor(): string
     {
-        return 'Roman Parpalak';
+        return 'Roman Parpalak and Evgeny Stepanischev';
     }
 
     #[\Override]

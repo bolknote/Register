@@ -100,7 +100,7 @@ $(function () {
         });
     }
 
-    $('.toolbar .refresh').click(refreshTree);
+    $('.structure-toolbar .refresh').click(refreshTree);
     $('#create_page_button').click(createArticle);
 
     var eButtons = $('#context_buttons');
@@ -148,7 +148,7 @@ $(function () {
                 commentNum = d.rslt.obj.attr('data-comments');
                 eButtons.find('.edit').attr('href', '?entity=Article&action=edit&id=' + selectedId);
                 eButtons.find('.comments').attr('href', '?entity=Comment&action=list&content_type=page&content_id=' + selectedId + '&apply_filter=1');
-                $('.jstree-clicked').append(eButtons);
+                $('.jstree-clicked').after(eButtons);
             }
             let attempts = 0;
             const checkComplete = function () {

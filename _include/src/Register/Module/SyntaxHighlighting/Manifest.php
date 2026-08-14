@@ -4,7 +4,7 @@
  *
  * Highlights code blocks locally with a lazy Highlight.js build.
  *
- * @copyright 2026 Roman Parpalak
+ * @copyright 2026 Evgeny Stepanischev
  * @license   MIT
  * @package   Register
  */
@@ -26,7 +26,7 @@ final class Manifest implements BaseModuleManifestInterface
     #[\Override]
     public function getAuthor(): string
     {
-        return 'Highlight.js contributors and Roman Parpalak';
+        return 'Evgeny Stepanischev and Highlight.js contributors';
     }
 
     #[\Override]

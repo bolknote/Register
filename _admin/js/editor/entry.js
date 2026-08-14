@@ -12,6 +12,7 @@ import {initTagsAutocomplete} from './tags.js';
 import {initImagePipeline} from './images/pipeline.js';
 import {ClosePictureDialog, ReturnAudio, ReturnImage} from './dialogs.js';
 import {setEditorDeps} from './deps.js';
+import {initAiTools} from './ai.js';
 
 const config = window.S2_EDITOR_CONFIG || {};
 
@@ -68,6 +69,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     initHtmlEditors();
     initImagePipeline();
+
+    if (form && config.ai) {
+        initAiTools(form, {...config.ai, entityName: config.entityName});
+    }
 
     if (form && config.statusData && config.entityName && config.textareaName) {
         initArticleEditForm(
