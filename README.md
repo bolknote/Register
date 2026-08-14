@@ -29,13 +29,16 @@ retry a reviewed failed job with `php tools/retry-background-job.php <id> <code>
 - Recovers unsaved editor text after a browser or power failure.
 - Handles image, audio, and video uploads and thumbnails and provides a module API for additional
   integrations.
+- Highlights code blocks in common programming languages with a local, lazily loaded Highlight.js
+  build that can be extended with additional languages and plugins.
 - Creates private daily database-and-media backups with retention and control-panel download.
 - Keeps the public theme deliberately small, responsive, readable, and compatible with light and
   dark system appearance.
 
-Blog, permanent pages, comments, tags, search, typography, analytics, formula rendering, and the
-control panel are base modules. They ship with Register, are always available, and cannot be disabled
-or uninstalled. Optional modules remain available for integrations and specialized behavior.
+Blog, permanent pages, comments, tags, search, typography, analytics, formula rendering, code
+highlighting, and the control panel are base modules. They ship with Register, are always available,
+and cannot be disabled or uninstalled. Optional modules remain available for integrations and
+specialized behavior.
 
 The project follows the 80/20 principle: the everyday publishing path should be excellent. Register
 is a blog engine, not a universal site builder.
@@ -100,6 +103,7 @@ composer check
 - [URL slug generation](_doc/url-slugs.md)
 - [Backups](_doc/backups.md)
 - [Comments](_doc/comments.md)
+- [Code highlighting](_doc/code-highlighting.md)
 - [Register and Aegea feature comparison](_doc/egea-comparison.md)
 - [Optional modules](_doc/extensions.md)
 - [Architecture decision: module tiers](_doc/decisions/0001-register-module-tiers.md)

@@ -2,6 +2,7 @@
 **/_cache/**
 **/_admin/lib/**
 **/_extensions/s2_counter/highcharts/**
+**/_assets/register/syntax-highlighting/vendor/**
 **/.git/**
 **/.local/**
 **/_tests/_output/**

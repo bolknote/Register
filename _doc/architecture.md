@@ -6,7 +6,7 @@ provides the publishing domain and product experience. The boundary is intention
 - `S2\Cms` contains HTTP, dependency injection, events, database access, queues, caching, and reusable
   administration infrastructure.
 - `Register` contains posts, pages, comments, tags, search, typography, analytics, formula rendering,
-  editorial workflows, public presentation, and product policy.
+  code highlighting, editorial workflows, public presentation, and product policy.
 
 See [ADR 0001](decisions/0001-register-module-tiers.md) for the module-tier decision.
 
@@ -41,6 +41,7 @@ Base modules form every Register installation and cannot be disabled or uninstal
 - Typography;
 - Analytics;
 - Math;
+- Syntax highlighting;
 - Admin.
 
 All feature modules live under `Register\Module`; `_extensions` is reserved for optional modules.

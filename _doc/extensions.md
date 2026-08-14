@@ -6,11 +6,13 @@ the blog product itself are base modules and follow a different lifecycle; see
 
 ## Base modules are not plugins
 
-Blog, Pages, Comments, Tags, Search, Typography, Analytics, Math, and Admin are available in every
-Register installation. They cannot be disabled or uninstalled and are upgraded with the engine.
+Blog, Pages, Comments, Tags, Search, Typography, Analytics, Math, Syntax Highlighting, and Admin are
+available in every Register installation. They cannot be disabled or uninstalled and are upgraded
+with the engine.
 
-Blog, Search, Typography, Math, and Analytics live under `Register\Module`; their code and private
-resources no longer share the optional-module directory. The status of all five is defined by
+Blog, Search, Typography, Math, Analytics, and Syntax Highlighting live under `Register\Module`;
+their code and private resources no longer share the optional-module directory. The status of all
+six is defined by
 [`BaseModuleRegistry`](../_include/src/Register/Module/BaseModuleRegistry.php).
 
 Their schemas are installed with Register's single `REGISTER_SCHEMA_GENERATION` marker. Register

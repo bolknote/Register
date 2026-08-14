@@ -29,6 +29,8 @@ final class BaseModuleRegistry
 
     public const string TYPOGRAPHY = 's2_typo';
 
+    public const string SYNTAX_HIGHLIGHTING = 'register_syntax_highlighting';
+
     /**
      * The order preserves the established listener and route registration order.
      *
@@ -62,6 +64,11 @@ final class BaseModuleRegistry
         self::TYPOGRAPHY => [
             'manifest'    => Typography\Manifest::class,
             'application' => Typography\Module::class,
+            'admin'       => null,
+        ],
+        self::SYNTAX_HIGHLIGHTING => [
+            'manifest'    => SyntaxHighlighting\Manifest::class,
+            'application' => SyntaxHighlighting\Module::class,
             'admin'       => null,
         ],
     ];

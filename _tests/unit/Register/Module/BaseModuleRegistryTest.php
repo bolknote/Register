@@ -22,6 +22,7 @@ final class BaseModuleRegistryTest extends Unit
             's2_latex',
             's2_counter',
             's2_typo',
+            'register_syntax_highlighting',
         ], $this->registry()->ids());
     }
 

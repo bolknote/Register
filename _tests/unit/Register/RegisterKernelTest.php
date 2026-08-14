@@ -19,6 +19,7 @@ use Register\Module\Math\AdminModule as MathAdminModule;
 use Register\Module\Math\Module as MathModule;
 use Register\Module\Search\AdminModule as SearchAdminModule;
 use Register\Module\Search\Module as SearchModule;
+use Register\Module\SyntaxHighlighting\Module as SyntaxHighlightingModule;
 use Register\Module\Typography\Module as TypographyModule;
 use Register\ProductModule;
 use Register\RegisterKernel;
@@ -45,6 +46,7 @@ final class RegisterKernelTest extends Unit
             MathModule::class,
             AnalyticsModule::class,
             TypographyModule::class,
+            SyntaxHighlightingModule::class,
         ], $application->moduleClasses);
     }
 
@@ -63,6 +65,7 @@ final class RegisterKernelTest extends Unit
             MathModule::class,
             AnalyticsModule::class,
             TypographyModule::class,
+            SyntaxHighlightingModule::class,
             BlogAdminModule::class,
             SearchAdminModule::class,
             MathAdminModule::class,
