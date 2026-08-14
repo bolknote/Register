@@ -526,19 +526,19 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         ), $priority);
 
         $routes->add('blog_year', new Route(
-            '/{year<\d+>}/',
+            '/archive/{year<\d{4}>}/',
             ['_controller' => YearPageController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_month', new Route(
-            '/{year<\d+>}/{month<\d+>}/',
+            '/archive/{year<\d{4}>}/{month<\d{2}>}/',
             ['_controller' => MonthPageController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
         $routes->add('blog_day', new Route(
-            '/{year<\d+>}/{month<\d+>}/{day<\d+>}/',
+            '/archive/{year<\d{4}>}/{month<\d{2}>}/{day<\d{2}>}/',
             ['_controller' => DayPageController::class],
             options: ['utf8' => true],
             methods: ['GET'],

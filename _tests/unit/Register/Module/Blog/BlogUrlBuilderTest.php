@@ -19,6 +19,9 @@ final class BlogUrlBuilderTest extends Unit
         try {
             self::assertSame('/', $builder->main());
             self::assertSame('/all/', $builder->all());
+            self::assertSame('/archive/2023/', $builder->year(2023));
+            self::assertSame('/archive/2023/08/', $builder->month(2023, 8));
+            self::assertSame('/archive/2023/08/12/', $builder->day(2023, 8, 12));
         } finally {
             if (file_exists($configFile)) {
                 unlink($configFile);

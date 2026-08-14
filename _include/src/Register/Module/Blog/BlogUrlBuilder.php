@@ -60,22 +60,22 @@ class BlogUrlBuilder implements StatefulServiceInterface
 
     public function year(int $year): string
     {
-        return $this->main() . $year . '/';
+        return $this->main() . 'archive/' . $year . '/';
     }
 
     public function month(int $year, int $month): string
     {
-        return $this->main() . $year . '/' . $this->extendNumber($month) . '/';
+        return $this->main() . 'archive/' . $year . '/' . $this->extendNumber($month) . '/';
     }
 
     public function monthFromTimestamp(int $timestamp): string
     {
-        return $this->main() . date('Y/m/', $timestamp);
+        return $this->main() . 'archive/' . date('Y/m/', $timestamp);
     }
 
     public function day(int $year, int $month, int $day): string
     {
-        return $this->main() . $year . '/' . $this->extendNumber($month) . '/' . $this->extendNumber($day) . '/';
+        return $this->main() . 'archive/' . $year . '/' . $this->extendNumber($month) . '/' . $this->extendNumber($day) . '/';
     }
 
     #[\Override]

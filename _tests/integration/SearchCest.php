@@ -119,13 +119,6 @@ class SearchCest
         $I->canSee('2023-08-12');
         $I->see('New Blog Post Title');
 
-//        foreach (['/2023/08/12/', '/2023/08/'] as $url) {
-//            $I->amOnPage($url);
-//            $I->see('New Blog Post Title');
-//            $I->see('New blog post');
-//            $I->see('August 12, 2023');
-//        }
-
         // Open a public page
         $I->amOnPage('https://localhost/new-post1');
         $I->see('New Blog Post Title');
@@ -138,7 +131,7 @@ class SearchCest
         );
 
         // The internal timestamp still determines the archive location.
-        $I->amOnPage('https://localhost/2023/08/12/');
+        $I->amOnPage('https://localhost/archive/2023/08/12/');
         $I->see('New Blog Post Title');
         $I->see('лето 1977 года');
 

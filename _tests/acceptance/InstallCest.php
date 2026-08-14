@@ -413,7 +413,7 @@ class InstallCest
         $I->canSee('2023-08-12');
         $I->see('New Blog Post Title');
 
-        foreach (['/2023/08/12/', '/2023/08/'] as $url) {
+        foreach (['/archive/2023/08/12/', '/archive/2023/08/'] as $url) {
             $I->amOnPage($url);
             $I->see('New Blog Post Title');
             $I->see('New blog post');
