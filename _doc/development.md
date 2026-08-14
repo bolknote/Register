@@ -13,23 +13,24 @@ Start a fully isolated SQLite development copy (dependencies, initial database, 
 ```
 
 It uses `APP_ENV=local`, stores mutable data in `.local/`, listens on `127.0.0.1:8080` by default,
-and starts a queue worker beside the web server. The worker applies search-index and thumbnail jobs
-automatically; both processes stop together on Ctrl+C. Use `S2_DEV_PORT=9000 ./dev` to select
+and starts only the web server. Search-index, thumbnail, backup, and other queued jobs advance from
+Register's shutdown phase after ordinary HTTP responses. Use `S2_DEV_PORT=9000 ./dev` to select
 another port.
 
 Production installations do not need cron. Successful HTTP requests detach their response where the
 SAPI permits it and advance a bounded slice of durable background work from a shutdown callback.
 That work publishes scheduled content, drains asynchronous jobs, performs anti-spam maintenance,
 and creates the daily private backup when it is due. With no traffic, work waits until the next
-request. Use `php tools/run-background.php` for an explicit operational drain, especially on SAPIs
-that cannot detach a response and therefore leave heavyweight jobs queued. The control-panel search
-rebuild remains repair tooling. See [Backups](backups.md) for storage and restore details.
+request. This shutdown callback is the only queue executor: Register does not start a daemon and
+does not expose a command-line queue drain. The control-panel search rebuild only enqueues durable
+repair work, which subsequent shutdown phases resume automatically. See [Backups](backups.md) for
+storage and restore details.
 
 Run unit and integration tests with Codeception:
 
 ```bash
-php _vendor/bin/codecept run unit
-php _vendor/bin/codecept run integration
+composer test:unit
+composer test:integration
 ```
 
 Run the complete quality gate:

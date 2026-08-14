@@ -1,6 +1,6 @@
 <?php
 /**
- * @copyright 2026 Roman Parpalak
+ * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
  * @package   Register
  */
@@ -13,14 +13,15 @@ use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
 use S2\Rose\Indexer;
 use S2\Rose\Storage\Database\PdoStorage;
+use S2\Rose\Storage\Exception\EmptyIndexException;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\RecommendationProvider;
 
 /**
- * Builds a usable search index synchronously from all built-in content providers.
+ * Reconciles the search index synchronously with all built-in content providers.
  *
  * Normal content changes use the queue. This service is for installation, schema adoption, and
- * explicit repair operations where returning with an empty or partial index would be misleading.
+ * command-line bootstrap operations. HTTP repair uses durable queue jobs instead.
  */
 final readonly class SearchIndexRebuilder
 {
@@ -42,14 +43,28 @@ final readonly class SearchIndexRebuilder
      */
     public function rebuild(): int
     {
-        $this->storage->erase();
+        try {
+            $staleDocuments = [];
+            foreach ($this->storage->getTocByTitlePrefix('') as $indexedDocument) {
+                $externalId                  = $indexedDocument->getExternalId();
+                $staleDocuments[$externalId->toString()] = $externalId;
+            }
+        } catch (EmptyIndexException) {
+            $this->storage->erase();
+            $staleDocuments = [];
+        }
 
         $documentCount = 0;
         foreach ($this->providers as $provider) {
             foreach ($provider->getIndexables() as $indexable) {
                 $this->indexer->index($indexable);
+                unset($staleDocuments[$indexable->getExternalId()->toString()]);
                 ++$documentCount;
             }
+        }
+
+        foreach ($staleDocuments as $externalId) {
+            $this->indexer->removeById($externalId->getId(), $externalId->getInstanceId());
         }
 
         $this->recommendationsCache->deleteItem(RecommendationProvider::INVALIDATED_AT);

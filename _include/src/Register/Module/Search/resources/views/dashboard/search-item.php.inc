@@ -11,7 +11,9 @@
     <input type="hidden" name="register_search_csrf_token" value="<?= s2_htmlencode($csrfToken) ?>">
     <h3><?= $trans('Search index') ?></h3>
     <p class="stat-status">
-    <?php if ($health->repairRequired): ?>
+    <?php if ($health->repairPending): ?>
+        <?= $trans('Search repairing') ?>
+    <?php elseif ($health->repairRequired): ?>
         <span class="icon icon-warning"></span> <?= $trans('Search repair required') ?>
     <?php elseif ($health->isUpdating()): ?>
         <?= $trans('Search updating', ['{{ pending }}' => $health->pendingUpdates, '%count%' => $health->pendingUpdates]) ?>
@@ -38,7 +40,9 @@
 <script>
     window.registerSearchConfig = {
         url: <?= json_encode($basePath . '/_admin/ajax.php?action=register_search_reindex', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>,
-        csrfToken: <?= json_encode($csrfToken, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>
+        csrfToken: <?= json_encode($csrfToken, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>,
+        scheduledMessage: <?= json_encode($trans('Repair scheduled'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>,
+        failureMessage: <?= json_encode($trans('Repair scheduling failed'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>
     };
 </script>
 <script src="<?= $basePath ?>/_assets/register/search/index-manager.js"></script>

@@ -28,6 +28,7 @@ use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Queue\ScheduledMaintenanceTaskInterface;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplateEvent;
@@ -41,6 +42,7 @@ use S2\Rose\Stemmer\PorterStemmerRussian;
 use S2\Rose\Stemmer\StemmerInterface;
 use S2\Rose\Storage\Database\PdoStorage;
 use Register\Module\Search\Controller\SearchPageController;
+use Register\Module\Search\Admin\SearchIndexHealth;
 use Register\Module\Search\Layout\LayoutMatcherFactory;
 use Register\Module\Search\Rose\CustomExtractor;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
@@ -48,6 +50,8 @@ use Register\Module\Search\Service\ContentIndexer;
 use Register\Module\Search\Service\RecommendationFinder;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SearchDocumentFactory;
+use Register\Module\Search\Service\SearchIndexMaintenance;
+use Register\Module\Search\Service\SearchIndexRepairer;
 use Register\Module\Search\Service\SimilarWordsDetector;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -98,6 +102,25 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get('recommendations_cache'),
             $container->get(QueuePublisher::class),
         ), [QueueHandlerInterface::class, BulkIndexingProviderInterface::class]);
+
+        $container->set(SearchIndexHealth::class, static fn(Container $container): SearchIndexHealth => new SearchIndexHealth(
+            $container->get(PdoStorage::class),
+            $container->get(\S2\Cms\Pdo\DbLayer::class),
+            $container->get(ContentIndexer::class),
+        ));
+
+        $container->set(SearchIndexRepairer::class, static fn(Container $container): SearchIndexRepairer => new SearchIndexRepairer(
+            $container->get(ContentRepository::class),
+            $container->get(PdoStorage::class),
+            $container->get(Indexer::class),
+            $container->get('recommendations_cache'),
+            $container->get(QueuePublisher::class),
+        ), [QueueHandlerInterface::class]);
+
+        $container->set(SearchIndexMaintenance::class, static fn(Container $container): SearchIndexMaintenance => new SearchIndexMaintenance(
+            $container->get(SearchIndexHealth::class),
+            $container->get(SearchIndexRepairer::class),
+        ), [ScheduledMaintenanceTaskInterface::class]);
 
         $container->set(SearchIndexRebuilder::class, static fn(Container $container): SearchIndexRebuilder => new SearchIndexRebuilder(
             $container->get(PdoStorage::class),

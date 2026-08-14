@@ -1,7 +1,8 @@
 /**
  * Adds reindexing functions to the admin panel
  *
- * @copyright (C) 2011-2024 Roman Parpalak
+ * @copyright 2011-2024 Roman Parpalak
+ * @copyright 2026 Evgeny Stepanischev
  * @license http://opensource.org/licenses/MIT MIT
  * @package Register
  */
@@ -23,22 +24,16 @@
                 throw new Error(data.message || `Search indexing failed with HTTP ${response.status}.`);
             }
 
-            if (data.status.startsWith('go_')) {
-                progress.textContent = `: ${data.status.substring(3)}%…`;
-                window.setTimeout(reindexQuery, 50);
-                return;
-            }
-
-            progress.textContent = data.status === 'stop' ? ': 100%' : `: ${data.status}`;
+            progress.textContent = `: ${window.registerSearchConfig.scheduledMessage}`;
         } catch (error) {
-            progress.textContent = ': indexing failed';
-            console.warn('Search indexing failed:', error);
+            progress.textContent = `: ${window.registerSearchConfig.failureMessage}`;
+            console.warn('Search repair scheduling failed:', error);
         }
     }
 
     window.registerSearch = {
         reindex: function () {
-            progress.textContent = ': 0%…';
+            progress.textContent = '…';
             void reindexQuery();
 
             return false;

@@ -23,16 +23,13 @@ use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
 use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Model\PermissionChecker;
-use S2\Rose\Indexer;
 use S2\Rose\Storage\Database\PdoStorage;
 use Register\Module\Search\Admin\DashboardSearchProvider;
 use Register\Module\Search\Admin\DynamicConfigFormExtender;
-use Register\Module\Search\Admin\IndexManager;
 use Register\Module\Search\Admin\ReindexToken;
 use Register\Module\Search\Admin\SearchIndexHealth;
 use Register\Module\Search\Admin\TranslationProvider;
-use Register\Module\Search\Service\BulkIndexingProviderInterface;
-use Register\Module\Search\Service\ContentIndexer;
+use Register\Module\Search\Service\SearchIndexRepairer;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -51,12 +48,6 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(SettingStorageInterface::class),
         ));
 
-        $container->set(SearchIndexHealth::class, fn(Container $container): SearchIndexHealth => new SearchIndexHealth(
-            $container->get(PdoStorage::class),
-            $container->get(\S2\Cms\Pdo\DbLayer::class),
-            $container->get(ContentIndexer::class),
-        ));
-
         $container->set(DashboardSearchProvider::class, fn(Container $container): DashboardSearchProvider => new DashboardSearchProvider(
             $container->get(TemplateRenderer::class),
             $container->get(PdoStorage::class),
@@ -64,14 +55,6 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(SearchIndexHealth::class),
         ), [DashboardStatProviderInterface::class]);
 
-        $container->set(IndexManager::class, fn(Container $container): IndexManager => new IndexManager(
-            $container->getStringParameter('cache_dir'),
-            $container->get(Indexer::class),
-            $container->get(PdoStorage::class),
-            $container->get('recommendations_cache'),
-            $container->get(LoggerInterface::class),
-            ...$container->getByTag(BulkIndexingProviderInterface::class),
-        ));
     }
 
     #[\Override]
@@ -91,16 +74,26 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
                     return new JsonResponse(['success' => false, 'message' => 'Invalid CSRF token.'], Response::HTTP_FORBIDDEN);
                 }
 
-                $indexManager = $c->get(IndexManager::class);
+                $c->get(SearchIndexRepairer::class)->schedule();
                 return new JsonResponse([
                     'success' => true,
-                    'status'  => $indexManager->index(),
+                    'status'  => 'queued',
                 ]);
             };
         });
 
         $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container): void {
-            if ($container->get(SearchIndexHealth::class)->inspect()->repairRequired) {
+            if (!$container->get(SearchIndexHealth::class)->inspect()->repairRequired) {
+                return;
+            }
+
+            try {
+                $container->get(SearchIndexRepairer::class)->schedule();
+            } catch (\Throwable $throwable) {
+                $container->get(LoggerInterface::class)->error(
+                    'Unable to schedule automatic search-index repair.',
+                    ['exception' => $throwable],
+                );
                 $translator = $container->get(Translator::class);
                 $event->addSignal('Dashboard', Signal::createEmpty($translator->trans('Search repair required')));
             }

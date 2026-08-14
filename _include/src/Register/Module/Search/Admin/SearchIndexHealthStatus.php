@@ -1,6 +1,6 @@
 <?php
 /**
- * @copyright 2026 Roman Parpalak
+ * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
  * @package   Register
  */
@@ -17,17 +17,23 @@ final readonly class SearchIndexHealthStatus
         public int  $indexedDocuments,
         public int  $pendingUpdates,
         public int  $mismatchedDocuments,
+        public bool $repairPending,
         public bool $repairRequired,
     ) {
     }
 
     public function isUpdating(): bool
     {
-        return $this->available && !$this->repairRequired && $this->pendingUpdates > 0;
+        return $this->available
+            && !$this->repairRequired
+            && ($this->repairPending || $this->pendingUpdates > 0);
     }
 
     public function isCurrent(): bool
     {
-        return $this->available && !$this->repairRequired && $this->pendingUpdates === 0;
+        return $this->available
+            && !$this->repairRequired
+            && !$this->repairPending
+            && $this->pendingUpdates === 0;
     }
 }

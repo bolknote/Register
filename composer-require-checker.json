@@ -60,7 +60,6 @@
         "_include/*.php",
         "index.php",
         "tools/queue-status.php",
-        "tools/retry-background-job.php",
-        "tools/run-background.php"
+        "tools/retry-background-job.php"
     ]
 }

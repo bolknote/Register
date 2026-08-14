@@ -166,6 +166,7 @@ class SearchCest
         /** @var QueueConsumer $consumer */
         $consumer = $I->grabService(QueueConsumer::class);
         $I->assertTrue($consumer->runQueue());
+        while ($consumer->runQueue());
 
         $I->amOnPage('https://localhost/?search=1&q=some+text');
         $I->see('New blog post with <span class="s2_search_highlight">some text</span>');

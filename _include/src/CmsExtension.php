@@ -83,6 +83,7 @@ use S2\Cms\Queue\QueueMonitor;
 use S2\Cms\Queue\QueuePublisher;
 use S2\Cms\Queue\QueueRecovery;
 use S2\Cms\Queue\QueueRunnerLease;
+use S2\Cms\Queue\ScheduledMaintenanceTaskInterface;
 use S2\Cms\Queue\NativeShutdownRuntime;
 use S2\Cms\Queue\ScheduledMaintenance;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
@@ -225,6 +226,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(QueuePublisher::class),
             $container->get(ContentPublicationScheduler::class),
             $container->getBoolParameter('backup_enabled'),
+            ...$container->getByTag(ScheduledMaintenanceTaskInterface::class),
         ));
         $container->set(BackgroundWorkRunner::class, fn(Container $container): \S2\Cms\Queue\BackgroundWorkRunner => new BackgroundWorkRunner(
             $container->get(\PDO::class),

@@ -15,7 +15,6 @@ use Register\Backup\BackupDirectoryResolver;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
-use Register\Module\Search\SearchIndexRebuilder;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Config\StaticConfigLoader;
 use S2\Cms\Framework\Application;
@@ -236,7 +235,6 @@ if (defined('S2_ADMIN_MODE') && session_status() !== PHP_SESSION_ACTIVE) {
 $registerSchemaManager = $app->container->get(SchemaManager::class);
 if ($registerSchemaManager->ensureCurrent()) {
     $dynamicConfigProvider->regenerate();
-    $app->container->get(SearchIndexRebuilder::class)->rebuild();
 }
 
 $app->container->get(ShutdownWorkCoordinator::class)->register();

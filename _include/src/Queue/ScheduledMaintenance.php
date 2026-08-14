@@ -23,13 +23,18 @@ final readonly class ScheduledMaintenance
 
     private const int INITIAL_QUEUE_DELAY_SECONDS = 1;
 
+    /** @var list<ScheduledMaintenanceTaskInterface> */
+    private array $additionalTasks;
+
     public function __construct(
         private \PDO          $pdo,
         private string        $dbPrefix,
         private QueuePublisher $queuePublisher,
         private ContentPublicationScheduler $publicationScheduler,
         private bool           $automaticBackupEnabled,
+        ScheduledMaintenanceTaskInterface ...$additionalTasks,
     ) {
+        $this->additionalTasks = array_values($additionalTasks);
     }
 
     /** Ensures latency-sensitive scheduled publication has one durable queue trigger. */
@@ -90,6 +95,11 @@ final readonly class ScheduledMaintenance
                 BackupQueueHandler::CODE,
                 availableAt: $now + self::INITIAL_QUEUE_DELAY_SECONDS,
             );
+        }
+
+        foreach ($this->additionalTasks as $additionalTask) {
+            $budget->checkpoint(0.05);
+            $additionalTask->schedule($now, $budget);
         }
 
         $budget->checkpoint(0.02);

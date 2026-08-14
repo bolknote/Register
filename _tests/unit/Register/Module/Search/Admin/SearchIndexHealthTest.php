@@ -13,6 +13,7 @@ use Codeception\Test\Unit;
 use Register\Module\Search\Admin\SearchIndexHealth;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\ContentIndexer;
+use Register\Module\Search\Service\SearchIndexRepairer;
 use S2\Cms\Pdo\DbLayerSqlite;
 use S2\Rose\Entity\Indexable;
 use S2\Rose\Indexer;
@@ -90,6 +91,24 @@ final class SearchIndexHealthTest extends Unit
         self::assertFalse($status->isCurrent());
     }
 
+    public function testReportsAnActiveRepairInsteadOfRequestingManualRecovery(): void
+    {
+        [$pdo, $storage] = $this->environment('repairing_');
+        $missing = (new Indexable('post:1', 'Post', 'Missing'))->setUrl('/post');
+        $pdo->exec("INSERT INTO queue (id, code, payload) VALUES ('all', '"
+            . SearchIndexRepairer::REPAIR_QUEUE_CODE . "', '{\"offset\":0}')");
+
+        $status = (new SearchIndexHealth(
+            $storage,
+            new DbLayerSqlite($pdo),
+            $this->provider($missing),
+        ))->inspect();
+
+        self::assertTrue($status->repairPending);
+        self::assertTrue($status->isUpdating());
+        self::assertFalse($status->repairRequired);
+    }
+
     /** @return array{\PDO, PdoStorage, Indexer} */
     private function environment(string $prefix): array
     {
@@ -108,6 +127,7 @@ CREATE TABLE queue (
     id VARCHAR(80) NOT NULL,
     code VARCHAR(80) NOT NULL,
     payload TEXT NOT NULL,
+    failed_at INTEGER NULL,
     PRIMARY KEY (id, code)
 )
 SQL);

@@ -15,9 +15,11 @@ use SQLite, MySQL/MariaDB, or PostgreSQL.
 
 Background work is advanced opportunistically after normal HTTP responses; installing a cron job is
 not required. A site without incoming traffic consequently has no bounded background-delivery time.
-The queue is safe across application nodes through a database lease. Operators can inspect it with
-`php tools/queue-status.php`, drain it manually with `php tools/run-background.php`, and explicitly
-retry a reviewed failed job with `php tools/retry-background-job.php <id> <code>`.
+The queue is safe across application nodes through a database lease and is executed exclusively by
+Register's shutdown phase; there is no separate queue process or command-line drain. Operators can
+inspect it with `php tools/queue-status.php` and explicitly retry a reviewed failed job with
+`php tools/retry-background-job.php <id> <code>`; the retried job runs after a subsequent HTTP
+response.
 
 ## What Register already does
 
@@ -89,12 +91,12 @@ then open `/_admin/install.php` and follow the installer.
 ```
 
 The command installs missing Composer dependencies, creates an isolated SQLite site in `.local/`,
-serves it at `http://127.0.0.1:8080`, and runs the local queue worker so search and thumbnails update
-automatically. On first launch it prints the local credentials. Existing `config.php` and production
-data are never modified. An incompatible local schema is discarded and recreated because Register
-does not migrate pre-release data generations. Override the host, port, PHP executable, or initial
-credentials with `S2_DEV_HOST`, `S2_DEV_PORT`, `PHP_BIN`, `S2_DEV_ADMIN_LOGIN`, and
-`S2_DEV_ADMIN_PASSWORD`.
+and serves it at `http://127.0.0.1:8080`. Search, thumbnails, backups, and other queued work advance
+from Register's shutdown phase after ordinary local HTTP responses. On first launch the command
+prints the local credentials. Existing `config.php` and production data are never modified. An
+incompatible local schema is discarded and recreated because Register does not migrate pre-release
+data generations. Override the host, port, PHP executable, or initial credentials with
+`S2_DEV_HOST`, `S2_DEV_PORT`, `PHP_BIN`, `S2_DEV_ADMIN_LOGIN`, and `S2_DEV_ADMIN_PASSWORD`.
 
 Run maximum-level static analysis, compatibility checks, linters, and tests with:
 

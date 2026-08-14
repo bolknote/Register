@@ -499,9 +499,7 @@ class InstallCest
         $I->sendAjaxPostRequest('/_admin/ajax.php?action=register_search_reindex', ['csrf_token' => 'invalid']);
         $I->seeResponseCodeIs(403);
         $I->sendAjaxPostRequest('/_admin/ajax.php?action=register_search_reindex', ['csrf_token' => $csrfToken]);
-        $I->see('go_20');
-        $I->sendAjaxPostRequest('/_admin/ajax.php?action=register_search_reindex', ['csrf_token' => $csrfToken]);
-        $I->see('stop');
+        $I->see('queued');
 
         $I->amOnPage('/new-post1');
         $I->dontSeeElement('h2.recommendation-title#recommendations');

@@ -22,10 +22,10 @@ stop unrelated runnable jobs.
 
 A full database-and-media snapshot cannot be safely interrupted in the middle of a database utility
 or filesystem call. Register therefore starts it only when at least four seconds remain in the
-background slice. On a SAPI that cannot detach the response, or for a site whose full snapshot takes
-longer than the host permits, drain it explicitly with `php tools/run-background.php`. Administrators
-with user-management permission can also inspect the latest archive, create a new one, and download
-it from **Search & statistics** in the control panel.
+shutdown slice. Administrators with user-management permission can inspect the latest archive,
+create a new one explicitly, and download it from **Search & statistics** in the control panel. On a
+host whose request time limit is too short for an automatic full snapshot, use that explicit action
+or the command-line backup below; neither creates a separate queue executor.
 
 A command-line backup can be forced at any time:
 
@@ -75,7 +75,7 @@ installation.
 ## Restore
 
 1. Keep the archive private and verify `manifest.json` before restoring.
-2. Stop all writes, including the web process and any manually started queue worker.
+2. Take the site offline so no web request or shutdown phase can write to the database.
 3. For SQLite, replace the configured database file with `database.sqlite`. For MySQL/MariaDB,
    import `database.sql` into an empty configured database with `mysql`. For PostgreSQL, import it
    with `psql`.

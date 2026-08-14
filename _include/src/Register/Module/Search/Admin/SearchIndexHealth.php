@@ -1,6 +1,6 @@
 <?php
 /**
- * @copyright 2026 Roman Parpalak
+ * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
  * @package   Register
  */
@@ -11,6 +11,7 @@ namespace Register\Module\Search\Admin;
 
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\ContentIndexer;
+use Register\Module\Search\Service\SearchIndexRepairer;
 use S2\Cms\Pdo\DbLayer;
 use S2\Rose\Entity\Indexable;
 use S2\Rose\Entity\TocEntry;
@@ -29,60 +30,93 @@ final readonly class SearchIndexHealth
     public function inspect(): SearchIndexHealthStatus
     {
         try {
-            $pendingIds = $this->pendingIds();
-            $expected   = [];
-            $mismatched = 0;
-            $uncovered  = 0;
+            $pending = $this->pendingJobs();
+            $pendingContent = $pending['content'];
+            $pendingRemoval = $pending['removal'];
+            $repairActive   = $pending['repair'];
+            $indexed        = [];
+            foreach ($this->pdoStorage->getTocByTitlePrefix('') as $indexedDocument) {
+                $indexed[$indexedDocument->getExternalId()->toString()] = $indexedDocument->getTocEntry();
+            }
+
+            $expected          = [];
+            $mismatched        = 0;
+            $uncoveredExpected = 0;
 
             foreach ($this->indexingProvider->getIndexables() as $indexable) {
-                $externalId            = $indexable->getExternalId()->getId();
+                $externalId            = $indexable->getExternalId()->toString();
                 $expected[$externalId] = true;
-                $tocEntry              = $this->pdoStorage->getTocByExternalId($indexable->getExternalId());
+                $tocEntry              = $indexed[$externalId] ?? null;
                 if ($tocEntry instanceof TocEntry && $this->matches($indexable, $tocEntry)) {
                     continue;
                 }
 
                 ++$mismatched;
-                if (!isset($pendingIds[$externalId])) {
-                    ++$uncovered;
+                if (!isset($pendingContent[$externalId])) {
+                    ++$uncoveredExpected;
                 }
             }
 
-            $indexedDocuments = $this->pdoStorage->getTocSize(null);
+            $extraDocuments  = array_diff_key($indexed, $expected);
+            $uncoveredExtras = array_diff_key($extraDocuments, $pendingRemoval);
             $expectedDocuments = \count($expected);
-            $extraDocuments    = max(0, $indexedDocuments - $expectedDocuments);
-            $pendingRemovals   = \count(array_diff_key($pendingIds, $expected));
-            $repairRequired    = $uncovered > 0 || $extraDocuments > $pendingRemovals;
+            $pendingUpdates    = \count($pendingContent) + \count($pendingRemoval);
+            $repairRequired    = !$repairActive
+                && ($uncoveredExpected > 0 || $uncoveredExtras !== []);
 
             return new SearchIndexHealthStatus(
                 true,
                 $expectedDocuments,
-                $indexedDocuments,
-                \count($pendingIds),
-                $mismatched + $extraDocuments,
+                \count($indexed),
+                $pendingUpdates,
+                $mismatched + \count($extraDocuments),
+                $repairActive,
                 $repairRequired,
             );
         } catch (\Throwable) {
-            return new SearchIndexHealthStatus(false, 0, 0, 0, 0, true);
+            return new SearchIndexHealthStatus(false, 0, 0, 0, 0, false, true);
         }
     }
 
-    /** @return array<string, true> */
-    private function pendingIds(): array
+    /**
+     * @return array{
+     *     content: array<string, true>,
+     *     removal: array<string, true>,
+     *     repair: bool
+     * }
+     */
+    private function pendingJobs(): array
     {
         $result = $this->dbLayer
-            ->select('id')
+            ->select('id, code')
             ->from('queue')
-            ->where('code = :code')->setParameter('code', ContentIndexer::QUEUE_CODE)
+            ->where('failed_at IS NULL')
+            ->andWhere("code IN ('" . ContentIndexer::QUEUE_CODE . "', '"
+                . SearchIndexRepairer::REPAIR_QUEUE_CODE . "', '"
+                . SearchIndexRepairer::REMOVE_QUEUE_CODE . "')")
             ->execute()
         ;
 
-        $ids = [];
-        while (($row = $result->fetchRow()) !== false) {
-            $ids[(string)$row[0]] = true;
+        $content = [];
+        $removal = [];
+        $repair  = false;
+        while (($row = $result->fetchAssoc()) !== false) {
+            $id   = (string)$row['id'];
+            $code = (string)$row['code'];
+            if ($code === ContentIndexer::QUEUE_CODE) {
+                $content[':' . $id] = true;
+            } elseif ($code === SearchIndexRepairer::REMOVE_QUEUE_CODE) {
+                $removal[$id] = true;
+            } elseif ($code === SearchIndexRepairer::REPAIR_QUEUE_CODE) {
+                $repair = true;
+            }
         }
 
-        return $ids;
+        return [
+            'content' => $content,
+            'removal' => $removal,
+            'repair'  => $repair,
+        ];
     }
 
     private function matches(Indexable $indexable, TocEntry $tocEntry): bool

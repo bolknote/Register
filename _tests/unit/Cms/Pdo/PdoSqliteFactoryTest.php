@@ -27,7 +27,7 @@ final class PdoSqliteFactoryTest extends Unit
         }
     }
 
-    public function testConfiguresSqliteForConcurrentWebAndWorkerAccess(): void
+    public function testConfiguresSqliteForOverlappingRequestAndShutdownAccess(): void
     {
         $path = tempnam(sys_get_temp_dir(), 's2_sqlite_');
         self::assertIsString($path);
