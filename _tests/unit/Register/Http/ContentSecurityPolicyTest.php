@@ -288,6 +288,37 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertStringNotContainsString('<style', $ajax . $dialogs);
     }
 
+    public function testLegacyAdminTreeUsesExternalStylesheets(): void
+    {
+        $root = dirname(__DIR__, 4);
+        $script = file_get_contents($root . '/_admin/lib/jquery.jstree.js');
+        $stylesheet = file_get_contents($root . '/_admin/css/admin-override.css');
+
+        self::assertIsString($script);
+        self::assertIsString($stylesheet);
+        self::assertDoesNotMatchRegularExpression(
+            '~createElement\s*\(\s*[\'\"]style[\'\"]~',
+            $script,
+        );
+        self::assertDoesNotMatchRegularExpression('~\.attr\s*\(\s*[\'\"]style[\'\"]~', $script);
+        self::assertStringNotContainsString('add_sheet({str:', $script);
+        self::assertStringContainsString('.jstree ul,', $stylesheet);
+        self::assertStringContainsString('#jstree-marker-line {', $stylesheet);
+    }
+
+    public function testMathErrorsUseTheExternalErrorClass(): void
+    {
+        $root = dirname(__DIR__, 4);
+        $script = file_get_contents($root . '/_assets/register/math/loader.js');
+        $stylesheet = file_get_contents($root . '/_assets/register/math/math.css');
+
+        self::assertIsString($script);
+        self::assertIsString($stylesheet);
+        self::assertStringContainsString('throwOnError: true', $script);
+        self::assertStringNotContainsString('throwOnError: false', $script);
+        self::assertStringContainsString('.register-math-error {', $stylesheet);
+    }
+
     /**
      * @param list<string> $paths
      * @return \Generator<string>

@@ -735,6 +735,81 @@ section.admin-structure {
     cursor: default;
 }
 
+.jstree ul,
+.jstree li {
+    display: block;
+    padding: 0;
+    margin: 0;
+    list-style-type: none;
+}
+
+.jstree li {
+    min-width: 18px;
+    min-height: 18px;
+    margin-left: 18px;
+    line-height: 18px;
+    white-space: nowrap;
+}
+
+.jstree-rtl li {
+    margin-right: 18px;
+    margin-left: 0;
+}
+
+.jstree > ul > li {
+    margin-left: 0;
+}
+
+.jstree-rtl > ul > li {
+    margin-right: 0;
+}
+
+.jstree ins {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    margin: 0;
+    text-decoration: none;
+}
+
+.jstree a {
+    display: inline-block;
+    height: 16px;
+    padding: 1px 2px;
+    margin: 0;
+    color: #000;
+    line-height: 16px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.jstree a:focus {
+    outline: none;
+}
+
+.jstree a > ins {
+    width: 16px;
+    height: 16px;
+}
+
+.jstree a > .jstree-icon {
+    margin-right: 3px;
+}
+
+.jstree-rtl a > .jstree-icon {
+    margin-right: 0;
+    margin-left: 3px;
+}
+
+li.jstree-open > ul {
+    display: block;
+}
+
+li.jstree-closed > ul {
+    display: none;
+}
+
 .jstree .Search {
     color: #999;
 }
@@ -883,7 +958,12 @@ img#context_comments {
 }
 
 #vakata-dragged {
+    position: absolute;
+    top: -2000px;
+    z-index: 10000;
+    display: block;
     font: 0.917em "Segoe UI", "Lucida Grande", "Lucida Sans Unicode", "Droid Sans", Tahoma, Ubuntu, sans-serif;
+    line-height: 16px;
     background: rgba(245, 252, 255, 0.8);
     border: 1px solid #eee;
     -moz-border-radius: 2px;
@@ -897,8 +977,15 @@ img#context_comments {
 }
 
 #vakata-dragged ins {
+    position: absolute;
+    display: block;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    margin: 0;
     top: 2px !important;
     left: 2px;
+    text-decoration: none;
 }
 
 #vakata-dragged ins.jstree-ok {
@@ -910,8 +997,43 @@ img#context_comments {
 }
 
 #jstree-marker {
+    position: absolute;
+    top: -30px;
+    z-index: 10001;
+    display: none;
+    width: 8px;
+    height: 12px;
+    padding: 0;
+    margin: 0;
     background-position: -41px -21px;
+    background-color: transparent;
+    background-repeat: no-repeat;
+    color: #000;
+    font-size: 12px;
+    line-height: 10px;
+    overflow: hidden;
+    text-shadow: 1px 1px 1px #fff;
     text-indent: -100px;
+}
+
+#jstree-marker-line {
+    position: absolute;
+    top: -30px;
+    z-index: 10000;
+    display: none;
+    width: 100px;
+    height: 1px;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    font-size: 1px;
+    line-height: 0;
+    cursor: pointer;
+    background: #456c43;
+    border: 1px solid #eee;
+    border-left: 0;
+    border-radius: 1px;
+    box-shadow: 0 0 2px #666;
 }
 
 .jstree .jstree-locked a {

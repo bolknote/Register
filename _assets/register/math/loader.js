@@ -219,7 +219,7 @@
                 maxSize: 20,
                 output: 'htmlAndMathml',
                 strict: 'warn',
-                throwOnError: false,
+                throwOnError: true,
                 trust: false
             });
             slot.setAttribute('data-register-math-rendered', '1');
