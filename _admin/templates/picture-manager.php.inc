@@ -1,23 +1,6 @@
 <?php
 
-$bytesFromString = static function ($val)
-{
-    $val  = trim($val);
-    $last = strtolower(substr($val, -1));
-    $val  = substr($val, 0, -1);
-    switch ($last) {
-        case 'g':
-            $val *= 1024;
-        case 'm':
-            $val *= 1024;
-        case 'k':
-            $val *= 1024;
-    }
-
-    return $val;
-};
-
-$maxFileSize = $bytesFromString(ini_get('upload_max_filesize'))
+declare(strict_types = 1);
 
 /** @var string $basePath */
 /** @var string $locale */
@@ -25,88 +8,38 @@ $maxFileSize = $bytesFromString(ini_get('upload_max_filesize'))
 /** @var callable $param */
 /** @var callable $styleColorScheme */
 /** @var callable $adminStyleVersion */
-/** @var callable $isGranted */
-/** @var callable $friendlyFilesize */
-
 /** @var string $imagePath */
-
 
 ?>
 <!DOCTYPE html>
-<html lang="<?= $locale ?>"
-      data-color-scheme="<?= s2_htmlencode($styleColorScheme()) ?>"
-      data-ajax-url="<?= s2_htmlencode($basePath . '/_admin/ajax.php?') ?>"
-      data-picture-prefix="<?= s2_htmlencode($imagePath) ?>"
-      data-max-file-size="<?= $maxFileSize ?>"
-      data-friendly-max-file-size="<?= s2_htmlencode($friendlyFilesize($maxFileSize)) ?>">
+<html lang="<?= s2_htmlencode($locale) ?>" data-color-scheme="<?= s2_htmlencode($styleColorScheme()) ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title><?php echo $trans('Media'); ?></title>
-    <link rel="stylesheet" href="<?php echo $basePath; ?>/_vendor/s2/admin-yard/demo/style.css">
-    <link rel="stylesheet" href="<?php echo $basePath; ?>/_admin/css/admin-override.css"/>
-    <link rel="stylesheet" href="<?php echo $basePath; ?>/_admin/css/pictures.css"/>
-    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>"/>
-    <script src="<?php echo $basePath; ?>/_admin/js/lib.js"></script>
-    <script src="<?php echo $basePath; ?>/_admin/js/ajax.js"></script>
+    <title><?= s2_htmlencode($trans('Media')) ?></title>
+    <link rel="icon" type="image/svg+xml" href="<?= s2_htmlencode($basePath) ?>/_styles/register/favicon.svg">
+    <link rel="stylesheet" href="<?= s2_htmlencode($basePath) ?>/_vendor/s2/admin-yard/demo/style.css">
+    <link rel="stylesheet" href="<?= s2_htmlencode($basePath) ?>/_admin/css/admin-override.css">
+    <link rel="stylesheet" href="<?= s2_htmlencode($basePath) ?>/_admin/css/register.css?v=<?= s2_htmlencode($adminStyleVersion()) ?>">
+    <script src="<?= s2_htmlencode($basePath) ?>/_vendor/s2/admin-yard/demo/script.js"></script>
+    <script src="<?= s2_htmlencode($basePath) ?>/_admin/js/lib.js"></script>
     <style>:root {
-            --page-secondary-background: <?= $param('S2_ADMIN_COLOR') ?>;
+            --page-secondary-background: <?= s2_htmlencode((string)$param('S2_ADMIN_COLOR')) ?>;
         }</style>
-    <script src="<?php echo $basePath; ?>/_admin/lib/jquery.js"></script>
-    <script src="<?php echo $basePath; ?>/_admin/lib/jquery-tools.js"></script>
-    <script src="<?php echo $basePath; ?>/_admin/lib/jquery.jstree.js"></script>
-    <script src="<?php echo $basePath; ?>/_admin/js/pictman.js"></script>
-    <script src="<?php echo $basePath; ?>/_admin/lang/<?php echo $locale; ?>/ui.js"></script>
 </head>
-
-<body class="picture-manager-page">
+<body class="picture-manager-standalone">
 <header class="picture-manager-header">
-    <a class="picture-manager-brand" href="<?php echo $basePath; ?>/_admin/index.php" target="_top">
+    <a class="picture-manager-brand" href="<?= s2_htmlencode($basePath) ?>/_admin/index.php" target="_top">
         <span aria-hidden="true">ℜ</span>
         <span>Register</span>
     </a>
-    <h1><?= $trans('Media') ?></h1>
-    <a href="<?php echo $basePath; ?>/_admin/index.php" target="_top"><?= $trans('Back to administration') ?></a>
+    <strong><?= s2_htmlencode($trans('Media')) ?></strong>
+    <a href="<?= s2_htmlencode($basePath) ?>/_admin/index.php" target="_top"><?= s2_htmlencode($trans('Back to administration')) ?></a>
 </header>
-<div id="tree_div">
-    <div class="treetree">
-        <div id="fupload">
-            <div id="loading_pict" class="loading-indicator"></div>
-
-            <?php
-
-            if ($isGranted(\S2\Cms\Model\PermissionChecker::PERMISSION_CREATE_ARTICLES)) {
-                ?>
-                <form id="uploadForm" enctype="multipart/form-data"
-                      action="<?php echo $basePath; ?>/_admin/ajax.php?action=upload" method="post">
-                    <?php echo $trans('Upload'); ?> <?php echo $trans('Upload to'); ?> <span
-                        id="fold_name"><strong><?php echo $trans('Pictures'); ?></strong></span>
-                    <input name="pictures[]" multiple="multiple" min="1" max="999" size="20" type="file"/><br/>
-                    <?php printf($trans('Upload limit'), $friendlyFilesize($maxFileSize), $friendlyFilesize($bytesFromString(ini_get('post_max_size')))) ?>
-                    <br/>
-                    <input type="hidden" name="dir" value=""/>
-                    <input type="hidden" name="csrf_token" value=""/>
-                </form>
-                <?php
-            }
-
-            ?>
-        </div>
-        <div id="folders" tabindex="0"></div>
-        <div id="finfo"></div>
-    </div>
-    <div id="file-wrap">
-        <div id="brd">
-            <div id="files" tabindex="0"></div>
-            <div id="loadstatus"></div>
-        </div>
-    </div>
-    <dialog id="error-dialog">
-        <h1><?= $trans('An error encountered') ?></h1>
-        <p><iframe id="error-iframe" src="about:blank"></iframe></p>
-        <button class="primary" id="error-dialog-close"><?= $trans('Close') ?></button>
-    </dialog>
-</div>
+<?php
+$standalone = true;
+require __DIR__ . '/picture-manager-content.php.inc';
+?>
 </body>
 </html>

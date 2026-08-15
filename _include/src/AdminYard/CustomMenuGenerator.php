@@ -115,14 +115,6 @@ readonly class CustomMenuGenerator extends MenuGenerator
             unset($links['Dashboard']);
         }
 
-        $links['Media'] = [
-            'key'     => 'Media',
-            'name'    => 'Media',
-            'url'     => $baseUrl . 'pictman.php',
-            'active'  => false,
-            'signals' => [],
-        ];
-
         // Pages are one user-facing section with list and tree views. The tree
         // remains a service page internally, but it must not become a separate
         // navigation concept.
@@ -156,7 +148,6 @@ readonly class CustomMenuGenerator extends MenuGenerator
         $userEntity    = $this->config->findEntityByName('User');
         $profileActive = $currentEntity === 'User'
             && $currentAction === FieldConfig::ACTION_EDIT
-            && $request instanceof \Symfony\Component\HttpFoundation\Request
             && $request->query->getInt('id') === $currentUserId;
         if ($currentUserId !== null && $userEntity?->isAllowedAction(FieldConfig::ACTION_EDIT) === true) {
             $accountLinks[] = [

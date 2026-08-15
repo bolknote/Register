@@ -1,147 +1,369 @@
-html,
-body,
-#tree_div,
-.treetree,
-#file-wrap,
-#brd {
-	height: 100%;
-	box-sizing: border-box;
-	}
-
-#tree_div {
-	padding: 0.75em;
-	}
-#tree_div, input {
-	font-size: 0.875rem;
-	}
-
-#brd,
-#folders {
-	border: 1px solid #eee;
-	border-color: #aaa #f6f6f6 #f6f6f6 #aaa;
-	background: #fff;
-	color: #000;
-	border-radius: 2px;
-	}
-#folders {
-	border-top-width: 0;
-	border-bottom-width: 0;
+.picture-manager-page,
+.picture-manager-page #tree_div,
+.picture-manager-page .treetree,
+.picture-manager-page #file-wrap,
+.picture-manager-page #brd {
+    box-sizing: border-box;
 }
-#brd,
-.treetree {
-	overflow: auto;
-	}
 
-#brd {
-	margin-left: 300px;
-	padding: 1em;
-	}
+.picture-manager-page {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 1rem;
+    color: var(--admin-text-color);
+}
 
-.treetree {
-	width: 290px;
-	float: left;
-	position: relative;
-	z-index: 1;
+.picture-manager-page.is-embedded {
+    width: 100%;
+    max-width: none;
+    min-height: 38rem;
+    height: calc(100vh - var(--admin-shell-offset) - 6rem);
+}
+
+.picture-manager-page.is-standalone {
+    height: calc(100vh - 3.5rem);
+    padding: 1rem;
+}
+
+.media-library-header {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.media-library-header h1 {
+    margin: 0 0 0.3rem;
+}
+
+.media-library-header p {
+    max-width: 52rem;
+    margin: 0;
+    color: var(--admin-secondary-text-color);
+}
+
+.picture-manager-page #tree_div {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    flex: 1 1 auto;
+    grid-template-columns: minmax(15rem, 19rem) minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0;
+    font-size: 0.875rem;
+}
+
+.picture-manager-page .treetree,
+.picture-manager-page #file-wrap {
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.65rem;
+    background: var(--admin-surface-background);
+    box-shadow: var(--admin-shadow);
+}
+
+.picture-manager-page .treetree {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: auto;
+    float: none;
+    grid-template-rows: auto minmax(10rem, 1fr) auto;
+    overflow: hidden;
     cursor: inherit;
-	}
-
-#folders .jstree-leaf[data-fname] {
-	display: none;
-	}
-
-#folders.jstree .jstree-leaf > a > .jstree-icon { background-position: -55px -19px; }
-
-#files.jstree a {
-	display: block;
-	position: relative;
-	height: auto;
-	text-align: center;
-	margin: 0;
-	width: 116px;
-	white-space: break-spaces;
-	}
-	#files.jstree .jstree-clicked,
-	#files.jstree .jstree-hovered {
-		padding: 0 1px;
-		}
-	#files.jstree a.jstree-loading .jstree-icon,
-	#files .jstree-leaf > ins {
-		display: none;
-		}
-	#files.jstree a > .jstree-icon {
-		width: 100px;
-		height: 100px;
-		display: block;
-		margin: 0 auto;
-		background-position-y: bottom !important;
-		background-size: contain !important;
-		}
-	#files.jstree a .no-preview {
-        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='none' stroke='%23777' stroke-width='2'%3E%3Cpath d='M62 50v8h8'/%3E%3Cpath d='m70 57-8-8H30v50h40z'/%3E%3C/svg%3E");
-		}
-#folders .jstree-rename-input {
-	font-size: 0.875rem;
 }
 
-#files ul {
-	list-style-type: none;
-	padding: 0;
-	margin: 0;
-	}
-	#files .jstree-leaf {
-		display: inline-block;
-		vertical-align: top;
-		margin: 0 5px 10px 0;
-		width: 120px;
-		background: none;
-		word-wrap: break-word;
-		}
-		#files .jstree-rename-input {
-			width: auto !important;
-			min-width: 0;
-			font-size: 0.875rem;
-			text-align: center;
-			margin: 0 !important;
-			padding: 0 !important;
-			height: auto !important;
-			position: absolute !important;
-			left: 0 !important;
-			right: 0 !important;
-			top: 100px !important;
-			border: 1px solid #333 !important;
-			outline: 0 !important;
-			}
-
-#file-wrap {
-	float: right;
-	width: 100%;
-	margin-left: -310px;
-	}
-
-#finfo,
-#fupload {
-	clear: both;
-	line-height: 1.6;
-	position: sticky;
-	background: var(--page-secondary-background);
-	}
-	#finfo {
-		bottom: 0;
-		padding-top: 1em;
-		border-top: 1px solid #f6f6f6;
-		word-break: break-word;
-		}
-	#fupload {
-		top: 0;
-		padding-bottom: 1em;
-		border-bottom: 1px solid #aaa;
-		}
-
-.accept_drag {
-    outline: 5px dashed #999;
+.picture-manager-page .media-upload-panel {
+    position: relative;
+    display: grid;
+    gap: 0.55rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--admin-soft-border-color);
+    background: color-mix(in srgb, var(--admin-secondary-background) 42%, transparent);
 }
 
-#loading_pict {
-    top: 7px;
-    right: 0px;
+.picture-manager-page :is(.media-upload-panel, .media-folder-panel, .media-files-panel) h2 {
+    margin: 0;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+}
+
+.picture-manager-page .media-upload-target,
+.picture-manager-page .media-upload-limit,
+.picture-manager-page .media-files-panel > header p {
+    margin: 0;
+    color: var(--admin-secondary-text-color);
+}
+
+.picture-manager-page .media-upload-limit,
+.picture-manager-page .media-files-panel > header p {
+    font-size: 0.78rem;
+}
+
+.picture-manager-page .media-upload-button {
+    display: inline-flex;
+    width: fit-content;
+    min-height: 2.3rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem 0.8rem;
+    border: 1px solid color-mix(in srgb, var(--admin-accent-color) 55%, var(--admin-border-color));
+    border-radius: 0.4rem;
+    background: var(--admin-accent-color);
+    color: var(--admin-page-background);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.picture-manager-page .media-upload-button:hover {
+    filter: brightness(1.06);
+}
+
+.picture-manager-page .media-upload-button:has(+ input:focus-visible) {
+    outline: 2px solid var(--admin-accent-color);
+    outline-offset: 2px;
+}
+
+.picture-manager-page .media-upload-selection {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.8rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.picture-manager-page .media-upload-selection:empty {
+    display: none;
+}
+
+.picture-manager-page .media-folder-panel {
+    display: grid;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.65rem;
+    padding: 1rem 0 0;
+}
+
+.picture-manager-page .media-folder-panel h2 {
+    padding: 0 1rem;
+}
+
+.picture-manager-page #folders,
+.picture-manager-page #brd {
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    background: var(--admin-field-background);
+    color: var(--admin-text-color);
+}
+
+.picture-manager-page #folders {
+    padding: 0.35rem 0.7rem 0.8rem;
+    border-block: 1px solid var(--admin-soft-border-color);
+}
+
+.picture-manager-page #folders .jstree-leaf[data-fname] {
+    display: none;
+}
+
+.picture-manager-page #folders.jstree .jstree-leaf > a > .jstree-icon {
+    background-position: -55px -19px;
+}
+
+.picture-manager-page #folders .jstree-rename-input {
+    font-size: 0.875rem;
+}
+
+.picture-manager-page #folders.jstree a {
+    height: auto;
+    min-height: 1.5rem;
+    padding: 0.12rem 0.32rem;
+    border: 1px solid transparent;
+    border-radius: 0.3rem;
+    color: var(--admin-text-color);
+    line-height: 1.2rem;
+}
+
+.picture-manager-page #folders.jstree :is(.jstree-hovered, .jstree-clicked) {
+    padding: 0.12rem 0.32rem;
+    border-color: color-mix(in srgb, var(--admin-accent-color) 36%, var(--admin-soft-border-color));
+    background: color-mix(in srgb, var(--admin-accent-color) 10%, var(--admin-secondary-background));
+    color: var(--admin-text-color);
+    box-shadow: none;
+}
+
+.picture-manager-page #context_buttons {
+    display: inline-flex;
+    gap: 0.2rem;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+}
+
+.picture-manager-page #context_buttons button {
+    display: inline-flex;
+    width: 1.45rem;
+    height: 1.45rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--admin-secondary-background);
+    color: var(--admin-text-color);
+    font: inherit;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.picture-manager-page #context_buttons button:hover {
+    background: color-mix(in srgb, var(--admin-accent-color) 18%, var(--admin-secondary-background));
+}
+
+.picture-manager-page .media-selection-info {
+    min-height: 2.75rem;
+    padding: 0.7rem 1rem;
+    overflow-wrap: anywhere;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.picture-manager-page #file-wrap {
+    display: grid;
+    width: auto;
+    float: none;
+    grid-template-rows: auto minmax(0, 1fr);
+    margin: 0;
+    overflow: hidden;
+}
+
+.picture-manager-page .media-files-panel > header {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--admin-soft-border-color);
+    background: color-mix(in srgb, var(--admin-secondary-background) 42%, transparent);
+}
+
+.picture-manager-page #brd {
+    height: auto;
+    margin: 0;
+    padding: 1rem;
+    border: 0;
+}
+
+.picture-manager-page #files ul {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+}
+
+.picture-manager-page #files .jstree-leaf {
+    display: inline-block;
+    width: 8rem;
+    margin: 0 0.55rem 0.8rem 0;
+    vertical-align: top;
+    background: none;
+    overflow-wrap: anywhere;
+}
+
+.picture-manager-page #files.jstree a {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 0.4rem;
+    border: 1px solid transparent;
+    border-radius: 0.45rem;
+    color: var(--admin-text-color);
+    text-align: center;
+    white-space: break-spaces;
+}
+
+.picture-manager-page #files.jstree :is(.jstree-clicked, .jstree-hovered) {
+    border-color: color-mix(in srgb, var(--admin-accent-color) 36%, var(--admin-soft-border-color));
+    background: color-mix(in srgb, var(--admin-accent-color) 10%, var(--admin-secondary-background));
+}
+
+.picture-manager-page #files.jstree a.jstree-loading .jstree-icon,
+.picture-manager-page #files .jstree-leaf > ins {
+    display: none;
+}
+
+.picture-manager-page #files.jstree a > .jstree-icon {
+    display: block;
+    width: 6.25rem;
+    height: 6.25rem;
+    margin: 0 auto 0.25rem;
+    background-position-y: bottom !important;
+    background-size: contain !important;
+}
+
+.picture-manager-page #files.jstree a .no-preview {
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='none' stroke='%23777' stroke-width='2'%3E%3Cpath d='M62 50v8h8'/%3E%3Cpath d='m70 57-8-8H30v50h40z'/%3E%3C/svg%3E");
+}
+
+.picture-manager-page #files .jstree-rename-input {
+    position: absolute !important;
+    top: 6.65rem !important;
+    right: 0.25rem !important;
+    left: 0.25rem !important;
+    width: auto !important;
+    min-width: 0;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0.15rem 0.25rem !important;
+    border: 1px solid var(--admin-accent-color) !important;
+    background: var(--admin-field-background) !important;
+    color: var(--admin-text-color) !important;
+    font-size: 0.875rem;
+    text-align: center;
+    outline: 0 !important;
+}
+
+.picture-manager-page #loadstatus {
+    color: var(--admin-secondary-text-color);
+}
+
+.picture-manager-page .accept_drag {
+    outline: 3px dashed var(--admin-accent-color);
+    outline-offset: -0.4rem;
+}
+
+.picture-manager-page #loading_pict {
+    top: 1rem;
+    right: 1rem;
+}
+
+@media (max-width: 760px) {
+    .picture-manager-page.is-embedded,
+    .picture-manager-page.is-standalone {
+        height: auto;
+        min-height: 0;
+    }
+
+    .picture-manager-page #tree_div {
+        height: auto;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(26rem, auto) minmax(28rem, 70vh);
+    }
+
+    .picture-manager-page .media-files-panel > header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
 }

@@ -1513,7 +1513,7 @@ section.admin-extensions {
 
 /* Media manager */
 
-body.picture-manager-page {
+body.picture-manager-standalone {
     display: flex;
     height: 100vh;
     min-height: 0;
@@ -1530,11 +1530,6 @@ body.picture-manager-page {
     padding: 0.65rem 0.9rem;
     border-bottom: 1px solid var(--admin-soft-border-color);
     background: var(--admin-page-background);
-}
-
-.picture-manager-header h1 {
-    margin: 0;
-    font-size: 1.25rem;
 }
 
 .picture-manager-header > a:last-child {
@@ -1557,44 +1552,6 @@ body.picture-manager-page {
     font-family: Georgia, "Times New Roman", serif;
     font-size: 1.35rem;
     font-weight: 400;
-}
-
-.picture-manager-page #tree_div {
-    height: auto;
-    min-height: 0;
-    flex: 1 1 auto;
-    padding: 0.75rem;
-}
-
-.picture-manager-page :is(#brd, #folders) {
-    border: 1px solid var(--admin-soft-border-color);
-    border-radius: 0.35rem;
-    background: var(--admin-surface-background);
-    color: var(--admin-text-color);
-}
-
-.picture-manager-page :is(#fupload, #finfo) {
-    border-color: var(--admin-soft-border-color);
-    background: var(--admin-page-background);
-}
-
-.picture-manager-page #fupload {
-    padding: 0.75rem;
-}
-
-.picture-manager-page #files.jstree a,
-.picture-manager-page #folders.jstree a {
-    color: var(--admin-text-color);
-}
-
-.picture-manager-page #files .jstree-leaf {
-    margin: 0 0.5rem 0.8rem 0;
-    border-radius: 0.3rem;
-}
-
-.picture-manager-page #files .jstree-clicked,
-.picture-manager-page #files .jstree-hovered {
-    background: var(--admin-secondary-background);
 }
 
 /* Editor */
@@ -2440,27 +2397,6 @@ body.login_page {
 
     .picture-manager-brand > span:last-child {
         display: none;
-    }
-
-    .picture-manager-page #tree_div {
-        display: grid;
-        min-height: 44rem;
-        grid-template-rows: minmax(18rem, 45vh) minmax(24rem, 1fr);
-        gap: 0.65rem;
-        overflow: auto;
-    }
-
-    .picture-manager-page #tree_div > .treetree,
-    .picture-manager-page #file-wrap {
-        width: 100%;
-        height: 100%;
-        float: none;
-        margin: 0;
-    }
-
-    .picture-manager-page #brd {
-        height: 100%;
-        margin: 0;
     }
 
     html:has(> body > article > section.large-edit-form),

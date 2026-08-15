@@ -41,6 +41,7 @@ use S2\Cms\Admin\Controller\CommentControllerFactory;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
 use S2\Cms\Admin\Picture\PictureFileNameHelper;
+use S2\Cms\Admin\Picture\MediaConfigExtender;
 use S2\Cms\Admin\Picture\PictureManager;
 use S2\Cms\Admin\Picture\PictureReserveManager;
 use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
@@ -343,6 +344,11 @@ class AdminExtension implements ExtensionInterface
                 $container->getStringParameter('image_dir'),
             );
         });
+        $container->set(MediaConfigExtender::class, fn(Container $container): MediaConfigExtender => new MediaConfigExtender(
+            $container->get(PermissionChecker::class),
+            $container->get(TemplateRenderer::class),
+            $container->getStringParameter('image_path'),
+        ), [AdminConfigExtenderInterface::class]);
     }
 
     #[\Override]

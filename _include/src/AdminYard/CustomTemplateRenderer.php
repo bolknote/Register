@@ -60,6 +60,7 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
         $numberFormat      = $this->numberFormat(...);
         $styleColorScheme  = $this->styleColorScheme(...);
         $adminStyleVersion = $this->adminStyleVersion(...);
+        $adminAssetVersion = $this->adminAssetVersion(...);
         $basePath          = $this->basePath;
         [$extraStyles, $extraScripts] = $this->getExtraAssets();
 
@@ -179,14 +180,23 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
 
     private function adminStyleVersion(): string
     {
-        $filename = $this->rootDir . '_admin/css/register.css';
+        return $this->adminAssetVersion('_admin/css/register.css');
+    }
+
+    private function adminAssetVersion(string $assetPath): string
+    {
+        if (!str_starts_with($assetPath, '_admin/') || str_contains($assetPath, '..')) {
+            throw new \InvalidArgumentException('Only administration assets can be versioned.');
+        }
+
+        $filename = $this->rootDir . $assetPath;
         if (!\is_file($filename)) {
-            throw new \LogicException('The administration stylesheet does not exist.');
+            throw new \LogicException(sprintf('The administration asset "%s" does not exist.', $assetPath));
         }
 
         $modifiedAt = \filemtime($filename);
         if ($modifiedAt === false) {
-            throw new \LogicException('Unable to read the administration stylesheet modification time.');
+            throw new \LogicException(sprintf('Unable to read the modification time of "%s".', $assetPath));
         }
 
         return (string)$modifiedAt;

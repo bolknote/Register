@@ -8,7 +8,8 @@
  * @package S2
  */
 
-var pictureManagerConfig = document.documentElement.dataset;
+var pictureManagerRoot = document.querySelector('[data-picture-manager]');
+var pictureManagerConfig = pictureManagerRoot ? pictureManagerRoot.dataset : document.documentElement.dataset;
 var sUrl = pictureManagerConfig.ajaxUrl || '';
 var sPicturePrefix = pictureManagerConfig.picturePrefix || '';
 var iMaxFileSize = Number.parseInt(pictureManagerConfig.maxFileSize || '0', 10);
@@ -87,6 +88,12 @@ function audioTitle(fileName) {
 
 $(function () {
     document.querySelector('input[name="pictures[]"]')?.addEventListener('change', function () {
+        const selection = pictureManagerRoot?.querySelector('[data-media-upload-selection]');
+        if (selection) {
+            selection.textContent = Array.from(this.files || []).map(function (file) {
+                return file.name;
+            }).join(', ');
+        }
         UploadChange(this);
     });
 
@@ -124,7 +131,19 @@ $(function () {
 
     initFileDrop();
 
-    var eButtons = $('<span><img src="i/1.gif" id="context_add" alt="' + s2_lang.create_subfolder + '" /><img src="i/1.gif" id="context_delete" alt="' + s2_lang.delete_folder + '" /></span>').attr('id', 'context_buttons');
+    var eButtons = $('<span>').attr('id', 'context_buttons');
+    $('<button>', {
+        type: 'button',
+        id: 'context_add',
+        title: s2_lang.create_subfolder,
+        'aria-label': s2_lang.create_subfolder
+    }).text('+').appendTo(eButtons);
+    $('<button>', {
+        type: 'button',
+        id: 'context_delete',
+        title: s2_lang.delete_folder,
+        'aria-label': s2_lang.delete_folder
+    }).text('−').appendTo(eButtons);
     $('body').append(eButtons);
     initContext();
     eButtons.detach();
@@ -679,6 +698,10 @@ function UploadSubmit(eForm) {
     FileCounter(0, 0);
     handleFileUpload(data, () => {
         eForm['pictures[]'].value = '';
+        const selection = pictureManagerRoot?.querySelector('[data-media-upload-selection]');
+        if (selection) {
+            selection.textContent = '';
+        }
     });
 }
 

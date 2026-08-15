@@ -51,7 +51,7 @@ class AdminCest
         $I->dontSeeElement('details.main-menu-system');
         $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=BlogPost&action=list"]');
         $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Article&action=list"]');
-        $I->seeElement('details[data-menu-group="Materials"] a[href="pictman.php"]');
+        $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Media"]');
         $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Tag&action=list"]');
         $I->seeElement('details[data-menu-group="Account"] a[href^="?entity=User&action=edit&id="]');
         $I->seeElement('details[data-menu-group="Account"] a[href="?entity=Session&action=list"]');
@@ -142,6 +142,15 @@ class AdminCest
         $I->seeElement('.admin-structure > .structure-toolbar');
         $I->dontSeeElement('.admin-structure > .toolbar');
         $I->seeElement('button#create_page_button');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Media');
+        $I->see('Media', 'h1#media-library-title');
+        $I->seeElement('header.admin-shell');
+        $I->seeElement('a.main-menu-link[aria-current="page"][href="?entity=Media"]');
+        $I->seeElement('section.picture-manager-page.is-embedded[data-picture-manager]');
+        $I->seeElement('label[for="media-upload-input"]');
+        $I->seeElement('#folders[aria-label="Folders"]');
+        $I->seeElement('#files[aria-label="Files"]');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=SystemModules');
         $I->see('System modules', 'h1');
