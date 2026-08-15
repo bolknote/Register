@@ -2017,6 +2017,10 @@ ul.back_forward .empty {
         min-height: 2.75rem;
     }
 
+    .blog-all-posts-list nobr {
+        white-space: normal;
+    }
+
     #header {
         padding-top: 2.4rem;
     }

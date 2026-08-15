@@ -58,6 +58,15 @@ final class BlogAllPostsCest
         $I->assertSame(0, (int)$configuredPrefix);
     }
 
+    public function testMissingPostUsesAVisiblePageHeading(\IntegrationTester $I): void
+    {
+        $I->amOnPage('/missing-post-layout-test');
+
+        $I->seeResponseCodeIs(Response::HTTP_NOT_FOUND);
+        $I->see('No posts', 'h1');
+        $I->dontSeeElement('#content > p:first-child');
+    }
+
     private function insertPost(
         DbLayer $dbLayer,
         string $title,

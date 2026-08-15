@@ -3149,6 +3149,18 @@ body.login_page {
 }
 
 @media (max-width: 520px) {
+    .loginform input:not([type="checkbox"]),
+    .loginform .login-actions button,
+    .login-recovery input,
+    .login-recovery button {
+        min-height: 2.75rem;
+    }
+
+    .loginform .login-session-option {
+        min-height: 2.75rem;
+        align-items: center;
+    }
+
     .loginform .login-actions {
         display: grid;
         grid-template-columns: minmax(0, 1fr);

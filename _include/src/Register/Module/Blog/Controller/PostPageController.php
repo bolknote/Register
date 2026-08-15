@@ -132,9 +132,11 @@ class PostPageController extends BlogController
 
         $row = $result->fetchAssoc();
         if ($row === false) {
+            $notFoundTitle = $this->translator->trans('Not found');
             $template
-                ->putInPlaceholder('head_title', $this->translator->trans('Not found'))
-                ->putInPlaceholder('text', '<p>' . $this->translator->trans('Not found') . '</p>')
+                ->putInPlaceholder('head_title', $notFoundTitle)
+                ->putInPlaceholder('title', s2_htmlencode($notFoundTitle))
+                ->putInPlaceholder('text', '')
             ;
 
             return $template->toHttpResponse()->setStatusCode(Response::HTTP_NOT_FOUND);
