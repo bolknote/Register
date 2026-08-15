@@ -47,6 +47,7 @@ use Register\Module\Search\Admin\SearchIndexHealth;
 use Register\Module\Search\Layout\LayoutMatcherFactory;
 use Register\Module\Search\Morphology\HybridWordNormalizer;
 use Register\Module\Search\Morphology\OpenCorporaDictionary;
+use Register\Module\Search\Morphology\PreReformRussianNormalizer;
 use Register\Module\Search\Rose\CustomExtractor;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\ContentIndexer;
@@ -87,8 +88,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $container->set(OpenCorporaDictionary::class, static fn(): OpenCorporaDictionary => new OpenCorporaDictionary(
             __DIR__ . '/resources/morphology/ru',
         ));
+        $container->set(PreReformRussianNormalizer::class, new PreReformRussianNormalizer());
         $container->set(WordNormalizerInterface::class, static fn(Container $container): HybridWordNormalizer => new HybridWordNormalizer(
             $container->get(OpenCorporaDictionary::class),
+            $container->get(PreReformRussianNormalizer::class),
             new PorterStemmerRussian(new PorterStemmerEnglish()),
         ));
         $container->set(StemmerInterface::class, static fn(Container $container): WordNormalizerInterface => $container->get(WordNormalizerInterface::class));

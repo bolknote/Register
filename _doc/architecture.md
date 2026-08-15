@@ -86,8 +86,11 @@ tooling rather than an installation step.
 Russian words known to OpenCorpora are indexed by all their dictionary normal forms; this covers
 irregular and suppletive forms such as `люди` → `человек` and preserves ambiguity such as `стали` →
 `стать`/`сталь`. Unknown Russian words and non-Russian words fall back to the existing Russian/English
-Porter chain. Morphology runs in PHP above Rose's storage layer, so SQLite, MySQL/MariaDB, and PostgreSQL
-share the same index and query semantics. The bundled search subset is
+Porter chain. Before morphology, pre-1918 Russian letters (`ѣ`, `і`, `ѳ`, `ѵ`) and word-final `ъ` are
+converted to modern search spellings. Historical adjective endings are converted only when the resulting
+form exists in OpenCorpora, avoiding false rewrites of modern words such as `Чикаго`. Morphology runs in
+PHP above Rose's storage layer, so SQLite, MySQL/MariaDB, and PostgreSQL share the same index and query
+semantics. The bundled search subset is
 `pymorphy3-dicts-ru` 2.4.417150.4580142; its version is part of each document hash, which makes the
 normal index-health repair path reindex unchanged documents after a morphology upgrade.
 

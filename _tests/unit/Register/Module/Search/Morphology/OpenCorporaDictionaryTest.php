@@ -12,6 +12,7 @@ namespace unit\Register\Module\Search\Morphology;
 use Codeception\Test\Unit;
 use Register\Module\Search\Morphology\HybridWordNormalizer;
 use Register\Module\Search\Morphology\OpenCorporaDictionary;
+use Register\Module\Search\Morphology\PreReformRussianNormalizer;
 use Register\Module\Search\Service\SimilarWordsDetector;
 use S2\Rose\Entity\Indexable;
 use S2\Rose\Entity\Query;
@@ -48,13 +49,33 @@ final class OpenCorporaDictionaryTest extends Unit
     public function testHybridNormalizerFallsBackToPorter(): void
     {
         $fallback   = new PorterStemmerRussian(new PorterStemmerEnglish());
-        $normalizer = new HybridWordNormalizer($this->dictionary(), $fallback);
+        $normalizer = new HybridWordNormalizer(
+            $this->dictionary(),
+            new PreReformRussianNormalizer(),
+            $fallback,
+        );
         $unknown    = 'шмякозаврами';
 
         self::assertSame(['человек'], $normalizer->normalizeWord('люди'));
         self::assertSame($fallback->stemWord('люди'), $normalizer->stemWord('люди'));
         self::assertSame([$fallback->stemWord($unknown)], $normalizer->normalizeWord($unknown));
         self::assertSame([$fallback->stemWord('Searching')], $normalizer->normalizeWord('Searching'));
+    }
+
+    /** @dataProvider preReformSpellingProvider */
+    public function testHybridNormalizerMatchesModernAndPreReformSpellings(string $oldSpelling, string $modernSpelling): void
+    {
+        $normalizer = $this->normalizer();
+
+        self::assertSame(
+            $normalizer->normalizeWord($modernSpelling),
+            $normalizer->normalizeWord($oldSpelling),
+        );
+    }
+
+    public function testModernWordEndingIsNotMistakenForPreReformGrammar(): void
+    {
+        self::assertSame(['чикаго'], $this->normalizer()->normalizeWord('Чикаго'));
     }
 
     public function testDictionaryLemmasWorkThroughRoseIndexSearchAndHighlighting(): void
@@ -64,6 +85,7 @@ final class OpenCorporaDictionaryTest extends Unit
 
         $normalizer = new HybridWordNormalizer(
             $this->dictionary(),
+            new PreReformRussianNormalizer(),
             new PorterStemmerRussian(new PorterStemmerEnglish()),
         );
         $indexer = new Indexer($storage, $normalizer);
@@ -92,10 +114,53 @@ final class OpenCorporaDictionaryTest extends Unit
         );
     }
 
+    public function testPreReformSpellingsWorkThroughRoseInBothDirections(): void
+    {
+        $storage = new PdoStorage(new \PDO('sqlite::memory:'), 'pre_reform_test_');
+        $storage->erase();
+
+        $normalizer = $this->normalizer();
+        $indexer    = new Indexer($storage, $normalizer);
+        $indexer->index(new Indexable('old', 'Старая орѳографія', 'Дѣти читали про міръ и новыя книги.'));
+        $indexer->index(new Indexable('modern', 'Современный текст', 'Фома посетил синод. Это страница хорошего журнала.'));
+
+        $finder = new Finder($storage, $normalizer);
+        $finder->setHighlightTemplate('<b>%s</b>');
+
+        foreach (['дети', 'мир', 'новые'] as $modernQuery) {
+            self::assertSame(
+                ['old'],
+                array_map(
+                    static fn(ResultItem $item): string => $item->getId(),
+                    $finder->find(new Query($modernQuery))->getItems(),
+                ),
+                $modernQuery,
+            );
+        }
+
+        foreach (['Ѳома', 'сѵнодъ', 'хорошаго'] as $oldQuery) {
+            self::assertSame(
+                ['modern'],
+                array_map(
+                    static fn(ResultItem $item): string => $item->getId(),
+                    $finder->find(new Query($oldQuery))->getItems(),
+                ),
+                $oldQuery,
+            );
+        }
+
+        $children = $finder->find(new Query('дети'))->getItems();
+        self::assertSame('<b>Дѣти</b> читали про міръ и новыя книги.', $children[0]->getSnippet());
+
+        $foma = $finder->find(new Query('Ѳома'))->getItems();
+        self::assertSame('<b>Фома</b> посетил синод.', $foma[0]->getSnippet());
+    }
+
     public function testTagSimilarityUsesEveryAmbiguousNormalForm(): void
     {
         $normalizer = new HybridWordNormalizer(
             $this->dictionary(),
+            new PreReformRussianNormalizer(),
             new PorterStemmerRussian(new PorterStemmerEnglish()),
         );
         $detector = new SimilarWordsDetector($normalizer);
@@ -113,6 +178,32 @@ final class OpenCorporaDictionaryTest extends Unit
         yield 'irregular verb' => ['будешь', ['быть']];
         yield 'е spelling finds ё' => ['елки', ['ёлка']];
         yield 'ё spelling stays supported' => ['ёлки', ['ёлка']];
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function preReformSpellingProvider(): iterable
+    {
+        yield 'yat' => ['дѣти', 'дети'];
+        yield 'decimal i' => ['Россія', 'Россия'];
+        yield 'fita' => ['Ѳома', 'Фома'];
+        yield 'izhitsa and final hard sign' => ['сѵнодъ', 'синод'];
+        yield 'final hard sign' => ['міръ', 'мир'];
+        yield 'hard adjective ending' => ['новаго', 'нового'];
+        yield 'sibilant adjective ending' => ['хорошаго', 'хорошего'];
+        yield 'soft adjective ending' => ['дальняго', 'дальнего'];
+        yield 'feminine plural hard ending' => ['новыя', 'новые'];
+        yield 'feminine plural soft ending' => ['хорошія', 'хорошие'];
+        yield 'feminine pronoun' => ['онѣ', 'они'];
+        yield 'feminine pronoun case form' => ['однѣхъ', 'одних'];
+    }
+
+    private function normalizer(): HybridWordNormalizer
+    {
+        return new HybridWordNormalizer(
+            $this->dictionary(),
+            new PreReformRussianNormalizer(),
+            new PorterStemmerRussian(new PorterStemmerEnglish()),
+        );
     }
 
     private function dictionary(): OpenCorporaDictionary
