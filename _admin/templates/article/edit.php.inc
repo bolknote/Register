@@ -369,7 +369,7 @@ $renderControl = static function (
                         <p class="content-editor-note"><?= $trans('Preview after first save') ?></p>
                     <?php else: ?>
                         <p class="editor-preview-link">
-                            <a target="_blank" title="<?= $trans('Preview published') ?>" href="#" id="preview_link"><?= $trans('Preview ready') ?></a>
+                            <a target="_blank" title="<?= $trans('Preview published') ?>" href="#" id="preview_link" <?= $publicationState === 'published' ? '' : 'hidden' ?>><?= $trans('Preview ready') ?></a>
                         </p>
                     <?php endif; ?>
                     <?php if ($publicationControls !== []): ?>

@@ -42,7 +42,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             if (currentStatusData) {
                 ePreviewLink.href = currentStatusData['url'];
             }
-            ePreviewLink.style.display = isPublished ? 'inline' : 'none';
+            ePreviewLink.hidden = !isPublished;
         }
     }
 

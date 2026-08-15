@@ -153,6 +153,7 @@ final class ContentSecurityPolicyTest extends Unit
         foreach ([
             $root . '/_admin/js/structure.js',
             $root . '/_admin/js/pictman.js',
+            $root . '/_admin/js/editor/form.js',
             $root . '/_admin/js/editor/images/pipeline.js',
         ] as $filename) {
             $source = file_get_contents($filename);
