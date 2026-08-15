@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Backup;
 
 use Psr\Log\LoggerInterface;
+use S2\Cms\Security\Audit\SecurityAuditLogger;
 
 final readonly class BackupManager
 {
@@ -20,6 +21,7 @@ final readonly class BackupManager
     public function __construct(
         private DatabaseSnapshotter $databaseSnapshotter,
         private LoggerInterface     $logger,
+        private SecurityAuditLogger $securityAuditLogger,
         private string              $backupDirectory,
         private string              $imageDirectory,
         private int                 $retention,
@@ -44,14 +46,36 @@ final readonly class BackupManager
     {
         $now ??= time();
 
-        return $this->withLock(function () use ($now): ?BackupFile {
-            $latestCreatedAt = $this->latestUnlocked()?->createdAt;
-            if ($latestCreatedAt !== null && $latestCreatedAt > $now - self::AUTOMATIC_INTERVAL_SECONDS) {
-                return null;
-            }
+        try {
+            $backup = $this->withLock(function () use ($now): ?BackupFile {
+                $latestCreatedAt = $this->latestUnlocked()?->createdAt;
+                if ($latestCreatedAt !== null && $latestCreatedAt > $now - self::AUTOMATIC_INTERVAL_SECONDS) {
+                    return null;
+                }
 
-            return $this->createLocked($now);
-        });
+                return $this->createLocked($now);
+            });
+        } catch (\Throwable $throwable) {
+            $this->securityAuditLogger->backupOperation(
+                null,
+                'create',
+                'scheduled',
+                SecurityAuditLogger::OUTCOME_FAILURE,
+            );
+
+            throw $throwable;
+        }
+
+        if ($backup instanceof BackupFile) {
+            $this->securityAuditLogger->backupOperation(
+                null,
+                'create',
+                'scheduled',
+                SecurityAuditLogger::OUTCOME_SUCCESS,
+            );
+        }
+
+        return $backup;
     }
 
     public function latest(): ?BackupFile
@@ -278,7 +302,20 @@ TEXT;
             $oldest = $backups[$candidateIndex];
             array_splice($backups, $candidateIndex, 1);
             if (!s2_call_without_warnings(static fn(): bool => unlink($oldest->path))) {
+                $this->securityAuditLogger->backupOperation(
+                    null,
+                    'prune',
+                    'retention',
+                    SecurityAuditLogger::OUTCOME_FAILURE,
+                );
                 $this->logger->warning('Unable to remove an expired Register backup.', ['file' => $oldest->name]);
+            } else {
+                $this->securityAuditLogger->backupOperation(
+                    null,
+                    'prune',
+                    'retention',
+                    SecurityAuditLogger::OUTCOME_SUCCESS,
+                );
             }
         }
     }

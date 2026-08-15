@@ -12,6 +12,7 @@ namespace S2\Cms\Model;
 use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Security\Audit\SecurityAuditLogger;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -45,6 +46,7 @@ readonly class AuthManager
         private TemplateRenderer  $templateRenderer,
         private Translator        $translator,
         private LoginRateLimiter  $loginRateLimiter,
+        private SecurityAuditLogger $securityAuditLogger,
         private string            $basePath,
         private string            $baseUrl,
         private string            $cookieName,
@@ -212,7 +214,7 @@ readonly class AuthManager
     }
 
     /** @throws DbLayerException */
-    public function loginVerifiedUser(Request $request, int $userId, bool $remember): JsonResponse
+    public function loginVerifiedUser(Request $request, int $userId, bool $remember, string $authMethod): JsonResponse
     {
         $result = $this->dbLayer
             ->select('login')
@@ -223,12 +225,18 @@ readonly class AuthManager
         $login = $result->result();
         $result->freeResult();
         if (!\is_string($login) || $login === '') {
+            $this->securityAuditLogger->authentication(
+                $request,
+                $authMethod,
+                SecurityAuditLogger::OUTCOME_FAILURE,
+            );
+
             return $this->createAjaxErrorLoginPasswordResponse();
         }
 
         $this->loginRateLimiter->clear($request->getClientIp() ?? '', $login);
 
-        return $this->successLogin($request, $login, !$remember);
+        return $this->successLogin($request, $login, !$remember, $authMethod, $userId);
     }
 
     /** @throws DbLayerException */
@@ -393,16 +401,36 @@ readonly class AuthManager
 
         $retryAfter = $this->loginRateLimiter->retryAfter($clientIp, $login);
         if ($retryAfter > 0) {
+            $this->securityAuditLogger->authentication(
+                $request,
+                SecurityAuditLogger::AUTH_PASSWORD,
+                SecurityAuditLogger::OUTCOME_RATE_LIMITED,
+                login: $login,
+            );
+
             return $this->createRateLimitedLoginResponse($retryAfter);
         }
 
         if ($login === '') {
             $this->loginRateLimiter->recordFailure($clientIp, $login);
+            $this->securityAuditLogger->authentication(
+                $request,
+                SecurityAuditLogger::AUTH_PASSWORD,
+                SecurityAuditLogger::OUTCOME_FAILURE,
+            );
+
             return $this->createAjaxErrorLoginPasswordResponse();
         }
 
         if ($password === '') {
             $this->loginRateLimiter->recordFailure($clientIp, $login);
+            $this->securityAuditLogger->authentication(
+                $request,
+                SecurityAuditLogger::AUTH_PASSWORD,
+                SecurityAuditLogger::OUTCOME_FAILURE,
+                login: $login,
+            );
+
             return $this->createAjaxErrorLoginPasswordResponse();
         }
 
@@ -418,6 +446,13 @@ readonly class AuthManager
         $hashMatches = password_verify($password, $hashToVerify);
         if ($passwordHash === null || !$hashMatches) {
             $this->loginRateLimiter->recordFailure($clientIp, $login);
+            $this->securityAuditLogger->authentication(
+                $request,
+                SecurityAuditLogger::AUTH_PASSWORD,
+                SecurityAuditLogger::OUTCOME_FAILURE,
+                login: $login,
+            );
+
             return $this->createAjaxErrorLoginPasswordResponse();
         }
 
@@ -428,7 +463,13 @@ readonly class AuthManager
         $this->loginRateLimiter->clear($clientIp, $login);
 
         // Everything is Ok.
-        return $this->successLogin($request, $login, !$request->request->getBoolean('remember_me'));
+        return $this->successLogin(
+            $request,
+            $login,
+            !$request->request->getBoolean('remember_me'),
+            SecurityAuditLogger::AUTH_PASSWORD,
+            $this->getUserId($login),
+        );
     }
 
     /**
@@ -447,6 +488,21 @@ readonly class AuthManager
         $row = $result->fetchRow();
 
         return $row === false ? null : (string)$row[0];
+    }
+
+    /** @throws DbLayerException */
+    private function getUserId(string $login): ?int
+    {
+        $userId = $this->dbLayer
+            ->select('id')
+            ->from('users')
+            ->where('login = :login')
+            ->setParameter('login', $login)
+            ->execute()
+            ->result()
+        ;
+
+        return is_numeric($userId) ? (int)$userId : null;
     }
 
     /**
@@ -480,7 +536,13 @@ readonly class AuthManager
     /**
      * @throws DbLayerException
      */
-    private function successLogin(Request $request, string $login, bool $temporary): JsonResponse
+    private function successLogin(
+        Request $request,
+        string $login,
+        bool $temporary,
+        string $authMethod,
+        ?int $userId = null,
+    ): JsonResponse
     {
         $time          = time();
         $sessionId     = $this->createSessionToken($temporary, $time);
@@ -505,6 +567,13 @@ readonly class AuthManager
         $expiresAt = $temporary ? 0 : $time + self::PERSISTENT_SESSION_LIFETIME;
         $response->headers->setCookie($this->createAdminCookie($sessionId, $secureCookies, $expiresAt));
         $response->headers->setCookie($this->createCommentCookie($commentCookie, $secureCookies, $expiresAt));
+        $this->securityAuditLogger->authentication(
+            $request,
+            $authMethod,
+            SecurityAuditLogger::OUTCOME_SUCCESS,
+            $userId,
+            $login,
+        );
 
         return $response;
     }

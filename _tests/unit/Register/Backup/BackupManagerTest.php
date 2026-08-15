@@ -13,6 +13,8 @@ use Codeception\Test\Unit;
 use Psr\Log\NullLogger;
 use Register\Backup\BackupManager;
 use Register\Backup\DatabaseSnapshotter;
+use S2\Cms\Comment\Antispam\SpamIdentityHasher;
+use S2\Cms\Security\Audit\SecurityAuditLogger;
 
 final class BackupManagerTest extends Unit
 {
@@ -168,6 +170,7 @@ final class BackupManagerTest extends Unit
             new BackupManager(
                 new DatabaseSnapshotter($pdo, 'sqlite', '', $database, '', ''),
                 new NullLogger(),
+                new SecurityAuditLogger($directory . '/security-audit.jsonl', new SpamIdentityHasher(str_repeat('a', 32))),
                 $directory . '/backups',
                 $directory . '/media',
                 $retention,

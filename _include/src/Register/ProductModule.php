@@ -51,6 +51,7 @@ use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Security\Audit\SecurityAuditLogger;
 
 /**
  * Registers services owned by the Register product rather than the reusable S2 foundation.
@@ -76,6 +77,7 @@ readonly class ProductModule implements ContainerModuleInterface
         $container->set(BackupManager::class, static fn(Container $container): BackupManager => new BackupManager(
             $container->get(DatabaseSnapshotter::class),
             $container->get(\Psr\Log\LoggerInterface::class),
+            $container->get(SecurityAuditLogger::class),
             $container->getStringParameter('backup_dir'),
             $container->getStringParameter('image_dir'),
             $container->getIntParameter('backup_retention'),

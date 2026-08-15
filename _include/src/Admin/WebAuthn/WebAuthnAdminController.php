@@ -14,6 +14,7 @@ use S2\AdminYard\Translator;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\LoginRateLimiter;
 use S2\Cms\Model\PermissionChecker;
+use S2\Cms\Security\Audit\SecurityAuditLogger;
 use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
 use S2\Cms\Security\WebAuthn\WebAuthnCredentialRepository;
 use S2\Cms\Security\WebAuthn\WebAuthnService;
@@ -53,6 +54,7 @@ final readonly class WebAuthnAdminController
         private LoginRateLimiter             $loginRateLimiter,
         private Translator                   $translator,
         private LoggerInterface              $logger,
+        private SecurityAuditLogger          $securityAuditLogger,
         private string                       $basePath,
         private string                       $cookieName,
         private bool                         $secureAdmin,
@@ -91,6 +93,12 @@ final readonly class WebAuthnAdminController
         $rateLimitKey = $this->publicRateLimitKey($request);
         $retryAfter = $this->loginRateLimiter->retryAfter($request->getClientIp() ?? '', $rateLimitKey);
         if ($retryAfter > 0) {
+            $this->securityAuditLogger->authentication(
+                $request,
+                $this->authenticationMethod($request),
+                SecurityAuditLogger::OUTCOME_RATE_LIMITED,
+                login: $this->authenticationLogin($request),
+            );
             $response = $this->error('Too many login attempts. Try again later.', Response::HTTP_TOO_MANY_REQUESTS);
             $response->headers->set('Retry-After', (string)$retryAfter);
 
@@ -112,6 +120,12 @@ final readonly class WebAuthnAdminController
         } catch (\Throwable $throwable) {
             if ($this->action($request) !== self::ACTION_AUTH_OPTIONS) {
                 $this->loginRateLimiter->recordFailure($request->getClientIp() ?? '', $rateLimitKey);
+                $this->securityAuditLogger->authentication(
+                    $request,
+                    $this->authenticationMethod($request),
+                    SecurityAuditLogger::OUTCOME_FAILURE,
+                    login: $this->authenticationLogin($request),
+                );
             }
 
             $this->logger->notice('A public WebAuthn operation was rejected.', [
@@ -130,6 +144,8 @@ final readonly class WebAuthnAdminController
         }
 
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW)) {
+            $this->auditCredentialOperation($request, SecurityAuditLogger::OUTCOME_DENIED);
+
             return $this->error('No permission.', Response::HTTP_FORBIDDEN);
         }
 
@@ -142,8 +158,11 @@ final readonly class WebAuthnAdminController
                 default => new JsonResponse(['success' => false], Response::HTTP_NOT_FOUND),
             };
         } catch (\InvalidArgumentException $exception) {
+            $this->auditCredentialOperation($request, SecurityAuditLogger::OUTCOME_FAILURE);
+
             return $this->error($exception->getMessage(), Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (\Throwable $throwable) {
+            $this->auditCredentialOperation($request, SecurityAuditLogger::OUTCOME_FAILURE);
             $this->logger->notice('An authenticated WebAuthn operation was rejected.', [
                 'action'    => $this->action($request),
                 'user_id'   => $this->permissionChecker->getUserId(),
@@ -190,7 +209,12 @@ final readonly class WebAuthnAdminController
             $request->cookies->get($this->ceremonyCookieName(), ''),
             $this->credentialJson($request),
         );
-        $response = $this->authManager->loginVerifiedUser($request, $result['user_id'], $result['remember']);
+        $response = $this->authManager->loginVerifiedUser(
+            $request,
+            $result['user_id'],
+            $result['remember'],
+            SecurityAuditLogger::AUTH_PASSKEY,
+        );
         $response->headers->setCookie($this->ceremonyCookie('', $request));
 
         return $response;
@@ -204,7 +228,12 @@ final readonly class WebAuthnAdminController
             throw new \RuntimeException('Invalid recovery code.');
         }
 
-        return $this->authManager->loginVerifiedUser($request, $userId, $request->request->getBoolean('remember_me'));
+        return $this->authManager->loginVerifiedUser(
+            $request,
+            $userId,
+            $request->request->getBoolean('remember_me'),
+            SecurityAuditLogger::AUTH_RECOVERY_CODE,
+        );
     }
 
     private function registrationOptions(Request $request): JsonResponse
@@ -241,6 +270,11 @@ final readonly class WebAuthnAdminController
             ],
         ]);
         $response->headers->setCookie($this->ceremonyCookie('', $request));
+        $this->securityAuditLogger->credentialChanged(
+            $this->requireUserId(),
+            'passkey_register',
+            SecurityAuditLogger::OUTCOME_SUCCESS,
+        );
 
         return $response;
     }
@@ -254,9 +288,15 @@ final readonly class WebAuthnAdminController
             throw new \InvalidArgumentException('Invalid passkey identifier.');
         }
 
-        return new JsonResponse([
-            'success' => $this->credentialRepository->delete($this->requireUserId(), $hash),
-        ]);
+        $userId  = $this->requireUserId();
+        $deleted = $this->credentialRepository->delete($userId, $hash);
+        $this->securityAuditLogger->credentialChanged(
+            $userId,
+            'passkey_delete',
+            $deleted ? SecurityAuditLogger::OUTCOME_SUCCESS : SecurityAuditLogger::OUTCOME_FAILURE,
+        );
+
+        return new JsonResponse(['success' => $deleted]);
     }
 
     private function regenerateRecoveryCodes(Request $request): JsonResponse
@@ -264,10 +304,18 @@ final readonly class WebAuthnAdminController
         $this->requireCsrf($request, self::CSRF_RECOVERY);
         $this->requirePassword($request);
 
-        return new JsonResponse([
+        $userId = $this->requireUserId();
+        $response = new JsonResponse([
             'success' => true,
-            'codes'   => $this->recoveryCodeRepository->regenerate($this->requireUserId()),
+            'codes'   => $this->recoveryCodeRepository->regenerate($userId),
         ]);
+        $this->securityAuditLogger->credentialChanged(
+            $userId,
+            'recovery_codes_regenerate',
+            SecurityAuditLogger::OUTCOME_SUCCESS,
+        );
+
+        return $response;
     }
 
     private function requirePassword(Request $request): void
@@ -329,6 +377,34 @@ final readonly class WebAuthnAdminController
         return $this->action($request) === self::ACTION_RECOVERY_LOGIN
             ? $request->request->getString('login')
             : 'webauthn-passkey';
+    }
+
+    private function authenticationMethod(Request $request): string
+    {
+        return $this->action($request) === self::ACTION_RECOVERY_LOGIN
+            ? SecurityAuditLogger::AUTH_RECOVERY_CODE
+            : SecurityAuditLogger::AUTH_PASSKEY;
+    }
+
+    private function authenticationLogin(Request $request): string
+    {
+        return $this->action($request) === self::ACTION_RECOVERY_LOGIN
+            ? $request->request->getString('login')
+            : '';
+    }
+
+    private function auditCredentialOperation(Request $request, string $outcome): void
+    {
+        $userId = $this->permissionChecker->getUserId();
+        $operation = match ($this->action($request)) {
+            self::ACTION_REGISTER_OPTIONS, self::ACTION_REGISTER_FINISH => 'passkey_register',
+            self::ACTION_DELETE => 'passkey_delete',
+            self::ACTION_RECOVERY_REGENERATE => 'recovery_codes_regenerate',
+            default => null,
+        };
+        if ($userId !== null && $operation !== null) {
+            $this->securityAuditLogger->credentialChanged($userId, $operation, $outcome);
+        }
     }
 
     private function error(string $message, int $status): JsonResponse

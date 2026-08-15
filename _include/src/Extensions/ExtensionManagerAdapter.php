@@ -18,6 +18,7 @@ use S2\AdminYard\Translator;
 use S2\Cms\Admin\AdminConfigExtenderInterface;
 use S2\Cms\Framework\Exception\AccessDeniedException;
 use S2\Cms\Model\PermissionChecker;
+use S2\Cms\Security\Audit\SecurityAuditLogger;
 use Psr\Cache\InvalidArgumentException;
 use S2\Cms\Pdo\DbLayerException;
 
@@ -29,6 +30,7 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
         private Translator              $translator,
         private SettingStorageInterface  $settingStorage,
         private TemplateRenderer        $templateRenderer,
+        private SecurityAuditLogger      $securityAuditLogger,
     ) {
     }
 
@@ -73,10 +75,24 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
         $id = $this->cleanupExtensionId($id);
 
         if ($csrfToken === '' || !hash_equals($this->getCsrfToken($id), $csrfToken)) {
+            $this->audit($id, 'install', SecurityAuditLogger::OUTCOME_DENIED);
             throw new AccessDeniedException('Invalid CSRF token!');
         }
 
-        return $this->extensionManager->installExtension($id);
+        try {
+            $errors = $this->extensionManager->installExtension($id);
+            $this->audit(
+                $id,
+                'install',
+                $errors === [] ? SecurityAuditLogger::OUTCOME_SUCCESS : SecurityAuditLogger::OUTCOME_FAILURE,
+            );
+
+            return $errors;
+        } catch (\Throwable $throwable) {
+            $this->audit($id, 'install', SecurityAuditLogger::OUTCOME_FAILURE);
+
+            throw $throwable;
+        }
     }
 
     /**
@@ -87,10 +103,24 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
         $id = $this->cleanupExtensionId($id);
 
         if ($csrfToken === '' || !hash_equals($this->getCsrfToken($id), $csrfToken)) {
+            $this->audit($id, 'uninstall', SecurityAuditLogger::OUTCOME_DENIED);
             throw new AccessDeniedException('Invalid CSRF token!');
         }
 
-        return $this->extensionManager->uninstallExtension($id);
+        try {
+            $error = $this->extensionManager->uninstallExtension($id);
+            $this->audit(
+                $id,
+                'uninstall',
+                $error === null ? SecurityAuditLogger::OUTCOME_SUCCESS : SecurityAuditLogger::OUTCOME_FAILURE,
+            );
+
+            return $error;
+        } catch (\Throwable $throwable) {
+            $this->audit($id, 'uninstall', SecurityAuditLogger::OUTCOME_FAILURE);
+
+            throw $throwable;
+        }
     }
 
     /**
@@ -101,10 +131,24 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
         $id = $this->cleanupExtensionId($id);
 
         if ($csrfToken === '' || !hash_equals($this->getCsrfToken($id), $csrfToken)) {
+            $this->audit($id, 'toggle', SecurityAuditLogger::OUTCOME_DENIED);
             throw new AccessDeniedException('Invalid CSRF token!');
         }
 
-        return $this->extensionManager->flipExtension($id);
+        try {
+            $error = $this->extensionManager->flipExtension($id);
+            $this->audit(
+                $id,
+                'toggle',
+                $error === null ? SecurityAuditLogger::OUTCOME_SUCCESS : SecurityAuditLogger::OUTCOME_FAILURE,
+            );
+
+            return $error;
+        } catch (\Throwable $throwable) {
+            $this->audit($id, 'toggle', SecurityAuditLogger::OUTCOME_FAILURE);
+
+            throw $throwable;
+        }
     }
 
     private function getCsrfToken(string $id): string
@@ -120,5 +164,13 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
     {
         return preg_replace('/[^0-9a-z_]/', '', $id)
             ?? throw new \RuntimeException('Unable to normalize the extension identifier.');
+    }
+
+    private function audit(string $id, string $action, string $outcome): void
+    {
+        $userId = $this->permissionChecker->getUserId();
+        if ($userId !== null && $id !== '') {
+            $this->securityAuditLogger->extensionChanged($userId, $id, $action, $outcome);
+        }
     }
 }

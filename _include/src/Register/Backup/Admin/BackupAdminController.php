@@ -14,6 +14,7 @@ use Register\Backup\BackupFile;
 use Register\Backup\BackupManager;
 use S2\AdminYard\Translator;
 use S2\Cms\Model\PermissionChecker;
+use S2\Cms\Security\Audit\SecurityAuditLogger;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,6 +28,7 @@ final readonly class BackupAdminController
         private PermissionChecker $permissionChecker,
         private Translator        $translator,
         private LoggerInterface   $logger,
+        private SecurityAuditLogger $securityAuditLogger,
     ) {
     }
 
@@ -37,16 +39,24 @@ final readonly class BackupAdminController
         }
 
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS)) {
+            $this->audit('create', SecurityAuditLogger::OUTCOME_DENIED);
+
             return new Response($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
         }
 
         if (!$this->backupToken->matches($request->request->getString('csrf_token'))) {
+            $this->audit('create', SecurityAuditLogger::OUTCOME_DENIED);
+
             return new Response($this->translator->trans('Invalid backup token'), Response::HTTP_FORBIDDEN);
         }
 
         try {
-            return $this->downloadResponse($this->backupManager->createNow());
+            $response = $this->downloadResponse($this->backupManager->createNow());
+            $this->audit('create', SecurityAuditLogger::OUTCOME_SUCCESS);
+
+            return $response;
         } catch (\Throwable $throwable) {
+            $this->audit('create', SecurityAuditLogger::OUTCOME_FAILURE);
             $this->logger->error('Manual Register backup failed.', ['exception' => $throwable]);
 
             return new Response($this->translator->trans('Backup failed'), Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -60,15 +70,22 @@ final readonly class BackupAdminController
         }
 
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS)) {
+            $this->audit('download', SecurityAuditLogger::OUTCOME_DENIED);
+
             return new Response($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
         }
 
         $backup = $this->backupManager->latest();
         if (!$backup instanceof BackupFile) {
+            $this->audit('download', SecurityAuditLogger::OUTCOME_FAILURE);
+
             return new Response($this->translator->trans('No backups yet'), Response::HTTP_NOT_FOUND);
         }
 
-        return $this->downloadResponse($backup);
+        $response = $this->downloadResponse($backup);
+        $this->audit('download', SecurityAuditLogger::OUTCOME_SUCCESS);
+
+        return $response;
     }
 
     private function downloadResponse(BackupFile $backup): BinaryFileResponse
@@ -80,5 +97,15 @@ final readonly class BackupAdminController
         $response->setPrivate();
 
         return $response;
+    }
+
+    private function audit(string $action, string $outcome): void
+    {
+        $this->securityAuditLogger->backupOperation(
+            $this->permissionChecker->getUserId(),
+            $action,
+            'manual',
+            $outcome,
+        );
     }
 }

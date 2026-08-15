@@ -59,10 +59,21 @@ use S2\Cms\Model\PasswordHasher;
 use S2\Cms\Model\PasswordPolicy;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayerException;
+use S2\Cms\Security\Audit\SecurityAuditLogger;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 class AdminConfigProvider implements StatefulServiceInterface
 {
+    private const array USER_PERMISSION_FIELDS = [
+        'view',
+        'view_hidden',
+        'hide_comments',
+        'edit_comments',
+        'create_articles',
+        'edit_site',
+        'edit_users',
+    ];
+
     /**
      * @var AdminConfigExtenderInterface[]
      */
@@ -89,6 +100,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly ContentPublicationScheduler $contentPublicationScheduler,
         private readonly CommentControllerFactory $commentControllerFactory,
         private readonly SpamMetricsRepository     $spamMetricsRepository,
+        private readonly SecurityAuditLogger       $securityAuditLogger,
         private readonly RequestStack              $requestStack,
         private readonly string                   $dbType,
         private readonly string                   $dbPrefix,
@@ -477,7 +489,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     return;
                 }
 
-                foreach (['view', 'view_hidden', 'hide_comments', 'edit_comments', 'create_articles', 'edit_site', 'edit_users'] as $permission) {
+                foreach (self::USER_PERMISSION_FIELDS as $permission) {
                     $event->data[$permission] = $request->request->has($permission);
                 }
             })
@@ -488,24 +500,23 @@ class AdminConfigProvider implements StatefulServiceInterface
                         ...(new NotBlank())->getValidationErrors('', $this->translator),
                     );
                 }
+
+                $changedFields = [];
+                foreach (['login', 'password', ...self::USER_PERMISSION_FIELDS] as $field) {
+                    if (array_key_exists($field, $event->data) && ($field !== 'password' || $event->data[$field] !== '')) {
+                        $changedFields[] = $field;
+                    }
+                }
+                $event->context['security_changed_fields'] = $changedFields;
             })
             ->addListener(
                 [EntityConfig::EVENT_BEFORE_PATCH, EntityConfig::EVENT_BEFORE_UPDATE],
                 function (BeforeSaveEvent $event) use ($userEntity): void {
-                    $permissionFields = [
-                        'view',
-                        'view_hidden',
-                        'hide_comments',
-                        'edit_comments',
-                        'create_articles',
-                        'edit_site',
-                        'edit_users',
-                    ];
                     $columns = [
                         'id'    => FieldConfig::DATA_TYPE_INT,
                         'login' => FieldConfig::DATA_TYPE_STRING,
                     ];
-                    foreach ($permissionFields as $permission) {
+                    foreach (self::USER_PERMISSION_FIELDS as $permission) {
                         $columns[$permission] = FieldConfig::DATA_TYPE_BOOL;
                     }
 
@@ -525,18 +536,21 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $revokeSessions = isset($event->data['password'])
                         && \is_string($event->data['password'])
                         && $event->data['password'] !== '';
+                    $changedFields = $revokeSessions ? ['password'] : [];
                     if (array_key_exists('login', $event->data) && (string)$event->data['login'] !== $previousLogin) {
                         $revokeSessions = true;
+                        $changedFields[] = 'login';
                     }
-                    foreach ($permissionFields as $permission) {
+                    foreach (self::USER_PERMISSION_FIELDS as $permission) {
                         if (array_key_exists($permission, $event->data)
                             && (bool)$event->data[$permission] !== (bool)($oldData['column_' . $permission] ?? false)) {
                             $revokeSessions = true;
-                            break;
+                            $changedFields[] = $permission;
                         }
                     }
 
                     $event->context['security_revoke_sessions'] = $revokeSessions;
+                    $event->context['security_changed_fields'] = $changedFields;
                 },
             )
             ->addListener(
@@ -562,18 +576,40 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->addListener(
                 [EntityConfig::EVENT_AFTER_PATCH, EntityConfig::EVENT_AFTER_UPDATE],
                 function (AfterSaveEvent $event): void {
-                    if (($event->context['security_revoke_sessions'] ?? false) !== true) {
-                        return;
+                    $subjectUserId = $this->requirePrimaryKey($event->primaryKey)->getIntId();
+                    if (($event->context['security_revoke_sessions'] ?? false) === true) {
+                        $this->authManager->revokeUserSessions(
+                            $subjectUserId,
+                            \is_string($event->context['security_previous_login'] ?? null)
+                                ? $event->context['security_previous_login']
+                                : null,
+                        );
                     }
 
-                    $this->authManager->revokeUserSessions(
-                        $this->requirePrimaryKey($event->primaryKey)->getIntId(),
-                        \is_string($event->context['security_previous_login'] ?? null)
-                            ? $event->context['security_previous_login']
-                            : null,
-                    );
+                    $actorUserId = $this->permissionChecker->getUserId();
+                    $changedFields = $event->context['security_changed_fields'] ?? [];
+                    if ($actorUserId !== null && \is_array($changedFields) && $changedFields !== []) {
+                        $this->securityAuditLogger->userChanged(
+                            $actorUserId,
+                            $subjectUserId,
+                            'update',
+                            array_values(array_filter($changedFields, \is_string(...))),
+                        );
+                    }
                 },
             )
+            ->addListener(EntityConfig::EVENT_AFTER_CREATE, function (AfterSaveEvent $event): void {
+                $actorUserId = $this->permissionChecker->getUserId();
+                $changedFields = $event->context['security_changed_fields'] ?? [];
+                if ($actorUserId !== null && \is_array($changedFields)) {
+                    $this->securityAuditLogger->userChanged(
+                        $actorUserId,
+                        $this->requirePrimaryKey($event->primaryKey)->getIntId(),
+                        'create',
+                        array_values(array_filter($changedFields, \is_string(...))),
+                    );
+                }
+            })
             ->addListener(
                 [EntityConfig::EVENT_BEFORE_CREATE, EntityConfig::EVENT_BEFORE_UPDATE],
                 function (BeforeSaveEvent $event): void {
@@ -1086,10 +1122,20 @@ class AdminConfigProvider implements StatefulServiceInterface
                         })
                         ->addListener(EntityConfig::EVENT_AFTER_PATCH, function (AfterSaveEvent $event): void {
                             $this->dynamicConfigProvider->regenerate();
-                            switch ($this->requirePrimaryKey($event->primaryKey)->toArray()['name']) {
+                            $parameter = $this->requirePrimaryKey($event->primaryKey)->toArray()['name'] ?? null;
+                            switch ($parameter) {
                                 case 'S2_FAVORITE_URL':
                                 case 'S2_TAGS_URL':
                                     $this->extensionCache->clearRoutesCache();
+                            }
+
+                            $actorUserId = $this->permissionChecker->getUserId();
+                            if ($actorUserId !== null && \is_string($parameter)) {
+                                $this->securityAuditLogger->configurationChanged(
+                                    $actorUserId,
+                                    $parameter,
+                                    $this->dynamicConfigFormBuilder->isSecretParameter($parameter),
+                                );
                             }
                         })
                         ->setListTemplate('_admin/templates/config/list.php.inc')

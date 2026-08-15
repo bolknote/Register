@@ -18,6 +18,7 @@ use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\LoginRateLimiter;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Security\Audit\SecurityAuditLogger;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -36,6 +37,7 @@ final class AuthManagerRedirectTest extends Unit
                 new SpamIdentityHasher(str_repeat('s', 32)),
                 new NullLogger(),
             ),
+            new SecurityAuditLogger('php://memory', new SpamIdentityHasher(str_repeat('a', 32))),
             '/blog',
             'http://trusted.example/blog',
             's2_cookie',

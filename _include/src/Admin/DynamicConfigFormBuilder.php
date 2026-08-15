@@ -230,6 +230,11 @@ class DynamicConfigFormBuilder
         return new FieldConfig(name: 'value');
     }
 
+    public function isSecretParameter(string $paramName): bool
+    {
+        return ($this->getParamTypes()[$paramName] ?? null) === 'secret';
+    }
+
     private function createDynamicFieldConfig(string $paramName): FieldConfig
     {
         $inlineEdit = $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS);

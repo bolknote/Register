@@ -88,6 +88,7 @@ use S2\Cms\Queue\ScheduledMaintenanceTaskInterface;
 use S2\Cms\Queue\NativeShutdownRuntime;
 use S2\Cms\Queue\ScheduledMaintenance;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
+use S2\Cms\Security\Audit\SecurityAuditLogger;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\TemplateEvent;
 use S2\Cms\Template\TemplateFinalReplaceEvent;
@@ -260,6 +261,10 @@ class CmsExtension implements ExtensionInterface
 
             return new SpamIdentityHasher($secret);
         });
+        $container->set(SecurityAuditLogger::class, static fn(Container $container): SecurityAuditLogger => new SecurityAuditLogger(
+            $container->getStringParameter('log_dir') . 'security-audit.jsonl',
+            $container->get(SpamIdentityHasher::class),
+        ));
         $container->set(\Register\Comment\CommentSubscriptionService::class, static fn(Container $container): \Register\Comment\CommentSubscriptionService => new \Register\Comment\CommentSubscriptionService(
             $container->get(\Register\Comment\CommentRepository::class),
             $container->get(SpamIdentityHasher::class),

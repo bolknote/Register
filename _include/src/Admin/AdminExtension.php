@@ -72,6 +72,7 @@ use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Security\Audit\SecurityAuditLogger;
 use S2\Cms\Security\Http\SameOriginRequestGuard;
 use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
 use S2\Cms\Security\WebAuthn\WebAuthnChallengeRepository;
@@ -210,6 +211,7 @@ class AdminExtension implements ExtensionInterface
                 $container->get(\Register\Content\ContentPublicationScheduler::class),
                 $container->get(CommentControllerFactory::class),
                 $container->get(\S2\Cms\Comment\Antispam\SpamMetricsRepository::class),
+                $container->get(SecurityAuditLogger::class),
                 $container->get(RequestStack::class),
                 $dbType,
                 $dbPrefix,
@@ -247,6 +249,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(TemplateRenderer::class),
             $container->get(Translator::class),
             $container->get(\S2\Cms\Model\LoginRateLimiter::class),
+            $container->get(SecurityAuditLogger::class),
             $container->getStringParameter('base_path'),
             $container->getStringParameter('base_url'),
             $container->getStringParameter('cookie_name'),
@@ -291,6 +294,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(\S2\Cms\Model\LoginRateLimiter::class),
             $container->get(Translator::class),
             $container->get(\Psr\Log\LoggerInterface::class),
+            $container->get(SecurityAuditLogger::class),
             $container->getStringParameter('base_path'),
             $container->getStringParameter('cookie_name'),
             $container->getBoolParameter('force_admin_https')
@@ -364,6 +368,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(Translator::class),
             $container->get(SettingStorageInterface::class),
             $container->get(TemplateRenderer::class),
+            $container->get(SecurityAuditLogger::class),
         ), [AdminConfigExtenderInterface::class]);
 
         // Dashboard providers
@@ -389,6 +394,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(PermissionChecker::class),
             $container->get(Translator::class),
             $container->get(\Psr\Log\LoggerInterface::class),
+            $container->get(SecurityAuditLogger::class),
         ));
         $container->set(DashboardBackupProvider::class, fn(Container $container): DashboardBackupProvider => new DashboardBackupProvider(
             $container->get(TemplateRenderer::class),
