@@ -18,6 +18,7 @@ use S2\AdminYard\SettingStorage\SettingStorageInterface;
 use S2\AdminYard\Translator;
 use S2\Cms\Admin\AdminConfigProvider;
 use S2\Cms\Model\PermissionChecker;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,12 +33,13 @@ final readonly class AiEditorController
         private AdminConfigProvider     $adminConfigProvider,
         private SettingStorageInterface $settingStorage,
         private Translator              $translator,
+        private AdminMutationGuard      $mutationGuard,
     ) {
     }
 
     public function generate(PermissionChecker $permissionChecker, Request $request): JsonResponse
     {
-        if ($request->getRealMethod() !== Request::METHOD_POST) {
+        if (!$this->mutationGuard->isPost($request)) {
             return $this->error('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
 
@@ -45,7 +47,11 @@ final readonly class AiEditorController
             return $this->error($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
         }
 
-        if (!$this->csrfTokenMatches($request)) {
+        if (!$this->mutationGuard->hasValidCsrfToken(
+            $request,
+            $this->csrfToken($request),
+            '__csrf_token',
+        )) {
             return $this->error($this->translator->trans('Invalid AI security token'), Response::HTTP_FORBIDDEN);
         }
 
@@ -75,31 +81,28 @@ final readonly class AiEditorController
         }
     }
 
-    private function csrfTokenMatches(Request $request): bool
+    private function csrfToken(Request $request): string
     {
         $entityName = $request->request->getString('entity_name');
         if (!\in_array($entityName, ['Article', 'BlogPost'], true)) {
-            return false;
+            return '';
         }
 
         $entityConfig = $this->adminConfigProvider->getAdminConfig()->findEntityByName($entityName);
         if (!$entityConfig instanceof \S2\AdminYard\Config\EntityConfig) {
-            return false;
+            return '';
         }
 
         $contentId = $request->request->getInt('content_id');
         $formAction = $contentId > 0 ? FieldConfig::ACTION_EDIT : FieldConfig::ACTION_NEW;
         $primaryKey = $contentId > 0 ? ['id' => $contentId] : [];
-        $expected = (new FormParams(
+        return (new FormParams(
             $entityName,
             $entityConfig->getFields($formAction),
             $this->settingStorage,
             $formAction,
             $primaryKey,
         ))->getCsrfToken();
-        $candidate = $request->request->getString('__csrf_token');
-
-        return $candidate !== '' && hash_equals($expected, $candidate);
     }
 
     private function error(string $message, int $status): JsonResponse

@@ -11,6 +11,7 @@ namespace S2\Cms\AdminYard;
 
 use S2\AdminYard\Form\FormParams;
 use S2\AdminYard\SettingStorage\SettingStorageInterface;
+use S2\Cms\Security\Http\AdminMutationGuard;
 
 final readonly class SavedListViewManager
 {
@@ -191,7 +192,7 @@ final readonly class SavedListViewManager
 
     public function csrfTokenMatches(string $entityName, string $token): bool
     {
-        return $token !== '' && hash_equals($this->csrfToken($entityName), $token);
+        return AdminMutationGuard::tokensMatch($this->csrfToken($entityName), $token);
     }
 
     /**

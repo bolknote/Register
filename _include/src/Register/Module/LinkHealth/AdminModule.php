@@ -35,6 +35,7 @@ use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -80,6 +81,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(LinkHealthAdminRepository::class),
             $container->get(QueuePublisher::class),
             $container->get(Translator::class),
+            $container->get(AdminMutationGuard::class),
         ));
     }
 

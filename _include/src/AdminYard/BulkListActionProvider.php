@@ -12,6 +12,7 @@ namespace S2\Cms\AdminYard;
 use S2\AdminYard\Form\FormParams;
 use S2\AdminYard\SettingStorage\SettingStorageInterface;
 use S2\Cms\Model\PermissionChecker;
+use S2\Cms\Security\Http\AdminMutationGuard;
 
 final readonly class BulkListActionProvider
 {
@@ -75,7 +76,7 @@ final readonly class BulkListActionProvider
 
     public function csrfTokenMatches(string $entityName, string $token): bool
     {
-        return $token !== '' && hash_equals($this->csrfToken($entityName), $token);
+        return AdminMutationGuard::tokensMatch($this->csrfToken($entityName), $token);
     }
 
     public function isAllowed(string $entityName, string $action): bool

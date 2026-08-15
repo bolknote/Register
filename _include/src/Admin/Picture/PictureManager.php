@@ -16,6 +16,7 @@ use S2\AdminYard\Translator;
 use S2\Cms\AdminYard\CustomTemplateRenderer;
 use S2\Cms\Framework\Exception\AccessDeniedException;
 use S2\Cms\Image\ThumbnailGenerator;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -457,7 +458,7 @@ class PictureManager
 
     public function assertFolderCsrfToken(string $path, string $csrfToken): void
     {
-        if ($csrfToken === '' || !hash_equals($this->getFolderCsrfToken($path), $csrfToken)) {
+        if (!AdminMutationGuard::tokensMatch($this->getFolderCsrfToken($path), $csrfToken)) {
             throw new AccessDeniedException('Invalid CSRF token!');
         }
     }

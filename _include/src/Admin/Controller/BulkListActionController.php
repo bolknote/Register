@@ -19,6 +19,7 @@ use S2\Cms\Admin\AdminPanelFactory;
 use S2\Cms\AdminYard\BulkListActionProvider;
 use S2\Cms\Framework\Exception\AccessDeniedException;
 use S2\Cms\Model\PermissionChecker;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -35,12 +36,13 @@ final readonly class BulkListActionController
         private \PDO                             $pdo,
         private Translator                       $translator,
         private LoggerInterface                  $logger,
+        private AdminMutationGuard               $mutationGuard,
     ) {
     }
 
     public function execute(PermissionChecker $permissionChecker, Request $request): JsonResponse
     {
-        if ($request->getRealMethod() !== Request::METHOD_POST) {
+        if (!$this->mutationGuard->isPost($request)) {
             return $this->error('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
 
@@ -51,9 +53,9 @@ final readonly class BulkListActionController
         $entityName = $request->request->getString('entity');
         $action     = $request->request->getString('bulk_action');
         try {
-            if (!$this->actionProvider->csrfTokenMatches(
-                $entityName,
-                $request->request->getString('csrf_token'),
+            if (!$this->mutationGuard->hasValidCsrfToken(
+                $request,
+                $this->actionProvider->csrfToken($entityName),
             )) {
                 throw new AccessDeniedException('Unable to confirm security token.');
             }

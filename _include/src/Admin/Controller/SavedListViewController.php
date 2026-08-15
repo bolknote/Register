@@ -12,6 +12,7 @@ namespace S2\Cms\Admin\Controller;
 use S2\AdminYard\Translator;
 use S2\Cms\AdminYard\SavedListViewManager;
 use S2\Cms\Model\PermissionChecker;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,6 +22,7 @@ final readonly class SavedListViewController
     public function __construct(
         private SavedListViewManager $manager,
         private Translator           $translator,
+        private AdminMutationGuard   $mutationGuard,
     ) {
     }
 
@@ -78,7 +80,7 @@ final readonly class SavedListViewController
 
     private function validateRequest(PermissionChecker $permissionChecker, Request $request): ?JsonResponse
     {
-        if ($request->getRealMethod() !== Request::METHOD_POST) {
+        if (!$this->mutationGuard->isPost($request)) {
             return new JsonResponse([
                 'success' => false,
                 'message' => $this->translator->trans('Only POST requests are allowed.'),
@@ -94,9 +96,9 @@ final readonly class SavedListViewController
 
         $entityName = $request->request->getString('entity');
         try {
-            $validToken = $this->manager->csrfTokenMatches(
-                $entityName,
-                $request->request->getString('csrf_token'),
+            $validToken = $this->mutationGuard->hasValidCsrfToken(
+                $request,
+                $this->manager->csrfToken($entityName),
             );
         } catch (\InvalidArgumentException $exception) {
             return new JsonResponse([

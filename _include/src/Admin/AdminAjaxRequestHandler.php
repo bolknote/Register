@@ -30,6 +30,7 @@ use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\PermissionChecker as P;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use S2\Cms\Security\Http\SameOriginRequestGuard;
 use S2\Cms\Template\HtmlTemplateProvider;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
@@ -51,6 +52,7 @@ class AdminAjaxRequestHandler
         public AuthManager              $authManager,
         public PermissionChecker        $permissionChecker,
         public SameOriginRequestGuard   $sameOriginRequestGuard,
+        public AdminMutationGuard       $mutationGuard,
         public Translator               $translator,
         public EventDispatcherInterface $eventDispatcher,
         public Container                $container,
@@ -810,7 +812,7 @@ class AdminAjaxRequestHandler
         $action     = $request->query->getString('action', $request->request->getString('action'));
         $controller = $event->controllerMap[$action] ?? (static fn(P $_p, R $_r, C $_c, T $_t): \Symfony\Component\HttpFoundation\JsonResponse => new Json(['success' => false, 'message' => 'Unknown action.'], Response::HTTP_BAD_REQUEST));
 
-        if ($request->getRealMethod() !== Request::METHOD_POST && !$event->allowsGet($action)) {
+        if (!$this->mutationGuard->isPost($request) && !$event->allowsGet($action)) {
             $response = new Json([
                 'success' => false,
                 'message' => $this->translator->trans('Only POST requests are allowed.'),

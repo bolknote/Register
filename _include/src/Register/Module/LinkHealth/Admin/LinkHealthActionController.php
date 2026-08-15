@@ -18,6 +18,7 @@ use Register\Module\LinkHealth\LinkTargetState;
 use S2\AdminYard\Translator;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,12 +32,13 @@ final readonly class LinkHealthActionController
         private LinkHealthAdminRepository $adminRepository,
         private QueuePublisher            $queuePublisher,
         private Translator                $translator,
+        private AdminMutationGuard        $mutationGuard,
     ) {
     }
 
     public function handle(Request $request): JsonResponse
     {
-        if ($request->getRealMethod() !== Request::METHOD_POST) {
+        if (!$this->mutationGuard->isPost($request)) {
             return $this->error('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
 
@@ -44,7 +46,7 @@ final readonly class LinkHealthActionController
             return $this->error('Permission denied.', Response::HTTP_FORBIDDEN);
         }
 
-        if (!$this->token->matches($request->request->getString('csrf_token'))) {
+        if (!$this->mutationGuard->hasValidCsrfToken($request, $this->token->value())) {
             return $this->error('Invalid CSRF token.', Response::HTTP_FORBIDDEN);
         }
 

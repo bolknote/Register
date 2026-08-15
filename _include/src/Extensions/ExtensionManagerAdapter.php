@@ -19,6 +19,7 @@ use S2\Cms\Admin\AdminConfigExtenderInterface;
 use S2\Cms\Framework\Exception\AccessDeniedException;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Psr\Cache\InvalidArgumentException;
 use S2\Cms\Pdo\DbLayerException;
 
@@ -74,7 +75,7 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
     {
         $id = $this->cleanupExtensionId($id);
 
-        if ($csrfToken === '' || !hash_equals($this->getCsrfToken($id), $csrfToken)) {
+        if (!AdminMutationGuard::tokensMatch($this->getCsrfToken($id), $csrfToken)) {
             $this->audit($id, 'install', SecurityAuditLogger::OUTCOME_DENIED);
             throw new AccessDeniedException('Invalid CSRF token!');
         }
@@ -102,7 +103,7 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
     {
         $id = $this->cleanupExtensionId($id);
 
-        if ($csrfToken === '' || !hash_equals($this->getCsrfToken($id), $csrfToken)) {
+        if (!AdminMutationGuard::tokensMatch($this->getCsrfToken($id), $csrfToken)) {
             $this->audit($id, 'uninstall', SecurityAuditLogger::OUTCOME_DENIED);
             throw new AccessDeniedException('Invalid CSRF token!');
         }
@@ -130,7 +131,7 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
     {
         $id = $this->cleanupExtensionId($id);
 
-        if ($csrfToken === '' || !hash_equals($this->getCsrfToken($id), $csrfToken)) {
+        if (!AdminMutationGuard::tokensMatch($this->getCsrfToken($id), $csrfToken)) {
             $this->audit($id, 'toggle', SecurityAuditLogger::OUTCOME_DENIED);
             throw new AccessDeniedException('Invalid CSRF token!');
         }

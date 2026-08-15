@@ -77,6 +77,7 @@ use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use S2\Cms\Security\Http\SameOriginRequestGuard;
 use S2\Cms\Security\Monitoring\SecurityAlertDetector;
 use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
@@ -154,6 +155,7 @@ class AdminExtension implements ExtensionInterface
         $container->set(SavedListViewController::class, fn(Container $container): SavedListViewController => new SavedListViewController(
             $container->get(SavedListViewManager::class),
             $container->get(Translator::class),
+            $container->get(AdminMutationGuard::class),
         ));
         $container->set(BulkListActionProvider::class, fn(Container $container): BulkListActionProvider => new BulkListActionProvider(
             $container->get(SettingStorageInterface::class),
@@ -174,6 +176,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(\PDO::class),
             $container->get(Translator::class),
             $container->get(\Psr\Log\LoggerInterface::class),
+            $container->get(AdminMutationGuard::class),
         ));
 
         $container->set(ResourceProvider::class, fn(Container $container): \S2\Cms\Admin\ResourceProvider => new ResourceProvider(
@@ -237,10 +240,12 @@ class AdminExtension implements ExtensionInterface
             $container->get(AdminConfigProvider::class),
             $container->get(SettingStorageInterface::class),
             $container->get(Translator::class),
+            $container->get(AdminMutationGuard::class),
         ));
 
         $container->set(CommentControllerFactory::class, fn(Container $container): \S2\Cms\Admin\Controller\CommentControllerFactory => new CommentControllerFactory(
             $container->get(SpamFeedbackService::class),
+            $container->get(AdminMutationGuard::class),
         ));
 
         $container->set(AdminPanelFactory::class, fn(Container $container): \S2\Cms\Admin\AdminPanelFactory => new AdminPanelFactory($container));
@@ -300,6 +305,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(Translator::class),
             $container->get(\Psr\Log\LoggerInterface::class),
             $container->get(SecurityAuditLogger::class),
+            $container->get(AdminMutationGuard::class),
             $container->getStringParameter('base_path'),
             $container->getStringParameter('cookie_name'),
             $container->getBoolParameter('force_admin_https')
@@ -320,6 +326,7 @@ class AdminExtension implements ExtensionInterface
         ), [AdminConfigExtenderInterface::class]);
 
         // Request handlers
+        $container->set(AdminMutationGuard::class, new AdminMutationGuard());
         $container->set(SameOriginRequestGuard::class, new SameOriginRequestGuard());
         $container->set(AdminThemeStylesheet::class, static fn(Container $container): AdminThemeStylesheet => new AdminThemeStylesheet(
             $container->get(DynamicConfigProvider::class),
@@ -340,6 +347,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(AuthManager::class),
             $container->get(PermissionChecker::class),
             $container->get(SameOriginRequestGuard::class),
+            $container->get(AdminMutationGuard::class),
             $container->get(Translator::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container,
@@ -419,6 +427,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(Translator::class),
             $container->get(\Psr\Log\LoggerInterface::class),
             $container->get(SecurityAuditLogger::class),
+            $container->get(AdminMutationGuard::class),
         ));
         $container->set(DashboardBackupProvider::class, fn(Container $container): DashboardBackupProvider => new DashboardBackupProvider(
             $container->get(TemplateRenderer::class),

@@ -18,12 +18,14 @@ use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Transformer\ViewTransformer;
 use S2\AdminYard\Translator;
 use S2\Cms\Comment\Antispam\SpamFeedbackService;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final readonly class CommentControllerFactory implements ControllerFactoryInterface
 {
     public function __construct(
         private SpamFeedbackService $spamFeedbackService,
+        private AdminMutationGuard  $mutationGuard,
     ) {
     }
 
@@ -48,6 +50,7 @@ final readonly class CommentControllerFactory implements ControllerFactoryInterf
             $formFactory,
             $settingStorage,
             $this->spamFeedbackService,
+            $this->mutationGuard,
         );
     }
 }

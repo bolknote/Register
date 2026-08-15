@@ -15,6 +15,7 @@ use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\LoginRateLimiter;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
 use S2\Cms\Security\WebAuthn\WebAuthnCredentialRepository;
 use S2\Cms\Security\WebAuthn\WebAuthnService;
@@ -55,6 +56,7 @@ final readonly class WebAuthnAdminController
         private Translator                   $translator,
         private LoggerInterface              $logger,
         private SecurityAuditLogger          $securityAuditLogger,
+        private AdminMutationGuard           $mutationGuard,
         private string                       $basePath,
         private string                       $cookieName,
         private bool                         $secureAdmin,
@@ -82,7 +84,7 @@ final readonly class WebAuthnAdminController
 
     public function handlePublic(Request $request): \Symfony\Component\HttpFoundation\JsonResponse
     {
-        if (!$request->isMethod(Request::METHOD_POST)) {
+        if (!$this->mutationGuard->isPost($request)) {
             return $this->error('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
 
@@ -139,7 +141,7 @@ final readonly class WebAuthnAdminController
 
     public function handleAuthenticated(Request $request): \Symfony\Component\HttpFoundation\JsonResponse
     {
-        if (!$request->isMethod(Request::METHOD_POST)) {
+        if (!$this->mutationGuard->isPost($request)) {
             return $this->error('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
 
@@ -327,7 +329,10 @@ final readonly class WebAuthnAdminController
 
     private function requireCsrf(Request $request, string $purpose): void
     {
-        if (!$this->authManager->actionCsrfTokenMatches($purpose, $request->request->getString('csrf_token'))) {
+        if (!$this->mutationGuard->hasValidCsrfToken(
+            $request,
+            $this->authManager->getActionCsrfToken($purpose),
+        )) {
             throw new \RuntimeException('Invalid security token.');
         }
     }

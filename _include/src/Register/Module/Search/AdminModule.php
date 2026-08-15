@@ -23,6 +23,7 @@ use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
 use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Model\PermissionChecker;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use S2\Rose\Storage\Database\PdoStorage;
 use Register\Module\Search\Admin\DashboardSearchProvider;
 use Register\Module\Search\Admin\DynamicConfigFormExtender;
@@ -62,7 +63,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
     {
         $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event): void {
             $event->controllerMap['register_search_reindex'] = static function (PermissionChecker $p, Request $r, Container $c): JsonResponse {
-                if ($r->getRealMethod() !== Request::METHOD_POST) {
+                if (!$c->get(AdminMutationGuard::class)->isPost($r)) {
                     return new JsonResponse(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }
 
@@ -70,7 +71,10 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
                     return new JsonResponse(['success' => false, 'message' => 'Permission denied.'], Response::HTTP_FORBIDDEN);
                 }
 
-                if (!$c->get(ReindexToken::class)->matches($r->request->getString('csrf_token'))) {
+                if (!$c->get(AdminMutationGuard::class)->hasValidCsrfToken(
+                    $r,
+                    $c->get(ReindexToken::class)->value(),
+                )) {
                     return new JsonResponse(['success' => false, 'message' => 'Invalid CSRF token.'], Response::HTTP_FORBIDDEN);
                 }
 

@@ -28,6 +28,7 @@ use S2\Cms\Framework\Exception\AccessDeniedException;
 use S2\Cms\Framework\Exception\NotFoundException;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
+use S2\Cms\Security\Http\AdminMutationGuard;
 
 readonly class ArticleManager
 {
@@ -191,7 +192,7 @@ readonly class ArticleManager
      */
     public function createArticle(int $parentId, string $title, string $csrfToken): int
     {
-        if ($csrfToken === '' || !hash_equals($this->getCsrfToken($parentId), $csrfToken)) {
+        if (!AdminMutationGuard::tokensMatch($this->getCsrfToken($parentId), $csrfToken)) {
             throw new AccessDeniedException('Invalid CSRF token!');
         }
 
@@ -271,7 +272,7 @@ readonly class ArticleManager
             throw new AccessDeniedException('Permission denied.');
         }
 
-        if ($csrfToken === '' || !hash_equals($this->getCsrfToken($id), $csrfToken)) {
+        if (!AdminMutationGuard::tokensMatch($this->getCsrfToken($id), $csrfToken)) {
             throw new AccessDeniedException('Invalid CSRF token!');
         }
 
@@ -315,7 +316,7 @@ readonly class ArticleManager
             throw new AccessDeniedException('Permission denied.');
         }
 
-        if ($csrfToken === '' || !hash_equals($this->getCsrfToken($sourceId), $csrfToken)) {
+        if (!AdminMutationGuard::tokensMatch($this->getCsrfToken($sourceId), $csrfToken)) {
             throw new AccessDeniedException('Invalid CSRF token!');
         }
 
@@ -403,7 +404,7 @@ readonly class ArticleManager
             throw new AccessDeniedException('Permission denied.');
         }
 
-        if ($csrfToken === '' || !hash_equals($this->getCsrfToken($id), $csrfToken)) {
+        if (!AdminMutationGuard::tokensMatch($this->getCsrfToken($id), $csrfToken)) {
             throw new AccessDeniedException('Invalid CSRF token!');
         }
 

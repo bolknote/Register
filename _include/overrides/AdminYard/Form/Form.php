@@ -13,6 +13,7 @@ namespace S2\AdminYard\Form;
 use S2\AdminYard\Helper\RandomHelper;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\Request;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 class Form
@@ -101,7 +102,7 @@ class Form
                 } catch (BadRequestException) {
                     $candidate = null;
                 }
-                $this->csrfCheckPassed = (\is_string($candidate) && hash_equals($this->csrfToken, $candidate))
+                $this->csrfCheckPassed = (\is_string($candidate) && AdminMutationGuard::tokensMatch($this->csrfToken, $candidate))
                     || $this->checkTempCsrfToken($request, $this->csrfToken);
                 continue;
             }
@@ -257,6 +258,6 @@ class Form
 
         $expected = hash_hmac('sha256', $randomStr . '-' . $time, $realCsrfToken);
 
-        return hash_equals($expected, $hash);
+        return AdminMutationGuard::tokensMatch($expected, $hash);
     }
 }

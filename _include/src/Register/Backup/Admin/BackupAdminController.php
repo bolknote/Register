@@ -17,6 +17,7 @@ use S2\AdminYard\Translator;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,6 +33,7 @@ final readonly class BackupAdminController
         private Translator        $translator,
         private LoggerInterface   $logger,
         private SecurityAuditLogger $securityAuditLogger,
+        private AdminMutationGuard  $mutationGuard,
     ) {
     }
 
@@ -77,7 +79,7 @@ final readonly class BackupAdminController
 
     private function authorizeSensitiveOperation(Request $request, string $action): ?Response
     {
-        if (!$request->isMethod(Request::METHOD_POST)) {
+        if (!$this->mutationGuard->isPost($request)) {
             $this->audit($action, SecurityAuditLogger::OUTCOME_DENIED);
 
             return new Response(
@@ -93,7 +95,7 @@ final readonly class BackupAdminController
             return new Response($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
         }
 
-        if (!$this->backupToken->matches($request->request->getString('csrf_token'))) {
+        if (!$this->mutationGuard->hasValidCsrfToken($request, $this->backupToken->value())) {
             $this->audit($action, SecurityAuditLogger::OUTCOME_DENIED);
 
             return new Response($this->translator->trans('Invalid backup token'), Response::HTTP_FORBIDDEN);

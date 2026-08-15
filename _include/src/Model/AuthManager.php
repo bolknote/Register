@@ -13,6 +13,7 @@ use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -169,7 +170,7 @@ readonly class AuthManager
     {
         $expected = $this->getActionCsrfToken($purpose);
 
-        return $expected !== '' && $candidate !== '' && hash_equals($expected, $candidate);
+        return AdminMutationGuard::tokensMatch($expected, $candidate);
     }
 
     /**
@@ -742,8 +743,10 @@ readonly class AuthManager
     private function logoutCsrfTokenMatches(string $sessionId, string $candidate): bool
     {
         return $sessionId !== ''
-            && $candidate !== ''
-            && hash_equals($this->createActionCsrfToken($sessionId, 'logout'), $candidate);
+            && AdminMutationGuard::tokensMatch(
+                $this->createActionCsrfToken($sessionId, 'logout'),
+                $candidate,
+            );
     }
 
 }

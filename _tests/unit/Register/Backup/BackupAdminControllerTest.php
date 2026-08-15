@@ -23,6 +23,7 @@ use S2\Cms\Comment\Antispam\SpamIdentityHasher;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -191,6 +192,7 @@ final class BackupAdminControllerTest extends Unit
                 new Translator($translations, 'en'),
                 new NullLogger(),
                 $auditLogger,
+                new AdminMutationGuard(),
             ),
             $token,
         ];

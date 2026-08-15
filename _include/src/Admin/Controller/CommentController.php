@@ -22,6 +22,7 @@ use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Transformer\ViewTransformer;
 use S2\AdminYard\Translator;
 use S2\Cms\Comment\Antispam\SpamFeedbackService;
+use S2\Cms\Security\Http\AdminMutationGuard;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -39,6 +40,7 @@ class CommentController extends EntityController
         FormFactory             $formFactory,
         SettingStorageInterface $settingStorage,
         private readonly SpamFeedbackService $spamFeedbackService,
+        private readonly AdminMutationGuard $mutationGuard,
     ) {
         parent::__construct(
             $entityConfig,
@@ -64,12 +66,11 @@ class CommentController extends EntityController
 
     public function rejectAction(Request $request): Response
     {
-        if ($request->getRealMethod() !== Request::METHOD_POST) {
+        if (!$this->mutationGuard->isPost($request)) {
             throw new InvalidRequestException('Reject action must be called via POST request.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
 
         $primaryKey = $this->getEntityPrimaryKeyFromRequest($request);
-        $csrfToken  = $request->request->getString('csrf_token');
 
         $field = $this->entityConfig->findFieldByName('shown');
         if (!$field instanceof \S2\AdminYard\Config\FieldConfig) {
@@ -83,7 +84,10 @@ class CommentController extends EntityController
         }
 
         // Borrow CSRF token from delete action
-        if ($csrfToken === '' || !hash_equals($this->getDeleteCsrfToken($primaryKey->toArray()), $csrfToken)) {
+        if (!$this->mutationGuard->hasValidCsrfToken(
+            $request,
+            $this->getDeleteCsrfToken($primaryKey->toArray()),
+        )) {
             return new JsonResponse(['errors' => [
                 $this->translator->trans('Unable to confirm security token. A likely cause for this is that some time passed between when you first entered the page and when you submitted the form. If that is the case and you would like to continue, submit the form again.')
             ]], Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -112,7 +116,7 @@ class CommentController extends EntityController
 
     private function feedbackAction(Request $request, string $label): Response
     {
-        if ($request->getRealMethod() !== Request::METHOD_POST) {
+        if (!$this->mutationGuard->isPost($request)) {
             throw new InvalidRequestException('Spam feedback actions must be called via POST request.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
 
@@ -128,8 +132,10 @@ class CommentController extends EntityController
             ]], Response::HTTP_FORBIDDEN);
         }
 
-        $csrfToken = $request->request->getString('csrf_token');
-        if ($csrfToken === '' || !hash_equals($this->getDeleteCsrfToken($primaryKey->toArray()), $csrfToken)) {
+        if (!$this->mutationGuard->hasValidCsrfToken(
+            $request,
+            $this->getDeleteCsrfToken($primaryKey->toArray()),
+        )) {
             return new JsonResponse(['errors' => [
                 $this->translator->trans('Unable to confirm security token. A likely cause for this is that some time passed between when you first entered the page and when you submitted the form. If that is the case and you would like to continue, submit the form again.')
             ]], Response::HTTP_UNPROCESSABLE_ENTITY);

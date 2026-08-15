@@ -60,11 +60,12 @@ final class AdminYardFormParamsTest extends Unit
 
         $tamperedForm = new Form(new Translator([], 'en'));
         $tamperedForm->setCsrfToken($realToken);
+        $tamperedTempToken = ($tempToken[0] === '0' ? '1' : '0') . substr($tempToken, 1);
         $tamperedForm->submit(Request::create(
             '/_admin/index.php',
             Request::METHOD_POST,
             ['__csrf_token' => ['unexpected-array']],
-            server: ['HTTP_X_ADMINYARD_CSRF_TOKEN' => '0' . substr($tempToken, 1)],
+            server: ['HTTP_X_ADMINYARD_CSRF_TOKEN' => $tamperedTempToken],
         ));
         self::assertFalse($tamperedForm->isCsrfCheckPassed());
     }
