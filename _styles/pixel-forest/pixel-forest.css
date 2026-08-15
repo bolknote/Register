@@ -373,7 +373,7 @@ blockquote {
     text-transform: uppercase;
 }
 
-#content > h2.post.head {
+#content > .post.head {
     width: min(100%, var(--text-width));
     max-width: var(--text-width);
     margin: 0;
@@ -390,7 +390,7 @@ blockquote {
     text-shadow: 3px 3px 0 var(--pixel-shadow);
 }
 
-#content > h2.post.head::before {
+#content > .post.head::before {
     display: inline-block;
     width: 0.48em;
     height: 0.48em;
@@ -401,14 +401,14 @@ blockquote {
     vertical-align: 0.04em;
 }
 
-#content > h2.post.head a,
-#content > h2.post.head a:visited {
+#content > .post.head a,
+#content > .post.head a:visited {
     color: inherit;
     text-decoration: none;
 }
 
-#content > h2.post.head a:hover,
-#content > h2.post.head a:focus-visible {
+#content > .post.head a:hover,
+#content > .post.head a:focus-visible {
     color: var(--pixel-moon);
 }
 
@@ -1029,7 +1029,7 @@ ul.back_forward li {
         line-height: 1.65;
     }
 
-    #content > h2.post.head {
+    #content > .post.head {
         border-width: 3px;
         box-shadow: 5px 0 0 var(--pixel-shadow), 0 -3px 0 var(--pixel-frame-light);
     }
@@ -1123,7 +1123,7 @@ ul.back_forward li {
         display: none;
     }
 
-    #content > h2.post.head,
+    #content > .post.head,
     #content > .post.time,
     #content > .post.body,
     #content > .post.foot,

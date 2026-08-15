@@ -670,9 +670,9 @@ class AdminCest
         $I->seeElement('section.post-edit-content.is-new');
         $I->seeElement('form[name="article-form"][action="?entity=BlogPost&action=new"]');
         $I->seeElement('script[type="module"][src="/_admin/js/editor/entry.js"]');
-        $I->seeElement('main.editor-main-column > .editor-title-block');
-        $I->seeElement('main.editor-main-column > .content-editor-ai-tools');
-        $I->seeElement('main.editor-main-column > .editor-body-block');
+        $I->seeElement('.editor-main-column > .editor-title-block');
+        $I->seeElement('.editor-main-column > .content-editor-ai-tools');
+        $I->seeElement('.editor-main-column > .editor-body-block');
         $I->seeElement('.html-toolbar button[data-editor-action="undo"]');
         $I->seeElement('.html-toolbar button[data-editor-action="redo"]');
         $I->seeElement('.html-toolbar[role="toolbar"][aria-label="Text"]');
@@ -681,7 +681,7 @@ class AdminCest
         $I->dontSeeElement('#ai-result-panel');
         $I->seeElement('.editor-title-block input[name="title"][placeholder="Title"]');
         $I->dontSeeElement('.editor-title-block label[for="id-title"]');
-        $I->seeElement('main.editor-main-column > .editor-tags-block:last-child');
+        $I->seeElement('.editor-main-column > .editor-tags-block:last-child');
         $I->seeElement('.editor-tags-block input[name="tags"][placeholder="Tags"]');
         $I->seeElement('label[for="id-body"]');
         $I->dontSeeElement('.editor-tags-block details');

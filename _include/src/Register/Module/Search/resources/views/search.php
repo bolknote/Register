@@ -15,10 +15,12 @@ declare(strict_types = 1);
  */
 
 ?>
-<form class="search-form" method="get" action="<?php echo s2_htmlencode($action); ?>">
-    <input class="search-input" id="s2_search_input_ext" type="text" name="q"
+<form class="search-form" role="search" aria-label="<?php echo s2_htmlencode($trans('Search')); ?>" method="get" action="<?php echo s2_htmlencode($action); ?>">
+    <label class="visually-hidden" for="s2_search_input_ext"><?php echo s2_htmlencode($trans('Search')); ?></label>
+    <input class="search-input" id="s2_search_input_ext" type="search" name="q"
            value="<?php echo s2_htmlencode($query); ?>"
-           data-s2-search-url="<?php echo s2_htmlencode($quickSearchUrl ?? ''); ?>" />
+           data-s2-search-url="<?php echo s2_htmlencode($quickSearchUrl ?? ''); ?>"
+           autocomplete="off" enterkeyhint="search" />
     <input class="search-button" type="submit" name="search" value="<?php echo $trans('Search button'); ?>" />
 </form>
 <?php

@@ -1,154 +1,527 @@
-/* Fixing the box model for some blocks */
-.fields input,
-.input.text input,
-.input.color input {
+:root {
+    color-scheme: light dark;
+    --install-bg: #f1f7f8;
+    --install-surface: #ffffff;
+    --install-surface-subtle: #f7fafb;
+    --install-text: #172127;
+    --install-muted: #5d6b73;
+    --install-border: #cad7db;
+    --install-border-strong: #9cafb5;
+    --install-accent: #006f83;
+    --install-accent-hover: #005b6c;
+    --install-accent-soft: #dff5f7;
+    --install-focus: #00a2bd;
+    --install-danger: #b42318;
+    --install-danger-bg: #fff1f0;
+    --install-danger-border: #f0b5b0;
+    --install-warning: #7a4d00;
+    --install-warning-bg: #fff7e8;
+    --install-warning-border: #e7c987;
+    --install-success: #17633a;
+    --install-success-bg: #ecf8f0;
+    --install-success-border: #a7d3b5;
+    --install-info-bg: #edf8fa;
+    --install-info-border: #acd9df;
+    --install-radius: 0.75rem;
+    --install-shadow: 0 1.5rem 4rem rgb(22 51 59 / 12%);
+}
+
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
-body {
-	min-width: 720px;
-	}
+html {
+    min-width: 0;
+    background: var(--install-bg);
+    scroll-behavior: smooth;
+}
 
-h1, h2 {
-    margin: 1em 0 0.25em;
-    }
-h1 {
-    color: #007093;
-    }
-
-body, button, input, select, textarea {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+body,
+button,
+input,
+select,
+textarea {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
     font-size: 1rem;
-    }
+}
 
 body {
-	margin: 0 auto;
-	padding: 0 10px;
-	background: #fffdf5;
-	color: #000;
-    max-width: 960px;
-	}
+    min-width: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: clamp(1rem, 3vw, 2.5rem);
+    background:
+        radial-gradient(circle at 12% 0%, rgb(0 162 189 / 10%), transparent 26rem),
+        var(--install-bg);
+    color: var(--install-text);
+    line-height: 1.55;
+}
 
-a, a:visited {
-	color: #05c;
-	text-decoration-color: #0055cc59;
-	}
+a {
+    color: var(--install-accent);
+    text-decoration-color: color-mix(in srgb, currentcolor 38%, transparent);
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.16em;
+}
+
+a:hover {
+    color: var(--install-accent-hover);
+    text-decoration-color: currentcolor;
+}
 
 a > img {
-	border: 0;
-	}
+    border: 0;
+}
 
+.install-shell {
+    width: min(100%, 64rem);
+    margin-inline: auto;
+    padding: clamp(1.25rem, 4vw, 3rem);
+    overflow: hidden;
+    background: var(--install-surface);
+    border: 1px solid var(--install-border);
+    border-radius: clamp(1rem, 2vw, 1.5rem);
+    box-shadow: var(--install-shadow);
+}
 
-hr {
-	margin: 5px 0;
-	padding: 0;
-	background-color: #eee;
-	color: #ddd;
-	border: 1px solid #eee;
-	border-color: #aaa #fff #fff #aaa;
-	}
+.install-header {
+    display: grid;
+    gap: 0.35rem;
+    margin-block-end: clamp(1.75rem, 4vw, 3rem);
+    padding-block-end: clamp(1.25rem, 3vw, 2rem);
+    border-block-end: 1px solid var(--install-border);
+}
 
-form .button-wrapper {
-	margin: 0 0 1em;
-	}
-    form .button-wrapper input, a.link-button {
-        background: #fffffb;
-        background: linear-gradient(to bottom, #fffffb 0%, #f1f1f1 100%);
-        border: 1px solid #999;
-        border-radius: 4px;
-        padding: 0.375em 0.75em;
-        box-shadow: 0 2px 0 rgba(255, 255, 255, 0.2) inset, 0 2px 2px rgba(0, 0, 0, 0.1);
-        cursor: pointer;
-        }
-        form .button-wrapper input:hover, a.link-button:hover {
-            background: #f6f6f1;
-            background: linear-gradient(to bottom, #f6f6f1 0%, #ecebe3 100%);
-            }
-        form .button-wrapper input:active, a.link-button:active {
-            box-shadow: 0 2px 0 rgba(255, 255, 255, 0.2) inset, 0 1px 1px rgba(0, 0, 0, 0.05);
-            }
-    form .button-wrapper input.main-button, a.link-button.main-button {
-        background: #bde4ed;
-        background: linear-gradient(to bottom, #ccf6ff 0%, #a7dde5 100%);
-        border-color: #54b2bf;
-        }
-        form .button-wrapper input.main-button:hover, a.link-button.main-button:hover {
-            background: #bde4ed;
-            background: linear-gradient(to bottom, #b4e4ee 0%, #8dcfd9 100%);
-            }
+.install-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--install-accent);
+    font-size: 0.8125rem;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
 
-a.link-button {
-    color: #000;
-    text-decoration: none;
+.install-brand span {
+    display: inline-grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: #ffffff;
+    background: var(--install-accent);
+    border-radius: 0.55rem;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+h1,
+h2 {
+    color: var(--install-text);
+    line-height: 1.18;
+    text-wrap: balance;
+}
+
+h1 {
+    max-width: 20ch;
+    margin: 0;
+    font-size: clamp(1.9rem, 5vw, 3rem);
+    letter-spacing: -0.035em;
+}
+
+h2 {
+    margin: clamp(2rem, 5vw, 3.25rem) 0 0.8rem;
+    font-size: clamp(1.25rem, 3vw, 1.625rem);
+    letter-spacing: -0.018em;
+}
+
+.install-header h1 {
+    margin-block-start: 0.5rem;
+}
+
+p,
+ul {
+    margin-block: 0 1rem;
+}
+
+ul {
+    padding-inline-start: 1.4rem;
+}
+
+form {
+    margin: 0;
 }
 
 .input {
-	margin: 0 0 0.75em;
-	position: relative;
-	padding: 0 0 0 13em;
-	}
-	.input.select {
-		min-height: 1.5em;
-		}
-	.input.select select {
-		margin: 0;
-		font-size: 1em;
-		}
-	.input.checkbox input {
-		vertical-align: middle;
-		padding: 0;
-		}
-	.input.text label {
-		padding: 0;
-		}
-		.input label > small {
-			color: #666;
-			display: block;
-			}
-            .input label > small.error {
-                color: #f00;
-                }
-	.input > label > span,
-	.input .subhead {
-		display: inline-block;
-		width: 12em;
-		margin-left: -13em;
-		padding-right: 1em;
-		position: relative;
-		}
-		.input label > span > em {
-			color: #f00;
-			}
-    label.disabled {
-        color: #999;
+    margin-block: 0 1rem;
+}
+
+.input > label,
+.input.text > label,
+.input.select > label {
+    display: grid;
+    grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr);
+    gap: 0.35rem 1.25rem;
+    align-items: center;
+    margin: 0;
+}
+
+.input > label > span,
+.input .subhead {
+    grid-column: 1;
+    align-self: center;
+    color: var(--install-text);
+    font-weight: 650;
+    line-height: 1.35;
+}
+
+.input > label > input,
+.input > label > select {
+    grid-column: 2;
+    width: 100%;
+    min-width: 0;
+}
+
+.input > label > br {
+    display: none;
+}
+
+.input > label > small {
+    grid-column: 2;
+    display: block;
+    color: var(--install-muted);
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
+.input > label > small.error {
+    color: var(--install-danger);
+    font-weight: 650;
+}
+
+.input > label > span > em,
+.input legend > em {
+    margin-inline-start: 0.2em;
+    color: var(--install-danger);
+    font-style: normal;
+}
+
+input,
+select,
+textarea {
+    max-width: 100%;
+    color: var(--install-text);
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="url"],
+select,
+textarea {
+    min-height: 2.75rem;
+    padding: 0.62rem 0.75rem;
+    background: var(--install-surface);
+    border: 1px solid var(--install-border-strong);
+    border-radius: 0.55rem;
+    box-shadow: 0 1px 2px rgb(20 38 44 / 5%) inset;
+    outline: 0;
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+select {
+    cursor: pointer;
+}
+
+input[type="text"]:hover,
+input[type="email"]:hover,
+input[type="password"]:hover,
+input[type="url"]:hover,
+select:hover,
+textarea:hover {
+    border-color: var(--install-accent);
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="url"]:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--install-focus);
+    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--install-focus) 22%, transparent);
+}
+
+fieldset.input {
+    min-width: 0;
+    margin: 0 0 1.25rem;
+    padding: 1rem;
+    background: var(--install-surface-subtle);
+    border: 1px solid var(--install-border);
+    border-radius: var(--install-radius);
+}
+
+fieldset.input legend {
+    padding-inline: 0.4rem;
+    color: var(--install-text);
+    font-weight: 700;
+}
+
+.radio-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.radio-options label {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 0.8rem;
+    background: var(--install-surface);
+    border: 1px solid var(--install-border);
+    border-radius: 0.55rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.radio-options label:has(input:checked) {
+    background: var(--install-accent-soft);
+    border-color: var(--install-accent);
+}
+
+.radio-options input {
+    width: 1.1rem;
+    height: 1.1rem;
+    margin: 0;
+    accent-color: var(--install-accent);
+}
+
+label.disabled,
+.radio-options label:has(input:disabled) {
+    color: var(--install-muted);
+    cursor: not-allowed;
+    opacity: 0.62;
+}
+
+.button-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    margin-block: 1.5rem 0;
+}
+
+.button-wrapper input,
+a.link-button {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.65rem 1rem;
+    color: var(--install-text);
+    background: var(--install-surface-subtle);
+    border: 1px solid var(--install-border-strong);
+    border-radius: 0.6rem;
+    box-shadow: 0 1px 2px rgb(20 38 44 / 8%);
+    cursor: pointer;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.button-wrapper input:hover,
+a.link-button:hover {
+    background: var(--install-accent-soft);
+    border-color: var(--install-accent);
+}
+
+.button-wrapper input:active,
+a.link-button:active {
+    box-shadow: none;
+    transform: translateY(1px);
+}
+
+.button-wrapper input.main-button,
+a.link-button.main-button {
+    min-width: 11rem;
+    color: #ffffff;
+    background: var(--install-accent);
+    border-color: var(--install-accent);
+}
+
+.button-wrapper input.main-button:hover,
+a.link-button.main-button:hover {
+    background: var(--install-accent-hover);
+    border-color: var(--install-accent-hover);
+}
+
+:focus-visible {
+    outline: 3px solid var(--install-focus);
+    outline-offset: 3px;
+}
+
+.info-box,
+.warning-box,
+.error-box,
+.success-box {
+    margin: 0.75rem 0 1.25rem;
+    padding: 0.9rem 1rem;
+    overflow: hidden;
+    border: 1px solid;
+    border-radius: var(--install-radius);
+}
+
+.info-box p,
+.warning-box p,
+.error-box p,
+.success-box p {
+    margin: 0;
+}
+
+.info-box p + p,
+.warning-box p + p,
+.error-box p + p,
+.success-box p + p {
+    margin-block-start: 0.65rem;
+}
+
+.info-box {
+    background: var(--install-info-bg);
+    border-color: var(--install-info-border);
+}
+
+.warning-box {
+    color: var(--install-warning);
+    background: var(--install-warning-bg);
+    border-color: var(--install-warning-border);
+}
+
+.warning-box strong {
+    color: inherit;
+}
+
+.error-box {
+    color: var(--install-danger);
+    background: var(--install-danger-bg);
+    border-color: var(--install-danger-border);
+}
+
+.success-box {
+    color: var(--install-success);
+    background: var(--install-success-bg);
+    border-color: var(--install-success-border);
+}
+
+.install-success-page .install-shell > p {
+    max-width: 68ch;
+}
+
+@media (max-width: 45rem) {
+    body {
+        padding: 0;
+        background: var(--install-surface);
     }
 
-.info-box, .warning-box, .error-box, .success-box {
-    margin: 0.5em 0 1em;
-    border-radius: 4px;
-    padding: 0.5em 0.75em 0;
-    overflow: hidden;
+    .install-shell {
+        min-height: 100vh;
+        min-height: 100dvh;
+        padding: 1.25rem;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
     }
-    .info-box p, .warning-box p, .error-box p, .success-box p {
-        margin: 0 0 0.75em;
-        font-size: 1em;
-        }
-.info-box {
-	background: #e0faf7;
-	border: 1px solid #aad9dd;
-	}
-.warning-box {
-	background: #faf1e0;
-	border: 1px solid #ddcdaa;
-	}
-	.warning-box strong {
-		color: red;
-		}
-.error-box {
-	background: #fae0e0;
-	border: 1px solid #ddaaaa;
-	}
-.success-box {
-	background: #e0fae1;
-	border: 1px solid #aaddac;
-	}
+
+    .input > label,
+    .input.text > label,
+    .input.select > label {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.4rem;
+    }
+
+    .input > label > span,
+    .input .subhead,
+    .input > label > input,
+    .input > label > select,
+    .input > label > small {
+        grid-column: 1;
+    }
+}
+
+@media (max-width: 30rem) {
+    .radio-options {
+        display: grid;
+    }
+
+    .radio-options label {
+        width: 100%;
+    }
+
+    .button-wrapper,
+    .button-wrapper input,
+    a.link-button {
+        width: 100%;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --install-bg: #10191d;
+        --install-surface: #172228;
+        --install-surface-subtle: #1c2a30;
+        --install-text: #edf5f7;
+        --install-muted: #afbec3;
+        --install-border: #35474d;
+        --install-border-strong: #557078;
+        --install-accent: #55c6d8;
+        --install-accent-hover: #7ad5e2;
+        --install-accent-soft: #173c44;
+        --install-focus: #69d8e8;
+        --install-danger: #ffaaa1;
+        --install-danger-bg: #3f2322;
+        --install-danger-border: #8d4944;
+        --install-warning: #f2d18d;
+        --install-warning-bg: #392f1d;
+        --install-warning-border: #78653b;
+        --install-success: #9bdeb3;
+        --install-success-bg: #1f3828;
+        --install-success-border: #477657;
+        --install-info-bg: #19343a;
+        --install-info-border: #416d75;
+        --install-shadow: 0 1.5rem 4rem rgb(0 0 0 / 30%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media print {
+    body {
+        padding: 0;
+        background: #ffffff;
+    }
+
+    .install-shell {
+        border: 0;
+        box-shadow: none;
+    }
+
+    .button-wrapper {
+        display: none;
+    }
+}

@@ -243,10 +243,13 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             );
             $event->htmlTemplate->registerPlaceholder(
                 '<!-- s2_search_field -->',
-                '<form class="s2_search_form" method="get" action="' . $urlBuilder->link('/search') . '">'
+                '<form class="s2_search_form" role="search" aria-label="' . s2_htmlencode($translator->trans('Search'))
+                . '" method="get" action="' . $urlBuilder->link('/search') . '">'
                 . ($urlBuilder->hasPrefix() ? '<input type="hidden" name="search" value="1" />' : '')
-                . '<input type="text" name="q" id="s2_search_input" data-s2-search-url="'
-                . s2_htmlencode($quickSearchUrl) . '" placeholder="' . s2_htmlencode($translator->trans('Search')) . '"/></form>'
+                . '<label class="visually-hidden" for="s2_search_input">' . s2_htmlencode($translator->trans('Search')) . '</label>'
+                . '<input type="search" name="q" id="s2_search_input" data-s2-search-url="'
+                . s2_htmlencode($quickSearchUrl) . '" placeholder="' . s2_htmlencode($translator->trans('Search'))
+                . '" autocomplete="off" enterkeyhint="search" /></form>'
             );
         });
 

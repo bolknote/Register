@@ -646,7 +646,7 @@ final class TypographTest extends Unit
 
 <!--noindex-->
 	<div id="counters">
-		<form class="s2_search_form" method="get" action="/search"><input type="text" name="q" id="s2_search_input" placeholder="Поиск"/></form>
+		<form class="s2_search_form" role="search" aria-label="Поиск" method="get" action="/search"><label class="visually-hidden" for="s2_search_input">Поиск</label><input type="search" name="q" id="s2_search_input" placeholder="Поиск" autocomplete="off" enterkeyhint="search" /></form>
 		<!--  s2_counter_img -->
 	</div>
 <!--/noindex-->

@@ -11,6 +11,7 @@ return [
     'Logout info'                => 'Завершить сеанс',
     'Admin panel'                => 'Панель управления',
     'Admin navigation'           => 'Навигация панели управления',
+    'Skip to content'            => 'Перейти к содержимому',
     'Open site'                  => 'Открыть сайт',
     'Overview'                   => 'Обзор',
     'Analytics'                  => 'Статистика',

@@ -19,9 +19,10 @@ declare(strict_types = 1);
 /** @var bool $showComments */
 /** @var bool $enabledComments */
 
+$heading = empty($title_link) ? 'h1' : 'h2';
 ?>
 <div class="post author"><?php if (!empty($author)) echo s2_htmlencode($author); ?></div>
-<h2 class="post head">
+<<?php echo $heading; ?> class="post head">
 <?php if (!empty($title_link)) {?>
 	<a href="<?php echo s2_htmlencode($title_link); ?>"><?php echo s2_htmlencode($title); ?></a>
 <?php } else {?>
@@ -32,7 +33,7 @@ declare(strict_types = 1);
 <?php } elseif (!empty($favorite)) {?>
     <span class="favorite-star" title="<?php echo $trans('Favorite posts'); ?>">★</span>
 <?php } ?>
-</h2>
+</<?php echo $heading; ?>>
 <div class="post time"><time datetime="<?php echo gmdate(DATE_ATOM, (int)$create_time); ?>"<?php if (trim($display_date ?? '') === ''): ?> data-local-time="datetime" data-locale="<?php echo s2_htmlencode($trans('locale')); ?>"<?php endif; ?>><?php echo s2_htmlencode($time); ?></time></div>
 <?php
 	echo '<div class="post body">' . $text . '</div>';

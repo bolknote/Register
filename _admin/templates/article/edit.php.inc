@@ -285,7 +285,7 @@ $renderControl = static function (
             <?= $control->getHtml() ?>
         <?php endforeach; ?>
         <div class="large-form-wrapper">
-            <main class="article-form-column article-form-column-1 editor-main-column">
+            <div class="article-form-column article-form-column-1 editor-main-column">
                 <div class="editor-title-block">
                     <?php foreach ($titleControls as $fieldName => $control): ?>
                         <?= $renderControl($fieldName, $control, false) ?>
@@ -348,7 +348,7 @@ $renderControl = static function (
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
-            </main>
+            </div>
 
             <aside class="article-form-column article-form-column-2 editor-sidebar-column">
                 <section class="editor-sidebar-card editor-publication-card">

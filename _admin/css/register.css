@@ -431,13 +431,13 @@ h3 {
 
 /* Content and controls */
 
-article.admin-content,
-body > article:not(.error) {
+main.admin-content,
+body > main:not(.error) {
     width: 100%;
     padding: clamp(1.25rem, 3vw, 2.5rem);
 }
 
-article.error {
+main.error {
     max-width: 52rem;
     margin: 0 auto;
     padding: clamp(2rem, 6vw, 5rem) clamp(1.25rem, 4vw, 3rem);
@@ -1682,6 +1682,27 @@ button.list-action-link-delete:focus-visible {
     border: 0 !important;
 }
 
+.admin-skip-link {
+    position: fixed;
+    z-index: 10000;
+    top: max(0.75rem, env(safe-area-inset-top));
+    left: max(0.75rem, env(safe-area-inset-left));
+    padding: 0.65rem 0.9rem;
+    border: 2px solid var(--admin-accent-color);
+    border-radius: 0.45rem;
+    background: var(--admin-surface-background);
+    color: var(--admin-text-color);
+    box-shadow: var(--admin-shadow);
+    font-weight: 700;
+    text-decoration: none;
+    transform: translateY(calc(-100% - 1.5rem));
+    transition: transform 150ms ease;
+}
+
+.admin-skip-link:focus {
+    transform: translateY(0);
+}
+
 /* Structure and module screens */
 
 section.admin-structure,
@@ -2774,6 +2795,12 @@ body.login_page {
     top: 0;
 }
 
+.login-heading {
+    margin: 0;
+    font-size: inherit;
+    line-height: inherit;
+}
+
 .login-brand,
 .login-brand:visited {
     display: inline-flex;
@@ -2980,8 +3007,8 @@ body.login_page {
         display: none;
     }
 
-    article.admin-content,
-    body > article:not(.error) {
+    main.admin-content,
+    body > main:not(.error) {
         padding: 1.25rem 1rem 2rem;
     }
 
@@ -3027,14 +3054,14 @@ body.login_page {
         display: none;
     }
 
-    html:has(> body > article > section.large-edit-form),
-    body:has(> article > section.large-edit-form),
+    html:has(> body > main > section.large-edit-form),
+    body:has(> main > section.large-edit-form),
     section.large-edit-form,
     section.large-edit-form form {
         height: auto;
     }
 
-    body:has(> article > section.large-edit-form) {
+    body:has(> main > section.large-edit-form) {
         display: block;
     }
 

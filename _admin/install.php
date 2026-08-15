@@ -560,7 +560,14 @@ function guessBaseUrl(): string
  * @param array<string, string> $values
  * @param array<string, list<string>> $validationErrors
  */
-function renderInstallForm(array $lang_install, array $languages, string $currentLanguage, array $values, array $validationErrors): void
+function renderInstallForm(
+    array $lang_install,
+    array $languages,
+    string $currentLanguage,
+    string $locale,
+    array $values,
+    array $validationErrors,
+): void
 {
     // Determine available database extensions
     $supportedDatabases = [
@@ -586,17 +593,23 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
     $base_url_guess = guessBaseUrl();
     ?>
     <!DOCTYPE html>
-    <html>
+    <html lang="<?php echo s2_htmlencode($locale); ?>">
     <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <meta charset="utf-8">
         <meta name="Generator" content="Register <?php echo S2_VERSION; ?>">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light dark">
         <title><?php printf($lang_install['Install S2'], S2_VERSION) ?></title>
         <link rel="icon" type="image/svg+xml" href="<?php echo S2_ROOT ?>_styles/register/favicon.svg">
         <link rel="stylesheet" href="<?php echo S2_ROOT ?>_admin/css/style.css">
     </head>
-    <body>
+    <body class="install-page">
+    <main class="install-shell">
 
-    <h1><?php printf($lang_install['Install S2'], S2_VERSION) ?></h1>
+    <header class="install-header">
+        <div class="install-brand"><span aria-hidden="true">ℜ</span> Register</div>
+        <h1><?php printf($lang_install['Install S2'], S2_VERSION) ?></h1>
+    </header>
 
     <?php
 
@@ -661,31 +674,30 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
     <?php endif; ?>
     <form name="install_form" method="post" accept-charset="utf-8" action="install.php">
         <input type="hidden" name="form_sent" value="1"/>
-        <div class="input radio required">
-            <label for="fld1">
-                <span><?php echo $lang_install['Database type'] ?><em>*</em>
-                </span><?php
+        <fieldset class="input radio required">
+            <legend><?php echo $lang_install['Database type'] ?> <em aria-hidden="true">*</em></legend>
+            <div class="radio-options"><?php
 
                 $selected = false;
                 foreach ($supportedDatabases as $dbType => $dbInfo) {
                     $enabled   = $dbInfo['available'];
                     $isChecked = (isset($values['req_db_type']) ? $values['req_db_type'] === $dbType : $enabled && !$selected) ? 'checked' : '';
-                    echo '<label ' . ($enabled ? '' : 'class="disabled"') . '><input type="radio" name="req_db_type" ' . $isChecked . ' value="' . $dbType . '" ' . ($enabled ? '' : 'disabled="disabled"') . '><span>' . $dbInfo['title'] . ($enabled ? '' : ' ' . $lang_install['Database type N/A']) . '</span></label>' . "<br>\n";
+                    echo '<label ' . ($enabled ? '' : 'class="disabled"') . '><input type="radio" name="req_db_type" ' . $isChecked . ' value="' . $dbType . '" ' . ($enabled ? 'required' : 'disabled="disabled"') . '><span>' . $dbInfo['title'] . ($enabled ? '' : ' ' . $lang_install['Database type N/A']) . '</span></label>' . "\n";
                     if ($enabled) {
                         $selected = true;
                     }
                 }
 
                 ?>
-            </label>
-        </div>
+            </div>
+        </fieldset>
         <script src="js/install.js" defer></script>
         <div class="input text required">
             <label for="fld2">
                 <span><?php echo $lang_install['Database server'] ?><em>*</em>
                 </span><input id="fld2" type="text" name="req_db_host"
                               value="<?php echo s2_htmlencode($values['req_db_host'] ?? 'localhost'); ?>" size="50"
-                              maxlength="100"/>
+                              maxlength="100" spellcheck="false" autocapitalize="none" required />
                 <?php foreach ($validationErrors['req_db_host'] ?? [] as $error) {
                     echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
@@ -697,7 +709,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                 <span><?php echo $lang_install['Database name'] ?><em>*</em>
                 </span><input id="fld3" type="text" name="req_db_name"
                               value="<?php echo s2_htmlencode($values['req_db_name'] ?? ''); ?>" size="35"
-                              maxlength="50"/>
+                              maxlength="50" spellcheck="false" autocapitalize="none" required />
                 <?php foreach ($validationErrors['req_db_name'] ?? [] as $error) {
                     echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
@@ -709,7 +721,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                 <span><?php echo $lang_install['Database username'] ?>
                 </span><input id="fld4" type="text" name="db_username"
                               value="<?php echo s2_htmlencode($values['db_username'] ?? ''); ?>" size="35"
-                              maxlength="50"/>
+                              maxlength="50" autocomplete="username" autocapitalize="none" />
                 <?php foreach ($validationErrors['db_username'] ?? [] as $error) {
                     echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
@@ -720,7 +732,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
             <label for="fld5">
                 <span><?php echo $lang_install['Database password'] ?>
                 </span><input id="fld5" type="password" name="db_password"
-                              value="<?php echo s2_htmlencode($values['db_password'] ?? ''); ?>" size="35"/>
+                              value="<?php echo s2_htmlencode($values['db_password'] ?? ''); ?>" size="35" autocomplete="off" />
                 <?php foreach ($validationErrors['db_password'] ?? [] as $error) {
                     echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
@@ -747,7 +759,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
             <label for="fld7">
                 <span><?php echo $lang_install['Admin username'] ?><em>*</em>
                 </span><input id="fld7" type="text" name="req_username" size="35" maxlength="40"
-                              value="<?php echo s2_htmlencode($values['req_username'] ?? 'admin'); ?>"/>
+                              value="<?php echo s2_htmlencode($values['req_username'] ?? 'admin'); ?>" autocomplete="username" autocapitalize="none" required />
                 <?php foreach ($validationErrors['req_username'] ?? [] as $error) {
                     echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
@@ -755,9 +767,9 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
         </div>
         <div class="input text required">
             <label for="fld8">
-                <span><?php echo $lang_install['Admin password'] ?>
+                <span><?php echo $lang_install['Admin password'] ?><em>*</em>
                 </span><input id="fld8" type="password" name="req_password" size="35" maxlength="200"
-                              value="<?php echo s2_htmlencode($values['req_password'] ?? ''); ?>"/>
+                              value="<?php echo s2_htmlencode($values['req_password'] ?? ''); ?>" autocomplete="new-password" required />
                 <?php foreach ($validationErrors['req_password'] ?? [] as $error) {
                     echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
@@ -766,8 +778,8 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
         <div class="input text">
             <label for="fld10">
                 <span><?php echo $lang_install['Admin e-mail'] ?>
-                </span><input id="fld10" type="text" name="adm_email" size="50" maxlength="80"
-                              value="<?php echo s2_htmlencode($values['adm_email'] ?? ''); ?>"/>
+                </span><input id="fld10" type="email" name="adm_email" size="50" maxlength="80"
+                              value="<?php echo s2_htmlencode($values['adm_email'] ?? ''); ?>" autocomplete="email" />
                 <?php foreach ($validationErrors['adm_email'] ?? [] as $error) {
                     echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
@@ -778,8 +790,8 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
         <div class="input text required">
             <label for="fld13">
                 <span><?php echo $lang_install['Base URL'] ?><em>*</em>
-                </span><input id="fld13" type="text" name="req_base_url" maxlength="100" size="50"
-                              value="<?php echo s2_htmlencode($values['req_base_url'] ?? $base_url_guess); ?>">
+                </span><input id="fld13" type="url" name="req_base_url" maxlength="100" size="50"
+                              value="<?php echo s2_htmlencode($values['req_base_url'] ?? $base_url_guess); ?>" inputmode="url" autocapitalize="none" spellcheck="false" required>
                 <?php foreach ($validationErrors['req_base_url'] ?? [] as $error) {
                     echo '<small class="error">' . s2_htmlencode($error) . '</small>';
                 } ?>
@@ -824,6 +836,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
         </div>
     </form>
 
+    </main>
     </body>
     </html>
     <?php
@@ -832,7 +845,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
 
 
 if (!isset($_POST['form_sent'])) {
-    renderInstallForm($lang_install, $languages, $language, [], []);
+    renderInstallForm($lang_install, $languages, $language, $translator->getLocale(), [], []);
     exit;
 }
 
@@ -925,7 +938,7 @@ $submittedValues = [
 ];
 
 if ($validationErrors !== []) {
-    renderInstallForm($lang_install, $languages, $language, $submittedValues, $validationErrors);
+    renderInstallForm($lang_install, $languages, $language, $translator->getLocale(), $submittedValues, $validationErrors);
     exit;
 }
 
@@ -941,7 +954,7 @@ try {
     );
 } catch (\Throwable $throwable) {
     $validationErrors['db_error'][] = $throwable->getMessage();
-    renderInstallForm($lang_install, $languages, $language, $submittedValues, $validationErrors);
+    renderInstallForm($lang_install, $languages, $language, $translator->getLocale(), $submittedValues, $validationErrors);
     exit;
 }
 
@@ -955,7 +968,7 @@ try {
 
 if ($databaseHasUsers) {
     $validationErrors['db_is_used'][] = sprintf($lang_install['S2 already installed'], $db_prefix, $db_name);
-    renderInstallForm($lang_install, $languages, $language, $submittedValues, $validationErrors);
+    renderInstallForm($lang_install, $languages, $language, $translator->getLocale(), $submittedValues, $validationErrors);
     exit;
 }
 
@@ -1098,17 +1111,23 @@ if (is_writable(S2_FS_ROOT)) {
 
 ?>
     <!DOCTYPE html>
-    <html>
+    <html lang="<?php echo s2_htmlencode($translator->getLocale()); ?>">
     <head>
         <meta charset="utf-8">
         <meta name="Generator" content="Register <?php echo S2_VERSION; ?>"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="color-scheme" content="light dark">
         <title><?php printf($lang_install['Install S2'], S2_VERSION) ?></title>
         <link rel="icon" type="image/svg+xml" href="<?php echo S2_ROOT ?>_styles/register/favicon.svg">
         <link rel="stylesheet" type="text/css" href="<?php echo S2_ROOT ?>_admin/css/style.css"/>
     </head>
-    <body>
+    <body class="install-page install-success-page">
+    <main class="install-shell">
 
-    <h1><?php printf($lang_install['Install S2'], S2_VERSION) ?></h1>
+    <header class="install-header">
+        <div class="install-brand"><span aria-hidden="true">ℜ</span> Register</div>
+        <h1><?php printf($lang_install['Install S2'], S2_VERSION) ?></h1>
+    </header>
     <p><?php printf($lang_install['Success description'], S2_VERSION) ?></p>
     <p><?php echo $lang_install['Success welcome'] ?></p>
     <h2><?php echo $lang_install['Final instructions'] ?></h2>
@@ -1162,6 +1181,7 @@ if (is_writable(S2_FS_ROOT)) {
 
     ?>
 
+    </main>
     </body>
     </html>
 

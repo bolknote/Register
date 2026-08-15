@@ -15,6 +15,8 @@ return [
     'Error 404 text'         => 'Эта страница никогда не&nbsp;существовала или&nbsp;была удалена. Перейдите на&nbsp;<a href="%1$s">главную</a> и&nbsp;найдите нужную страницу самостоятельно, либо&nbsp;напишите автору сайта.',
 
     // Page content
+    'Skip to content'        => 'Перейти к содержанию',
+    'Breadcrumbs'            => 'Навигационная цепочка',
     'In this section'        => 'В этом разделе',
     'Read in this section'   => 'Читайте в этом разделе',
     'More in this section'   => 'Еще в разделе <nobr>«%s»</nobr>',

@@ -11,6 +11,7 @@ return [
     'Logout info'                => 'End this session',
     'Admin panel'                => 'Control panel',
     'Admin navigation'           => 'Control panel navigation',
+    'Skip to content'            => 'Skip to content',
     'Open site'                  => 'Open site',
     'Overview'                   => 'Overview',
     'Analytics'                  => 'Analytics',

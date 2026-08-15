@@ -15,6 +15,8 @@ return [
     'Error 404 text'         => 'This page never existed or&nbsp;has been removed. Go to&nbsp;<a href="%1$s">the main page</a> and&nbsp;find the necessary information, or&nbsp;write webmaster.',
 
     // Page content
+    'Skip to content'        => 'Skip to content',
+    'Breadcrumbs'            => 'Breadcrumbs',
     'In this section'        => 'In this section',
     'Read in this section'   => 'Read in this section',
     'More in this section'   => 'More in the section <nobr>“%s”</nobr>',

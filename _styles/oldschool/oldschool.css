@@ -31,7 +31,7 @@
     color: var(--oldschool-teal-deep);
 }
 
-#content > h2.post.head {
+#content > .post.head {
     max-width: var(--text-width);
     padding: 0.32rem 0.6rem 0.4rem;
     border-radius: 4px 4px 0 0;
@@ -41,20 +41,20 @@
     text-shadow: 0 1px 0 color-mix(in srgb, var(--oldschool-teal-deep) 65%, transparent);
 }
 
-h2.post.head a,
-h2.post.head a:visited {
+.post.head a,
+.post.head a:visited {
     color: inherit;
     text-decoration: none;
 }
 
-h2.post.head a:hover,
-h2.post.head a:focus-visible {
+.post.head a:hover,
+.post.head a:focus-visible {
     color: var(--oldschool-white);
     text-decoration: underline;
     text-decoration-color: color-mix(in srgb, var(--oldschool-white) 70%, transparent);
 }
 
-#content > h2.post.head + .post.time {
+#content > .post.head + .post.time {
     max-width: var(--text-width);
     margin-top: -0.35rem;
     padding: 0.38rem 0.6rem 0.45rem;
@@ -441,8 +441,8 @@ input.comment-submit:focus-visible,
         --link-visited-color: #000;
     }
 
-    #content > h2.post.head,
-    #content > h2.post.head + .post.time {
+    #content > .post.head,
+    #content > .post.head + .post.time {
         padding: 0;
         border: 0;
         background: transparent;
@@ -450,8 +450,8 @@ input.comment-submit:focus-visible,
         text-shadow: none;
     }
 
-    #content > h2.post.head a,
-    #content > h2.post.head a:visited {
+    #content > .post.head a,
+    #content > .post.head a:visited {
         color: #000;
     }
 

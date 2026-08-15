@@ -99,6 +99,7 @@ class HtmlTemplate
         $replace = [];
 
         // HTML head
+        $replace['<!-- s2_html_lang -->']  = s2_htmlencode($this->translator->trans('locale'));
         $replace['<!-- s2_head_title -->'] = $this->buildHeadTitle();
 
         // Meta tags processing
@@ -127,6 +128,8 @@ class HtmlTemplate
         $replace['<!-- s2_rss_link -->'] = implode("\n", $this->stringListValue($this->page['rss_link']));
 
         // Content
+        $replace['<!-- s2_skip_link_label -->']  = s2_htmlencode($this->translator->trans('Skip to content'));
+        $replace['<!-- s2_breadcrumbs_label -->'] = s2_htmlencode($this->translator->trans('Breadcrumbs'));
         $replace['<!-- s2_site_title -->'] = $this->buildSiteTitle();
 
         $link_navigation = [];
@@ -209,7 +212,16 @@ class HtmlTemplate
 
         // Replacing placeholders and calculating hash for ETag header
         foreach ($replace as $what => $to) {
-            if ($this->debugView && $to !== '' && !in_array($what, ['<!-- s2_head_title -->', '<!-- s2_navigation_link -->', '<!-- s2_rss_link -->', '<!-- s2_meta -->', '<!-- s2_styles -->'], true)) {
+            if ($this->debugView && $to !== '' && !in_array($what, [
+                '<!-- s2_html_lang -->',
+                '<!-- s2_head_title -->',
+                '<!-- s2_skip_link_label -->',
+                '<!-- s2_breadcrumbs_label -->',
+                '<!-- s2_navigation_link -->',
+                '<!-- s2_rss_link -->',
+                '<!-- s2_meta -->',
+                '<!-- s2_styles -->',
+            ], true)) {
 
                 $title = '<pre style="color: red; font-size: 12px; opacity: 0.6; margin: 0 -100% 0 0; width: 100%; text-align: center; line-height: 1; position: relative; float: left; z-index: 1000; pointer-events: none;">' . s2_htmlencode($what) . '</pre>';
                 $to    = '<div style="border: 1px solid rgba(255, 0, 0, 0.4); margin: 1px;">' .
