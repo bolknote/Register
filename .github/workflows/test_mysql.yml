@@ -66,10 +66,10 @@ jobs:
         run: COMPOSER_MEMORY_LIMIT=-1 composer install --prefer-dist --no-interaction
 
       - name: Run acceptance test cases
-        run: sh ./test_sh
+        run: ./bin/test-acceptance
 
       - name: Run integration test cases
-        run: php _vendor/bin/codecept run integration
+        run: composer test:integration
 
       - name: Output logs
         if: failure()

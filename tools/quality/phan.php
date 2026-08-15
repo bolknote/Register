@@ -9,7 +9,6 @@ return [
         '_admin',
         '_include/src',
         '_extensions',
-        'tools',
         '_vendor',
     ],
     'file_list' => [
@@ -18,6 +17,11 @@ return [
         '_include/installation_required.php',
         '_include/setup.php',
         'index.php',
+        'tools/backup.php',
+        'tools/dev-bootstrap.php',
+        'tools/dev-router.php',
+        'tools/queue-status.php',
+        'tools/retry-background-job.php',
     ],
     'exclude_analysis_directory_list' => [
         '_vendor',
@@ -31,6 +35,7 @@ return [
         '_include/src/Register/Module/Search/resources/views',
         '_tests/_resources',
         '_tests/_support/_generated',
+        'tools/quality',
     ],
     'exclude_file_regex' => '@(?:^|/)(?:counter|data)\.php$@',
     'allow_missing_properties' => false,

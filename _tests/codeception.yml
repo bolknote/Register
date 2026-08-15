@@ -25,7 +25,7 @@ suites:
 settings:
     lint: true
 paths:
-    tests: _tests
-    output: _tests/_output
-    support: _tests/_support
-    data: _tests
+    tests: .
+    output: _output
+    support: _support
+    data: .

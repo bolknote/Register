@@ -172,7 +172,7 @@ composer install --no-dev --optimize-autoloader
 Изолированная установка с SQLite запускается одной командой:
 
 ```bash
-./dev
+./bin/dev
 ```
 
 Скрипт устанавливает недостающие зависимости Composer, создаёт временные данные в `.local/`,

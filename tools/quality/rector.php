@@ -11,21 +11,23 @@ use Rector\DeadCode\Rector\Property\RemoveDefaultValueFromAssignedPropertyRector
 use Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitThisCallRector;
 use Rector\ValueObject\PhpVersion;
 
+$projectRoot = dirname(__DIR__, 2);
+
 return RectorConfig::configure()
     ->withPaths([
-        __DIR__ . '/_admin/ajax.php',
-        __DIR__ . '/_admin/index.php',
-        __DIR__ . '/_admin/install.php',
-        __DIR__ . '/_admin/pictman.php',
-        __DIR__ . '/_include/src',
-        __DIR__ . '/_include/common.php',
-        __DIR__ . '/_include/functions.php',
-        __DIR__ . '/_include/installation_required.php',
-        __DIR__ . '/_include/setup.php',
-        __DIR__ . '/_extensions',
-        __DIR__ . '/_tests',
-        __DIR__ . '/index.php',
-        __DIR__ . '/tools',
+        $projectRoot . '/_admin/ajax.php',
+        $projectRoot . '/_admin/index.php',
+        $projectRoot . '/_admin/install.php',
+        $projectRoot . '/_admin/pictman.php',
+        $projectRoot . '/_include/src',
+        $projectRoot . '/_include/common.php',
+        $projectRoot . '/_include/functions.php',
+        $projectRoot . '/_include/installation_required.php',
+        $projectRoot . '/_include/setup.php',
+        $projectRoot . '/_extensions',
+        $projectRoot . '/_tests',
+        $projectRoot . '/index.php',
+        $projectRoot . '/tools',
     ])
     ->withSkip([
         // These rules cannot see that catch variables and PDO statements are
@@ -36,14 +38,15 @@ return RectorConfig::configure()
         RemoveDefaultValueFromAssignedPropertyRector::class,
         RemovePhpVersionIdCheckRector::class,
         RemoveUnusedVariableAssignRector::class,
-        __DIR__ . '/_extensions/*/lang',
-        __DIR__ . '/_extensions/*/templates',
-        __DIR__ . '/_extensions/*/views',
-        __DIR__ . '/_include/src/Register/Module/*/resources/lang',
-        __DIR__ . '/_include/src/Register/Module/*/resources/templates',
-        __DIR__ . '/_include/src/Register/Module/*/resources/views',
-        __DIR__ . '/_tests/_resources',
-        __DIR__ . '/_tests/_support/_generated',
+        $projectRoot . '/_extensions/*/lang',
+        $projectRoot . '/_extensions/*/templates',
+        $projectRoot . '/_extensions/*/views',
+        $projectRoot . '/_include/src/Register/Module/*/resources/lang',
+        $projectRoot . '/_include/src/Register/Module/*/resources/templates',
+        $projectRoot . '/_include/src/Register/Module/*/resources/views',
+        $projectRoot . '/_tests/_resources',
+        $projectRoot . '/_tests/_support/_generated',
+        $projectRoot . '/tools/quality',
     ])
     ->withPhpVersion(PhpVersion::PHP_83)
     ->withPhpSets()

@@ -6,17 +6,17 @@ use ShipMonk\ComposerDependencyAnalyser\Config\Configuration;
 use ShipMonk\ComposerDependencyAnalyser\Config\ErrorType;
 
 $config = new Configuration();
+$projectRoot = dirname(__DIR__, 2);
 
 return $config
-    ->addPathToScan(__DIR__ . '/_admin', isDev: false)
-    ->addPathToScan(__DIR__ . '/_include/common.php', isDev: false)
-    ->addPathToScan(__DIR__ . '/_include/functions.php', isDev: false)
-    ->addPathToScan(__DIR__ . '/_include/setup.php', isDev: false)
-    ->addPathToScan(__DIR__ . '/_tests', isDev: true)
-    ->addPathToScan(__DIR__ . '/tools', isDev: true)
-    ->addPathToScan(__DIR__ . '/dependency-analyser.php', isDev: true)
-    ->addPathToScan(__DIR__ . '/rector.php', isDev: true)
-    ->addPathToScan(__DIR__ . '/index.php', isDev: false)
+    ->addPathToScan($projectRoot . '/_admin', isDev: false)
+    ->addPathToScan($projectRoot . '/_include/common.php', isDev: false)
+    ->addPathToScan($projectRoot . '/_include/functions.php', isDev: false)
+    ->addPathToScan($projectRoot . '/_include/setup.php', isDev: false)
+    ->addPathToScan($projectRoot . '/_tests', isDev: true)
+    ->addPathToScan($projectRoot . '/tools', isDev: true)
+    ->addPathToScan($projectRoot . '/index.php', isDev: false)
+    ->addPathToExclude($projectRoot . '/tools/quality/stubs')
     // Codeception creates these actors and traits from suite configuration at runtime.
     ->ignoreUnknownClasses([
         'Tests\\Support\\Helper\\AbstractBrowserModule',

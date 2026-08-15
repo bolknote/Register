@@ -2,7 +2,11 @@
 
 namespace S2\AdminYard\Config;
 
-class DbColumnFieldType
+readonly abstract class AbstractFieldType
+{
+}
+
+readonly class DbColumnFieldType extends AbstractFieldType
 {
     /** @param mixed $defaultValue */
     public function __construct(

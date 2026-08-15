@@ -1,4 +1,5 @@
 .idea
+.DS_Store
 .local/
 _cache/*
 _vendor/*

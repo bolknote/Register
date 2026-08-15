@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<ruleset name="S2 strict mess detector rules"
+<ruleset name="Register strict mess detector rules"
          xmlns="http://pmd.sf.net/ruleset/1.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0 https://pmd.sourceforge.io/ruleset_xml_schema.xsd"
@@ -9,6 +9,7 @@
     <exclude-pattern>*/lang/*</exclude-pattern>
     <exclude-pattern>*/templates/*</exclude-pattern>
     <exclude-pattern>*/views/*</exclude-pattern>
+    <exclude-pattern>*/tools/quality/*</exclude-pattern>
 
     <!-- Preserve the published legacy API and database vocabulary. PHPCS,
          PHPStan and Psalm enforce naming, types and signatures more accurately. -->

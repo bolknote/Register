@@ -2,7 +2,7 @@
 
 set -eu
 
-PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+PROJECT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 PHP_BIN=${PHP_BIN:-php}
 COMPOSER_BIN=${COMPOSER_BIN:-composer}
 S2_DEV_HOST=${S2_DEV_HOST:-127.0.0.1}

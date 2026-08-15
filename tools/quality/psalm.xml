@@ -2,10 +2,10 @@
 <psalm
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns="https://getpsalm.org/schema/config"
-    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    xsi:schemaLocation="https://getpsalm.org/schema/config ../../_vendor/vimeo/psalm/config.xsd"
     errorLevel="1"
     phpVersion="8.3"
-    resolveFromConfigFile="true"
+    resolveFromConfigFile="false"
     findUnusedCode="false"
     findUnusedVariablesAndParams="true"
     findUnusedBaselineEntry="true"
@@ -48,12 +48,13 @@
             <directory name="_tests/acceptance" />
             <directory name="_tests/integration" />
             <directory name="_vendor" />
+            <directory name="tools/quality" />
         </ignoreFiles>
     </projectFiles>
     <stubs>
         <!-- AdminYard declares this mixed property as string|int|null in PHPDoc,
              although UNIXTIME defaults are normalized DateTimeInterface values. -->
-        <file name="static-analysis.stub.php" />
+        <file name="tools/quality/stubs/static-analysis.stub.php" />
     </stubs>
     <issueHandlers>
         <!-- DB rows, decoded JSON and template variable bags are intentionally

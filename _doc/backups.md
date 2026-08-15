@@ -33,7 +33,7 @@ A command-line backup can be forced at any time:
 php tools/backup.php
 ```
 
-For the isolated `./dev` installation use:
+For the isolated `./bin/dev` installation use:
 
 ```bash
 APP_ENV=local php tools/backup.php

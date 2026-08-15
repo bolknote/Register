@@ -173,7 +173,7 @@ starter post explains the first useful actions and can be edited or deleted.
 Start an isolated SQLite installation in one command:
 
 ```bash
-./dev
+./bin/dev
 ```
 
 The script installs missing Composer dependencies, creates disposable state under `.local/`, prints

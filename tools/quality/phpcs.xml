@@ -1,26 +1,27 @@
 <?xml version="1.0"?>
-<ruleset name="S2 strict quality and compatibility rules">
+<ruleset name="Register strict quality and compatibility rules">
     <description>Correctness, type safety and PHP 8.3–8.5 compatibility checks.</description>
 
-    <arg name="basepath" value="." />
+    <arg name="basepath" value="../.." />
     <arg name="colors" />
     <arg name="extensions" value="php" />
     <arg name="parallel" value="8" />
     <arg name="report-width" value="120" />
     <config name="testVersion" value="8.3-8.5" />
 
-    <file>_admin</file>
-    <file>_extensions</file>
-    <file>_include</file>
-    <file>_lang</file>
-    <file>_styles</file>
-    <file>_tests</file>
-    <file>tools</file>
-    <file>index.php</file>
+    <file>../../_admin</file>
+    <file>../../_extensions</file>
+    <file>../../_include</file>
+    <file>../../_lang</file>
+    <file>../../_styles</file>
+    <file>../../_tests</file>
+    <file>../../tools</file>
+    <file>../../index.php</file>
 
     <exclude-pattern>*/_vendor/*</exclude-pattern>
     <exclude-pattern>*/_cache/*</exclude-pattern>
     <exclude-pattern>*/_tests/_output/*</exclude-pattern>
+    <exclude-pattern>*/tools/quality/*</exclude-pattern>
 
     <rule ref="PHPCompatibility" />
     <rule ref="Generic.PHP.Syntax" />

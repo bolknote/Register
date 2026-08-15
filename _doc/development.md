@@ -9,12 +9,12 @@ composer install
 Start a fully isolated SQLite development copy (dependencies, initial database, and web server) with:
 
 ```bash
-./dev
+./bin/dev
 ```
 
 It uses `APP_ENV=local`, stores mutable data in `.local/`, listens on `127.0.0.1:8080` by default,
 and starts only the web server. Search-index, thumbnail, backup, and other queued jobs advance from
-Register's shutdown phase after ordinary HTTP responses. Use `S2_DEV_PORT=9000 ./dev` to select
+Register's shutdown phase after ordinary HTTP responses. Use `S2_DEV_PORT=9000 ./bin/dev` to select
 another port.
 
 Production installations do not need cron. Successful HTTP requests detach their response where the
@@ -43,6 +43,8 @@ The gate runs PHP parallel lint, PHPCS with Slevomat, ShellCheck, actionlint, PH
 maximum level, Psalm at level 1, strict Phan, PHPMD, PHP 8.3–8.5 compatibility checks,
 dependency analysis, Rector in dry-run mode, and the unit and integration suites. ShellCheck
 and actionlint must be available on `PATH`; the quality CI workflow installs pinned versions.
+Analyzer configuration and static-analysis stubs live together in `tools/quality/`; Codeception's
+suite configuration lives with the tests in `_tests/codeception.yml`.
 
 ## Code navigation
 
@@ -60,5 +62,5 @@ Use the repository helper script to prepare caches, start the server on `localho
 run the acceptance suite, and stop the server:
 
 ```bash
-./test_sh
+./bin/test-acceptance
 ```
