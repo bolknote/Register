@@ -12,6 +12,7 @@ EMAIL_DIR="$OUTPUT_DIR/email"
 TEST_CACHE_DIR="$PROJECT_DIR/_cache/test"
 SERVER_LOG="$OUTPUT_DIR/php-server.log"
 SECRET_CONFIG_FILE="$OUTPUT_DIR/config.acceptance.secrets.php"
+TEST_CONFIG_FILE="$PROJECT_DIR/config.test.php"
 SERVER_PID=
 
 cleanup() {
@@ -27,7 +28,7 @@ cleanup() {
     fi
 
     find "$TEST_CACHE_DIR" -maxdepth 1 -type f \( -name '*.php' -o -name '*.txt' \) -delete
-    rm -f "$SECRET_CONFIG_FILE"
+    rm -f "$SECRET_CONFIG_FILE" "$TEST_CONFIG_FILE"
     exit "$status"
 }
 
