@@ -2,7 +2,7 @@
 .local/
 _cache/*
 _vendor/*
-config.php
+/config.php
 config.local.php
 config.test.php
 pictures

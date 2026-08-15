@@ -109,7 +109,9 @@ readonly class ResourceProvider
 
     private function readLocalizedName(string $metadataFile, string $fallbackName, string $locale): string
     {
-        $contents = @file_get_contents($metadataFile);
+        $contents = s2_call_without_warnings(
+            static fn(): string|false => file_get_contents($metadataFile)
+        );
 
         if ($contents === false) {
             return $fallbackName;
