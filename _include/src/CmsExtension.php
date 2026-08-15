@@ -96,6 +96,7 @@ use S2\Cms\Queue\NativeShutdownRuntime;
 use S2\Cms\Queue\ScheduledMaintenance;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
+use S2\Cms\Security\Monitoring\SecurityTelemetryRecorder;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\TemplateEvent;
 use S2\Cms\Template\TemplateAssetEvent;
@@ -281,6 +282,10 @@ class CmsExtension implements ExtensionInterface
         });
         $container->set(SecurityAuditLogger::class, static fn(Container $container): SecurityAuditLogger => new SecurityAuditLogger(
             $container->getStringParameter('log_dir') . 'security-audit.jsonl',
+            $container->get(SpamIdentityHasher::class),
+        ));
+        $container->set(SecurityTelemetryRecorder::class, static fn(Container $container): SecurityTelemetryRecorder => new SecurityTelemetryRecorder(
+            $container->getStringParameter('log_dir') . 'security-events.jsonl',
             $container->get(SpamIdentityHasher::class),
         ));
         $container->set(CspViolationReporter::class, static fn(Container $container): CspViolationReporter => new CspViolationReporter(

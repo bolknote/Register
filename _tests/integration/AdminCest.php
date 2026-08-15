@@ -292,7 +292,10 @@ class AdminCest
         $I->dontSeeElement('[data-analytics-table="register-analytics-pages"]');
         $I->dontSeeElement('[data-analytics-table="register-analytics-feeds"]');
         $I->dontSeeElement('.environment-stat-item');
-        $I->assertCount(1, $I->grabMultiple('.stat-items > .stat-item'));
+        $I->assertCount(2, $I->grabMultiple('.stat-items > .stat-item'));
+        $I->see('Security monitoring', '.security-stat-item h3');
+        $I->see('No unusual security activity detected.', '.security-stat-item');
+        $I->see('HTTP 401: 0 · HTTP 403: 0 · HTTP 429: 0', '.security-stat-item');
         $I->dontSee('Register source code', '.stat-items');
         $I->dontSee('Register is based on', '.stat-items');
         $I->dontSee('© 2007–');
@@ -308,8 +311,9 @@ class AdminCest
         $I->see('Environment', '.environment-stat-item h3');
         $I->see('PHP', '.environment-stat-item dt');
         $I->see('Database', '.environment-stat-item');
+        $I->see('Security monitoring', '.security-stat-item h3');
         $I->dontSee('Database', '.stat-item > h3');
-        $I->assertCount(3, $I->grabMultiple('.stat-items > .stat-item'));
+        $I->assertCount(4, $I->grabMultiple('.stat-items > .stat-item'));
         $I->dontSeeElement('.publication-stat-item');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Article&action=list');

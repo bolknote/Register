@@ -13,6 +13,7 @@ use Register\Http\ContentSecurityPolicy;
 use S2\Cms\Admin\AdminAjaxRequestHandler;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
+use S2\Cms\Security\Monitoring\SecurityTelemetryRecorder;
 use Symfony\Component\HttpFoundation\Request;
 
 // NOTE: find a more elegant way to boot the application with the AdminExtension
@@ -23,6 +24,12 @@ $app = require __DIR__ . '/../_include/common.php';
 $request = Request::createFromGlobals();
 $handler  = $app->container->get(AdminAjaxRequestHandler::class);
 $response = $handler->handle($request);
+$action = $request->query->getString('action', $request->request->getString('action'));
+$app->container->get(SecurityTelemetryRecorder::class)->recordResponse(
+    $request,
+    $response,
+    $action === 'upload',
+);
 $reportUri = $app->container->get(UrlBuilder::class)->rawLink(ContentSecurityPolicy::REPORT_PATH);
 ContentSecurityPolicy::applyToAdmin($response, $reportUri);
 

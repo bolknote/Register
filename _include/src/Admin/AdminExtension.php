@@ -36,6 +36,7 @@ use S2\Cms\Admin\Dashboard\DashboardBlockProviderInterface;
 use S2\Cms\Admin\Dashboard\DashboardConfigExtender;
 use S2\Cms\Admin\Dashboard\DashboardDatabaseProvider;
 use S2\Cms\Admin\Dashboard\DashboardEnvironmentProvider;
+use S2\Cms\Admin\Dashboard\DashboardSecurityProvider;
 use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
 use S2\Cms\Admin\Dashboard\SystemStatusProviderInterface;
 use S2\Cms\Admin\Controller\CommentControllerFactory;
@@ -77,6 +78,7 @@ use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
 use S2\Cms\Security\Http\SameOriginRequestGuard;
+use S2\Cms\Security\Monitoring\SecurityAlertDetector;
 use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
 use S2\Cms\Security\WebAuthn\WebAuthnChallengeRepository;
 use S2\Cms\Security\WebAuthn\WebAuthnCredentialRepository;
@@ -397,6 +399,14 @@ class AdminExtension implements ExtensionInterface
             $container->get(TemplateRenderer::class),
             $container->get(DashboardDatabaseProvider::class),
         ), [SystemStatusProviderInterface::class]);
+        $container->set(SecurityAlertDetector::class, static fn(Container $container): SecurityAlertDetector => new SecurityAlertDetector(
+            $container->getStringParameter('log_dir') . 'security-events.jsonl',
+            $container->getStringParameter('log_dir') . 'csp-violations.jsonl',
+        ));
+        $container->set(DashboardSecurityProvider::class, static fn(Container $container): DashboardSecurityProvider => new DashboardSecurityProvider(
+            $container->get(TemplateRenderer::class),
+            $container->get(SecurityAlertDetector::class),
+        ), [DashboardStatProviderInterface::class, SystemStatusProviderInterface::class]);
 
         $container->set(BackupToken::class, fn(Container $container): BackupToken => new BackupToken(
             $container->get(SettingStorageInterface::class),

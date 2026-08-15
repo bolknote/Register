@@ -27,7 +27,7 @@ cleanup() {
         wait "$SERVER_PID" 2>/dev/null || true
     fi
 
-    find "$TEST_CACHE_DIR" -maxdepth 1 -type f \( -name '*.php' -o -name '*.txt' \) -delete
+    find "$TEST_CACHE_DIR" -maxdepth 1 -type f \( -name '*.php' -o -name '*.txt' -o -name '*.jsonl' \) -delete
     rm -f "$SECRET_CONFIG_FILE" "$TEST_CONFIG_FILE"
     exit "$status"
 }
@@ -38,7 +38,7 @@ mkdir -p "$EMAIL_DIR" "$TEST_CACHE_DIR/config" "$TEST_CACHE_DIR/recommendations"
 chmod a+w "$OUTPUT_DIR" "$EMAIL_DIR" "$TEST_CACHE_DIR"
 
 find "$PROJECT_DIR/_cache" -maxdepth 1 -type f -name '*.log' -delete
-find "$TEST_CACHE_DIR" -maxdepth 1 -type f \( -name '*.php' -o -name '*.txt' -o -name '*.log' \) -delete
+find "$TEST_CACHE_DIR" -maxdepth 1 -type f \( -name '*.php' -o -name '*.txt' -o -name '*.log' -o -name '*.jsonl' \) -delete
 find "$TEST_CACHE_DIR/config" "$TEST_CACHE_DIR/recommendations" -mindepth 1 -delete
 rm -f "$SECRET_CONFIG_FILE" "$TEST_CONFIG_FILE"
 

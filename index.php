@@ -13,6 +13,7 @@ declare(strict_types = 1);
 use Register\Http\ContentSecurityPolicy;
 use Register\Http\ResponseCompressor;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
+use S2\Cms\Security\Monitoring\SecurityTelemetryRecorder;
 use Symfony\Component\HttpFoundation\Request;
 
 $app = require __DIR__ . '/_include/common.php';
@@ -51,6 +52,7 @@ if (str_ends_with($request_uri, '---')) {
 
 $request  = Request::createFromGlobals();
 $response  = $app->handle($request);
+$app->container->get(SecurityTelemetryRecorder::class)->recordResponse($request, $response);
 $reportUri = $basePath . $urlPrefix . ContentSecurityPolicy::REPORT_PATH;
 ContentSecurityPolicy::apply($response, $reportUri);
 
