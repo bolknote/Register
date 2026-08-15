@@ -280,6 +280,14 @@ class DynamicConfigFormBuilder
                 'value',
                 control: 'color_input',
                 options: ['#eeeeee', '#f5e6e6', '#f5ece6', '#f5f0e6', '#edf5e6', '#e6f5ed', '#e6f3f5', '#e6edf5', '#e8e6f5', '#ede6f5'],
+                validators: [
+                    (static function (): Regex {
+                        $validator = new Regex(AdminThemeStylesheet::COLOR_PATTERN);
+                        $validator->message = 'Invalid admin color';
+
+                        return $validator;
+                    })(),
+                ],
                 inlineEdit: $inlineEdit,
                 inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),

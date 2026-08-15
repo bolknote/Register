@@ -135,7 +135,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    document.querySelector('.field-Config-value input[type="color"]')?.addEventListener('change', function (event) {
-        document.documentElement.style.setProperty('--page-secondary-background', event.target.value);
+    const adminColorInput = document.querySelector('.field-Config-value input[type="color"]');
+    const adminThemeStylesheet = document.getElementById('admin-theme-stylesheet');
+    adminColorInput?.addEventListener('change', function (event) {
+        const color = event.target.value;
+        if (!adminThemeStylesheet || !/^#[0-9a-f]{6}$/i.test(color)) {
+            return;
+        }
+
+        const stylesheetUrl = new URL(adminThemeStylesheet.href);
+        stylesheetUrl.searchParams.set('color', color);
+        adminThemeStylesheet.href = stylesheetUrl.toString();
     });
 });

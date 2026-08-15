@@ -22,11 +22,9 @@ declare(strict_types = 1);
     <link rel="stylesheet" href="<?= s2_htmlencode($basePath) ?>/_vendor/s2/admin-yard/demo/style.css">
     <link rel="stylesheet" href="<?= s2_htmlencode($basePath) ?>/_admin/css/admin-override.css">
     <link rel="stylesheet" href="<?= s2_htmlencode($basePath) ?>/_admin/css/register.css?v=<?= s2_htmlencode($adminStyleVersion()) ?>">
+    <link id="admin-theme-stylesheet" rel="stylesheet" href="<?= s2_htmlencode($basePath) ?>/_admin/index.php?action=theme-stylesheet">
     <script src="<?= s2_htmlencode($basePath) ?>/_vendor/s2/admin-yard/demo/script.js"></script>
     <script src="<?= s2_htmlencode($basePath) ?>/_admin/js/lib.js"></script>
-    <style>:root {
-            --page-secondary-background: <?= s2_htmlencode((string)$param('S2_ADMIN_COLOR')) ?>;
-        }</style>
 </head>
 <body class="picture-manager-standalone">
 <header class="picture-manager-header">

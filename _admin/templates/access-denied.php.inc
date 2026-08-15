@@ -19,9 +19,8 @@
     <link rel="stylesheet" href="<?= $basePath ?>/_vendor/s2/admin-yard/demo/style.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
-    <style>:root {
-            --page-secondary-background: <?= $param('S2_ADMIN_COLOR') ?>;
-        }</style></head>
+    <link id="admin-theme-stylesheet" rel="stylesheet" href="<?= $basePath ?>/_admin/index.php?action=theme-stylesheet">
+</head>
 <body>
 <article>
     <h1><?= $trans('Access denied') ?></h1>

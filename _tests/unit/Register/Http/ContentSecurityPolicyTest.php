@@ -169,6 +169,7 @@ final class ContentSecurityPolicyTest extends Unit
             $root . '/_admin/js/editor/images/overlay.js',
             $root . '/_admin/js/editor/images/pipeline.js',
             $root . '/_admin/js/autocomplete.js',
+            $root . '/_admin/js/config-secret.js',
             $root . '/_assets/register/audio-player/player.js',
             $root . '/_assets/register/search/autocomplete.js',
             $root . '/_assets/register/visitor/identity.js',
@@ -189,6 +190,27 @@ final class ContentSecurityPolicyTest extends Unit
                 $filename . ' constructs an inline style or event handler.',
             );
         }
+    }
+
+    public function testAdminThemeUsesAnExternalValidatedStylesheet(): void
+    {
+        $root = dirname(__DIR__, 4);
+        foreach ([
+            $root . '/_admin/templates/layout.php.inc',
+            $root . '/_admin/templates/access-denied.php.inc',
+            $root . '/_admin/templates/picture-manager.php.inc',
+        ] as $filename) {
+            $source = file_get_contents($filename);
+            self::assertIsString($source);
+            self::assertStringContainsString('action=theme-stylesheet', $source, $filename);
+            self::assertDoesNotMatchRegularExpression('~<style\b~i', $source, $filename);
+            self::assertDoesNotMatchRegularExpression('~\sstyle\s*=~i', $source, $filename);
+        }
+
+        $script = file_get_contents($root . '/_admin/js/config-secret.js');
+        self::assertIsString($script);
+        self::assertStringContainsString("stylesheetUrl.searchParams.set('color', color)", $script);
+        self::assertDoesNotMatchRegularExpression('~\.style\b|\.css\s*\(~', $script);
     }
 
     public function testPictureManagerBuildsFileInformationWithDomNodes(): void

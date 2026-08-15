@@ -641,6 +641,7 @@ return [
 
     'Admin config'     => 'Панель управления',
     'S2_ADMIN_COLOR'   => 'Цвет фона',
+    'Invalid admin color' => 'Выберите корректный шестизначный цвет фона.',
     'S2_ADMIN_NEW_POS' => 'Новые страницы сверху',
     'S2_ADMIN_CUT'     => '«Кат» вместо выдержки',
     'S2_LOGIN_TIMEOUT' => 'Таймаут',

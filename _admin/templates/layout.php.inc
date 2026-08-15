@@ -31,6 +31,7 @@ if (!isset($this)) {
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_vendor/s2/admin-yard/demo/style.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
+    <link id="admin-theme-stylesheet" rel="stylesheet" href="<?= $basePath ?>/_admin/index.php?action=theme-stylesheet">
     <?php foreach ($extraStyles as $style): ?>
         <link rel="stylesheet" href="<?= $style ?>">
     <?php endforeach; ?>
@@ -42,9 +43,6 @@ if (!isset($this)) {
     <?php endforeach; ?>
 
     <script src="<?php echo $basePath; ?>/_admin/lang/<?php echo $locale; ?>/ui.js"></script>
-    <style>:root {
-            --page-secondary-background: <?= $param('S2_ADMIN_COLOR') ?>;
-        }</style>
 </head>
 <body>
 <a class="admin-skip-link" href="#admin-content"><?= $trans('Skip to content') ?></a>

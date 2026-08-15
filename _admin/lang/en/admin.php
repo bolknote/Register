@@ -641,6 +641,7 @@ return [
 
     'Admin config'     => 'Control panel',
     'S2_ADMIN_COLOR'   => 'Background color',
+    'Invalid admin color' => 'Choose a valid six-digit background color.',
     'S2_ADMIN_NEW_POS' => 'New pages on top',
     'S2_ADMIN_CUT'     => '“Cut” istead of excerpts',
     'S2_LOGIN_TIMEOUT' => 'Timeout',

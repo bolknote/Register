@@ -319,9 +319,13 @@ class AdminExtension implements ExtensionInterface
 
         // Request handlers
         $container->set(SameOriginRequestGuard::class, new SameOriginRequestGuard());
+        $container->set(AdminThemeStylesheet::class, static fn(Container $container): AdminThemeStylesheet => new AdminThemeStylesheet(
+            $container->get(DynamicConfigProvider::class),
+        ));
         $container->set(AdminRequestHandler::class, fn(Container $container): \S2\Cms\Admin\AdminRequestHandler => new AdminRequestHandler(
             $container->get(RequestStack::class),
             $container->get(AuthManager::class),
+            $container->get(AdminThemeStylesheet::class),
             $container->get(WebAuthnAdminController::class),
             $container->get(SameOriginRequestGuard::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),

@@ -32,6 +32,7 @@ readonly class AdminRequestHandler
     public function __construct(
         private RequestStack             $requestStack,
         private AuthManager              $authManager,
+        private AdminThemeStylesheet     $adminThemeStylesheet,
         private WebAuthnAdminController  $webAuthnController,
         private SameOriginRequestGuard   $sameOriginRequestGuard,
         private EventDispatcherInterface $eventDispatcher,
@@ -66,7 +67,9 @@ readonly class AdminRequestHandler
                 return $response;
             }
 
-            if ($this->webAuthnController->isPublicAction($request)) {
+            if ($this->adminThemeStylesheet->supports($request)) {
+                $response = $this->adminThemeStylesheet->handle($request);
+            } elseif ($this->webAuthnController->isPublicAction($request)) {
                 $response = $this->webAuthnController->handlePublic($request);
             } else {
                 $response = $this->authManager->checkAuth($request);
