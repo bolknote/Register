@@ -32,6 +32,7 @@ setEditorDeps({
     loadingIndicator: window.loadingIndicator,
     sUrl: config.sUrl || window.sUrl || null,
     previewErrorStylesheet: config.previewErrorStylesheet || null,
+    imageOverlayStylesheet: config.imageOverlayStylesheet || null,
     morphdom: window.morphdom || null,
     DisplayError: window.DisplayError || null
 });

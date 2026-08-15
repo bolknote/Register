@@ -164,6 +164,7 @@ final class ContentSecurityPolicyTest extends Unit
             $root . '/_admin/js/pictman.js',
             $root . '/_admin/js/editor/form.js',
             $root . '/_admin/js/editor/preview.js',
+            $root . '/_admin/js/editor/images/overlay.js',
             $root . '/_admin/js/editor/images/pipeline.js',
             $root . '/_admin/js/autocomplete.js',
             $root . '/_assets/register/audio-player/player.js',
@@ -208,6 +209,23 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertStringNotContainsString("doc.write('<div", $source);
         self::assertStringContainsString("'previewErrorStylesheet'", $template);
         self::assertFileExists($root . '/_admin/css/editor-preview-error.css');
+    }
+
+    public function testEditorImageOverlayUsesDomNodesAndAnExternalStylesheet(): void
+    {
+        $root = dirname(__DIR__, 4);
+        $source = file_get_contents($root . '/_admin/js/editor/images/overlay.js');
+        $template = file_get_contents($root . '/_admin/templates/article/edit.php.inc');
+
+        self::assertIsString($source);
+        self::assertIsString($template);
+        self::assertStringContainsString("stylesheet.rel = 'stylesheet';", $source);
+        self::assertStringContainsString('overlay.dims.textContent = dimText;', $source);
+        self::assertStringContainsString('function createFormatRow(', $source);
+        self::assertStringNotContainsString("createElement('style')", $source);
+        self::assertStringNotContainsString('.innerHTML', $source);
+        self::assertStringContainsString("'imageOverlayStylesheet'", $template);
+        self::assertFileExists($root . '/_admin/css/editor-image-overlay.css');
     }
 
     /**

@@ -7,6 +7,7 @@
  */
 
 import {formatDimensions, humanFileSize, imageState} from './state.js';
+import {editorDeps} from '../deps.js';
 
 function findPreviewImageForJob(job) {
     if (!job || !imageState.lastPreviewWrapper) {
@@ -53,28 +54,53 @@ function ensurePreviewOverlayStyles(doc) {
     if (!doc || doc.getElementById(imageState.previewOverlayStylesId)) {
         return;
     }
-    const style = doc.createElement('style');
-    style.id = imageState.previewOverlayStylesId;
-    style.textContent = '' +
-        '.s2-image-overlay-wrap{position:relative;display:inline-block;max-width:100%;}' +
-        '.s2-image-overlay-wrap>img{display:block;max-width:100%;height:auto;}' +
-        '.s2-image-overlay{position:absolute;left:8px;top:8px;max-width:92%;min-width:210px;background:rgba(20,22,28,0.9);color:#f5f5f5;font:12px/1.35 "Trebuchet MS",Verdana,sans-serif;padding:8px 10px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.25);}' +
-        '.s2-image-overlay[data-status="done"]{background:rgba(16,28,18,0.88);}' +
-        '.s2-image-overlay[data-status="uploading"]{background:rgba(32,24,12,0.9);}' +
-        '.s2-image-overlay-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0;flex-wrap:wrap;}' +
-        '.s2-image-overlay-group{display:flex;gap:4px;}' +
-        '.s2-image-overlay-controls button{border:1px solid rgba(255,255,255,0.3);background:transparent;color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;cursor:pointer;}' +
-        '.s2-image-overlay-controls button.is-active{background:#f5d66c;color:#1e1e1e;border-color:#f5d66c;}' +
-        '.s2-image-overlay-line{margin:2px 0;white-space:nowrap;}' +
-        '.s2-image-overlay-formats{display:grid;row-gap:4px;}' +
-        '.s2-image-format{display:grid;grid-template-columns:16px 44px max-content 1fr;align-items:center;column-gap:6px;font-size:11px;}' +
-        '.s2-image-format input{margin:0 2px 0 0;}' +
-        '.s2-image-format .s2-format-name{width:44px;text-transform:uppercase;letter-spacing:0.04em;}' +
-        '.s2-image-format .s2-format-size{text-align:right;}' +
-        '.s2-image-format .s2-format-info{opacity:0.75;}' +
-        '.s2-image-format.is-best{color:#f5d66c;}' +
-        '.s2-image-overlay-close{position:absolute;right:6px;top:6px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:#fff;padding:0 5px;line-height:16px;border-radius:3px;cursor:pointer;}';
-    doc.head.appendChild(style);
+    if (!editorDeps.imageOverlayStylesheet) {
+        return;
+    }
+
+    const stylesheet = doc.createElement('link');
+    stylesheet.id = imageState.previewOverlayStylesId;
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = editorDeps.imageOverlayStylesheet;
+    doc.head.appendChild(stylesheet);
+}
+
+function createOverlayLine(doc, className) {
+    const line = doc.createElement('div');
+    line.className = 's2-image-overlay-line ' + className;
+    line.textContent = '-';
+    return line;
+}
+
+function createOverlayButton(doc, attributeName, value, label) {
+    const button = doc.createElement('button');
+    button.type = 'button';
+    button.setAttribute(attributeName, value);
+    button.textContent = label;
+    return button;
+}
+
+function createFormatRow(doc, format, label) {
+    const row = doc.createElement('label');
+    row.className = 's2-image-format';
+    row.setAttribute('data-format', format);
+
+    const input = doc.createElement('input');
+    input.type = 'checkbox';
+    input.setAttribute('data-format', format);
+
+    const name = doc.createElement('span');
+    name.className = 's2-format-name';
+    name.textContent = label;
+
+    const size = doc.createElement('span');
+    size.className = 's2-format-size';
+    size.textContent = '-';
+
+    const info = doc.createElement('span');
+    info.className = 's2-format-info';
+    row.append(input, name, size, info);
+    return row;
 }
 
 function renderImageOverlay(img, job, handlers) {
@@ -97,26 +123,37 @@ function renderImageOverlay(img, job, handlers) {
     if (!overlay) {
         overlay = doc.createElement('div');
         overlay.className = 's2-image-overlay';
-        overlay.innerHTML =
-            '<div class="s2-image-overlay-line s2-image-overlay-dims">-</div>' +
-            '<div class="s2-image-overlay-line s2-image-overlay-sizes">-</div>' +
-            '<div class="s2-image-overlay-controls">' +
-            '<div class="s2-image-overlay-group s2-image-overlay-mode">' +
-            '<button type="button" data-mode="1x">1x</button>' +
-            '<button type="button" data-mode="2x">2x</button>' +
-            '</div>' +
-            '</div>' +
-            '<div class="s2-image-overlay-formats">' +
-            '<label class="s2-image-format" data-format="jpeg"><input type="checkbox" data-format="jpeg"><span class="s2-format-name">jpg</span><span class="s2-format-size">-</span><span class="s2-format-info"></span></label>' +
-            '<label class="s2-image-format" data-format="png8"><input type="checkbox" data-format="png8"><span class="s2-format-name">png8</span><span class="s2-format-size">-</span><span class="s2-format-info"></span></label>' +
-            '<label class="s2-image-format" data-format="png24"><input type="checkbox" data-format="png24"><span class="s2-format-name">png24</span><span class="s2-format-size">-</span><span class="s2-format-info"></span></label>' +
-            '</div>';
+
+        const controls = doc.createElement('div');
+        controls.className = 's2-image-overlay-controls';
+        const modeGroup = doc.createElement('div');
+        modeGroup.className = 's2-image-overlay-group s2-image-overlay-mode';
+        modeGroup.append(
+            createOverlayButton(doc, 'data-mode', '1x', '1x'),
+            createOverlayButton(doc, 'data-mode', '2x', '2x')
+        );
+        controls.appendChild(modeGroup);
+
+        const formats = doc.createElement('div');
+        formats.className = 's2-image-overlay-formats';
+        formats.append(
+            createFormatRow(doc, 'jpeg', 'jpg'),
+            createFormatRow(doc, 'png8', 'png8'),
+            createFormatRow(doc, 'png24', 'png24')
+        );
+
+        overlay.append(
+            createOverlayLine(doc, 's2-image-overlay-dims'),
+            createOverlayLine(doc, 's2-image-overlay-sizes'),
+            controls,
+            formats
+        );
         container.appendChild(overlay);
 
         const closeButton = doc.createElement('button');
         closeButton.type = 'button';
         closeButton.className = 's2-image-overlay-close';
-        closeButton.innerHTML = '&times;';
+        closeButton.textContent = '×';
         closeButton.addEventListener('click', function () {
             if (handlers && handlers.closeImageJob) {
                 handlers.closeImageJob(job);
@@ -145,22 +182,17 @@ function renderImageOverlay(img, job, handlers) {
         const sizeGroup = doc.createElement('div');
         sizeGroup.className = 's2-image-overlay-group s2-image-overlay-size';
         imageState.sizeOptions.forEach(function (sizeOption) {
-            const button = doc.createElement('button');
-            button.type = 'button';
-            button.setAttribute('data-size', sizeOption === Infinity ? 'inf' : String(sizeOption));
-            button.innerHTML = sizeOption === Infinity ? '&infin;' : String(sizeOption);
+            const value = sizeOption === Infinity ? 'inf' : String(sizeOption);
+            const button = createOverlayButton(doc, 'data-size', value, sizeOption === Infinity ? '∞' : String(sizeOption));
             button.addEventListener('click', function () {
-                const value = button.getAttribute('data-size');
-                if (value && handlers && handlers.switchImageJobSize) {
-                    handlers.switchImageJobSize(job, value);
+                const selectedValue = button.getAttribute('data-size');
+                if (selectedValue && handlers && handlers.switchImageJobSize) {
+                    handlers.switchImageJobSize(job, selectedValue);
                 }
             });
             sizeGroup.appendChild(button);
         });
-        const controls = overlay.querySelector('.s2-image-overlay-controls');
-        if (controls) {
-            controls.appendChild(sizeGroup);
-        }
+        controls.appendChild(sizeGroup);
     }
 
     job.overlay = {
@@ -217,19 +249,19 @@ function updateImageJobOverlay(job, handlers) {
         dimText = formatDimensions(job.original.width, job.original.height);
         if (state && state.sourceInfo && typeof state.sourceInfo.width === 'number') {
             if (state.sourceInfo.resized || state.sourceInfo.cropped) {
-                dimText += ' &rarr; ' + formatDimensions(state.sourceInfo.width, state.sourceInfo.height);
+                dimText += ' → ' + formatDimensions(state.sourceInfo.width, state.sourceInfo.height);
             }
         }
     }
-    overlay.dims.innerHTML = dimText;
+    overlay.dims.textContent = dimText;
 
     let sizeText = humanFileSize(job.original.size);
     if (bestSize !== null) {
-        sizeText += ' &rarr; ' + humanFileSize(bestSize);
+        sizeText += ' → ' + humanFileSize(bestSize);
     } else {
-        sizeText += ' &rarr; ?';
+        sizeText += ' → ?';
     }
-    overlay.sizes.innerHTML = sizeText;
+    overlay.sizes.textContent = sizeText;
 
     overlay.modeButtons.forEach(function (button) {
         const mode = button.getAttribute('data-mode');

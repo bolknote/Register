@@ -14,6 +14,7 @@ const editorDeps = {
     loadingIndicator: null,
     sUrl: null,
     previewErrorStylesheet: null,
+    imageOverlayStylesheet: null,
     morphdom: null,
     DisplayError: null
 };
