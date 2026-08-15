@@ -114,6 +114,8 @@ return [
     'Recovery code'                                                           => 'Recovery code',
     'Sign in'                                                                 => 'Sign in',
     'Only POST requests are allowed.'                                         => 'Only POST requests are allowed.',
+    'A same-origin request is required.'                                      => 'A same-origin request is required.',
+    'The request origin is not allowed.'                                      => 'The request origin is not allowed.',
     'HTTPS is required.'                                                      => 'HTTPS is required.',
     'Too many login attempts. Try again later.'                               => 'Too many login attempts. Try again later.',
     'The passkey request could not be verified. Start again.'                 => 'The passkey request could not be verified. Start again.',

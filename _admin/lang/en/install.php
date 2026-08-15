@@ -62,6 +62,7 @@ $lang_install = array(
 'S2 already installed 2'	=>	'To install multiple Register copies in one database, choose a different table prefix.',
 'S2 already installed 3'	=>	'To connect this Register installation to the selected database, download config.php with the current parameters and place it alongside the other engine files.',
 'Invalid language'			=>	'The language pack you have chosen does not seem to exist or is corrupt. Please recheck and try again.',
+'Foreign request'			=>	'This installation request came from another site and was rejected. Reload the installer and try again.',
 
 // Used in the install
 'Site name'					=>	'Register',

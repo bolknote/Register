@@ -20,10 +20,10 @@ final class ReindexTokenTest extends Unit
         $storage = new InMemorySettingStorage();
         $token   = new ReindexToken($storage);
 
-        self::assertSame(40, \strlen($token->value()));
+        self::assertSame(64, \strlen($token->value()));
         self::assertTrue($token->matches($token->value()));
         self::assertFalse($token->matches(''));
-        self::assertFalse($token->matches(str_repeat('0', 40)));
+        self::assertFalse($token->matches(str_repeat('0', 64)));
     }
 }
 

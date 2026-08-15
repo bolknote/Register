@@ -62,6 +62,7 @@
     "autoload": {
         "psr-4": {
             "Register\\": "_include/src/Register",
+            "S2\\AdminYard\\Form\\": "_include/overrides/AdminYard/Form",
             "S2\\Cms\\": "_include/src",
             "S2\\Rose\\": "_include/src/Rose",
             "s2_extensions\\": "_extensions"

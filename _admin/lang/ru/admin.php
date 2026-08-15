@@ -114,6 +114,8 @@ return [
     'Recovery code'                                                           => 'Код восстановления',
     'Sign in'                                                                 => 'Войти',
     'Only POST requests are allowed.'                                         => 'Разрешены только POST-запросы.',
+    'A same-origin request is required.'                                      => 'Запрос должен быть отправлен с этой же страницы сайта.',
+    'The request origin is not allowed.'                                      => 'Запрос с другого сайта отклонён.',
     'HTTPS is required.'                                                      => 'Для этой операции требуется HTTPS.',
     'Too many login attempts. Try again later.'                               => 'Слишком много попыток входа. Попробуйте позже.',
     'The passkey request could not be verified. Start again.'                 => 'Не удалось проверить запрос ключа доступа. Начните заново.',

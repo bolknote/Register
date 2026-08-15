@@ -33,9 +33,11 @@ use S2\Cms\Model\PasswordHasher;
 use S2\Cms\Model\PasswordPolicy;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
+use S2\Cms\Security\Http\SameOriginRequestGuard;
 use Symfony\Component\ErrorHandler\Debug;
 use Symfony\Component\ErrorHandler\ErrorHandler;
 use Symfony\Component\ErrorHandler\ErrorRenderer\HtmlErrorRenderer;
+use Symfony\Component\HttpFoundation\Request;
 
 define('S2_VERSION', '2.0dev');
 define('MIN_PHP_VERSION', '8.3.0');
@@ -501,6 +503,14 @@ $dynamicConfigProvider->setCallback(static fn(string $paramName): string => matc
 $translator = $emptyApp->container->get('translator');
 require S2_FS_ROOT . '_admin/lang/' . $translator->getLocale() . '/install.php';
 /** @var array<string, string> $lang_install */
+
+$originViolation = (new SameOriginRequestGuard())->violation(Request::createFromGlobals());
+if ($originViolation !== null) {
+    http_response_code(403);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo $lang_install['Foreign request'];
+    exit;
+}
 
 if (isset($_POST['generate_config'])) {
     $baseUrl = normalize_install_base_url(installPostString('base_url'));

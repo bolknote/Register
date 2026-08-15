@@ -72,6 +72,7 @@ use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Security\Http\SameOriginRequestGuard;
 use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
 use S2\Cms\Security\WebAuthn\WebAuthnChallengeRepository;
 use S2\Cms\Security\WebAuthn\WebAuthnCredentialRepository;
@@ -304,10 +305,12 @@ class AdminExtension implements ExtensionInterface
         ), [AdminConfigExtenderInterface::class]);
 
         // Request handlers
+        $container->set(SameOriginRequestGuard::class, new SameOriginRequestGuard());
         $container->set(AdminRequestHandler::class, fn(Container $container): \S2\Cms\Admin\AdminRequestHandler => new AdminRequestHandler(
             $container->get(RequestStack::class),
             $container->get(AuthManager::class),
             $container->get(WebAuthnAdminController::class),
+            $container->get(SameOriginRequestGuard::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container,
             $container->get(ContentChangeDispatcher::class),
@@ -317,6 +320,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(RequestStack::class),
             $container->get(AuthManager::class),
             $container->get(PermissionChecker::class),
+            $container->get(SameOriginRequestGuard::class),
             $container->get(Translator::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container,
@@ -449,6 +453,8 @@ class AdminExtension implements ExtensionInterface
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event) use ($container): void {
+            $event->allowGet('register_tag_suggestions');
+            $event->allowGet('register_backup_download');
             $event->controllerMap['register_tag_suggestions'] = static function (PermissionChecker $permissionChecker) use ($container): \Symfony\Component\HttpFoundation\JsonResponse {
                 if (!$permissionChecker->isGranted(PermissionChecker::PERMISSION_CREATE_ARTICLES)) {
                     return new \Symfony\Component\HttpFoundation\JsonResponse(

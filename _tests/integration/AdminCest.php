@@ -11,7 +11,9 @@ namespace integration;
 
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use S2\Cms\Admin\AdminAjaxRequestHandler;
 use S2\Cms\Admin\AdminConfigProvider;
+use S2\Cms\Admin\AdminRequestHandler;
 use S2\Cms\Comment\Antispam\SpamAssessment;
 use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
 use S2\Cms\Comment\SpamDetectorReport;
@@ -41,6 +43,50 @@ class AdminCest
         $I->seeResponseCodeIs(401);
 
         $I->login('admin', 'admin');
+        $I->seeResponseCodeIs(200);
+    }
+
+    public function testAdminMutationsRejectForeignOrigins(\IntegrationTester $I): void
+    {
+        /** @var AdminRequestHandler $mainHandler */
+        $mainHandler = $I->grabAdminService(AdminRequestHandler::class);
+        $mainResponse = $mainHandler->handle(Request::create(
+            'https://localhost/_admin/index.php?action=login',
+            Request::METHOD_POST,
+            ['login' => 'admin', 'pass' => 'admin'],
+            server: ['HTTP_ORIGIN' => 'https://localhost.attacker.test'],
+        ));
+        $I->assertSame(403, $mainResponse->getStatusCode());
+        $I->assertSame('The request origin is not allowed.', $mainResponse->getContent());
+
+        /** @var AdminAjaxRequestHandler $ajaxHandler */
+        $ajaxHandler = $I->grabAdminService(AdminAjaxRequestHandler::class);
+        $ajaxResponse = $ajaxHandler->handle(Request::create(
+            'https://localhost/_admin/ajax.php?action=create',
+            Request::METHOD_POST,
+            ['title' => 'Forged page'],
+            server: ['HTTP_SEC_FETCH_SITE' => 'cross-site'],
+        ));
+        $I->assertSame(403, $ajaxResponse->getStatusCode());
+        $I->assertSame(
+            ['success' => false, 'message' => 'A same-origin request is required.'],
+            json_decode((string)$ajaxResponse->getContent(), true, flags: JSON_THROW_ON_ERROR),
+        );
+    }
+
+    public function testAjaxMutationsRequirePostAtTheEntryPoint(\IntegrationTester $I): void
+    {
+        $I->login('admin', 'admin');
+
+        $I->amOnPage('https://localhost/_admin/ajax.php?action=create&id=1');
+        $I->seeResponseCodeIs(405);
+        $I->assertSame(
+            ['success' => false, 'message' => 'Only POST requests are allowed.'],
+            $I->grabJson(),
+        );
+        $I->seeHttpHeader('Allow', 'POST');
+
+        $I->amOnPage('https://localhost/_admin/ajax.php?action=load_tree&id=0');
         $I->seeResponseCodeIs(200);
     }
 

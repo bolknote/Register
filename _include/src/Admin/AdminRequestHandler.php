@@ -17,6 +17,7 @@ use S2\Cms\Framework\Container;
 use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\PermissionChecker;
+use S2\Cms\Security\Http\SameOriginRequestGuard;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,6 +33,7 @@ readonly class AdminRequestHandler
         private RequestStack             $requestStack,
         private AuthManager              $authManager,
         private WebAuthnAdminController  $webAuthnController,
+        private SameOriginRequestGuard   $sameOriginRequestGuard,
         private EventDispatcherInterface $eventDispatcher,
         private Container                $container,
         private ContentChangeDispatcher  $contentChangeDispatcher,
@@ -53,6 +55,17 @@ readonly class AdminRequestHandler
         $this->requestStack->push($request);
 
         try {
+            $originViolation = $this->sameOriginRequestGuard->violation($request);
+            if ($originViolation !== null) {
+                $response = new Response(
+                    $this->container->get(\S2\AdminYard\Translator::class)->trans($originViolation),
+                    Response::HTTP_FORBIDDEN,
+                );
+                ContentSecurityPolicy::applyToAdmin($response);
+
+                return $response;
+            }
+
             if ($this->webAuthnController->isPublicAction($request)) {
                 $response = $this->webAuthnController->handlePublic($request);
             } else {

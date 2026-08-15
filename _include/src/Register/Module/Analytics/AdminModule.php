@@ -42,6 +42,7 @@ class AdminModule implements ContainerModuleInterface, ContainerAwareListenerMod
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event) use ($container): void {
+            $event->allowGet('register_analytics_series');
             $event->controllerMap['register_analytics_series'] = static function (
                 PermissionChecker $permissionChecker,
                 Request $request,

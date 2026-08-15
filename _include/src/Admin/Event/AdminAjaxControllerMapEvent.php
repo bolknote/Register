@@ -12,9 +12,24 @@ namespace S2\Cms\Admin\Event;
 class AdminAjaxControllerMapEvent
 {
     /**
-     * @param array<mixed> $controllerMap
+     * @param array<string, callable> $controllerMap
+     * @param list<string>            $readOnlyActions
      */
-    public function __construct(public array $controllerMap)
+    public function __construct(
+        public array $controllerMap,
+        private array $readOnlyActions = [],
+    ) {
+    }
+
+    public function allowGet(string $action): void
     {
+        if (!\in_array($action, $this->readOnlyActions, true)) {
+            $this->readOnlyActions[] = $action;
+        }
+    }
+
+    public function allowsGet(string $action): bool
+    {
+        return \in_array($action, $this->readOnlyActions, true);
     }
 }

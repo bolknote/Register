@@ -72,7 +72,7 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
     {
         $id = $this->cleanupExtensionId($id);
 
-        if ($csrfToken !== $this->getCsrfToken($id)) {
+        if ($csrfToken === '' || !hash_equals($this->getCsrfToken($id), $csrfToken)) {
             throw new AccessDeniedException('Invalid CSRF token!');
         }
 
@@ -86,7 +86,7 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
     {
         $id = $this->cleanupExtensionId($id);
 
-        if ($csrfToken !== $this->getCsrfToken($id)) {
+        if ($csrfToken === '' || !hash_equals($this->getCsrfToken($id), $csrfToken)) {
             throw new AccessDeniedException('Invalid CSRF token!');
         }
 
@@ -100,7 +100,7 @@ readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
     {
         $id = $this->cleanupExtensionId($id);
 
-        if ($csrfToken !== $this->getCsrfToken($id)) {
+        if ($csrfToken === '' || !hash_equals($this->getCsrfToken($id), $csrfToken)) {
             throw new AccessDeniedException('Invalid CSRF token!');
         }
 

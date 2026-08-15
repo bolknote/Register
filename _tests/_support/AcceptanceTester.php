@@ -37,6 +37,13 @@ class AcceptanceTester extends Actor
         $I->seeResponseCodeIs(200);
         $I->see('Register 2.0dev', 'h1');
 
+        $I->haveHttpHeader('Origin', 'https://attacker.example');
+        $I->sendAjaxPostRequest('/_admin/install.php?lang=English', ['req_language' => 'English']);
+        $I->seeResponseCodeIs(403);
+        $I->see('This installation request came from another site and was rejected.');
+        $I->unsetHttpHeader('Origin');
+        $I->amOnPage('/_admin/install.php');
+
         $I->selectOption('req_db_type', $dbType);
         $I->fillField('req_db_host', '127.0.0.1'); // not localhost for Github Actions
         $I->fillField('req_db_name', 's2_test');

@@ -30,6 +30,7 @@ use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\PermissionChecker as P;
+use S2\Cms\Security\Http\SameOriginRequestGuard;
 use S2\Cms\Template\HtmlTemplateProvider;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\JsonResponse as Json;
@@ -50,6 +51,7 @@ class AdminAjaxRequestHandler
         public RequestStack             $requestStack,
         public AuthManager              $authManager,
         public PermissionChecker        $permissionChecker,
+        public SameOriginRequestGuard   $sameOriginRequestGuard,
         public Translator               $translator,
         public EventDispatcherInterface $eventDispatcher,
         public Container                $container,
@@ -69,6 +71,18 @@ class AdminAjaxRequestHandler
         $request->attributes->set(AuthManager::FORCE_AJAX_RESPONSE, true);
 
         $this->requestStack->push($request);
+
+        $originViolation = $this->sameOriginRequestGuard->violation($request);
+        if ($originViolation !== null) {
+            $response = new Json([
+                'success' => false,
+                'message' => $this->translator->trans($originViolation),
+            ], Response::HTTP_FORBIDDEN);
+            ContentSecurityPolicy::applyToAdmin($response);
+            $this->requestStack->pop();
+
+            return $response;
+        }
 
         $response = $this->authManager->checkAuth($request);
         if ($response instanceof \Symfony\Component\HttpFoundation\Response) {
@@ -797,10 +811,30 @@ class AdminAjaxRequestHandler
             },
         ];
 
-        $this->eventDispatcher->dispatch($event = new AdminAjaxControllerMapEvent($controllerMap));
+        $this->eventDispatcher->dispatch($event = new AdminAjaxControllerMapEvent($controllerMap, [
+            'load_tree',
+            'phpinfo',
+            'preview',
+            'load_folders',
+            'load_files',
+            'load_template',
+        ]));
 
         $action     = $request->query->getString('action', $request->request->getString('action'));
         $controller = $event->controllerMap[$action] ?? (static fn(P $_p, R $_r, C $_c, T $_t): \Symfony\Component\HttpFoundation\JsonResponse => new Json(['success' => false, 'message' => 'Unknown action.'], Response::HTTP_BAD_REQUEST));
+
+        if ($request->getRealMethod() !== Request::METHOD_POST && !$event->allowsGet($action)) {
+            $response = new Json([
+                'success' => false,
+                'message' => $this->translator->trans('Only POST requests are allowed.'),
+            ], Response::HTTP_METHOD_NOT_ALLOWED);
+            $response->headers->set('Allow', Request::METHOD_POST);
+            $this->authManager->renewPersistentCookies($request, $response);
+            ContentSecurityPolicy::applyToAdmin($response);
+            $this->requestStack->pop();
+
+            return $response;
+        }
 
         try {
             $response = $controller($this->permissionChecker, $request, $this->container, $this->translator);
