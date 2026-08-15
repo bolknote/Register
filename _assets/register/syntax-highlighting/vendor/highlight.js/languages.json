@@ -1,12 +1,13 @@
 {
     "version": "11.11.2",
     "source_commit": "f273f007f85e2096de41c42bf40b870dcb5a5a05",
-    "build_command": "node tools/build.js -t browser :common applescript basic delphi dos fortran lisp vbscript x86asm",
-    "sha256": "1fecd5ae06edd565b78ccc5afa70df8ac2c2568b328fb54a10dc008712e7d76e",
+    "build_command": "node tools/build.js -t browser :common applescript basic brainfuck delphi dos fortran lisp powershell vbscript x86asm",
+    "sha256": "7d7d1587f28ba97e454732ad81fd23fed193fa034468c93789cd15eeb4450c14",
     "languages": [
         "applescript",
         "bash",
         "basic",
+        "brainfuck",
         "c",
         "cpp",
         "csharp",
@@ -32,6 +33,7 @@
         "php",
         "php-template",
         "plaintext",
+        "powershell",
         "python",
         "python-repl",
         "r",

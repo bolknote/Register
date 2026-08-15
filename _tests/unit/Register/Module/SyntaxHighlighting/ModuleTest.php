@@ -60,9 +60,34 @@ final class ModuleTest extends Unit
 
         self::assertSame('11.11.2', $manifest['version']);
         self::assertSame(hash_file('sha256', $vendorDirectory . '/highlight.min.js'), $manifest['sha256']);
-        self::assertCount(44, $manifest['languages']);
+        self::assertCount(46, $manifest['languages']);
 
-        foreach (['applescript', 'basic', 'delphi', 'dos', 'fortran', 'lisp', 'vbscript', 'x86asm'] as $language) {
+        $importLanguages = [
+            'applescript',
+            'bash',
+            'basic',
+            'c',
+            'cpp',
+            'css',
+            'delphi',
+            'dos',
+            'fortran',
+            'go',
+            'javascript',
+            'lisp',
+            'lua',
+            'perl',
+            'php',
+            'plaintext',
+            'python',
+            'r',
+            'rust',
+            'sql',
+            'vbscript',
+            'x86asm',
+            'xml',
+        ];
+        foreach ([...$importLanguages, 'brainfuck', 'powershell'] as $language) {
             self::assertContains($language, $manifest['languages']);
         }
     }
