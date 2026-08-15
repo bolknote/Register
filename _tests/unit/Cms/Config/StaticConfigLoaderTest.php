@@ -67,4 +67,29 @@ final class StaticConfigLoaderTest extends Unit
         self::assertSame(7, $method->invoke($loader, 366, 7, 1, 365));
         self::assertSame(7, $method->invoke($loader, '7 days', 7, 1, 365));
     }
+
+    public function testUploadQuotaHasASafeDefaultAndStrictBounds(): void
+    {
+        $method = new \ReflectionMethod(StaticConfigLoader::class, 'normalizeArrayConfig');
+        $loader = new StaticConfigLoader();
+
+        $defaultConfig = $method->invoke($loader, []);
+        self::assertIsArray($defaultConfig);
+        self::assertSame(
+            StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
+            $defaultConfig['files']['upload_quota_bytes'],
+        );
+
+        $configuredQuota = StaticConfigLoader::MIN_UPLOAD_QUOTA_BYTES + 1;
+        $configured = $method->invoke($loader, ['files' => ['upload_quota_bytes' => (string)$configuredQuota]]);
+        self::assertIsArray($configured);
+        self::assertSame($configuredQuota, $configured['files']['upload_quota_bytes']);
+
+        $tooSmall = $method->invoke($loader, ['files' => ['upload_quota_bytes' => 1]]);
+        self::assertIsArray($tooSmall);
+        self::assertSame(
+            StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
+            $tooSmall['files']['upload_quota_bytes'],
+        );
+    }
 }

@@ -43,6 +43,7 @@ use S2\Cms\Admin\Controller\BulkListActionController;
 use S2\Cms\Admin\Controller\SavedListViewController;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
+use S2\Cms\Admin\Picture\PictureStorageQuota;
 use S2\Cms\Admin\Picture\PictureFileNameHelper;
 use S2\Cms\Admin\Picture\MediaConfigExtender;
 use S2\Cms\Admin\Picture\PictureManager;
@@ -428,6 +429,13 @@ class AdminExtension implements ExtensionInterface
             $container->getStringParameter('allowed_extensions'),
         ));
 
+        $container->set(PictureStorageQuota::class, fn(Container $container): PictureStorageQuota => new PictureStorageQuota(
+            $container->get(Translator::class),
+            $container->getStringParameter('image_dir'),
+            $container->getStringParameter('cache_dir') . 'picture-upload-quota.lock',
+            $container->getIntParameter('upload_quota_bytes'),
+        ));
+
         $container->set(PictureReserveManager::class, fn(Container $container): \S2\Cms\Admin\Picture\PictureReserveManager => new PictureReserveManager(
             $container->get(PictureFileNameHelper::class),
             $container->getStringParameter('image_dir'),
@@ -445,6 +453,7 @@ class AdminExtension implements ExtensionInterface
                 $templateRenderer,
                 $container->get(SettingStorageInterface::class),
                 $container->get(PictureFileNameHelper::class),
+                $container->get(PictureStorageQuota::class),
                 $container->getStringParameter('base_path'),
                 $container->getStringParameter('image_dir'),
             );

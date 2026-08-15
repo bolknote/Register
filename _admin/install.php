@@ -22,6 +22,7 @@ use Register\Schema\SchemaManager;
 use Register\Module\Search\SearchIndexRebuilder;
 use S2\Cms\Admin\AdminExtension;
 use S2\Cms\CmsExtension;
+use S2\Cms\Config\StaticConfigLoader;
 use S2\Cms\Framework\Application;
 use S2\Cms\Helper\StringHelper;
 use S2\Cms\HttpClient\HttpClient;
@@ -343,6 +344,9 @@ function generate_config_file(
             'debug'             => 0,
             'debug_view'        => 0,
             'show_queries'      => 0,
+        ],
+        'files' => [
+            'upload_quota_bytes' => StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
         ],
         'cookies'  => [
             'name' => $cookieName,

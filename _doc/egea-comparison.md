@@ -218,7 +218,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Configurable mail sender | Available | Uses the configured webmaster email. |
 | Known-vulnerability monitor in the application | Missing | Dependency scanning is available in development/CI, not as an admin feature. |
 | True 404 response at the requested URL | Available | No redirect is required. |
-| Upload-directory quota | Missing | No quota setting or enforcement. |
+| Upload-directory quota | Available | The total stored size is enforced under a filesystem lock and configured with `files.upload_quota_bytes`. |
 | Automatic and manual pretty-URL fallback | Available | The installer detects a suitable prefix and configuration can override it. |
 | Per-item timezone | Missing | Content records do not store a timezone. |
 | Canonical-domain redirect | Partial | A canonical URL is generated, but the application does not enforce a host redirect. |

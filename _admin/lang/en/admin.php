@@ -725,4 +725,5 @@ return [
     'Upload error ' . UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder.',
     'Upload error ' . UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
     'Upload error ' . UPLOAD_ERR_EXTENSION  => 'A PHP extension stopped the file upload.',
+    'Upload storage quota exceeded'         => 'The upload storage quota has been reached. Delete files or increase files.upload_quota_bytes in config.php.',
 ];

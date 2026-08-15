@@ -105,6 +105,7 @@ function s2_build_base_static_parameters(array $config): array
         'public_root_dir'    => $publicRootDir,
         'cache_dir'          => $cacheDir,
         'allowed_extensions' => $config['files']['allowed_extensions'] ?? StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS,
+        'upload_quota_bytes' => $config['files']['upload_quota_bytes'] ?? StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
         'image_dir'          => $imageDir, // no trailing '/' for Filesystem component
         'image_path'         => $imagePath,
         'disable_cache'      => $disableCache,

@@ -318,6 +318,7 @@ class Integration extends AbstractBrowserModule
             'image_dir'          => self::ROOT_DIR . $imgDir . '/', // filesystem
             'image_path'         => '/' . $imgDir, // web URL prefix
             'allowed_extensions' => \S2\Cms\Config\StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS,
+            'upload_quota_bytes' => \S2\Cms\Config\StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
             'disable_cache'      => false,
             'base_url'           => 'http://s2.localhost',
             'base_path'          => '',

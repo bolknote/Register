@@ -8,6 +8,7 @@ use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
 use Register\Module\Search\SearchIndexRebuilder;
+use S2\Cms\Config\StaticConfigLoader;
 use S2\Cms\Framework\Application;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\Installer;
@@ -98,6 +99,9 @@ $config = [
         'debug'             => true,
         'debug_view'        => false,
         'show_queries'      => false,
+    ],
+    'files' => [
+        'upload_quota_bytes' => StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
     ],
     'cookies' => [
         'name' => 's2_local_' . substr(hash('sha256', $rootDir), 0, 16),
@@ -239,6 +243,7 @@ $application->boot([
     'image_dir'          => $rootDir . '/_pictures',
     'image_path'         => '/_pictures',
     'allowed_extensions' => [],
+    'upload_quota_bytes' => $config['files']['upload_quota_bytes'],
     'boot_timestamp'     => microtime(true),
 ]);
 $application->container->get(ExtensionCache::class)->clear();

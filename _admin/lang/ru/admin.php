@@ -725,4 +725,5 @@ return [
     'Upload error ' . UPLOAD_ERR_NO_TMP_DIR => 'Отсутствует временная папка для сохранения файла.',
     'Upload error ' . UPLOAD_ERR_CANT_WRITE => 'Невозможно сохранить файл на диск.',
     'Upload error ' . UPLOAD_ERR_EXTENSION  => 'Загрузка файла была остановлена расширением.',
+    'Upload storage quota exceeded'         => 'Исчерпана квота хранилища загрузок. Удалите файлы или увеличьте files.upload_quota_bytes в config.php.',
 ];

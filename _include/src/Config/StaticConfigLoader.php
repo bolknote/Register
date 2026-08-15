@@ -20,6 +20,10 @@ final class StaticConfigLoader
 
     public const string DEFAULT_COOKIE_NAME        = 's2_cookie_6094033457';
 
+    public const int DEFAULT_UPLOAD_QUOTA_BYTES    = 1024 * 1024 * 1024;
+
+    public const int MIN_UPLOAD_QUOTA_BYTES        = 200 * 1024 * 1024;
+
     /**
      * @return array<mixed>
      */
@@ -106,6 +110,12 @@ final class StaticConfigLoader
                 'cache_dir'          => $normalizeDir($this->nullableString($files['cache_dir'] ?? null)),
                 'image_dir'          => $this->nullableString($files['image_dir'] ?? null, self::DEFAULT_IMAGE_DIR),
                 'allowed_extensions' => $this->nullableString($files['allowed_extensions'] ?? null, self::DEFAULT_ALLOWED_EXTENSIONS),
+                'upload_quota_bytes' => $this->boundedInt(
+                    $files['upload_quota_bytes'] ?? self::DEFAULT_UPLOAD_QUOTA_BYTES,
+                    self::DEFAULT_UPLOAD_QUOTA_BYTES,
+                    self::MIN_UPLOAD_QUOTA_BYTES,
+                    PHP_INT_MAX,
+                ),
                 'log_dir'            => $normalizeDir($this->nullableString($files['log_dir'] ?? null)),
             ],
             'cookies' => [
@@ -243,6 +253,7 @@ final class StaticConfigLoader
                         'cache_dir'          => \defined('S2_CACHE_DIR') ? (string)S2_CACHE_DIR : null,
                         'image_dir'          => \defined('S2_IMG_DIR') ? (string)S2_IMG_DIR : self::DEFAULT_IMAGE_DIR,
                         'allowed_extensions' => \defined('S2_ALLOWED_EXTENSIONS') ? (string)S2_ALLOWED_EXTENSIONS : self::DEFAULT_ALLOWED_EXTENSIONS,
+                        'upload_quota_bytes' => self::DEFAULT_UPLOAD_QUOTA_BYTES,
                         'log_dir'            => \defined('S2_LOG_DIR') ? (string)S2_LOG_DIR : null,
                     ],
                     'cookies' => [

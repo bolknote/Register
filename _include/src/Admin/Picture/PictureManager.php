@@ -28,6 +28,7 @@ class PictureManager
         private readonly CustomTemplateRenderer  $customTemplateRenderer,
         private readonly SettingStorageInterface $settingStorage,
         private readonly PictureFileNameHelper   $fileNameHelper,
+        private readonly PictureStorageQuota     $storageQuota,
         private readonly string                  $basePath,
         private string                           $imageDir, // filesystem
     ) {
@@ -380,8 +381,10 @@ class PictureManager
             $this->ensureDirExists($this->imageDir . $path);
         }
 
-        $uploadedFile->move($this->imageDir . $path, $filename);
-        chmod($this->imageDir . $path . '/' . $filename, 0644);
+        $this->storageQuota->store($uploadedFile, function () use ($uploadedFile, $path, $filename): void {
+            $uploadedFile->move($this->imageDir . $path, $filename);
+            chmod($this->imageDir . $path . '/' . $filename, 0644);
+        });
 
         return $path . '/' . $filename;
     }
@@ -412,12 +415,14 @@ class PictureManager
             $this->ensureDirExists($this->imageDir . $path);
         }
 
-        if (is_file($this->imageDir . $path . '/' . $filename)) {
-            throw new \RuntimeException('File already exists.', Response::HTTP_CONFLICT);
-        }
+        $this->storageQuota->store($uploadedFile, function () use ($uploadedFile, $path, $filename): void {
+            if (is_file($this->imageDir . $path . '/' . $filename)) {
+                throw new \RuntimeException('File already exists.', Response::HTTP_CONFLICT);
+            }
 
-        $uploadedFile->move($this->imageDir . $path, $filename);
-        chmod($this->imageDir . $path . '/' . $filename, 0644);
+            $uploadedFile->move($this->imageDir . $path, $filename);
+            chmod($this->imageDir . $path . '/' . $filename, 0644);
+        });
 
         return $path . '/' . $filename;
     }

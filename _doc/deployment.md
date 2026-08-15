@@ -59,6 +59,23 @@ Recommended modes are:
 Do not use `0777`. Register sets safe modes after writing sensitive files, but ownership and parent
 directory traversal still depend on the hosting account.
 
+## Upload storage quota
+
+Register limits the total size of regular files stored under `_pictures/` to 1 GiB by default. The
+check runs under an exclusive filesystem lock, so parallel uploads cannot independently consume the
+same remaining capacity. Symbolic links are not followed while calculating usage.
+
+Set `files.upload_quota_bytes` in `config.php` to a byte value of at least 200 MiB when the hosting
+plan has a different storage budget. Leave enough free account space for the database, cache, logs,
+temporary upload copies, and backups; this quota protects the upload directory, not the whole hosting
+account.
+
+```php
+'files' => [
+    'upload_quota_bytes' => 2 * 1024 * 1024 * 1024,
+],
+```
+
 ## HTTPS
 
 Set the canonical base URL to `https://` and enable forced admin HTTPS after the certificate works.
