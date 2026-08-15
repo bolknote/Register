@@ -1462,11 +1462,60 @@ section.admin-extensions {
 
 .admin-structure .jstree #context_buttons {
     margin-left: 0.75rem;
+    display: inline-flex;
+    gap: 0.25rem;
+    align-items: center;
     vertical-align: middle;
 }
 
+.admin-structure #context_buttons .context-action {
+    display: inline-flex;
+    width: 1.65rem;
+    height: 1.65rem;
+    margin: 0;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 0.3rem;
+    background: transparent;
+    color: var(--admin-secondary-text-color);
+    font: inherit;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.admin-structure #context_buttons .context-action > span {
+    filter: grayscale(1);
+}
+
+.admin-structure #context_buttons .context-action:hover,
+.admin-structure #context_buttons .context-action:focus-visible {
+    background: var(--admin-secondary-background);
+    color: var(--admin-text-color);
+    outline: 2px solid var(--admin-accent-color);
+    outline-offset: 1px;
+}
+
+.admin-structure #context_buttons .context-action.is-dangerous:hover,
+.admin-structure #context_buttons .context-action.is-dangerous:focus-visible {
+    color: var(--admin-error-color);
+}
+
+.admin-structure #context_comments,
+.admin-structure ul #context_delete,
+.admin-structure .Search #context_add,
+.admin-structure .Search #context_delete {
+    display: none;
+}
+
+.admin-structure ul ul #context_delete {
+    display: inline-flex;
+}
+
 .admin-structure [data-comments] > .jstree-clicked + #context_buttons #context_comments {
-    display: inline-block;
+    display: inline-flex;
 }
 
 .admin-extensions > h2 {

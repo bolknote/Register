@@ -14,6 +14,20 @@ function getCodeMirror() {
     return editorDeps.CodeMirror;
 }
 
+function accessibleTextareaLabel(textarea) {
+    const explicitLabel = textarea.getAttribute('aria-label');
+    if (explicitLabel !== null && explicitLabel.trim() !== '') {
+        return explicitLabel.trim();
+    }
+
+    const label = textarea.labels?.[0]?.textContent;
+    if (label !== undefined && label.trim() !== '') {
+        return label.trim();
+    }
+
+    return textarea.name || 'Text';
+}
+
 const s2_codemirror = (function () {
     let instance, scrollTop = null;
     let aiChangeMarkers = [];
@@ -95,6 +109,7 @@ const s2_codemirror = (function () {
                 indentWithTabs: true,
                 lineWrapping: true,
                 spellcheck: true,
+                screenReaderLabel: accessibleTextareaLabel(eTextarea),
                 inputStyle: "contenteditable",
                 // Render all lines to keep accurate height mapping for sync scroll.
                 viewportMargin: Infinity,

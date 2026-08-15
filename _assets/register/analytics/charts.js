@@ -85,9 +85,25 @@ document.addEventListener('DOMContentLoaded', () => {
         details.hidden = false;
     };
 
+    const labelRangeSelector = (chart) => {
+        const rangeSelector = chart.rangeSelector;
+        rangeSelector?.dropdown?.setAttribute(
+            'aria-label',
+            root.dataset.period ?? 'Analytics period'
+        );
+        rangeSelector?.minInput?.setAttribute(
+            'aria-label',
+            root.dataset.periodStart ?? 'Analytics period start'
+        );
+        rangeSelector?.maxInput?.setAttribute(
+            'aria-label',
+            root.dataset.periodEnd ?? 'Analytics period end'
+        );
+    };
+
     const draw = (id, series) => {
         renderTable(id, series);
-        Highcharts.stockChart(id, {
+        const chart = Highcharts.stockChart(id, {
             accessibility: {enabled: false},
             chart: {
                 backgroundColor: 'transparent',
@@ -147,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 labels: {style: {color: theme.secondaryText}},
             },
         });
+        labelRangeSelector(chart);
     };
 
     Promise.all([load('page'), load('feed:blog')])

@@ -142,6 +142,9 @@ class AdminCest
         $I->seeElement('.admin-structure > .structure-toolbar');
         $I->dontSeeElement('.admin-structure > .toolbar');
         $I->seeElement('button#create_page_button');
+        $I->seeElement('input#search_field[aria-label="Search"]');
+        $I->seeElement('#context_buttons[role="group"] button#context_add[aria-label]');
+        $I->seeElement('#context_buttons[role="group"] button#context_delete[aria-label]');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Media');
         $I->see('Media', 'h1#media-library-title');
@@ -220,11 +223,15 @@ class AdminCest
         $I->seeElement('main.editor-main-column > .editor-body-block');
         $I->seeElement('.html-toolbar button[data-editor-action="undo"]');
         $I->seeElement('.html-toolbar button[data-editor-action="redo"]');
+        $I->seeElement('.html-toolbar[role="toolbar"][aria-label="Text"]');
+        $I->seeElement('.html-toolbar button[data-editor-action="undo"][aria-label="Undo"]');
+        $I->dontSeeElement('.html-toolbar button[tabindex="-1"]');
         $I->dontSeeElement('#ai-result-panel');
         $I->seeElement('.editor-title-block input[name="title"][placeholder="Title"]');
         $I->dontSeeElement('.editor-title-block label[for="id-title"]');
         $I->seeElement('main.editor-main-column > .editor-tags-block:last-child');
         $I->seeElement('.editor-tags-block input[name="tags"][placeholder="Tags"]');
+        $I->seeElement('label[for="id-body"]');
         $I->dontSeeElement('.editor-tags-block details');
         $I->assertStringContainsString(
             'register_tag_suggestions',

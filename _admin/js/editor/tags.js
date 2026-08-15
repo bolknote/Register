@@ -56,6 +56,7 @@ export function initTagsInput(config) {
     input.type = 'text';
     input.className = 'editor-tags-text-input';
     input.placeholder = config.placeholder || '';
+    input.setAttribute('aria-label', config.label || config.placeholder || 'Tags');
     input.autocomplete = 'off';
     input.setAttribute('role', 'combobox');
     input.setAttribute('aria-autocomplete', 'list');
