@@ -30,10 +30,10 @@ final readonly class QueueMonitor
     {
         $now ??= time();
         $statement = $this->pdo->prepare(
-            'SELECT COUNT(*) AS total, '
-            . 'COALESCE(SUM(CASE WHEN failed_at IS NULL AND available_at <= :ready_now THEN 1 ELSE 0 END), 0) AS ready, '
-            . 'COALESCE(SUM(CASE WHEN failed_at IS NULL AND available_at > :delayed_now THEN 1 ELSE 0 END), 0) AS delayed, '
-            . 'COALESCE(SUM(CASE WHEN failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS failed, '
+            'SELECT COUNT(*) AS queue_total, '
+            . 'COALESCE(SUM(CASE WHEN failed_at IS NULL AND available_at <= :ready_now THEN 1 ELSE 0 END), 0) AS queue_ready, '
+            . 'COALESCE(SUM(CASE WHEN failed_at IS NULL AND available_at > :delayed_now THEN 1 ELSE 0 END), 0) AS queue_delayed, '
+            . 'COALESCE(SUM(CASE WHEN failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS queue_failed, '
             . 'MIN(CASE WHEN failed_at IS NULL AND available_at <= :oldest_now THEN created_at ELSE NULL END) AS oldest_ready_at '
             . 'FROM ' . $this->dbPrefix . 'queue'
         );
@@ -74,10 +74,10 @@ final readonly class QueueMonitor
         $leaseExpiresAt = $this->integerField($lease, 'expires_at');
 
         return [
-            'total'                   => $this->integerField($row, 'total'),
-            'ready'                   => $this->integerField($row, 'ready'),
-            'delayed'                 => $this->integerField($row, 'delayed'),
-            'failed'                  => $this->integerField($row, 'failed'),
+            'total'                   => $this->integerField($row, 'queue_total'),
+            'ready'                   => $this->integerField($row, 'queue_ready'),
+            'delayed'                 => $this->integerField($row, 'queue_delayed'),
+            'failed'                  => $this->integerField($row, 'queue_failed'),
             'oldest_ready_age'        => $oldestReadyAt === null ? null : max(0, $now - $oldestReadyAt),
             'runner_active'           => $this->integerField($lease, 'active') === 1,
             'runner_lease_expires_at' => $leaseExpiresAt,

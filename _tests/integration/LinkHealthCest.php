@@ -21,6 +21,7 @@ use Register\Module\LinkHealth\LinkCheckQueueHandler;
 use Register\Module\LinkHealth\LinkHealthPolicy;
 use Register\Module\LinkHealth\LinkHealthRepository;
 use Register\Module\LinkHealth\LinkHealthResultRecorder;
+use Register\Module\LinkHealth\LinkHealthTransaction;
 use Register\Module\LinkHealth\LinkProbeInterface;
 use Register\Module\LinkHealth\LinkProbeMethod;
 use Register\Module\LinkHealth\LinkProbeResult;
@@ -359,15 +360,15 @@ final class LinkHealthCest
         $policy   = $I->grabService(LinkHealthPolicy::class);
         $probe    = new LinkProbeResult($target->url, 404);
         $decision = $policy->decide($target, $probe, 1_800_086_400);
-        /** @var LinkHealthResultRecorder $recorder */
-        $recorder = $I->grabService(LinkHealthResultRecorder::class);
         /** @var \PDO $pdo */
         $pdo   = $I->grabService(\PDO::class);
         $token = str_repeat('b', 32);
-        $pdo->exec(
-            "CREATE TEMP TRIGGER fail_link_archive BEFORE INSERT ON queue "
-            . "WHEN NEW.code = '" . LinkQueue::ARCHIVE_CODE . "' "
-            . "BEGIN SELECT RAISE(ABORT, 'forced archive queue failure'); END"
+        /** @var LinkHealthTransaction $transaction */
+        $transaction = $I->grabService(LinkHealthTransaction::class);
+        $recorder    = new LinkHealthResultRecorder(
+            $repository,
+            $transaction,
+            new FailingQueuePublisher($pdo, ''),
         );
 
         try {
@@ -375,8 +376,6 @@ final class LinkHealthCest
             $I->fail('The forced queue failure must escape the result transaction.');
         } catch (\PDOException) {
             // Expected: the result transaction must roll back both target state and history.
-        } finally {
-            $pdo->exec('DROP TRIGGER fail_link_archive');
         }
 
         $row = $dbLayer->select('health_status, failure_count')->from(Manifest::TARGET_TABLE)
@@ -950,5 +949,16 @@ final class SequencedLinkProbe implements LinkProbeInterface
 
         return array_shift($this->steps)
             ?? throw new \LogicException('No fake link-probe step remains.');
+    }
+}
+
+/** @internal */
+final readonly class FailingQueuePublisher extends QueuePublisher
+{
+    /** @param array<mixed> $payload */
+    #[\Override]
+    public function publish(string $id, string $code, array $payload = [], ?int $availableAt = null): void
+    {
+        throw new \PDOException('Forced queue publication failure.');
     }
 }
