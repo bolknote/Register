@@ -25,14 +25,39 @@ final class BackupRecoveryKeyLoader
         $config          = (new StaticConfigLoader())->load($configFilename);
         $applicationRoot = \dirname($configFilename);
 
+        $backupSecret = $this->symmetricSecret($config, $applicationRoot);
+        $recipientPublicKey = $config['backups']['recipient_public_key'] ?? null;
+        $recipientPrivateKey = $config['backups']['recipient_private_key'] ?? null;
+        if (\is_string($recipientPublicKey) || \is_string($recipientPrivateKey)) {
+            return new BackupEncryptionKeyProvider(
+                $backupSecret ?? '',
+                \is_string($recipientPublicKey) ? $recipientPublicKey : null,
+                \is_string($recipientPrivateKey) ? $recipientPrivateKey : null,
+            );
+        }
+
+        if ($backupSecret !== null) {
+            return new BackupEncryptionKeyProvider($backupSecret);
+        }
+
+        throw new \RuntimeException(
+            'No backup recovery key was found. Restore the matching symmetric or recipient key first.',
+        );
+    }
+
+    /**
+     * @param array<mixed> $config
+     */
+    private function symmetricSecret(array $config, string $applicationRoot): ?string
+    {
         $backupSecret = $config['backups']['encryption_key'] ?? null;
         if (\is_string($backupSecret) && \strlen($backupSecret) >= BackupEncryptionKeyProvider::KEY_BYTES) {
-            return new BackupEncryptionKeyProvider($backupSecret);
+            return $backupSecret;
         }
 
         $staticSecret = $config['security']['antispam_secret'] ?? null;
         if (\is_string($staticSecret) && \strlen($staticSecret) >= BackupEncryptionKeyProvider::KEY_BYTES) {
-            return new BackupEncryptionKeyProvider($staticSecret);
+            return $staticSecret;
         }
 
         $configuredSecretFile = $config['security']['secret_file'] ?? null;
@@ -51,13 +76,11 @@ final class BackupRecoveryKeyLoader
         foreach (array_unique($candidates) as $candidate) {
             $dynamicSecret = $this->dynamicAntispamSecret($candidate);
             if ($dynamicSecret !== null) {
-                return new BackupEncryptionKeyProvider($dynamicSecret);
+                return $dynamicSecret;
             }
         }
 
-        throw new \RuntimeException(
-            'No backup encryption key was found. Restore the original config.php and config.secrets.php first.',
-        );
+        return null;
     }
 
     private function dynamicAntispamSecret(string $filename): ?string

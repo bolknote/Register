@@ -100,6 +100,89 @@ final class BackupEncryptorTest extends Unit
         self::assertFileDoesNotExist($destination);
     }
 
+    public function testRecipientEncryptionCanOnlyBeOpenedWithOfflinePrivateKey(): void
+    {
+        $source      = $this->temporaryDirectory . '/recipient-backup.zip';
+        $encrypted   = $source . '.enc';
+        $destination = $this->temporaryDirectory . '/recipient-restored.zip';
+        $plaintext   = random_bytes(1024 * 1024 + 19);
+        file_put_contents($source, $plaintext);
+
+        [$publicKey, $privateKey] = $this->recipientKeyPair();
+        $publicEncryptor = new BackupEncryptor(new BackupEncryptionKeyProvider('', $publicKey));
+        $publicEncryptor->encryptFile($source, $encrypted);
+
+        $envelope = file_get_contents($encrypted);
+        self::assertIsString($envelope);
+        self::assertStringStartsWith("REGISTER-BACKUP\0\x02", $envelope);
+        self::assertStringNotContainsString(substr($plaintext, 100, 64), $envelope);
+
+        try {
+            $publicEncryptor->decryptFile($encrypted, $destination);
+            self::fail('A live-host public key must not decrypt a recipient-encrypted backup.');
+        } catch (\RuntimeException $runtimeException) {
+            self::assertStringContainsString('offline', $runtimeException->getMessage());
+        }
+        self::assertFileDoesNotExist($destination);
+
+        $offlineEncryptor = new BackupEncryptor(
+            new BackupEncryptionKeyProvider('', $publicKey, $privateKey),
+        );
+        $offlineEncryptor->decryptFile($encrypted, $destination);
+        self::assertSame(hash('sha256', $plaintext), hash_file('sha256', $destination));
+    }
+
+    public function testWrongRecipientKeyFailsClosedWithoutPartialPlaintext(): void
+    {
+        $source      = $this->temporaryDirectory . '/recipient-backup.zip';
+        $encrypted   = $source . '.enc';
+        $destination = $this->temporaryDirectory . '/wrong-recipient.zip';
+        file_put_contents($source, 'recipient encrypted backup data');
+        [$publicKey] = $this->recipientKeyPair();
+        (new BackupEncryptor(new BackupEncryptionKeyProvider('', $publicKey)))
+            ->encryptFile($source, $encrypted);
+
+        [$wrongPublicKey, $wrongPrivateKey] = $this->recipientKeyPair();
+        $wrongEncryptor = new BackupEncryptor(
+            new BackupEncryptionKeyProvider('', $wrongPublicKey, $wrongPrivateKey),
+        );
+        try {
+            $wrongEncryptor->decryptFile($encrypted, $destination);
+            self::fail('A backup encrypted for another recipient must not decrypt.');
+        } catch (\RuntimeException $runtimeException) {
+            self::assertStringContainsString('authentication', $runtimeException->getMessage());
+        }
+
+        self::assertFileDoesNotExist($destination);
+    }
+
+    public function testRecipientKeyEnvelopeTamperingFailsAuthentication(): void
+    {
+        $source      = $this->temporaryDirectory . '/recipient-backup.zip';
+        $encrypted   = $source . '.enc';
+        $destination = $this->temporaryDirectory . '/tampered-recipient.zip';
+        file_put_contents($source, 'recipient encrypted backup data');
+        [$publicKey, $privateKey] = $this->recipientKeyPair();
+        (new BackupEncryptor(new BackupEncryptionKeyProvider('', $publicKey)))
+            ->encryptFile($source, $encrypted);
+
+        $envelope = file_get_contents($encrypted);
+        self::assertIsString($envelope);
+        $wrappedKeyOffset = \strlen("REGISTER-BACKUP\0\x02");
+        $envelope[$wrappedKeyOffset] = chr(ord($envelope[$wrappedKeyOffset]) ^ 1);
+        file_put_contents($encrypted, $envelope);
+
+        try {
+            (new BackupEncryptor(new BackupEncryptionKeyProvider('', $publicKey, $privateKey)))
+                ->decryptFile($encrypted, $destination);
+            self::fail('A modified recipient key envelope must not decrypt.');
+        } catch (\RuntimeException $runtimeException) {
+            self::assertStringContainsString('authentication', $runtimeException->getMessage());
+        }
+
+        self::assertFileDoesNotExist($destination);
+    }
+
     public function testRejectsTruncatedAppendedAndReorderedFrames(): void
     {
         $source = $this->temporaryDirectory . '/multiframe.zip';
@@ -165,5 +248,22 @@ final class BackupEncryptorTest extends Unit
         return new BackupEncryptor(
             new BackupEncryptionKeyProvider(str_pad($prefix, 40, '-')),
         );
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function recipientKeyPair(): array
+    {
+        $keyPair = sodium_crypto_box_keypair();
+
+        return [
+            sodium_bin2base64(
+                sodium_crypto_box_publickey($keyPair),
+                SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING,
+            ),
+            sodium_bin2base64(
+                sodium_crypto_box_secretkey($keyPair),
+                SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING,
+            ),
+        ];
     }
 }

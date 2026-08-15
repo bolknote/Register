@@ -86,7 +86,10 @@ readonly class ProductModule implements ContainerModuleInterface
                     : '';
             }
 
-            return new BackupEncryptionKeyProvider($configuredSecret);
+            return new BackupEncryptionKeyProvider(
+                $configuredSecret,
+                $container->getNullableStringParameter('backup_recipient_public_key'),
+            );
         });
         $container->set(BackupEncryptor::class, static fn(Container $container): BackupEncryptor => new BackupEncryptor(
             $container->get(BackupEncryptionKeyProvider::class),

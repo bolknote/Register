@@ -66,6 +66,35 @@ final class BackupRecoveryKeyLoaderTest extends Unit
         self::assertSame((new BackupEncryptionKeyProvider($secret))->key(), $loaded->key());
     }
 
+    public function testLoadsOfflineRecipientKeyPair(): void
+    {
+        $keyPair = sodium_crypto_box_keypair();
+        $publicKey = sodium_bin2base64(
+            sodium_crypto_box_publickey($keyPair),
+            SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING,
+        );
+        $privateKey = sodium_bin2base64(
+            sodium_crypto_box_secretkey($keyPair),
+            SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING,
+        );
+        $config = $this->writeConfig([
+            'backups' => [
+                'recipient_public_key'  => $publicKey,
+                'recipient_private_key' => $privateKey,
+            ],
+        ]);
+
+        $loaded = (new BackupRecoveryKeyLoader())->fromConfigFile($config);
+        $encryptionProvider = new BackupEncryptionKeyProvider('', $publicKey);
+        $material = $encryptionProvider->encryptionMaterial();
+
+        self::assertSame(BackupEncryptionKeyProvider::RECIPIENT_VERSION, $material['version']);
+        self::assertSame(
+            $material['key'],
+            $loaded->decryptionKey($material['version'], $material['keyEnvelope']),
+        );
+    }
+
     /** @param array<string, mixed> $config */
     private function writeConfig(array $config): string
     {

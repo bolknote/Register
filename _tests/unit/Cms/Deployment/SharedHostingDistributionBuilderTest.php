@@ -52,6 +52,10 @@ final class SharedHostingDistributionBuilderTest extends Unit
         $decryptToolPermissions = fileperms($applicationDir . '/tools/decrypt-backup.php');
         self::assertIsInt($decryptToolPermissions);
         self::assertSame(0755, $decryptToolPermissions & 0777);
+        self::assertFileExists($applicationDir . '/tools/generate-backup-keypair.php');
+        $keyToolPermissions = fileperms($applicationDir . '/tools/generate-backup-keypair.php');
+        self::assertIsInt($keyToolPermissions);
+        self::assertSame(0755, $keyToolPermissions & 0777);
         self::assertFileExists($distribution . '/backups.md');
         self::assertDirectoryDoesNotExist($applicationDir . '/_tests');
         self::assertFileDoesNotExist($applicationDir . '/config.local.php');
@@ -114,6 +118,7 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertStringContainsString('public_html/index.php', $archiveContent);
         self::assertStringContainsString('register-app/_include/common.php', $archiveContent);
         self::assertStringContainsString('register-app/tools/decrypt-backup.php', $archiveContent);
+        self::assertStringContainsString('register-app/tools/generate-backup-keypair.php', $archiveContent);
         self::assertStringContainsString('backups.md', $archiveContent);
     }
 

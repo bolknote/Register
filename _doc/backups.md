@@ -10,10 +10,12 @@ standard ZIP archive containing:
 - `RESTORE.txt` with a short recovery checklist.
 
 Deployment configuration is deliberately excluded because it contains database and application
-credentials as well as the backup recovery key. The key is never stored in the database, generated
-cache, backup directory, or encrypted archive. Encryption therefore protects an archive copied or
-downloaded without the installation configuration; it does not protect against an attacker who can
-read both the archive and `config.php` on the live hosting account.
+credentials. By default it also contains the symmetric backup recovery key. That key is never
+stored in the database, generated cache, backup directory, or encrypted archive. Default encryption
+therefore protects an archive copied or downloaded without the installation configuration; it does
+not protect against an attacker who can read both the archive and `config.php` on the live hosting
+account. The optional offline-recipient mode below removes that limitation for confidentiality by
+keeping the private recovery key off the hosting account.
 
 ## Automatic and manual creation
 
@@ -53,10 +55,11 @@ New installations include this section in `config.php`:
 
 ```php
 'backups' => [
-    'enabled'        => true,
-    'directory'      => null,
-    'retention'      => 7,
-    'encryption_key' => 'a-random-installation-secret-of-at-least-32-bytes',
+    'enabled'              => true,
+    'directory'            => null,
+    'retention'            => 7,
+    'encryption_key'       => 'a-random-installation-secret-of-at-least-32-bytes',
+    'recipient_public_key' => null,
 ],
 ```
 
@@ -78,6 +81,27 @@ Authenticated streaming encryption requires the Sodium PHP extension (`ext-sodiu
 required runtime dependency and avoids loading a potentially large media archive into memory.
 
 The local development bootstrap stores three archives under `.local/backups/`.
+
+### Optional offline recipient key
+
+For stronger protection against a complete read-only compromise of the hosting account, generate a
+recipient keypair on a trusted offline computer:
+
+```bash
+php tools/generate-backup-keypair.php /offline/backup-recovery.php
+```
+
+The command creates the recovery file with mode `0600` and prints only the public key. Copy the
+printed `recipient_public_key` value into the live `config.php`; never upload
+`backup-recovery.php`. When this value is present, every new archive gets an independent random
+stream key wrapped with the public key. The hosting account can create backups but cannot decrypt
+them. Keep `encryption_key` while any older version-1 archives still need it; it is ignored when
+creating recipient-encrypted version-2 archives.
+
+Store at least two protected offline copies of the recovery file and test one before relying on the
+mode. Anyone who can alter the live public key can redirect future backups to a different recipient,
+and anyone who controls the hosting account can still delete or replace archives. Protect the live
+configuration from changes, monitor configuration audit events, and copy archives off-site.
 
 ## Database utilities
 
@@ -105,6 +129,16 @@ explicit output and configuration path can be supplied for an offline recovery:
 ```bash
 php tools/decrypt-backup.php backup.zip.enc restored.zip /recovery/config.php
 ```
+
+For a recipient-encrypted archive, pass the offline file created by the keypair tool:
+
+```bash
+php tools/decrypt-backup.php backup.zip.enc restored.zip /offline/backup-recovery.php
+```
+
+The public key stored on the live host is intentionally insufficient for this operation. Version-1
+symmetric archives continue to use their matching historical `config.php`, so both envelope
+versions remain recoverable during migration.
 
 Any wrong key, modified byte, truncation, reordered frame, or data appended after the authenticated
 final frame makes decryption fail and removes the partial plaintext output. Legacy unencrypted

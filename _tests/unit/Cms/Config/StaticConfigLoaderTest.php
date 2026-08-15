@@ -85,6 +85,22 @@ final class StaticConfigLoaderTest extends Unit
         self::assertSame($secret, $configured['backups']['encryption_key']);
     }
 
+    public function testBackupRecipientKeysRemainAvailableForOfflineRecovery(): void
+    {
+        $method = new \ReflectionMethod(StaticConfigLoader::class, 'normalizeArrayConfig');
+        $loader = new StaticConfigLoader();
+        $configured = $method->invoke($loader, [
+            'backups' => [
+                'recipient_public_key'  => 'public-key',
+                'recipient_private_key' => 'private-key',
+            ],
+        ]);
+
+        self::assertIsArray($configured);
+        self::assertSame('public-key', $configured['backups']['recipient_public_key']);
+        self::assertSame('private-key', $configured['backups']['recipient_private_key']);
+    }
+
     public function testUploadQuotaHasASafeDefaultAndStrictBounds(): void
     {
         $method = new \ReflectionMethod(StaticConfigLoader::class, 'normalizeArrayConfig');

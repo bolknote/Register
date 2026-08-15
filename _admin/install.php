@@ -412,10 +412,11 @@ function generate_config_file(
             'secret_file'     => $secretFile,
         ],
         'backups' => [
-            'enabled'        => true,
-            'directory'      => null,
-            'retention'      => 7,
-            'encryption_key' => $backupEncryptionKey,
+            'enabled'              => true,
+            'directory'            => null,
+            'retention'            => 7,
+            'encryption_key'       => $backupEncryptionKey,
+            'recipient_public_key' => null,
         ],
     ];
 
@@ -480,6 +481,7 @@ function installApplicationParameters(
         'trusted_proxies' => [],
         'secret_config_file' => SecretConfigPathResolver::resolve(S2_FS_ROOT, S2_PUBLIC_FS_ROOT, null),
         'backup_encryption_key' => null,
+        'backup_recipient_public_key' => null,
         'url_prefix'    => '',
         'debug'         => defined('S2_DEBUG'),
         'debug_view'    => defined('S2_DEBUG_VIEW'),

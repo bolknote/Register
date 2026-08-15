@@ -100,11 +100,12 @@ Create and verify a backup before replacing code. Preserve all installation-spec
 - private backup archives and any custom paths configured for cache or logs;
 - locally installed extensions and styles that are not part of the release.
 
-New backup files end in `.zip.enc`. Preserve `config.php` separately because its generated
-`backups.encryption_key` is required to decrypt them; possession of an encrypted archive alone is
-not sufficient. See [`backups.md`](backups.md) for the offline decryption command and key-rotation
-procedure, and [`secret-rotation.md`](secret-rotation.md) for the complete shared-hosting credential
-runbook.
+New backup files end in `.zip.enc`. In the default mode, preserve `config.php` separately because
+its generated `backups.encryption_key` is required to decrypt them. For stronger isolation, use the
+optional public-recipient mode and keep its private recovery configuration entirely off the hosting
+account. Possession of an encrypted archive or the public key alone is not sufficient. See
+[`backups.md`](backups.md) for setup and offline decryption, and
+[`secret-rotation.md`](secret-rotation.md) for the complete shared-hosting credential runbook.
 
 Stage the new package beside the live copy, restore the preserved files into the matching private or
 public directory, and only then switch the document root or rename directories. Do not unpack a

@@ -20,8 +20,6 @@ final readonly class BackupEncryptor
 
     private const string MAGIC = "REGISTER-BACKUP\0";
 
-    private const string VERSION = "\x01";
-
     private const int CHUNK_BYTES = 1024 * 1024;
 
     public function __construct(private BackupEncryptionKeyProvider $keyProvider)
@@ -43,11 +41,16 @@ final readonly class BackupEncryptor
         $destinationCreated = false;
         $key                = null;
         try {
-            $key = $this->keyProvider->key();
+            $material = $this->keyProvider->encryptionMaterial();
+            $version = $material['version'];
+            $key = $material['key'];
+            $keyEnvelope = $material['keyEnvelope'];
+            $authenticatedHeader = self::MAGIC . $version . $keyEnvelope;
+            $this->validateEncryptionMaterial($version, $keyEnvelope);
             $destination = $this->openPrivateOutput($destinationPath);
             $destinationCreated = true;
             [$state, $streamHeader] = sodium_crypto_secretstream_xchacha20poly1305_init_push($key);
-            $this->writeAll($destination, self::MAGIC . self::VERSION . $streamHeader);
+            $this->writeAll($destination, $authenticatedHeader . $streamHeader);
 
             $remaining = $sourceSize;
             if ($remaining === 0) {
@@ -56,7 +59,7 @@ final readonly class BackupEncryptor
                     sodium_crypto_secretstream_xchacha20poly1305_push(
                         $state,
                         '',
-                        self::MAGIC . self::VERSION,
+                        $authenticatedHeader,
                         SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL,
                     ),
                 );
@@ -73,7 +76,7 @@ final readonly class BackupEncryptor
                     sodium_crypto_secretstream_xchacha20poly1305_push(
                         $state,
                         $chunk,
-                        self::MAGIC . self::VERSION,
+                        $authenticatedHeader,
                         $tag,
                     ),
                 );
@@ -115,11 +118,16 @@ final readonly class BackupEncryptor
         $destinationCreated = false;
         $key                = null;
         try {
-            $key = $this->keyProvider->key();
-            $preamble = $this->readExactly($source, \strlen(self::MAGIC . self::VERSION));
-            if (!hash_equals(self::MAGIC . self::VERSION, $preamble)) {
+            $magic = $this->readExactly($source, \strlen(self::MAGIC));
+            if (!hash_equals(self::MAGIC, $magic)) {
                 throw new \RuntimeException('The file is not a supported encrypted Register backup.');
             }
+
+            $version = $this->readExactly($source, 1);
+            $keyEnvelopeBytes = $this->keyEnvelopeBytes($version);
+            $keyEnvelope = $keyEnvelopeBytes === 0 ? '' : $this->readExactly($source, $keyEnvelopeBytes);
+            $authenticatedHeader = self::MAGIC . $version . $keyEnvelope;
+            $key = $this->keyProvider->decryptionKey($version, $keyEnvelope);
 
             $streamHeader = $this->readExactly(
                 $source,
@@ -128,7 +136,7 @@ final readonly class BackupEncryptor
             $state = sodium_crypto_secretstream_xchacha20poly1305_init_pull($streamHeader, $key);
             $destination = $this->openPrivateOutput($destinationPath);
             $destinationCreated = true;
-            $this->decryptFrames($source, $destination, $state);
+            $this->decryptFrames($source, $destination, $state, $authenticatedHeader);
             $this->flush($destination);
         } catch (\Throwable $throwable) {
             if (\is_resource($destination)) {
@@ -157,7 +165,7 @@ final readonly class BackupEncryptor
      * @param resource $source
      * @param resource $destination
      */
-    private function decryptFrames($source, $destination, string $state): void
+    private function decryptFrames($source, $destination, string $state, string $authenticatedHeader): void
     {
         $ciphertextBytes = self::CHUNK_BYTES + SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_ABYTES;
         while (true) {
@@ -166,7 +174,7 @@ final readonly class BackupEncryptor
                 throw new \RuntimeException('The encrypted backup is truncated before its final frame.');
             }
 
-            $result = $this->pullFrame($state, $ciphertext);
+            $result = $this->pullFrame($state, $ciphertext, $authenticatedHeader);
             if ($result === false) {
                 throw new \RuntimeException('The encrypted backup failed authentication.');
             }
@@ -192,13 +200,30 @@ final readonly class BackupEncryptor
     }
 
     /** @return array{0: string, 1: int}|false */
-    private function pullFrame(string &$state, string $ciphertext): array|false
+    private function pullFrame(string &$state, string $ciphertext, string $authenticatedHeader): array|false
     {
         return $this->normalizePullResult(sodium_crypto_secretstream_xchacha20poly1305_pull(
             $state,
             $ciphertext,
-            self::MAGIC . self::VERSION,
+            $authenticatedHeader,
         ));
+    }
+
+    private function validateEncryptionMaterial(string $version, string $keyEnvelope): void
+    {
+        if (\strlen($version) !== 1 || \strlen($keyEnvelope) !== $this->keyEnvelopeBytes($version)) {
+            throw new \RuntimeException('The backup encryption key provider returned invalid material.');
+        }
+    }
+
+    private function keyEnvelopeBytes(string $version): int
+    {
+        return match ($version) {
+            BackupEncryptionKeyProvider::SYMMETRIC_VERSION => 0,
+            BackupEncryptionKeyProvider::RECIPIENT_VERSION => BackupEncryptionKeyProvider::KEY_BYTES
+                + SODIUM_CRYPTO_BOX_SEALBYTES,
+            default => throw new \RuntimeException('The backup encryption version is not supported.'),
+        };
     }
 
     /** @return array{0: string, 1: int}|false */

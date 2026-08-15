@@ -35,6 +35,7 @@ final readonly class SharedHostingDistributionBuilder
 
     private const array APPLICATION_TOOL_FILES = [
         'decrypt-backup.php',
+        'generate-backup-keypair.php',
     ];
 
     private const array PUBLIC_SOURCE_DIRECTORIES = [

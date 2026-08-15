@@ -147,6 +147,13 @@ assume those backups are readable: rotation cannot retroactively protect them. P
 create a clean new generation, and securely expire the compromised copies according to the incident
 policy.
 
+If `backups.recipient_public_key` is enabled, the corresponding private key must remain only in the
+offline recovery configuration. Generate a new pair with `tools/generate-backup-keypair.php`, store
+and test the new recovery file first, and only then replace the live public key. Keep the old offline
+file for as long as any archive encrypted to that recipient remains. Exposure of the live public key
+does not reveal existing archives, but unauthorized replacement can redirect all future archives;
+treat an unexplained public-key change as a configuration-integrity incident.
+
 ## Emergency order of operations
 
 When the scope is unclear, contain access in this order:

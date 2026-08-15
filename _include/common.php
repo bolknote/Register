@@ -142,6 +142,7 @@ function s2_build_base_static_parameters(array $config): array
         ),
         'backup_retention'   => $config['backups']['retention'] ?? 7,
         'backup_encryption_key' => $config['backups']['encryption_key'] ?? null,
+        'backup_recipient_public_key' => $config['backups']['recipient_public_key'] ?? null,
         'db_type'            => $config['database']['type'] ?? null,
         'db_host'            => $config['database']['host'] ?? null,
         'db_name'            => $config['database']['name'] ?? null,

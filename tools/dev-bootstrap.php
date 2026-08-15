@@ -111,10 +111,11 @@ $config = [
         'secret_file'     => '.local/config.secrets.php',
     ],
     'backups' => [
-        'enabled'        => true,
-        'directory'      => '.local/backups',
-        'retention'      => 3,
-        'encryption_key' => hash('sha256', 'register-local-backup:' . $rootDir),
+        'enabled'              => true,
+        'directory'            => '.local/backups',
+        'retention'            => 3,
+        'encryption_key'       => hash('sha256', 'register-local-backup:' . $rootDir),
+        'recipient_public_key' => null,
     ],
 ];
 
@@ -237,6 +238,7 @@ $application->boot([
     'backup_dir'         => $rootDir . '/.local/backups',
     'backup_retention'   => $config['backups']['retention'],
     'backup_encryption_key' => $config['backups']['encryption_key'],
+    'backup_recipient_public_key' => $config['backups']['recipient_public_key'],
     'db_type'            => $config['database']['type'],
     'db_host'            => $config['database']['host'],
     'db_name'            => $config['database']['name'],
