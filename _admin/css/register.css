@@ -2788,12 +2788,22 @@ body.login_page {
 }
 
 .loginform {
-    padding: 1.25rem;
+    padding: 1.5rem;
     border: 1px solid var(--admin-soft-border-color);
     border-radius: 0.55rem;
     background: var(--admin-surface-background);
     box-shadow: var(--admin-shadow);
     text-align: left;
+}
+
+.loginform > p {
+    width: 100%;
+    margin: 0;
+}
+
+.loginform > p:first-child {
+    display: grid;
+    gap: 0.75rem;
 }
 
 .loginform label {
@@ -2816,6 +2826,10 @@ body.login_page {
     display: flex;
 }
 
+.loginform .login-session-options {
+    margin-top: 1rem;
+}
+
 .loginform input[type="submit"] {
     min-height: 2.35rem;
     padding: 0.4rem 0.8rem;
@@ -2831,7 +2845,7 @@ body.login_page {
     display: flex;
     align-items: stretch;
     gap: 0.65rem;
-    margin-top: 0.75rem;
+    margin-top: 1rem;
 }
 
 .loginform .login-actions button,
@@ -2853,8 +2867,8 @@ body.login_page {
 }
 
 .login-recovery {
-    margin-top: 0.8rem;
-    padding: 0.8rem 1rem;
+    margin-top: 1rem;
+    padding: 1rem 1.25rem;
     border: 1px solid var(--admin-soft-border-color);
     border-radius: 0.55rem;
     background: var(--admin-surface-background);
