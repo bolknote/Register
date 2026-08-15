@@ -147,7 +147,7 @@ final class ContentSecurityPolicyTest extends Unit
         }
     }
 
-    public function testMigratedAdminInteractionsDoNotMutateInlineStyles(): void
+    public function testMigratedInteractionsDoNotMutateInlineStyles(): void
     {
         $root = dirname(__DIR__, 4);
         foreach ([
@@ -156,6 +156,7 @@ final class ContentSecurityPolicyTest extends Unit
             $root . '/_admin/js/editor/form.js',
             $root . '/_admin/js/editor/images/pipeline.js',
             $root . '/_assets/register/audio-player/player.js',
+            $root . '/_assets/register/search/autocomplete.js',
         ] as $filename) {
             $source = file_get_contents($filename);
             self::assertIsString($source);

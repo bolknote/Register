@@ -247,9 +247,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 . '" method="get" action="' . $urlBuilder->link('/search') . '">'
                 . ($urlBuilder->hasPrefix() ? '<input type="hidden" name="search" value="1" />' : '')
                 . '<label class="visually-hidden" for="s2_search_input">' . s2_htmlencode($translator->trans('Search')) . '</label>'
-                . '<input type="search" name="q" id="s2_search_input" data-s2-search-url="'
+                . '<span class="s2-search-autocomplete"><input type="search" name="q" id="s2_search_input" data-s2-search-url="'
                 . s2_htmlencode($quickSearchUrl) . '" placeholder="' . s2_htmlencode($translator->trans('Search'))
-                . '" autocomplete="off" enterkeyhint="search" /></form>'
+                . '" autocomplete="off" enterkeyhint="search" /></span></form>'
             );
         });
 

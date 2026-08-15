@@ -43,17 +43,6 @@
 		last_search = str;
 	}
 
-	function getOffsetRect (eItem) {
-		var
-			box = eItem.getBoundingClientRect(),
-			body_box = document.body.getBoundingClientRect(),
-
-			top  = box.top - body_box.top,
-			left = box.left - body_box.left;
-
-		return {top: Math.round(top), left: Math.round(left), width: eItem.offsetWidth, height: eItem.offsetHeight};
-	}
-
 	function keyDown (e)
 	{
 		var iKey;
@@ -77,7 +66,7 @@
 			hideResults();
 			stop_event = true;
 		}
-		if (iKey == 27 && STips.style.display != 'none')
+		if (iKey == 27 && !STips.hidden)
 		{
 			var old_value = SInp.value;
 			hideResults();
@@ -157,12 +146,7 @@
 		}
 
 		STips.innerHTML = sHTML;
-		STips.style.display = 'block';
-
-		var mc = getOffsetRect(SInp);
-		STips.style.top = mc.top + mc.height + shift_y + 'px';
-		STips.style.left = mc.left + shift_x + 'px';
-		STips.style.width = mc.width - 2 + delta_x + 'px';
+		STips.hidden = false;
 
 		STips.scrollTop = 0;
 	}
@@ -170,7 +154,7 @@
 	function hideResults ()
 	{
 		if (STips)
-			STips.style.display = 'none';
+			STips.hidden = true;
 		eCurItem = null;
 	}
 
@@ -183,7 +167,7 @@
 		}, 20);
 	}
 
-	var SInp, search_timer, blur_timer, shift_x = 0, shift_y = 0, delta_x = 0;
+	var SInp, search_timer, blur_timer;
 
 	function init ()
 	{
@@ -199,15 +183,6 @@
 		search_url = SInp.getAttribute('data-s2-search-url') || '';
 		if (!search_url)
 			return;
-
-		var pos_info = SInp.getAttribute('data-s2_search-pos');
-		if (pos_info)
-		{
-			pos_info = pos_info.split(/\s*,\s*/);
-			shift_x = pos_info[0] ? parseInt(pos_info[0]) : shift_x;
-			shift_y = pos_info[1] ? parseInt(pos_info[1]) : shift_y;
-			delta_x = pos_info[2] ? parseInt(pos_info[2]) : delta_x;
-		}
 
 		// Search field events
 		SInp.onkeydown = keyDown;
@@ -246,27 +221,14 @@
 
 		// Autosearch results div
 		STips = document.createElement('div');
-		STips.style.display = 'none';
-		STips.style.zIndex = '10';
+		STips.hidden = true;
 		STips.id = 's2_search_tip';
-		document.body.appendChild(STips);
+		(SInp.closest('.s2-search-autocomplete') || SInp.form || document.body).appendChild(STips);
 
 		if (typeof(document.addEventListener) == 'undefined')
 			document.attachEvent('onclick', hide);
 		else
 			document.addEventListener('click', hide, true);
-
-		// Add extension styles
-		var head = document.getElementsByTagName('head')[0],
-			style = document.createElement('style'),
-			rules = '#s2_search_tip { display: block; position: absolute; background: #fff; border: 1px solid #ccc; font-size: 0.85em; max-height: 25em; overflow: auto; overflow-x: hidden; -webkit-box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2); -moz-box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2); box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2); } #s2_search_tip a {display: block; padding: 2px; width: auto; } #s2_search_tip a:hover {background: #ffd;} #s2_search_tip a.current {outline: 1px dotted #000; outline-offset: -1px;} #s2_search_tip em {background: #fff8d3; text-decoration: inherit; font-style: normal; }';
-
-		style.type = 'text/css';
-		if (style.styleSheet)
-			style.styleSheet.cssText = rules;
-		else
-			style.appendChild(document.createTextNode(rules));
-		head.insertBefore(style, head.firstChild);
 	}
 
 	if (window.attachEvent)

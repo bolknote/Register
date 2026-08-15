@@ -159,6 +159,7 @@ class SearchCest
         /**
          * 2. Search
          */
+        $I->seeElement('.s2_search_form .s2-search-autocomplete > #s2_search_input');
         $I->submitForm('form.s2_search_form', [
             'q' => 'some text',
         ]);
@@ -169,6 +170,7 @@ class SearchCest
         $quickSearchUrl = $I->grabAttributeFrom('#s2_search_input_ext', 'data-s2-search-url');
         $I->assertNotNull($quickSearchUrl);
         $I->assertStringContainsString('title=', $quickSearchUrl);
+        $I->seeElement('.search-form .s2-search-autocomplete > #s2_search_input_ext');
 
         // Run indexing
         /** @var QueueConsumer $consumer */
