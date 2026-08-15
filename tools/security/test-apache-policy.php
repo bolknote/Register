@@ -50,6 +50,7 @@ try {
         '/_include/secret.txt'                          => 403,
         '/composer.lock'                                => 403,
         '/config.local.php'                             => 403,
+        '/config.secrets.php'                           => 403,
     ];
 
     foreach ($expectations as $path => $expectedStatus) {
@@ -178,6 +179,7 @@ function createFixtureTree(string $projectRoot, string $tempRoot, string $webRoo
         '/_include/secret.txt'                          => 'private source',
         '/composer.lock'                                => '{"packages":[]}',
         '/config.local.php'                             => '<?php return ["password" => "secret"];',
+        '/config.secrets.php'                           => '<?php return ["REGISTER_AI_API_KEY" => "secret"];',
     ];
     foreach ($fixtures as $path => $content) {
         if (file_put_contents($webRoot . $path, $content) === false) {

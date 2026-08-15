@@ -17,6 +17,7 @@ use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
 use S2\Cms\Config\DynamicConfigProvider;
+use S2\Cms\Config\SecretConfigPathResolver;
 use S2\Cms\Config\StaticConfigLoader;
 use S2\Cms\Framework\Application;
 use S2\Cms\Framework\Exception\ConfigurationException;
@@ -129,6 +130,13 @@ function s2_build_base_static_parameters(array $config): array
         'redirect_map'       => $config['redirects'] ?? [],
         'cookie_name'        => $config['cookies']['name'] ?? StaticConfigLoader::DEFAULT_COOKIE_NAME,
         'antispam_secret'    => $config['security']['antispam_secret'] ?? null,
+        'secret_config_file' => SecretConfigPathResolver::resolve(
+            $rootDir,
+            $publicRootDir,
+            isset($config['security']['secret_file']) && is_string($config['security']['secret_file'])
+                ? $config['security']['secret_file']
+                : null,
+        ),
         'backup_enabled'     => $config['backups']['enabled'] ?? true,
         'backup_dir'         => BackupDirectoryResolver::resolve(
             $rootDir,

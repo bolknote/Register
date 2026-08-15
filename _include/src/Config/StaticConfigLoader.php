@@ -123,6 +123,7 @@ final class StaticConfigLoader
             ],
             'security' => [
                 'antispam_secret' => $this->nullableString($security['antispam_secret'] ?? null),
+                'secret_file'     => $this->nullableString($security['secret_file'] ?? null),
             ],
             'backups' => [
                 'enabled'   => $this->toBool($backups['enabled'] ?? true),
@@ -261,6 +262,7 @@ final class StaticConfigLoader
                     ],
                     'security' => [
                         'antispam_secret' => null,
+                        'secret_file'     => null,
                     ],
                     'backups' => [
                         'enabled'   => true,

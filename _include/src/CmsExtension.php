@@ -11,6 +11,7 @@ namespace S2\Cms;
 
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
+use Register\Ai\AiSettings;
 use Register\Comment\ContentCommentNotifier;
 use Register\Comment\ContentCommentStrategy;
 use Register\Content\ContentPublicationScheduler;
@@ -39,6 +40,7 @@ use S2\Cms\Comment\SpamDetectorInterface;
 use S2\Cms\Comment\SpamDecisionProvider;
 use S2\Cms\Comment\SpamDecisionProviderInterface;
 use S2\Cms\Config\DynamicConfigProvider;
+use S2\Cms\Config\DynamicSecretStore;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Controller\CommentController;
 use S2\Cms\Controller\CommentModerationController;
@@ -167,10 +169,15 @@ class CmsExtension implements ExtensionInterface
         $container->set(LoggerInterface::class, fn(Container $container): \S2\Cms\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'app.log', 'app', LogLevel::INFO));
         $container->set('config_cache', fn(Container $container): \Symfony\Component\Cache\Adapter\FilesystemAdapter => new FilesystemAdapter('config', 0, $container->getStringParameter('cache_dir')));
 
+        $container->set(DynamicSecretStore::class, fn(Container $container): \S2\Cms\Config\DynamicSecretStore => new DynamicSecretStore(
+            $container->getStringParameter('secret_config_file'),
+            ['S2_AKISMET_KEY', AiSettings::API_KEY_CONFIG_KEY],
+        ));
         $container->set(DynamicConfigProvider::class, fn(Container $container): \S2\Cms\Config\DynamicConfigProvider => new DynamicConfigProvider(
             $container->get(DbLayer::class),
             $container->getStringParameter('cache_dir') . 'cache_config.php',
             $container->getBoolParameter('disable_cache'),
+            $container->get(DynamicSecretStore::class),
         ), [StatefulServiceInterface::class]); // TODO not enough, parameters are set into many other services
 
         $container->set('translator', function (Container $container): \S2\Cms\Translation\ExtensibleTranslator {

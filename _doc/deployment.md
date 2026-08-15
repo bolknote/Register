@@ -25,6 +25,12 @@ bundles are written below the actual document root. See
 [`shared-hosting.md`](shared-hosting.md) for installation, permission, boundary-verification, and
 safe-update instructions.
 
+Dynamic AI and Akismet API keys are not stored in the database. In the split-root layout Register
+writes them to `register-app/config.secrets.php` with mode `0600`; generated caches and database
+backups contain only a marker. Preserve this file separately when moving or restoring a site. The
+file can be moved to another private path with `security.secret_file` in `config.php`; relative paths
+are resolved from the application root.
+
 ## Apache shared hosting
 
 For a repository-root deployment, the checked-in [root `.htaccess`](../.htaccess) is part of the
@@ -38,6 +44,13 @@ It provides these rules:
 - the only public Composer files are AdminYard's exact `demo/style.css` and `demo/script.js` assets;
 - only generated top-level `_cache/<name>.<hex>.css|js[.gz]` bundles are public;
 - upload directories disable CGI/PHP handlers and deny active document formats.
+
+For this legacy layout, Register first tries a stable `register-secrets-<installation-id>.php` file
+beside the document root. If PHP cannot write there, the installer falls back to
+`config.secrets.php` inside the application root only after a same-host, IP-pinned HTTP probe proves
+that the file's PHP source cannot be downloaded. The fallback file is mode `0600` and the supplied
+Apache policy denies it through the general active-file boundary. Installation stops if the probe
+cannot establish that boundary; do not bypass it by making the file world-readable.
 
 The full quality gate starts an isolated real Apache process and makes allow/deny requests against
 these rules. It can also be run alone:
@@ -72,7 +85,7 @@ Recommended modes are:
 
 | Path | Mode | Reason |
 |---|---:|---|
-| `config.php`, SQLite database and sidecars | `0600` | contain credentials, hashes, drafts, and private content |
+| `config.php`, `config.secrets.php`, SQLite database and sidecars | `0600` | contain credentials, hashes, drafts, and private content |
 | private cache metadata and backup archives | `0600` | may contain configuration or a database copy |
 | `_cache/` and private backup directories | `0750` | writable private application state |
 | generated `_cache/*.css`, `_cache/*.js`, public uploads and thumbnails | `0644` | web server must serve them as data |

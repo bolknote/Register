@@ -336,6 +336,7 @@ class Integration extends AbstractBrowserModule
 
             'cookie_name'       => 's2_cookie_904732485',
             'antispam_secret'   => str_repeat('ab', 32),
+            'secret_config_file' => self::ROOT_DIR . '_tests/_output/config.secrets.php',
             'backup_enabled'    => false,
             'backup_dir'        => self::ROOT_DIR . '_tests/_output/backups',
             'backup_retention'  => 2,
@@ -443,6 +444,7 @@ class Integration extends AbstractBrowserModule
     {
         s2_call_without_warnings(static fn(): bool => self::deleteRecursive(self::ROOT_DIR . '_cache/test/config/'));
         s2_call_without_warnings(static fn(): bool => unlink(self::ROOT_DIR . '_cache/test/cache_config.php'));
+        s2_call_without_warnings(static fn(): bool => unlink(self::ROOT_DIR . '_tests/_output/config.secrets.php'));
     }
 
     private function decorateSpamDetector(): void

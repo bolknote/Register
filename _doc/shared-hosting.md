@@ -47,7 +47,8 @@ installation.
 4. Confirm that Apache honors `.htaccess` (`AllowOverride` and `mod_rewrite`) and then open
    `https://example.com/_admin/install.php`. The installer writes `config.php`, SQLite, and private
    cache data under `register-app`, while uploads and generated browser assets go under the real
-   document root.
+   document root. AI and Akismet API keys are stored in `register-app/config.secrets.php` with mode
+   `0600`; the database and generated configuration cache contain only an opaque marker.
 5. Configure the canonical HTTPS URL. Enable forced administration HTTPS only after the certificate
    works for the final hostname.
 
@@ -80,6 +81,8 @@ denies active document formats independently of the application's upload validat
 Create and verify a backup before replacing code. Preserve all installation-specific state:
 
 - `register-app/config.php` and the configured database;
+- `register-app/config.secrets.php` when it exists; it is deliberately excluded from database
+  backups and must be transferred through a separate protected channel;
 - `public_html/_pictures/` and any configured external media directory;
 - private backup archives and any custom paths configured for cache or logs;
 - locally installed extensions and styles that are not part of the release.

@@ -23,11 +23,13 @@ use Register\Module\Search\SearchIndexRebuilder;
 use S2\Cms\Admin\AdminExtension;
 use S2\Cms\CmsExtension;
 use S2\Cms\Config\StaticConfigLoader;
+use S2\Cms\Config\SecretConfigPathResolver;
 use S2\Cms\Framework\Application;
 use S2\Cms\Helper\StringHelper;
 use S2\Cms\HttpClient\HttpClient;
 use S2\Cms\HttpClient\HttpClientException;
 use S2\Cms\Install\InstallExtension;
+use S2\Cms\Install\SecretFileBoundaryVerifier;
 use S2\Cms\Logger\Logger;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PasswordHasher;
@@ -251,6 +253,16 @@ function can_probe_install_base_url(string $baseUrl): bool
         return false;
     }
 
+    $requestAuthority = $_SERVER['HTTP_HOST'] ?? null;
+    if (!\is_string($requestAuthority)) {
+        return false;
+    }
+    $requestUrl = parse_url('http://' . $requestAuthority);
+    $requestHost = \is_array($requestUrl) ? ($requestUrl['host'] ?? null) : null;
+    if (!\is_string($requestHost) || strcasecmp(trim($host, '[]'), trim($requestHost, '[]')) !== 0) {
+        return false;
+    }
+
     $serverAddress = $_SERVER['SERVER_ADDR'] ?? null;
     if (!\is_string($serverAddress) || filter_var($serverAddress, FILTER_VALIDATE_IP) === false) {
         return false;
@@ -264,19 +276,89 @@ function can_probe_install_base_url(string $baseUrl): bool
         return false;
     }
 
-    $host = trim($host, '[]');
-    if (strtolower($host) === 'localhost') {
-        return $serverAddress === '::1' || str_starts_with($serverAddress, '127.');
+    return true;
+}
+
+/** @return array{connect_timeout: int, read_timeout: int, follow_redirects: false, resolve_ip: string, max_response_bytes: int} */
+function install_probe_request_options(): array
+{
+    $serverAddress = $_SERVER['SERVER_ADDR'] ?? null;
+    if (!\is_string($serverAddress) || filter_var($serverAddress, FILTER_VALIDATE_IP) === false) {
+        throw new \LogicException('A valid local server address is required for installation probes.');
     }
 
-    if (filter_var($host, FILTER_VALIDATE_IP) === false) {
+    return [
+        HttpClient::CONNECT_TIMEOUT    => 5,
+        HttpClient::READ_TIMEOUT       => 5,
+        HttpClient::FOLLOW_REDIRECTS   => false,
+        HttpClient::RESOLVE_IP         => $serverAddress,
+        HttpClient::MAX_RESPONSE_BYTES => 65_536,
+    ];
+}
+
+function can_create_private_file(string $directory): bool
+{
+    if (!is_dir($directory) || is_link($directory)) {
         return false;
     }
 
-    $packedHost = inet_pton($host);
-    $packedServerAddress = inet_pton($serverAddress);
+    $probe = rtrim($directory, '/\\') . '/.register-secret-write-' . bin2hex(random_bytes(8));
+    $handle = s2_call_without_warnings(static fn() => fopen($probe, 'xb'));
+    if ($handle === false) {
+        return false;
+    }
 
-    return $packedHost !== false && $packedServerAddress !== false && hash_equals($packedServerAddress, $packedHost);
+    $secured = DIRECTORY_SEPARATOR === '\\' || chmod($probe, 0600);
+    fclose($handle);
+    $removed = unlink($probe);
+
+    return $secured && $removed;
+}
+
+function install_secret_file_setting(): ?string
+{
+    $applicationRoot = realpath(S2_FS_ROOT);
+    $publicRoot      = realpath(S2_PUBLIC_FS_ROOT);
+    if ($applicationRoot === false || $publicRoot === false || $applicationRoot !== $publicRoot) {
+        return null;
+    }
+
+    $defaultFilename = SecretConfigPathResolver::resolve(S2_FS_ROOT, S2_PUBLIC_FS_ROOT, null);
+
+    return can_create_private_file(\dirname($defaultFilename))
+        ? null
+        : SecretConfigPathResolver::fallbackFilename();
+}
+
+function verify_install_secret_file_boundary(HttpClient $httpClient, string $baseUrl): bool
+{
+    if (!can_probe_install_base_url($baseUrl)) {
+        return false;
+    }
+
+    $requestAuthority = $_SERVER['HTTP_HOST'] ?? null;
+    if (!\is_string($requestAuthority)) {
+        return false;
+    }
+    $requestUrl       = parse_url('http://' . $requestAuthority);
+    $requestHost      = \is_array($requestUrl) ? ($requestUrl['host'] ?? null) : null;
+    $serverAddress    = $_SERVER['SERVER_ADDR'] ?? null;
+    $serverPort       = $_SERVER['SERVER_PORT'] ?? null;
+    if (!\is_string($requestHost)
+        || !\is_string($serverAddress)
+        || !\is_string($serverPort)
+        || !ctype_digit($serverPort)
+    ) {
+        return false;
+    }
+
+    return (new SecretFileBoundaryVerifier($httpClient))->verifyFallback(
+        S2_PUBLIC_FS_ROOT,
+        $baseUrl,
+        $requestHost,
+        $serverAddress,
+        (int)$serverPort,
+    );
 }
 
 function generate_config_file(
@@ -291,6 +373,7 @@ function generate_config_file(
     string $cookieName,
     ?string $antispamSecret = null,
     bool $probeBaseUrl = false,
+    ?string $secretFile = null,
 ): string
 {
     $baseUrl = normalize_install_base_url($baseUrl)
@@ -308,7 +391,7 @@ function generate_config_file(
                 $response = $httpClient->request(
                     'GET',
                     $baseUrl . $urlPrefix . '/this/URL/_DoEs_/_NoT_/_eXiSt',
-                    options: [HttpClient::FOLLOW_REDIRECTS => false],
+                    options: install_probe_request_options(),
                 );
                 if (has_register_generator($response->content)) {
                     break;
@@ -353,6 +436,7 @@ function generate_config_file(
         ],
         'security' => [
             'antispam_secret' => $antispamSecret,
+            'secret_file'     => $secretFile,
         ],
         'backups' => [
             'enabled'   => true,
@@ -420,6 +504,7 @@ function installApplicationParameters(
         'base_url'      => $baseUrl,
         'base_path'     => $basePath,
         'trusted_proxies' => [],
+        'secret_config_file' => SecretConfigPathResolver::resolve(S2_FS_ROOT, S2_PUBLIC_FS_ROOT, null),
         'url_prefix'    => '',
         'debug'         => defined('S2_DEBUG'),
         'debug_view'    => defined('S2_DEBUG_VIEW'),
@@ -516,10 +601,17 @@ if ($originViolation !== null) {
     exit;
 }
 
+$secretFileSetting = install_secret_file_setting();
+
 if (isset($_POST['generate_config'])) {
     $baseUrl = normalize_install_base_url(installPostString('base_url'));
     if ($baseUrl === null) {
         error($lang_install['Invalid base url']);
+    }
+    if ($secretFileSetting !== null
+        && !verify_install_secret_file_boundary($emptyApp->container->get(HttpClient::class), $baseUrl)
+    ) {
+        error($lang_install['Secret file boundary failed']);
     }
 
     header(sprintf('Content-Type: text/plain; charset=utf-8; name="%s"', s2_get_config_filename()));
@@ -538,6 +630,7 @@ if (isset($_POST['generate_config'])) {
         installPostString('cookie_name'),
         null,
         can_probe_install_base_url($baseUrl),
+        $secretFileSetting,
     );
     exit;
 }
@@ -654,6 +747,11 @@ function renderInstallForm(
     <?php if (isset($validationErrors['db_error'])): ?>
         <div class="error-box">
             <p><?php echo s2_htmlencode(sprintf($lang_install['Database error'], $validationErrors['db_error'][0])); ?></p>
+        </div>
+    <?php endif; ?>
+    <?php if (isset($validationErrors['secret_boundary'])): ?>
+        <div class="error-box">
+            <p><?php echo s2_htmlencode($validationErrors['secret_boundary'][0]); ?></p>
         </div>
     <?php endif; ?>
     <?php if (isset($validationErrors['db_is_used'])): ?>
@@ -927,6 +1025,13 @@ if (!file_exists(S2_FS_ROOT . '_lang/' . $default_lang . '/common.php')) {
     $validationErrors['req_language'][] = $lang_install['Invalid language'];
 }
 
+if ($validationErrors === []
+    && $secretFileSetting !== null
+    && !verify_install_secret_file_boundary($emptyApp->container->get(HttpClient::class), $base_url)
+) {
+    $validationErrors['secret_boundary'][] = $lang_install['Secret file boundary failed'];
+}
+
 $submittedValues = [
     'req_db_type'  => $db_type,
     'req_db_host'  => $db_host,
@@ -1092,6 +1197,7 @@ $config = generate_config_file(
     $s2_cookie_name,
     $antispamSecret,
     can_probe_install_base_url($base_url),
+    $secretFileSetting,
 );
 
 // Attempt to write config.php and serve it up for download if writing fails
