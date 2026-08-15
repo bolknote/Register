@@ -45,6 +45,8 @@ It provides these rules:
 - the only public Composer files are AdminYard's exact `demo/style.css` and `demo/script.js` assets;
 - only generated top-level `_cache/<name>.<hex>.css|js[.gz]` bundles are public;
 - upload directories disable CGI/PHP handlers and deny active document formats.
+- when `mod_headers` is available, `nosniff`, the referrer policy, and the camera/microphone/location
+  restrictions apply to dynamic responses, static assets, uploads, and access-denied responses.
 
 For this legacy layout, Register first tries a stable `register-secrets-<installation-id>.php` file
 beside the document root. If PHP cannot write there, the installer falls back to

@@ -77,6 +77,12 @@ The first two paths are absent from `public_html`; the last one verifies that Ap
 its access-control file. Keep `_pictures/.htaccess` in place: it disables executable handlers and
 denies active document formats independently of the application's upload validation.
 
+Also inspect a static response with `curl --head https://example.com/_pictures/<existing-image>`.
+When Apache provides `mod_headers`, it must include `X-Content-Type-Options: nosniff`,
+`Referrer-Policy: strict-origin-when-cross-origin`, and
+`Permissions-Policy: camera=(), microphone=(), geolocation=()`. The application emits the same
+headers for dynamic pages, but only the web-server rule can cover static files and denied requests.
+
 ## Updating an existing site
 
 Create and verify a backup before replacing code. Preserve all installation-specific state:

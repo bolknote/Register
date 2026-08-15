@@ -70,6 +70,18 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertFileDoesNotExist($publicDir . '/_styles/register/style.json');
         self::assertFileDoesNotExist($publicDir . '/_assets/register/syntax-highlighting/vendor/highlight.js/README.md');
 
+        $apachePolicy = file_get_contents($publicDir . '/.htaccess');
+        self::assertIsString($apachePolicy);
+        self::assertStringContainsString('Header always set X-Content-Type-Options "nosniff"', $apachePolicy);
+        self::assertStringContainsString(
+            'Header always set Referrer-Policy "strict-origin-when-cross-origin"',
+            $apachePolicy,
+        );
+        self::assertStringContainsString(
+            'Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"',
+            $apachePolicy,
+        );
+
         $publicPhpFiles = $this->phpFiles($publicDir);
         self::assertSame([
             '_admin/ajax.php',

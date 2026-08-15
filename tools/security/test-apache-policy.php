@@ -65,9 +65,31 @@ try {
         }
     }
 
+    $securityHeaders = [
+        'x-content-type-options' => 'nosniff',
+        'referrer-policy'        => 'strict-origin-when-cross-origin',
+        'permissions-policy'     => 'camera=(), microphone=(), geolocation=()',
+    ];
+    foreach (['/_pictures/photo.png', '/config.secrets.php'] as $path) {
+        $response = requestResponse($port, $path);
+        foreach ($securityHeaders as $name => $expectedValue) {
+            $actualValues = $response['headers'][$name] ?? [];
+            if ($actualValues !== [$expectedValue]) {
+                throw new RuntimeException(sprintf(
+                    'Apache returned %s: %s for %s; expected exactly %s.',
+                    $name,
+                    $actualValues === [] ? '(missing)' : implode(', ', $actualValues),
+                    $path,
+                    $expectedValue,
+                ));
+            }
+        }
+    }
+
     fwrite(STDOUT, sprintf(
-        "Apache shared-hosting policy: OK (%d allow/deny checks).\n",
+        "Apache shared-hosting policy: OK (%d allow/deny checks, %d header checks).\n",
         count($expectations),
+        count($securityHeaders) * 2,
     ));
 } catch (Throwable $exception) {
     fwrite(STDERR, $exception->getMessage() . "\n");
@@ -215,6 +237,7 @@ function createApacheConfig(string $tempRoot, string $webRoot, string $moduleDir
         'mpm_prefork_module' => 'mod_mpm_prefork.so',
         'unixd_module'       => 'mod_unixd.so',
         'authz_core_module'  => 'mod_authz_core.so',
+        'headers_module'     => 'mod_headers.so',
         'mime_module'        => 'mod_mime.so',
         'rewrite_module'     => 'mod_rewrite.so',
     ];
@@ -349,6 +372,12 @@ function waitForApache($process, int $port, string $errorLog): void
 
 function requestStatus(int $port, string $path): int
 {
+    return requestResponse($port, $path)['status'];
+}
+
+/** @return array{status: int, headers: array<string, list<string>>} */
+function requestResponse(int $port, string $path): array
+{
     $socket = fsockopen('127.0.0.1', $port, $errorCode, $errorMessage, 2.0);
     if ($socket === false) {
         throw new RuntimeException(sprintf('Unable to connect to Apache: %s (%d).', $errorMessage, $errorCode));
@@ -359,12 +388,30 @@ function requestStatus(int $port, string $path): int
         $path,
     ));
     $statusLine = fgets($socket);
-    fclose($socket);
     if (!is_string($statusLine) || preg_match('#^HTTP/\d(?:\.\d)?\s+(\d{3})#', $statusLine, $matches) !== 1) {
+        fclose($socket);
         throw new RuntimeException('Apache returned an invalid HTTP status line for ' . $path . '.');
     }
 
-    return (int)$matches[1];
+    $headers = [];
+    while (($line = fgets($socket)) !== false) {
+        $line = rtrim($line, "\r\n");
+        if ($line === '') {
+            break;
+        }
+
+        $separator = strpos($line, ':');
+        if ($separator === false) {
+            fclose($socket);
+            throw new RuntimeException('Apache returned an invalid HTTP header for ' . $path . '.');
+        }
+
+        $name = strtolower(trim(substr($line, 0, $separator)));
+        $headers[$name][] = trim(substr($line, $separator + 1));
+    }
+    fclose($socket);
+
+    return ['status' => (int)$matches[1], 'headers' => $headers];
 }
 
 function removeTree(string $path): void
