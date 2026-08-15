@@ -13,11 +13,12 @@ documentation.
 Register is free software distributed under the MIT license. It runs on an ordinary PHP host and can
 use SQLite, MySQL/MariaDB, or PostgreSQL.
 
-Background work is advanced opportunistically after normal HTTP responses; installing a cron job is
-not required. A site without incoming traffic consequently has no bounded background-delivery time.
-The queue is safe across application nodes through a database lease. Operators can inspect it with
-`php tools/queue-status.php`, drain it manually with `php tools/run-background.php`, and explicitly
-retry a reviewed failed job with `php tools/retry-background-job.php <id> <code>`.
+Background work is advanced in short, leased `register_shutdown` slices after normal HTTP responses.
+Normal operation assumes neither cron nor PHP CLI: unfinished network work is persisted as a future
+queue generation instead of sleeping inside a request. A site without incoming traffic simply does
+not advance maintenance until its next request. External-link DNS uses non-blocking datagrams to the
+system resolvers from `/etc/resolv.conf`; it never starts a process or calls the potentially blocking
+libc resolver.
 
 ## What Register already does
 

@@ -78,7 +78,7 @@ final readonly class LinkHealthActionController
         $this->queuePublisher->publish(
             LinkQueue::targetJobId($target->id),
             LinkQueue::CHECK_CODE,
-            ['target_id' => $target->id, 'force' => true],
+            LinkQueue::checkPayload($target->id, true),
         );
 
         return $this->translator->trans('Link recheck queued');
@@ -96,7 +96,7 @@ final readonly class LinkHealthActionController
         $this->queuePublisher->publish(
             LinkQueue::targetJobId($target->id),
             LinkQueue::CHECK_CODE,
-            ['target_id' => $target->id, 'force' => true],
+            LinkQueue::checkPayload($target->id, true),
         );
 
         return $this->translator->trans('Link restored to checks');

@@ -21,6 +21,8 @@ final class LinkHealthPolicy
 
     private const int TRANSIENT_FAILURE_THRESHOLD = 3;
 
+    private const int RESOLVER_RETRY_DELAY = 3600;
+
     public function decide(LinkTargetState $current, LinkProbeResult $probe, int $now): LinkHealthDecision
     {
         if ($probe->errorReason === LinkProbeResult::ERROR_UNSAFE) {
@@ -28,6 +30,16 @@ final class LinkHealthPolicy
                 LinkHealthStatus::BLOCKED,
                 $current->failureCount,
                 null,
+                $current->lastSuccessAt,
+                false,
+            );
+        }
+
+        if ($probe->errorReason === LinkProbeResult::ERROR_RESOLVER) {
+            return new LinkHealthDecision(
+                LinkHealthStatus::SUSPECT,
+                $current->failureCount,
+                $now + self::RESOLVER_RETRY_DELAY,
                 $current->lastSuccessAt,
                 false,
             );

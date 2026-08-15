@@ -23,6 +23,7 @@ final readonly class LinkMaintenanceTask implements ScheduledMaintenanceTaskInte
         private DbLayer                 $dbLayer,
         private LinkInventoryRepository $repository,
         private LinkHealthRepository    $healthRepository,
+        private HostRequestThrottle     $hostRequestThrottle,
         private QueuePublisher          $queuePublisher,
         private BoolProxy               $autoRepair,
     ) {
@@ -31,6 +32,7 @@ final readonly class LinkMaintenanceTask implements ScheduledMaintenanceTaskInte
     #[\Override]
     public function schedule(int $now, QueueExecutionBudget $budget): void
     {
+        $this->hostRequestThrottle->prune($now);
         $this->healthRepository->pruneCheckHistory($now);
 
         $generation = $this->dbLayer
@@ -58,7 +60,7 @@ final readonly class LinkMaintenanceTask implements ScheduledMaintenanceTaskInte
             $this->queuePublisher->publishIfAbsent(
                 LinkQueue::targetJobId($targetId),
                 LinkQueue::CHECK_CODE,
-                ['target_id' => $targetId],
+                LinkQueue::checkPayload($targetId),
                 $now + 1,
             );
         }

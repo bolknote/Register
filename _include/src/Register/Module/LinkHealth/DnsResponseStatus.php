@@ -9,6 +9,11 @@ declare(strict_types = 1);
 
 namespace Register\Module\LinkHealth;
 
-class RemoteHostResolutionFailed extends \RuntimeException
+enum DnsResponseStatus
 {
+    case ANSWER;
+
+    case EMPTY;
+
+    case TEMPORARY_FAILURE;
 }

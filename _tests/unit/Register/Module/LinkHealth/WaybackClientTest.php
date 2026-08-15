@@ -51,7 +51,7 @@ final class WaybackClientTest extends Unit
         self::assertFalse($httpClient->options[HttpClient::FOLLOW_REDIRECTS]);
         self::assertSame(65_536, $httpClient->options[HttpClient::MAX_RESPONSE_BYTES]);
         self::assertSame(1, $httpClient->options[HttpClient::CONNECT_TIMEOUT]);
-        self::assertSame(3, $httpClient->options[HttpClient::READ_TIMEOUT]);
+        self::assertSame(2, $httpClient->options[HttpClient::READ_TIMEOUT]);
     }
 
     public function testReturnsMissingWhenNoUsableSnapshotExists(): void

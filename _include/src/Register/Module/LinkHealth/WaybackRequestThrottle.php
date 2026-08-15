@@ -16,12 +16,11 @@ final readonly class WaybackRequestThrottle
 
     public const int INTERVAL_SECONDS = 15;
 
-    private const int MAX_CLAIM_ATTEMPTS = 10;
+    private RemoteRequestThrottle $throttle;
 
-    public function __construct(
-        private \PDO   $pdo,
-        private string $dbPrefix,
-    ) {
+    public function __construct(\PDO $pdo, string $dbPrefix)
+    {
+        $this->throttle = new RemoteRequestThrottle($pdo, $dbPrefix);
     }
 
     /**
@@ -31,54 +30,6 @@ final readonly class WaybackRequestThrottle
      */
     public function claim(int $now): ?int
     {
-        if ($now < 0 || $now > PHP_INT_MAX - self::INTERVAL_SECONDS) {
-            throw new \InvalidArgumentException('A Wayback throttle timestamp is out of range.');
-        }
-
-        for ($attempt = 0; $attempt < self::MAX_CLAIM_ATTEMPTS; ++$attempt) {
-            $nextRequestAt = $this->nextRequestAt();
-            if ($nextRequestAt > $now) {
-                return $nextRequestAt;
-            }
-
-            $statement = $this->pdo->prepare(
-                'UPDATE ' . $this->dbPrefix . Manifest::THROTTLE_TABLE
-                . ' SET next_request_at = :next_request_at'
-                . ' WHERE service = :service AND next_request_at = :previous_request_at'
-            );
-            if ($statement === false) {
-                throw new \RuntimeException('Unable to prepare the Wayback throttle claim.');
-            }
-
-            $statement->execute([
-                'next_request_at'     => $now + self::INTERVAL_SECONDS,
-                'service'             => self::SERVICE,
-                'previous_request_at' => $nextRequestAt,
-            ]);
-            if ($statement->rowCount() === 1) {
-                return null;
-            }
-        }
-
-        throw new \RuntimeException('Unable to claim the Wayback request throttle after repeated contention.');
-    }
-
-    private function nextRequestAt(): int
-    {
-        $statement = $this->pdo->prepare(
-            'SELECT next_request_at FROM ' . $this->dbPrefix . Manifest::THROTTLE_TABLE
-            . ' WHERE service = :service'
-        );
-        if ($statement === false) {
-            throw new \RuntimeException('Unable to prepare the Wayback throttle query.');
-        }
-
-        $statement->execute(['service' => self::SERVICE]);
-        $value = $statement->fetchColumn();
-        if (!\is_int($value) && (!\is_string($value) || !ctype_digit($value))) {
-            throw new \UnexpectedValueException('The Wayback request throttle is missing or invalid.');
-        }
-
-        return (int)$value;
+        return $this->throttle->claim(self::SERVICE, self::INTERVAL_SECONDS, $now);
     }
 }

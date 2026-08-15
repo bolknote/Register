@@ -21,6 +21,8 @@ final readonly class LinkProbeResult
 
     public const string ERROR_NETWORK = 'network';
 
+    public const string ERROR_RESOLVER = 'resolver';
+
     public function __construct(
         public string  $effectiveUrl,
         public int     $statusCode = 0,

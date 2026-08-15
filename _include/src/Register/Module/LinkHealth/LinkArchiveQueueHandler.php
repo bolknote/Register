@@ -24,6 +24,7 @@ final readonly class LinkArchiveQueueHandler implements QueueHandlerInterface
         private LinkHealthRepository   $repository,
         private WaybackClientInterface $waybackClient,
         private WaybackRequestThrottle $requestThrottle,
+        private LinkHealthResultRecorder $resultRecorder,
         private QueuePublisher         $queuePublisher,
         private BoolProxy              $autoRepair,
         ?\Closure                      $clock = null,
@@ -49,13 +50,15 @@ final readonly class LinkArchiveQueueHandler implements QueueHandlerInterface
     public function handle(string $id, string $code, array $payload, QueueExecutionBudget $budget): void
     {
         $targetId = $payload['target_id'] ?? null;
+        $token    = $payload['token'] ?? null;
         $force    = $payload['force'] ?? false;
         if ($code !== LinkQueue::ARCHIVE_CODE
             || !\is_int($targetId)
             || $targetId < 1
             || $id !== LinkQueue::targetJobId($targetId)
+            || ($token !== null && !LinkQueue::isOperationToken($token))
             || !\is_bool($force)
-            || array_diff_key($payload, ['target_id' => true, 'force' => true]) !== []
+            || array_diff_key($payload, ['target_id' => true, 'token' => true, 'force' => true]) !== []
         ) {
             throw new \InvalidArgumentException('Invalid link-archive job.');
         }
@@ -70,6 +73,21 @@ final readonly class LinkArchiveQueueHandler implements QueueHandlerInterface
             || !$this->repository->hasUsages($targetId)
             || (!$force && $target->archiveStatus === ArchiveStatus::AVAILABLE)
         ) {
+            return;
+        }
+
+        // Jobs created before operation tokens were introduced are upgraded before any network I/O.
+        if ($token === null) {
+            $this->queuePublisher->publish(
+                $id,
+                $code,
+                LinkQueue::archivePayload($targetId, $force),
+                ($this->clock)() + 1,
+            );
+            return;
+        }
+
+        if ($this->repository->archiveLookupWasRecorded($targetId, $token)) {
             return;
         }
 
@@ -91,13 +109,6 @@ final readonly class LinkArchiveQueueHandler implements QueueHandlerInterface
             throw $throwable;
         }
 
-        $this->repository->recordArchiveLookup($targetId, $result, $now);
-        if ($result->status === ArchiveStatus::AVAILABLE && $this->autoRepair->get()) {
-            $this->queuePublisher->publishIfAbsent(
-                LinkQueue::targetJobId($targetId),
-                LinkQueue::REPAIR_CODE,
-                ['target_id' => $targetId],
-            );
-        }
+        $this->resultRecorder->recordArchiveLookup($token, $target, $result, $now, $this->autoRepair->get());
     }
 }

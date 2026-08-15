@@ -83,6 +83,7 @@ final class Manifest implements BaseModuleInstallerInterface
                 ->addLongText('archive_url')
                 ->addString('archive_timestamp', 14, true, null)
                 ->addInteger('archive_checked_at', true, true, null)
+                ->addString('archive_lookup_token', 32, true, null)
                 ->addUniqueIndex('url_hash_idx', ['url_hash'])
                 ->addIndex('due_idx', ['kind', 'health_status', 'next_check_at'])
                 ->addIndex('host_idx', ['host'])
@@ -122,6 +123,7 @@ final class Manifest implements BaseModuleInstallerInterface
             $table
                 ->addIdColumn()
                 ->addInteger('target_id', true)
+                ->addString('probe_token', 32)
                 ->addInteger('checked_at', true)
                 ->addString('health_status', 16)
                 ->addInteger('http_status', true, true, null)
@@ -129,6 +131,7 @@ final class Manifest implements BaseModuleInstallerInterface
                 ->addLongText('error')
                 ->addIndex('target_checked_idx', ['target_id', 'checked_at'])
                 ->addIndex('checked_idx', ['checked_at'])
+                ->addUniqueIndex('probe_token_idx', ['probe_token'])
                 ->addForeignKey(
                     'fk_target',
                     ['target_id'],

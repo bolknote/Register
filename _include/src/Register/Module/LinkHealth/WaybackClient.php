@@ -36,7 +36,7 @@ final readonly class WaybackClient implements WaybackClientInterface
         ], '', '&', PHP_QUERY_RFC3986);
         $response = $this->httpClient->request('GET', $requestUrl, ['Accept' => 'application/json'], [
             HttpClient::CONNECT_TIMEOUT    => 1,
-            HttpClient::READ_TIMEOUT       => 3,
+            HttpClient::READ_TIMEOUT       => 2,
             HttpClient::FOLLOW_REDIRECTS   => false,
             HttpClient::RESOLVE_IP         => $this->addressGuard->resolvePublicAddress(self::ENDPOINT),
             HttpClient::MAX_RESPONSE_BYTES => self::MAX_RESPONSE_BYTES,

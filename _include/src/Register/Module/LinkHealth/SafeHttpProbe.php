@@ -18,7 +18,7 @@ final readonly class SafeHttpProbe implements LinkProbeInterface
 
     private const int CONNECT_TIMEOUT = 1;
 
-    private const int READ_TIMEOUT = 3;
+    private const int READ_TIMEOUT = 2;
 
     public function __construct(
         private LinkHttpClientInterface $httpClient,
@@ -66,6 +66,12 @@ final readonly class SafeHttpProbe implements LinkProbeInterface
                 $state->url,
                 error: $exception->getMessage(),
                 errorReason: LinkProbeResult::ERROR_UNSAFE,
+            ));
+        } catch (RemoteHostResolutionTimedOut | RemoteHostResolverUnavailable $exception) {
+            return LinkProbeStep::complete(new LinkProbeResult(
+                $state->url,
+                error: $exception->getMessage(),
+                errorReason: LinkProbeResult::ERROR_RESOLVER,
             ));
         } catch (RemoteHostResolutionFailed $exception) {
             return LinkProbeStep::complete(new LinkProbeResult(

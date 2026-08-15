@@ -15,10 +15,12 @@ use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Module\LinkHealth\ArchiveLookupResult;
+use Register\Module\LinkHealth\HostRequestThrottle;
 use Register\Module\LinkHealth\LinkArchiveQueueHandler;
 use Register\Module\LinkHealth\LinkCheckQueueHandler;
 use Register\Module\LinkHealth\LinkHealthPolicy;
 use Register\Module\LinkHealth\LinkHealthRepository;
+use Register\Module\LinkHealth\LinkHealthResultRecorder;
 use Register\Module\LinkHealth\LinkProbeInterface;
 use Register\Module\LinkHealth\LinkProbeMethod;
 use Register\Module\LinkHealth\LinkProbeResult;
@@ -186,15 +188,21 @@ final class LinkHealthCest
         $queuePublisher->publish(
             LinkQueue::targetJobId($targetId),
             LinkQueue::CHECK_CODE,
-            ['target_id' => $targetId],
+            LinkQueue::checkPayload($targetId),
             0,
         );
         $now     = time() + 60;
         $clock   = $now;
+        /** @var HostRequestThrottle $hostRequestThrottle */
+        $hostRequestThrottle = $I->grabService(HostRequestThrottle::class);
+        /** @var LinkHealthResultRecorder $resultRecorder */
+        $resultRecorder = $I->grabService(LinkHealthResultRecorder::class);
         $handler = new LinkCheckQueueHandler(
             $healthRepository,
             $policy,
             $probe,
+            $hostRequestThrottle,
+            $resultRecorder,
             $queuePublisher,
             static function () use (&$clock): int {
                 return $clock;
@@ -239,13 +247,14 @@ final class LinkHealthCest
         }
 
         $I->assertSame('GET', $continuedPayload['probe']['method']);
+        $I->assertTrue(LinkQueue::isOperationToken($continuedPayload['token'] ?? null));
         $I->assertSame(
             0,
             (int)$dbLayer->select('COUNT(*)')->from(Manifest::CHECK_TABLE)->execute()->result(),
         );
         $I->assertSame(0, $runner->run(5.0, 1));
 
-        $clock = $now + 1;
+        $clock = $now + HostRequestThrottle::INTERVAL_SECONDS;
         $queuePdo->exec('UPDATE queue SET available_at = 0');
         $I->assertSame(1, $runner->run(5.0, 1));
         $I->assertCount(2, $probe->states);
@@ -262,6 +271,170 @@ final class LinkHealthCest
         $I->assertSame(
             0,
             $this->queueCount($queuePdo),
+        );
+    }
+
+    public function recordsProbeAndArchiveFollowUpExactlyOnce(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $postId  = $this->insertPost(
+            $dbLayer,
+            'idempotent-link-check',
+            '<a href="https://broken.example/idempotent">External</a>',
+        );
+        /** @var LinkInventory $inventory */
+        $inventory = $I->grabService(LinkInventory::class);
+        $inventory->synchronize(ContentId::post($postId), 1_800_000_000);
+
+        $targetId = $this->targetId($dbLayer, 'https://broken.example/idempotent');
+        $dbLayer->update(Manifest::TARGET_TABLE)
+            ->set('health_status', "'suspect'")
+            ->set('failure_count', '1')
+            ->where('id = :id')->setParameter('id', $targetId)
+            ->execute();
+
+        /** @var LinkHealthRepository $repository */
+        $repository = $I->grabService(LinkHealthRepository::class);
+        $target     = $repository->findTarget($targetId);
+        $I->assertNotNull($target);
+        /** @var LinkHealthPolicy $policy */
+        $policy   = $I->grabService(LinkHealthPolicy::class);
+        $probe    = new LinkProbeResult($target->url, 404);
+        $decision = $policy->decide($target, $probe, 1_800_086_400);
+        /** @var LinkHealthResultRecorder $recorder */
+        $recorder = $I->grabService(LinkHealthResultRecorder::class);
+        $token    = str_repeat('a', 32);
+
+        $recorder->recordProbe($token, $target, $probe, $decision, 1_800_086_400);
+        $recorder->recordProbe($token, $target, $probe, $decision, 1_800_086_400);
+
+        $row = $dbLayer->select('health_status, failure_count')->from(Manifest::TARGET_TABLE)
+            ->where('id = :id')->setParameter('id', $targetId)
+            ->execute()->fetchAssoc();
+        $I->assertIsArray($row);
+        $I->assertSame('broken', $row['health_status']);
+        $I->assertSame(2, (int)$row['failure_count']);
+        $I->assertSame(
+            1,
+            (int)$dbLayer->select('COUNT(*)')->from(Manifest::CHECK_TABLE)
+                ->where('probe_token = :token')->setParameter('token', $token)
+                ->execute()->result(),
+        );
+        $archivePayload = $dbLayer->select('payload')->from('queue')
+            ->where('id = :id')->setParameter('id', LinkQueue::targetJobId($targetId))
+            ->andWhere('code = :code')->setParameter('code', LinkQueue::ARCHIVE_CODE)
+            ->execute()->result();
+        $I->assertIsString($archivePayload);
+        $decodedPayload = json_decode($archivePayload, true, 4, JSON_THROW_ON_ERROR);
+        $I->assertIsArray($decodedPayload);
+        $I->assertTrue(LinkQueue::isOperationToken($decodedPayload['token'] ?? null));
+    }
+
+    public function rollsBackProbeWhenArchiveFollowUpCannotBeQueued(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $postId  = $this->insertPost(
+            $dbLayer,
+            'atomic-link-check',
+            '<a href="https://broken.example/atomic">External</a>',
+        );
+        /** @var LinkInventory $inventory */
+        $inventory = $I->grabService(LinkInventory::class);
+        $inventory->synchronize(ContentId::post($postId), 1_800_000_000);
+
+        $targetId = $this->targetId($dbLayer, 'https://broken.example/atomic');
+        $dbLayer->update(Manifest::TARGET_TABLE)
+            ->set('health_status', "'suspect'")
+            ->set('failure_count', '1')
+            ->where('id = :id')->setParameter('id', $targetId)
+            ->execute();
+
+        /** @var LinkHealthRepository $repository */
+        $repository = $I->grabService(LinkHealthRepository::class);
+        $target     = $repository->findTarget($targetId);
+        $I->assertNotNull($target);
+        /** @var LinkHealthPolicy $policy */
+        $policy   = $I->grabService(LinkHealthPolicy::class);
+        $probe    = new LinkProbeResult($target->url, 404);
+        $decision = $policy->decide($target, $probe, 1_800_086_400);
+        /** @var LinkHealthResultRecorder $recorder */
+        $recorder = $I->grabService(LinkHealthResultRecorder::class);
+        /** @var \PDO $pdo */
+        $pdo   = $I->grabService(\PDO::class);
+        $token = str_repeat('b', 32);
+        $pdo->exec(
+            "CREATE TEMP TRIGGER fail_link_archive BEFORE INSERT ON queue "
+            . "WHEN NEW.code = '" . LinkQueue::ARCHIVE_CODE . "' "
+            . "BEGIN SELECT RAISE(ABORT, 'forced archive queue failure'); END"
+        );
+
+        try {
+            $recorder->recordProbe($token, $target, $probe, $decision, 1_800_086_400);
+            $I->fail('The forced queue failure must escape the result transaction.');
+        } catch (\PDOException) {
+            // Expected: the result transaction must roll back both target state and history.
+        } finally {
+            $pdo->exec('DROP TRIGGER fail_link_archive');
+        }
+
+        $row = $dbLayer->select('health_status, failure_count')->from(Manifest::TARGET_TABLE)
+            ->where('id = :id')->setParameter('id', $targetId)
+            ->execute()->fetchAssoc();
+        $I->assertIsArray($row);
+        $I->assertSame('suspect', $row['health_status']);
+        $I->assertSame(1, (int)$row['failure_count']);
+        $I->assertSame(
+            0,
+            (int)$dbLayer->select('COUNT(*)')->from(Manifest::CHECK_TABLE)
+                ->where('probe_token = :token')->setParameter('token', $token)
+                ->execute()->result(),
+        );
+    }
+
+    public function recordsArchiveLookupAndRepairFollowUpExactlyOnce(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $postId  = $this->insertPost(
+            $dbLayer,
+            'idempotent-archive-lookup',
+            '<a href="https://broken.example/archive-idempotent">External</a>',
+        );
+        /** @var LinkInventory $inventory */
+        $inventory = $I->grabService(LinkInventory::class);
+        $inventory->synchronize(ContentId::post($postId), 1_800_000_000);
+
+        $targetId = $this->targetId($dbLayer, 'https://broken.example/archive-idempotent');
+        $this->markBroken($dbLayer, $targetId);
+        /** @var LinkHealthRepository $repository */
+        $repository = $I->grabService(LinkHealthRepository::class);
+        $target     = $repository->findTarget($targetId);
+        $I->assertNotNull($target);
+        /** @var LinkHealthResultRecorder $recorder */
+        $recorder = $I->grabService(LinkHealthResultRecorder::class);
+        $token    = str_repeat('c', 32);
+        $result   = ArchiveLookupResult::available(
+            'https://web.archive.org/web/20250102030405/https://broken.example/archive-idempotent',
+            '20250102030405',
+        );
+
+        $recorder->recordArchiveLookup($token, $target, $result, 1_800_000_000, true);
+        $recorder->recordArchiveLookup($token, $target, $result, 1_800_000_000, true);
+
+        $row = $dbLayer->select('archive_status, archive_lookup_token')->from(Manifest::TARGET_TABLE)
+            ->where('id = :id')->setParameter('id', $targetId)
+            ->execute()->fetchAssoc();
+        $I->assertIsArray($row);
+        $I->assertSame('available', $row['archive_status']);
+        $I->assertSame($token, $row['archive_lookup_token']);
+        $I->assertSame(
+            1,
+            (int)$dbLayer->select('COUNT(*)')->from('queue')
+                ->where('id = :id')->setParameter('id', LinkQueue::targetJobId($targetId))
+                ->andWhere('code = :code')->setParameter('code', LinkQueue::REPAIR_CODE)
+                ->execute()->result(),
         );
     }
 
@@ -404,26 +577,31 @@ final class LinkHealthCest
         $queuePublisher = $I->grabService(QueuePublisher::class);
         /** @var DynamicConfigProvider $configProvider */
         $configProvider = $I->grabService(DynamicConfigProvider::class);
+        /** @var LinkHealthResultRecorder $resultRecorder */
+        $resultRecorder = $I->grabService(LinkHealthResultRecorder::class);
         $handler = new LinkArchiveQueueHandler(
             $healthRepository,
             $waybackClient,
             $throttle,
+            $resultRecorder,
             $queuePublisher,
             $configProvider->getBoolProxy(Manifest::AUTO_REPAIR_CONFIG_KEY),
             static fn(): int => $now,
         );
 
         $I->assertLessThanOrEqual(5.0, $handler->minimumExecutionTime());
+        $firstPayload  = LinkQueue::archivePayload($firstTargetId);
+        $secondPayload = LinkQueue::archivePayload($secondTargetId);
         $handler->handle(
             LinkQueue::targetJobId($firstTargetId),
             LinkQueue::ARCHIVE_CODE,
-            ['target_id' => $firstTargetId],
+            $firstPayload,
             new QueueExecutionBudget(5.0),
         );
         $handler->handle(
             LinkQueue::targetJobId($secondTargetId),
             LinkQueue::ARCHIVE_CODE,
-            ['target_id' => $secondTargetId],
+            $secondPayload,
             new QueueExecutionBudget(5.0),
         );
 
@@ -440,6 +618,7 @@ final class LinkHealthCest
             $healthRepository,
             $waybackClient,
             $throttle,
+            $resultRecorder,
             $queuePublisher,
             $configProvider->getBoolProxy(Manifest::AUTO_REPAIR_CONFIG_KEY),
             static fn(): int => $now + WaybackRequestThrottle::INTERVAL_SECONDS,
@@ -447,7 +626,7 @@ final class LinkHealthCest
         $laterHandler->handle(
             LinkQueue::targetJobId($secondTargetId),
             LinkQueue::ARCHIVE_CODE,
-            ['target_id' => $secondTargetId],
+            $secondPayload,
             new QueueExecutionBudget(5.0),
         );
         $I->assertSame(2, $waybackClient->lookups);

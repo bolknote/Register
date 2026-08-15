@@ -81,7 +81,7 @@ final readonly class LinkInventory
                 $this->queuePublisher->publishIfAbsent(
                     LinkQueue::targetJobId($target->id),
                     LinkQueue::CHECK_CODE,
-                    ['target_id' => $target->id],
+                    LinkQueue::checkPayload($target->id),
                 );
             }
         }

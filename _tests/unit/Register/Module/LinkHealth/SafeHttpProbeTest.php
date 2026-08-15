@@ -16,6 +16,8 @@ use Register\Module\LinkHealth\LinkProbeMethod;
 use Register\Module\LinkHealth\LinkProbeResult;
 use Register\Module\LinkHealth\LinkProbeState;
 use Register\Module\LinkHealth\PublicAddressGuard;
+use Register\Module\LinkHealth\RemoteHostResolverUnavailable;
+use Register\Module\LinkHealth\RemoteHostResolutionTimedOut;
 use Register\Module\LinkHealth\SafeHttpProbe;
 use S2\Cms\HttpClient\HttpClient;
 use S2\Cms\HttpClient\HttpResponse;
@@ -75,7 +77,7 @@ final class SafeHttpProbeTest extends Unit
         self::assertSame(['HEAD', 'GET'], array_column($client->calls, 'method'));
         self::assertSame([], $client->calls[1]['headers']);
         self::assertSame(1, $client->calls[1]['options'][HttpClient::CONNECT_TIMEOUT]);
-        self::assertSame(3, $client->calls[1]['options'][HttpClient::READ_TIMEOUT]);
+        self::assertSame(2, $client->calls[1]['options'][HttpClient::READ_TIMEOUT]);
         self::assertSame(16_384, $client->calls[1]['options'][HttpClient::MAX_RESPONSE_BYTES]);
     }
 
@@ -123,6 +125,40 @@ final class SafeHttpProbeTest extends Unit
         self::assertSame(LinkProbeResult::ERROR_REDIRECT, $result->errorReason);
         self::assertNull($step->nextState);
         self::assertSame(1, $client->callCount());
+    }
+
+    public function testTreatsBoundedDnsTimeoutAsLocalResolverFailure(): void
+    {
+        $resolver = new class implements HostResolverInterface {
+            /** @return list<string> */
+            #[\Override]
+            public function resolve(string $host): array
+            {
+                throw new RemoteHostResolutionTimedOut('DNS timed out.');
+            }
+        };
+        $probe  = new SafeHttpProbe(new RecordingLinkHttpClient([]), new PublicAddressGuard($resolver));
+        $result = $probe->step(LinkProbeState::initial('https://slow.example/'))->result;
+
+        self::assertNotNull($result);
+        self::assertSame(LinkProbeResult::ERROR_RESOLVER, $result->errorReason);
+    }
+
+    public function testReportsUnavailableBoundedResolverWithoutPoisoningDnsHealth(): void
+    {
+        $resolver = new class implements HostResolverInterface {
+            /** @return list<string> */
+            #[\Override]
+            public function resolve(string $host): array
+            {
+                throw new RemoteHostResolverUnavailable('Resolver unavailable.');
+            }
+        };
+        $probe  = new SafeHttpProbe(new RecordingLinkHttpClient([]), new PublicAddressGuard($resolver));
+        $result = $probe->step(LinkProbeState::initial('https://resolver.example/'))->result;
+
+        self::assertNotNull($result);
+        self::assertSame(LinkProbeResult::ERROR_RESOLVER, $result->errorReason);
     }
 
     /** @param array<string, list<string>> $answers */

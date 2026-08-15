@@ -20,11 +20,13 @@ final readonly class LinkCheckQueueHandler implements QueueHandlerInterface
 
     /** @param null|\Closure(): int $clock */
     public function __construct(
-        private LinkHealthRepository $repository,
-        private LinkHealthPolicy     $policy,
-        private LinkProbeInterface   $httpProbe,
-        private QueuePublisher       $queuePublisher,
-        ?\Closure                    $clock = null,
+        private LinkHealthRepository     $repository,
+        private LinkHealthPolicy         $policy,
+        private LinkProbeInterface       $httpProbe,
+        private HostRequestThrottle      $requestThrottle,
+        private LinkHealthResultRecorder $resultRecorder,
+        private QueuePublisher           $queuePublisher,
+        ?\Closure                        $clock = null,
     ) {
         $this->clock = $clock ?? time(...);
     }
@@ -47,6 +49,7 @@ final readonly class LinkCheckQueueHandler implements QueueHandlerInterface
     public function handle(string $id, string $code, array $payload, QueueExecutionBudget $budget): void
     {
         $targetId = $payload['target_id'] ?? null;
+        $token    = $payload['token'] ?? null;
         $force    = $payload['force'] ?? false;
         $hasState = array_key_exists('probe', $payload);
         $statePayload = $payload['probe'] ?? null;
@@ -54,9 +57,10 @@ final readonly class LinkCheckQueueHandler implements QueueHandlerInterface
             || !\is_int($targetId)
             || $targetId < 1
             || $id !== LinkQueue::targetJobId($targetId)
+            || ($token !== null && !LinkQueue::isOperationToken($token))
             || !\is_bool($force)
             || ($hasState && !\is_array($statePayload))
-            || array_diff_key($payload, ['target_id' => true, 'force' => true, 'probe' => true]) !== []
+            || array_diff_key($payload, ['target_id' => true, 'token' => true, 'force' => true, 'probe' => true]) !== []
         ) {
             throw new \InvalidArgumentException('Invalid link-check job.');
         }
@@ -80,32 +84,53 @@ final readonly class LinkCheckQueueHandler implements QueueHandlerInterface
             return;
         }
 
-        $budget->checkpoint($this->minimumExecutionTime());
         $state = $hasState
             ? LinkProbeState::fromPayload($statePayload)
             : LinkProbeState::initial($target->url);
+
+        // Jobs created before operation tokens were introduced are upgraded before any network I/O.
+        if ($token === null) {
+            $this->queuePublisher->publish(
+                $id,
+                $code,
+                LinkQueue::checkPayload($targetId, $force, $state),
+                ($this->clock)() + 1,
+            );
+            return;
+        }
+
+        if ($this->repository->probeWasRecorded($token)) {
+            return;
+        }
+
+        $budget->checkpoint($this->minimumExecutionTime());
+        $now     = ($this->clock)();
+        $retryAt = $this->requestThrottle->claim($state->url, $now);
+        if ($retryAt !== null) {
+            $this->queuePublisher->publish(
+                $id,
+                $code,
+                LinkQueue::checkPayload($targetId, $force, $state, $token),
+                $retryAt,
+            );
+            return;
+        }
+
         $step = $this->httpProbe->step($state);
         $now  = ($this->clock)();
         if ($step->nextState instanceof LinkProbeState) {
-            $this->queuePublisher->publish($id, $code, [
-                'target_id' => $targetId,
-                'force'     => $force,
-                'probe'     => $step->nextState->toPayload(),
-            ], $now + 1);
+            $this->queuePublisher->publish(
+                $id,
+                $code,
+                LinkQueue::checkPayload($targetId, $force, $step->nextState, $token),
+                $now + 1,
+            );
             return;
         }
 
         $probe = $step->result
             ?? throw new \LogicException('A completed link-probe step has no result.');
         $decision = $this->policy->decide($target, $probe, $now);
-        $this->repository->recordProbe($target, $probe, $decision, $now);
-
-        if ($decision->lookupArchive && $target->archiveStatus !== ArchiveStatus::AVAILABLE) {
-            $this->queuePublisher->publishIfAbsent(
-                LinkQueue::targetJobId($targetId),
-                LinkQueue::ARCHIVE_CODE,
-                ['target_id' => $targetId],
-            );
-        }
+        $this->resultRecorder->recordProbe($token, $target, $probe, $decision, $now);
     }
 }

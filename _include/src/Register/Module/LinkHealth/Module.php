@@ -48,8 +48,20 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
         ));
+        $container->set(HostRequestThrottle::class, static fn(Container $container): HostRequestThrottle => new HostRequestThrottle(
+            $container->get(\PDO::class),
+            $container->getStringParameter('db_prefix'),
+        ));
         $container->set(LinkHealthRepository::class, static fn(Container $container): LinkHealthRepository => new LinkHealthRepository(
             $container->get(DbLayer::class),
+        ));
+        $container->set(LinkHealthTransaction::class, static fn(Container $container): LinkHealthTransaction => new LinkHealthTransaction(
+            $container->get(\PDO::class),
+        ));
+        $container->set(LinkHealthResultRecorder::class, static fn(Container $container): LinkHealthResultRecorder => new LinkHealthResultRecorder(
+            $container->get(LinkHealthRepository::class),
+            $container->get(LinkHealthTransaction::class),
+            $container->get(QueuePublisher::class),
         ));
         $container->set(LinkHealthPolicy::class, new LinkHealthPolicy());
         $container->set(LinkUrlNormalizer::class, static fn(Container $container): LinkUrlNormalizer => new LinkUrlNormalizer(
@@ -85,12 +97,15 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(LinkHealthRepository::class),
             $container->get(LinkHealthPolicy::class),
             $container->get(LinkProbeInterface::class),
+            $container->get(HostRequestThrottle::class),
+            $container->get(LinkHealthResultRecorder::class),
             $container->get(QueuePublisher::class),
         ), [QueueHandlerInterface::class]);
         $container->set(LinkArchiveQueueHandler::class, static fn(Container $container): LinkArchiveQueueHandler => new LinkArchiveQueueHandler(
             $container->get(LinkHealthRepository::class),
             $container->get(WaybackClientInterface::class),
             $container->get(WaybackRequestThrottle::class),
+            $container->get(LinkHealthResultRecorder::class),
             $container->get(QueuePublisher::class),
             $container->get(DynamicConfigProvider::class)->getBoolProxy(Manifest::AUTO_REPAIR_CONFIG_KEY),
         ), [QueueHandlerInterface::class]);
@@ -110,6 +125,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(DbLayer::class),
             $container->get(LinkInventoryRepository::class),
             $container->get(LinkHealthRepository::class),
+            $container->get(HostRequestThrottle::class),
             $container->get(QueuePublisher::class),
             $container->get(DynamicConfigProvider::class)->getBoolProxy(Manifest::AUTO_REPAIR_CONFIG_KEY),
         ), [ScheduledMaintenanceTaskInterface::class]);
