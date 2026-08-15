@@ -4,6 +4,7 @@
 /** @var callable $param */
 /** @var callable $styleColorScheme */
 /** @var callable $adminStyleVersion */
+/** @var callable $adminAssetVersion */
 /** @var string $locale */
 /** @var string $basePath */
 /** @var string $errorMessage */
@@ -20,7 +21,7 @@
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
     <script src="<?= $basePath ?>/_admin/js/lib.js"></script>
-    <script src="<?= $basePath ?>/_admin/js/webauthn.js" defer></script>
+    <script src="<?= $basePath ?>/_admin/js/webauthn.js?v=<?= $adminAssetVersion('_admin/js/webauthn.js') ?>" defer></script>
 </head>
 <body class="login_page" data-webauthn-messages
       data-webauthn-operation-failed="<?= s2_htmlencode($trans('The security operation failed.')) ?>"
@@ -54,7 +55,7 @@
         </p>
         <p class="login-actions">
             <input type="submit" name="button" value="<?php echo $trans('Log in'); ?>"/>
-            <button type="button" data-webauthn-login><?php echo $trans('Sign in with a passkey'); ?></button>
+            <button type="button" data-webauthn-login hidden><?php echo $trans('Sign in with a passkey'); ?></button>
         </p>
     </form>
     <details class="login-recovery">

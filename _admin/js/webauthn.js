@@ -106,12 +106,17 @@
         }
     }
 
-    const supported = window.PublicKeyCredential !== undefined && navigator.credentials !== undefined;
+    const passkeyOriginSupported = window.location.protocol === 'https:'
+        || (window.location.protocol === 'http:' && window.location.hostname === 'localhost');
+    const passkeyLoginSupported = passkeyOriginSupported
+        && window.isSecureContext === true
+        && typeof window.PublicKeyCredential === 'function'
+        && typeof navigator.credentials?.get === 'function';
+    const passkeyRegistrationSupported = passkeyLoginSupported
+        && typeof navigator.credentials?.create === 'function';
     const loginButton = document.querySelector('[data-webauthn-login]');
-    if (loginButton) {
-        if (!supported) {
-            loginButton.disabled = true;
-        }
+    if (loginButton && passkeyLoginSupported) {
+        loginButton.hidden = false;
         loginButton.addEventListener('click', async function () {
             const message = document.getElementById('message');
             try {
@@ -127,7 +132,7 @@
                 document.location.reload();
             } catch (error) {
                 showMessage(message, error);
-                loginButton.disabled = !supported;
+                loginButton.disabled = false;
             }
         });
     }
@@ -152,7 +157,7 @@
     }
     const settingsMessage = settings.querySelector('[data-webauthn-settings-message]');
     const registerForm = settings.querySelector('[data-webauthn-register-form]');
-    if (registerForm && !supported) {
+    if (registerForm && !passkeyRegistrationSupported) {
         registerForm.querySelector('button[type="submit"]').disabled = true;
     }
     registerForm?.addEventListener('submit', async function (event) {

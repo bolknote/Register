@@ -1,6 +1,7 @@
 <?php
 /**
  * @var callable $trans
+ * @var callable $adminAssetVersion
  * @var string $basePath
  * @var bool $passkeysAvailable
  * @var list<\S2\Cms\Security\WebAuthn\WebAuthnCredential> $credentials
@@ -101,4 +102,4 @@ $html = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES,
         <ol></ol>
     </div>
 </section>
-<script src="<?= $html($basePath) ?>/_admin/js/webauthn.js" defer></script>
+<script src="<?= $html($basePath) ?>/_admin/js/webauthn.js?v=<?= $html($adminAssetVersion('_admin/js/webauthn.js')) ?>" defer></script>
