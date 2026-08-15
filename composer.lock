@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6e07aa322d0bbb40acc7376202b59f0d",
+    "content-hash": "3faffb2fc61969f0d7b38f4ca669a2a3",
     "packages": [
         {
             "name": "matthiasmullie/minify",
@@ -384,60 +384,6 @@
                 "source": "https://github.com/parpalak/admin-yard/tree/master"
             },
             "time": "2026-04-19T22:07:26+00:00"
-        },
-        {
-            "name": "s2/rose",
-            "version": "dev-codex/multi-lexeme-morphology",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/bolknote/rose.git",
-                "reference": "230e2260e0eacf4d794430f710f6a12d3619e2fd"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/bolknote/rose/zipball/230e2260e0eacf4d794430f710f6a12d3619e2fd",
-                "reference": "230e2260e0eacf4d794430f710f6a12d3619e2fd",
-                "shasum": ""
-            },
-            "require": {
-                "ext-json": "*",
-                "php": ">=7.4",
-                "psr/log": "^1.1|^2.0|^3.0",
-                "symfony/polyfill-mbstring": "^1.2"
-            },
-            "require-dev": {
-                "codeception/codeception": "^4.2|^5.0",
-                "codeception/module-asserts": "^1.3|^3.0"
-            },
-            "suggest": {
-                "ext-dom": "*",
-                "ext-pdo": "*"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "S2\\Rose\\": "src/S2/Rose"
-                }
-            },
-            "autoload-dev": {
-                "psr-4": {
-                    "S2\\Rose\\Test\\": "tests/unit/Rose"
-                }
-            },
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Roman Parpalak",
-                    "email": "roman@parpalak.com"
-                }
-            ],
-            "description": "Search engine for PHP sites",
-            "support": {
-                "source": "https://github.com/bolknote/rose/tree/codex/multi-lexeme-morphology"
-            },
-            "time": "2026-08-14T22:23:11+00:00"
         },
         {
             "name": "symfony/cache",
@@ -9894,8 +9840,7 @@
     "stability-flags": {
         "phpcompatibility/php-compatibility": 15,
         "phpmd/phpmd": 20,
-        "s2/admin-yard": 20,
-        "s2/rose": 20
+        "s2/admin-yard": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

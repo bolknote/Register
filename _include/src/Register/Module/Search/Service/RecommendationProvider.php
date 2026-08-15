@@ -123,7 +123,7 @@ readonly class RecommendationProvider implements QueueHandlerInterface
             $contentItem->attachTextSnippet($recommendation['snippet'] ?? '');
             $contentItem->attachTextSnippet($recommendation['snippet2'] ?? '');
 
-            foreach ($tocWithMetadata->getImgCollection() as $image) {
+            foreach ($tocWithMetadata->getImgCollection()->toArray() as $image) {
                 if ($image->hasNumericDimensions()) {
                     $contentItem->addImage($image->getSrc(), $image->getWidth(), $image->getHeight());
                 }

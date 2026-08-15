@@ -45,7 +45,7 @@ final readonly class RecommendationFinder
         int        $limit = 10,
     ): array {
         if ($this->dbType !== 'sqlite') {
-            return array_values($this->storage->getSimilar($externalId, $includeFormatting, $instanceId, $minCommonWords, $limit));
+            return $this->storage->getSimilar($externalId, $includeFormatting, $instanceId, $minCommonWords, $limit);
         }
 
         $tocTable      = $this->tablePrefix . 'toc';

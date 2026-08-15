@@ -24,6 +24,7 @@ suites:
                       timeout: 120
 settings:
     lint: true
+bootstrap: _bootstrap.php
 paths:
     tests: .
     output: _output

@@ -5,7 +5,6 @@
             "dealerdirect/phpcodesniffer-composer-installer": true
         },
         "preferred-install": {
-            "s2/rose": "source",
             "s2/admin-yard": "source"
         },
         "platform": {
@@ -15,12 +14,6 @@
     },
     "name": "register/blog-engine",
     "description": "Small and fast blog engine",
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/bolknote/rose"
-        }
-    ],
     "minimum-stability": "dev",
     "prefer-stable": true,
     "license": "MIT",
@@ -45,7 +38,6 @@
         "psr/event-dispatcher": "^1.0",
         "psr/log": "^3.0",
         "s2/admin-yard": "dev-master",
-        "s2/rose": "dev-codex/multi-lexeme-morphology",
         "symfony/cache": "^7.0",
         "symfony/cache-contracts": "^3.0",
         "symfony/error-handler": "^7.0",
@@ -68,6 +60,7 @@
         "psr-4": {
             "Register\\": "_include/src/Register",
             "S2\\Cms\\": "_include/src",
+            "S2\\Rose\\": "_include/src/Rose",
             "s2_extensions\\": "_extensions"
         },
         "files": [
@@ -76,7 +69,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "_generated\\": "_tests/_support/_generated/"
+            "_generated\\": "_tests/_support/_generated/",
+            "S2\\Rose\\Test\\": "_tests/unit/Rose"
         },
         "classmap": [
             "_tests/_support/"
@@ -86,6 +80,7 @@
         "codeception/codeception": "^5.0",
         "codeception/module-asserts": "^3.0.0",
         "codeception/module-phpbrowser": "^4.1",
+        "codeception/stub": "^4.3",
         "maglnet/composer-require-checker": "~4.20.0",
         "phan/phan": "^6.0.7",
         "php-parallel-lint/php-parallel-lint": "^1.4",

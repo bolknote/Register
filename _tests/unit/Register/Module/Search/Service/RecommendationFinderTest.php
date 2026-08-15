@@ -65,10 +65,7 @@ final class RecommendationFinderTest extends Unit
         self::assertSame('Strong recommendation', $tocWithMetadata->getTocEntry()->getTitle());
         self::assertSame('/strong', $tocWithMetadata->getTocEntry()->getUrl());
         self::assertSame('2024-05-10T12:30:00+03:00', $tocWithMetadata->getTocEntry()->getDate()?->format(DATE_ATOM));
-        $images = [];
-        foreach ($tocWithMetadata->getImgCollection() as $image) {
-            $images[] = $image;
-        }
+        $images = $tocWithMetadata->getImgCollection()->toArray();
 
         self::assertCount(1, $images);
         self::assertSame('/strong.jpg', $images[0]->getSrc());

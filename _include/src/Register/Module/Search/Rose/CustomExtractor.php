@@ -57,9 +57,9 @@ class CustomExtractor extends DomExtractor
      * {@inheritdoc}
      */
     #[\Override]
-    protected static function processDomElement(\DOMNode $domNode, DomState $domState): string
+    protected static function processDomElement(\DOMElement $domNode, DomState $domState): string
     {
-        if ($domNode instanceof \DOMElement && $domNode->nodeName === 'iframe') {
+        if ($domNode->nodeName === 'iframe') {
             $youtubeId = self::getYoutubeId($domNode->getAttribute('src'));
             if ($youtubeId !== null) {
                 $domState->attachImg(self::YOUTUBE_PROTOCOL . $youtubeId, $domNode->getAttribute('width'), $domNode->getAttribute('height'), '');
