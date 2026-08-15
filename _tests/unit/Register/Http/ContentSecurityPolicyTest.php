@@ -161,6 +161,7 @@ final class ContentSecurityPolicyTest extends Unit
         $root = dirname(__DIR__, 4);
         foreach ([
             $root . '/_admin/js/ajax.js',
+            $root . '/_admin/js/lib.js',
             $root . '/_admin/js/structure.js',
             $root . '/_admin/js/pictman.js',
             $root . '/_admin/js/editor/dialogs.js',
@@ -173,6 +174,7 @@ final class ContentSecurityPolicyTest extends Unit
             $root . '/_assets/register/audio-player/player.js',
             $root . '/_assets/register/search/autocomplete.js',
             $root . '/_assets/register/visitor/identity.js',
+            $root . '/_styles/register/script.js',
         ] as $filename) {
             $source = file_get_contents($filename);
             self::assertIsString($source);
@@ -211,6 +213,20 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertIsString($script);
         self::assertStringContainsString("stylesheetUrl.searchParams.set('color', color)", $script);
         self::assertDoesNotMatchRegularExpression('~\.style\b|\.css\s*\(~', $script);
+    }
+
+    public function testAdminErrorsAreRenderedAsTextWithAnExternalStylesheet(): void
+    {
+        $root = dirname(__DIR__, 4);
+        $source = file_get_contents($root . '/_admin/js/lib.js');
+
+        self::assertIsString($source);
+        self::assertStringContainsString('errorOutput.textContent = errorText;', $source);
+        self::assertStringContainsString("new URL('css/error-frame.css', document.baseURI)", $source);
+        self::assertStringContainsString('eMessage.textContent = String(sMessage);', $source);
+        self::assertStringNotContainsString('eMessage.innerHTML = sMessage', $source);
+        self::assertStringNotContainsString('new Blob([sError]', $source);
+        self::assertFileExists($root . '/_admin/css/error-frame.css');
     }
 
     public function testPictureManagerBuildsFileInformationWithDomNodes(): void

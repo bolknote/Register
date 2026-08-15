@@ -9,15 +9,6 @@
             }, false);
         });
 
-        document.querySelectorAll('[data-view-debug-toggle]').forEach(function (toggle) {
-            toggle.addEventListener('click', function () {
-                var details = toggle.nextElementSibling;
-                if (details) {
-                    details.style.display = details.style.display === 'block' ? 'none' : 'block';
-                }
-            }, false);
-        });
-
         function applyYouTubeFallback(image) {
             if (image.dataset.youtubeFallbackDone === '1' || !image.complete) {
                 return;

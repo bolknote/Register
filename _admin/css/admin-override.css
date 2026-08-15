@@ -602,6 +602,20 @@ a.js {
     padding: 2px 0;
 }
 
+#popup_message .message.is-repeated {
+    animation: popup-message-repeat 400ms steps(1, end);
+}
+
+@keyframes popup-message-repeat {
+    0%, 50% {
+        opacity: 0;
+    }
+
+    25%, 75%, 100% {
+        opacity: 1;
+    }
+}
+
 #popup_message a.action {
     font-weight: bold;
     color: var(--color-accent);

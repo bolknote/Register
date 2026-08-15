@@ -1,0 +1,25 @@
+:root {
+    color-scheme: light;
+    background: #fff;
+    color: #1d1d1f;
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+:root[data-color-scheme="dark"] {
+    color-scheme: dark;
+    background: #1d1d1f;
+    color: #f5f5f7;
+}
+
+body {
+    margin: 0;
+    padding: 1rem;
+    background: inherit;
+    color: inherit;
+}
+
+pre {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

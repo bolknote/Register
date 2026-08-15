@@ -11,8 +11,9 @@ function loadingIndicator(bState) {
     if (!eDiv) {
         return;
     }
-    eDiv.style.display = bState ? 'block' : 'none';
-    document.body.style.cursor = bState ? 'progress' : 'inherit';
+    eDiv.classList.toggle('is-active', bState);
+    eDiv.setAttribute('aria-hidden', bState ? 'false' : 'true');
+    document.body.classList.toggle('is-busy', bState);
 }
 
 function showFetchErrorPayload(data, fallback, messageId) {
@@ -167,16 +168,10 @@ window.PopupMessages = {
         if (sId) {
             eMessage = eList.querySelector('div[data-id="' + sId + '"]');
             if (eMessage) {
-                eMessage.style.opacity = 0;
-                setTimeout(function () {
-                    eMessage.style.opacity = 1;
-                }, 100);
-                setTimeout(function () {
-                    eMessage.style.opacity = 0;
-                }, 200);
-                setTimeout(function () {
-                    eMessage.style.opacity = 1;
-                }, 300);
+                eMessage.classList.remove('is-repeated');
+                requestAnimationFrame(function () {
+                    eMessage.classList.add('is-repeated');
+                });
                 return;
             }
         }
@@ -195,7 +190,7 @@ window.PopupMessages = {
             }, iTime * 1000);
         }
 
-        eMessage.innerHTML = sMessage;
+        eMessage.textContent = String(sMessage);
 
         if (aActions) {
             for (let i = 0; i < aActions.length; i++) {
@@ -249,46 +244,45 @@ window.PopupMessages = {
 };
 
 function DisplayError(sError) {
-    function isJson(str) {
-        try {
-            JSON.parse(str);
-        } catch (e) {
-            return false;
-        }
-        return true;
-    }
-
     const dialog = document.getElementById('error-dialog');
     const closeButton = document.getElementById('error-dialog-close');
     const iframe = document.getElementById('error-iframe');
-
-    if (isJson(sError)) {
-        sError = JSON.stringify(JSON.parse(sError), null, 4);
-        sError = '<pre>' + sError.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;') + '</pre>';
+    let errorText = String(sError);
+    try {
+        errorText = JSON.stringify(JSON.parse(errorText), null, 4);
+    } catch (error) {
+        // Non-JSON server responses are displayed verbatim below.
     }
 
-    const rootStyle = getComputedStyle(document.documentElement);
-    const background = rootStyle.getPropertyValue('--admin-page-background').trim()
-        || rootStyle.getPropertyValue('--page-background').trim()
-        || '#fff';
     const colorScheme = document.documentElement.dataset.colorScheme === 'dark' ? 'dark' : 'light';
-    const themeStyle = '<style id="s2-error-theme">html,body{background:' + background
-        + ' !important;color-scheme:' + colorScheme + ';}</style>';
-    if (/<\/head\s*>/i.test(sError)) {
-        sError = sError.replace(/<\/head\s*>/i, themeStyle + '</head>');
-    } else {
-        sError = '<!doctype html><html><head>' + themeStyle + '</head><body>' + sError + '</body></html>';
+    const frameDocument = iframe.contentDocument;
+    if (!frameDocument) {
+        throw new Error('Unable to access the error frame.');
     }
 
-    const blob = new Blob([sError], {type: 'text/html'});
-    iframe.style.colorScheme = colorScheme;
-    iframe.src = URL.createObjectURL(blob);
+    const frameHead = frameDocument.createElement('head');
+    const charset = frameDocument.createElement('meta');
+    charset.setAttribute('charset', 'utf-8');
+    frameHead.appendChild(charset);
+
+    const stylesheet = frameDocument.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = new URL('css/error-frame.css', document.baseURI).href;
+    frameHead.appendChild(stylesheet);
+
+    const frameBody = frameDocument.createElement('body');
+    const errorOutput = frameDocument.createElement('pre');
+    errorOutput.textContent = errorText;
+    frameBody.appendChild(errorOutput);
+
+    frameDocument.documentElement.lang = document.documentElement.lang;
+    frameDocument.documentElement.dataset.colorScheme = colorScheme;
+    frameDocument.documentElement.replaceChildren(frameHead, frameBody);
     dialog.showModal();
 
     closeButton.addEventListener('click', function () {
         dialog.close();
-        URL.revokeObjectURL(iframe.src);
-    });
+    }, {once: true});
 
     closeButton.focus();
 }
@@ -336,8 +330,6 @@ function localizeTimes() {
 
 // Ajax login form processing
 
-let shakeTimerId = null;
-
 async function SendLoginData(eForm, fOk, fFail) {
     try {
         let response = await originalFetch('?action=login', {
@@ -366,38 +358,16 @@ async function SendLoginData(eForm, fOk, fFail) {
 function SendLoginForm() {
     const form = document.forms['loginform'];
 
-    function shift(time) {
-        form.style.transform = `translateX(${-150.0 * Math.exp(-time * 0.006) * Math.sin(0.026179938 * time)}px)`;
-    }
-
-    let animationStartedAt = null;
-
-    function animateShake(timestamp) {
-        if (!animationStartedAt) {
-            animationStartedAt = timestamp;
-        }
-        let duration = timestamp - animationStartedAt;
-
-        if (duration > 835) {
-            shift(0);
-            cancelAnimationFrame(shakeTimerId);
-            shakeTimerId = null;
-        } else {
-            shift(duration);
-            shakeTimerId = requestAnimationFrame(animateShake);
-        }
-    }
-
-    shift(0);
-
     SendLoginData(form, function () {
         document.location.reload();
     }, function (sText) {
-        document.getElementById('message').innerHTML = sText;
-        if (shakeTimerId === null) {
-            animationStartedAt = null;
-            shakeTimerId = requestAnimationFrame(animateShake);
-        }
+        const message = document.getElementById('message');
+        message.textContent = String(sText);
+        message.hidden = false;
+        form.classList.remove('is-shaking');
+        requestAnimationFrame(function () {
+            form.classList.add('is-shaking');
+        });
     });
 }
 
@@ -412,12 +382,10 @@ function LoginInit() {
     let login = '', password = '';
 
     eLogin.onkeyup = ePass.onkeyup = function () {
-        if (shakeTimerId !== null) {
-            return;
-        }
-
         if (login !== eLogin.value || password !== ePass.value) {
-            document.getElementById('message').innerHTML = '';
+            const message = document.getElementById('message');
+            message.textContent = '';
+            message.hidden = true;
             login = eLogin.value;
             password = ePass.value;
         }

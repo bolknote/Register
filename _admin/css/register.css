@@ -2842,6 +2842,42 @@ body.login_page {
     text-align: left;
 }
 
+.loginform.is-shaking {
+    animation: login-form-shake 835ms ease-out;
+}
+
+@keyframes login-form-shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+
+    12% {
+        transform: translateX(-3.8rem);
+    }
+
+    28% {
+        transform: translateX(2.4rem);
+    }
+
+    44% {
+        transform: translateX(-1.45rem);
+    }
+
+    60% {
+        transform: translateX(0.8rem);
+    }
+
+    76% {
+        transform: translateX(-0.35rem);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loginform.is-shaking {
+        animation: none;
+    }
+}
+
 .loginform > p {
     width: 100%;
     margin: 0;
