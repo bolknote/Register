@@ -39,6 +39,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
     /** @var list<string> */
     private const array SETTINGS_ENTITY_ORDER = [
         'Config',
+        'SystemStatus',
         'LinkHealth',
         'SystemModules',
         'Extension',

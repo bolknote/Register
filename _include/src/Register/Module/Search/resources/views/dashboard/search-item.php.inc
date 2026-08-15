@@ -36,10 +36,12 @@
             '{{ size }}' => $friendlyFilesize($bytes),
         ]) ?></li>
     </ul>
-    <p class="stat-item-actions">
-        <a href="#" data-register-search-reindex class="js" title="<?= $trans('Repair index title') ?>">
-            <?= $trans('Repair index') ?></a><span id="register-search-progress"></span>
-    </p>
+    <?php if ($health->repairRequired && !$health->repairPending): ?>
+        <p class="stat-item-actions">
+            <a href="#" data-register-search-reindex class="js" title="<?= $trans('Repair index title') ?>">
+                <?= $trans('Repair index') ?></a><span id="register-search-progress"></span>
+        </p>
+    <?php endif; ?>
 </div>
 <script src="<?php echo $basePath; ?>/_admin/js/ajax.js"></script>
 <script src="<?= $basePath ?>/_assets/register/search/index-manager.js"></script>

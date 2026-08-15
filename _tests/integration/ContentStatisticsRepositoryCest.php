@@ -36,7 +36,31 @@ final class ContentStatisticsRepositoryCest
         $I->assertSame($before->commentCount + 1, $after->commentCount);
     }
 
-    private function insertPost(DbLayer $dbLayer, bool $published, string $slug): int
+    public function separatesDraftScheduledAndOverduePosts(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var ContentStatisticsRepository $repository */
+        $repository = $I->grabService(ContentStatisticsRepository::class);
+        $now        = 2_000_000_000;
+        $before     = $repository->editorial(ContentType::POST, $now);
+
+        $this->insertPost($dbLayer, false, 'editorial-draft', 0);
+        $this->insertPost($dbLayer, false, 'editorial-scheduled', $now + 3_600);
+        $this->insertPost($dbLayer, false, 'editorial-overdue', $now - 3_600);
+        $this->insertPost($dbLayer, true, 'editorial-published', $now + 7_200);
+
+        $after = $repository->editorial(ContentType::POST, $now);
+        $I->assertSame($before->draftCount + 1, $after->draftCount);
+        $I->assertSame($before->scheduledCount + 1, $after->scheduledCount);
+        $I->assertSame($before->overdueCount + 1, $after->overdueCount);
+        $I->assertSame(
+            min($before->nextScheduledAt ?? PHP_INT_MAX, $now + 3_600),
+            $after->nextScheduledAt,
+        );
+    }
+
+    private function insertPost(DbLayer $dbLayer, bool $published, string $slug, ?int $scheduledAt = null): int
     {
         $time = time();
         $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
@@ -48,6 +72,7 @@ final class ContentStatisticsRepositoryCest
             'body'         => "'<p>Statistics</p>'",
             'created_at'   => ':time',
             'published_at' => $published ? ':time' : 'NULL',
+            'scheduled_at' => ':scheduled_at',
             'updated_at'   => ':time',
             'published'    => ':published',
         ])->execute([
@@ -56,6 +81,7 @@ final class ContentStatisticsRepositoryCest
             'title'        => $slug,
             'time'         => $time,
             'published'    => (int)$published,
+            'scheduled_at' => $scheduledAt ?? 0,
         ]);
 
         return (int)$dbLayer->insertId();

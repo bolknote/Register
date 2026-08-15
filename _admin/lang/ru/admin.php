@@ -49,6 +49,8 @@ return [
     'Search & statistics'        => 'Обзор',
     'Settings'                   => 'Настройки',
     'System'                     => 'Система',
+    'System status'              => 'Состояние системы',
+    'System status intro'        => 'Сервер, резервные копии, поиск и другие технические сведения.',
     'Queue'                      => 'Очередь',
     'Queue item'                 => 'Задание очереди',
     'Job identifier'             => 'Идентификатор задания',
@@ -375,6 +377,13 @@ return [
 
     // Stat tab
     'Published content'                    => 'Опубликовано',
+    'Editorial queue'                      => 'Требует внимания',
+    'Nothing requires attention'           => 'Сейчас ничего не требует внимания',
+    'Drafts num'                           => '{{ drafts }} черновик|{{ drafts }} черновика|{{ drafts }} черновиков',
+    'Scheduled posts num'                  => '{{ posts }} пост запланирован|{{ posts }} поста запланировано|{{ posts }} постов запланировано',
+    'Overdue posts num'                    => '{{ posts }} публикация просрочена|{{ posts }} публикации просрочены|{{ posts }} публикаций просрочено',
+    'Pending comments num'                 => '{{ comments }} комментарий ждёт проверки|{{ comments }} комментария ждут проверки|{{ comments }} комментариев ждут проверки',
+    'Next publication'                     => 'Ближайшая',
     'Pages num'                            => '{{ pages }} страница|{{ pages }} страницы|{{ pages }} страниц',
     'Comments num'                         => '{{ comments }} комментарий|{{ comments }} комментария|{{ comments }} комментариев',
     'Server load'                          => 'Нагрузка на сервер',

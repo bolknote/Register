@@ -12,7 +12,7 @@ namespace S2\Cms\Admin\Dashboard;
 use S2\AdminYard\TemplateRenderer;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-readonly class DashboardEnvironmentProvider implements DashboardStatProviderInterface
+readonly class DashboardEnvironmentProvider implements SystemStatusProviderInterface
 {
     public function __construct(
         private TranslatorInterface       $translator,

@@ -12,10 +12,10 @@ namespace Register\Backup\Admin;
 use Register\Backup\BackupManager;
 use Register\Backup\BackupScheduler;
 use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
+use S2\Cms\Admin\Dashboard\SystemStatusProviderInterface;
 use S2\Cms\Model\PermissionChecker;
 
-final readonly class DashboardBackupProvider implements DashboardStatProviderInterface
+final readonly class DashboardBackupProvider implements SystemStatusProviderInterface
 {
     public function __construct(
         private TemplateRenderer  $templateRenderer,

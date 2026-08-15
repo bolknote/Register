@@ -10,10 +10,10 @@ declare(strict_types = 1);
 namespace Register\Module\Search\Admin;
 
 use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
+use S2\Cms\Admin\Dashboard\SystemStatusProviderInterface;
 use S2\Rose\Storage\Database\PdoStorage;
 
-readonly class DashboardSearchProvider implements DashboardStatProviderInterface
+readonly class DashboardSearchProvider implements SystemStatusProviderInterface
 {
     public function __construct(
         private TemplateRenderer  $templateRenderer,

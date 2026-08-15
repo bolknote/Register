@@ -13,7 +13,7 @@ use Psr\Log\LoggerInterface;
 use S2\AdminYard\SettingStorage\SettingStorageInterface;
 use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
-use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
+use S2\Cms\Admin\Dashboard\SystemStatusProviderInterface;
 use S2\Cms\Admin\DynamicConfigFormExtenderInterface;
 use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
 use S2\Cms\Admin\TranslationProviderInterface;
@@ -53,7 +53,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(PdoStorage::class),
             $container->get(ReindexToken::class),
             $container->get(SearchIndexHealth::class),
-        ), [DashboardStatProviderInterface::class]);
+        ), [SystemStatusProviderInterface::class]);
 
     }
 

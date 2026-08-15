@@ -971,6 +971,12 @@ section.list-header h1 {
     margin: 0;
 }
 
+.dashboard-intro {
+    max-width: 60ch;
+    margin: 0.55rem 0 0;
+    color: var(--admin-secondary-text-color);
+}
+
 .admin-stat {
     margin-top: 0;
 }
@@ -1087,6 +1093,43 @@ section.list-header h1 {
 
 .publication-comments {
     margin-left: auto;
+}
+
+.editorial-stat-item {
+    max-width: 48rem;
+}
+
+.editorial-stat-item.requires-attention {
+    border-color: color-mix(in srgb, var(--admin-warning-color) 42%, var(--admin-soft-border-color));
+}
+
+.stat-status-success {
+    color: var(--admin-success-color);
+}
+
+.editorial-attention-list a {
+    font-weight: 620;
+}
+
+.editorial-attention-list .editorial-warning a {
+    color: var(--admin-warning-color);
+}
+
+.published-summary {
+    margin-top: 0.25rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--admin-soft-border-color);
+}
+
+.published-summary > summary {
+    width: fit-content;
+    color: var(--admin-secondary-text-color);
+    cursor: pointer;
+    font-size: 0.82rem;
+}
+
+.published-summary .publication-statistics {
+    margin-top: 0.65rem;
 }
 
 .stat-item-actions {

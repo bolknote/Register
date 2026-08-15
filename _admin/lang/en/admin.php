@@ -49,6 +49,8 @@ return [
     'Search & statistics'        => 'Overview',
     'Settings'                   => 'Settings',
     'System'                     => 'System',
+    'System status'              => 'System status',
+    'System status intro'        => 'Server, backups, search and other technical details.',
     'Queue'                      => 'Queue',
     'Queue item'                 => 'Queue item',
     'Job identifier'             => 'Job identifier',
@@ -375,6 +377,13 @@ return [
 
     // Stat tab
     'Published content'                    => 'Published',
+    'Editorial queue'                      => 'Needs attention',
+    'Nothing requires attention'           => 'Nothing requires attention',
+    'Drafts num'                           => '{{ drafts }} draft|{{ drafts }} drafts',
+    'Scheduled posts num'                  => '{{ posts }} scheduled post|{{ posts }} scheduled posts',
+    'Overdue posts num'                    => '{{ posts }} missed publication|{{ posts }} missed publications',
+    'Pending comments num'                 => '{{ comments }} comment to review|{{ comments }} comments to review',
+    'Next publication'                     => 'Next',
     'Pages num'                            => '{{ pages }} page|{{ pages }} pages',
     'Comments num'                         => '{{ comments }} comment|{{ comments }} comments',
     'Server load'                          => 'Server load',

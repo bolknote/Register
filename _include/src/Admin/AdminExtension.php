@@ -36,6 +36,7 @@ use S2\Cms\Admin\Dashboard\DashboardConfigExtender;
 use S2\Cms\Admin\Dashboard\DashboardDatabaseProvider;
 use S2\Cms\Admin\Dashboard\DashboardEnvironmentProvider;
 use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
+use S2\Cms\Admin\Dashboard\SystemStatusProviderInterface;
 use S2\Cms\Admin\Controller\CommentControllerFactory;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
@@ -269,6 +270,7 @@ class AdminExtension implements ExtensionInterface
         $container->set(DashboardConfigExtender::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardConfigExtender => new DashboardConfigExtender(
             $container->getByTag(DashboardStatProviderInterface::class),
             $container->getByTag(DashboardBlockProviderInterface::class),
+            $container->getByTag(SystemStatusProviderInterface::class),
             $container->get(PermissionChecker::class),
             $container->get(TemplateRenderer::class),
         ), [AdminConfigExtenderInterface::class]);
@@ -276,7 +278,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(Translator::class),
             $container->get(TemplateRenderer::class),
             $container->get(DashboardDatabaseProvider::class),
-        ), [DashboardStatProviderInterface::class]);
+        ), [SystemStatusProviderInterface::class]);
 
         $container->set(BackupToken::class, fn(Container $container): BackupToken => new BackupToken(
             $container->get(SettingStorageInterface::class),
@@ -294,7 +296,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(BackupScheduler::class),
             $container->get(BackupToken::class),
             $container->get(PermissionChecker::class),
-        ), [DashboardStatProviderInterface::class]);
+        ), [SystemStatusProviderInterface::class]);
 
         $container->set(DashboardDatabaseProvider::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardDatabaseProvider => new DashboardDatabaseProvider(
             $container->get(DbLayer::class),
@@ -306,6 +308,7 @@ class AdminExtension implements ExtensionInterface
         $container->set(DashboardContentProvider::class, fn(Container $container): DashboardContentProvider => new DashboardContentProvider(
             $container->get(TemplateRenderer::class),
             $container->get(ContentStatisticsRepository::class),
+            $container->get(CommentRepository::class),
             $container->getStringParameter('root_dir') . '_admin/templates/dashboard/publication-item.php.inc',
         ), [DashboardStatProviderInterface::class]);
 

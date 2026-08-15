@@ -30,6 +30,36 @@ final readonly class ContentStatisticsRepository
         };
     }
 
+    /** @throws DbLayerException */
+    public function editorial(ContentType $contentType, ?int $now = null): ContentEditorialStatistics
+    {
+        $now    ??= time();
+        $result = $this->dbLayer
+            ->select('COALESCE(SUM(CASE WHEN published = 0 AND COALESCE(scheduled_at, 0) = 0 THEN 1 ELSE 0 END), 0) AS draft_count')
+            ->addSelect('COALESCE(SUM(CASE WHEN published = 0 AND scheduled_at > :scheduled_after THEN 1 ELSE 0 END), 0) AS scheduled_count')
+            ->addSelect('COALESCE(SUM(CASE WHEN published = 0 AND scheduled_at > 0 AND scheduled_at <= :overdue_before THEN 1 ELSE 0 END), 0) AS overdue_count')
+            ->addSelect('MIN(CASE WHEN published = 0 AND scheduled_at > :next_after THEN scheduled_at ELSE NULL END) AS next_scheduled_at')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', $contentType->value)
+            ->setParameter('scheduled_after', $now)
+            ->setParameter('overdue_before', $now)
+            ->setParameter('next_after', $now)
+            ->execute()
+            ->fetchAssoc()
+        ;
+
+        if ($result === false) {
+            return new ContentEditorialStatistics(0, 0, 0, null);
+        }
+
+        return new ContentEditorialStatistics(
+            (int)$result['draft_count'],
+            (int)$result['scheduled_count'],
+            (int)$result['overdue_count'],
+            $result['next_scheduled_at'] === null ? null : (int)$result['next_scheduled_at'],
+        );
+    }
+
     /**
      * Only leaf pages are documents in the dashboard count. Sections still contribute
      * their visible comments and unpublished branches remain outside the public tree.

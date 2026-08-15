@@ -79,17 +79,14 @@ class AdminCest
         $I->amOnPage('https://localhost/_admin/index.php?entity=Dashboard');
         $I->see('Overview', 'h1#dashboard-title');
         $I->assertCount(1, $I->grabMultiple('.publication-stat-item'));
-        $I->see('Published', '.publication-stat-item h3');
+        $I->see('Needs attention', '.publication-stat-item h3');
         $I->see('page', '.publication-statistics li:first-child');
         $I->see('post', '.publication-statistics li:last-child');
         $I->see('comment', '.publication-comments');
         $I->dontSeeElement('[data-analytics-table="register-analytics-pages"]');
         $I->dontSeeElement('[data-analytics-table="register-analytics-feeds"]');
-        $I->see('Environment', '.environment-stat-item h3');
-        $I->see('PHP', '.environment-stat-item dt');
-        $I->see('Database', '.environment-stat-item');
-        $I->dontSee('Database', '.stat-item > h3');
-        $I->assertCount(4, $I->grabMultiple('.stat-items > .stat-item'));
+        $I->dontSeeElement('.environment-stat-item');
+        $I->assertCount(1, $I->grabMultiple('.stat-items > .stat-item'));
         $I->dontSee('Register source code', '.stat-items');
         $I->dontSee('Register is based on', '.stat-items');
         $I->dontSee('© 2007–');
@@ -99,6 +96,15 @@ class AdminCest
         $I->see('Traffic', '.register-analytics h2');
         $I->seeElement('[data-analytics-table="register-analytics-pages"]');
         $I->seeElement('[data-analytics-table="register-analytics-feeds"]');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=SystemStatus');
+        $I->see('System status', 'h1#system-status-title');
+        $I->see('Environment', '.environment-stat-item h3');
+        $I->see('PHP', '.environment-stat-item dt');
+        $I->see('Database', '.environment-stat-item');
+        $I->dontSee('Database', '.stat-item > h3');
+        $I->assertCount(3, $I->grabMultiple('.stat-items > .stat-item'));
+        $I->dontSeeElement('.publication-stat-item');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Article&action=list');
         $I->seeElement('nav.section-tabs a[aria-current="page"][href="?entity=Article&action=list"]');

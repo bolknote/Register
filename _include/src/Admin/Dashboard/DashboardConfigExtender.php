@@ -19,10 +19,12 @@ readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
     /**
      * @param array<mixed> $dashboardStatProviders
      * @param array<mixed> $dashboardBlockProviders
+     * @param array<mixed> $systemStatusProviders
      */
     public function __construct(
         private array             $dashboardStatProviders,
         private array             $dashboardBlockProviders,
+        private array             $systemStatusProviders,
         private PermissionChecker $permissionChecker,
         private TemplateRenderer  $templateRenderer,
     ) {
@@ -48,6 +50,12 @@ readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
                     'dashboardBlockProviders' => $this->dashboardBlockProviders,
                 ]
             ), 31, 'Analytics')
+            ->setServicePage('SystemStatus', fn(): string => $this->templateRenderer->render(
+                '_admin/templates/dashboard/system-status.php.inc',
+                [
+                    'systemStatusProviders' => $this->systemStatusProviders,
+                ]
+            ), 32, 'System status')
         ;
     }
 }
