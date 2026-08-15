@@ -66,12 +66,18 @@ header_remove('X-Powered-By');
 /**
  * Display styled error message and terminate script execution
  *
- * @param string $message Error message to display (can contain HTML)
+ * @param string $message Error message to display as plain text
  * @param string $title Page title and heading (default: 'Error')
+ * @param string|null $actionUrl Optional safe follow-up URL
+ * @param string|null $actionLabel Optional follow-up link label
  * @SuppressWarnings("PHPMD.ExitExpression")
  */
-function error(string $message, string $title = 'An error was encountered'): never
-{
+function error(
+    string $message,
+    string $title = 'An error was encountered',
+    ?string $actionUrl = null,
+    ?string $actionLabel = null,
+): never {
     if (!headers_sent()) {
         $protocol = $_SERVER['SERVER_PROTOCOL'] ?? 'HTTP/1.1';
         header("$protocol 503", true, 503);
@@ -84,10 +90,7 @@ function error(string $message, string $title = 'An error was encountered'): nev
         ob_end_clean();
     }
 
-    // Security: escape output unless message contains HTML tags
-    $safeMessage = strip_tags($message) === $message
-        ? htmlspecialchars($message, ENT_QUOTES, 'UTF-8')
-        : $message;
+    $safeMessage = htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     ?>
     <!DOCTYPE html>
     <html lang="en">
@@ -96,53 +99,16 @@ function error(string $message, string $title = 'An error was encountered'): nev
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="Generator" content="Register">
         <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?> - Register</title>
-        <style>
-            :root {
-                --error-color: #d32f2f;
-                --text-color: #333;
-                --border-color: rgba(0, 0, 0, 0.1);
-            }
-
-            body {
-                padding: 2rem;
-                font-family: system-ui, -apple-system, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-                line-height: 1.6;
-                color: var(--text-color);
-                background-color: #fefefe;
-                max-width: 800px;
-                margin: 3rem auto;
-            }
-
-            .error-container {
-                padding: 2rem;
-                border-left: 4px solid var(--error-color);
-                background: white;
-                box-shadow: 0 1px 8px -2px rgba(0, 0, 0, 0.13);
-                border-radius: 0 4px 4px 0;
-            }
-
-            h1 {
-                margin: 0 0 1rem;
-                color: var(--error-color);
-                font-size: 1.8rem;
-            }
-
-            .error-message {
-                margin: 1rem 0;
-                white-space: pre-wrap;
-            }
-
-            pre, code {
-                font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-                font-size: 0.9em;
-            }
-        </style>
+        <link rel="stylesheet" href="<?php echo rtrim(S2_ROOT, '/') ?>/_assets/register/standalone.css">
     </head>
-    <body>
-    <div class="error-container">
+    <body class="register-standalone">
+    <main class="standalone-card error-container">
         <h1><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
         <div class="error-message"><?php echo $safeMessage ?></div>
-    </div>
+        <?php if ($actionUrl !== null): ?>
+            <p class="install-action"><a class="link-button" href="<?php echo htmlspecialchars($actionUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"><?php echo htmlspecialchars($actionLabel ?? 'Continue', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></a></p>
+        <?php endif; ?>
+    </main>
     </body>
     </html>
     <?php
@@ -151,11 +117,14 @@ function error(string $message, string $title = 'An error was encountered'): nev
 }
 
 if (file_exists(S2_FS_ROOT . s2_get_config_filename())) {
-    error(sprintf(
-        'The file \'%s\' already exists which would mean that Register is already installed. You should go <a href="%s">here</a> instead.',
-        s2_get_config_filename(),
-        S2_ROOT
-    ));
+    error(
+        sprintf(
+            'The file \'%s\' already exists, which means that Register is already installed.',
+            s2_get_config_filename(),
+        ),
+        actionUrl: S2_ROOT,
+        actionLabel: 'Open Register',
+    );
 }
 
 // Make sure we are running at least MIN_PHP_VERSION

@@ -106,6 +106,7 @@ final class ContentSecurityPolicyTest extends Unit
     {
         $root = dirname(__DIR__, 4);
         $files = [
+            $root . '/_admin/install.php',
             $root . '/_include/installation_required.php',
             $root . '/_include/src/Framework/Application.php',
             $root . '/_include/views/error.php',
