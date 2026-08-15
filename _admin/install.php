@@ -550,10 +550,11 @@ if (!is_string($requestedLanguage)) {
     $requestedLanguage = isset($_POST['req_language']) ? installPostString('req_language') : get_preferred_lang($languages);
 }
 
-$language = preg_replace('#[\.\\\/]#', '', $requestedLanguage) ?? 'English';
-if (!file_exists(S2_FS_ROOT . '_lang/' . $language . '/common.php')) {
+$languageIndex = array_search($requestedLanguage, $languages, true);
+if ($languageIndex === false) {
     error("The language pack you have chosen doesn't seem to exist or is corrupt. Please recheck and try again.");
 }
+$language = $languages[$languageIndex];
 
 /** @var \S2\Cms\Config\InstallationConfigProvider $dynamicConfigProvider */
 $dynamicConfigProvider = $emptyApp->container->get(\S2\Cms\Config\DynamicConfigProvider::class);

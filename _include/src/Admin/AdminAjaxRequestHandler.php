@@ -39,7 +39,6 @@ use Symfony\Component\HttpFoundation\Request as R;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\Session;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use S2\Cms\Pdo\DbLayerException;
 
@@ -230,17 +229,6 @@ class AdminAjaxRequestHandler
                 $error = $em->uninstallExtension($r->query->getString('id'), $r->request->getString('csrf_token'));
 
                 return new Json(['success' => $error === null, 'message' => $error]);
-            },
-
-            'phpinfo' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\Response|\Symfony\Component\HttpFoundation\StreamedResponse {
-                if (!$p->isGranted(P::PERMISSION_VIEW_HIDDEN)) {
-                    return new Response($t->trans('No permission'), Response::HTTP_FORBIDDEN);
-                }
-
-                return new StreamedResponse(static function (): void {
-                    /** @noinspection ForgottenDebugOutputInspection */
-                    phpinfo();
-                });
             },
 
             // pictures
@@ -813,7 +801,6 @@ class AdminAjaxRequestHandler
 
         $this->eventDispatcher->dispatch($event = new AdminAjaxControllerMapEvent($controllerMap, [
             'load_tree',
-            'phpinfo',
             'preview',
             'load_folders',
             'load_files',

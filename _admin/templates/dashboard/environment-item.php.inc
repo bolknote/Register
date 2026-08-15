@@ -17,11 +17,7 @@
         </div>
         <div>
             <dt>PHP</dt>
-            <dd>
-                <a href="ajax.php?action=phpinfo" title="<?= $trans('PHP info') ?>" target="_blank" rel="noreferrer">
-                    <?= htmlspecialchars($phpVersion, ENT_QUOTES, 'UTF-8') ?> &uarr;
-                </a>
-            </dd>
+            <dd><?= htmlspecialchars($phpVersion, ENT_QUOTES, 'UTF-8') ?></dd>
         </div>
         <div>
             <dt><?= $trans('Database') ?></dt>
