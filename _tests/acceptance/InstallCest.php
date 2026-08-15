@@ -80,7 +80,7 @@ class InstallCest
 
         $I->amOnPage('/');
         $I->see('Register');
-        $I->see('A place to write');
+        $I->see('A place for posts');
         $I->see('Register is a blog engine, not a universal site builder');
         $I->seeElement('meta[name="Generator"][content="Register"]');
         $I->seeElement('link[href$="/_styles/register/favicon.svg"]');
@@ -93,7 +93,7 @@ class InstallCest
         $I->dontSeeElement('script:not([src])');
         $I->dontSeeElement('[onclick], [onload], [onsubmit], [onchange]');
         $I->amOnPage('/?search=1&q=personal+blog');
-        $I->see('A place to write');
+        $I->see('A place for posts');
         $I->see('small, fast engine');
         $I->amOnPage('/section1/page1');
         $I->see('Register was installed successfully.');
@@ -148,7 +148,7 @@ class InstallCest
         $I->dontSee('You have entered incorrect username or password.');
 
         $I->amOnPage('/---');
-        $I->see('admin', '.main-menu-user-link');
+        $I->see('admin', 'details[data-menu-group="Account"] .main-menu-group-label');
     }
 
     private function testBaseModules(AcceptanceTester $I): void
@@ -174,15 +174,22 @@ class InstallCest
         $I->see('Optional modules available for install or upgrade', 'h2');
 
         $I->amOnPage('/_admin/index.php?entity=Dashboard');
-        $I->see('Analytics', 'h2');
+        $I->see('Overview', 'h1');
+        $I->see('Needs attention', 'h3');
+        $I->dontSeeElement('a[href="https://github.com/bolknote/Register"]');
+        $I->dontSeeElement('a[href="https://github.com/parpalak/s2"]');
+
+        $I->amOnPage('/_admin/index.php?entity=Statistics');
+        $I->see('Analytics', 'h1');
         $I->seeElement('script[src$="/_assets/register/analytics/highstock.js"]');
         $I->seeElement('script[src$="/_assets/register/analytics/charts.js"]');
         $I->dontSeeElement('script[src*="/_extensions/s2_counter/"]');
+
+        $I->amOnPage('/_admin/index.php?entity=SystemStatus');
+        $I->see('System status', 'h1');
         $I->seeElement('script[src$="/_assets/register/search/index-manager.js"]');
         $I->dontSeeElement('script[src*="/_extensions/s2_search/"]');
         $I->seeElement('input[name=register_search_csrf_token]');
-        $I->dontSeeElement('a[href="https://github.com/bolknote/Register"]');
-        $I->dontSeeElement('a[href="https://github.com/parpalak/s2"]');
 
         $I->amOnPage('/_admin/index.php?entity=Configuration');
         $I->dontSee('REGISTER_ANALYTICS_SALT');
@@ -515,7 +522,7 @@ class InstallCest
         $I->see('New Blog Post Title');
         $I->see('New Page Title');
 
-        $I->amOnPage('/_admin/index.php?entity=Dashboard');
+        $I->amOnPage('/_admin/index.php?entity=SystemStatus');
 
         $csrfToken = $I->grabValueFrom('input[name=register_search_csrf_token]');
         $I->sendAjaxGetRequest('/_admin/ajax.php?action=register_search_reindex');
@@ -754,7 +761,7 @@ class InstallCest
             '' . "\r\n" .
             'Hello, Roman 🌞.' . "\r\n" .
             '' . "\r\n" .
-            'You have received this e-mail, because you have subscribed for the article' . "\r\n" .
+            'You have received this e-mail because you subscribed to comments on the content' . "\r\n" .
             '“' . $pageTitle . '”,' . "\r\n" .
             'located at the address:' . "\r\n" .
             'http://localhost:8881/index.php?' . $publicUrl . "\r\n" .
@@ -845,7 +852,7 @@ class InstallCest
         $I->assertStringContainsString(
             'Hello, Roman 🌞.' . "\r\n" .
             '' . "\r\n" .
-            'You have received this e-mail, because you have subscribed for the article' . "\r\n" .
+            'You have received this e-mail because you subscribed to comments on the content' . "\r\n" .
             '“' . $pageTitle . '”,' . "\r\n" .
             'located at the address:' . "\r\n" .
             'http://localhost:8881/index.php?' . $publicUrl . "\r\n" .
@@ -925,7 +932,7 @@ class InstallCest
 
         $moderator3CommentId = $this->findCommentId($I, 'This is a comment from a moderator3.');
         $deleteUrl = '?entity=Comment&action=delete&id=' . $moderator3CommentId;
-        $csrfToken = $I->grabAttributeFrom('[href="' . $deleteUrl . '"]', 'data-csrf-token');
+        $csrfToken = $I->grabAttributeFrom('[data-delete-url="' . $deleteUrl . '"]', 'data-csrf-token');
         if ($csrfToken === null || $csrfToken === '') {
             throw new \RuntimeException('The delete action does not contain a CSRF token.');
         }
@@ -938,9 +945,10 @@ class InstallCest
 
     private function findCommentId(AcceptanceTester $I, string $commentText): int
     {
-        $xpath = '//tr[contains(., ' . $this->xpathLiteral($commentText) . ')]//a[contains(@href, "action=delete")]';
-        $href  = $I->grabAttributeFrom($xpath, 'href');
-        if ($href === null || preg_match('/[?&]id=(\d+)/', $href, $matches) !== 1) {
+        $xpath = '//tr[contains(., ' . $this->xpathLiteral($commentText)
+            . ')]//*[@data-admin-delete and contains(@data-delete-url, "action=delete")]';
+        $deleteUrl = $I->grabAttributeFrom($xpath, 'data-delete-url');
+        if ($deleteUrl === null || preg_match('/[?&]id=(\d+)/', $deleteUrl, $matches) !== 1) {
             throw new \RuntimeException(sprintf('Cannot determine the ID for comment "%s".', $commentText));
         }
 

@@ -64,10 +64,10 @@ $lang_install = array(
 // Used in the install
 'Site name'					=>	'Register',
 'Main Page'					=>	'Main page',
-'Welcome title'				=>	'A place to write',
+'Welcome title'				=>	'A place for posts',
 'Section example'			=>	'Section 1',
 'Page example'				=>	'Page 1',
-'Welcome text'				=>	'<p>Register is a small, fast engine for a personal blog. Publish notes and permanent pages, organize them with tags, keep an archive, receive comments, and offer RSS without putting a noisy interface in front of readers.</p><h2>What is ready</h2><ul><li>Drafts and publication;</li><li>comments, moderation, and subscriptions;</li><li>images, tags, favorites, built-in search, and optional modules;</li><li>multiple authors with clear permissions;</li><li>a responsive light and dark reading theme.</li></ul><h2>Start here</h2><ol><li>Open the control panel using the lock in the footer.</li><li>Give the blog its name in Configuration.</li><li>Edit or delete this note and publish the first post.</li></ol><p>This is starting material, not a mandatory post. Register is a blog engine, not a universal site builder; its job is to keep writing, publishing, and reading pleasantly direct.</p>',
+'Welcome text'				=>	'<p>Register is a small, fast engine for a personal blog. Publish posts and permanent pages, organize them with tags, keep an archive, receive comments, and offer posts through RSS without putting a noisy interface in front of readers.</p><h2>What is ready</h2><ul><li>Post drafts and publication;</li><li>comments, moderation, and subscriptions;</li><li>images, tags, favorites, built-in search, and optional modules;</li><li>multiple authors with clear permissions;</li><li>a responsive light and dark reading theme.</li></ul><h2>Start here</h2><ol><li>Open the control panel using the lock in the footer.</li><li>Give the blog its name in Settings.</li><li>Edit or delete this post and publish your first one.</li></ol><p>This is starting content, not a mandatory post. Register is a blog engine, not a universal site builder; its job is to keep writing, publishing, and reading pleasantly direct.</p>',
 'Page text'					=>	'Register was installed successfully. Open the control panel using the lock in the footer and configure the blog.',
 
 

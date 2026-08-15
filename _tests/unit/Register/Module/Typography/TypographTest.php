@@ -186,7 +186,7 @@ final class TypographTest extends Unit
 <link rel="top" href="/" />
 <link rel="up" href="/articles/books/" />
 <link rel="next" href="/articles/books/A_Briefer_History_of_Time" />
-<link rel="alternate" type="application/rss+xml" title="Последние статьи на сайте" href="/rss.xml" />
+<link rel="alternate" type="application/rss+xml" title="Последние страницы сайта" href="/rss.xml" />
 </head>
 
 <body>

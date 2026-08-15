@@ -25,22 +25,22 @@ class TranslationProvider implements TranslationProviderInterface
                 'S2_BLOG_TITLE'         => 'Название блога',
                 'S2_BLOG_TITLE_help'    => 'Выводится в теге &lt;title&gt;, доступно в шаблонах.',
                 'Posts num'             => '{{ posts }} пост|{{ posts }} поста|{{ posts }} постов',
-                'Blog new comments'     => 'Непроверенные комментарии в блоге',
+                'Blog new comments'     => 'Непроверенные комментарии к постам',
 
                 // Tags
                 'Important tag'         => 'Важное',
                 'Important tag info'    => 'Важные теги входят в навигационные ссылки блога',
-                'Used in posts'         => '# постов',
-                'Used in posts info'    => 'Количество постов, использующих этот тег, и ссылки на них.',
+                'Used in posts'         => 'В постах',
+                'Used in posts info'    => 'Количество постов с этим тегом и ссылки на них.',
 
                 'Label'      => 'Метка',
-                'Label help' => 'К этой записи будут добавлены ссылки «см. также» на другие записи с такой же меткой.',
+                'Label help' => 'К этому посту будут добавлены ссылки «см. также» на посты с такой же меткой.',
                 'Display date'      => 'Дата для показа',
                 'Display date help' => 'Необязательно. Показывается читателям вместо внутренней даты и времени, например «лето 1977 года». Внутренняя дата по-прежнему используется для сортировки, архива, поиска и RSS.',
 
                 'Posts'         => 'Посты',
                 'New post'      => 'Новый пост',
-                'Blog comments' => 'Комменты в блоге',
+                'Blog comments' => 'Комментарии к постам',
                 'Text'          => 'Текст',
             ],
             'en' => [
@@ -48,12 +48,12 @@ class TranslationProvider implements TranslationProviderInterface
                 'S2_BLOG_TITLE'         => 'Blog title',
                 'S2_BLOG_TITLE_help'    => 'Used in &lt;title&gt; tag, available in templates.',
                 'Posts num'             => '{{ posts }} post|{{ posts }} posts',
-                'Blog new comments'     => 'Unverified comments in the blog',
+                'Blog new comments'     => 'Unverified post comments',
 
                 // Tags
                 'Important tag'         => 'Important',
                 'Important tag info'    => 'Important tags are used in the blog navigation menu',
-                'Used in posts'         => 'Used in posts',
+                'Used in posts'         => 'In posts',
                 'Used in posts info'    => 'The number of posts using this tag and links to them.',
 
                 'Label'      => 'Label',
@@ -63,7 +63,7 @@ class TranslationProvider implements TranslationProviderInterface
 
                 'Posts'         => 'Posts',
                 'New post'      => 'New post',
-                'Blog comments' => 'Blog comments',
+                'Blog comments' => 'Post comments',
                 'Text'          => 'Text',
             ],
             default => [],

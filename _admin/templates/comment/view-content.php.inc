@@ -18,7 +18,7 @@ $entityName  = match ($contentType) {
 $title = trim((string)$value);
 $typeLabel = match ($contentType) {
     ContentType::POST => $trans('Post'),
-    ContentType::PAGE => $trans('Article'),
+    ContentType::PAGE => $trans('Page'),
     null => '',
 };
 ?>

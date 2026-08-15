@@ -15,7 +15,7 @@ return [
     'See also'              => 'See also:',
     'Last blog comments'    => 'Last blog comments',
     'Last blog discussions' => 'Last blog discussions',
-    'Articles by tag'       => 'Related articles:',
+    'Posts by tag'          => 'Related posts:',
     'Year'                  => '%s year',
 
     'Navigation'   => 'Posts',

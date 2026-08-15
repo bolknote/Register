@@ -9,7 +9,7 @@ return [
 	'Fix error'                => 'Fix errors before sending the comment.',
 	'Email subject'            => 'Comment to %s',
 	'Comment sent'             => 'Comment has been sent',
-	'Comment sent info'        => '<p>Your comment has been successfully sent. It will be published after the verification.</p><p>Meanwhile, you can <a href="%1$s" id="back_to_commented">go back to the article</a> or&nbsp;visit <a href="%2$s">the main page</a>.</p>',
+	'Comment sent info'        => '<p>Your comment has been successfully sent. It will be published after the verification.</p><p>Meanwhile, you can <a href="%1$s" id="back_to_commented">return to the content</a> or&nbsp;visit <a href="%2$s">the main page</a>.</p>',
 
 	'Unsubscribed OK'          => 'You have been successfully unsubscribed',
 	'Unsubscribed OK info'     => 'You have been successfully unsubscribed from mailing comments.',
@@ -26,7 +26,7 @@ return [
     'Email pattern'            =>
 		'Hello, <name>.
 
-You have received this e-mail, because you have subscribed for the article
+You have received this e-mail because you subscribed to comments on the content
 “<title>”,
 located at the address:
 <url>
@@ -66,7 +66,7 @@ of the comment will receive your answer.',
 	'missing_text'             => 'You have forgotten to enter the comment text.',
 	'missing_nick'             => 'You have forgotten to enter your name.',
 	'long_text'                => 'The message cannot be larger than%s bytes.',
-    'links_in_text'            => 'Remove http:// or https:// from links. Author will add links to the article if they are valuable.',
+    'links_in_text'            => 'Remove http:// or https:// from links. The author will add links to the content if they are valuable.',
     'spam_message_rejected'    => 'Your comment cannot be saved because it contains spam. Please contact the author of the site if you believe this is a mistake.',
 	'long_nick'                => 'Is your name length more than 50 symbols? It is something strange...',
 	'question'                 => 'You gave the wrong answer to the question. Try again.',

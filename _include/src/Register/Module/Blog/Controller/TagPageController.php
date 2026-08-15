@@ -102,7 +102,7 @@ class TagPageController extends BlogController
 
         $art_links = $this->articles_by_tag($tagEntity->id);
         if (\count($art_links) > 0) {
-            $tagDescription .= '<p>' . $this->translator->trans('Articles by tag') . '<br />' . implode('<br />', $art_links) . '</p>';
+            $tagDescription .= '<p>' . $this->translator->trans('Posts by tag') . '<br />' . implode('<br />', $art_links) . '</p>';
         }
 
         if ($tagDescription !== '') {
@@ -158,7 +158,7 @@ class TagPageController extends BlogController
     }
 
     /**
-     * Returns the array of links to the articles with the tag specified
+     * Returns links to blog posts with the specified tag.
      * @throws DbLayerException
      * @return string[]
      */

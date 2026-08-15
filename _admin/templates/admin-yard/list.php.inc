@@ -132,7 +132,7 @@ foreach ($filterControls as $fieldName => $control) {
     <?php endif; ?>
 </section>
 <?php if ($entityName === 'Article'): ?>
-    <nav class="section-tabs" aria-label="<?= $html($trans('Page views')) ?>">
+    <nav class="section-tabs" aria-label="<?= $html($trans('Page display modes')) ?>">
         <a href="?entity=Article&action=list" aria-current="page"><?= $html($trans('List view')) ?></a>
         <a href="?entity=Site"><?= $html($trans('Structure view')) ?></a>
     </nav>

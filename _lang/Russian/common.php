@@ -37,8 +37,8 @@ return [
     'Favorite'               => 'Избранное',
 
     // RSS
-    'RSS description'        => '%s. Последние статьи.',
-    'RSS link title'         => 'Последние статьи на сайте',
+    'RSS description'        => '%s. Последние страницы.',
+    'RSS link title'         => 'Последние страницы сайта',
 
     // Comments
     'Wrote'                  => 'пишет:',

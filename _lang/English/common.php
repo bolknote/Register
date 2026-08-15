@@ -37,8 +37,8 @@ return [
     'Favorite'               => 'Favorite',
 
     // RSS
-    'RSS description'        => '%s. Last articles.',
-    'RSS link title'         => 'Last articles on the site',
+    'RSS description'        => '%s. Latest pages.',
+    'RSS link title'         => 'Latest pages on the site',
 
     // Comments
     'Wrote'                  => 'Wrote:',

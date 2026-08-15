@@ -111,7 +111,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         $articleEntity
             ->setEditTemplate('_admin/templates/article/edit.php.inc')
             ->setLimit(50)
-            ->setSingularName($this->translator->trans('Article'))
+            ->setSingularName($this->translator->trans('Page'))
             ->setEditTitle($this->translator->trans('Edit page'))
         ;
 
@@ -133,7 +133,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'select',
                 options: [
                     ContentType::POST->value => $this->translator->trans('Post'),
-                    ContentType::PAGE->value => $this->translator->trans('Article'),
+                    ContentType::PAGE->value => $this->translator->trans('Page'),
                 ],
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
@@ -271,7 +271,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 options: [
                     '' => $this->translator->trans('All'),
                     ContentType::POST->value => $this->translator->trans('Post'),
-                    ContentType::PAGE->value => $this->translator->trans('Article'),
+                    ContentType::PAGE->value => $this->translator->trans('Page'),
                 ],
             ))
             ->addFilter(new Filter(
@@ -560,7 +560,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         }
 
         $articleEntity
-            ->setPluralName($this->translator->trans('Articles'))
+            ->setPluralName($this->translator->trans('Pages'))
             ->addField(new FieldConfig(
                 name: 'id',
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT, true),
@@ -936,8 +936,8 @@ class AdminConfigProvider implements StatefulServiceInterface
                 ))
                 ->addField(new FieldConfig(
                     name: 'used_in_articles',
-                    label: $this->translator->trans('Used in articles'),
-                    hint: $this->translator->trans('Used in articles info'),
+                    label: $this->translator->trans('Used in pages'),
+                    hint: $this->translator->trans('Used in pages info'),
                     type: new VirtualFieldType(
                         "SELECT CAST(COUNT(*) AS CHAR) FROM " . $this->dbPrefix . ContentTagSchema::TABLE_NAME . " AS pt WHERE pt.content_type = '" . ContentType::PAGE->value . "' AND pt.tag_id = entity.id",
                         new LinkToEntityParams($articleEntity->getName(), ['tags'], ['name' /* tags.name */])
@@ -1149,8 +1149,8 @@ class AdminConfigProvider implements StatefulServiceInterface
                         'target_type = %1$s',
                         options: [
                             ''        => $this->translator->trans('All'),
-                            'page' => $this->translator->trans('Article comments'),
-                            'post' => $this->translator->trans('Blog comments'),
+                            'page'    => $this->translator->trans('Page comments'),
+                            'post'    => $this->translator->trans('Blog comments'),
                         ],
                     ))
                     ->addFilter(new Filter(

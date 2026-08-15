@@ -9,7 +9,7 @@
          data-ajax-url="<?= s2_htmlencode($basePath . '/_admin/ajax.php?') ?>"
          data-new-page-position="<?= s2_htmlencode((string)$param('S2_ADMIN_NEW_POS')) ?>">
     <h1><?= $trans('Page structure') ?></h1>
-    <nav class="section-tabs" aria-label="<?= s2_htmlencode($trans('Page views')) ?>">
+    <nav class="section-tabs" aria-label="<?= s2_htmlencode($trans('Page display modes')) ?>">
         <a href="?entity=Article&amp;action=list"><?= s2_htmlencode($trans('List view')) ?></a>
         <a href="?entity=Site" aria-current="page"><?= s2_htmlencode($trans('Structure view')) ?></a>
     </nav>
@@ -30,7 +30,7 @@
         <a href="#" id="context_comments" class="context-action context-link comments"
            title="<?= $trans('Comments') ?>" aria-label="<?= $trans('Comments') ?>"><span aria-hidden="true">💬</span></a>
         <button type="button" id="context_add" class="context-action"
-                title="<?= $trans('Create subarticle') ?>" aria-label="<?= $trans('Create subarticle') ?>"><span aria-hidden="true">＋</span></button>
+                title="<?= $trans('Create child page') ?>" aria-label="<?= $trans('Create child page') ?>"><span aria-hidden="true">＋</span></button>
         <button type="button" id="context_delete" class="context-action is-dangerous"
                 title="<?= $trans('Delete') ?>" aria-label="<?= $trans('Delete') ?>"><span aria-hidden="true">−</span></button>
     </span>
