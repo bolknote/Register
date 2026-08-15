@@ -737,7 +737,10 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->markAsDefault()
             ->setEnabledActions([
                 FieldConfig::ACTION_LIST,
-                ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_CREATE_ARTICLES) ? [FieldConfig::ACTION_EDIT] : [],
+                ...$this->permissionChecker->isGrantedAny(
+                    PermissionChecker::PERMISSION_CREATE_ARTICLES,
+                    PermissionChecker::PERMISSION_EDIT_SITE,
+                ) ? [FieldConfig::ACTION_EDIT] : [],
             ])// new and delete actions are on a custom structure page, disable them here
             ->setReadAccessControl(
                 $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)

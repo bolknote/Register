@@ -31,11 +31,16 @@ final readonly class BulkListActionProvider
     /** @return list<string> */
     public function actionsFor(string $entityName): array
     {
+        $canEditContent = $this->permissionChecker->isGrantedAny(
+            PermissionChecker::PERMISSION_CREATE_ARTICLES,
+            PermissionChecker::PERMISSION_EDIT_SITE,
+        );
+
         return match ($entityName) {
-            'Article' => $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_CREATE_ARTICLES)
+            'Article' => $canEditContent
                 ? [self::ACTION_PUBLISH, self::ACTION_UNPUBLISH]
                 : [],
-            'BlogPost' => $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_CREATE_ARTICLES)
+            'BlogPost' => $canEditContent
                 ? [self::ACTION_PUBLISH, self::ACTION_UNPUBLISH, self::ACTION_DELETE]
                 : [],
             'Comment' => [

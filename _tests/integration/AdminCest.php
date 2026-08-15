@@ -195,6 +195,110 @@ class AdminCest
         $I->dontSee('REGISTER_LINK_INVENTORY_GENERATION');
     }
 
+    public function testNavigationRemainsCoherentForIndependentPermissions(\IntegrationTester $I): void
+    {
+        $roles = [
+            'guest'           => ['Pages', false, false],
+            'power_guest'     => ['Overview', false, true],
+            'moderator'       => ['Pages', false, false],
+            'power_moderator' => ['Pages', false, false],
+            'author'          => ['Pages', true, false],
+            'editor'          => ['Pages', false, false],
+        ];
+
+        foreach ($roles as $role => [$heading, $canCreate, $canSeeSettings]) {
+            $I->login($role, $role);
+            $I->amOnPage('https://localhost/_admin/index.php');
+
+            $I->see($heading, 'h1');
+            $I->seeElement('details[data-menu-group="Materials"]');
+            $I->seeElement('details[data-menu-group="Moderation"]');
+            if ($canCreate) {
+                $I->seeElement('li[data-menu-key="NewPost"]');
+            } else {
+                $I->dontSeeElement('li[data-menu-key="NewPost"]');
+            }
+            if ($canSeeSettings) {
+                $I->seeElement('details[data-menu-group="Settings"]');
+            } else {
+                $I->dontSeeElement('details[data-menu-group="Settings"]');
+            }
+
+            $I->logout();
+        }
+    }
+
+    public function testEditorCanEditExistingContentWithoutReceivingAuthorTools(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
+            'content_type' => ':content_type',
+            'slug_scope'   => "'root'",
+            'slug'         => "'editor-role-post'",
+            'title'        => "'Editor role post'",
+            'excerpt'      => "''",
+            'body'         => "'<p>Editor role post</p>'",
+            'created_at'   => ':published_at',
+            'published_at' => ':published_at',
+            'updated_at'   => ':published_at',
+            'published'    => '1',
+        ])->execute([
+            'content_type' => ContentType::POST->value,
+            'published_at' => time(),
+        ]);
+
+        $I->login('editor', 'editor');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
+        $I->dontSeeElement('li[data-menu-key="NewPost"]');
+        $I->dontSeeElement('a.entity-action-new');
+        $I->see('Editor role post');
+        $I->seeElement('a.list-action-link-edit');
+        $I->seeElement('button.list-action-link-delete[data-admin-delete]');
+        $I->seeElement('[data-bulk-action] option[value="publish"]');
+        $I->seeElement('[data-bulk-action] option[value="unpublish"]');
+        $I->seeElement('[data-bulk-action] option[value="delete"]');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Article&action=list');
+        $I->seeElement('a.list-action-link-edit');
+        $I->seeElement('[data-bulk-action] option[value="publish"]');
+        $I->seeElement('[data-bulk-action] option[value="unpublish"]');
+        $I->dontSeeElement('[data-bulk-action] option[value="delete"]');
+    }
+
+    public function testAdminColorSchemeFollowsSelectedSiteStyle(\IntegrationTester $I): void
+    {
+        /** @var DynamicConfigProvider $configProvider */
+        $configProvider = $I->grabAdminService(DynamicConfigProvider::class);
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        $originalStyle = (string)$configProvider->get('S2_STYLE');
+
+        $I->login('admin', 'admin');
+
+        try {
+            foreach (['oldschool' => 'light', 'register' => 'light dark'] as $style => $colorScheme) {
+                $dbLayer->update('config')
+                    ->set('value', ':value')->setParameter('value', $style)
+                    ->where('name = :name')->setParameter('name', 'S2_STYLE')
+                    ->execute()
+                ;
+                $configProvider->regenerate();
+
+                $I->amOnPage('https://localhost/_admin/index.php?entity=Dashboard');
+                $I->seeElement(sprintf('html[data-color-scheme="%s"]', $colorScheme));
+            }
+        } finally {
+            $dbLayer->update('config')
+                ->set('value', ':value')->setParameter('value', $originalStyle)
+                ->where('name = :name')->setParameter('name', 'S2_STYLE')
+                ->execute()
+            ;
+            $configProvider->regenerate();
+        }
+    }
+
     public function testSettingsDistinguishStoredAndAppliedValues(\IntegrationTester $I): void
     {
         /** @var DynamicConfigProvider $configProvider */

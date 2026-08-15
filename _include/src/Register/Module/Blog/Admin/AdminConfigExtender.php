@@ -257,7 +257,11 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ))
             ->setEnabledActions([
                 FieldConfig::ACTION_LIST,
-                ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_CREATE_ARTICLES) ? [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_DELETE, FieldConfig::ACTION_NEW] : [],
+                ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_CREATE_ARTICLES) ? [FieldConfig::ACTION_NEW] : [],
+                ...$this->permissionChecker->isGrantedAny(
+                    PermissionChecker::PERMISSION_CREATE_ARTICLES,
+                    PermissionChecker::PERMISSION_EDIT_SITE,
+                ) ? [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_DELETE] : [],
             ])
             ->setReadAccessControl(
                 $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)
