@@ -515,7 +515,7 @@ window.makeInlineForm = function (formId, unknownErrorMessage) {
             });
         }
         form.classList.add('has-errors');
-        setState('error', errors.join(' '));
+        setState('error', validationHolder ? '' : errors.join(' '));
     }
 
     async function sendData() {
