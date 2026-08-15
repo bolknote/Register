@@ -33,7 +33,8 @@ final class ContentSecurityPolicy
         . "object-src 'none'; "
         . "script-src 'self'; "
         . "script-src-attr 'none'; "
-        . "style-src 'self' 'unsafe-inline'; "
+        . "style-src 'self' 'unsafe-eval'; "
+        . "style-src-attr 'none'; "
         . "worker-src 'self' blob:";
 
     private const string REPORT_ONLY_POLICY_SUFFIX = "frame-src 'self' blob: https:; "
@@ -42,7 +43,7 @@ final class ContentSecurityPolicy
         . "object-src 'none'; "
         . "script-src 'self'; "
         . "script-src-attr 'none'; "
-        . "style-src 'self'; "
+        . "style-src 'self' 'unsafe-eval'; "
         . "style-src-attr 'none'; "
         . "worker-src 'self' blob:";
 

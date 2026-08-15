@@ -23,6 +23,12 @@ class TemplateFinalReplaceEvent
         $this->hash     .= md5($value);
     }
 
+    public function setTemplate(string $template): void
+    {
+        $this->template = $template;
+        $this->hash    .= md5($template);
+    }
+
     public function getHash(): string
     {
         return $this->hash;

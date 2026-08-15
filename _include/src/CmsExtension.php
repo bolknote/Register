@@ -18,6 +18,7 @@ use Register\Content\ContentPublicationScheduler;
 use Register\Http\ContentSecurityPolicy;
 use Register\Http\CspViolationReportController;
 use Register\Http\CspViolationReporter;
+use Register\Http\InlineStyleAttributeStripper;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use S2\Cms\Asset\AssetMergeFactory;
 use S2\Cms\Comment\AkismetProxy;
@@ -97,6 +98,7 @@ use S2\Cms\Queue\ShutdownWorkCoordinator;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
 use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\TemplateEvent;
+use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplateFinalReplaceEvent;
 use S2\Cms\Template\Viewer;
 use S2\Cms\Translation\ExtensibleTranslator;
@@ -288,6 +290,7 @@ class CmsExtension implements ExtensionInterface
         $container->set(CspViolationReportController::class, static fn(Container $container): CspViolationReportController => new CspViolationReportController(
             $container->get(CspViolationReporter::class),
         ));
+        $container->set(InlineStyleAttributeStripper::class, static fn(): InlineStyleAttributeStripper => new InlineStyleAttributeStripper());
         $container->set(\Register\Comment\CommentSubscriptionService::class, static fn(Container $container): \Register\Comment\CommentSubscriptionService => new \Register\Comment\CommentSubscriptionService(
             $container->get(\Register\Comment\CommentRepository::class),
             $container->get(SpamIdentityHasher::class),
@@ -742,6 +745,11 @@ class CmsExtension implements ExtensionInterface
             $event->htmlTemplate->registerPlaceholder('<!-- s2_debug -->', $s2DebugOutput);
         });
 
+        $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
+            $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $event->assetPack->addCss($basePath . '/_assets/register/content-security.css');
+        });
+
         $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, function (TemplateFinalReplaceEvent $event) use ($container): void {
             $content = '';
             $request = $container->get(RequestStack::class)->getCurrentRequest();
@@ -766,6 +774,10 @@ class CmsExtension implements ExtensionInterface
 
             $event->replace('<!-- s2_querytime -->', $content);
         }, -256);
+
+        $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, static function (TemplateFinalReplaceEvent $event) use ($container): void {
+            $event->setTemplate($container->get(InlineStyleAttributeStripper::class)->strip($event->template));
+        }, -512);
     }
 
     #[\Override]

@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class ContentSecurityPolicyTest extends Unit
 {
-    public function testAppliesAnEnforcedScriptPolicy(): void
+    public function testAppliesEnforcedScriptAndStylePolicies(): void
     {
         $response = new Response();
 
@@ -39,6 +39,9 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertStringContainsString("base-uri 'none'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("object-src 'none'", ContentSecurityPolicy::POLICY);
         self::assertStringNotContainsString("script-src 'self' 'unsafe-inline'", ContentSecurityPolicy::POLICY);
+        self::assertStringContainsString("style-src 'self' 'unsafe-eval'", ContentSecurityPolicy::POLICY);
+        self::assertStringContainsString("style-src-attr 'none'", ContentSecurityPolicy::POLICY);
+        self::assertStringNotContainsString("'unsafe-inline'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("style-src 'self'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
         self::assertStringContainsString("style-src-attr 'none'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
         self::assertStringNotContainsString("'unsafe-inline'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
