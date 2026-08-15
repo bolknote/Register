@@ -87,6 +87,23 @@ final class ViewerTest extends Unit
         $viewer->render('search', [], '../outside');
     }
 
+    public function testDebugOutputUsesNativeDetailsWithoutInlineStyles(): void
+    {
+        $viewer = new Viewer(
+            self::createStub(TranslatorInterface::class),
+            new UrlBuilder('', '', ''),
+            \dirname(__DIR__, 4) . '/',
+            $this->styleProxy(),
+            true,
+        );
+
+        $html = $viewer->render('search', ['query' => '', 'action' => '/search'], SearchModule::class);
+
+        self::assertStringContainsString('<details class="view-debug-details">', $html);
+        self::assertStringContainsString('&quot;query&quot;: &quot;&quot;', $html);
+        self::assertDoesNotMatchRegularExpression('~\sstyle\s*=~i', $html);
+    }
+
     private function styleProxy(): \S2\Cms\Config\StringProxy
     {
         $provider = new DynamicConfigProvider();

@@ -132,6 +132,21 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertDoesNotMatchRegularExpression('~\sstyle\s*=~i', $source);
     }
 
+    public function testDebugMarkupDoesNotRequireInlineStyles(): void
+    {
+        $root = dirname(__DIR__, 4);
+        foreach ([
+            $root . '/_include/src/Template/Viewer.php',
+            $root . '/_include/src/Template/HtmlTemplate.php',
+            $root . '/_include/views/debug_queries.php',
+        ] as $filename) {
+            $source = file_get_contents($filename);
+            self::assertIsString($source);
+            self::assertDoesNotMatchRegularExpression('~<style\b~i', $source, $filename);
+            self::assertDoesNotMatchRegularExpression('~\sstyle\s*=~i', $source, $filename);
+        }
+    }
+
     /**
      * @param list<string> $paths
      * @return \Generator<string>

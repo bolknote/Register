@@ -59,11 +59,10 @@ class Viewer
         ob_start();
 
         if ($this->debug) {
-            echo '<div style="border: 1px solid rgba(0, 0, 0, 0.15); margin: 1px; position: relative;">',
-            '<pre data-view-debug-toggle style="opacity: 0.4; background: darkgray; color: white; position: absolute; z-index: 10000; right: 0; cursor: pointer; text-decoration: underline; padding: 0.1em 0.65em;">', $name, '</pre>',
-            '<pre style="display: none; font-size: 12px; line-height: 1.3; color: #9e9; background: #003;">';
-            echo self::jsonFormat($vars);
-            echo '</pre>';
+            echo '<div class="view-debug-block"><details class="view-debug-details">',
+                '<summary><code>', s2_htmlencode($name), '</code></summary><pre>',
+                self::jsonFormat($vars),
+                '</pre></details>';
         }
 
         if ($foundFile !== null) {
@@ -147,42 +146,12 @@ class Viewer
     /**
      * @throws \JsonException
      */
-    private static function jsonFormat(mixed $vars, int $level = 0): string
+    private static function jsonFormat(mixed $vars): string
     {
-        if (\is_array($vars)) {
-            if (!array_is_list($vars)) {
-                $s = "<span style='color:grey'>{</span>\n";
-                $i = \count($vars);
-                foreach ($vars as $k => $v) {
-                    --$i;
-                    $s .= sprintf("%s<span style='color:grey'>\"</span>%s<span style='color:grey'>\":</span> %s<span style='color:grey'>%s</span>\n",
-                        str_pad(' ', ($level + 1) * 4),
-                        s2_htmlencode($k),
-                        self::jsonFormat($v, $level + 1),
-                        $i > 0 ? ',' : ''
-                    );
-                }
-
-                return $s . str_pad(' ', $level * 4) . '<span style="color:grey">}</span>';
-            }
-
-            $s = "<span style='color:grey'>[</span>\n";
-            $i = \count($vars);
-            foreach ($vars as $v) {
-                --$i;
-                $s .= \sprintf("%s%s<span style='color:grey'>%s</span>\n",
-                    str_pad(' ', ($level + 1) * 4),
-                    self::jsonFormat($v, $level + 1),
-                    $i > 0 ? ',' : ''
-                );
-            }
-
-            return $s . str_pad(' ', $level * 4) . '<span style="color:grey">]</span>';
-        }
-
-        $str = s2_htmlencode(json_encode($vars, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-
-        return str_replace(["\r", "\n"], ['', "\n" . str_pad(' ', $level * 4)], $str);
+        return s2_htmlencode(json_encode(
+            $vars,
+            JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+        ));
     }
 
     /**

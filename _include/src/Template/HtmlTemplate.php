@@ -223,8 +223,8 @@ class HtmlTemplate
                 '<!-- s2_styles -->',
             ], true)) {
 
-                $title = '<pre style="color: red; font-size: 12px; opacity: 0.6; margin: 0 -100% 0 0; width: 100%; text-align: center; line-height: 1; position: relative; float: left; z-index: 1000; pointer-events: none;">' . s2_htmlencode($what) . '</pre>';
-                $to    = '<div style="border: 1px solid rgba(255, 0, 0, 0.4); margin: 1px;">' .
+                $title = '<pre class="template-debug-label">' . s2_htmlencode($what) . '</pre>';
+                $to    = '<div class="template-debug-block">' .
                     $title . $to .
                     '</div>';
             }
