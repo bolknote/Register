@@ -241,7 +241,7 @@ class DynamicConfigFormBuilder
             'style' => new FieldConfig(
                 'value',
                 control: 'select',
-                options: array_combine($styles = $this->resourceProvider->readStyles(), $styles),
+                options: $this->resourceProvider->readStyleOptions($this->translator->getLocale()),
                 inlineEdit: $inlineEdit
             ),
             'antispam_mode' => new FieldConfig(

@@ -162,6 +162,25 @@ pre {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+tt,
+tt * {
+    font-family: "Fira Code", Consolas, Menlo, "Courier New", monospace;
+}
+
+tt {
+    margin: 0;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    background-color: rgb(27 31 35 / 5%);
+    font-size: 85%;
+}
+
+@media (prefers-color-scheme: dark) {
+    tt {
+        background-color: rgb(110 118 129 / 40%);
+    }
+}
+
 code,
 kbd {
     padding: 0.08em 0.3em;

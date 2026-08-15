@@ -12,9 +12,6 @@ Current product assets:
   variants.
 - `_styles/pixel-forest/forest-header.svg` and `favicon.svg` are original, repository-native pixel
   artwork created for the Pixel Forest theme. They have no external source material or bundled font.
-- `_styles/merlin/merlin-header.svg` and `favicon.svg` are original, repository-native artwork
-  created for the Merlin theme. The magical writing-desk motif is a new illustration; no Microsoft
-  Agent character artwork, Office assets, or bundled font is included.
 - `_include/src/Register/Module/Analytics/resources/counter-pattern.png` is inherited from the S2
   repository (`_extensions/s2_counter/pattern.png`) and remains byte-for-byte identical.
 - `_admin/i/*` are inherited S2 administration assets and predate Register.

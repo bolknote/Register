@@ -62,4 +62,53 @@ readonly class ResourceProvider
 
         return $result;
     }
+
+    /**
+     * Styles available in current S2 installation, indexed by their stable identifiers.
+     *
+     * @return array<string, string>
+     */
+    public function readStyleOptions(string $locale): array
+    {
+        $result = [];
+
+        foreach ($this->readStyles() as $style) {
+            $result[$style] = $this->readStyleName($style, $locale);
+        }
+
+        return $result;
+    }
+
+    private function readStyleName(string $style, string $locale): string
+    {
+        $fallbackName = ucfirst(str_replace(['-', '_'], ' ', $style));
+        $metadataFile = $this->rootDir . '_styles/' . $style . '/style.json';
+        $contents     = @file_get_contents($metadataFile);
+
+        if ($contents === false) {
+            return $fallbackName;
+        }
+
+        try {
+            $metadata = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return $fallbackName;
+        }
+
+        if (!\is_array($metadata) || !isset($metadata['name']) || !\is_array($metadata['name'])) {
+            return $fallbackName;
+        }
+
+        $normalizedLocale = strtolower(str_replace('_', '-', trim($locale)));
+        $language         = explode('-', $normalizedLocale, 2)[0];
+
+        foreach (array_unique([$normalizedLocale, $language, 'en']) as $candidate) {
+            $name = $metadata['name'][$candidate] ?? null;
+            if (\is_string($name) && trim($name) !== '') {
+                return trim($name);
+            }
+        }
+
+        return $fallbackName;
+    }
 }

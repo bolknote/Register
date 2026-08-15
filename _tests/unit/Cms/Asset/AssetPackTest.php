@@ -49,15 +49,12 @@ final class AssetPackTest extends Unit
         $register = require $rootDir . '_styles/register/register.php';
         $oldschool = require $rootDir . '_styles/oldschool/oldschool.php';
         $pixelForest = require $rootDir . '_styles/pixel-forest/pixel-forest.php';
-        $merlin = require $rootDir . '_styles/merlin/merlin.php';
 
         self::assertInstanceOf(AssetPack::class, $register);
         self::assertInstanceOf(AssetPack::class, $oldschool);
         self::assertInstanceOf(AssetPack::class, $pixelForest);
-        self::assertInstanceOf(AssetPack::class, $merlin);
         self::assertSame(AssetPack::COLOR_SCHEME_SYSTEM, $register->getColorScheme());
         self::assertSame(AssetPack::COLOR_SCHEME_LIGHT, $oldschool->getColorScheme());
         self::assertSame(AssetPack::COLOR_SCHEME_DARK, $pixelForest->getColorScheme());
-        self::assertSame(AssetPack::COLOR_SCHEME_LIGHT, $merlin->getColorScheme());
     }
 }

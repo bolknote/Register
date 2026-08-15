@@ -57,7 +57,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Scheduled publishing | Available | The editor stores a future publication time; the request-driven shutdown queue publishes due content in bounded batches and updates dependent views and search. |
 | Backdated publishing | Available | The creation timestamp is editable. |
 | Rename a media file from the editor | Partial | Available through the picture manager rather than directly on an editor media fragment. |
-| Ten bundled themes | Partial | Register bundles four first-party choices: Register, Oldschool, Pixel Forest, and Merlin. |
+| Ten bundled themes | Partial | Register bundles three first-party choices: Register, Oldschool, and Pixel Forest. |
 | Bundled dark themes | Available | The Register theme follows the operating-system light/dark preference. |
 | Custom themes and view overrides | Available | Themes, templates, views, and extensions are replaceable. |
 | CSS variables and responsive layout | Available | Used by the bundled Register theme. |
