@@ -39,10 +39,15 @@ readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
             ->setServicePage('Dashboard', fn(): string => $this->templateRenderer->render(
                 '_admin/templates/dashboard/dashboard.php.inc',
                 [
-                    'dashboardStatProviders'  => $this->dashboardStatProviders,
+                    'dashboardStatProviders' => $this->dashboardStatProviders,
+                ]
+            ), 30, 'Overview')
+            ->setServicePage('Statistics', fn(): string => $this->templateRenderer->render(
+                '_admin/templates/dashboard/statistics.php.inc',
+                [
                     'dashboardBlockProviders' => $this->dashboardBlockProviders,
                 ]
-            ), 30, 'Search & statistics')
+            ), 31, 'Analytics')
         ;
     }
 }

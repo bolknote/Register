@@ -1,7 +1,6 @@
 <?php
 /** @var callable $trans */
 /** @var \S2\Cms\Admin\Dashboard\DashboardStatProviderInterface[] $dashboardStatProviders */
-/** @var \S2\Cms\Admin\Dashboard\DashboardBlockProviderInterface[] $dashboardBlockProviders */
 ?>
 <header class="dashboard-header">
     <h1 id="dashboard-title"><?= $trans('Overview') ?></h1>
@@ -15,8 +14,3 @@
         ?>
     </div>
 </section>
-<?php
-foreach ($dashboardBlockProviders as $dashboardProvider) {
-    echo $dashboardProvider->getHtml();
-}
-?>

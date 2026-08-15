@@ -14,6 +14,7 @@ use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Model\AuthManager;
+use S2\Cms\Model\PermissionChecker;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
@@ -50,6 +51,13 @@ readonly class AdminRequestHandler
 
         $response = $this->authManager->checkAuth($request);
         if (!$response instanceof \Symfony\Component\HttpFoundation\Response) {
+            if (!$request->query->has('entity')
+                && !$request->query->has('path')
+                && $request->query->getString('action') === ''
+                && $this->container->get(PermissionChecker::class)->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
+                $request->query->set('entity', 'Dashboard');
+            }
+
             if ($request->query->has('path') && !$request->query->has('entity')) {
                 // Redirect from public pages to the admin panel.
                 // Listeners must modify the request if they recognize the path.

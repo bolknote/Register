@@ -13,7 +13,7 @@
     data-load-failed="<?= htmlspecialchars($trans('Unable to load analytics'), ENT_QUOTES, 'UTF-8') ?>"
     data-day="<?= htmlspecialchars($trans('Analytics day'), ENT_QUOTES, 'UTF-8') ?>"
 >
-    <h2><?= $trans('Analytics') ?></h2>
+    <h2><?= $trans('Traffic') ?></h2>
     <div class="analytics-summary" aria-label="<?= htmlspecialchars($trans('Unique visitors'), ENT_QUOTES, 'UTF-8') ?>">
         <strong class="analytics-summary-value"><?= $uniqueVisitorsTotal ?></strong>
         <span><?= $trans('Unique visitors') ?></span>

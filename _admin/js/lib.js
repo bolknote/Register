@@ -390,6 +390,39 @@ function LoginInit() {
 document.addEventListener('DOMContentLoaded', () => {
     localizeTimes();
 
+    const menuGroups = Array.from(document.querySelectorAll('details[data-menu-group]'));
+    menuGroups.forEach(function (group) {
+        group.addEventListener('toggle', function () {
+            if (!group.open) {
+                return;
+            }
+            menuGroups.forEach(function (otherGroup) {
+                if (otherGroup !== group) {
+                    otherGroup.open = false;
+                }
+            });
+        });
+    });
+    document.addEventListener('click', function (event) {
+        if (event.target.closest('details[data-menu-group]')) {
+            return;
+        }
+        menuGroups.forEach(function (group) {
+            group.open = false;
+        });
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') {
+            return;
+        }
+        const openGroup = document.querySelector('details[data-menu-group][open]');
+        if (!openGroup) {
+            return;
+        }
+        openGroup.open = false;
+        openGroup.querySelector('summary')?.focus();
+    });
+
     const loginForm = document.forms.loginform;
     if (document.body.classList.contains('login_page') && loginForm) {
         LoginInit();

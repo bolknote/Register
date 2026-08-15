@@ -40,6 +40,21 @@ class AdminCest
     public function testRegisterAdminShellAndListDensity(\IntegrationTester $I): void
     {
         $I->login('admin', 'admin');
+
+        $I->amOnPage('https://localhost/_admin/index.php');
+        $I->see('Overview', 'h1#dashboard-title');
+        $I->seeElement('details[data-menu-group="Materials"]');
+        $I->seeElement('details[data-menu-group="Comments"]');
+        $I->seeElement('details[data-menu-group="Settings"]');
+        $I->seeElement('details[data-menu-group="Account"]');
+        $I->dontSeeElement('details.main-menu-system');
+        $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=BlogPost&action=list"]');
+        $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Article&action=list"]');
+        $I->seeElement('details[data-menu-group="Materials"] a[href="pictman.php"]');
+        $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Tag&action=list"]');
+        $I->seeElement('details[data-menu-group="Account"] a[href^="?entity=User&action=edit&id="]');
+        $I->seeElement('details[data-menu-group="Account"] a[href="?entity=Session&action=list"]');
+
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
 
         $I->seeElement('link[rel="stylesheet"][href^="/_admin/css/register.css?v="]');
@@ -68,8 +83,8 @@ class AdminCest
         $I->see('page', '.publication-statistics li:first-child');
         $I->see('post', '.publication-statistics li:last-child');
         $I->see('comment', '.publication-comments');
-        $I->seeElement('[data-analytics-table="register-analytics-pages"]');
-        $I->seeElement('[data-analytics-table="register-analytics-feeds"]');
+        $I->dontSeeElement('[data-analytics-table="register-analytics-pages"]');
+        $I->dontSeeElement('[data-analytics-table="register-analytics-feeds"]');
         $I->see('Environment', '.environment-stat-item h3');
         $I->see('PHP', '.environment-stat-item dt');
         $I->see('Database', '.environment-stat-item');
@@ -78,6 +93,20 @@ class AdminCest
         $I->dontSee('Register source code', '.stat-items');
         $I->dontSee('Register is based on', '.stat-items');
         $I->dontSee('© 2007–');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Statistics');
+        $I->see('Analytics', 'h1#statistics-title');
+        $I->see('Traffic', '.register-analytics h2');
+        $I->seeElement('[data-analytics-table="register-analytics-pages"]');
+        $I->seeElement('[data-analytics-table="register-analytics-feeds"]');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Article&action=list');
+        $I->seeElement('nav.section-tabs a[aria-current="page"][href="?entity=Article&action=list"]');
+        $I->seeElement('nav.section-tabs a[href="?entity=Site"]');
+        $I->seeElement('details.filter-panel:not([open])');
+        $I->seeElement('label[for="filter-Article-search"]');
+        $I->seeElement('fieldset.filter-control-radio > legend.filter-label');
+        $I->dontSeeElement('.pagination');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Queue&action=list');
         $I->see('Queue', 'h1');
@@ -102,6 +131,7 @@ class AdminCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Site');
         $I->see('Page structure', 'h1');
+        $I->seeElement('nav.section-tabs a[aria-current="page"][href="?entity=Site"]');
         $I->seeElement('.admin-structure > .structure-toolbar');
         $I->dontSeeElement('.admin-structure > .toolbar');
         $I->seeElement('button#create_page_button');

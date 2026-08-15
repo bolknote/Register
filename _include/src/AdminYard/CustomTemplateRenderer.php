@@ -22,6 +22,7 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
     private const array ADMIN_YARD_TEMPLATE_OVERRIDES = [
         'edit.php.inc'             => '_admin/templates/admin-yard/edit.php.inc',
         'inline_form_cell.php.inc' => '_admin/templates/admin-yard/inline_form_cell.php.inc',
+        'list.php.inc'             => '_admin/templates/admin-yard/list.php.inc',
         'list-actions.php.inc'     => '_admin/templates/admin-yard/list-actions.php.inc',
         'show.php.inc'             => '_admin/templates/admin-yard/show.php.inc',
     ];

@@ -9,6 +9,10 @@
          data-ajax-url="<?= s2_htmlencode($basePath . '/_admin/ajax.php?') ?>"
          data-new-page-position="<?= s2_htmlencode((string)$param('S2_ADMIN_NEW_POS')) ?>">
     <h1><?= $trans('Page structure') ?></h1>
+    <nav class="section-tabs" aria-label="<?= s2_htmlencode($trans('Page views')) ?>">
+        <a href="?entity=Article&amp;action=list"><?= s2_htmlencode($trans('List view')) ?></a>
+        <a href="?entity=Site" aria-current="page"><?= s2_htmlencode($trans('Structure view')) ?></a>
+    </nav>
     <div class="structure-toolbar">
         <button type="button" class="tree-tool expand"
                 title="<?php echo $trans('Expand'); ?>" aria-label="<?php echo $trans('Expand'); ?>">⤢</button>
