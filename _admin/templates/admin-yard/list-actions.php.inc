@@ -11,6 +11,10 @@ declare(strict_types = 1);
 
 $html = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 
+if ((bool)$row['virtual_write_access_control']) {
+    ?><span hidden data-bulk-row-permitted></span><?php
+}
+
 foreach ($rowActions as $action) {
     if (!$row['virtual_write_access_control'] && ($action['name'] === 'edit' || $action['name'] === 'delete')) {
         continue;

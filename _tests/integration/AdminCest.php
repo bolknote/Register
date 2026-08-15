@@ -269,6 +269,86 @@ class AdminCest
         $I->dontSee('Needs review', '.saved-list-views');
     }
 
+    /** @throws \JsonException */
+    public function testBulkListActionsPublishContentThroughOneProtectedRequest(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        $content = $dbLayer
+            ->select('id, published, published_at, scheduled_at')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+            ->limit(1)
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $I->assertIsArray($content);
+        $contentId        = (int)$content['id'];
+        $originallyPublic = (bool)$content['published'];
+        $firstAction      = $originallyPublic ? 'unpublish' : 'publish';
+        $restoreAction    = $originallyPublic ? 'publish' : 'unpublish';
+
+        try {
+            $I->login('admin', 'admin');
+            $I->amOnPage('https://localhost/_admin/index.php?entity=Article&action=list');
+            $I->seeElement('[data-bulk-list]');
+            $I->seeElement('[data-bulk-select-all]');
+            $I->seeElement('[data-bulk-action] option[value="publish"]');
+            $I->seeElement('[data-bulk-action] option[value="unpublish"]');
+            $I->dontSeeElement('[data-bulk-action] option[value="delete"]');
+
+            $csrfToken = $I->grabAttributeFrom('[data-bulk-list]', 'data-csrf-token');
+            $I->assertNotNull($csrfToken);
+            $items = json_encode([[
+                'primary_key' => ['id' => $contentId],
+                'csrf_token'  => '',
+            ]], JSON_THROW_ON_ERROR);
+
+            $I->sendPost('https://localhost/_admin/ajax.php?action=register_bulk_list_action', [
+                'entity'      => 'Article',
+                'bulk_action' => $firstAction,
+                'csrf_token'  => 'invalid',
+                'items'       => $items,
+            ]);
+            $I->seeResponseCodeIs(403);
+
+            $I->sendPost('https://localhost/_admin/ajax.php?action=register_bulk_list_action', [
+                'entity'      => 'Article',
+                'bulk_action' => $firstAction,
+                'csrf_token'  => $csrfToken,
+                'items'       => $items,
+            ]);
+            $I->seeResponseCodeIs(200);
+            $I->assertJsonSubResponseEquals(1, ['updated']);
+            $I->assertSame($originallyPublic ? 0 : 1, $this->contentPublishedState($dbLayer, $contentId));
+
+            $I->sendPost('https://localhost/_admin/ajax.php?action=register_bulk_list_action', [
+                'entity'      => 'Article',
+                'bulk_action' => $restoreAction,
+                'csrf_token'  => $csrfToken,
+                'items'       => $items,
+            ]);
+            $I->seeResponseCodeIs(200);
+            $I->assertJsonSubResponseEquals(1, ['updated']);
+            $I->assertSame($originallyPublic ? 1 : 0, $this->contentPublishedState($dbLayer, $contentId));
+
+            /** @var \S2\Cms\AdminYard\BulkListActionProvider $provider */
+            $provider = $I->grabAdminService(\S2\Cms\AdminYard\BulkListActionProvider::class);
+            $I->assertSame(['publish', 'unpublish', 'delete'], $provider->actionsFor('BlogPost'));
+            $I->assertSame(['publish', 'unpublish'], $provider->actionsFor('Article'));
+            $I->assertSame(['ham', 'spam', 'reject', 'delete'], $provider->actionsFor('Comment'));
+        } finally {
+            $dbLayer
+                ->update(ContentSchema::TABLE_NAME)
+                ->set('published', ':published')->setParameter('published', (int)$content['published'])
+                ->set('published_at', ':published_at')->setParameter('published_at', $content['published_at'])
+                ->set('scheduled_at', ':scheduled_at')->setParameter('scheduled_at', $content['scheduled_at'])
+                ->where('id = :id')->setParameter('id', $contentId)
+                ->execute()
+            ;
+        }
+    }
+
     public function testNewPostUsesEditorialEditor(\IntegrationTester $I): void
     {
         $I->login('admin', 'admin');
@@ -725,6 +805,19 @@ class AdminCest
         $method = new \ReflectionMethod(AuthManager::class, 'shouldUseSecureCookies');
 
         $I->assertSame($expected, $method->invoke($authManager, Request::create($url)));
+    }
+
+    private function contentPublishedState(DbLayer $dbLayer, int $contentId): int
+    {
+        $row = $dbLayer
+            ->select('published')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $contentId)
+            ->execute()
+            ->fetchAssoc()
+        ;
+
+        return \is_array($row) ? (int)$row['published'] : -1;
     }
 
     private function loginResponse(AuthManager $authManager, string $login, string $password, string $clientIp): \Symfony\Component\HttpFoundation\Response

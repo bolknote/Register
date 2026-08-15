@@ -16,6 +16,7 @@ use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Transformer\ViewTransformer;
 use S2\AdminYard\Translator;
 use S2\Cms\AdminYard\CustomMenuGenerator;
+use S2\Cms\AdminYard\BulkListActionProvider;
 use S2\Cms\AdminYard\SavedListViewManager;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\PermissionChecker;
@@ -85,11 +86,12 @@ readonly class AdminPanelFactory
     private function registerSavedListViewListeners(EventDispatcher $eventDispatcher, AdminConfig $adminConfig): void
     {
         $manager = $this->container->get(SavedListViewManager::class);
+        $bulkActionProvider = $this->container->get(BulkListActionProvider::class);
         foreach ($adminConfig->getEntities() as $entityConfig) {
             $entityName = $entityConfig->getName();
             $eventDispatcher->addListener(
                 'adminyard.' . $entityName . '.' . EntityConfig::EVENT_BEFORE_LIST_RENDER,
-                static function (BeforeRenderEvent $event) use ($entityName, $manager): void {
+                static function (BeforeRenderEvent $event) use ($entityName, $manager, $bulkActionProvider): void {
                     $filterData = $event->data['filterData'] ?? [];
                     if (!\is_array($filterData)) {
                         $filterData = [];
@@ -109,6 +111,12 @@ readonly class AdminPanelFactory
                     $event->data['savedListViewState']     = $state;
                     $event->data['savedListViewCsrfToken'] = $manager->csrfToken($entityName);
                     $event->data['activeSavedListViewId']  = $manager->findMatchingViewId($entityName, $state);
+
+                    $bulkActions = $bulkActionProvider->actionsFor($entityName);
+                    if ($bulkActions !== []) {
+                        $event->data['bulkListActions']   = $bulkActions;
+                        $event->data['bulkListCsrfToken'] = $bulkActionProvider->csrfToken($entityName);
+                    }
                 },
             );
         }

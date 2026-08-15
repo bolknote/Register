@@ -8,6 +8,10 @@
 /** @var string $entityName */
 /** @var array $primaryKey */
 
+if ((bool)$row['virtual_write_access_control']) {
+    ?><span hidden data-bulk-row-permitted></span><?php
+}
+
 $spamLabel = (string)($row['column_spam_label'] ?? '');
 if ($isGranted(\S2\Cms\Model\PermissionChecker::PERMISSION_HIDE_COMMENTS)) {
     foreach ([

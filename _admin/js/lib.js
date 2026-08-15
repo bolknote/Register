@@ -706,6 +706,130 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    document.querySelectorAll('[data-bulk-list]').forEach(function (toolbar) {
+        const listContent = toolbar.closest('.list-content');
+        const actionSelect = toolbar.querySelector('[data-bulk-action]');
+        const applyButton = toolbar.querySelector('[data-bulk-apply]');
+        const status = toolbar.querySelector('[data-bulk-status]');
+        const selectionCount = toolbar.querySelector('[data-bulk-selection-count]');
+        const selectAll = listContent?.querySelector('[data-bulk-select-all]');
+        const rowCheckboxes = Array.from(listContent?.querySelectorAll('[data-bulk-row-select]') || []);
+        const dialog = listContent?.querySelector('[data-bulk-delete-dialog]');
+        const confirmButton = dialog?.querySelector('[data-bulk-confirm]');
+        const confirmCopy = dialog?.querySelector('[data-bulk-confirm-copy]');
+        let busy = false;
+
+        if (!(actionSelect instanceof HTMLSelectElement)
+            || !(applyButton instanceof HTMLButtonElement)
+            || !(selectAll instanceof HTMLInputElement)
+        ) {
+            return;
+        }
+
+        function selectedRows() {
+            return rowCheckboxes.filter(function (checkbox) {
+                return checkbox instanceof HTMLInputElement && checkbox.checked;
+            });
+        }
+
+        function updateBulkControls() {
+            const selected = selectedRows();
+            const count = selected.length;
+            if (selectionCount) {
+                selectionCount.textContent = (toolbar.dataset.selectedLabel || '{{ count }}')
+                    .replace('{{ count }}', String(count));
+            }
+            selectAll.checked = count > 0 && count === rowCheckboxes.length;
+            selectAll.indeterminate = count > 0 && count < rowCheckboxes.length;
+            applyButton.disabled = busy || count === 0 || actionSelect.value === '';
+            rowCheckboxes.forEach(function (checkbox) {
+                checkbox.closest('tr')?.classList.toggle('is-selected', checkbox.checked);
+            });
+
+            const selectedOption = actionSelect.selectedOptions[0];
+            applyButton.classList.toggle('danger', selectedOption?.hasAttribute('data-dangerous') === true);
+            applyButton.classList.toggle('secondary', selectedOption?.hasAttribute('data-dangerous') !== true);
+        }
+
+        function setBusy(isBusy) {
+            busy = isBusy;
+            actionSelect.disabled = isBusy;
+            selectAll.disabled = isBusy;
+            rowCheckboxes.forEach(function (checkbox) {
+                checkbox.disabled = isBusy;
+            });
+            updateBulkControls();
+        }
+
+        function executeBulkAction() {
+            const selected = selectedRows();
+            if (selected.length === 0 || actionSelect.value === '') {
+                return;
+            }
+            const items = selected.map(function (checkbox) {
+                return {
+                    primary_key: JSON.parse(checkbox.dataset.primaryKey || '{}'),
+                    csrf_token: checkbox.dataset.rowCsrfToken || ''
+                };
+            });
+
+            dialog?.close();
+            setBusy(true);
+            if (status) {
+                status.textContent = toolbar.dataset.runningLabel || '';
+            }
+
+            fetch((toolbar.dataset.ajaxUrl || '') + '?action=register_bulk_list_action', {
+                method: 'POST',
+                body: new URLSearchParams({
+                    entity: toolbar.dataset.entity || '',
+                    bulk_action: actionSelect.value,
+                    csrf_token: toolbar.dataset.csrfToken || '',
+                    items: JSON.stringify(items)
+                })
+            }).then(function (response) {
+                return response.json().then(function (payload) {
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'HTTP ' + response.status);
+                    }
+                    window.location.reload();
+                });
+            }).catch(function (error) {
+                setBusy(false);
+                if (status) {
+                    status.textContent = error.message || toolbar.dataset.errorLabel || '';
+                }
+            });
+        }
+
+        selectAll.addEventListener('change', function () {
+            rowCheckboxes.forEach(function (checkbox) {
+                checkbox.checked = selectAll.checked;
+            });
+            updateBulkControls();
+        });
+        rowCheckboxes.forEach(function (checkbox) {
+            checkbox.addEventListener('change', updateBulkControls);
+        });
+        actionSelect.addEventListener('change', updateBulkControls);
+        applyButton.addEventListener('click', function () {
+            const dangerous = actionSelect.selectedOptions[0]?.hasAttribute('data-dangerous') === true;
+            if (!dangerous) {
+                executeBulkAction();
+                return;
+            }
+
+            if (confirmCopy) {
+                confirmCopy.textContent = (toolbar.dataset.confirmMessage || '')
+                    .replace('{{ count }}', String(selectedRows().length));
+            }
+            dialog?.showModal();
+        });
+        confirmButton?.addEventListener('click', executeBulkAction);
+
+        updateBulkControls();
+    });
+
     document.body.addEventListener('keydown', function(e) {
         // Disable sending form on Enter on new and edit forms to prevent partial submission
         if (e.key === 'Enter' && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) {

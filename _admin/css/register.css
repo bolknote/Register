@@ -831,6 +831,112 @@ button.saved-list-view-delete:focus-visible {
     padding-top: 0.45rem;
 }
 
+.bulk-list-toolbar {
+    display: flex;
+    min-height: 3rem;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem 0.75rem;
+    margin-bottom: 0.65rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.45rem;
+    background: var(--admin-surface-background);
+}
+
+.bulk-list-toolbar > strong {
+    min-width: 6.5rem;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.8rem;
+}
+
+.bulk-list-toolbar > label {
+    color: var(--admin-secondary-text-color);
+    font-size: 0.78rem;
+}
+
+.bulk-list-toolbar select,
+.bulk-list-toolbar button {
+    min-height: 2rem;
+    margin: 0;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+}
+
+.bulk-list-toolbar button.danger,
+.bulk-delete-dialog button.danger {
+    border-color: color-mix(in srgb, var(--admin-error-color) 58%, var(--admin-border-color));
+    background: color-mix(in srgb, var(--admin-error-color) 12%, var(--admin-surface-background));
+    color: var(--admin-error-color);
+}
+
+.bulk-list-toolbar button.danger:hover,
+.bulk-delete-dialog button.danger:hover {
+    border-color: var(--admin-error-color);
+    background: var(--admin-error-color);
+    color: var(--admin-field-background);
+}
+
+.bulk-list-status {
+    color: var(--admin-secondary-text-color);
+    font-size: 0.78rem;
+}
+
+.bulk-list-status:empty {
+    display: none;
+}
+
+.bulk-selection-column {
+    width: 2.8rem;
+    min-width: 2.8rem;
+    text-align: center;
+}
+
+.bulk-selection-column input {
+    display: block;
+    margin: auto;
+}
+
+.admin-content table.list-table tbody tr.is-selected td {
+    background: color-mix(in srgb, var(--admin-accent-color) 13%, var(--admin-surface-background));
+}
+
+.bulk-delete-dialog {
+    width: min(90vw, 30rem);
+    padding: 1.25rem;
+    border: 1px solid var(--admin-border-color);
+    border-radius: 0.65rem;
+    background: var(--admin-surface-background);
+    color: var(--admin-text-color);
+    box-shadow: 0 1.25rem 4rem rgb(0 0 0 / 0.35);
+}
+
+.bulk-delete-dialog::backdrop {
+    background: rgb(0 0 0 / 0.58);
+}
+
+.bulk-delete-dialog h2 {
+    margin: 0 0 0.65rem;
+    font-size: 1.25rem;
+}
+
+.bulk-delete-dialog p {
+    margin: 0 0 1.25rem;
+    color: var(--admin-secondary-text-color);
+}
+
+.bulk-delete-dialog .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
+.bulk-delete-dialog .dialog-actions button {
+    min-height: 2.35rem;
+    margin: 0;
+    padding: 0.4rem 0.8rem;
+}
+
 .admin-content .list-content .table-wrapper {
     border: 1px solid var(--admin-soft-border-color);
     border-radius: 0.45rem;
@@ -2843,6 +2949,11 @@ body.login_page {
 
     .saved-list-view-form label,
     .saved-list-view-form input {
+        width: 100%;
+    }
+
+    .bulk-list-toolbar > label,
+    .bulk-list-toolbar select {
         width: 100%;
     }
 

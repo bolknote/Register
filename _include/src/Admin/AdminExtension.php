@@ -18,6 +18,7 @@ use Register\Backup\Admin\DashboardBackupProvider;
 use Register\Backup\BackupManager;
 use Register\Backup\BackupScheduler;
 use Register\Content\Admin\DashboardContentProvider;
+use Register\Content\Admin\ContentBulkPublicationService;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentChangeDispatcher;
@@ -38,6 +39,7 @@ use S2\Cms\Admin\Dashboard\DashboardEnvironmentProvider;
 use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
 use S2\Cms\Admin\Dashboard\SystemStatusProviderInterface;
 use S2\Cms\Admin\Controller\CommentControllerFactory;
+use S2\Cms\Admin\Controller\BulkListActionController;
 use S2\Cms\Admin\Controller\SavedListViewController;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
@@ -46,6 +48,7 @@ use S2\Cms\Admin\Picture\MediaConfigExtender;
 use S2\Cms\Admin\Picture\PictureManager;
 use S2\Cms\Admin\Picture\PictureReserveManager;
 use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
+use S2\Cms\AdminYard\BulkListActionProvider;
 use S2\Cms\AdminYard\CustomTemplateRenderer;
 use S2\Cms\AdminYard\Form\CustomFormControlFactory;
 use S2\Cms\AdminYard\Signal;
@@ -135,6 +138,26 @@ class AdminExtension implements ExtensionInterface
         $container->set(SavedListViewController::class, fn(Container $container): SavedListViewController => new SavedListViewController(
             $container->get(SavedListViewManager::class),
             $container->get(Translator::class),
+        ));
+        $container->set(BulkListActionProvider::class, fn(Container $container): BulkListActionProvider => new BulkListActionProvider(
+            $container->get(SettingStorageInterface::class),
+            $container->get(PermissionChecker::class),
+        ));
+        $container->set(ContentBulkPublicationService::class, fn(Container $container): ContentBulkPublicationService => new ContentBulkPublicationService(
+            $container->get(DbLayer::class),
+            $container->get(PermissionChecker::class),
+            $container->get(ContentSlugService::class),
+            $container->get(ContentChangeDispatcher::class),
+        ));
+        $container->set(BulkListActionController::class, fn(Container $container): BulkListActionController => new BulkListActionController(
+            $container->get(BulkListActionProvider::class),
+            $container->get(ContentBulkPublicationService::class),
+            $container->get(AdminPanelFactory::class),
+            $container->get(ContentChangeDispatcher::class),
+            $container->get(RequestStack::class),
+            $container->get(\PDO::class),
+            $container->get(Translator::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
         ));
 
         $container->set(ResourceProvider::class, fn(Container $container): \S2\Cms\Admin\ResourceProvider => new ResourceProvider(
@@ -393,6 +416,9 @@ class AdminExtension implements ExtensionInterface
             $event->controllerMap['register_saved_list_view_delete'] = static fn(PermissionChecker $permissionChecker, Request $request): \Symfony\Component\HttpFoundation\JsonResponse => $container
                 ->get(SavedListViewController::class)
                 ->delete($permissionChecker, $request);
+            $event->controllerMap['register_bulk_list_action'] = static fn(PermissionChecker $permissionChecker, Request $request): \Symfony\Component\HttpFoundation\JsonResponse => $container
+                ->get(BulkListActionController::class)
+                ->execute($permissionChecker, $request);
         });
 
         $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container): void {

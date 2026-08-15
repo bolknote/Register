@@ -27,6 +27,8 @@ use S2\AdminYard\Form\Radio;
 /** @var array{filters: array<string, mixed>, sort_field: string|null, sort_direction: string|null} $savedListViewState */
 /** @var string $savedListViewCsrfToken */
 /** @var string|null $activeSavedListViewId */
+/** @var list<string> $bulkListActions */
+/** @var string $bulkListCsrfToken */
 
 $html = static fn(string $text): string => htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
 
@@ -79,6 +81,16 @@ foreach ($rows as $row) {
     if (($row['rendered_actions'] ?? '') !== '') {
         $hasActions = true;
         break;
+    }
+}
+
+$hasBulkSelectableRows = false;
+if (isset($bulkListActions, $bulkListCsrfToken) && $bulkListActions !== []) {
+    foreach ($rows as $row) {
+        if (str_contains((string)($row['rendered_actions'] ?? ''), 'data-bulk-row-permitted')) {
+            $hasBulkSelectableRows = true;
+            break;
+        }
     }
 }
 
@@ -252,10 +264,50 @@ foreach ($filterControls as $fieldName => $control) {
     </details>
 <?php endif; ?>
 <section class="list-content">
+    <?php if ($hasBulkSelectableRows): ?>
+        <section class="bulk-list-toolbar"
+                 data-bulk-list
+                 data-ajax-url="<?= $html($basePath . '/_admin/ajax.php') ?>"
+                 data-entity="<?= $html($entityName) ?>"
+                 data-csrf-token="<?= $html($bulkListCsrfToken) ?>"
+                 data-selected-label="<?= $html($trans('Bulk selected count')) ?>"
+                 data-running-label="<?= $html($trans('Bulk action running')) ?>"
+                 data-error-label="<?= $html($trans('Bulk action failed')) ?>"
+                 data-confirm-message="<?= $html($trans('Bulk delete confirmation')) ?>">
+            <strong data-bulk-selection-count><?= $html(str_replace('{{ count }}', '0', $trans('Bulk selected count'))) ?></strong>
+            <label for="bulk-list-action-<?= $html($entityName) ?>"><?= $html($trans('Bulk action')) ?></label>
+            <select id="bulk-list-action-<?= $html($entityName) ?>" data-bulk-action>
+                <option value=""><?= $html($trans('Choose bulk action')) ?></option>
+                <?php foreach ($bulkListActions as $bulkListAction): ?>
+                    <option value="<?= $html($bulkListAction) ?>"
+                            <?= $bulkListAction === 'delete' ? 'data-dangerous' : '' ?>><?= $html($trans('Bulk action ' . $bulkListAction)) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="button" class="secondary" data-bulk-apply disabled><?= $html($trans('Apply bulk action')) ?></button>
+            <span class="bulk-list-status" data-bulk-status aria-live="polite"></span>
+        </section>
+        <dialog class="bulk-delete-dialog" data-bulk-delete-dialog>
+            <form method="dialog">
+                <h2><?= $html($trans('Delete selected items')) ?></h2>
+                <p data-bulk-confirm-copy></p>
+                <div class="dialog-actions">
+                    <button type="submit" class="secondary" value="cancel"><?= $html($trans('Cancel')) ?></button>
+                    <button type="button" class="danger" data-bulk-confirm><?= $html($trans('Delete permanently')) ?></button>
+                </div>
+            </form>
+        </dialog>
+    <?php endif; ?>
     <div class="table-wrapper">
         <table class="list-table" aria-label="<?= $html($title) ?>">
             <thead>
             <tr>
+                <?php if ($hasBulkSelectableRows): ?>
+                    <th scope="col" class="bulk-selection-column">
+                        <input type="checkbox"
+                               data-bulk-select-all
+                               aria-label="<?= $html($trans('Select all rows')) ?>">
+                    </th>
+                <?php endif; ?>
                 <?php foreach ($header as $fieldName => $cell): ?>
                     <?php if (in_array($fieldName, $sortableFields, true)): ?>
                         <th scope="col"
@@ -278,8 +330,20 @@ foreach ($filterControls as $fieldName => $control) {
             </tr>
             </thead>
             <tbody>
-            <?php foreach ($rows as $row): ?>
-                <tr>
+            <?php foreach ($rows as $rowIndex => $row): ?>
+                <?php $rowIsBulkSelectable = $hasBulkSelectableRows && str_contains((string)($row['rendered_actions'] ?? ''), 'data-bulk-row-permitted'); ?>
+                <tr <?= $rowIsBulkSelectable ? 'data-bulk-row' : '' ?>>
+                    <?php if ($hasBulkSelectableRows): ?>
+                        <td class="bulk-selection-column">
+                            <?php if ($rowIsBulkSelectable): ?>
+                                <input type="checkbox"
+                                       data-bulk-row-select
+                                       data-primary-key="<?= $html(json_encode($row['primary_key'], JSON_THROW_ON_ERROR)) ?>"
+                                       data-row-csrf-token="<?= $html((string)($row['csrf_token'] ?? '')) ?>"
+                                       aria-label="<?= $html(sprintf($trans('Select row'), $rowIndex + 1)) ?>">
+                            <?php endif; ?>
+                        </td>
+                    <?php endif; ?>
                     <?php foreach ($row['cells'] as $fieldName => $cell): ?>
                         <td class="type-<?= $html($cell['type']) ?> field-<?= $html($entityName) ?>-<?= $html($fieldName) ?> <?= $fieldName === $sortField ? 'current-sort' : '' ?>"><?= $cell['content'] ?></td>
                     <?php endforeach; ?>
@@ -290,7 +354,7 @@ foreach ($filterControls as $fieldName => $control) {
             <?php endforeach; ?>
             <?php if ($rows === []): ?>
                 <tr class="empty-state-row">
-                    <td colspan="<?= count($header) + ($hasActions ? 1 : 0) ?>">
+                    <td colspan="<?= count($header) + ($hasActions ? 1 : 0) + ($hasBulkSelectableRows ? 1 : 0) ?>">
                         <strong><?= $html($trans($activeFilterCount > 0 ? 'No matching results' : 'No items yet')) ?></strong>
                         <?php if ($activeFilterCount > 0): ?>
                             <a href="?<?= $html(http_build_query($resetFilterParams)) ?>"><?= $html($trans('Reset filters')) ?></a>
