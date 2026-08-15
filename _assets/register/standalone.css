@@ -1,0 +1,193 @@
+:root {
+    color-scheme: light dark;
+    --standalone-accent: #007093;
+    --standalone-danger: #b43b32;
+    --standalone-background: #f4f1eb;
+    --standalone-border: rgba(38, 33, 29, 0.14);
+    --standalone-card: #fffdf9;
+    --standalone-muted: #6d655e;
+    --standalone-text: #26211d;
+}
+
+body.register-standalone {
+    box-sizing: border-box;
+    min-height: 100vh;
+    margin: 0;
+    padding: clamp(1.25rem, 6vw, 4rem) 1.25rem;
+    color: var(--standalone-text);
+    background: var(--standalone-background);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    font-size: 1rem;
+    line-height: 1.55;
+}
+
+.register-standalone *,
+.register-standalone *::before,
+.register-standalone *::after {
+    box-sizing: inherit;
+}
+
+.standalone-card {
+    width: min(100%, 46rem);
+    margin: 0 auto;
+    padding: clamp(1.5rem, 5vw, 2.5rem);
+    overflow-wrap: anywhere;
+    background: var(--standalone-card);
+    border: 1px solid var(--standalone-border);
+    border-radius: 0.75rem;
+    box-shadow: 0 1rem 3rem rgba(38, 33, 29, 0.08);
+}
+
+.standalone-card h1 {
+    margin: 0 0 1rem;
+    font-size: clamp(1.75rem, 6vw, 2.5rem);
+    line-height: 1.15;
+}
+
+.setup-card h1 {
+    display: flex;
+    gap: 0.625rem;
+    align-items: center;
+    color: var(--standalone-accent);
+}
+
+.error-container {
+    border-left: 0.3rem solid var(--standalone-danger);
+}
+
+.error-container h1 {
+    color: var(--standalone-danger);
+}
+
+.register-standalone .icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: 0 0 auto;
+}
+
+.register-standalone p,
+.register-standalone ul {
+    margin: 0 0 0.9rem;
+}
+
+.register-standalone ul {
+    padding-left: 1.25rem;
+}
+
+.register-standalone li {
+    margin: 0.25rem 0;
+}
+
+.install-action {
+    margin: 1.5rem 0;
+}
+
+.register-standalone .link-button {
+    display: inline-block;
+    padding: 0.5em 0.85em;
+    color: #102b32;
+    background: linear-gradient(to bottom, #ccf6ff 0%, #a7dde5 100%);
+    border: 1px solid #54b2bf;
+    border-radius: 0.35rem;
+    box-shadow: 0 2px 0 rgba(255, 255, 255, 0.25) inset, 0 2px 2px rgba(0, 0, 0, 0.1);
+    font-size: 1.15em;
+    font-weight: 650;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.register-standalone .link-button:hover {
+    background: linear-gradient(to bottom, #b4e4ee 0%, #8dcfd9 100%);
+}
+
+.register-standalone .link-button:focus-visible,
+.register-standalone .toggle-config:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--standalone-accent) 45%, transparent);
+    outline-offset: 3px;
+}
+
+.register-standalone .help {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    color: var(--standalone-muted);
+    border-top: 1px solid var(--standalone-border);
+    font-size: 0.9em;
+}
+
+.register-standalone code,
+.register-standalone pre {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.9em;
+}
+
+.register-standalone code {
+    padding: 0.12rem 0.25rem;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 0.2rem;
+}
+
+.register-standalone pre {
+    padding: 0.8rem;
+    overflow-x: auto;
+    background: rgba(0, 0, 0, 0.04);
+    border-left: 3px solid #54b2bf;
+    border-radius: 0.25rem;
+}
+
+.register-standalone pre code {
+    padding: 0;
+    background: transparent;
+}
+
+.register-standalone .toggle-config {
+    display: inline-block;
+    padding: 0;
+    color: #075fba;
+    background: none;
+    border: 0;
+    font: inherit;
+    text-decoration: underline dashed rgba(7, 95, 186, 0.55);
+    cursor: pointer;
+}
+
+.register-standalone .config-example {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.register-standalone .config-example.expanded {
+    max-height: 1000px;
+}
+
+.register-standalone .error-message {
+    margin: 1rem 0 0;
+    white-space: pre-wrap;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --standalone-accent: #70d8ee;
+        --standalone-danger: #ff9588;
+        --standalone-background: #171513;
+        --standalone-border: rgba(255, 255, 255, 0.13);
+        --standalone-card: #24211e;
+        --standalone-muted: #bdb4ab;
+        --standalone-text: #f2ece6;
+    }
+
+    .register-standalone code,
+    .register-standalone pre {
+        background: rgba(255, 255, 255, 0.07);
+    }
+
+    .register-standalone pre code {
+        background: transparent;
+    }
+
+    .register-standalone .toggle-config {
+        color: #86c7ff;
+        text-decoration-color: rgba(134, 199, 255, 0.6);
+    }
+}

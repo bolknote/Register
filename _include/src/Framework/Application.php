@@ -181,6 +181,12 @@ class Application
      */
     private function createErrorResponse(int $status, string $title, string $body, array $headers = []): Response
     {
+        $stylesheetPath = htmlspecialchars(
+            $this->container->getStringParameter('base_path') . '/_assets/register/standalone.css',
+            ENT_QUOTES | ENT_SUBSTITUTE,
+            'UTF-8',
+        );
+
         return new Response('<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -188,16 +194,13 @@ class Application
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="Generator" content="Register">
     <title>' . $title . '</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-        }
-    </style>
+    <link rel="stylesheet" href="' . $stylesheetPath . '">
 </head>
-<body>
+<body class="register-standalone">
+<main class="standalone-card error-container">
     <h1>' . $title . '</h1>
-    <hr>
-    <p>' . $body . '</p>
+    <div class="error-message">' . $body . '</div>
+</main>
 </body>
 </html>', $status, $headers);
     }

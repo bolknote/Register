@@ -11,6 +11,10 @@
 declare(strict_types = 1);
 
 $adminAssetPath = rtrim(str_replace('\\', '/', dirname($installationPath)), '/');
+$publicAssetPath = str_replace('\\', '/', dirname($adminAssetPath));
+if ($publicAssetPath === '/' || $publicAssetPath === '.') {
+    $publicAssetPath = '';
+}
 
 ?>
 <!DOCTYPE html>
@@ -19,114 +23,10 @@ $adminAssetPath = rtrim(str_replace('\\', '/', dirname($installationPath)), '/')
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Register Setup Required</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-            font-size: 1rem;
-            color: #000;
-            background: #fffdf5;
-            margin: 0;
-            padding: 0;
-            line-height: 1.5;
-            max-width: inherit;
-        }
-        .card {
-            max-width: 580px;
-            margin: 3em auto;
-            padding: 1em 1.5em;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px -3px rgba(0, 0, 0, 0.2);
-        }
-        h1 {
-            color: #007093;
-            font-size: 2.5em;
-            margin: 0 0 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .icon {
-            width: 36px;
-            height: 36px;
-        }
-        a.link-button.main-button {
-            background: #bde4ed;
-            background: linear-gradient(to bottom, #ccf6ff 0%, #a7dde5 100%);
-            border-color: #54b2bf;
-        }
-        a.link-button.main-button:hover {
-            background: #bde4ed;
-            background: linear-gradient(to bottom, #b4e4ee 0%, #8dcfd9 100%);
-        }
-        a.link-button {
-            font-size: 1.25em;
-            color: #000;
-            text-decoration: none;
-            border: 1px solid #999;
-            border-radius: 4px;
-            padding: 0.375em 0.75em;
-            box-shadow: 0 2px 0 rgba(255, 255, 255, 0.2) inset, 0 2px 2px rgba(0, 0, 0, 0.1);
-            cursor: pointer;
-        }
-        .help {
-            margin-top: 2em;
-            padding-top: 1.5em;
-            border-top: 1px solid rgba(0,0,0, 0.15);
-            font-size: 0.9em;
-            color: rgba(0,0,0, 0.6);
-        }
-        p, ul {
-            margin: 0 0 0.75em;
-        }
-        ul {
-            padding: 0 0 0 1em;
-        }
-        li {
-            margin: 0.25em 0;
-        }
-        p code, li code {
-            background: rgba(0,0,0, 0.06);
-            padding: 2px 3px;
-            border-radius: 3px;
-            font-family: 'Menlo', monospace;
-            font-size: 0.9em;
-        }
-        pre {
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 4px;
-            border-left: 3px solid #54b2bf;
-            overflow-x: auto;
-            margin: 0.5em 0 1em;
-        }
-        .toggle-config {
-            background: none;
-            border: 0;
-            color: #05c;
-            cursor: pointer;
-            display: inline-block;
-            font: inherit;
-            padding: 0;
-            text-decoration: underline;
-            text-decoration-style: dashed;
-            text-decoration-color: rgba(0, 85, 204, 0.5);
-        }
-        .config-example {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-        }
-        .config-example.expanded {
-            max-height: 1000px;
-        }
-        .link-button {
-            transition: all 0.2s ease;
-        }
-    </style>
+    <link rel="stylesheet" href="<?= s2_htmlencode($publicAssetPath . '/_assets/register/standalone.css') ?>">
 </head>
-<body>
-<div class="card">
+<body class="register-standalone">
+<main class="standalone-card setup-card">
     <h1>Register Setup Required <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-label="Warning" role="img">
             <path fill="#ffce31" d="M5.9 62c-3.3 0-4.8-2.4-3.3-5.3L29.3 4.2c1.5-2.9 3.9-2.9 5.4 0l26.7 52.5c1.5 2.9 0 5.3-3.3 5.3H5.9z"/>
             <g fill="#231f20">
@@ -146,7 +46,7 @@ $adminAssetPath = rtrim(str_replace('\\', '/', dirname($installationPath)), '/')
         <li>The config file was accidentally deleted after setup.</li>
     </ul>
 
-    <div style="margin: 1.5rem 0;">
+    <div class="install-action">
         <a href="<?=$installationPath?>" class="link-button main-button">Run Installation</a>
     </div>
 
@@ -189,7 +89,7 @@ return [
 </code></pre>
         </div>
     </div>
-</div>
+</main>
 
 <script src="<?= s2_htmlencode($adminAssetPath . '/js/installation-required.js') ?>" defer></script>
 </body>

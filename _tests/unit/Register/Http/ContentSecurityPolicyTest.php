@@ -102,6 +102,26 @@ final class ContentSecurityPolicyTest extends Unit
         }
     }
 
+    public function testStandalonePagesDoNotRequireInlineStyles(): void
+    {
+        $root = dirname(__DIR__, 4);
+        $files = [
+            $root . '/_include/installation_required.php',
+            $root . '/_include/src/Framework/Application.php',
+            $root . '/_include/views/error.php',
+        ];
+
+        foreach ($files as $filename) {
+            $source = file_get_contents($filename);
+            self::assertIsString($source);
+            self::assertDoesNotMatchRegularExpression('~<style\b~i', $source, $filename);
+            self::assertDoesNotMatchRegularExpression('~\sstyle\s*=~i', $source, $filename);
+            self::assertStringContainsString('/_assets/register/standalone.css', $source, $filename);
+        }
+
+        self::assertFileExists($root . '/_assets/register/standalone.css');
+    }
+
     /**
      * @param list<string> $paths
      * @return \Generator<string>
