@@ -32,8 +32,17 @@ final class ContentSecurityPolicy
 
     public static function apply(Response $response): void
     {
+        $response->headers->remove('X-Powered-By');
         $response->headers->set(self::HEADER_NAME, self::POLICY);
         $response->headers->set('X-Content-Type-Options', 'nosniff');
+        $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    }
+
+    public static function applyToAdmin(Response $response): void
+    {
+        self::apply($response);
+        $response->headers->set('Cache-Control', 'no-store, private');
     }
 
     public static function send(): void
@@ -42,7 +51,10 @@ final class ContentSecurityPolicy
             return;
         }
 
+        header_remove('X-Powered-By');
         header(self::HEADER_NAME . ': ' . self::POLICY);
         header('X-Content-Type-Options: nosniff');
+        header('Referrer-Policy: strict-origin-when-cross-origin');
+        header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
     }
 }

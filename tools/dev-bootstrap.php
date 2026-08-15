@@ -67,10 +67,12 @@ $adminPass   = getenv('S2_DEV_ADMIN_PASSWORD');
 $adminLogin  = is_string($adminLogin) && $adminLogin !== '' ? $adminLogin : 'admin';
 $adminPass   = is_string($adminPass) && $adminPass !== '' ? $adminPass : 'admin';
 
-foreach ([$localDir, $rootDir . '/_cache/local', $rootDir . '/_pictures'] as $directory) {
-    if (!is_dir($directory) && !mkdir($directory, 0777, true) && !is_dir($directory)) {
+foreach ([$localDir => 0700, $rootDir . '/_cache/local' => 0700, $rootDir . '/_pictures' => 0755] as $directory => $mode) {
+    if (!is_dir($directory) && !mkdir($directory, $mode, true) && !is_dir($directory)) {
         throw new RuntimeException(sprintf('Unable to create local directory "%s".', $directory));
     }
+
+    chmod($directory, $mode);
 }
 
 $config = [
@@ -163,7 +165,7 @@ if ($isNew) {
         $dbLayer
             ->insert('users')
             ->setValue('login', ':login')->setParameter('login', $adminLogin)
-            ->setValue('password', ':password')->setParameter('password', password_hash($adminPass, PASSWORD_DEFAULT))
+            ->setValue('password', ':password')->setParameter('password', \S2\Cms\Model\PasswordHasher::hash($adminPass))
             ->setValue('email', ':email')->setParameter('email', 'admin@example.test')
             ->setValue('view', '1')
             ->setValue('view_hidden', '1')

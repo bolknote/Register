@@ -27,7 +27,7 @@ class PicturesCest
         $reserveDir = __DIR__ . '/../../_cache/test/picture_reserve';
         $this->removeDir($imagesDir);
         $this->removeDir($reserveDir);
-        if (!is_dir($imagesDir) && !mkdir($imagesDir, 0777, true) && !is_dir($imagesDir)) {
+        if (!is_dir($imagesDir) && !mkdir($imagesDir, 0700, true) && !is_dir($imagesDir)) {
             throw new \RuntimeException(\sprintf('Directory "%s" was not created', $imagesDir));
         }
     }
@@ -40,55 +40,61 @@ class PicturesCest
         $I->login('author', 'author');
 
         // Upload 2 files, check output
-        $this->uploadSimplePngFile($I, '', 'test1.png');
-        $this->uploadSimplePngFile($I, '', 'test2.png');
+        $file1 = $this->uploadSimplePngFile($I, '', 'test1.png');
+        $file2 = $this->uploadSimplePngFile($I, '', 'test2.png');
+        $storedFiles = [$file1, $file2];
+        sort($storedFiles);
+
+        $I->assertMatchesRegularExpression('/^[a-f0-9]{32}\.png$/D', $file1);
+        $I->assertMatchesRegularExpression('/^[a-f0-9]{32}\.png$/D', $file2);
+        $I->assertNotSame($file1, $file2);
 
         $I->amOnPage('https://localhost/_admin/ajax.php?action=load_files&path=');
         $I->seeResponseCodeIs(200);
-        $I->assertJsonSubResponseContains('test1.png', [0, 'data', 'title']);
-        $I->assertJsonSubResponseEquals('test1.png', [0, 'attr', 'data-fname']);
+        $I->assertJsonSubResponseContains($storedFiles[0], [0, 'data', 'title']);
+        $I->assertJsonSubResponseEquals($storedFiles[0], [0, 'attr', 'data-fname']);
         $I->assertJsonSubResponseEquals('1*1', [0, 'attr', 'data-dim']);
         $I->assertJsonSubResponseEquals(1, [0, 'attr', 'data-bits']);
         $I->assertJsonSubResponseEquals('67 B', [0, 'attr', 'data-fsize']);
 
-        $I->assertJsonSubResponseContains('test2.png', [1, 'data', 'title']);
+        $I->assertJsonSubResponseContains($storedFiles[1], [1, 'data', 'title']);
 
         $I->amOnPage('https://localhost/_admin/ajax.php?action=preview');
         $I->seeResponseCodeIs(400);
         $I->assertJsonSubResponseContains('Parameter "file" is required.', ['message']);
 
-        $I->amOnPage('https://localhost/_admin/ajax.php?action=preview&file=/test1.png');
+        $I->amOnPage('https://localhost/_admin/ajax.php?action=preview&file=/' . $file1);
         $I->seeResponseCodeIs(200);
         $I->see('ftypavif');
 
         // Author cannot rename files
-        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/test1.png&name=test1.php', \dirname('/test1.png'));
+        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/' . $file1 . '&name=test1.php', '/');
         $I->seeResponseCodeIs(403);
         $I->assertJsonSubResponseEquals('You do not have enough permissions to perform this action.', ['message']);
 
         // Author cannot delete files
-        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=delete_files&path=/&fname[]=test1.png', '/');
+        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=delete_files&path=/&fname[]=' . $file1, '/');
         $I->seeResponseCodeIs(403);
         $I->assertJsonSubResponseEquals('You do not have enough permissions to perform this action.', ['message']);
 
         // Editor can rename files, but only if extension is allowed
         $I->logout();
         $I->login('editor', 'editor');
-        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/test1.png&name=test1.php', \dirname('/test1.png'));
+        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/' . $file1 . '&name=test1.php', '/');
         $I->seeResponseCodeIs(403);
         $I->assertJsonSubResponseContains('php', ['message']);
 
-        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/test1.png&name=cest1.png', \dirname('/test1.png'));
+        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/' . $file1 . '&name=cest1.png', '/');
         $I->seeResponseCodeIs(200);
         $I->assertJsonSubResponseEquals('cest1.png', ['new_name']);
 
         // Check on renaming if file with same name already exists
-        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/test2.png&name=cest1.png', \dirname('/test2.png'));
+        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=rename_file&path=/' . $file2 . '&name=cest1.png', '/');
         $I->seeResponseCodeIs(409);
         $I->assertJsonSubResponseEquals('Rename failed: file or folder “cest1.png” already exists.', ['message']);
 
         // Editor can delete files
-        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=delete_files&path=/&fname[]=test2.png', '/');
+        $this->sendRequestWithFolderToken($I, 'https://localhost/_admin/ajax.php?action=delete_files&path=/&fname[]=' . $file2, '/');
         $I->seeResponseCodeIs(200);
         $I->assertJsonSubResponseEquals(true, ['success']);
 
@@ -193,17 +199,20 @@ class PicturesCest
         $I->seeResponseCodeIs(200);
         $I->assertJsonSubResponseEquals('folder12', ['name']);
 
-        $this->uploadSimplePngFile($I, '/folder1', 'test1.png');
-        $this->uploadSimplePngFile($I, '/folder1', 'test2.png');
-        $this->uploadSimplePngFile($I, '/folder1', 'test3.png');
+        $file1 = $this->uploadSimplePngFile($I, '/folder1', 'test1.png');
+        $file2 = $this->uploadSimplePngFile($I, '/folder1', 'test2.png');
+        $file3 = $this->uploadSimplePngFile($I, '/folder1', 'test3.png');
+        $movedFiles = [$file1, $file2];
+        sort($movedFiles);
 
         // move files
-        $this->sendMoveRequestWithTokens($I, 'https://localhost/_admin/ajax.php?action=move_files&spath=/folder1&dpath=/folder1/folder12&fname[]=test1.png&fname[]=test2.png', '/folder1', '/folder1/folder12');
+        $moveUrl = 'https://localhost/_admin/ajax.php?action=move_files&spath=/folder1&dpath=/folder1/folder12&fname[]=' . $file1 . '&fname[]=' . $file2;
+        $this->sendMoveRequestWithTokens($I, $moveUrl, '/folder1', '/folder1/folder12');
         $I->seeResponseCodeIs(403);
 
         $I->logout();
         $I->login('editor', 'editor');
-        $this->sendMoveRequestWithTokens($I, 'https://localhost/_admin/ajax.php?action=move_files&spath=/folder1&dpath=/folder1/folder12&fname[]=test1.png&fname[]=test2.png', '/folder1', '/folder1/folder12');
+        $this->sendMoveRequestWithTokens($I, $moveUrl, '/folder1', '/folder1/folder12');
         $I->seeResponseCodeIs(200);
 
         // move folder with files
@@ -212,13 +221,13 @@ class PicturesCest
 
         $I->amOnPage('https://localhost/_admin/ajax.php?action=load_files&path=/folder1/folder11/folder12');
         $I->seeResponseCodeIs(200);
-        $I->assertJsonSubResponseContains('test1.png', [0, 'data', 'title']);
-        $I->assertJsonSubResponseContains('test2.png', [1, 'data', 'title']);
+        $I->assertJsonSubResponseContains($movedFiles[0], [0, 'data', 'title']);
+        $I->assertJsonSubResponseContains($movedFiles[1], [1, 'data', 'title']);
         $I->assertJsonResponseHasNoKey([2]);
 
         $I->amOnPage('https://localhost/_admin/ajax.php?action=load_files&path=/folder1');
         $I->seeResponseCodeIs(200);
-        $I->assertJsonSubResponseContains('test3.png', [0, 'data', 'title']);
+        $I->assertJsonSubResponseContains($file3, [0, 'data', 'title']);
         $I->assertJsonResponseHasNoKey([1]);
     }
 
@@ -329,10 +338,10 @@ class PicturesCest
         $I->seeResponseCodeIs(200);
 
         $reserve = $this->reserveImage($I, '', 'reserved.png');
-        $I->assertEquals('reserved.png', $reserve['name'] ?? null);
+        $I->assertMatchesRegularExpression('/^[a-f0-9]{32}\.png$/D', (string)($reserve['name'] ?? ''));
         $I->assertEquals('', $reserve['dir'] ?? null);
         $I->assertArrayHasKey('token', $reserve);
-        $I->assertStringContainsString('/reserved.png', $reserve['file_path'] ?? '');
+        $I->assertStringContainsString('/' . $reserve['name'], $reserve['file_path'] ?? '');
 
         $tempFilename = $this->createTemporaryPng();
 
@@ -365,11 +374,11 @@ class PicturesCest
         );
         $I->seeResponseCodeIs(200);
         $I->assertJsonSubResponseEquals(true, ['success']);
-        $I->assertJsonSubResponseContains('reserved.png', ['file_path']);
+        $I->assertJsonSubResponseContains($reserve['name'], ['file_path']);
 
         $I->amOnPage('https://localhost/_admin/ajax.php?action=load_files&path=');
         $I->seeResponseCodeIs(200);
-        $I->assertJsonSubResponseContains('reserved.png', [0, 'data', 'title']);
+        $I->assertJsonSubResponseContains($reserve['name'], [0, 'data', 'title']);
     }
 
     /**
@@ -431,16 +440,17 @@ class PicturesCest
     /**
      * @throws \JsonException
      */
-    public function testReserveImageGeneratesCopyName(\IntegrationTester $I): void
+    public function testReserveImageGeneratesUniqueServerNames(\IntegrationTester $I): void
     {
         $I->login('author', 'author');
         $I->seeResponseCodeIs(200);
 
-        $imagesDir = __DIR__ . '/../_output/images';
-        file_put_contents($imagesDir . '/sample.png', 'png');
+        $firstReserve = $this->reserveImage($I, '', 'sample.png');
+        $secondReserve = $this->reserveImage($I, '', 'sample.png');
 
-        $reserve = $this->reserveImage($I, '', 'sample.png');
-        $I->assertEquals('sample_copy.png', $reserve['name'] ?? null);
+        $I->assertMatchesRegularExpression('/^[a-f0-9]{32}\.png$/D', (string)($firstReserve['name'] ?? ''));
+        $I->assertMatchesRegularExpression('/^[a-f0-9]{32}\.png$/D', (string)($secondReserve['name'] ?? ''));
+        $I->assertNotSame($firstReserve['name'], $secondReserve['name']);
     }
 
     /**
@@ -486,7 +496,7 @@ class PicturesCest
         $token = 'expired-token';
         $reserveFile = $this->getReserveFilePath($path, $name);
         $reserveDir = \dirname($reserveFile);
-        if (!is_dir($reserveDir) && !mkdir($reserveDir, 0777, true) && !is_dir($reserveDir)) {
+        if (!is_dir($reserveDir) && !mkdir($reserveDir, 0700, true) && !is_dir($reserveDir)) {
             throw new \RuntimeException(\sprintf('Directory "%s" was not created', $reserveDir));
         }
 
@@ -610,7 +620,7 @@ class PicturesCest
     /**
      * @throws \JsonException
      */
-    private function uploadSimplePngFile(\IntegrationTester $I, string $path, string $fileName): void
+    private function uploadSimplePngFile(\IntegrationTester $I, string $path, string $fileName): string
     {
         $tempFilename = $this->createTemporaryPng();
 
@@ -624,6 +634,17 @@ class PicturesCest
                 new UploadedFile($tempFilename, $fileName, 'image/png', null, true),
             ]]
         );
+        $I->seeResponseCodeIs(200);
+        $I->assertJsonSubResponseEquals(true, ['success']);
+
+        $response = $I->grabJson();
+        $storedPath = (string)($response['file_path'] ?? '');
+        $storedName = basename($storedPath);
+        if ($storedName === '') {
+            $I->fail('The upload response did not contain a stored file name.');
+        }
+
+        return $storedName;
     }
 
     /**

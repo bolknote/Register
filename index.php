@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\Request;
 $app = require __DIR__ . '/_include/common.php';
 $shutdownCoordinator = $app->container->get(ShutdownWorkCoordinator::class);
 
-header('X-Powered-By: Register/' . S2_VERSION);
+header_remove('X-Powered-By');
 
 $urlPrefix = $app->container->getStringParameter('url_prefix');
 $basePath  = $app->container->getParameter('base_path');

@@ -100,7 +100,11 @@ return [
 
     // Login form
     'Password'                   => 'Пароль',
-    'Foreign computer'           => 'Чужой компьютер',
+    'The password must contain at least {{ limit }} characters.' => 'Пароль должен содержать не менее {{ limit }} символов.',
+    'The password must contain at most {{ limit }} characters.'  => 'Пароль должен содержать не более {{ limit }} символов.',
+    'Choose a less common password.'                             => 'Выберите менее распространённый пароль.',
+    'The password must not contain the login.'                   => 'Пароль не должен содержать логин.',
+    'Remember me'                => 'Запомнить меня на 30 дней',
     'Log in'                     => 'Войти',
     'Noscript'                   => 'У вас отключен Javascript.<br>Без него система не работает.<br>Включите его, на дворе XXI век.',
     'Error login page'           => 'Неправильный логин или пароль.<br>Введите, пожалуйста, данные еще раз.',

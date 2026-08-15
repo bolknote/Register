@@ -52,6 +52,7 @@ readonly class AdminPanelFactory
             $adminConfig,
             $this->container->get(TemplateRenderer::class),
             $this->container->get(PermissionChecker::class),
+            $this->container->get(\S2\Cms\Model\AuthManager::class),
             $this->container->get(EventDispatcherInterface::class),
             $this->container->get(RequestStack::class),
         );

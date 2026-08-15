@@ -33,10 +33,9 @@ if ($response === null) {
     ]);
     $response         = new Response($content);
 }
-ContentSecurityPolicy::apply($response);
+ContentSecurityPolicy::applyToAdmin($response);
 
-// direct call of header() to override default PHP header
-header('X-Powered-By: Register/' . $app->container->getParameter('version'));
+header_remove('X-Powered-By');
 $shutdownCoordinator = $app->container->get(ShutdownWorkCoordinator::class);
 $shutdownCoordinator->closeSession();
 $response->send(false);

@@ -17,6 +17,8 @@ readonly class PictureFileNameHelper
 {
     public const int MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
+    public const int MAX_BATCH_UPLOAD_BYTES = 200 * 1024 * 1024;
+
     /** @var list<string> */
     private const array FORBIDDEN_EXTENSION_SEGMENTS = [
         'asp', 'aspx', 'bash', 'bat', 'cgi', 'cmd', 'com', 'config', 'css', 'exe', 'htaccess', 'htm',
@@ -114,6 +116,40 @@ readonly class PictureFileNameHelper
         $this->assertSafeFile($uploadedFile->getPathname(), $filename);
     }
 
+    /** @param list<UploadedFile> $uploadedFiles */
+    public function assertSafeBatchSize(array $uploadedFiles): void
+    {
+        $totalBytes = 0;
+        foreach ($uploadedFiles as $uploadedFile) {
+            if ($uploadedFile->getError() !== UPLOAD_ERR_OK) {
+                continue;
+            }
+
+            $fileSize = s2_call_without_warnings(static fn(): int|false => $uploadedFile->getSize());
+            if ($fileSize === false) {
+                throw new \RuntimeException('Unable to determine the uploaded file size.', Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            if ($fileSize > self::MAX_UPLOAD_BYTES) {
+                throw new \RuntimeException('The uploaded file exceeds the application size limit.', Response::HTTP_REQUEST_ENTITY_TOO_LARGE);
+            }
+
+            if ($fileSize > self::MAX_BATCH_UPLOAD_BYTES - $totalBytes) {
+                throw new \RuntimeException('The uploaded files exceed the application batch size limit.', Response::HTTP_REQUEST_ENTITY_TOO_LARGE);
+            }
+
+            $totalBytes += $fileSize;
+        }
+    }
+
+    public function generateStorageFileName(string $sourceFilename): string
+    {
+        $normalized = $this->normalizeFileName($sourceFilename);
+        $this->assertAllowedExtension($normalized);
+
+        return bin2hex(random_bytes(16)) . '.' . $this->getExtension($normalized);
+    }
+
     public function assertSafeFile(string $path, string $filename): void
     {
         $this->assertAllowedExtension($filename);
@@ -144,21 +180,6 @@ readonly class PictureFileNameHelper
                 throw new \RuntimeException('The uploaded image cannot be decoded safely.', Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
             }
         }
-    }
-
-    public function incrementCopySuffix(string $filename): string
-    {
-        return preg_replace_callback('#(?:|_copy|_copy\((\d+)\))(?=(?:\.[^\.]*)?$)#', static function (array $match): string {
-            if ($match[0] === '') {
-                return '_copy';
-            }
-
-            if ($match[0] === '_copy') {
-                return '_copy(2)';
-            }
-
-            return '_copy(' . ((int)($match[1] ?? 1) + 1) . ')';
-        }, $filename, 1) ?? throw new \RuntimeException('Unable to increment the file copy suffix.');
     }
 
     private function baseName(string $dir): string

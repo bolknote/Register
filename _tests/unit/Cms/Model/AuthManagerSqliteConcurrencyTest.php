@@ -15,6 +15,7 @@ use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
 use S2\Cms\Comment\Antispam\SpamIdentityHasher;
 use S2\Cms\Model\AuthManager;
+use S2\Cms\Model\AuthTokenHasher;
 use S2\Cms\Model\LoginRateLimiter;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Pdo\DbLayerSqlite;
@@ -64,13 +65,20 @@ final class AuthManagerSqliteConcurrencyTest extends Unit
             "INSERT INTO users VALUES (1, 'admin', '', 'admin@example.test', 'Admin', 1, 1, 1, 1, 1, 1, 1)"
         );
 
-        $sessionId   = 'p' . str_repeat('a', 31);
+        $sessionId   = 'p' . sprintf('%08x', time()) . str_repeat('a', 64);
         $sessionTime = time() - 10;
         $statement   = $primaryPdo->prepare(
             'INSERT INTO users_online (challenge, time, login, ip, ua, comment_cookie) VALUES (?, ?, ?, ?, ?, ?)'
         );
         self::assertNotFalse($statement);
-        $statement->execute([$sessionId, $sessionTime, 'admin', '127.0.0.1', 'test', str_repeat('b', 32)]);
+        $statement->execute([
+            AuthTokenHasher::session($sessionId),
+            $sessionTime,
+            'admin',
+            '127.0.0.1',
+            'test',
+            AuthTokenHasher::comment(str_repeat('b', 64)),
+        ]);
 
         $dbLayer = new ConcurrentWriteDbLayerSqlite($primaryPdo, $competingPdo);
         $authManager = new AuthManager(

@@ -121,7 +121,7 @@ readonly class AuthProvider
             ->from('users AS u')
             ->innerJoin('users_online AS o', 'o.login = u.login')
             ->where('o.comment_cookie = :cookie')
-            ->setParameter('cookie', $cookie)
+            ->setParameter('cookie', AuthTokenHasher::comment($cookie))
             ->limit(1)
             ->execute()
         ;

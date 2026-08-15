@@ -238,7 +238,7 @@ h3 {
     align-items: center;
 }
 
-.admin-shell nav a.main-menu-link,
+.admin-shell nav :is(a, button).main-menu-link,
 .admin-shell .main-menu-group > summary {
     display: flex;
     min-height: var(--admin-shell-offset);
@@ -254,13 +254,29 @@ h3 {
     white-space: nowrap;
 }
 
+.admin-shell nav button.main-menu-link {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+}
+
+.admin-shell nav .main-menu-post-form {
+    display: flex;
+    width: 100%;
+    margin: 0;
+}
+
 .admin-shell nav li.main-menu-item:hover,
 .admin-shell .main-menu-group:hover > summary,
 .admin-shell .main-menu-group[open] > summary {
     background: var(--admin-secondary-background);
 }
 
-.admin-shell nav li.main-menu-item:hover > a.main-menu-link,
+.admin-shell nav li.main-menu-item:hover > .main-menu-link,
+.admin-shell nav li.main-menu-item:hover > form > .main-menu-link,
 .admin-shell .main-menu-group > summary:hover,
 .admin-shell .main-menu-group[open] > summary {
     color: var(--admin-text-color);
@@ -272,8 +288,8 @@ h3 {
     box-shadow: inset 0 -3px var(--admin-accent-color);
 }
 
-.admin-shell nav li.main-menu-item.active > a.main-menu-link,
-.admin-shell nav a.main-menu-link[aria-current="page"],
+.admin-shell nav li.main-menu-item.active > .main-menu-link,
+.admin-shell nav :is(a, button).main-menu-link[aria-current="page"],
 .admin-shell .main-menu-group.active > summary {
     color: var(--admin-text-color);
 }
@@ -2817,7 +2833,7 @@ body.login_page {
         justify-self: end;
     }
 
-    .admin-shell nav a.main-menu-link,
+    .admin-shell nav :is(a, button).main-menu-link,
     .admin-shell .main-menu-group > summary {
         min-height: 2.8rem;
         padding-block: 0.55rem;
@@ -2985,7 +3001,7 @@ body.login_page {
         font-size: 1.7rem;
     }
 
-    .admin-shell nav a.main-menu-link,
+    .admin-shell nav :is(a, button).main-menu-link,
     .admin-shell .main-menu-group > summary {
         font-size: 0.875rem;
     }

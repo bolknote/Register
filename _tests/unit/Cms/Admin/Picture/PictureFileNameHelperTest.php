@@ -104,6 +104,36 @@ final class PictureFileNameHelperTest extends Unit
         }
     }
 
+    public function testRejectsBatchLargerThanTheApplicationLimit(): void
+    {
+        $fileSize = intdiv(PictureFileNameHelper::MAX_BATCH_UPLOAD_BYTES, 3) + 1;
+        $files = [];
+        foreach (['one.zip', 'two.zip', 'three.zip'] as $name) {
+            $path = $this->sparseTemporaryFile($fileSize);
+            $files[] = new UploadedFile($path, $name, 'application/zip', null, true);
+        }
+
+        try {
+            $this->helper('zip')->assertSafeBatchSize($files);
+            self::fail('A batch over the aggregate upload limit must be rejected.');
+        } catch (\RuntimeException $runtimeException) {
+            self::assertSame(Response::HTTP_REQUEST_ENTITY_TOO_LARGE, $runtimeException->getCode());
+        }
+    }
+
+    public function testGeneratesUniqueServerStorageNames(): void
+    {
+        $helper = $this->helper('png');
+
+        $first = $helper->generateStorageFileName('../../Client Name.PNG');
+        $second = $helper->generateStorageFileName('../../Client Name.PNG');
+
+        self::assertMatchesRegularExpression('/^[a-f0-9]{32}\.png$/D', $first);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{32}\.png$/D', $second);
+        self::assertNotSame($first, $second);
+        self::assertStringNotContainsString('client', $first);
+    }
+
     private function helper(string $allowedExtensions): PictureFileNameHelper
     {
         return new PictureFileNameHelper(new Translator([], 'en'), $allowedExtensions);
@@ -115,6 +145,17 @@ final class PictureFileNameHelperTest extends Unit
         self::assertIsString($path);
         self::assertNotFalse(file_put_contents($path, $contents));
         $this->temporaryFiles[] = $path;
+
+        return $path;
+    }
+
+    private function sparseTemporaryFile(int $size): string
+    {
+        $path = $this->temporaryFile('');
+        $handle = fopen($path, 'c+b');
+        self::assertIsResource($handle);
+        self::assertTrue(ftruncate($handle, $size));
+        fclose($handle);
 
         return $path;
     }

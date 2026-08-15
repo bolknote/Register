@@ -52,4 +52,22 @@ final class PdoSqliteFactoryTest extends Unit
             self::assertSame(0600, fileperms($path) & 0777);
         }
     }
+
+    public function testRestrictsAnExistingDatabaseFile(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'register_sqlite_permissions_');
+        self::assertIsString($path);
+        $this->temporaryFiles = [$path, $path . '-shm', $path . '-wal'];
+
+        if (DIRECTORY_SEPARATOR !== '\\') {
+            self::assertTrue(chmod($path, 0666));
+        }
+
+        PdoSqliteFactory::create($path, false);
+
+        if (DIRECTORY_SEPARATOR !== '\\') {
+            clearstatcache(false, $path);
+            self::assertSame(0600, fileperms($path) & 0777);
+        }
+    }
 }

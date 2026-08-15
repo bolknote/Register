@@ -23,6 +23,8 @@ final class ContentSecurityPolicyTest extends Unit
 
         self::assertSame(ContentSecurityPolicy::POLICY, $response->headers->get(ContentSecurityPolicy::HEADER_NAME));
         self::assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
+        self::assertSame('strict-origin-when-cross-origin', $response->headers->get('Referrer-Policy'));
+        self::assertSame('camera=(), microphone=(), geolocation=()', $response->headers->get('Permissions-Policy'));
         self::assertStringContainsString("script-src 'self'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("script-src-attr 'none'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("base-uri 'none'", ContentSecurityPolicy::POLICY);

@@ -22,10 +22,9 @@ $app = require __DIR__ . '/../_include/common.php';
 $request = Request::createFromGlobals();
 $handler  = $app->container->get(AdminRequestHandler::class);
 $response = $handler->handle($request);
-ContentSecurityPolicy::apply($response);
+ContentSecurityPolicy::applyToAdmin($response);
 
-// direct call of header() to override default PHP header
-header('X-Powered-By: Register/' . $app->container->getParameter('version'));
+header_remove('X-Powered-By');
 $shutdownCoordinator = $app->container->get(ShutdownWorkCoordinator::class);
 $shutdownCoordinator->closeSession();
 $response->send(false);

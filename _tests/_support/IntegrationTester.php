@@ -36,7 +36,11 @@ class IntegrationTester extends \Codeception\Actor
 
     public function logout(): void
     {
-        $this->amOnPage('https://localhost/_admin/index.php?action=logout');
+        $this->amOnPage('https://localhost/_admin/index.php');
+        $csrfToken = $this->grabValueFrom('form.main-menu-post-form input[name="csrf_token"]');
+        $this->sendPost('https://localhost/_admin/index.php?action=logout', [
+            'csrf_token' => $csrfToken,
+        ]);
     }
 
     /** @param list<int|string> $path */

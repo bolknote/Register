@@ -10,11 +10,13 @@ declare(strict_types = 1);
 namespace S2\Cms\Admin;
 
 use Register\Content\ContentType;
+use Register\Http\ContentSecurityPolicy;
 use Register\Module\Blog\Module as BlogModule;
 use Register\Url\ContentUrlCollisionException;
 use S2\AdminYard\Translator;
 use S2\AdminYard\Translator as T;
 use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
+use S2\Cms\Admin\Picture\PictureFileNameHelper;
 use S2\Cms\Admin\Picture\PictureManager;
 use S2\Cms\Admin\Picture\PictureReserveManager;
 use S2\Cms\Extensions\ExtensionManagerAdapter;
@@ -71,6 +73,8 @@ class AdminAjaxRequestHandler
         $response = $this->authManager->checkAuth($request);
         if ($response instanceof \Symfony\Component\HttpFoundation\Response) {
             $this->requestStack->pop();
+
+            ContentSecurityPolicy::applyToAdmin($response);
 
             return $response;
         }
@@ -666,6 +670,12 @@ class AdminAjaxRequestHandler
 
                 /** @var list<\Symfony\Component\HttpFoundation\File\UploadedFile> $uploadedFiles */
 
+                try {
+                    $c->get(PictureFileNameHelper::class)->assertSafeBatchSize($uploadedFiles);
+                } catch (\RuntimeException $runtimeException) {
+                    return new Json(['success' => false, 'message' => $runtimeException->getMessage()], self::httpStatus($runtimeException));
+                }
+
                 $pictureManager = $c->get(PictureManager::class);
                 $pictureManager->assertFolderCsrfToken($path, (string)$r->request->get('csrf_token', ''));
 
@@ -803,6 +813,8 @@ class AdminAjaxRequestHandler
         }
 
         $this->authManager->renewPersistentCookies($request, $response);
+        ContentSecurityPolicy::applyToAdmin($response);
+        $this->requestStack->pop();
 
         return $response;
     }

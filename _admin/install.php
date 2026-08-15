@@ -29,6 +29,8 @@ use S2\Cms\HttpClient\HttpClientException;
 use S2\Cms\Install\InstallExtension;
 use S2\Cms\Logger\Logger;
 use S2\Cms\Model\ExtensionCache;
+use S2\Cms\Model\PasswordHasher;
+use S2\Cms\Model\PasswordPolicy;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\DbLayerException;
 use Symfony\Component\ErrorHandler\Debug;
@@ -45,6 +47,8 @@ define('S2_SHOW_QUERIES', 1);
 // We need some stuff
 require S2_ROOT . '_vendor/autoload.php';
 ContentSecurityPolicy::send();
+header('Cache-Control: no-store, private');
+header_remove('X-Powered-By');
 
 /**
  * Display styled error message and terminate script execution
@@ -515,7 +519,7 @@ if (isset($_POST['generate_config'])) {
     exit;
 }
 
-header('X-Powered-By: Register/' . S2_VERSION);
+header_remove('X-Powered-By');
 header('Content-Type: text/html; charset=utf-8');
 
 function guessBaseUrl(): string
@@ -862,11 +866,14 @@ if (mb_strlen($username) > 40) {
 }
 
 // Validate password
-if (mb_strlen($password) < 4) {
-    $validationErrors['req_password'][] = $lang_install['Password too short'];
-}
-if (mb_strlen($password) > 100) {
-    $validationErrors['req_password'][] = $lang_install['Password too long'];
+foreach (PasswordPolicy::violations($password, $username) as $passwordViolation) {
+    $messageKey = match ($passwordViolation) {
+        'too_short'      => 'Password too short',
+        'too_long'       => 'Password too long',
+        'common'         => 'Password too common',
+        'contains_login' => 'Password contains username',
+    };
+    $validationErrors['req_password'][] = $lang_install[$messageKey];
 }
 
 // Validate email
@@ -948,7 +955,7 @@ $now = time();
 $s2_db
     ->insert('users')
     ->setValue('login', ':login')->setParameter('login', $username)
-    ->setValue('password', ':password')->setParameter('password', password_hash($password, PASSWORD_DEFAULT))
+    ->setValue('password', ':password')->setParameter('password', PasswordHasher::hash($password))
     ->setValue('email', ':email')->setParameter('email', $email)
     ->setValue('view', '1')
     ->setValue('view_hidden', '1')
@@ -1054,12 +1061,19 @@ $config = generate_config_file(
 // Attempt to write config.php and serve it up for download if writing fails
 $written = false;
 if (is_writable(S2_ROOT)) {
-    $fh = s2_call_without_warnings(static fn() => fopen(S2_ROOT . s2_get_config_filename(), 'wb'));
+    $configPath = S2_ROOT . s2_get_config_filename();
+    $fh = s2_call_without_warnings(static fn() => fopen($configPath, 'wb'));
     if ($fh !== false) {
-        fwrite($fh, $config);
+        $writtenBytes = fwrite($fh, $config);
+        fflush($fh);
+        $permissionsSecured = DIRECTORY_SEPARATOR === '\\'
+            || s2_call_without_warnings(static fn(): bool => chmod($configPath, 0600));
         fclose($fh);
 
-        $written = true;
+        $written = $writtenBytes === strlen($config) && $permissionsSecured;
+        if (!$written) {
+            s2_call_without_warnings(static fn(): bool => unlink($configPath));
+        }
     }
 }
 

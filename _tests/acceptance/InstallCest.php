@@ -76,7 +76,7 @@ class InstallCest
             throw new \Exception('config.test.php must not exist for test run');
         }
 
-        $I->install('admin', 'passwd', $example['db_type'], $example['db_user'], $example['db_password']);
+        $I->install('admin', 'register-test-password', $example['db_type'], $example['db_user'], $example['db_password']);
 
         $I->amOnPage('/');
         $I->see('Register');
@@ -143,7 +143,7 @@ class InstallCest
         $I->seeResponseCodeIs(401);
         $I->see('You have entered incorrect username or password.');
 
-        $I->login('admin', 'passwd');
+        $I->login('admin', 'register-test-password');
         $I->seeResponseCodeIs(200);
         $I->dontSee('You have entered incorrect username or password.');
 
@@ -408,7 +408,7 @@ class InstallCest
         $I->seeResponseCodeIsClientError();
 
         $I->amOnPage('/_admin/index.php?entity=BlogPost&action=new');
-        $I->submitForm('form', [
+        $I->submitForm('.new-content > form', [
             'title' => 'Привет, мир!',
             'body'  => '<p>Start text</p>',
         ]);
@@ -613,7 +613,7 @@ class InstallCest
         // test exercises comment moderation instead of tripping production rate defaults.
         foreach (['ip', 'email', 'visitor'] as $bucketType) {
             $I->amOnPage('/_admin/index.php?entity=SpamRatePolicy&action=edit&bucket_type=' . $bucketType);
-            $I->submitForm('form', [
+            $I->submitForm('.edit-content > form', [
                 'request_limit' => 1_000,
             ]);
             $I->seeResponseCodeIsSuccessful();

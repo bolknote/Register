@@ -13,6 +13,7 @@ use S2\AdminYard\Config\AdminConfig;
 use S2\AdminYard\Config\FieldConfig;
 use S2\AdminYard\MenuGenerator;
 use S2\AdminYard\TemplateRenderer;
+use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\PermissionChecker;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -50,6 +51,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
         AdminConfig              $config,
         TemplateRenderer         $templateRenderer,
         private PermissionChecker        $permissionChecker,
+        private AuthManager              $authManager,
         private EventDispatcherInterface $eventDispatcher,
         private RequestStack             $requestStack,
     ) {
@@ -191,6 +193,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
                 $accountLinks,
             ),
             'logoutUrl'       => $baseUrl . '?action=logout',
+            'logoutCsrfToken' => $this->authManager->getLogoutCsrfToken(),
             'userId'          => $currentUserId,
         ]);
     }

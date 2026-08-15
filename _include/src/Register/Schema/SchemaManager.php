@@ -25,7 +25,7 @@ final readonly class SchemaManager
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_GENERATION';
 
-    public const int CURRENT_GENERATION = 11;
+    public const int CURRENT_GENERATION = 12;
 
     private const array CONFIG_DEFAULTS = [
         AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_DISABLED,

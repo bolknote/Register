@@ -369,13 +369,12 @@ class PictureManager
             throw new \RuntimeException($errors);
         }
 
-        $filename = $this->fileNameHelper->normalizeFileName($filename);
-        $this->fileNameHelper->assertSafeUploadedFile($uploadedFile, $filename);
+        $sourceFilename = $this->fileNameHelper->normalizeFileName($filename);
+        $this->fileNameHelper->assertSafeUploadedFile($uploadedFile, $sourceFilename);
 
-        // Processing name collisions
-        while (is_file($this->imageDir . $path . '/' . $filename)) {
-            $filename = $this->fileNameHelper->incrementCopySuffix($filename);
-        }
+        do {
+            $filename = $this->fileNameHelper->generateStorageFileName($sourceFilename);
+        } while (is_file($this->imageDir . $path . '/' . $filename));
 
         if ($createDir) {
             $this->ensureDirExists($this->imageDir . $path);

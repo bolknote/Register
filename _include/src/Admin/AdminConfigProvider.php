@@ -46,6 +46,7 @@ use S2\AdminYard\Validator\Regex;
 use S2\Cms\Admin\Controller\CommentControllerFactory;
 use S2\Cms\Admin\Validator\IntegerRange;
 use S2\Cms\Admin\Validator\Optional;
+use S2\Cms\Admin\Validator\SecurePassword;
 use S2\Cms\Comment\Antispam\SpamMetricsRepository;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\DynamicConfigProvider;
@@ -54,6 +55,8 @@ use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
+use S2\Cms\Model\PasswordHasher;
+use S2\Cms\Model\PasswordPolicy;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -365,7 +368,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 label: $this->translator->trans('Password'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_PASSWORD),
                 control: 'password',
-                validators: [new Optional(new Length(min: 8))],
+                validators: [new Optional(new SecurePassword())],
                 useOnActions: [FieldConfig::ACTION_NEW, FieldConfig::ACTION_EDIT],
             ))
             ->addField(new FieldConfig(
@@ -487,14 +490,50 @@ class AdminConfigProvider implements StatefulServiceInterface
                 }
             })
             ->addListener(
+                [EntityConfig::EVENT_BEFORE_PATCH, EntityConfig::EVENT_BEFORE_UPDATE],
+                function (BeforeSaveEvent $event) use ($userEntity): void {
+                    $oldData = $event->dataProvider->getEntity(
+                        $userEntity->getTableName(),
+                        ['id' => FieldConfig::DATA_TYPE_INT, 'login' => FieldConfig::DATA_TYPE_STRING],
+                        [],
+                        [],
+                        $this->requirePrimaryKey($event->primaryKey),
+                    );
+                    if (\is_array($oldData) && \is_string($oldData['column_login'] ?? null)) {
+                        $event->context['security_previous_login'] = $oldData['column_login'];
+                    }
+                },
+            )
+            ->addListener(
+                [EntityConfig::EVENT_BEFORE_CREATE, EntityConfig::EVENT_BEFORE_UPDATE],
+                function (BeforeSaveEvent $event): void {
+                    $password = (string)($event->data['password'] ?? '');
+                    $login = (string)($event->data['login'] ?? '');
+                    if ($password !== '' && \in_array('contains_login', PasswordPolicy::violations($password, $login), true)) {
+                        $event->errorMessages[] = $this->translator->trans('The password must not contain the login.');
+                    }
+                },
+            )
+            ->addListener(
                 [EntityConfig::EVENT_BEFORE_PATCH, EntityConfig::EVENT_BEFORE_CREATE, EntityConfig::EVENT_BEFORE_UPDATE],
                 function (BeforeSaveEvent $event): void {
                     if (($event->data['password'] ?? '') !== '') {
-                        $event->data['password'] = password_hash($event->data['password'], PASSWORD_DEFAULT);
+                        $event->data['password'] = PasswordHasher::hash($event->data['password']);
                     } else {
                         unset($event->data['password']);
                     }
                 }
+            )
+            ->addListener(
+                [EntityConfig::EVENT_AFTER_PATCH, EntityConfig::EVENT_AFTER_UPDATE],
+                function (AfterSaveEvent $event): void {
+                    $this->authManager->revokeUserSessions(
+                        $this->requirePrimaryKey($event->primaryKey)->getIntId(),
+                        \is_string($event->context['security_previous_login'] ?? null)
+                            ? $event->context['security_previous_login']
+                            : null,
+                    );
+                },
             )
             ->addListener(
                 [EntityConfig::EVENT_BEFORE_CREATE, EntityConfig::EVENT_BEFORE_UPDATE],
@@ -1050,7 +1089,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 ))
                 ->addField(new FieldConfig(
                     name: 'current',
-                    type: new VirtualFieldType("(CASE WHEN challenge = '" . $this->authManager->getCurrentSessionId() . "' THEN '1' ELSE '' END)"),
+                    type: new VirtualFieldType("(CASE WHEN challenge = '" . $this->authManager->getCurrentSessionStorageKey() . "' THEN '1' ELSE '' END)"),
                 ))
                 ->setEnabledActions([FieldConfig::ACTION_LIST, FieldConfig::ACTION_DELETE])
                 ->setReadAccessControl($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS) ? null : new LogicalExpression('login', $this->permissionChecker->getUserLogin()))

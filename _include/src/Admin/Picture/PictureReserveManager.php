@@ -53,15 +53,15 @@ class PictureReserveManager
 
         $this->cleanupExpiredReserves($path);
 
-        $token     = RandomHelper::getRandomHexString32();
-        $candidate = $normalized;
-        $attempts  = 0;
-
-        while (is_file($this->imageDir . $path . '/' . $candidate)) {
-            $candidate = $this->fileNameHelper->incrementCopySuffix($candidate);
-        }
+        $token    = RandomHelper::getRandomHexString32();
+        $attempts = 0;
 
         while ($attempts++ < 100) {
+            $candidate = $this->fileNameHelper->generateStorageFileName($normalized);
+            if (is_file($this->imageDir . $path . '/' . $candidate)) {
+                continue;
+            }
+
             $reserveFile = $this->getReserveFilePath($path, $candidate);
             if ($this->tryCreateReserve($reserveFile, $token, $path, $candidate)) {
                 return [
@@ -70,7 +70,6 @@ class PictureReserveManager
                 ];
             }
 
-            $candidate = $this->fileNameHelper->incrementCopySuffix($candidate);
         }
 
         throw new \RuntimeException('Unable to reserve file name.', Response::HTTP_SERVICE_UNAVAILABLE);

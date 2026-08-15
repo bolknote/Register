@@ -348,7 +348,7 @@ async function SendLoginData(eForm, fOk, fFail) {
             body: new URLSearchParams({
                 login: eForm.login.value,
                 pass: eForm.pass.value,
-                foreign_computer: eForm.foreign_computer.checked ? '1' : '0',
+                remember_me: eForm.remember_me.checked ? '1' : '0',
             })
         });
 

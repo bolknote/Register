@@ -41,8 +41,8 @@
         </p>
         <p class="login-session-options">
             <label class="login-session-option">
-                <input type="checkbox" name="foreign_computer" value="1">
-                <span><?php echo $trans('Foreign computer'); ?></span>
+                <input type="checkbox" name="remember_me" value="1">
+                <span><?php echo $trans('Remember me'); ?></span>
             </label>
         </p>
         <p>

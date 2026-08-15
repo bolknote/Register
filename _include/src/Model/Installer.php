@@ -108,6 +108,7 @@ readonly class Installer
                     'users',
                     ['login'],
                     'CASCADE',
+                    'CASCADE',
                 )
                 ->addIndex('login_idx', ['login'])
                 ->addUniqueIndex('challenge_idx', ['challenge'])

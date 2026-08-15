@@ -9,7 +9,6 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Model;
 
-use S2\AdminYard\Helper\RandomHelper;
 use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
 use S2\Cms\Pdo\DbLayer;
@@ -25,16 +24,21 @@ readonly class AuthManager
 {
     public const string FORCE_AJAX_RESPONSE = '_force_ajax_response';
 
-    public const int PERSISTENT_SESSION_LIFETIME = 5 * 365 * 86400;
+    public const int PERSISTENT_SESSION_LIFETIME = 30 * 86400;
+
+    private const int PERSISTENT_SESSION_IDLE_TIMEOUT = 7 * 86400;
+
+    private const int TEMPORARY_SESSION_IDLE_TIMEOUT = 30 * 60;
+
+    private const int TEMPORARY_SESSION_LIFETIME = 12 * 3600;
+
+    private const string SESSION_TOKEN_PATTERN = '/^([pt])([0-9a-f]{8})[0-9a-f]{64}$/D';
 
     private const string SESSION_STATUS_LOST     = 'Lost';
 
     private const string SESSION_STATUS_OK       = 'Ok';
 
     private const string LEGACY_PASSWORD_PEPPER  = 'Life is not so easy :-)';
-
-    /** A fixed modern hash keeps unknown-user checks comparable to valid-user checks. */
-    private const string DUMMY_PASSWORD_HASH = '$2y$12$sEo8P2Bkb56lN9bNRbs6wuAsbAyQjeLBVR8Z1nzkLi03mGY.649mK';
 
     public function __construct(
         private DbLayer           $dbLayer,
@@ -69,19 +73,23 @@ readonly class AuthManager
         $sessionId = $request->cookies->get($this->cookieName, '');
 
         if ($request->query->get('action') === 'logout') {
+            if (!$request->isMethod(Request::METHOD_POST)) {
+                return new Response('Logout requires POST.', Response::HTTP_METHOD_NOT_ALLOWED, [
+                    'Allow' => Request::METHOD_POST,
+                ]);
+            }
+            if (!$this->logoutCsrfTokenMatches($sessionId, $request->request->getString('csrf_token'))) {
+                return new Response('Invalid logout token.', Response::HTTP_FORBIDDEN);
+            }
+
             $this->deleteSession($sessionId);
             $baseUrl = $this->shouldUseSecureCookies($request)
                 ? (preg_replace('/^http:/i', 'https:', $this->baseUrl) ?? $this->baseUrl)
                 : $this->baseUrl;
             $response      = new RedirectResponse(rtrim($baseUrl, '/') . '/_admin/index.php');
             $secureCookies = $this->shouldUseSecureCookies($request);
-            $response->headers->setCookie(Cookie::create(
-                name: $this->cookieName,
-                value: '',
-                path: $this->basePath . '/_admin/',
-                secure: $secureCookies,
-            ));
-            $response->headers->setCookie($this->createCommentCookie('', $secureCookies));
+            $response->headers->setCookie($this->createAdminCookie('', $secureCookies));
+            $response->headers->setCookie($this->createCommentCookie('', $secureCookies, 0));
             return $response;
         }
 
@@ -130,6 +138,20 @@ readonly class AuthManager
         return $request instanceof \Symfony\Component\HttpFoundation\Request ? $request->cookies->get($this->cookieName, '') : '';
     }
 
+    public function getCurrentSessionStorageKey(): string
+    {
+        $sessionId = $this->getCurrentSessionId();
+
+        return $sessionId === '' ? '' : AuthTokenHasher::session($sessionId);
+    }
+
+    public function getLogoutCsrfToken(): string
+    {
+        $sessionId = $this->getCurrentSessionId();
+
+        return $sessionId === '' ? '' : $this->createLogoutCsrfToken($sessionId);
+    }
+
     /**
      * @throws DbLayerException
      */
@@ -140,19 +162,38 @@ readonly class AuthManager
             ->from('users_online AS u1')
             ->innerJoin('users_online AS u2', 'u1.login = u2.login')
             ->where('u1.challenge = :challenge')
-            ->setParameter('challenge', $this->getCurrentSessionId())
+            ->setParameter('challenge', $this->getCurrentSessionStorageKey())
             ->execute()
         ;
 
         return (int)$result->result();
     }
 
-    /**
-     * Renews persistent login cookies after an authenticated admin request. Legacy session IDs are
-     * treated as persistent, so an existing login is upgraded without asking for a password again.
-     *
-     * @throws DbLayerException
-     */
+    /** @throws DbLayerException */
+    public function revokeUserSessions(int $userId, ?string $previousLogin = null): void
+    {
+        $currentLogin = $this->dbLayer
+            ->select('login')
+            ->from('users')
+            ->where('id = :id')->setParameter('id', $userId)
+            ->execute()
+            ->result()
+        ;
+
+        $logins = array_values(array_unique(array_filter(
+            [$previousLogin, \is_string($currentLogin) ? $currentLogin : null],
+            static fn(?string $login): bool => $login !== null && $login !== '',
+        )));
+        foreach ($logins as $login) {
+            $this->dbLayer
+                ->delete('users_online')
+                ->where('login = :login')->setParameter('login', $login)
+                ->execute()
+            ;
+        }
+    }
+
+    /** @throws DbLayerException */
     public function renewPersistentCookies(Request $request, Response $response): void
     {
         $sessionId = $request->cookies->get($this->cookieName, '');
@@ -160,26 +201,28 @@ readonly class AuthManager
             return;
         }
 
-        $commentCookie = $this->dbLayer
-            ->select('comment_cookie')
+        $issuedAt      = $this->sessionIssuedAt($sessionId);
+        $commentCookie = $request->cookies->get($this->cookieName . '_c', '');
+        if ($issuedAt === null || $commentCookie === '' || time() >= $issuedAt + self::PERSISTENT_SESSION_LIFETIME) {
+            return;
+        }
+
+        $sessionExists = $this->dbLayer
+            ->select('COUNT(*)')
             ->from('users_online')
-            ->where('challenge = :challenge')->setParameter('challenge', $sessionId)
+            ->where('challenge = :challenge')->setParameter('challenge', AuthTokenHasher::session($sessionId))
+            ->andWhere('comment_cookie = :comment_cookie')->setParameter('comment_cookie', AuthTokenHasher::comment($commentCookie))
             ->execute()
             ->result()
         ;
-        if (!\is_string($commentCookie) || $commentCookie === '') {
+        if ((int)$sessionExists !== 1) {
             return;
         }
 
         $secureCookies = $this->shouldUseSecureCookies($request);
-        $response->headers->setCookie(Cookie::create(
-            name: $this->cookieName,
-            value: $sessionId,
-            expire: time() + self::PERSISTENT_SESSION_LIFETIME,
-            path: $this->basePath . '/_admin/',
-            secure: $secureCookies,
-        ));
-        $response->headers->setCookie($this->createCommentCookie($commentCookie, $secureCookies));
+        $expiresAt = $issuedAt + self::PERSISTENT_SESSION_LIFETIME;
+        $response->headers->setCookie($this->createAdminCookie($sessionId, $secureCookies, $expiresAt));
+        $response->headers->setCookie($this->createCommentCookie($commentCookie, $secureCookies, $expiresAt));
     }
 
     /**
@@ -225,13 +268,8 @@ readonly class AuthManager
         }
 
         $secureCookies = $this->shouldUseSecureCookies($request);
-        $response->headers->setCookie(Cookie::create(
-            name: $this->cookieName,
-            value: '',
-            path: $this->basePath . '/_admin/',
-            secure: $secureCookies,
-        ));
-        $response->headers->setCookie($this->createCommentCookie('', $secureCookies));
+        $response->headers->setCookie($this->createAdminCookie('', $secureCookies));
+        $response->headers->setCookie($this->createCommentCookie('', $secureCookies, 0));
 
         return $response;
     }
@@ -267,7 +305,7 @@ readonly class AuthManager
             ->set('ip', ':ip')
             ->setParameter('ip', $request->getClientIp())
             ->where('challenge = :challenge')
-            ->setParameter('challenge', $sessionId)
+            ->setParameter('challenge', AuthTokenHasher::session($sessionId))
             ->execute()
         ;
     }
@@ -277,6 +315,12 @@ readonly class AuthManager
      */
     private function processLoginForm(Request $request): Response
     {
+        if (!$request->isMethod(Request::METHOD_POST)) {
+            return new Response('Login requires POST.', Response::HTTP_METHOD_NOT_ALLOWED, [
+                'Allow' => Request::METHOD_POST,
+            ]);
+        }
+
         $login    = $request->request->getString('login');
         $password = $request->request->getString('pass');
         $clientIp = $request->getClientIp() ?? '';
@@ -302,7 +346,7 @@ readonly class AuthManager
         // Verifying password
         $hashToVerify = $passwordHash;
         if ($hashToVerify === null) {
-            $hashToVerify = self::DUMMY_PASSWORD_HASH;
+            $hashToVerify = PasswordHasher::dummyHash();
         }
 
         $hashMatches = password_verify($password, $hashToVerify);
@@ -313,14 +357,14 @@ readonly class AuthManager
             return $this->createAjaxErrorLoginPasswordResponse();
         }
 
-        if (!$hashMatches || password_needs_rehash($passwordHash, PASSWORD_DEFAULT)) {
+        if (!$hashMatches || PasswordHasher::needsRehash($passwordHash)) {
             $this->updatePasswordHash($login, $password);
         }
 
         $this->loginRateLimiter->clear($clientIp, $login);
 
         // Everything is Ok.
-        return $this->successLogin($request, $login, $request->request->getBoolean('foreign_computer'));
+        return $this->successLogin($request, $login, !$request->request->getBoolean('remember_me'));
     }
 
     /**
@@ -346,7 +390,7 @@ readonly class AuthManager
      */
     private function updatePasswordHash(string $login, string $password): void
     {
-        $newHash = password_hash($password, PASSWORD_DEFAULT);
+        $newHash = PasswordHasher::hash($password);
 
         $this->dbLayer
             ->update('users')
@@ -364,7 +408,7 @@ readonly class AuthManager
         $this->dbLayer
             ->delete('users_online')
             ->where('challenge = :challenge')
-            ->setParameter('challenge', $sessionId)
+            ->setParameter('challenge', AuthTokenHasher::session($sessionId))
             ->execute()
         ;
     }
@@ -372,36 +416,31 @@ readonly class AuthManager
     /**
      * @throws DbLayerException
      */
-    private function successLogin(Request $request, string $login, bool $foreignComputer): JsonResponse
+    private function successLogin(Request $request, string $login, bool $temporary): JsonResponse
     {
         $time          = time();
-        $sessionId     = ($foreignComputer ? 't' : 'p') . substr(RandomHelper::getRandomHexString32(), 1);
-        $commentCookie = RandomHelper::getRandomHexString32();
+        $sessionId     = $this->createSessionToken($temporary, $time);
+        $commentCookie = bin2hex(random_bytes(32));
 
         // Create user session
         // TODO check unique constraint violation
         $this->dbLayer
             ->insert('users_online')
             ->setValue('login', ':login')->setParameter('login', $login)
-            ->setValue('challenge', ':challenge')->setParameter('challenge', $sessionId)
+            ->setValue('challenge', ':challenge')->setParameter('challenge', AuthTokenHasher::session($sessionId))
             ->setValue('time', ':time')->setParameter('time', $time)
             ->setValue('ua', ':ua')->setParameter('ua', $request->headers->get('User-Agent'))
             ->setValue('ip', ':ip')->setParameter('ip', $request->getClientIp())
-            ->setValue('comment_cookie', ':comment_cookie')->setParameter('comment_cookie', $commentCookie)
+            ->setValue('comment_cookie', ':comment_cookie')->setParameter('comment_cookie', AuthTokenHasher::comment($commentCookie))
             ->execute()
         ;
 
         $response      = new JsonResponse(['success' => true]);
         $secureCookies = $this->shouldUseSecureCookies($request);
 
-        $response->headers->setCookie(Cookie::create(
-            name: $this->cookieName,
-            value: $sessionId,
-            expire: $foreignComputer ? 0 : $time + self::PERSISTENT_SESSION_LIFETIME,
-            path: $this->basePath . '/_admin/',
-            secure: $secureCookies,
-        ));
-        $response->headers->setCookie($this->createCommentCookie($commentCookie, $secureCookies, $foreignComputer));
+        $expiresAt = $temporary ? 0 : $time + self::PERSISTENT_SESSION_LIFETIME;
+        $response->headers->setCookie($this->createAdminCookie($sessionId, $secureCookies, $expiresAt));
+        $response->headers->setCookie($this->createCommentCookie($commentCookie, $secureCookies, $expiresAt));
 
         return $response;
     }
@@ -455,7 +494,7 @@ readonly class AuthManager
         $result = $this->dbLayer
             ->select('login, time')
             ->from('users_online')
-            ->where('challenge = :challenge')->setParameter('challenge', $sessionId)
+            ->where('challenge = :challenge')->setParameter('challenge', AuthTokenHasher::session($sessionId))
             ->execute()
         ;
         $row = $result->fetchRow();
@@ -472,6 +511,14 @@ readonly class AuthManager
         $time  = (int)$timeValue;
 
         $now = time();
+
+        $issuedAt          = $this->sessionIssuedAt($sessionId);
+        $persistent       = str_starts_with($sessionId, 'p');
+        $absoluteLifetime = $persistent ? self::PERSISTENT_SESSION_LIFETIME : self::TEMPORARY_SESSION_LIFETIME;
+        $idleTimeout      = $persistent ? self::PERSISTENT_SESSION_IDLE_TIMEOUT : self::TEMPORARY_SESSION_IDLE_TIMEOUT;
+        if ($issuedAt === null || $now >= $issuedAt + $absoluteLifetime || $now >= $time + $idleTimeout) {
+            return self::SESSION_STATUS_LOST;
+        }
 
         // Ok, we keep it fresh every 5 seconds.
         if ($now > $time + 5) {
@@ -512,14 +559,58 @@ readonly class AuthManager
      * Special cookie to mark that a user is logged in.
      * If this user has a permission, his comment will be published even in pre-moderation mode.
      */
-    private function createCommentCookie(string $value, bool $secure, bool $foreignComputer = false): Cookie
+    private function createAdminCookie(string $value, bool $secure, int $expiresAt = 0): Cookie
+    {
+        return Cookie::create(
+            name: $this->cookieName,
+            value: $value,
+            expire: $value === '' ? 1 : $expiresAt,
+            path: $this->basePath . '/_admin/',
+            secure: $secure,
+            httpOnly: true,
+            sameSite: Cookie::SAMESITE_STRICT,
+        );
+    }
+
+    private function createCommentCookie(string $value, bool $secure, int $expiresAt): Cookie
     {
         return Cookie::create(
             name: $this->cookieName . '_c',
             value: $value,
-            expire: $value !== '' && !$foreignComputer ? self::PERSISTENT_SESSION_LIFETIME + time() : 0,
+            expire: $value === '' ? 1 : $expiresAt,
             path: rtrim($this->basePath, '/') . '/',
             secure: $secure,
+            httpOnly: true,
+            sameSite: Cookie::SAMESITE_LAX,
         );
     }
+
+    private function createSessionToken(bool $temporary, int $issuedAt): string
+    {
+        return ($temporary ? 't' : 'p') . sprintf('%08x', $issuedAt) . bin2hex(random_bytes(32));
+    }
+
+    private function sessionIssuedAt(string $sessionId): ?int
+    {
+        if (preg_match(self::SESSION_TOKEN_PATTERN, $sessionId, $matches) !== 1) {
+            return null;
+        }
+
+        $issuedAt = (int)hexdec($matches[2]);
+
+        return $issuedAt > time() + 300 ? null : $issuedAt;
+    }
+
+    private function createLogoutCsrfToken(string $sessionId): string
+    {
+        return hash_hmac('sha256', "logout\0", $sessionId);
+    }
+
+    private function logoutCsrfTokenMatches(string $sessionId, string $candidate): bool
+    {
+        return $sessionId !== ''
+            && $candidate !== ''
+            && hash_equals($this->createLogoutCsrfToken($sessionId), $candidate);
+    }
+
 }

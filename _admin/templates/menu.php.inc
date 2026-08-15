@@ -6,6 +6,7 @@ declare(strict_types = 1);
 /** @var array<mixed> $accountGroup */
 /** @var callable $trans */
 /** @var string $logoutUrl */
+/** @var string $logoutCsrfToken */
 /** @var ?int $userId */
 
 use S2\Cms\AdminYard\Signal;
@@ -66,12 +67,21 @@ $renderLink = static function (array $link, bool $dropdown = false) use ($html, 
     ?>
     <li class="main-menu-item <?= !empty($link['active']) ? 'active' : '' ?>"
         data-menu-key="<?= $html((string)$link['key']) ?>">
-        <a class="main-menu-link <?= $dropdown ? 'main-menu-dropdown-link' : '' ?> <?= $link['key'] === 'Logout' ? 'main-menu-logout-link' : '' ?>"
-           href="<?= $html((string)$link['url']) ?>"
-            <?= !empty($link['active']) ? 'aria-current="page"' : '' ?>
-        >
-            <span class="main-menu-link-label"><?= $html($name) ?></span>
-        </a>
+        <?php if (($link['method'] ?? 'get') === 'post'): ?>
+            <form class="main-menu-post-form" method="post" action="<?= $html((string)$link['url']) ?>">
+                <input type="hidden" name="csrf_token" value="<?= $html((string)($link['csrfToken'] ?? '')) ?>">
+                <button class="main-menu-link main-menu-dropdown-link main-menu-logout-link" type="submit">
+                    <span class="main-menu-link-label"><?= $html($name) ?></span>
+                </button>
+            </form>
+        <?php else: ?>
+            <a class="main-menu-link <?= $dropdown ? 'main-menu-dropdown-link' : '' ?>"
+               href="<?= $html((string)$link['url']) ?>"
+                <?= !empty($link['active']) ? 'aria-current="page"' : '' ?>
+            >
+                <span class="main-menu-link-label"><?= $html($name) ?></span>
+            </a>
+        <?php endif; ?>
         <?php
         /** @var list<Signal> $signals */
         $signals = $link['signals'] ?? [];
@@ -133,6 +143,8 @@ $accountGroup['links'][] = [
     'key'     => 'Logout',
     'name'    => 'Logout',
     'url'     => $logoutUrl,
+    'method'  => 'post',
+    'csrfToken' => $logoutCsrfToken,
     'active'  => false,
     'signals' => [],
 ];

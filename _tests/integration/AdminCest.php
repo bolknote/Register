@@ -16,6 +16,7 @@ use S2\Cms\Comment\Antispam\SpamAssessment;
 use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
 use S2\Cms\Comment\SpamDetectorReport;
 use S2\Cms\Config\DynamicConfigProvider;
+use S2\Cms\Model\AuthTokenHasher;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\LoginRateLimiter;
 use S2\Cms\Pdo\DbLayer;
@@ -29,8 +30,8 @@ class AdminCest
     public function testLogin(\IntegrationTester $I): void
     {
         $I->amOnPage('https://localhost/_admin/index.php');
-        $I->see('Shared computer');
-        $I->seeElement('input[name="foreign_computer"]:not([checked])');
+        $I->see('Remember me for 30 days');
+        $I->seeElement('input[name="remember_me"]:not([checked])');
 
         $I->login('admin', 'no-pass');
         $I->seeResponseCodeIs(401);
@@ -39,12 +40,32 @@ class AdminCest
         $I->seeResponseCodeIs(200);
     }
 
+    public function testLogoutRequiresPostAndCsrfToken(\IntegrationTester $I): void
+    {
+        $I->login('admin', 'admin');
+
+        $I->amOnPage('https://localhost/_admin/index.php?action=logout');
+        $I->seeResponseCodeIs(405);
+
+        $I->sendPost('https://localhost/_admin/index.php?action=logout', ['csrf_token' => 'invalid']);
+        $I->seeResponseCodeIs(403);
+
+        $I->logout();
+        $I->amOnPage('https://localhost/_admin/index.php');
+        $I->see('Username');
+        $I->see('Password');
+    }
+
     public function testRegisterAdminShellAndListDensity(\IntegrationTester $I): void
     {
         $I->login('admin', 'admin');
 
         $I->amOnPage('https://localhost/_admin/index.php');
         $I->see('Overview', 'h1#dashboard-title');
+        $I->assertStringContainsString('no-store', (string)$I->grabHttpHeader('Cache-Control'));
+        $I->assertSame('strict-origin-when-cross-origin', $I->grabHttpHeader('Referrer-Policy'));
+        $I->assertSame('camera=(), microphone=(), geolocation=()', $I->grabHttpHeader('Permissions-Policy'));
+        $I->assertNull($I->grabHttpHeader('X-Powered-By'));
         $I->seeElement('details[data-menu-group="Materials"]');
         $I->seeElement('details[data-menu-group="Moderation"]');
         $I->seeElement('details[data-menu-group="Settings"]');
@@ -71,7 +92,8 @@ class AdminCest
         $I->see('Register', 'a.admin-brand');
         $I->seeElement('nav[aria-label="Control panel navigation"]');
         $I->seeElement('a.main-menu-link[aria-current="page"][href="?entity=BlogPost&action=list"]');
-        $I->see('Log out', 'a.main-menu-logout-link');
+        $I->see('Log out', 'button.main-menu-logout-link');
+        $I->seeElement('form.main-menu-post-form[method="post"][action="?action=logout"] input[name="csrf_token"]');
         $I->dontSee('Log out?');
 
         /** @var AdminConfigProvider $adminConfigProvider */
@@ -581,8 +603,15 @@ class AdminCest
         $I->assertIsArray($admin);
 
         $I->login('admin', 'admin');
+        $passwordStatement = $pdo->prepare('SELECT password FROM users WHERE id = :id');
+        $I->assertNotFalse($passwordStatement);
+        $passwordStatement->execute(['id' => $admin['id']]);
+        $passwordBeforeEdit = $passwordStatement->fetchColumn();
+        $passwordStatement->closeCursor();
+        $I->assertIsString($passwordBeforeEdit);
+
         $I->amOnPage('https://localhost/_admin/index.php?entity=User&action=edit&id=' . $admin['id']);
-        $I->submitForm('form', [
+        $I->submitForm('.edit-content > form', [
             'login'           => 'admin',
             'password'        => '',
             'name'            => $admin['name'],
@@ -603,7 +632,7 @@ class AdminCest
         $passwordStatement->execute(['id' => $admin['id']]);
         $password = $passwordStatement->fetchColumn();
         $passwordStatement->closeCursor();
-        $I->assertSame($admin['password'], $password);
+        $I->assertSame($passwordBeforeEdit, $password);
 
         $roleStatement = $pdo->prepare('SELECT create_articles FROM users WHERE id = :id');
         $I->assertNotFalse($roleStatement);
@@ -620,7 +649,7 @@ class AdminCest
 
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/_admin/index.php?entity=User&action=new');
-        $I->submitForm('form', [
+        $I->submitForm('.new-content > form', [
             'login'    => 'passwordless-user',
             'password' => '',
             'name'     => '',
@@ -718,26 +747,34 @@ class AdminCest
         $persistentResponse = $authManager->checkAuth(Request::create(
             'https://localhost/_admin/index.php?action=login',
             'POST',
-            ['login' => 'admin', 'pass' => 'admin'],
+            ['login' => 'admin', 'pass' => 'admin', 'remember_me' => '1'],
             server: ['REMOTE_ADDR' => '192.0.2.1', 'HTTP_USER_AGENT' => 'Persistent browser'],
         ));
         $I->assertNotNull($persistentResponse);
         $persistentCookies = $persistentResponse->headers->getCookies();
         $I->assertCount(2, $persistentCookies);
         foreach ($persistentCookies as $cookie) {
-            $I->assertGreaterThan(time() + 4 * 365 * 86400, $cookie->getExpiresTime());
+            $I->assertGreaterThan(time() + 29 * 86400, $cookie->getExpiresTime());
+            $I->assertLessThanOrEqual(time() + AuthManager::PERSISTENT_SESSION_LIFETIME, $cookie->getExpiresTime());
+            $I->assertTrue($cookie->isHttpOnly());
         }
 
         $adminCookie = array_values(array_filter(
             $persistentCookies,
             static fn(\Symfony\Component\HttpFoundation\Cookie $cookie): bool => !str_ends_with($cookie->getName(), '_c'),
         ))[0];
+        $commentCookie = array_values(array_filter(
+            $persistentCookies,
+            static fn(\Symfony\Component\HttpFoundation\Cookie $cookie): bool => str_ends_with($cookie->getName(), '_c'),
+        ))[0];
         $I->assertStringStartsWith('p', (string)$adminCookie->getValue());
+        $I->assertSame('strict', $adminCookie->getSameSite());
+        $I->assertSame('lax', $commentCookie->getSameSite());
         $dbLayer
             ->update('users_online')
             ->set('time', ':time')->setParameter('time', time() - 86400)
             ->set('ip', ':ip')->setParameter('ip', '192.0.2.1')
-            ->where('challenge = :challenge')->setParameter('challenge', $adminCookie->getValue())
+            ->where('challenge = :challenge')->setParameter('challenge', AuthTokenHasher::session((string)$adminCookie->getValue()))
             ->execute()
         ;
 
@@ -752,32 +789,35 @@ class AdminCest
         $renewedResponse = new \Symfony\Component\HttpFoundation\Response();
         $authManager->renewPersistentCookies(Request::create(
             'https://localhost/_admin/index.php',
-            cookies: [$adminCookie->getName() => $adminCookie->getValue()],
+            cookies: [
+                $adminCookie->getName() => $adminCookie->getValue(),
+                $commentCookie->getName() => $commentCookie->getValue(),
+            ],
         ), $renewedResponse);
         $I->assertCount(2, $renewedResponse->headers->getCookies());
 
-        $foreignComputerResponse = $authManager->checkAuth(Request::create(
+        $temporaryResponse = $authManager->checkAuth(Request::create(
             'https://localhost/_admin/index.php?action=login',
             'POST',
-            ['login' => 'admin', 'pass' => 'admin', 'foreign_computer' => '1'],
+            ['login' => 'admin', 'pass' => 'admin'],
             server: ['REMOTE_ADDR' => '192.0.2.3', 'HTTP_USER_AGENT' => 'Shared browser'],
         ));
-        $I->assertNotNull($foreignComputerResponse);
-        $foreignComputerCookies = $foreignComputerResponse->headers->getCookies();
-        $I->assertCount(2, $foreignComputerCookies);
-        foreach ($foreignComputerCookies as $cookie) {
+        $I->assertNotNull($temporaryResponse);
+        $temporaryCookies = $temporaryResponse->headers->getCookies();
+        $I->assertCount(2, $temporaryCookies);
+        foreach ($temporaryCookies as $cookie) {
             $I->assertSame(0, $cookie->getExpiresTime());
         }
 
-        $foreignAdminCookie = array_values(array_filter(
-            $foreignComputerCookies,
+        $temporaryAdminCookie = array_values(array_filter(
+            $temporaryCookies,
             static fn(\Symfony\Component\HttpFoundation\Cookie $cookie): bool => !str_ends_with($cookie->getName(), '_c'),
         ))[0];
-        $I->assertStringStartsWith('t', (string)$foreignAdminCookie->getValue());
+        $I->assertStringStartsWith('t', (string)$temporaryAdminCookie->getValue());
         $notRenewedResponse = new \Symfony\Component\HttpFoundation\Response();
         $authManager->renewPersistentCookies(Request::create(
             'https://localhost/_admin/index.php',
-            cookies: [$foreignAdminCookie->getName() => $foreignAdminCookie->getValue()],
+            cookies: [$temporaryAdminCookie->getName() => $temporaryAdminCookie->getValue()],
         ), $notRenewedResponse);
         $I->assertCount(0, $notRenewedResponse->headers->getCookies());
     }

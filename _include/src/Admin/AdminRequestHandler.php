@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace S2\Cms\Admin;
 
 use Register\Content\ContentChangeDispatcher;
+use Register\Http\ContentSecurityPolicy;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\StatefulServiceInterface;
@@ -73,6 +74,8 @@ readonly class AdminRequestHandler
         $this->contentChangeDispatcher->flush();
         $this->authManager->renewPersistentCookies($request, $response);
         $this->requestStack->pop();
+
+        ContentSecurityPolicy::applyToAdmin($response);
 
         return $response;
     }
