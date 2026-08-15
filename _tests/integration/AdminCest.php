@@ -141,12 +141,18 @@ class AdminCest
         $I->amOnPage('https://localhost/_admin/index.php?entity=User&action=list');
         $I->see('Roles', 'table.list-table th');
         $I->dontSee('Password', 'table.list-table th');
+        $I->seeElement('button.list-action-link-delete[data-admin-delete][data-delete-url]');
+        $I->dontSeeElement('.list-action-delete-popup');
+        $I->seeElement('dialog[data-admin-confirm-dialog][aria-labelledby="admin-confirm-title"]');
+        $I->seeElement('button[data-admin-confirm-cancel][value="cancel"]');
+        $I->seeElement('button.danger[data-admin-confirm-submit][value="confirm"]');
 
         $editUserHref = $I->grabAttributeFrom('a.list-action-link-edit', 'href');
         $I->assertNotNull($editUserHref);
         $I->amOnPage('https://localhost/_admin/index.php' . $editUserHref);
         $I->see('Edit user', 'h1');
         $I->assertSame('', $I->grabValueFrom('input[name="password"]'));
+        $I->seeElement('button.edit-action-link-delete[data-admin-delete][data-delete-url]');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Site');
         $I->see('Page structure', 'h1');
@@ -156,7 +162,7 @@ class AdminCest
         $I->seeElement('button#create_page_button');
         $I->seeElement('input#search_field[aria-label="Search"]');
         $I->seeElement('#context_buttons[role="group"] button#context_add[aria-label]');
-        $I->seeElement('#context_buttons[role="group"] button#context_delete[aria-label]');
+        $I->seeElement('#context_buttons[role="group"] button#context_delete.is-dangerous[aria-label]');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Media');
         $I->see('Media', 'h1#media-library-title');

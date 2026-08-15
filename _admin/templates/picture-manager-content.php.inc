@@ -96,6 +96,7 @@ $maxPostSize = $bytesFromString(ini_get('post_max_size'));
     </div>
 
     <?php if ($standalone): ?>
+        <?php require __DIR__ . '/confirm-dialog.php.inc'; ?>
         <dialog id="error-dialog">
             <h1><?= $html($trans('An error encountered')) ?></h1>
             <p><iframe id="error-iframe" src="about:blank"></iframe></p>

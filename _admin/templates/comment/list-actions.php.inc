@@ -65,20 +65,16 @@ foreach ($rowActions as $action) {
 
     if ($action['name'] === 'delete') {
         ?>
-        <a class="list-action-link list-action-link-<?= $action['name'] ?>" href="#"
-           title="<?= $actionTitle ?>"
-           data-list-action="toggle-delete"><span><?= $actionName ?></span></a>
-        <span class="hidden list-action-delete-popup">
-            <a class="link-as-button danger list-action-link list-action-link-delete-confirm"
-               title="<?= $actionName ?>"
-               href="?<?= $queryParams ?>"
-               data-list-action="submit-reload"
-               data-csrf-token="<?= s2_htmlencode($csrfToken) ?>"><?= $trans('Confirm deletion') ?></a>
-            <a class="link-as-button list-action-link list-action-link-delete-cancel"
-               title="<?= $trans('Cancel') ?>"
-               href="#"
-               data-list-action="cancel-delete"><?= $trans('Cancel') ?></a>
-        </span>
+        <button type="button"
+                class="list-action-link list-action-link-delete"
+                title="<?= s2_htmlencode($actionTitle) ?>"
+                data-admin-delete
+                data-delete-url="?<?= s2_htmlencode($queryParams) ?>"
+                data-csrf-token="<?= s2_htmlencode($csrfToken) ?>"
+                data-confirm-title="<?= s2_htmlencode($trans('Delete record')) ?>"
+                data-confirm="<?= s2_htmlencode($trans('Delete record confirmation')) ?>"
+                data-confirm-label="<?= s2_htmlencode($trans('Delete permanently')) ?>"
+                data-error="<?= s2_htmlencode($trans('Delete record failed')) ?>"><span><?= s2_htmlencode($actionName) ?></span></button>
         <?php
     } else {
         ?>

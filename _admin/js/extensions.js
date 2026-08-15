@@ -9,38 +9,46 @@
 var extensionRoot = document.querySelector('.admin-extensions');
 var sUrl = extensionRoot ? extensionRoot.dataset.ajaxUrl : '';
 
-function changeExtension(sAction, sId, sCsrfToken, sMessage) {
+async function changeExtension(sAction, sId, sCsrfToken, sMessage) {
     if (sAction === 'install_extension') {
-        if (!confirm((sMessage !== '' ? s2_lang.install_message.replaceAll('%s', sMessage) : '') + s2_lang.install_extension.replaceAll('%s', sId))) {
+        const installMessage = (sMessage !== '' ? s2_lang.install_message.replaceAll('%s', sMessage) : '')
+            + s2_lang.install_extension.replaceAll('%s', sId);
+        if (!await window.AdminConfirm.ask({
+            title: s2_lang.install_title,
+            message: installMessage,
+            confirmLabel: s2_lang.install_confirm,
+            dangerous: false
+        })) {
             return false;
         }
     } else if (sAction === 'uninstall_extension') {
-        if (!confirm(s2_lang.delete_extension.replaceAll('%s', sId))) {
-            return false;
-        }
-
-        if (sMessage !== '' && !confirm(s2_lang.uninstall_message.replaceAll('%s', sMessage))) {
+        const uninstallMessage = s2_lang.delete_extension.replaceAll('%s', sId)
+            + (sMessage !== '' ? '\n\n' + sMessage : '')
+            + '\n\n' + s2_lang.cannot_undo;
+        if (!await window.AdminConfirm.ask({
+            title: s2_lang.uninstall_title,
+            message: uninstallMessage,
+            confirmLabel: s2_lang.uninstall_confirm,
+            dangerous: true
+        })) {
             return false;
         }
     }
 
-    fetch(sUrl + 'action=' + sAction + '&id=' + sId, {
-        method: 'POST',
-        body: new URLSearchParams('csrf_token=' + sCsrfToken)
-    })
-        .then(function (response) {
-            if (response.ok) {
-                response.json().then(function (data) {
-                    if (data.success) {
-                        loadingIndicator(true);
-                        window.location.reload();
-                    } else {
-                        PopupMessages.show(data.message, [], 0, 'extensions.' + sId + '.' + sAction);
-                    }
-                });
-            }
-        })
-    ;
+    try {
+        const response = await fetch(sUrl + 'action=' + sAction + '&id=' + sId, {
+            method: 'POST',
+            body: new URLSearchParams('csrf_token=' + sCsrfToken)
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || s2_lang.extension_action_failed);
+        }
+        loadingIndicator(true);
+        window.location.reload();
+    } catch (error) {
+        PopupMessages.show(error.message || s2_lang.extension_action_failed, [], 0, 'extensions.' + sId + '.' + sAction);
+    }
 
     return false;
 }
@@ -52,11 +60,14 @@ if (extensionRoot) {
             return;
         }
 
+        button.disabled = true;
         changeExtension(
             button.dataset.extensionAction || '',
             button.dataset.extensionId || '',
             button.dataset.csrfToken || '',
             button.dataset.message || ''
-        );
+        ).finally(function () {
+            button.disabled = false;
+        });
     });
 }

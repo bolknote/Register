@@ -93,7 +93,8 @@ function OpenAll() {
 $(function () {
     var selectedId = -1,
         commentNum = 0,
-        isRenaming = false;
+        isRenaming = false,
+        deletionConfirmed = false;
 
     function createArticle() {
         tree.jstree('create', null, (new_page_pos === '1') ? 'first' : 'last', {
@@ -132,8 +133,22 @@ $(function () {
 
     var tree = $('#tree')
         .bind('before.jstree', function (e, data) {
-            if (data.func === 'remove' && !confirm(str_replace('%s', tree.jstree('get_text', data.args[0]), s2_lang.delete_item))) {
+            if (data.func === 'remove' && !deletionConfirmed) {
                 e.stopImmediatePropagation();
+                const selectedNode = data.args[0];
+                window.AdminConfirm.ask({
+                    title: s2_lang.delete_title,
+                    message: str_replace('%s', tree.jstree('get_text', selectedNode), s2_lang.delete_item),
+                    confirmLabel: s2_lang.delete_confirm,
+                    dangerous: true
+                }).then(function (confirmed) {
+                    if (!confirmed) {
+                        return;
+                    }
+                    deletionConfirmed = true;
+                    tree.jstree('remove', selectedNode);
+                    deletionConfirmed = false;
+                });
                 return false;
             }
         })

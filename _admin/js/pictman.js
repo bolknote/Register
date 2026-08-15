@@ -98,14 +98,16 @@ $(function () {
     });
 
     $(document).keydown(function (e) {
-        if (e.which === 27) {
+        if (e.which === 27 && !document.querySelector('[data-admin-confirm-dialog][open]')) {
             parentWnd && parentWnd.ClosePictureDialog && parentWnd.ClosePictureDialog();
         }
     });
 
     var path = '',
         pathCsrfToken = '',
-        isRenaming = false;
+        isRenaming = false,
+        folderDeletionConfirmed = false,
+        fileDeletionConfirmed = false;
 
     getCurDir = function () {
         return path;
@@ -141,6 +143,7 @@ $(function () {
     $('<button>', {
         type: 'button',
         id: 'context_delete',
+        class: 'is-dangerous',
         title: s2_lang.delete_folder,
         'aria-label': s2_lang.delete_folder
     }).text('−').appendTo(eButtons);
@@ -157,8 +160,29 @@ $(function () {
 
     var folderTree = $('#folders')
         .bind('before.jstree', function (e, data) {
-            if (data.func === 'remove' && (!data.args[0].attr('data-path') || !confirm(str_replace('%s', folderTree.jstree('get_text', data.args[0]), s2_lang.delete_item)))) {
+            if (data.func !== 'remove') {
+                return;
+            }
+            const selectedFolder = data.args[0];
+            if (!selectedFolder.attr('data-path')) {
                 e.stopImmediatePropagation();
+                return false;
+            }
+            if (!folderDeletionConfirmed) {
+                e.stopImmediatePropagation();
+                window.AdminConfirm.ask({
+                    title: s2_lang.delete_title,
+                    message: str_replace('%s', folderTree.jstree('get_text', selectedFolder), s2_lang.delete_item),
+                    confirmLabel: s2_lang.delete_confirm,
+                    dangerous: true
+                }).then(function (confirmed) {
+                    if (!confirmed) {
+                        return;
+                    }
+                    folderDeletionConfirmed = true;
+                    folderTree.jstree('remove', selectedFolder);
+                    folderDeletionConfirmed = false;
+                });
                 return false;
             }
         })
@@ -387,16 +411,32 @@ $(function () {
 
     var fileTree = $('#files')
         .bind('before.jstree', function (e, data) {
-            if (data.func === 'remove') {
-                var names = [];
-                fileTree.jstree('get_selected').each(function () {
-                    names.push(fileTree.jstree('get_text', this));
-                })
-                if (names.length && !confirm(str_replace('%s', names.join(', '), s2_lang.delete_file))) {
-                    e.stopImmediatePropagation();
-                    return false;
-                }
+            if (data.func !== 'remove' || fileDeletionConfirmed) {
+                return;
             }
+            var names = [];
+            const selectedFiles = fileTree.jstree('get_selected');
+            selectedFiles.each(function () {
+                names.push(fileTree.jstree('get_text', this));
+            });
+            if (names.length === 0) {
+                return;
+            }
+            e.stopImmediatePropagation();
+            window.AdminConfirm.ask({
+                title: s2_lang.delete_title,
+                message: str_replace('%s', names.join(', '), s2_lang.delete_file),
+                confirmLabel: s2_lang.delete_confirm,
+                dangerous: true
+            }).then(function (confirmed) {
+                if (!confirmed) {
+                    return;
+                }
+                fileDeletionConfirmed = true;
+                fileTree.jstree('remove', selectedFiles);
+                fileDeletionConfirmed = false;
+            });
+            return false;
         })
         .bind('dblclick.jstree', function (e) {
             if (!isRenaming && (e.target.nodeName === 'A' || e.target.nodeName === 'INS')) {

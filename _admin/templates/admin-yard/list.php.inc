@@ -273,6 +273,8 @@ foreach ($filterControls as $fieldName => $control) {
                  data-selected-label="<?= $html($trans('Bulk selected count')) ?>"
                  data-running-label="<?= $html($trans('Bulk action running')) ?>"
                  data-error-label="<?= $html($trans('Bulk action failed')) ?>"
+                 data-confirm-title="<?= $html($trans('Delete selected items')) ?>"
+                 data-confirm-label="<?= $html($trans('Delete permanently')) ?>"
                  data-confirm-message="<?= $html($trans('Bulk delete confirmation')) ?>">
             <strong data-bulk-selection-count><?= $html(str_replace('{{ count }}', '0', $trans('Bulk selected count'))) ?></strong>
             <label for="bulk-list-action-<?= $html($entityName) ?>"><?= $html($trans('Bulk action')) ?></label>
@@ -286,16 +288,6 @@ foreach ($filterControls as $fieldName => $control) {
             <button type="button" class="secondary" data-bulk-apply disabled><?= $html($trans('Apply bulk action')) ?></button>
             <span class="bulk-list-status" data-bulk-status aria-live="polite"></span>
         </section>
-        <dialog class="bulk-delete-dialog" data-bulk-delete-dialog>
-            <form method="dialog">
-                <h2><?= $html($trans('Delete selected items')) ?></h2>
-                <p data-bulk-confirm-copy></p>
-                <div class="dialog-actions">
-                    <button type="submit" class="secondary" value="cancel"><?= $html($trans('Cancel')) ?></button>
-                    <button type="button" class="danger" data-bulk-confirm><?= $html($trans('Delete permanently')) ?></button>
-                </div>
-            </form>
-        </dialog>
     <?php endif; ?>
     <div class="table-wrapper">
         <table class="list-table" aria-label="<?= $html($title) ?>">

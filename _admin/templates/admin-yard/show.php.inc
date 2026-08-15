@@ -39,13 +39,17 @@ $html = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES,
         $actionLabel = $trans($action['name']);
         ?>
         <?php if ($action['name'] === 'delete'): ?>
-            <a class="link-as-button show-action-link show-action-link-delete danger"
+            <button type="button"
+               class="link-as-button show-action-link show-action-link-delete danger"
                title="<?= $html($actionLabel) ?>"
-               href="?<?= $html($queryParams) ?>"
                data-admin-delete
+               data-delete-url="?<?= $html($queryParams) ?>"
                data-csrf-token="<?= $html($csrfToken) ?>"
-               data-confirm="<?= $html($trans('Are you sure you want to delete?')) ?>"
-               data-success-url="?<?= $html(http_build_query(['entity' => $entityName, 'action' => 'list'])) ?>"><span><?= $html($actionLabel) ?></span></a>
+               data-confirm-title="<?= $html($trans('Delete record')) ?>"
+               data-confirm="<?= $html($trans('Delete record confirmation')) ?>"
+               data-confirm-label="<?= $html($trans('Delete permanently')) ?>"
+               data-error="<?= $html($trans('Delete record failed')) ?>"
+               data-success-url="?<?= $html(http_build_query(['entity' => $entityName, 'action' => 'list'])) ?>"><span><?= $html($actionLabel) ?></span></button>
         <?php else: ?>
             <a class="link-as-button show-action-link show-action-link-<?= $html($action['name']) ?>"
                title="<?= $html($actionLabel) ?>"

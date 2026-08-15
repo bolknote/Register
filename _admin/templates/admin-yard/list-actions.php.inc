@@ -28,20 +28,16 @@ foreach ($rowActions as $action) {
 
     if ($action['name'] === 'delete') {
         ?>
-        <a class="list-action-link list-action-link-delete" href="#"
-           title="<?= $html($actionLabel) ?>"
-           data-list-action="toggle-delete"><span><?= $html($actionLabel) ?></span></a>
-        <span class="hidden list-action-delete-popup">
-            <a class="link-as-button danger list-action-link list-action-link-delete-confirm"
-               title="<?= $html($actionLabel) ?>"
-               href="?<?= $html($queryParams) ?>"
-               data-list-action="submit-reload"
-               data-csrf-token="<?= $html($csrfToken) ?>"><?= $html($trans('Confirm deletion')) ?></a>
-            <a class="link-as-button list-action-link list-action-link-delete-cancel"
-               title="<?= $html($trans('Cancel')) ?>"
-               href="#"
-               data-list-action="cancel-delete"><?= $html($trans('Cancel')) ?></a>
-        </span>
+        <button type="button"
+                class="list-action-link list-action-link-delete"
+                title="<?= $html($actionLabel) ?>"
+                data-admin-delete
+                data-delete-url="?<?= $html($queryParams) ?>"
+                data-csrf-token="<?= $html($csrfToken) ?>"
+                data-confirm-title="<?= $html($trans('Delete record')) ?>"
+                data-confirm="<?= $html($trans('Delete record confirmation')) ?>"
+                data-confirm-label="<?= $html($trans('Delete permanently')) ?>"
+                data-error="<?= $html($trans('Delete record failed')) ?>"><span><?= $html($actionLabel) ?></span></button>
         <?php
     } else {
         ?>

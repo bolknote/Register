@@ -3,11 +3,20 @@ var s2_lang = {
 	load_tree			: 'Loading site structure...',
 	new_page			: 'New page',
 
-	install_extension	: 'Do you want to continue installation of the extention “%s”?',
+	install_extension	: 'The extension “%s” will be installed.',
 	install_message		: 'Read carefully before installing:\n\n%s\n\n',
+	install_title		: 'Install this extension?',
+	install_confirm		: 'Install',
 
-	delete_extension	: 'Do you really want to uninstall the extention “%s”?',
+	delete_extension	: 'The extension “%s” will be permanently removed.',
 	uninstall_message	: 'Read carefully before uninstalling:\n\n%s\n\nDo you want to continue uninstallation?',
+	uninstall_title		: 'Remove this extension?',
+	uninstall_confirm	: 'Remove permanently',
+	delete_title		: 'Delete permanently?',
+	delete_confirm		: 'Delete permanently',
+	cancel				: 'Cancel',
+	cannot_undo			: 'This action cannot be undone.',
+	extension_action_failed: 'Unable to change the extension. Reload the page and try again.',
 
 	unknown_error		: 'Unknown error',
 	server_response		: 'Something is broken. Please report the conditions when error occurs to administrators or developers and attach the server response:',
@@ -19,8 +28,8 @@ var s2_lang = {
 	recovered_text_info : 'A text that had not been saved last time is recovered. You can copy the necessary fragments and paste them to the editor.',
 	recovered_open		: 'Open in a new window',
 
-	delete_file			: 'Do you want to delete “%s”?',
-	delete_item			: 'Do you want to delete “%s” with all containing elements?',
+	delete_file			: 'The following will be permanently deleted: %s. This action cannot be undone.',
+	delete_item			: '“%s” and all nested items will be permanently deleted. This action cannot be undone.',
 
     multiple_files		: 'Several files',
 	create_subfolder	: 'Create subfolder',

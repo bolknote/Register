@@ -15,77 +15,73 @@ function loadingIndicator(bState) {
     document.body.style.cursor = bState ? 'progress' : 'inherit';
 }
 
+function showFetchErrorPayload(data, fallback, messageId) {
+    if (data && typeof data === 'object' && typeof data.message === 'string' && data.message !== '') {
+        PopupMessages.show(data.message, null, null, messageId);
+        return;
+    }
+    if (data && typeof data === 'object' && Array.isArray(data.errors) && data.errors.length > 0) {
+        const errors = data.errors.filter(function (error) {
+            return typeof error === 'string';
+        });
+        errors.forEach(function (error) {
+            PopupMessages.show(error);
+        });
+        if (errors.length > 0) {
+            return;
+        }
+    }
+    DisplayError(fallback);
+}
+
+async function showFetchResponseError(response) {
+    if (response.status === 401 || response.status === 403) {
+        const data = await response.json();
+        showFetchErrorPayload(data, JSON.stringify(data), response.status === 401 ? 'login' : null);
+        return;
+    }
+
+    const responseText = await response.text();
+    try {
+        showFetchErrorPayload(JSON.parse(responseText), responseText, null);
+    } catch {
+        DisplayError(responseText);
+    }
+}
+
 // Fetch interceptor
 const {fetch: originalFetch} = window;
-window.fetch = async (...args) => {
-    let [resource, config] = args;
-
-    if (!config) {
-        config = {};
-    }
-    if (!config.headers) {
-        config.headers = {};
-    }
-    const handleErrorsInline = config.s2HandleErrorsInline === true;
-    delete config.s2HandleErrorsInline;
-    if (!resource.includes('action=delete')) {
+window.fetch = async (resource, config = {}) => {
+    const requestConfig = {...config};
+    const handleErrorsInline = requestConfig.s2HandleErrorsInline === true;
+    delete requestConfig.s2HandleErrorsInline;
+    const requestUrl = resource instanceof Request ? resource.url : String(resource);
+    const headers = new Headers(resource instanceof Request ? resource.headers : undefined);
+    new Headers(requestConfig.headers || {}).forEach(function (value, name) {
+        headers.set(name, value);
+    });
+    if (!requestUrl.includes('action=delete')) {
         // By default, AdminYard deletes records via fetch but does it only to display a confirmation dialog.
         // After that, it refreshes the page and displays the flash message.
         // Header 'X-Requested-With' switches from flash messages to JSON responses. So we do not add
         // 'X-Requested-With' in a universal fetch interceptor for action=delete.
-        config.headers['X-Requested-With'] = 'XMLHttpRequest';
+        headers.set('X-Requested-With', 'XMLHttpRequest');
     }
+    requestConfig.headers = headers;
 
     loadingIndicator(true);
     let response;
     try {
-        response = await originalFetch(resource, config);
+        response = await originalFetch(resource, requestConfig);
 
         if (handleErrorsInline || response.ok || response.status === 422 || response.status === 409 || response.status === 503) {
             return response;
         }
 
         try {
-            if (response.status === 401) {
-                const data = await response.json();
-
-                if (data.message) {
-                    PopupMessages.show(data.message, null, null, 'login');
-                } else {
-                    DisplayError(JSON.stringify(data));
-                }
-            } else if (response.status === 403) {
-                const data = await response.json();
-
-                if (data.message) {
-                    PopupMessages.show(data.message, null, null);
-                } else if (data.errors) {
-                    Array.from(data.errors).forEach(function (error) {
-                        // TODO array_merge
-                        PopupMessages.show(error);
-                    });
-                }
-            } else {
-                const txt = await response.text();
-                try {
-                    const data = JSON.parse(txt);
-
-                    if (data.message) {
-                        PopupMessages.show(data.message, null, null);
-                    } else if (data.errors) {
-                        Array.from(data.errors).forEach(function (error) {
-                            // TODO array_merge
-                            PopupMessages.show(error);
-                        });
-                    } else {
-                        DisplayError(txt);
-                    }
-                } catch (e) {
-                    DisplayError(txt);
-                }
-            }
+            await showFetchResponseError(response);
         } catch (error) {
-            PopupMessages.show(error);
+            PopupMessages.show(error instanceof Error ? error.message : String(error));
         }
     } finally {
         loadingIndicator(false);
@@ -93,6 +89,47 @@ window.fetch = async (...args) => {
     console.warn('Form submission failed');
 
     return Promise.reject(response ?? new Error('Request failed'));
+};
+
+window.AdminConfirm = {
+    ask: function (options) {
+        const dialog = document.querySelector('[data-admin-confirm-dialog]');
+        const title = dialog?.querySelector('[data-admin-confirm-title]');
+        const message = dialog?.querySelector('[data-admin-confirm-message]');
+        const cancelButton = dialog?.querySelector('[data-admin-confirm-cancel]');
+        const confirmButton = dialog?.querySelector('[data-admin-confirm-submit]');
+
+        if (!(dialog instanceof HTMLDialogElement)
+            || !(cancelButton instanceof HTMLButtonElement)
+            || !(confirmButton instanceof HTMLButtonElement)
+            || typeof dialog.showModal !== 'function'
+        ) {
+            return Promise.resolve(window.confirm(options.message || options.title || ''));
+        }
+        if (dialog.open) {
+            return Promise.resolve(false);
+        }
+
+        if (title) {
+            title.textContent = options.title || '';
+        }
+        if (message) {
+            message.textContent = options.message || '';
+            message.hidden = !options.message;
+        }
+        confirmButton.textContent = options.confirmLabel || dialog.dataset.defaultConfirmLabel || '';
+        confirmButton.classList.toggle('danger', options.dangerous !== false);
+        confirmButton.classList.toggle('primary', options.dangerous === false);
+        dialog.returnValue = 'cancel';
+
+        return new Promise(function (resolve) {
+            dialog.addEventListener('close', function () {
+                resolve(dialog.returnValue === 'confirm');
+            }, {once: true});
+            dialog.showModal();
+            cancelButton.focus();
+        });
+    }
 };
 
 window.PopupMessages = {
@@ -714,9 +751,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectionCount = toolbar.querySelector('[data-bulk-selection-count]');
         const selectAll = listContent?.querySelector('[data-bulk-select-all]');
         const rowCheckboxes = Array.from(listContent?.querySelectorAll('[data-bulk-row-select]') || []);
-        const dialog = listContent?.querySelector('[data-bulk-delete-dialog]');
-        const confirmButton = dialog?.querySelector('[data-bulk-confirm]');
-        const confirmCopy = dialog?.querySelector('[data-bulk-confirm-copy]');
         let busy = false;
 
         if (!(actionSelect instanceof HTMLSelectElement)
@@ -773,7 +807,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             });
 
-            dialog?.close();
             setBusy(true);
             if (status) {
                 status.textContent = toolbar.dataset.runningLabel || '';
@@ -812,20 +845,24 @@ document.addEventListener('DOMContentLoaded', () => {
             checkbox.addEventListener('change', updateBulkControls);
         });
         actionSelect.addEventListener('change', updateBulkControls);
-        applyButton.addEventListener('click', function () {
+        applyButton.addEventListener('click', async function () {
             const dangerous = actionSelect.selectedOptions[0]?.hasAttribute('data-dangerous') === true;
             if (!dangerous) {
                 executeBulkAction();
                 return;
             }
 
-            if (confirmCopy) {
-                confirmCopy.textContent = (toolbar.dataset.confirmMessage || '')
-                    .replace('{{ count }}', String(selectedRows().length));
+            const confirmed = await window.AdminConfirm.ask({
+                title: toolbar.dataset.confirmTitle || '',
+                message: (toolbar.dataset.confirmMessage || '')
+                    .replace('{{ count }}', String(selectedRows().length)),
+                confirmLabel: toolbar.dataset.confirmLabel || '',
+                dangerous: true
+            });
+            if (confirmed) {
+                executeBulkAction();
             }
-            dialog?.showModal();
         });
-        confirmButton?.addEventListener('click', executeBulkAction);
 
         updateBulkControls();
     });
@@ -853,7 +890,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.body.addEventListener('click', function (event) {
+    document.body.addEventListener('click', async function (event) {
         const flashClose = event.target.closest('.flash-message-close');
         if (flashClose) {
             flashClose.parentElement?.remove();
@@ -863,20 +900,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const deleteAction = event.target.closest('[data-admin-delete]');
         if (deleteAction) {
             event.preventDefault();
-            if (!window.confirm(deleteAction.dataset.confirm || '')) {
+            const confirmed = await window.AdminConfirm.ask({
+                title: deleteAction.dataset.confirmTitle || '',
+                message: deleteAction.dataset.confirm || '',
+                confirmLabel: deleteAction.dataset.confirmLabel || '',
+                dangerous: true
+            });
+            if (!confirmed) {
                 return;
             }
 
-            fetch(deleteAction.href, {
+            const deleteUrl = deleteAction.dataset.deleteUrl || deleteAction.href || '';
+            if (deleteUrl === '') {
+                return;
+            }
+            if (deleteAction instanceof HTMLButtonElement) {
+                deleteAction.disabled = true;
+            }
+            fetch(deleteUrl, {
                 method: 'POST',
                 body: new URLSearchParams({csrf_token: deleteAction.dataset.csrfToken || ''})
             }).then(function (response) {
                 if (!response.ok) {
                     throw new Error('Delete failed with HTTP ' + response.status);
                 }
-                window.location.assign(deleteAction.dataset.successUrl || './');
+                if (deleteAction.dataset.successUrl) {
+                    window.location.assign(deleteAction.dataset.successUrl);
+                } else {
+                    window.location.reload();
+                }
             }).catch(function (error) {
                 console.warn('Unable to delete the record:', error);
+                if (deleteAction instanceof HTMLButtonElement) {
+                    deleteAction.disabled = false;
+                }
+                PopupMessages.show(deleteAction.dataset.error || 'Unable to delete the item.');
             });
             return;
         }
@@ -888,14 +946,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         event.preventDefault();
         const actionType = action.dataset.listAction;
-        if (actionType === 'toggle-delete') {
-            action.parentNode.querySelector('.list-action-delete-popup')?.classList.toggle('hidden');
-            return;
-        }
-        if (actionType === 'cancel-delete') {
-            action.closest('.list-action-delete-popup')?.classList.add('hidden');
-            return;
-        }
         if (actionType !== 'submit-reload' && actionType !== 'submit-remove') {
             return;
         }

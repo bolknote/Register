@@ -77,6 +77,7 @@ foreach ($flashMessages as $type => $messages) {
 <?php else: ?>
     <article class="admin-content"><?= $content ?></article>
 <?php endif; ?>
+    <?php require __DIR__ . '/confirm-dialog.php.inc'; ?>
     <dialog id="error-dialog">
         <h1><?= $trans('An error encountered') ?></h1>
         <p><iframe id="error-iframe" src="about:blank"></iframe></p>

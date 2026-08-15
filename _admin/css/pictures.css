@@ -228,6 +228,16 @@
     background: color-mix(in srgb, var(--admin-accent-color) 18%, var(--admin-secondary-background));
 }
 
+.picture-manager-page #context_buttons button.is-dangerous {
+    color: var(--admin-error-color);
+}
+
+.picture-manager-page #context_buttons button.is-dangerous:hover,
+.picture-manager-page #context_buttons button.is-dangerous:focus-visible {
+    background: color-mix(in srgb, var(--admin-error-color) 14%, var(--admin-secondary-background));
+    color: var(--admin-error-color);
+}
+
 .picture-manager-page .media-selection-info {
     min-height: 2.75rem;
     padding: 0.7rem 1rem;

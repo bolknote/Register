@@ -498,6 +498,13 @@ button.primary:hover {
     color: var(--admin-error-color);
 }
 
+.link-as-button.danger:hover,
+.link-as-button.danger:focus-visible {
+    border-color: var(--admin-error-color);
+    background: var(--admin-error-color);
+    color: var(--admin-field-background);
+}
+
 .form-wrapper {
     width: 100%;
     max-width: 47rem;
@@ -864,14 +871,16 @@ button.saved-list-view-delete:focus-visible {
 }
 
 .bulk-list-toolbar button.danger,
-.bulk-delete-dialog button.danger {
+.admin-confirm-dialog button.danger {
     border-color: color-mix(in srgb, var(--admin-error-color) 58%, var(--admin-border-color));
     background: color-mix(in srgb, var(--admin-error-color) 12%, var(--admin-surface-background));
     color: var(--admin-error-color);
 }
 
 .bulk-list-toolbar button.danger:hover,
-.bulk-delete-dialog button.danger:hover {
+.bulk-list-toolbar button.danger:focus-visible,
+.admin-confirm-dialog button.danger:hover,
+.admin-confirm-dialog button.danger:focus-visible {
     border-color: var(--admin-error-color);
     background: var(--admin-error-color);
     color: var(--admin-field-background);
@@ -901,7 +910,7 @@ button.saved-list-view-delete:focus-visible {
     background: color-mix(in srgb, var(--admin-accent-color) 13%, var(--admin-surface-background));
 }
 
-.bulk-delete-dialog {
+.admin-confirm-dialog {
     width: min(90vw, 30rem);
     padding: 1.25rem;
     border: 1px solid var(--admin-border-color);
@@ -911,27 +920,28 @@ button.saved-list-view-delete:focus-visible {
     box-shadow: 0 1.25rem 4rem rgb(0 0 0 / 0.35);
 }
 
-.bulk-delete-dialog::backdrop {
+.admin-confirm-dialog::backdrop {
     background: rgb(0 0 0 / 0.58);
 }
 
-.bulk-delete-dialog h2 {
+.admin-confirm-dialog h2 {
     margin: 0 0 0.65rem;
     font-size: 1.25rem;
 }
 
-.bulk-delete-dialog p {
+.admin-confirm-dialog p {
     margin: 0 0 1.25rem;
     color: var(--admin-secondary-text-color);
+    white-space: pre-line;
 }
 
-.bulk-delete-dialog .dialog-actions {
+.admin-confirm-dialog .dialog-actions {
     display: flex;
     justify-content: flex-end;
     gap: 0.6rem;
 }
 
-.bulk-delete-dialog .dialog-actions button {
+.admin-confirm-dialog .dialog-actions button {
     min-height: 2.35rem;
     margin: 0;
     padding: 0.4rem 0.8rem;
@@ -1030,6 +1040,33 @@ button.saved-list-view-delete:focus-visible {
     color: var(--admin-secondary-text-color);
     font-size: 0.82rem;
     white-space: nowrap;
+}
+
+button.list-action-link {
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    appearance: none;
+    background: transparent;
+    box-shadow: none;
+    cursor: pointer;
+    font: inherit;
+}
+
+button.list-action-link:hover,
+button.list-action-link:focus-visible {
+    background: transparent;
+    color: var(--admin-link-hover-color);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+}
+
+button.list-action-link-delete:hover,
+button.list-action-link-delete:focus-visible {
+    color: var(--admin-error-color);
 }
 
 .list-action-link span {
@@ -1759,6 +1796,10 @@ section.admin-extensions {
     color: var(--admin-text-color);
     outline: 2px solid var(--admin-accent-color);
     outline-offset: 1px;
+}
+
+.admin-structure #context_buttons .context-action.is-dangerous {
+    color: var(--admin-error-color);
 }
 
 .admin-structure #context_buttons .context-action.is-dangerous:hover,

@@ -77,8 +77,11 @@ final class CustomTemplateRendererSecurityTest extends Unit
             'primaryKey'  => ['id' => 42],
         ]);
 
-        self::assertStringContainsString('data-list-action="submit-reload"', $output);
+        self::assertStringContainsString('<button type="button"', $output);
+        self::assertStringContainsString('data-admin-delete', $output);
+        self::assertStringContainsString('data-confirm="Delete record confirmation"', $output);
         self::assertStringContainsString('data-csrf-token="test-token"', $output);
+        self::assertStringNotContainsString('list-action-delete-popup', $output);
         self::assertStringNotContainsString('onclick=', $output);
     }
 }
