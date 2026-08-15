@@ -221,6 +221,54 @@ class AdminCest
         }
     }
 
+    /** @throws \JsonException */
+    public function testSavedListViewsAreStoredPerAdministrator(\IntegrationTester $I): void
+    {
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
+
+        $I->seeElement('section.saved-list-views[data-saved-list-views]');
+        $csrfToken = $I->grabAttributeFrom('section.saved-list-views', 'data-csrf-token');
+        $I->assertNotNull($csrfToken);
+
+        $state = json_encode([
+            'filters'        => [
+                'search'    => 'saved-view-needle',
+                'published' => '1',
+            ],
+            'sort_field'     => 'create_time',
+            'sort_direction' => 'desc',
+        ], JSON_THROW_ON_ERROR);
+        $I->sendPost('https://localhost/_admin/ajax.php?action=register_saved_list_view_save', [
+            'entity'     => 'BlogPost',
+            'name'       => 'Needs review',
+            'state'      => $state,
+            'csrf_token' => $csrfToken,
+        ]);
+        $I->seeResponseCodeIs(200);
+        $I->assertJsonSubResponseEquals(true, ['success']);
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
+        $I->see('Needs review', '.saved-list-views-links');
+        $savedViewHref = $I->grabAttributeFrom('.saved-list-views-links a', 'href');
+        $I->assertNotNull($savedViewHref);
+        $I->assertStringContainsString('search=saved-view-needle', $savedViewHref);
+        $I->assertStringContainsString('sort_direction=desc', $savedViewHref);
+
+        $viewId = $I->grabAttributeFrom('[data-saved-list-view-delete]', 'data-view-id');
+        $I->assertNotNull($viewId);
+        $I->sendPost('https://localhost/_admin/ajax.php?action=register_saved_list_view_delete', [
+            'entity'     => 'BlogPost',
+            'view_id'    => $viewId,
+            'csrf_token' => $csrfToken,
+        ]);
+        $I->seeResponseCodeIs(200);
+        $I->assertJsonSubResponseEquals(true, ['success']);
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
+        $I->dontSee('Needs review', '.saved-list-views');
+    }
+
     public function testNewPostUsesEditorialEditor(\IntegrationTester $I): void
     {
         $I->login('admin', 'admin');

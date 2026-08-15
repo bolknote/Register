@@ -23,6 +23,10 @@ use S2\AdminYard\Form\Radio;
 /** @var int|null $totalCount */
 /** @var int $page */
 /** @var int|null $limit */
+/** @var list<array{id: string, name: string, state: array{filters: array<string, mixed>, sort_field: string|null, sort_direction: string|null}}> $savedListViews */
+/** @var array{filters: array<string, mixed>, sort_field: string|null, sort_direction: string|null} $savedListViewState */
+/** @var string $savedListViewCsrfToken */
+/** @var string|null $activeSavedListViewId */
 
 $html = static fn(string $text): string => htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
 
@@ -124,6 +128,63 @@ foreach ($filterControls as $fieldName => $control) {
 <?php require __DIR__ . '/../moderation/tabs.php.inc'; ?>
 <?php if (isset($listIntroHtml) && \is_string($listIntroHtml) && $listIntroHtml !== ''): ?>
     <?= $listIntroHtml ?>
+<?php endif; ?>
+<?php if ($filterControls !== [] && isset($savedListViews, $savedListViewState, $savedListViewCsrfToken)): ?>
+    <?php $savedViewStateJson = json_encode($savedListViewState, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE); ?>
+    <section class="saved-list-views"
+             data-saved-list-views
+             data-ajax-url="<?= $html($basePath . '/_admin/ajax.php') ?>"
+             data-entity="<?= $html($entityName) ?>"
+             data-csrf-token="<?= $html($savedListViewCsrfToken) ?>"
+             data-current-state="<?= $html($savedViewStateJson) ?>"
+             data-saving-label="<?= $html($trans('Saving saved view')) ?>"
+             data-error-label="<?= $html($trans('Unable to update saved views')) ?>">
+        <div class="saved-list-views-summary">
+            <strong><?= $html($trans('Saved views')) ?></strong>
+            <?php if ($savedListViews === []): ?>
+                <span class="saved-list-views-empty"><?= $html($trans('No saved views yet')) ?></span>
+            <?php else: ?>
+                <nav class="saved-list-views-links" aria-label="<?= $html($trans('Saved views')) ?>">
+                    <?php foreach ($savedListViews as $savedView): ?>
+                        <?php
+                        $savedViewParams = [
+                            'entity'       => $entityName,
+                            'action'       => 'list',
+                            'apply_filter' => '1',
+                            ...$savedView['state']['filters'],
+                            ...($savedView['state']['sort_field'] !== null ? [
+                                'sort_field'     => $savedView['state']['sort_field'],
+                                'sort_direction' => $savedView['state']['sort_direction'] ?? 'asc',
+                            ] : []),
+                        ];
+                        $isActiveSavedView = $savedView['id'] === $activeSavedListViewId;
+                        ?>
+                        <span class="saved-list-view <?= $isActiveSavedView ? 'is-active' : '' ?>">
+                            <a href="?<?= $html(http_build_query($savedViewParams)) ?>"
+                               <?= $isActiveSavedView ? 'aria-current="page"' : '' ?>><?= $html($savedView['name']) ?></a>
+                            <button type="button"
+                                    class="saved-list-view-delete"
+                                    data-saved-list-view-delete
+                                    data-view-id="<?= $html($savedView['id']) ?>"
+                                    aria-label="<?= $html(sprintf($trans('Delete saved view'), $savedView['name'])) ?>">×</button>
+                        </span>
+                    <?php endforeach; ?>
+                </nav>
+            <?php endif; ?>
+        </div>
+        <form class="saved-list-view-form" data-saved-list-view-form>
+            <label for="saved-list-view-name-<?= $html($entityName) ?>"><?= $html($trans('Saved view name')) ?></label>
+            <input id="saved-list-view-name-<?= $html($entityName) ?>"
+                   name="name"
+                   type="text"
+                   maxlength="80"
+                   autocomplete="off"
+                   required
+                   placeholder="<?= $html($trans('Saved view name')) ?>">
+            <button class="secondary" type="submit"><?= $html($trans('Save current view')) ?></button>
+            <span class="saved-list-view-status" data-saved-list-view-status aria-live="polite"></span>
+        </form>
+    </section>
 <?php endif; ?>
 <?php if ($filterControls !== []): ?>
     <details class="filter-panel" <?= $activeFilterCount > 0 || $hasFilterErrors ? 'open' : '' ?>>

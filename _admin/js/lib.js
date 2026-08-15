@@ -648,6 +648,64 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    document.querySelectorAll('[data-saved-list-views]').forEach(function (container) {
+        const status = container.querySelector('[data-saved-list-view-status]');
+        const form = container.querySelector('[data-saved-list-view-form]');
+
+        function updateSavedViews(action, data, control) {
+            control.disabled = true;
+            if (status) {
+                status.textContent = container.dataset.savingLabel || '';
+            }
+
+            return fetch((container.dataset.ajaxUrl || '') + '?action=' + action, {
+                method: 'POST',
+                body: new URLSearchParams({
+                    entity: container.dataset.entity || '',
+                    csrf_token: container.dataset.csrfToken || '',
+                    ...data
+                })
+            }).then(function (response) {
+                return response.json().then(function (payload) {
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || 'HTTP ' + response.status);
+                    }
+                    window.location.reload();
+                });
+            }).catch(function (error) {
+                control.disabled = false;
+                if (status) {
+                    status.textContent = error.message || container.dataset.errorLabel || '';
+                }
+            });
+        }
+
+        form?.addEventListener('submit', function (event) {
+            event.preventDefault();
+            const nameInput = form.elements.namedItem('name');
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (!(nameInput instanceof HTMLInputElement) || !(submitButton instanceof HTMLButtonElement)) {
+                return;
+            }
+
+            updateSavedViews('register_saved_list_view_save', {
+                name: nameInput.value,
+                state: container.dataset.currentState || '{}'
+            }, submitButton);
+        });
+
+        container.addEventListener('click', function (event) {
+            const deleteButton = event.target.closest('[data-saved-list-view-delete]');
+            if (!(deleteButton instanceof HTMLButtonElement)) {
+                return;
+            }
+
+            updateSavedViews('register_saved_list_view_delete', {
+                view_id: deleteButton.dataset.viewId || ''
+            }, deleteButton);
+        });
+    });
+
     document.body.addEventListener('keydown', function(e) {
         // Disable sending form on Enter on new and edit forms to prevent partial submission
         if (e.key === 'Enter' && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) {

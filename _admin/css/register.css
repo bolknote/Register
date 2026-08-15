@@ -612,6 +612,122 @@ section.list-header h1 {
     margin-bottom: 1.25rem;
 }
 
+.saved-list-views {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.65rem 1.25rem;
+    margin: 0 0 0.75rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.45rem;
+    background: color-mix(in srgb, var(--admin-secondary-background) 55%, var(--admin-surface-background));
+}
+
+.saved-list-views-summary,
+.saved-list-views-links,
+.saved-list-view-form,
+.saved-list-view {
+    display: flex;
+    align-items: center;
+}
+
+.saved-list-views-summary {
+    min-width: 0;
+    flex: 1 1 24rem;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.65rem;
+}
+
+.saved-list-views-summary > strong {
+    color: var(--admin-secondary-text-color);
+    font-size: 0.8rem;
+}
+
+.saved-list-views-empty,
+.saved-list-view-status {
+    color: var(--admin-quiet-color);
+    font-size: 0.78rem;
+}
+
+.saved-list-views-links {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.saved-list-view {
+    overflow: hidden;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 999px;
+    background: var(--admin-surface-background);
+}
+
+.saved-list-view.is-active {
+    border-color: color-mix(in srgb, var(--admin-accent-color) 60%, var(--admin-border-color));
+    background: color-mix(in srgb, var(--admin-accent-color) 9%, var(--admin-surface-background));
+}
+
+.saved-list-view > a {
+    padding: 0.25rem 0.15rem 0.25rem 0.55rem;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.saved-list-view.is-active > a,
+.saved-list-view > a:hover {
+    color: var(--admin-text-color);
+}
+
+button.saved-list-view-delete {
+    min-width: 1.65rem;
+    min-height: 1.65rem;
+    margin: 0;
+    padding: 0 0.35rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--admin-quiet-color);
+    font-size: 1rem;
+    line-height: 1;
+}
+
+button.saved-list-view-delete:hover,
+button.saved-list-view-delete:focus-visible {
+    background: color-mix(in srgb, var(--admin-error-color) 12%, transparent);
+    color: var(--admin-error-color);
+}
+
+.saved-list-view-form {
+    flex: 0 1 auto;
+    gap: 0.45rem;
+}
+
+.saved-list-view-form label {
+    color: var(--admin-secondary-text-color);
+    font-size: 0.78rem;
+}
+
+.saved-list-view-form input {
+    width: min(14rem, 32vw);
+    min-height: 2rem;
+    padding: 0.3rem 0.5rem;
+}
+
+.saved-list-view-form button {
+    min-height: 2rem;
+    margin: 0;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.78rem;
+}
+
+.saved-list-view-status:not(:empty) {
+    max-width: 16rem;
+}
+
 .filter-panel {
     margin: 0 0 1.25rem;
     border: 1px solid var(--admin-soft-border-color);
@@ -2713,6 +2829,21 @@ body.login_page {
 
     .filter-content form {
         padding: 0.8rem;
+    }
+
+    .saved-list-views,
+    .saved-list-view-form {
+        align-items: stretch;
+    }
+
+    .saved-list-view-form {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .saved-list-view-form label,
+    .saved-list-view-form input {
+        width: 100%;
     }
 
     .filter-control,

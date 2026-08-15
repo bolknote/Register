@@ -38,6 +38,7 @@ use S2\Cms\Admin\Dashboard\DashboardEnvironmentProvider;
 use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
 use S2\Cms\Admin\Dashboard\SystemStatusProviderInterface;
 use S2\Cms\Admin\Controller\CommentControllerFactory;
+use S2\Cms\Admin\Controller\SavedListViewController;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
 use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
 use S2\Cms\Admin\Picture\PictureFileNameHelper;
@@ -48,6 +49,7 @@ use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
 use S2\Cms\AdminYard\CustomTemplateRenderer;
 use S2\Cms\AdminYard\Form\CustomFormControlFactory;
 use S2\Cms\AdminYard\Signal;
+use S2\Cms\AdminYard\SavedListViewManager;
 use S2\Cms\AdminYard\UserSettingStorage;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Comment\Antispam\SpamFeedbackService;
@@ -126,6 +128,14 @@ class AdminExtension implements ExtensionInterface
             $container->get(PermissionChecker::class),
             $container->get(DbLayer::class),
         ), [StatefulServiceInterface::class]);
+
+        $container->set(SavedListViewManager::class, fn(Container $container): SavedListViewManager => new SavedListViewManager(
+            $container->get(SettingStorageInterface::class),
+        ));
+        $container->set(SavedListViewController::class, fn(Container $container): SavedListViewController => new SavedListViewController(
+            $container->get(SavedListViewManager::class),
+            $container->get(Translator::class),
+        ));
 
         $container->set(ResourceProvider::class, fn(Container $container): \S2\Cms\Admin\ResourceProvider => new ResourceProvider(
             $container->getStringParameter('root_dir'),
@@ -377,6 +387,12 @@ class AdminExtension implements ExtensionInterface
             $event->controllerMap['register_backup_download'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
                 ->get(BackupAdminController::class)
                 ->downloadLatest($request);
+            $event->controllerMap['register_saved_list_view_save'] = static fn(PermissionChecker $permissionChecker, Request $request): \Symfony\Component\HttpFoundation\JsonResponse => $container
+                ->get(SavedListViewController::class)
+                ->save($permissionChecker, $request);
+            $event->controllerMap['register_saved_list_view_delete'] = static fn(PermissionChecker $permissionChecker, Request $request): \Symfony\Component\HttpFoundation\JsonResponse => $container
+                ->get(SavedListViewController::class)
+                ->delete($permissionChecker, $request);
         });
 
         $eventDispatcher->addListener(CustomMenuGeneratorEvent::class, function (CustomMenuGeneratorEvent $event) use ($container): void {
