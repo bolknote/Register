@@ -35,6 +35,7 @@ final readonly class ContentSlugService
         private DbLayer               $dbLayer,
         private UniqueSlugGenerator   $uniqueSlugGenerator,
         private ReservedRouteRegistry $reservedRouteRegistry,
+        private ContentUrlAliasRepository $contentUrlAliases,
     ) {
     }
 
@@ -159,6 +160,10 @@ final readonly class ContentSlugService
     /** @throws DbLayerException */
     private function statusInScope(int $contentId, string $scope, string $slug): string
     {
+        if ($scope === 'root' && $this->contentUrlAliases->belongsToOtherContent($slug, $contentId)) {
+            return self::STATUS_NOT_UNIQUE;
+        }
+
         $collisionCount = $this->dbLayer
             ->select('COUNT(*)')
             ->from(ContentSchema::TABLE_NAME)

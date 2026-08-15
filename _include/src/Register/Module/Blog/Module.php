@@ -59,6 +59,8 @@ use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SimilarWordsDetector;
 use Register\Url\ContentUrlGenerator;
+use Register\Url\ContentUrlAliasController;
+use Register\Url\ContentUrlAliasRepository;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
@@ -220,6 +222,11 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(ArticleProvider::class),
             $container->get(\S2\Cms\Controller\PageCommon::class),
             $container->get(PostPageController::class),
+            $container->get(ContentUrlAliasController::class),
+        ));
+        $container->set(ContentUrlAliasController::class, static fn(Container $container): ContentUrlAliasController => new ContentUrlAliasController(
+            $container->get(ContentUrlAliasRepository::class),
+            $container->get(ContentUrlGenerator::class),
         ));
         $container->set(AllPostsController::class, static function (Container $container): \Register\Module\Blog\Controller\AllPostsController {
             $provider = $container->get(DynamicConfigProvider::class);
@@ -547,14 +554,23 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $routes->add('blog_post', new Route(
             '/{url}',
             ['_controller' => FlatContentController::class],
+            requirements: ['url' => '.+'],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $flatPriority);
         $routes->add('blog_comment', new Route(
             '/{url}',
             ['_controller' => FlatCommentController::class],
+            requirements: ['url' => '.+'],
             options: ['utf8' => true],
             methods: ['POST'],
         ), $flatPriority);
+        $routes->add('blog_url_alias', new Route(
+            '/{alias}',
+            ['_controller' => ContentUrlAliasController::class],
+            requirements: ['alias' => '.+'],
+            options: ['utf8' => true],
+            methods: ['GET'],
+        ), $flatPriority - 1);
     }
 }

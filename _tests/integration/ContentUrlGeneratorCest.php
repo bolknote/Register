@@ -40,6 +40,7 @@ final class ContentUrlGeneratorCest
         $I->assertSame('/new%20post', $this->urlGenerator->path(ContentId::post($postId), true));
         $I->assertSame('/new%20post', $this->urlGenerator->post('new post'));
         $I->assertStringEndsWith('/new%20post', $this->urlGenerator->absolutePost('new post'));
+        $I->assertSame('/all/%D0%BC%D0%B0%D1%85%D0%BE%D1%80%D0%BA%D0%B0', $this->urlGenerator->postPath('all/махорка'));
     }
 
     public function omitsPathsBelowAnUnpublishedAncestor(\IntegrationTester $I): void

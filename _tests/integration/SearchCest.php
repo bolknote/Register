@@ -101,6 +101,10 @@ class SearchCest
         $I->assertSame('Main page', $mainPage->title);
         $I->assertSame('/', $mainPage->path);
 
+        $I->amOnPage('https://localhost/privet-mir');
+        $I->seeResponseCodeIs(301);
+        $I->seeLocationIs('/new-post1');
+
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
         $queued  = $dbLayer
@@ -220,8 +224,8 @@ class SearchCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
 
-        $deleteUrl  = '?entity=BlogPost&action=delete&id=' . $postId;
-        $deleteToken = $I->grabAttributeFrom('[href="' . $deleteUrl . '"]', 'data-csrf-token');
+        $deleteUrl   = '?entity=BlogPost&action=delete&id=' . $postId;
+        $deleteToken = $I->grabAttributeFrom('[data-delete-url="' . $deleteUrl . '"]', 'data-csrf-token');
         if ($deleteToken === null || $deleteToken === '') {
             throw new \RuntimeException('The post delete action does not contain a CSRF token.');
         }

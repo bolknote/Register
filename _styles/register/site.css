@@ -410,6 +410,11 @@ hr {
     max-width: 100%;
 }
 
+/* E2 pictures are block paragraphs: keep one text line after an image or its caption. */
+#content .e2-text-picture {
+    margin-bottom: 1.35em;
+}
+
 #content .e2-text-proportional-wrapper {
     position: relative;
     width: 100%;
@@ -681,6 +686,12 @@ hr {
 #content blockquote {
     margin-top: 0;
     margin-bottom: 1.35em;
+}
+
+/* E2 used a fixed 10px paragraph rhythm, so oversized emoji rows kept tight spacing. */
+#content p:has(+ p[style*="font-size:300%"][style*="text-align: center"]),
+#content p[style*="font-size:300%"][style*="text-align: center"] {
+    margin-bottom: 10px;
 }
 
 #content ol,
@@ -1836,6 +1847,94 @@ ul.back_forward .empty {
     border: 1px solid var(--border-color);
 }
 
+/* Historical /files archive: an editorial catalogue, not a directory listing. */
+.files-archive-intro,
+.files-archive-description {
+    max-width: 760px;
+    color: var(--minor-color);
+    font-family: var(--ui-font);
+    font-size: 0.82em;
+    line-height: 1.55;
+}
+
+#content ul.files-archive-index {
+    display: grid;
+    max-width: var(--text-width);
+    margin: 2.4rem 0 0;
+    padding: 0;
+    grid-template-columns: minmax(11rem, 0.7fr) minmax(18rem, 1.8fr);
+    column-gap: clamp(1.5rem, 4vw, 4rem);
+    row-gap: 1.05rem;
+    list-style: none;
+}
+
+#content .files-archive-index li {
+    display: contents;
+}
+
+.files-archive-name {
+    align-self: baseline;
+    font-family: var(--ui-font);
+    font-size: 0.78em;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.files-archive-summary {
+    align-self: baseline;
+    color: var(--minor-color);
+    font-family: var(--ui-font);
+    font-size: 0.72em;
+    line-height: 1.5;
+}
+
+.files-archive-document {
+    max-width: var(--text-width);
+}
+
+#content pre.files-archive-source {
+    width: min(100%, var(--text-width));
+    max-height: min(72vh, 58rem);
+    font-size: 13px;
+    line-height: 1.55;
+    tab-size: 4;
+}
+
+.files-archive-download,
+.files-archive-recovery,
+.files-archive-missing {
+    color: var(--minor-color);
+    font-family: var(--ui-font);
+    font-size: 0.78em;
+}
+
+.files-archive-download small {
+    margin-left: 0.45em;
+    color: var(--quiet-color);
+}
+
+.files-archive-contents {
+    max-width: 760px;
+    margin-top: 2rem;
+    font-family: var(--ui-font);
+    font-size: 0.76em;
+}
+
+.files-archive-contents > summary {
+    color: var(--minor-color);
+    cursor: pointer;
+    user-select: none;
+}
+
+#content .files-archive-contents ul {
+    margin-top: 0.9rem;
+    columns: 2 15rem;
+}
+
+.files-archive-contents small {
+    color: var(--quiet-color);
+}
+
 @media (min-width: 1335px) {
     body:has(.remark, .sidenote) {
         --page-width: 1400px;
@@ -1908,6 +2007,24 @@ ul.back_forward .empty {
 
     #footer {
         padding-top: 2.75rem;
+    }
+
+    #content ul.files-archive-index {
+        display: block;
+    }
+
+    #content .files-archive-index li {
+        display: block;
+        margin-bottom: 1.35rem;
+    }
+
+    .files-archive-name,
+    .files-archive-summary {
+        display: block;
+    }
+
+    .files-archive-summary {
+        margin-top: 0.2rem;
     }
 }
 

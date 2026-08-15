@@ -33,6 +33,7 @@ use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Schema\SchemaManager;
 use Register\Url\ContentSlugService;
+use Register\Url\ContentUrlAliasRepository;
 use Register\Url\ContentUrlGenerator;
 use Register\Url\IcuTransliterator;
 use Register\Url\PortableAsciiTransliterator;
@@ -93,6 +94,9 @@ readonly class ProductModule implements ContainerModuleInterface
         $container->set(ContentUrlGenerator::class, static fn(Container $container): ContentUrlGenerator => new ContentUrlGenerator(
             $container->get(DbLayer::class),
             $container->get(UrlBuilder::class),
+        ));
+        $container->set(ContentUrlAliasRepository::class, static fn(Container $container): ContentUrlAliasRepository => new ContentUrlAliasRepository(
+            $container->get(DbLayer::class),
         ));
         $container->set(PageContentSource::class, static fn(Container $container): PageContentSource => new PageContentSource(
             $container->get(DbLayer::class),
@@ -188,6 +192,7 @@ readonly class ProductModule implements ContainerModuleInterface
             $container->get(DbLayer::class),
             $container->get(UniqueSlugGenerator::class),
             $container->get(ReservedRouteRegistry::class),
+            $container->get(ContentUrlAliasRepository::class),
         ));
     }
 

@@ -21,6 +21,7 @@ use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlGenerator;
+use Register\Url\ContentUrlAliasRepository;
 use S2\AdminYard\Config\AdminConfig;
 use S2\AdminYard\Config\DbColumnFieldType;
 use S2\AdminYard\Config\EntityConfig;
@@ -58,6 +59,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private ContentUrlGenerator      $contentUrlGenerator,
         private ContentRevisionService   $contentRevisionService,
         private ContentSlugService       $contentSlugService,
+        private ContentUrlAliasRepository $contentUrlAliases,
         private ContentChangeDispatcher  $contentChangeDispatcher,
         private ContentPublicationScheduler $contentPublicationScheduler,
         private string                   $dbType,
@@ -335,10 +337,16 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
 
                 $event->data['revision']        = $revision->value;
                 $event->context['new_revision'] = $revision->value;
-                $event->context['post_id'] = $postId;
-                $event->context['url']     = $event->data['slug'];
+                $event->context['post_id']      = $postId;
+                $event->context['url']          = $event->data['slug'];
+                $event->context['previous_url'] = (string)$oldData['column_slug'];
             })
             ->addListener(EntityConfig::EVENT_AFTER_UPDATE, function (AfterSaveEvent $event): void {
+                $this->contentUrlAliases->rememberCanonicalChange(
+                    ContentId::post($event->context['post_id']),
+                    $event->context['previous_url'],
+                    $event->context['url'],
+                );
                 $this->contentChangeDispatcher->dispatch(ContentId::post($event->context['post_id']));
 
                 $event->ajaxExtraResponse = [

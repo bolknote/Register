@@ -13,6 +13,7 @@ use Register\Module\BaseModuleRegistry;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
+use Register\Url\ContentUrlAliasSchema;
 use Register\Schema\SchemaManager;
 use S2\Cms\Extensions\ExtensionManager;
 use S2\Cms\Extensions\ManifestInterface;
@@ -90,6 +91,12 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'slug_scope_idx'));
         $I->assertTrue($dbLayer->foreignKeyExists(ContentSchema::TABLE_NAME, 'fk_parent'));
         $I->assertTrue($dbLayer->foreignKeyExists(ContentSchema::TABLE_NAME, 'fk_author'));
+        $I->assertTrue($dbLayer->tableExists(ContentUrlAliasSchema::TABLE_NAME));
+        $I->assertTrue($dbLayer->indexExists(ContentUrlAliasSchema::TABLE_NAME, 'content_idx'));
+        $I->assertTrue($dbLayer->foreignKeyExists(
+            ContentUrlAliasSchema::TABLE_NAME,
+            'fk_content_url_alias_content',
+        ));
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'parent_id'));
         $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'thread_idx'));
         $I->assertTrue($dbLayer->tableExists('userpics'));

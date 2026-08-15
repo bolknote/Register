@@ -23,6 +23,7 @@ use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlGenerator;
+use Register\Url\ContentUrlAliasRepository;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Module\Blog\Admin\AdminConfigExtender;
 use Register\Module\Blog\Admin\DynamicConfigFormExtender;
@@ -47,6 +48,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(ContentUrlGenerator::class),
             $container->get(ContentRevisionService::class),
             $container->get(ContentSlugService::class),
+            $container->get(ContentUrlAliasRepository::class),
             $container->get(ContentChangeDispatcher::class),
             $container->get(ContentPublicationScheduler::class),
             $container->getStringParameter('db_type'),

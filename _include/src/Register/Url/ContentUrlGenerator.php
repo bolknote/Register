@@ -28,7 +28,12 @@ final readonly class ContentUrlGenerator
 
     public function postPath(string $slug): string
     {
-        return '/' . rawurlencode($slug);
+        $segments = explode('/', $slug);
+        if ($slug === '' || in_array('', $segments, true)) {
+            throw new \InvalidArgumentException('A post URL path cannot contain empty segments.');
+        }
+
+        return '/' . implode('/', array_map(rawurlencode(...), $segments));
     }
 
     public function post(string $slug): string

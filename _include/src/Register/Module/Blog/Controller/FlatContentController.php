@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
+use Register\Url\ContentUrlAliasController;
 use S2\Cms\Controller\PageCommon;
 use S2\Cms\Framework\ControllerInterface;
 use S2\Cms\Model\ArticleProvider;
@@ -19,6 +20,7 @@ readonly class FlatContentController implements ControllerInterface
         private ArticleProvider    $articleProvider,
         private PageCommon         $pageController,
         private PostPageController $postController,
+        private ContentUrlAliasController $aliasController,
     ) {
     }
 
@@ -27,6 +29,11 @@ readonly class FlatContentController implements ControllerInterface
     {
         if ($this->articleProvider->articleFromPath($request->getPathInfo(), true) !== null) {
             return $this->pageController->handle($request);
+        }
+
+        $redirect = $this->aliasController->redirect($request);
+        if ($redirect !== null) {
+            return $redirect;
         }
 
         return $this->postController->handle($request);

@@ -16,6 +16,7 @@ use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\ContentTagSchema;
+use Register\Url\ContentUrlAliasSchema;
 use Register\Schema\SchemaManager;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
@@ -75,6 +76,7 @@ readonly class Installer
         });
 
         ContentSchema::create($this->dbLayer);
+        ContentUrlAliasSchema::create($this->dbLayer);
         UserpicSchema::create($this->dbLayer);
 
         CommentSchema::create($this->dbLayer);
@@ -161,6 +163,7 @@ readonly class Installer
         ContentTagSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('tags');
         CommentSchema::drop($this->dbLayer);
+        ContentUrlAliasSchema::drop($this->dbLayer);
         ContentSchema::drop($this->dbLayer);
         UserpicSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('extensions');
