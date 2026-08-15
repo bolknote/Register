@@ -25,7 +25,7 @@ final class ReactionsCest
         $secondId = $this->insertPost($dbLayer, 'second-list-reaction-post');
 
         $I->sendJson('https://localhost/_visitor/resolve', [
-            'fingerprint' => 'cccccccccccccccccccccccccccccccc',
+            'trackPage' => false,
         ], headers: ['Origin' => 'https://localhost']);
         $this->react($I, 'https://localhost/_reactions/post/' . $firstId, 'love');
         $this->react($I, 'https://localhost/_reactions/post/' . $secondId, 'like');
@@ -61,11 +61,10 @@ final class ReactionsCest
         $I->seeElement('link[href$="/_assets/register/reactions/reactions.css"]');
         $I->seeElement('script[src$="/_assets/register/reactions/reactions.js"]');
         $I->seeElement('script[src$="/_assets/register/visitor/identity.js"]');
+        $I->dontSeeElement('meta[name="register-visitor"][data-fingerprint-src]');
 
-        $fingerprint = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
         $I->sendJson('https://localhost/_visitor/resolve', [
-            'fingerprint' => $fingerprint,
-            'trackPage'   => false,
+            'trackPage' => false,
         ], headers: ['Origin' => 'https://localhost']);
         $I->seeResponseCodeIs(200);
 
@@ -101,15 +100,15 @@ final class ReactionsCest
         $I->assertSame(1, $state['counts']['haha']);
         $I->assertSame(1, $state['total']);
 
-        // Cookie deletion cannot be used to add a second reaction from the same fingerprint.
+        // The signed browser-storage token restores the same reaction identity after cookie loss.
         $I->resetTestCookie($identityManager->cookieName());
         $I->sendJson('https://localhost/_visitor/resolve', [
-            'fingerprint' => $fingerprint,
-            'trackPage'   => false,
+            'token'     => $visitor['token'],
+            'trackPage' => false,
         ], headers: ['Origin' => 'https://localhost']);
         $recovered = $I->grabJson();
         $I->assertIsArray($recovered);
-        $I->assertSame('fingerprint', $recovered['source']);
+        $I->assertSame('storage', $recovered['source']);
         $I->assertSame($visitor['token'], $recovered['token']);
 
         $state = $this->react($I, $endpoint, 'haha');
@@ -125,7 +124,7 @@ final class ReactionsCest
         $contentId = $this->insertPost($dbLayer, 'guarded-reaction-post');
 
         $I->sendJson('https://localhost/_visitor/resolve', [
-            'fingerprint' => 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+            'trackPage' => false,
         ], headers: ['Origin' => 'https://localhost']);
 
         $I->sendJson('https://localhost/_reactions/post/' . $contentId, [
@@ -136,6 +135,32 @@ final class ReactionsCest
 
         $I->amOnPage('https://localhost/_reactions/post/999999');
         $I->seeResponseCodeIs(404);
+    }
+
+    public function ignoresLegacyBrowserFingerprintPayload(\IntegrationTester $I): void
+    {
+        /** @var VisitorIdentityManager $identityManager */
+        $identityManager = $I->grabService(VisitorIdentityManager::class);
+        $I->resetTestCookie($identityManager->cookieName());
+
+        $fingerprint = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+        $I->sendJson('https://localhost/_visitor/resolve', [
+            'fingerprint' => $fingerprint,
+            'trackPage'   => false,
+        ], headers: ['Origin' => 'https://localhost']);
+        $first = $I->grabJson();
+        $I->assertIsArray($first);
+        $I->assertSame('new', $first['source']);
+
+        $I->resetTestCookie($identityManager->cookieName());
+        $I->sendJson('https://localhost/_visitor/resolve', [
+            'fingerprint' => $fingerprint,
+            'trackPage'   => false,
+        ], headers: ['Origin' => 'https://localhost']);
+        $second = $I->grabJson();
+        $I->assertIsArray($second);
+        $I->assertSame('new', $second['source']);
+        $I->assertNotSame($first['token'], $second['token']);
     }
 
     /** @return array{success: true, counts: array<string, int>, selected: string|null, total: int} */

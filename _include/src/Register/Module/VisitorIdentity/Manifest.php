@@ -21,6 +21,7 @@ final class Manifest implements BaseModuleInstallerInterface
 
     public const string VISITOR_TABLE = 'register_visitor';
 
+    /** Retained as an empty legacy table so generation-13 databases keep a compatible shape. */
     public const string FINGERPRINT_TABLE = 'register_visitor_fingerprint';
 
     #[\Override]
@@ -32,13 +33,13 @@ final class Manifest implements BaseModuleInstallerInterface
     #[\Override]
     public function getAuthor(): string
     {
-        return 'Evgeny Stepanischev and FingerprintJS contributors';
+        return 'Evgeny Stepanischev';
     }
 
     #[\Override]
     public function getDescription(): string
     {
-        return 'Restores a signed anonymous visitor identifier across browser storage resets.';
+        return 'Maintains a signed anonymous visitor identifier in first-party browser storage.';
     }
 
     #[\Override]
@@ -60,6 +61,8 @@ final class Manifest implements BaseModuleInstallerInterface
             ;
         });
 
+        // Fingerprinting was removed from runtime. Keep the former table empty until the next
+        // explicit schema generation so existing pre-release installations do not need a migration.
         $dbLayer->createTable(self::FINGERPRINT_TABLE, static function (SchemaBuilderInterface $table): void {
             $table
                 ->addString('fingerprint_hash', 64)

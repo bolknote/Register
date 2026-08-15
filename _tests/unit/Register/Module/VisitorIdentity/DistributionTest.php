@@ -13,31 +13,24 @@ use Codeception\Test\Unit;
 
 final class DistributionTest extends Unit
 {
-    public function testSelfHostedFingerprintBuildPreservesItsMitLicense(): void
-    {
-        $directory = '_assets/register/visitor/vendor/fingerprintjs';
-
-        self::assertFileExists($directory . '/fp.min.js');
-        self::assertFileExists($directory . '/LICENSE');
-        self::assertFileExists($directory . '/REGISTER.md');
-
-        $bundle = (string)file_get_contents($directory . '/fp.min.js');
-        $license = (string)file_get_contents($directory . '/LICENSE');
-        $notice = (string)file_get_contents($directory . '/REGISTER.md');
-
-        self::assertStringContainsString('FingerprintJS v5.2.0', $bundle);
-        self::assertStringContainsString('Licensed under MIT License', $bundle);
-        self::assertStringContainsString('Permission is hereby granted, free of charge', $license);
-        self::assertStringContainsString('@fingerprintjs/fingerprintjs` 5.2.0', $notice);
-    }
-
-    public function testIdentityUsesAllThreeBrowserRecoveryLayers(): void
+    public function testIdentityUsesFirstPartyBrowserRecoveryLayers(): void
     {
         $script = (string)file_get_contents('_assets/register/visitor/identity.js');
 
         self::assertStringContainsString('document.cookie', $script);
         self::assertStringContainsString('localStorage', $script);
         self::assertStringContainsString('indexedDB.open', $script);
-        self::assertStringContainsString('window.FingerprintJS.load', $script);
+        self::assertStringNotContainsString('FingerprintJS', $script);
+        self::assertStringNotContainsString('fingerprint', $script);
+        self::assertStringNotContainsString("createElement('script')", $script);
+    }
+
+    public function testIdentityModuleDoesNotPublishFingerprintingAssets(): void
+    {
+        $module = (string)file_get_contents('_include/src/Register/Module/VisitorIdentity/Module.php');
+
+        self::assertStringNotContainsString('data-fingerprint-src', $module);
+        self::assertStringNotContainsString('fp.min.js', $module);
+        self::assertDirectoryDoesNotExist('_assets/register/visitor/vendor/fingerprintjs');
     }
 }

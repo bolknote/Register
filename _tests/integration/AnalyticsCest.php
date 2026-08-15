@@ -26,10 +26,8 @@ final class AnalyticsCest
         $I->seeResponseCodeIs(200);
         $I->seeElement('meta[name="register-analytics-page"]');
 
-        $fingerprintId = '0123456789abcdef0123456789abcdef';
         $I->sendJson('https://localhost/_visitor/resolve', [
-            'fingerprint' => $fingerprintId,
-            'trackPage'   => true,
+            'trackPage' => true,
         ], headers: [
             'Origin'     => 'https://localhost',
             'User-Agent' => 'Register integration browser',
@@ -45,15 +43,15 @@ final class AnalyticsCest
         $identityManager = $I->grabService(VisitorIdentityManager::class);
         $I->assertSame($resolved['token'], $I->grabTestCookie($identityManager->cookieName()));
 
-        // Deleting the cookie does not create another visitor: the same browser fingerprint restores it.
+        // Browser storage can restore the signed identity after the cookie is removed.
         $I->resetTestCookie($identityManager->cookieName());
         $I->sendJson('https://localhost/_visitor/resolve', [
-            'fingerprint' => $fingerprintId,
-            'trackPage'   => false,
+            'token'     => $resolved['token'],
+            'trackPage' => false,
         ], headers: ['Origin' => 'https://localhost']);
         $recovered = $I->grabJson();
         $I->assertIsArray($recovered);
-        $I->assertSame('fingerprint', $recovered['source']);
+        $I->assertSame('storage', $recovered['source']);
         $I->assertSame($resolved['token'], $recovered['token']);
 
         /** @var VisitorIdentityRepository $visitorRepository */
@@ -86,15 +84,6 @@ final class AnalyticsCest
         $I->assertMatchesRegularExpression('/^[a-f0-9]{64}$/D', $fingerprint);
         $I->assertStringNotContainsString('192.0.2.42', $fingerprint);
 
-        $storedFingerprint = $dbLayer->select('fingerprint_hash')
-            ->from('register_visitor_fingerprint')
-            ->execute()
-            ->result()
-        ;
-        $I->assertIsString($storedFingerprint);
-        $I->assertMatchesRegularExpression('/^[a-f0-9]{64}$/D', $storedFingerprint);
-        $I->assertNotSame($fingerprintId, $storedFingerprint);
-
         $I->amOnPage('https://localhost/_analytics/counter.png');
         $I->seeResponseCodeIs(200);
         $I->seeHttpHeader('Content-Type', 'image/png');
@@ -116,8 +105,7 @@ final class AnalyticsCest
             'DNT'        => '1',
         ]);
         $I->sendJson('https://localhost/_visitor/resolve', [
-            'fingerprint' => 'cccccccccccccccccccccccccccccccc',
-            'trackPage'   => true,
+            'trackPage' => true,
         ], headers: [
             'DNT'        => '1',
             'Sec-GPC'    => '1',

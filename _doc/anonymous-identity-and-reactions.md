@@ -17,19 +17,15 @@ Register recovers it in this order:
 
 1. a one-year, same-site visitor cookie;
 2. a duplicate signed token in `localStorage` or IndexedDB;
-3. a self-hosted FingerprintJS result mapped back to the visitor ID by the server;
-4. a new random visitor ID when none of the previous layers resolves.
+3. a new random visitor ID when none of the previous layers resolves.
 
-The raw FingerprintJS result is never stored. The server applies a keyed SHA-256 digest before using
-it as a lookup key, so copying the database does not reveal a browser fingerprint that can be joined
-directly with another installation. Visitor tables likewise contain no raw IP address or User-Agent.
+Register does not generate or accept a browser fingerprint. Visitor tables likewise contain no raw
+IP address or User-Agent. Clearing only cookies does not create a reliably new visitor because the
+first-party storage token restores it; clearing all three browser stores starts a new identity.
 
-DNT and Global Privacy Control are deliberately not consulted: they disable neither identity
-resolution nor analytics. Clearing only cookies therefore does not create a reliably new visitor.
-Clearing every browser store can still resolve the previous ID when the browser fingerprint remains
-stable. Conversely, browser updates, privacy tools, device changes, incognito profiles, and hash
-collisions can make a fingerprint change or converge, so this mechanism is useful for statistics and
-casual duplicate resistance, not for security or fraud-proof voting.
+DNT and Global Privacy Control are deliberately not consulted: they disable neither first-party
+identity storage nor aggregate analytics. The identity is useful for statistics and casual duplicate
+resistance, not for security or fraud-proof voting.
 
 ## Analytics
 
@@ -44,9 +40,7 @@ the visitor ID in its daily unique table and prunes older entries.
 - `GET /_reactions/{page|post}/{id}` returns counts and the current visitor's selection.
 - `POST /_reactions/{page|post}/{id}` toggles or switches a reaction.
 - `register_visitor` stores random visitor IDs and timestamps.
-- `register_visitor_fingerprint` stores keyed fingerprint digests and their visitor mapping.
 - `register_reaction` enforces one row per content item and visitor with a composite primary key.
 
-Mutation endpoints accept same-origin JSON only. FingerprintJS 5.2.0 is self-hosted with its optional
-upstream monitoring request disabled; its complete MIT license and original bundle notice are preserved under
-`_assets/register/visitor/vendor/fingerprintjs`.
+Mutation endpoints accept same-origin JSON only. The visitor script uses browser-native first-party
+storage and does not load a fingerprinting library or any third-party resource.

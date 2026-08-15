@@ -54,10 +54,9 @@ pre-release and deliberately supports only a fresh current schema; manifest vers
 transitional metadata and are not product schema state.
 
 The Visitor Identity module signs a random anonymous identifier and mirrors it into a cookie,
-`localStorage`, and IndexedDB. When all three copies are absent, a self-hosted FingerprintJS build
-can recover the identifier through a server-side keyed digest. Raw browser fingerprints, IP
-addresses, and User-Agent strings are not stored in visitor identity tables. DNT and Global Privacy
-Control do not change this behavior.
+`localStorage`, and IndexedDB. When all three copies are absent, it creates a new identifier. The
+module neither generates nor accepts browser fingerprints, and visitor identity tables contain no
+raw IP addresses or User-Agent strings. DNT and Global Privacy Control do not change this behavior.
 
 Built-in Analytics stores daily aggregates in product tables. It derives each active-day unique key
 from the anonymous visitor identifier and prunes those daily keys on subsequent traffic. DNT and

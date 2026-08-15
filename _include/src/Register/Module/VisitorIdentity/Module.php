@@ -51,11 +51,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $identityManager = $container->get(VisitorIdentityManager::class);
             $event->assetPack
                 ->addMeta(sprintf(
-                    '<meta name="register-visitor" data-cookie="%s" data-cookie-path="%s" data-resolve-url="%s" data-fingerprint-src="%s">',
+                    '<meta name="register-visitor" data-cookie="%s" data-cookie-path="%s" data-resolve-url="%s">',
                     s2_htmlencode($identityManager->cookieName()),
                     s2_htmlencode($identityManager->cookiePath()),
                     s2_htmlencode($basePath . '/_visitor/resolve'),
-                    s2_htmlencode($basePath . '/_assets/register/visitor/vendor/fingerprintjs/fp.min.js'),
                 ))
                 ->addJs($basePath . '/_assets/register/visitor/identity.js', [AssetPack::OPTION_DEFER])
             ;

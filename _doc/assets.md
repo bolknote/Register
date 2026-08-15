@@ -25,9 +25,6 @@ Current product assets:
 - `_assets/register/audio-player` contains an original native-audio implementation whose compact
   visual presentation is inspired by Jouele. No Jouele JavaScript, CSS, or artwork is bundled. The
   original authors' complete MIT notice and source link are recorded beside the player.
-- `_assets/register/visitor/vendor/fingerprintjs` contains the official FingerprintJS 5.2.0 UMD
-  production build under the MIT license. The upstream version, package links, bundle notice, and
-  complete license are recorded beside the file.
 - Reaction emoji are Unicode characters rendered by the visitor's platform; no Facebook or Telegram
   artwork is bundled.
 

@@ -58,8 +58,7 @@ final readonly class ResolveVisitorController implements ControllerInterface
         }
 
         $storageToken = isset($payload['token']) && \is_string($payload['token']) ? $payload['token'] : null;
-        $fingerprint  = isset($payload['fingerprint']) && \is_string($payload['fingerprint']) ? $payload['fingerprint'] : null;
-        $resolved     = $this->identityManager->resolve($request, $storageToken, $fingerprint);
+        $resolved     = $this->identityManager->resolve($request, $storageToken);
 
         $this->eventDispatcher->dispatch(new VisitorResolvedEvent(
             $request,

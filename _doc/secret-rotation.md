@@ -16,7 +16,7 @@ local machine when the hosting account has no terminal.
 | Recovery codes | SHA-256 verifiers in the recovery-code table | Regeneration invalidates every previous unused code. |
 | AI and Akismet API keys | Private dynamic-secret file | Provider access changes without exposing the value in the database, cache, or HTML. |
 | Antispam HMAC secret | `security.antispam_secret` in `config.php`, or `S2_ANTISPAM_SECRET` in the private dynamic-secret file on legacy installations | Existing comment-form tokens and antispam visitor cookies become invalid; pseudonymous audit and rate-limit identifiers start a new generation. |
-| Anonymous visitor HMAC secret | `REGISTER_VISITOR_SECRET` in the private dynamic-secret file | Existing visitor cookies, local-storage tokens, and fingerprint links stop resolving to their previous identity. |
+| Anonymous visitor HMAC secret | `REGISTER_VISITOR_SECRET` in the private dynamic-secret file | Existing visitor cookies and browser-storage tokens stop resolving to their previous identity. |
 | Backup encryption key | `backups.encryption_key` in `config.php` | New archives use the new key; old archives still require the old key. |
 | Administrator session and CSRF tokens | Hashed session rows in `users_online`; raw token only in the browser cookie | Deleting the session row invalidates both the session and tokens derived from it. |
 
@@ -126,7 +126,7 @@ Expected consequences are important:
   antispam visitor cookie; users must reload before commenting;
 - hashes written before and after the rotation in security/CSP logs, spam reputation, and rate-limit
   data cannot be correlated;
-- rotating the visitor secret invalidates one-year visitor identity tokens and fingerprint hashes;
+- rotating the visitor secret invalidates one-year visitor identity tokens;
   returning readers receive a new anonymous identity, analytics continuity breaks, and reaction
   uniqueness starts from that new identity.
 

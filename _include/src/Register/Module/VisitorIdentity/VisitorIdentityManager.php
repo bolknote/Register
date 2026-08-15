@@ -31,7 +31,7 @@ final readonly class VisitorIdentityManager
         $this->cookiePath = rtrim($basePath, '/') . '/';
     }
 
-    public function resolve(Request $request, ?string $storageToken, ?string $fingerprint): ResolvedVisitor
+    public function resolve(Request $request, ?string $storageToken): ResolvedVisitor
     {
         $visitorId = null;
         $source    = 'new';
@@ -51,20 +51,9 @@ final readonly class VisitorIdentityManager
             }
         }
 
-        $fingerprintHash = $this->fingerprintHash($fingerprint);
-        if ($visitorId === null && $fingerprintHash !== null) {
-            $visitorId = $this->repository->findByFingerprintHash($fingerprintHash);
-            if ($visitorId !== null) {
-                $source = 'fingerprint';
-            }
-        }
-
         $visitorId ??= bin2hex(random_bytes(16));
         $now = time();
         $this->repository->touchVisitor($visitorId, $now);
-        if ($fingerprintHash !== null) {
-            $this->repository->linkFingerprintHash($fingerprintHash, $visitorId, $now);
-        }
 
         return new ResolvedVisitor($visitorId, $this->tokenFor($visitorId), $source);
     }
@@ -121,15 +110,6 @@ final readonly class VisitorIdentityManager
     private function signature(string $visitorId): string
     {
         return hash_hmac('sha256', "register-visitor\0" . $visitorId, $this->secret());
-    }
-
-    private function fingerprintHash(?string $fingerprint): ?string
-    {
-        if ($fingerprint === null || preg_match('/^[A-Za-z0-9_-]{16,128}$/D', $fingerprint) !== 1) {
-            return null;
-        }
-
-        return hash_hmac('sha256', "browser-fingerprint\0" . $fingerprint, $this->secret());
     }
 
     private function secret(): string

@@ -9,15 +9,11 @@
     const cookieName = config.dataset.cookie || '';
     const cookiePath = config.dataset.cookiePath || '/';
     const resolveUrl = config.dataset.resolveUrl || '';
-    const fingerprintSrc = config.dataset.fingerprintSrc || '';
     const tokenPattern = /^[a-f0-9]{32}\.[a-f0-9]{64}$/;
     const storageKey = 'register.visitor.token.v1';
-    const fingerprintAtKey = 'register.visitor.fingerprint-at.v1';
     const databaseName = 'register-visitor-v1';
     const storeName = 'identity';
-    const fingerprintRefresh = 30 * 24 * 60 * 60 * 1000;
     let pendingResolution = null;
-    let fingerprintAgent = null;
 
     const validToken = (value) => typeof value === 'string' && tokenPattern.test(value);
 
@@ -111,45 +107,7 @@
         void writeIndexed(token);
     };
 
-    const loadFingerprintAgent = async () => {
-        if (fingerprintAgent) {
-            return fingerprintAgent;
-        }
-
-        fingerprintAgent = (async () => {
-            if (!window.FingerprintJS) {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = fingerprintSrc;
-                    script.async = true;
-                    script.onload = resolve;
-                    script.onerror = () => reject(new Error('Unable to load the fingerprint library.'));
-                    document.head.append(script);
-                });
-            }
-
-            if (!window.FingerprintJS || typeof window.FingerprintJS.load !== 'function') {
-                throw new Error('FingerprintJS did not initialize.');
-            }
-
-            return window.FingerprintJS.load({monitoring: false});
-        })();
-
-        return fingerprintAgent;
-    };
-
-    const fingerprint = async () => {
-        try {
-            const agent = await loadFingerprintAgent();
-            const result = await agent.get();
-            return typeof result.visitorId === 'string' ? result.visitorId : null;
-        } catch (_error) {
-            return null;
-        }
-    };
-
-    const resolveOnServer = async (token, trackPage, includeFingerprint = true) => {
-        const browserFingerprint = includeFingerprint ? await fingerprint() : null;
+    const resolveOnServer = async (token, trackPage) => {
         const response = await fetch(resolveUrl, {
             method: 'POST',
             credentials: 'same-origin',
@@ -159,7 +117,6 @@
             },
             body: JSON.stringify({
                 token,
-                fingerprint: browserFingerprint,
                 trackPage,
             }),
         });
@@ -169,14 +126,6 @@
         }
 
         remember(payload.token);
-        if (browserFingerprint !== null) {
-            try {
-                localStorage.setItem(fingerprintAtKey, String(Date.now()));
-            } catch (_error) {
-                // The timestamp is only an optimization.
-            }
-        }
-
         window.dispatchEvent(new CustomEvent('register:visitor-ready', {
             detail: {token: payload.token, source: payload.source || 'unknown'},
         }));
@@ -184,36 +133,11 @@
         return payload.token;
     };
 
-    const needsFingerprintRefresh = () => {
-        try {
-            const lastRun = Number(localStorage.getItem(fingerprintAtKey) || 0);
-            return !Number.isFinite(lastRun) || Date.now() - lastRun >= fingerprintRefresh;
-        } catch (_error) {
-            return true;
-        }
-    };
-
-    const refreshFingerprintLater = (token) => {
-        if (!needsFingerprintRefresh()) {
-            return;
-        }
-
-        const refresh = () => {
-            void resolveOnServer(token, false, true).catch(() => {});
-        };
-        if ('requestIdleCallback' in window) {
-            window.requestIdleCallback(refresh, {timeout: 5000});
-        } else {
-            window.setTimeout(refresh, 1500);
-        }
-    };
-
     const ensure = async ({trackPage = false, force = false} = {}) => {
         const cookieToken = readCookie();
         if (cookieToken !== null && !force) {
             writeLocal(cookieToken);
             void writeIndexed(cookieToken);
-            refreshFingerprintLater(cookieToken);
             return cookieToken;
         }
 
@@ -223,7 +147,7 @@
 
         pendingResolution = (async () => {
             const storedToken = cookieToken || readLocal() || await readIndexed();
-            return resolveOnServer(storedToken, trackPage, true);
+            return resolveOnServer(storedToken, trackPage);
         })();
 
         try {

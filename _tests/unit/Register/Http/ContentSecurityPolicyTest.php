@@ -166,6 +166,7 @@ final class ContentSecurityPolicyTest extends Unit
             $root . '/_admin/js/editor/images/pipeline.js',
             $root . '/_assets/register/audio-player/player.js',
             $root . '/_assets/register/search/autocomplete.js',
+            $root . '/_assets/register/visitor/identity.js',
         ] as $filename) {
             $source = file_get_contents($filename);
             self::assertIsString($source);
