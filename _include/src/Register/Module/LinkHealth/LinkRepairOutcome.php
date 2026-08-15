@@ -1,0 +1,21 @@
+<?php
+/**
+ * @copyright 2026 Roman Parpalak
+ * @license   https://opensource.org/license/mit MIT
+ * @package   Register
+ */
+
+declare(strict_types = 1);
+
+namespace Register\Module\LinkHealth;
+
+enum LinkRepairOutcome
+{
+    case REPAIRED;
+
+    case STALE;
+
+    case MISSING;
+
+    case NO_MATCH;
+}

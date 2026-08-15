@@ -13,6 +13,7 @@ use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentChangeDispatcher;
+use Register\Content\ContentDeletionGuardInterface;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
@@ -30,6 +31,9 @@ use S2\Cms\Pdo\DbLayerException;
 
 readonly class ArticleManager
 {
+    /** @var list<ContentDeletionGuardInterface> */
+    private array $contentDeletionGuards;
+
     public function __construct(
         private DbLayer                 $dbLayer,
         private CommentRepository       $commentRepository,
@@ -40,7 +44,9 @@ readonly class ArticleManager
         private BoolProxy               $useHierarchy,
         private ContentSlugService      $contentSlugService,
         private ContentChangeDispatcher $contentChangeDispatcher,
+        ContentDeletionGuardInterface   ...$contentDeletionGuards,
     ) {
+        $this->contentDeletionGuards = array_values($contentDeletionGuards);
     }
 
     /**
@@ -425,6 +431,15 @@ readonly class ArticleManager
         }
 
         $changedContent = $this->contentChangeDispatcher->pageBranch($id);
+        $violations     = [];
+        foreach ($this->contentDeletionGuards as $contentDeletionGuard) {
+            array_push($violations, ...$contentDeletionGuard->violations(...$changedContent));
+        }
+
+        if ($violations !== []) {
+            throw new AccessDeniedException(implode(' ', $violations));
+        }
+
         $this->dbLayer->startTransaction();
 
         $this->dbLayer

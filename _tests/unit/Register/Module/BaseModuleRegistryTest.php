@@ -26,6 +26,7 @@ final class BaseModuleRegistryTest extends Unit
             's2_typo',
             'register_syntax_highlighting',
             'register_audio_player',
+            'register_link_health',
         ], $this->registry()->ids());
     }
 

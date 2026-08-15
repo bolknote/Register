@@ -36,6 +36,7 @@
         "ext-filter": "*",
         "ext-gd": "*",
         "ext-json": "*",
+        "ext-libxml": "*",
         "ext-pdo": "*",
         "ext-session": "*",
         "matthiasmullie/minify": "^1.3",

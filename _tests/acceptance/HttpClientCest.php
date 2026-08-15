@@ -155,6 +155,59 @@ class HttpClientCest
      * @dataProvider transportProvider
      * @throws HttpClientException
      */
+    public function testResponseBodyCanBeBounded(AcceptanceTester $I, Example $example): void
+    {
+        $client = new HttpClient(preferredTransport: $example['transport']);
+
+        $response = $client->request(
+            'GET',
+            'http://localhost:8881/_tests/_resources/http_client_mocks/200.php',
+            options: [HttpClient::MAX_RESPONSE_BYTES => 4],
+        );
+
+        $I->assertEquals(200, $response->statusCode);
+        $I->assertEquals('Succ', $response->content);
+    }
+
+    /**
+     * @dataProvider pinnedTransportProvider
+     * @throws HttpClientException
+     */
+    public function testConnectsToAPinnedAddressWithoutChangingTheHttpHost(AcceptanceTester $I, Example $example): void
+    {
+        $client = new HttpClient(preferredTransport: $example['transport']);
+
+        $response = $client->request(
+            'GET',
+            'http://pinning.invalid:8881/_tests/_resources/http_client_mocks/200.php',
+            options: [
+                HttpClient::FOLLOW_REDIRECTS => false,
+                HttpClient::RESOLVE_IP       => '127.0.0.1',
+            ],
+        );
+
+        $I->assertEquals(200, $response->statusCode);
+        $I->assertEquals('Success!', $response->content);
+    }
+
+    public function testPinnedAddressRequiresRedirectsToBeDisabled(AcceptanceTester $I): void
+    {
+        $client = new HttpClient(preferredTransport: HttpClient::TRANSPORT_CURL);
+
+        $I->expectThrowable(
+            new \InvalidArgumentException('Pinned DNS resolution requires redirects to be disabled.'),
+            static fn(): \S2\Cms\HttpClient\HttpResponse => $client->request(
+                'GET',
+                'http://pinning.invalid/',
+                options: [HttpClient::RESOLVE_IP => '127.0.0.1'],
+            ),
+        );
+    }
+
+    /**
+     * @dataProvider transportProvider
+     * @throws HttpClientException
+     */
     public function testSensitiveHeadersAreRemovedOnCrossOriginRedirect(AcceptanceTester $I, Example $example): void
     {
         $client = new HttpClient(preferredTransport: $example['transport']);
@@ -271,5 +324,14 @@ class HttpClientCest
         }
 
         return $cases;
+    }
+
+    /** @return list<array{transport: string}> */
+    protected function pinnedTransportProvider(): array
+    {
+        return [
+            ['transport' => HttpClient::TRANSPORT_CURL],
+            ['transport' => HttpClient::TRANSPORT_FSOCKOPEN],
+        ];
     }
 }

@@ -115,6 +115,11 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->indexExists('register_reaction', 'content_reaction_idx'));
         $I->assertTrue($dbLayer->foreignKeyExists('register_reaction', 'fk_content'));
         $I->assertTrue($dbLayer->foreignKeyExists('register_reaction', 'fk_visitor'));
+        $I->assertTrue($dbLayer->tableExists(\Register\Module\LinkHealth\Manifest::TARGET_TABLE));
+        $I->assertTrue($dbLayer->fieldExists(\Register\Module\LinkHealth\Manifest::TARGET_TABLE, 'url_hash'));
+        $I->assertTrue($dbLayer->tableExists(\Register\Module\LinkHealth\Manifest::CONTENT_LINK_TABLE));
+        $I->assertTrue($dbLayer->foreignKeyExists(\Register\Module\LinkHealth\Manifest::CONTENT_LINK_TABLE, 'fk_source_content'));
+        $I->assertTrue($dbLayer->tableExists(\Register\Module\LinkHealth\Manifest::THROTTLE_TABLE));
     }
 
     public function staleProductSchemaIsRejectedInsteadOfMigrated(\IntegrationTester $I): void

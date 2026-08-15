@@ -12,6 +12,13 @@ The engine runs on ordinary PHP hosting with SQLite, MySQL/MariaDB, or PostgreSQ
 small, responsive, and self-contained: search, typography, formulas, code highlighting, analytics,
 and media enhancements run locally rather than depending on third-party front-end services.
 
+Background work is advanced in short, leased `register_shutdown` slices after normal HTTP responses.
+Normal operation assumes neither cron nor PHP CLI: unfinished network work is persisted as a future
+queue generation instead of sleeping inside a request. A site without incoming traffic simply does
+not advance maintenance until its next request. External-link DNS uses non-blocking datagrams to the
+system resolvers from `/etc/resolv.conf`; it never starts a process or calls the potentially blocking
+libc resolver.
+
 > **Development status:** the current line is `2.0dev`. Register deliberately supports a fresh
 > current schema while the product is pre-release; in-place migration from older S2/Register data
 > generations is not yet a compatibility promise.

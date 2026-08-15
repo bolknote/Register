@@ -291,6 +291,10 @@ class Integration extends AbstractBrowserModule
     private function dropBaseModuleTables(DbLayer $dbLayer): void
     {
         $this->adminApplication->container->get(PdoStorage::class)->drop();
+        $dbLayer->dropTable(\Register\Module\LinkHealth\Manifest::REPAIR_TABLE);
+        $dbLayer->dropTable(\Register\Module\LinkHealth\Manifest::CHECK_TABLE);
+        $dbLayer->dropTable(\Register\Module\LinkHealth\Manifest::CONTENT_LINK_TABLE);
+        $dbLayer->dropTable(\Register\Module\LinkHealth\Manifest::TARGET_TABLE);
         $dbLayer->dropTable('register_reaction');
         $dbLayer->dropTable('register_visitor_fingerprint');
         $dbLayer->dropTable('register_visitor');

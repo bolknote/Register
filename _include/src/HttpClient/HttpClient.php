@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace S2\Cms\HttpClient;
 
 /**
- * @phpstan-type RequestOptions array{connect_timeout?: positive-int, read_timeout?: positive-int, follow_redirects?: bool}
- * @psalm-type RequestOptions = array{connect_timeout?: positive-int, read_timeout?: positive-int, follow_redirects?: bool}
+ * @phpstan-type RequestOptions array{connect_timeout?: int, read_timeout?: int, follow_redirects?: bool, resolve_ip?: string, max_response_bytes?: int}
+ * @psalm-type RequestOptions = array{connect_timeout?: int, read_timeout?: int, follow_redirects?: bool, resolve_ip?: string, max_response_bytes?: int}
  * @phpstan-type ParsedUrl array{scheme?: string, host?: string, port?: int, user?: string, pass?: string, path?: string, query?: string, fragment?: string}
  * @psalm-type ParsedUrl = array{scheme?: string, host?: string, port?: int, user?: string, pass?: string, path?: string, query?: string, fragment?: string}
  */
@@ -28,6 +28,10 @@ readonly class HttpClient
     public const string READ_TIMEOUT = 'read_timeout';
 
     public const string FOLLOW_REDIRECTS = 'follow_redirects';
+
+    public const string RESOLVE_IP = 'resolve_ip';
+
+    public const string MAX_RESPONSE_BYTES = 'max_response_bytes';
 
     private const array ALLOWED_METHODS             = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
 
@@ -84,6 +88,7 @@ readonly class HttpClient
         $method = $this->normalizeMethod($method);
         $url = $this->normalizeUrl($url);
         $this->validateHeaders($headers);
+        $this->validateOptions($options);
 
         return match ($this->getPreferredTransport()) {
             self::TRANSPORT_CURL => $this->requestWithCurl($method, $url, $headers, $body, $options),
@@ -99,6 +104,16 @@ readonly class HttpClient
     public function fetch(string $url): HttpResponse
     {
         return $this->request('GET', $url);
+    }
+
+    /**
+     * Resolves an HTTP redirect location without opening a connection.
+     *
+     * @throws HttpClientException
+     */
+    public function resolveRedirectUrl(string $location, string $currentUrl): string
+    {
+        return $this->newUrlFromLocation($location, $this->normalizeUrl($currentUrl));
     }
 
     /**
@@ -313,6 +328,45 @@ readonly class HttpClient
         }
     }
 
+    /** @param RequestOptions $options */
+    private function validateOptions(array $options): void
+    {
+        foreach ([self::CONNECT_TIMEOUT, self::READ_TIMEOUT, self::MAX_RESPONSE_BYTES] as $name) {
+            if (isset($options[$name]) && !$this->isPositiveInteger($options[$name])) {
+                throw new \InvalidArgumentException(\sprintf('HTTP option "%s" must be a positive integer.', $name));
+            }
+        }
+
+        if (isset($options[self::FOLLOW_REDIRECTS]) && !$this->isBoolean($options[self::FOLLOW_REDIRECTS])) {
+            throw new \InvalidArgumentException('HTTP redirect option must be boolean.');
+        }
+
+        if (isset($options[self::RESOLVE_IP])
+            && !$this->isIpAddress($options[self::RESOLVE_IP])
+        ) {
+            throw new \InvalidArgumentException('HTTP resolve_ip option must be an IP address.');
+        }
+
+        if (isset($options[self::RESOLVE_IP]) && ($options[self::FOLLOW_REDIRECTS] ?? true) !== false) {
+            throw new \InvalidArgumentException('Pinned DNS resolution requires redirects to be disabled.');
+        }
+    }
+
+    private function isPositiveInteger(mixed $value): bool
+    {
+        return \is_int($value) && $value > 0;
+    }
+
+    private function isBoolean(mixed $value): bool
+    {
+        return \is_bool($value);
+    }
+
+    private function isIpAddress(mixed $value): bool
+    {
+        return \is_string($value) && filter_var($value, FILTER_VALIDATE_IP) !== false;
+    }
+
     /**
      * @param array<string, string> $headers
      * @return array<string, string>
@@ -379,14 +433,29 @@ readonly class HttpClient
         }
 
         curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HEADER, true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+        curl_setopt($ch, CURLOPT_HEADER, false);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $options[self::CONNECT_TIMEOUT] ?? $this->timeout);
         curl_setopt($ch, CURLOPT_TIMEOUT, isset($options[self::CONNECT_TIMEOUT], $options[self::READ_TIMEOUT]) ? $options[self::CONNECT_TIMEOUT] + $options[self::READ_TIMEOUT] : $this->timeout);
         curl_setopt($ch, CURLOPT_USERAGENT, $this->userAgent);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
         curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+
+        if ($method === 'HEAD') {
+            curl_setopt($ch, CURLOPT_NOBODY, true);
+        }
+
+        $parsedUrl = parse_url($url);
+        $host      = \is_array($parsedUrl) ? trim($parsedUrl['host'] ?? '', '[]') : '';
+        $port      = \is_array($parsedUrl) && isset($parsedUrl['port'])
+            ? $parsedUrl['port']
+            : ((\is_array($parsedUrl) ? ($parsedUrl['scheme'] ?? '') : '') === 'https' ? 443 : 80);
+        $resolveIp = $options[self::RESOLVE_IP] ?? null;
+        if (\is_string($resolveIp) && strcasecmp($host, trim($resolveIp, '[]')) !== 0) {
+            $curlIp = str_contains($resolveIp, ':') ? '[' . trim($resolveIp, '[]') . ']' : $resolveIp;
+            curl_setopt($ch, CURLOPT_RESOLVE, [$host . ':' . $port . ':' . $curlIp]);
+        }
 
         if ($requestBody !== null) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $requestBody);
@@ -403,12 +472,48 @@ readonly class HttpClient
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, $this->verifySsl ? 2 : 0);
         }
 
-        $content      = curl_exec($ch);
+        $responseHeaders = [];
+        $content         = '';
+        $maxBytes        = $options[self::MAX_RESPONSE_BYTES] ?? null;
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION, static function (\CurlHandle $_handle, string $line) use (&$responseHeaders): int {
+            $length = \strlen($line);
+            $line   = rtrim($line, "\r\n");
+            if (preg_match('#^HTTP/\S+\s+\d{3}#', $line) === 1) {
+                $responseHeaders = [];
+            }
+
+            if ($line !== '') {
+                $responseHeaders[] = $line;
+            }
+
+            return $length;
+        });
+        curl_setopt($ch, CURLOPT_WRITEFUNCTION, static function (\CurlHandle $_handle, string $chunk) use (&$content, $maxBytes): int {
+            $length = \strlen($chunk);
+            if ($maxBytes === null) {
+                $content .= $chunk;
+                return $length;
+            }
+
+            $remaining = $maxBytes - \strlen($content);
+            if ($remaining > 0) {
+                $content .= substr($chunk, 0, $remaining);
+            }
+
+            if ($length > $remaining) {
+                return 0;
+            }
+
+            return $length;
+        });
+
+        $executed     = curl_exec($ch);
         $responseCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $errorNum     = curl_errno($ch);
         $error        = $errorNum !== 0 ? curl_error($ch) : null;
+        $limitReached = $maxBytes !== null && \strlen($content) >= $maxBytes;
 
-        if (!\is_string($content) || $error !== null) {
+        if ($executed === false && (!$limitReached || $errorNum !== CURLE_WRITE_ERROR)) {
             throw new HttpClientException($error ?? 'Unknown error', match ($errorNum) {
                 CURLE_OPERATION_TIMEOUTED => HttpClientException::REASON_TIMEOUT,
                 CURLE_COULDNT_RESOLVE_HOST => HttpClientException::REASON_HOST_RESOLVE_FAILURE,
@@ -416,14 +521,7 @@ readonly class HttpClient
             });
         }
 
-        $contentStart = strpos($content, "\r\n\r\n");
-        if ($contentStart !== false) {
-            [$rawHeaders, $content] = explode("\r\n\r\n", $content, 2);
-        } else {
-            $rawHeaders = '';
-        }
-
-        $responseHeaders = explode("\r\n", $rawHeaders);
+        $rawHeaders = implode("\r\n", $responseHeaders);
 
         if (($options[self::FOLLOW_REDIRECTS] ?? true)
             && $responseCode >= 300
@@ -469,7 +567,10 @@ readonly class HttpClient
         $scheme        = $parsedUrl['scheme'] ?? 'http';
         $host          = $parsedUrl['host'] ?? '';
         $port          = $parsedUrl['port'] ?? ($scheme === 'https' ? 443 : 80);
-        $socketHost    = str_contains($host, ':') && !str_starts_with($host, '[') ? '[' . $host . ']' : $host;
+        $connectionHost = $options[self::RESOLVE_IP] ?? $host;
+        $socketHost    = str_contains($connectionHost, ':') && !str_starts_with($connectionHost, '[')
+            ? '[' . $connectionHost . ']'
+            : $connectionHost;
         $socketContext = stream_context_create($scheme === 'https' ? ['ssl' => $this->sslContextOptions($host)] : []);
         $errno         = 0;
         $errstr        = '';
@@ -523,7 +624,22 @@ readonly class HttpClient
 
         fwrite($remote, $request);
 
-        $content = stream_get_contents($remote);
+        $responseHeaders = [];
+        while (($headerLine = fgets($remote)) !== false) {
+            $headerLine = rtrim($headerLine, "\r\n");
+            if ($headerLine === '') {
+                break;
+            }
+
+            if (preg_match('#^HTTP/\S+\s+\d{3}#', $headerLine) === 1) {
+                $responseHeaders = [];
+            }
+
+            $responseHeaders[] = $headerLine;
+        }
+
+        $maxBytes = $options[self::MAX_RESPONSE_BYTES] ?? null;
+        $content  = $method === 'HEAD' ? '' : stream_get_contents($remote, $maxBytes);
         $meta    = stream_get_meta_data($remote);
         fclose($remote);
         if ($content === false) {
@@ -534,14 +650,7 @@ readonly class HttpClient
             throw new HttpClientException('Read timed out', HttpClientException::REASON_TIMEOUT);
         }
 
-        $contentStart = strpos($content, "\r\n\r\n");
-        if ($contentStart !== false) {
-            [$rawHeaders, $content] = explode("\r\n\r\n", $content, 2);
-        } else {
-            $rawHeaders = '';
-        }
-
-        $responseHeaders = explode("\r\n", $rawHeaders);
+        $rawHeaders = implode("\r\n", $responseHeaders);
 
         $responseCode = preg_match('/\d{3}/', $responseHeaders[0], $matches) === 1 ? (int)$matches[0] : 0;
 
@@ -594,6 +703,10 @@ readonly class HttpClient
         // NOTE: it seems like the PHP HTTP stream wrapper does not support connection timeout
         $readTimeout = $options[self::READ_TIMEOUT] ?? $this->timeout;
         $host        = (string)parse_url($url, PHP_URL_HOST);
+        $resolveIp   = $options[self::RESOLVE_IP] ?? null;
+        if (\is_string($resolveIp) && strcasecmp(trim($host, '[]'), trim($resolveIp, '[]')) !== 0) {
+            throw new HttpClientException('Pinned DNS resolution is not supported by the file_get_contents transport.');
+        }
 
         $headerLines = array_map(static fn($k, $v): string => "$k: $v", array_keys($requestHeaders), $requestHeaders);
         $context     = stream_context_create([
@@ -610,14 +723,15 @@ readonly class HttpClient
             'ssl' => $this->sslContextOptions($host),
         ]);
 
-        $fetch = static function () use ($url, $context): array {
+        $fetch = static function () use ($url, $context, $options): array {
             $stream = fopen($url, 'rb', false, $context);
             if ($stream === false) {
                 return [false, []];
             }
 
             try {
-                $content  = stream_get_contents($stream);
+                $maxBytes = $options[self::MAX_RESPONSE_BYTES] ?? null;
+                $content  = stream_get_contents($stream, $maxBytes);
                 $metadata = stream_get_meta_data($stream);
             } finally {
                 fclose($stream);
