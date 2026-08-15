@@ -31,6 +31,7 @@ final class MediaStorageConfigResolver
         self::rejectControlCharacters($configuredDirectory, 'media storage directory');
 
         $absoluteDirectory = self::isAbsolutePath($configuredDirectory);
+        $relativeDirectory = '';
         if ($absoluteDirectory) {
             $directory = rtrim($configuredDirectory, '/\\');
         } else {

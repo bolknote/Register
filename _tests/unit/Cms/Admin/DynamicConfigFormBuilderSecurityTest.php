@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Admin;
 
 use Codeception\Test\Unit;
+use S2\AdminYard\Config\FieldConfig;
 use S2\Cms\Admin\DynamicConfigFormBuilder;
 use S2\Cms\Model\PermissionChecker;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -39,6 +40,7 @@ final class DynamicConfigFormBuilderSecurityTest extends Unit
         $reflection->getProperty('permissionChecker')->setValue($builder, new PermissionChecker());
 
         $field = $reflection->getMethod('createDynamicFieldConfig')->invoke($builder, 'S2_ADMIN_COLOR');
+        self::assertInstanceOf(FieldConfig::class, $field);
         self::assertCount(1, $field->validators);
 
         $translator = self::createStub(TranslatorInterface::class);

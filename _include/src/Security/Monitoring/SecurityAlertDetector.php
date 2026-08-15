@@ -29,7 +29,7 @@ final readonly class SecurityAlertDetector
 
     private const int MAX_TAIL_BYTES = 1024 * 1024;
 
-    private const float CAPACITY_WARNING_RATIO = 0.95;
+    private const int CAPACITY_WARNING_PERCENT = 95;
 
     public function __construct(
         private string $telemetryFile,
@@ -122,7 +122,9 @@ final readonly class SecurityAlertDetector
                 if (fseek($handle, $offset) !== 0) {
                     return;
                 }
-                fgets($handle);
+                if (fgets($handle) === false) {
+                    return;
+                }
             }
 
             while (($line = fgets($handle)) !== false) {
@@ -163,6 +165,6 @@ final readonly class SecurityAlertDetector
 
         $size = s2_call_without_warnings(static fn(): int|false => filesize($filename));
 
-        return $size !== false && $size >= (int)($limit * self::CAPACITY_WARNING_RATIO);
+        return $size !== false && $size >= intdiv($limit * self::CAPACITY_WARNING_PERCENT, 100);
     }
 }

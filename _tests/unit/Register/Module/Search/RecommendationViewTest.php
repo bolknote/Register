@@ -49,6 +49,8 @@ final class RecommendationViewTest extends Unit
 
     /**
      * @param list<array<string, mixed>> $content
+     * @psalm-suppress UnusedParam The parameter and local variables are consumed by the included view.
+     * @psalm-suppress UnusedVariable
      */
     private function render(array $content): string
     {

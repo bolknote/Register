@@ -69,20 +69,23 @@ function s2_build_base_static_parameters(array $config): array
         ? rtrim((string)\constant('REGISTER_PUBLIC_ROOT'), '/\\') . '/'
         : $rootDir;
 
-    $cacheDir = isset($config['files']['cache_dir'])
-        ? rtrim($config['files']['cache_dir'], '/') . '/'
+    $filesConfig = \is_array($config['files'] ?? null) ? $config['files'] : [];
+    $cacheDir = isset($filesConfig['cache_dir']) && \is_string($filesConfig['cache_dir'])
+        ? rtrim($filesConfig['cache_dir'], '/') . '/'
         : s2_get_default_cache_dir();
 
-    $logDir = isset($config['files']['log_dir']) ? rtrim($config['files']['log_dir'], '/') . '/' : $cacheDir;
+    $logDir = isset($filesConfig['log_dir']) && \is_string($filesConfig['log_dir'])
+        ? rtrim($filesConfig['log_dir'], '/') . '/'
+        : $cacheDir;
 
     $basePath = $config['http']['base_path'] ?? null;
     $mediaStorage = MediaStorageConfigResolver::resolve(
         $publicRootDir,
-        isset($config['files']['image_dir']) && is_string($config['files']['image_dir'])
-            ? $config['files']['image_dir']
+        isset($filesConfig['image_dir']) && is_string($filesConfig['image_dir'])
+            ? $filesConfig['image_dir']
             : null,
-        isset($config['files']['image_url']) && is_string($config['files']['image_url'])
-            ? $config['files']['image_url']
+        isset($filesConfig['image_url']) && is_string($filesConfig['image_url'])
+            ? $filesConfig['image_url']
             : null,
         \is_string($basePath) ? $basePath : null,
     );
@@ -101,8 +104,8 @@ function s2_build_base_static_parameters(array $config): array
         'root_dir'           => $rootDir,
         'public_root_dir'    => $publicRootDir,
         'cache_dir'          => $cacheDir,
-        'allowed_extensions' => $config['files']['allowed_extensions'] ?? StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS,
-        'upload_quota_bytes' => $config['files']['upload_quota_bytes'] ?? StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
+        'allowed_extensions' => $filesConfig['allowed_extensions'] ?? StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS,
+        'upload_quota_bytes' => $filesConfig['upload_quota_bytes'] ?? StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
         'image_dir'          => $mediaStorage['directory'], // no trailing '/' for Filesystem component
         'image_path'         => $mediaStorage['url'],
         'disable_cache'      => $disableCache,
