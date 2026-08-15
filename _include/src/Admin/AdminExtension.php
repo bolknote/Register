@@ -48,6 +48,7 @@ use S2\Cms\Admin\Picture\PictureFileNameHelper;
 use S2\Cms\Admin\Picture\MediaConfigExtender;
 use S2\Cms\Admin\Picture\PictureManager;
 use S2\Cms\Admin\Picture\PictureReserveManager;
+use S2\Cms\Admin\Security\ReauthenticationAdminConfigExtender;
 use S2\Cms\Admin\WebAuthn\WebAuthnAdminConfigExtender;
 use S2\Cms\Admin\WebAuthn\WebAuthnAdminController;
 use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
@@ -307,6 +308,12 @@ class AdminExtension implements ExtensionInterface
             $container->get(RecoveryCodeRepository::class),
             $container->get(WebAuthnAdminController::class),
             $container->get(TemplateRenderer::class),
+        ), [AdminConfigExtenderInterface::class]);
+        $container->set(ReauthenticationAdminConfigExtender::class, static fn(Container $container): ReauthenticationAdminConfigExtender => new ReauthenticationAdminConfigExtender(
+            $container->get(AuthManager::class),
+            $container->get(DynamicConfigFormBuilder::class),
+            $container->get(RequestStack::class),
+            $container->get(Translator::class),
         ), [AdminConfigExtenderInterface::class]);
 
         // Request handlers

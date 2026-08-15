@@ -25,15 +25,31 @@ final class SecretConfigCest
 
         try {
             $I->login('admin', 'admin');
-            $I->amOnPage('https://localhost/_admin/index.php?entity=Config&action=list');
-            $I->submitForm($formSelector, ['value' => 'integration-api-secret']);
-            $I->seeResponseCodeIs(200);
-            $I->see('{"success":true}');
+            $configUrl = 'https://localhost/_admin/index.php?entity=Config&action=list';
+            $I->amOnPage($configUrl);
+            $I->seeElement($formSelector . ' input[name="current_password"][autocomplete="current-password"]');
 
             /** @var DynamicConfigProvider $provider */
             $provider = $I->grabAdminService(DynamicConfigProvider::class);
             /** @var DbLayer $dbLayer */
             $dbLayer = $I->grabAdminService(DbLayer::class);
+            $valueBeforeRejectedSave = $provider->get(AiSettings::API_KEY_CONFIG_KEY);
+
+            $I->submitForm($formSelector, [
+                'value'            => 'must-not-be-saved',
+                'current_password' => 'incorrect-current-password',
+            ]);
+            $I->seeResponseCodeIs(422);
+            $I->see('The current password is incorrect.');
+            $I->assertSame($valueBeforeRejectedSave, $provider->get(AiSettings::API_KEY_CONFIG_KEY));
+
+            $I->amOnPage($configUrl);
+            $I->submitForm($formSelector, [
+                'value'            => 'integration-api-secret',
+                'current_password' => 'admin',
+            ]);
+            $I->seeResponseCodeIs(200);
+            $I->see('{"success":true}');
 
             $I->assertSame('integration-api-secret', $provider->get(AiSettings::API_KEY_CONFIG_KEY));
             $I->assertSame(
@@ -55,10 +71,13 @@ final class SecretConfigCest
                 $cache[AiSettings::API_KEY_CONFIG_KEY] ?? null,
             );
 
-            $I->amOnPage('https://localhost/_admin/index.php?entity=Config&action=list');
+            $I->amOnPage($configUrl);
             $I->see('Key saved', '[data-config-key="' . AiSettings::API_KEY_CONFIG_KEY . '"]');
 
-            $I->submitForm($formSelector, ['value' => '']);
+            $I->submitForm($formSelector, [
+                'value'            => '',
+                'current_password' => 'admin',
+            ]);
             $I->seeResponseCodeIs(200);
             $I->assertSame('', $provider->get(AiSettings::API_KEY_CONFIG_KEY));
             $remainingSecrets = include $secretFile;

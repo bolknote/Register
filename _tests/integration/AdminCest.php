@@ -804,6 +804,7 @@ class AdminCest
             'create_articles' => false,
             'edit_site'       => true,
             'edit_users'      => true,
+            'current_password' => 'admin',
         ]);
 
         $I->seeResponseCodeIs(302);

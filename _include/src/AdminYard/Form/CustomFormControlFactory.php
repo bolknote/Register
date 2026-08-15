@@ -22,6 +22,10 @@ class CustomFormControlFactory extends FormControlFactory
     #[\Override]
     public function create(string $control, string $fieldName): FormControlInterface
     {
+        if ($control === 'password') {
+            return new SafePassword($fieldName);
+        }
+
         if ($control === 'datetime') {
             return new CustomDateTime($fieldName, $this->translator);
         }

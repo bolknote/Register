@@ -373,7 +373,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'input',
                 validators: [new NotBlank(), new Length(max: 25)],
                 sortable: true,
-                inlineEdit: $isAdmin,
+                inlineEdit: false,
             ))
             ->addField(new FieldConfig(
                 name: 'password',
@@ -408,7 +408,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
                 sortable: true,
-                inlineEdit: $isAdmin,
+                inlineEdit: false,
                 viewTemplate: null,
             ))
             ->addField(new FieldConfig(
@@ -418,7 +418,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
                 sortable: true,
-                inlineEdit: $isAdmin,
+                inlineEdit: false,
                 viewTemplate: null,
             ))
             ->addField(new FieldConfig(
@@ -428,7 +428,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
                 sortable: true,
-                inlineEdit: $isAdmin,
+                inlineEdit: false,
                 viewTemplate: null,
             ))
             ->addField(new FieldConfig(
@@ -438,7 +438,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
                 sortable: true,
-                inlineEdit: $isAdmin,
+                inlineEdit: false,
                 viewTemplate: null,
             ))
             ->addField(new FieldConfig(
@@ -448,7 +448,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
                 sortable: true,
-                inlineEdit: $isAdmin,
+                inlineEdit: false,
                 viewTemplate: null,
             ))
             ->addField(new FieldConfig(
@@ -458,7 +458,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
                 sortable: true,
-                inlineEdit: $isAdmin,
+                inlineEdit: false,
                 viewTemplate: null,
             ))
             ->addField(new FieldConfig(
@@ -468,7 +468,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
                 sortable: true,
-                inlineEdit: $isAdmin,
+                inlineEdit: false,
                 viewTemplate: null,
             ))
             ->addField(new FieldConfig(
@@ -507,6 +507,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                         $changedFields[] = $field;
                     }
                 }
+
                 $event->context['security_changed_fields'] = $changedFields;
             })
             ->addListener(
