@@ -86,6 +86,102 @@ function audioTitle(fileName) {
     return fileName.replace(/\.[^.]*$/, '').replace(/[_-]+/g, ' ').trim();
 }
 
+function replaceStrongText(elementId, text) {
+    var container = document.getElementById(elementId);
+    if (!container) {
+        return;
+    }
+
+    var strong = document.createElement('strong');
+    strong.textContent = text;
+    container.replaceChildren(strong);
+}
+
+function appendInformationLine(container, text) {
+    container.append(document.createElement('br'), document.createTextNode(text));
+}
+
+function appendInsertButton(container) {
+    var button = document.createElement('input');
+    button.type = 'button';
+    button.className = 'link-as-button';
+    button.value = s2_lang.insert;
+    button.addEventListener('click', function () {
+        fExecDouble();
+    });
+    container.append(document.createElement('br'), button);
+}
+
+function renderFileInformation(container, fileName, filePath, fileSize, dimensions, bits) {
+    container.replaceChildren();
+
+    container.append(document.createTextNode(s2_lang.file));
+    var fileLink = document.createElement('a');
+    fileLink.href = encodeURI(filePath);
+    fileLink.target = '_blank';
+    fileLink.rel = 'noopener';
+    fileLink.textContent = filePath + ' ↑';
+    container.append(fileLink);
+
+    if (fileSize) {
+        appendInformationLine(container, s2_lang.value + fileSize);
+    }
+
+    if (dimensions) {
+        var size = dimensions.split('*');
+        var width = Number.parseInt(size[0] || '0', 10);
+        var height = Number.parseInt(size[1] || '0', 10);
+
+        appendInformationLine(container, s2_lang.color + bits);
+        appendInformationLine(container, s2_lang.size + width + '×' + height);
+
+        var retinaSize = document.createElement('span');
+        retinaSize.id = 's2_retina_size';
+        retinaSize.hidden = !s2Retina.get();
+        retinaSize.textContent = s2_lang.reduction + Math.round(width / 2) + '×' + Math.round(height / 2);
+        container.append(retinaSize);
+
+        var retinaLabel = document.createElement('label');
+        var retinaCheckbox = document.createElement('input');
+        retinaCheckbox.type = 'checkbox';
+        retinaCheckbox.checked = s2Retina.get();
+        retinaCheckbox.addEventListener('change', function () {
+            s2Retina.set(retinaCheckbox.checked);
+            retinaSize.hidden = !retinaCheckbox.checked;
+        });
+        retinaLabel.append(retinaCheckbox, document.createTextNode(s2_lang.retina_help));
+        container.append(document.createElement('br'), retinaLabel);
+
+        fExecDouble = function () {
+            if (parentWnd.ReturnImage) {
+                parentWnd.ReturnImage(
+                    filePath,
+                    s2Retina.get() ? Math.round(width / 2) : width,
+                    s2Retina.get() ? Math.round(height / 2) : height
+                );
+            }
+        };
+        appendInsertButton(container);
+        return;
+    }
+
+    if (isAudioFile(fileName)) {
+        fExecDouble = function () {
+            if (parentWnd.ReturnAudio) {
+                parentWnd.ReturnAudio(filePath, audioTitle(fileName));
+            }
+        };
+
+        if (parentWnd.ReturnAudio) {
+            appendInsertButton(container);
+        }
+        return;
+    }
+
+    fExecDouble = function () {
+    };
+}
+
 $(function () {
     document.querySelector('input[name="pictures[]"]')?.addEventListener('change', function () {
         const selection = pictureManagerRoot?.querySelector('[data-media-upload-selection]');
@@ -206,7 +302,7 @@ $(function () {
             if (path !== newPath) {
                 path = newPath;
                 fileTree.jstree('refresh', -1);
-                $('#fold_name').html('<b>' + folderTree.jstree('get_text', d.rslt.obj) + '</b>');
+                replaceStrongText('fold_name', folderTree.jstree('get_text', d.rslt.obj));
             }
         })
         .bind('deselect_node.jstree', function (e, d) {
@@ -243,7 +339,7 @@ $(function () {
 
                     var eSelected = folderTree.jstree('get_selected');
                     path = eSelected.attr('data-path');
-                    $('#fold_name').html('<b>' + folderTree.jstree('get_text', eSelected) + '</b>');
+                    replaceStrongText('fold_name', folderTree.jstree('get_text', eSelected));
                 })
                 .catch(() => {
                     folderRollback(data.rlbk);
@@ -447,50 +543,27 @@ $(function () {
         .bind('select_node.jstree', function (e, d) {
             fileTree.jstree('set_focus');
 
-            var str = '';
+            var fileInformation = document.getElementById('finfo');
+            if (!fileInformation) {
+                return;
+            }
 
             if (fileTree.jstree('get_selected').length === 1) {
                 var fileName = d.rslt.obj.attr('data-fname');
                 var filePath = sPicturePrefix + path + '/' + fileName;
-                str = s2_lang.file + '<a href="' + encodeURI(filePath) + '" target="_blank">' + filePath + ' &uarr;</a>';
-
-                if (d.rslt.obj.attr('data-fsize')) {
-                    str += "<br />" + s2_lang.value + d.rslt.obj.attr('data-fsize');
-                }
-
-                if (d.rslt.obj.attr('data-dim')) {
-                    var a = d.rslt.obj.attr('data-dim').split('*');
-
-                    str += "<br />" + s2_lang.color + d.rslt.obj.attr('data-bits');
-                    str += "<br />" + s2_lang.size + a[0] + "&times;" + a[1];
-                    str += '<span id="s2_retina_size" style="display: ' + (s2Retina.get() ? 'inline' : 'none') + ';">' + s2_lang.reduction + Math.round(a[0] / 2) + "&times;" + Math.round(a[1] / 2) + '</span>';
-
-                    str += '<br /><label><input type="checkbox" onclick="s2Retina.set(this.checked); $(\'#s2_retina_size\').toggle(); "' + (s2Retina.get() ? ' checked="checked"' : '') + '>' + s2_lang.retina_help + '</label>';
-
-                    fExecDouble = function () {
-                        if (parentWnd.ReturnImage) {
-                            parentWnd.ReturnImage(filePath, s2Retina.get() ? Math.round(a[0] / 2) : a[0], s2Retina.get() ? Math.round(a[1] / 2) : a[1]);
-                        }
-                    };
-
-                    str += '<br /><input type="button" class="link-as-button" onclick="fExecDouble(); return false;" value="' + s2_lang.insert + '">';
-                } else if (isAudioFile(fileName)) {
-                    fExecDouble = function () {
-                        if (parentWnd.ReturnAudio) {
-                            parentWnd.ReturnAudio(filePath, audioTitle(fileName));
-                        }
-                    };
-
-                    if (parentWnd.ReturnAudio) {
-                        str += '<br /><input type="button" class="link-as-button" onclick="fExecDouble(); return false;" value="' + s2_lang.insert + '">';
-                    }
-                }
+                renderFileInformation(
+                    fileInformation,
+                    fileName,
+                    filePath,
+                    d.rslt.obj.attr('data-fsize'),
+                    d.rslt.obj.attr('data-dim'),
+                    d.rslt.obj.attr('data-bits')
+                );
             } else {
                 fExecDouble = function () {
                 };
+                fileInformation.replaceChildren();
             }
-
-            $('#finfo').html(str);
         })
         .bind('rename.jstree', function (e, data) {
             isRenaming = false;

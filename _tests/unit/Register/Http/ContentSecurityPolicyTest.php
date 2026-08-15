@@ -173,7 +173,25 @@ final class ContentSecurityPolicyTest extends Unit
             self::assertIsString($source);
             self::assertDoesNotMatchRegularExpression('~\.style\b|\.css\s*\(~', $source, $filename);
             self::assertDoesNotMatchRegularExpression('~setAttribute\s*\(\s*[\'\"]style[\'\"]~', $source, $filename);
+            self::assertDoesNotMatchRegularExpression(
+                '~\s(?:style|on[a-z]+)\s*=~i',
+                $source,
+                $filename . ' constructs an inline style or event handler.',
+            );
         }
+    }
+
+    public function testPictureManagerBuildsFileInformationWithDomNodes(): void
+    {
+        $filename = dirname(__DIR__, 4) . '/_admin/js/pictman.js';
+        $source = file_get_contents($filename);
+
+        self::assertIsString($source);
+        self::assertStringContainsString('function renderFileInformation(', $source);
+        self::assertStringContainsString('fileLink.textContent =', $source);
+        self::assertStringContainsString("retinaCheckbox.addEventListener('change'", $source);
+        self::assertStringNotContainsString("$('#finfo').html", $source);
+        self::assertStringNotContainsString("$('#fold_name').html", $source);
     }
 
     /**
