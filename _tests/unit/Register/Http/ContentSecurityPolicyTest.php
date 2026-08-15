@@ -160,8 +160,10 @@ final class ContentSecurityPolicyTest extends Unit
     {
         $root = dirname(__DIR__, 4);
         foreach ([
+            $root . '/_admin/js/ajax.js',
             $root . '/_admin/js/structure.js',
             $root . '/_admin/js/pictman.js',
+            $root . '/_admin/js/editor/dialogs.js',
             $root . '/_admin/js/editor/form.js',
             $root . '/_admin/js/editor/preview.js',
             $root . '/_admin/js/editor/images/overlay.js',
@@ -175,6 +177,12 @@ final class ContentSecurityPolicyTest extends Unit
             self::assertIsString($source);
             self::assertDoesNotMatchRegularExpression('~\.style\b|\.css\s*\(~', $source, $filename);
             self::assertDoesNotMatchRegularExpression('~setAttribute\s*\(\s*[\'\"]style[\'\"]~', $source, $filename);
+            self::assertDoesNotMatchRegularExpression(
+                '~createElement\s*\(\s*[\'\"]style[\'\"]~',
+                $source,
+                $filename . ' creates an inline stylesheet.',
+            );
+            self::assertStringNotContainsString('<style', $source, $filename . ' contains inline stylesheet markup.');
             self::assertDoesNotMatchRegularExpression(
                 '~\s(?:style|on[a-z]+)\s*=~i',
                 $source,
@@ -226,6 +234,20 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertStringNotContainsString('.innerHTML', $source);
         self::assertStringContainsString("'imageOverlayStylesheet'", $template);
         self::assertFileExists($root . '/_admin/css/editor-image-overlay.css');
+    }
+
+    public function testAdminRuntimeHasNoUnusedInlineStyleGenerators(): void
+    {
+        $root = dirname(__DIR__, 4);
+        $ajax = file_get_contents($root . '/_admin/js/ajax.js');
+        $dialogs = file_get_contents($root . '/_admin/js/editor/dialogs.js');
+
+        self::assertIsString($ajax);
+        self::assertIsString($dialogs);
+        self::assertStringNotContainsString('SetBackground', $ajax);
+        self::assertStringNotContainsString('PopupWindow', $dialogs);
+        self::assertStringNotContainsString("createElement('style')", $ajax . $dialogs);
+        self::assertStringNotContainsString('<style', $ajax . $dialogs);
     }
 
     /**
