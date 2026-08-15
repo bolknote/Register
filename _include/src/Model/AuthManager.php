@@ -134,7 +134,11 @@ readonly class AuthManager
 
     public function getCurrentSessionId(): string
     {
-        $request = $this->requestStack->getMainRequest();
+        // Authentication is evaluated for the request currently being handled.
+        // A main request may still be present while an admin sub-request is
+        // rendered, so using it here can leak a stale logout token into the
+        // current user's menu.
+        $request = $this->requestStack->getCurrentRequest();
         return $request instanceof \Symfony\Component\HttpFoundation\Request ? $request->cookies->get($this->cookieName, '') : '';
     }
 

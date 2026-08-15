@@ -21,6 +21,7 @@ use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\LoginRateLimiter;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * @group admin
@@ -54,6 +55,35 @@ class AdminCest
         $I->amOnPage('https://localhost/_admin/index.php');
         $I->see('Username');
         $I->see('Password');
+    }
+
+    public function testLogoutTokenBelongsToCurrentRequest(\IntegrationTester $I): void
+    {
+        /** @var AuthManager $authManager */
+        $authManager = $I->grabAdminService(AuthManager::class);
+        /** @var RequestStack $requestStack */
+        $requestStack = $I->grabAdminService(RequestStack::class);
+
+        $outerSession = 't' . sprintf('%08x', time()) . str_repeat('a', 64);
+        $innerSession = 't' . sprintf('%08x', time()) . str_repeat('b', 64);
+        $requestStack->push(Request::create(
+            'https://localhost/',
+            cookies: ['s2_cookie_904732485' => $outerSession],
+        ));
+        $requestStack->push(Request::create(
+            'https://localhost/_admin/index.php',
+            cookies: ['s2_cookie_904732485' => $innerSession],
+        ));
+
+        try {
+            $I->assertSame(
+                hash_hmac('sha256', "logout\0", $innerSession),
+                $authManager->getLogoutCsrfToken(),
+            );
+        } finally {
+            $requestStack->pop();
+            $requestStack->pop();
+        }
     }
 
     public function testRegisterAdminShellAndListDensity(\IntegrationTester $I): void
