@@ -72,6 +72,28 @@ $detailControls      = array_merge(
 );
 
 $formData = $form->getData();
+$publishedControl   = $publicationControls['published'] ?? null;
+$scheduledControl   = $publicationControls['scheduled_at'] ?? null;
+$publishedAtControl = $publicationControls['published_at'] ?? null;
+$dateLabelControl   = $publicationControls['date_label'] ?? null;
+$hasValue = static function (mixed $value): bool {
+    if ($value instanceof \DateTimeInterface) {
+        return $value->getTimestamp() > 0;
+    }
+
+    return $value !== null && $value !== '' && $value !== 0 && $value !== '0' && $value !== false;
+};
+$publicationState = $hasValue($formData['published'] ?? false)
+    ? 'published'
+    : ($hasValue($formData['scheduled_at'] ?? null) ? 'scheduled' : 'draft');
+$publicationSubmitLabel = $isNew
+    ? match ($publicationState) {
+        'scheduled' => $trans('Schedule'),
+        'published' => $trans('Publish'),
+        default => $trans('Create draft'),
+    }
+    : $trans('Save');
+$dateLabelHaveValue = trim((string)($formData['date_label'] ?? '')) !== '';
 $additionalHaveValue = false;
 foreach (array_keys($additionalControls) as $fieldName) {
     if (trim((string)($formData[$fieldName] ?? '')) !== '') {
@@ -133,7 +155,12 @@ $editorConfigJson = htmlspecialchars(
     'UTF-8',
 );
 
-$renderControl = static function (string $fieldName, object $control, bool $showLabel = true) use (
+$renderControl = static function (
+    string $fieldName,
+    object $control,
+    bool $showLabel = true,
+    ?string $labelOverride = null,
+) use (
     $commentsNum,
     $contentType,
     $header,
@@ -142,13 +169,14 @@ $renderControl = static function (string $fieldName, object $control, bool $show
     $trans,
 ): string {
     $controlClass = strtolower(basename(strtr(get_class($control), ['\\' => '/'])));
+    $fieldLabel = $labelOverride ?? $header[$fieldName];
     ob_start();
     if ($control instanceof \S2\AdminYard\Form\Checkbox) {
         ?>
         <div class="editor-field editor-checkbox-field article-form-control form-control-<?= $controlClass ?> field-<?= $fieldName ?>">
             <label class="field-name" title="<?= htmlspecialchars($hint[$fieldName] ?? '', ENT_QUOTES, 'UTF-8') ?>" for="id-<?= $fieldName ?>">
                 <?= $control->getHtml('id-' . $fieldName) ?>
-                <span><?= htmlspecialchars($header[$fieldName], ENT_QUOTES, 'UTF-8') ?></span>
+                <span><?= htmlspecialchars($fieldLabel, ENT_QUOTES, 'UTF-8') ?></span>
             </label>
             <?php foreach ($control->getValidationErrors() as $error): ?>
                 <span class="validation-error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></span>
@@ -173,13 +201,13 @@ $renderControl = static function (string $fieldName, object $control, bool $show
     } elseif ($control instanceof \S2\Cms\AdminYard\Form\HtmlTextarea) {
         ?>
         <div id="id-article-editor-block" class="article-form-control form-control-<?= $controlClass ?> field-<?= $fieldName ?>">
-            <?= $control->getHtmlWithWrapper($trans, 'id-' . $fieldName, $header[$fieldName]) ?>
+            <?= $control->getHtmlWithWrapper($trans, 'id-' . $fieldName, $fieldLabel) ?>
         </div>
         <?php
     } else {
         $controlHtml = $control->getHtml('id-' . $fieldName);
         if (!$showLabel) {
-            $placeholder = htmlspecialchars($header[$fieldName], ENT_QUOTES, 'UTF-8');
+            $placeholder = htmlspecialchars($fieldLabel, ENT_QUOTES, 'UTF-8');
             $controlHtml = preg_replace(
                 '/<input\b/',
                 '<input placeholder="' . $placeholder . '" aria-label="' . $placeholder . '"',
@@ -191,7 +219,7 @@ $renderControl = static function (string $fieldName, object $control, bool $show
         <div class="editor-field editor-field-<?= $fieldName ?><?= $showLabel ? '' : ' editor-placeholder-field' ?>">
             <?php if ($showLabel): ?>
                 <label class="field-name" title="<?= htmlspecialchars($hint[$fieldName] ?? '', ENT_QUOTES, 'UTF-8') ?>" for="id-<?= $fieldName ?>">
-                    <?= htmlspecialchars($header[$fieldName], ENT_QUOTES, 'UTF-8') ?>
+                    <?= htmlspecialchars($fieldLabel, ENT_QUOTES, 'UTF-8') ?>
                 </label>
             <?php endif; ?>
             <div class="article-form-control form-control-<?= $controlClass ?> field-<?= $fieldName ?>">
@@ -326,8 +354,15 @@ $renderControl = static function (string $fieldName, object $control, bool $show
                 <section class="editor-sidebar-card editor-publication-card">
                     <h2><?= $trans('Publication') ?></h2>
                     <p class="article-form-buttons">
-                        <button type="submit" title="<?= $trans('Save info') ?>">
-                            <?= $trans($isNew ? 'Create draft' : 'Save') ?>
+                        <button
+                            type="submit"
+                            title="<?= $trans('Save info') ?>"
+                            data-publication-submit
+                            data-draft-label="<?= htmlspecialchars($isNew ? $trans('Create draft') : $trans('Save'), ENT_QUOTES, 'UTF-8') ?>"
+                            data-scheduled-label="<?= htmlspecialchars($isNew ? $trans('Schedule') : $trans('Save'), ENT_QUOTES, 'UTF-8') ?>"
+                            data-published-label="<?= htmlspecialchars($isNew ? $trans('Publish') : $trans('Save'), ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                            <?= htmlspecialchars($publicationSubmitLabel, ENT_QUOTES, 'UTF-8') ?>
                         </button>
                     </p>
                     <?php if ($isNew): ?>
@@ -339,9 +374,66 @@ $renderControl = static function (string $fieldName, object $control, bool $show
                     <?php endif; ?>
                     <?php if ($publicationControls !== []): ?>
                         <div class="editor-publication-fields">
-                            <?php foreach ($publicationControls as $fieldName => $control): ?>
-                                <?= $renderControl($fieldName, $control) ?>
-                            <?php endforeach; ?>
+                            <?php if ($publishedControl !== null): ?>
+                                <fieldset
+                                    class="editor-publication-state"
+                                    data-publication-state
+                                    data-state="<?= $publicationState ?>"
+                                >
+                                    <legend><?= $trans('Publication status') ?></legend>
+                                    <div class="editor-publication-options">
+                                        <?php foreach ([
+                                            'draft' => ['Draft', 'Draft publication help'],
+                                            'scheduled' => ['Scheduled', 'Scheduled publication state help'],
+                                            'published' => ['Published', 'Published publication help'],
+                                        ] as $stateValue => [$stateLabel, $stateHelp]): ?>
+                                            <?php $stateHelpId = 'publication-state-' . $stateValue . '-help'; ?>
+                                            <label class="editor-publication-option">
+                                                <input
+                                                    type="radio"
+                                                    name="_publication_state"
+                                                    value="<?= $stateValue ?>"
+                                                    data-publication-state-input
+                                                    aria-describedby="<?= $stateHelpId ?>"
+                                                    <?= $publicationState === $stateValue ? 'checked' : '' ?>
+                                                >
+                                                <span>
+                                                    <strong><?= $trans($stateLabel) ?></strong>
+                                                    <small id="<?= $stateHelpId ?>"><?= $trans($stateHelp) ?></small>
+                                                </span>
+                                            </label>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </fieldset>
+
+                                <div data-publication-native-control hidden aria-hidden="true">
+                                    <?= $publishedControl->getHtml('id-published') ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($scheduledControl !== null): ?>
+                                <div data-publication-scheduled <?= $publicationState === 'scheduled' ? '' : 'hidden' ?>>
+                                    <?= $renderControl('scheduled_at', $scheduledControl) ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($publishedAtControl !== null): ?>
+                                <div data-publication-published-at <?= $publicationState === 'published' ? '' : 'hidden' ?>>
+                                    <?= $renderControl('published_at', $publishedAtControl, true, $trans('Publication date')) ?>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if ($dateLabelControl !== null): ?>
+                                <details class="editor-publication-display" <?= $dateLabelHaveValue ? 'open' : '' ?>>
+                                    <summary>
+                                        <span><?= $trans('Display date settings') ?></span>
+                                        <small><?= $trans('Optional field') ?></small>
+                                    </summary>
+                                    <div class="editor-publication-display-fields">
+                                        <?= $renderControl('date_label', $dateLabelControl) ?>
+                                    </div>
+                                </details>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </section>

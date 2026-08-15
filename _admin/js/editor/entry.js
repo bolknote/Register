@@ -13,6 +13,7 @@ import {initImagePipeline} from './images/pipeline.js';
 import {ClosePictureDialog, ReturnAudio, ReturnImage} from './dialogs.js';
 import {setEditorDeps} from './deps.js';
 import {initAiTools} from './ai.js';
+import {initPublicationState} from './publication.js';
 
 const configElement = document.querySelector('[data-editor-config]');
 let config = {};
@@ -82,6 +83,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (form && config.entityName && config.textareaName) {
+        initPublicationState(form);
         initArticleEditForm(
             form,
             config.statusData,

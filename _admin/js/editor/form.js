@@ -18,25 +18,30 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
     const contentId = formUrl.searchParams.get('id') || 'new';
     const draftStorageKey = 'register_content_draft:' + sLowerEntityName + ':' + contentId;
 
-    function decorateForm(statusData) {
-        if (!statusData) {
-            return;
-        }
-        const urlWrapper = eForm.querySelector('.field-' + sSlugFieldName);
-        const urlLabel = eForm.querySelector('label[for="id-' + sSlugFieldName + '"]');
-        urlWrapper.setAttribute('data-url-status', statusData['urlStatus']);
-        urlWrapper.title = statusData['urlTitle'];
-        urlLabel.title = statusData['urlTitle'];
-        if (statusData['urlStatus'] === 'mainpage') {
-            urlWrapper.querySelector('input').setAttribute('disabled', 'disabled');
-        }
+    function decorateForm(currentStatusData) {
+        const publishedInput = eForm.querySelector('input[name="published"]');
+        const isPublished = publishedInput?.checked || false;
 
-        const isPublished = eForm.elements['published'].checked;
-        eForm.querySelector('.field-published').setAttribute('data-published-status', isPublished ? '1' : '0');
+        if (currentStatusData) {
+            const urlWrapper = eForm.querySelector('.field-' + sSlugFieldName);
+            const urlLabel = eForm.querySelector('label[for="id-' + sSlugFieldName + '"]');
+            if (urlWrapper) {
+                urlWrapper.setAttribute('data-url-status', currentStatusData['urlStatus']);
+                urlWrapper.title = currentStatusData['urlTitle'];
+                if (currentStatusData['urlStatus'] === 'mainpage') {
+                    urlWrapper.querySelector('input')?.setAttribute('disabled', 'disabled');
+                }
+            }
+            if (urlLabel) {
+                urlLabel.title = currentStatusData['urlTitle'];
+            }
+        }
 
         const ePreviewLink = eForm.querySelector('#preview_link');
         if (ePreviewLink) {
-            ePreviewLink.href = statusData['url'];
+            if (currentStatusData) {
+                ePreviewLink.href = currentStatusData['url'];
+            }
             ePreviewLink.style.display = isPublished ? 'inline' : 'none';
         }
     }
@@ -47,13 +52,19 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
     async function saveForm(event) {
         event.preventDefault();
 
+        if (!eForm.checkValidity()) {
+            eForm.reportValidity();
+            return;
+        }
+
         document.dispatchEvent(new Event('save_article_start.s2'));
 
-        function successHandler(statusData) {
+        function successHandler(nextStatusData) {
             editorDeps.PopupMessages.hide(sLowerEntityName + '-save');
             document.dispatchEvent(new Event('save_article_end.s2'));
 
-            eForm.elements['revision'].value = statusData['revision'];
+            eForm.elements['revision'].value = nextStatusData['revision'];
+            statusData = nextStatusData;
             decorateForm(statusData);
         }
 
@@ -121,6 +132,9 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
     }
 
     eForm.addEventListener('submit', saveForm);
+    eForm.addEventListener('publication-state-change', function () {
+        decorateForm(statusData);
+    });
     document.addEventListener('save_form.s2', saveForm);
 
     document.addEventListener('return_image.s2', function (e) {

@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use S2\Cms\Admin\AdminConfigProvider;
 use S2\Cms\Comment\Antispam\SpamAssessment;
@@ -259,6 +260,63 @@ class AdminCest
         $I->assertSame('Editorial editor draft', $I->grabValueFrom('input[name="title"]'));
         $I->assertSame('register, admin', $I->grabValueFrom('input[name="tags"]'));
         $I->seeElement('section.post-edit-content.is-edit');
+    }
+
+    public function testScheduledPostUsesOneExplicitPublicationState(
+        \IntegrationTester $I,
+    ): void {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        $scheduledAt = time() + 3600;
+        $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
+            'content_type' => ':content_type',
+            'slug_scope'   => "'root'",
+            'slug'         => ':slug',
+            'title'        => ':title',
+            'excerpt'      => "''",
+            'body'         => "'<p>Scheduled publication state</p>'",
+            'created_at'   => ':created_at',
+            'published_at' => '0',
+            'scheduled_at' => ':scheduled_at',
+            'updated_at'   => ':updated_at',
+            'published'    => '0',
+        ])->execute([
+            'content_type' => ContentType::POST->value,
+            'slug'         => 'admin-scheduled-state',
+            'title'        => 'Admin scheduled state',
+            'created_at'   => $scheduledAt - 300,
+            'scheduled_at' => $scheduledAt,
+            'updated_at'   => $scheduledAt - 300,
+        ]);
+        $postId = (int)$dbLayer->insertId();
+
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId);
+
+        $I->seeElement('fieldset[data-publication-state][data-state="scheduled"]');
+        $I->assertCount(3, $I->grabMultiple('input[data-publication-state-input]'));
+        $I->seeElement('input[data-publication-state-input][value="scheduled"][checked]');
+        $I->seeElement('[data-publication-native-control][hidden] input[name="published"]:not([checked])');
+        $I->seeElement('[data-publication-scheduled]:not([hidden]) input[name="scheduled_at"]');
+        $I->seeElement('[data-publication-published-at][hidden]');
+
+        $I->submitForm('form[name="article-form"]', [
+            '_publication_state' => 'published',
+            'published'          => true,
+            'scheduled_at'       => '',
+        ]);
+        $I->seeResponseCodeIs(302);
+
+        $savedState = $dbLayer
+            ->select('published, scheduled_at')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $I->assertIsArray($savedState);
+        $I->assertSame(1, (int)$savedState['published']);
+        $I->assertSame(0, (int)$savedState['scheduled_at']);
     }
 
     public function testEditingUserKeepsBlankPasswordAndUpdatesRoles(\IntegrationTester $I): void

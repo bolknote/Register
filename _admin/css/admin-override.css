@@ -336,11 +336,6 @@ section.large-edit-form {
     background-color: color-mix(in srgb, var(--color-warning) 40%, var(--page-background));
 }
 
-.large-edit-form .field-published[data-published-status="1"] {
-    outline: color-mix(in srgb, var(--color-success) 50%, var(--page-background)) 3px solid;
-    background-color: color-mix(in srgb, var(--color-success) 20%, var(--page-background));
-}
-
 .large-edit-form .field-url[data-url-status="mainpage"],
 .large-edit-form .field-slug[data-url-status="mainpage"] {
     outline: color-mix(in srgb, var(--color-muted) 40%, var(--page-background)) 3px solid;
