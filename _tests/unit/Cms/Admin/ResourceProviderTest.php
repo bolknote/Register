@@ -14,6 +14,23 @@ use S2\Cms\Admin\ResourceProvider;
 
 final class ResourceProviderTest extends Unit
 {
+    public function testBuiltInLanguageNamesAreLocalized(): void
+    {
+        $provider = new ResourceProvider(\dirname(__DIR__, 4) . '/');
+
+        $englishOptions = $provider->readLanguageOptions('en');
+        self::assertSame('English', $englishOptions['English']);
+        self::assertSame('Russian', $englishOptions['Russian']);
+
+        $russianOptions = $provider->readLanguageOptions('ru-RU');
+        self::assertSame('Английский', $russianOptions['English']);
+        self::assertSame('Русский', $russianOptions['Russian']);
+
+        $fallbackOptions = $provider->readLanguageOptions('de');
+        self::assertSame('English', $fallbackOptions['English']);
+        self::assertSame('Russian', $fallbackOptions['Russian']);
+    }
+
     public function testBuiltInStyleNamesAreLocalized(): void
     {
         $provider = new ResourceProvider(\dirname(__DIR__, 4) . '/');

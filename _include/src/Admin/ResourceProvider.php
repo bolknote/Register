@@ -40,6 +40,26 @@ readonly class ResourceProvider
     }
 
     /**
+     * Languages available in current S2 installation, indexed by their stable identifiers.
+     *
+     * @return array<string, string>
+     */
+    public function readLanguageOptions(string $locale): array
+    {
+        $result = [];
+
+        foreach ($this->readLanguages() as $language) {
+            $result[$language] = $this->readLocalizedName(
+                $this->rootDir . '_lang/' . $language . '/language.json',
+                $language,
+                $locale,
+            );
+        }
+
+        return $result;
+    }
+
+    /**
      * Styles available in current S2 installation
      * @return list<string>
      */
@@ -83,7 +103,13 @@ readonly class ResourceProvider
     {
         $fallbackName = ucfirst(str_replace(['-', '_'], ' ', $style));
         $metadataFile = $this->rootDir . '_styles/' . $style . '/style.json';
-        $contents     = @file_get_contents($metadataFile);
+
+        return $this->readLocalizedName($metadataFile, $fallbackName, $locale);
+    }
+
+    private function readLocalizedName(string $metadataFile, string $fallbackName, string $locale): string
+    {
+        $contents = @file_get_contents($metadataFile);
 
         if ($contents === false) {
             return $fallbackName;

@@ -235,7 +235,7 @@ class DynamicConfigFormBuilder
             'language' => new FieldConfig(
                 'value',
                 control: 'select',
-                options: array_combine($languages = $this->resourceProvider->readLanguages(), $languages),
+                options: $this->resourceProvider->readLanguageOptions($this->translator->getLocale()),
                 inlineEdit: $inlineEdit
             ),
             'style' => new FieldConfig(
