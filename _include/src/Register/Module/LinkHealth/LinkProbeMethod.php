@@ -9,8 +9,9 @@ declare(strict_types = 1);
 
 namespace Register\Module\LinkHealth;
 
-interface LinkProbeInterface
+enum LinkProbeMethod: string
 {
-    /** Performs at most one remote HTTP request. */
-    public function step(LinkProbeState $state): LinkProbeStep;
+    case HEAD = 'HEAD';
+
+    case GET = 'GET';
 }

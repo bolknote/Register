@@ -93,7 +93,6 @@ final readonly class LinkArchiveQueueHandler implements QueueHandlerInterface
 
         $this->repository->recordArchiveLookup($targetId, $result, $now);
         if ($result->status === ArchiveStatus::AVAILABLE && $this->autoRepair->get()) {
-            $budget->checkpoint(0.02);
             $this->queuePublisher->publishIfAbsent(
                 LinkQueue::targetJobId($targetId),
                 LinkQueue::REPAIR_CODE,

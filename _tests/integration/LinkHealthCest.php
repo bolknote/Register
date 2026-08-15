@@ -9,12 +9,21 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Psr\Log\NullLogger;
 use Register\Content\ContentId;
+use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Module\LinkHealth\ArchiveLookupResult;
 use Register\Module\LinkHealth\LinkArchiveQueueHandler;
+use Register\Module\LinkHealth\LinkCheckQueueHandler;
+use Register\Module\LinkHealth\LinkHealthPolicy;
 use Register\Module\LinkHealth\LinkHealthRepository;
+use Register\Module\LinkHealth\LinkProbeInterface;
+use Register\Module\LinkHealth\LinkProbeMethod;
+use Register\Module\LinkHealth\LinkProbeResult;
+use Register\Module\LinkHealth\LinkProbeState;
+use Register\Module\LinkHealth\LinkProbeStep;
 use Register\Module\LinkHealth\WaybackClientInterface;
 use Register\Module\LinkHealth\WaybackRequestThrottle;
 use Register\Module\LinkHealth\LinkInventory;
@@ -27,8 +36,14 @@ use Register\Module\LinkHealth\Manifest;
 use Register\Module\LinkHealth\Admin\LocalLinkDeletionGuard;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Queue\BackgroundWorkRunner;
+use S2\Cms\Queue\QueueConsumer;
 use S2\Cms\Queue\QueueExecutionBudget;
+use S2\Cms\Queue\QueueHandlerRegistry;
 use S2\Cms\Queue\QueuePublisher;
+use S2\Cms\Queue\QueueRunnerLease;
+use S2\Cms\Queue\QueueSchema;
+use S2\Cms\Queue\ScheduledMaintenance;
 
 final class LinkHealthCest
 {
@@ -139,6 +154,114 @@ final class LinkHealthCest
             (int)$dbLayer->select('COUNT(*)')->from(Manifest::CONTENT_LINK_TABLE)
                 ->where('target_id = :target_id')->setParameter('target_id', $targetId)
                 ->execute()->result(),
+        );
+    }
+
+    public function advancesHttpProbeAcrossFiveSecondShutdownSlices(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $postId = $this->insertPost(
+            $dbLayer,
+            'resumable-check-source',
+            '<a href="https://outside.example/resumable">External</a>',
+        );
+
+        /** @var LinkInventory $inventory */
+        $inventory = $I->grabService(LinkInventory::class);
+        $inventory->synchronize(ContentId::post($postId), 1_800_000_000);
+
+        $url      = 'https://outside.example/resumable';
+        $targetId = $this->targetId($dbLayer, $url);
+        $probe    = new SequencedLinkProbe([
+            LinkProbeStep::pending(new LinkProbeState($url, LinkProbeMethod::GET)),
+            LinkProbeStep::complete(new LinkProbeResult($url, 200)),
+        ]);
+        /** @var LinkHealthRepository $healthRepository */
+        $healthRepository = $I->grabService(LinkHealthRepository::class);
+        /** @var LinkHealthPolicy $policy */
+        $policy = $I->grabService(LinkHealthPolicy::class);
+        $queuePdo = $this->shutdownQueue();
+        $queuePublisher = new QueuePublisher($queuePdo, '');
+        $queuePublisher->publish(
+            LinkQueue::targetJobId($targetId),
+            LinkQueue::CHECK_CODE,
+            ['target_id' => $targetId],
+            0,
+        );
+        $now     = time() + 60;
+        $clock   = $now;
+        $handler = new LinkCheckQueueHandler(
+            $healthRepository,
+            $policy,
+            $probe,
+            $queuePublisher,
+            static function () use (&$clock): int {
+                return $clock;
+            },
+        );
+        $consumer = new QueueConsumer(
+            $queuePdo,
+            '',
+            new NullLogger(),
+            new QueueHandlerRegistry($handler),
+        );
+        /** @var ContentPublicationScheduler $publicationScheduler */
+        $publicationScheduler = $I->grabService(ContentPublicationScheduler::class);
+        $maintenance = new ScheduledMaintenance(
+            $queuePdo,
+            '',
+            $queuePublisher,
+            $publicationScheduler,
+            false,
+        );
+        $runner = new BackgroundWorkRunner(
+            $queuePdo,
+            new QueueRunnerLease($queuePdo, ''),
+            $consumer,
+            $maintenance,
+            new NullLogger(),
+        );
+
+        $I->assertLessThanOrEqual(5.0, $handler->minimumExecutionTime());
+        $I->assertSame(1, $runner->run(5.0, 1));
+        $I->assertCount(1, $probe->states);
+        $I->assertSame(LinkProbeMethod::HEAD, $probe->states[0]->method);
+
+        $continuedJob = $this->queueJob($queuePdo, $targetId);
+        $I->assertIsArray($continuedJob);
+        $I->assertSame(2, (int)$continuedJob['generation']);
+        $I->assertSame($now + 1, (int)$continuedJob['available_at']);
+
+        $continuedPayload = json_decode((string)$continuedJob['payload'], true, 512, JSON_THROW_ON_ERROR);
+        if (!\is_array($continuedPayload)) {
+            throw new \RuntimeException('The continued link-check payload is invalid.');
+        }
+
+        $I->assertSame('GET', $continuedPayload['probe']['method']);
+        $I->assertSame(
+            0,
+            (int)$dbLayer->select('COUNT(*)')->from(Manifest::CHECK_TABLE)->execute()->result(),
+        );
+        $I->assertSame(0, $runner->run(5.0, 1));
+
+        $clock = $now + 1;
+        $queuePdo->exec('UPDATE queue SET available_at = 0');
+        $I->assertSame(1, $runner->run(5.0, 1));
+        $I->assertCount(2, $probe->states);
+        $I->assertSame(LinkProbeMethod::GET, $probe->states[1]->method);
+        $I->assertSame(
+            'healthy',
+            (string)$dbLayer->select('health_status')->from(Manifest::TARGET_TABLE)
+                ->where('id = :id')->setParameter('id', $targetId)->execute()->result(),
+        );
+        $I->assertSame(
+            1,
+            (int)$dbLayer->select('COUNT(*)')->from(Manifest::CHECK_TABLE)->execute()->result(),
+        );
+        $I->assertSame(
+            0,
+            $this->queueCount($queuePdo),
         );
     }
 
@@ -551,6 +674,70 @@ final class LinkHealthCest
     {
         return (int)$dbLayer->select('COUNT(*)')->from(Manifest::CONTENT_LINK_TABLE)->execute()->result();
     }
+
+    private function shutdownQueue(): \PDO
+    {
+        $pdo = new \PDO('sqlite::memory:', options: [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
+        $pdo->exec(<<<'SQL'
+            CREATE TABLE queue (
+                id TEXT NOT NULL,
+                code TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                generation INTEGER NOT NULL DEFAULT 1,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                available_at INTEGER NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT,
+                failed_at INTEGER,
+                PRIMARY KEY (id, code)
+            )
+            SQL);
+        $pdo->exec(<<<'SQL'
+            CREATE TABLE background_leases (
+                name TEXT NOT NULL PRIMARY KEY,
+                owner TEXT NOT NULL,
+                expires_at INTEGER NOT NULL
+            )
+            SQL);
+        $pdo->exec("INSERT INTO background_leases (name, owner, expires_at) VALUES ('" . QueueSchema::RUNNER_LEASE . "', '', 0)");
+        $pdo->exec('CREATE TABLE config (name TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL)');
+
+        $statement = $pdo->prepare('INSERT INTO config (name, value) VALUES (:name, :value)');
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the shutdown queue fixture.');
+        }
+
+        $statement->execute(['name' => 'S2_LAST_MAINTENANCE', 'value' => (string)time()]);
+
+        return $pdo;
+    }
+
+    /** @return array<string, mixed>|false */
+    private function queueJob(\PDO $pdo, int $targetId): array|false
+    {
+        $statement = $pdo->prepare('SELECT * FROM queue WHERE id = :id AND code = :code');
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the shutdown queue lookup.');
+        }
+
+        $statement->execute([
+            'id'   => LinkQueue::targetJobId($targetId),
+            'code' => LinkQueue::CHECK_CODE,
+        ]);
+
+        return $statement->fetch(\PDO::FETCH_ASSOC);
+    }
+
+    private function queueCount(\PDO $pdo): int
+    {
+        $statement = $pdo->query('SELECT COUNT(*) FROM queue');
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to count the shutdown queue fixture.');
+        }
+
+        return (int)$statement->fetchColumn();
+    }
 }
 
 /** @internal */
@@ -563,5 +750,26 @@ final class CountingWaybackClient implements WaybackClientInterface
     {
         ++$this->lookups;
         return ArchiveLookupResult::missing();
+    }
+}
+
+/** @internal */
+final class SequencedLinkProbe implements LinkProbeInterface
+{
+    /** @var list<LinkProbeState> */
+    public array $states = [];
+
+    /** @param list<LinkProbeStep> $steps */
+    public function __construct(private array $steps)
+    {
+    }
+
+    #[\Override]
+    public function step(LinkProbeState $state): LinkProbeStep
+    {
+        $this->states[] = $state;
+
+        return array_shift($this->steps)
+            ?? throw new \LogicException('No fake link-probe step remains.');
     }
 }

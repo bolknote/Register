@@ -12,7 +12,9 @@ namespace unit\Register\Module\LinkHealth;
 use Codeception\Test\Unit;
 use Register\Module\LinkHealth\HostResolverInterface;
 use Register\Module\LinkHealth\LinkHttpClientInterface;
+use Register\Module\LinkHealth\LinkProbeMethod;
 use Register\Module\LinkHealth\LinkProbeResult;
+use Register\Module\LinkHealth\LinkProbeState;
 use Register\Module\LinkHealth\PublicAddressGuard;
 use Register\Module\LinkHealth\SafeHttpProbe;
 use S2\Cms\HttpClient\HttpClient;
@@ -31,10 +33,19 @@ final class SafeHttpProbeTest extends Unit
             'second.example' => ['93.184.216.35'],
         ])));
 
-        $result = $probe->probe('https://first.example/start');
+        $firstStep = $probe->step(LinkProbeState::initial('https://first.example/start'));
+        $nextState = $firstStep->nextState;
+        self::assertNotNull($nextState);
+        self::assertNull($firstStep->result);
+        self::assertSame(1, $client->callCount());
+
+        $secondStep = $probe->step($nextState);
+        $result     = $secondStep->result;
+        self::assertNotNull($result);
 
         self::assertSame(200, $result->statusCode);
         self::assertSame('https://second.example/final', $result->effectiveUrl);
+        self::assertNull($secondStep->nextState);
         self::assertSame('93.184.216.34', $client->calls[0]['options'][HttpClient::RESOLVE_IP]);
         self::assertSame('93.184.216.35', $client->calls[1]['options'][HttpClient::RESOLVE_IP]);
         self::assertFalse($client->calls[0]['options'][HttpClient::FOLLOW_REDIRECTS]);
@@ -50,11 +61,21 @@ final class SafeHttpProbeTest extends Unit
             'headless.example' => ['93.184.216.34'],
         ])));
 
-        $result = $probe->probe('https://headless.example/');
+        $headStep = $probe->step(LinkProbeState::initial('https://headless.example/'));
+        $getState = $headStep->nextState;
+        self::assertNotNull($getState);
+        self::assertSame(LinkProbeMethod::GET, $getState->method);
+        self::assertSame(1, $client->callCount());
+
+        $getStep = $probe->step($getState);
+        $result  = $getStep->result;
+        self::assertNotNull($result);
 
         self::assertSame(200, $result->statusCode);
         self::assertSame(['HEAD', 'GET'], array_column($client->calls, 'method'));
         self::assertSame([], $client->calls[1]['headers']);
+        self::assertSame(1, $client->calls[1]['options'][HttpClient::CONNECT_TIMEOUT]);
+        self::assertSame(3, $client->calls[1]['options'][HttpClient::READ_TIMEOUT]);
         self::assertSame(16_384, $client->calls[1]['options'][HttpClient::MAX_RESPONSE_BYTES]);
     }
 
@@ -68,11 +89,40 @@ final class SafeHttpProbeTest extends Unit
             'internal.example' => ['127.0.0.1'],
         ])));
 
-        $result = $probe->probe('https://first.example/');
+        $redirectStep = $probe->step(LinkProbeState::initial('https://first.example/'));
+        $nextState    = $redirectStep->nextState;
+        self::assertNotNull($nextState);
+        self::assertSame('http://internal.example/', $nextState->url);
+        self::assertSame(1, $client->callCount());
+
+        $blockedStep = $probe->step($nextState);
+        $result      = $blockedStep->result;
+        self::assertNotNull($result);
 
         self::assertSame(LinkProbeResult::ERROR_UNSAFE, $result->errorReason);
         self::assertSame('http://internal.example/', $result->effectiveUrl);
         self::assertCount(1, $client->calls);
+    }
+
+    public function testStopsAtThePersistedRedirectLimit(): void
+    {
+        $client = new RecordingLinkHttpClient([
+            new HttpResponse(['HTTP/1.1 302 Found', 'Location: https://second.example/'], 302, ''),
+        ]);
+        $probe = new SafeHttpProbe($client, new PublicAddressGuard($this->resolver([
+            'first.example' => ['93.184.216.34'],
+        ])));
+
+        $step = $probe->step(new LinkProbeState(
+            'https://first.example/',
+            redirects: LinkProbeState::MAX_REDIRECTS,
+        ));
+        $result = $step->result;
+        self::assertNotNull($result);
+
+        self::assertSame(LinkProbeResult::ERROR_REDIRECT, $result->errorReason);
+        self::assertNull($step->nextState);
+        self::assertSame(1, $client->callCount());
     }
 
     /** @param array<string, list<string>> $answers */
@@ -132,5 +182,10 @@ final class RecordingLinkHttpClient implements LinkHttpClientInterface
             . (string)parse_url($currentUrl, PHP_URL_HOST);
 
         return $origin . '/' . ltrim($location, '/');
+    }
+
+    public function callCount(): int
+    {
+        return \count($this->calls);
     }
 }

@@ -14,13 +14,11 @@ use S2\Cms\HttpClient\HttpClientException;
 
 final readonly class SafeHttpProbe implements LinkProbeInterface
 {
-    private const int MAX_REDIRECTS = 5;
-
     private const int MAX_RESPONSE_BYTES = 16_384;
 
-    private const int CONNECT_TIMEOUT = 3;
+    private const int CONNECT_TIMEOUT = 1;
 
-    private const int READ_TIMEOUT = 5;
+    private const int READ_TIMEOUT = 3;
 
     public function __construct(
         private LinkHttpClientInterface $httpClient,
@@ -29,61 +27,63 @@ final readonly class SafeHttpProbe implements LinkProbeInterface
     }
 
     #[\Override]
-    public function probe(string $url): LinkProbeResult
+    public function step(LinkProbeState $state): LinkProbeStep
     {
-        $currentUrl = $url;
-        for ($redirects = 0; $redirects <= self::MAX_REDIRECTS; ++$redirects) {
-            try {
-                $resolvedIp = $this->addressGuard->resolvePublicAddress($currentUrl);
-                $response   = $this->request('HEAD', $currentUrl, $resolvedIp);
-                if ($response->statusCode >= 400) {
-                    $response = $this->request('GET', $currentUrl, $resolvedIp);
-                }
-
-                if ($response->statusCode < 300 || $response->statusCode >= 400) {
-                    return new LinkProbeResult($currentUrl, $response->statusCode);
-                }
-
-                $location = $response->getHeader('Location');
-                if ($location === null || $location === '') {
-                    return new LinkProbeResult($currentUrl, $response->statusCode);
-                }
-
-                if ($redirects === self::MAX_REDIRECTS) {
-                    return new LinkProbeResult(
-                        $currentUrl,
-                        error: 'The link has too many redirects.',
-                        errorReason: LinkProbeResult::ERROR_REDIRECT,
-                    );
-                }
-
-                $currentUrl = $this->httpClient->resolveRedirectUrl($location, $currentUrl);
-            } catch (UnsafeRemoteAddress $exception) {
-                return new LinkProbeResult(
-                    $currentUrl,
-                    error: $exception->getMessage(),
-                    errorReason: LinkProbeResult::ERROR_UNSAFE,
-                );
-            } catch (RemoteHostResolutionFailed $exception) {
-                return new LinkProbeResult(
-                    $currentUrl,
-                    error: $exception->getMessage(),
-                    errorReason: LinkProbeResult::ERROR_DNS,
-                );
-            } catch (HttpClientException $exception) {
-                return new LinkProbeResult(
-                    $currentUrl,
-                    error: $exception->getMessage(),
-                    errorReason: match ($exception->reason) {
-                        HttpClientException::REASON_TIMEOUT => LinkProbeResult::ERROR_TIMEOUT,
-                        HttpClientException::REASON_HOST_RESOLVE_FAILURE => LinkProbeResult::ERROR_DNS,
-                        default => LinkProbeResult::ERROR_NETWORK,
-                    },
-                );
+        try {
+            $resolvedIp = $this->addressGuard->resolvePublicAddress($state->url);
+            $response   = $this->request($state->method->value, $state->url, $resolvedIp);
+            if ($state->method === LinkProbeMethod::HEAD && $response->statusCode >= 400) {
+                return LinkProbeStep::pending(new LinkProbeState(
+                    $state->url,
+                    LinkProbeMethod::GET,
+                    $state->redirects,
+                ));
             }
-        }
 
-        throw new \LogicException('The HTTP redirect loop terminated unexpectedly.');
+            if ($response->statusCode < 300 || $response->statusCode >= 400) {
+                return LinkProbeStep::complete(new LinkProbeResult($state->url, $response->statusCode));
+            }
+
+            $location = $response->getHeader('Location');
+            if ($location === null || $location === '') {
+                return LinkProbeStep::complete(new LinkProbeResult($state->url, $response->statusCode));
+            }
+
+            if ($state->redirects === LinkProbeState::MAX_REDIRECTS) {
+                return LinkProbeStep::complete(new LinkProbeResult(
+                    $state->url,
+                    error: 'The link has too many redirects.',
+                    errorReason: LinkProbeResult::ERROR_REDIRECT,
+                ));
+            }
+
+            return LinkProbeStep::pending(new LinkProbeState(
+                $this->httpClient->resolveRedirectUrl($location, $state->url),
+                redirects: $state->redirects + 1,
+            ));
+        } catch (UnsafeRemoteAddress $exception) {
+            return LinkProbeStep::complete(new LinkProbeResult(
+                $state->url,
+                error: $exception->getMessage(),
+                errorReason: LinkProbeResult::ERROR_UNSAFE,
+            ));
+        } catch (RemoteHostResolutionFailed $exception) {
+            return LinkProbeStep::complete(new LinkProbeResult(
+                $state->url,
+                error: $exception->getMessage(),
+                errorReason: LinkProbeResult::ERROR_DNS,
+            ));
+        } catch (HttpClientException $exception) {
+            return LinkProbeStep::complete(new LinkProbeResult(
+                $state->url,
+                error: $exception->getMessage(),
+                errorReason: match ($exception->reason) {
+                    HttpClientException::REASON_TIMEOUT => LinkProbeResult::ERROR_TIMEOUT,
+                    HttpClientException::REASON_HOST_RESOLVE_FAILURE => LinkProbeResult::ERROR_DNS,
+                    default => LinkProbeResult::ERROR_NETWORK,
+                },
+            ));
+        }
     }
 
     /** @param array<string, string> $headers */
