@@ -240,6 +240,7 @@ class ThumbnailGenerator implements QueueHandlerInterface
             if (!rename($temporaryFilename, $outputFilename)) {
                 throw new \RuntimeException('Unable to publish thumbnail: ' . $outputFilename);
             }
+
             s2_call_without_warnings(static fn(): bool => chmod($outputFilename, 0644));
         } finally {
             if (file_exists($temporaryFilename)) {

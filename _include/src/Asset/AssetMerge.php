@@ -128,6 +128,7 @@ class AssetMerge implements AssetMergeInterface
         }
 
         $this->fileSystem()->dumpFile($this->getDumpFilename(), $content);
+        $this->setFileMode($this->getDumpFilename(), 0644);
         if (\function_exists('gzencode')) {
             $compressedContent = gzencode($content, 6);
             if ($compressedContent === false) {
@@ -135,6 +136,7 @@ class AssetMerge implements AssetMergeInterface
             }
 
             $this->fileSystem()->dumpFile($this->getDumpFilename() . '.gz', $compressedContent);
+            $this->setFileMode($this->getDumpFilename() . '.gz', 0644);
         }
 
         $this->fileSystem()->remove($this->getDumpTempFilename());
@@ -143,6 +145,7 @@ class AssetMerge implements AssetMergeInterface
                 self::META_KEY_CONTENT_HASH => $this->mergedHash,
                 self::META_KEY_FAILED_FILES => $this->failedExternalFiles,
             ], true) . ';');
+        $this->setFileMode($this->getMetadataFilename(), 0600);
         if (\function_exists('opcache_invalidate')) {
             opcache_invalidate($this->getMetadataFilename(), true);
         }
@@ -262,5 +265,12 @@ class AssetMerge implements AssetMergeInterface
         }
 
         return $content;
+    }
+
+    private function setFileMode(string $filename, int $mode): void
+    {
+        if (!chmod($filename, $mode)) {
+            throw new \RuntimeException('Unable to set safe permissions on generated asset: ' . $filename);
+        }
     }
 }

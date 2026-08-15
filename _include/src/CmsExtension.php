@@ -329,8 +329,9 @@ class CmsExtension implements ExtensionInterface
             $container->get('asset_http_client'),
             $container->get(LoggerInterface::class),
             $container->getBoolParameter('debug'),
-            // Not a cache_dir since it can be overridden via the config.php, but we need a public available path
-            $container->getStringParameter('root_dir') . '_cache/',
+            // Application/config caches remain private. Merged CSS/JS must be
+            // written below the actual document root in split deployments.
+            $container->getStringParameter('public_root_dir') . '_cache/',
             $container->getStringParameter('base_path') . '/_cache/',
             $container->getBoolParameter('disable_cache'),
         ));

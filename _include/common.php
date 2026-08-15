@@ -62,7 +62,10 @@ $s2BaseStaticParameters = s2_build_base_static_parameters($s2StaticConfig);
  */
 function s2_build_base_static_parameters(array $config): array
 {
-    $rootDir = dirname(__DIR__) . '/';
+    $rootDir       = dirname(__DIR__) . '/';
+    $publicRootDir = \defined('REGISTER_PUBLIC_ROOT')
+        ? rtrim((string)\constant('REGISTER_PUBLIC_ROOT'), '/\\') . '/'
+        : $rootDir;
 
     $cacheDir = isset($config['files']['cache_dir'])
         ? rtrim($config['files']['cache_dir'], '/') . '/'
@@ -79,7 +82,7 @@ function s2_build_base_static_parameters(array $config): array
         $imageDirRelative = StaticConfigLoader::DEFAULT_IMAGE_DIR;
     }
 
-    $imageDir = $rootDir . $imageDirRelative;
+    $imageDir = $publicRootDir . $imageDirRelative;
 
     $basePath = $config['http']['base_path'] ?? null;
     $imagePath = null;
@@ -99,6 +102,7 @@ function s2_build_base_static_parameters(array $config): array
 
     return [
         'root_dir'           => $rootDir,
+        'public_root_dir'    => $publicRootDir,
         'cache_dir'          => $cacheDir,
         'allowed_extensions' => $config['files']['allowed_extensions'] ?? StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS,
         'image_dir'          => $imageDir, // no trailing '/' for Filesystem component

@@ -41,11 +41,19 @@ define('S2_VERSION', '2.0dev');
 define('MIN_PHP_VERSION', '8.3.0');
 
 define('S2_ROOT', '../');
+define(
+    'S2_FS_ROOT',
+    rtrim(defined('REGISTER_APP_ROOT') ? (string)constant('REGISTER_APP_ROOT') : dirname(__DIR__), '/\\') . '/',
+);
+define(
+    'S2_PUBLIC_FS_ROOT',
+    rtrim(defined('REGISTER_PUBLIC_ROOT') ? (string)constant('REGISTER_PUBLIC_ROOT') : dirname(__DIR__), '/\\') . '/',
+);
 define('S2_DEBUG', 1);
 define('S2_SHOW_QUERIES', 1);
 
 // We need some stuff
-require S2_ROOT . '_vendor/autoload.php';
+require S2_FS_ROOT . '_vendor/autoload.php';
 ContentSecurityPolicy::send();
 header('Cache-Control: no-store, private');
 header_remove('X-Powered-By');
@@ -137,7 +145,7 @@ function error(string $message, string $title = 'An error was encountered'): nev
     exit;
 }
 
-if (file_exists(S2_ROOT . s2_get_config_filename())) {
+if (file_exists(S2_FS_ROOT . s2_get_config_filename())) {
     error(sprintf(
         'The file \'%s\' already exists which would mean that Register is already installed. You should go <a href="%s">here</a> instead.',
         s2_get_config_filename(),
@@ -164,7 +172,7 @@ if (defined('S2_DEBUG')) {
     $errorHandler = ErrorHandler::register();
 }
 HtmlErrorRenderer::setTemplate(__DIR__ . '/../_include/views/error.php');
-$errorHandler->setDefaultLogger(new Logger(S2_ROOT . '_cache/install.log', 'install', LogLevel::DEBUG));
+$errorHandler->setDefaultLogger(new Logger(S2_FS_ROOT . '_cache/install.log', 'install', LogLevel::DEBUG));
 
 /** @param array<int|string, mixed> $config */
 function render_install_config_array(array $config, int $indentLevel = 0): string
@@ -398,7 +406,8 @@ function installApplicationParameters(
     $basePath = preg_replace('#^[^:/]+://[^/]*#', '', $baseUrl) ?? '';
 
     return [
-        'root_dir'      => S2_ROOT,
+        'root_dir'      => S2_FS_ROOT,
+        'public_root_dir' => S2_PUBLIC_FS_ROOT,
         'cache_dir'     => s2_get_default_cache_dir(),
         'disable_cache' => false,
         'log_dir'       => s2_get_default_cache_dir(),
@@ -476,7 +485,7 @@ if (!is_string($requestedLanguage)) {
 }
 
 $language = preg_replace('#[\.\\\/]#', '', $requestedLanguage) ?? 'English';
-if (!file_exists(S2_ROOT . '_lang/' . $language . '/common.php')) {
+if (!file_exists(S2_FS_ROOT . '_lang/' . $language . '/common.php')) {
     error("The language pack you have chosen doesn't seem to exist or is corrupt. Please recheck and try again.");
 }
 
@@ -490,7 +499,7 @@ $dynamicConfigProvider->setCallback(static fn(string $paramName): string => matc
 // Load the language files
 /** @var \Symfony\Contracts\Translation\TranslatorInterface $translator */
 $translator = $emptyApp->container->get('translator');
-require S2_ROOT . '_admin/lang/' . $translator->getLocale() . '/install.php';
+require S2_FS_ROOT . '_admin/lang/' . $translator->getLocale() . '/install.php';
 /** @var array<string, string> $lang_install */
 
 if (isset($_POST['generate_config'])) {
@@ -887,7 +896,7 @@ if ($base_url === '') {
     $validationErrors['req_base_url'][] = $lang_install['Invalid base url'];
 }
 
-if (!file_exists(S2_ROOT . '_lang/' . $default_lang . '/common.php')) {
+if (!file_exists(S2_FS_ROOT . '_lang/' . $default_lang . '/common.php')) {
     $validationErrors['req_language'][] = $lang_install['Invalid language'];
 }
 
@@ -1030,7 +1039,7 @@ if (!is_writable(s2_get_default_cache_dir())) {
 }
 
 // Check if default pictures directory is writable
-if (!is_writable(S2_ROOT . '_pictures/')) {
+if (!is_writable(S2_PUBLIC_FS_ROOT . '_pictures/')) {
     $alerts[] = '<li><span>' . $lang_install['No pictures write'] . '</span></li>';
 }
 
@@ -1060,8 +1069,8 @@ $config = generate_config_file(
 
 // Attempt to write config.php and serve it up for download if writing fails
 $written = false;
-if (is_writable(S2_ROOT)) {
-    $configPath = S2_ROOT . s2_get_config_filename();
+if (is_writable(S2_FS_ROOT)) {
+    $configPath = S2_FS_ROOT . s2_get_config_filename();
     $fh = s2_call_without_warnings(static fn() => fopen($configPath, 'wb'));
     if ($fh !== false) {
         $writtenBytes = fwrite($fh, $config);

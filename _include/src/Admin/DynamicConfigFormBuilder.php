@@ -125,6 +125,10 @@ class DynamicConfigFormBuilder
         $valFieldName = 'value';
         foreach ($rows as $rowIndex => &$row) {
             $paramName = $row['cells']['name']['content'];
+            if (!\is_string($paramName)) {
+                unset($rows[$rowIndex]);
+                continue;
+            }
 
             if (($paramTypes[$paramName] ?? null) === 'title') {
                 $row['cells']['name']['content'] = $this->translator->trans($paramName);

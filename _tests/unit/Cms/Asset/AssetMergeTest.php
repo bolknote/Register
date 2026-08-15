@@ -59,6 +59,28 @@ final class AssetMergeTest extends Unit
         self::assertSame($externalUrl, $logger->records[0]['context']['url']);
         self::assertInstanceOf(HttpClientException::class, $logger->records[0]['context']['exception']);
         self::assertStringContainsString('SSL certificate problem', $logger->records[0]['context']['exception']->getMessage());
+
+        $generatedFiles = glob($this->cacheDir . 'test_scripts.*.js');
+        $metadataFiles  = glob($this->cacheDir . 'test_scripts.*.js.meta.php');
+        self::assertIsArray($generatedFiles);
+        self::assertIsArray($metadataFiles);
+        self::assertCount(1, $generatedFiles);
+        self::assertCount(1, $metadataFiles);
+        $generatedPermissions = fileperms($generatedFiles[0]);
+        $metadataPermissions  = fileperms($metadataFiles[0]);
+        self::assertIsInt($generatedPermissions);
+        self::assertIsInt($metadataPermissions);
+        self::assertSame(0644, $generatedPermissions & 0777);
+        self::assertSame(0600, $metadataPermissions & 0777);
+
+        $compressedFiles = glob($this->cacheDir . 'test_scripts.*.js.gz');
+        self::assertIsArray($compressedFiles);
+        if (\function_exists('gzencode')) {
+            self::assertCount(1, $compressedFiles);
+            $compressedPermissions = fileperms($compressedFiles[0]);
+            self::assertIsInt($compressedPermissions);
+            self::assertSame(0644, $compressedPermissions & 0777);
+        }
     }
 
     private function removeDir(string $dir): void

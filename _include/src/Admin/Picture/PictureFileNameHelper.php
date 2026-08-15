@@ -158,6 +158,7 @@ readonly class PictureFileNameHelper
         if ($fileSize === false) {
             throw new \RuntimeException('Unable to determine the uploaded file size.', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
+
         if ($fileSize > self::MAX_UPLOAD_BYTES) {
             throw new \RuntimeException('The uploaded file exceeds the application size limit.', Response::HTTP_REQUEST_ENTITY_TOO_LARGE);
         }

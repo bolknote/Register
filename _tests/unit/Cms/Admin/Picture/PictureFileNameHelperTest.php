@@ -151,6 +151,10 @@ final class PictureFileNameHelperTest extends Unit
 
     private function sparseTemporaryFile(int $size): string
     {
+        if ($size < 0) {
+            throw new \InvalidArgumentException('A sparse test file cannot have a negative size.');
+        }
+
         $path = $this->temporaryFile('');
         $handle = fopen($path, 'c+b');
         self::assertIsResource($handle);

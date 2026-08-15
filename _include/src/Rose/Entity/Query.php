@@ -202,24 +202,20 @@ class Query
 
     /**
      * @param non-empty-string    $pattern
-     * @param int<0, max>|null    $count
-     * @param-out int<0, max>     $count
+     * @param-out int             $count
      */
-    private function safePregReplace(string $pattern, string $replacement, string $subject, int $limit = -1, ?int &$count = null): string
+    private function safePregReplace(string $pattern, string $replacement, string $subject, int $limit = -1, int &$count = 0): string
     {
-        $result = preg_replace($pattern, $replacement, $subject, $limit, $count);
+        $replacementCount = null;
+        $result = preg_replace($pattern, $replacement, $subject, $limit, $replacementCount);
+        $count = $this->normalizeReplacementCount($replacementCount);
         if ($result === null) {
-            $count = 0;
-
             return '';
         }
-
-        $count = $this->normalizeReplacementCount($count);
 
         return $result;
     }
 
-    /** @return int<0, max> */
     private function normalizeReplacementCount(mixed $count): int
     {
         return \is_int($count) && $count >= 0 ? $count : 0;

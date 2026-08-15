@@ -63,12 +63,12 @@ final class ContentTerminologyTest extends Unit
         $russian = require $this->projectRoot() . '/_lang/Russian/comments.php';
         $english = require $this->projectRoot() . '/_lang/English/comments.php';
 
-        self::assertStringContainsString('к материалу', $russian['Email pattern']);
-        self::assertStringContainsString('прокомментированному материалу', $russian['Comment sent info']);
+        self::assertStringContainsString('к материалу', (string) $russian['Email pattern']);
+        self::assertStringContainsString('прокомментированному материалу', (string) $russian['Comment sent info']);
         self::assertStringNotContainsString('стать', mb_strtolower($this->stringValues($russian)));
 
-        self::assertStringContainsString('comments on the content', $english['Email pattern']);
-        self::assertStringContainsString('return to the content', $english['Comment sent info']);
+        self::assertStringContainsString('comments on the content', (string) $english['Email pattern']);
+        self::assertStringContainsString('return to the content', (string) $english['Comment sent info']);
         self::assertDoesNotMatchRegularExpression('/\barticles?\b/i', $this->stringValues($english));
     }
 

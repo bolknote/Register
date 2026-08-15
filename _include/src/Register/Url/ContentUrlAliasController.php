@@ -47,7 +47,7 @@ final readonly class ContentUrlAliasController implements ControllerInterface
     }
 
     #[\Override]
-    public function handle(Request $request): Response
+    public function handle(Request $request): \Symfony\Component\HttpFoundation\RedirectResponse
     {
         return $this->redirect($request) ?? throw new NotFoundException();
     }

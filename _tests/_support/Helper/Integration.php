@@ -312,6 +312,7 @@ class Integration extends AbstractBrowserModule
 
         $result = [
             'root_dir'           => self::ROOT_DIR,
+            'public_root_dir'    => self::ROOT_DIR,
             'cache_dir'          => '_cache/test/',
             'log_dir'            => '_cache/test/',
             'image_dir'          => self::ROOT_DIR . $imgDir . '/', // filesystem

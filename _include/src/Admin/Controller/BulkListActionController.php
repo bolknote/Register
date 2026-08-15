@@ -43,6 +43,7 @@ final readonly class BulkListActionController
         if ($request->getRealMethod() !== Request::METHOD_POST) {
             return $this->error('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
+
         if (!$permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW)) {
             return $this->error('No permission', Response::HTTP_FORBIDDEN);
         }
@@ -56,6 +57,7 @@ final readonly class BulkListActionController
             )) {
                 throw new AccessDeniedException('Unable to confirm security token.');
             }
+
             if (!$this->actionProvider->isAllowed($entityName, $action)) {
                 throw new AccessDeniedException('This bulk action is not allowed.');
             }
@@ -141,6 +143,7 @@ final readonly class BulkListActionController
         } catch (\JsonException $exception) {
             throw new \InvalidArgumentException('Invalid bulk action selection.', 0, $exception);
         }
+
         if (!\is_array($decoded) || !array_is_list($decoded) || $decoded === [] || \count($decoded) > 50) {
             throw new \InvalidArgumentException('Select between 1 and 50 items.');
         }
@@ -155,14 +158,17 @@ final readonly class BulkListActionController
             ) {
                 throw new \InvalidArgumentException('Invalid selected item identifier.');
             }
+
             $id = filter_var($item['primary_key']['id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             if ($id === false) {
                 throw new \InvalidArgumentException('Invalid selected item identifier.');
             }
+
             $csrfToken = $item['csrf_token'] ?? '';
             if (!\is_string($csrfToken)) {
                 throw new \InvalidArgumentException('Invalid selected item security token.');
             }
+
             $items[$id] = ['id' => $id, 'csrf_token' => $csrfToken];
         }
 
@@ -176,6 +182,7 @@ final readonly class BulkListActionController
         } catch (\JsonException) {
             return 'Unable to perform a bulk action on one of the selected items.';
         }
+
         if (!\is_array($payload) || !isset($payload['errors']) || !\is_array($payload['errors'])) {
             return 'Unable to perform a bulk action on one of the selected items.';
         }

@@ -81,6 +81,7 @@ final readonly class ContentBulkPublicationService
             $placeholders[] = ':' . $placeholder;
             $query->setParameter($placeholder, $contentId);
         }
+
         $updated = $query
             ->andWhere('id IN (' . implode(', ', $placeholders) . ')')
             ->execute()
@@ -99,6 +100,7 @@ final readonly class ContentBulkPublicationService
                 $changedContentIds[] = ContentId::post($contentId);
             }
         }
+
         $this->contentChangeDispatcher->dispatch(...$changedContentIds);
 
         return $updated;
@@ -122,6 +124,7 @@ final readonly class ContentBulkPublicationService
             $placeholders[] = ':' . $placeholder;
             $query->setParameter($placeholder, $contentId);
         }
+
         $query->andWhere('id IN (' . implode(', ', $placeholders) . ')');
 
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE)) {
@@ -129,6 +132,7 @@ final readonly class ContentBulkPublicationService
             if ($userId === null) {
                 throw new AccessDeniedException('No authenticated user found.');
             }
+
             $query->andWhere('author_id = :author_id')->setParameter('author_id', $userId);
         }
 
@@ -169,6 +173,7 @@ final readonly class ContentBulkPublicationService
         if ($contentIds === [] || \count($contentIds) > 50) {
             throw new \InvalidArgumentException('Select between 1 and 50 items.');
         }
+
         foreach ($contentIds as $contentId) {
             if ($contentId <= 0) {
                 throw new \InvalidArgumentException('Invalid selected item identifier.');

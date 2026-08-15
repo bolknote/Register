@@ -20,9 +20,11 @@ final class CustomAutocompleteTest extends Unit
         $control->setAutocompleteParams(
             'User',
             'hash-value',
-            static fn(string $value, int $limit = 20): array => [
-                ['value' => $value, 'text' => '<Administrator>'],
-            ],
+            static fn(string $value, int $limit = 20): array => array_slice(
+                [['value' => $value, 'text' => '<Administrator>']],
+                0,
+                $limit,
+            ),
             true,
         );
         $control->setValue('42');

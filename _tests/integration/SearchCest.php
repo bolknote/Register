@@ -31,7 +31,7 @@ class SearchCest
          */
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=new');
         $I->seeResponseCodeIs(200);
-        $I->submitForm('form', [
+        $I->submitForm('form[name="article-form"]', [
             'title' => 'Привет, мир!',
             'body'  => '<p>Start text</p>',
         ]);
@@ -165,6 +165,7 @@ class SearchCest
 
         // Indexing is not done yet
         $I->see('No results found for your query.');
+
         $quickSearchUrl = $I->grabAttributeFrom('#s2_search_input_ext', 'data-s2-search-url');
         $I->assertNotNull($quickSearchUrl);
         $I->assertStringContainsString('title=', $quickSearchUrl);

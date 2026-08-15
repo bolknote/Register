@@ -10,9 +10,20 @@ RewriteEngine On
 
 # The repository-root deployment layout is supported on shared hosting, but
 # implementation files and operator data must never be served over HTTP.
-RewriteRule ^(?:_cache|_doc|_include|_tests|_vendor|tools|\.codex|\.git|\.github|\.local)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:_doc|_include|_tests|tools|\.codex|\.git|\.github|\.local)(?:/|$) - [F,L,NC]
+RewriteRule ^_vendor/(?!s2/admin-yard/demo/(?:style\.css|script\.js)$) - [F,L,NC]
 RewriteRule ^(?:composer\.(?:json|lock)|phpunit\.xml(?:\.dist)?|psalm\.xml|rector\.php|plan-security\.md)$ - [F,L,NC]
 RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L]
+
+# PHP is executable only through the five reviewed front controllers. This
+# also prevents source disclosure of templates and direct execution of style
+# or extension implementation files.
+RewriteRule ^(?!(?:index\.php|_admin/(?:ajax|index|install|pictman)\.php)$).+\.(?:asp|aspx|cgi|inc|jsp|phar|php[0-9]?|pht|phtml|pl|py|sh|shtml)$ - [F,L,NC]
+
+# `_cache` contains private application state and one deliberately public
+# surface: generated top-level CSS/JavaScript bundles. Everything else,
+# including PHP metadata and nested tool caches, remains unreachable.
+RewriteRule ^_cache/(?![A-Z0-9_-]+\.[0-9A-F]+\.(?:css|js)(?:\.gz)?$) - [F,L,NC]
 
 # Only the front controller and conventional site metadata are public files at
 # the repository root. This also protects SQLite databases with custom names.

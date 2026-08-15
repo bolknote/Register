@@ -1,0 +1,390 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types = 1);
+
+/**
+ * Exercises Register's checked-in .htaccess rules against a real isolated
+ * Apache process. The application itself is never booted.
+ */
+
+$projectRoot = dirname(__DIR__, 2);
+$required    = getenv('REGISTER_REQUIRE_APACHE_SECURITY_TEST') === '1';
+$apache      = findApacheBinary();
+$moduleDir   = findApacheModuleDirectory();
+
+if ($apache === null || $moduleDir === null) {
+    $message = "Apache policy test skipped: Apache or its module directory was not found.\n";
+    fwrite($required ? STDERR : STDOUT, $message);
+    exit($required ? 1 : 0);
+}
+
+$tempRoot = sys_get_temp_dir() . '/register_apache_policy_' . bin2hex(random_bytes(6));
+$webRoot  = $tempRoot . '/web';
+$process  = null;
+
+try {
+    createFixtureTree($projectRoot, $tempRoot, $webRoot);
+    $port       = reserveLocalPort();
+    $configFile = createApacheConfig($tempRoot, $webRoot, $moduleDir, $port);
+
+    assertApacheConfigIsValid($apache, $configFile, $tempRoot . '/configtest.log');
+    $process = startApache($apache, $configFile, $tempRoot . '/apache.log');
+    waitForApache($process, $port, $tempRoot . '/apache-error.log');
+
+    $expectations = [
+        '/_cache/register_styles.deadbeef.css'          => 200,
+        '/_cache/register_scripts.deadbeef.js.gz'       => 200,
+        '/_cache/register_styles.deadbeef.css.meta.php' => 403,
+        '/_cache/cache_config.php'                      => 403,
+        '/_cache/phpstan/deadbeef.css'                  => 403,
+        '/_pictures/photo.png'                          => 200,
+        '/_pictures/shell.php'                          => 403,
+        '/_pictures/active.svg'                         => 403,
+        '/_vendor/s2/admin-yard/demo/style.css'          => 200,
+        '/_vendor/s2/admin-yard/demo/script.js'          => 200,
+        '/_vendor/s2/admin-yard/composer.json'           => 403,
+        '/_admin/templates/layout.php.inc'                => 403,
+        '/_extensions/example/module.php'                 => 403,
+        '/_styles/example/style.php'                      => 403,
+        '/_include/secret.txt'                          => 403,
+        '/composer.lock'                                => 403,
+        '/config.local.php'                             => 403,
+    ];
+
+    foreach ($expectations as $path => $expectedStatus) {
+        $actualStatus = requestStatus($port, $path);
+        if ($actualStatus !== $expectedStatus) {
+            throw new RuntimeException(sprintf(
+                'Apache returned %d for %s; expected %d.',
+                $actualStatus,
+                $path,
+                $expectedStatus,
+            ));
+        }
+    }
+
+    fwrite(STDOUT, sprintf(
+        "Apache shared-hosting policy: OK (%d allow/deny checks).\n",
+        count($expectations),
+    ));
+} catch (Throwable $exception) {
+    fwrite(STDERR, $exception->getMessage() . "\n");
+    if (is_file($tempRoot . '/apache-error.log')) {
+        $errorLog = file_get_contents($tempRoot . '/apache-error.log');
+        if (is_string($errorLog) && $errorLog !== '') {
+            fwrite(STDERR, $errorLog);
+        }
+    }
+    exit(1);
+} finally {
+    if (is_resource($process)) {
+        // The isolated process owns no application data. SIGKILL avoids
+        // Apache's normal graceful-shutdown timeout in the quality suite.
+        proc_terminate($process, 9);
+        proc_close($process);
+    }
+    removeTree($tempRoot);
+}
+
+/** @return non-empty-string|null */
+function findApacheBinary(): ?string
+{
+    $configured = getenv('APACHE_BIN');
+    $candidates = [
+        is_string($configured) ? $configured : '',
+        '/usr/sbin/httpd',
+        '/usr/sbin/apache2',
+        '/usr/local/sbin/httpd',
+        '/opt/homebrew/sbin/httpd',
+    ];
+
+    foreach ($candidates as $candidate) {
+        if ($candidate !== '' && is_file($candidate) && is_executable($candidate)) {
+            return $candidate;
+        }
+    }
+
+    return null;
+}
+
+/** @return non-empty-string|null */
+function findApacheModuleDirectory(): ?string
+{
+    $configured = getenv('APACHE_MODULE_DIR');
+    $candidates = [
+        is_string($configured) ? $configured : '',
+        '/usr/libexec/apache2',
+        '/usr/lib/apache2/modules',
+        '/usr/local/libexec/apache2',
+        '/opt/homebrew/lib/httpd/modules',
+    ];
+
+    foreach ($candidates as $candidate) {
+        if ($candidate !== '' && is_file($candidate . '/mod_rewrite.so')) {
+            return $candidate;
+        }
+    }
+
+    return null;
+}
+
+function createFixtureTree(string $projectRoot, string $tempRoot, string $webRoot): void
+{
+    $directories = [
+        $tempRoot,
+        $webRoot,
+        $webRoot . '/_cache/phpstan',
+        $webRoot . '/_pictures',
+        $webRoot . '/_include',
+        $webRoot . '/_admin/templates',
+        $webRoot . '/_extensions/example',
+        $webRoot . '/_styles/example',
+        $webRoot . '/_vendor/s2/admin-yard/demo',
+    ];
+    foreach ($directories as $directory) {
+        if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+            throw new RuntimeException('Unable to create Apache fixture directory: ' . $directory);
+        }
+    }
+
+    $copies = [
+        $projectRoot . '/.htaccess'           => $webRoot . '/.htaccess',
+        $projectRoot . '/_cache/.htaccess'    => $webRoot . '/_cache/.htaccess',
+        $projectRoot . '/_pictures/.htaccess' => $webRoot . '/_pictures/.htaccess',
+    ];
+    foreach ($copies as $source => $destination) {
+        if (!copy($source, $destination)) {
+            throw new RuntimeException('Unable to copy Apache policy fixture: ' . $source);
+        }
+    }
+
+    $fixtures = [
+        '/index.php'                                    => '<?php echo "front controller";',
+        '/_cache/register_styles.deadbeef.css'          => 'body{color:#123}',
+        '/_cache/register_scripts.deadbeef.js.gz'       => 'compressed fixture',
+        '/_cache/register_styles.deadbeef.css.meta.php' => '<?php return ["secret" => true];',
+        '/_cache/cache_config.php'                      => '<?php return ["secret" => true];',
+        '/_cache/phpstan/deadbeef.css'                  => 'private tool cache',
+        '/_pictures/photo.png'                          => 'safe fixture',
+        '/_pictures/shell.php'                          => '<?php echo "must not execute";',
+        '/_pictures/active.svg'                         => '<svg xmlns="http://www.w3.org/2000/svg"/>',
+        '/_vendor/s2/admin-yard/demo/style.css'          => 'body{font-family:sans-serif}',
+        '/_vendor/s2/admin-yard/demo/script.js'          => 'document.documentElement.dataset.ready="1";',
+        '/_vendor/s2/admin-yard/composer.json'           => '{"name":"private/fixture"}',
+        '/_admin/templates/layout.php.inc'                => '<?php echo "private template";',
+        '/_extensions/example/module.php'                 => '<?php echo "private extension";',
+        '/_styles/example/style.php'                      => '<?php echo "private style";',
+        '/_include/secret.txt'                          => 'private source',
+        '/composer.lock'                                => '{"packages":[]}',
+        '/config.local.php'                             => '<?php return ["password" => "secret"];',
+    ];
+    foreach ($fixtures as $path => $content) {
+        if (file_put_contents($webRoot . $path, $content) === false) {
+            throw new RuntimeException('Unable to create Apache policy fixture: ' . $path);
+        }
+    }
+}
+
+function reserveLocalPort(): int
+{
+    $socket = stream_socket_server('tcp://127.0.0.1:0', $errorCode, $errorMessage);
+    if ($socket === false) {
+        throw new RuntimeException(sprintf('Unable to reserve a local port: %s (%d).', $errorMessage, $errorCode));
+    }
+
+    $address = stream_socket_get_name($socket, false);
+    fclose($socket);
+    if (!is_string($address)) {
+        throw new RuntimeException('Unable to determine the reserved local port.');
+    }
+
+    $separatorPosition = strrpos($address, ':');
+    if ($separatorPosition === false) {
+        throw new RuntimeException('Unable to determine the reserved local port.');
+    }
+
+    return (int)substr($address, $separatorPosition + 1);
+}
+
+function createApacheConfig(string $tempRoot, string $webRoot, string $moduleDir, int $port): string
+{
+    $moduleFiles = [
+        'mpm_prefork_module' => 'mod_mpm_prefork.so',
+        'unixd_module'       => 'mod_unixd.so',
+        'authz_core_module'  => 'mod_authz_core.so',
+        'mime_module'        => 'mod_mime.so',
+        'rewrite_module'     => 'mod_rewrite.so',
+    ];
+    foreach ($moduleFiles as $moduleFile) {
+        if (!is_file($moduleDir . '/' . $moduleFile)) {
+            throw new RuntimeException('Required Apache module is missing: ' . $moduleFile);
+        }
+    }
+
+    $mimeTypes = null;
+    foreach (['/private/etc/apache2/mime.types', '/etc/apache2/mime.types', '/etc/mime.types'] as $candidate) {
+        if (is_file($candidate)) {
+            $mimeTypes = $candidate;
+            break;
+        }
+    }
+    if ($mimeTypes === null) {
+        throw new RuntimeException('Unable to locate the Apache MIME types file.');
+    }
+
+    $loadModules = '';
+    foreach ($moduleFiles as $moduleName => $moduleFile) {
+        $loadModules .= sprintf("LoadModule %s \"%s/%s\"\n", $moduleName, $moduleDir, $moduleFile);
+    }
+
+    $config = sprintf(
+        <<<'APACHE'
+ServerRoot "%s"
+DefaultRuntimeDir "%s"
+PidFile "%s/httpd.pid"
+Listen 127.0.0.1:%d
+ServerName 127.0.0.1
+%s
+TypesConfig "%s"
+ErrorLog "%s/apache-error.log"
+LogLevel warn
+ServerLimit 1
+StartServers 1
+MinSpareServers 1
+MaxSpareServers 1
+MaxRequestWorkers 1
+MaxConnectionsPerChild 0
+DocumentRoot "%s"
+<Directory "%s">
+    AllowOverride All
+    Options FollowSymLinks
+    Require all granted
+</Directory>
+
+APACHE,
+        $tempRoot,
+        $tempRoot,
+        $tempRoot,
+        $port,
+        $loadModules,
+        $mimeTypes,
+        $tempRoot,
+        $webRoot,
+        $webRoot,
+    );
+
+    $configFile = $tempRoot . '/httpd.conf';
+    if (file_put_contents($configFile, $config) === false) {
+        throw new RuntimeException('Unable to create the Apache test configuration.');
+    }
+
+    return $configFile;
+}
+
+function assertApacheConfigIsValid(string $apache, string $configFile, string $outputFile): void
+{
+    $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['file', $outputFile, 'a'],
+        2 => ['file', $outputFile, 'a'],
+    ];
+    $process = proc_open([$apache, '-t', '-f', $configFile], $descriptors, $pipes);
+    if (!is_resource($process)) {
+        throw new RuntimeException('Unable to validate the Apache test configuration.');
+    }
+    fclose($pipes[0]);
+    $exitCode = proc_close($process);
+    if ($exitCode !== 0) {
+        $output = file_get_contents($outputFile);
+        throw new RuntimeException('Apache rejected the test configuration: ' . (is_string($output) ? trim($output) : ''));
+    }
+}
+
+/** @return resource */
+function startApache(string $apache, string $configFile, string $outputFile)
+{
+    $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['file', $outputFile, 'a'],
+        2 => ['file', $outputFile, 'a'],
+    ];
+    $process = proc_open([$apache, '-X', '-f', $configFile], $descriptors, $pipes);
+    if (!is_resource($process)) {
+        throw new RuntimeException('Unable to start the Apache policy test process.');
+    }
+    fclose($pipes[0]);
+
+    return $process;
+}
+
+/** @param resource $process */
+function waitForApache($process, int $port, string $errorLog): void
+{
+    $deadline = microtime(true) + 5.0;
+    do {
+        $status = proc_get_status($process);
+        if (!$status['running']) {
+            $error = is_file($errorLog) ? file_get_contents($errorLog) : '';
+            throw new RuntimeException('Apache stopped before accepting requests. ' . (is_string($error) ? trim($error) : ''));
+        }
+
+        set_error_handler(static fn(int $severity): bool => $severity !== 0);
+        try {
+            $socket = fsockopen('127.0.0.1', $port, $errorCode, $errorMessage, 0.1);
+        } finally {
+            restore_error_handler();
+        }
+        if (is_resource($socket)) {
+            fclose($socket);
+            return;
+        }
+        usleep(50_000);
+    } while (microtime(true) < $deadline);
+
+    throw new RuntimeException(sprintf('Apache did not start on port %d.', $port));
+}
+
+function requestStatus(int $port, string $path): int
+{
+    $socket = fsockopen('127.0.0.1', $port, $errorCode, $errorMessage, 2.0);
+    if ($socket === false) {
+        throw new RuntimeException(sprintf('Unable to connect to Apache: %s (%d).', $errorMessage, $errorCode));
+    }
+
+    fwrite($socket, sprintf(
+        "GET %s HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+        $path,
+    ));
+    $statusLine = fgets($socket);
+    fclose($socket);
+    if (!is_string($statusLine) || preg_match('#^HTTP/\d(?:\.\d)?\s+(\d{3})#', $statusLine, $matches) !== 1) {
+        throw new RuntimeException('Apache returned an invalid HTTP status line for ' . $path . '.');
+    }
+
+    return (int)$matches[1];
+}
+
+function removeTree(string $path): void
+{
+    if (!is_dir($path)) {
+        return;
+    }
+
+    $items = scandir($path);
+    if (!is_array($items)) {
+        return;
+    }
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') {
+            continue;
+        }
+        $itemPath = $path . '/' . $item;
+        if (is_dir($itemPath) && !is_link($itemPath)) {
+            removeTree($itemPath);
+        } else {
+            unlink($itemPath);
+        }
+    }
+    rmdir($path);
+}

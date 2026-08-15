@@ -26,7 +26,8 @@ final readonly class SavedListViewController
 
     public function save(PermissionChecker $permissionChecker, Request $request): JsonResponse
     {
-        if (($response = $this->validateRequest($permissionChecker, $request)) !== null) {
+        $response = $this->validateRequest($permissionChecker, $request);
+        if ($response instanceof \Symfony\Component\HttpFoundation\JsonResponse) {
             return $response;
         }
 
@@ -55,7 +56,8 @@ final readonly class SavedListViewController
 
     public function delete(PermissionChecker $permissionChecker, Request $request): JsonResponse
     {
-        if (($response = $this->validateRequest($permissionChecker, $request)) !== null) {
+        $response = $this->validateRequest($permissionChecker, $request);
+        if ($response instanceof \Symfony\Component\HttpFoundation\JsonResponse) {
             return $response;
         }
 
@@ -82,6 +84,7 @@ final readonly class SavedListViewController
                 'message' => $this->translator->trans('Only POST requests are allowed.'),
             ], Response::HTTP_METHOD_NOT_ALLOWED);
         }
+
         if (!$permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW)) {
             return new JsonResponse([
                 'success' => false,
@@ -101,6 +104,7 @@ final readonly class SavedListViewController
                 'message' => $this->translator->trans($exception->getMessage()),
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
+
         if (!$validToken) {
             return new JsonResponse([
                 'success' => false,

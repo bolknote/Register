@@ -20,6 +20,9 @@ use S2\Cms\Model\AuthTokenHasher;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\LoginRateLimiter;
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
+use S2\Cms\Security\WebAuthn\WebAuthnChallengeRepository;
+use S2\Cms\Security\WebAuthn\WebAuthnService;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -39,6 +42,103 @@ class AdminCest
 
         $I->login('admin', 'admin');
         $I->seeResponseCodeIs(200);
+    }
+
+    public function testWebAuthnChallengesAreBoundShortLivedAndOneTime(\IntegrationTester $I): void
+    {
+        /** @var WebAuthnChallengeRepository $repository */
+        $repository = $I->grabAdminService(WebAuthnChallengeRepository::class);
+
+        $wrongBrowser = $repository->issue('authenticate', 'browser-a', null, null, ['remember' => true], 100);
+        $I->assertSame(64, strlen($wrongBrowser->token));
+        $I->assertSame(32, strlen($wrongBrowser->challenge));
+        $I->assertSame(100 + WebAuthnChallengeRepository::LIFETIME_SECONDS, $wrongBrowser->expiresAt);
+        $I->assertNull($repository->consume($wrongBrowser->token, 'authenticate', 'browser-b', 101));
+        $I->assertNull($repository->consume($wrongBrowser->token, 'authenticate', 'browser-a', 101));
+
+        $valid = $repository->issue('authenticate', 'browser-a', null, null, ['remember' => true], 200);
+        $consumed = $repository->consume($valid->token, 'authenticate', 'browser-a', 201);
+        $I->assertNotNull($consumed);
+        $I->assertSame($valid->challenge, $consumed->challenge);
+        $I->assertTrue($consumed->context['remember'] ?? false);
+        $I->assertNull($repository->consume($valid->token, 'authenticate', 'browser-a', 202));
+
+        $expired = $repository->issue('authenticate', 'browser-a', null, null, [], 300);
+        $I->assertNull($repository->consume(
+            $expired->token,
+            'authenticate',
+            'browser-a',
+            300 + WebAuthnChallengeRepository::LIFETIME_SECONDS,
+        ));
+    }
+
+    public function testRecoveryCodesAreRandomHashedAndSingleUse(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var RecoveryCodeRepository $repository */
+        $repository = $I->grabAdminService(RecoveryCodeRepository::class);
+        $userId = (int)$dbLayer
+            ->select('id')
+            ->from('users')
+            ->where('login = :login')->setParameter('login', 'admin')
+            ->execute()
+            ->result()
+        ;
+
+        $codes = $repository->regenerate($userId, 1_000);
+        $I->assertCount(10, $codes);
+        $I->assertCount(10, array_unique($codes));
+        foreach ($codes as $code) {
+            $I->assertMatchesRegularExpression('/^[a-f0-9]{4}(?:-[a-f0-9]{4}){4}$/D', $code);
+        }
+
+        $I->assertSame(['available' => 10, 'created_at' => 1_000], $repository->status($userId));
+
+        $storedHashes = $dbLayer
+            ->select('code_hash')
+            ->from('webauthn_recovery_codes')
+            ->execute()
+            ->fetchColumn()
+        ;
+        $I->assertCount(10, $storedHashes);
+        $I->assertNotContains(str_replace('-', '', $codes[0]), $storedHashes);
+
+        $I->assertNull($repository->consume('guest', $codes[0], 1_001));
+        $I->assertSame($userId, $repository->consume('admin', strtoupper($codes[0]), 1_002));
+        $I->assertNull($repository->consume('admin', $codes[0], 1_003));
+        $I->assertSame(9, $repository->status($userId)['available']);
+    }
+
+    public function testDiscoverableWebAuthnOptionsEnforceOriginAndVerification(\IntegrationTester $I): void
+    {
+        /** @var WebAuthnService $service */
+        $service = $I->grabAdminService(WebAuthnService::class);
+        $request = Request::create(
+            'https://s2.localhost/_admin/index.php?action=webauthn_auth_options',
+            Request::METHOD_POST,
+            server: [
+                'HTTP_ORIGIN'     => 'https://s2.localhost',
+                'HTTP_USER_AGENT' => 'WebAuthn integration test',
+                'REMOTE_ADDR'     => '192.0.2.20',
+            ],
+        );
+
+        $result = $service->beginAuthentication($request, true);
+        $I->assertSame('s2.localhost', $result['options']['rpId']);
+        $I->assertSame('required', $result['options']['userVerification']);
+        $I->assertSame([], $result['options']['allowCredentials']);
+        $I->assertMatchesRegularExpression('/^[A-Za-z0-9_-]{43}$/D', (string)$result['options']['challenge']);
+
+        $foreignOrigin = clone $request;
+        $foreignOrigin->headers->set('Origin', 'https://attacker.example');
+
+        $I->expectThrowable(\RuntimeException::class, static fn() => $service->beginAuthentication($foreignOrigin, false));
+
+        $missingOrigin = clone $request;
+        $missingOrigin->headers->remove('Origin');
+
+        $I->expectThrowable(\RuntimeException::class, static fn() => $service->beginAuthentication($missingOrigin, false));
     }
 
     public function testLogoutRequiresPostAndCsrfToken(\IntegrationTester $I): void
@@ -77,7 +177,7 @@ class AdminCest
 
         try {
             $I->assertSame(
-                hash_hmac('sha256', "logout\0", $innerSession),
+                hash_hmac('sha256', "admin-action\0logout", $innerSession),
                 $authManager->getLogoutCsrfToken(),
             );
         } finally {
@@ -112,6 +212,7 @@ class AdminCest
         $I->dontSeeElement('details[data-menu-group="Moderation"] a[href*="entity=SpamRatePolicy"]');
         $I->seeElement('details[data-menu-group="Account"] a[href^="?entity=User&action=edit&id="]');
         $I->seeElement('details[data-menu-group="Account"] a[href="?entity=Session&action=list"]');
+        $I->seeElement('details[data-menu-group="Account"] a[href="?entity=Security"]');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
 
@@ -270,6 +371,7 @@ class AdminCest
             } else {
                 $I->dontSeeElement('li[data-menu-key="NewPost"]');
             }
+
             if ($canSeeSettings) {
                 $I->seeElement('details[data-menu-group="Settings"]');
             } else {
@@ -390,6 +492,7 @@ class AdminCest
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
 
         $I->seeElement('section.saved-list-views[data-saved-list-views]');
+
         $csrfToken = $I->grabAttributeFrom('section.saved-list-views', 'data-csrf-token');
         $I->assertNotNull($csrfToken);
 
@@ -412,6 +515,7 @@ class AdminCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
         $I->see('Needs review', '.saved-list-views-links');
+
         $savedViewHref = $I->grabAttributeFrom('.saved-list-views-links a', 'href');
         $I->assertNotNull($savedViewHref);
         $I->assertStringContainsString('search=saved-view-needle', $savedViewHref);
@@ -633,6 +737,7 @@ class AdminCest
         $I->assertIsArray($admin);
 
         $I->login('admin', 'admin');
+
         $passwordStatement = $pdo->prepare('SELECT password FROM users WHERE id = :id');
         $I->assertNotFalse($passwordStatement);
         $passwordStatement->execute(['id' => $admin['id']]);
@@ -670,6 +775,33 @@ class AdminCest
         $createArticles = $roleStatement->fetchColumn();
         $roleStatement->closeCursor();
         $I->assertSame(0, (int)$createArticles);
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Dashboard');
+        $I->see('Your session has been closed.', '#message');
+    }
+
+    public function testEmailOnlyUserPatchKeepsCurrentSession(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        $adminId = (int)$dbLayer
+            ->select('id')
+            ->from('users')
+            ->where('login = :login')->setParameter('login', 'admin')
+            ->execute()
+            ->result()
+        ;
+
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/_admin/index.php?entity=User&action=list');
+        $I->submitForm('form[action="?entity=User&action=patch&field=email&id=' . $adminId . '"]', [
+            'email' => 'updated-admin@example.com',
+        ]);
+        $I->seeResponseCodeIs(200);
+        $I->see('{"success":true}');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Dashboard');
+        $I->see('Overview', 'h1');
     }
 
     public function testNewUserStillRequiresPassword(\IntegrationTester $I): void
@@ -679,7 +811,7 @@ class AdminCest
 
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/_admin/index.php?entity=User&action=new');
-        $I->submitForm('.new-content > form', [
+        $I->submitForm('.edit-content > form', [
             'login'    => 'passwordless-user',
             'password' => '',
             'name'     => '',

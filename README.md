@@ -190,7 +190,9 @@ composer check
 ```
 
 It rebuilds Codeception support, runs PHP and shell linters, maximum-level static analysis,
-dependency checks, Rector in dry-run mode, and the unit, integration, and acceptance suites.
+dependency checks, Rector in dry-run mode, a real-Apache shared-hosting policy check, and the unit,
+integration, and acceptance suites. The Apache check is skipped locally when Apache is unavailable
+and is mandatory in CI.
 
 ## Background jobs and backups
 
@@ -223,6 +225,7 @@ templates, views, and assets through documented integration boundaries.
 ## Documentation
 
 - [Development](_doc/development.md)
+- [Production deployment](_doc/deployment.md)
 - [Architecture](_doc/architecture.md)
 - [Assets and loading policy](_doc/assets.md)
 - [URL and slug generation](_doc/url-slugs.md)

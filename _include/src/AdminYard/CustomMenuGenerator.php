@@ -112,8 +112,9 @@ readonly class CustomMenuGenerator extends MenuGenerator
             ];
         }
 
-        if (isset($links['Dashboard'])) {
-            $navigationItems[] = ['kind' => 'link', ...$links['Dashboard']];
+        $dashboardLink = $links['Dashboard'] ?? null;
+        if (\is_array($dashboardLink)) {
+            $navigationItems[] = ['kind' => 'link', ...$dashboardLink];
             unset($links['Dashboard']);
         }
 
@@ -123,6 +124,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
         if (isset($links['Article']) && $currentEntity === 'Site') {
             $links['Article']['active'] = true;
         }
+
         unset($links['Site']);
 
         $navigationItems[] = $this->createGroup(
@@ -137,24 +139,31 @@ readonly class CustomMenuGenerator extends MenuGenerator
                 $moderationLink['currentName'] = 'Expert settings';
             }
         }
+
         unset($moderationLink);
         $navigationItems[] = $this->createGroup('Moderation', 'Moderation', $moderationLinks);
 
-        if (isset($links['Statistics'])) {
-            $navigationItems[] = ['kind' => 'link', ...$links['Statistics']];
+        $statisticsLink = $links['Statistics'] ?? null;
+        if (\is_array($statisticsLink)) {
+            $navigationItems[] = ['kind' => 'link', ...$statisticsLink];
             unset($links['Statistics']);
         }
 
         $accountLinks = [];
         $userLink     = $links['User'] ?? null;
         $sessionLink  = $links['Session'] ?? null;
-        unset($links['User'], $links['Session']);
+        $securityLink = $links['Security'] ?? null;
+        unset($links['User'], $links['Session'], $links['Security']);
 
         $currentUserId = $this->permissionChecker->getUserId();
         $userEntity    = $this->config->findEntityByName('User');
-        $profileActive = $currentEntity === 'User'
-            && $currentAction === FieldConfig::ACTION_EDIT
-            && $request->query->getInt('id') === $currentUserId;
+        $profileActive = false;
+        if ($request instanceof \Symfony\Component\HttpFoundation\Request) {
+            $profileActive = $currentEntity === 'User'
+                && $currentAction === FieldConfig::ACTION_EDIT
+                && $request->query->getInt('id') === $currentUserId;
+        }
+
         if ($currentUserId !== null && $userEntity?->isAllowedAction(FieldConfig::ACTION_EDIT) === true) {
             $accountLinks[] = [
                 'key'     => 'Profile',
@@ -164,12 +173,18 @@ readonly class CustomMenuGenerator extends MenuGenerator
                 'signals' => [],
             ];
         }
+
         if (\is_array($userLink)) {
             $userLink['active'] = $currentEntity === 'User' && !$profileActive;
             $accountLinks[]     = $userLink;
         }
+
         if (\is_array($sessionLink)) {
             $accountLinks[] = $sessionLink;
+        }
+
+        if (\is_array($securityLink)) {
+            $accountLinks[] = $securityLink;
         }
 
         $settingsLinks = [

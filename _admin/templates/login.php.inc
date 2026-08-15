@@ -20,8 +20,13 @@
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
     <script src="<?= $basePath ?>/_admin/js/lib.js"></script>
+    <script src="<?= $basePath ?>/_admin/js/webauthn.js" defer></script>
 </head>
-<body class="login_page">
+<body class="login_page" data-webauthn-messages
+      data-webauthn-operation-failed="<?= s2_htmlencode($trans('The security operation failed.')) ?>"
+      data-webauthn-verification-failed="<?= s2_htmlencode($trans('The passkey could not be verified.')) ?>"
+      data-webauthn-no-passkey="<?= s2_htmlencode($trans('No passkey was selected.')) ?>"
+      data-webauthn-creation-failed="<?= s2_htmlencode($trans('The passkey was not created.')) ?>">
 <div id="login_wrap">
     <a class="login-brand" href="<?= $basePath ?>/" title="<?= $trans('Open site') ?>">
         <span class="admin-brand-mark" aria-hidden="true">ℜ</span>
@@ -45,11 +50,27 @@
                 <span><?php echo $trans('Remember me'); ?></span>
             </label>
         </p>
-        <p>
+        <p class="login-actions">
             <input type="submit" name="button" value="<?php echo $trans('Log in'); ?>"/>
+            <button type="button" data-webauthn-login><?php echo $trans('Sign in with a passkey'); ?></button>
         </p>
     </form>
-    <p id="message" class="message"><?= htmlentities($errorMessage, ENT_QUOTES, 'UTF-8') ?></p>
+    <details class="login-recovery">
+        <summary><?php echo $trans('Use a recovery code'); ?></summary>
+        <form method="post" action="?action=webauthn_recovery_login" data-webauthn-recovery-login>
+            <label>
+                <span><?php echo $trans('Login'); ?></span>
+                <input type="text" name="login" maxlength="255" autocomplete="username" required>
+            </label>
+            <label>
+                <span><?php echo $trans('Recovery code'); ?></span>
+                <input type="text" name="recovery_code" maxlength="30" autocomplete="one-time-code" required>
+            </label>
+            <input type="hidden" name="remember_me" value="0">
+            <button type="submit"><?php echo $trans('Sign in'); ?></button>
+        </form>
+    </details>
+    <p id="message" class="login-message" role="alert" aria-live="polite"<?= $errorMessage === '' ? ' hidden' : '' ?>><?= htmlentities($errorMessage, ENT_QUOTES, 'UTF-8') ?></p>
 </div>
 </body>
 </html>

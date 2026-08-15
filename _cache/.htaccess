@@ -1,11 +1,15 @@
-# Cache entries can contain configuration and generated PHP. They are never
-# public resources and must not be served even if PHP handling is disabled.
+# Cache entries can contain configuration and generated PHP. Only generated
+# top-level CSS/JavaScript bundles are public; all other names fail closed.
 Options -Indexes -ExecCGI
 
-<IfModule mod_authz_core.c>
-    Require all denied
-</IfModule>
+RemoveHandler .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi .pl .py .sh .shtml
+RemoveType .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi .pl .py .sh .shtml
 
-<IfModule !mod_authz_core.c>
-    Deny from all
-</IfModule>
+<FilesMatch "(?i)^(?![a-z0-9_-]+\.[0-9a-f]+\.(?:css|js)(?:\.gz)?$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Deny from all
+    </IfModule>
+</FilesMatch>

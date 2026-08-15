@@ -16,7 +16,9 @@ use S2\AdminYard\Validator\Choice;
 final class CustomAutocomplete extends Autocomplete
 {
     private ?string $entityName = null;
+
     private ?string $hash = null;
+
     private ?\Closure $optionsProvider = null;
 
     /** @var list<array{value: int|string, text: string}>|null */
@@ -40,8 +42,8 @@ final class CustomAutocomplete extends Autocomplete
         $currentOption = $emptyLabel;
         foreach ($availableOptions as $option) {
             $key = (string)$option['value'];
-            $options .= '<option value="' . self::escape($key) . '" ' . ($key === $this->value ? 'selected' : '') . '>'
-                . self::escape($option['text'])
+            $options .= '<option value="' . $this->escape($key) . '" ' . ($key === $this->value ? 'selected' : '') . '>'
+                . $this->escape($option['text'])
                 . '</option>';
             if ($key === $this->value) {
                 $currentOption = $option['text'];
@@ -61,13 +63,13 @@ final class CustomAutocomplete extends Autocomplete
             . '<div class="search"><span class="highlight"></span></div>'
             . '<select name="%s" id="%s" size="5" class="dropdown-select">%s</select>'
             . '</div></div>',
-            self::escape($controlId),
+            $this->escape($controlId),
             (int)$this->allowEmpty,
-            self::escape($emptyLabel),
-            self::escape($fetchUrl),
-            self::escape($currentOption),
-            self::escape($this->fieldName),
-            self::escape($selectId),
+            $this->escape($emptyLabel),
+            $this->escape($fetchUrl),
+            $this->escape($currentOption),
+            $this->escape($this->fieldName),
+            $this->escape($selectId),
             $options,
         );
     }
@@ -78,6 +80,7 @@ final class CustomAutocomplete extends Autocomplete
         if (!\is_string($value)) {
             throw new \InvalidArgumentException(\sprintf('Value must be a string, "%s" given.', \gettype($value)));
         }
+
         $this->value = $value;
         $this->fillOptions();
 
@@ -156,7 +159,7 @@ final class CustomAutocomplete extends Autocomplete
         return [new Choice(array_map(static fn(array $option): string => (string)$option['value'], $options), true)];
     }
 
-    private static function escape(string $value): string
+    private function escape(string $value): string
     {
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }

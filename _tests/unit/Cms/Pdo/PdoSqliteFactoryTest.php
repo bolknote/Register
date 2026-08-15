@@ -49,7 +49,9 @@ final class PdoSqliteFactoryTest extends Unit
         self::assertSame(1, $foreignKeys->fetchColumn());
 
         if (DIRECTORY_SEPARATOR !== '\\') {
-            self::assertSame(0600, fileperms($path) & 0777);
+            $permissions = fileperms($path);
+            self::assertIsInt($permissions);
+            self::assertSame(0600, $permissions & 0777);
         }
     }
 
@@ -67,7 +69,9 @@ final class PdoSqliteFactoryTest extends Unit
 
         if (DIRECTORY_SEPARATOR !== '\\') {
             clearstatcache(false, $path);
-            self::assertSame(0600, fileperms($path) & 0777);
+            $permissions = fileperms($path);
+            self::assertIsInt($permissions);
+            self::assertSame(0600, $permissions & 0777);
         }
     }
 }

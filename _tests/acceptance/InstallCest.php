@@ -408,7 +408,7 @@ class InstallCest
         $I->seeResponseCodeIsClientError();
 
         $I->amOnPage('/_admin/index.php?entity=BlogPost&action=new');
-        $I->submitForm('.new-content > form', [
+        $I->submitForm('.edit-content > form', [
             'title' => 'Привет, мир!',
             'body'  => '<p>Start text</p>',
         ]);

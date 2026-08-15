@@ -32,7 +32,7 @@ readonly class FlatContentController implements ControllerInterface
         }
 
         $redirect = $this->aliasController->redirect($request);
-        if ($redirect !== null) {
+        if ($redirect instanceof \Symfony\Component\HttpFoundation\RedirectResponse) {
             return $redirect;
         }
 

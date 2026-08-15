@@ -15,10 +15,15 @@ use S2\AdminYard\SettingStorage\SettingStorageInterface;
 final readonly class SavedListViewManager
 {
     private const int MAX_VIEWS = 12;
+
     private const int MAX_FILTERS = 50;
+
     private const int MAX_VALUES_PER_FILTER = 50;
+
     private const int MAX_NAME_LENGTH = 80;
+
     private const int MAX_VALUE_LENGTH = 500;
+
     private const string SETTING_PREFIX = 'saved_list_views_';
 
     /** @var list<string> */
@@ -213,16 +218,19 @@ final readonly class SavedListViewManager
                 if (\count($filterValue) > self::MAX_VALUES_PER_FILTER) {
                     throw new \InvalidArgumentException('Too many values in a saved view filter.');
                 }
+
                 $normalizedValues = [];
                 foreach ($filterValue as $value) {
                     $normalizedValues[] = $this->normalizeScalar($value);
                 }
+
                 sort($normalizedValues);
                 $filters[$filterName] = $normalizedValues;
             } else {
                 $filters[$filterName] = $this->normalizeScalar($filterValue);
             }
         }
+
         ksort($filters);
 
         $sortField = $state['sort_field'] ?? null;
@@ -259,6 +267,7 @@ final readonly class SavedListViewManager
         if (!\is_bool($value) && !\is_float($value) && !\is_int($value) && !\is_string($value) && $value !== null) {
             throw new \InvalidArgumentException('Invalid saved view filter value.');
         }
+
         if (\is_string($value) && mb_strlen($value) > self::MAX_VALUE_LENGTH) {
             throw new \InvalidArgumentException('Saved view filter value is too long.');
         }

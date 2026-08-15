@@ -33,6 +33,7 @@ if ($response === null) {
     ]);
     $response         = new Response($content);
 }
+
 ContentSecurityPolicy::applyToAdmin($response);
 
 header_remove('X-Powered-By');

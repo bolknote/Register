@@ -78,6 +78,7 @@ readonly class AuthManager
                     'Allow' => Request::METHOD_POST,
                 ]);
             }
+
             if (!$this->logoutCsrfTokenMatches($sessionId, $request->request->getString('csrf_token'))) {
                 return new Response('Invalid logout token.', Response::HTTP_FORBIDDEN);
             }
@@ -151,9 +152,24 @@ readonly class AuthManager
 
     public function getLogoutCsrfToken(): string
     {
-        $sessionId = $this->getCurrentSessionId();
+        return $this->getActionCsrfToken('logout');
+    }
 
-        return $sessionId === '' ? '' : $this->createLogoutCsrfToken($sessionId);
+    public function getActionCsrfToken(string $purpose): string
+    {
+        $sessionId = $this->getCurrentSessionId();
+        if ($sessionId === '' || preg_match('/^[a-z0-9_-]{1,64}$/D', $purpose) !== 1) {
+            return '';
+        }
+
+        return $this->createActionCsrfToken($sessionId, $purpose);
+    }
+
+    public function actionCsrfTokenMatches(string $purpose, string $candidate): bool
+    {
+        $expected = $this->getActionCsrfToken($purpose);
+
+        return $expected !== '' && $candidate !== '' && hash_equals($expected, $candidate);
     }
 
     /**
@@ -195,6 +211,58 @@ readonly class AuthManager
                 ->execute()
             ;
         }
+    }
+
+    /** @throws DbLayerException */
+    public function loginVerifiedUser(Request $request, int $userId, bool $remember): JsonResponse
+    {
+        $result = $this->dbLayer
+            ->select('login')
+            ->from('users')
+            ->where('id = :id')->setParameter('id', $userId)
+            ->execute()
+        ;
+        $login = $result->result();
+        $result->freeResult();
+        if (!\is_string($login) || $login === '') {
+            return $this->createAjaxErrorLoginPasswordResponse();
+        }
+
+        $this->loginRateLimiter->clear($request->getClientIp() ?? '', $login);
+
+        return $this->successLogin($request, $login, !$remember);
+    }
+
+    /** @throws DbLayerException */
+    public function verifyCurrentPassword(Request $request, string $password): bool
+    {
+        $login = $this->permissionChecker->getUserLogin();
+        if (!\is_string($login) || $login === '' || $password === '') {
+            return false;
+        }
+
+        $clientIp = $request->getClientIp() ?? '';
+        if ($this->loginRateLimiter->retryAfter($clientIp, $login) > 0) {
+            return false;
+        }
+
+        $passwordHash = $this->getPasswordHash($login);
+        $matches = $passwordHash !== null && (
+            password_verify($password, $passwordHash)
+            || hash_equals($passwordHash, md5($password . self::LEGACY_PASSWORD_PEPPER))
+        );
+        if (!$matches) {
+            $this->loginRateLimiter->recordFailure($clientIp, $login);
+            return false;
+        }
+
+        if (PasswordHasher::needsRehash($passwordHash)) {
+            $this->updatePasswordHash($login, $password);
+        }
+
+        $this->loginRateLimiter->clear($clientIp, $login);
+
+        return true;
     }
 
     /** @throws DbLayerException */
@@ -605,16 +673,16 @@ readonly class AuthManager
         return $issuedAt > time() + 300 ? null : $issuedAt;
     }
 
-    private function createLogoutCsrfToken(string $sessionId): string
+    private function createActionCsrfToken(string $sessionId, string $purpose): string
     {
-        return hash_hmac('sha256', "logout\0", $sessionId);
+        return hash_hmac('sha256', "admin-action\0" . $purpose, $sessionId);
     }
 
     private function logoutCsrfTokenMatches(string $sessionId, string $candidate): bool
     {
         return $sessionId !== ''
             && $candidate !== ''
-            && hash_equals($this->createLogoutCsrfToken($sessionId), $candidate);
+            && hash_equals($this->createActionCsrfToken($sessionId, 'logout'), $candidate);
     }
 
 }

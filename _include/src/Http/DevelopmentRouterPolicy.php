@@ -22,7 +22,6 @@ final class DevelopmentRouterPolicy
     private const array PUBLIC_PREFIXES = [
         '/_admin/',
         '/_assets/',
-        '/_cache/',
         '/_extensions/',
         '/_pictures/',
         '/_styles/',
@@ -47,6 +46,10 @@ final class DevelopmentRouterPolicy
 
     public static function isAllowedStaticFile(string $requestPath, string $extension): bool
     {
+        if (str_starts_with($requestPath, '/_cache/')) {
+            return preg_match('#^/_cache/[a-z0-9_-]+\.[0-9a-f]+\.(?:css|js)(?:\.gz)?$#Di', $requestPath) === 1;
+        }
+
         if (\in_array($requestPath, self::PUBLIC_VENDOR_FILES, true)) {
             return true;
         }

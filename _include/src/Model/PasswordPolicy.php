@@ -33,6 +33,7 @@ final class PasswordPolicy
         if ($length < self::MIN_LENGTH) {
             $violations[] = 'too_short';
         }
+
         if ($length > self::MAX_LENGTH) {
             $violations[] = 'too_long';
         }

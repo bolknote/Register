@@ -100,7 +100,7 @@ final class AnalyticsCest
         $I->seeHttpHeader('Content-Type', 'image/png');
 
         $I->login('admin', 'admin');
-        $I->amOnPage('https://localhost/_admin/index.php?entity=Dashboard');
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Statistics');
         $I->see('Unique visitors', '.analytics-summary');
         $I->see('1', '.analytics-summary-value');
     }

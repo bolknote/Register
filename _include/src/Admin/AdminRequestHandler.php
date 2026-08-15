@@ -12,6 +12,7 @@ namespace S2\Cms\Admin;
 use Register\Content\ContentChangeDispatcher;
 use Register\Http\ContentSecurityPolicy;
 use S2\Cms\Admin\Event\RedirectFromPublicEvent;
+use S2\Cms\Admin\WebAuthn\WebAuthnAdminController;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Model\AuthManager;
@@ -30,6 +31,7 @@ readonly class AdminRequestHandler
     public function __construct(
         private RequestStack             $requestStack,
         private AuthManager              $authManager,
+        private WebAuthnAdminController  $webAuthnController,
         private EventDispatcherInterface $eventDispatcher,
         private Container                $container,
         private ContentChangeDispatcher  $contentChangeDispatcher,
@@ -50,33 +52,43 @@ readonly class AdminRequestHandler
         $request->setSession(new Session());
         $this->requestStack->push($request);
 
-        $response = $this->authManager->checkAuth($request);
-        if (!$response instanceof \Symfony\Component\HttpFoundation\Response) {
-            if (!$request->query->has('entity')
-                && !$request->query->has('path')
-                && $request->query->getString('action') === ''
-                && $this->container->get(PermissionChecker::class)->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
-                $request->query->set('entity', 'Dashboard');
+        try {
+            if ($this->webAuthnController->isPublicAction($request)) {
+                $response = $this->webAuthnController->handlePublic($request);
+            } else {
+                $response = $this->authManager->checkAuth($request);
+                if (!$response instanceof Response && $this->webAuthnController->isAuthenticatedAction($request)) {
+                    $response = $this->webAuthnController->handleAuthenticated($request);
+                }
+
+                if (!$response instanceof Response) {
+                    if (!$request->query->has('entity')
+                        && !$request->query->has('path')
+                        && $request->query->getString('action') === ''
+                        && $this->container->get(PermissionChecker::class)->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
+                        $request->query->set('entity', 'Dashboard');
+                    }
+
+                    if ($request->query->has('path') && !$request->query->has('entity')) {
+                        // Redirect from public pages to the admin panel.
+                        // Listeners must modify the request if they recognize the path.
+                        $this->eventDispatcher->dispatch(new RedirectFromPublicEvent($request, $request->query->getString('path')));
+                    }
+
+                    // NOTE: Initialization of the AdminPanel is delayed since its factory is relied on the RequestStack to be populated
+                    $adminPanelFactory = $this->container->get(AdminPanelFactory::class);
+                    $adminPanel        = $adminPanelFactory->create();
+                    $response          = $adminPanel->handleRequest($request);
+                }
             }
 
-            if ($request->query->has('path') && !$request->query->has('entity')) {
-                // Redirect from public pages to the admin panel.
-                // Listeners must modify the request if they recognize the path.
-                $this->eventDispatcher->dispatch(new RedirectFromPublicEvent($request, $request->query->getString('path')));
-            }
+            $this->contentChangeDispatcher->flush();
+            $this->authManager->renewPersistentCookies($request, $response);
+            ContentSecurityPolicy::applyToAdmin($response);
 
-            // NOTE: Initialization of the AdminPanel is delayed since its factory is relied on the RequestStack to be populated
-            $adminPanelFactory = $this->container->get(AdminPanelFactory::class);
-            $adminPanel        = $adminPanelFactory->create();
-            $response          = $adminPanel->handleRequest($request);
+            return $response;
+        } finally {
+            $this->requestStack->pop();
         }
-
-        $this->contentChangeDispatcher->flush();
-        $this->authManager->renewPersistentCookies($request, $response);
-        $this->requestStack->pop();
-
-        ContentSecurityPolicy::applyToAdmin($response);
-
-        return $response;
     }
 }

@@ -49,6 +49,25 @@ final class DevelopmentRouterPolicyTest extends Unit
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_include/src/Register/ProductModule.php', 'php'));
     }
 
+    public function testExposesOnlyGeneratedAssetBundlesFromCache(): void
+    {
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile(
+            '/_cache/register_styles.1a2d1713.css',
+            'css',
+        ));
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile(
+            '/_cache/register_scripts.2dae6f3b.js.gz',
+            'gz',
+        ));
+        self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile(
+            '/_cache/register_styles.1a2d1713.css.meta.php',
+            'php',
+        ));
+        self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_cache/cache_config.php', 'php'));
+        self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_cache/phpstan/result.css', 'css'));
+        self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_cache/arbitrary.css', 'css'));
+    }
+
     public function testAllowsOnlyKnownPhpEndpoints(): void
     {
         self::assertTrue(DevelopmentRouterPolicy::isAllowedPhpEndpoint('/_admin/index.php'));

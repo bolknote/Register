@@ -16,10 +16,15 @@ use S2\Cms\Model\PermissionChecker;
 final readonly class BulkListActionProvider
 {
     public const string ACTION_DELETE = 'delete';
+
     public const string ACTION_HAM = 'ham';
+
     public const string ACTION_PUBLISH = 'publish';
+
     public const string ACTION_REJECT = 'reject';
+
     public const string ACTION_SPAM = 'spam';
+
     public const string ACTION_UNPUBLISH = 'unpublish';
 
     public function __construct(

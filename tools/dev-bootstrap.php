@@ -47,7 +47,7 @@ foreach (S2_DEV_REQUIRED_EXTENSIONS as $extension) {
 
 $host = getenv('S2_DEV_HOST');
 $port = getenv('S2_DEV_PORT');
-$host = is_string($host) && $host !== '' ? $host : '127.0.0.1';
+$host = is_string($host) && $host !== '' ? $host : 'localhost';
 $port = is_string($port) && $port !== '' ? $port : '8080';
 
 if (preg_match('/^(?:localhost|[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?|\d{1,3}(?:\.\d{1,3}){3})$/iD', $host) !== 1) {
@@ -209,6 +209,7 @@ $application = new Application();
 (new RegisterKernel(new BaseModuleRegistry()))->registerBaseModules($application, false);
 $application->boot([
     'root_dir'           => $rootDir . '/',
+    'public_root_dir'    => $rootDir . '/',
     'cache_dir'          => $rootDir . '/_cache/local/',
     'log_dir'            => $rootDir . '/_cache/local/',
     'base_url'           => $baseUrl,

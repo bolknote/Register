@@ -2,6 +2,9 @@ name: Test on PostgreSQL
 
 on: [ push ]
 
+permissions:
+  contents: read
+
 env:
   APP_DB_TYPE: pgsql
 
@@ -18,8 +21,10 @@ jobs:
     runs-on: '${{ matrix.operating_system }}'
 
     steps:
-      - uses: actions/checkout@v5
-      - uses: ikalnytskyi/action-setup-postgres@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: ikalnytskyi/action-setup-postgres@74e396491e76c84f8ad92a4f5a69ab0deb75bbc2 # v5
         with:
           username: postgres
           password: 12345
@@ -28,7 +33,7 @@ jobs:
 #          postgres-version: ${{ matrix.postgres_versions }}
 
       - name: 'Setup PHP'
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: ${{ matrix.php_versions }}
 

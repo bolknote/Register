@@ -47,6 +47,8 @@ use S2\Cms\Admin\Picture\PictureFileNameHelper;
 use S2\Cms\Admin\Picture\MediaConfigExtender;
 use S2\Cms\Admin\Picture\PictureManager;
 use S2\Cms\Admin\Picture\PictureReserveManager;
+use S2\Cms\Admin\WebAuthn\WebAuthnAdminConfigExtender;
+use S2\Cms\Admin\WebAuthn\WebAuthnAdminController;
 use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
 use S2\Cms\AdminYard\BulkListActionProvider;
 use S2\Cms\AdminYard\CustomTemplateRenderer;
@@ -70,10 +72,17 @@ use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Model\TagsProvider;
 use S2\Cms\Pdo\DbLayer;
+use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
+use S2\Cms\Security\WebAuthn\WebAuthnChallengeRepository;
+use S2\Cms\Security\WebAuthn\WebAuthnCredentialRepository;
+use S2\Cms\Security\WebAuthn\WebAuthnService;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\RouteCollection;
+use Symfony\Component\Serializer\SerializerInterface;
+use Webauthn\AttestationStatement\AttestationStatementSupportManager;
+use Webauthn\Denormalizer\WebauthnSerializerFactory;
 
 class AdminExtension implements ExtensionInterface
 {
@@ -243,10 +252,62 @@ class AdminExtension implements ExtensionInterface
             $container->getBoolParameter('force_admin_https'),
         ));
 
+        $container->set(
+            AttestationStatementSupportManager::class,
+            static fn(Container $_container): AttestationStatementSupportManager => AttestationStatementSupportManager::create(),
+        );
+        $container->set(
+            SerializerInterface::class,
+            static fn(Container $container): SerializerInterface => (new WebauthnSerializerFactory(
+                $container->get(AttestationStatementSupportManager::class),
+            ))->create(),
+        );
+        $container->set(WebAuthnCredentialRepository::class, static fn(Container $container): WebAuthnCredentialRepository => new WebAuthnCredentialRepository(
+            $container->get(DbLayer::class),
+            $container->get(SerializerInterface::class),
+        ));
+        $container->set(WebAuthnChallengeRepository::class, static fn(Container $container): WebAuthnChallengeRepository => new WebAuthnChallengeRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(RecoveryCodeRepository::class, static fn(Container $container): RecoveryCodeRepository => new RecoveryCodeRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(WebAuthnService::class, static fn(Container $container): WebAuthnService => new WebAuthnService(
+            $container->get(DbLayer::class),
+            $container->get(WebAuthnCredentialRepository::class),
+            $container->get(WebAuthnChallengeRepository::class),
+            $container->get(SerializerInterface::class),
+            $container->get(AttestationStatementSupportManager::class),
+            $container->getStringParameter('base_url'),
+            $container->getBoolParameter('force_admin_https'),
+        ));
+        $container->set(WebAuthnAdminController::class, static fn(Container $container): WebAuthnAdminController => new WebAuthnAdminController(
+            $container->get(WebAuthnService::class),
+            $container->get(WebAuthnCredentialRepository::class),
+            $container->get(RecoveryCodeRepository::class),
+            $container->get(AuthManager::class),
+            $container->get(PermissionChecker::class),
+            $container->get(\S2\Cms\Model\LoginRateLimiter::class),
+            $container->get(Translator::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+            $container->getStringParameter('base_path'),
+            $container->getStringParameter('cookie_name'),
+            $container->getBoolParameter('force_admin_https')
+                || str_starts_with(strtolower($container->getStringParameter('base_url')), 'https://'),
+        ));
+        $container->set(WebAuthnAdminConfigExtender::class, static fn(Container $container): WebAuthnAdminConfigExtender => new WebAuthnAdminConfigExtender(
+            $container->get(PermissionChecker::class),
+            $container->get(WebAuthnCredentialRepository::class),
+            $container->get(RecoveryCodeRepository::class),
+            $container->get(WebAuthnAdminController::class),
+            $container->get(TemplateRenderer::class),
+        ), [AdminConfigExtenderInterface::class]);
+
         // Request handlers
         $container->set(AdminRequestHandler::class, fn(Container $container): \S2\Cms\Admin\AdminRequestHandler => new AdminRequestHandler(
             $container->get(RequestStack::class),
             $container->get(AuthManager::class),
+            $container->get(WebAuthnAdminController::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container,
             $container->get(ContentChangeDispatcher::class),

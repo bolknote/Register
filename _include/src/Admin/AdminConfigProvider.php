@@ -492,16 +492,51 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->addListener(
                 [EntityConfig::EVENT_BEFORE_PATCH, EntityConfig::EVENT_BEFORE_UPDATE],
                 function (BeforeSaveEvent $event) use ($userEntity): void {
+                    $permissionFields = [
+                        'view',
+                        'view_hidden',
+                        'hide_comments',
+                        'edit_comments',
+                        'create_articles',
+                        'edit_site',
+                        'edit_users',
+                    ];
+                    $columns = [
+                        'id'    => FieldConfig::DATA_TYPE_INT,
+                        'login' => FieldConfig::DATA_TYPE_STRING,
+                    ];
+                    foreach ($permissionFields as $permission) {
+                        $columns[$permission] = FieldConfig::DATA_TYPE_BOOL;
+                    }
+
                     $oldData = $event->dataProvider->getEntity(
                         $userEntity->getTableName(),
-                        ['id' => FieldConfig::DATA_TYPE_INT, 'login' => FieldConfig::DATA_TYPE_STRING],
+                        $columns,
                         [],
                         [],
                         $this->requirePrimaryKey($event->primaryKey),
                     );
-                    if (\is_array($oldData) && \is_string($oldData['column_login'] ?? null)) {
-                        $event->context['security_previous_login'] = $oldData['column_login'];
+                    if (!\is_array($oldData) || !\is_string($oldData['column_login'] ?? null)) {
+                        return;
                     }
+
+                    $previousLogin = $oldData['column_login'];
+                    $event->context['security_previous_login'] = $previousLogin;
+                    $revokeSessions = isset($event->data['password'])
+                        && \is_string($event->data['password'])
+                        && $event->data['password'] !== '';
+                    if (array_key_exists('login', $event->data) && (string)$event->data['login'] !== $previousLogin) {
+                        $revokeSessions = true;
+                    }
+                    foreach ($permissionFields as $permission) {
+                        if (array_key_exists($permission, $event->data)
+                            && (bool)$event->data[$permission] !== (bool)($oldData['column_' . $permission] ?? false)) {
+                            $revokeSessions = true;
+                            break;
+                        }
+                    }
+
+                    $event->context['security_revoke_sessions'] = $revokeSessions;
                 },
             )
             ->addListener(
@@ -527,6 +562,10 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->addListener(
                 [EntityConfig::EVENT_AFTER_PATCH, EntityConfig::EVENT_AFTER_UPDATE],
                 function (AfterSaveEvent $event): void {
+                    if (($event->context['security_revoke_sessions'] ?? false) !== true) {
+                        return;
+                    }
+
                     $this->authManager->revokeUserSessions(
                         $this->requirePrimaryKey($event->primaryKey)->getIntId(),
                         \is_string($event->context['security_previous_login'] ?? null)

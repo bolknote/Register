@@ -97,10 +97,12 @@ readonly class AdminPanelFactory
                     if (!\is_array($filterData)) {
                         $filterData = [];
                     }
+
                     $sortField = $event->data['sortField'] ?? null;
                     if (!\is_string($sortField)) {
                         $sortField = null;
                     }
+
                     $sortDirection = $event->data['sortDirection'] ?? null;
                     if (!\is_string($sortDirection)) {
                         $sortDirection = null;

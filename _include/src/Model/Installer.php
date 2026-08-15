@@ -18,6 +18,7 @@ use Register\Content\ContentType;
 use Register\Content\ContentTagSchema;
 use Register\Url\ContentUrlAliasSchema;
 use Register\Schema\SchemaManager;
+use S2\Cms\Security\WebAuthn\WebAuthnSchema;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Pdo\SchemaBuilderInterface;
 use S2\Cms\Pdo\DbLayerException;
@@ -74,6 +75,8 @@ readonly class Installer
                 ->addUniqueIndex('login_idx', ['login'])
             ;
         });
+
+        WebAuthnSchema::create($this->dbLayer);
 
         ContentSchema::create($this->dbLayer);
         ContentUrlAliasSchema::create($this->dbLayer);
@@ -171,6 +174,7 @@ readonly class Installer
         $this->dbLayer->dropTable('config');
         $this->dbLayer->dropTable(UserSettingStorage::TABLE_NAME);
         $this->dbLayer->dropTable('users_online');
+        WebAuthnSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('users');
     }
 

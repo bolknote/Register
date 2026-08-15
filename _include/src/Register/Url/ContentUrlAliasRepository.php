@@ -86,6 +86,7 @@ final readonly class ContentUrlAliasRepository
         if ($aliasOwner === $contentId->value) {
             return;
         }
+
         if ($aliasOwner !== null) {
             throw new ContentUrlCollisionException(sprintf(
                 'URL alias "%s" already belongs to another content item.',
