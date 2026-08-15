@@ -38,8 +38,6 @@ readonly class AuthManager
 
     private const string SESSION_STATUS_OK       = 'Ok';
 
-    private const string LEGACY_PASSWORD_PEPPER  = 'Life is not so easy :-)';
-
     public function __construct(
         private DbLayer           $dbLayer,
         private PermissionChecker $permissionChecker,
@@ -247,11 +245,7 @@ readonly class AuthManager
         }
 
         $passwordHash = $this->getPasswordHash($login);
-        $matches = $passwordHash !== null && (
-            password_verify($password, $passwordHash)
-            || hash_equals($passwordHash, md5($password . self::LEGACY_PASSWORD_PEPPER))
-        );
-        if (!$matches) {
+        if ($passwordHash === null || !password_verify($password, $passwordHash)) {
             $this->loginRateLimiter->recordFailure($clientIp, $login);
             return false;
         }
@@ -422,14 +416,12 @@ readonly class AuthManager
         }
 
         $hashMatches = password_verify($password, $hashToVerify);
-        $oldHashMatches = $passwordHash !== null
-            && hash_equals($passwordHash, md5($password . self::LEGACY_PASSWORD_PEPPER));
-        if ($passwordHash === null || (!$hashMatches && !$oldHashMatches)) {
+        if ($passwordHash === null || !$hashMatches) {
             $this->loginRateLimiter->recordFailure($clientIp, $login);
             return $this->createAjaxErrorLoginPasswordResponse();
         }
 
-        if (!$hashMatches || PasswordHasher::needsRehash($passwordHash)) {
+        if (PasswordHasher::needsRehash($passwordHash)) {
             $this->updatePasswordHash($login, $password);
         }
 
