@@ -74,6 +74,7 @@ final class AntispamCest
         $etag = $I->grabHttpHeader('ETag');
         $I->assertStringContainsString('name="antispam_token"', $response);
         $I->assertStringContainsString('name="homepage"', $response);
+        $I->seeElement('.visually-hidden input[name="homepage"]');
         $I->assertStringNotContainsString('name="question"', $response);
         $I->assertStringNotContainsString('name="key"', $response);
 

@@ -132,6 +132,15 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertDoesNotMatchRegularExpression('~\sstyle\s*=~i', $source);
     }
 
+    public function testCommentFormDoesNotRequireInlineStyles(): void
+    {
+        $filename = dirname(__DIR__, 4) . '/_include/views/comment_form.php';
+        $source = file_get_contents($filename);
+        self::assertIsString($source);
+        self::assertDoesNotMatchRegularExpression('~<style\b~i', $source);
+        self::assertDoesNotMatchRegularExpression('~\sstyle\s*=~i', $source);
+    }
+
     public function testDebugMarkupDoesNotRequireInlineStyles(): void
     {
         $root = dirname(__DIR__, 4);

@@ -59,7 +59,7 @@ $reply_name   ??= '';
             <summary><?php echo $trans('Formatting help'); ?></summary>
             <div class="comment-syntax"><?php foreach ($syntaxHelpItems as $item) { echo $item . "\n"; } ?></div>
         </details>
-        <p aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;">
+        <p class="visually-hidden" aria-hidden="true">
             <label>Homepage
                 <input type="text" name="homepage" value="" tabindex="-1" autocomplete="off" /></label>
         </p>
