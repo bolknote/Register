@@ -19,9 +19,18 @@ final class ContentSecurityPolicyTest extends Unit
     {
         $response = new Response();
 
-        ContentSecurityPolicy::apply($response);
+        ContentSecurityPolicy::apply($response, '/blog/.well-known/csp-report');
 
         self::assertSame(ContentSecurityPolicy::POLICY, $response->headers->get(ContentSecurityPolicy::HEADER_NAME));
+        self::assertSame(
+            ContentSecurityPolicy::REPORT_ONLY_POLICY
+                . '; report-uri /blog/.well-known/csp-report; report-to register-csp',
+            $response->headers->get(ContentSecurityPolicy::REPORT_ONLY_HEADER_NAME),
+        );
+        self::assertSame(
+            'register-csp="/blog/.well-known/csp-report"',
+            $response->headers->get('Reporting-Endpoints'),
+        );
         self::assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
         self::assertSame('strict-origin-when-cross-origin', $response->headers->get('Referrer-Policy'));
         self::assertSame('camera=(), microphone=(), geolocation=()', $response->headers->get('Permissions-Policy'));
@@ -30,6 +39,34 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertStringContainsString("base-uri 'none'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("object-src 'none'", ContentSecurityPolicy::POLICY);
         self::assertStringNotContainsString("script-src 'self' 'unsafe-inline'", ContentSecurityPolicy::POLICY);
+        self::assertStringContainsString("style-src 'self'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
+        self::assertStringContainsString("style-src-attr 'none'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
+        self::assertStringNotContainsString("'unsafe-inline'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
+        self::assertStringNotContainsString('http:', ContentSecurityPolicy::REPORT_ONLY_POLICY);
+    }
+
+    public function testAdminPagesCannotBeFramedExceptForExplicitEmbeddedEndpoints(): void
+    {
+        $adminResponse = new Response();
+        ContentSecurityPolicy::applyToAdmin($adminResponse);
+
+        self::assertSame(ContentSecurityPolicy::ADMIN_POLICY, $adminResponse->headers->get(ContentSecurityPolicy::HEADER_NAME));
+        self::assertStringContainsString("frame-ancestors 'none'", ContentSecurityPolicy::ADMIN_POLICY);
+        self::assertSame('no-store, private', $adminResponse->headers->get('Cache-Control'));
+
+        $embeddedResponse = new Response();
+        ContentSecurityPolicy::applyToEmbeddedAdmin($embeddedResponse);
+
+        self::assertSame(ContentSecurityPolicy::POLICY, $embeddedResponse->headers->get(ContentSecurityPolicy::HEADER_NAME));
+        self::assertStringContainsString("frame-ancestors 'self'", ContentSecurityPolicy::POLICY);
+        self::assertSame('no-store, private', $embeddedResponse->headers->get('Cache-Control'));
+    }
+
+    public function testRejectsUnsafeReportUri(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        ContentSecurityPolicy::apply(new Response(), "/report\r\nX-Injected: true");
     }
 
     public function testServerRenderedSourcesDoNotRequireInlineJavaScript(): void

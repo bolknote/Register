@@ -14,6 +14,9 @@ use Psr\Log\LogLevel;
 use Register\Comment\ContentCommentNotifier;
 use Register\Comment\ContentCommentStrategy;
 use Register\Content\ContentPublicationScheduler;
+use Register\Http\ContentSecurityPolicy;
+use Register\Http\CspViolationReportController;
+use Register\Http\CspViolationReporter;
 use S2\Cms\Asset\AssetMergeFactory;
 use S2\Cms\Comment\AkismetProxy;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
@@ -264,6 +267,13 @@ class CmsExtension implements ExtensionInterface
         $container->set(SecurityAuditLogger::class, static fn(Container $container): SecurityAuditLogger => new SecurityAuditLogger(
             $container->getStringParameter('log_dir') . 'security-audit.jsonl',
             $container->get(SpamIdentityHasher::class),
+        ));
+        $container->set(CspViolationReporter::class, static fn(Container $container): CspViolationReporter => new CspViolationReporter(
+            $container->getStringParameter('log_dir') . 'csp-violations.jsonl',
+            $container->get(SpamIdentityHasher::class),
+        ));
+        $container->set(CspViolationReportController::class, static fn(Container $container): CspViolationReportController => new CspViolationReportController(
+            $container->get(CspViolationReporter::class),
         ));
         $container->set(\Register\Comment\CommentSubscriptionService::class, static fn(Container $container): \Register\Comment\CommentSubscriptionService => new \Register\Comment\CommentSubscriptionService(
             $container->get(\Register\Comment\CommentRepository::class),
@@ -752,6 +762,10 @@ class CmsExtension implements ExtensionInterface
         $favoriteUrl    = $configProvider->getStringProxy('S2_FAVORITE_URL')->get();
         $tagsUrl        = $configProvider->getStringProxy('S2_TAGS_URL')->get();
 
+        $routes->add('csp_report', new Route(
+            ContentSecurityPolicy::REPORT_PATH,
+            ['_controller' => CspViolationReportController::class],
+        ));
         $routes->add('sitemap', new Route(
             '/sitemap.xml',
             ['_controller' => ContentSitemapController::SERVICE_ID],

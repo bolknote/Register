@@ -120,7 +120,15 @@ class InstallCest
         $headers = array_change_key_case($I->grabHeaders(), CASE_LOWER);
 
         $I->assertSame([ContentSecurityPolicy::POLICY], $headers['content-security-policy'] ?? []);
+        $reportUri = self::URL_PREFIX . ContentSecurityPolicy::REPORT_PATH;
+        $I->assertSame([
+            ContentSecurityPolicy::REPORT_ONLY_POLICY
+                . '; report-uri ' . $reportUri . '; report-to register-csp',
+        ], $headers['content-security-policy-report-only'] ?? []);
+        $I->assertSame(['register-csp="' . $reportUri . '"'], $headers['reporting-endpoints'] ?? []);
         $I->assertSame(['nosniff'], $headers['x-content-type-options'] ?? []);
+        $I->assertSame(['strict-origin-when-cross-origin'], $headers['referrer-policy'] ?? []);
+        $I->assertSame(['camera=(), microphone=(), geolocation=()'], $headers['permissions-policy'] ?? []);
     }
 
     private function testHierarchyRedirects(AcceptanceTester $I): void

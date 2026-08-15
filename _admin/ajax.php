@@ -11,6 +11,7 @@ declare(strict_types = 1);
 
 use Register\Http\ContentSecurityPolicy;
 use S2\Cms\Admin\AdminAjaxRequestHandler;
+use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -22,7 +23,8 @@ $app = require __DIR__ . '/../_include/common.php';
 $request = Request::createFromGlobals();
 $handler  = $app->container->get(AdminAjaxRequestHandler::class);
 $response = $handler->handle($request);
-ContentSecurityPolicy::applyToAdmin($response);
+$reportUri = $app->container->get(UrlBuilder::class)->rawLink(ContentSecurityPolicy::REPORT_PATH);
+ContentSecurityPolicy::applyToAdmin($response, $reportUri);
 
 header_remove('X-Powered-By');
 $shutdownCoordinator = $app->container->get(ShutdownWorkCoordinator::class);

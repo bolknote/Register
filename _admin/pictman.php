@@ -15,6 +15,7 @@ declare(strict_types = 1);
 use Register\Http\ContentSecurityPolicy;
 use S2\AdminYard\TemplateRenderer;
 use S2\Cms\Model\AuthManager;
+use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,7 +35,8 @@ if ($response === null) {
     $response         = new Response($content);
 }
 
-ContentSecurityPolicy::applyToAdmin($response);
+$reportUri = $app->container->get(UrlBuilder::class)->rawLink(ContentSecurityPolicy::REPORT_PATH);
+ContentSecurityPolicy::applyToEmbeddedAdmin($response, $reportUri);
 
 header_remove('X-Powered-By');
 $shutdownCoordinator = $app->container->get(ShutdownWorkCoordinator::class);

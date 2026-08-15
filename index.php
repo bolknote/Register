@@ -50,8 +50,9 @@ if (str_ends_with($request_uri, '---')) {
 }
 
 $request  = Request::createFromGlobals();
-$response = $app->handle($request);
-ContentSecurityPolicy::apply($response);
+$response  = $app->handle($request);
+$reportUri = $basePath . $urlPrefix . ContentSecurityPolicy::REPORT_PATH;
+ContentSecurityPolicy::apply($response, $reportUri);
 
 // Disable cache since all the pages are generated dynamically. We only use conditional GET.
 $response->headers->set('Pragma', 'no-cache');
