@@ -571,6 +571,47 @@ section.list-header h1 {
     color: var(--admin-text-color);
 }
 
+.moderation-navigation {
+    display: grid;
+    gap: 0.65rem;
+    margin-bottom: 1.25rem;
+}
+
+.moderation-navigation .moderation-tabs {
+    max-width: 100%;
+    margin-bottom: 0;
+    overflow-x: auto;
+}
+
+.moderation-subtabs {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    padding-left: 0.85rem;
+    border-left: 2px solid var(--admin-soft-border-color);
+}
+
+.moderation-subtabs a {
+    padding: 0.2rem 0;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.8rem;
+    font-weight: 580;
+    text-decoration-color: transparent;
+    text-underline-offset: 0.2em;
+}
+
+.moderation-subtabs a:hover,
+.moderation-subtabs a[aria-current="page"] {
+    color: var(--admin-text-color);
+    text-decoration-color: currentColor;
+}
+
+.antispam-metrics .stat-items {
+    margin-bottom: 1.25rem;
+}
+
 .filter-panel {
     margin: 0 0 1.25rem;
     border: 1px solid var(--admin-soft-border-color);

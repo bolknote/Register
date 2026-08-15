@@ -15,6 +15,7 @@ $html = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES,
 
 ?>
 <h1><?= $html($title) ?></h1>
+<?php require __DIR__ . '/../moderation/tabs.php.inc'; ?>
 <section class="show-content">
     <table class="show-table">
         <tbody>

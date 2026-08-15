@@ -46,7 +46,7 @@ class AdminCest
         $I->amOnPage('https://localhost/_admin/index.php');
         $I->see('Overview', 'h1#dashboard-title');
         $I->seeElement('details[data-menu-group="Materials"]');
-        $I->seeElement('details[data-menu-group="Comments"]');
+        $I->seeElement('details[data-menu-group="Moderation"]');
         $I->seeElement('details[data-menu-group="Settings"]');
         $I->seeElement('details[data-menu-group="Account"]');
         $I->dontSeeElement('details.main-menu-system');
@@ -54,6 +54,11 @@ class AdminCest
         $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Article&action=list"]');
         $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Media"]');
         $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Tag&action=list"]');
+        $I->seeElement('details[data-menu-group="Moderation"] a[href="?entity=Comment&action=list"]');
+        $I->seeElement('details[data-menu-group="Moderation"] a[href="?entity=SpamAssessment&action=list"]');
+        $I->seeElement('details[data-menu-group="Moderation"] a[href="?entity=SpamRule&action=list"]');
+        $I->dontSeeElement('details[data-menu-group="Moderation"] a[href*="entity=SpamSignalPolicy"]');
+        $I->dontSeeElement('details[data-menu-group="Moderation"] a[href*="entity=SpamRatePolicy"]');
         $I->seeElement('details[data-menu-group="Account"] a[href^="?entity=User&action=edit&id="]');
         $I->seeElement('details[data-menu-group="Account"] a[href="?entity=Session&action=list"]');
 
@@ -123,6 +128,12 @@ class AdminCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Comment&action=list');
         $I->see('Content', 'table.list-table th');
+        $I->seeElement('nav.moderation-tabs[aria-label="Moderation sections"]');
+        $I->seeElement('nav.moderation-tabs a[aria-current="page"][href="?entity=Comment&action=list"]');
+        $I->seeElement('nav.moderation-tabs a[href="?entity=SpamAssessment&action=list"]');
+        $I->seeElement('nav.moderation-tabs a[href="?entity=SpamRule&action=list"]');
+        $I->seeElement('nav.moderation-tabs a[href="?entity=SpamSignalPolicy&action=list"]');
+        $I->dontSeeElement('nav.moderation-subtabs');
         $I->dontSee('Email', 'table.list-table th');
         $I->dontSee('Content type', 'table.list-table th');
         $I->dontSee('Spam label', 'table.list-table th');
@@ -575,6 +586,19 @@ class AdminCest
         $I->seeResponseCodeIs(200);
     }
 
+    public function testModerationNavigationDoesNotLeakExpertTools(\IntegrationTester $I): void
+    {
+        $I->login('power_guest', 'power_guest');
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Comment&action=list');
+
+        $I->seeResponseCodeIs(200);
+        $I->seeElement('details[data-menu-group="Moderation"]');
+        $I->assertCount(1, $I->grabMultiple('nav.moderation-tabs a'));
+        $I->seeElement('nav.moderation-tabs a[aria-current="page"][href="?entity=Comment&action=list"]');
+        $I->dontSeeElement('nav.moderation-tabs a[href*="entity=Spam"]');
+        $I->dontSeeElement('nav.moderation-subtabs');
+    }
+
     public function testAntispamCalibrationPages(\IntegrationTester $I): void
     {
         $assessment = new SpamAssessment(
@@ -600,6 +624,7 @@ class AdminCest
         $I->amOnPage('https://localhost/_admin/index.php?entity=SpamAssessment&action=list');
         $I->seeResponseCodeIs(200);
         $I->see('Antispam report');
+        $I->seeElement('nav.moderation-tabs a[aria-current="page"][href="?entity=SpamAssessment&action=list"]');
         $I->see('Local filter quality');
         $I->see('Shadow comparison');
         $I->see('False positive');
@@ -610,10 +635,18 @@ class AdminCest
         $I->see('False positive');
         $I->see('Links');
 
+        $I->amOnPage('https://localhost/_admin/index.php?entity=SpamRule&action=list');
+        $I->seeResponseCodeIs(200);
+        $I->see('Spam rules');
+        $I->seeElement('nav.moderation-tabs a[aria-current="page"][href="?entity=SpamRule&action=list"]');
+
         $I->amOnPage('https://localhost/_admin/index.php?entity=SpamSignalPolicy&action=list');
         $I->seeResponseCodeIs(200);
         $I->see('Spam signal weights');
         $I->see('One link');
+        $I->seeElement('nav.moderation-tabs a[aria-current="page"][href="?entity=SpamSignalPolicy&action=list"]');
+        $I->seeElement('nav.moderation-subtabs a[aria-current="page"][href="?entity=SpamSignalPolicy&action=list"]');
+        $I->seeElement('nav.moderation-subtabs a[href="?entity=SpamRatePolicy&action=list"]');
 
         $I->amOnPage(
             'https://localhost/_admin/index.php?entity=SpamSignalPolicy&action=edit&signal_code=links_one',
@@ -621,17 +654,22 @@ class AdminCest
         $I->seeResponseCodeIs(200);
         $I->see('Edit spam signal weight');
         $I->see('Score adjustment');
+        $I->seeElement('nav.moderation-tabs a[aria-current="page"]');
+        $I->seeElement('nav.moderation-subtabs a[aria-current="page"][href="?entity=SpamSignalPolicy&action=list"]');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=SpamRatePolicy&action=list');
         $I->seeResponseCodeIs(200);
         $I->see('Comment rate limits');
         $I->see('IP address');
         $I->see('Allowed attempts');
+        $I->seeElement('nav.moderation-tabs a[aria-current="page"][href="?entity=SpamSignalPolicy&action=list"]');
+        $I->seeElement('nav.moderation-subtabs a[aria-current="page"][href="?entity=SpamRatePolicy&action=list"]');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=SpamRatePolicy&action=edit&bucket_type=ip');
         $I->seeResponseCodeIs(200);
         $I->see('Edit comment rate limit');
         $I->see('Window, seconds');
+        $I->seeElement('nav.moderation-subtabs a[aria-current="page"][href="?entity=SpamRatePolicy&action=list"]');
     }
 
     private function assertSecureCookiePolicy(\IntegrationTester $I, AuthManager $authManager, string $url, bool $expected): void

@@ -46,17 +46,5 @@ ob_start();
     </div>
 </section>
 <?php
-$metricsHtml = (string)ob_get_clean();
-
-ob_start();
-require __DIR__ . '/../../../_vendor/s2/admin-yard/templates/list.php.inc';
-$listHtml = (string)ob_get_clean();
-$headerEnd = strpos($listHtml, '</section>');
-
-if ($headerEnd === false) {
-    echo $metricsHtml, $listHtml;
-    return;
-}
-
-$headerEnd += \strlen('</section>');
-echo substr($listHtml, 0, $headerEnd), $metricsHtml, substr($listHtml, $headerEnd);
+$listIntroHtml = (string)ob_get_clean();
+require __DIR__ . '/../admin-yard/list.php.inc';

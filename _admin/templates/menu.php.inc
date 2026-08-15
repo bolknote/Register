@@ -89,6 +89,10 @@ $renderGroup = static function (array $group, string $extraClass = '') use (
 ): void {
     /** @var list<array<mixed>> $links */
     $links         = $group['links'];
+    $visibleLinks  = array_values(array_filter(
+        $links,
+        static fn(array $link): bool => empty($link['menuHidden']),
+    ));
     $signalSummary = $summarizeSignals($links);
     ?>
     <details class="main-menu-group <?= !empty($group['active']) ? 'active' : '' ?> <?= $html($extraClass) ?>"
@@ -106,7 +110,7 @@ $renderGroup = static function (array $group, string $extraClass = '') use (
             <?php endif; ?>
         </summary>
         <ul class="main-menu-list main-menu-dropdown-list">
-            <?php foreach ($links as $link) {
+            <?php foreach ($visibleLinks as $link) {
                 $renderLink($link, true);
             } ?>
         </ul>

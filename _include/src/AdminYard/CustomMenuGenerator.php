@@ -28,12 +28,12 @@ readonly class CustomMenuGenerator extends MenuGenerator
     ];
 
     /** @var list<string> */
-    private const array COMMENT_ENTITY_ORDER = [
+    private const array MODERATION_ENTITY_ORDER = [
         'Comment',
         'SpamAssessment',
+        'SpamRule',
         'SpamSignalPolicy',
         'SpamRatePolicy',
-        'SpamRule',
     ];
 
     /** @var list<string> */
@@ -128,11 +128,15 @@ readonly class CustomMenuGenerator extends MenuGenerator
             'Materials',
             $this->extractLinks($links, self::MATERIAL_ENTITY_ORDER),
         );
-        $navigationItems[] = $this->createGroup(
-            'Comments',
-            'Comments',
-            $this->extractLinks($links, self::COMMENT_ENTITY_ORDER),
-        );
+        $moderationLinks = $this->extractLinks($links, self::MODERATION_ENTITY_ORDER);
+        foreach ($moderationLinks as &$moderationLink) {
+            if (\in_array($moderationLink['key'], ['SpamSignalPolicy', 'SpamRatePolicy'], true)) {
+                $moderationLink['menuHidden']  = true;
+                $moderationLink['currentName'] = 'Expert settings';
+            }
+        }
+        unset($moderationLink);
+        $navigationItems[] = $this->createGroup('Moderation', 'Moderation', $moderationLinks);
 
         if (isset($links['Statistics'])) {
             $navigationItems[] = ['kind' => 'link', ...$links['Statistics']];
@@ -230,7 +234,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
             'key'         => $key,
             'name'        => $name,
             'active'      => $activeLink !== null,
-            'currentName' => $activeLink['name'] ?? null,
+            'currentName' => $activeLink['currentName'] ?? $activeLink['name'] ?? null,
             'links'       => $links,
         ];
     }

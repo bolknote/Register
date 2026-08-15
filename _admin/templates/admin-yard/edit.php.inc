@@ -22,6 +22,7 @@ $errorMessages = array_merge($errorMessages, $form->getGlobalFormErrors());
 
 ?>
 <h1><?= $html($title) ?></h1>
+<?php require __DIR__ . '/../moderation/tabs.php.inc'; ?>
 <section class="edit-content">
     <?php if ($errorMessages !== []): ?>
         <div class="error-message-box">
