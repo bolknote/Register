@@ -97,7 +97,14 @@ readonly class PictureFileNameHelper
 
     public function isAllowedExtension(string $filename): bool
     {
-        if (trim($this->allowedExtensions) === '' || $filename === '' || str_starts_with($filename, '.')) {
+        if (
+            trim($this->allowedExtensions) === ''
+            || $filename === ''
+            || str_starts_with($filename, '.')
+            || !mb_check_encoding($filename, 'UTF-8')
+            || preg_match('~[\\x00-\\x1f\\x7f/\\\\]~', $filename) === 1
+            || str_contains($filename, '..')
+        ) {
             return false;
         }
 
@@ -185,6 +192,8 @@ readonly class PictureFileNameHelper
 
     private function baseName(string $dir): string
     {
+        $dir = str_replace('\\', '/', $dir);
+
         return false !== ($pos = strrpos($dir, '/')) ? substr($dir, $pos + 1) : $dir;
     }
 

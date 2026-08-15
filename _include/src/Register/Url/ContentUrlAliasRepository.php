@@ -38,6 +38,9 @@ final readonly class ContentUrlAliasRepository
         if (
             $path === ''
             || strlen($path) > 255
+            || !mb_check_encoding($path, 'UTF-8')
+            || str_contains($path, '?')
+            || str_contains($path, '#')
             || str_contains($path, '\\')
             || str_contains($path, '//')
             || preg_match('/[\x00-\x1f\x7f]/u', $path) === 1

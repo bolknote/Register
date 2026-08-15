@@ -245,7 +245,11 @@ final class PortableZipWriter
         if (
             $entryName === ''
             || str_starts_with($entryName, '/')
-            || str_contains($entryName, "\0")
+            || str_ends_with($entryName, '/')
+            || !mb_check_encoding($entryName, 'UTF-8')
+            || preg_match('/[\\x00-\\x1f\\x7f]/', $entryName) === 1
+            || preg_match('~^[a-z]:/~iD', $entryName) === 1
+            || str_contains($entryName, '//')
             || preg_match('#(?:^|/)\.\.?(?:/|$)#D', $entryName) === 1
             || \strlen($entryName) > self::MAX_UINT16
         ) {
