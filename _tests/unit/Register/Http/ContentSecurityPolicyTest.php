@@ -164,6 +164,7 @@ final class ContentSecurityPolicyTest extends Unit
             $root . '/_admin/js/pictman.js',
             $root . '/_admin/js/editor/form.js',
             $root . '/_admin/js/editor/images/pipeline.js',
+            $root . '/_admin/js/autocomplete.js',
             $root . '/_assets/register/audio-player/player.js',
             $root . '/_assets/register/search/autocomplete.js',
             $root . '/_assets/register/visitor/identity.js',

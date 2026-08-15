@@ -53,6 +53,7 @@ use S2\Cms\Admin\WebAuthn\WebAuthnAdminConfigExtender;
 use S2\Cms\Admin\WebAuthn\WebAuthnAdminController;
 use S2\Cms\AdminYard\CustomMenuGeneratorEvent;
 use S2\Cms\AdminYard\BulkListActionProvider;
+use S2\Cms\AdminYard\CustomTemplateRendererEvent;
 use S2\Cms\AdminYard\CustomTemplateRenderer;
 use S2\Cms\AdminYard\Form\CustomFormControlFactory;
 use S2\Cms\AdminYard\Signal;
@@ -475,6 +476,10 @@ class AdminExtension implements ExtensionInterface
     #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
+        $eventDispatcher->addListener(CustomTemplateRendererEvent::class, static function (CustomTemplateRendererEvent $event): void {
+            $event->extraScripts[] = $event->basePath . '/_admin/js/autocomplete.js';
+        });
+
         $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event) use ($container): void {
             $event->allowGet('register_tag_suggestions');
             $event->controllerMap['register_tag_suggestions'] = static function (PermissionChecker $permissionChecker) use ($container): \Symfony\Component\HttpFoundation\JsonResponse {

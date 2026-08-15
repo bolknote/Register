@@ -1049,6 +1049,10 @@ section.admin-extensions h2 {
 
 /* from autocomplete.css */
 
+.ay-select-dropdown[hidden] {
+    display: none;
+}
+
 .autoComplete_wrapper {
     display: inline-block;
     position: relative;

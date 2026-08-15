@@ -37,6 +37,7 @@ final class CustomAutocomplete extends Autocomplete
 
         $selectId  = $id ?? uniqid('autocomplete-', true);
         $controlId = $selectId . '-control';
+        $dropdownId = $controlId . '-dropdown';
         $emptyLabel = FormFactory::EMPTY_SELECT_LABEL;
         $options = '';
         $currentOption = $emptyLabel;
@@ -58,8 +59,8 @@ final class CustomAutocomplete extends Autocomplete
 
         return \sprintf(
             '<div class="ay-select" id="%s" data-autocomplete-control data-allow-empty="%d" data-empty-label="%s" data-fetch-url="%s">'
-            . '<button type="button" class="ay-select-button">%s</button>'
-            . '<div class="ay-select-dropdown" style="display: none;">'
+            . '<button type="button" class="ay-select-button" aria-haspopup="listbox" aria-expanded="false" aria-controls="%s">%s</button>'
+            . '<div class="ay-select-dropdown" id="%s" hidden>'
             . '<div class="search"><span class="highlight"></span></div>'
             . '<select name="%s" id="%s" size="5" class="dropdown-select">%s</select>'
             . '</div></div>',
@@ -67,7 +68,9 @@ final class CustomAutocomplete extends Autocomplete
             (int)$this->allowEmpty,
             $this->escape($emptyLabel),
             $this->escape($fetchUrl),
+            $this->escape($dropdownId),
             $this->escape($currentOption),
+            $this->escape($dropdownId),
             $this->escape($this->fieldName),
             $this->escape($selectId),
             $options,
