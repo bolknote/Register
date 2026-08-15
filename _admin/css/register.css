@@ -2870,8 +2870,9 @@ body.login_page {
     margin-bottom: 0.8rem;
 }
 
-#login_wrap .login-message {
-    margin-top: 0.8rem;
+#login_wrap p#message.login-message {
+    width: 100%;
+    margin: 0.8rem 0 0;
 }
 
 @media (max-width: 1180px) {
