@@ -161,6 +161,9 @@ class SearchCest
 
         // Indexing is not done yet
         $I->see('No results found for your query.');
+        $quickSearchUrl = $I->grabAttributeFrom('#s2_search_input_ext', 'data-s2-search-url');
+        $I->assertNotNull($quickSearchUrl);
+        $I->assertStringContainsString('title=', $quickSearchUrl);
 
         // Run indexing
         /** @var QueueConsumer $consumer */
@@ -217,13 +220,12 @@ class SearchCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
 
-        $deleteUrl      = '?entity=BlogPost&action=delete&id=' . $postId;
-        $onClickHandler = $I->grabAttributeFrom('[href="' . $deleteUrl . '"]', 'onclick');
-        if ($onClickHandler === null || ($tokenPosition = strrpos($onClickHandler, 'csrf_token=')) === false) {
+        $deleteUrl  = '?entity=BlogPost&action=delete&id=' . $postId;
+        $deleteToken = $I->grabAttributeFrom('[href="' . $deleteUrl . '"]', 'data-csrf-token');
+        if ($deleteToken === null || $deleteToken === '') {
             throw new \RuntimeException('The post delete action does not contain a CSRF token.');
         }
 
-        $deleteToken = substr($onClickHandler, $tokenPosition + 11, 40);
         $I->sendAjaxPostRequest(
             'https://localhost/_admin/index.php' . $deleteUrl,
             ['csrf_token' => $deleteToken],

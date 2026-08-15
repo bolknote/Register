@@ -37,23 +37,17 @@ class CustomDateTime extends Datetime
          */
         $serverTime = (new \DateTimeImmutable())->format('Y-m-d\TH:i:s\Z');
 
-        $trans = $this->translator->trans('Now');
+        $trans      = htmlspecialchars($this->translator->trans('Now'), ENT_QUOTES, 'UTF-8');
+        $safeId     = htmlspecialchars($id, ENT_QUOTES, 'UTF-8');
+        $serverTime = htmlspecialchars($serverTime, ENT_QUOTES, 'UTF-8');
 
         $script = <<<HTML
     <a
         href="#"
         class="now-control"
-        data-diff=""
-        id="$id-now-control"
-        onclick="document.getElementById('$id').value = new Date(new Date().getTime() + parseInt(this.getAttribute('data-diff'))).toISOString().substring(0, 16); return false;">$trans</a>
-    <script>
-        (function () {
-            const serverTime = new Date('$serverTime');
-            const clientTime = new Date();
-            const timeDifference = serverTime - clientTime; // Difference in milliseconds
-            document.getElementById('$id-now-control').dataset.diff = timeDifference;
-        })();
-    </script>
+        data-target-id="$safeId"
+        data-server-time="$serverTime"
+        id="$safeId-now-control">$trans</a>
     HTML;
 
         return parent::getHtml($id) . $script;

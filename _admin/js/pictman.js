@@ -8,6 +8,12 @@
  * @package S2
  */
 
+var pictureManagerConfig = document.documentElement.dataset;
+var sUrl = pictureManagerConfig.ajaxUrl || '';
+var sPicturePrefix = pictureManagerConfig.picturePrefix || '';
+var iMaxFileSize = Number.parseInt(pictureManagerConfig.maxFileSize || '0', 10);
+var sFriendlyMaxFileSize = pictureManagerConfig.friendlyMaxFileSize || '';
+
 var refreshFiles = function () {
 };
 var getCurDir = function () {
@@ -80,6 +86,10 @@ function audioTitle(fileName) {
 }
 
 $(function () {
+    document.querySelector('input[name="pictures[]"]')?.addEventListener('change', function () {
+        UploadChange(this);
+    });
+
     $(document).keydown(function (e) {
         if (e.which === 27) {
             parentWnd && parentWnd.ClosePictureDialog && parentWnd.ClosePictureDialog();

@@ -25,7 +25,12 @@ $filterUrl = static fn(?LinkHealthStatus $value, int $targetPage = 1): string =>
     . ($value instanceof LinkHealthStatus ? '&status=' . rawurlencode($value->value) : '')
     . ($targetPage > 1 ? '&page=' . $targetPage : '');
 ?>
-<section class="link-health-admin" data-link-health-admin>
+<section class="link-health-admin"
+         data-link-health-admin
+         data-action-endpoint="<?= $html($basePath . '/_admin/ajax.php?action=register_link_health_action') ?>"
+         data-csrf-token="<?= $html($csrfToken) ?>"
+         data-working-message="<?= $html($trans('Link action working')) ?>"
+         data-failure-message="<?= $html($trans('Link action failed')) ?>">
     <input type="hidden" name="link_health_csrf_token" value="<?= $html($csrfToken) ?>">
     <header class="link-health-header">
         <div>
@@ -154,37 +159,4 @@ $filterUrl = static fn(?LinkHealthStatus $value, int $targetPage = 1): string =>
         </nav>
     <?php endif; ?>
 </section>
-<script>
-(() => {
-    'use strict';
-    const root = document.querySelector('[data-link-health-admin]');
-    if (!root) return;
-    const status = root.querySelector('.link-health-action-status');
-    const endpoint = <?= json_encode($basePath . '/_admin/ajax.php?action=register_link_health_action', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>;
-    const csrfToken = <?= json_encode($csrfToken, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>;
-    root.addEventListener('click', async event => {
-        const button = event.target.closest('button[data-operation]');
-        if (!button || button.disabled) return;
-        button.disabled = true;
-        status.textContent = <?= json_encode($trans('Link action working'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>;
-        try {
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams({
-                    csrf_token: csrfToken,
-                    operation: button.dataset.operation,
-                    target_id: button.dataset.targetId
-                })
-            });
-            const payload = await response.json();
-            if (!response.ok || payload.success !== true) throw new Error(payload.message || 'Request failed');
-            status.textContent = payload.message;
-            window.setTimeout(() => window.location.reload(), 350);
-        } catch (error) {
-            status.textContent = error.message || <?= json_encode($trans('Link action failed'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>;
-            button.disabled = false;
-        }
-    });
-})();
-</script>
+<script src="<?= $basePath ?>/_assets/register/link-health/admin.js"></script>

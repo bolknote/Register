@@ -55,19 +55,20 @@ class StringHelper
     }
 
     /**
-     * JS-protected mailto: link
+     * Mail link kept under the legacy method name for template compatibility.
      */
     public static function jsMailTo(string $name, string $email): string
     {
         $parts = explode('@', $email);
+        $safeName = htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         if (\count($parts) !== 2) {
-            return $name;
+            return $safeName;
         }
 
-        return '<script type="text/javascript">var mailto="' . $parts[0] . '"+"%40"+"' . $parts[1] . '";' .
-            'document.write(\'<a href="mailto:\'+mailto+\'">' . str_replace("'", '\\\'', $name) . "</a>');</script>" .
-            '<noscript>' . $name . ', <small>[' . $parts[0] . ' at ' . $parts[1] . ']</small></noscript>';
+        $safeEmail = htmlspecialchars($email, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        return '<a href="mailto:' . $safeEmail . '">' . $safeName . '</a>';
     }
 
     /**

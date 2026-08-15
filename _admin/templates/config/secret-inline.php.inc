@@ -22,7 +22,12 @@ $isConfigured = trim($value) !== '';
 <span class="inline-form-holder secret-value-state" id="<?= $formId ?>-state">
     <?= $trans($isConfigured ? 'Secret configured' : 'Secret not configured') ?>
 </span>
-<form class="inline-form secret-inline-form" id="<?= $formId ?>" method="POST" action="?<?= $formQueryParams ?>">
+<form class="inline-form secret-inline-form" id="<?= $formId ?>" method="POST" action="?<?= $formQueryParams ?>"
+      data-secret-inline-form
+      data-configured-message="<?= htmlspecialchars($trans('Secret configured'), ENT_QUOTES, 'UTF-8') ?>"
+      data-empty-message="<?= htmlspecialchars($trans('Secret not configured'), ENT_QUOTES, 'UTF-8') ?>"
+      data-error-message="<?= htmlspecialchars($trans('Something went wrong and the value was not saved.'), ENT_QUOTES, 'UTF-8') ?>"
+      data-clear-confirm-message="<?= htmlspecialchars($trans('Clear saved API key?'), ENT_QUOTES, 'UTF-8') ?>">
     <?php foreach ($form->getHiddenControls() as $control): ?>
         <?= $control->getHtml() ?>
     <?php endforeach; ?>
@@ -34,11 +39,3 @@ $isConfigured = trim($value) !== '';
     </button>
     <span class="validation-errors" aria-live="polite"></span>
 </form>
-<script>
-    makeSecretInlineForm(<?= json_encode($formId, JSON_THROW_ON_ERROR) ?>, {
-        configured: <?= json_encode($trans('Secret configured'), JSON_THROW_ON_ERROR) ?>,
-        empty: <?= json_encode($trans('Secret not configured'), JSON_THROW_ON_ERROR) ?>,
-        error: <?= json_encode($trans('Something went wrong and the value was not saved.'), JSON_THROW_ON_ERROR) ?>,
-        clearConfirm: <?= json_encode($trans('Clear saved API key?'), JSON_THROW_ON_ERROR) ?>
-    });
-</script>

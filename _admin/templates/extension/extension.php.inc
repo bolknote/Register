@@ -9,13 +9,14 @@ $htmlEncode = static fn(string $str) => htmlspecialchars($str, ENT_QUOTES, 'UTF-
 /** @var callable $csrfTokenGenerator */
 /** @var string $basePath */
 ?>
-<section class="admin-extensions">
+<section class="admin-extensions" data-ajax-url="<?= $htmlEncode($basePath . '/_admin/ajax.php?') ?>">
     <h1><?= $trans('Optional modules') ?></h1>
     <h2><?= $trans('Extensions available') ?></h2>
 
     <?php if (count($availableExtensions) > 0): ?>
         <div class="extensions">
             <?php foreach ($availableExtensions as $item): ?>
+                <?php $extensionToken = $csrfTokenGenerator($item['entry']); ?>
                 <div class="extension available">
                     <div class="info">
                         <h3 title="<?= $htmlEncode($item['entry']) ?>"><?= $htmlEncode($item['title']) ?> <?= sprintf($trans('Version'), $htmlEncode($item['version'])) ?></h3>
@@ -26,10 +27,11 @@ $htmlEncode = static fn(string $str) => htmlspecialchars($str, ENT_QUOTES, 'UTF-
                     <?php endif; ?>
                     <div class="options">
                         <button
-                                data-csrf-token="<?= $csrfTokenGenerator($item['entry']) ?>"
-                                data-id="<?= $htmlEncode($item['entry']) ?>"
+                                data-extension-action="install_extension"
+                                data-extension-id="<?= $htmlEncode($item['entry']) ?>"
+                                data-csrf-token="<?= $htmlEncode($extensionToken) ?>"
+                                data-message="<?= $htmlEncode(implode("\n", $item['install_notes'])) ?>"
                                 class="primary <?= isset($item['installed_version']) ? 'upgr_ext' : 'inst_ext' ?>"
-                                onclick="return changeExtension('install_extension', '<?= $htmlEncode(addslashes($item['entry'])) ?>', '<?= $csrfTokenGenerator($item['entry']) ?>', '<?= implode('\\n', array_map(static fn($s) => s2_htmlencode(addslashes($s)), $item['install_notes'])) ?>');"
                         >
                             <?= isset($item['installed_version']) ? $trans('Upgrade extension') . ' <span class="icon icon-warning"></span>'  : $trans('Install extension') ?>
                         </button>
@@ -65,6 +67,7 @@ $htmlEncode = static fn(string $str) => htmlspecialchars($str, ENT_QUOTES, 'UTF-
         </div>
         <div class="extensions">
             <?php foreach ($installedExtensions as $ext): ?>
+                <?php $extensionToken = $csrfTokenGenerator($ext['id']); ?>
                 <div class="extension <?= $ext['disabled'] == '1' ? 'disabled' : 'enabled' ?>">
                     <div class="info">
                         <h3 title="<?= $htmlEncode($ext['id']) ?>"><?= $htmlEncode($ext['title']) ?> <?= sprintf($trans('Version'), $htmlEncode($ext['version'])) ?></h3>
@@ -75,11 +78,16 @@ $htmlEncode = static fn(string $str) => htmlspecialchars($str, ENT_QUOTES, 'UTF-
                     <?php endif; ?>
                     <div class="options">
                         <button class="link-as-button secondary flip_ext"
-                                onclick="return changeExtension('flip_extension', '<?= $htmlEncode(addslashes($ext['id'])) ?>', '<?= $csrfTokenGenerator($ext['id']) ?>', '');">
+                                data-extension-action="flip_extension"
+                                data-extension-id="<?= $htmlEncode($ext['id']) ?>"
+                                data-csrf-token="<?= $htmlEncode($extensionToken) ?>">
                             <?= $ext['disabled'] != '1' ? $trans('Disable') : $trans('Enable') ?>
                         </button>
                         <button class="link-as-button danger uninst_ext"
-                                onclick="return changeExtension('uninstall_extension', '<?= $htmlEncode(addslashes($ext['id'])) ?>', '<?= $csrfTokenGenerator($ext['id']) ?>', '<?= $htmlEncode(addslashes($ext['uninstall_note'] ?? '')) ?>');">
+                                data-extension-action="uninstall_extension"
+                                data-extension-id="<?= $htmlEncode($ext['id']) ?>"
+                                data-csrf-token="<?= $htmlEncode($extensionToken) ?>"
+                                data-message="<?= $htmlEncode($ext['uninstall_note'] ?? '') ?>">
                             <?= $trans('Uninstall') ?>
                         </button>
                     </div>
@@ -93,6 +101,3 @@ $htmlEncode = static fn(string $str) => htmlspecialchars($str, ENT_QUOTES, 'UTF-
     <?php endif; ?>
 </section>
 <script src="<?php echo $basePath; ?>/_admin/js/extensions.js"></script>
-<script>
-    var sUrl = '<?php echo $basePath; ?>/_admin/ajax.php?';
-</script>

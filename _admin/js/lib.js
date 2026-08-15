@@ -390,6 +390,45 @@ function LoginInit() {
 document.addEventListener('DOMContentLoaded', () => {
     localizeTimes();
 
+    const loginForm = document.forms.loginform;
+    if (document.body.classList.contains('login_page') && loginForm) {
+        LoginInit();
+        loginForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            SendLoginForm();
+        });
+    }
+
+    document.querySelectorAll('.now-control[data-target-id][data-server-time]').forEach(function (control) {
+        const serverTime = new Date(control.dataset.serverTime);
+        const timeDifference = serverTime.getTime() - Date.now();
+
+        control.addEventListener('click', function (event) {
+            event.preventDefault();
+            const target = document.getElementById(control.dataset.targetId);
+            if (target && Number.isFinite(timeDifference)) {
+                target.value = new Date(Date.now() + timeDifference).toISOString().substring(0, 16);
+            }
+        });
+    });
+
+    if (typeof window.makeInlineForm === 'function') {
+        document.querySelectorAll('form[data-inline-form]').forEach(function (form) {
+            window.makeInlineForm(form.id, form.dataset.errorMessage || 'Unable to save the value.');
+        });
+    }
+
+    if (typeof window.makeAutocompleteControl === 'function') {
+        document.querySelectorAll('[data-autocomplete-control]').forEach(function (control) {
+            window.makeAutocompleteControl(
+                control.id,
+                control.dataset.allowEmpty === '1',
+                control.dataset.emptyLabel || '',
+                control.dataset.fetchUrl || ''
+            );
+        });
+    }
+
     document.body.addEventListener('keydown', function(e) {
         // Disable sending form on Enter on new and edit forms to prevent partial submission
         if (e.key === 'Enter' && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) {
@@ -412,4 +451,68 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-})
+
+    document.body.addEventListener('click', function (event) {
+        const flashClose = event.target.closest('.flash-message-close');
+        if (flashClose) {
+            flashClose.parentElement?.remove();
+            return;
+        }
+
+        const deleteAction = event.target.closest('[data-admin-delete]');
+        if (deleteAction) {
+            event.preventDefault();
+            if (!window.confirm(deleteAction.dataset.confirm || '')) {
+                return;
+            }
+
+            fetch(deleteAction.href, {
+                method: 'POST',
+                body: new URLSearchParams({csrf_token: deleteAction.dataset.csrfToken || ''})
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Delete failed with HTTP ' + response.status);
+                }
+                window.location.assign(deleteAction.dataset.successUrl || './');
+            }).catch(function (error) {
+                console.warn('Unable to delete the record:', error);
+            });
+            return;
+        }
+
+        const action = event.target.closest('[data-list-action]');
+        if (!action) {
+            return;
+        }
+
+        event.preventDefault();
+        const actionType = action.dataset.listAction;
+        if (actionType === 'toggle-delete') {
+            action.parentNode.querySelector('.list-action-delete-popup')?.classList.toggle('hidden');
+            return;
+        }
+        if (actionType === 'cancel-delete') {
+            action.closest('.list-action-delete-popup')?.classList.add('hidden');
+            return;
+        }
+        if (actionType !== 'submit-reload' && actionType !== 'submit-remove') {
+            return;
+        }
+
+        fetch(action.href, {
+            method: 'POST',
+            body: new URLSearchParams({csrf_token: action.dataset.csrfToken || ''})
+        }).then(function (response) {
+            if (!response.ok) {
+                throw new Error('Action failed with HTTP ' + response.status);
+            }
+            if (actionType === 'submit-remove') {
+                action.remove();
+            } else {
+                window.location.reload();
+            }
+        }).catch(function (error) {
+            console.warn('Unable to perform list action:', error);
+        });
+    });
+});

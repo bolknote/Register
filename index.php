@@ -10,6 +10,7 @@ declare(strict_types = 1);
  * @package   S2
  */
 
+use Register\Http\ContentSecurityPolicy;
 use Register\Http\ResponseCompressor;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
 use Symfony\Component\HttpFoundation\Request;
@@ -50,6 +51,7 @@ if (str_ends_with($request_uri, '---')) {
 
 $request  = Request::createFromGlobals();
 $response = $app->handle($request);
+ContentSecurityPolicy::apply($response);
 
 // Disable cache since all the pages are generated dynamically. We only use conditional GET.
 $response->headers->set('Pragma', 'no-cache');

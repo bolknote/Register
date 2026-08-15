@@ -19,6 +19,13 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 class CustomTemplateRenderer extends TemplateRenderer implements StatefulServiceInterface
 {
+    private const array ADMIN_YARD_TEMPLATE_OVERRIDES = [
+        'edit.php.inc'             => '_admin/templates/admin-yard/edit.php.inc',
+        'inline_form_cell.php.inc' => '_admin/templates/admin-yard/inline_form_cell.php.inc',
+        'list-actions.php.inc'     => '_admin/templates/admin-yard/list-actions.php.inc',
+        'show.php.inc'             => '_admin/templates/admin-yard/show.php.inc',
+    ];
+
     /**
      * @var array<mixed>|null
      */
@@ -43,6 +50,7 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
     #[\Override]
     public function render(string $_template_path, array $data = []): string
     {
+        $_template_path   = $this->resolveTemplateOverride($_template_path);
         $trans             = $this->translator->trans(...);
         $locale            = $this->translator->getLocale();
         $param             = $this->dynamicConfigProvider->get(...);
@@ -69,6 +77,23 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
         }
 
         return $output;
+    }
+
+    private function resolveTemplateOverride(string $templatePath): string
+    {
+        $realPath = realpath($templatePath);
+        if ($realPath === false) {
+            return $templatePath;
+        }
+
+        $normalizedPath = str_replace('\\', '/', $realPath);
+        if (!str_ends_with(dirname($normalizedPath), '/s2/admin-yard/templates')) {
+            return $templatePath;
+        }
+
+        $override = self::ADMIN_YARD_TEMPLATE_OVERRIDES[basename($normalizedPath)] ?? null;
+
+        return $override === null ? $templatePath : $this->rootDir . $override;
     }
 
     public function friendlyFilesize(int $size): string

@@ -237,11 +237,16 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             /** @var TranslatorInterface $translator */
             $translator = $container->get('register_search_translator');
             $urlBuilder = $container->get(UrlBuilder::class);
+            $quickSearchUrl = $urlBuilder->rawLink(
+                '/search',
+                $urlBuilder->hasPrefix() ? ['search=1', 'title='] : ['title=']
+            );
             $event->htmlTemplate->registerPlaceholder(
                 '<!-- s2_search_field -->',
                 '<form class="s2_search_form" method="get" action="' . $urlBuilder->link('/search') . '">'
                 . ($urlBuilder->hasPrefix() ? '<input type="hidden" name="search" value="1" />' : '')
-                . '<input type="text" name="q" id="s2_search_input" placeholder="' . $translator->trans('Search') . '"/></form>'
+                . '<input type="text" name="q" id="s2_search_input" data-s2-search-url="'
+                . s2_htmlencode($quickSearchUrl) . '" placeholder="' . s2_htmlencode($translator->trans('Search')) . '"/></form>'
             );
         });
 
@@ -249,16 +254,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $event->assetPack->addCss('../../_assets/register/search/search.css', [AssetPack::OPTION_MERGE]);
             $provider = $container->get(DynamicConfigProvider::class);
             if ($provider->getBoolProxy('S2_SEARCH_QUICK')->get()) {
-                $urlBuilder = $container->get(UrlBuilder::class);
                 $event->assetPack
                     ->addJs('../../_assets/register/search/autocomplete.js', [AssetPack::OPTION_MERGE])
-                    ->addInlineJs(\sprintf(
-                        '<script>var s2_search_url = "%s";</script>',
-                        $urlBuilder->rawLink(
-                            '/search',
-                            $urlBuilder->hasPrefix() ? ['search=1', 'title='] : ['title=']
-                        )
-                    ))
                 ;
             }
         });

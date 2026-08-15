@@ -10,33 +10,41 @@
 (function () {
     'use strict';
 
+    const root = document.querySelector('[data-register-search]');
+    if (!root) {
+        return;
+    }
+
+    const config = {
+        url: root.dataset.reindexUrl || '',
+        csrfToken: root.dataset.csrfToken || '',
+        scheduledMessage: root.dataset.scheduledMessage || '',
+        failureMessage: root.dataset.failureMessage || ''
+    };
     const progress = document.getElementById('register-search-progress');
 
     async function reindexQuery() {
         try {
-            const response = await fetch(window.registerSearchConfig.url, {
+            const response = await fetch(config.url, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams({csrf_token: window.registerSearchConfig.csrfToken})
+                body: new URLSearchParams({csrf_token: config.csrfToken})
             });
             const data = await response.json();
             if (!response.ok || data.success !== true || typeof data.status !== 'string') {
                 throw new Error(data.message || `Search indexing failed with HTTP ${response.status}.`);
             }
 
-            progress.textContent = `: ${window.registerSearchConfig.scheduledMessage}`;
+            progress.textContent = `: ${config.scheduledMessage}`;
         } catch (error) {
-            progress.textContent = `: ${window.registerSearchConfig.failureMessage}`;
+            progress.textContent = `: ${config.failureMessage}`;
             console.warn('Search repair scheduling failed:', error);
         }
     }
 
-    window.registerSearch = {
-        reindex: function () {
-            progress.textContent = '…';
-            void reindexQuery();
-
-            return false;
-        }
-    };
+    root.querySelector('[data-register-search-reindex]')?.addEventListener('click', function (event) {
+        event.preventDefault();
+        progress.textContent = '…';
+        void reindexQuery();
+    });
 }());

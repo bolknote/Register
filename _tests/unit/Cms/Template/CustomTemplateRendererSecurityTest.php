@@ -53,4 +53,32 @@ final class CustomTemplateRendererSecurityTest extends Unit
             @rmdir($tempDir);
         }
     }
+
+    public function testAdminYardTemplatesAreReplacedWithCspSafeOverrides(): void
+    {
+        $root = dirname(__DIR__, 4) . '/';
+        $translator = self::createStub(TranslatorInterface::class);
+        $translator->method('getLocale')->willReturn('en');
+        $translator->method('trans')->willReturnArgument(0);
+        $renderer = new CustomTemplateRenderer(
+            $translator,
+            new DynamicConfigProvider(),
+            new PermissionChecker(),
+            new EventDispatcher(),
+            '',
+            $root,
+        );
+
+        $output = $renderer->render($root . '_vendor/s2/admin-yard/src/Config/../../templates/list-actions.php.inc', [
+            'row'         => ['virtual_write_access_control' => true],
+            'rowActions'  => [['name' => 'delete']],
+            'csrfToken'   => 'test-token',
+            'entityName'  => 'Article',
+            'primaryKey'  => ['id' => 42],
+        ]);
+
+        self::assertStringContainsString('data-list-action="submit-reload"', $output);
+        self::assertStringContainsString('data-csrf-token="test-token"', $output);
+        self::assertStringNotContainsString('onclick=', $output);
+    }
 }

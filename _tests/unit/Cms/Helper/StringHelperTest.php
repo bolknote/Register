@@ -63,21 +63,22 @@ final class StringHelperTest extends Unit
         yield 'valid email' => [
             'John Doe',
             'john@example.com',
-            '<script type="text/javascript">var mailto="john"+"%40"+"example.com";' .
-            'document.write(\'<a href="mailto:\'+mailto+\'">John Doe</a>\');</script>' .
-            '<noscript>John Doe, <small>[john at example.com]</small></noscript>'
+            '<a href="mailto:john@example.com">John Doe</a>'
         ];
         yield 'email with single quote in name' => [
             "John O'Reilly",
             'john@example.com',
-            '<script type="text/javascript">var mailto="john"+"%40"+"example.com";' .
-            'document.write(\'<a href="mailto:\'+mailto+\'">John O\\\'Reilly</a>\');</script>' .
-            "<noscript>John O'Reilly, <small>[john at example.com]</small></noscript>"
+            '<a href="mailto:john@example.com">John O&#039;Reilly</a>'
         ];
         yield 'invalid email - no @' => [
             'John Doe',
             'invalid-email',
             'John Doe'
+        ];
+        yield 'HTML is escaped' => [
+            '<img src=x onerror=alert(1)>',
+            'john@example.com',
+            '<a href="mailto:john@example.com">&lt;img src=x onerror=alert(1)&gt;</a>'
         ];
         yield 'invalid email - multiple @' => [
             'John Doe',

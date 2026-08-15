@@ -14,7 +14,15 @@ import {ClosePictureDialog, ReturnAudio, ReturnImage} from './dialogs.js';
 import {setEditorDeps} from './deps.js';
 import {initAiTools} from './ai.js';
 
-const config = window.S2_EDITOR_CONFIG || {};
+const configElement = document.querySelector('[data-editor-config]');
+let config = {};
+if (configElement) {
+    try {
+        config = JSON.parse(configElement.dataset.editorConfig || '{}');
+    } catch (error) {
+        console.warn('Unable to parse editor configuration:', error);
+    }
+}
 
 setEditorDeps({
     PopupMessages: window.PopupMessages,
@@ -88,4 +96,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (config.tags && config.tags.inputId && Array.isArray(config.tags.suggestions)) {
         initTagsInput(config.tags);
     }
+
+    document.querySelector('.picture-dialog-close')?.addEventListener('click', ClosePictureDialog);
 });

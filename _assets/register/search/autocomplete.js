@@ -29,11 +29,11 @@
 		}
 	}
 
-	var last_search, eCurItem = null;
+	var last_search, search_url = '', eCurItem = null;
 
 	function doSearch (str)
 	{
-		xhr.open('GET', s2_search_url + encodeURIComponent(str), true);
+		xhr.open('GET', search_url + encodeURIComponent(str), true);
 		xhr.onreadystatechange = function ()
 		{
 			if (xhr.readyState == 4 && xhr.status == 200)
@@ -195,6 +195,9 @@
 		if (!SInp)
 			SInp = document.getElementById('s2_search_input_ext');
 		if (!SInp)
+			return;
+		search_url = SInp.getAttribute('data-s2-search-url') || '';
+		if (!search_url)
 			return;
 
 		var pos_info = SInp.getAttribute('data-s2_search-pos');

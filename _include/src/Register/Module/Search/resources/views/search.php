@@ -5,6 +5,7 @@ declare(strict_types = 1);
 /**
  * @var $trans callable
  * @var $action string
+ * @var $quickSearchUrl string
  * @var $query string
  * @var $num ?int
  * @var $num_info string
@@ -15,7 +16,9 @@ declare(strict_types = 1);
 
 ?>
 <form class="search-form" method="get" action="<?php echo s2_htmlencode($action); ?>">
-    <input class="search-input" id="s2_search_input_ext" type="text" name="q" value="<?php echo s2_htmlencode($query); ?>" />
+    <input class="search-input" id="s2_search_input_ext" type="text" name="q"
+           value="<?php echo s2_htmlencode($query); ?>"
+           data-s2-search-url="<?php echo s2_htmlencode($quickSearchUrl ?? ''); ?>" />
     <input class="search-button" type="submit" name="search" value="<?php echo $trans('Search button'); ?>" />
 </form>
 <?php

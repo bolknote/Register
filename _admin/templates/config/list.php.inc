@@ -110,8 +110,3 @@ $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTE
 </dialog>
 <script src="<?= $basePath ?>/_admin/js/config-ai-help.js"></script>
 <script src="js/ajax.js"></script>
-<script>
-    document.querySelector('.field-Config-value input[type="color"]').addEventListener('change', (event) => {
-        document.documentElement.style.setProperty('--page-secondary-background', event.target.value);
-    })
-</script>

@@ -5,12 +5,14 @@
 /** @var string $basePath */
 
 ?>
-<section class="admin-structure">
+<section class="admin-structure"
+         data-ajax-url="<?= s2_htmlencode($basePath . '/_admin/ajax.php?') ?>"
+         data-new-page-position="<?= s2_htmlencode((string)$param('S2_ADMIN_NEW_POS')) ?>">
     <h1><?= $trans('Page structure') ?></h1>
     <div class="structure-toolbar">
-        <button type="button" class="tree-tool expand" onclick="OpenAll(); return false;"
+        <button type="button" class="tree-tool expand"
                 title="<?php echo $trans('Expand'); ?>" aria-label="<?php echo $trans('Expand'); ?>">⤢</button>
-        <button type="button" class="tree-tool collapse" onclick="CloseAll(); return false;"
+        <button type="button" class="tree-tool collapse"
                 title="<?php echo $trans('Collapse'); ?>" aria-label="<?php echo $trans('Collapse'); ?>">⤡</button>
         <button type="button" class="tree-tool refresh"
                 title="<?php echo $trans('Refresh'); ?>" aria-label="<?php echo $trans('Refresh'); ?>">↻</button>
@@ -31,7 +33,3 @@
 <script src="<?php echo $basePath; ?>/_admin/lib/jquery-tools.js"></script>
 <script src="<?php echo $basePath; ?>/_admin/lib/jquery.jstree.js"></script>
 <script src="<?php echo $basePath; ?>/_admin/js/structure.js"></script>
-<script>
-    var sUrl = '<?php echo $basePath; ?>/_admin/ajax.php?';
-    var new_page_pos = <?php echo json_encode($param('S2_ADMIN_NEW_POS'), JSON_THROW_ON_ERROR); ?>;
-</script>

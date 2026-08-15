@@ -90,6 +90,49 @@ $aiProviderLabel = match ($aiProvider) {
     default => '',
 };
 
+$editorConfig = [
+    'formName'      => 'article-form',
+    'entityName'    => $entityName,
+    'textareaName'  => 'body',
+    'slugFieldName' => 'slug',
+    'templateId'    => $isPost ? 'blog.php' : null,
+    'templateScope' => $contentType,
+    'statusData'    => $statusData,
+    'tags'          => [
+        'inputId'          => 'id-tags',
+        'suggestions'      => $tagsList,
+        'suggestionsUrl'   => $basePath . '/_admin/ajax.php?action=register_tag_suggestions',
+        'placeholder'      => $trans('Tags'),
+        'removeLabel'      => $trans('Remove tag'),
+        'suggestionsLabel' => $trans('Tag suggestions'),
+    ],
+    'sUrl'          => $basePath . '/_admin/ajax.php?',
+    'datalists'     => $isPost ? [[
+        'inputName' => 'series',
+        'listId'    => 'post-labels-datalist',
+    ]] : [[
+        'inputName'   => 'template',
+        'listId'      => 'article-templates-datalist',
+        'placeholder' => $trans('inherited'),
+    ]],
+    'ai'            => [
+        'enabled'          => $aiConfigured,
+        'url'              => $basePath . '/_admin/ajax.php?action=register_ai_generate',
+        'contentId'        => isset($primaryKey['id']) ? (int)$primaryKey['id'] : 0,
+        'working'          => $trans('AI working'),
+        'requestFailed'    => $trans('AI request failed'),
+        'unchanged'        => $trans('AI result unchanged'),
+        'sourceChanged'    => $trans('AI source changed'),
+        'emptyText'        => $trans('AI empty text'),
+        'proofreadClean'   => $trans('AI proofreading clean'),
+    ],
+];
+$editorConfigJson = htmlspecialchars(
+    json_encode($editorConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR),
+    ENT_QUOTES,
+    'UTF-8',
+);
+
 $renderControl = static function (string $fieldName, object $control, bool $showLabel = true) use (
     $commentsNum,
     $contentType,
@@ -191,7 +234,8 @@ $renderControl = static function (string $fieldName, object $control, bool $show
 
 <script src="<?php echo $basePath; ?>/_admin/lib/image-q.min.js"></script>
 
-<section class="edit-content large-edit-form content-edit-content <?= $isPost ? 'post' : 'article' ?>-edit-content <?= $isNew ? 'is-new' : 'is-edit' ?>">
+<section class="edit-content large-edit-form content-edit-content <?= $isPost ? 'post' : 'article' ?>-edit-content <?= $isNew ? 'is-new' : 'is-edit' ?>"
+         data-editor-config="<?= $editorConfigJson ?>">
     <header class="content-editor-header">
         <h1><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
         <a href="?<?= http_build_query(['entity' => $entityName, 'action' => 'list']) ?>">
@@ -334,47 +378,7 @@ $renderControl = static function (string $fieldName, object $control, bool $show
     </form>
 </section>
 <dialog id="picture_dialog">
-    <button class="picture-dialog-close" onclick="this.parentNode.close()">&times;</button>
+    <button type="button" class="picture-dialog-close">&times;</button>
     <iframe src="" frameborder="0" id="picture_frame" name="picture_frame"></iframe>
 </dialog>
-<script>
-    window.S2_EDITOR_CONFIG = {
-        formName: 'article-form',
-        entityName: <?= json_encode($entityName, JSON_THROW_ON_ERROR) ?>,
-        textareaName: 'body',
-        slugFieldName: 'slug',
-        templateId: <?= json_encode($isPost ? 'blog.php' : null, JSON_THROW_ON_ERROR) ?>,
-        templateScope: <?= json_encode($contentType, JSON_THROW_ON_ERROR) ?>,
-        statusData: <?= json_encode($statusData, JSON_THROW_ON_ERROR) ?>,
-        tags: <?= json_encode([
-            'inputId'          => 'id-tags',
-            'suggestions'      => $tagsList,
-            'suggestionsUrl'   => $basePath . '/_admin/ajax.php?action=register_tag_suggestions',
-            'placeholder'      => $trans('Tags'),
-            'removeLabel'      => $trans('Remove tag'),
-            'suggestionsLabel' => $trans('Tag suggestions'),
-        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>,
-        sUrl: '<?php echo $basePath; ?>/_admin/ajax.php?',
-        datalists: <?= json_encode($isPost ? [[
-            'inputName' => 'series',
-            'listId' => 'post-labels-datalist',
-        ]] : [[
-            'inputName' => 'template',
-            'listId' => 'article-templates-datalist',
-            'placeholder' => $trans('inherited'),
-        ]], JSON_THROW_ON_ERROR) ?>,
-        ai: <?= json_encode([
-            'enabled'       => $aiConfigured,
-            'url'           => $basePath . '/_admin/ajax.php?action=register_ai_generate',
-            'contentId'     => isset($primaryKey['id']) ? (int)$primaryKey['id'] : 0,
-            'working'       => $trans('AI working'),
-            'requestFailed' => $trans('AI request failed'),
-            'unchanged'     => $trans('AI result unchanged'),
-            'sourceChanged' => $trans('AI source changed'),
-            'emptyText'     => $trans('AI empty text'),
-            'proofreadClean'   => $trans('AI proofreading clean'),
-        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR) ?>
-    };
-
-</script>
 <script type="module" src="<?php echo $basePath; ?>/_admin/js/editor/entry.js"></script>

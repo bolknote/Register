@@ -30,6 +30,10 @@ class CustomFormControlFactory extends FormControlFactory
             return new HtmlTextarea($fieldName);
         }
 
+        if ($control === 'autocomplete') {
+            return new CustomAutocomplete($fieldName);
+        }
+
         return parent::create($control, $fieldName);
     }
 }

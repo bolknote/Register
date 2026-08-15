@@ -12,6 +12,7 @@ declare(strict_types = 1);
  * @package   S2
  */
 
+use Register\Http\ContentSecurityPolicy;
 use S2\AdminYard\TemplateRenderer;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
@@ -32,6 +33,7 @@ if ($response === null) {
     ]);
     $response         = new Response($content);
 }
+ContentSecurityPolicy::apply($response);
 
 // direct call of header() to override default PHP header
 header('X-Powered-By: Register/' . $app->container->getParameter('version'));

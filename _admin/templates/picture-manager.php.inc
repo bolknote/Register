@@ -1,9 +1,5 @@
 <?php
 
-$jsvarencode = static function ($var) {
-    return str_replace(array('\\', '\'', '</script>', "\n", "\r"), array('\\\\', '\\\'', '</scr\' + \'ipt>', "\\\n", ''), $var);
-};
-
 $bytesFromString = static function ($val)
 {
     $val  = trim($val);
@@ -37,7 +33,12 @@ $maxFileSize = $bytesFromString(ini_get('upload_max_filesize'))
 
 ?>
 <!DOCTYPE html>
-<html lang="<?= $locale ?>" data-color-scheme="<?= s2_htmlencode($styleColorScheme()) ?>">
+<html lang="<?= $locale ?>"
+      data-color-scheme="<?= s2_htmlencode($styleColorScheme()) ?>"
+      data-ajax-url="<?= s2_htmlencode($basePath . '/_admin/ajax.php?') ?>"
+      data-picture-prefix="<?= s2_htmlencode($imagePath) ?>"
+      data-max-file-size="<?= $maxFileSize ?>"
+      data-friendly-max-file-size="<?= s2_htmlencode($friendlyFilesize($maxFileSize)) ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -49,12 +50,6 @@ $maxFileSize = $bytesFromString(ini_get('upload_max_filesize'))
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>"/>
     <script src="<?php echo $basePath; ?>/_admin/js/lib.js"></script>
     <script src="<?php echo $basePath; ?>/_admin/js/ajax.js"></script>
-    <script>
-        var sUrl = '<?php echo $basePath; ?>/_admin/ajax.php?';
-        var sPicturePrefix = '<?php echo $imagePath; ?>';
-        var iMaxFileSize = <?php echo $maxFileSize; ?>;
-        var sFriendlyMaxFileSize = '<?php echo $friendlyFilesize($maxFileSize); ?>';
-    </script>
     <style>:root {
             --page-secondary-background: <?= $param('S2_ADMIN_COLOR') ?>;
         }</style>
@@ -87,8 +82,7 @@ $maxFileSize = $bytesFromString(ini_get('upload_max_filesize'))
                       action="<?php echo $basePath; ?>/_admin/ajax.php?action=upload" method="post">
                     <?php echo $trans('Upload'); ?> <?php echo $trans('Upload to'); ?> <span
                         id="fold_name"><strong><?php echo $trans('Pictures'); ?></strong></span>
-                    <input name="pictures[]" multiple="multiple" min="1" max="999" size="20" type="file"
-                           onchange="UploadChange(this);"/><br/>
+                    <input name="pictures[]" multiple="multiple" min="1" max="999" size="20" type="file"/><br/>
                     <?php printf($trans('Upload limit'), $friendlyFilesize($maxFileSize), $friendlyFilesize($bytesFromString(ini_get('post_max_size')))) ?>
                     <br/>
                     <input type="hidden" name="dir" value=""/>

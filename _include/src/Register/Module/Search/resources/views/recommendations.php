@@ -23,39 +23,42 @@ $getImgMarkup = static function (ImgDto $imgDto, int $columnNum): string
     $percent         = 100.0 * $imgDto->getRatio();
     $src             = $imgDto->getSrc();
     $class           = $imgDto->getClass();
-    $fallbackHandler = '';
+    $fallbackAttributes = '';
+    $escapedSrc         = s2_htmlencode($src);
 
     if ($class === 'right') {
         $height = $percent * 0.35;
 
-        return "<div class='recommendation-img-right-wrapper' style=\"width: 35%; padding-top: {$height}%\"><img loading='lazy' src=\"$src\" class='recommendation-img' alt='' {$fallbackHandler}></div>";
+        return "<div class='recommendation-img-right-wrapper' style=\"width: 35%; padding-top: {$height}%\"><img loading='lazy' src=\"$escapedSrc\" class='recommendation-img' alt=''></div>";
     }
 
     if ($class === 'right2') {
         $height = $percent * 0.18;
 
-        return "<div class='recommendation-img-right-wrapper' style=\"width: 18%; padding-top: {$height}%\"><img loading='lazy' src=\"$src\" class='recommendation-img' alt='' {$fallbackHandler}></div>";
+        return "<div class='recommendation-img-right-wrapper' style=\"width: 18%; padding-top: {$height}%\"><img loading='lazy' src=\"$escapedSrc\" class='recommendation-img' alt=''></div>";
     }
 
     if ($class === 'thumb') {
         $h = 120.0 * $imgDto->getRatio();
         $w = 120;
 
-        return "<div class='recommendation-img-thumb-wrapper' style='height: {$h}px; width: {$w}px;'><img loading='lazy' class='recommendation-img' src='$src' alt='' {$fallbackHandler}></div><br clear='left'>";
+        return "<div class='recommendation-img-thumb-wrapper' style='height: {$h}px; width: {$w}px;'><img loading='lazy' class='recommendation-img' src='$escapedSrc' alt=''></div><br clear='left'>";
     }
 
     $class = '';
     if (strpos($src, 'youtube.com')) {
         if ($columnNum === 1) {
             $src = str_replace('hq720', 'sddefault', $src);
-            $fallbackHandler = 'onload="if (!this.flipped && this.naturalWidth < 640) { this.flipped = true; this.src = this.src.replace(\'sddefault\', \'hqdefault\') }"';
+            $fallbackAttributes = 'data-youtube-fallback-width="640" data-youtube-fallback-from="sddefault" data-youtube-fallback-to="hqdefault"';
         } else {
-            $fallbackHandler = 'onload="if (!this.flipped && this.naturalWidth < 1280) { this.flipped = true; this.src = this.src.replace(\'hq720\', \'hqdefault\') }"';
+            $fallbackAttributes = 'data-youtube-fallback-width="1280" data-youtube-fallback-from="hq720" data-youtube-fallback-to="hqdefault"';
         }
         $class = 'recommendation-video-wrapper';
     }
 
-    return "<div class='recommendation-img-wrapper {$class}' style='padding-top: $percent%'><img loading='lazy' class='recommendation-img' src='$src' alt='' {$fallbackHandler}></div>";
+    $escapedSrc = s2_htmlencode($src);
+
+    return "<div class='recommendation-img-wrapper {$class}' style='padding-top: $percent%'><img loading='lazy' class='recommendation-img' src='$escapedSrc' alt='' {$fallbackAttributes}></div>";
 };
 
 $getColumnsNumFromGridArea = static function (string $area): int

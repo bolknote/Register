@@ -14,6 +14,7 @@ declare(strict_types = 1);
 use Psr\Log\LogLevel;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Http\ContentSecurityPolicy;
 use Register\Installation\WelcomePostInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
@@ -43,6 +44,7 @@ define('S2_SHOW_QUERIES', 1);
 
 // We need some stuff
 require S2_ROOT . '_vendor/autoload.php';
+ContentSecurityPolicy::send();
 
 /**
  * Display styled error message and terminate script execution
@@ -654,20 +656,7 @@ function renderInstallForm(array $lang_install, array $languages, string $curren
                 ?>
             </label>
         </div>
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                document.querySelectorAll('input[name="req_db_type"]').forEach(radio => radio.addEventListener('change', function () {
-                    const isSqlite = document.forms['install_form'].elements['req_db_type'].value === 'sqlite';
-
-                    document.getElementById('fld2').disabled = isSqlite;
-                    document.getElementById('fld4').disabled = isSqlite;
-                    document.getElementById('fld5').disabled = isSqlite;
-                }));
-                Array.from(document.forms['install_form'].elements['req_db_type']).forEach(radio => {
-                    radio.dispatchEvent(new Event('change', {bubbles: true}));
-                });
-            });
-        </script>
+        <script src="js/install.js" defer></script>
         <div class="input text required">
             <label for="fld2">
                 <span><?php echo $lang_install['Database server'] ?><em>*</em>

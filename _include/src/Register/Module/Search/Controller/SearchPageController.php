@@ -145,6 +145,10 @@ readonly class SearchPageController implements ControllerInterface
         }
 
         $content['action'] = $this->urlBuilder->link('/search');
+        $content['quickSearchUrl'] = $this->urlBuilder->rawLink(
+            '/search',
+            $this->urlBuilder->hasPrefix() ? ['search=1', 'title='] : ['title='],
+        );
 
         $template->putInPlaceholder('text', $this->viewer->render('search', $content, Module::class));
         $template->putInPlaceholder('title', $this->translator->trans('Search'));

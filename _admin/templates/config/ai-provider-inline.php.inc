@@ -20,7 +20,9 @@ $holderId = $formId . '-' . $fieldName;
 
 ?>
 <span class="inline-form-holder" id="<?= $holderId ?>"><?= htmlspecialchars($value, ENT_QUOTES, 'UTF-8') ?></span>
-<form class="inline-form ai-provider-inline-form" id="<?= $formId ?>" method="POST" action="?<?= $formQueryParams ?>">
+<form class="inline-form ai-provider-inline-form" id="<?= $formId ?>" method="POST" action="?<?= $formQueryParams ?>"
+      data-inline-form
+      data-error-message="<?= htmlspecialchars($trans('Something went wrong and the value was not saved.'), ENT_QUOTES, 'UTF-8') ?>">
     <?php foreach ($form->getHiddenControls() as $control): ?>
         <?= $control->getHtml() ?>
     <?php endforeach; ?>
@@ -36,4 +38,3 @@ $holderId = $formId . '-' . $fieldName;
         <?= htmlspecialchars($trans('AI key help button'), ENT_QUOTES, 'UTF-8') ?>
     </button>
 </form>
-<script>makeInlineForm('<?= $formId ?>', <?= json_encode($trans('Something went wrong and the value was not saved.'), JSON_THROW_ON_ERROR) ?>);</script>

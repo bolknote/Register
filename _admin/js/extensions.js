@@ -6,6 +6,9 @@
  * @package S2
  */
 
+var extensionRoot = document.querySelector('.admin-extensions');
+var sUrl = extensionRoot ? extensionRoot.dataset.ajaxUrl : '';
+
 function changeExtension(sAction, sId, sCsrfToken, sMessage) {
     if (sAction === 'install_extension') {
         if (!confirm((sMessage !== '' ? s2_lang.install_message.replaceAll('%s', sMessage) : '') + s2_lang.install_extension.replaceAll('%s', sId))) {
@@ -40,4 +43,20 @@ function changeExtension(sAction, sId, sCsrfToken, sMessage) {
     ;
 
     return false;
+}
+
+if (extensionRoot) {
+    extensionRoot.addEventListener('click', function (event) {
+        const button = event.target.closest('button[data-extension-action]');
+        if (!button) {
+            return;
+        }
+
+        changeExtension(
+            button.dataset.extensionAction || '',
+            button.dataset.extensionId || '',
+            button.dataset.csrfToken || '',
+            button.dataset.message || ''
+        );
+    });
 }

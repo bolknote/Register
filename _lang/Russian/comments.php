@@ -5,7 +5,7 @@ declare(strict_types = 1);
 return [
 
 	'Save comment'             => 'Скопируйте на всякий случай свой комментарий, чтобы он не&nbsp;потерялся.',
-	'Go back'                  => 'Вернитесь <a href="javascript:history.back()">назад</a> и&nbsp;исправьте ошибку.',
+	'Go back'                  => 'Вернитесь <a href="#" data-history-back>назад</a> и&nbsp;исправьте ошибку.',
 	'Fix error'                => 'Исправьте ошибку перед отправкой комментария.',
 	'Email subject'            => 'Комментарий к %s',
 	'Comment sent'             => 'Комментарий отправлен',

@@ -63,7 +63,7 @@ foreach ($flashMessages as $type => $messages) {
         ?>
         <div class="flash-message flash-<?= $type ?>">
             <?= htmlspecialchars($message, ENT_QUOTES, 'UTF-8') ?>
-            <button type="button" class="flash-message-close" onclick="this.parentElement.remove()">&times;</button>
+            <button type="button" class="flash-message-close">&times;</button>
         </div>
         <?php
     }

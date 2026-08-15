@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 use Psr\Log\LoggerInterface;
 use Register\Backup\BackupDirectoryResolver;
+use Register\Http\ContentSecurityPolicy;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
@@ -210,6 +211,7 @@ try {
     $app->container->getParameter('base_url');
 } catch (ParameterNotFoundException $e) {
     // S2 is not installed
+    ContentSecurityPolicy::send();
     $configFilename   = s2_get_config_filename();
     $installationPath = substr(
             dirname(__DIR__),

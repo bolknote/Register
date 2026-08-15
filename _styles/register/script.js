@@ -1,6 +1,46 @@
 (function () {
     'use strict';
 
+    function initCspSafeInteractions() {
+        document.querySelectorAll('[data-history-back]').forEach(function (link) {
+            link.addEventListener('click', function (event) {
+                event.preventDefault();
+                window.history.back();
+            }, false);
+        });
+
+        document.querySelectorAll('[data-view-debug-toggle]').forEach(function (toggle) {
+            toggle.addEventListener('click', function () {
+                var details = toggle.nextElementSibling;
+                if (details) {
+                    details.style.display = details.style.display === 'block' ? 'none' : 'block';
+                }
+            }, false);
+        });
+
+        function applyYouTubeFallback(image) {
+            if (image.dataset.youtubeFallbackDone === '1' || !image.complete) {
+                return;
+            }
+
+            var minimumWidth = Number.parseInt(image.dataset.youtubeFallbackWidth || '0', 10);
+            image.dataset.youtubeFallbackDone = '1';
+            if (image.naturalWidth < minimumWidth) {
+                image.src = image.src.replace(
+                    image.dataset.youtubeFallbackFrom || '',
+                    image.dataset.youtubeFallbackTo || ''
+                );
+            }
+        }
+
+        document.addEventListener('load', function (event) {
+            if (event.target.matches?.('img[data-youtube-fallback-width]')) {
+                applyYouTubeFallback(event.target);
+            }
+        }, true);
+        document.querySelectorAll('img[data-youtube-fallback-width]').forEach(applyYouTubeFallback);
+    }
+
     function initCommentStorage() {
         var form = document.forms.post_comment;
         if (!form) {
@@ -57,6 +97,8 @@
             // Browsers may disable local storage. Commenting must still work.
         }
     }
+
+    initCspSafeInteractions();
 
     function initLocalTimes() {
         if (typeof window.Intl === 'undefined' || typeof window.Intl.DateTimeFormat === 'undefined') {

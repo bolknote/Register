@@ -5,7 +5,7 @@ declare(strict_types = 1);
 return [
 
 	'Save comment'             => 'Copy your comment somewhere to prevent its loss.',
-	'Go back'                  => 'Go <a href="javascript:history.back()">back</a> and&nbsp;fix errors.',
+	'Go back'                  => 'Go <a href="#" data-history-back>back</a> and&nbsp;fix errors.',
 	'Fix error'                => 'Fix errors before sending the comment.',
 	'Email subject'            => 'Comment to %s',
 	'Comment sent'             => 'Comment has been sent',

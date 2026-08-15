@@ -21,15 +21,14 @@
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
     <script src="<?= $basePath ?>/_admin/js/lib.js"></script>
 </head>
-<body class="login_page" onload="LoginInit();">
+<body class="login_page">
 <div id="login_wrap">
     <a class="login-brand" href="<?= $basePath ?>/" title="<?= $trans('Open site') ?>">
         <span class="admin-brand-mark" aria-hidden="true">ℜ</span>
         <span>Register</span>
     </a>
     <noscript><p><?php echo $trans('Noscript'); ?></p></noscript>
-    <form name="loginform" class="loginform" method="post" action=""
-          onsubmit="SendLoginForm(); return false;">
+    <form name="loginform" class="loginform" method="post" action="">
         <p>
             <label>
                 <span><?php echo $trans('Login'); ?></span>

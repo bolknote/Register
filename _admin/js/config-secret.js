@@ -77,3 +77,18 @@ function makeSecretInlineForm(formId, messages) {
         }
     });
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form[data-secret-inline-form]').forEach(function (form) {
+        makeSecretInlineForm(form.id, {
+            configured: form.dataset.configuredMessage || '',
+            empty: form.dataset.emptyMessage || '',
+            error: form.dataset.errorMessage || 'Unable to save the value.',
+            clearConfirm: form.dataset.clearConfirmMessage || ''
+        });
+    });
+
+    document.querySelector('.field-Config-value input[type="color"]')?.addEventListener('change', function (event) {
+        document.documentElement.style.setProperty('--page-secondary-background', event.target.value);
+    });
+});

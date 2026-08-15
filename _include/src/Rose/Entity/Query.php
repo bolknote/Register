@@ -219,6 +219,7 @@ class Query
         return $result;
     }
 
+    /** @return int<0, max> */
     private function normalizeReplacementCount(mixed $count): int
     {
         return \is_int($count) && $count >= 0 ? $count : 0;

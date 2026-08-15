@@ -7,6 +7,10 @@
  * @license   https://opensource.org/license/mit MIT
  * @package   S2
  */
+const structureRoot = document.querySelector('.admin-structure');
+var sUrl = structureRoot ? structureRoot.dataset.ajaxUrl : '';
+var new_page_pos = structureRoot ? structureRoot.dataset.newPagePosition : '';
+
 const Search = (function () {
     let sSearch = '',
         eInput;
@@ -100,6 +104,8 @@ $(function () {
         });
     }
 
+    $('.structure-toolbar .expand').click(OpenAll);
+    $('.structure-toolbar .collapse').click(CloseAll);
     $('.structure-toolbar .refresh').click(refreshTree);
     $('#create_page_button').click(createArticle);
 

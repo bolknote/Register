@@ -10,6 +10,8 @@
 
 declare(strict_types = 1);
 
+$adminAssetPath = rtrim(str_replace('\\', '/', dirname($installationPath)), '/');
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -99,9 +101,13 @@ declare(strict_types = 1);
             margin: 0.5em 0 1em;
         }
         .toggle-config {
+            background: none;
+            border: 0;
             color: #05c;
             cursor: pointer;
             display: inline-block;
+            font: inherit;
+            padding: 0;
             text-decoration: underline;
             text-decoration-style: dashed;
             text-decoration-color: rgba(0, 85, 204, 0.5);
@@ -148,7 +154,7 @@ declare(strict_types = 1);
         <p><strong>Need help?</strong></p>
         <ul>
             <li>If you already installed Register, restore <code><?=$configFilename?></code> from a backup.</li>
-            <li>Or you can create the file manually using <span class="toggle-config">this template</span></li>
+            <li>Or you can create the file manually using <button type="button" class="toggle-config">this template</button></li>
         </ul>
 
         <div class="config-example" id="configExample">
@@ -185,10 +191,6 @@ return [
     </div>
 </div>
 
-<script>
-    document.querySelector('.toggle-config').addEventListener('click', function() {
-        document.getElementById('configExample').classList.toggle('expanded');
-    });
-</script>
+<script src="<?= s2_htmlencode($adminAssetPath . '/js/installation-required.js') ?>" defer></script>
 </body>
 </html>

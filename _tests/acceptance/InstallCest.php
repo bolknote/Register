@@ -11,6 +11,7 @@ namespace acceptance;
 
 use AcceptanceTester;
 use Codeception\Example;
+use Register\Http\ContentSecurityPolicy;
 
 /**
  * @group install
@@ -88,6 +89,9 @@ class InstallCest
         $I->seeElement('a.visual-login[href$="/_admin/index.php"]');
         $I->see('ℜ', 'a.visual-login');
         $I->dontSeeElement('a.visual-login svg');
+        $this->assertCsp($I);
+        $I->dontSeeElement('script:not([src])');
+        $I->dontSeeElement('[onclick], [onload], [onsubmit], [onchange]');
         $I->amOnPage('/?search=1&q=personal+blog');
         $I->see('A place to write');
         $I->see('small, fast engine');
@@ -109,6 +113,14 @@ class InstallCest
         $this->testAdminTagListAndEdit($I);
         $this->testAdminCommentManagement($I);
         $this->testETag($I);
+    }
+
+    private function assertCsp(AcceptanceTester $I): void
+    {
+        $headers = array_change_key_case($I->grabHeaders(), CASE_LOWER);
+
+        $I->assertSame([ContentSecurityPolicy::POLICY], $headers['content-security-policy'] ?? []);
+        $I->assertSame(['nosniff'], $headers['x-content-type-options'] ?? []);
     }
 
     private function testHierarchyRedirects(AcceptanceTester $I): void
@@ -913,12 +925,11 @@ class InstallCest
 
         $moderator3CommentId = $this->findCommentId($I, 'This is a comment from a moderator3.');
         $deleteUrl = '?entity=Comment&action=delete&id=' . $moderator3CommentId;
-        $onClickHandler = $I->grabAttributeFrom('[href="' . $deleteUrl . '"]', 'onclick');
-        if ($onClickHandler === null || ($tokenPosition = strrpos($onClickHandler, 'csrf_token=')) === false) {
+        $csrfToken = $I->grabAttributeFrom('[href="' . $deleteUrl . '"]', 'data-csrf-token');
+        if ($csrfToken === null || $csrfToken === '') {
             throw new \RuntimeException('The delete action does not contain a CSRF token.');
         }
 
-        $csrfToken = substr($onClickHandler, $tokenPosition + 11, 40);
         $I->sendAjaxPostRequest('/_admin/index.php' . $deleteUrl, ['csrf_token' => $csrfToken]);
         $I->amOnPage($publicUrl);
         $I->dontSee('Moderator3', '.comment-name');

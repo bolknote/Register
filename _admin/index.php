@@ -9,6 +9,7 @@
 
 declare(strict_types = 1);
 
+use Register\Http\ContentSecurityPolicy;
 use S2\Cms\Admin\AdminRequestHandler;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,6 +22,7 @@ $app = require __DIR__ . '/../_include/common.php';
 $request = Request::createFromGlobals();
 $handler  = $app->container->get(AdminRequestHandler::class);
 $response = $handler->handle($request);
+ContentSecurityPolicy::apply($response);
 
 // direct call of header() to override default PHP header
 header('X-Powered-By: Register/' . $app->container->getParameter('version'));
