@@ -13,6 +13,7 @@ use Psr\Log\LoggerInterface;
 use Register\Backup\BackupFile;
 use Register\Backup\BackupManager;
 use S2\AdminYard\Translator;
+use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -26,6 +27,7 @@ final readonly class BackupAdminController
         private BackupManager     $backupManager,
         private BackupToken       $backupToken,
         private PermissionChecker $permissionChecker,
+        private AuthManager       $authManager,
         private Translator        $translator,
         private LoggerInterface   $logger,
         private SecurityAuditLogger $securityAuditLogger,
@@ -34,20 +36,9 @@ final readonly class BackupAdminController
 
     public function create(Request $request): Response
     {
-        if (!$request->isMethod(Request::METHOD_POST)) {
-            return new Response('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
-        }
-
-        if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS)) {
-            $this->audit('create', SecurityAuditLogger::OUTCOME_DENIED);
-
-            return new Response($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
-        }
-
-        if (!$this->backupToken->matches($request->request->getString('csrf_token'))) {
-            $this->audit('create', SecurityAuditLogger::OUTCOME_DENIED);
-
-            return new Response($this->translator->trans('Invalid backup token'), Response::HTTP_FORBIDDEN);
+        $denial = $this->authorizeSensitiveOperation($request, 'create');
+        if ($denial instanceof Response) {
+            return $denial;
         }
 
         try {
@@ -65,14 +56,9 @@ final readonly class BackupAdminController
 
     public function downloadLatest(Request $request): Response
     {
-        if (!$request->isMethod(Request::METHOD_GET)) {
-            return new Response('Only GET requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
-        }
-
-        if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS)) {
-            $this->audit('download', SecurityAuditLogger::OUTCOME_DENIED);
-
-            return new Response($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
+        $denial = $this->authorizeSensitiveOperation($request, 'download');
+        if ($denial instanceof Response) {
+            return $denial;
         }
 
         $backup = $this->backupManager->latest();
@@ -86,6 +72,39 @@ final readonly class BackupAdminController
         $this->audit('download', SecurityAuditLogger::OUTCOME_SUCCESS);
 
         return $response;
+    }
+
+    private function authorizeSensitiveOperation(Request $request, string $action): ?Response
+    {
+        if (!$request->isMethod(Request::METHOD_POST)) {
+            $this->audit($action, SecurityAuditLogger::OUTCOME_DENIED);
+
+            return new Response(
+                $this->translator->trans('Only POST requests are allowed.'),
+                Response::HTTP_METHOD_NOT_ALLOWED,
+                ['Allow' => Request::METHOD_POST],
+            );
+        }
+
+        if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS)) {
+            $this->audit($action, SecurityAuditLogger::OUTCOME_DENIED);
+
+            return new Response($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->backupToken->matches($request->request->getString('csrf_token'))) {
+            $this->audit($action, SecurityAuditLogger::OUTCOME_DENIED);
+
+            return new Response($this->translator->trans('Invalid backup token'), Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->authManager->verifyCurrentPassword($request, $request->request->getString('password'))) {
+            $this->audit($action, SecurityAuditLogger::OUTCOME_DENIED);
+
+            return new Response($this->translator->trans('Invalid current password'), Response::HTTP_FORBIDDEN);
+        }
+
+        return null;
     }
 
     private function downloadResponse(BackupFile $backup): BinaryFileResponse

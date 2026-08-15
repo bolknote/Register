@@ -23,9 +23,11 @@ stop unrelated runnable jobs.
 A full database-and-media snapshot cannot be safely interrupted in the middle of a database utility
 or filesystem call. Register therefore starts it only when at least four seconds remain in the
 shutdown slice. Administrators with user-management permission can inspect the latest archive,
-create a new one explicitly, and download it from **Search & statistics** in the control panel. On a
-host whose request time limit is too short for an automatic full snapshot, use that explicit action
-or the command-line backup below; neither creates a separate queue executor.
+create a new one explicitly, and download it from **System status** in the control panel.
+Both manual operations require a fresh current-password check in addition to the authenticated
+session and CSRF token. On a host whose request time limit is too short for an automatic full
+snapshot, use that explicit action or the command-line backup below; neither creates a separate
+queue executor.
 
 A command-line backup can be forced at any time:
 

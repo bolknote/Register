@@ -392,6 +392,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(BackupManager::class),
             $container->get(BackupToken::class),
             $container->get(PermissionChecker::class),
+            $container->get(AuthManager::class),
             $container->get(Translator::class),
             $container->get(\Psr\Log\LoggerInterface::class),
             $container->get(SecurityAuditLogger::class),
@@ -460,7 +461,6 @@ class AdminExtension implements ExtensionInterface
     {
         $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event) use ($container): void {
             $event->allowGet('register_tag_suggestions');
-            $event->allowGet('register_backup_download');
             $event->controllerMap['register_tag_suggestions'] = static function (PermissionChecker $permissionChecker) use ($container): \Symfony\Component\HttpFoundation\JsonResponse {
                 if (!$permissionChecker->isGranted(PermissionChecker::PERMISSION_CREATE_ARTICLES)) {
                     return new \Symfony\Component\HttpFoundation\JsonResponse(

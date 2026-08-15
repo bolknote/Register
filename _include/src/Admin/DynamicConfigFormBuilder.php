@@ -56,7 +56,7 @@ class DynamicConfigFormBuilder
         'S2_ANTISPAM_SECRET'  => 'hidden',
         'S2_ANTISPAM_SPAM_SCORE' => 'int',
         'S2_ANTISPAM_BLATANT_SCORE' => 'int',
-        'S2_AKISMET_KEY'      => 'string',
+        'S2_AKISMET_KEY'      => 'secret',
         'S2_PREMODERATION'    => 'boolean',
 
         'Navigation config' => 'title',

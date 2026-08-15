@@ -21,9 +21,6 @@
                 </dd>
             </div>
         </dl>
-        <p class="stat-item-actions backup-download">
-            <a href="<?= $basePath ?>/_admin/ajax.php?action=register_backup_download"><?= $trans('Download backup') ?></a>
-        </p>
     <?php else: ?>
         <p class="stat-status"><?= $trans('No backups yet') ?></p>
     <?php endif; ?>
@@ -32,6 +29,13 @@
         : $trans('Automatic backups disabled') ?></p>
     <form class="backup-actions" method="post" action="<?= $basePath ?>/_admin/ajax.php?action=register_backup_create">
         <input type="hidden" name="csrf_token" value="<?= s2_htmlencode($csrfToken) ?>">
+        <label>
+            <span><?= $trans('Current password') ?></span>
+            <input type="password" name="password" autocomplete="current-password" maxlength="255" required>
+        </label>
+        <?php if ($latestBackup instanceof \Register\Backup\BackupFile): ?>
+            <button type="submit" formaction="<?= $basePath ?>/_admin/ajax.php?action=register_backup_download"><?= $trans('Download backup') ?></button>
+        <?php endif; ?>
         <button type="submit"><?= $trans('Create backup') ?></button>
     </form>
 </div>

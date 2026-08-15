@@ -90,6 +90,7 @@ return [
     'Automatic backups disabled' => 'Automatic backups are disabled in config.php.',
     'Create backup'              => 'Create and download now',
     'Invalid backup token'       => 'The backup request has expired. Reload the dashboard and try again.',
+    'Invalid current password'   => 'The current password is incorrect.',
     'Backup failed'              => 'The backup could not be created. Check the Register log.',
 
     // Account security

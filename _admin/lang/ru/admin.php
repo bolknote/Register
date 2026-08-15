@@ -90,6 +90,7 @@ return [
     'Automatic backups disabled' => 'Автоматические копии отключены в config.php.',
     'Create backup'              => 'Создать и скачать сейчас',
     'Invalid backup token'       => 'Запрос устарел. Перезагрузите дашборд и повторите.',
+    'Invalid current password'   => 'Неверный текущий пароль.',
     'Backup failed'              => 'Не удалось создать копию. Подробности записаны в журнал Register.',
 
     // Безопасность учётной записи
