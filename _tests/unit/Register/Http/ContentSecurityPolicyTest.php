@@ -122,6 +122,15 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertFileExists($root . '/_assets/register/standalone.css');
     }
 
+    public function testRecommendationMarkupDoesNotRequireInlineStyles(): void
+    {
+        $filename = dirname(__DIR__, 4) . '/_include/src/Register/Module/Search/resources/views/recommendations.php';
+        $source = file_get_contents($filename);
+        self::assertIsString($source);
+        self::assertDoesNotMatchRegularExpression('~<style\b~i', $source);
+        self::assertDoesNotMatchRegularExpression('~\sstyle\s*=~i', $source);
+    }
+
     /**
      * @param list<string> $paths
      * @return \Generator<string>

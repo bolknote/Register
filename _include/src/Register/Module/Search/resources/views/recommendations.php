@@ -20,29 +20,23 @@ if ($content === null || $content === []) {
 
 $getImgMarkup = static function (ImgDto $imgDto, int $columnNum): string
 {
-    $percent         = 100.0 * $imgDto->getRatio();
-    $src             = $imgDto->getSrc();
-    $class           = $imgDto->getClass();
+    $src                = $imgDto->getSrc();
+    $class              = $imgDto->getClass();
+    $width              = max(1, (int)round($imgDto->getWidth()));
+    $height             = max(1, (int)round($imgDto->getHeight()));
     $fallbackAttributes = '';
     $escapedSrc         = s2_htmlencode($src);
 
     if ($class === 'right') {
-        $height = $percent * 0.35;
-
-        return "<div class='recommendation-img-right-wrapper' style=\"width: 35%; padding-top: {$height}%\"><img loading='lazy' src=\"$escapedSrc\" class='recommendation-img' alt=''></div>";
+        return "<div class='recommendation-img-right-wrapper recommendation-img-right-wide'><img loading='lazy' src=\"$escapedSrc\" width='$width' height='$height' class='recommendation-img' alt=''></div>";
     }
 
     if ($class === 'right2') {
-        $height = $percent * 0.18;
-
-        return "<div class='recommendation-img-right-wrapper' style=\"width: 18%; padding-top: {$height}%\"><img loading='lazy' src=\"$escapedSrc\" class='recommendation-img' alt=''></div>";
+        return "<div class='recommendation-img-right-wrapper recommendation-img-right-compact'><img loading='lazy' src=\"$escapedSrc\" width='$width' height='$height' class='recommendation-img' alt=''></div>";
     }
 
     if ($class === 'thumb') {
-        $h = 120.0 * $imgDto->getRatio();
-        $w = 120;
-
-        return "<div class='recommendation-img-thumb-wrapper' style='height: {$h}px; width: {$w}px;'><img loading='lazy' class='recommendation-img' src='$escapedSrc' alt=''></div><br clear='left'>";
+        return "<div class='recommendation-img-thumb-wrapper'><img loading='lazy' class='recommendation-img' src='$escapedSrc' width='$width' height='$height' alt=''></div><br clear='left'>";
     }
 
     $class = '';
@@ -58,7 +52,36 @@ $getImgMarkup = static function (ImgDto $imgDto, int $columnNum): string
 
     $escapedSrc = s2_htmlencode($src);
 
-    return "<div class='recommendation-img-wrapper {$class}' style='padding-top: $percent%'><img loading='lazy' class='recommendation-img' src='$escapedSrc' alt='' {$fallbackAttributes}></div>";
+    return "<div class='recommendation-img-wrapper {$class}'><img loading='lazy' class='recommendation-img' src='$escapedSrc' width='$width' height='$height' alt='' {$fallbackAttributes}></div>";
+};
+
+$getGridClasses = static function (string $area): string
+{
+    if ($area === '' || $area === 'auto') {
+        return '';
+    }
+
+    $parts = explode('/', $area);
+    if (\count($parts) !== 2 && \count($parts) !== 4) {
+        return '';
+    }
+
+    $properties = ['row-start', 'column-start', 'row-end', 'column-end'];
+    $classes    = [];
+    foreach ($parts as $index => $part) {
+        if (!ctype_digit($part)) {
+            return '';
+        }
+
+        $line = (int)$part;
+        if ($line < 1 || $line > 7) {
+            return '';
+        }
+
+        $classes[] = 'recommendation-grid-' . $properties[$index] . '-' . $line;
+    }
+
+    return implode(' ', $classes);
 };
 
 $getColumnsNumFromGridArea = static function (string $area): int
@@ -100,9 +123,9 @@ foreach ($content as $recommendation) {
 ?>
 <h2 class="recommendation-title" id="recommendations"><?php echo $trans('Read next'); ?></h2>
 <!-- <?php echo end($log); ?> -->
-<div class="recommendations" style="<?php if ($maxLine > 5) {echo 'grid-template-columns: repeat(' . ($maxLine - 1) . ', 1fr);'; } ?>">
+<div class="recommendations<?php if ($maxLine > 5) {echo ' recommendations-columns-' . ($maxLine - 1); } ?>">
     <?php foreach ($content as $recommendation) : ?>
-        <div class="recommendation" style="grid-area: <?php echo $recommendation['position'] ?: 'auto'; ?>">
+        <div class="recommendation <?= $getGridClasses($recommendation['position']) ?>">
             <a class="recommendation-link" href="<?= $makeLink($recommendation['url']) ?>">
                 <?php
                 if ($recommendation['image'] !== null) {
