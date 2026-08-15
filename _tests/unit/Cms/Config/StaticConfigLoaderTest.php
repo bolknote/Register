@@ -109,4 +109,19 @@ final class StaticConfigLoaderTest extends Unit
             $tooSmall['files']['upload_quota_bytes'],
         );
     }
+
+    public function testKeepsOptionalExternalMediaUrlSeparateFromTheStorageDirectory(): void
+    {
+        $method = new \ReflectionMethod(StaticConfigLoader::class, 'normalizeArrayConfig');
+        $config = $method->invoke(new StaticConfigLoader(), [
+            'files' => [
+                'image_dir' => '/home/account/register-media',
+                'image_url' => 'https://media.example.test',
+            ],
+        ]);
+
+        self::assertIsArray($config);
+        self::assertSame('/home/account/register-media', $config['files']['image_dir']);
+        self::assertSame('https://media.example.test', $config['files']['image_url']);
+    }
 }

@@ -109,6 +109,7 @@ final class StaticConfigLoader
             'files' => [
                 'cache_dir'          => $normalizeDir($this->nullableString($files['cache_dir'] ?? null)),
                 'image_dir'          => $this->nullableString($files['image_dir'] ?? null, self::DEFAULT_IMAGE_DIR),
+                'image_url'          => $this->nullableString($files['image_url'] ?? null),
                 'allowed_extensions' => $this->nullableString($files['allowed_extensions'] ?? null, self::DEFAULT_ALLOWED_EXTENSIONS),
                 'upload_quota_bytes' => $this->boundedInt(
                     $files['upload_quota_bytes'] ?? self::DEFAULT_UPLOAD_QUOTA_BYTES,
@@ -254,6 +255,7 @@ final class StaticConfigLoader
                     'files' => [
                         'cache_dir'          => \defined('S2_CACHE_DIR') ? (string)S2_CACHE_DIR : null,
                         'image_dir'          => \defined('S2_IMG_DIR') ? (string)S2_IMG_DIR : self::DEFAULT_IMAGE_DIR,
+                        'image_url'          => null,
                         'allowed_extensions' => \defined('S2_ALLOWED_EXTENSIONS') ? (string)S2_ALLOWED_EXTENSIONS : self::DEFAULT_ALLOWED_EXTENSIONS,
                         'upload_quota_bytes' => self::DEFAULT_UPLOAD_QUOTA_BYTES,
                         'log_dir'            => \defined('S2_LOG_DIR') ? (string)S2_LOG_DIR : null,

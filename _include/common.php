@@ -17,6 +17,7 @@ use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
 use S2\Cms\Config\DynamicConfigProvider;
+use S2\Cms\Config\MediaStorageConfigResolver;
 use S2\Cms\Config\SecretConfigPathResolver;
 use S2\Cms\Config\StaticConfigLoader;
 use S2\Cms\Framework\Application;
@@ -74,22 +75,17 @@ function s2_build_base_static_parameters(array $config): array
 
     $logDir = isset($config['files']['log_dir']) ? rtrim($config['files']['log_dir'], '/') . '/' : $cacheDir;
 
-    $imageDirRelative = '';
-    if (isset($config['files']['image_dir']) && is_string($config['files']['image_dir'])) {
-        $imageDirRelative = trim($config['files']['image_dir'], '/');
-    }
-
-    if ($imageDirRelative === '') {
-        $imageDirRelative = StaticConfigLoader::DEFAULT_IMAGE_DIR;
-    }
-
-    $imageDir = $publicRootDir . $imageDirRelative;
-
     $basePath = $config['http']['base_path'] ?? null;
-    $imagePath = null;
-    if ($basePath !== null) {
-        $imagePath = $basePath . '/' . $imageDirRelative;
-    }
+    $mediaStorage = MediaStorageConfigResolver::resolve(
+        $publicRootDir,
+        isset($config['files']['image_dir']) && is_string($config['files']['image_dir'])
+            ? $config['files']['image_dir']
+            : null,
+        isset($config['files']['image_url']) && is_string($config['files']['image_url'])
+            ? $config['files']['image_url']
+            : null,
+        \is_string($basePath) ? $basePath : null,
+    );
 
     $baseUrl   = $config['http']['base_url'] ?? null;
     $urlPrefix = $config['http']['url_prefix'] ?? '';
@@ -107,8 +103,8 @@ function s2_build_base_static_parameters(array $config): array
         'cache_dir'          => $cacheDir,
         'allowed_extensions' => $config['files']['allowed_extensions'] ?? StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS,
         'upload_quota_bytes' => $config['files']['upload_quota_bytes'] ?? StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
-        'image_dir'          => $imageDir, // no trailing '/' for Filesystem component
-        'image_path'         => $imagePath,
+        'image_dir'          => $mediaStorage['directory'], // no trailing '/' for Filesystem component
+        'image_path'         => $mediaStorage['url'],
         'disable_cache'      => $disableCache,
         'log_dir'            => $logDir,
 

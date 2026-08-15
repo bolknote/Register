@@ -115,6 +115,25 @@ account.
 ],
 ```
 
+## Isolated upload storage
+
+When the hosting control panel can map a separate HTTPS hostname to its own directory, keep uploads
+outside the main document root and expose that directory only through the media hostname. Configure
+the filesystem location and its public URL independently:
+
+```php
+'files' => [
+    'image_dir' => '/home/account/register-media',
+    'image_url' => 'https://media.example.com',
+],
+```
+
+The external URL must use HTTPS and cannot contain credentials, a query string, or a fragment. Copy
+the restrictive `_pictures/.htaccess` and `index.html` files into the media directory, disable script
+execution for the media virtual host, and do not configure that hostname to receive application
+cookies. Register's own cookies are host-only, so they are not sent to a sibling media hostname.
+Existing installations that omit these options continue to use public `_pictures/`.
+
 ## HTTPS
 
 Set the canonical base URL to `https://` and enable forced admin HTTPS after the certificate works.

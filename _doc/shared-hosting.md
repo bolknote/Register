@@ -24,6 +24,12 @@ The public entrypoints resolve `register-app` as a sibling of the document root,
 directory itself may be named `public_html`, `www`, or `htdocs`. Do not place `register-app` inside
 the document root and do not point another public subdomain at it.
 
+If the control panel supports a separate HTTPS media hostname, uploads can also be moved to a third
+sibling directory. Set `files.image_dir` to its absolute filesystem path and `files.image_url` to the
+media origin in `register-app/config.php`. Copy the packaged `_pictures/.htaccess` and `index.html`
+into that directory, and point only the media hostname at it. This keeps untrusted files outside the
+main document root and prevents Register's host-only cookies from accompanying media requests.
+
 If the hosting plan cannot store application files above the document root, use the repository-root
 layout described in `_doc/deployment.md` instead. Its `.htaccess` boundary must be verified before
 installation.
