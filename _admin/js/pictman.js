@@ -757,6 +757,7 @@ function SetWait(bWait) {
     if (!eDiv) {
         return;
     }
-    eDiv.style.display = bWait ? 'block' : 'none';
-    document.body.style.cursor = bWait ? 'progress' : 'default';
+    eDiv.classList.toggle('is-active', bWait);
+    eDiv.setAttribute('aria-hidden', bWait ? 'false' : 'true');
+    document.body.classList.toggle('is-busy', bWait);
 }

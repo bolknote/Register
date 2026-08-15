@@ -219,8 +219,7 @@ function applyPendingImages(wrapper) {
         if (imageState.pendingImageMap.has(src)) {
             img.setAttribute('data-pending-src', src);
             img.setAttribute('src', imageState.pendingImageMap.get(src));
-            img.style.filter = 'blur(2px)';
-            img.style.opacity = '0.75';
+            img.setAttribute('aria-busy', 'true');
         }
     });
 }
@@ -271,8 +270,7 @@ function finalizePendingImage(filePath, blobUrl) {
             if (img.getAttribute('data-pending-src') === filePath || img.getAttribute('src') === blobUrl) {
                 img.setAttribute('src', filePath);
                 img.removeAttribute('data-pending-src');
-                img.style.filter = '';
-                img.style.opacity = '';
+                img.removeAttribute('aria-busy');
             }
         });
     }

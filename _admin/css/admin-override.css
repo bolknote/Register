@@ -638,6 +638,14 @@ a.js {
     animation: loading-animation 1s infinite steps(6);
 }
 
+.loading-indicator.is-active {
+    display: block;
+}
+
+body.is-busy {
+    cursor: progress;
+}
+
 @keyframes loading-animation {
     100% {
         background-position: right -25% top 0;

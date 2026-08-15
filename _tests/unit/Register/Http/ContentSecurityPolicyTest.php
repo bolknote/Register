@@ -147,6 +147,21 @@ final class ContentSecurityPolicyTest extends Unit
         }
     }
 
+    public function testMigratedAdminInteractionsDoNotMutateInlineStyles(): void
+    {
+        $root = dirname(__DIR__, 4);
+        foreach ([
+            $root . '/_admin/js/structure.js',
+            $root . '/_admin/js/pictman.js',
+            $root . '/_admin/js/editor/images/pipeline.js',
+        ] as $filename) {
+            $source = file_get_contents($filename);
+            self::assertIsString($source);
+            self::assertDoesNotMatchRegularExpression('~\.style\b|\.css\s*\(~', $source, $filename);
+            self::assertDoesNotMatchRegularExpression('~setAttribute\s*\(\s*[\'\"]style[\'\"]~', $source, $filename);
+        }
+    }
+
     /**
      * @param list<string> $paths
      * @return \Generator<string>

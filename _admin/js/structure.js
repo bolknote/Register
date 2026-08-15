@@ -78,8 +78,12 @@ const Search = (function () {
 
 // Turning animated icon on or off
 function SetWait(bWait) {
-    $('#loading').css('display', bWait ? 'block' : 'none');
-    document.body.style.cursor = bWait ? 'progress' : 'inherit';
+    const indicator = document.getElementById('loading');
+    if (indicator) {
+        indicator.classList.toggle('is-active', bWait);
+        indicator.setAttribute('aria-hidden', bWait ? 'false' : 'true');
+    }
+    document.body.classList.toggle('is-busy', bWait);
 }
 
 function CloseAll() {
