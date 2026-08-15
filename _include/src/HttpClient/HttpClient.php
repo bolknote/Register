@@ -638,6 +638,12 @@ readonly class HttpClient
             $responseHeaders[] = $headerLine;
         }
 
+        $headerMeta = stream_get_meta_data($remote);
+        if ($headerMeta['timed_out']) {
+            fclose($remote);
+            throw new HttpClientException('Read timed out', HttpClientException::REASON_TIMEOUT);
+        }
+
         $maxBytes = $options[self::MAX_RESPONSE_BYTES] ?? null;
         $content  = $method === 'HEAD' ? '' : stream_get_contents($remote, $maxBytes);
         $meta    = stream_get_meta_data($remote);
@@ -652,7 +658,7 @@ readonly class HttpClient
 
         $rawHeaders = implode("\r\n", $responseHeaders);
 
-        $responseCode = preg_match('/\d{3}/', $responseHeaders[0], $matches) === 1 ? (int)$matches[0] : 0;
+        $responseCode = preg_match('/\d{3}/', $responseHeaders[0] ?? '', $matches) === 1 ? (int)$matches[0] : 0;
 
         if (($options[self::FOLLOW_REDIRECTS] ?? true)
             && $responseCode >= 300
