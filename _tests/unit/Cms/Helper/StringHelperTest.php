@@ -15,6 +15,41 @@ use S2\Cms\Helper\StringHelper;
 final class StringHelperTest extends Unit
 {
     /**
+     * @dataProvider nameInitialsDataProvider
+     */
+    public function testNameInitials(string $name, string $expected): void
+    {
+        self::assertSame($expected, StringHelper::nameInitials($name));
+    }
+
+    public static function nameInitialsDataProvider(): \Iterator
+    {
+        yield 'one word' => ['Genux', 'G'];
+        yield 'full name' => ['Евгений Степанищев', 'ЕС'];
+        yield 'legacy domain qualifier' => ['Евгений Степанищев (bolknote.ru)', 'ЕС'];
+        yield 'punctuation' => ['anna-maria petrova', 'AP'];
+        yield 'empty' => ['  ', '?'];
+        yield 'symbols only' => ['🐈', '?'];
+    }
+
+    public function testStablePaletteIndex(): void
+    {
+        $first  = StringHelper::stablePaletteIndex('Genux', 8);
+        $second = StringHelper::stablePaletteIndex('Genux', 8);
+
+        self::assertSame($first, $second);
+        self::assertGreaterThanOrEqual(0, $first);
+        self::assertLessThan(8, $first);
+    }
+
+    public function testStablePaletteIndexRejectsAnEmptyPalette(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        StringHelper::stablePaletteIndex('Genux', 0);
+    }
+
+    /**
      * @dataProvider jsMailToDataProvider
      */
     public function testJsMailTo(string $name, string $email, string $expectedOutput): void

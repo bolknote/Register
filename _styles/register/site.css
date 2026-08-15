@@ -1094,6 +1094,55 @@ h2.comment {
     object-fit: cover;
 }
 
+.comment-userpic-fallback {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    place-items: center;
+    background: var(--comment-userpic-background);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%);
+    color: #fffaf1;
+    font-family: var(--ui-font);
+    font-size: 14px;
+    font-weight: 750;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    user-select: none;
+}
+
+.comment-userpic-color-0 {
+    --comment-userpic-background: #8a4f3d;
+}
+
+.comment-userpic-color-1 {
+    --comment-userpic-background: #536b83;
+}
+
+.comment-userpic-color-2 {
+    --comment-userpic-background: #5f7044;
+}
+
+.comment-userpic-color-3 {
+    --comment-userpic-background: #74566f;
+}
+
+.comment-userpic-color-4 {
+    --comment-userpic-background: #456f6b;
+}
+
+.comment-userpic-color-5 {
+    --comment-userpic-background: #7b6037;
+}
+
+.comment-userpic-color-6 {
+    --comment-userpic-background: #565d79;
+}
+
+.comment-userpic-color-7 {
+    --comment-userpic-background: #76594a;
+}
+
 .has-userpic > .comment-meta,
 .has-userpic > .comment-body,
 .has-userpic > .comment-actions,

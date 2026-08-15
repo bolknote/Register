@@ -34,7 +34,9 @@ $userpicUrl = $userpic_url ?? null;
 $moderationState = $moderation_state ?? 'visible';
 $moderationData  = $moderation ?? null;
 $isDeleted      = $moderationState === 'deleted';
-$hasUserpic     = !$isDeleted && $userpicUrl !== null;
+$hasUserpic     = !$isDeleted;
+$avatarInitials = $userpicUrl === null ? \S2\Cms\Helper\StringHelper::nameInitials($nick) : '';
+$avatarColor    = $userpicUrl === null ? \S2\Cms\Helper\StringHelper::stablePaletteIndex($nick, 8) : 0;
 $replyQuery = $isPreview ? '' : http_build_query([
     'reply_to'     => $id,
     'reply_number' => $i,
@@ -94,11 +96,13 @@ $replyQuery = $isPreview ? '' : http_build_query([
             <?php endif; ?>
         </nav>
     <?php endif; ?>
-    <?php if ($hasUserpic): ?>
-        <div class="comment-userpic" aria-hidden="true">
-            <img src="<?php echo s2_htmlencode($userpicUrl); ?>" alt="" width="40" height="40" loading="lazy" decoding="async">
-        </div>
-    <?php endif; ?>
+    <div class="comment-userpic" aria-hidden="true">
+        <?php if ($userpicUrl !== null): ?>
+        <img src="<?php echo s2_htmlencode($userpicUrl); ?>" alt="" width="40" height="40" loading="lazy" decoding="async">
+        <?php else: ?>
+        <span class="comment-userpic-fallback comment-userpic-color-<?php echo $avatarColor; ?>"><?php echo s2_htmlencode($avatarInitials); ?></span>
+        <?php endif; ?>
+    </div>
     <header class="comment-meta">
         <span class="comment-name"><?php echo $name; ?></span>
         <?php if ($is_author): ?>

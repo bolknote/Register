@@ -36,6 +36,7 @@ class CommentCest
         $I->seeResponseCodeIs(200);
         $I->see('Top-level preview text');
         $I->seeElement('.comment-preview-item');
+        $I->seeElement('.comment-preview-item .comment-userpic-fallback');
         $I->dontSeeElement('.comment-preview-item .comment-reply');
         $I->assertSame($countBefore, (int)$dbLayer->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->execute()->result());
     }
@@ -135,6 +136,27 @@ class CommentCest
         $I->seeElement(
             '[data-comment-id="' . $commentId . '"] .comment-userpic img[src="/_tests/_output/images/userpics/example.jpg"]'
         );
+        $I->dontSeeElement('[data-comment-id="' . $commentId . '"] .comment-userpic-fallback');
+    }
+
+    public function testRendersInitialsWhenACommentHasNoStoredUserpic(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+        $commentId = $this->insertComment(
+            $dbLayer,
+            $articleId,
+            'Евгений Степанищев (bolknote.ru)',
+            'author@example.test',
+        );
+
+        $I->amOnPage('https://localhost/thread-test');
+        $selector = '[data-comment-id="' . $commentId . '"]';
+        $I->seeElement($selector . '.has-userpic');
+        $I->see('ЕС', $selector . ' .comment-userpic-fallback');
+        $I->seeElement($selector . ' .comment-userpic-fallback[class*="comment-userpic-color-"]');
+        $I->dontSeeElement($selector . ' .comment-userpic img');
     }
 
     public function testRejectsAReplyToAnUnavailableComment(\IntegrationTester $I): void

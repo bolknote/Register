@@ -12,6 +12,48 @@ namespace S2\Cms\Helper;
 
 class StringHelper
 {
+    public static function nameInitials(string $name): string
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return '?';
+        }
+
+        $nameWithoutQualifier = preg_replace('/\s*\([^)]*\)\s*$/u', '', $name);
+        if (\is_string($nameWithoutQualifier) && $nameWithoutQualifier !== '') {
+            $name = $nameWithoutQualifier;
+        }
+
+        $matchCount = preg_match_all('/[\p{L}\p{N}]+/u', $name, $matches);
+        if ($matchCount === false) {
+            throw new \RuntimeException('Invalid initials pattern.');
+        }
+
+        if ($matchCount === 0) {
+            return '?';
+        }
+
+        $parts = $matches[0];
+
+        $initials = [mb_substr($parts[0], 0, 1)];
+        if (\count($parts) > 1) {
+            $initials[] = mb_substr($parts[array_key_last($parts)], 0, 1);
+        }
+
+        return mb_strtoupper(implode('', $initials));
+    }
+
+    public static function stablePaletteIndex(string $value, int $paletteSize): int
+    {
+        if ($paletteSize < 1) {
+            throw new \InvalidArgumentException('Palette must contain at least one color.');
+        }
+
+        $hash = hash('sha256', mb_strtolower(trim($value)), true);
+
+        return \ord($hash[0]) % $paletteSize;
+    }
+
     /**
      * JS-protected mailto: link
      */
