@@ -45,12 +45,15 @@ use S2\Rose\Storage\Database\PdoStorage;
 use Register\Module\Search\Controller\SearchPageController;
 use Register\Module\Search\Admin\SearchIndexHealth;
 use Register\Module\Search\Layout\LayoutMatcherFactory;
+use Register\Module\Search\Morphology\ChurchSlavonicNormalizer;
+use Register\Module\Search\Morphology\HistoricalRussianNormalizer;
 use Register\Module\Search\Morphology\HybridWordNormalizer;
 use Register\Module\Search\Morphology\OpenCorporaDictionary;
 use Register\Module\Search\Morphology\PreReformRussianNormalizer;
 use Register\Module\Search\Rose\CustomExtractor;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\ContentIndexer;
+use Register\Module\Search\Service\HistoricalTitleSearch;
 use Register\Module\Search\Service\RecommendationFinder;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SearchDocumentFactory;
@@ -89,9 +92,14 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             __DIR__ . '/resources/morphology/ru',
         ));
         $container->set(PreReformRussianNormalizer::class, new PreReformRussianNormalizer());
-        $container->set(WordNormalizerInterface::class, static fn(Container $container): HybridWordNormalizer => new HybridWordNormalizer(
-            $container->get(OpenCorporaDictionary::class),
+        $container->set(ChurchSlavonicNormalizer::class, new ChurchSlavonicNormalizer());
+        $container->set(HistoricalRussianNormalizer::class, static fn(Container $container): HistoricalRussianNormalizer => new HistoricalRussianNormalizer(
+            $container->get(ChurchSlavonicNormalizer::class),
             $container->get(PreReformRussianNormalizer::class),
+            $container->get(OpenCorporaDictionary::class),
+        ));
+        $container->set(WordNormalizerInterface::class, static fn(Container $container): HybridWordNormalizer => new HybridWordNormalizer(
+            $container->get(HistoricalRussianNormalizer::class),
             new PorterStemmerRussian(new PorterStemmerEnglish()),
         ));
         $container->set(StemmerInterface::class, static fn(Container $container): WordNormalizerInterface => $container->get(WordNormalizerInterface::class));
@@ -161,13 +169,17 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $container->set(SimilarWordsDetector::class, static fn(Container $container): SimilarWordsDetector => new SimilarWordsDetector(
             $container->get(StemmerInterface::class),
         ));
+        $container->set(HistoricalTitleSearch::class, static fn(Container $container): HistoricalTitleSearch => new HistoricalTitleSearch(
+            $container->get(PdoStorage::class),
+            $container->get(HistoricalRussianNormalizer::class),
+        ));
 
         $container->set(SearchPageController::class, static function (Container $container): SearchPageController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new SearchPageController(
                 $container->get(Finder::class),
                 $container->get(StemmerInterface::class),
-                $container->get(PdoStorage::class),
+                $container->get(HistoricalTitleSearch::class),
                 $container->get(ThumbnailGenerator::class),
                 $container->get(SimilarWordsDetector::class),
                 $container->get(\Register\Content\TagRepository::class),

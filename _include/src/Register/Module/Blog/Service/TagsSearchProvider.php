@@ -30,9 +30,10 @@ readonly class TagsSearchProvider
     public function findBlogTags(array $words): array
     {
         $tags = [];
-        foreach ($this->tagRepository->findPublishedMatching(array_values($words), ContentType::POST) as $tag) {
+        foreach ($this->tagRepository->findPublishedUsage(ContentType::POST) as $usage) {
+            $tag = $usage->tag;
             if ($this->similarWordsDetector->wordIsSimilarToOtherWords($tag->name, $words)) {
-                $tags[] = '<a href="' . $this->blogUrlBuilder->tag($tag->slug) . '">' . $tag->name . '</a>';
+                $tags[] = '<a href="' . $this->blogUrlBuilder->tag($tag->slug) . '">' . s2_htmlencode($tag->name) . '</a>';
             }
         }
 

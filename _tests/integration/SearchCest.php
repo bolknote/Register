@@ -63,7 +63,7 @@ class SearchCest
         ): array => [
             '__csrf_token' => $csrfToken,
             'title'        => 'New Blog Post Title',
-            'tags'         => 'tag1, blog tag',
+            'tags'         => 'tag1, blog tag, міръ, отрок',
             'published_at' => '2023-08-12T11:32',
             'date_label'   => 'лето 1977 года',
             'updated_at'   => '2023-08-12T12:15',
@@ -176,6 +176,12 @@ class SearchCest
 
         $I->amOnPage('https://localhost/?search=1&q=another+tag');
         $I->see('<a href="/tags/blog%20tag/">blog tag</a>');
+
+        // Historical and modern tag spellings are matched symmetrically.
+        $I->amOnPage('https://localhost/?search=1&q=' . rawurlencode('мир'));
+        $I->see('міръ');
+        $I->amOnPage('https://localhost/?search=1&q=' . rawurlencode('ѿрокъ'));
+        $I->see('отрок');
 
         /**
          * 3. Automatic lifecycle updates

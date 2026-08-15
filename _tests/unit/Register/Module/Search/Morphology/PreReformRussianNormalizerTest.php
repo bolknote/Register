@@ -40,6 +40,12 @@ final class PreReformRussianNormalizerTest extends Unit
         yield 'modern separator' => ['подъезд', 'подъезд'];
         yield 'modern separator before vowel' => ['разъярённый', 'разъярённый'];
         yield 'standalone hard sign' => ['ъ', 'ъ'];
+        yield 'OCR decimal i' => ['мiръ', 'мир'];
+        yield 'OCR decimal i next to a combining mark' => ["мi\u{0301}ръ", "ми\u{0301}р"];
+        yield 'OCR uppercase decimal i' => ['Iюнь', 'Июнь'];
+        yield 'Latin product name' => ['iOS-приложение', 'iOS-приложение'];
+        yield 'standalone Latin letter' => ['I', 'I'];
+        yield 'accented Latin letter' => ["i\u{0301}", "i\u{0301}"];
     }
 
     /** @return iterable<string, array{string, string}> */

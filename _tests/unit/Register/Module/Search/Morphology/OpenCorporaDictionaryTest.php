@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace unit\Register\Module\Search\Morphology;
 
 use Codeception\Test\Unit;
+use Register\Module\Search\Morphology\ChurchSlavonicNormalizer;
+use Register\Module\Search\Morphology\HistoricalRussianNormalizer;
 use Register\Module\Search\Morphology\HybridWordNormalizer;
 use Register\Module\Search\Morphology\OpenCorporaDictionary;
 use Register\Module\Search\Morphology\PreReformRussianNormalizer;
@@ -50,8 +52,7 @@ final class OpenCorporaDictionaryTest extends Unit
     {
         $fallback   = new PorterStemmerRussian(new PorterStemmerEnglish());
         $normalizer = new HybridWordNormalizer(
-            $this->dictionary(),
-            new PreReformRussianNormalizer(),
+            $this->historicalNormalizer(),
             $fallback,
         );
         $unknown    = 'шмякозаврами';
@@ -84,8 +85,7 @@ final class OpenCorporaDictionaryTest extends Unit
         $storage->erase();
 
         $normalizer = new HybridWordNormalizer(
-            $this->dictionary(),
-            new PreReformRussianNormalizer(),
+            $this->historicalNormalizer(),
             new PorterStemmerRussian(new PorterStemmerEnglish()),
         );
         $indexer = new Indexer($storage, $normalizer);
@@ -121,13 +121,13 @@ final class OpenCorporaDictionaryTest extends Unit
 
         $normalizer = $this->normalizer();
         $indexer    = new Indexer($storage, $normalizer);
-        $indexer->index(new Indexable('old', 'Старая орѳографія', 'Дѣти читали про міръ и новыя книги.'));
-        $indexer->index(new Indexable('modern', 'Современный текст', 'Фома посетил синод. Это страница хорошего журнала.'));
+        $indexer->index(new Indexable('old', 'Старая орѳографія', 'Дѣти читали про мiръ и новыя книги. Ксенія читала ѱаломъ.'));
+        $indexer->index(new Indexable('modern', 'Современный текст', 'Фома посетил синод. Отрок учил чадо. Это страница хорошего журнала.'));
 
         $finder = new Finder($storage, $normalizer);
         $finder->setHighlightTemplate('<b>%s</b>');
 
-        foreach (['дети', 'мир', 'новые'] as $modernQuery) {
+        foreach (['дети', 'мир', 'новые', 'ксения', 'псалом'] as $modernQuery) {
             self::assertSame(
                 ['old'],
                 array_map(
@@ -138,7 +138,7 @@ final class OpenCorporaDictionaryTest extends Unit
             );
         }
 
-        foreach (['Ѳома', 'сѵнодъ', 'хорошаго'] as $oldQuery) {
+        foreach (['Ѳома', 'сѵнодъ', 'ѿрокъ', 'чѧдо', 'хорошаго'] as $oldQuery) {
             self::assertSame(
                 ['modern'],
                 array_map(
@@ -150,7 +150,7 @@ final class OpenCorporaDictionaryTest extends Unit
         }
 
         $children = $finder->find(new Query('дети'))->getItems();
-        self::assertSame('<b>Дѣти</b> читали про міръ и новыя книги.', $children[0]->getSnippet());
+        self::assertSame('<b>Дѣти</b> читали про мiръ и новыя книги.', $children[0]->getSnippet());
 
         $foma = $finder->find(new Query('Ѳома'))->getItems();
         self::assertSame('<b>Фома</b> посетил синод.', $foma[0]->getSnippet());
@@ -159,14 +159,17 @@ final class OpenCorporaDictionaryTest extends Unit
     public function testTagSimilarityUsesEveryAmbiguousNormalForm(): void
     {
         $normalizer = new HybridWordNormalizer(
-            $this->dictionary(),
-            new PreReformRussianNormalizer(),
+            $this->historicalNormalizer(),
             new PorterStemmerRussian(new PorterStemmerEnglish()),
         );
         $detector = new SimilarWordsDetector($normalizer);
 
         self::assertTrue($detector->wordIsSimilarToOtherWords('стали', ['стать']));
         self::assertTrue($detector->wordIsSimilarToOtherWords('стали', ['сталь']));
+        self::assertTrue($detector->wordIsSimilarToOtherWords('міръ', ['мир']));
+        self::assertTrue($detector->wordIsSimilarToOtherWords('мир', ['міръ']));
+        self::assertTrue($detector->wordIsSimilarToOtherWords('Ѯенія', ['ксения']));
+        self::assertTrue($detector->wordIsSimilarToOtherWords('ксения', ['Ѯенія']));
     }
 
     /** @return iterable<string, array{string, list<string>}> */
@@ -195,14 +198,31 @@ final class OpenCorporaDictionaryTest extends Unit
         yield 'feminine plural soft ending' => ['хорошія', 'хорошие'];
         yield 'feminine pronoun' => ['онѣ', 'они'];
         yield 'feminine pronoun case form' => ['однѣхъ', 'одних'];
+        yield 'OCR decimal i' => ['мiръ', 'мир'];
+        yield 'OCR uppercase decimal i' => ['Iюнь', 'июнь'];
+        yield 'ksi and decimal i' => ['ѯенія', 'ксения'];
+        yield 'psi and final hard sign' => ['ѱаломъ', 'псалом'];
+        yield 'ot ligature' => ['ѿрокъ', 'отрок'];
+        yield 'little yus after sibilant' => ['чѧдо', 'чадо'];
+        yield 'monograph uk' => ['ѹчитель', 'учитель'];
+        yield 'yeru with back yer' => ['мꙑсль', 'мысль'];
+        yield 'Church Slavonic accent' => ["сло\u{0301}во", 'слово'];
     }
 
     private function normalizer(): HybridWordNormalizer
     {
         return new HybridWordNormalizer(
-            $this->dictionary(),
-            new PreReformRussianNormalizer(),
+            $this->historicalNormalizer(),
             new PorterStemmerRussian(new PorterStemmerEnglish()),
+        );
+    }
+
+    private function historicalNormalizer(): HistoricalRussianNormalizer
+    {
+        return new HistoricalRussianNormalizer(
+            new ChurchSlavonicNormalizer(),
+            new PreReformRussianNormalizer(),
+            $this->dictionary(),
         );
     }
 

@@ -33,6 +33,24 @@ final class PreReformRussianNormalizer
 
     public function normalize(string $word): string
     {
+        $word = preg_replace_callback(
+            '/[\p{L}\p{M}]+/u',
+            static function (array $matches): string {
+                $token     = $matches[0];
+                $baseToken = preg_replace('/\p{M}+/u', '', $token) ?? $token;
+                if (
+                    preg_match('/\p{Cyrillic}/u', $baseToken) !== 1
+                    || preg_match('/^(?:\p{Cyrillic}|[iI])+$/u', $baseToken) !== 1
+                ) {
+                    return $token;
+                }
+
+                // OCR commonly confuses decimal «і» with visually identical Latin i/I.
+                return strtr($token, ['I' => 'И', 'i' => 'и']);
+            },
+            $word,
+        ) ?? $word;
+
         $word = strtr($word, self::LETTER_REPLACEMENTS);
         if (!str_contains($word, 'ъ') && !str_contains($word, 'Ъ')) {
             return $word;

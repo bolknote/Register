@@ -12,9 +12,14 @@ namespace Register\Module\Search\Service;
 use S2\Rose\Stemmer\StemmerHelper;
 use S2\Rose\Stemmer\StemmerInterface;
 
-readonly class SimilarWordsDetector
+final class SimilarWordsDetector
 {
-    public function __construct(private StemmerInterface $stemmer)
+    private const int CACHE_LIMIT = 1024;
+
+    /** @var array<string, list<string>> */
+    private array $formCache = [];
+
+    public function __construct(private readonly StemmerInterface $stemmer)
     {
     }
 
@@ -23,16 +28,24 @@ readonly class SimilarWordsDetector
      */
     public function wordIsSimilarToOtherWords(string $word, array $otherWords): bool
     {
-        $checkingWords = explode(' ', $word);
-
-        foreach ($checkingWords as $wordToCheck) {
-            if (mb_strlen($wordToCheck) < 3) {
+        $checkingForms = $this->forms($word);
+        foreach ($otherWords as $otherWord) {
+            if (!\is_string($otherWord)) {
                 continue;
             }
 
-            foreach (StemmerHelper::stemWords($this->stemmer, $wordToCheck) as $stemToCheck) {
-                foreach ($otherWords as $otherWord) {
-                    if ($otherWord === $stemToCheck || (str_starts_with($stemToCheck, $otherWord) && mb_strlen($otherWord) >= 5)) {
+            foreach ($this->forms($otherWord) as $otherForm) {
+                foreach ($checkingForms as $checkingForm) {
+                    if (
+                        $otherForm === $checkingForm
+                        || (
+                            min(mb_strlen($checkingForm), mb_strlen($otherForm)) >= 5
+                            && (
+                                str_starts_with($checkingForm, $otherForm)
+                                || str_starts_with($otherForm, $checkingForm)
+                            )
+                        )
+                    ) {
                         return true;
                     }
                 }
@@ -40,5 +53,38 @@ readonly class SimilarWordsDetector
         }
 
         return false;
+    }
+
+    /** @return list<string> */
+    private function forms(string $text): array
+    {
+        if (isset($this->formCache[$text])) {
+            return $this->formCache[$text];
+        }
+
+        $tokens = preg_split('/[^\p{L}\p{N}\p{M}]+/u', $text, -1, PREG_SPLIT_NO_EMPTY);
+        $forms  = [];
+        if (\is_array($tokens)) {
+            foreach ($tokens as $token) {
+                $token = mb_strtolower($token);
+                if (mb_strlen($token) < 3) {
+                    continue;
+                }
+
+                $forms[$token] = $token;
+                foreach (StemmerHelper::stemWords($this->stemmer, $token) as $stem) {
+                    $stem = mb_strtolower($stem);
+                    if (mb_strlen($stem) >= 3) {
+                        $forms[$stem] = $stem;
+                    }
+                }
+            }
+        }
+
+        if (\count($this->formCache) >= self::CACHE_LIMIT) {
+            $this->formCache = [];
+        }
+
+        return $this->formCache[$text] = array_values($forms);
     }
 }

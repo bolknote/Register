@@ -21,9 +21,8 @@ final class HybridWordNormalizer implements WordNormalizerInterface
     private array $cache = [];
 
     public function __construct(
-        private readonly OpenCorporaDictionary          $dictionary,
-        private readonly PreReformRussianNormalizer     $preReformNormalizer,
-        private readonly StemmerInterface               $fallbackStemmer,
+        private readonly HistoricalRussianNormalizer $historicalRussianNormalizer,
+        private readonly StemmerInterface            $fallbackStemmer,
     ) {
     }
 
@@ -31,10 +30,8 @@ final class HybridWordNormalizer implements WordNormalizerInterface
     public function stemWord(string $word, bool $normalize = true): string
     {
         // Preserve deterministic legacy behavior for consumers unaware of multi-form normalization.
-        $normalizedWord = $normalize ? mb_strtolower($word) : $word;
-
         return $this->fallbackStemmer->stemWord(
-            $this->preReformNormalizer->normalize($normalizedWord),
+            $this->historicalRussianNormalizer->normalizeWord($word, $normalize),
             $normalize,
         );
     }
@@ -43,29 +40,19 @@ final class HybridWordNormalizer implements WordNormalizerInterface
     public function normalizeWord(string $word, bool $normalize = true): array
     {
         $normalizedWord = $normalize ? mb_strtolower($word) : $word;
-        $canonicalWord  = $this->preReformNormalizer->normalize($normalizedWord);
         if (isset($this->cache[$normalizedWord])) {
             return $this->cache[$normalizedWord];
         }
 
-        if (preg_match('/^[а-яё]+$/Du', $canonicalWord) === 1) {
-            $normalForms = $this->dictionary->normalForms($canonicalWord);
-            if ($normalForms !== []) {
-                return $this->cache($normalizedWord, $normalForms);
-            }
-
-            foreach ($this->preReformNormalizer->modernAlternatives($normalizedWord) as $alternative) {
-                array_push($normalForms, ...$this->dictionary->normalForms($alternative));
-            }
-
-            if ($normalForms !== []) {
-                $normalForms = array_values(array_unique($normalForms));
-
-                return $this->cache($normalizedWord, $normalForms);
-            }
+        $normalForms = $this->historicalRussianNormalizer->normalForms($word, $normalize);
+        if ($normalForms !== []) {
+            return $this->cache($normalizedWord, $normalForms);
         }
 
-        $stem = $this->fallbackStemmer->stemWord($canonicalWord, $normalize);
+        $stem = $this->fallbackStemmer->stemWord(
+            $this->historicalRussianNormalizer->normalizeWord($word, $normalize),
+            $normalize,
+        );
 
         return $this->cache($normalizedWord, [$stem]);
     }

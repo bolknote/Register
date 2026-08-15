@@ -14,6 +14,7 @@ namespace Register\Module\Search\Controller;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Module\Search\Module;
+use Register\Module\Search\Service\HistoricalTitleSearch;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Framework\ControllerInterface;
@@ -29,7 +30,6 @@ use S2\Rose\Finder;
 use S2\Rose\Helper\ProfileHelper;
 use S2\Rose\Stemmer\StemmerHelper;
 use S2\Rose\Stemmer\StemmerInterface;
-use S2\Rose\Storage\Database\PdoStorage;
 use S2\Rose\Storage\Exception\EmptyIndexException;
 use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Module\Search\Service\SimilarWordsDetector;
@@ -49,7 +49,7 @@ readonly class SearchPageController implements ControllerInterface
     public function __construct(
         private Finder                   $finder,
         private StemmerInterface         $stemmer,
-        private PdoStorage               $pdoStorage,
+        private HistoricalTitleSearch    $historicalTitleSearch,
         private ThumbnailGenerator       $thumbnailGenerator,
         private SimilarWordsDetector     $similarWordsDetector,
         private TagRepository            $tagRepository,
@@ -174,7 +174,8 @@ readonly class SearchPageController implements ControllerInterface
         $words = array_unique(array_merge($words, $normalizedWords));
 
         $tags = [];
-        foreach ($this->tagRepository->findPublishedMatching(array_values($words), ContentType::PAGE) as $tag) {
+        foreach ($this->tagRepository->findPublishedUsage(ContentType::PAGE) as $usage) {
+            $tag = $usage->tag;
             if ($this->similarWordsDetector->wordIsSimilarToOtherWords($tag->name, $words)) {
                 $tags[] = '<a href="' . $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($tag->slug) . '/') . '">' . s2_htmlencode($tag->name) . '</a>';
             }
@@ -201,19 +202,12 @@ readonly class SearchPageController implements ControllerInterface
      */
     private function searchByTitle(string $titleQuery): Response
     {
-        $pdoStorage = $this->pdoStorage;
-        $toc        = $pdoStorage->getTocByTitlePrefix($titleQuery);
-
         $result = '';
-        foreach ($toc as $tocEntryWithExtId) {
-            $highlightedTitle = preg_replace(
-                    '#(' . preg_quote($titleQuery, '#') . ')#ui',
-                    '<em>\\1</em>'
-                    , s2_htmlencode($tocEntryWithExtId->getTocEntry()->getTitle()));
-            if ($highlightedTitle === null) {
-                throw new \RuntimeException('Unable to highlight the title search result.');
-            }
-
+        foreach ($this->historicalTitleSearch->find($titleQuery) as $tocEntryWithExtId) {
+            $highlightedTitle = $this->historicalTitleSearch->highlight(
+                $tocEntryWithExtId->getTocEntry()->getTitle(),
+                $titleQuery,
+            );
             $result .= '<a href="' . $this->urlBuilder->link($tocEntryWithExtId->getTocEntry()->getUrl()) . '">' . $highlightedTitle . '</a>';
         }
 
