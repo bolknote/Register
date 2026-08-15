@@ -320,7 +320,9 @@ h3 {
     top: calc(100% - 1px);
     left: 0;
     display: flex;
-    min-width: 17rem;
+    width: min(17rem, calc(100vw - 1rem));
+    min-width: 0;
+    max-width: calc(100vw - 1rem);
     flex-direction: column;
     padding: 0.4rem;
     border: 1px solid var(--admin-border-color);
@@ -341,6 +343,8 @@ h3 {
     flex: 1 1 auto;
     padding: 0.55rem 0.7rem;
     border-radius: 0.25rem;
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 
 .admin-shell nav .main-menu-dropdown-list .main-menu-item.active {
@@ -400,7 +404,7 @@ h3 {
     text-overflow: ellipsis;
 }
 
-.main-menu-account-group .main-menu-dropdown-list {
+.admin-shell nav .main-menu-account-group .main-menu-dropdown-list {
     right: 0;
     left: auto;
 }
@@ -2793,6 +2797,18 @@ body.login_page {
         justify-content: flex-start;
         padding: 0.2rem 0.35rem;
         border-top: 1px solid var(--admin-soft-border-color);
+    }
+
+    .admin-shell nav ul.main-menu-primary-list .main-menu-group {
+        position: static;
+    }
+
+    .admin-shell nav ul.main-menu-primary-list .main-menu-dropdown-list {
+        top: 100%;
+        right: 0.5rem;
+        left: 0.5rem;
+        width: auto;
+        max-width: none;
     }
 
     .admin-shell .main-menu-account {
