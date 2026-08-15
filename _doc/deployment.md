@@ -85,9 +85,10 @@ Recommended modes are:
 
 | Path | Mode | Reason |
 |---|---:|---|
-| `config.php`, `config.secrets.php`, SQLite database and sidecars | `0600` | contain credentials, hashes, drafts, and private content |
-| private cache metadata and backup archives | `0600` | may contain configuration or a database copy |
-| `_cache/` and private backup directories | `0750` | writable private application state |
+| `config.php`, `config.secrets.php`, SQLite database and sidecars | `0600` | contain credentials, backup key, hashes, drafts, and private content |
+| private cache metadata and encrypted backup archives | `0600` | contain private state even though backups are encrypted at rest |
+| `_cache/` | `0750` | writable private application state |
+| private backup directories | `0700` | encrypted archives and plaintext work files are accessible only to the PHP account |
 | generated `_cache/*.css`, `_cache/*.js`, public uploads and thumbnails | `0644` | web server must serve them as data |
 | `_pictures/` and its public subdirectories | `0755` | web server must traverse and read uploads |
 

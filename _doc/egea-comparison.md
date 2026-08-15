@@ -208,8 +208,8 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Upgrade an existing Register database | Missing | The pre-release product supports one clean schema generation and intentionally rejects old generations; an explicit importer can be added later. |
 | Import an existing Aegea database | Missing | No importer. |
 | Semi-automatic code and database update | Missing | Code deployment and future data import are external; Register currently performs no in-place product migration. |
-| Automatic database backup | Available | A durable request-driven queue job creates a private daily database-and-media archive and prunes it to configured retention; the CLI drain covers hosts without response detachment. |
-| Downloadable backup ZIP | Available | Administrators can create or download the latest standard ZIP in Search & statistics; the CLI offers the same operation. |
+| Automatic database backup | Available | A durable request-driven queue job creates a private daily authenticated encrypted database-and-media archive and prunes it to configured retention; the CLI drain covers hosts without response detachment. |
+| Downloadable backup ZIP | Available | Administrators can create or download the latest encrypted ZIP envelope in Search & statistics; the CLI offers creation and offline decryption. |
 | Continuous incremental backup | Missing | No first-party implementation. |
 | HTTP and HTTPS | Available | Supported, including optional forced HTTPS for administration. |
 | Modern PHP support | Available | Register requires PHP 8.3 and is checked for PHP 8.3–8.5 compatibility. |

@@ -48,6 +48,11 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertFileExists($applicationDir . '/_admin/templates/login.php.inc');
         self::assertFileExists($applicationDir . '/_styles/register/register.php');
         self::assertFileExists($applicationDir . '/composer.lock');
+        self::assertFileExists($applicationDir . '/tools/decrypt-backup.php');
+        $decryptToolPermissions = fileperms($applicationDir . '/tools/decrypt-backup.php');
+        self::assertIsInt($decryptToolPermissions);
+        self::assertSame(0755, $decryptToolPermissions & 0777);
+        self::assertFileExists($distribution . '/backups.md');
         self::assertDirectoryDoesNotExist($applicationDir . '/_tests');
         self::assertFileDoesNotExist($applicationDir . '/config.local.php');
 
@@ -96,6 +101,8 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertStringStartsWith("PK\x03\x04", $archiveContent);
         self::assertStringContainsString('public_html/index.php', $archiveContent);
         self::assertStringContainsString('register-app/_include/common.php', $archiveContent);
+        self::assertStringContainsString('register-app/tools/decrypt-backup.php', $archiveContent);
+        self::assertStringContainsString('backups.md', $archiveContent);
     }
 
     public function testRefusesToOverwriteAnExistingDestination(): void

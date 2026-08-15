@@ -43,6 +43,12 @@ final class PortableZipWriter
             throw new \RuntimeException('Unable to create the backup archive.');
         }
 
+        if (DIRECTORY_SEPARATOR !== '\\' && !chmod($path, 0600)) {
+            fclose($stream);
+            s2_call_without_warnings(static fn(): bool => unlink($path));
+            throw new \RuntimeException('Unable to secure the backup archive.');
+        }
+
         $this->stream = $stream;
     }
 

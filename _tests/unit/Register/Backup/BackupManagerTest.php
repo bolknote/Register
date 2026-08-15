@@ -11,6 +11,8 @@ namespace unit\Register\Backup;
 
 use Codeception\Test\Unit;
 use Psr\Log\NullLogger;
+use Register\Backup\BackupEncryptionKeyProvider;
+use Register\Backup\BackupEncryptor;
 use Register\Backup\BackupManager;
 use Register\Backup\DatabaseSnapshotter;
 use S2\Cms\Comment\Antispam\SpamIdentityHasher;
@@ -30,16 +32,26 @@ final class BackupManagerTest extends Unit
 
     public function testCreatesRestorableDatabaseAndMediaZipWithoutOptionalCompressionExtensions(): void
     {
-        [$manager, $directory] = $this->manager(retention: 2);
+        [$manager, $directory, $encryptor] = $this->manager(retention: 2);
         $createdAt = 1_700_000_000;
 
         $backup = $manager->createNow($createdAt);
 
         self::assertFileExists($backup->path);
         self::assertSame($createdAt, $backup->createdAt);
-        self::assertMatchesRegularExpression('/^register-backup-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}\.zip$/D', $backup->name);
+        self::assertMatchesRegularExpression(
+            '/^register-backup-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}\.zip\.enc$/D',
+            $backup->name,
+        );
 
-        $rawArchive = file_get_contents($backup->path);
+        $encryptedArchive = file_get_contents($backup->path);
+        self::assertIsString($encryptedArchive);
+        self::assertStringStartsWith("REGISTER-BACKUP\0\x01", $encryptedArchive);
+        self::assertStringNotContainsString('image bytes', $encryptedArchive);
+
+        $decryptedPath = $directory . '/decrypted.zip';
+        $encryptor->decryptFile($backup->path, $decryptedPath);
+        $rawArchive = file_get_contents($decryptedPath);
         self::assertIsString($rawArchive);
         self::assertStringStartsWith("PK\x03\x04", $rawArchive);
         self::assertStringContainsString('manifest.json', $rawArchive);
@@ -50,7 +62,7 @@ final class BackupManagerTest extends Unit
         if (class_exists($zipClassName)) {
             $zip      = new $zipClassName();
             $zipClass = new \ReflectionObject($zip);
-            self::assertTrue($zipClass->getMethod('open')->invoke($zip, $backup->path));
+            self::assertTrue($zipClass->getMethod('open')->invoke($zip, $decryptedPath));
             self::assertSame(
                 'image bytes',
                 $zipClass->getMethod('getFromName')->invoke($zip, 'media/nested/photo.webp'),
@@ -87,7 +99,7 @@ final class BackupManagerTest extends Unit
         self::assertNotNull($manager->createIfDue($firstTime + BackupManager::AUTOMATIC_INTERVAL_SECONDS + 1));
         $latest = $manager->createNow($firstTime + 2 * BackupManager::AUTOMATIC_INTERVAL_SECONDS + 1);
 
-        $archives = glob(\dirname($latest->path) . '/register-backup-*.zip');
+        $archives = glob(\dirname($latest->path) . '/register-backup-*.zip.enc');
         self::assertIsArray($archives);
         self::assertCount(2, $archives);
         self::assertFileDoesNotExist($first->path);
@@ -105,6 +117,23 @@ final class BackupManagerTest extends Unit
         self::assertSame($createdAfterClockCorrection->path, $manager->latest()?->path);
     }
 
+    public function testLegacyPlainZipRemainsDiscoverableDuringMigration(): void
+    {
+        [$manager, $directory] = $this->manager(retention: 2);
+        $backupDirectory = $directory . '/backups';
+        mkdir($backupDirectory, 0700, true);
+        $legacyPath = $backupDirectory . '/register-backup-20231114-221320-deadbeef.zip';
+        file_put_contents($legacyPath, 'legacy zip');
+        touch($legacyPath, 1_700_000_000);
+
+        self::assertSame($legacyPath, $manager->latest()?->path);
+        $created = $manager->createNow(1_700_000_001);
+
+        self::assertFileExists($legacyPath);
+        self::assertFileExists($created->path);
+        self::assertEquals($created, $manager->latest());
+    }
+
     public function testRemovesOnlyAbandonedGeneratedWorkFiles(): void
     {
         [$manager, $directory] = $this->manager(retention: 2);
@@ -114,15 +143,18 @@ final class BackupManagerTest extends Unit
         }
 
         $abandonedArchive  = $backupDirectory . '/.0123456789abcdef.zip';
+        $abandonedEncryptedArchive = $backupDirectory . '/.0123456789abcdef.zip.enc';
         $abandonedSnapshot = $backupDirectory . '/.fedcba9876543210-database.sqlite';
         $unrelatedFile     = $backupDirectory . '/.keep';
         file_put_contents($abandonedArchive, 'partial archive');
+        file_put_contents($abandonedEncryptedArchive, 'partial encrypted archive');
         file_put_contents($abandonedSnapshot, 'partial database');
         file_put_contents($unrelatedFile, 'keep');
 
         $manager->createNow(1_700_000_000);
 
         self::assertFileDoesNotExist($abandonedArchive);
+        self::assertFileDoesNotExist($abandonedEncryptedArchive);
         self::assertFileDoesNotExist($abandonedSnapshot);
         self::assertFileExists($unrelatedFile);
     }
@@ -150,8 +182,40 @@ final class BackupManagerTest extends Unit
         }
     }
 
-    /** @return array{0:BackupManager,1:string} */
-    private function manager(int $retention): array
+    public function testMissingStableKeyFailsWithoutPublishingPlaintextBackup(): void
+    {
+        [$manager, $directory] = $this->manager(retention: 2, encryptionSecret: 'short');
+
+        try {
+            $manager->createNow(1_700_000_000);
+            self::fail('Backup creation must fail without a stable encryption key.');
+        } catch (\RuntimeException $runtimeException) {
+            self::assertStringContainsString('stable secret', $runtimeException->getMessage());
+        }
+
+        $published = glob($directory . '/backups/register-backup-*');
+        self::assertIsArray($published);
+        self::assertSame([], $published);
+        self::assertFileDoesNotExist($directory . '/backups/database.sqlite');
+    }
+
+    public function testRejectsSymbolicLinkBackupDirectory(): void
+    {
+        [$manager, $directory] = $this->manager(retention: 2);
+        $target = $directory . '/redirected-backups';
+        mkdir($target, 0700);
+        if (!symlink($target, $directory . '/backups')) {
+            self::markTestSkipped('Symbolic links are not available.');
+        }
+
+        self::assertNull($manager->latest());
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('must be a real directory');
+        $manager->createNow(1_700_000_000);
+    }
+
+    /** @return array{0:BackupManager,1:string,2:BackupEncryptor} */
+    private function manager(int $retention, string $encryptionSecret = 'backup-test-secret-backup-test-secret-'): array
     {
         $directory = $this->temporaryDirectory();
         $database  = $directory . '/source.sqlite';
@@ -166,9 +230,14 @@ final class BackupManagerTest extends Unit
 
         file_put_contents($mediaDirectory . '/photo.webp', 'image bytes');
 
+        $encryptor = new BackupEncryptor(
+            new BackupEncryptionKeyProvider($encryptionSecret),
+        );
+
         return [
             new BackupManager(
                 new DatabaseSnapshotter($pdo, 'sqlite', '', $database, '', ''),
+                $encryptor,
                 new NullLogger(),
                 new SecurityAuditLogger($directory . '/security-audit.jsonl', new SpamIdentityHasher(str_repeat('a', 32))),
                 $directory . '/backups',
@@ -177,6 +246,7 @@ final class BackupManagerTest extends Unit
                 'test-version',
             ),
             $directory,
+            $encryptor,
         ];
     }
 
@@ -203,7 +273,7 @@ final class BackupManagerTest extends Unit
             \RecursiveIteratorIterator::CHILD_FIRST,
         );
         foreach ($iterator as $item) {
-            if ($item instanceof \SplFileInfo && $item->isDir()) {
+            if ($item instanceof \SplFileInfo && $item->isDir() && !$item->isLink()) {
                 rmdir($item->getPathname());
             } elseif ($item instanceof \SplFileInfo) {
                 unlink($item->getPathname());

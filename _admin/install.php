@@ -374,6 +374,7 @@ function generate_config_file(
     ?string $antispamSecret = null,
     bool $probeBaseUrl = false,
     ?string $secretFile = null,
+    ?string $backupEncryptionKey = null,
 ): string
 {
     $baseUrl = normalize_install_base_url($baseUrl)
@@ -381,6 +382,9 @@ function generate_config_file(
 
     if ($antispamSecret === null || \strlen($antispamSecret) < 32) {
         $antispamSecret = bin2hex(random_bytes(32));
+    }
+    if ($backupEncryptionKey === null || \strlen($backupEncryptionKey) < 32) {
+        $backupEncryptionKey = bin2hex(random_bytes(32));
     }
 
     $urlPrefix = '';
@@ -439,9 +443,10 @@ function generate_config_file(
             'secret_file'     => $secretFile,
         ],
         'backups' => [
-            'enabled'   => true,
-            'directory' => null,
-            'retention' => 7,
+            'enabled'        => true,
+            'directory'      => null,
+            'retention'      => 7,
+            'encryption_key' => $backupEncryptionKey,
         ],
     ];
 
@@ -505,6 +510,7 @@ function installApplicationParameters(
         'base_path'     => $basePath,
         'trusted_proxies' => [],
         'secret_config_file' => SecretConfigPathResolver::resolve(S2_FS_ROOT, S2_PUBLIC_FS_ROOT, null),
+        'backup_encryption_key' => null,
         'url_prefix'    => '',
         'debug'         => defined('S2_DEBUG'),
         'debug_view'    => defined('S2_DEBUG_VIEW'),

@@ -87,6 +87,11 @@ Create and verify a backup before replacing code. Preserve all installation-spec
 - private backup archives and any custom paths configured for cache or logs;
 - locally installed extensions and styles that are not part of the release.
 
+New backup files end in `.zip.enc`. Preserve `config.php` separately because its generated
+`backups.encryption_key` is required to decrypt them; possession of an encrypted archive alone is
+not sufficient. See [`backups.md`](backups.md) for the offline decryption command and key-rotation
+procedure.
+
 Stage the new package beside the live copy, restore the preserved files into the matching private or
 public directory, and only then switch the document root or rename directories. Do not unpack a
 release over the live site without a rollback copy. After switching, clear private application cache,

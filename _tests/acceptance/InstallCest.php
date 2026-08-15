@@ -78,6 +78,12 @@ class InstallCest
 
         $I->install('admin', 'register-test-password', $example['db_type'], $example['db_user'], $example['db_password']);
 
+        $installedConfig = include __DIR__ . '/../../config.test.php';
+        $I->assertIsArray($installedConfig);
+        $backupEncryptionKey = $installedConfig['backups']['encryption_key'] ?? null;
+        $I->assertIsString($backupEncryptionKey);
+        $I->assertGreaterThanOrEqual(64, \strlen($backupEncryptionKey));
+
         $I->amOnPage('/');
         $I->see('Register');
         $I->see('A place for posts');

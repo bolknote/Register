@@ -172,6 +172,7 @@ class CmsExtension implements ExtensionInterface
         $container->set(DynamicSecretStore::class, fn(Container $container): \S2\Cms\Config\DynamicSecretStore => new DynamicSecretStore(
             $container->getStringParameter('secret_config_file'),
             ['S2_AKISMET_KEY', AiSettings::API_KEY_CONFIG_KEY],
+            ['S2_ANTISPAM_SECRET'],
         ));
         $container->set(DynamicConfigProvider::class, fn(Container $container): \S2\Cms\Config\DynamicConfigProvider => new DynamicConfigProvider(
             $container->get(DbLayer::class),

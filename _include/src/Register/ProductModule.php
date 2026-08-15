@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace Register;
 
+use Register\Backup\BackupEncryptionKeyProvider;
+use Register\Backup\BackupEncryptor;
 use Register\Backup\BackupManager;
 use Register\Backup\BackupQueueHandler;
 use Register\Backup\BackupScheduler;
@@ -74,8 +76,24 @@ readonly class ProductModule implements ContainerModuleInterface
             $container->getStringParameter('db_username'),
             $container->getStringParameter('db_password'),
         ));
+        $container->set(BackupEncryptionKeyProvider::class, static function (Container $container): BackupEncryptionKeyProvider {
+            $configuredSecret = $container->getNullableStringParameter('backup_encryption_key');
+            if (!\is_string($configuredSecret) || \strlen($configuredSecret) < BackupEncryptionKeyProvider::KEY_BYTES) {
+                $staticSecret = $container->getNullableStringParameter('antispam_secret');
+                $configuredSecret = \is_string($staticSecret)
+                    && \strlen($staticSecret) >= BackupEncryptionKeyProvider::KEY_BYTES
+                    ? $staticSecret
+                    : '';
+            }
+
+            return new BackupEncryptionKeyProvider($configuredSecret);
+        });
+        $container->set(BackupEncryptor::class, static fn(Container $container): BackupEncryptor => new BackupEncryptor(
+            $container->get(BackupEncryptionKeyProvider::class),
+        ));
         $container->set(BackupManager::class, static fn(Container $container): BackupManager => new BackupManager(
             $container->get(DatabaseSnapshotter::class),
+            $container->get(BackupEncryptor::class),
             $container->get(\Psr\Log\LoggerInterface::class),
             $container->get(SecurityAuditLogger::class),
             $container->getStringParameter('backup_dir'),

@@ -68,6 +68,23 @@ final class StaticConfigLoaderTest extends Unit
         self::assertSame(7, $method->invoke($loader, '7 days', 7, 1, 365));
     }
 
+    public function testBackupEncryptionKeyIsKeptOutsideDynamicConfiguration(): void
+    {
+        $method = new \ReflectionMethod(StaticConfigLoader::class, 'normalizeArrayConfig');
+        $secret = str_repeat('ab', 32);
+
+        $defaults = $method->invoke(new StaticConfigLoader(), []);
+        self::assertIsArray($defaults);
+        self::assertNull($defaults['backups']['encryption_key']);
+
+        $configured = $method->invoke(
+            new StaticConfigLoader(),
+            ['backups' => ['encryption_key' => $secret]],
+        );
+        self::assertIsArray($configured);
+        self::assertSame($secret, $configured['backups']['encryption_key']);
+    }
+
     public function testUploadQuotaHasASafeDefaultAndStrictBounds(): void
     {
         $method = new \ReflectionMethod(StaticConfigLoader::class, 'normalizeArrayConfig');

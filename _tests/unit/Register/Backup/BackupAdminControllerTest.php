@@ -13,6 +13,8 @@ use Codeception\Test\Unit;
 use Psr\Log\NullLogger;
 use Register\Backup\Admin\BackupAdminController;
 use Register\Backup\Admin\BackupToken;
+use Register\Backup\BackupEncryptionKeyProvider;
+use Register\Backup\BackupEncryptor;
 use Register\Backup\BackupManager;
 use Register\Backup\DatabaseSnapshotter;
 use S2\AdminYard\SettingStorage\SettingStorageInterface;
@@ -23,6 +25,7 @@ use S2\Cms\Model\PermissionChecker;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 final class BackupAdminControllerTest extends Unit
 {
@@ -52,6 +55,7 @@ final class BackupAdminControllerTest extends Unit
 
             $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
         }
+
         rmdir($this->directory);
     }
 
@@ -120,6 +124,31 @@ final class BackupAdminControllerTest extends Unit
         self::assertSame(2, substr_count($audit, '"outcome":"denied"'));
     }
 
+    public function testCreatedBackupIsDownloadedAsAnEncryptedAttachment(): void
+    {
+        $authManager = $this->createMock(AuthManager::class);
+        $authManager->expects(self::once())->method('verifyCurrentPassword')->willReturn(true);
+        [$controller, $token] = $this->controller($authManager);
+
+        $response = $controller->create(Request::create(
+            '/backup',
+            Request::METHOD_POST,
+            [
+                'csrf_token' => $token->value(),
+                'password'   => 'correct horse battery staple',
+            ],
+        ));
+
+        self::assertInstanceOf(BinaryFileResponse::class, $response);
+        self::assertSame('application/octet-stream', $response->headers->get('Content-Type'));
+        self::assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
+        self::assertStringContainsString('.zip.enc', (string)$response->headers->get('Content-Disposition'));
+        $path = $response->getFile()->getPathname();
+        $contents = file_get_contents($path);
+        self::assertIsString($contents);
+        self::assertStringStartsWith("REGISTER-BACKUP\0\x01", $contents);
+    }
+
     /** @return array{0:BackupAdminController,1:BackupToken} */
     private function controller(AuthManager $authManager): array
     {
@@ -134,6 +163,7 @@ final class BackupAdminControllerTest extends Unit
         );
         $backupManager = new BackupManager(
             new DatabaseSnapshotter($pdo, 'sqlite', '', ':memory:', '', ''),
+            new BackupEncryptor(new BackupEncryptionKeyProvider(str_repeat('b', 32))),
             new NullLogger(),
             $auditLogger,
             $this->directory . '/backups',

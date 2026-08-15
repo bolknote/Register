@@ -61,7 +61,10 @@ final class SecretConfigCest
             $I->submitForm($formSelector, ['value' => '']);
             $I->seeResponseCodeIs(200);
             $I->assertSame('', $provider->get(AiSettings::API_KEY_CONFIG_KEY));
-            $I->assertSame([], include $secretFile);
+            $remainingSecrets = include $secretFile;
+            $I->assertIsArray($remainingSecrets);
+            $I->assertArrayNotHasKey(AiSettings::API_KEY_CONFIG_KEY, $remainingSecrets);
+            $I->assertSame([], $remainingSecrets);
         } finally {
             if (is_file($secretFile)) {
                 unlink($secretFile);

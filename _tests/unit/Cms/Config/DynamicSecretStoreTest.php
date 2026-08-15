@@ -93,6 +93,37 @@ final class DynamicSecretStoreTest extends Unit
         $store->hydrate(['AI_KEY' => DynamicSecretStore::DATABASE_PLACEHOLDER]);
     }
 
+    public function testHydratesAnEarlierMigratedSecretWithoutMigratingFreshValues(): void
+    {
+        $filename = $this->temporaryDirectory . '/config.secrets.php';
+        $legacyStore = new DynamicSecretStore($filename, ['AI_KEY', 'ANTISPAM_SECRET']);
+        $legacyStore->protect([
+            'AI_KEY'         => 'api-secret',
+            'ANTISPAM_SECRET' => 'antispam-secret',
+        ]);
+
+        $store = new DynamicSecretStore($filename, ['AI_KEY'], ['ANTISPAM_SECRET']);
+        $protected = $store->protect([
+            'AI_KEY'          => DynamicSecretStore::DATABASE_PLACEHOLDER,
+            'ANTISPAM_SECRET' => DynamicSecretStore::DATABASE_PLACEHOLDER,
+        ]);
+
+        self::assertSame('api-secret', $protected['runtime']['AI_KEY']);
+        self::assertSame('antispam-secret', $protected['runtime']['ANTISPAM_SECRET']);
+        self::assertSame([], $protected['database_updates']);
+        self::assertFalse($store->requiresRegeneration($protected['cache']));
+        self::assertSame('antispam-secret', $store->hydrate($protected['cache'])['ANTISPAM_SECRET']);
+
+        $freshFilename = $this->temporaryDirectory . '/fresh.secrets.php';
+        $freshStore = new DynamicSecretStore($freshFilename, ['AI_KEY'], ['ANTISPAM_SECRET']);
+        $fresh = $freshStore->protect([
+            'AI_KEY'          => '',
+            'ANTISPAM_SECRET' => 'database-only-secret',
+        ]);
+        self::assertSame('database-only-secret', $fresh['cache']['ANTISPAM_SECRET']);
+        self::assertFileDoesNotExist($freshFilename);
+    }
+
     public function testProviderMigratesDatabaseAndCacheWithoutExposingSecret(): void
     {
         $pdo = new \PDO('sqlite::memory:');

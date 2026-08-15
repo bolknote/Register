@@ -33,6 +33,10 @@ final readonly class SharedHostingDistributionBuilder
         'LICENSE.md',
     ];
 
+    private const array APPLICATION_TOOL_FILES = [
+        'decrypt-backup.php',
+    ];
+
     private const array PUBLIC_SOURCE_DIRECTORIES = [
         '_admin',
         '_assets',
@@ -164,6 +168,11 @@ final readonly class SharedHostingDistributionBuilder
                 $destinationRoot . '/DEPLOYMENT.md',
                 0644,
             );
+            $this->copyExactFile(
+                $this->sourceRoot . '/_doc/backups.md',
+                $destinationRoot . '/backups.md',
+                0644,
+            );
 
             if (is_dir($applicationRoot . '/_vendor')) {
                 $this->syncPublicVendorAssets($destinationRoot);
@@ -272,6 +281,14 @@ final readonly class SharedHostingDistributionBuilder
                 $this->sourceRoot . '/' . $filename,
                 $applicationRoot . '/' . $filename,
                 0644,
+            );
+        }
+
+        foreach (self::APPLICATION_TOOL_FILES as $filename) {
+            $this->copyExactFile(
+                $this->sourceRoot . '/tools/' . $filename,
+                $applicationRoot . '/tools/' . $filename,
+                0755,
             );
         }
     }

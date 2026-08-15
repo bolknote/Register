@@ -1,6 +1,8 @@
 # Backups
 
-Register creates private database-and-media backups. A backup is a standard ZIP archive containing:
+Register creates private, authenticated encrypted database-and-media backups. A retained or
+downloaded `register-backup-*.zip.enc` file is a streaming XChaCha20-Poly1305 envelope around a
+standard ZIP archive containing:
 
 - a consistent database snapshot (`database.sqlite` or `database.sql`);
 - every regular file from the configured media directory under `media/`;
@@ -8,8 +10,10 @@ Register creates private database-and-media backups. A backup is a standard ZIP 
 - `RESTORE.txt` with a short recovery checklist.
 
 Deployment configuration is deliberately excluded because it contains database and application
-credentials. Treat every archive as secret: the database includes password hashes, unpublished
-content, email addresses, and other editorial data.
+credentials as well as the backup recovery key. The key is never stored in the database, generated
+cache, backup directory, or encrypted archive. Encryption therefore protects an archive copied or
+downloaded without the installation configuration; it does not protect against an attacker who can
+read both the archive and `config.php` on the live hosting account.
 
 ## Automatic and manual creation
 
@@ -41,7 +45,7 @@ For the isolated `./bin/dev` installation use:
 APP_ENV=local php tools/backup.php
 ```
 
-The command prints the completed archive path.
+The command prints the completed encrypted archive path.
 
 ## Configuration
 
@@ -49,9 +53,10 @@ New installations include this section in `config.php`:
 
 ```php
 'backups' => [
-    'enabled'   => true,
-    'directory' => null,
-    'retention' => 7,
+    'enabled'        => true,
+    'directory'      => null,
+    'retention'      => 7,
+    'encryption_key' => 'a-random-installation-secret-of-at-least-32-bytes',
 ],
 ```
 
@@ -60,6 +65,16 @@ New installations include this section in `config.php`:
 directory next to the document root. A relative path is resolved from the Register root; an absolute
 path is used as written. The directory must be writable by the PHP user and any operator running the
 CLI tools, and must not be served by the web server.
+
+The installer generates `encryption_key` with a cryptographically secure random source. Existing
+installations without this setting use the separately stored static `security.antispam_secret` when
+it is at least 32 bytes; otherwise backup creation fails closed until a new random key is added to
+`config.php`. Do not replace either key while retained encrypted backups still depend on it. Before
+an intentional rotation, decrypt the retained archives with the old configuration and create fresh
+backups with the new key.
+
+Authenticated streaming encryption requires the Sodium PHP extension (`ext-sodium`). It is a
+required runtime dependency and avoids loading a potentially large media archive into memory.
 
 The local development bootstrap stores three archives under `.local/backups/`.
 
@@ -74,9 +89,29 @@ For MySQL/MariaDB and PostgreSQL the dump covers the whole configured database, 
 the Register prefix. Give each installation its own database if the backup must contain only that
 installation.
 
-## Restore
+## Decrypt and restore
 
-1. Keep the archive private and verify `manifest.json` before restoring.
+Copy the original `config.php` (and `config.secrets.php`, when used) to the Register application
+directory. Decrypt without booting or connecting to the database:
+
+```bash
+php tools/decrypt-backup.php /private/register-backup-20260815-120000-deadbeef.zip.enc
+```
+
+By default this writes the same path without `.enc` and refuses to overwrite an existing file. An
+explicit output and configuration path can be supplied for an offline recovery:
+
+```bash
+php tools/decrypt-backup.php backup.zip.enc restored.zip /recovery/config.php
+```
+
+Any wrong key, modified byte, truncation, reordered frame, or data appended after the authenticated
+final frame makes decryption fail and removes the partial plaintext output. Legacy unencrypted
+`register-backup-*.zip` files remain discoverable and downloadable during migration, but every newly
+created archive is encrypted.
+
+1. Keep both the encrypted archive and decrypted temporary ZIP private. Verify `manifest.json` and
+   its database SHA-256 before restoring.
 2. Take the site offline so no web request or shutdown phase can write to the database.
 3. For SQLite, replace the configured database file with `database.sqlite`. For MySQL/MariaDB,
    import `database.sql` into an empty configured database with `mysql`. For PostgreSQL, import it
@@ -86,5 +121,6 @@ installation.
    request-driven queue processing.
 
 Automatic backups are daily full snapshots. They are not continuous or incremental, and they do not
-replace an off-site backup policy. Copy retained archives to storage with independent credentials and
-test restoration periodically.
+replace an off-site backup policy. Copy encrypted archives and their recovery configuration through
+separate protected channels, keep at least one offline copy of the recovery key, and test decryption
+and restoration periodically.

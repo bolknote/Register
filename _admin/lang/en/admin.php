@@ -88,6 +88,7 @@ return [
     'No backups yet'             => 'No backups have been created yet.',
     'Automatic backup status'    => 'Created daily; the latest {{ count }} archive is kept.|Created daily; the latest {{ count }} archives are kept.',
     'Automatic backups disabled' => 'Automatic backups are disabled in config.php.',
+    'Backup encryption status'   => 'New archives are encrypted. Keep config.php and config.secrets.php separately for recovery.',
     'Create backup'              => 'Create and download now',
     'Invalid backup token'       => 'The backup request has expired. Reload the dashboard and try again.',
     'Invalid current password'   => 'The current password is incorrect.',

@@ -33,6 +33,7 @@
         "ext-libxml": "*",
         "ext-pdo": "*",
         "ext-session": "*",
+        "ext-sodium": "*",
         "matthiasmullie/minify": "^1.3",
         "psr/cache": "^3.0",
         "psr/container": "^2.0",

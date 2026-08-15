@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Backup\Admin;
 
 use Psr\Log\LoggerInterface;
+use Register\Backup\BackupEncryptor;
 use Register\Backup\BackupFile;
 use Register\Backup\BackupManager;
 use S2\AdminYard\Translator;
@@ -110,8 +111,14 @@ final readonly class BackupAdminController
     private function downloadResponse(BackupFile $backup): BinaryFileResponse
     {
         $response = new BinaryFileResponse($backup->path);
-        $response->headers->set('Content-Type', 'application/zip');
+        $response->headers->set(
+            'Content-Type',
+            str_ends_with($backup->name, BackupEncryptor::FILE_SUFFIX)
+                ? 'application/octet-stream'
+                : 'application/zip',
+        );
         $response->headers->set('Cache-Control', 'private, no-store');
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $backup->name);
         $response->setPrivate();
 

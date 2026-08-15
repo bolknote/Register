@@ -340,6 +340,7 @@ class Integration extends AbstractBrowserModule
             'backup_enabled'    => false,
             'backup_dir'        => self::ROOT_DIR . '_tests/_output/backups',
             'backup_retention'  => 2,
+            'backup_encryption_key' => str_repeat('cd', 32),
             'force_admin_https' => true,
             'db_host'           => '127.0.0.1',
             'db_name'           => 's2_test',

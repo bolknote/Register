@@ -126,9 +126,10 @@ final class StaticConfigLoader
                 'secret_file'     => $this->nullableString($security['secret_file'] ?? null),
             ],
             'backups' => [
-                'enabled'   => $this->toBool($backups['enabled'] ?? true),
-                'directory' => $normalizeDir($this->nullableString($backups['directory'] ?? null)),
-                'retention' => $this->boundedInt($backups['retention'] ?? 7, 7, 1, 365),
+                'enabled'        => $this->toBool($backups['enabled'] ?? true),
+                'directory'      => $normalizeDir($this->nullableString($backups['directory'] ?? null)),
+                'retention'      => $this->boundedInt($backups['retention'] ?? 7, 7, 1, 365),
+                'encryption_key' => $this->nullableString($backups['encryption_key'] ?? null),
             ],
             'redirects' => \is_array($redirects) ? $redirects : [],
         ];
@@ -265,9 +266,10 @@ final class StaticConfigLoader
                         'secret_file'     => null,
                     ],
                     'backups' => [
-                        'enabled'   => true,
-                        'directory' => null,
-                        'retention' => 7,
+                        'enabled'        => true,
+                        'directory'      => null,
+                        'retention'      => 7,
+                        'encryption_key' => null,
                     ],
                     'redirects' => \is_array($legacyRedirects) ? $legacyRedirects : [],
                 ],

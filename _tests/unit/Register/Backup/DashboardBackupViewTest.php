@@ -66,6 +66,7 @@ final class DashboardBackupViewTest extends Unit
         );
         self::assertStringContainsString('2026-08-14 04:00 UTC', $html);
         self::assertStringContainsString('хранятся последние 3 копии', $html);
+        self::assertStringContainsString('Новые копии зашифрованы', $html);
         self::assertStringContainsString('<form class="backup-actions" method="post"', $html);
         self::assertStringContainsString('name="csrf_token" value="token"', $html);
         self::assertStringContainsString('name="password" autocomplete="current-password"', $html);

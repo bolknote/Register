@@ -27,6 +27,7 @@
     <p class="technical-data backup-schedule"><?= $automatic
         ? $trans('Automatic backup status', ['%count%' => $retention, '{{ count }}' => $retention])
         : $trans('Automatic backups disabled') ?></p>
+    <p class="technical-data backup-encryption"><?= $trans('Backup encryption status') ?></p>
     <form class="backup-actions" method="post" action="<?= $basePath ?>/_admin/ajax.php?action=register_backup_create">
         <input type="hidden" name="csrf_token" value="<?= s2_htmlencode($csrfToken) ?>">
         <label>

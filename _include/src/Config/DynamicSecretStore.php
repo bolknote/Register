@@ -18,12 +18,21 @@ final readonly class DynamicSecretStore
     /** @var array<string, true> */
     private array $parameterNames;
 
+    /** @var array<string, true> */
+    private array $hydrateOnlyParameterNames;
+
+    /** @var array<string, true> */
+    private array $allowedParameterNames;
+
     /**
      * @param list<string> $parameterNames
+     * @param list<string> $hydrateOnlyParameterNames Values migrated by an earlier release that
+     *     must still be hydrated without migrating fresh database values.
      */
     public function __construct(
         private string $filename,
         array          $parameterNames,
+        array          $hydrateOnlyParameterNames = [],
     ) {
         if (trim($filename) === '') {
             throw new \InvalidArgumentException('The dynamic secret filename cannot be empty.');
@@ -42,7 +51,18 @@ final readonly class DynamicSecretStore
             throw new \InvalidArgumentException('At least one dynamic secret parameter must be configured.');
         }
 
-        $this->parameterNames = $names;
+        $hydrateOnlyNames = [];
+        foreach ($hydrateOnlyParameterNames as $hydrateOnlyParameterName) {
+            if ($hydrateOnlyParameterName === '' || isset($names[$hydrateOnlyParameterName])) {
+                throw new \InvalidArgumentException('A hydrate-only dynamic secret parameter name is invalid.');
+            }
+
+            $hydrateOnlyNames[$hydrateOnlyParameterName] = true;
+        }
+
+        $this->parameterNames            = $names;
+        $this->hydrateOnlyParameterNames = $hydrateOnlyNames;
+        $this->allowedParameterNames     = $names + $hydrateOnlyNames;
     }
 
     /**
@@ -93,6 +113,31 @@ final readonly class DynamicSecretStore
             $databaseUpdates[$parameterName] = self::DATABASE_PLACEHOLDER;
         }
 
+        foreach (array_keys($this->hydrateOnlyParameterNames) as $parameterName) {
+            if (!array_key_exists($parameterName, $databaseConfig)) {
+                unset($updatedSecrets[$parameterName]);
+                continue;
+            }
+
+            $databaseValue = $databaseConfig[$parameterName];
+            if (!\is_string($databaseValue)) {
+                throw new ConfigurationException('A hydrate-only dynamic secret must be stored as text.');
+            }
+
+            if ($databaseValue === self::DATABASE_PLACEHOLDER) {
+                if (!array_key_exists($parameterName, $storedSecrets)) {
+                    throw new ConfigurationException(
+                        'The private dynamic-secret file is missing a value referenced by the database.',
+                    );
+                }
+
+                $runtimeConfig[$parameterName] = $storedSecrets[$parameterName];
+                continue;
+            }
+
+            unset($updatedSecrets[$parameterName]);
+        }
+
         if ($updatedSecrets !== $storedSecrets) {
             $this->write($updatedSecrets);
         }
@@ -133,6 +178,23 @@ final readonly class DynamicSecretStore
             }
         }
 
+        foreach (array_keys($this->hydrateOnlyParameterNames) as $parameterName) {
+            if (!array_key_exists($parameterName, $cachedConfig)) {
+                continue;
+            }
+
+            $cachedValue = $cachedConfig[$parameterName];
+            if (!\is_string($cachedValue)) {
+                throw new ConfigurationException('A hydrate-only dynamic secret cache value must be text.');
+            }
+
+            if (($cachedValue === self::DATABASE_PLACEHOLDER)
+                !== array_key_exists($parameterName, $storedSecrets)
+            ) {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -143,7 +205,7 @@ final readonly class DynamicSecretStore
     public function hydrate(array $cachedConfig): array
     {
         $storedSecrets = $this->read();
-        foreach (array_keys($this->parameterNames) as $parameterName) {
+        foreach (array_keys($this->allowedParameterNames) as $parameterName) {
             if (($cachedConfig[$parameterName] ?? null) !== self::DATABASE_PLACEHOLDER) {
                 continue;
             }
@@ -192,7 +254,7 @@ final readonly class DynamicSecretStore
         $secrets = [];
         foreach ($data as $parameterName => $value) {
             if (!\is_string($parameterName)
-                || !isset($this->parameterNames[$parameterName])
+                || !isset($this->allowedParameterNames[$parameterName])
                 || !\is_string($value)
                 || $value === ''
             ) {

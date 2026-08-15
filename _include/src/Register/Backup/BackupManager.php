@@ -16,10 +16,11 @@ final readonly class BackupManager
 {
     public const int AUTOMATIC_INTERVAL_SECONDS = 24 * 60 * 60;
 
-    private const string FILE_PATTERN = '/^register-backup-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}\.zip$/D';
+    private const string FILE_PATTERN = '/^register-backup-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}\.zip(?:\.enc)?$/D';
 
     public function __construct(
         private DatabaseSnapshotter $databaseSnapshotter,
+        private BackupEncryptor     $backupEncryptor,
         private LoggerInterface     $logger,
         private SecurityAuditLogger $securityAuditLogger,
         private string              $backupDirectory,
@@ -124,7 +125,7 @@ final readonly class BackupManager
 
         foreach ($paths as $path) {
             if (
-                preg_match('/^\.[a-f0-9]{16}(?:\.zip|-database\.(?:sqlite|sql))$/D', basename($path)) !== 1
+                preg_match('/^\.[a-f0-9]{16}(?:\.zip(?:\.enc)?|-database\.(?:sqlite|sql))$/D', basename($path)) !== 1
                 || !is_file($path)
                 || is_link($path)
             ) {
@@ -144,6 +145,7 @@ final readonly class BackupManager
         $token       = bin2hex(random_bytes(8));
         $snapshot    = null;
         $archivePath = $this->backupDirectory . '/.' . $token . '.zip';
+        $encryptedPath = $archivePath . BackupEncryptor::FILE_SUFFIX;
         $writer      = null;
 
         try {
@@ -186,10 +188,14 @@ final readonly class BackupManager
             $writer->addString('manifest.json', $manifest . "\n", $now);
             $writer->addString('RESTORE.txt', $this->restoreInstructions($snapshot), $now);
             $writer->close();
+            $this->backupEncryptor->encryptFile($archivePath, $encryptedPath);
+            if (!s2_call_without_warnings(static fn(): bool => unlink($archivePath))) {
+                throw new \RuntimeException('Unable to remove the plaintext backup work file.');
+            }
 
-            $name = 'register-backup-' . gmdate('Ymd-His', $now) . '-' . substr($token, 0, 8) . '.zip';
+            $name = 'register-backup-' . gmdate('Ymd-His', $now) . '-' . substr($token, 0, 8) . '.zip.enc';
             $finalPath = $this->backupDirectory . '/' . $name;
-            if (!touch($archivePath, $now) || !rename($archivePath, $finalPath)) {
+            if (!touch($encryptedPath, $now) || !rename($encryptedPath, $finalPath)) {
                 throw new \RuntimeException('Unable to publish the completed backup archive.');
             }
 
@@ -216,6 +222,10 @@ final readonly class BackupManager
 
             if (is_file($archivePath)) {
                 s2_call_without_warnings(static fn(): bool => unlink($archivePath));
+            }
+
+            if (is_file($encryptedPath)) {
+                s2_call_without_warnings(static fn(): bool => unlink($encryptedPath));
             }
 
             if ($snapshot instanceof DatabaseSnapshot && is_file($snapshot->path)) {
@@ -272,13 +282,14 @@ final readonly class BackupManager
 Register backup
 ===============
 
-1. Keep this archive private: the database contains password hashes and private editorial data.
+1. This ZIP was stored inside an authenticated encrypted .enc envelope.
 2. Stop writes to Register before restoring.
 3. {$databaseInstruction}
 4. Copy the contents of media/ into Register's configured media directory.
 5. Clear Register's cache and resume normal request-driven queue processing.
 
-config.php is intentionally not included because it contains deployment credentials.
+config.php and config.secrets.php are intentionally not included. Preserve them separately: they
+contain deployment credentials and the key required to decrypt future backup envelopes.
 See the Register backup documentation for database-specific commands and verification steps.
 TEXT;
     }
@@ -330,11 +341,11 @@ TEXT;
     /** @return list<BackupFile> */
     private function backups(): array
     {
-        if (!is_dir($this->backupDirectory)) {
+        if (!is_dir($this->backupDirectory) || is_link($this->backupDirectory)) {
             return [];
         }
 
-        $paths = glob($this->backupDirectory . '/register-backup-*.zip', GLOB_NOSORT);
+        $paths = glob($this->backupDirectory . '/register-backup-*.zip*', GLOB_NOSORT);
         if ($paths === false) {
             return [];
         }
@@ -362,8 +373,25 @@ TEXT;
 
     private function ensureDirectory(): void
     {
+        if (is_link($this->backupDirectory)
+            || (file_exists($this->backupDirectory) && !is_dir($this->backupDirectory))
+        ) {
+            throw new \RuntimeException('The private backup directory must be a real directory.');
+        }
+
         if (!is_dir($this->backupDirectory) && !mkdir($this->backupDirectory, 0700, true) && !is_dir($this->backupDirectory)) {
             throw new \RuntimeException('Unable to create the private backup directory.');
+        }
+
+        if (DIRECTORY_SEPARATOR !== '\\') {
+            $directoryStat = lstat($this->backupDirectory);
+            if ($directoryStat === false || ($directoryStat['mode'] & 0170000) !== 0040000) {
+                throw new \RuntimeException('The private backup directory must not be a symbolic link.');
+            }
+
+            if (($directoryStat['mode'] & 0777) !== 0700 && !chmod($this->backupDirectory, 0700)) {
+                throw new \RuntimeException('Unable to secure the private backup directory.');
+            }
         }
 
         if (!is_writable($this->backupDirectory)) {

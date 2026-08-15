@@ -88,6 +88,7 @@ return [
     'No backups yet'             => 'Резервных копий пока нет.',
     'Automatic backup status'    => 'Создаются ежедневно; хранится последняя {{ count }} копия.|Создаются ежедневно; хранятся последние {{ count }} копии.|Создаются ежедневно; хранятся последние {{ count }} копий.',
     'Automatic backups disabled' => 'Автоматические копии отключены в config.php.',
+    'Backup encryption status'   => 'Новые копии зашифрованы. Для восстановления отдельно сохраните config.php и config.secrets.php.',
     'Create backup'              => 'Создать и скачать сейчас',
     'Invalid backup token'       => 'Запрос устарел. Перезагрузите дашборд и повторите.',
     'Invalid current password'   => 'Неверный текущий пароль.',
