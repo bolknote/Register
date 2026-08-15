@@ -80,6 +80,10 @@ class InstallCest
 
         $installedConfig = include __DIR__ . '/../../config.test.php';
         $I->assertIsArray($installedConfig);
+        $I->assertSame(
+            '_tests/_output/config.acceptance.secrets.php',
+            $installedConfig['security']['secret_file'] ?? null,
+        );
         $backupEncryptionKey = $installedConfig['backups']['encryption_key'] ?? null;
         $I->assertIsString($backupEncryptionKey);
         $I->assertGreaterThanOrEqual(64, \strlen($backupEncryptionKey));

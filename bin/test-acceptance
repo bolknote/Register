@@ -11,6 +11,7 @@ OUTPUT_DIR="$PROJECT_DIR/_tests/_output"
 EMAIL_DIR="$OUTPUT_DIR/email"
 TEST_CACHE_DIR="$PROJECT_DIR/_cache/test"
 SERVER_LOG="$OUTPUT_DIR/php-server.log"
+SECRET_CONFIG_FILE="$OUTPUT_DIR/config.acceptance.secrets.php"
 SERVER_PID=
 
 cleanup() {
@@ -26,6 +27,7 @@ cleanup() {
     fi
 
     find "$TEST_CACHE_DIR" -maxdepth 1 -type f \( -name '*.php' -o -name '*.txt' \) -delete
+    rm -f "$SECRET_CONFIG_FILE"
     exit "$status"
 }
 
@@ -37,6 +39,7 @@ chmod a+w "$OUTPUT_DIR" "$EMAIL_DIR" "$TEST_CACHE_DIR"
 find "$PROJECT_DIR/_cache" -maxdepth 1 -type f -name '*.log' -delete
 find "$TEST_CACHE_DIR" -maxdepth 1 -type f \( -name '*.php' -o -name '*.txt' -o -name '*.log' \) -delete
 find "$TEST_CACHE_DIR/config" "$TEST_CACHE_DIR/recommendations" -mindepth 1 -delete
+rm -f "$SECRET_CONFIG_FILE"
 
 case "$DB_TYPE" in
     sqlite)

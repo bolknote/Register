@@ -108,6 +108,7 @@ $config = [
     ],
     'security' => [
         'antispam_secret' => hash('sha256', 'register-local-antispam:' . $rootDir),
+        'secret_file'     => '.local/config.secrets.php',
     ],
     'backups' => [
         'enabled'        => true,

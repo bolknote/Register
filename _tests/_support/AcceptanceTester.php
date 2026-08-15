@@ -63,6 +63,13 @@ class AcceptanceTester extends Actor
 
         // We need '/index.php?' prefix to test urls like /rss.xml
         $config['http']['url_prefix'] = '/index.php?';
+        $security = $config['security'] ?? [];
+        if (!\is_array($security)) {
+            throw new \RuntimeException('Unable to read security configuration from config.test.php');
+        }
+
+        $security['secret_file'] = '_tests/_output/config.acceptance.secrets.php';
+        $config['security']      = $security;
 
         file_put_contents($configFileName, '<?php return ' . \var_export($config, true) . ';');
     }
