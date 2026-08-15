@@ -33,10 +33,11 @@ final class DevelopmentRouterPolicy
     ];
 
     private const array PUBLIC_EXTENSIONS = [
-        '7z', 'avi', 'avif', 'bmp', 'css', 'csv', 'doc', 'docx', 'flac', 'flv', 'gif', 'html',
-        'ico', 'jpeg', 'jpg', 'js', 'json', 'map', 'mkv', 'mov', 'mp3', 'mp4', 'mpeg', 'mpg',
-        'odp', 'ods', 'odt', 'ogg', 'pdf', 'png', 'ppt', 'pptx', 'rar', 'rtf', 'svg', 'txt',
-        'wasm', 'wav', 'webm', 'webp', 'woff', 'woff2', 'xls', 'xlsx', 'zip',
+        '7z', 'avi', 'avif', 'bmp', 'bpg', 'css', 'csv', 'cur', 'doc', 'docx', 'emf', 'flac',
+        'flv', 'gif', 'html', 'ico', 'jpeg', 'jpeg2000', 'jpegxr', 'jpg', 'js', 'json', 'map',
+        'mkv', 'mng', 'mov', 'mp3', 'mp4', 'mpeg', 'mpg', 'odp', 'ods', 'odt', 'ogg', 'pdf',
+        'png', 'ppt', 'pptx', 'rar', 'rtf', 'svg', 'tiff', 'txt', 'wasm', 'wav', 'wbmp', 'webm',
+        'webp', 'wmf', 'woff', 'woff2', 'xbm', 'xls', 'xlsx', 'zip',
     ];
 
     public static function isAllowedPhpEndpoint(string $requestPath): bool

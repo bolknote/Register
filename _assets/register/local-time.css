@@ -1,0 +1,3 @@
+html.local-time-pending time[data-local-time] {
+    visibility: hidden;
+}

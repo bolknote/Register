@@ -45,6 +45,13 @@ final class DevelopmentRouterPolicyTest extends Unit
         self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_assets/register/math/vendor/katex/fonts/KaTeX_Main-Regular.woff2', 'woff2'));
         self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_pictures/video.mov', 'mov'));
         self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_pictures/archive.zip', 'zip'));
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_pictures/cursor.cur', 'cur'));
+        foreach (['bpg', 'emf', 'jpeg2000', 'jpegxr', 'mng', 'tiff', 'wbmp', 'wmf', 'xbm'] as $extension) {
+            self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile(
+                '/_pictures/format-test.' . $extension,
+                $extension,
+            ));
+        }
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_admin/templates/layout.php.inc', 'inc'));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_include/src/Register/ProductModule.php', 'php'));
     }

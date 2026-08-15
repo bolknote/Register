@@ -75,11 +75,12 @@ by Gemini and Groq rather than by Register.
 
 ### Themes and presentation
 
-Register ships with three first-party themes:
+Register ships with four first-party themes:
 
 - **Register** — the default restrained editorial theme with system light/dark appearance;
 - **Oldschool** — a dense, discussion-oriented layout with Slashdot-style threaded comments;
-- **Pixel Forest** — a playful pixel-art reading theme.
+- **Pixel Forest** — a playful pixel-art reading theme;
+- **System 1** — a monochrome 1984 Macintosh-inspired theme using grayscale macOS system artwork.
 
 Themes, templates, views, CSS, and module resources can be overridden without changing the
 publishing model.

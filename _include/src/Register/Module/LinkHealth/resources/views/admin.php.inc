@@ -104,9 +104,13 @@ $filterUrl = static fn(?LinkHealthStatus $value, int $targetPage = 1): string =>
                             <?php if ($target['last_error'] !== null): ?><small class="link-health-error"><?= $html((string)$target['last_error']) ?></small><?php endif; ?>
                         </td>
                         <td>
-                            <?= $trans('Link used in materials', [
-                                '{{ occurrences }}' => $target['occurrence_count'],
-                                '{{ materials }}' => $target['content_count'],
+                            <?= $trans('Link occurrence count', [
+                                '%count%' => $target['occurrence_count'],
+                                '{{ count }}' => $target['occurrence_count'],
+                            ]) ?>
+                            <?= $trans('Link material count', [
+                                '%count%' => $target['content_count'],
+                                '{{ count }}' => $target['content_count'],
                             ]) ?>
                             <small><?= $trans('Link first seen', ['{{ time }}' => $time($target['first_seen_at'])]) ?></small>
                             <small><?= $trans('Link last seen', ['{{ time }}' => $time($target['last_seen_at'])]) ?></small>

@@ -38,11 +38,13 @@ final class ResourceProviderTest extends Unit
         $englishOptions = $provider->readStyleOptions('en');
         self::assertSame('Register', $englishOptions['register']);
         self::assertSame('Pixel forest', $englishOptions['pixel-forest']);
+        self::assertSame('System 1', $englishOptions['system-1']);
 
         $russianOptions = $provider->readStyleOptions('ru');
         self::assertSame('Регистр', $russianOptions['register']);
         self::assertSame('Пиксельный лес', $russianOptions['pixel-forest']);
         self::assertSame('Старая школа', $russianOptions['oldschool']);
+        self::assertSame('System 1', $russianOptions['system-1']);
     }
 
     public function testStyleNameFallsBackToEnglishAndThenToHumanizedIdentifier(): void

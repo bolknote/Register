@@ -1,0 +1,76 @@
+.files-archive-custom-cursor-demo {
+    width: min(100%, var(--text-width));
+    margin-top: 1.5rem;
+}
+
+.files-archive-custom-cursor-target {
+    display: grid;
+    min-height: 10rem;
+    padding: clamp(1.25rem, 4vw, 2.5rem);
+    border: 1px solid color-mix(in srgb, var(--link-color) 48%, var(--border-color));
+    border-radius: 10px;
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1.5rem;
+    background:
+        radial-gradient(circle at 82% 25%, color-mix(in srgb, var(--link-color) 16%, transparent), transparent 34%),
+        var(--field-background);
+    cursor:
+        url("/_pictures/bolknote/archive-files/custom-cursor/cursor-e.cur"),
+        url("/_pictures/bolknote/archive-files/custom-cursor/cursor-e.png") 10 0,
+        auto;
+    transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.files-archive-custom-cursor-target:is(:hover, :focus-visible) {
+    border-color: var(--link-color);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--link-color) 16%, transparent);
+    transform: translateY(-1px);
+}
+
+.files-archive-custom-cursor-copy {
+    display: grid;
+    gap: 0.35rem;
+    font-family: var(--ui-font);
+}
+
+.files-archive-custom-cursor-copy strong {
+    font-size: clamp(1.15rem, 3vw, 1.6rem);
+    line-height: 1.15;
+}
+
+.files-archive-custom-cursor-copy span {
+    max-width: 34rem;
+    color: var(--minor-color);
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
+.files-archive-custom-cursor-preview {
+    width: 42px;
+    height: 60px;
+    image-rendering: pixelated;
+}
+
+.files-archive-custom-cursor-demo .files-archive-demo-note {
+    margin: 0.65rem 0 0;
+    color: var(--minor-color);
+    font-family: var(--ui-font);
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+
+body:has(.system-window-title) .files-archive-custom-cursor-target {
+    border: 2px solid var(--system-black, #000);
+    border-radius: 0;
+    background: var(--system-paper, #fff);
+    box-shadow: 5px 5px 0 var(--system-black, #000);
+    transition: box-shadow 90ms linear, transform 90ms linear;
+}
+
+body:has(.system-window-title) .files-archive-custom-cursor-target:is(:hover, :focus-visible) {
+    border-color: var(--system-black, #000);
+    box-shadow: 8px 8px 0 var(--system-black, #000);
+    transform: translate(-2px, -2px);
+}

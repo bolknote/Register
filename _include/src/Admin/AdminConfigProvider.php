@@ -542,6 +542,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                         $revokeSessions = true;
                         $changedFields[] = 'login';
                     }
+
                     foreach (self::USER_PERMISSION_FIELDS as $permission) {
                         if (array_key_exists($permission, $event->data)
                             && (bool)$event->data[$permission] !== (bool)($oldData['column_' . $permission] ?? false)) {

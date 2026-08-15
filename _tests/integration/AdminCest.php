@@ -482,7 +482,7 @@ class AdminCest
         $I->login('admin', 'admin');
 
         try {
-            foreach (['oldschool' => 'light', 'register' => 'light dark'] as $style => $colorScheme) {
+            foreach (['oldschool' => 'light', 'register' => 'light dark', 'system-1' => 'light'] as $style => $colorScheme) {
                 $dbLayer->update('config')
                     ->set('value', ':value')->setParameter('value', $style)
                     ->where('name = :name')->setParameter('name', 'S2_STYLE')
@@ -862,7 +862,7 @@ class AdminCest
 
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/_admin/index.php?entity=User&action=new');
-        $I->submitForm('.edit-content > form', [
+        $I->submitForm('.new-content > form', [
             'login'    => 'passwordless-user',
             'password' => '',
             'name'     => '',

@@ -6,6 +6,18 @@ Options -Indexes -ExecCGI
 RemoveHandler .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi .pl .py .sh .shtml .asp .aspx .jsp .inc
 RemoveType .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi .pl .py .sh .shtml .asp .aspx .jsp .inc
 
+<IfModule mod_mime.c>
+    AddType image/bpg .bpg
+    AddType image/emf .emf
+    AddType image/jp2 .jpeg2000
+    AddType image/vnd.ms-photo .jpegxr
+    AddType video/x-mng .mng
+    AddType image/tiff .tiff
+    AddType image/vnd.wap.wbmp .wbmp
+    AddType image/wmf .wmf
+    AddType image/x-xbitmap .xbm
+</IfModule>
+
 <FilesMatch "(?i)\.(?:asp|aspx|cgi|config|css|htm|html|inc|ini|js|jsp|mjs|phar|php[0-9]?|pht|phtml|pl|py|sh|shtml|svg|svgz|wasm|xht|xhtml|xml|xsl|xslt)$">
     <IfModule mod_authz_core.c>
         Require all denied

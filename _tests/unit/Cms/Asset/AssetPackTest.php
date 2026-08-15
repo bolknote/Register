@@ -49,12 +49,47 @@ final class AssetPackTest extends Unit
         $register = require $rootDir . '_styles/register/register.php';
         $oldschool = require $rootDir . '_styles/oldschool/oldschool.php';
         $pixelForest = require $rootDir . '_styles/pixel-forest/pixel-forest.php';
+        $systemOne = require $rootDir . '_styles/system-1/system-1.php';
 
         self::assertInstanceOf(AssetPack::class, $register);
         self::assertInstanceOf(AssetPack::class, $oldschool);
         self::assertInstanceOf(AssetPack::class, $pixelForest);
+        self::assertInstanceOf(AssetPack::class, $systemOne);
         self::assertSame(AssetPack::COLOR_SCHEME_SYSTEM, $register->getColorScheme());
         self::assertSame(AssetPack::COLOR_SCHEME_LIGHT, $oldschool->getColorScheme());
         self::assertSame(AssetPack::COLOR_SCHEME_DARK, $pixelForest->getColorScheme());
+        self::assertSame(AssetPack::COLOR_SCHEME_LIGHT, $systemOne->getColorScheme());
+    }
+
+    public function testBuiltInStylesLoadLocalTimeAssetsInTheDocumentHead(): void
+    {
+        $rootDir = \dirname(__DIR__, 4) . '/';
+
+        foreach (['register', 'oldschool', 'pixel-forest', 'system-1'] as $style) {
+            /** @var AssetPack $assetPack */
+            $assetPack = require $rootDir . '_styles/' . $style . '/' . $style . '.php';
+            $markup    = $assetPack->getStyles('/_styles/' . $style . '/', null);
+            $cssPath   = '/_styles/' . $style . '/../../_assets/register/local-time.css';
+            $jsPath    = '/_styles/' . $style . '/../../_assets/register/local-time.js';
+
+            self::assertStringContainsString(
+                '<link rel="stylesheet" href="' . $cssPath . '">' . "\n"
+                . '<script src="' . $jsPath . '"></script>',
+                $markup,
+            );
+        }
+    }
+
+    public function testSystemOneThemeUsesGlobalGrayscaleAndMacOsArtwork(): void
+    {
+        $themeDir = \dirname(__DIR__, 4) . '/_styles/system-1/';
+        $css = file_get_contents($themeDir . 'system-1.css');
+
+        self::assertIsString($css);
+        self::assertMatchesRegularExpression('/html\s*\{[^}]*filter:\s*grayscale\(1\);/s', $css);
+
+        foreach (['finder.png', 'folder.png', 'document.png', 'trash.png'] as $asset) {
+            self::assertFileExists($themeDir . $asset);
+        }
     }
 }

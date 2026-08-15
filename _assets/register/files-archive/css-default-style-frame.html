@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Default-Style test</title>
+    <style>
+        html,
+        body {
+            min-height: 100%;
+            margin: 0;
+        }
+
+        body {
+            display: grid;
+            place-items: center;
+            color: white;
+            font: 700 18px/1.35 system-ui, sans-serif;
+            text-align: center;
+        }
+
+        p {
+            max-width: 26rem;
+            margin: 0;
+            padding: 1rem;
+            border-radius: 0.45rem;
+            background: rgb(0 0 0 / 32%);
+        }
+    </style>
+    <style title="right">
+        body {
+            background: #36f;
+        }
+    </style>
+    <style title="wrong">
+        body {
+            background: #c33;
+        }
+    </style>
+    <meta http-equiv="Default-Style" content="right">
+</head>
+<body>
+    <p>Цвет этой области — результат выбора именованной таблицы стилей.</p>
+</body>
+</html>
