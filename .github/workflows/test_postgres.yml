@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
-      - uses: ikalnytskyi/action-setup-postgres@74e396491e76c84f8ad92a4f5a69ab0deb75bbc2 # v5
+      - uses: ikalnytskyi/action-setup-postgres@c4dda34aae1c821e3a771b68b73b13af3198a7ee # v8
         with:
           username: postgres
           password: 12345
