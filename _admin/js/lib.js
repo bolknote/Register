@@ -387,6 +387,192 @@ function LoginInit() {
     };
 }
 
+/**
+ * Accessible inline editing with explicit dirty, saving, applied and error states.
+ * This replaces AdminYard's demo helper before forms are initialized below.
+ */
+window.makeInlineForm = function (formId, unknownErrorMessage) {
+    const form = document.getElementById(formId);
+    if (!form || form.dataset.inlineFormReady === '1') {
+        return;
+    }
+
+    form.dataset.inlineFormReady = '1';
+    const checkTypes = ['checkbox', 'radio'];
+    const fieldTypes = ['text', 'number', 'password', 'email', 'url', 'tel', 'search', 'date', 'time', 'datetime-local', 'month', 'week', 'color'];
+    const controls = Array.from(form.elements).filter(function (element) {
+        return element instanceof HTMLInputElement
+            || element instanceof HTMLSelectElement
+            || element instanceof HTMLTextAreaElement;
+    });
+    const status = form.querySelector('[data-config-save-state]');
+    const validationHolder = form.querySelector('.validation-errors');
+    let savedState = status?.dataset.state || 'applied';
+    let savedStatusText = status?.textContent.trim() || message('savedMessage', 'Saved');
+    let backup = new Map();
+    let submitting = false;
+    let queued = false;
+    let successTimer = null;
+
+    function message(name, fallback) {
+        return form.dataset[name] || fallback;
+    }
+
+    function setState(state, text) {
+        if (status) {
+            status.dataset.state = state;
+            status.textContent = text;
+        }
+        form.dispatchEvent(new CustomEvent('register:config-state', {
+            bubbles: true,
+            detail: {state: state, key: form.dataset.configKey || ''}
+        }));
+    }
+
+    function remember() {
+        backup = new Map();
+        controls.forEach(function (control) {
+            backup.set(control, checkTypes.includes(control.type) ? control.checked : control.value);
+            control.dataset.savedValue = control.value;
+            if (control.type === 'checkbox' && control.parentNode instanceof HTMLLabelElement) {
+                control.parentNode.title = control.checked ? 'On' : 'Off';
+            }
+        });
+    }
+
+    function restore() {
+        backup.forEach(function (value, control) {
+            if (checkTypes.includes(control.type)) {
+                control.checked = Boolean(value);
+            } else {
+                control.value = String(value);
+            }
+        });
+        form.classList.remove('has-errors');
+        if (validationHolder) {
+            validationHolder.textContent = '';
+        }
+        setState(savedState, savedStatusText);
+    }
+
+    function updateHolders() {
+        controls.forEach(function (control) {
+            if (!fieldTypes.includes(control.type) && !(control instanceof HTMLSelectElement)) {
+                return;
+            }
+            const holder = document.getElementById(formId + '-' + control.name);
+            if (holder) {
+                holder.textContent = control.value;
+            }
+        });
+    }
+
+    function showErrors(errors) {
+        if (validationHolder) {
+            validationHolder.textContent = '';
+            errors.forEach(function (error) {
+                const item = document.createElement('span');
+                item.className = 'validation-error';
+                item.textContent = error;
+                validationHolder.appendChild(item);
+            });
+        }
+        form.classList.add('has-errors');
+        setState('error', errors.join(' '));
+    }
+
+    async function sendData() {
+        if (submitting) {
+            queued = true;
+            return;
+        }
+
+        submitting = true;
+        queued = false;
+        form.classList.remove('has-errors', 'success');
+        if (validationHolder) {
+            validationHolder.textContent = '';
+        }
+        setState('saving', message('savingMessage', 'Saving…'));
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form)
+            });
+            const responseData = await response.json().catch(function () {
+                return {};
+            });
+            if (!response.ok) {
+                const errors = response.status === 422 && Array.isArray(responseData.errors)
+                    ? responseData.errors
+                    : [unknownErrorMessage];
+                showErrors(errors);
+                return;
+            }
+
+            remember();
+            updateHolders();
+            savedState = 'applied';
+            savedStatusText = message('savedMessage', 'Saved');
+            setState(savedState, savedStatusText);
+            form.classList.add('success');
+            window.clearTimeout(successTimer);
+            successTimer = window.setTimeout(function () {
+                form.classList.remove('success');
+            }, 3000);
+            form.dispatchEvent(new CustomEvent('register:config-saved', {
+                bubbles: true,
+                detail: {key: form.dataset.configKey || ''}
+            }));
+        } catch (error) {
+            console.warn('There was a problem with form submission:', error);
+            showErrors([unknownErrorMessage]);
+        } finally {
+            submitting = false;
+            if (queued) {
+                sendData();
+            }
+        }
+    }
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        sendData();
+    });
+
+    controls.forEach(function (control) {
+        if (control instanceof HTMLSelectElement || checkTypes.includes(control.type) || control.type === 'color') {
+            control.addEventListener('change', sendData);
+            return;
+        }
+
+        control.addEventListener('input', function () {
+            if (backup.get(control) !== control.value) {
+                setState('dirty', message('dirtyMessage', 'Not saved'));
+            }
+        });
+        control.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                restore();
+                control.blur();
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                if (backup.get(control) !== control.value) {
+                    sendData();
+                }
+            }
+        });
+        control.addEventListener('blur', function () {
+            if (backup.get(control) !== control.value) {
+                sendData();
+            }
+        });
+    });
+
+    remember();
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     localizeTimes();
 

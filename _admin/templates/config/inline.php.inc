@@ -1,60 +1,52 @@
 <?php
 
-declare(strict_types=1);
+declare(strict_types = 1);
 
 /** @var callable $trans */
 /** @var string $entityName */
 /** @var string $fieldName */
 /** @var string $value */
 /** @var \S2\AdminYard\Form\Form $form */
-/** @var array $primaryKey */
+/** @var array<string, scalar> $primaryKey */
 /** @var string $formId */
 /** @var string $controlId */
 /** @var string $helpId */
 /** @var string $statusId */
 /** @var bool $isApplied */
 
+$html = static fn(string $text): string => htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
 $formQueryParams = http_build_query(array_merge([
     'entity' => $entityName,
     'action' => 'patch',
     'field'  => $fieldName,
 ], $primaryKey));
-
-$isConfigured = trim($value) !== '';
-$html         = static fn(string $text): string => htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+$holderId = $formId . '-' . $fieldName;
 
 ?>
-<span class="inline-form-holder secret-value-state" id="<?= $html($formId) ?>-state">
-    <?= $html($trans($isConfigured ? 'Secret configured' : 'Secret not configured')) ?>
-</span>
-<form class="inline-form secret-inline-form" id="<?= $html($formId) ?>" method="POST" action="?<?= $html($formQueryParams) ?>"
-      data-secret-inline-form
+<span class="inline-form-holder" id="<?= $html($holderId) ?>" aria-hidden="true"><?= $html($value) ?></span>
+<form class="inline-form config-inline-form" id="<?= $html($formId) ?>" method="POST"
+      action="?<?= $html($formQueryParams) ?>"
+      data-inline-form
       data-config-key="<?= $html((string)($primaryKey['name'] ?? '')) ?>"
-      data-configured-message="<?= $html($trans('Secret configured')) ?>"
-      data-empty-message="<?= $html($trans('Secret not configured')) ?>"
       data-saving-message="<?= $html($trans('Saving setting')) ?>"
       data-saved-message="<?= $html($trans('Setting applied')) ?>"
       data-dirty-message="<?= $html($trans('Setting not saved')) ?>"
-      data-error-message="<?= $html($trans('Something went wrong and the value was not saved.')) ?>"
-      data-clear-confirm-message="<?= $html($trans('Clear saved API key?')) ?>">
+      data-error-message="<?= $html($trans('Something went wrong and the value was not saved.')) ?>">
     <?php foreach ($form->getHiddenControls() as $control): ?>
         <?= $control->getHtml() ?>
     <?php endforeach; ?>
-    <?php foreach ($form->getVisibleControls() as $control): ?>
+    <?php foreach ($form->getVisibleControls() as $visibleFieldName => $control): ?>
         <?php
         $controlHtml = $control->getHtml($controlId);
         $controlHtml = preg_replace(
-            '/<(input)\b/',
+            '/<(input|select|textarea)\b/',
             '<$1 aria-describedby="' . $html($helpId . ' ' . $statusId) . '"',
             $controlHtml,
             1,
         ) ?? $controlHtml;
         ?>
-        <span class="input-wrapper"><?= $controlHtml ?></span>
+        <span class="input-wrapper field-<?= $html($entityName) ?>-<?= $html($visibleFieldName) ?>"><?= $controlHtml ?></span>
     <?php endforeach; ?>
-    <button type="button" class="secret-clear-button secondary" <?= $isConfigured ? '' : 'hidden' ?>>
-        <?= $trans('Clear secret') ?>
-    </button>
     <span class="validation-errors" aria-live="polite"></span>
     <span class="config-save-state" id="<?= $html($statusId) ?>" data-config-save-state
           data-state="<?= $isApplied ? 'applied' : 'pending' ?>" aria-live="polite">

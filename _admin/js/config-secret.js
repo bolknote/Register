@@ -9,6 +9,9 @@ function makeSecretInlineForm(formId, messages) {
     const clearButton = form.querySelector('.secret-clear-button');
     const state = document.getElementById(formId + '-state');
     const errors = form.querySelector('.validation-errors');
+    const saveState = form.querySelector('[data-config-save-state]');
+    let savedState = saveState?.dataset.state || 'applied';
+    let savedStateText = saveState?.textContent.trim() || messages.saved;
     let submitting = false;
 
     form.addEventListener('submit', function (event) {
@@ -18,6 +21,18 @@ function makeSecretInlineForm(formId, messages) {
     function showError(message) {
         errors.textContent = message;
         form.classList.add('has-errors');
+        setSaveState('error', message);
+    }
+
+    function setSaveState(status, message) {
+        if (saveState) {
+            saveState.dataset.state = status;
+            saveState.textContent = message;
+        }
+        form.dispatchEvent(new CustomEvent('register:config-state', {
+            bubbles: true,
+            detail: {state: status, key: form.dataset.configKey || ''}
+        }));
     }
 
     async function save(clear) {
@@ -27,6 +42,7 @@ function makeSecretInlineForm(formId, messages) {
         submitting = true;
         errors.textContent = '';
         form.classList.remove('has-errors');
+        setSaveState('saving', messages.saving);
         const data = new FormData(form);
         if (clear) {
             data.set(input.name, '');
@@ -44,10 +60,17 @@ function makeSecretInlineForm(formId, messages) {
             input.value = '';
             state.textContent = clear ? messages.empty : messages.configured;
             clearButton.hidden = clear;
+            savedState = 'applied';
+            savedStateText = messages.saved;
+            setSaveState(savedState, savedStateText);
             form.classList.add('success');
             setTimeout(function () {
                 form.classList.remove('success');
             }, 3000);
+            form.dispatchEvent(new CustomEvent('register:config-saved', {
+                bubbles: true,
+                detail: {key: form.dataset.configKey || ''}
+            }));
         } catch (error) {
             console.warn('Unable to save secret setting:', error);
             showError(messages.error);
@@ -60,6 +83,7 @@ function makeSecretInlineForm(formId, messages) {
         input.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
                 input.value = '';
+                setSaveState(savedState, savedStateText);
                 input.blur();
             } else if (event.key === 'Enter') {
                 event.preventDefault();
@@ -68,6 +92,13 @@ function makeSecretInlineForm(formId, messages) {
         });
         input.addEventListener('blur', function () {
             save(false);
+        });
+        input.addEventListener('input', function () {
+            if (input.value.trim() !== '') {
+                setSaveState('dirty', messages.dirty);
+            } else {
+                setSaveState(savedState, savedStateText);
+            }
         });
     }
 
@@ -83,6 +114,9 @@ document.addEventListener('DOMContentLoaded', function () {
         makeSecretInlineForm(form.id, {
             configured: form.dataset.configuredMessage || '',
             empty: form.dataset.emptyMessage || '',
+            saving: form.dataset.savingMessage || 'Saving…',
+            saved: form.dataset.savedMessage || 'Saved',
+            dirty: form.dataset.dirtyMessage || 'Not saved',
             error: form.dataset.errorMessage || 'Unable to save the value.',
             clearConfirm: form.dataset.clearConfirmMessage || ''
         });

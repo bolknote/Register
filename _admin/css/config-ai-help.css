@@ -14,7 +14,7 @@
     height: auto;
 }
 
-.admin-content table.list-table .ai-provider-inline-form select {
+.config-setting .ai-provider-inline-form select {
     position: static;
     height: 2.35rem;
     border: 1px solid var(--admin-border-color);

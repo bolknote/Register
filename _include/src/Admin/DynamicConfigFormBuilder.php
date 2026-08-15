@@ -21,6 +21,7 @@ use S2\AdminYard\SettingStorage\SettingStorageInterface;
 use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Validator\Length;
 use S2\AdminYard\Validator\Regex;
+use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Model\PermissionChecker;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -93,6 +94,7 @@ class DynamicConfigFormBuilder
         private readonly ResourceProvider        $resourceProvider,
         private readonly RequestStack            $requestStack,
         private readonly SettingStorageInterface $settingStorage,
+        private readonly DynamicConfigProvider   $dynamicConfigProvider,
         DynamicConfigFormExtenderInterface       ...$dynamicConfigFormExtenders
     ) {
         $this->dynamicConfigFormExtenders = $dynamicConfigFormExtenders;
@@ -125,17 +127,43 @@ class DynamicConfigFormBuilder
             $paramName = $row['cells']['name']['content'];
 
             if (($paramTypes[$paramName] ?? null) === 'title') {
-                $row['cells']['name']['content'] = '<b>' . $this->translator->trans($paramName) . '</b>';
+                $row['cells']['name']['content'] = $this->translator->trans($paramName);
+                $row['config'] = [
+                    'section_id' => $this->sectionId($paramName),
+                ];
                 continue;
             }
 
-            if (($paramTypes[$paramName] ?? null) === 'hidden') {
+            // Configuration rows not explicitly declared by the product or a module are internal state.
+            // Exposing them as editable text fields made cache generations and schema markers look like
+            // ordinary user settings.
+            if (!array_key_exists($paramName, $paramTypes) || $paramTypes[$paramName] === 'hidden') {
                 unset($rows[$rowIndex]);
                 continue;
             }
 
-            $paramType = $paramTypes[$paramName] ?? 'string';
-            $field = $this->createDynamicFieldConfig($paramName);
+            $paramType      = $paramTypes[$paramName];
+            $field          = $this->createDynamicFieldConfig($paramName);
+            $translatedName = $this->translator->trans($paramName);
+            $translatedHelp = $this->translator->trans($paramName . '_help');
+            $formId         = 'id-config-' . md5(serialize($row['primary_key']) . $valFieldName);
+            $controlId      = $formId . '-control';
+            $helpId         = $formId . '-help';
+            $statusId       = $formId . '-status';
+            $storedValue    = (string)$row['cells']['value']['content'];
+            $appliedValue   = $this->appliedValue($paramName);
+            $isApplied      = $appliedValue === null || $this->valuesMatch($paramType, $storedValue, $appliedValue);
+
+            $row['config'] = [
+                'key'         => $paramName,
+                'control_id'  => $controlId,
+                'help_id'     => $helpId,
+                'status_id'   => $statusId,
+                'editable'    => $field->inlineEdit,
+                'is_applied'  => $isApplied,
+                'dependency'  => $this->dependency($paramName),
+            ];
+
             if ($field->inlineEdit) {
                 if (!$field->type instanceof DbColumnFieldType) {
                     throw new \LogicException('Inline configuration fields must be backed by a database column.');
@@ -160,12 +188,21 @@ class DynamicConfigFormBuilder
                     'entityName' => $entityName,
                     'fieldName'  => $valFieldName,
                     'primaryKey' => $row['primary_key'],
+                    'formId'     => $formId,
+                    'controlId'  => $controlId,
+                    'helpId'     => $helpId,
+                    'statusId'   => $statusId,
+                    'isApplied'  => $isApplied,
                 ]);
+            } elseif ($paramType === 'secret') {
+                $row['cells']['value']['content'] = $this->translator->trans(
+                    trim($storedValue) !== '' ? 'Secret configured' : 'Secret not configured',
+                );
             }
 
-            $row['cells']['name']['content'] = $this->translator->trans($paramName);
+            $row['cells']['name']['content'] = $translatedName;
             $row['cells']['help']            = [
-                'content' => $this->translator->trans($paramName . '_help'),
+                'content' => $translatedHelp,
                 'type'    => FieldConfig::DATA_TYPE_STRING,
             ];
         }
@@ -198,7 +235,8 @@ class DynamicConfigFormBuilder
                 'value',
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING),
                 control: 'input',
-                inlineEdit: $inlineEdit
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
             'email' => new FieldConfig(
                 'value',
@@ -212,37 +250,43 @@ class DynamicConfigFormBuilder
                     })(),
                     new Length(max: 80),
                 ],
-                inlineEdit: $inlineEdit
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
             'int' => new FieldConfig(
                 'value',
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                 control: 'int_input',
-                inlineEdit: $inlineEdit
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
             'boolean' => new FieldConfig(
                 'value',
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
-                inlineEdit: $inlineEdit
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
             'color' => new FieldConfig(
                 'value',
                 control: 'color_input',
                 options: ['#eeeeee', '#f5e6e6', '#f5ece6', '#f5f0e6', '#edf5e6', '#e6f5ed', '#e6f3f5', '#e6edf5', '#e8e6f5', '#ede6f5'],
-                inlineEdit: $inlineEdit
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
             'language' => new FieldConfig(
                 'value',
                 control: 'select',
                 options: $this->resourceProvider->readLanguageOptions($this->translator->getLocale()),
-                inlineEdit: $inlineEdit
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
             'style' => new FieldConfig(
                 'value',
                 control: 'select',
                 options: $this->resourceProvider->readStyleOptions($this->translator->getLocale()),
-                inlineEdit: $inlineEdit
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
             'antispam_mode' => new FieldConfig(
                 'value',
@@ -253,6 +297,7 @@ class DynamicConfigFormBuilder
                     'akismet' => 'Akismet',
                 ],
                 inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
             'ai_provider' => new FieldConfig(
                 'value',
@@ -289,5 +334,54 @@ class DynamicConfigFormBuilder
                 $this->dynamicConfigFormExtenders
             )
         );
+    }
+
+    private function sectionId(string $title): string
+    {
+        $slug = strtolower(trim((string)preg_replace('/[^a-zA-Z0-9]+/', '-', $title), '-'));
+
+        return 'settings-' . ($slug !== '' ? $slug : substr(md5($title), 0, 10));
+    }
+
+    private function appliedValue(string $paramName): ?string
+    {
+        try {
+            return (string)$this->dynamicConfigProvider->get($paramName);
+        } catch (\LogicException) {
+            return null;
+        }
+    }
+
+    private function valuesMatch(string $paramType, string $storedValue, string $appliedValue): bool
+    {
+        if ($paramType === 'secret') {
+            return (trim($storedValue) !== '') === (trim($appliedValue) !== '');
+        }
+
+        return $storedValue === $appliedValue;
+    }
+
+    /**
+     * @return array{key: string, values: list<string>}|null
+     */
+    private function dependency(string $paramName): ?array
+    {
+        return match ($paramName) {
+            AiSettings::API_KEY_CONFIG_KEY,
+            AiSettings::MODEL_CONFIG_KEY => [
+                'key'    => AiSettings::PROVIDER_CONFIG_KEY,
+                'values' => [AiSettings::PROVIDER_GEMINI, AiSettings::PROVIDER_GROQ],
+            ],
+            'S2_ANTISPAM_SPAM_SCORE',
+            'S2_ANTISPAM_BLATANT_SCORE' => [
+                'key'    => 'S2_ANTISPAM_MODE',
+                'values' => ['local', 'shadow'],
+            ],
+            'S2_AKISMET_KEY' => [
+                'key'    => 'S2_ANTISPAM_MODE',
+                'values' => ['shadow', 'akismet'],
+            ],
+            default => null,
+        };
     }
 }

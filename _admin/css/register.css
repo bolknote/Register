@@ -819,102 +819,220 @@ section.list-header h1 {
     font-size: 0.78rem;
 }
 
-.admin-content table.list-table:has(th.field-Config-name) {
-    width: 100%;
-    min-width: 0;
-    table-layout: fixed;
+/* Settings */
+
+.config-page {
+    display: grid;
+    width: min(100%, 82rem);
+    gap: 1.5rem;
 }
 
-.admin-content table.list-table:has(th.field-Config-name) :is(th, td).field-Config-name {
-    width: 21%;
-}
-
-.admin-content table.list-table:has(th.field-Config-name) :is(th, td).field-Config-value {
-    width: 37%;
-}
-
-.admin-content table.list-table:has(th.field-Config-name) :is(th, td).field-Config-help {
-    width: 42%;
-    color: var(--admin-secondary-text-color);
-    font-size: 0.82rem;
-    line-height: 1.45;
-    white-space: normal;
-}
-
-.admin-content table.list-table:has(th.field-Config-name) tbody tr:not(:has(.type-config-title)) > td {
-    vertical-align: top;
-}
-
-.admin-content table.list-table:has(th.field-Config-name) tbody tr:not(:has(.type-config-title)) > :is(td.field-Config-name, td.field-Config-help) {
-    padding: 1.05rem 1rem;
-}
-
-.admin-content table.list-table:has(th.field-Config-name) tbody tr:not(:has(.type-config-title)) > td.field-Config-name {
-    font-weight: 550;
-}
-
-.admin-content table.list-table:has(th.field-Config-name) tbody tr:not(:has(.type-config-title)) > td.field-Config-value {
-    padding: 0.7rem 1rem;
-}
-
-.admin-content table.list-table:has(th.field-Config-name) tbody tr:has(.secret-value-state) > :is(td.field-Config-name, td.field-Config-help) {
-    padding-top: 0.8rem;
-}
-
-.admin-content table.list-table:has(th.field-Config-name) tbody tr:has(.type-config-title) > td {
-    padding: 0.7rem 1rem;
-    border-top: 0.7rem solid var(--admin-page-background);
-    border-bottom: 1px solid var(--admin-border-color);
-    background: var(--admin-secondary-background);
-}
-
-.admin-content table.list-table:has(th.field-Config-name) tbody tr:first-child:has(.type-config-title) > td {
-    border-top: 0;
-}
-
-.admin-content table.list-table td.type-config-title {
-    color: var(--admin-text-color);
-    font-size: 0.9rem;
-    letter-spacing: 0.02em;
-}
-
-.admin-content table.list-table td.type-config-title ~ td {
-    border-bottom: 1px solid var(--admin-border-color);
-}
-
-.admin-content table.list-table .field-Config-value :is(input, select, textarea) {
-    width: 100%;
-}
-
-.admin-content table.list-table .secret-value-state {
-    visibility: visible;
-    height: auto;
-    margin-bottom: 0.3rem;
-    color: var(--admin-secondary-text-color);
-    font-size: 0.78rem;
-}
-
-.admin-content table.list-table form.secret-inline-form {
+.config-header {
     display: flex;
     align-items: flex-start;
+    justify-content: space-between;
+    gap: 2rem;
+}
+
+.config-header h1,
+.config-header p,
+.config-section-header h2,
+.config-setting-copy :is(h3, p) {
+    margin: 0;
+}
+
+.config-header > div > p {
+    max-width: 62ch;
+    margin-top: 0.45rem;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.config-page-state {
+    flex: 0 0 auto;
+    padding: 0.42rem 0.7rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 999px;
+    background: var(--admin-surface-background);
+    color: var(--admin-secondary-text-color);
+    font-size: 0.78rem;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.config-page-state[data-state="applied"]::before,
+.config-save-state[data-state="applied"]::before {
+    content: "✓ ";
+    color: var(--admin-success-color, #3f8d55);
+}
+
+.config-page-state[data-state="saving"]::before,
+.config-save-state[data-state="saving"]::before {
+    content: "↻ ";
+}
+
+.config-page-state[data-state="dirty"],
+.config-save-state[data-state="dirty"],
+.config-page-state[data-state="pending"],
+.config-save-state[data-state="pending"] {
+    color: var(--admin-warning-color, #9a6b12);
+}
+
+.config-page-state[data-state="error"],
+.config-save-state[data-state="error"] {
+    color: var(--admin-error-color);
+}
+
+.config-section-nav {
+    display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: 0.35rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--admin-soft-border-color);
 }
 
-.admin-content table.list-table form.secret-inline-form .input-wrapper {
-    min-width: 12rem;
-    flex: 1 1 12rem;
+.config-section-nav a {
+    padding: 0.38rem 0.62rem;
+    border-radius: 999px;
+    background: var(--admin-secondary-background);
+    color: var(--admin-secondary-text-color);
+    font-size: 0.82rem;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.config-section-nav a:hover,
+.config-section-nav a:focus-visible {
+    background: color-mix(in srgb, var(--admin-accent-color) 12%, var(--admin-secondary-background));
+    color: var(--admin-text-color);
+}
+
+.config-sections {
+    display: grid;
+    gap: 2rem;
+}
+
+.config-section {
+    scroll-margin-top: 6rem;
+}
+
+.config-section-header {
+    margin-bottom: 0.65rem;
+}
+
+.config-section-header h2 {
+    font-size: 1.15rem;
+    line-height: 1.25;
+}
+
+.config-setting-list {
+    overflow: hidden;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.5rem;
+    background: var(--admin-surface-background);
+}
+
+.config-setting {
+    display: grid;
+    grid-template-columns: minmax(13rem, 0.8fr) minmax(18rem, 1.2fr);
+    gap: 1.5rem;
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid var(--admin-soft-border-color);
+}
+
+.config-setting:last-child {
+    border-bottom: 0;
+}
+
+.config-setting[hidden] {
+    display: none;
+}
+
+.config-setting-copy {
+    align-self: center;
+}
+
+.config-setting-copy :is(label, h3) {
+    display: inline-block;
+    color: var(--admin-text-color);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.config-setting-copy label {
+    cursor: pointer;
+}
+
+.config-setting-copy p {
+    max-width: 58ch;
+    margin-top: 0.28rem;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.config-setting-control {
+    align-self: center;
+    min-width: 0;
+}
+
+.config-inline-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.35rem 0.7rem;
+}
+
+.config-inline-form .input-wrapper,
+.config-inline-form :is(input:not([type="checkbox"]), select, textarea) {
+    width: 100%;
+    min-width: 0;
+}
+
+.config-inline-form .validation-errors {
+    grid-column: 1 / -1;
+}
+
+.config-save-state {
+    color: var(--admin-secondary-text-color);
+    font-size: 0.72rem;
+    font-weight: 650;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+.config-setting .secret-value-state {
+    display: block;
+    visibility: visible;
+    width: auto;
     height: auto;
+    margin-bottom: 0.35rem;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.72rem;
 }
 
-.admin-content table.list-table form.secret-inline-form input[type="password"] {
+.config-setting form.secret-inline-form {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1fr) auto;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+}
+
+.config-setting form.secret-inline-form .validation-errors {
+    grid-column: 1 / -1;
+}
+
+.config-setting form.secret-inline-form input[type="password"] {
     position: static;
+    width: 100%;
     height: 2.35rem;
     border: 1px solid var(--admin-border-color);
     background: var(--admin-field-background);
 }
 
-.admin-content table.list-table .secret-clear-button {
+.config-setting .secret-clear-button {
     min-height: 2.35rem;
     padding: 0.4rem 0.6rem;
     border: 1px solid var(--admin-border-color);
@@ -922,6 +1040,15 @@ section.list-header h1 {
     background: var(--admin-surface-background);
     color: var(--admin-secondary-text-color);
     cursor: pointer;
+}
+
+.config-setting .ai-provider-inline-form {
+    grid-template-columns: minmax(10rem, 1fr) auto;
+}
+
+.config-setting .ai-provider-inline-form .config-save-state,
+.config-setting form.secret-inline-form .config-save-state {
+    grid-column: 1 / -1;
 }
 
 .null {
@@ -2496,57 +2623,31 @@ body.login_page {
         margin-bottom: 0.25rem;
     }
 
-    .admin-content table.list-table:has(th.field-Config-name) {
-        display: block;
+    .config-header {
+        display: grid;
+        gap: 0.8rem;
     }
 
-    .admin-content table.list-table:has(th.field-Config-name) thead {
-        display: none;
-    }
-
-    .admin-content table.list-table:has(th.field-Config-name) tbody,
-    .admin-content table.list-table:has(th.field-Config-name) tr,
-    .admin-content table.list-table:has(th.field-Config-name) td {
-        display: block;
-        width: 100%;
-    }
-
-    .admin-content table.list-table:has(th.field-Config-name) tr {
-        padding: 0.8rem;
-        border-bottom: 1px solid var(--admin-soft-border-color);
-        background: var(--admin-surface-background);
-    }
-
-    .admin-content table.list-table:has(th.field-Config-name) td {
-        padding: 0.15rem 0;
-        border: 0;
-    }
-
-    .admin-content table.list-table:has(th.field-Config-name) :is(td.field-Config-name, td.field-Config-value, td.field-Config-help) {
-        width: 100%;
-        max-width: none;
-        overflow: visible;
+    .config-page-state {
+        justify-self: start;
         white-space: normal;
-        text-overflow: clip;
     }
 
-    .admin-content table.list-table:has(th.field-Config-name) td.field-Config-name {
-        margin-bottom: 0.35rem;
-        font-weight: 700;
+    .config-setting {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.7rem;
     }
 
-    .admin-content table.list-table:has(th.field-Config-name) td.field-Config-help {
-        margin-top: 0.45rem;
+    .config-inline-form,
+    .config-setting .ai-provider-inline-form,
+    .config-setting form.secret-inline-form {
+        grid-template-columns: minmax(0, 1fr);
     }
 
-    .admin-content table.list-table:has(th.field-Config-name) tr:has(.type-config-title) {
-        padding-top: 1.2rem;
-        border-bottom-color: var(--admin-border-color);
-        background: var(--admin-secondary-background);
-    }
-
-    .admin-content table.list-table:has(th.field-Config-name) tr:has(.type-config-title) td:not(.type-config-title) {
-        display: none;
+    .config-save-state,
+    .config-setting .ai-provider-inline-form .config-save-state,
+    .config-setting form.secret-inline-form .config-save-state {
+        grid-column: 1;
     }
 }
 

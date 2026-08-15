@@ -14,6 +14,7 @@ use S2\Cms\Admin\AdminConfigProvider;
 use S2\Cms\Comment\Antispam\SpamAssessment;
 use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
 use S2\Cms\Comment\SpamDetectorReport;
+use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Model\AuthManager;
 use S2\Cms\Model\LoginRateLimiter;
 use S2\Cms\Pdo\DbLayer;
@@ -149,13 +150,51 @@ class AdminCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Config&action=list');
         $I->dontSee('Output gzip compression');
-        $I->see('AI assistant', 'table.list-table');
+        $I->seeElement('section.config-page[aria-labelledby="settings-title"]');
+        $I->see('AI assistant', '.config-section');
+        $I->seeElement('nav.config-section-nav[aria-label="Settings sections"]');
+        $I->seeElement('[data-config-page-state][data-state="applied"]');
+        $I->assertCount(27, $I->grabMultiple('.config-setting label[for]'));
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] select[name="value"]');
+        $I->seeElement('[data-config-key="REGISTER_AI_API_KEY"][data-depends-on="REGISTER_AI_PROVIDER"]');
         $I->seeElement('button[data-ai-key-help-open]');
         $I->seeElement('form[action*="name=REGISTER_AI_API_KEY"] input[type="password"]');
         $I->seeElement('dialog#ai-key-help-dialog');
         $I->seeElement('[data-ai-key-help-panel="gemini"] a[href="https://aistudio.google.com/apikey"]');
         $I->seeElement('[data-ai-key-help-panel="groq"] a[href="https://console.groq.com/keys"]');
+        $I->dontSee('REGISTER_LINK_INVENTORY_GENERATION');
+    }
+
+    public function testSettingsDistinguishStoredAndAppliedValues(\IntegrationTester $I): void
+    {
+        /** @var DynamicConfigProvider $configProvider */
+        $configProvider = $I->grabAdminService(DynamicConfigProvider::class);
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        $appliedSiteName = (string)$configProvider->get('S2_SITE_NAME');
+        $configProvider->regenerate();
+
+        $dbLayer->update('config')
+            ->set('value', ':value')->setParameter('value', 'Stored but not applied')
+            ->where('name = :name')->setParameter('name', 'S2_SITE_NAME')
+            ->execute()
+        ;
+
+        try {
+            $I->login('admin', 'admin');
+            $I->amOnPage('https://localhost/_admin/index.php?entity=Config&action=list');
+
+            $I->seeElement('[data-config-key="S2_SITE_NAME"] input[value="Stored but not applied"]');
+            $I->seeElement('[data-config-key="S2_SITE_NAME"] [data-config-save-state][data-state="pending"]');
+            $I->see('Some saved settings are not applied', '[data-config-page-state][data-state="pending"]');
+        } finally {
+            $dbLayer->update('config')
+                ->set('value', ':value')->setParameter('value', $appliedSiteName)
+                ->where('name = :name')->setParameter('name', 'S2_SITE_NAME')
+                ->execute()
+            ;
+            $configProvider->regenerate();
+        }
     }
 
     public function testNewPostUsesEditorialEditor(\IntegrationTester $I): void

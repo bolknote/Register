@@ -460,6 +460,18 @@ return [
 
     // Config tab
     'Config'                   => 'Configuration',
+    'Settings intro'           => 'Changes are saved automatically. Each field shows whether its value is applied.',
+    'Settings sections'        => 'Settings sections',
+    'Other settings'           => 'Other settings',
+    'Saving setting'           => 'Saving…',
+    'Setting applied'          => 'Applied',
+    'Setting not saved'        => 'Not saved',
+    'Setting saved but not applied' => 'Saved, but not applied',
+    'All settings applied'     => 'All changes applied',
+    'Some settings are not applied' => 'Some saved settings are not applied',
+    'Saving settings'          => 'Saving changes…',
+    'Settings have unsaved changes' => 'There are unsaved changes',
+    'Some settings could not be applied' => 'Some changes could not be applied',
     'S2_SITE_NAME_help'        => 'Used in titles and RSS.',
     'S2_WEBMASTER_help'        => 'Used in the copyright, RSS and as the sender name in subscription e-mails; you can leave it empty.',
     'S2_WEBMASTER_EMAIL_help'  => 'Used in the copyright and as the sender address.',

@@ -139,6 +139,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(ResourceProvider::class),
             $container->get(RequestStack::class),
             $container->get(SettingStorageInterface::class),
+            $container->get(DynamicConfigProvider::class),
             ...$container->getByTag(DynamicConfigFormExtenderInterface::class),
         ));
 

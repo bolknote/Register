@@ -1,18 +1,121 @@
 <?php
 
+declare(strict_types = 1);
+
 /** @var string $basePath */
 /** @var callable $trans */
-
-?>
-<link rel="stylesheet" href="<?= $basePath ?>/_admin/css/config-ai-help.css">
-<script src="<?= $basePath ?>/_admin/js/config-secret.js"></script>
-<?php
-
-require __DIR__ . '/../../../_vendor/s2/admin-yard/templates/list.php.inc';
+/** @var string $title */
+/** @var list<array<string, mixed>> $rows */
 
 $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 
+/** @var list<array{id: string, title: string, rows: list<array<string, mixed>>}> $sections */
+$sections            = [];
+$currentSectionIndex = -1;
+$hasPendingSettings  = false;
+foreach ($rows as $row) {
+    if (($row['cells']['name']['type'] ?? null) === 'config-title') {
+        $sections[] = [
+            'id'    => (string)($row['config']['section_id'] ?? 'settings-section-' . count($sections)),
+            'title' => (string)$row['cells']['name']['content'],
+            'rows'  => [],
+        ];
+        $currentSectionIndex = array_key_last($sections);
+        continue;
+    }
+
+    if ($currentSectionIndex < 0) {
+        $sections[] = [
+            'id'    => 'settings-other',
+            'title' => $trans('Other settings'),
+            'rows'  => [],
+        ];
+        $currentSectionIndex = 0;
+    }
+
+    $sections[$currentSectionIndex]['rows'][] = $row;
+    $hasPendingSettings = $hasPendingSettings || !($row['config']['is_applied'] ?? true);
+}
+
 ?>
+<link rel="stylesheet" href="<?= $escape($basePath) ?>/_admin/css/config-ai-help.css">
+<script src="<?= $escape($basePath) ?>/_admin/js/config-secret.js"></script>
+<script src="<?= $escape($basePath) ?>/_admin/js/config-settings.js"></script>
+
+<section class="config-page" aria-labelledby="settings-title">
+    <header class="config-header">
+        <div>
+            <h1 id="settings-title"><?= $escape($title) ?></h1>
+            <p><?= $escape($trans('Settings intro')) ?></p>
+        </div>
+        <p class="config-page-state" data-config-page-state
+           data-applied-message="<?= $escape($trans('All settings applied')) ?>"
+           data-pending-message="<?= $escape($trans('Some settings are not applied')) ?>"
+           data-saving-message="<?= $escape($trans('Saving settings')) ?>"
+           data-dirty-message="<?= $escape($trans('Settings have unsaved changes')) ?>"
+           data-error-message="<?= $escape($trans('Some settings could not be applied')) ?>"
+           data-state="<?= $hasPendingSettings ? 'pending' : 'applied' ?>"
+           role="status" aria-live="polite">
+            <?= $escape($trans($hasPendingSettings ? 'Some settings are not applied' : 'All settings applied')) ?>
+        </p>
+    </header>
+
+    <?php if (count($sections) > 1): ?>
+        <nav class="config-section-nav" aria-label="<?= $escape($trans('Settings sections')) ?>">
+            <?php foreach ($sections as $section): ?>
+                <a href="#<?= $escape($section['id']) ?>"><?= $escape($section['title']) ?></a>
+            <?php endforeach; ?>
+        </nav>
+    <?php endif; ?>
+
+    <div class="config-sections">
+        <?php foreach ($sections as $section): ?>
+            <section class="config-section" id="<?= $escape($section['id']) ?>">
+                <header class="config-section-header">
+                    <h2><?= $escape($section['title']) ?></h2>
+                </header>
+                <div class="config-setting-list">
+                    <?php foreach ($section['rows'] as $row): ?>
+                        <?php
+                        /** @var array<string, mixed> $config */
+                        $config     = $row['config'] ?? [];
+                        $dependency = $config['dependency'] ?? null;
+                        $editable   = (bool)($config['editable'] ?? false);
+                        $name       = (string)$row['cells']['name']['content'];
+                        $help       = html_entity_decode(
+                            (string)$row['cells']['help']['content'],
+                            ENT_QUOTES | ENT_HTML5,
+                            'UTF-8',
+                        );
+                        ?>
+                        <article class="config-setting"
+                                 data-config-key="<?= $escape((string)($config['key'] ?? '')) ?>"
+                            <?php if (is_array($dependency)): ?>
+                                data-depends-on="<?= $escape((string)$dependency['key']) ?>"
+                                data-depends-values="<?= $escape(implode(' ', $dependency['values'])) ?>"
+                            <?php endif; ?>
+                        >
+                            <div class="config-setting-copy">
+                                <?php if ($editable): ?>
+                                    <label for="<?= $escape((string)$config['control_id']) ?>"><?= $escape($name) ?></label>
+                                <?php else: ?>
+                                    <h3><?= $escape($name) ?></h3>
+                                <?php endif; ?>
+                                <p id="<?= $escape((string)($config['help_id'] ?? '')) ?>"><?= $escape($help) ?></p>
+                            </div>
+                            <div class="config-setting-control">
+                                <?= $editable
+                                    ? (string)$row['cells']['value']['content']
+                                    : $escape((string)$row['cells']['value']['content']) ?>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php endforeach; ?>
+    </div>
+</section>
+
 <dialog class="ai-key-help-dialog" id="ai-key-help-dialog" aria-labelledby="ai-key-help-title">
     <div class="ai-key-help-surface">
         <header class="ai-key-help-header">

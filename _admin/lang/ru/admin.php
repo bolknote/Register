@@ -460,6 +460,18 @@ return [
 
     // Config tab
     'Config'                   => 'Настройка',
+    'Settings intro'           => 'Изменения сохраняются автоматически. У каждого поля видно, применено ли его значение.',
+    'Settings sections'        => 'Разделы настроек',
+    'Other settings'           => 'Прочие настройки',
+    'Saving setting'           => 'Сохраняется…',
+    'Setting applied'          => 'Применено',
+    'Setting not saved'        => 'Не сохранено',
+    'Setting saved but not applied' => 'Сохранено, но не применено',
+    'All settings applied'     => 'Все изменения применены',
+    'Some settings are not applied' => 'Некоторые сохранённые настройки не применены',
+    'Saving settings'          => 'Изменения сохраняются…',
+    'Settings have unsaved changes' => 'Есть несохранённые изменения',
+    'Some settings could not be applied' => 'Некоторые изменения не удалось применить',
     'S2_SITE_NAME_help'        => 'Выводится в заголовках и в RSS.',
     'S2_WEBMASTER_help'        => 'Используется в копирайте, RSS и в поле «от кого» в письмах; можно оставить пустым.',
     'S2_WEBMASTER_EMAIL_help'  => 'Используется в копирайте и как обратный адрес в письмах.',
