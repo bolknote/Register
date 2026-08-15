@@ -180,6 +180,8 @@ class PictureReserveManager
             return false;
         }
 
+        s2_call_without_warnings(static fn(): bool => chmod($reserveFile, 0600));
+
         $payload = json_encode([
             'token'      => $token,
             'path'       => $path,
@@ -226,13 +228,13 @@ class PictureReserveManager
             $warning = $errstr;
             return true;
         });
-        $created = mkdir($dir, 0777, true);
+        $created = mkdir($dir, 0700, true);
         restore_error_handler();
 
         if (!$created && !is_dir($dir)) {
             throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir) . ($warning !== null && $warning !== '' ? ' (' . $warning . ')' : ''));
         }
 
-        chmod($dir, 0777);
+        chmod($dir, 0700);
     }
 }

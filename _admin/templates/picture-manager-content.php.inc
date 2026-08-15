@@ -62,7 +62,7 @@ $maxPostSize = $bytesFromString(ini_get('post_max_size'));
                         <span id="fold_name"><strong><?= $html($trans('Pictures')) ?></strong></span>
                     </p>
                     <label class="media-upload-button" for="media-upload-input"><?= $html($trans('Choose files')) ?></label>
-                    <input class="visually-hidden" id="media-upload-input" name="pictures[]" multiple min="1" max="999" type="file">
+                    <input class="visually-hidden" id="media-upload-input" name="pictures[]" multiple min="1" max="20" type="file">
                     <span class="media-upload-selection" data-media-upload-selection aria-live="polite"></span>
                     <p class="media-upload-limit">
                         <?php printf(

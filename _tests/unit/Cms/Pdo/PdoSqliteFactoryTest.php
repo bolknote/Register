@@ -47,5 +47,9 @@ final class PdoSqliteFactoryTest extends Unit
         $foreignKeys = $pdo->query('PRAGMA foreign_keys');
         self::assertNotFalse($foreignKeys);
         self::assertSame(1, $foreignKeys->fetchColumn());
+
+        if (DIRECTORY_SEPARATOR !== '\\') {
+            self::assertSame(0600, fileperms($path) & 0777);
+        }
     }
 }

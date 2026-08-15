@@ -42,6 +42,8 @@ use S2\Cms\Pdo\DbLayerException;
 
 class AdminAjaxRequestHandler
 {
+    private const int MAX_UPLOAD_FILES = 20;
+
     public function __construct(
         public RequestStack             $requestStack,
         public AuthManager              $authManager,
@@ -647,6 +649,13 @@ class AdminAjaxRequestHandler
 
                 if (\count($uploadedFiles) === 0) {
                     return new Json(['success' => false, 'message' => $t->trans('Empty files')], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
+                if (\count($uploadedFiles) > self::MAX_UPLOAD_FILES) {
+                    return new Json([
+                        'success' => false,
+                        'message' => 'Too many files. Upload at most ' . self::MAX_UPLOAD_FILES . ' files at once.',
+                    ], Response::HTTP_REQUEST_ENTITY_TOO_LARGE);
                 }
 
                 foreach ($uploadedFiles as $uploadedFile) {

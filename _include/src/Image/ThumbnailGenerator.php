@@ -105,11 +105,11 @@ class ThumbnailGenerator implements QueueHandlerInterface
 
         $dirname  = \dirname($filename);
         if (!is_dir($dirname)) {
-            if (!mkdir($dirname, 0777, true) && !is_dir($dirname)) {
+            if (!mkdir($dirname, 0755, true) && !is_dir($dirname)) {
                 throw new \RuntimeException(sprintf('Directory "%s" was not created', $dirname));
             }
 
-            chmod($dirname, 0777);
+            chmod($dirname, 0755);
         }
 
         $this->makeThumbnail(
@@ -240,6 +240,7 @@ class ThumbnailGenerator implements QueueHandlerInterface
             if (!rename($temporaryFilename, $outputFilename)) {
                 throw new \RuntimeException('Unable to publish thumbnail: ' . $outputFilename);
             }
+            s2_call_without_warnings(static fn(): bool => chmod($outputFilename, 0644));
         } finally {
             if (file_exists($temporaryFilename)) {
                 unlink($temporaryFilename);

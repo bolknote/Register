@@ -15,7 +15,7 @@ class PdoSqliteFactory
     {
         if (!file_exists($dbFilename)) {
             s2_call_without_warnings(static fn(): bool => touch($dbFilename));
-            s2_call_without_warnings(static fn(): bool => chmod($dbFilename, 0666));
+            s2_call_without_warnings(static fn(): bool => chmod($dbFilename, 0600));
             if (!file_exists($dbFilename)) {
                 throw new \RuntimeException("Unable to create new database file '" . $dbFilename . "'. Permission denied. Please allow write permissions for the '" . \dirname($dbFilename) . "' directory.");
             }

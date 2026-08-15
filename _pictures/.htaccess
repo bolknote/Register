@@ -1,4 +1,16 @@
-# Disables scripts execution
+# User-controlled files are data only. Keep this deny-list independent from
+# the configurable upload allow-list so a configuration mistake cannot enable
+# script execution.
+Options -Indexes -ExecCGI
 
-Options -Indexes -ExecCGI 
-AddHandler cgi-script .php .php3 .php4 .php5 .phtml .pl .py .jsp .asp .htm .shtml .sh .cgi
+RemoveHandler .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi .pl .py .sh .shtml .asp .aspx .jsp .inc
+RemoveType .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi .pl .py .sh .shtml .asp .aspx .jsp .inc
+
+<FilesMatch "(?i)\.(?:asp|aspx|cgi|config|css|htm|html|inc|ini|js|jsp|mjs|phar|php[0-9]?|pht|phtml|pl|py|sh|shtml|svg|svgz|wasm|xht|xhtml|xml|xsl|xslt)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Deny from all
+    </IfModule>
+</FilesMatch>

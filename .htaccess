@@ -1,10 +1,22 @@
 # BEGIN S2
 
+Options -Indexes
+
 <IfModule mod_rewrite.c>
 # MultiViews interfers with proper rewriting
 Options +FollowSymlinks -MultiViews
 
 RewriteEngine On
+
+# The repository-root deployment layout is supported on shared hosting, but
+# implementation files and operator data must never be served over HTTP.
+RewriteRule ^(?:_cache|_doc|_include|_tests|_vendor|tools|\.codex|\.git|\.github|\.local)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:composer\.(?:json|lock)|phpunit\.xml(?:\.dist)?|psalm\.xml|rector\.php|plan-security\.md)$ - [F,L,NC]
+RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L]
+
+# Only the front controller and conventional site metadata are public files at
+# the repository root. This also protects SQLite databases with custom names.
+RewriteRule ^(?!(?:index\.php|robots\.txt|favicon\.ico|site\.webmanifest)$)[^/]+$ - [F,L,NC]
 
 # Uncomment and properly set the RewriteBase if the rewrite rules are not working properly
 #RewriteBase /
@@ -13,5 +25,14 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule . index.php [L]
 </IfModule>
+
+<FilesMatch "(?i)(?:^\.|\.(?:bak|conf|dist|ini|log|md|neon|phar|sql|sqlite|sqlite3|yaml|yml))$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Deny from all
+    </IfModule>
+</FilesMatch>
 
 # END S2

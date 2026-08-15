@@ -1,4 +1,11 @@
-# Disables scripts execution
+# Cache entries can contain configuration and generated PHP. They are never
+# public resources and must not be served even if PHP handling is disabled.
+Options -Indexes -ExecCGI
 
-Options -Indexes -ExecCGI 
-AddHandler cgi-script .php .php3 .php4 .php5 .phtml .pl .py .jsp .asp .htm .shtml .sh .cgi
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+    Deny from all
+</IfModule>

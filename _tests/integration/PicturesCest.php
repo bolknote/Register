@@ -128,10 +128,7 @@ class PicturesCest
         $I->login('author', 'author');
 
         foreach (['avif', 'webp', 'mov', 'webm'] as $extension) {
-            $filename = tempnam(sys_get_temp_dir(), 'register_media_');
-            if ($filename === false || file_put_contents($filename, 'media fixture') === false) {
-                throw new \RuntimeException('Unable to create a temporary media fixture.');
-            }
+            $filename = $this->createTemporaryMedia($extension);
 
             $I->sendPost(
                 'https://localhost/_admin/ajax.php?action=upload',
@@ -145,6 +142,34 @@ class PicturesCest
             );
             $I->seeResponseCodeIs(200);
             $I->assertJsonSubResponseEquals(true, ['success']);
+        }
+    }
+
+    public function testUploadRejectsTooManyFiles(\IntegrationTester $I): void
+    {
+        $I->login('author', 'author');
+
+        $filename = $this->createTemporaryPng();
+        $files = [];
+        for ($i = 0; $i < 21; ++$i) {
+            $files[] = new UploadedFile($filename, 'picture-' . $i . '.png', 'image/png', null, true);
+        }
+
+        try {
+            $I->sendPost(
+                'https://localhost/_admin/ajax.php?action=upload',
+                [
+                    'dir'        => '',
+                    'csrf_token' => $this->getFolderCsrfToken($I, ''),
+                ],
+                ['pictures' => $files],
+            );
+            $I->seeResponseCodeIs(413);
+            $I->assertJsonSubResponseEquals('Too many files. Upload at most 20 files at once.', ['message']);
+        } finally {
+            if (is_file($filename)) {
+                unlink($filename);
+            }
         }
     }
 
@@ -666,6 +691,39 @@ class PicturesCest
         $contents = base64_decode(self::ONE_PIXEL_PNG, true);
         if ($contents === false || file_put_contents($filename, $contents) === false) {
             throw new \RuntimeException('Unable to create a temporary image fixture.');
+        }
+
+        return $filename;
+    }
+
+    private function createTemporaryMedia(string $extension): string
+    {
+        $filename = tempnam(sys_get_temp_dir(), 'register_media_');
+        if ($filename === false) {
+            throw new \RuntimeException('Unable to allocate a temporary media fixture.');
+        }
+
+        if ($extension === 'avif' || $extension === 'webp') {
+            $image = imagecreatetruecolor(1, 1);
+            if (!$image instanceof \GdImage) {
+                throw new \RuntimeException('Unable to create a temporary image fixture.');
+            }
+
+            $written = $extension === 'avif'
+                ? imageavif($image, $filename)
+                : imagewebp($image, $filename);
+        } else {
+            $contents = match ($extension) {
+                'mov'  => pack('N', 20) . 'ftypqt  ' . pack('N', 0) . 'qt  ',
+                'webm' => hex2bin('1A45DFA39F4286810142F7810142F2810442F381084282847765626D4287810442858102'),
+                default => false,
+            };
+            $written = \is_string($contents) && file_put_contents($filename, $contents) !== false;
+        }
+
+        if (!$written) {
+            unlink($filename);
+            throw new \RuntimeException('Unable to create a temporary media fixture.');
         }
 
         return $filename;

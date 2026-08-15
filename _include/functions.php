@@ -54,7 +54,7 @@ function s2_call_without_warnings(callable $callback, ?string &$warningMessage =
 function s2_overwrite_file_skip_locked(string $filename, string $content): void
 {
     $dir = dirname($filename);
-    if (!is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
+    if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
         throw new RuntimeException(sprintf('Cannot create directory "%s".', $dir));
     }
 
@@ -69,6 +69,8 @@ function s2_overwrite_file_skip_locked(string $filename, string $content): void
     if ($fh === false) {
         throw new RuntimeException(sprintf('Cannot open file "%s" for write.', $filename));
     }
+
+    s2_call_without_warnings(static fn(): bool => chmod($filename, 0600));
 
     if (flock($fh, LOCK_EX | LOCK_NB)) {
         ftruncate($fh, 0);

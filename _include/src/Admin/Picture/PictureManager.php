@@ -161,7 +161,7 @@ class PictureManager
             throw new \RuntimeException($this->translator->trans('Error creating folder', ['{{ dir }}' => $this->imageDir . $path . '/' . $name]), Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
-        chmod($this->imageDir . $path . '/' . $name, 0777);
+        chmod($this->imageDir . $path . '/' . $name, 0755);
 
         return $name;
     }
@@ -226,8 +226,6 @@ class PictureManager
 
     public function renameFile(string $path, string $newName): string
     {
-        $this->fileNameHelper->assertAllowedExtension($newName);
-
         $parentPath = $this->s2_dirname($path);
 
         $newFullPath = $this->imageDir . $parentPath . '/' . $newName;
@@ -236,6 +234,7 @@ class PictureManager
         }
 
         $oldFullPath = $this->imageDir . $path;
+        $this->fileNameHelper->assertSafeFile($oldFullPath, $newName);
         // TODO check if $oldFullPath exists
         if (!rename($oldFullPath, $newFullPath)) {
             throw new \RuntimeException($this->translator->trans('Rename error'), Response::HTTP_SERVICE_UNAVAILABLE);
@@ -371,7 +370,7 @@ class PictureManager
         }
 
         $filename = $this->fileNameHelper->normalizeFileName($filename);
-        $this->fileNameHelper->assertAllowedExtension($filename);
+        $this->fileNameHelper->assertSafeUploadedFile($uploadedFile, $filename);
 
         // Processing name collisions
         while (is_file($this->imageDir . $path . '/' . $filename)) {
@@ -408,7 +407,7 @@ class PictureManager
             throw new \RuntimeException('Invalid reserved file name.', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $this->fileNameHelper->assertAllowedExtension($filename);
+        $this->fileNameHelper->assertSafeUploadedFile($uploadedFile, $filename);
 
         if ($createDir) {
             $this->ensureDirExists($this->imageDir . $path);
@@ -503,13 +502,13 @@ class PictureManager
             $warning = $errstr;
             return true;
         });
-        $created = mkdir($dir, 0777, true);
+        $created = mkdir($dir, 0755, true);
         restore_error_handler();
 
         if (!$created && !is_dir($dir)) {
             throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir) . ($warning !== null ? ' (' . $warning . ')' : ''));
         }
 
-        chmod($dir, 0777);
+        chmod($dir, 0755);
     }
 }
