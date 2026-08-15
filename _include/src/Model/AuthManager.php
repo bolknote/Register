@@ -459,6 +459,10 @@ readonly class AuthManager
             ->execute()
         ;
         $row = $result->fetchRow();
+        // SQLite cannot upgrade a WAL read snapshot after another connection has written.
+        // Finish the one-row lookup before refreshing the session so the UPDATE starts a
+        // new transaction and busy_timeout can serialize it with shutdown work.
+        $result->freeResult();
         if ($row === false) {
             return self::SESSION_STATUS_LOST;
         }
