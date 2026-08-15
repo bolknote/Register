@@ -75,6 +75,9 @@
         ]
     },
     "autoload-dev": {
+        "psr-4": {
+            "_generated\\": "_tests/_support/_generated/"
+        },
         "classmap": [
             "_tests/_support/"
         ]
