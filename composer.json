@@ -118,6 +118,7 @@
         "analyse:phpmd": "php -d error_reporting=8191 _vendor/bin/phpmd analyze _admin/ajax.php _admin/index.php _admin/install.php _admin/pictman.php _include/src _include/common.php _include/functions.php _include/setup.php _extensions index.php tools --format ansi --ruleset tools/quality/phpmd.xml --no-progress",
         "analyse:phpstan": "phpstan analyse --configuration=tools/quality/phpstan.neon --no-progress --memory-limit=1G",
         "analyse:psalm": "psalm --config=tools/quality/psalm.xml --no-cache --no-progress",
+        "build:shared-hosting": "php tools/build-shared-hosting.php",
         "check": [
             "@codeception:build",
             "@lint",

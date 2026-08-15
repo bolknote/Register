@@ -18,6 +18,8 @@ return [
         '_include/setup.php',
         'index.php',
         'tools/backup.php',
+        'tools/build-shared-hosting.php',
+        'tools/deployment/SharedHostingDistributionBuilder.php',
         'tools/dev-bootstrap.php',
         'tools/dev-router.php',
         'tools/queue-status.php',

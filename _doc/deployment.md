@@ -1,14 +1,36 @@
 # Production deployment
 
-Register supports a repository-root deployment on ordinary shared hosting. Apache is the primary
-shared-hosting target; Nginx is supported when the operator can edit the virtual-host configuration.
-In either case the web server must expose only the reviewed PHP entrypoints and public static data.
+Register's recommended shared-hosting layout keeps the application above the document root. A
+repository-root deployment remains available when the hosting account cannot provide a private
+sibling directory. Apache is the primary shared-hosting target; Nginx is supported when the operator
+can edit the virtual-host configuration. In every layout the web server must expose only the reviewed
+PHP entrypoints and public static data.
+
+## Recommended split-root package
+
+Build a ready-to-upload archive on a trusted development machine:
+
+```bash
+composer build:shared-hosting
+```
+
+The resulting `dist/register-shared-hosting.zip` contains a private `register-app/` directory and a
+minimal `public_html/`. The build installs the locked production dependencies without development
+packages, fails if an unexpected executable file reaches the document root, and prints a SHA-256
+checksum. Composer is not needed on the hosting account.
+
+Place `register-app` beside the host's `public_html`, `www`, or `htdocs` directory. Public front
+controllers set the private application root explicitly; uploaded images and generated browser
+bundles are written below the actual document root. See
+[`shared-hosting.md`](shared-hosting.md) for installation, permission, boundary-verification, and
+safe-update instructions.
 
 ## Apache shared hosting
 
-The checked-in [root `.htaccess`](../.htaccess) is part of the security boundary. It requires Apache
-2.4 with `mod_rewrite`, `AllowOverride All`, and permission to use `Options`. It provides these
-rules:
+For a repository-root deployment, the checked-in [root `.htaccess`](../.htaccess) is part of the
+security boundary. It requires Apache 2.4 with `mod_rewrite`, `AllowOverride All`, and permission to
+use `Options`. The same file remains useful in split-root packages for routing and defense in depth.
+It provides these rules:
 
 - only `index.php` and the four `_admin/*.php` front controllers can execute directly;
 - source, tests, tools, configuration, database, logs, private cache entries, and dependency

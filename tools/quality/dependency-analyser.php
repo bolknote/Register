@@ -7,6 +7,7 @@ use ShipMonk\ComposerDependencyAnalyser\Config\ErrorType;
 
 $config = new Configuration();
 $projectRoot = dirname(__DIR__, 2);
+require_once $projectRoot . '/tools/deployment/SharedHostingDistributionBuilder.php';
 
 return $config
     ->addPathToScan($projectRoot . '/_admin', isDev: false)
