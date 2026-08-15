@@ -122,9 +122,8 @@
         return Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : null;
     }
 
-    function setProgress(element, name, ratio) {
-        const percent = Math.max(0, Math.min(1, ratio)) * 100;
-        element.style.setProperty(name, percent + '%');
+    function setProgressValue(progress, ratio) {
+        progress.value = Math.round(Math.max(0, Math.min(1, ratio)) * 1000);
     }
 
     function createIcon() {
@@ -173,7 +172,7 @@
     function updateBuffer(state) {
         const duration = finiteDuration(state.audio);
         if (duration === null || state.audio.buffered.length === 0) {
-            setProgress(state.wrapper, '--register-audio-buffered', 0);
+            setProgressValue(state.bufferedProgress, 0);
             return;
         }
 
@@ -182,7 +181,7 @@
             bufferedEnd = Math.max(bufferedEnd, state.audio.buffered.end(index));
         }
 
-        setProgress(state.wrapper, '--register-audio-buffered', bufferedEnd / duration);
+        setProgressValue(state.bufferedProgress, bufferedEnd / duration);
     }
 
     function updateTime(state) {
@@ -198,7 +197,7 @@
             state.timeline.value = '0';
             state.timeline.disabled = true;
             state.timeline.removeAttribute('aria-valuetext');
-            setProgress(state.wrapper, '--register-audio-played', 0);
+            setProgressValue(state.playedProgress, 0);
             updateBuffer(state);
             return;
         }
@@ -212,7 +211,7 @@
             'aria-valuetext',
             formatTime(currentTime) + ' ' + state.strings.of + ' ' + formatTime(duration),
         );
-        setProgress(state.wrapper, '--register-audio-played', ratio);
+        setProgressValue(state.playedProgress, ratio);
         updateBuffer(state);
     }
 
@@ -358,6 +357,23 @@
         timeline.disabled = true;
         timeline.setAttribute('aria-label', strings.seek);
 
+        const timelineControl = document.createElement('span');
+        timelineControl.className = 'register-audio-player__timeline-control';
+
+        const bufferedProgress = document.createElement('progress');
+        bufferedProgress.className = 'register-audio-player__progress register-audio-player__progress--buffered';
+        bufferedProgress.max = 1000;
+        bufferedProgress.value = 0;
+        bufferedProgress.setAttribute('aria-hidden', 'true');
+
+        const playedProgress = document.createElement('progress');
+        playedProgress.className = 'register-audio-player__progress register-audio-player__progress--played';
+        playedProgress.max = 1000;
+        playedProgress.value = 0;
+        playedProgress.setAttribute('aria-hidden', 'true');
+
+        timelineControl.append(bufferedProgress, playedProgress, timeline);
+
         const titleElement = document.createElement('span');
         titleElement.className = 'register-audio-player__title';
         titleElement.textContent = title;
@@ -383,6 +399,8 @@
             wrapper: wrapper,
             playButton: playButton,
             timeline: timeline,
+            bufferedProgress: bufferedProgress,
+            playedProgress: playedProgress,
             title: titleElement,
             currentTime: currentTime,
             duration: duration,
@@ -399,7 +417,7 @@
         }
 
         parent.insertBefore(wrapper, audio);
-        wrapper.append(audio, playButton, timeline, titleElement, time, status);
+        wrapper.append(audio, playButton, timelineControl, titleElement, time, status);
         audio.controls = false;
         audio.classList.add('register-audio-player__media');
         audio.setAttribute('aria-hidden', 'true');
