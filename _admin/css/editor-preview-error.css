@@ -1,0 +1,20 @@
+:root {
+    color-scheme: light dark;
+    font-family: system-ui, sans-serif;
+}
+
+body {
+    margin: 0;
+    background: Canvas;
+    color: CanvasText;
+}
+
+.editor-preview-error {
+    margin: 1rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid color-mix(in srgb, #b34020 65%, CanvasText);
+    border-radius: 0.45rem;
+    background: color-mix(in srgb, #b34020 12%, Canvas);
+    color: color-mix(in srgb, #b34020 82%, CanvasText);
+    font-weight: 600;
+}

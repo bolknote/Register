@@ -13,6 +13,7 @@ const editorDeps = {
     CodeMirror: null,
     loadingIndicator: null,
     sUrl: null,
+    previewErrorStylesheet: null,
     morphdom: null,
     DisplayError: null
 };

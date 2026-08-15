@@ -128,7 +128,8 @@ $editorConfig = [
         'removeLabel'      => $trans('Remove tag'),
         'suggestionsLabel' => $trans('Tag suggestions'),
     ],
-    'sUrl'          => $basePath . '/_admin/ajax.php?',
+    'sUrl'                  => $basePath . '/_admin/ajax.php?',
+    'previewErrorStylesheet' => $basePath . '/_admin/css/editor-preview-error.css',
     'datalists'     => $isPost ? [[
         'inputName' => 'series',
         'listId'    => 'post-labels-datalist',

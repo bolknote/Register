@@ -8,7 +8,6 @@
 
 import {editorDeps, assertDeps} from './deps.js';
 import {s2_codemirror} from './codemirror.js';
-import {escapeHtml} from './utils/escape.js';
 
 function countNewlines(str) {
     let count = 0;
@@ -108,13 +107,26 @@ function applyLineMarkers(doc, wrapper, html) {
     }
 }
 
-function renderPreviewError(doc, message) {
+export function renderPreviewError(doc, message, stylesheetUrl = '') {
     if (!doc) {
         return;
     }
+
     doc.open();
-    doc.write('<div style="padding: 1em; font-family: sans-serif; color: #b40;">' + escapeHtml(message) + '</div>');
     doc.close();
+
+    if (stylesheetUrl) {
+        const stylesheet = doc.createElement('link');
+        stylesheet.rel = 'stylesheet';
+        stylesheet.href = stylesheetUrl;
+        doc.head.append(stylesheet);
+    }
+
+    const errorMessage = doc.createElement('p');
+    errorMessage.className = 'editor-preview-error';
+    errorMessage.setAttribute('role', 'alert');
+    errorMessage.textContent = message;
+    doc.body.replaceChildren(errorMessage);
 }
 
 export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTemplateScope = '') {
@@ -140,18 +152,22 @@ export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTe
             );
         } catch (error) {
             console.warn('Failed to load template preview:', error);
-            renderPreviewError(d, editorDeps.s2_lang.unknown_error);
+            renderPreviewError(d, editorDeps.s2_lang.unknown_error, editorDeps.previewErrorStylesheet);
             return;
         }
         if (!response.ok) {
             console.warn('Failed to load template preview:', response.status);
-            renderPreviewError(d, editorDeps.s2_lang.unknown_error);
+            renderPreviewError(d, editorDeps.s2_lang.unknown_error, editorDeps.previewErrorStylesheet);
             return;
         }
         const data = await response.json();
         if (!data || data.success !== true || !data.template) {
             console.warn('Template preview is unavailable:', data && data.preview_message ? data.preview_message : 'Unknown error');
-            renderPreviewError(d, (data && data.preview_message) ? data.preview_message : editorDeps.s2_lang.unknown_error);
+            renderPreviewError(
+                d,
+                (data && data.preview_message) ? data.preview_message : editorDeps.s2_lang.unknown_error,
+                editorDeps.previewErrorStylesheet
+            );
             return;
         }
         Preview.template = data.template;

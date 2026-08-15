@@ -31,6 +31,7 @@ setEditorDeps({
     CodeMirror: window.CodeMirror,
     loadingIndicator: window.loadingIndicator,
     sUrl: config.sUrl || window.sUrl || null,
+    previewErrorStylesheet: config.previewErrorStylesheet || null,
     morphdom: window.morphdom || null,
     DisplayError: window.DisplayError || null
 });

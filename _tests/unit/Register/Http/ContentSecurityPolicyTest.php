@@ -163,6 +163,7 @@ final class ContentSecurityPolicyTest extends Unit
             $root . '/_admin/js/structure.js',
             $root . '/_admin/js/pictman.js',
             $root . '/_admin/js/editor/form.js',
+            $root . '/_admin/js/editor/preview.js',
             $root . '/_admin/js/editor/images/pipeline.js',
             $root . '/_admin/js/autocomplete.js',
             $root . '/_assets/register/audio-player/player.js',
@@ -192,6 +193,21 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertStringContainsString("retinaCheckbox.addEventListener('change'", $source);
         self::assertStringNotContainsString("$('#finfo').html", $source);
         self::assertStringNotContainsString("$('#fold_name').html", $source);
+    }
+
+    public function testEditorPreviewErrorUsesTextAndAnExternalStylesheet(): void
+    {
+        $root = dirname(__DIR__, 4);
+        $source = file_get_contents($root . '/_admin/js/editor/preview.js');
+        $template = file_get_contents($root . '/_admin/templates/article/edit.php.inc');
+
+        self::assertIsString($source);
+        self::assertIsString($template);
+        self::assertStringContainsString('errorMessage.textContent = message;', $source);
+        self::assertStringContainsString("stylesheet.rel = 'stylesheet';", $source);
+        self::assertStringNotContainsString("doc.write('<div", $source);
+        self::assertStringContainsString("'previewErrorStylesheet'", $template);
+        self::assertFileExists($root . '/_admin/css/editor-preview-error.css');
     }
 
     /**
