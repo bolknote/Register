@@ -18,7 +18,7 @@ jobs:
     runs-on: '${{ matrix.operating_system }}'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ikalnytskyi/action-setup-postgres@v5
         with:
           username: postgres
