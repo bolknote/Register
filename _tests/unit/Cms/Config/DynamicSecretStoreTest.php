@@ -82,7 +82,7 @@ final class DynamicSecretStoreTest extends Unit
         ]));
     }
 
-    public function testRejectsPlaceholderWhenPrivateFileIsMissing(): void
+    public function testNamesMissingCacheValueWhenPrivateFileIsMissing(): void
     {
         $store = new DynamicSecretStore(
             $this->temporaryDirectory . '/missing.php',
@@ -90,7 +90,24 @@ final class DynamicSecretStoreTest extends Unit
         );
 
         $this->expectException(ConfigurationException::class);
+        $this->expectExceptionMessage(
+            'The private dynamic-secret file is missing the value "AI_KEY" referenced by the configuration cache.',
+        );
         $store->hydrate(['AI_KEY' => DynamicSecretStore::DATABASE_PLACEHOLDER]);
+    }
+
+    public function testNamesMissingDatabaseValueWhenPrivateFileIsMissing(): void
+    {
+        $store = new DynamicSecretStore(
+            $this->temporaryDirectory . '/missing.php',
+            ['AI_KEY'],
+        );
+
+        $this->expectException(ConfigurationException::class);
+        $this->expectExceptionMessage(
+            'The private dynamic-secret file is missing the value "AI_KEY" referenced by the database.',
+        );
+        $store->protect(['AI_KEY' => DynamicSecretStore::DATABASE_PLACEHOLDER]);
     }
 
     public function testHydratesAnEarlierMigratedSecretWithoutMigratingFreshValues(): void

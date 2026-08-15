@@ -10,13 +10,14 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Ai\AiSettings;
+use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Config\DynamicSecretStore;
 use S2\Cms\Pdo\DbLayer;
 
 final class SecretConfigCest
 {
-    public function testApiKeyLeavesDatabaseAndCacheAfterAdminSave(\IntegrationTester $I): void
+    public function testManagedSecretsLeaveDatabaseAndCache(\IntegrationTester $I): void
     {
         $secretFile = \dirname(__DIR__) . '/_output/config.secrets.php';
         $cacheFile  = \dirname(__DIR__, 2) . '/_cache/test/cache_config.php';
@@ -34,6 +35,20 @@ final class SecretConfigCest
             /** @var DbLayer $dbLayer */
             $dbLayer = $I->grabAdminService(DbLayer::class);
             $valueBeforeRejectedSave = $provider->get(AiSettings::API_KEY_CONFIG_KEY);
+            $persistentSecrets = include $secretFile;
+            $I->assertIsArray($persistentSecrets);
+            $persistentParameters = ['S2_ANTISPAM_SECRET', VisitorIdentityManifest::SECRET_CONFIG_KEY];
+            foreach ($persistentParameters as $parameter) {
+                $I->assertArrayHasKey($parameter, $persistentSecrets);
+                $I->assertSame(
+                    DynamicSecretStore::DATABASE_PLACEHOLDER,
+                    $dbLayer->select('value')
+                        ->from('config')
+                        ->where('name = :name')->setParameter('name', $parameter)
+                        ->execute()
+                        ->result(),
+                );
+            }
 
             $I->submitForm($formSelector, [
                 'value'            => 'must-not-be-saved',
@@ -66,6 +81,10 @@ final class SecretConfigCest
             $I->assertSame('integration-api-secret', $secrets[AiSettings::API_KEY_CONFIG_KEY] ?? null);
             $cache = include $cacheFile;
             $I->assertIsArray($cache);
+            foreach ($persistentParameters as $parameter) {
+                $I->assertSame(DynamicSecretStore::DATABASE_PLACEHOLDER, $cache[$parameter] ?? null);
+            }
+
             $I->assertSame(
                 DynamicSecretStore::DATABASE_PLACEHOLDER,
                 $cache[AiSettings::API_KEY_CONFIG_KEY] ?? null,
@@ -83,10 +102,10 @@ final class SecretConfigCest
             $remainingSecrets = include $secretFile;
             $I->assertIsArray($remainingSecrets);
             $I->assertArrayNotHasKey(AiSettings::API_KEY_CONFIG_KEY, $remainingSecrets);
-            $I->assertSame([], $remainingSecrets);
+            $I->assertSame($persistentSecrets, $remainingSecrets);
         } finally {
             if (is_file($secretFile)) {
-                unlink($secretFile);
+                chmod($secretFile, 0600);
             }
         }
     }

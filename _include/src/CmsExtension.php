@@ -18,6 +18,7 @@ use Register\Content\ContentPublicationScheduler;
 use Register\Http\ContentSecurityPolicy;
 use Register\Http\CspViolationReportController;
 use Register\Http\CspViolationReporter;
+use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use S2\Cms\Asset\AssetMergeFactory;
 use S2\Cms\Comment\AkismetProxy;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
@@ -171,8 +172,12 @@ class CmsExtension implements ExtensionInterface
 
         $container->set(DynamicSecretStore::class, fn(Container $container): \S2\Cms\Config\DynamicSecretStore => new DynamicSecretStore(
             $container->getStringParameter('secret_config_file'),
-            ['S2_AKISMET_KEY', AiSettings::API_KEY_CONFIG_KEY],
-            ['S2_ANTISPAM_SECRET'],
+            [
+                'S2_AKISMET_KEY',
+                'S2_ANTISPAM_SECRET',
+                AiSettings::API_KEY_CONFIG_KEY,
+                VisitorIdentityManifest::SECRET_CONFIG_KEY,
+            ],
         ));
         $container->set(DynamicConfigProvider::class, fn(Container $container): \S2\Cms\Config\DynamicConfigProvider => new DynamicConfigProvider(
             $container->get(DbLayer::class),

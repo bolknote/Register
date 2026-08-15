@@ -47,8 +47,9 @@ installation.
 4. Confirm that Apache honors `.htaccess` (`AllowOverride` and `mod_rewrite`) and then open
    `https://example.com/_admin/install.php`. The installer writes `config.php`, SQLite, and private
    cache data under `register-app`, while uploads and generated browser assets go under the real
-   document root. AI and Akismet API keys are stored in `register-app/config.secrets.php` with mode
-   `0600`; the database and generated configuration cache contain only an opaque marker.
+   document root. AI/Akismet API keys and internal antispam/visitor HMAC secrets are stored in
+   `register-app/config.secrets.php` with mode `0600`; the database and generated configuration
+   cache contain only an opaque marker.
 5. Configure the canonical HTTPS URL. Enable forced administration HTTPS only after the certificate
    works for the final hostname.
 
@@ -90,7 +91,8 @@ Create and verify a backup before replacing code. Preserve all installation-spec
 New backup files end in `.zip.enc`. Preserve `config.php` separately because its generated
 `backups.encryption_key` is required to decrypt them; possession of an encrypted archive alone is
 not sufficient. See [`backups.md`](backups.md) for the offline decryption command and key-rotation
-procedure.
+procedure, and [`secret-rotation.md`](secret-rotation.md) for the complete shared-hosting credential
+runbook.
 
 Stage the new package beside the live copy, restore the preserved files into the matching private or
 public directory, and only then switch the document root or rename directories. Do not unpack a

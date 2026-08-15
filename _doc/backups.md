@@ -71,7 +71,8 @@ installations without this setting use the separately stored static `security.an
 it is at least 32 bytes; otherwise backup creation fails closed until a new random key is added to
 `config.php`. Do not replace either key while retained encrypted backups still depend on it. Before
 an intentional rotation, decrypt the retained archives with the old configuration and create fresh
-backups with the new key.
+backups with the new key. Follow the complete [secret-rotation runbook](secret-rotation.md) so the
+old recovery configuration is retained only with the archives that still need it.
 
 Authenticated streaming encryption requires the Sodium PHP extension (`ext-sodium`). It is a
 required runtime dependency and avoids loading a potentially large media archive into memory.

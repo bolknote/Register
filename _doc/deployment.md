@@ -25,11 +25,12 @@ bundles are written below the actual document root. See
 [`shared-hosting.md`](shared-hosting.md) for installation, permission, boundary-verification, and
 safe-update instructions.
 
-Dynamic AI and Akismet API keys are not stored in the database. In the split-root layout Register
-writes them to `register-app/config.secrets.php` with mode `0600`; generated caches and database
-backups contain only a marker. Preserve this file separately when moving or restoring a site. The
-file can be moved to another private path with `security.secret_file` in `config.php`; relative paths
-are resolved from the application root.
+Dynamic AI and Akismet API keys and the antispam/anonymous-visitor HMAC secrets are not stored in the
+database. In the split-root layout Register writes them to `register-app/config.secrets.php` with
+mode `0600`; generated caches and database backups contain only a marker. Preserve this file
+separately when moving or restoring a site. The file can be moved to another private path with
+`security.secret_file` in `config.php`; relative paths are resolved from the application root. See
+the [secret-rotation runbook](secret-rotation.md) before replacing any value.
 
 ## Apache shared hosting
 

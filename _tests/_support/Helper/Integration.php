@@ -101,6 +101,7 @@ class Integration extends AbstractBrowserModule
         /** Install product schema here since CREATE TABLE triggers an implicit commit on MySQL. */
         $this->adminApplication->container->get(SchemaManager::class)->ensureCurrent();
         $this->clearConfigCache();
+        $this->clearSecretConfig();
     }
 
     public function _before(TestInterface $test): void
@@ -445,6 +446,10 @@ class Integration extends AbstractBrowserModule
     {
         s2_call_without_warnings(static fn(): bool => self::deleteRecursive(self::ROOT_DIR . '_cache/test/config/'));
         s2_call_without_warnings(static fn(): bool => unlink(self::ROOT_DIR . '_cache/test/cache_config.php'));
+    }
+
+    private function clearSecretConfig(): void
+    {
         s2_call_without_warnings(static fn(): bool => unlink(self::ROOT_DIR . '_tests/_output/config.secrets.php'));
     }
 

@@ -94,7 +94,10 @@ final readonly class DynamicSecretStore
             if ($databaseValue === self::DATABASE_PLACEHOLDER) {
                 if (!array_key_exists($parameterName, $storedSecrets)) {
                     throw new ConfigurationException(
-                        'The private dynamic-secret file is missing a value referenced by the database.',
+                        \sprintf(
+                            'The private dynamic-secret file is missing the value "%s" referenced by the database.',
+                            $parameterName,
+                        ),
                     );
                 }
 
@@ -127,7 +130,10 @@ final readonly class DynamicSecretStore
             if ($databaseValue === self::DATABASE_PLACEHOLDER) {
                 if (!array_key_exists($parameterName, $storedSecrets)) {
                     throw new ConfigurationException(
-                        'The private dynamic-secret file is missing a value referenced by the database.',
+                        \sprintf(
+                            'The private dynamic-secret file is missing the value "%s" referenced by the database.',
+                            $parameterName,
+                        ),
                     );
                 }
 
@@ -212,7 +218,10 @@ final readonly class DynamicSecretStore
 
             if (!array_key_exists($parameterName, $storedSecrets)) {
                 throw new ConfigurationException(
-                    'The private dynamic-secret file is missing a value referenced by the configuration cache.',
+                    \sprintf(
+                        'The private dynamic-secret file is missing the value "%s" referenced by the configuration cache.',
+                        $parameterName,
+                    ),
                 );
             }
 

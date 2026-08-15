@@ -28,3 +28,5 @@ releases and unmaintained Register snapshots do not receive separate security ba
 If credentials or a backup may have leaked, do not wait for a code release: take the site out of
 service if necessary, rotate database/API credentials and the application secret, revoke active
 administrator sessions, preserve relevant logs, and restore only from a verified clean backup.
+The [shared-hosting secret-rotation runbook](../_doc/secret-rotation.md) gives the supported order,
+locations, side effects, and post-rotation checks.
