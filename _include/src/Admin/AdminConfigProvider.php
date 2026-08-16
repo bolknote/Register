@@ -1314,6 +1314,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                         }
 
                         $event->data['metrics'] = $this->spamMetricsRepository->summarize();
+                        $event->data['modelStatus'] = $this->spamMetricsRepository->describeModel();
                     })
                     ->setListTemplate('_admin/templates/antispam/report-list.php.inc'),
                 67,

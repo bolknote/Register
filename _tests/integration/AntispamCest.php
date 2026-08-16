@@ -30,6 +30,9 @@ use S2\Cms\Comment\Antispam\SpamReputationRepository;
 use S2\Cms\Comment\Antispam\SpamRiskScorer;
 use S2\Cms\Comment\Antispam\SpamRuleRepository;
 use S2\Cms\Comment\Antispam\SpamSignalPolicyRepository;
+use S2\Cms\Comment\Antispam\SpamTextFeatureExtractor;
+use S2\Cms\Comment\Antispam\SpamTextModel;
+use S2\Cms\Comment\Antispam\SpamTextModelRepository;
 use S2\Cms\Comment\SpamDetectorComment;
 use S2\Cms\Comment\SpamDetectorReport;
 use S2\Cms\Config\DynamicConfigProvider;
@@ -350,6 +353,47 @@ final class AntispamCest
 
         $I->assertFalse($assessment->hardBlock);
         $I->assertArrayNotHasKey('confirmed_spam_duplicate', $assessment->reasons);
+    }
+
+    public function testTrainedTextModelContributesAReusableLocalSignal(\IntegrationTester $I): void
+    {
+        $name = 'Campaign account';
+        $text = 'A learned campaign phrase';
+        $salt = '00112233445566778899aabbccddeeff';
+        /** @var SpamTextFeatureExtractor $extractor */
+        $extractor = $I->grabService(SpamTextFeatureExtractor::class);
+        $hashes = $extractor->hashes($name, $text, $salt);
+        $I->assertNotEmpty($hashes);
+        $weights = array_fill_keys($hashes, 100);
+        $model = new SpamTextModel($salt, $weights, 100, time(), [
+            'training_spam' => 10,
+            'training_ham' => 10,
+            'holdout_spam' => 2,
+            'holdout_ham' => 2,
+            'holdout_true_positive' => 2,
+            'holdout_false_positive' => 0,
+            'audited_visible' => 10,
+            'audited_visible_positive' => 0,
+        ]);
+        /** @var SpamTextModelRepository $repository */
+        $repository = $I->grabService(SpamTextModelRepository::class);
+        $repository->save($model);
+
+        /** @var SpamRiskScorer $scorer */
+        $scorer = $I->grabService(SpamRiskScorer::class);
+        $assessment = $scorer->assess(new SpamDetectorComment(
+            $name,
+            'changing-address@example.test',
+            $text,
+            'Mozilla/5.0',
+            'https://s2.localhost/',
+            'https://s2.localhost/',
+            10,
+        ), '203.0.113.142');
+
+        $I->assertSame(45, $assessment->reasons['trained_text_model']);
+        $I->assertGreaterThanOrEqual(45, $assessment->score);
+        $repository->clear();
     }
 
     public function testLocalDetectorAuditsRulesAndScores(\IntegrationTester $I): void

@@ -38,8 +38,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
     ];
 
     /** @var list<string> */
-    private const array SETTINGS_ENTITY_ORDER = [
-        'Config',
+    private const array SYSTEM_ENTITY_ORDER = [
         'SystemStatus',
         'LinkHealth',
         'SystemModules',
@@ -187,12 +186,18 @@ readonly class CustomMenuGenerator extends MenuGenerator
             $accountLinks[] = $securityLink;
         }
 
-        $settingsLinks = [
-            ...$this->extractLinks($links, self::SETTINGS_ENTITY_ORDER),
+        $settingsLink = $links['Config'] ?? null;
+        if (\is_array($settingsLink)) {
+            $navigationItems[] = ['kind' => 'link', ...$settingsLink];
+            unset($links['Config']);
+        }
+
+        $systemLinks = [
+            ...$this->extractLinks($links, self::SYSTEM_ENTITY_ORDER),
             ...array_values($links),
         ];
-        if ($settingsLinks !== []) {
-            $navigationItems[] = $this->createGroup('Settings', 'Settings', $settingsLinks);
+        if ($systemLinks !== []) {
+            $navigationItems[] = $this->createGroup('System', 'System', $systemLinks);
         }
 
         $navigationItems = array_values(array_filter(

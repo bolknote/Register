@@ -38,6 +38,9 @@ use S2\Cms\Comment\Antispam\SpamReputationRepository;
 use S2\Cms\Comment\Antispam\SpamRiskScorer;
 use S2\Cms\Comment\Antispam\SpamRuleRepository;
 use S2\Cms\Comment\Antispam\SpamSignalPolicyRepository;
+use S2\Cms\Comment\Antispam\SpamTextClassifier;
+use S2\Cms\Comment\Antispam\SpamTextFeatureExtractor;
+use S2\Cms\Comment\Antispam\SpamTextModelRepository;
 use S2\Cms\Comment\SpamDetectorInterface;
 use S2\Cms\Comment\SpamDecisionProvider;
 use S2\Cms\Comment\SpamDecisionProviderInterface;
@@ -301,11 +304,20 @@ class CmsExtension implements ExtensionInterface
             $container->get(SpamIdentityHasher::class),
         ));
         $container->set(SpamFeatureExtractor::class, new SpamFeatureExtractor());
+        $container->set(SpamTextFeatureExtractor::class, new SpamTextFeatureExtractor());
+        $container->set(SpamTextModelRepository::class, fn(Container $container): SpamTextModelRepository => new SpamTextModelRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(SpamTextClassifier::class, fn(Container $container): SpamTextClassifier => new SpamTextClassifier(
+            $container->get(SpamTextModelRepository::class),
+            $container->get(SpamTextFeatureExtractor::class),
+        ));
         $container->set(SpamAssessmentRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamAssessmentRepository => new SpamAssessmentRepository(
             $container->get(DbLayer::class),
         ));
         $container->set(SpamMetricsRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamMetricsRepository => new SpamMetricsRepository(
             $container->get(DbLayer::class),
+            $container->get(SpamTextModelRepository::class),
         ));
         $container->set(SpamReputationRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamReputationRepository => new SpamReputationRepository(
             $container->get(DbLayer::class),
@@ -325,6 +337,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(SpamReputationRepository::class),
             $container->get(SpamRuleRepository::class),
             $container->get(SpamSignalPolicyRepository::class),
+            $container->get(SpamTextClassifier::class),
         ));
         $container->set(CommentFormTokenManager::class, fn(Container $container): \S2\Cms\Comment\Antispam\CommentFormTokenManager => new CommentFormTokenManager(
             $container->get(SpamIdentityHasher::class),

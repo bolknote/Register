@@ -244,7 +244,9 @@ class AdminCest
         $I->assertNull($I->grabHttpHeader('X-Powered-By'));
         $I->seeElement('details[data-menu-group="Materials"]');
         $I->seeElement('details[data-menu-group="Moderation"]');
-        $I->seeElement('details[data-menu-group="Settings"]');
+        $I->seeElement('li[data-menu-key="Config"] > a[href="?entity=Config&action=list"]');
+        $I->seeElement('details[data-menu-group="System"]');
+        $I->dontSeeElement('details[data-menu-group="Settings"]');
         $I->seeElement('details[data-menu-group="Account"]');
         $I->dontSeeElement('details.main-menu-system');
         $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=BlogPost&action=list"]');
@@ -423,9 +425,9 @@ class AdminCest
             }
 
             if ($canSeeSettings) {
-                $I->seeElement('details[data-menu-group="Settings"]');
+                $I->seeElement('details[data-menu-group="System"]');
             } else {
-                $I->dontSeeElement('details[data-menu-group="Settings"]');
+                $I->dontSeeElement('details[data-menu-group="System"]');
             }
 
             $I->logout();
@@ -1090,6 +1092,21 @@ class AdminCest
         $I->dontSeeElement('nav.moderation-subtabs');
     }
 
+    public function testEmptyAntispamReportExplainsConfiguredModelAndLiveLog(\IntegrationTester $I): void
+    {
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/_admin/index.php?entity=SpamAssessment&action=list');
+
+        $I->seeResponseCodeIs(200);
+        $I->see('Antispam model');
+        $I->see('The filter is configured');
+        $I->see('rules-5');
+        $I->see('23 of 23');
+        $I->see('No new checks yet');
+        $I->see('Imported comments are not added to the live antispam log.');
+        $I->dontSee('Local filter quality');
+    }
+
     public function testAntispamCalibrationPages(\IntegrationTester $I): void
     {
         $assessment = new SpamAssessment(
@@ -1116,6 +1133,8 @@ class AdminCest
         $I->seeResponseCodeIs(200);
         $I->see('Antispam report');
         $I->seeElement('nav.moderation-tabs a[aria-current="page"][href="?entity=SpamAssessment&action=list"]');
+        $I->see('Antispam model');
+        $I->see('rules-5');
         $I->see('Local filter quality');
         $I->see('Shadow comparison');
         $I->see('False positive');

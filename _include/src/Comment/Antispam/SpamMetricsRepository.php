@@ -16,8 +16,10 @@ final readonly class SpamMetricsRepository
 {
     public const int REPORT_WINDOW = 30 * 24 * 60 * 60;
 
-    public function __construct(private DbLayer $dbLayer)
-    {
+    public function __construct(
+        private DbLayer $dbLayer,
+        private SpamTextModelRepository $textModelRepository,
+    ) {
     }
 
     /**
@@ -78,5 +80,68 @@ final readonly class SpamMetricsRepository
         }
 
         return $summary;
+    }
+
+    /**
+     * @return array{
+     *     model_version: string,
+     *     configured_signals: int,
+     *     enabled_signals: int,
+     *     active_rules: int,
+     *     reputation_records: int,
+     *     text_model_examples: int,
+     *     text_model_features: int,
+     *     text_model_holdout_recall_tenths: int,
+     *     text_model_holdout_false_positive_tenths: int
+     * }
+     * @throws DbLayerException
+     */
+    public function describeModel(?int $now = null): array
+    {
+        $now ??= time();
+
+        $policies = $this->dbLayer
+            ->select(
+                'COUNT(*) AS configured_signals',
+                'SUM(CASE WHEN enabled = 1 THEN 1 ELSE 0 END) AS enabled_signals',
+            )
+            ->from('spam_signal_policies')
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $rules = $this->dbLayer
+            ->select('COUNT(*) AS active_rules')
+            ->from('spam_rules')
+            ->where('enabled = 1')
+            ->andWhere('(expires_at IS NULL OR expires_at >= :now)')->setParameter('now', $now)
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $reputation = $this->dbLayer
+            ->select('COUNT(*) AS reputation_records')
+            ->from('spam_reputation')
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $textModel = $this->textModelRepository->get();
+        $textMetrics = $textModel === null ? [] : $textModel->metrics;
+        $holdoutSpam = $textMetrics['holdout_spam'] ?? 0;
+        $holdoutHam = $textMetrics['holdout_ham'] ?? 0;
+
+        return [
+            'model_version'      => SpamRiskScorer::VERSION,
+            'configured_signals' => (int)($policies['configured_signals'] ?? 0),
+            'enabled_signals'    => (int)($policies['enabled_signals'] ?? 0),
+            'active_rules'       => (int)($rules['active_rules'] ?? 0),
+            'reputation_records' => (int)($reputation['reputation_records'] ?? 0),
+            'text_model_examples'=> ($textMetrics['training_spam'] ?? 0) + ($textMetrics['training_ham'] ?? 0),
+            'text_model_features'=> $textModel === null ? 0 : count($textModel->weights),
+            'text_model_holdout_recall_tenths' => $holdoutSpam === 0
+                ? 0
+                : (int)round(1_000 * ($textMetrics['holdout_true_positive'] ?? 0) / $holdoutSpam),
+            'text_model_holdout_false_positive_tenths' => $holdoutHam === 0
+                ? 0
+                : (int)round(1_000 * ($textMetrics['holdout_false_positive'] ?? 0) / $holdoutHam),
+        ];
     }
 }
