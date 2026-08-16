@@ -16,6 +16,8 @@ final class UserpicSchema
 {
     public const string TABLE_NAME = 'userpics';
 
+    public const string USER_LINK_TABLE_NAME = 'user_userpic';
+
     public static function create(DbLayer $dbLayer): void
     {
         $dbLayer->createTable(self::TABLE_NAME, static function (SchemaBuilderInterface $table): void {
@@ -31,6 +33,34 @@ final class UserpicSchema
                 ->addInteger('created_time', true)
                 ->addUniqueIndex('storage_key_idx', ['storage_key'])
                 ->addUniqueIndex('content_hash_idx', ['content_hash'])
+            ;
+        });
+
+        self::createUserLink($dbLayer);
+    }
+
+    public static function createUserLink(DbLayer $dbLayer): void
+    {
+        $dbLayer->createTable(self::USER_LINK_TABLE_NAME, static function (SchemaBuilderInterface $table): void {
+            $table
+                ->addInteger('user_id', true)
+                ->addInteger('userpic_id', true)
+                ->setPrimaryKey(['user_id', 'userpic_id'])
+                ->addForeignKey(
+                    'fk_user',
+                    ['user_id'],
+                    'users',
+                    ['id'],
+                    'CASCADE',
+                )
+                ->addForeignKey(
+                    'fk_userpic',
+                    ['userpic_id'],
+                    self::TABLE_NAME,
+                    ['id'],
+                    'CASCADE',
+                )
+                ->addIndex('userpic_idx', ['userpic_id'])
             ;
         });
     }
@@ -74,6 +104,7 @@ final class UserpicSchema
 
     public static function drop(DbLayer $dbLayer): void
     {
+        $dbLayer->dropTable(self::USER_LINK_TABLE_NAME);
         $dbLayer->dropTable(self::TABLE_NAME);
     }
 }

@@ -18,6 +18,7 @@ use Register\Schema\SchemaManager;
 use S2\Cms\Extensions\ExtensionManager;
 use S2\Cms\Extensions\ManifestInterface;
 use S2\Cms\Model\ExtensionCache;
+use S2\Cms\Model\UserpicSchema;
 use S2\Cms\Pdo\DbLayer;
 
 final class ModuleManagerCest
@@ -99,7 +100,11 @@ final class ModuleManagerCest
         ));
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'parent_id'));
         $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'thread_idx'));
-        $I->assertTrue($dbLayer->tableExists('userpics'));
+        $I->assertTrue($dbLayer->tableExists(UserpicSchema::TABLE_NAME));
+        $I->assertTrue($dbLayer->tableExists(UserpicSchema::USER_LINK_TABLE_NAME));
+        $I->assertTrue($dbLayer->indexExists(UserpicSchema::USER_LINK_TABLE_NAME, 'userpic_idx'));
+        $I->assertTrue($dbLayer->foreignKeyExists(UserpicSchema::USER_LINK_TABLE_NAME, 'fk_user'));
+        $I->assertTrue($dbLayer->foreignKeyExists(UserpicSchema::USER_LINK_TABLE_NAME, 'fk_userpic'));
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'userpic_id'));
         $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'userpic_idx'));
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'deleted'));
