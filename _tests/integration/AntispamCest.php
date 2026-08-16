@@ -292,6 +292,26 @@ final class AntispamCest
         $I->assertSame(47, $report->getReasons()['links']);
     }
 
+    public function testSentenceLikeTransliteratedRussianCampaignIsQuarantinedWithoutEmailHistory(
+        \IntegrationTester $I,
+    ): void {
+        /** @var LocalSpamDetector $detector */
+        $detector = $I->grabService(LocalSpamDetector::class);
+        $report = $detector->getReport(new SpamDetectorComment(
+            'a potom udivlyayutsya poc',
+            'a-new-random-address@example.test',
+            'hemu k gadalkam idut',
+            'Mozilla/5.0',
+            'https://s2.localhost/article',
+            'https://s2.localhost/',
+            10,
+        ), '203.0.113.144');
+
+        $I->assertSame(SpamDetectorReport::STATUS_SPAM, $report->status);
+        $I->assertSame(40, $report->getScore());
+        $I->assertSame(40, $report->getReasons()['sentence_like_latin_transliteration']);
+    }
+
     public function testDisablingConfirmedDuplicateRemovesItsHardBlock(\IntegrationTester $I): void
     {
         $text = 'A previously confirmed duplicate';

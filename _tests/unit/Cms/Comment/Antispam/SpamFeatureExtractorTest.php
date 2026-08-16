@@ -41,4 +41,41 @@ final class SpamFeatureExtractorTest extends Unit
         self::assertTrue($extractor->hasLongRepetition('aaaaaaaaaa'));
         self::assertFalse($extractor->hasLongRepetition('ordinary comment'));
     }
+
+    public function testDetectsSentenceSplitBetweenNameAndTextByTransliteratedRussianSpammer(): void
+    {
+        $extractor = new SpamFeatureExtractor();
+
+        self::assertTrue($extractor->hasSentenceLikeLatinTransliteration(
+            'nado bylo nach',
+            'inat s tatarskogo',
+        ));
+        self::assertTrue($extractor->hasSentenceLikeLatinTransliteration(
+            'a potom udivlyayutsya poc',
+            'hemu k gadalkam idut',
+        ));
+    }
+
+    /** @dataProvider ordinaryLatinCommentsProvider */
+    public function testDoesNotConfuseOrdinaryLatinNamesAndCommentsWithCampaign(
+        string $name,
+        string $text,
+    ): void {
+        $extractor = new SpamFeatureExtractor();
+
+        self::assertFalse($extractor->hasSentenceLikeLatinTransliteration($name, $text));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function ordinaryLatinCommentsProvider(): iterable
+    {
+        yield 'ordinary title-case name' => ['John Doe', 'Thank you for the useful article.'];
+        yield 'lowercase English' => ['john doe', 'thank you for the useful article'];
+        yield 'single identifier' => ['shaltai-boltai', 'spasibo za kommentarij'];
+        yield 'legacy domain in name' => [
+            'denis-barushev (barushev.net)',
+            'please see this code and the linked article',
+        ];
+        yield 'Cyrillic text' => ['ivan ivanov', 'Спасибо за статью'];
+    }
 }

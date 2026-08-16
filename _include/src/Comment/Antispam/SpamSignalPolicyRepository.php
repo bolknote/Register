@@ -24,6 +24,7 @@ final readonly class SpamSignalPolicyRepository
         'html'                       => 10,
         'formatting_controls'        => 20,
         'long_repetition'            => 10,
+        'sentence_like_latin_transliteration' => 40,
         'missing_user_agent'         => 5,
         'missing_referrer'           => 3,
         'very_fast_submission'       => 20,

@@ -14,7 +14,7 @@ use S2\Cms\Pdo\DbLayerException;
 
 final readonly class SpamRiskScorer
 {
-    public const string VERSION = 'rules-2';
+    public const string VERSION = 'rules-3';
 
     public function __construct(
         private SpamIdentityHasher       $hasher,
@@ -74,6 +74,10 @@ final readonly class SpamRiskScorer
 
         if ($this->featureExtractor->hasLongRepetition($comment->text)) {
             $this->addPolicy($score, $reasons, $weights, 'long_repetition');
+        }
+
+        if ($this->featureExtractor->hasSentenceLikeLatinTransliteration($comment->name, $comment->text)) {
+            $this->addPolicy($score, $reasons, $weights, 'sentence_like_latin_transliteration');
         }
 
         if ($comment->userAgent === null || trim($comment->userAgent) === '') {
