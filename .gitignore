@@ -1,6 +1,8 @@
 .idea
 .DS_Store
 .local/
+.codex/
+plan*.md
 dist/
 _cache/*
 _vendor/*
