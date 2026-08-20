@@ -23,6 +23,10 @@ declare(strict_types = 1);
 $heading     = empty($title_link) ? 'h1' : 'h2';
 $inplaceData = isset($inplace) && \is_array($inplace) ? $inplace : null;
 $postId      = (int)$id;
+$tagNames    = array_values(array_map(
+    static fn(array $tag): string => (string)($tag['title'] ?? ''),
+    \is_array($tags ?? null) ? $tags : [],
+));
 ?>
 <article
     class="post-card<?php echo $inplaceData !== null ? ' is-manageable' : ''; ?>"
@@ -35,7 +39,13 @@ $postId      = (int)$id;
     data-list-label="<?php echo s2_htmlencode($trans('Post list')); ?>"
     data-title-label="<?php echo s2_htmlencode($trans('Post title')); ?>"
     data-body-label="<?php echo s2_htmlencode($trans('Post text')); ?>"
+    data-tags-label="<?php echo s2_htmlencode($trans('Post tags')); ?>"
+    data-remove-tag-label="<?php echo s2_htmlencode($trans('Remove post tag')); ?>"
+    data-invalid-tags="<?php echo s2_htmlencode($trans('Invalid post tags')); ?>"
     data-link-prompt="<?php echo s2_htmlencode($trans('Link address')); ?>"
+    data-media-uploading="<?php echo s2_htmlencode($trans('Post media uploading')); ?>"
+    data-media-upload-failed="<?php echo s2_htmlencode($trans('Post media upload failed')); ?>"
+    data-media-unsupported="<?php echo s2_htmlencode($trans('Unsupported dropped media')); ?>"
 <?php endif; ?>
 >
 <?php if ($inplaceData !== null): ?>
@@ -47,6 +57,7 @@ $postId      = (int)$id;
 >
     <input name="title" type="hidden" value="<?php echo s2_htmlencode($title); ?>">
     <textarea name="body" hidden><?php echo s2_htmlencode($text); ?></textarea>
+    <input name="tags" type="hidden" value="<?php echo s2_htmlencode(implode(', ', $tagNames)); ?>">
     <input type="hidden" name="inplace_action" value="edit">
     <input type="hidden" name="inplace_token" value="<?php echo s2_htmlencode($inplaceData['token']); ?>">
     <input type="hidden" name="revision" value="<?php echo $inplaceData['revision']; ?>">
@@ -128,14 +139,20 @@ $postId      = (int)$id;
         }
     }
 
-	if (!empty($tags))
-	{
-		foreach ($tags as &$tag)
-			$tag = '<a href="'.$tag['link'].'">'.$tag['title'].'</a>';
-		unset($tag);
+    if ($tagNames !== [] || $inplaceData !== null) {
+        $tagLinks = [];
+        foreach (\is_array($tags ?? null) ? $tags : [] as $tag) {
+            $tagLinks[] = '<a href="' . s2_htmlencode((string)($tag['link'] ?? '')) . '">' . s2_htmlencode((string)($tag['title'] ?? '')) . '</a>';
+        }
 
-		$footer['tags'] = '<span class="post-foot-tags">' . $trans('Tags') . ': ' . implode(', ', $tags) . '</span>';
-	}
+        $emptyClass = $tagNames === [] ? ' is-empty' : '';
+        $editAttributes = $inplaceData === null
+            ? ''
+            : ' data-post-inplace-tags-values data-placeholder="' . s2_htmlencode($trans('Post tags placeholder')) . '"';
+        $footer['tags'] = '<span class="post-foot-tags' . $emptyClass . '"><span class="post-foot-tags-label">'
+            . s2_htmlencode($trans('Tags')) . ':</span> <span class="post-tag-values"' . $editAttributes . '>'
+            . implode(', ', $tagLinks) . '</span></span>';
+    }
 
 	echo implode("\n", $footer);
 ?>

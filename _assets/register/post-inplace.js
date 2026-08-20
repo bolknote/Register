@@ -2,6 +2,8 @@
     'use strict';
 
     const editorStates = new WeakMap();
+    const imageExtensions = new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp']);
+    const audioExtensions = new Set(['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm']);
 
     function cardFor(element) {
         return element instanceof Element ? element.closest('.post-card[data-post-id]') : null;
@@ -124,6 +126,20 @@
         selection.addRange(range);
     }
 
+    function prepareEditableMedia(root) {
+        root.querySelectorAll('audio[controls]').forEach((audio) => {
+            audio.setAttribute('data-register-audio-native', '');
+        });
+    }
+
+    function editableBodyHtml(state) {
+        const nativeAudio = Array.from(state.body.querySelectorAll('audio[data-register-audio-native]'));
+        nativeAudio.forEach((audio) => audio.removeAttribute('data-register-audio-native'));
+        const html = state.body.innerHTML;
+        nativeAudio.forEach((audio) => audio.setAttribute('data-register-audio-native', ''));
+        return html;
+    }
+
     function restoreHeadingLink(state) {
         if (!state.titleLink || !state.titleLinkHadHref) {
             return;
@@ -132,6 +148,9 @@
     }
 
     function stopEditing(state) {
+        state.mediaControllers.forEach((controller) => controller.abort());
+        state.mediaControllers.clear();
+        state.body.classList.remove('is-media-dragover');
         unsetEditable(state.title);
         unsetEditable(state.body);
         restoreHeadingLink(state);
@@ -145,18 +164,24 @@
         const form = card.querySelector(':scope > .post-inplace-edit-form');
         const title = card.querySelector(':scope > .post.head [data-post-inplace-title]');
         const body = card.querySelector(':scope > .post.body[data-post-inplace-body]');
+        const tags = card.querySelector(':scope > .post.foot [data-post-inplace-tags-values]');
+        const tagsHost = tags?.closest('.post-foot-tags');
         const titleField = form?.elements.namedItem('title');
         const bodyField = form?.elements.namedItem('body');
+        const tagsField = form?.elements.namedItem('tags');
         if (
             !(form instanceof HTMLFormElement)
             || !(title instanceof HTMLElement)
             || !(body instanceof HTMLElement)
+            || !(tags instanceof HTMLElement)
+            || !(tagsHost instanceof HTMLElement)
             || !(titleField instanceof HTMLInputElement)
             || !(bodyField instanceof HTMLTextAreaElement)
+            || !(tagsField instanceof HTMLInputElement)
         ) {
             return null;
         }
-        return {form, title, body, titleField, bodyField};
+        return {form, title, body, tags, tagsHost, titleField, bodyField, tagsField};
     }
 
     function closeEditor(card, restoreFocus) {
@@ -167,6 +192,11 @@
 
         state.title.textContent = state.originalTitle;
         state.body.innerHTML = state.originalBody;
+        state.tags.innerHTML = state.originalTagsHtml;
+        state.tagsHost.classList.toggle('is-empty', state.originalTags === '');
+        state.titleField.value = state.originalTitle;
+        state.bodyField.value = state.originalBody;
+        state.tagsField.value = state.originalTags;
         stopEditing(state);
         state.form.reset();
         clearError(state.form);
@@ -227,8 +257,14 @@
             card,
             originalTitle: elements.titleField.value,
             originalBody: elements.bodyField.value,
+            originalTags: elements.tagsField.value,
+            originalTagsHtml: elements.tags.innerHTML,
             titleDirty: false,
             bodyDirty: false,
+            tagsDirty: false,
+            mediaUploads: new Set(),
+            mediaControllers: new Set(),
+            submitting: false,
             titleLink,
             titleLinkHadHref: titleLink?.hasAttribute('href') || false,
             titleLinkHref: titleLink?.getAttribute('href') || '',
@@ -237,12 +273,15 @@
         destroyWidgets(elements.body);
         elements.title.textContent = state.originalTitle;
         elements.body.innerHTML = state.originalBody;
+        prepareEditableMedia(elements.body);
+        elements.tags.replaceChildren();
         if (state.titleLinkHadHref) {
             titleLink.removeAttribute('href');
         }
 
         setEditable(elements.title, card.dataset.titleLabel || 'Title', false);
         setEditable(elements.body, card.dataset.bodyLabel || 'Post text', true);
+        state.tagEditor = createTagEditor(state);
         editorStates.set(card, state);
         card.classList.add('is-editing');
         toggleEditingTools(card, true);
@@ -282,8 +321,384 @@
 
         state.title.textContent = title;
         state.titleField.value = title;
-        state.bodyField.value = state.bodyDirty ? state.body.innerHTML : state.originalBody;
+        state.bodyField.value = state.bodyDirty ? editableBodyHtml(state) : state.originalBody;
+
+        const tags = state.tagEditor.sync();
+        if (tags === null) {
+            showError(state.form, state.card.dataset.invalidTags || state.card.dataset.editError || 'Invalid post tags.');
+            state.tagEditor.focus();
+            return false;
+        }
+        const tagValue = tags.join(', ');
+        state.tagsHost.classList.toggle('is-empty', tagValue === '');
+        state.tagsField.value = tagValue;
         return true;
+    }
+
+    function normalizeTags(value) {
+        const tags = [];
+        const used = new Set();
+        for (const part of String(value).split(/[,;\n]+/u)) {
+            const tag = part
+                .replace(/^\s*#+\s*/u, '')
+                .replace(/\s+/gu, ' ')
+                .trim();
+            if (tag === '') {
+                continue;
+            }
+            if (tag.length > 255 || !/^[\p{L}\p{N}_\- !.]+$/u.test(tag)) {
+                return null;
+            }
+            const key = tag.toLocaleLowerCase();
+            if (!used.has(key)) {
+                used.add(key);
+                tags.push(tag);
+            }
+            if (tags.length > 100) {
+                return null;
+            }
+        }
+        return tags;
+    }
+
+    function createTagEditor(state) {
+        const root = document.createElement('span');
+        const surface = document.createElement('span');
+        const input = document.createElement('input');
+        let tags = normalizeTags(state.originalTags) || [];
+
+        root.className = 'post-tags-editor';
+        surface.className = 'post-tags-surface';
+        input.type = 'text';
+        input.className = 'post-tags-text-input';
+        input.placeholder = state.tags.dataset.placeholder || '';
+        input.autocomplete = 'off';
+        input.setAttribute('aria-label', state.card.dataset.tagsLabel || 'Tags');
+        surface.append(input);
+        root.append(surface);
+        state.tags.append(root);
+
+        function changed() {
+            state.tagsDirty = true;
+            clearError(state.form);
+            clearStatus(state.card);
+        }
+
+        function syncSurface() {
+            state.tagsHost.classList.toggle('is-empty', tags.length === 0 && input.value.trim() === '');
+        }
+
+        function render() {
+            surface.querySelectorAll('.post-tag-chip').forEach((chip) => chip.remove());
+            const fragment = document.createDocumentFragment();
+            tags.forEach((tag, index) => {
+                const chip = document.createElement('span');
+                const label = document.createElement('span');
+                const remove = document.createElement('button');
+
+                chip.className = 'post-tag-chip';
+                label.className = 'post-tag-chip-label';
+                label.textContent = tag;
+                remove.type = 'button';
+                remove.className = 'post-tag-chip-remove';
+                remove.dataset.tagIndex = String(index);
+                remove.textContent = '×';
+                remove.setAttribute(
+                    'aria-label',
+                    (state.card.dataset.removeTagLabel || 'Remove tag') + ': ' + tag,
+                );
+                chip.append(label, remove);
+                fragment.append(chip);
+            });
+            surface.insertBefore(fragment, input);
+            syncSurface();
+        }
+
+        function add(value) {
+            const additions = normalizeTags(value);
+            if (additions === null) {
+                return false;
+            }
+            const merged = normalizeTags([...tags, ...additions].join(', '));
+            if (merged === null) {
+                return false;
+            }
+            tags = merged;
+            input.value = '';
+            changed();
+            render();
+            return true;
+        }
+
+        function commit() {
+            if (input.value.trim() === '') {
+                input.value = '';
+                syncSurface();
+                return true;
+            }
+            return add(input.value);
+        }
+
+        surface.addEventListener('click', (event) => {
+            const target = event.target instanceof Element ? event.target : null;
+            const remove = target?.closest('.post-tag-chip-remove');
+            if (remove) {
+                const index = Number(remove.dataset.tagIndex);
+                if (Number.isInteger(index) && index >= 0 && index < tags.length) {
+                    tags.splice(index, 1);
+                    changed();
+                    render();
+                }
+            }
+            input.focus();
+        });
+
+        input.addEventListener('input', () => {
+            changed();
+            syncSurface();
+        });
+        input.addEventListener('keydown', (event) => {
+            if (event.isComposing) {
+                return;
+            }
+            if (event.key === 'Enter' || event.key === ',' || event.key === ';') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (!commit()) {
+                    showError(state.form, state.card.dataset.invalidTags || state.card.dataset.editError || 'Invalid post tags.');
+                }
+                return;
+            }
+            if (event.key === 'Backspace' && input.value === '' && tags.length > 0) {
+                event.preventDefault();
+                tags.pop();
+                changed();
+                render();
+            }
+        });
+        input.addEventListener('paste', (event) => {
+            const pasted = event.clipboardData?.getData('text/plain') || '';
+            if (!/[,;\n]/u.test(pasted)) {
+                return;
+            }
+            const additions = normalizeTags(pasted);
+            if (additions === null) {
+                return;
+            }
+            event.preventDefault();
+            add(pasted);
+        });
+        input.addEventListener('blur', () => {
+            if (!root.isConnected || !state.card.classList.contains('is-editing')) {
+                return;
+            }
+            if (!commit()) {
+                showError(state.form, state.card.dataset.invalidTags || state.card.dataset.editError || 'Invalid post tags.');
+            }
+        });
+
+        render();
+
+        return {
+            focus: () => input.focus(),
+            sync: () => commit() ? [...tags] : null,
+        };
+    }
+
+    function mediaKindForFile(file) {
+        const dot = file.name.lastIndexOf('.');
+        const extension = dot >= 0 ? file.name.slice(dot + 1).toLowerCase() : '';
+        const type = file.type.toLowerCase();
+        if (imageExtensions.has(extension) && (type === '' || type.startsWith('image/'))) {
+            return 'image';
+        }
+        if (
+            audioExtensions.has(extension)
+            && (type === '' || type.startsWith('audio/') || type === 'application/ogg')
+        ) {
+            return 'audio';
+        }
+        return null;
+    }
+
+    function mediaMessage(template, fileName) {
+        return String(template || '').replace('%s', fileName);
+    }
+
+    function bodyRange(state, candidate = null) {
+        if (candidate instanceof Range && state.body.contains(candidate.commonAncestorContainer)) {
+            const range = candidate.cloneRange();
+            range.collapse(true);
+            return range;
+        }
+
+        const range = document.createRange();
+        range.selectNodeContents(state.body);
+        range.collapse(false);
+        return range;
+    }
+
+    function bodyRangeFromPoint(state, clientX, clientY) {
+        let range = null;
+        if (typeof document.caretPositionFromPoint === 'function') {
+            const position = document.caretPositionFromPoint(clientX, clientY);
+            if (position) {
+                range = document.createRange();
+                range.setStart(position.offsetNode, position.offset);
+                range.collapse(true);
+            }
+        } else if (typeof document.caretRangeFromPoint === 'function') {
+            range = document.caretRangeFromPoint(clientX, clientY);
+        }
+
+        return bodyRange(state, range);
+    }
+
+    function createMediaElement(payload, file) {
+        if (payload.kind === 'image') {
+            const image = document.createElement('img');
+            image.className = 'post-media-image';
+            image.setAttribute('src', payload.url);
+            image.setAttribute('alt', '');
+            image.setAttribute('loading', 'lazy');
+            image.setAttribute('decoding', 'async');
+            if (Number.isInteger(payload.width) && payload.width > 0) {
+                image.setAttribute('width', String(payload.width));
+            }
+            if (Number.isInteger(payload.height) && payload.height > 0) {
+                image.setAttribute('height', String(payload.height));
+            }
+            return image;
+        }
+
+        const audio = document.createElement('audio');
+        audio.className = 'post-media-audio';
+        audio.setAttribute('src', payload.url);
+        audio.setAttribute('preload', 'metadata');
+        audio.setAttribute('controls', '');
+        audio.setAttribute('data-register-audio-native', '');
+        audio.dataset.title = typeof payload.name === 'string' && payload.name !== ''
+            ? payload.name
+            : file.name;
+        return audio;
+    }
+
+    function startMediaUpload(state, file, kind, placeholder) {
+        const token = state.form.elements.namedItem('inplace_token');
+        const controller = new AbortController();
+        const formData = new FormData();
+        formData.append('inplace_action', 'media');
+        formData.append('inplace_token', token instanceof HTMLInputElement ? token.value : '');
+        formData.append('media', file, file.name);
+        state.mediaControllers.add(controller);
+
+        const upload = (async () => {
+            try {
+                const response = await window.fetch(state.form.action, {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    signal: controller.signal,
+                });
+                const payload = await response.json().catch(() => null);
+                if (
+                    !response.ok
+                    || !payload
+                    || payload.success !== true
+                    || payload.action !== 'media'
+                    || payload.kind !== kind
+                    || typeof payload.url !== 'string'
+                    || payload.url === ''
+                ) {
+                    throw new Error(
+                        payload?.message
+                        || mediaMessage(state.card.dataset.mediaUploadFailed || 'Unable to upload “%s”.', file.name),
+                    );
+                }
+                if (editorStates.get(state.card) !== state || !placeholder.isConnected) {
+                    return;
+                }
+
+                placeholder.replaceWith(createMediaElement(payload, file));
+                state.bodyDirty = true;
+                clearStatus(state.card);
+            } catch (error) {
+                placeholder.remove();
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    return;
+                }
+                showError(
+                    state.form,
+                    error instanceof Error
+                        ? error.message
+                        : mediaMessage(state.card.dataset.mediaUploadFailed || 'Unable to upload “%s”.', file.name),
+                );
+            } finally {
+                state.mediaControllers.delete(controller);
+            }
+        })();
+
+        state.mediaUploads.add(upload);
+        upload.finally(() => state.mediaUploads.delete(upload));
+    }
+
+    function insertMediaFiles(state, files, initialRange) {
+        clearError(state.form);
+        clearStatus(state.card);
+        let range = bodyRange(state, initialRange);
+        const unsupported = [];
+
+        files.forEach((file) => {
+            const kind = mediaKindForFile(file);
+            if (kind === null) {
+                unsupported.push(file.name);
+                return;
+            }
+
+            const placeholder = document.createElement('span');
+            const message = mediaMessage(
+                state.card.dataset.mediaUploading || 'Uploading “%s”…',
+                file.name,
+            );
+            placeholder.className = 'post-media-upload';
+            placeholder.contentEditable = 'false';
+            placeholder.dataset.mediaKind = kind;
+            placeholder.setAttribute('role', 'status');
+            placeholder.setAttribute('aria-label', message);
+            placeholder.textContent = message;
+            range.insertNode(placeholder);
+            range.setStartAfter(placeholder);
+            range.collapse(true);
+            startMediaUpload(state, file, kind, placeholder);
+        });
+
+        if (unsupported.length > 0) {
+            showError(
+                state.form,
+                mediaMessage(
+                    state.card.dataset.mediaUnsupported || '“%s” is not supported. Drop an image or audio file.',
+                    unsupported.join(', '),
+                ),
+            );
+        }
+    }
+
+    function transferHasFiles(transfer) {
+        return transfer instanceof DataTransfer
+            && (
+                Array.from(transfer.types || []).includes('Files')
+                || Array.from(transfer.items || []).some((item) => item.kind === 'file')
+            );
+    }
+
+    function bodyDropState(target) {
+        const card = cardFor(target);
+        const state = card ? editorStates.get(card) : null;
+        return state && state.body.contains(target) ? state : null;
     }
 
     function parseBody(html) {
@@ -296,8 +711,19 @@
         const state = editorStates.get(card);
         const title = state?.title || card.querySelector(':scope > .post.head [data-post-inplace-title]');
         const currentBody = state?.body || card.querySelector(':scope > .post.body[data-post-inplace-body]');
+        const tagValues = state?.tags || card.querySelector(':scope > .post.foot [data-post-inplace-tags-values]');
+        const tagsHost = state?.tagsHost || tagValues?.closest('.post-foot-tags');
         const replacementBody = typeof payload.body_html === 'string' ? parseBody(payload.body_html) : null;
-        if (!title || !currentBody || !replacementBody || typeof payload.title !== 'string') {
+        if (
+            !title
+            || !currentBody
+            || !replacementBody
+            || !(tagValues instanceof HTMLElement)
+            || !(tagsHost instanceof HTMLElement)
+            || typeof payload.title !== 'string'
+            || !Array.isArray(payload.tags)
+            || payload.tags.some((tag) => !tag || typeof tag.name !== 'string' || typeof tag.url !== 'string')
+        ) {
             throw new Error(card.dataset.applyError || 'Unable to apply the updated post.');
         }
 
@@ -305,6 +731,19 @@
             stopEditing(state);
         }
         title.textContent = payload.title;
+
+        const tagFragment = document.createDocumentFragment();
+        payload.tags.forEach((tag, index) => {
+            if (index > 0) {
+                tagFragment.append(', ');
+            }
+            const link = document.createElement('a');
+            link.href = tag.url;
+            link.textContent = tag.name;
+            tagFragment.append(link);
+        });
+        tagValues.replaceChildren(tagFragment);
+        tagsHost.classList.toggle('is-empty', payload.tags.length === 0);
 
         const confirmation = card.querySelector(':scope > .post-delete-confirmation');
         const warningTemplate = confirmation?.dataset.warningTemplate;
@@ -323,12 +762,17 @@
 
         const titleField = form.elements.namedItem('title');
         const bodyField = form.elements.namedItem('body');
+        const tagsField = form.elements.namedItem('tags');
         if (titleField instanceof HTMLInputElement) {
             titleField.value = payload.title;
             titleField.defaultValue = payload.title;
         }
         if (bodyField instanceof HTMLTextAreaElement) {
             bodyField.defaultValue = bodyField.value;
+        }
+        if (tagsField instanceof HTMLInputElement) {
+            tagsField.value = payload.tags.map((tag) => tag.name).join(', ');
+            tagsField.defaultValue = tagsField.value;
         }
         card.querySelectorAll('input[name="revision"]').forEach((field) => {
             field.value = String(payload.revision);
@@ -390,28 +834,41 @@
             return;
         }
 
-        if (form.matches('.post-inplace-edit-form')) {
-            const state = editorStates.get(card);
-            if (!state) {
-                return;
-            }
-            if (!state.titleDirty && !state.bodyDirty) {
-                closeEditor(card, true);
-                return;
-            }
-            if (!syncEditor(state)) {
-                return;
-            }
+        const state = form.matches('.post-inplace-edit-form') ? editorStates.get(card) : null;
+        if (form.matches('.post-inplace-edit-form') && !state) {
+            return;
+        }
+        if (state?.submitting) {
+            return;
+        }
+        if (state) {
+            state.submitting = true;
         }
 
         const buttons = card.querySelectorAll('.post-inplace-tools button, .post-delete-confirmation button');
-        buttons.forEach((button) => {
-            button.disabled = true;
-        });
-        card.setAttribute('aria-busy', 'true');
-        clearError(form);
+        const setBusy = (busy) => {
+            card.toggleAttribute('aria-busy', busy);
+            buttons.forEach((button) => {
+                button.disabled = busy;
+            });
+        };
 
         try {
+            setBusy(true);
+            if (state) {
+                if (state.mediaUploads.size > 0) {
+                    await Promise.all(Array.from(state.mediaUploads));
+                }
+                if (editorStates.get(card) !== state || !syncEditor(state)) {
+                    return;
+                }
+                if (!state.titleDirty && !state.bodyDirty && !state.tagsDirty) {
+                    closeEditor(card, true);
+                    return;
+                }
+            }
+
+            clearError(form);
             const response = await window.fetch(form.action, {
                 method: 'POST',
                 body: new FormData(form),
@@ -434,17 +891,16 @@
                 throw new Error('Unable to process the server response.');
             }
         } catch (error) {
-            card.removeAttribute('aria-busy');
             showError(
                 form,
                 error instanceof Error ? error.message : (card.dataset.editError || 'Unable to change the post.'),
             );
         } finally {
+            if (state) {
+                state.submitting = false;
+            }
             if (card.isConnected) {
-                card.removeAttribute('aria-busy');
-                buttons.forEach((button) => {
-                    button.disabled = false;
-                });
+                setBusy(false);
             }
         }
     }
@@ -535,6 +991,50 @@
         return true;
     }
 
+    document.addEventListener('dragenter', (event) => {
+        const state = bodyDropState(event.target);
+        if (state && transferHasFiles(event.dataTransfer)) {
+            state.body.classList.add('is-media-dragover');
+        }
+    }, false);
+
+    document.addEventListener('dragover', (event) => {
+        const state = bodyDropState(event.target);
+        if (!state || !transferHasFiles(event.dataTransfer)) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = 'copy';
+        state.body.classList.add('is-media-dragover');
+    }, false);
+
+    document.addEventListener('dragleave', (event) => {
+        const state = bodyDropState(event.target);
+        if (!state) {
+            return;
+        }
+        const relatedTarget = event.relatedTarget;
+        if (!(relatedTarget instanceof Node) || !state.body.contains(relatedTarget)) {
+            state.body.classList.remove('is-media-dragover');
+        }
+    }, false);
+
+    document.addEventListener('drop', (event) => {
+        const state = bodyDropState(event.target);
+        if (!state || !transferHasFiles(event.dataTransfer)) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        state.body.classList.remove('is-media-dragover');
+        insertMediaFiles(
+            state,
+            Array.from(event.dataTransfer.files || []),
+            bodyRangeFromPoint(state, event.clientX, event.clientY),
+        );
+    }, false);
+
     document.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : null;
         const card = cardFor(target);
@@ -543,6 +1043,7 @@
             if (editableLink && (
                 card.querySelector('[data-post-inplace-title]')?.contains(editableLink)
                 || card.querySelector('[data-post-inplace-body]')?.contains(editableLink)
+                || card.querySelector('[data-post-inplace-tags-values]')?.contains(editableLink)
             )) {
                 event.preventDefault();
             }
@@ -618,7 +1119,8 @@
             return;
         }
         event.preventDefault();
-        const text = (event.clipboardData?.getData('text/plain') || '').replace(/\s+/gu, ' ');
+        const clipboardText = event.clipboardData?.getData('text/plain') || '';
+        const text = clipboardText.replace(/\s+/gu, ' ');
         document.execCommand('insertText', false, text);
     }, false);
 

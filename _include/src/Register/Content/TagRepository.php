@@ -80,6 +80,58 @@ final readonly class TagRepository
     }
 
     /**
+     * Finds tags case-insensitively and creates the missing ones, preserving the submitted order.
+     * A surrounding transaction, when needed, belongs to the editorial operation.
+     *
+     * @param list<string> $names
+     * @return list<int>
+     */
+    public function findOrCreateIdsByNames(array $names): array
+    {
+        $existingRows = $this->dbLayer
+            ->select('id, name')
+            ->from('tags')
+            ->execute()
+            ->fetchAssocAll()
+        ;
+        $idsByName = [];
+        foreach ($existingRows as $row) {
+            $idsByName[mb_strtolower((string)$row['name'])] = (int)$row['id'];
+        }
+
+        $tagIds = [];
+        $used   = [];
+        foreach ($names as $name) {
+            $key = mb_strtolower($name);
+            if ($name === '' || isset($used[$key])) {
+                continue;
+            }
+            $used[$key] = true;
+
+            if (!isset($idsByName[$key])) {
+                $this->dbLayer
+                    ->insert('tags')
+                    ->values([
+                        'name'        => ':name',
+                        'description' => "''",
+                        'url'         => ':url',
+                        'modify_time' => '0',
+                    ])
+                    ->execute([
+                        'name' => $name,
+                        'url'  => $name,
+                    ])
+                ;
+                $idsByName[$key] = (int)$this->dbLayer->insertId();
+            }
+
+            $tagIds[] = $idsByName[$key];
+        }
+
+        return $tagIds;
+    }
+
+    /**
      * Replaces all tag relations for one content item. A surrounding transaction, when needed,
      * belongs to the editorial operation that also updates the content row.
      *

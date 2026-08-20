@@ -9,9 +9,9 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Picture;
 
-use S2\AdminYard\Translator;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 readonly class PictureFileNameHelper
 {
@@ -69,8 +69,8 @@ readonly class PictureFileNameHelper
     ];
 
     public function __construct(
-        private Translator $translator,
-        private string     $allowedExtensions,
+        private TranslatorInterface $translator,
+        private string              $allowedExtensions,
     ) {
     }
 
@@ -218,7 +218,7 @@ readonly class PictureFileNameHelper
         return false;
     }
 
-    private function detectMimeType(string $path): string
+    public function detectMimeType(string $path): string
     {
         if (!class_exists(\finfo::class)) {
             throw new \RuntimeException('The Fileinfo extension is required for secure uploads.', Response::HTTP_SERVICE_UNAVAILABLE);

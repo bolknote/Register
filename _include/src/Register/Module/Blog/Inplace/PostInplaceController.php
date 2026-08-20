@@ -23,6 +23,7 @@ use S2\Cms\Framework\ControllerInterface;
 use S2\Cms\Model\AuthenticatedPublicUser;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,7 +35,15 @@ final readonly class PostInplaceController implements ControllerInterface
 {
     private const int MAX_BODY_BYTES = 16 * 1024 * 1024;
 
+    private const int MAX_TAGS = 100;
+
     private const string SAVEPOINT = 'register_post_inplace';
+
+    /** @var list<string> */
+    private const array IMAGE_EXTENSIONS = ['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp'];
+
+    /** @var list<string> */
+    private const array AUDIO_EXTENSIONS = ['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm'];
 
     /** @var list<ContentDeletionGuardInterface> */
     private array $deletionGuards;
@@ -51,6 +60,8 @@ final readonly class PostInplaceController implements ControllerInterface
         private LiveFragmentRenderer       $fragmentRenderer,
         private BlogUrlBuilder             $blogUrlBuilder,
         private UrlBuilder                 $urlBuilder,
+        private PostInplaceMediaStorage    $mediaStorage,
+        private string                     $mediaUrlPrefix,
         private TranslatorInterface        $translator,
         ContentDeletionGuardInterface ...$deletionGuards,
     ) {
@@ -88,8 +99,12 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Post editing token expired', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $action = $request->request->getString('inplace_action');
+        if ($action === 'media') {
+            return $this->uploadMedia($request);
+        }
+
         $revision = $this->revision($request);
-        $action   = $request->request->getString('inplace_action');
         if ($revision === null || !\in_array($action, ['edit', 'delete'], true)) {
             return $this->error($request, 'Invalid post mutation request', Response::HTTP_BAD_REQUEST);
         }
@@ -101,11 +116,99 @@ final readonly class PostInplaceController implements ControllerInterface
         return $this->edit($request, $post, $revision);
     }
 
+    private function uploadMedia(Request $request): Response
+    {
+        $file = $request->files->get('media');
+        if (!$file instanceof UploadedFile) {
+            return $this->error($request, 'Post media file missing', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $kind = $this->mediaKind($file);
+        } catch (\RuntimeException $runtimeException) {
+            return $this->error(
+                $request,
+                $runtimeException->getMessage(),
+                $this->uploadErrorStatus($runtimeException),
+                false,
+            );
+        }
+        if ($kind === null) {
+            return $this->error($request, 'Unsupported post media', Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
+        }
+
+        $path = '/' . date('Y/m');
+        try {
+            $storedFile = $this->mediaStorage->store($file, $path);
+        } catch (\RuntimeException $runtimeException) {
+            return $this->error(
+                $request,
+                $runtimeException->getMessage(),
+                $this->uploadErrorStatus($runtimeException),
+                false,
+            );
+        }
+
+        $payload = [
+            'success' => true,
+            'action'  => 'media',
+            'kind'    => $kind,
+            'url'     => rtrim($this->mediaUrlPrefix, '/') . $storedFile,
+            'name'    => basename(str_replace('\\', '/', $file->getClientOriginalName())),
+        ];
+        if ($kind === 'image') {
+            $imageInfo = $this->mediaStorage->getImageInfo($storedFile);
+            $payload['width']  = isset($imageInfo[0]) ? (int)$imageInfo[0] : null;
+            $payload['height'] = isset($imageInfo[1]) ? (int)$imageInfo[1] : null;
+        }
+
+        return $this->json($payload);
+    }
+
+    private function mediaKind(UploadedFile $file): ?string
+    {
+        $extension = mb_strtolower(pathinfo($file->getClientOriginalName(), PATHINFO_EXTENSION));
+        $mimeType  = $this->mediaStorage->detectMimeType($file);
+
+        if (\in_array($extension, self::IMAGE_EXTENSIONS, true) && str_starts_with($mimeType, 'image/')) {
+            return 'image';
+        }
+        if (
+            \in_array($extension, self::AUDIO_EXTENSIONS, true)
+            && (str_starts_with($mimeType, 'audio/') || $mimeType === 'application/ogg')
+        ) {
+            return 'audio';
+        }
+
+        return null;
+    }
+
+    private function uploadErrorStatus(\RuntimeException $runtimeException): int
+    {
+        $code = $runtimeException->getCode();
+        return \is_int($code) && $code >= 400 && $code <= 599
+            ? $code
+            : Response::HTTP_UNPROCESSABLE_ENTITY;
+    }
+
     /** @param array<string, mixed> $post */
     private function edit(Request $request, array $post, int $submittedRevision): Response
     {
-        $title = trim($request->request->getString('title'));
-        $body  = $request->request->getString('body');
+        $postId         = (int)$post['id'];
+        $contentId      = ContentId::post($postId);
+        $storedTags     = $this->tagRepository->findForContent([$contentId])[(string)$contentId] ?? [];
+        $storedTagNames = array_map(static fn(\Register\Content\Tag $tag): string => $tag->name, $storedTags);
+        $title          = trim($request->request->getString('title'));
+        $body           = $request->request->getString('body');
+        $tagNames       = $storedTagNames;
+        if ($request->request->has('tags')) {
+            $submittedTags = $request->request->get('tags');
+            $tagNames      = \is_string($submittedTags) ? $this->parseTags($submittedTags) : null;
+            if ($tagNames === null) {
+                return $this->error($request, 'Invalid post tags', Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
+
         if (
             $title === ''
             || mb_strlen($title) > 255
@@ -119,22 +222,24 @@ final readonly class PostInplaceController implements ControllerInterface
             [
                 'title'    => $title,
                 'body'     => $body,
+                'tags'     => $tagNames,
                 'revision' => $submittedRevision,
             ],
             [
                 'column_title'    => (string)$post['title'],
                 'column_body'     => (string)$post['body'],
+                'column_tags'     => $storedTagNames,
                 'column_revision' => (int)$post['revision'],
             ],
-            ['title', 'body'],
+            ['title', 'body', 'tags'],
         );
         if (!$revision instanceof \Register\Content\Admin\ContentRevision) {
             return $this->error($request, 'Post has changed in another window', Response::HTTP_CONFLICT);
         }
 
-        $postId = (int)$post['id'];
+        $tagsChanged = $tagNames !== $storedTagNames;
         if ($revision->contentChanged) {
-            $updated = $this->transactional(function () use ($postId, $title, $body, $revision, $submittedRevision): bool {
+            $updated = $this->transactional(function () use ($contentId, $postId, $title, $body, $tagNames, $tagsChanged, $revision, $submittedRevision): bool {
                 $affectedRows = $this->dbLayer
                     ->update(ContentSchema::TABLE_NAME)
                     ->set('title', ':title')->setParameter('title', $title)
@@ -152,7 +257,14 @@ final readonly class PostInplaceController implements ControllerInterface
                     return false;
                 }
 
-                $this->changeDispatcher->dispatch(ContentId::post($postId));
+                if ($tagsChanged) {
+                    $this->tagRepository->replace(
+                        $contentId,
+                        $this->tagRepository->findOrCreateIdsByNames($tagNames),
+                    );
+                }
+
+                $this->changeDispatcher->dispatch($contentId);
 
                 return true;
             });
@@ -168,6 +280,10 @@ final readonly class PostInplaceController implements ControllerInterface
             );
         }
 
+        $savedTags = $tagsChanged
+            ? ($this->tagRepository->findForContent([$contentId])[(string)$contentId] ?? [])
+            : $storedTags;
+
         return $this->json([
             'success'   => true,
             'action'    => 'edit',
@@ -176,8 +292,48 @@ final readonly class PostInplaceController implements ControllerInterface
             'body_html' => $this->fragmentRenderer->render(
                 '<div class="post body" data-post-inplace-body>' . $body . '</div>',
             ),
+            'tags'      => array_map(
+                fn(\Register\Content\Tag $tag): array => [
+                    'name' => $tag->name,
+                    'url'  => $this->blogUrlBuilder->tag($tag->slug),
+                ],
+                $savedTags,
+            ),
             'message'   => $this->translator->trans('Post changes saved'),
         ]);
+    }
+
+    /** @return list<string>|null */
+    private function parseTags(string $value): ?array
+    {
+        $tags = [];
+        $used = [];
+        $parts = preg_split('/[,;\n]+/u', $value);
+        if ($parts === false) {
+            return null;
+        }
+        foreach ($parts as $part) {
+            $tag = preg_replace('/^\s*#+\s*/u', '', $part);
+            $tag = preg_replace('/\s+/u', ' ', $tag ?? '');
+            $tag = trim($tag ?? '');
+            if ($tag === '') {
+                continue;
+            }
+            if (mb_strlen($tag) > 255 || preg_match('/^[\p{L}\p{N}_\- !.]+$/uD', $tag) !== 1) {
+                return null;
+            }
+
+            $key = mb_strtolower($tag);
+            if (!isset($used[$key])) {
+                $used[$key] = true;
+                $tags[]     = $tag;
+            }
+            if (\count($tags) > self::MAX_TAGS) {
+                return null;
+            }
+        }
+
+        return $tags;
     }
 
     private function delete(Request $request, int $postId, int $storedRevision, int $submittedRevision): Response

@@ -19,7 +19,10 @@ use Register\Live\LiveUpdateContext;
 use Register\Module\Blog\Content\BlogContentSource;
 use Register\Module\Blog\Inplace\PostInplaceController;
 use Register\Module\Blog\Inplace\PostInplaceControls;
+use Register\Module\Blog\Inplace\PostInplaceMediaStorage;
 use Register\Module\Blog\Inplace\PostInplaceTokenManager;
+use S2\Cms\Admin\Picture\PictureFileNameHelper;
+use S2\Cms\Admin\Picture\PictureStorageQuota;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
 use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
@@ -147,6 +150,20 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(PostInplaceTokenManager::class),
             $container->get(UrlBuilder::class),
         ));
+        $container->set(PostInplaceMediaStorage::class, static fn(Container $container): PostInplaceMediaStorage => new PostInplaceMediaStorage(
+            new PictureFileNameHelper(
+                $container->get('register_blog_translator'),
+                $container->getStringParameter('allowed_extensions'),
+            ),
+            new PictureStorageQuota(
+                $container->get('register_blog_translator'),
+                $container->getStringParameter('image_dir'),
+                $container->getStringParameter('cache_dir') . 'picture-upload-quota.lock',
+                $container->getIntParameter('upload_quota_bytes'),
+            ),
+            $container->get('register_blog_translator'),
+            $container->getStringParameter('image_dir'),
+        ));
         $container->set(PostInplaceController::class, static fn(Container $container): PostInplaceController => new PostInplaceController(
             $container->get(DbLayer::class),
             $container->get(\PDO::class),
@@ -159,6 +176,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(\Register\Live\LiveFragmentRenderer::class),
             $container->get(BlogUrlBuilder::class),
             $container->get(UrlBuilder::class),
+            $container->get(PostInplaceMediaStorage::class),
+            $container->getStringParameter('image_path'),
             $container->get('register_blog_translator'),
             ...$container->getByTag(ContentDeletionGuardInterface::class),
         ));

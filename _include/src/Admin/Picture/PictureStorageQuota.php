@@ -9,17 +9,17 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Picture;
 
-use S2\AdminYard\Translator;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final readonly class PictureStorageQuota
 {
     public function __construct(
-        private Translator $translator,
-        private string     $imageDirectory,
-        private string     $lockFile,
-        private int        $maximumBytes,
+        private TranslatorInterface $translator,
+        private string              $imageDirectory,
+        private string              $lockFile,
+        private int                 $maximumBytes,
     ) {
         if ($maximumBytes < 1) {
             throw new \InvalidArgumentException('The upload storage quota must be positive.');
