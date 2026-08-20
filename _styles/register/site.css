@@ -378,6 +378,10 @@ hr {
 #content > .live-post-feed > .post-card {
     position: relative;
     width: 100%;
+    max-width: var(--text-width);
+}
+
+.post-card > .post.head {
     max-width: 820px;
 }
 
