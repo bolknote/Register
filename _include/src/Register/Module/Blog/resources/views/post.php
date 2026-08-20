@@ -18,15 +18,11 @@ declare(strict_types = 1);
 /** @var string $favoritePostsUrl */
 /** @var bool $showComments */
 /** @var bool $enabledComments */
-/** @var array{action_url: string, admin_edit_url: string, editor_module_url: string, token: string, revision: int, return_to: string}|null $inplace */
+/** @var array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string}|null $inplace */
 
 $heading     = empty($title_link) ? 'h1' : 'h2';
 $inplaceData = isset($inplace) && \is_array($inplace) ? $inplace : null;
 $postId      = (int)$id;
-$editorId    = 'post-inplace-body-' . $postId;
-$bodyEditor  = $inplaceData === null
-    ? null
-    : (new \S2\Cms\AdminYard\Form\HtmlTextarea('body'))->setValue((string)$text);
 ?>
 <article
     class="post-card<?php echo $inplaceData !== null ? ' is-manageable' : ''; ?>"
@@ -34,45 +30,29 @@ $bodyEditor  = $inplaceData === null
 <?php if ($inplaceData !== null): ?>
     data-edit-error="<?php echo s2_htmlencode($trans('Post editing failed')); ?>"
     data-apply-error="<?php echo s2_htmlencode($trans('Post update apply failed')); ?>"
+    data-invalid-content="<?php echo s2_htmlencode($trans('Invalid post content')); ?>"
     data-deleted-message="<?php echo s2_htmlencode($trans('Post deleted')); ?>"
     data-list-label="<?php echo s2_htmlencode($trans('Post list')); ?>"
+    data-title-label="<?php echo s2_htmlencode($trans('Post title')); ?>"
+    data-body-label="<?php echo s2_htmlencode($trans('Post text')); ?>"
+    data-link-prompt="<?php echo s2_htmlencode($trans('Link address')); ?>"
 <?php endif; ?>
 >
 <?php if ($inplaceData !== null): ?>
-<nav class="post-inplace-tools" aria-label="<?php echo $trans('Post tools'); ?>">
-    <a class="post-inplace-button post-edit-start" href="<?php echo s2_htmlencode($inplaceData['admin_edit_url']); ?>" title="<?php echo $trans('Edit post inplace'); ?>" aria-label="<?php echo $trans('Edit post inplace'); ?>"><span aria-hidden="true">✏️</span></a>
-    <button class="post-inplace-button post-delete-start" type="button" title="<?php echo $trans('Delete post inplace'); ?>" aria-label="<?php echo $trans('Delete post inplace'); ?>"><span aria-hidden="true">🗑️</span></button>
-</nav>
 <form
     class="post-inplace-edit-form"
     method="post"
     action="<?php echo s2_htmlencode($inplaceData['action_url']); ?>"
-    data-editor-module="<?php echo s2_htmlencode($inplaceData['editor_module_url']); ?>"
-    data-editor-load-error="<?php echo s2_htmlencode($trans('Post editor loading failed')); ?>"
-    data-editor-preview-error="<?php echo s2_htmlencode($trans('Post editor preview failed')); ?>"
     hidden
 >
-    <label class="post-inplace-field post-inplace-title-field">
-        <span><?php echo $trans('Post title'); ?></span>
-        <input name="title" type="text" value="<?php echo s2_htmlencode($title); ?>" maxlength="255" required>
-    </label>
-    <div class="post-inplace-field post-inplace-body-field">
-        <span><?php echo $trans('Post text'); ?></span>
-        <p class="post-inplace-editor-loading" role="status"><?php echo $trans('Post editor loading'); ?></p>
-        <div class="post-inplace-html-editor" data-html-editor-root>
-            <?php echo $bodyEditor?->getHtmlWithWrapper($trans, $editorId, $trans('Post text')); ?>
-        </div>
-    </div>
+    <input name="title" type="hidden" value="<?php echo s2_htmlencode($title); ?>">
+    <textarea name="body" hidden><?php echo s2_htmlencode($text); ?></textarea>
     <input type="hidden" name="inplace_action" value="edit">
     <input type="hidden" name="inplace_token" value="<?php echo s2_htmlencode($inplaceData['token']); ?>">
     <input type="hidden" name="revision" value="<?php echo $inplaceData['revision']; ?>">
     <input type="hidden" name="return_to" value="<?php echo s2_htmlencode($inplaceData['return_to']); ?>">
-    <p class="post-inplace-error" role="alert" tabindex="-1" hidden></p>
-    <div class="post-inplace-actions">
-        <button type="submit"><?php echo $trans('Save post changes'); ?></button>
-        <button class="post-edit-cancel" type="button"><?php echo $trans('Cancel post changes'); ?></button>
-    </div>
 </form>
+<p class="post-inplace-error post-inplace-edit-error" role="alert" tabindex="-1" hidden></p>
 <div class="post-delete-confirmation" role="group" aria-label="<?php echo s2_htmlencode(sprintf($trans('Delete warning'), $title)); ?>" data-warning-template="<?php echo s2_htmlencode($trans('Delete warning')); ?>" hidden>
     <p><?php echo s2_htmlencode(sprintf($trans('Delete warning'), $title)); ?></p>
     <form class="post-inplace-delete-form" method="post" action="<?php echo s2_htmlencode($inplaceData['action_url']); ?>">
@@ -92,9 +72,9 @@ $bodyEditor  = $inplaceData === null
 <div class="post author"><?php if (!empty($author)) echo s2_htmlencode($author); ?></div>
 <<?php echo $heading; ?> class="post head">
 <?php if (!empty($title_link)) {?>
-	<a href="<?php echo s2_htmlencode($title_link); ?>"><span class="post-title-text"><?php echo s2_htmlencode($title); ?></span></a>
+	<a href="<?php echo s2_htmlencode($title_link); ?>"><span class="post-title-text"<?php echo $inplaceData !== null ? ' data-post-inplace-title' : ''; ?>><?php echo s2_htmlencode($title); ?></span></a>
 <?php } else {?>
-	<span class="post-title-text"><?php echo s2_htmlencode($title); ?></span>
+	<span class="post-title-text"<?php echo $inplaceData !== null ? ' data-post-inplace-title' : ''; ?>><?php echo s2_htmlencode($title); ?></span>
 <?php } ?>
 <?php if (!empty($favorite) && $favorite !== 2) {?>
     <a href="<?php echo $favoritePostsUrl; ?>" class="favorite-star" title="<?php echo $trans('Favorite posts'); ?>">★</a>
@@ -103,6 +83,31 @@ $bodyEditor  = $inplaceData === null
 <?php } ?>
 </<?php echo $heading; ?>>
 <div class="post time"><time datetime="<?php echo gmdate(DATE_ATOM, (int)$create_time); ?>"<?php if (trim($display_date ?? '') === ''): ?> data-local-time="datetime" data-locale="<?php echo s2_htmlencode($trans('locale')); ?>"<?php endif; ?>><?php echo s2_htmlencode($time); ?></time></div>
+<?php if ($inplaceData !== null): ?>
+<nav class="post-inplace-tools" aria-label="<?php echo $trans('Post tools'); ?>">
+    <a class="post-inplace-button post-edit-start" href="<?php echo s2_htmlencode($inplaceData['admin_edit_url']); ?>" title="<?php echo $trans('Edit post inplace'); ?>" aria-label="<?php echo $trans('Edit post inplace'); ?>">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M5.2 18.8 6.4 14.4 16.6 4.2a2.1 2.1 0 0 1 3 3L9.4 17.4l-4.2 1.4Z" />
+            <path d="m14.7 6.1 3.2 3.2M6.4 14.4l3 3" />
+        </svg>
+    </a>
+    <button class="post-inplace-button post-delete-start" type="button" title="<?php echo $trans('Delete post inplace'); ?>" aria-label="<?php echo $trans('Delete post inplace'); ?>">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M7.2 8.2 8 19.3h8l.8-11.1M5.2 6.2h13.6M9 6.2V4.5h6v1.7M10.2 10.3v6.4M13.8 10.3v6.4" />
+        </svg>
+    </button>
+    <button class="post-inplace-button post-edit-save" type="button" title="<?php echo $trans('Save post changes'); ?>" aria-label="<?php echo $trans('Save post changes'); ?>" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m5 12.2 4.2 4.2L19 6.8" />
+        </svg>
+    </button>
+    <button class="post-inplace-button post-edit-cancel" type="button" title="<?php echo $trans('Cancel post changes'); ?>" aria-label="<?php echo $trans('Cancel post changes'); ?>" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m7 7 10 10M17 7 7 17" />
+        </svg>
+    </button>
+</nav>
+<?php endif; ?>
 <?php
 	echo '<div class="post body" data-post-inplace-body>' . $text . '</div>';
 	if (!empty($see_also))

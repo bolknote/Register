@@ -514,9 +514,14 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
 
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
             $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $editorFilename = $container->getStringParameter('public_root_dir') . '_assets/register/post-inplace.js';
+            $editorModifiedAt = \filemtime($editorFilename);
+            if ($editorModifiedAt === false) {
+                throw new \LogicException(\sprintf('Unable to read the modification time of "%s".', $editorFilename));
+            }
             $event->assetPack
                 ->addCss('../../_assets/register/blog/site.css', [AssetPack::OPTION_MERGE])
-                ->addJs($basePath . '/_assets/register/post-inplace.js', [AssetPack::OPTION_DEFER])
+                ->addJs($basePath . '/_assets/register/post-inplace.js?v=' . $editorModifiedAt, [AssetPack::OPTION_DEFER])
             ;
         });
     }

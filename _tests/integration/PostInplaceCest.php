@@ -46,15 +46,15 @@ final class PostInplaceCest
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/author-post');
         $I->seeElement('.post-card[data-post-id="' . $ownId . '"] > .post-inplace-tools');
-        $I->seeElement('.post-inplace-edit-form[hidden][data-editor-module$="/_admin/js/editor/inplace.js"]');
-        $I->seeElement('.post-inplace-edit-form .post-inplace-html-editor[data-html-editor-root]');
-        $I->seeElement('.post-inplace-edit-form .html-toolbar button[data-editor-action="undo"]');
-        $I->seeElement('#post-inplace-body-' . $ownId . '[name="body"]');
-        $I->seeElement(
-            '#post-inplace-body-' . $ownId . '-preview-frame[name="post-inplace-body-' . $ownId . '-preview-frame"]',
-        );
+        $I->seeElement('.post-inplace-tools .post-edit-save[hidden]');
+        $I->seeElement('.post-inplace-tools .post-edit-cancel[hidden]');
+        $I->seeElement('.post-inplace-edit-form[hidden] input[type="hidden"][name="title"]');
+        $I->seeElement('.post-inplace-edit-form[hidden] textarea[name="body"][hidden]');
+        $I->seeElement('.post.head [data-post-inplace-title]');
+        $I->seeElement('.post.body[data-post-inplace-body]');
+        $I->dontSeeElement('.post-inplace-html-editor');
         $I->seeElement('.post-delete-confirmation[hidden]');
-        $I->seeElement('script[src$="/_assets/register/post-inplace.js"]');
+        $I->seeElement('script[src^="/_assets/register/post-inplace.js?v="]');
 
         $I->amOnPage('https://localhost/admin-post');
         $I->dontSeeElement('.post-card[data-post-id="' . $otherId . '"] .post-inplace-tools');

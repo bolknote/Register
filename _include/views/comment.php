@@ -59,7 +59,12 @@ $replyQuery = $isPreview ? '' : http_build_query([
     <?php if ($moderationData !== null): ?>
         <nav class="comment-moderation" aria-label="<?php echo $trans('Comment moderation'); ?>">
             <?php if (!empty($moderationData['can_edit'])): ?>
-                <button class="comment-moderation-button comment-edit-start" type="button" title="<?php echo $trans('Edit comment'); ?>" aria-label="<?php echo $trans('Edit comment'); ?>"><span aria-hidden="true">✏️</span></button>
+                <button class="comment-moderation-button comment-edit-start" type="button" title="<?php echo $trans('Edit comment'); ?>" aria-label="<?php echo $trans('Edit comment'); ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M5.2 18.8 6.4 14.4 16.6 4.2a2.1 2.1 0 0 1 3 3L9.4 17.4l-4.2 1.4Z" />
+                        <path d="m14.7 6.1 3.2 3.2M6.4 14.4l3 3" />
+                    </svg>
+                </button>
             <?php endif; ?>
             <?php if (!empty($moderationData['can_delete'])): ?>
                 <form class="comment-moderation-action" method="post" action="<?php echo s2_htmlencode((string)$moderationData['action_url']); ?>" data-moderation-action="delete" data-confirm="<?php echo $trans('Confirm comment deletion'); ?>">
@@ -69,7 +74,11 @@ $replyQuery = $isPreview ? '' : http_build_query([
                     <input type="hidden" name="comment_anchor" value="<?php echo $i; ?>">
                     <input type="hidden" name="moderation_token" value="<?php echo s2_htmlencode((string)$moderationData['token']); ?>">
                     <input type="hidden" name="return_to" value="<?php echo s2_htmlencode((string)$moderationData['return_to']); ?>">
-                    <button class="comment-moderation-button" type="submit" title="<?php echo $trans('Delete comment'); ?>" aria-label="<?php echo $trans('Delete comment'); ?>"><span aria-hidden="true">🗑️</span></button>
+                    <button class="comment-moderation-button" type="submit" title="<?php echo $trans('Delete comment'); ?>" aria-label="<?php echo $trans('Delete comment'); ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M7.2 8.2 8 19.3h8l.8-11.1M5.2 6.2h13.6M9 6.2V4.5h6v1.7M10.2 10.3v6.4M13.8 10.3v6.4" />
+                        </svg>
+                    </button>
                 </form>
             <?php endif; ?>
             <?php if (!empty($moderationData['can_spam'])): ?>
@@ -80,7 +89,11 @@ $replyQuery = $isPreview ? '' : http_build_query([
                     <input type="hidden" name="comment_anchor" value="<?php echo $i; ?>">
                     <input type="hidden" name="moderation_token" value="<?php echo s2_htmlencode((string)$moderationData['token']); ?>">
                     <input type="hidden" name="return_to" value="<?php echo s2_htmlencode((string)$moderationData['return_to']); ?>">
-                    <button class="comment-moderation-button" type="submit" title="<?php echo $trans('Mark comment as spam'); ?>" aria-label="<?php echo $trans('Mark comment as spam'); ?>"><span aria-hidden="true">🚫</span></button>
+                    <button class="comment-moderation-button" type="submit" title="<?php echo $trans('Mark comment as spam'); ?>" aria-label="<?php echo $trans('Mark comment as spam'); ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="m12 3.8 6 2.5v4.9c0 4-2.3 7.1-6 9-3.7-1.9-6-5-6-9V6.3l6-2.5ZM12 8v4.5M12 16h.01" />
+                        </svg>
+                    </button>
                 </form>
             <?php endif; ?>
             <?php if (!empty($moderationData['can_ham'])): ?>
@@ -91,7 +104,12 @@ $replyQuery = $isPreview ? '' : http_build_query([
                     <input type="hidden" name="comment_anchor" value="<?php echo $i; ?>">
                     <input type="hidden" name="moderation_token" value="<?php echo s2_htmlencode((string)$moderationData['token']); ?>">
                     <input type="hidden" name="return_to" value="<?php echo s2_htmlencode((string)$moderationData['return_to']); ?>">
-                    <button class="comment-moderation-button" type="submit" title="<?php echo $trans('Mark comment as not spam'); ?>" aria-label="<?php echo $trans('Mark comment as not spam'); ?>"><span aria-hidden="true">✅</span></button>
+                    <button class="comment-moderation-button" type="submit" title="<?php echo $trans('Mark comment as not spam'); ?>" aria-label="<?php echo $trans('Mark comment as not spam'); ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="m12 3.8 6 2.5v4.9c0 4-2.3 7.1-6 9-3.7-1.9-6-5-6-9V6.3l6-2.5Z" />
+                            <path d="m9 12.2 2 2 4-4" />
+                        </svg>
+                    </button>
                 </form>
             <?php endif; ?>
         </nav>
