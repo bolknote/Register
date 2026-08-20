@@ -26,7 +26,7 @@ $process  = null;
 try {
     createFixtureTree($projectRoot, $tempRoot, $webRoot);
     $port       = reserveLocalPort();
-    $configFile = createApacheConfig($tempRoot, $webRoot, $moduleDir, $port);
+    $configFile = createApacheConfig($apache, $tempRoot, $webRoot, $moduleDir, $port);
 
     assertApacheConfigIsValid($apache, $configFile, $tempRoot . '/configtest.log');
     $process = startApache($apache, $configFile, $tempRoot . '/apache.log');
@@ -235,7 +235,7 @@ function reserveLocalPort(): int
     return (int)substr($address, $separatorPosition + 1);
 }
 
-function createApacheConfig(string $tempRoot, string $webRoot, string $moduleDir, int $port): string
+function createApacheConfig(string $apache, string $tempRoot, string $webRoot, string $moduleDir, int $port): string
 {
     $moduleFiles = [
         'mpm_prefork_module' => 'mod_mpm_prefork.so',
@@ -245,8 +245,16 @@ function createApacheConfig(string $tempRoot, string $webRoot, string $moduleDir
         'mime_module'        => 'mod_mime.so',
         'rewrite_module'     => 'mod_rewrite.so',
     ];
-    foreach ($moduleFiles as $moduleFile) {
-        if (!is_file($moduleDir . '/' . $moduleFile)) {
+    $compiledInModules = findCompiledInApacheModules($apache);
+    $loadModules       = '';
+    foreach ($moduleFiles as $moduleName => $moduleFile) {
+        if (is_file($moduleDir . '/' . $moduleFile)) {
+            $loadModules .= sprintf("LoadModule %s \"%s/%s\"\n", $moduleName, $moduleDir, $moduleFile);
+            continue;
+        }
+
+        $sourceFile = substr($moduleFile, 0, -3) . '.c';
+        if (!isset($compiledInModules[$sourceFile])) {
             throw new RuntimeException('Required Apache module is missing: ' . $moduleFile);
         }
     }
@@ -260,11 +268,6 @@ function createApacheConfig(string $tempRoot, string $webRoot, string $moduleDir
     }
     if ($mimeTypes === null) {
         throw new RuntimeException('Unable to locate the Apache MIME types file.');
-    }
-
-    $loadModules = '';
-    foreach ($moduleFiles as $moduleName => $moduleFile) {
-        $loadModules .= sprintf("LoadModule %s \"%s/%s\"\n", $moduleName, $moduleDir, $moduleFile);
     }
 
     $config = sprintf(
@@ -309,6 +312,47 @@ APACHE,
     }
 
     return $configFile;
+}
+
+/** @return array<non-empty-string, true> */
+function findCompiledInApacheModules(string $apache): array
+{
+    $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+    $process = proc_open([$apache, '-l'], $descriptors, $pipes);
+    if (!is_resource($process)) {
+        throw new RuntimeException('Unable to inspect compiled-in Apache modules.');
+    }
+
+    fclose($pipes[0]);
+    $output = stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    $errorOutput = stream_get_contents($pipes[2]);
+    fclose($pipes[2]);
+    $exitCode = proc_close($process);
+    if ($exitCode !== 0 || !is_string($output)) {
+        throw new RuntimeException(
+            'Unable to inspect compiled-in Apache modules: ' . (is_string($errorOutput) ? trim($errorOutput) : ''),
+        );
+    }
+
+    $lines = preg_split('/\R/', $output);
+    if ($lines === false) {
+        throw new RuntimeException('Unable to parse compiled-in Apache modules.');
+    }
+
+    $modules = [];
+    foreach ($lines as $line) {
+        $module = trim($line);
+        if ($module !== '' && preg_match('/^[a-z0-9_]+\.c$/i', $module) === 1) {
+            $modules[$module] = true;
+        }
+    }
+
+    return $modules;
 }
 
 function assertApacheConfigIsValid(string $apache, string $configFile, string $outputFile): void
