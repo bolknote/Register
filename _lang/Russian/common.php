@@ -80,6 +80,10 @@ return [
     'Email privacy note'     => 'Не публикуется без вашего разрешения.',
     'Formatting help'        => 'Как оформить текст',
 
+    'Link inventory deletion wait' => 'Нельзя удалять материалы, пока не закончилась первичная инвентаризация ссылок.',
+    'Cannot delete linked content'  => 'Нельзя удалить «{{ target }}»: на материал ссылаются {{ sources }}.',
+    'Link deletion more sources'    => 'и ещё {{ count }}',
+
     'Submit'      => 'Отправить',
     'Preview'     => 'Предпросмотр',
     'Error'       => 'Oшибка!',

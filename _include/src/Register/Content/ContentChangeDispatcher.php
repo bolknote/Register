@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Content;
 
+use Register\Live\LiveUpdateRepository;
 use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -24,12 +25,14 @@ final class ContentChangeDispatcher implements StatefulServiceInterface
     public function __construct(
         private readonly DbLayer                  $dbLayer,
         private readonly EventDispatcherInterface $eventDispatcher,
+        private readonly LiveUpdateRepository     $liveUpdateRepository,
     ) {
     }
 
     public function dispatch(ContentId ...$contentIds): void
     {
         foreach ($this->unique($contentIds) as $contentId) {
+            $this->liveUpdateRepository->publishContent($contentId);
             $this->eventDispatcher->dispatch(new ContentChangedEvent($contentId));
         }
     }

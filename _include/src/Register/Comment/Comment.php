@@ -19,6 +19,7 @@ final readonly class Comment
         public ?int      $parentId,
         public ?int      $userpicId,
         public int       $time,
+        public int       $modifyTime,
         public string    $ip,
         public string    $name,
         public string    $email,
@@ -44,6 +45,10 @@ final readonly class Comment
 
         if ($time < 0) {
             throw new \InvalidArgumentException('A comment timestamp cannot be negative.');
+        }
+
+        if ($modifyTime < 0) {
+            throw new \InvalidArgumentException('A comment modification timestamp cannot be negative.');
         }
     }
 }

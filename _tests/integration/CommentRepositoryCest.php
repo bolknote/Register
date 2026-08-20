@@ -65,7 +65,15 @@ final class CommentRepositoryCest
         $I->assertNotSame($pageCommentId, $postCommentId);
         $I->assertSame([$pageCommentId, $replyId], array_column($repository->findForContent($page), 'id'));
         $I->assertSame([$postCommentId], array_column($repository->findForContent($post), 'id'));
-        $I->assertSame($pageCommentId, $repository->find($pageCommentId)?->id);
+        $pageComment = $repository->find($pageCommentId);
+        $I->assertNotNull($pageComment);
+        $I->assertSame($pageCommentId, $pageComment->id);
+        $I->assertSame(0, $pageComment->modifyTime);
+        $editTime = time();
+        $I->assertTrue($repository->edit($pageCommentId, ContentType::PAGE, 'Edited page comment'));
+        $editedComment = $repository->find($pageCommentId);
+        $I->assertNotNull($editedComment);
+        $I->assertGreaterThanOrEqual($editTime, $editedComment->modifyTime);
         $I->assertSame(1, $repository->count($page));
         $I->assertSame(2, $repository->count($page, true));
         $I->assertTrue($repository->isValidParent($page, $pageCommentId));
@@ -93,6 +101,7 @@ final class CommentRepositoryCest
         $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'content_sort_idx'));
         $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'thread_idx'));
         $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'moderation_idx'));
+        $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'modify_time'));
 
         $repository->removeForContent($page);
         $I->assertSame([], $repository->findForContent($page));

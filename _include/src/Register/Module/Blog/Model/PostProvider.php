@@ -104,7 +104,7 @@ readonly class PostProvider
         ;
 
         $result = $this->dbLayer
-            ->select('p.published_at AS create_time, p.date_label AS display_date, p.title, p.body AS text, p.slug AS url, p.id, p.comments_enabled AS commented, p.updated_at AS modify_time, p.featured AS favorite')
+            ->select('p.published_at AS create_time, p.date_label AS display_date, p.title, p.body AS text, p.slug AS url, p.id, p.author_id, p.revision, p.comments_enabled AS commented, p.updated_at AS modify_time, p.featured AS favorite')
             ->addSelect('(' . $rawQueryCount . ') AS comment_num')
             ->addSelect('(' . $rawQueryUser . ') AS author, p.series AS label')
             ->from(ContentSchema::TABLE_NAME . ' AS p')

@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register;
 
+use Register\Comment\ContentCommentRenderer;
 use Register\Backup\BackupEncryptionKeyProvider;
 use Register\Backup\BackupEncryptor;
 use Register\Backup\BackupManager;
@@ -31,8 +32,13 @@ use Register\Content\Controller\ContentSitemapController;
 use Register\Content\Controller\RobotsTxtController;
 use Register\Content\PageContentSource;
 use Register\Content\TagRepository;
+use Register\Live\LiveFragmentRenderer;
+use Register\Live\LiveUpdateContext;
+use Register\Live\LiveUpdateController;
+use Register\Live\LiveUpdateRepository;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
+use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Schema\SchemaManager;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlAliasRepository;
@@ -42,9 +48,12 @@ use Register\Url\PortableAsciiTransliterator;
 use Register\Url\ReservedRouteRegistry;
 use Register\Url\SlugGenerator;
 use Register\Url\UniqueSlugGenerator;
+use S2\Cms\Asset\AssetPack;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Framework\Container;
+use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
 use S2\Cms\Framework\ContainerModuleInterface;
+use S2\Cms\Framework\RoutingModuleInterface;
 use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Mail\CommentMailer;
@@ -54,11 +63,17 @@ use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
 use S2\Cms\Security\Audit\SecurityAuditLogger;
+use S2\Cms\Template\HtmlTemplateProvider;
+use S2\Cms\Template\TemplateAssetEvent;
+use S2\Cms\Template\TemplateEvent;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Routing\Route;
+use Symfony\Component\Routing\RouteCollection;
 
 /**
  * Registers services owned by the Register product rather than the reusable S2 foundation.
  */
-readonly class ProductModule implements ContainerModuleInterface
+readonly class ProductModule implements ContainerModuleInterface, ContainerAwareListenerModuleInterface, RoutingModuleInterface
 {
     public function __construct(private BaseModuleRegistry $baseModuleRegistry)
     {
@@ -128,9 +143,16 @@ readonly class ProductModule implements ContainerModuleInterface
         $container->set(ContentRepository::class, static fn(Container $container): ContentRepository => new ContentRepository(
             ...$container->getByTag(ContentSourceInterface::class),
         ));
+        $container->set(LiveUpdateRepository::class, static fn(Container $container): LiveUpdateRepository => new LiveUpdateRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(LiveUpdateContext::class, static fn(Container $container): LiveUpdateContext => new LiveUpdateContext(
+            $container->get(LiveUpdateRepository::class),
+        ), [StatefulServiceInterface::class]);
         $container->set(ContentChangeDispatcher::class, static fn(Container $container): ContentChangeDispatcher => new ContentChangeDispatcher(
             $container->get(DbLayer::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+            $container->get(LiveUpdateRepository::class),
         ), [StatefulServiceInterface::class]);
         $container->set(ContentPublicationScheduler::class, static fn(Container $container): ContentPublicationScheduler => new ContentPublicationScheduler(
             $container->get(DbLayer::class),
@@ -161,6 +183,22 @@ readonly class ProductModule implements ContainerModuleInterface
         ));
         $container->set(CommentRepository::class, static fn(Container $container): CommentRepository => new CommentRepository(
             $container->get(DbLayer::class),
+            $container->get(LiveUpdateRepository::class),
+        ));
+        $container->set(ContentCommentRenderer::class, static fn(Container $container): ContentCommentRenderer => new ContentCommentRenderer(
+            $container->get(DbLayer::class),
+            $container->get(\S2\Cms\Model\Comment\CommentThreadRenderer::class),
+            $container->get(\S2\Cms\Model\AuthProvider::class),
+        ));
+        $container->set(LiveFragmentRenderer::class, static fn(Container $container): LiveFragmentRenderer => new LiveFragmentRenderer(
+            $container->get(HtmlTemplateProvider::class),
+        ));
+        $container->set(LiveUpdateController::class, static fn(Container $container): LiveUpdateController => new LiveUpdateController(
+            $container->get(LiveUpdateRepository::class),
+            $container->get(PostFeedRenderer::class),
+            $container->get(ContentCommentRenderer::class),
+            $container->get(ContentRepository::class),
+            $container->get(LiveFragmentRenderer::class),
         ));
         $container->set(ContentCommentTargetResolver::class, static fn(Container $container): ContentCommentTargetResolver => new ContentCommentTargetResolver(
             $container->get(DbLayer::class),
@@ -216,6 +254,44 @@ readonly class ProductModule implements ContainerModuleInterface
             $container->get(UniqueSlugGenerator::class),
             $container->get(ReservedRouteRegistry::class),
             $container->get(ContentUrlAliasRepository::class),
+        ));
+    }
+
+    #[\Override]
+    public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
+    {
+        $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
+            $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $event->assetPack->addJs(
+                $basePath . '/_assets/register/live-updates.js',
+                [AssetPack::OPTION_DEFER],
+            );
+        });
+
+        $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, static function (TemplateEvent $event) use ($container): void {
+            $context = $container->get(LiveUpdateContext::class);
+            $cursor  = $context->cursor();
+            $regions = $context->regions();
+            if ($cursor === null || $regions === []) {
+                return;
+            }
+
+            $event->htmlTemplate->addMetaTag(sprintf(
+                '<meta name="register-live-updates" data-endpoint="%s" data-cursor="%d" data-regions="%s">',
+                s2_htmlencode($container->get(UrlBuilder::class)->link('/_live')),
+                $cursor,
+                s2_htmlencode(json_encode($regions, JSON_THROW_ON_ERROR)),
+            ));
+        });
+    }
+
+    #[\Override]
+    public function registerRoutes(RouteCollection $routes): void
+    {
+        $routes->add('register_live_updates', new Route(
+            '/_live',
+            ['_controller' => LiveUpdateController::class],
+            methods: ['GET'],
         ));
     }
 

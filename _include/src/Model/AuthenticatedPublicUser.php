@@ -12,10 +12,13 @@ namespace S2\Cms\Model;
 final readonly class AuthenticatedPublicUser
 {
     public function __construct(
+        public int    $id,
         public string $login,
         public string $email,
         public bool   $canHideComments,
         public bool   $canEditComments,
+        public bool   $canCreateArticles,
+        public bool   $canEditSite,
         public bool   $isAdministrator,
         public string $sessionHash,
     ) {

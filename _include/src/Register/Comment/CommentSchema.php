@@ -29,6 +29,7 @@ final class CommentSchema
             UserpicSchema::addCommentReferenceToDefinition($table);
             $table
                 ->addInteger('time', true)
+                ->addInteger('modify_time', true)
                 ->addString('ip', 39)
                 ->addString('nick', 50)
                 ->addString('email', 80)

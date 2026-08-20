@@ -11,12 +11,15 @@ namespace Register\Comment;
 
 use Register\Content\ContentId;
 use Register\Content\ContentType;
+use Register\Live\LiveUpdateRepository;
 use S2\Cms\Pdo\DbLayer;
 
 final readonly class CommentRepository
 {
-    public function __construct(private DbLayer $dbLayer)
-    {
+    public function __construct(
+        private DbLayer              $dbLayer,
+        private LiveUpdateRepository $liveUpdateRepository,
+    ) {
     }
 
     public function save(
@@ -41,6 +44,7 @@ final readonly class CommentRepository
                 'content_id'   => ':content_id',
                 'parent_id'    => ':parent_id',
                 'time'         => ':time',
+                'modify_time'  => '0',
                 'ip'           => ':ip',
                 'nick'         => ':nick',
                 'email'        => ':email',
@@ -66,7 +70,10 @@ final readonly class CommentRepository
             ])
         ;
 
-        return (int)$this->dbLayer->insertId();
+        $commentId = (int)$this->dbLayer->insertId();
+        $this->liveUpdateRepository->publishComments($contentId);
+
+        return $commentId;
     }
 
     public function find(int $commentId): ?Comment
@@ -212,13 +219,18 @@ final readonly class CommentRepository
 
     public function publish(int $commentId, ContentType $contentType): void
     {
-        $this->dbLayer
+        $comment = $this->findOfType($commentId, $contentType);
+        $updated = $this->dbLayer
             ->update(CommentSchema::TABLE_NAME)
             ->set('shown', '1')
             ->where('id = :id')->setParameter('id', $commentId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
             ->execute()
+            ->affectedRows() > 0
         ;
+        if ($updated && $comment instanceof Comment) {
+            $this->liveUpdateRepository->publishComments($comment->contentId);
+        }
     }
 
     public function setSent(int $commentId, ContentType $contentType, bool $sent): void
@@ -234,31 +246,44 @@ final readonly class CommentRepository
 
     public function markSpam(int $commentId, ContentType $contentType): void
     {
-        $this->dbLayer
+        $comment = $this->findOfType($commentId, $contentType);
+        $updated = $this->dbLayer
             ->update(CommentSchema::TABLE_NAME)
             ->set('shown', '0')
             ->set('sent', '1')
             ->where('id = :id')->setParameter('id', $commentId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
             ->execute()
+            ->affectedRows() > 0
         ;
+        if ($updated && $comment instanceof Comment) {
+            $this->liveUpdateRepository->publishComments($comment->contentId);
+        }
     }
 
     public function edit(int $commentId, ContentType $contentType, string $text): bool
     {
-        return $this->dbLayer
+        $comment = $this->findOfType($commentId, $contentType);
+        $updated = $this->dbLayer
             ->update(CommentSchema::TABLE_NAME)
             ->set('text', ':text')->setParameter('text', $text)
+            ->set('modify_time', ':modify_time')->setParameter('modify_time', time())
             ->where('id = :id')->setParameter('id', $commentId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
             ->andWhere('deleted = 0')
             ->execute()
             ->affectedRows() > 0;
+        if ($updated && $comment instanceof Comment) {
+            $this->liveUpdateRepository->publishComments($comment->contentId);
+        }
+
+        return $updated;
     }
 
     public function tombstone(int $commentId, ContentType $contentType): bool
     {
-        return $this->dbLayer
+        $comment = $this->findOfType($commentId, $contentType);
+        $updated = $this->dbLayer
             ->update(CommentSchema::TABLE_NAME)
             ->set('deleted', '1')
             ->set('shown', '0')
@@ -268,16 +293,25 @@ final readonly class CommentRepository
             ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
             ->execute()
             ->affectedRows() > 0;
+        if ($updated && $comment instanceof Comment) {
+            $this->liveUpdateRepository->publishComments($comment->contentId);
+        }
+
+        return $updated;
     }
 
     public function removeForContent(ContentId $contentId): void
     {
-        $this->dbLayer
+        $removed = $this->dbLayer
             ->delete(CommentSchema::TABLE_NAME)
             ->where('content_type = :content_type')->setParameter('content_type', $contentId->type->value)
             ->andWhere('content_id = :content_id')->setParameter('content_id', $contentId->value)
             ->execute()
+            ->affectedRows() > 0
         ;
+        if ($removed) {
+            $this->liveUpdateRepository->publishComments($contentId);
+        }
     }
 
     /** @param array<string, mixed> $row */
@@ -289,6 +323,7 @@ final readonly class CommentRepository
             $row['parent_id'] === null ? null : (int)$row['parent_id'],
             $row['userpic_id'] === null ? null : (int)$row['userpic_id'],
             (int)$row['time'],
+            (int)$row['modify_time'],
             (string)$row['ip'],
             (string)$row['nick'],
             (string)$row['email'],

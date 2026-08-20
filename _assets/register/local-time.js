@@ -71,16 +71,27 @@
         }
     }
 
-    function localizeTimes() {
-        if (document.readyState === 'loading') {
+    function onReadyStateChange() {
+        localizeTimes(document);
+    }
+
+    function localizeTimes(root) {
+        root = root || document;
+        if (root === document && document.readyState === 'loading') {
             return;
         }
 
-        document.querySelectorAll('time[data-local-time]').forEach(localizeTime);
-        document.documentElement.classList.remove('local-time-pending');
-        document.removeEventListener('readystatechange', localizeTimes);
+        if (root instanceof Element && root.matches('time[data-local-time]')) {
+            localizeTime(root);
+        }
+        root.querySelectorAll('time[data-local-time]').forEach(localizeTime);
+        if (root === document) {
+            document.documentElement.classList.remove('local-time-pending');
+            document.removeEventListener('readystatechange', onReadyStateChange);
+        }
     }
 
-    document.addEventListener('readystatechange', localizeTimes);
-    localizeTimes();
+    window.RegisterLocalTime = Object.freeze({enhance: localizeTimes});
+    document.addEventListener('readystatechange', onReadyStateChange);
+    localizeTimes(document);
 }());

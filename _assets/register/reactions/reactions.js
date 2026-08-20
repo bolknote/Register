@@ -2,6 +2,7 @@
     'use strict';
 
     const reactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
+    const widgets = new WeakMap();
 
     class ReactionWidget {
         constructor(root) {
@@ -77,11 +78,12 @@
             }
 
             this.root.addEventListener('keydown', (event) => this.onKeyDown(event));
-            document.addEventListener('pointerdown', (event) => {
+            this.documentPointerHandler = (event) => {
                 if (!this.root.contains(event.target)) {
                     this.closePicker(false);
                 }
-            });
+            };
+            document.addEventListener('pointerdown', this.documentPointerHandler);
 
             if (window.matchMedia('(hover: hover)').matches) {
                 for (const button of this.chips.values()) {
@@ -335,9 +337,43 @@
             this.status.textContent = message;
             this.root.classList.toggle('is-error', error);
         }
+
+        destroy() {
+            window.clearTimeout(this.openTimer);
+            window.clearTimeout(this.closeTimer);
+            window.clearTimeout(this.longPressTimer);
+            document.removeEventListener('pointerdown', this.documentPointerHandler);
+        }
     }
 
-    for (const root of document.querySelectorAll('[data-register-reactions]')) {
-        new ReactionWidget(root);
+    function rootsWithin(scope) {
+        const roots = [];
+        if (scope instanceof Element && scope.matches('[data-register-reactions]')) {
+            roots.push(scope);
+        }
+        roots.push(...scope.querySelectorAll('[data-register-reactions]'));
+
+        return roots;
     }
+
+    function enhance(scope = document) {
+        for (const root of rootsWithin(scope)) {
+            if (!widgets.has(root)) {
+                widgets.set(root, new ReactionWidget(root));
+            }
+        }
+    }
+
+    function destroy(scope = document) {
+        for (const root of rootsWithin(scope)) {
+            const widget = widgets.get(root);
+            if (widget) {
+                widget.destroy();
+                widgets.delete(root);
+            }
+        }
+    }
+
+    window.RegisterReactions = Object.freeze({enhance, destroy});
+    enhance(document);
 })();

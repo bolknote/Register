@@ -10,7 +10,6 @@ declare(strict_types = 1);
 namespace Register\Module\LinkHealth;
 
 use Register\Content\ContentChangeDispatcher;
-use Register\Content\ContentDeletionGuardInterface;
 use Register\Module\LinkHealth\Admin\AdminConfigExtender;
 use Register\Module\LinkHealth\Admin\DynamicConfigFormExtender;
 use Register\Module\LinkHealth\Admin\LinkHealthActionController;
@@ -53,11 +52,6 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
         $container->set(LinkHealthToken::class, static fn(Container $container): LinkHealthToken => new LinkHealthToken(
             $container->get(SettingStorageInterface::class),
         ));
-        $container->set(LocalLinkDeletionGuard::class, static fn(Container $container): LocalLinkDeletionGuard => new LocalLinkDeletionGuard(
-            $container->get(DbLayer::class),
-            $container->get(ContentPathResolver::class),
-            $container->get(Translator::class),
-        ), [ContentDeletionGuardInterface::class]);
         $container->set(LinkHealthAdminPage::class, static fn(Container $container): LinkHealthAdminPage => new LinkHealthAdminPage(
             $container->get(LinkHealthAdminRepository::class),
             $container->get(LinkHealthToken::class),

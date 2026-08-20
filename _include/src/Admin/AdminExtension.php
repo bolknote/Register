@@ -214,6 +214,8 @@ class AdminExtension implements ExtensionInterface
                 $container->get(TagsProvider::class),
                 $container->get(\Register\Content\TagRepository::class),
                 $container->get(ContentCommentNotifier::class),
+                $container->get(CommentRepository::class),
+                $container->get(\Register\Live\LiveUpdateRepository::class),
                 $container->get(ExtensionCache::class),
                 $container->get(ContentChangeDispatcher::class),
                 $container->get(\Register\Content\ContentPublicationScheduler::class),
@@ -246,6 +248,8 @@ class AdminExtension implements ExtensionInterface
         $container->set(CommentControllerFactory::class, fn(Container $container): \S2\Cms\Admin\Controller\CommentControllerFactory => new CommentControllerFactory(
             $container->get(SpamFeedbackService::class),
             $container->get(AdminMutationGuard::class),
+            $container->get(CommentRepository::class),
+            $container->get(\Register\Live\LiveUpdateRepository::class),
         ));
 
         $container->set(AdminPanelFactory::class, fn(Container $container): \S2\Cms\Admin\AdminPanelFactory => new AdminPanelFactory($container));

@@ -27,6 +27,8 @@ final readonly class ReservedRouteRegistry
         '_assets',
         '_cache',
         '_include',
+        '_inplace',
+        '_live',
         '_pictures',
         '_styles',
         '.well-known',

@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Controller;
 
+use Register\Comment\CommentRepository;
+use Register\Live\LiveUpdateRepository;
 use S2\AdminYard\Config\EntityConfig;
 use S2\AdminYard\Config\FieldConfig;
 use S2\AdminYard\Controller\EntityController;
@@ -41,6 +43,8 @@ class CommentController extends EntityController
         SettingStorageInterface $settingStorage,
         private readonly SpamFeedbackService $spamFeedbackService,
         private readonly AdminMutationGuard $mutationGuard,
+        private readonly CommentRepository $commentRepository,
+        private readonly LiveUpdateRepository $liveUpdateRepository,
     ) {
         parent::__construct(
             $entityConfig,
@@ -52,6 +56,20 @@ class CommentController extends EntityController
             $formFactory,
             $settingStorage,
         );
+    }
+
+    #[\Override]
+    public function deleteAction(Request $request): Response
+    {
+        $comment = $this->commentRepository->find(
+            $this->getEntityPrimaryKeyFromRequest($request)->getIntId(),
+        );
+        $response = parent::deleteAction($request);
+        if ($response->isSuccessful() && $comment instanceof \Register\Comment\Comment) {
+            $this->liveUpdateRepository->publishComments($comment->contentId);
+        }
+
+        return $response;
     }
 
     public function hamAction(Request $request): Response

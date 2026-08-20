@@ -12,18 +12,16 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
-use Register\Comment\CommentSchema;
+use Register\Comment\ContentCommentRenderer;
 use Register\Content\ContentId;
 use Register\Content\ContentRenderedEvent;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
+use Register\Live\LiveUpdateContext;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\Comment\CommentModerationContext;
-use S2\Cms\Model\Comment\CommentThreadRenderer;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\HtmlTemplate;
@@ -35,6 +33,7 @@ use Register\Module\Blog\Module as BlogModule;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Model\PostProvider;
+use Register\Module\Blog\Inplace\PostInplaceControls;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SearchDocumentFactory;
 use Register\Url\ContentUrlGenerator;
@@ -59,8 +58,9 @@ class PostPageController extends BlogController
         TranslatorInterface                      $translator,
         HtmlTemplateProvider                     $templateProvider,
         Viewer                                   $viewer,
-        private readonly CommentThreadRenderer   $commentThreadRenderer,
-        private readonly AuthProvider             $authProvider,
+        private readonly ContentCommentRenderer  $commentRenderer,
+        private readonly LiveUpdateContext       $liveUpdates,
+        private readonly PostInplaceControls      $inplaceControls,
         private readonly TagRepository            $tagRepository,
         private readonly EventDispatcherInterface $eventDispatcher,
         StringProxy                              $blogTitle,
@@ -91,6 +91,7 @@ class PostPageController extends BlogController
     #[\Override]
     public function body(Request $request, HtmlTemplate $template): ?Response
     {
+        $this->liveUpdates->start();
         $url = $request->attributes->getString('url');
 
         $template->putInPlaceholder('title', '');
@@ -115,7 +116,7 @@ class PostPageController extends BlogController
 
         $result = $this->dbLayer
             ->select(
-                'published_at AS create_time, date_label AS display_date, title, body AS text, id, comments_enabled AS commented, series AS label, featured AS favorite',
+                'published_at AS create_time, date_label AS display_date, title, body AS text, id, author_id, revision, comments_enabled AS commented, series AS label, featured AS favorite',
                 '(' . $this->dbLayer
                     ->select('u.name')
                     ->from('users AS u')
@@ -236,9 +237,14 @@ class PostPageController extends BlogController
             ];
         }
 
+        $contentId = ContentId::post((int)$post_id);
         $template->putInPlaceholder('commented', $row['commented']);
         if ((bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- s2_comments -->')) {
-            $template->putInPlaceholder('comments', $this->getComments($post_id, $request));
+            $this->liveUpdates->subscribeComments($contentId);
+            $template->putInPlaceholder(
+                'comments',
+                $this->commentRenderer->renderRegion($contentId, $request, $request->getPathInfo()),
+            );
         }
 
         $row['time']             = $this->postProvider->displayDate((int)$row['create_time'], (string)$row['display_date']);
@@ -247,6 +253,12 @@ class PostPageController extends BlogController
         $row['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
         $row['showComments']     = $this->showComments->get();
         $row['enabledComments']  = $this->enabledComments->get();
+        $row['inplace']          = $this->inplaceControls->forPost(
+            $request,
+            (int)$post_id,
+            $row['author_id'] === null ? null : (int)$row['author_id'],
+            (int)$row['revision'],
+        );
 
         $template
             ->putInPlaceholder('meta_description', $this->extractMetaDescriptions($row['text']))
@@ -268,52 +280,9 @@ class PostPageController extends BlogController
             ], SearchModule::class));
         }
 
-        $this->eventDispatcher->dispatch(new ContentRenderedEvent($template, ContentId::post((int)$post_id)));
+        $this->eventDispatcher->dispatch(new ContentRenderedEvent($template, $contentId));
 
         return null;
-    }
-
-    /**
-     * @throws DbLayerException
-     */
-    private function getComments(int $id, Request $request): string
-    {
-        $authorComment = $this->dbLayer
-            ->select('COUNT(*)')
-            ->from('users AS u')
-            ->where('LOWER(u.email) = LOWER(c.email)')
-            ->andWhere("c.email <> ''")
-            ->getSql()
-        ;
-        $moderatorLabel = $this->dbLayer
-            ->select('sa.moderator_label')
-            ->from('spam_assessments AS sa')
-            ->where("sa.target_type = 'post'")
-            ->andWhere('sa.comment_id = c.id')
-            ->orderBy('sa.id DESC')
-            ->limit(1)
-            ->getSql()
-        ;
-        $statement = $this->dbLayer
-            ->select(
-                'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
-                '(' . $authorComment . ') AS is_author',
-                '(' . $moderatorLabel . ') AS moderator_label',
-            )
-            ->from(CommentSchema::TABLE_NAME . ' AS c')
-            ->leftJoin('userpics AS p', 'p.id = c.userpic_id')
-            ->where('c.content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
-            ->andWhere('c.content_id = :content_id')->setParameter('content_id', $id)
-            ->orderBy('time, c.id')
-            ->execute()
-        ;
-
-        $moderator = $this->authProvider->getAuthenticatedCommentModerator($request);
-
-        return $this->commentThreadRenderer->render(
-            $statement->fetchAssocAll(),
-            $moderator instanceof \S2\Cms\Model\Comment\CommentModerator ? new CommentModerationContext($moderator, ContentType::POST, $request->getPathInfo()) : null,
-        );
     }
 
     private function extractMetaDescriptions(string $text): string

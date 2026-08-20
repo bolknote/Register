@@ -10,7 +10,9 @@ declare(strict_types = 1);
 namespace Register\Module\LinkHealth;
 
 use Register\Content\ContentChangedEvent;
+use Register\Content\ContentDeletionGuardInterface;
 use Register\Content\ContentRepository;
+use Register\Module\LinkHealth\Admin\LocalLinkDeletionGuard;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
 use S2\Cms\Framework\ContainerModuleInterface;
@@ -75,6 +77,18 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(ContentRepository::class),
             $container->get(LinkUrlNormalizer::class),
         ));
+        $container->set(LocalLinkDeletionGuard::class, static function (Container $container): LocalLinkDeletionGuard {
+            $translator = $container->getIfDefined(\S2\AdminYard\Translator::class);
+            if (!$translator instanceof \Symfony\Contracts\Translation\TranslatorInterface) {
+                $translator = $container->get('translator');
+            }
+
+            return new LocalLinkDeletionGuard(
+                $container->get(DbLayer::class),
+                $container->get(ContentPathResolver::class),
+                $translator,
+            );
+        }, [ContentDeletionGuardInterface::class]);
         $container->set(LinkInventoryRepository::class, static fn(Container $container): LinkInventoryRepository => new LinkInventoryRepository(
             $container->get(DbLayer::class),
             $container->get(\PDO::class),

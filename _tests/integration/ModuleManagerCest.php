@@ -99,6 +99,7 @@ final class ModuleManagerCest
             'fk_content_url_alias_content',
         ));
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'parent_id'));
+        $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'modify_time'));
         $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'thread_idx'));
         $I->assertTrue($dbLayer->tableExists(UserpicSchema::TABLE_NAME));
         $I->assertTrue($dbLayer->tableExists(UserpicSchema::USER_LINK_TABLE_NAME));

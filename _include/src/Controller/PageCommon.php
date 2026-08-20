@@ -11,13 +11,14 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Controller;
 
-use Register\Comment\CommentSchema;
+use Register\Comment\ContentCommentRenderer;
 use Register\Content\ContentId;
 use Register\Content\ContentRenderedEvent;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
+use Register\Live\LiveUpdateContext;
 use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Config\StringProxy;
@@ -27,9 +28,6 @@ use S2\Cms\Framework\Exception\NotFoundException;
 use S2\Cms\Helper\StringHelper;
 use S2\Cms\Model\Article\ArticleRenderedEvent;
 use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\Comment\CommentModerationContext;
-use S2\Cms\Model\Comment\CommentThreadRenderer;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Template\HtmlTemplateProvider;
@@ -54,8 +52,8 @@ readonly class PageCommon implements ControllerInterface
         private TranslatorInterface      $translator,
         private HtmlTemplateProvider     $htmlTemplateProvider,
         private Viewer                   $viewer,
-        private CommentThreadRenderer    $commentThreadRenderer,
-        private AuthProvider             $authProvider,
+        private ContentCommentRenderer   $commentRenderer,
+        private LiveUpdateContext        $liveUpdates,
         private BoolProxy                $useHierarchy,
         private BoolProxy                $showComments,
         private StringProxy              $tagsUrl,
@@ -74,6 +72,7 @@ readonly class PageCommon implements ControllerInterface
     #[\Override]
     public function handle(Request $request): Response
     {
+        $this->liveUpdates->start();
         $request_uri = $request->getPathInfo();
 
         $request_array = explode('/', $request_uri);   //   []/[dir1]/[dir2]/[dir3]/[file1]
@@ -520,44 +519,12 @@ readonly class PageCommon implements ControllerInterface
 
         // Comments
         if ((bool)$page['commented'] && $showComments && $template->hasPlaceholder('<!-- s2_comments -->')) {
-            $authorComment = $this->dbLayer
-                ->select('COUNT(*)')
-                ->from('users AS u')
-                ->where('LOWER(u.email) = LOWER(c.email)')
-                ->andWhere("c.email <> ''")
-                ->getSql()
-            ;
-            $moderatorLabel = $this->dbLayer
-                ->select('sa.moderator_label')
-                ->from('spam_assessments AS sa')
-                ->where("sa.target_type = 'page'")
-                ->andWhere('sa.comment_id = c.id')
-                ->orderBy('sa.id DESC')
-                ->limit(1)
-                ->getSql()
-            ;
-            $result = $this->dbLayer
-                ->select(
-                    'c.id, c.parent_id, c.nick, c.time, c.email, c.show_email, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
-                    '(' . $authorComment . ') AS is_author',
-                    '(' . $moderatorLabel . ') AS moderator_label',
-                )
-                ->from(CommentSchema::TABLE_NAME . ' AS c')
-                ->leftJoin('userpics AS p', 'p.id = c.userpic_id')
-                ->where('c.content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
-                ->andWhere('c.content_id = :content_id')->setParameter('content_id', $articleId)
-                ->orderBy('time, c.id')
-                ->execute()
-            ;
-
-            $moderator = $this->authProvider->getAuthenticatedCommentModerator($request);
-            $comments  = $this->commentThreadRenderer->render(
-                $result->fetchAssocAll(),
-                $moderator instanceof \S2\Cms\Model\Comment\CommentModerator ? new CommentModerationContext($moderator, ContentType::PAGE, $request->getPathInfo()) : null,
+            $contentId = ContentId::page($articleId);
+            $this->liveUpdates->subscribeComments($contentId);
+            $template->putInPlaceholder(
+                'comments',
+                $this->commentRenderer->renderRegion($contentId, $request, $request->getPathInfo()),
             );
-            if ($comments !== '') {
-                $template->putInPlaceholder('comments', $comments);
-            }
         }
 
         $this->eventDispatcher->dispatch(new ArticleRenderedEvent($template, $articleId));

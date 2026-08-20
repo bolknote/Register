@@ -362,6 +362,28 @@ hr {
     display: flow-root;
 }
 
+/* Live wrappers are DOM replacement boundaries and must not alter the established page layout. */
+.live-post-feed,
+.live-comments-region {
+    display: contents;
+}
+
+#content > .live-post-feed > *,
+#content > .live-comments-region > * {
+    max-width: var(--text-width);
+}
+
+#content > .post-card,
+#content > .live-post-feed > .post-card {
+    position: relative;
+    width: 100%;
+    max-width: 820px;
+}
+
+.post-card > :where(.post.author, .post.time, .post.body, .post.foot, .see-also) {
+    max-width: var(--text-width);
+}
+
 .e2-text :where(p, ol, ul, pre, blockquote, table, figure),
 .article-text :where(p, ol, ul, pre, blockquote, table, figure) {
     max-width: var(--text-width);
@@ -887,6 +909,223 @@ h2.preview,
 
 .post.body {
     margin-bottom: 0.6rem;
+}
+
+.post-inplace-tools {
+    position: absolute;
+    z-index: 3;
+    top: -0.35rem;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(0.2rem);
+    transition: opacity 100ms ease, transform 100ms ease;
+}
+
+.post-card:hover > .post-inplace-tools,
+.post-card:focus-within > .post-inplace-tools {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+}
+
+.post-inplace-button {
+    display: grid;
+    width: 2.15rem;
+    min-height: 2.15rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    appearance: none;
+    place-items: center;
+    background: transparent;
+    box-shadow: none;
+    color: var(--minor-color);
+    cursor: pointer;
+    font-family: sans-serif;
+    font-size: 18px;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.post-inplace-button span {
+    filter: grayscale(1);
+}
+
+.post-inplace-button:hover,
+.post-inplace-button:focus-visible {
+    background: transparent;
+    color: var(--text-color);
+    outline: 2px solid var(--accent-color);
+    outline-offset: 1px;
+    transform: translateY(-1px);
+}
+
+.post-inplace-edit-form {
+    max-width: var(--text-width);
+    margin: 0 0 clamp(3.5rem, 8vw, 6rem);
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--surface-background);
+}
+
+.post-inplace-edit-form[hidden],
+.post-delete-confirmation[hidden],
+.post-inplace-error[hidden],
+.post-inplace-status[hidden] {
+    display: none;
+}
+
+.post-card.is-editing > :not(.post-inplace-edit-form, .post-inplace-status) {
+    display: none;
+}
+
+.post-inplace-field {
+    display: block;
+    margin: 0 0 1rem;
+    color: var(--minor-color);
+    font-family: var(--ui-font);
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.post-inplace-field > span {
+    display: block;
+    margin-bottom: 0.35rem;
+}
+
+.post-inplace-field :where(input, textarea) {
+    width: 100%;
+    margin: 0;
+    color: var(--text-color);
+}
+
+.post-inplace-title-field input {
+    min-height: 3.2rem;
+    padding: 0.45rem 0.65rem;
+    font-family: var(--text-font);
+    font-size: clamp(24px, 4vw, 30px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+}
+
+.post-inplace-body-field textarea {
+    min-height: min(58vh, 36rem);
+    padding: 0.75rem 0.85rem;
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.55;
+    tab-size: 4;
+}
+
+.post-inplace-actions {
+    display: flex;
+    margin-top: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.85rem;
+}
+
+.post-inplace-actions button {
+    min-height: 2.35rem;
+    margin: 0;
+    padding: 0.38rem 0.8rem;
+    font-family: var(--ui-font);
+    font-size: 13px;
+}
+
+.post-inplace-edit-form .post-inplace-actions button[type="submit"] {
+    background: var(--text-color);
+    color: var(--page-background);
+    font-weight: 700;
+}
+
+.post-edit-cancel,
+.post-delete-cancel {
+    border: 0;
+    background: transparent;
+    color: var(--minor-color);
+}
+
+.post-delete-confirmation {
+    position: absolute;
+    z-index: 5;
+    top: -0.45rem;
+    right: 0;
+    width: min(34rem, 100%);
+    padding: 0.75rem 0.85rem;
+    border-radius: 3px;
+    background: var(--surface-background);
+    box-shadow: 0 0.6rem 1.8rem color-mix(in srgb, #000 18%, transparent);
+    color: var(--text-color);
+    font-family: var(--ui-font);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.post-delete-confirmation > p {
+    margin: 0;
+    font-weight: 650;
+}
+
+.post-delete-confirmation .post-inplace-actions {
+    margin-top: 0.55rem;
+    justify-content: flex-end;
+}
+
+.post-delete-confirm,
+.post-delete-confirm:hover,
+.post-delete-confirm:focus-visible {
+    background: var(--error-color);
+    color: var(--page-background);
+    font-weight: 700;
+}
+
+.post-card.is-confirming > .post-inplace-tools {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.post-inplace-error,
+.post-inplace-status {
+    max-width: var(--text-width);
+    margin: 0.7rem 0 0;
+    color: var(--error-color);
+    font-family: var(--ui-font);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.post-inplace-status {
+    color: var(--success-color);
+}
+
+.post-deleted-notice {
+    max-width: var(--text-width);
+    margin: 0 0 clamp(3.5rem, 8vw, 6rem);
+    padding: 1rem 1.15rem;
+    border-left: 3px solid var(--success-color);
+    background: var(--surface-background);
+    color: var(--text-color);
+    font-family: var(--ui-font);
+    font-size: 15px;
+}
+
+@media (hover: none) {
+    .post-inplace-tools {
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+    }
 }
 
 .post.foot {

@@ -13,6 +13,8 @@ use Codeception\Test\Unit;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentChangedEvent;
 use Register\Content\ContentId;
+use Register\Live\LiveUpdateRepository;
+use Register\Live\LiveUpdateSchema;
 use S2\Cms\Pdo\DbLayerSqlite;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
@@ -86,10 +88,17 @@ INSERT INTO content (id, content_type, parent_id) VALUES
     (5, 'post', NULL)
 SQL);
 
+        $dbLayer = new DbLayerSqlite($pdo);
+        LiveUpdateSchema::create($dbLayer);
+
         $eventDispatcher = new EventDispatcher();
         $eventDispatcher->addListener(ContentChangedEvent::class, $collector);
 
-        return new ContentChangeDispatcher(new DbLayerSqlite($pdo), $eventDispatcher);
+        return new ContentChangeDispatcher(
+            $dbLayer,
+            $eventDispatcher,
+            new LiveUpdateRepository($dbLayer),
+        );
     }
 }
 

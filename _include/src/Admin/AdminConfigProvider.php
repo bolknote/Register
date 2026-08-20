@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin;
 
+use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
 use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentId;
@@ -20,6 +21,7 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
+use Register\Live\LiveUpdateRepository;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlGenerator;
 use S2\AdminYard\Config\AdminConfig;
@@ -95,6 +97,8 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly TagsProvider             $tagsProvider,
         private readonly TagRepository             $tagRepository,
         private readonly ContentCommentNotifier   $commentNotifier,
+        private readonly CommentRepository         $commentRepository,
+        private readonly LiveUpdateRepository      $liveUpdateRepository,
         private readonly ExtensionCache           $extensionCache,
         private readonly ContentChangeDispatcher  $contentChangeDispatcher,
         private readonly ContentPublicationScheduler $contentPublicationScheduler,
@@ -207,6 +211,12 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'datetime',
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_SHOW, FieldConfig::ACTION_LIST],
+            ))
+            ->addField(new FieldConfig(
+                name: 'modify_time',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
+                control: 'hidden_input',
+                useOnActions: [FieldConfig::ACTION_EDIT],
             ))
             ->addField(new FieldConfig(
                 name: 'text',
@@ -342,6 +352,20 @@ class AdminConfigProvider implements StatefulServiceInterface
                     );
                 }
             })
+            ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, static function (BeforeSaveEvent $event): void {
+                $event->data['modify_time'] = time();
+            })
+            ->addListener(
+                [EntityConfig::EVENT_AFTER_PATCH, EntityConfig::EVENT_AFTER_UPDATE],
+                function (AfterSaveEvent $event): void {
+                    $comment = $this->commentRepository->find(
+                        $this->requirePrimaryKey($event->primaryKey)->getIntId(),
+                    );
+                    if ($comment instanceof \Register\Comment\Comment) {
+                        $this->liveUpdateRepository->publishComments($comment->contentId);
+                    }
+                },
+            )
         ;
 
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {

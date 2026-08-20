@@ -15,15 +15,15 @@ use Register\Content\ContentSchema;
 use Register\Module\LinkHealth\ContentPathResolver;
 use Register\Module\LinkHealth\LinkKind;
 use Register\Module\LinkHealth\Manifest;
-use S2\AdminYard\Translator;
 use S2\Cms\Pdo\DbLayer;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final readonly class LocalLinkDeletionGuard implements ContentDeletionGuardInterface
 {
     public function __construct(
         private DbLayer             $dbLayer,
         private ContentPathResolver $pathResolver,
-        private Translator          $translator,
+        private TranslatorInterface $translator,
     ) {
     }
 
@@ -36,7 +36,7 @@ final readonly class LocalLinkDeletionGuard implements ContentDeletionGuardInter
         }
 
         if (!$this->inventoryIsReady()) {
-            return [$this->translator->trans('Link inventory deletion wait')];
+            return [$this->trans('Link inventory deletion wait')];
         }
 
         $deletingIds = [];
@@ -119,18 +119,24 @@ final readonly class LocalLinkDeletionGuard implements ContentDeletionGuardInter
         foreach ($blocking as $item) {
             $sources = array_slice($item['sources'], 0, 3);
             if (\count($item['sources']) > \count($sources)) {
-                $sources[] = $this->translator->trans('Link deletion more sources', [
+                $sources[] = $this->trans('Link deletion more sources', [
                     '{{ count }}' => \count($item['sources']) - \count($sources),
                 ]);
             }
 
-            $violations[] = $this->translator->trans('Cannot delete linked content', [
+            $violations[] = $this->trans('Cannot delete linked content', [
                 '{{ target }}'  => $item['title'],
                 '{{ sources }}' => implode(', ', $sources),
             ]);
         }
 
         return $violations;
+    }
+
+    /** @param array<string, int|string> $parameters */
+    private function trans(string $message, array $parameters = []): string
+    {
+        return $this->translator->trans($message, $parameters);
     }
 
     private function inventoryIsReady(): bool

@@ -78,6 +78,23 @@ readonly class AuthProvider
     }
 
     /**
+     * Authenticates a public-side session that may edit at least its own content.
+     *
+     * The returned permissions still have to be checked against the content author.
+     *
+     * @throws DbLayerException
+     */
+    public function getAuthenticatedContentEditor(Request $request): ?AuthenticatedPublicUser
+    {
+        $user = $this->getAuthenticatedUser($request);
+        if (!$user instanceof AuthenticatedPublicUser || (!$user->canCreateArticles && !$user->canEditSite)) {
+            return null;
+        }
+
+        return $user;
+    }
+
+    /**
      * Authenticates the public-side moderator cookie issued by the admin login.
      *
      * @throws DbLayerException
@@ -117,7 +134,7 @@ readonly class AuthProvider
         }
 
         $result = $this->dbLayer
-            ->select('u.login, u.email, u.hide_comments, u.edit_comments, u.edit_users')
+            ->select('u.id, u.login, u.email, u.hide_comments, u.edit_comments, u.create_articles, u.edit_site, u.edit_users')
             ->from('users AS u')
             ->innerJoin('users_online AS o', 'o.login = u.login')
             ->where('o.comment_cookie = :cookie')
@@ -133,10 +150,13 @@ readonly class AuthProvider
         }
 
         $user = new AuthenticatedPublicUser(
+            (int)$row['id'],
             (string)$row['login'],
             (string)$row['email'],
             (bool)$row['hide_comments'],
             (bool)$row['edit_comments'],
+            (bool)$row['create_articles'],
+            (bool)$row['edit_site'],
             (bool)$row['edit_users'],
             hash('sha256', $cookie),
         );

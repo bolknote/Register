@@ -34,7 +34,7 @@
 
     function initCommentStorage() {
         var form = document.forms.post_comment;
-        if (!form) {
+        if (!form || form.dataset.commentStorageReady === '1') {
             return;
         }
 
@@ -67,6 +67,8 @@
             if (!window.localStorage) {
                 return;
             }
+
+            form.dataset.commentStorageReady = '1';
 
             if (document.cookie.indexOf('comment_form_sent=') !== -1) {
                 document.cookie = 'comment_form_sent=0; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/';
@@ -122,7 +124,8 @@
         }, false);
     }
 
-    function initCommentReplies() {
+    function initCommentReplies(root) {
+        root = root || document;
         var block = document.querySelector('.comment-form-block');
         var form = document.forms.post_comment;
         if (!block || !form) {
@@ -180,26 +183,34 @@
             }
         }
 
-        document.querySelectorAll('.comment-reply').forEach(function (link) {
+        root.querySelectorAll('.comment-reply').forEach(function (link) {
+            if (link.dataset.commentReplyBound === '1') {
+                return;
+            }
+            link.dataset.commentReplyBound = '1';
             link.addEventListener('click', function (event) {
                 event.preventDefault();
                 setReply(link, true);
             }, false);
         });
 
-        cancelButton.addEventListener('click', function () {
-            parentField.value = '';
-            numberField.value = '0';
-            nameField.value = '';
-            context.hidden = true;
-            restoreOrigin();
+        if (cancelButton.dataset.commentReplyBound !== '1') {
+            cancelButton.dataset.commentReplyBound = '1';
+            cancelButton.addEventListener('click', function () {
+                parentField.value = '';
+                numberField.value = '0';
+                nameField.value = '';
+                context.hidden = true;
+                restoreOrigin();
 
-            try {
-                window.history.replaceState(null, '', originLink.href);
-            } catch (error) {
-                // The form has already returned to its original place.
-            }
-        }, false);
+                try {
+                    window.history.replaceState(null, '', originLink.href);
+                } catch (error) {
+                    // The form has already returned to its original place.
+                }
+                document.dispatchEvent(new CustomEvent('register:live-unlock'));
+            }, false);
+        }
 
         if (parentField.value) {
             var activeReply = document.querySelector('.comment-reply[data-reply-comment="' + parentField.value + '"]');
@@ -209,8 +220,9 @@
         }
     }
 
-    function initCommentModeration() {
-        var moderationForms = document.querySelectorAll('.comment-moderation-action, .comment-edit-form');
+    function initCommentModeration(root) {
+        root = root || document;
+        var moderationForms = root.querySelectorAll('.comment-moderation-action, .comment-edit-form');
         if (!moderationForms.length) {
             return;
         }
@@ -341,10 +353,22 @@
                         try {
                             window.history.replaceState(null, '', '#' + anchorField.value);
                         } catch (error) {
-                            // The moderation change is already stored; reloading is enough.
+                            // The moderation change is already stored.
                         }
                     }
-                    window.location.reload();
+                    if (document.querySelector('meta[name="register-live-updates"]')) {
+                        var item = form.closest('.comment-item');
+                        if (item) {
+                            item.classList.remove('is-editing');
+                        }
+                        var activeElement = document.activeElement;
+                        if (activeElement && form.contains(activeElement) && typeof activeElement.blur === 'function') {
+                            activeElement.blur();
+                        }
+                        document.dispatchEvent(new CustomEvent('register:live-refresh'));
+                    } else {
+                        window.location.reload();
+                    }
                 }).catch(function (error) {
                     buttons.forEach(function (button) {
                         button.disabled = false;
@@ -355,13 +379,21 @@
         }
 
         moderationForms.forEach(function (form) {
+            if (form.dataset.commentModerationBound === '1') {
+                return;
+            }
+            form.dataset.commentModerationBound = '1';
             form.addEventListener('submit', function (event) {
                 event.preventDefault();
                 submit(form);
             }, false);
         });
 
-        document.querySelectorAll('.comment-edit-start').forEach(function (button) {
+        root.querySelectorAll('.comment-edit-start').forEach(function (button) {
+            if (button.dataset.commentEditBound === '1') {
+                return;
+            }
+            button.dataset.commentEditBound = '1';
             button.addEventListener('click', function () {
                 var item = button.closest('.comment-item');
                 var form = item ? item.querySelector(':scope > .comment-edit-form') : null;
@@ -379,7 +411,11 @@
             }, false);
         });
 
-        document.querySelectorAll('.comment-edit-cancel').forEach(function (button) {
+        root.querySelectorAll('.comment-edit-cancel').forEach(function (button) {
+            if (button.dataset.commentEditBound === '1') {
+                return;
+            }
+            button.dataset.commentEditBound = '1';
             button.addEventListener('click', function () {
                 var form = button.closest('.comment-edit-form');
                 var item = form ? form.closest('.comment-item') : null;
@@ -393,6 +429,7 @@
                 if (startButton) {
                     startButton.focus();
                 }
+                document.dispatchEvent(new CustomEvent('register:live-unlock'));
             }, false);
         });
     }
@@ -402,5 +439,15 @@
         initCommentModeration();
         initCommentStorage();
         initKeyboardNavigation();
+    }, false);
+
+    document.addEventListener('register:fragment-updated', function (event) {
+        var root = event.detail && event.detail.root;
+        if (!(root instanceof Element)) {
+            return;
+        }
+
+        initCommentReplies(root);
+        initCommentModeration(root);
     }, false);
 }());

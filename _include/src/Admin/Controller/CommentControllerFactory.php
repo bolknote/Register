@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace S2\Cms\Admin\Controller;
 
+use Register\Comment\CommentRepository;
+use Register\Live\LiveUpdateRepository;
 use S2\AdminYard\Config\EntityConfig;
 use S2\AdminYard\Controller\ControllerFactoryInterface;
 use S2\AdminYard\Database\PdoDataProvider;
@@ -26,6 +28,8 @@ final readonly class CommentControllerFactory implements ControllerFactoryInterf
     public function __construct(
         private SpamFeedbackService $spamFeedbackService,
         private AdminMutationGuard  $mutationGuard,
+        private CommentRepository   $commentRepository,
+        private LiveUpdateRepository $liveUpdateRepository,
     ) {
     }
 
@@ -51,6 +55,8 @@ final readonly class CommentControllerFactory implements ControllerFactoryInterf
             $settingStorage,
             $this->spamFeedbackService,
             $this->mutationGuard,
+            $this->commentRepository,
+            $this->liveUpdateRepository,
         );
     }
 }

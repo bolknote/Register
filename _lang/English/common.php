@@ -80,6 +80,10 @@ return [
     'Email privacy note'     => 'Not published unless you allow it below.',
     'Formatting help'        => 'Formatting',
 
+    'Link inventory deletion wait' => 'Content cannot be deleted until the initial link inventory is complete.',
+    'Cannot delete linked content'  => '“{{ target }}” cannot be deleted because it is linked from {{ sources }}.',
+    'Link deletion more sources'    => 'and {{ count }} more',
+
     'Submit'      => 'Submit',
     'Preview'     => 'Preview',
     'Error'       => 'Error!',

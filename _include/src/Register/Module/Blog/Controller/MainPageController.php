@@ -12,9 +12,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
-use Register\Module\Blog\Module as BlogModule;
+use Register\Live\LiveUpdateContext;
 use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\IntProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\UrlBuilder;
@@ -25,6 +24,7 @@ use S2\Cms\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Model\PostProvider;
+use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Url\ContentUrlGenerator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -45,10 +45,11 @@ class MainPageController extends BlogController
         TranslatorInterface  $translator,
         HtmlTemplateProvider $templateProvider,
         Viewer               $viewer,
+        private readonly PostFeedRenderer  $postFeedRenderer,
+        private readonly LiveUpdateContext $liveUpdates,
         StringProxy          $blogTitle,
         BoolProxy            $showComments,
         BoolProxy            $enabledComments,
-        private readonly IntProxy $itemsPerPage,
     ) {
         parent::__construct(
             $dbLayer,
@@ -90,50 +91,21 @@ class MainPageController extends BlogController
         if ($skipLastPostsNum < 0) {
             $skipLastPostsNum = 0;
         }
+        $this->liveUpdates->subscribePosts($skipLastPostsNum);
 
         if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
             $template->registerPlaceholder('<!-- s2_blog_calendar -->', $this->calendarBuilder->calendar());
         }
 
-        $itemsPerPage = $this->itemsPerPage->get();
-        $postsPerPage = $itemsPerPage > 0 ? $itemsPerPage : 10;
-        $posts        = $this->postProvider->lastPostsArray($postsPerPage, $skipLastPostsNum);
-
-        $output = '';
-        foreach ($posts as $post) {
-            $post['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
-            $post['showComments']     = $this->showComments->get();
-            $post['enabledComments']  = $this->enabledComments->get();
-            $output                   .= $this->viewer->render('post', $post, BlogModule::class);
+        $feed = $this->postFeedRenderer->render($skipLastPostsNum, $request);
+        if ($feed->previousUrl !== null) {
+            $template->setLink('prev', $feed->previousUrl);
+        }
+        if ($feed->nextUrl !== null) {
+            $template->setLink('next', $feed->nextUrl);
         }
 
-        $totalPosts = $this->postProvider->publishedPostCount();
-        $totalPages = (int)ceil($totalPosts / $postsPerPage);
-        $currentPage = intdiv($skipLastPostsNum, $postsPerPage) + 1;
-
-        if ($totalPages > 1) {
-            $prevLink = $currentPage > 1 ? $this->pageUrl($currentPage - 1, $postsPerPage) : null;
-            $nextLink = $currentPage < $totalPages ? $this->pageUrl($currentPage + 1, $postsPerPage) : null;
-
-            if ($prevLink !== null) {
-                $template->setLink('prev', $prevLink);
-            }
-
-            if ($nextLink !== null) {
-                $template->setLink('next', $nextLink);
-            }
-
-            $output .= $this->viewer->render('pagination', [
-                'pages'        => $this->paginationItems($currentPage, $totalPages, $postsPerPage),
-                'previous_url' => $prevLink,
-                'next_url'     => $nextLink,
-            ], BlogModule::class);
-        } elseif ($skipLastPostsNum > 0) {
-            $prevLink = $this->blogUrlBuilder->main();
-            $template->setLink('prev', $prevLink);
-        }
-
-        $template->putInPlaceholder('text', $output);
+        $template->putInPlaceholder('text', $feed->html);
 
         $template->addBreadCrumb($this->articleProvider->mainPageTitle(), $this->urlBuilder->link('/'));
 
@@ -144,46 +116,5 @@ class MainPageController extends BlogController
         }
 
         return null;
-    }
-
-    private function pageUrl(int $page, int $postsPerPage): string
-    {
-        if ($page <= 1) {
-            return $this->blogUrlBuilder->main();
-        }
-
-        return $this->blogUrlBuilder->main() . 'skip/' . (($page - 1) * $postsPerPage);
-    }
-
-    /**
-     * @return list<array{number: int|null, url: string|null, current: bool}>
-     */
-    private function paginationItems(int $currentPage, int $totalPages, int $postsPerPage): array
-    {
-        $visiblePages = [1, $totalPages];
-        for ($page = max(1, $currentPage - 2); $page <= min($totalPages, $currentPage + 2); ++$page) {
-            $visiblePages[] = $page;
-        }
-
-        $visiblePages = array_values(array_unique($visiblePages));
-        sort($visiblePages);
-
-        $items = [];
-        $previousPage = null;
-        foreach ($visiblePages as $page) {
-            if ($previousPage !== null && $page - $previousPage > 1) {
-                $items[] = ['number' => null, 'url' => null, 'current' => false];
-            }
-
-            $isCurrent = $page === $currentPage;
-            $items[] = [
-                'number'  => $page,
-                'url'     => $isCurrent ? null : $this->pageUrl($page, $postsPerPage),
-                'current' => $isCurrent,
-            ];
-            $previousPage = $page;
-        }
-
-        return $items;
     }
 }

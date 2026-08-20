@@ -160,6 +160,29 @@ Page templates define the large-scale HTML structure. Views render individual bl
 override presentation, base-module resources are resolved from their `resources` directories by
 module class, and optional-module resource lookup remains isolated by validated module identifier.
 
+## Live browser updates
+
+Open public pages use one same-origin polling channel rather than a timer per widget. The page samples
+the monotonic `live_updates` cursor before it reads visible content and subscribes only to the regions
+it renders. The browser then sends that cursor and every visible region to `GET /_live` in one request.
+The response advances the cursor and contains only regions affected by intervening content or comment
+changes. The journal stores typed identities and topics, never rendered content or personal data.
+
+Post feeds and complete comment threads are server-rendered replacement boundaries. Live responses
+pass through the normal template event pipeline, so typography, reactions, syntax highlighting, math,
+moderation controls, and theme overrides stay consistent with a full page load. The browser pauses
+polling in hidden tabs, prevents overlapping requests, retries with bounded backoff, and defers a DOM
+replacement while focus, a reply form, or an editor is inside that region. Newly inserted fragments
+are hydrated through the public feature APIs instead of reloading the page.
+
+Every code path that changes visible content must publish to `LiveUpdateRepository` after its database
+write. Public post cards expose session-bound in-place edit and delete actions only to an authorized
+author or site editor. These mutations compare the submitted `revision`, preserve fields outside the
+form, pass deletion through the shared guards, and publish through `ContentChangeDispatcher`, so the
+same aggregated live endpoint updates other open tabs. Future in-place creation must follow this path.
+Adding a new live block means adding another region renderer and relevance rule, not another browser
+polling loop.
+
 ## Content and URL direction
 
 Posts are the primary content type and pages are a secondary permanent content type. They share

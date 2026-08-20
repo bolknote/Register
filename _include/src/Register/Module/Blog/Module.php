@@ -10,10 +10,16 @@ declare(strict_types = 1);
 namespace Register\Module\Blog;
 
 use Psr\Log\LoggerInterface;
+use Register\Comment\ContentCommentRenderer;
 use Register\Comment\ContentCommentStrategy;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentRepository;
+use Register\Content\ContentDeletionGuardInterface;
+use Register\Live\LiveUpdateContext;
 use Register\Module\Blog\Content\BlogContentSource;
+use Register\Module\Blog\Inplace\PostInplaceController;
+use Register\Module\Blog\Inplace\PostInplaceControls;
+use Register\Module\Blog\Inplace\PostInplaceTokenManager;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Comment\Antispam\CommentFormTokenManager;
 use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
@@ -32,7 +38,6 @@ use S2\Cms\Model\Article\ArticleRenderedEvent;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\FavoriteArticleProvider;
 use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\Comment\CommentThreadRenderer;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Model\User\UserProvider;
 use S2\Cms\Pdo\DbLayer;
@@ -54,6 +59,7 @@ use Register\Module\Blog\Controller\YearPageController;
 use Register\Module\Blog\Model\BlogPlaceholderProvider;
 use Register\Module\Blog\Model\ContentRssStrategy;
 use Register\Module\Blog\Model\PostProvider;
+use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Module\Blog\Service\TagsSearchProvider;
 use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Module\Search\Service\RecommendationProvider;
@@ -120,6 +126,42 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->getStringParameter('url_prefix'),
             );
         });
+        $container->set(PostFeedRenderer::class, static function (Container $container): PostFeedRenderer {
+            $provider = $container->get(DynamicConfigProvider::class);
+
+            return new PostFeedRenderer(
+                $container->get(PostProvider::class),
+                $container->get(BlogUrlBuilder::class),
+                $container->get(Viewer::class),
+                $container->get(PostInplaceControls::class),
+                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
+                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+                $provider->getIntProxy('S2_MAX_ITEMS'),
+            );
+        });
+        $container->set(PostInplaceTokenManager::class, static fn(Container $container): PostInplaceTokenManager => new PostInplaceTokenManager(
+            $container->get(\S2\Cms\Comment\Antispam\SpamIdentityHasher::class),
+        ));
+        $container->set(PostInplaceControls::class, static fn(Container $container): PostInplaceControls => new PostInplaceControls(
+            $container->get(AuthProvider::class),
+            $container->get(PostInplaceTokenManager::class),
+            $container->get(UrlBuilder::class),
+        ));
+        $container->set(PostInplaceController::class, static fn(Container $container): PostInplaceController => new PostInplaceController(
+            $container->get(DbLayer::class),
+            $container->get(\PDO::class),
+            $container->get(PostInplaceControls::class),
+            $container->get(PostInplaceTokenManager::class),
+            $container->get(\Register\Content\Admin\ContentRevisionService::class),
+            $container->get(\Register\Content\TagRepository::class),
+            $container->get(\Register\Comment\CommentRepository::class),
+            $container->get(\Register\Content\ContentChangeDispatcher::class),
+            $container->get(\Register\Live\LiveFragmentRenderer::class),
+            $container->get(BlogUrlBuilder::class),
+            $container->get(UrlBuilder::class),
+            $container->get('register_blog_translator'),
+            ...$container->getByTag(ContentDeletionGuardInterface::class),
+        ));
         $container->set(MainPageController::class, static function (Container $container): \Register\Module\Blog\Controller\MainPageController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new MainPageController(
@@ -133,10 +175,11 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
+                $container->get(PostFeedRenderer::class),
+                $container->get(LiveUpdateContext::class),
                 $provider->getStringProxy('S2_BLOG_TITLE'),
                 $provider->getBoolProxy('S2_SHOW_COMMENTS'),
                 $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
-                $provider->getIntProxy('S2_MAX_ITEMS')
             );
         });
         $container->set(DayPageController::class, static function (Container $container): \Register\Module\Blog\Controller\DayPageController {
@@ -209,8 +252,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
-                $container->get(CommentThreadRenderer::class),
-                $container->get(AuthProvider::class),
+                $container->get(ContentCommentRenderer::class),
+                $container->get(LiveUpdateContext::class),
+                $container->get(PostInplaceControls::class),
                 $container->get(\Register\Content\TagRepository::class),
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
                 $provider->getStringProxy('S2_BLOG_TITLE'),
@@ -468,8 +512,12 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             }
         });
 
-        $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event): void {
-            $event->assetPack->addCss('../../_assets/register/blog/site.css', [AssetPack::OPTION_MERGE]);
+        $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
+            $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $event->assetPack
+                ->addCss('../../_assets/register/blog/site.css', [AssetPack::OPTION_MERGE])
+                ->addJs($basePath . '/_assets/register/post-inplace.js', [AssetPack::OPTION_DEFER])
+            ;
         });
     }
 
@@ -486,6 +534,12 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $tagsUrl        = $configProvider->getStringProxy('S2_TAGS_URL')->get();
         $priority       = 1;
         $flatPriority   = -1;
+
+        $routes->add('blog_post_inplace', new Route(
+            '/_inplace/post/{id<[1-9][0-9]*>}',
+            ['_controller' => PostInplaceController::class],
+            methods: ['POST'],
+        ), $priority + 1);
 
         $routes->add('blog_main', new Route(
             '/',

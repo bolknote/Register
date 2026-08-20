@@ -16,6 +16,7 @@ use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\ContentTagSchema;
+use Register\Live\LiveUpdateSchema;
 use Register\Url\ContentUrlAliasSchema;
 use Register\Schema\SchemaManager;
 use S2\Cms\Security\WebAuthn\WebAuthnSchema;
@@ -83,6 +84,7 @@ readonly class Installer
         UserpicSchema::create($this->dbLayer);
 
         CommentSchema::create($this->dbLayer);
+        LiveUpdateSchema::create($this->dbLayer);
 
         $this->dbLayer->createTable('tags', function (SchemaBuilderInterface $table): void {
             $table
@@ -166,6 +168,7 @@ readonly class Installer
         $this->dbLayer->dropTable('queue');
         ContentTagSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('tags');
+        LiveUpdateSchema::drop($this->dbLayer);
         CommentSchema::drop($this->dbLayer);
         ContentUrlAliasSchema::drop($this->dbLayer);
         ContentSchema::drop($this->dbLayer);
