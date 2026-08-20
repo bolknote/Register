@@ -23,6 +23,7 @@ declare(strict_types = 1);
  * @var string|null $userpic_url
  * @var string|null $moderation_state
  * @var array<string, mixed>|null $moderation
+ * @var array<string, int>|null $reaction_summary
  */
 
 $encodedNick = s2_htmlencode($nick);
@@ -42,6 +43,7 @@ $replyQuery = $isPreview ? '' : http_build_query([
     'reply_number' => $i,
     'reply_name'   => $nick,
 ]);
+$reactionSummary = $reaction_summary ?? [];
 
 ?>
 <article class="comment-item depth-<?php echo $visual_depth, !empty($good) && !$isDeleted ? ' good' : '', $is_author && !$isDeleted ? ' by-author' : '', $isPreview ? ' comment-preview-item' : '', $hasUserpic ? ' has-userpic' : '', $isDeleted ? ' is-deleted' : '', $moderationState === 'spam' ? ' is-spam' : '', $moderationState === 'hidden' ? ' is-hidden' : ''; ?>"<?php if (!$isPreview): ?>
@@ -144,6 +146,13 @@ $replyQuery = $isPreview ? '' : http_build_query([
             <a class="comment-addressee" href="#<?php echo $parent['i']; ?>"><?php echo s2_htmlencode($parent['nick']); ?>,</a>
         <?php endif; ?>
         <?php echo \S2\Cms\Helper\StringHelper::bbcodeToHtml(s2_htmlencode($text), $trans('Wrote')); ?>
+        <?php if ($reactionSummary !== []): ?>
+        <div class="comment-reaction-summary" aria-label="<?php echo $trans('Reactions'); ?>">
+            <?php foreach ($reactionSummary as $reactionEmoji => $reactionCount): ?>
+                <span class="comment-reaction-summary-item" title="<?php echo s2_htmlencode($reactionEmoji . ': ' . $reactionCount); ?>"><span aria-hidden="true"><?php echo s2_htmlencode($reactionEmoji); ?></span><span><?php echo $reactionCount; ?></span></span>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
     </div>
     <?php if (!$isPreview): ?>
         <div class="comment-actions">

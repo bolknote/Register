@@ -80,6 +80,7 @@ return [
     'Comment not found'      => 'Comment not found.',
     'Site author'            => 'author',
     'Comment permalink'      => 'Permanent link to comment No. %number%',
+    'Reactions'              => 'Reactions',
     'Email privacy note'     => 'Not published unless you allow it below.',
     'Formatting help'        => 'Formatting',
 

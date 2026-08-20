@@ -12,11 +12,46 @@ namespace integration;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Module\Reactions\Manifest;
+use Register\Module\Reactions\ReactionAggregateSchema;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use S2\Cms\Pdo\DbLayer;
 
 final class ReactionsCest
 {
+    public function rendersImportedTotalsWithoutSyntheticVisitors(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $contentId = $this->insertPost($dbLayer, 'imported-aggregate-reaction-post');
+        foreach ([['like', '👍', 3, 'like'], ['', '🔥', 2, 'fire']] as [$reaction, $emoji, $count, $key]) {
+            $dbLayer->insert(ReactionAggregateSchema::TABLE_NAME)->values([
+                'target_type' => "'post'",
+                'target_id' => ':target_id',
+                'source' => "'test-archive'",
+                'source_key' => ':source_key',
+                'reaction' => ':reaction',
+                'emoji' => ':emoji',
+                'reaction_count' => ':reaction_count',
+                'created_at' => ':created_at',
+                'source_data' => "'{}'",
+            ])->execute([
+                'target_id' => $contentId,
+                'source_key' => $key,
+                'reaction' => $reaction,
+                'emoji' => $emoji,
+                'reaction_count' => $count,
+                'created_at' => time(),
+            ]);
+        }
+
+        $I->amOnPage('https://localhost/imported-aggregate-reaction-post');
+        $I->seeResponseCodeIs(200);
+        $I->seeElement('[data-register-reactions] [data-reaction="like"][data-count="3"]');
+        $I->see('🔥', '.register-reaction-imported');
+        $I->see('2', '.register-reaction-imported .register-reaction-count');
+        $I->assertSame(0, (int)$dbLayer->select('COUNT(*)')->from(Manifest::TABLE_NAME)->execute()->result());
+    }
+
     public function rendersCompactReactionsOnEveryPostInTheBlogList(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

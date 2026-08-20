@@ -90,6 +90,15 @@ final readonly class ReactionRenderer
             );
         }
 
+        foreach ($state->extraCounts as $emoji => $count) {
+            $chips .= sprintf(
+                '<span class="register-reaction-chip register-reaction-imported is-visible" title="%s"><span class="register-reaction-emoji" aria-hidden="true">%s</span><span class="register-reaction-count">%d</span></span>',
+                s2_htmlencode($emoji . ': ' . $count),
+                s2_htmlencode($emoji),
+                $count,
+            );
+        }
+
         $groupLabel  = s2_htmlencode($this->translator->trans('reaction.group'));
         $chooseLabel = s2_htmlencode($this->translator->trans('reaction.choose'));
         $saved       = s2_htmlencode($this->translator->trans('reaction.saved'));

@@ -65,6 +65,15 @@
     background: color-mix(in srgb, var(--reaction-field) 64%, transparent);
 }
 
+.register-reaction-imported {
+    cursor: default;
+}
+
+.register-reaction-imported:hover {
+    color: var(--reaction-muted);
+    background: transparent;
+}
+
 .register-reaction-chip[aria-pressed="true"] {
     color: var(--reaction-accent);
     background: transparent;

@@ -296,6 +296,7 @@ class Integration extends AbstractBrowserModule
         $dbLayer->dropTable(\Register\Module\LinkHealth\Manifest::CHECK_TABLE);
         $dbLayer->dropTable(\Register\Module\LinkHealth\Manifest::CONTENT_LINK_TABLE);
         $dbLayer->dropTable(\Register\Module\LinkHealth\Manifest::TARGET_TABLE);
+        $dbLayer->dropTable(\Register\Module\Reactions\ReactionAggregateSchema::TABLE_NAME);
         $dbLayer->dropTable('register_reaction');
         $dbLayer->dropTable('register_visitor_fingerprint');
         $dbLayer->dropTable('register_visitor');

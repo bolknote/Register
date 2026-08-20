@@ -179,6 +179,18 @@ final class StringHelperTest extends Unit
         self::assertSame($expected, $result);
     }
 
+    public function testBbcodeToHtmlRendersOnlyManagedImportedAttachments(): void
+    {
+        $managed = '[IMG]/_pictures/bolknote/telegram/comments/20230820.jpg[/IMG]';
+        self::assertSame(
+            '<figure class="comment-media"><img src="/_pictures/bolknote/telegram/comments/20230820.jpg" alt="" loading="lazy" decoding="async"></figure>',
+            StringHelper::bbcodeToHtml($managed, 'wrote:'),
+        );
+
+        $external = '[IMG]https://tracker.example/pixel.gif[/IMG]';
+        self::assertStringContainsString('[IMG]', StringHelper::bbcodeToHtml($external, 'wrote:'));
+    }
+
     public function testUtf8Wordwrap(): void
     {
         $input = "Это длинная строка на русском языке которая должна быть разбита на несколько строк";

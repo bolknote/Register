@@ -17,16 +17,19 @@ final readonly class ReactionState
     public function __construct(
         public array         $counts,
         public ?ReactionType $selected,
+        /** @var array<string, int> Exact imported emoji which do not belong to the built-in picker. */
+        public array         $extraCounts = [],
     ) {
     }
 
-    /** @return array{counts: array<string, int>, selected: string|null, total: int} */
+    /** @return array{counts: array<string, int>, extra: array<string, int>, selected: string|null, total: int} */
     public function toArray(): array
     {
         return [
             'counts'   => $this->counts,
+            'extra'    => $this->extraCounts,
             'selected' => $this->selected?->value,
-            'total'    => array_sum($this->counts),
+            'total'    => array_sum($this->counts) + array_sum($this->extraCounts),
         ];
     }
 }

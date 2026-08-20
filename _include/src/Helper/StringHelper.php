@@ -130,6 +130,30 @@ class StringHelper
     {
         $s = str_replace(["''", "\r"], ['"', ''], $s);
 
+        // Imported archives can attach only files from Register's managed Telegram directory.
+        // Keeping this deliberately narrow prevents ordinary comment BBCode from becoming an
+        // arbitrary external image/tracking embed.
+        $s = preg_replace_callback(
+            '~\[(IMG|VIDEO|AUDIO|FILE)\](/_pictures/bolknote/telegram/[A-Za-z0-9._/@%-]+)\[/\1\]~i',
+            static function (array $matches): string {
+                $kind = strtoupper($matches[1]);
+                $url = $matches[2];
+
+                return match ($kind) {
+                    'IMG' => '<figure class="comment-media"><img src="' . $url
+                        . '" alt="" loading="lazy" decoding="async"></figure>',
+                    'VIDEO' => '<figure class="comment-media"><video src="' . $url
+                        . '" controls preload="metadata"></video></figure>',
+                    'AUDIO' => '<span class="comment-media"><audio src="' . $url
+                        . '" controls preload="metadata"></audio></span>',
+                    'FILE' => '<a class="comment-media-file" href="' . $url . '">'
+                        . s2_htmlencode(rawurldecode(basename($url))) . '</a>',
+                    default => throw new \LogicException('Unsupported managed comment attachment.'),
+                };
+            },
+            $s,
+        ) ?? throw new \RuntimeException('Invalid managed comment attachment pattern.');
+
         $s = preg_replace('#\[I\](.*?)\[/I\]#isS', '<em>\1</em>', $s) ?? throw new \RuntimeException('Invalid BBCode pattern.');
         $s = preg_replace('#\[B\](.*?)\[/B\]#isS', '<strong>\1</strong>', $s) ?? throw new \RuntimeException('Invalid BBCode pattern.');
 

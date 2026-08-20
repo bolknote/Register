@@ -4088,6 +4088,47 @@ html:has(.files-archive-gray-demo) {
     }
 }
 
+.comment-reaction-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    margin: .42rem 0 0;
+    font-family: var(--ui-font);
+    font-size: .78em;
+}
+
+.comment-reaction-summary-item {
+    display: inline-flex;
+    align-items: center;
+    gap: .2rem;
+    padding: .08rem .35rem;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    color: var(--minor-color);
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", var(--ui-font);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.35;
+}
+
+.comment-media {
+    display: block;
+    max-width: min(100%, 50rem);
+    margin: .7rem 0;
+}
+
+.comment-media img,
+.comment-media video,
+.comment-media audio {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: .35rem;
+}
+
+.comment-media audio {
+    width: min(100%, 32rem);
+}
+
 @media print {
     :root {
         color-scheme: light;

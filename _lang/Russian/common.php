@@ -80,6 +80,7 @@ return [
     'Comment not found'      => 'Комментарий не найден.',
     'Site author'            => 'автор',
     'Comment permalink'      => 'Постоянная ссылка на комментарий № %number%',
+    'Reactions'              => 'Реакции',
     'Email privacy note'     => 'Не публикуется без вашего разрешения.',
     'Formatting help'        => 'Как оформить текст',
 

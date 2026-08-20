@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Comment;
 
 use Register\Content\ContentId;
+use Register\Module\Reactions\ReactionAggregateSchema;
 use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\Comment\CommentModerationContext;
 use S2\Cms\Model\Comment\CommentModerator;
@@ -45,7 +46,7 @@ final readonly class ContentCommentRenderer
             ->limit(1)
             ->getSql()
         ;
-        $comments = $this->dbLayer
+        $commentRows = $this->dbLayer
             ->select(
                 'c.id, c.parent_id, c.nick, c.time, c.modify_time, c.email, c.show_email, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
                 '(' . $authorComment . ') AS is_author',
@@ -59,6 +60,14 @@ final readonly class ContentCommentRenderer
             ->execute()
             ->fetchAssocAll()
         ;
+        $comments = [];
+        foreach ($commentRows as $commentRow) {
+            if (!is_array($commentRow)) {
+                throw new \UnexpectedValueException('A comment query returned an invalid row.');
+            }
+            $comments[] = $commentRow;
+        }
+        $this->attachImportedReactionSummaries($comments);
 
         $moderator = $this->authProvider->getAuthenticatedCommentModerator($request);
 
@@ -77,5 +86,50 @@ final readonly class ContentCommentRenderer
         return '<div class="live-comments-region" data-live-region="' . s2_htmlencode($region) . '">'
             . $this->render($contentId, $request, $returnPath)
             . '</div>';
+    }
+
+    /** @param list<array<string, mixed>> $comments */
+    private function attachImportedReactionSummaries(array &$comments): void
+    {
+        if ($comments === [] || !$this->dbLayer->tableExists(ReactionAggregateSchema::TABLE_NAME)) {
+            return;
+        }
+
+        $parameters = [];
+        $placeholders = [];
+        $positions = [];
+        foreach ($comments as $position => $comment) {
+            $id = (int)($comment['id'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            $parameter = 'comment_reaction_id_' . $id;
+            $parameters[$parameter] = $id;
+            $placeholders[] = ':' . $parameter;
+            $positions[$id] = $position;
+            $comments[$position]['reaction_summary'] = [];
+        }
+        if ($placeholders === []) {
+            return;
+        }
+
+        $rows = $this->dbLayer->select('target_id', 'emoji', 'SUM(reaction_count) AS reaction_count')
+            ->from(ReactionAggregateSchema::TABLE_NAME)
+            ->where("target_type = 'comment'")
+            ->andWhere('target_id IN (' . implode(', ', $placeholders) . ')')
+            ->groupBy('target_id', 'emoji')
+            ->orderBy('target_id, reaction_count DESC, emoji')
+            ->execute($parameters)
+            ->fetchAssocAll()
+        ;
+        foreach ($rows as $row) {
+            $targetId = (int)$row['target_id'];
+            $position = $positions[$targetId] ?? null;
+            $emoji = trim((string)$row['emoji']);
+            $count = (int)$row['reaction_count'];
+            if (is_int($position) && $emoji !== '' && $count > 0) {
+                $comments[$position]['reaction_summary'][$emoji] = $count;
+            }
+        }
     }
 }

@@ -36,13 +36,13 @@ final class Manifest implements BaseModuleInstallerInterface
     #[\Override]
     public function getDescription(): string
     {
-        return 'Anonymous emoji reactions for posts and permanent pages.';
+        return 'Anonymous and imported aggregate emoji reactions for content and comments.';
     }
 
     #[\Override]
     public function getVersion(): string
     {
-        return '1.0dev';
+        return '1.1dev';
     }
 
     #[\Override]
@@ -74,5 +74,7 @@ final class Manifest implements BaseModuleInstallerInterface
                 )
             ;
         });
+
+        ReactionAggregateSchema::create($dbLayer);
     }
 }
