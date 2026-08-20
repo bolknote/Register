@@ -92,18 +92,19 @@ final readonly class SharedHostingDistributionBuilder
     ];
 
     private const array PUBLIC_ROOT_ENTRIES = [
-        '.htaccess'       => true,
-        '_admin'          => true,
-        '_assets'         => true,
-        '_cache'          => true,
-        '_extensions'     => true,
-        '_pictures'       => true,
-        '_styles'         => true,
-        '_vendor'         => true,
-        'favicon.ico'     => true,
-        'index.php'       => true,
-        'robots.txt'      => true,
-        'site.webmanifest' => true,
+        '.htaccess'         => true,
+        '_admin'            => true,
+        '_assets'           => true,
+        '_cache'            => true,
+        '_extensions'       => true,
+        '_pictures'         => true,
+        '_styles'           => true,
+        '_vendor'           => true,
+        'favicon.ico'       => true,
+        'index.php'         => true,
+        'robots.txt'        => true,
+        'service-worker.js' => true,
+        'site.webmanifest'  => true,
     ];
 
     private const array ACTIVE_EXTENSIONS = [
@@ -163,6 +164,7 @@ final readonly class SharedHostingDistributionBuilder
             $this->copyPublicSources($publicRoot);
             $this->writeEntrypoints($publicRoot);
             $this->copyExactFile($this->sourceRoot . '/.htaccess', $publicRoot . '/.htaccess', 0644);
+            $this->copyExactFile($this->sourceRoot . '/service-worker.js', $publicRoot . '/service-worker.js', 0644);
             $this->copyOptionalRootMetadata($publicRoot);
             $this->copyExactFile(
                 $this->sourceRoot . '/_doc/shared-hosting.md',

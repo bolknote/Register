@@ -15,3 +15,13 @@ html #content .e2-text-proportional-wrapper > :where(img, video) {
     height: auto;
     margin: 0;
 }
+
+/* The small second scan completes the packet behind the opening paragraph. */
+@media screen and (min-width: 1200px) {
+    html #content .bolk-spine-local {
+        margin: 0 !important;
+        background: url("/_pictures/bolknote/images/20200322.1@2x.jpg") no-repeat;
+        background-position: 439px 40px;
+        background-size: 112px 88px;
+    }
+}

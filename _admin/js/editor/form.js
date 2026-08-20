@@ -47,6 +47,10 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
     }
 
     decorateForm(statusData);
+    const editorTextarea = eForm.elements[sTextareaName];
+    const previewFrame = editorTextarea && editorTextarea.id
+        ? document.getElementById(editorTextarea.id + '-preview-frame')
+        : null;
     initPreviewSync(eForm, sTextareaName);
 
     async function saveForm(event) {
@@ -215,7 +219,14 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             if (previousText !== currentText) {
                 const absoluteUrl = new URL(eForm.action);
                 const id = absoluteUrl.searchParams.get('id');
-                Preview(eForm.elements['title'].value, currentText, id, sTemplateId || eForm.elements['template'].value, sTemplateScope);
+                Preview(
+                    eForm.elements['title'].value,
+                    currentText,
+                    id,
+                    sTemplateId || eForm.elements['template'].value,
+                    sTemplateScope,
+                    previewFrame
+                );
                 previousText = currentText;
             }
         }
@@ -281,7 +292,14 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         setInterval(checkChanges, 5000);
         const absoluteUrl = new URL(eForm.action);
         const id = absoluteUrl.searchParams.get('id');
-        Preview(eForm.elements['title'].value, eTextarea.value, id, sTemplateId || eForm.elements['template'].value, sTemplateScope);
+        Preview(
+            eForm.elements['title'].value,
+            eTextarea.value,
+            id,
+            sTemplateId || eForm.elements['template'].value,
+            sTemplateScope,
+            previewFrame
+        );
         document.addEventListener('save_article_end.s2', markSaved);
 
         return {

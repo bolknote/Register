@@ -31,9 +31,9 @@ RewriteRule ^(?!(?:index\.php|_admin/(?:ajax|index|install|pictman)\.php)$).+\.(
 # including PHP metadata and nested tool caches, remains unreachable.
 RewriteRule ^_cache/(?![A-Z0-9_-]+\.[0-9A-F]+\.(?:css|js)(?:\.gz)?$) - [F,L,NC]
 
-# Only the front controller and conventional site metadata are public files at
-# the repository root. This also protects SQLite databases with custom names.
-RewriteRule ^(?!(?:index\.php|robots\.txt|favicon\.ico|site\.webmanifest)$)[^/]+$ - [F,L,NC]
+# Only the front controller, offline worker, and conventional site metadata are
+# public files at the repository root. This also protects SQLite databases with custom names.
+RewriteRule ^(?!(?:index\.php|robots\.txt|favicon\.ico|site\.webmanifest|service-worker\.js)$)[^/]+$ - [F,L,NC]
 
 # Uncomment and properly set the RewriteBase if the rewrite rules are not working properly
 #RewriteBase /

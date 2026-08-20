@@ -1,0 +1,40 @@
+html body > .register-offline-warning {
+    position: sticky;
+    top: 0;
+    z-index: 10000;
+    display: flex;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8em;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0.65em max(1em, env(safe-area-inset-right)) 0.65em max(1em, env(safe-area-inset-left));
+    color: #2b2100;
+    background: #ffe082;
+    border: 0;
+    border-bottom: 1px solid #b88900;
+    font: 600 0.95rem/1.4 system-ui, sans-serif;
+    text-align: left;
+}
+
+html body > .register-offline-warning[hidden] {
+    display: none;
+}
+
+.register-offline-warning-reload {
+    flex: none;
+    padding: 0.35em 0.7em;
+    color: inherit;
+    background: transparent;
+    border: 1px solid currentcolor;
+    border-radius: 0.25em;
+    font: inherit;
+    cursor: pointer;
+}
+
+.register-offline-warning-reload:hover,
+.register-offline-warning-reload:focus-visible {
+    background: rgb(255 255 255 / 35%);
+}

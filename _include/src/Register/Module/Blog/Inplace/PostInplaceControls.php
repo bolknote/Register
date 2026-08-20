@@ -25,7 +25,7 @@ final readonly class PostInplaceControls
     }
 
     /**
-     * @return array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string}|null
+     * @return array{action_url: string, admin_edit_url: string, editor_module_url: string, token: string, revision: int, return_to: string}|null
      */
     public function forPost(Request $request, int $postId, ?int $authorId, int $revision): ?array
     {
@@ -41,6 +41,7 @@ final readonly class PostInplaceControls
                 'action=edit',
                 'id=' . $postId,
             ]),
+            'editor_module_url' => $this->urlBuilder->rawLink('/_admin/js/editor/inplace.js'),
             'token'         => $this->tokenManager->issue($editor, $postId),
             'revision'      => $revision,
             'return_to'     => $request->getPathInfo(),

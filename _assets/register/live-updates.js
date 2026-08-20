@@ -119,7 +119,7 @@
 
     function schedule(delay) {
         window.clearTimeout(timer);
-        if (document.hidden) {
+        if (document.hidden || !navigator.onLine) {
             return;
         }
         timer = window.setTimeout(poll, Math.max(0, delay));
@@ -166,10 +166,12 @@
                 }
             }
             applyPendingPatches();
+            document.dispatchEvent(new CustomEvent('register:live-synchronized'));
 
             retryCount = 0;
             nextDelay = payload.more === true ? 0 : pollInterval + Math.floor(Math.random() * 1500);
         } catch (_error) {
+            document.dispatchEvent(new CustomEvent('register:live-unavailable'));
             retryCount += 1;
             nextDelay = Math.min(maximumRetryInterval, pollInterval * (2 ** Math.min(retryCount, 2)))
                 + Math.floor(Math.random() * 2000);
@@ -194,6 +196,16 @@
         }
     });
     document.addEventListener('register:live-unlock', applyPendingPatches);
+    window.addEventListener('offline', () => {
+        window.clearTimeout(timer);
+        document.dispatchEvent(new CustomEvent('register:live-unavailable'));
+    });
+    window.addEventListener('online', () => {
+        refreshRequested = true;
+        if (!inFlight) {
+            schedule(0);
+        }
+    });
 
     schedule(1000);
 })();

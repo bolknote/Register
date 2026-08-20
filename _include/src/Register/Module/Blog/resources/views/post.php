@@ -18,11 +18,15 @@ declare(strict_types = 1);
 /** @var string $favoritePostsUrl */
 /** @var bool $showComments */
 /** @var bool $enabledComments */
-/** @var array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string}|null $inplace */
+/** @var array{action_url: string, admin_edit_url: string, editor_module_url: string, token: string, revision: int, return_to: string}|null $inplace */
 
 $heading     = empty($title_link) ? 'h1' : 'h2';
 $inplaceData = isset($inplace) && \is_array($inplace) ? $inplace : null;
 $postId      = (int)$id;
+$editorId    = 'post-inplace-body-' . $postId;
+$bodyEditor  = $inplaceData === null
+    ? null
+    : (new \S2\Cms\AdminYard\Form\HtmlTextarea('body'))->setValue((string)$text);
 ?>
 <article
     class="post-card<?php echo $inplaceData !== null ? ' is-manageable' : ''; ?>"
@@ -39,15 +43,26 @@ $postId      = (int)$id;
     <a class="post-inplace-button post-edit-start" href="<?php echo s2_htmlencode($inplaceData['admin_edit_url']); ?>" title="<?php echo $trans('Edit post inplace'); ?>" aria-label="<?php echo $trans('Edit post inplace'); ?>"><span aria-hidden="true">✏️</span></a>
     <button class="post-inplace-button post-delete-start" type="button" title="<?php echo $trans('Delete post inplace'); ?>" aria-label="<?php echo $trans('Delete post inplace'); ?>"><span aria-hidden="true">🗑️</span></button>
 </nav>
-<form class="post-inplace-edit-form" method="post" action="<?php echo s2_htmlencode($inplaceData['action_url']); ?>" hidden>
+<form
+    class="post-inplace-edit-form"
+    method="post"
+    action="<?php echo s2_htmlencode($inplaceData['action_url']); ?>"
+    data-editor-module="<?php echo s2_htmlencode($inplaceData['editor_module_url']); ?>"
+    data-editor-load-error="<?php echo s2_htmlencode($trans('Post editor loading failed')); ?>"
+    data-editor-preview-error="<?php echo s2_htmlencode($trans('Post editor preview failed')); ?>"
+    hidden
+>
     <label class="post-inplace-field post-inplace-title-field">
         <span><?php echo $trans('Post title'); ?></span>
         <input name="title" type="text" value="<?php echo s2_htmlencode($title); ?>" maxlength="255" required>
     </label>
-    <label class="post-inplace-field post-inplace-body-field">
+    <div class="post-inplace-field post-inplace-body-field">
         <span><?php echo $trans('Post text'); ?></span>
-        <textarea name="body" rows="18"><?php echo s2_htmlencode($text); ?></textarea>
-    </label>
+        <p class="post-inplace-editor-loading" role="status"><?php echo $trans('Post editor loading'); ?></p>
+        <div class="post-inplace-html-editor" data-html-editor-root>
+            <?php echo $bodyEditor?->getHtmlWithWrapper($trans, $editorId, $trans('Post text')); ?>
+        </div>
+    </div>
     <input type="hidden" name="inplace_action" value="edit">
     <input type="hidden" name="inplace_token" value="<?php echo s2_htmlencode($inplaceData['token']); ?>">
     <input type="hidden" name="revision" value="<?php echo $inplaceData['revision']; ?>">

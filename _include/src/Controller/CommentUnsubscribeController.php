@@ -49,7 +49,7 @@ readonly class CommentUnsubscribeController implements ControllerInterface
                         ->putInPlaceholder('text', $this->translator->trans('Unsubscribed OK info'))
                     ;
 
-                    return $template->toHttpResponse();
+                    return $this->privateResponse($template->toHttpResponse());
                 }
             }
         }
@@ -60,6 +60,13 @@ readonly class CommentUnsubscribeController implements ControllerInterface
             ->putInPlaceholder('text', $this->translator->trans('Unsubscribed failed info'))
         ;
 
-        return $template->toHttpResponse();
+        return $this->privateResponse($template->toHttpResponse());
+    }
+
+    private function privateResponse(Response $response): Response
+    {
+        $response->headers->set('Cache-Control', 'no-store, private');
+
+        return $response;
     }
 }

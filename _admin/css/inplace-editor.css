@@ -1,0 +1,241 @@
+/* Shared administration HTML editor when mounted inside a public post card. */
+
+.post-inplace-html-editor {
+    --inplace-editor-border: color-mix(in srgb, currentColor 22%, transparent);
+    --inplace-editor-soft-border: color-mix(in srgb, currentColor 12%, transparent);
+    --inplace-editor-surface: color-mix(in srgb, Canvas 96%, currentColor 4%);
+    --inplace-editor-field: Canvas;
+    --inplace-editor-hover: color-mix(in srgb, currentColor 8%, transparent);
+    min-width: 0;
+    color: CanvasText;
+    color-scheme: light dark;
+}
+
+.post-inplace-html-editor .toolbar {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--inplace-editor-border);
+    border-bottom: 0;
+    border-radius: 0.45rem 0.45rem 0 0;
+    background: var(--inplace-editor-surface);
+    font: 500 0.78rem/1.2 system-ui, sans-serif;
+}
+
+.post-inplace-html-editor .toolbar-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.05rem;
+    padding-right: 0.25rem;
+    border-right: 1px solid var(--inplace-editor-soft-border);
+}
+
+.post-inplace-html-editor .toolbar button {
+    display: inline-grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 0.3rem;
+    background: transparent;
+    color: inherit;
+    font: 600 0.78rem/1 system-ui, sans-serif;
+    cursor: pointer;
+}
+
+.post-inplace-html-editor .toolbar button:hover,
+.post-inplace-html-editor .toolbar button:focus-visible {
+    border-color: var(--inplace-editor-border);
+    background: var(--inplace-editor-hover);
+    outline: none;
+}
+
+.post-inplace-html-editor .toolbar button.undo::before { content: "↶"; font-size: 1.25rem; }
+.post-inplace-html-editor .toolbar button.redo::before { content: "↷"; font-size: 1.25rem; }
+.post-inplace-html-editor .toolbar button.b::before { content: "B"; font-weight: 800; }
+.post-inplace-html-editor .toolbar button.i::before { content: "I"; font-family: serif; font-size: 1rem; font-style: italic; }
+.post-inplace-html-editor .toolbar button.strike::before { content: "S"; text-decoration: line-through; }
+.post-inplace-html-editor .toolbar button.h2::before { content: "H2"; }
+.post-inplace-html-editor .toolbar button.h3::before { content: "H3"; }
+.post-inplace-html-editor .toolbar button.h4::before { content: "H4"; }
+.post-inplace-html-editor .toolbar button.a::before { content: "🔗"; font-size: 0.9rem; }
+.post-inplace-html-editor .toolbar button.img::before { content: "▧"; font-size: 1.15rem; }
+.post-inplace-html-editor .toolbar button.quote::before { content: "❝"; font-size: 1.1rem; }
+.post-inplace-html-editor .toolbar button.ul::before { content: "•≡"; }
+.post-inplace-html-editor .toolbar button.ol::before { content: "1≡"; }
+.post-inplace-html-editor .toolbar button.code::before { content: "</>"; font-size: 0.67rem; }
+.post-inplace-html-editor .toolbar button.big::before { content: "A↑"; }
+.post-inplace-html-editor .toolbar button.small::before { content: "A↓"; }
+.post-inplace-html-editor .toolbar button.sup::before { content: "x²"; }
+.post-inplace-html-editor .toolbar button.sub::before { content: "x₂"; }
+.post-inplace-html-editor .toolbar button.nobr::before { content: "↔"; font-size: 1rem; }
+.post-inplace-html-editor .toolbar button.left::before { content: "≡←"; }
+.post-inplace-html-editor .toolbar button.center::before { content: "≡"; }
+.post-inplace-html-editor .toolbar button.right::before { content: "→≡"; }
+.post-inplace-html-editor .toolbar button.justify::before { content: "☰"; }
+.post-inplace-html-editor .toolbar button.li::before { content: "•"; font-size: 1.2rem; }
+.post-inplace-html-editor .toolbar button.pre::before { content: "pre"; font-size: 0.68rem; }
+.post-inplace-html-editor .toolbar button.parag::before { content: "¶"; font-size: 1rem; }
+.post-inplace-html-editor .toolbar button.fullscreen::before { content: "⛶"; font-size: 1.05rem; }
+
+.post-inplace-html-editor .toolbar-more {
+    position: relative;
+    font-size: 0.78rem;
+    line-height: 1.2;
+}
+
+.post-inplace-html-editor .toolbar-more > summary {
+    min-height: 2rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: 0.3rem;
+    color: color-mix(in srgb, currentColor 72%, transparent);
+    cursor: pointer;
+}
+
+.post-inplace-html-editor .toolbar-more > summary:hover,
+.post-inplace-html-editor .toolbar-more > summary:focus-visible {
+    background: var(--inplace-editor-hover);
+    color: inherit;
+    outline: none;
+}
+
+.post-inplace-html-editor .toolbar-more-menu {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    display: flex;
+    width: max-content;
+    max-width: min(28rem, 80vw);
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.1rem;
+    padding: 0.4rem;
+    border: 1px solid var(--inplace-editor-border);
+    border-radius: 0.45rem;
+    background: var(--inplace-editor-surface);
+    box-shadow: 0 0.8rem 2rem color-mix(in srgb, #000 22%, transparent);
+}
+
+.post-inplace-html-editor .toolbar .fullscreen {
+    margin-left: auto;
+}
+
+.post-inplace-html-editor .html-textarea-with-preview-wrapper {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: clamp(28rem, 62vh, 48rem);
+    border: 1px solid var(--inplace-editor-border);
+    background: var(--inplace-editor-field);
+}
+
+.post-inplace-html-editor .html-textarea-wrapper,
+.post-inplace-html-editor .html-preview-wrapper {
+    position: relative;
+    min-width: 0;
+    min-height: inherit;
+}
+
+.post-inplace-html-editor .html-textarea-wrapper {
+    border-right: 1px solid var(--inplace-editor-border);
+}
+
+.post-inplace-html-editor textarea,
+.post-inplace-html-editor .CodeMirror {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    min-height: inherit;
+    border: 0;
+    border-radius: 0;
+    background: var(--inplace-editor-field);
+    color: inherit;
+    font: 0.92rem/1.55 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.post-inplace-html-editor .CodeMirror-gutters {
+    border-color: var(--inplace-editor-soft-border);
+    background: var(--inplace-editor-surface);
+}
+
+.post-inplace-html-editor .preview-frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: inherit;
+    border: 0;
+    background: Canvas;
+}
+
+.post-inplace-html-editor:fullscreen {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    padding: 1rem;
+    background: Canvas;
+}
+
+.post-inplace-html-editor:fullscreen .html-textarea-with-preview-wrapper {
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+.post-inplace-picture-dialog {
+    box-sizing: border-box;
+    width: min(92rem, 96vw);
+    height: min(54rem, 92vh);
+    padding: 2.75rem 0.5rem 0.5rem;
+    border: 1px solid color-mix(in srgb, CanvasText 24%, transparent);
+    border-radius: 0.6rem;
+    background: Canvas;
+    color: CanvasText;
+}
+
+.post-inplace-picture-dialog::backdrop {
+    background: rgb(0 0 0 / 55%);
+}
+
+.post-inplace-picture-dialog .picture-dialog-close {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.5rem;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 1.8rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.post-inplace-picture-dialog #picture_frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+@media (max-width: 52rem) {
+    .post-inplace-html-editor .html-textarea-with-preview-wrapper {
+        grid-template-columns: 1fr;
+    }
+
+    .post-inplace-html-editor .html-textarea-wrapper {
+        min-height: 26rem;
+        border-right: 0;
+        border-bottom: 1px solid var(--inplace-editor-border);
+    }
+
+    .post-inplace-html-editor .html-preview-wrapper {
+        min-height: 26rem;
+    }
+}

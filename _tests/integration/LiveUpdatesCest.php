@@ -26,6 +26,22 @@ final class LiveUpdatesCest
         $I->seeResponseCodeIs(Response::HTTP_OK);
         $I->seeElement('[data-live-region="posts:0"]');
         $I->seeElement('meta[name="register-live-updates"][data-endpoint="/_live"]');
+        $I->seeElement('meta[name="register-offline"][data-worker="/service-worker.js"][data-scope="/"][data-seed="1"]');
+        $html = $I->grabResponse();
+        $I->assertStringContainsString('/_assets/register/offline.js', $html);
+        $I->assertStringContainsString('/_assets/register/offline.css', $html);
+    }
+
+    public function keepsSensitiveServicePagesOutOfTheOfflineCache(\IntegrationTester $I): void
+    {
+        foreach (['/comment_unsubscribe', '/comment_sent'] as $path) {
+            $I->amOnPage('https://localhost' . $path);
+
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->seeElement('meta[name="register-offline"][data-seed="0"]');
+            $I->assertStringContainsString('no-store', (string)$I->grabHttpHeader('Cache-Control'));
+            $I->assertNull($I->grabHttpHeader('X-Register-Offline-Cache'));
+        }
     }
 
     public function returnsPostAndCommentChangesInOneRequest(\IntegrationTester $I): void

@@ -46,7 +46,13 @@ final class PostInplaceCest
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/author-post');
         $I->seeElement('.post-card[data-post-id="' . $ownId . '"] > .post-inplace-tools');
-        $I->seeElement('.post-inplace-edit-form[hidden]');
+        $I->seeElement('.post-inplace-edit-form[hidden][data-editor-module$="/_admin/js/editor/inplace.js"]');
+        $I->seeElement('.post-inplace-edit-form .post-inplace-html-editor[data-html-editor-root]');
+        $I->seeElement('.post-inplace-edit-form .html-toolbar button[data-editor-action="undo"]');
+        $I->seeElement('#post-inplace-body-' . $ownId . '[name="body"]');
+        $I->seeElement(
+            '#post-inplace-body-' . $ownId . '-preview-frame[name="post-inplace-body-' . $ownId . '-preview-frame"]',
+        );
         $I->seeElement('.post-delete-confirmation[hidden]');
         $I->seeElement('script[src$="/_assets/register/post-inplace.js"]');
 

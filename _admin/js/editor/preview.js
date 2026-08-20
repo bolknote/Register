@@ -129,12 +129,15 @@ export function renderPreviewError(doc, message, stylesheetUrl = '') {
     doc.body.replaceChildren(errorMessage);
 }
 
-export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTemplateScope = '') {
+export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTemplateScope = '', previewFrame = null) {
     if (!assertDeps(['s2_lang', 'sUrl'], 'Preview')) {
         return;
     }
 
-    const d = window.frames['preview_frame'].document;
+    const d = previewFrame?.contentDocument || window.frames['preview_frame']?.document;
+    if (!d) {
+        return;
+    }
     let eHeader;
     let eText;
     const sUrl = editorDeps.sUrl;

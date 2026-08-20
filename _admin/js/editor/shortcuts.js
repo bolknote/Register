@@ -9,11 +9,13 @@
 import {GetImage} from './dialogs.js';
 import {s2_codemirror} from './codemirror.js';
 
-export function initHtmlTextarea(eTextarea) {
-    if (!eTextarea) {
+let editorDocumentEventsBound = false;
+
+function bindEditorDocumentEvents() {
+    if (editorDocumentEventsBound) {
         return;
     }
-    s2_codemirror.get_instance(eTextarea);
+    editorDocumentEventsBound = true;
 
     document.addEventListener('insert_paragraph.s2', function (event) {
         const sType = event.detail.sType;
@@ -27,9 +29,22 @@ export function initHtmlTextarea(eTextarea) {
     document.addEventListener('insert_tag.s2', function (event) {
         s2_codemirror.addTag(event.detail.sStart, event.detail.sEnd);
     });
+}
+
+export function initHtmlTextarea(eTextarea) {
+    if (!eTextarea) {
+        return;
+    }
+    bindEditorDocumentEvents();
+    s2_codemirror.get_instance(eTextarea);
 
     // Use parentNode to catch events from CodeMirror.
-    eTextarea.parentNode.addEventListener('keydown', function (e) {
+    const textareaWrapper = eTextarea.parentNode;
+    if (!textareaWrapper || textareaWrapper.dataset.editorShortcutsBound === 'true') {
+        return;
+    }
+    textareaWrapper.dataset.editorShortcutsBound = 'true';
+    textareaWrapper.addEventListener('keydown', function (e) {
         function insertParagraph(sType) {
             document.dispatchEvent(new CustomEvent('insert_paragraph.s2', {detail: {sType: sType}}));
         }
@@ -73,9 +88,10 @@ export function initHtmlTextarea(eTextarea) {
 }
 
 export function initHtmlToolbar(eToolbar) {
-    if (!eToolbar) {
+    if (!eToolbar || eToolbar.dataset.editorToolbarBound === 'true') {
         return;
     }
+    eToolbar.dataset.editorToolbarBound = 'true';
 
     const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform);
     const undoButton = eToolbar.querySelector('[data-editor-action="undo"]');
@@ -129,8 +145,13 @@ export function initHtmlToolbar(eToolbar) {
                 'code': () => tagSelection('code'),
                 'parag': () => s2_codemirror.smart(),
                 'fullscreen': function () {
+                    const editorRoot = eToolbar.closest('[data-html-editor-root]')
+                        || document.getElementById('id-article-editor-block');
+                    if (!editorRoot) {
+                        return;
+                    }
                     if (!document.fullscreenElement) {
-                        document.getElementById('id-article-editor-block').requestFullscreen().catch((err) => {
+                        editorRoot.requestFullscreen().catch((err) => {
                             console.warn(
                                 `Error attempting to enable fullscreen mode: ${err.message} (${err.name})`
                             );
@@ -148,11 +169,9 @@ export function initHtmlToolbar(eToolbar) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    document.addEventListener('keydown', function (e) {
-        if (e.ctrlKey && !e.shiftKey && e.code === 'KeyS') {
-            document.dispatchEvent(new Event('save_form.s2'));
-            e.preventDefault();
-        }
-    });
+document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyS') {
+        document.dispatchEvent(new Event('save_form.s2'));
+        e.preventDefault();
+    }
 });

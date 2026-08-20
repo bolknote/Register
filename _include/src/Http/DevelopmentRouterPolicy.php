@@ -32,6 +32,11 @@ final class DevelopmentRouterPolicy
         '/_vendor/s2/admin-yard/demo/style.css',
     ];
 
+    private const array PUBLIC_ROOT_FILES = [
+        '/service-worker.js',
+        '/site.webmanifest',
+    ];
+
     private const array PUBLIC_EXTENSIONS = [
         '7z', 'avi', 'avif', 'bmp', 'bpg', 'css', 'csv', 'cur', 'doc', 'docx', 'emf', 'flac',
         'flv', 'gif', 'html', 'ico', 'jpeg', 'jpeg2000', 'jpegxr', 'jpg', 'js', 'json', 'map',
@@ -52,6 +57,10 @@ final class DevelopmentRouterPolicy
         }
 
         if (\in_array($requestPath, self::PUBLIC_VENDOR_FILES, true)) {
+            return true;
+        }
+
+        if (\in_array($requestPath, self::PUBLIC_ROOT_FILES, true)) {
             return true;
         }
 

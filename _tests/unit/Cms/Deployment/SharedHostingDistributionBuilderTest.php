@@ -61,6 +61,7 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertFileDoesNotExist($applicationDir . '/config.local.php');
 
         self::assertFileExists($publicDir . '/index.php');
+        self::assertFileExists($publicDir . '/service-worker.js');
         self::assertFileExists($publicDir . '/_admin/index.php');
         self::assertFileExists($publicDir . '/_admin/js/webauthn.js');
         self::assertFileExists($publicDir . '/_assets/register/syntax-highlighting/vendor/highlight.js/languages.json');
@@ -116,6 +117,7 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertIsString($archiveContent);
         self::assertStringStartsWith("PK\x03\x04", $archiveContent);
         self::assertStringContainsString('public_html/index.php', $archiveContent);
+        self::assertStringContainsString('public_html/service-worker.js', $archiveContent);
         self::assertStringContainsString('register-app/_include/common.php', $archiveContent);
         self::assertStringContainsString('register-app/tools/decrypt-backup.php', $archiveContent);
         self::assertStringContainsString('register-app/tools/generate-backup-keypair.php', $archiveContent);

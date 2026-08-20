@@ -12,7 +12,7 @@ const loadPictureManager = (function () {
     let wnd = null;
     return function () {
         if (!wnd) {
-            wnd = window.open('pictman.php', 'picture_frame', '');
+            wnd = window.open(editorDeps.pictureManagerUrl || 'pictman.php', 'picture_frame', '');
         }
         wnd.focus();
         wnd.document.body.focus();

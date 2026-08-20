@@ -179,9 +179,27 @@ Every code path that changes visible content must publish to `LiveUpdateReposito
 write. Public post cards expose session-bound in-place edit and delete actions only to an authorized
 author or site editor. These mutations compare the submitted `revision`, preserve fields outside the
 form, pass deletion through the shared guards, and publish through `ContentChangeDispatcher`, so the
-same aggregated live endpoint updates other open tabs. Future in-place creation must follow this path.
+same aggregated live endpoint updates other open tabs. The public edit form lazily mounts the shared
+administration `HtmlTextarea`/CodeMirror editor, including its formatting toolbar, rendered preview,
+and media manager; it must not introduce a separate raw-HTML textarea editor. Future in-place creation must follow this path.
 Adding a new live block means adding another region renderer and relevance rule, not another browser
 polling loop.
+
+## Offline public reading
+
+The root-scoped service worker keeps anonymous public HTML and the same-origin resources actually
+loaded with each visited page. Navigations remain network-first: a successful response refreshes the
+private browser cache, while a network failure returns the exact previously visited URL with an
+offline timing marker. Authenticated HTML, non-HTML responses, mutations, admin endpoints, and the
+`/_live` channel are never stored as offline pages. As required by browsers, registration works over
+HTTPS, with loopback hosts accepted for local development.
+
+An offline fallback displays a persistent stale-content warning. When connectivity returns, the
+existing `/_live` channel is scheduled immediately, so all subscribed post and comment regions are
+checked in the same aggregated request used during ordinary polling. The warning disappears only
+after that request succeeds. Pages without live regions retain a visible reload action. This is an
+offline-reading cache, not an offline mutation queue: editing and commenting still require a live
+server connection.
 
 ## Content and URL direction
 

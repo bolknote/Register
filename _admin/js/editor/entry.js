@@ -31,6 +31,7 @@ setEditorDeps({
     CodeMirror: window.CodeMirror,
     loadingIndicator: window.loadingIndicator,
     sUrl: config.sUrl || window.sUrl || null,
+    pictureManagerUrl: config.pictureManagerUrl || null,
     previewErrorStylesheet: config.previewErrorStylesheet || null,
     imageOverlayStylesheet: config.imageOverlayStylesheet || null,
     morphdom: window.morphdom || null,

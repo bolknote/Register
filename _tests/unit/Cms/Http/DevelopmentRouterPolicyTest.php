@@ -56,6 +56,13 @@ final class DevelopmentRouterPolicyTest extends Unit
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_include/src/Register/ProductModule.php', 'php'));
     }
 
+    public function testAllowsOnlyReviewedStaticFilesAtTheDocumentRoot(): void
+    {
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/service-worker.js', 'js'));
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/site.webmanifest', 'webmanifest'));
+        self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/private.js', 'js'));
+    }
+
     public function testExposesOnlyGeneratedAssetBundlesFromCache(): void
     {
         self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile(

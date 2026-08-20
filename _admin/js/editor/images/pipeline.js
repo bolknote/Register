@@ -18,6 +18,17 @@ function getLoadingIndicator() {
     return editorDeps.loadingIndicator;
 }
 
+function adminAjaxUrl(action) {
+    const baseUrl = typeof editorDeps.sUrl === 'string' && editorDeps.sUrl !== ''
+        ? editorDeps.sUrl
+        : 'ajax.php?';
+    const separator = baseUrl.includes('?')
+        ? (baseUrl.endsWith('?') || baseUrl.endsWith('&') ? '' : '&')
+        : '?';
+
+    return baseUrl + separator + 'action=' + encodeURIComponent(action);
+}
+
 function setJobSrc(job, newSrc) {
     if (job.src && imageState.pasteImageBySrc.get(job.src) === job) {
         imageState.pasteImageBySrc.delete(job.src);
@@ -117,7 +128,7 @@ function requestPictureCsrfToken(path) {
     const params = new URLSearchParams();
     params.append('path', path);
 
-    return fetch('ajax.php?action=picture_csrf_token', {
+    return fetch(adminAjaxUrl('picture_csrf_token'), {
         method: 'POST',
         body: params
     })
@@ -137,7 +148,7 @@ function reservePictureName(dir, name, csrfToken) {
     params.append('name', name);
     params.append('csrf_token', csrfToken);
 
-    return fetch('ajax.php?action=reserve_image', {
+    return fetch(adminAjaxUrl('reserve_image'), {
         method: 'POST',
         body: params
     })
@@ -323,7 +334,7 @@ export function uploadBlobToPictureDir(blob, name, extension, dir, token) {
                 formData.append('name', name);
             }
 
-            return fetch('ajax.php?action=upload', {
+            return fetch(adminAjaxUrl('upload'), {
                 method: 'POST',
                 body: formData
             });
@@ -1100,16 +1111,11 @@ export function optimizeAndUploadFile(file) {
 }
 
 let pipelineInitialized = false;
-let codemirrorHandlersBound = false;
 
 function bindCodemirrorImageHandlers() {
-    if (codemirrorHandlersBound) {
-        return;
-    }
     if (!s2_codemirror.isReady()) {
         return;
     }
-    codemirrorHandlersBound = true;
 
     s2_codemirror.onPaste(function (event) {
         var items = (event.clipboardData || event.originalEvent.clipboardData).items,
@@ -1166,12 +1172,11 @@ function bindCodemirrorImageHandlers() {
 }
 
 export function initImagePipeline() {
+    bindCodemirrorImageHandlers();
     if (pipelineInitialized) {
         return;
     }
     pipelineInitialized = true;
-
-    bindCodemirrorImageHandlers();
 
     document.addEventListener('preview_updated.s2', function (event) {
         if (!event.detail || !event.detail.wrapper) {

@@ -202,7 +202,7 @@ $renderControl = static function (
         <?php
     } elseif ($control instanceof \S2\Cms\AdminYard\Form\HtmlTextarea) {
         ?>
-        <div id="id-article-editor-block" class="article-form-control form-control-<?= $controlClass ?> field-<?= $fieldName ?>">
+        <div id="id-article-editor-block" class="article-form-control form-control-<?= $controlClass ?> field-<?= $fieldName ?>" data-html-editor-root>
             <?= $control->getHtmlWithWrapper($trans, 'id-' . $fieldName, $fieldLabel) ?>
         </div>
         <?php

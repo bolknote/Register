@@ -66,7 +66,9 @@ readonly class CommentSentController implements ControllerInterface
 
             if ($moderatorEmail === $comment->email) {
                 // We have confirmed that the moderator is the one who has really sent the comment
-                return $this->publishAndNotifyAndGetRedirectResponse($commentStrategy, $comment, $targetPath);
+                return $this->privateResponse(
+                    $this->publishAndNotifyAndGetRedirectResponse($commentStrategy, $comment, $targetPath),
+                );
             }
 
             $moderators = $this->userProvider->getModerators([$comment->email]);
@@ -105,7 +107,7 @@ readonly class CommentSentController implements ControllerInterface
             ->putInPlaceholder('text', \sprintf($this->translator->trans('Comment sent info'), s2_htmlencode($this->urlBuilder->link($targetPath)), $this->urlBuilder->link('/')))
         ;
 
-        return $template->toHttpResponse();
+        return $this->privateResponse($template->toHttpResponse());
     }
 
     private function publishAndNotifyAndGetRedirectResponse(
@@ -122,5 +124,12 @@ readonly class CommentSentController implements ControllerInterface
         $redirectLink = $this->urlBuilder->link($targetPath) . ($hash !== null ? '#' . $hash : '');
 
         return new RedirectResponse($redirectLink);
+    }
+
+    private function privateResponse(Response $response): Response
+    {
+        $response->headers->set('Cache-Control', 'no-store, private');
+
+        return $response;
     }
 }

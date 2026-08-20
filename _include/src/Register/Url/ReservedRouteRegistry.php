@@ -42,6 +42,7 @@ final readonly class ReservedRouteRegistry
         'robots.txt',
         'rss.xml',
         'search',
+        'service-worker.js',
         'sitemap.xml',
         'skip',
     ];

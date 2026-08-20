@@ -39,6 +39,7 @@ use Register\Live\LiveUpdateRepository;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Module\Blog\Model\PostFeedRenderer;
+use Register\Offline\OfflineCachePolicy;
 use Register\Schema\SchemaManager;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlAliasRepository;
@@ -58,6 +59,7 @@ use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Model\ArticleProvider;
+use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Queue\QueueHandlerInterface;
@@ -67,8 +69,11 @@ use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplateEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Registers services owned by the Register product rather than the reusable S2 foundation.
@@ -262,13 +267,33 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
     {
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
             $basePath = rtrim($container->getStringParameter('base_path'), '/');
-            $event->assetPack->addJs(
-                $basePath . '/_assets/register/live-updates.js',
-                [AssetPack::OPTION_DEFER],
-            );
+            $event->assetPack
+                ->addCss($basePath . '/_assets/register/offline.css')
+                ->addJs($basePath . '/_assets/register/offline.js', [AssetPack::OPTION_DEFER])
+                ->addJs($basePath . '/_assets/register/live-updates.js', [AssetPack::OPTION_DEFER])
+            ;
         });
 
         $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, static function (TemplateEvent $event) use ($container): void {
+            $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $request = $container->get(RequestStack::class)->getCurrentRequest();
+            $allowsInitialSeed = $request instanceof Request && OfflineCachePolicy::allowsInitialSeed(
+                $request,
+                $container->get(AuthProvider::class)->hasAuthenticatedPublicSession($request),
+            );
+            /** @var TranslatorInterface $translator */
+            $translator = $container->get('translator');
+            $event->htmlTemplate->addMetaTag(sprintf(
+                '<meta name="register-offline" data-worker="%s/service-worker.js" data-scope="%s/"'
+                    . ' data-seed="%s" data-warning="%s" data-syncing="%s" data-reload="%s">',
+                s2_htmlencode($basePath),
+                s2_htmlencode($basePath),
+                $allowsInitialSeed ? '1' : '0',
+                s2_htmlencode($translator->trans('Offline cache warning')),
+                s2_htmlencode($translator->trans('Offline cache syncing')),
+                s2_htmlencode($translator->trans('Reload current page')),
+            ));
+
             $context = $container->get(LiveUpdateContext::class);
             $cursor  = $context->cursor();
             $regions = $context->regions();

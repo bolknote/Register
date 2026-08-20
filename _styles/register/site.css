@@ -1027,6 +1027,29 @@ h2.preview,
     tab-size: 4;
 }
 
+.post-inplace-editor-loading {
+    display: none;
+    min-height: 12rem;
+    margin: 0;
+    border: 1px solid var(--border-color);
+    place-items: center;
+    background: var(--surface-background);
+    color: var(--minor-color);
+    font-weight: 500;
+}
+
+.post-inplace-edit-form.is-editor-loading .post-inplace-editor-loading {
+    display: grid;
+}
+
+.post-inplace-edit-form:not(.is-editor-ready) .post-inplace-html-editor {
+    display: none;
+}
+
+.post-inplace-edit-form.is-media-loading .post-inplace-html-editor {
+    cursor: progress;
+}
+
 .post-inplace-actions {
     display: flex;
     margin-top: 0.75rem;

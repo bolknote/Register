@@ -1,6 +1,68 @@
 (() => {
     'use strict';
 
+    let editorModulePromise = null;
+    let editorModule = null;
+    const editorRequests = new WeakMap();
+
+    function loadEditorModule(form) {
+        if (editorModulePromise) {
+            return editorModulePromise;
+        }
+        const moduleUrl = form.dataset.editorModule;
+        if (!moduleUrl) {
+            return Promise.reject(new Error('The editor module URL is missing.'));
+        }
+
+        editorModulePromise = import(new URL(moduleUrl, document.baseURI).toString())
+            .then((module) => {
+                editorModule = module;
+                return module;
+            })
+            .catch((error) => {
+                editorModulePromise = null;
+                throw error;
+            });
+
+        return editorModulePromise;
+    }
+
+    function deactivateEditor(form) {
+        editorRequests.delete(form);
+        editorModule?.closeInplaceEditor?.(form);
+        form.classList.remove('is-editor-loading', 'is-editor-ready', 'is-media-loading');
+    }
+
+    async function activateEditor(form) {
+        const request = {};
+        editorRequests.set(form, request);
+        form.classList.add('is-editor-loading');
+        form.querySelector('button[type="submit"]')?.setAttribute('disabled', 'disabled');
+
+        try {
+            const module = await loadEditorModule(form);
+            if (editorRequests.get(form) !== request || form.hidden || !form.isConnected) {
+                return;
+            }
+            const opened = await module.openInplaceEditor(form);
+            if (!opened || editorRequests.get(form) !== request || form.hidden) {
+                module.closeInplaceEditor(form);
+                return;
+            }
+            form.querySelector('button[type="submit"]')?.removeAttribute('disabled');
+        } catch (error) {
+            if (editorRequests.get(form) !== request || form.hidden) {
+                return;
+            }
+            form.classList.remove('is-editor-loading');
+            showError(
+                form,
+                form.dataset.editorLoadError
+                    || (error instanceof Error ? error.message : 'Unable to load the editor.'),
+            );
+        }
+    }
+
     function cardFor(element) {
         return element instanceof Element ? element.closest('.post-card[data-post-id]') : null;
     }
@@ -74,10 +136,12 @@
         if (!form) {
             return;
         }
+        deactivateEditor(form);
         form.reset();
         form.hidden = true;
         card.classList.remove('is-editing');
         clearError(form);
+        form.querySelector('button[type="submit"]')?.removeAttribute('disabled');
         if (restoreFocus) {
             card.querySelector(':scope > .post-inplace-tools .post-edit-start')?.focus();
         }
@@ -121,6 +185,7 @@
         form.hidden = false;
         clearError(form);
         clearStatus(card);
+        activateEditor(form);
         const title = form.elements.namedItem('title');
         if (title instanceof HTMLInputElement) {
             title.focus();
@@ -159,6 +224,8 @@
         if (!title || !currentBody || !replacementBody || typeof payload.title !== 'string') {
             throw new Error(card.dataset.applyError || 'Unable to apply the updated post.');
         }
+
+        deactivateEditor(form);
 
         title.textContent = payload.title;
         const confirmation = card.querySelector(':scope > .post-delete-confirmation');
@@ -245,6 +312,7 @@
             return;
         }
 
+        editorModule?.syncInplaceEditor?.(form);
         const buttons = form.querySelectorAll('button');
         buttons.forEach((button) => {
             button.disabled = true;

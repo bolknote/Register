@@ -78,6 +78,16 @@ readonly class AuthProvider
     }
 
     /**
+     * Whether the public request carries any valid signed-in user session.
+     *
+     * @throws DbLayerException
+     */
+    public function hasAuthenticatedPublicSession(Request $request): bool
+    {
+        return $this->getAuthenticatedUser($request) instanceof AuthenticatedPublicUser;
+    }
+
+    /**
      * Authenticates a public-side session that may edit at least its own content.
      *
      * The returned permissions still have to be checked against the content author.

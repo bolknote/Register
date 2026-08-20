@@ -36,7 +36,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Automatic URL linking | Missing | Links must be authored explicitly. |
 | Automatic tweet embedding | Missing | Embed HTML can be inserted manually. |
 | Automatic YouTube and Vimeo embedding | Missing | Media can be embedded manually with HTML. |
-| Fully offline editor | Missing | There is no service worker or offline save queue. |
+| Fully offline editor | Partial | Visited public pages reopen from a service-worker cache, but editor mutations still require the network and there is no offline save queue. |
 | Batch drag-and-drop uploads | Partial | The file manager handles uploads; direct editor drag-and-drop is focused on JPEG and PNG images. |
 | Paste an image from the clipboard | Available | Implemented in the editor image pipeline. |
 | JPG, GIF, PNG, MP3, Ogg, and MP4 uploads | Available | Included in the default extension allow-list. |

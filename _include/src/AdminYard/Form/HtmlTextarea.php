@@ -81,7 +81,7 @@ HTML;
 {$this->getHtml($id)}
     </div>
     <div class="html-preview-wrapper">
-        <iframe src="" frameborder="0" class="preview-frame" id="$id-preview-frame" name="preview_frame"></iframe>
+        <iframe src="" frameborder="0" class="preview-frame" id="$id-preview-frame" name="$id-preview-frame"></iframe>
     </div>
 </div>
 HTML;

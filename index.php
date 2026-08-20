@@ -12,6 +12,8 @@ declare(strict_types = 1);
 
 use Register\Http\ContentSecurityPolicy;
 use Register\Http\ResponseCompressor;
+use Register\Offline\OfflineCachePolicy;
+use S2\Cms\Model\AuthProvider;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
 use S2\Cms\Security\Monitoring\SecurityTelemetryRecorder;
 use Symfony\Component\HttpFoundation\Request;
@@ -62,6 +64,11 @@ $response->setExpires(new DateTimeImmutable('-1 day'));
 $response->isNotModified($request);
 
 $response->prepare($request);
+OfflineCachePolicy::apply(
+    $request,
+    $response,
+    $app->container->get(AuthProvider::class)->hasAuthenticatedPublicSession($request),
+);
 $shutdownCoordinator->closeSession();
 
 if ($response->isInformational() || $response->isEmpty() || $response->getContent() === false || $response->getContent() === '') {
