@@ -223,6 +223,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(\S2\Cms\Controller\PageCommon::class),
             $container->get(PostPageController::class),
             $container->get(ContentUrlAliasController::class),
+            $container->get(UrlBuilder::class),
         ));
         $container->set(ContentUrlAliasController::class, static fn(Container $container): ContentUrlAliasController => new ContentUrlAliasController(
             $container->get(ContentUrlAliasRepository::class),

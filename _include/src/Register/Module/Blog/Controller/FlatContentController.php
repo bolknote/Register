@@ -8,6 +8,8 @@ use Register\Url\ContentUrlAliasController;
 use S2\Cms\Controller\PageCommon;
 use S2\Cms\Framework\ControllerInterface;
 use S2\Cms\Model\ArticleProvider;
+use S2\Cms\Model\UrlBuilder;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -21,6 +23,7 @@ readonly class FlatContentController implements ControllerInterface
         private PageCommon         $pageController,
         private PostPageController $postController,
         private ContentUrlAliasController $aliasController,
+        private UrlBuilder         $urlBuilder,
     ) {
     }
 
@@ -31,8 +34,19 @@ readonly class FlatContentController implements ControllerInterface
             return $this->pageController->handle($request);
         }
 
+        $path = $request->getPathInfo();
+        if ($path !== '/' && str_ends_with($path, '/')) {
+            $target = $this->urlBuilder->link(rtrim($path, '/'));
+            $query = $request->getQueryString();
+            if (is_string($query) && $query !== '') {
+                $target .= '?' . $query;
+            }
+
+            return new RedirectResponse($target, Response::HTTP_MOVED_PERMANENTLY);
+        }
+
         $redirect = $this->aliasController->redirect($request);
-        if ($redirect instanceof \Symfony\Component\HttpFoundation\RedirectResponse) {
+        if ($redirect instanceof RedirectResponse) {
             return $redirect;
         }
 
