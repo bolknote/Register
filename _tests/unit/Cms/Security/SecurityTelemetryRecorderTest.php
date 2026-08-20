@@ -35,6 +35,7 @@ final class SecurityTelemetryRecorderTest extends Unit
                 unlink($file);
             }
         }
+
         if (is_dir($this->directory)) {
             rmdir($this->directory);
         }

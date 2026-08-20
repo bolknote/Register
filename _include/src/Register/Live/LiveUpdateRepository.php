@@ -51,6 +51,7 @@ final readonly class LiveUpdateRepository
         if ($cursor < 0) {
             throw new \InvalidArgumentException('A live-update cursor cannot be negative.');
         }
+
         if ($limit < 1) {
             throw new \InvalidArgumentException('A live-update limit must be positive.');
         }

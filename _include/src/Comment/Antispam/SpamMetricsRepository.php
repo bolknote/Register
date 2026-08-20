@@ -124,7 +124,7 @@ final readonly class SpamMetricsRepository
             ->fetchAssoc()
         ;
         $textModel = $this->textModelRepository->get();
-        $textMetrics = $textModel === null ? [] : $textModel->metrics;
+        $textMetrics = $textModel instanceof \S2\Cms\Comment\Antispam\SpamTextModel ? $textModel->metrics : [];
         $holdoutSpam = $textMetrics['holdout_spam'] ?? 0;
         $holdoutHam = $textMetrics['holdout_ham'] ?? 0;
 
@@ -135,7 +135,7 @@ final readonly class SpamMetricsRepository
             'active_rules'       => (int)($rules['active_rules'] ?? 0),
             'reputation_records' => (int)($reputation['reputation_records'] ?? 0),
             'text_model_examples'=> ($textMetrics['training_spam'] ?? 0) + ($textMetrics['training_ham'] ?? 0),
-            'text_model_features'=> $textModel === null ? 0 : count($textModel->weights),
+            'text_model_features'=> $textModel instanceof \S2\Cms\Comment\Antispam\SpamTextModel ? count($textModel->weights) : 0,
             'text_model_holdout_recall_tenths' => $holdoutSpam === 0
                 ? 0
                 : (int)round(1_000 * ($textMetrics['holdout_true_positive'] ?? 0) / $holdoutSpam),

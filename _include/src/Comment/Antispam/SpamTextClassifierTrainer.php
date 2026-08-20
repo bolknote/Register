@@ -131,6 +131,7 @@ final readonly class SpamTextClassifierTrainer
                 $spamCounts[$feature] = ($spamCounts[$feature] ?? 0) + 1;
             }
         }
+
         $hamCounts = [];
         foreach ($ham as $example) {
             foreach ($this->featureExtractor->features($example['name'], $example['text']) as $feature) {
@@ -149,16 +150,16 @@ final readonly class SpamTextClassifierTrainer
                 continue;
             }
 
-            $spamRate = ($spamCount + 0.5) / ($spamTotal + 1);
-            $hamRate = ($hamCount + 0.5) / ($hamTotal + 1);
+            $spamRate = ((float)$spamCount + 0.5) / (float)($spamTotal + 1);
+            $hamRate = ((float)$hamCount + 0.5) / (float)($hamTotal + 1);
             $enrichment = $spamRate / $hamRate;
-            $weight = (int)round(100 * log($enrichment));
+            $weight = (int)round(100.0 * log($enrichment));
             $weight = max(-1_200, min(1_200, $weight));
             if ($weight === 0) {
                 continue;
             }
 
-            $rank = abs($weight) * log(2 + ($weight > 0 ? $spamCount : $hamCount));
+            $rank = (float)abs($weight) * log((float)(2 + ($weight > 0 ? $spamCount : $hamCount)));
             if ($weight >= 300 && $spamCount >= 2) {
                 $positive[$feature] = ['weight' => $weight, 'rank' => $rank];
             }
@@ -170,10 +171,12 @@ final readonly class SpamTextClassifierTrainer
         if (!\is_string($key)) {
             throw new \InvalidArgumentException('The spam text-model salt cannot be decoded.');
         }
+
         foreach (array_slice($positive, 0, self::MAX_POSITIVE_WEIGHTS, true) as $feature => $data) {
             $hash = rtrim(strtr(base64_encode(sodium_crypto_shorthash($feature, $key)), '+/', '-_'), '=');
             $weights[$hash] = $data['weight'];
         }
+
         ksort($weights, SORT_STRING);
 
         return new SpamTextModel($salt, $weights, 0, $trainedAt, []);
@@ -188,7 +191,7 @@ final readonly class SpamTextClassifierTrainer
         $training = [];
         $holdout = [];
         foreach ($examples as $example) {
-            $partition = hexdec(substr(hash('sha256', $example['key']), 0, 8)) % self::HOLDOUT_DIVISOR;
+            $partition = intval(substr(hash('sha256', $example['key']), 0, 8), 16) % self::HOLDOUT_DIVISOR;
             if ($partition === 0) {
                 $holdout[] = $example;
             } else {

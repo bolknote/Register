@@ -11,6 +11,9 @@ namespace S2\Cms\Comment\Antispam;
 
 use S2\Cms\Pdo\DbLayerException;
 
+/**
+ * @see \S2\Cms\Comment\Antispam\SpamTextClassifierTest
+ */
 final readonly class SpamTextClassifier
 {
     public function __construct(
@@ -23,8 +26,11 @@ final readonly class SpamTextClassifier
     public function matches(string $name, string $text): bool
     {
         $model = $this->repository?->get();
+        if (!$model instanceof \S2\Cms\Comment\Antispam\SpamTextModel) {
+            return false;
+        }
 
-        return $model !== null && $this->score($model, $name, $text) >= $model->threshold;
+        return $this->score($model, $name, $text) >= $model->threshold;
     }
 
     public function score(SpamTextModel $model, string $name, string $text): int
@@ -36,10 +42,11 @@ final readonly class SpamTextClassifier
             if ($weight === null) {
                 continue;
             }
+
             $sum += $weight;
             ++$matched;
         }
 
-        return $matched === 0 ? 0 : (int)round($sum / sqrt($matched));
+        return $matched === 0 ? 0 : (int)round((float)$sum / sqrt((float)$matched));
     }
 }

@@ -65,9 +65,11 @@ final readonly class ContentCommentRenderer
             if (!is_array($commentRow)) {
                 throw new \UnexpectedValueException('A comment query returned an invalid row.');
             }
+
             $comments[] = $commentRow;
         }
-        $this->attachImportedReactionSummaries($comments);
+
+        $comments = $this->attachImportedReactionSummaries($comments);
 
         $moderator = $this->authProvider->getAuthenticatedCommentModerator($request);
 
@@ -88,29 +90,31 @@ final readonly class ContentCommentRenderer
             . '</div>';
     }
 
-    /** @param list<array<string, mixed>> $comments */
-    private function attachImportedReactionSummaries(array &$comments): void
+    /**
+     * @param list<array<string, mixed>> $comments
+     * @return list<array<string, mixed>>
+     */
+    private function attachImportedReactionSummaries(array $comments): array
     {
         if ($comments === [] || !$this->dbLayer->tableExists(ReactionAggregateSchema::TABLE_NAME)) {
-            return;
+            return $comments;
         }
 
         $parameters = [];
         $placeholders = [];
-        $positions = [];
-        foreach ($comments as $position => $comment) {
+        foreach ($comments as $comment) {
             $id = (int)($comment['id'] ?? 0);
             if ($id <= 0) {
                 continue;
             }
+
             $parameter = 'comment_reaction_id_' . $id;
             $parameters[$parameter] = $id;
             $placeholders[] = ':' . $parameter;
-            $positions[$id] = $position;
-            $comments[$position]['reaction_summary'] = [];
         }
+
         if ($placeholders === []) {
-            return;
+            return $comments;
         }
 
         $rows = $this->dbLayer->select('target_id', 'emoji', 'SUM(reaction_count) AS reaction_count')
@@ -122,14 +126,26 @@ final readonly class ContentCommentRenderer
             ->execute($parameters)
             ->fetchAssocAll()
         ;
+        $summaries = [];
         foreach ($rows as $row) {
             $targetId = (int)$row['target_id'];
-            $position = $positions[$targetId] ?? null;
             $emoji = trim((string)$row['emoji']);
             $count = (int)$row['reaction_count'];
-            if (is_int($position) && $emoji !== '' && $count > 0) {
-                $comments[$position]['reaction_summary'][$emoji] = $count;
+            if ($targetId > 0 && $emoji !== '' && $count > 0) {
+                $summaries[$targetId][$emoji] = $count;
             }
         }
+
+        $result = [];
+        foreach ($comments as $comment) {
+            $id = (int)($comment['id'] ?? 0);
+            if ($id > 0) {
+                $comment['reaction_summary'] = $summaries[$id] ?? [];
+            }
+
+            $result[] = $comment;
+        }
+
+        return $result;
     }
 }

@@ -568,6 +568,7 @@ readonly class AuthManager
         $expiresAt = $temporary ? 0 : $time + self::PERSISTENT_SESSION_LIFETIME;
         $response->headers->setCookie($this->createAdminCookie($sessionId, $secureCookies, $expiresAt));
         $response->headers->setCookie($this->createCommentCookie($commentCookie, $secureCookies, $expiresAt));
+
         $this->securityAuditLogger->authentication(
             $request,
             $authMethod,

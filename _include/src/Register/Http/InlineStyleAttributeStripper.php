@@ -94,6 +94,7 @@ final readonly class InlineStyleAttributeStripper
                 if ($character === $quote) {
                     $quote = null;
                 }
+
                 continue;
             }
 
@@ -145,6 +146,7 @@ final readonly class InlineStyleAttributeStripper
             ) {
                 ++$position;
             }
+
             $attributeName = substr($tag, $nameStart, $position - $nameStart);
 
             $attributeNameEnd = $position;
@@ -164,6 +166,7 @@ final readonly class InlineStyleAttributeStripper
                     while ($position < $length && $tag[$position] !== $quote) {
                         ++$position;
                     }
+
                     if ($position < $length) {
                         ++$position;
                     }

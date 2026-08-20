@@ -52,6 +52,7 @@ final class DevelopmentRouterPolicyTest extends Unit
                 $extension,
             ));
         }
+
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_admin/templates/layout.php.inc', 'inc'));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_include/src/Register/ProductModule.php', 'php'));
     }

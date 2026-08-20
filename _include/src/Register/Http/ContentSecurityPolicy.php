@@ -94,6 +94,7 @@ final class ContentSecurityPolicy
         if ($reportUri !== '') {
             header('Reporting-Endpoints: ' . self::REPORTING_GROUP . '="' . $reportUri . '"');
         }
+
         header('X-Content-Type-Options: nosniff');
         header('Referrer-Policy: strict-origin-when-cross-origin');
         header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
@@ -111,6 +112,7 @@ final class ContentSecurityPolicy
         } else {
             $response->headers->set('Reporting-Endpoints', self::REPORTING_GROUP . '="' . $reportUri . '"');
         }
+
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');

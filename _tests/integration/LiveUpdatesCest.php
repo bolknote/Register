@@ -27,6 +27,7 @@ final class LiveUpdatesCest
         $I->seeElement('[data-live-region="posts:0"]');
         $I->seeElement('meta[name="register-live-updates"][data-endpoint="/_live"]');
         $I->seeElement('meta[name="register-offline"][data-worker="/service-worker.js"][data-scope="/"][data-seed="1"]');
+
         $html = $I->grabResponse();
         $I->assertStringContainsString('/_assets/register/offline.js', $html);
         $I->assertStringContainsString('/_assets/register/offline.css', $html);
@@ -82,6 +83,7 @@ final class LiveUpdatesCest
         $I->sendRequestWithMethod('GET', 'https://localhost/_live?' . $query);
 
         $I->seeResponseCodeIs(Response::HTTP_OK);
+
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertIsArray($payload);
         $I->assertGreaterThan($cursor, $payload['cursor']);

@@ -34,6 +34,7 @@ final class CspViolationReportControllerTest extends Unit
         if (is_file($file)) {
             unlink($file);
         }
+
         if (is_dir($this->directory)) {
             rmdir($this->directory);
         }

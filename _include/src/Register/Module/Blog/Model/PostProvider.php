@@ -48,6 +48,19 @@ readonly class PostProvider
         ;
     }
 
+    /** @throws DbLayerException */
+    public function hasPublishedPost(string $slug): bool
+    {
+        return (int)$this->dbLayer
+            ->select('COUNT(*)')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('slug = :slug')->setParameter('slug', $slug)
+            ->andWhere('published = 1')
+            ->execute()
+            ->result() > 0;
+    }
+
     /**
      * @throws DbLayerException
      * @return list<array{title: string, link: string}>

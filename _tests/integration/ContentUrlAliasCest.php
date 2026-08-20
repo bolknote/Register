@@ -93,6 +93,10 @@ final class ContentUrlAliasCest
         $I->amOnPage('/all/1004');
         $I->seeResponseCodeIs(Response::HTTP_OK);
 
+        $I->amOnPage('/all/1004/');
+        $I->seeResponseCodeIs(Response::HTTP_MOVED_PERMANENTLY);
+        $I->seeLocationIs('/all/1004');
+
         $I->amOnPage('/1004');
         $I->seeResponseCodeIs(Response::HTTP_NOT_FOUND);
 

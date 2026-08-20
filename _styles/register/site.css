@@ -1826,7 +1826,10 @@ h2.comment {
 }
 
 .comment-moderation-action {
-    display: contents;
+    position: relative;
+    display: block;
+    width: 2.15rem;
+    min-height: 2.15rem;
     margin: 0;
 }
 
@@ -1886,21 +1889,27 @@ h2.comment {
 }
 
 .comment-item.is-confirming > .comment-moderation {
-    opacity: 0;
-    pointer-events: none;
+    opacity: 1;
+    pointer-events: auto;
     transform: none;
     transition: none;
+}
+
+.comment-item.is-confirming > .comment-moderation > :not(.is-confirming-source),
+.comment-moderation-action.is-confirming-source > .comment-moderation-button {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .comment-action-confirmation {
     position: absolute;
     z-index: 4;
-    top: var(--comment-confirmation-top, -0.45rem);
+    top: 0;
     right: auto;
-    left: var(--comment-confirmation-left, 0);
+    left: calc(100% + 0.5rem);
     display: flex;
     width: max-content;
-    max-width: min(100%, var(--comment-confirmation-max-width, 100%));
+    max-width: min(34rem, calc(100vw - 4rem));
     min-height: 2.75rem;
     padding: 0.35rem 0.4rem 0.35rem 0.8rem;
     flex-wrap: wrap;

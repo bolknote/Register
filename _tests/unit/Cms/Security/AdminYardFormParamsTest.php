@@ -60,6 +60,7 @@ final class AdminYardFormParamsTest extends Unit
 
         $tamperedForm = new Form(new Translator([], 'en'));
         $tamperedForm->setCsrfToken($realToken);
+
         $tamperedTempToken = ($tempToken[0] === '0' ? '1' : '0') . substr($tempToken, 1);
         $tamperedForm->submit(Request::create(
             '/_admin/index.php',

@@ -29,6 +29,7 @@ final class SpamTextFeatureExtractor
         if (preg_match('/^[a-f0-9]{32}$/D', $salt) !== 1) {
             throw new \InvalidArgumentException('The spam text-model salt must contain 16 hexadecimal bytes.');
         }
+
         $key = hex2bin($salt);
         if (!\is_string($key) || \strlen($key) !== SODIUM_CRYPTO_SHORTHASH_KEYBYTES) {
             throw new \InvalidArgumentException('The spam text-model salt cannot be decoded.');

@@ -133,6 +133,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 false,
             );
         }
+
         if ($kind === null) {
             return $this->error($request, 'Unsupported post media', Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
         }
@@ -173,6 +174,7 @@ final readonly class PostInplaceController implements ControllerInterface
         if (\in_array($extension, self::IMAGE_EXTENSIONS, true) && str_starts_with($mimeType, 'image/')) {
             return 'image';
         }
+
         if (
             \in_array($extension, self::AUDIO_EXTENSIONS, true)
             && (str_starts_with($mimeType, 'audio/') || $mimeType === 'application/ogg')
@@ -312,6 +314,7 @@ final readonly class PostInplaceController implements ControllerInterface
         if ($parts === false) {
             return null;
         }
+
         foreach ($parts as $part) {
             $tag = preg_replace('/^\s*#+\s*/u', '', $part);
             $tag = preg_replace('/\s+/u', ' ', $tag ?? '');
@@ -319,6 +322,7 @@ final readonly class PostInplaceController implements ControllerInterface
             if ($tag === '') {
                 continue;
             }
+
             if (mb_strlen($tag) > 255 || preg_match('/^[\p{L}\p{N}_\- !.]+$/uD', $tag) !== 1) {
                 return null;
             }
@@ -328,6 +332,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 $used[$key] = true;
                 $tags[]     = $tag;
             }
+
             if (\count($tags) > self::MAX_TAGS) {
                 return null;
             }
@@ -347,6 +352,7 @@ final readonly class PostInplaceController implements ControllerInterface
         foreach ($this->deletionGuards as $deletionGuard) {
             array_push($violations, ...$deletionGuard->violations($contentId));
         }
+
         if ($violations !== []) {
             return $this->error($request, implode(' ', $violations), Response::HTTP_CONFLICT, false);
         }

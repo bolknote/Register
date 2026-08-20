@@ -188,6 +188,7 @@ final class SpamFeatureExtractor
         if ($this->transliteratedRussianScore($nameWords) >= 7) {
             $score += 10;
         }
+
         if (\count($textWords) <= 12) {
             $score += 5;
         }
@@ -227,6 +228,7 @@ final class SpamFeatureExtractor
             if (preg_match('#(?:skiy|ckiy|tsya|sya|nyy|nyi|aya|yaya|ogo|omu|ymi|ami|akh|yah|uyu)$#', $word) === 1) {
                 $score += 3;
             }
+
             if (preg_match('#(?:shch|tsya|sya|zh|kh)#', $word) === 1) {
                 $score += 2;
             }

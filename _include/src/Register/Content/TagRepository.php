@@ -106,6 +106,7 @@ final readonly class TagRepository
             if ($name === '' || isset($used[$key])) {
                 continue;
             }
+
             $used[$key] = true;
 
             if (!isset($idsByName[$key])) {

@@ -101,7 +101,7 @@ final readonly class SecurityAuditLogger
 
             $this->write($record);
         } catch (\Throwable) {
-            self::reportFailure();
+            $this->reportFailure();
         }
     }
 
@@ -113,6 +113,7 @@ final readonly class SecurityAuditLogger
         foreach ($changedFields as $field) {
             $this->requireOneOf($field, self::USER_FIELDS, 'user field');
         }
+
         sort($changedFields);
 
         $this->write([
@@ -145,6 +146,7 @@ final readonly class SecurityAuditLogger
         if (preg_match('/^[a-z0-9_]{1,64}$/D', $extensionId) !== 1) {
             throw new \InvalidArgumentException('Invalid extension identifier for security audit.');
         }
+
         $this->requireOneOf($action, self::EXTENSION_ACTIONS, 'extension action');
         $this->requireOutcome($outcome);
 
@@ -199,6 +201,7 @@ final readonly class SecurityAuditLogger
             if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
                 throw new \RuntimeException('Unable to create the security audit directory.');
             }
+
             if (is_link($this->filePath)) {
                 throw new \RuntimeException('The security audit file must not be a symbolic link.');
             }
@@ -212,6 +215,7 @@ final readonly class SecurityAuditLogger
                 if (!flock($handle, LOCK_EX)) {
                     throw new \RuntimeException('Unable to lock the security audit file.');
                 }
+
                 try {
                     $length = strlen($line);
                     $offset = 0;
@@ -220,8 +224,10 @@ final readonly class SecurityAuditLogger
                         if ($written === false || $written === 0) {
                             throw new \RuntimeException('Unable to append the security audit event.');
                         }
+
                         $offset += $written;
                     }
+
                     if (!fflush($handle)) {
                         throw new \RuntimeException('Unable to flush the security audit event.');
                     }
@@ -234,7 +240,7 @@ final readonly class SecurityAuditLogger
 
             s2_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
         } catch (\Throwable) {
-            self::reportFailure();
+            $this->reportFailure();
         }
     }
 
@@ -274,7 +280,7 @@ final readonly class SecurityAuditLogger
         }
     }
 
-    private static function reportFailure(): void
+    private function reportFailure(): void
     {
         /** @noinspection ForgottenDebugOutputInspection */
         error_log('Unable to write a security audit event.');

@@ -18,6 +18,7 @@ final class BackupSecurityCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=SystemStatus');
         $I->seeElement('form.backup-actions[method="post"] input[name="password"]');
+
         $csrfToken = $I->grabValueFrom('form.backup-actions input[name="csrf_token"]');
         $I->assertIsString($csrfToken);
         $I->assertNotSame('', $csrfToken);

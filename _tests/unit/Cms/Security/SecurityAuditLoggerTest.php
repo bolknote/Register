@@ -31,6 +31,7 @@ final class SecurityAuditLoggerTest extends Unit
         if (is_file($file) || is_link($file)) {
             unlink($file);
         }
+
         if (is_dir($this->directory)) {
             rmdir($this->directory);
         }

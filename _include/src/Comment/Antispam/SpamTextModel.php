@@ -27,15 +27,18 @@ final readonly class SpamTextModel
         if (preg_match('/^[a-f0-9]{32}$/D', $salt) !== 1) {
             throw new \InvalidArgumentException('The spam text-model salt is invalid.');
         }
+
         if ($trainedAt <= 0) {
             throw new \InvalidArgumentException('The spam text-model training time is invalid.');
         }
-        foreach ($weights as $hash => $weight) {
+
+        foreach (array_keys($weights) as $hash) {
             if (preg_match('/^[A-Za-z0-9_-]{11}$/D', $hash) !== 1) {
                 throw new \InvalidArgumentException('The spam text-model contains an invalid feature weight.');
             }
         }
-        foreach ($metrics as $metric => $value) {
+
+        foreach ($metrics as $value) {
             if ($value < 0) {
                 throw new \InvalidArgumentException('The spam text-model contains invalid training metrics.');
             }
@@ -72,6 +75,7 @@ final readonly class SpamTextModel
             if (!\is_string($hash) || !\is_int($weight)) {
                 throw new \UnexpectedValueException('The spam text-model weights are malformed.');
             }
+
             $weights[$hash] = $weight;
         }
 
@@ -80,6 +84,7 @@ final readonly class SpamTextModel
             if (!\is_string($metric) || !\is_int($value)) {
                 throw new \UnexpectedValueException('The spam text-model metrics are malformed.');
             }
+
             $metrics[$metric] = $value;
         }
 

@@ -45,6 +45,7 @@ return RectorConfig::configure()
         $projectRoot . '/_include/src/Register/Module/*/resources/templates',
         $projectRoot . '/_include/src/Register/Module/*/resources/views',
         $projectRoot . '/_tests/_resources',
+        $projectRoot . '/_tests/_output',
         $projectRoot . '/_tests/_support/_generated',
         $projectRoot . '/tools/quality',
     ])

@@ -33,6 +33,7 @@ final class CspViolationReporterTest extends Unit
                 unlink($file);
             }
         }
+
         if (is_dir($this->directory)) {
             rmdir($this->directory);
         }

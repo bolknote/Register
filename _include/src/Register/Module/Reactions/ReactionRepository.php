@@ -100,9 +100,11 @@ final readonly class ReactionRepository
                     $extraCounts[$rowContentId][$emoji] = ($extraCounts[$rowContentId][$emoji] ?? 0) + $count;
                 }
             }
+
             foreach ($extraCounts as &$extras) {
                 arsort($extras, SORT_NUMERIC);
             }
+
             unset($extras);
         }
 

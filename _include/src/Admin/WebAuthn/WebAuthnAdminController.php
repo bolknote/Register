@@ -272,6 +272,7 @@ final readonly class WebAuthnAdminController
             ],
         ]);
         $response->headers->setCookie($this->ceremonyCookie('', $request));
+
         $this->securityAuditLogger->credentialChanged(
             $this->requireUserId(),
             'passkey_register',

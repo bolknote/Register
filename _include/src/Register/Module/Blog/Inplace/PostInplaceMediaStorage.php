@@ -85,6 +85,7 @@ final readonly class PostInplaceMediaStorage
                 Response::HTTP_SERVICE_UNAVAILABLE,
             );
         }
+
         s2_call_without_warnings(static fn(): bool => chmod($directory, 0755));
     }
 }

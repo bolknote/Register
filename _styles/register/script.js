@@ -249,7 +249,6 @@
                 var confirmButton = confirmationElement.querySelector('.comment-action-confirm');
                 var cancelButton = confirmationElement.querySelector('.comment-action-cancel');
                 var finished = false;
-                var reposition = null;
 
                 if (!item || !sourceButton || !question || !confirmButton || !cancelButton) {
                     resolve(true);
@@ -263,10 +262,8 @@
 
                     finished = true;
                     activeConfirmation = null;
-                    if (reposition) {
-                        window.removeEventListener('resize', reposition);
-                    }
                     item.classList.remove('is-confirming');
+                    form.classList.remove('is-confirming-source');
                     confirmationElement.remove();
                     sourceButton.focus();
                     resolve(confirmed);
@@ -292,48 +289,10 @@
                     }
                 }, false);
 
-                reposition = function () {
-                    var itemRect = item.getBoundingClientRect();
-                    var sourceRect = sourceButton.getBoundingClientRect();
-                    var gap = 8;
-                    var viewportPadding = 12;
-                    var top = sourceRect.top - itemRect.top;
-                    var left = sourceRect.right - itemRect.left + gap;
-                    var availableWidth = Math.max(
-                        160,
-                        window.innerWidth - sourceRect.right - gap - viewportPadding
-                    );
-
-                    confirmationElement.style.setProperty(
-                        '--comment-confirmation-top',
-                        top + 'px'
-                    );
-                    confirmationElement.style.setProperty(
-                        '--comment-confirmation-left',
-                        left + 'px'
-                    );
-                    confirmationElement.style.setProperty(
-                        '--comment-confirmation-max-width',
-                        availableWidth + 'px'
-                    );
-
-                    var renderedRect = confirmationElement.getBoundingClientRect();
-                    confirmationElement.style.setProperty(
-                        '--comment-confirmation-top',
-                        (top + sourceRect.top - renderedRect.top) + 'px'
-                    );
-                    confirmationElement.style.setProperty(
-                        '--comment-confirmation-left',
-                        (left + sourceRect.right + gap - renderedRect.left) + 'px'
-                    );
-                };
-
                 item.classList.add('is-confirming');
-                item.appendChild(confirmationElement);
-                reposition();
-                window.addEventListener('resize', reposition);
+                form.classList.add('is-confirming-source');
+                form.appendChild(confirmationElement);
                 confirmButton.focus();
-                reposition();
             });
         }
 

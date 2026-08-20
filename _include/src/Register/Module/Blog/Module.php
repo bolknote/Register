@@ -286,6 +286,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(\S2\Cms\Controller\PageCommon::class),
             $container->get(PostPageController::class),
             $container->get(ContentUrlAliasController::class),
+            $container->get(PostProvider::class),
             $container->get(UrlBuilder::class),
         ));
         $container->set(ContentUrlAliasController::class, static fn(Container $container): ContentUrlAliasController => new ContentUrlAliasController(
@@ -538,6 +539,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             if ($editorModifiedAt === false) {
                 throw new \LogicException(\sprintf('Unable to read the modification time of "%s".', $editorFilename));
             }
+
             $event->assetPack
                 ->addCss('../../_assets/register/blog/site.css', [AssetPack::OPTION_MERGE])
                 ->addJs($basePath . '/_assets/register/post-inplace.js?v=' . $editorModifiedAt, [AssetPack::OPTION_DEFER])

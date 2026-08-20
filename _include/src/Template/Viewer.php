@@ -61,7 +61,7 @@ class Viewer
         if ($this->debug) {
             echo '<div class="view-debug-block"><details class="view-debug-details">',
                 '<summary><code>', s2_htmlencode($name), '</code></summary><pre>',
-                self::jsonFormat($vars),
+                $this->jsonFormat($vars),
                 '</pre></details>';
         }
 
@@ -146,7 +146,7 @@ class Viewer
     /**
      * @throws \JsonException
      */
-    private static function jsonFormat(mixed $vars): string
+    private function jsonFormat(mixed $vars): string
     {
         return s2_htmlencode(json_encode(
             $vars,

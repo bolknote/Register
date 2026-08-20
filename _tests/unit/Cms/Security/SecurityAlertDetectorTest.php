@@ -32,6 +32,7 @@ final class SecurityAlertDetectorTest extends Unit
                 unlink($file);
             }
         }
+
         if (is_dir($this->directory)) {
             rmdir($this->directory);
         }
@@ -47,12 +48,15 @@ final class SecurityAlertDetectorTest extends Unit
         for ($i = 0; $i < SecurityAlertDetector::UNAUTHORIZED_THRESHOLD; ++$i) {
             $telemetry[] = $this->responseRecord($recent, 401);
         }
+
         for ($i = 0; $i < SecurityAlertDetector::FORBIDDEN_THRESHOLD - 1; ++$i) {
             $telemetry[] = $this->responseRecord($recent, 403);
         }
+
         for ($i = 0; $i < SecurityAlertDetector::RATE_LIMITED_THRESHOLD; ++$i) {
             $telemetry[] = $this->responseRecord($recent, 429);
         }
+
         for ($i = 0; $i < SecurityAlertDetector::UPLOAD_THRESHOLD; ++$i) {
             $telemetry[] = [
                 ...$this->responseRecord($recent, 422),
@@ -60,6 +64,7 @@ final class SecurityAlertDetectorTest extends Unit
                 'outcome'   => 'failure',
             ];
         }
+
         $telemetry[] = $this->responseRecord($old, 403);
         $this->writeRecords($this->telemetryFile(), $telemetry, true);
 
@@ -67,6 +72,7 @@ final class SecurityAlertDetectorTest extends Unit
         for ($i = 0; $i < SecurityAlertDetector::CSP_THRESHOLD; ++$i) {
             $csp[] = ['occurred_at' => $recent, 'event' => 'csp_violation'];
         }
+
         $this->writeRecords($this->cspFile(), $csp);
 
         $summary = $this->detector()->inspect($now);
@@ -111,6 +117,7 @@ final class SecurityAlertDetectorTest extends Unit
         foreach ($records as $record) {
             $lines[] = json_encode($record, JSON_THROW_ON_ERROR) . "\n";
         }
+
         file_put_contents($filename, implode('', $lines));
     }
 

@@ -122,6 +122,7 @@ final readonly class SecurityAlertDetector
                 if (fseek($handle, $offset) !== 0) {
                     return;
                 }
+
                 if (fgets($handle) === false) {
                     return;
                 }
@@ -137,6 +138,7 @@ final readonly class SecurityAlertDetector
                 } catch (\JsonException) {
                     continue;
                 }
+
                 if (!\is_array($record)) {
                     continue;
                 }

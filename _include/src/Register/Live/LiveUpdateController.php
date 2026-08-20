@@ -36,7 +36,7 @@ final readonly class LiveUpdateController implements ControllerInterface
     }
 
     #[\Override]
-    public function handle(Request $request): Response
+    public function handle(Request $request): \Symfony\Component\HttpFoundation\JsonResponse
     {
         $cursor = $this->cursor($request);
         if ($cursor === null) {
@@ -97,6 +97,7 @@ final readonly class LiveUpdateController implements ControllerInterface
         if (\is_string($value)) {
             $value = [$value];
         }
+
         if (!\is_array($value) || \count($value) > self::MAX_REGIONS) {
             return null;
         }
@@ -106,6 +107,7 @@ final readonly class LiveUpdateController implements ControllerInterface
             if (!\is_string($region) || !$this->validRegion($region)) {
                 return null;
             }
+
             $regions[$region] = true;
         }
 
@@ -149,7 +151,13 @@ final readonly class LiveUpdateController implements ControllerInterface
 
         $contentId = ContentId::fromString(substr($region, \strlen('comments:')));
         $content   = $this->contentRepository->find($contentId);
-        if ($content === null || !$content->commentsEnabled) {
+        if (!$content instanceof \Register\Content\ContentItem) {
+            return '<div class="live-comments-region" data-live-region="'
+                . s2_htmlencode($region)
+                . '"></div>';
+        }
+
+        if (!$content->commentsEnabled) {
             return '<div class="live-comments-region" data-live-region="'
                 . s2_htmlencode($region)
                 . '"></div>';

@@ -65,10 +65,12 @@ final class CommentRepositoryCest
         $I->assertNotSame($pageCommentId, $postCommentId);
         $I->assertSame([$pageCommentId, $replyId], array_column($repository->findForContent($page), 'id'));
         $I->assertSame([$postCommentId], array_column($repository->findForContent($post), 'id'));
+
         $pageComment = $repository->find($pageCommentId);
         $I->assertNotNull($pageComment);
         $I->assertSame($pageCommentId, $pageComment->id);
         $I->assertSame(0, $pageComment->modifyTime);
+
         $editTime = time();
         $I->assertTrue($repository->edit($pageCommentId, ContentType::PAGE, 'Edited page comment'));
         $editedComment = $repository->find($pageCommentId);

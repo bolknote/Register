@@ -91,6 +91,7 @@ class MainPageController extends BlogController
         if ($skipLastPostsNum < 0) {
             $skipLastPostsNum = 0;
         }
+
         $this->liveUpdates->subscribePosts($skipLastPostsNum);
 
         if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
@@ -101,6 +102,7 @@ class MainPageController extends BlogController
         if ($feed->previousUrl !== null) {
             $template->setLink('prev', $feed->previousUrl);
         }
+
         if ($feed->nextUrl !== null) {
             $template->setLink('next', $feed->nextUrl);
         }

@@ -393,6 +393,7 @@ final class AntispamCest
 
         $I->assertSame(45, $assessment->reasons['trained_text_model']);
         $I->assertGreaterThanOrEqual(45, $assessment->score);
+
         $repository->clear();
     }
 

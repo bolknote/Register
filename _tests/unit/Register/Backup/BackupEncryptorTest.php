@@ -123,6 +123,7 @@ final class BackupEncryptorTest extends Unit
         } catch (\RuntimeException $runtimeException) {
             self::assertStringContainsString('offline', $runtimeException->getMessage());
         }
+
         self::assertFileDoesNotExist($destination);
 
         $offlineEncryptor = new BackupEncryptor(

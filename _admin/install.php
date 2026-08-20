@@ -119,7 +119,7 @@ function error(
 if (file_exists(S2_FS_ROOT . s2_get_config_filename())) {
     error(
         sprintf(
-            'The file \'%s\' already exists, which means that Register is already installed.',
+            "The file '%s' already exists, which means that Register is already installed.",
             s2_get_config_filename(),
         ),
         actionUrl: S2_ROOT,

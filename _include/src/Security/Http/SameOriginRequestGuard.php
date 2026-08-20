@@ -52,6 +52,7 @@ final class SameOriginRequestGuard
         } catch (\ValueError) {
             return null;
         }
+
         if (!\is_array($parts)
             || !isset($parts['scheme'], $parts['host'])
             || isset($parts['user'], $parts['pass'])

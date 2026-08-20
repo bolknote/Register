@@ -95,8 +95,8 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
                 $row['title_positions'],
                 $row['keyword_positions'],
                 $row['content_positions'],
-                $row['word_count'],
-                $row['relevance_ratio']
+                (int)$row['word_count'],
+                (float)$row['relevance_ratio']
             ));
         }
 

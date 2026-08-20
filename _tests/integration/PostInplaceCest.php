@@ -79,6 +79,7 @@ final class PostInplaceCest
 
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/editable-post');
+
         $selector = '.post-card[data-post-id="' . $postId . '"] > .post-inplace-edit-form';
         $token    = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
         $I->assertSame('Inplace tag', $I->grabAttributeFrom($selector . ' input[name="tags"]', 'value'));
@@ -94,6 +95,7 @@ final class PostInplaceCest
             'tags'           => 'Inplace tag, Fresh tag, fresh TAG',
         ]);
         $I->seeResponseCodeIs(Response::HTTP_OK);
+
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertIsArray($payload);
         $I->assertTrue($payload['success']);
@@ -131,6 +133,7 @@ final class PostInplaceCest
             'tags'           => '',
         ]);
         $I->seeResponseCodeIs(Response::HTTP_OK);
+
         $tagPayload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertSame(3, $tagPayload['revision']);
         $I->assertSame([], $tagPayload['tags']);
@@ -168,6 +171,7 @@ final class PostInplaceCest
 
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/media-post');
+
         $selector = '.post-card[data-post-id="' . $postId . '"] > .post-inplace-edit-form';
         $token    = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
 
@@ -263,6 +267,7 @@ final class PostInplaceCest
 
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/deletable-post');
+
         $selector = '.post-card[data-post-id="' . $postId . '"] > .post-delete-confirmation';
         $token    = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
         $revision = (string)$I->grabAttributeFrom($selector . ' input[name="revision"]', 'value');
@@ -275,6 +280,7 @@ final class PostInplaceCest
             'return_to'      => '/deletable-post',
         ]);
         $I->seeResponseCodeIs(Response::HTTP_OK);
+
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertIsArray($payload);
         $I->assertTrue($payload['success']);

@@ -54,6 +54,10 @@ final class RecommendationViewTest extends Unit
      */
     private function render(array $content): string
     {
+        if ($content === []) {
+            throw new \InvalidArgumentException('The recommendation fixture must contain at least one item.');
+        }
+
         $trans       = static fn(string $message): string => $message;
         $makeLink    = static fn(string $path): string => $path;
         $dateAndTime = static fn(int $timestamp): string => (string)$timestamp;

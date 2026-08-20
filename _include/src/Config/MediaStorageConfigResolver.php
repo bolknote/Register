@@ -28,6 +28,7 @@ final class MediaStorageConfigResolver
         if ($configuredDirectory === '') {
             $configuredDirectory = StaticConfigLoader::DEFAULT_IMAGE_DIR;
         }
+
         self::rejectControlCharacters($configuredDirectory, 'media storage directory');
 
         $absoluteDirectory = self::isAbsolutePath($configuredDirectory);

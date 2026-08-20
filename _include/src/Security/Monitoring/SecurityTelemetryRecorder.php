@@ -122,6 +122,7 @@ final readonly class SecurityTelemetryRecorder
         if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
             throw new \RuntimeException('Unable to create the security telemetry directory.');
         }
+
         s2_call_without_warnings(static fn(): bool => chmod($directory, 0700));
 
         if (is_link($this->filePath) || (file_exists($this->filePath) && !is_file($this->filePath))) {
@@ -132,17 +133,20 @@ final readonly class SecurityTelemetryRecorder
         if ($handle === false) {
             throw new \RuntimeException('Unable to open the security telemetry file.');
         }
+
         s2_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
 
         try {
             if (!flock($handle, LOCK_EX)) {
                 throw new \RuntimeException('Unable to lock the security telemetry file.');
             }
+
             try {
                 $stat = fstat($handle);
                 if ($stat === false || ($stat['mode'] & 0170000) !== 0100000) {
                     throw new \RuntimeException('The security telemetry target must be a regular file.');
                 }
+
                 if (fseek($handle, 0, SEEK_END) !== 0) {
                     throw new \RuntimeException('Unable to seek in the security telemetry file.');
                 }
@@ -159,8 +163,10 @@ final readonly class SecurityTelemetryRecorder
                     if ($written === false || $written === 0) {
                         throw new \RuntimeException('Unable to append the security telemetry event.');
                     }
+
                     $offset += $written;
                 }
+
                 if (!fflush($handle)) {
                     throw new \RuntimeException('Unable to flush the security telemetry event.');
                 }
