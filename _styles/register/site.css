@@ -516,7 +516,7 @@ hr {
 
 #content figcaption,
 #content .e2-text-caption {
-    max-width: 760px;
+    max-width: 100%;
     margin-top: 0.55rem;
     color: var(--minor-color);
     font-family: var(--ui-font);
@@ -1346,16 +1346,8 @@ h2.preview,
     column-gap: 0.2rem;
 }
 
-.post-editor-context-section:has([data-context-ai-action]) h3,
-.post-editor-context-section:has([data-context-ai-action]) .post-editor-context-note {
+.post-editor-context-section:has([data-context-ai-action]) h3 {
     grid-column: 1 / -1;
-}
-
-.post-editor-context-note {
-    margin: 0.25rem 0.55rem 0.2rem;
-    color: var(--quiet-color);
-    font-size: 0.73rem;
-    line-height: 1.35;
 }
 
 .post-editor-format-row,

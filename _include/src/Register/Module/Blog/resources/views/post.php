@@ -95,43 +95,39 @@ $tagNames    = array_values(array_map(
         </header>
 
         <div class="post-editor-context-main">
+<?php if ($inplaceData['ai_enabled']): ?>
             <section class="post-editor-context-section" data-context-selection-only>
                 <h3><span class="post-editor-ai-mark" aria-hidden="true">✦</span> <?php echo $trans('AI for selection'); ?></h3>
-                <button type="button" role="menuitem" data-context-ai-action="proofread"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                <button type="button" role="menuitem" data-context-ai-action="proofread">
                     <span><?php echo $trans('Proofread'); ?></span>
                 </button>
-                <button type="button" role="menuitem" data-context-ai-action="improve"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                <button type="button" role="menuitem" data-context-ai-action="improve">
                     <span><?php echo $trans('Improve text'); ?></span>
                 </button>
-                <button type="button" role="menuitem" data-context-ai-action="shorten"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                <button type="button" role="menuitem" data-context-ai-action="shorten">
                     <span><?php echo $trans('Shorten text'); ?></span>
                 </button>
-                <?php if (!$inplaceData['ai_enabled']): ?>
-                    <p class="post-editor-context-note"><?php echo $trans('AI is not configured'); ?></p>
-                <?php endif; ?>
             </section>
 
             <section class="post-editor-context-section" data-context-caret-only>
                 <h3><span class="post-editor-ai-mark" aria-hidden="true">✦</span> <?php echo $trans('AI for whole text'); ?></h3>
-                <button type="button" role="menuitem" data-context-ai-action="proofread"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                <button type="button" role="menuitem" data-context-ai-action="proofread">
                     <span><?php echo $trans('Proofread'); ?></span>
                 </button>
-                <button type="button" role="menuitem" data-context-ai-action="improve"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                <button type="button" role="menuitem" data-context-ai-action="improve">
                     <span><?php echo $trans('Improve text'); ?></span>
                 </button>
-                <button type="button" role="menuitem" data-context-ai-action="shorten"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                <button type="button" role="menuitem" data-context-ai-action="shorten">
                     <span><?php echo $trans('Shorten text'); ?></span>
                 </button>
-                <button type="button" role="menuitem" data-context-ai-action="title"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                <button type="button" role="menuitem" data-context-ai-action="title">
                     <span><?php echo $trans('Suggest title'); ?></span>
                 </button>
-                <button type="button" role="menuitem" data-context-ai-action="tags"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                <button type="button" role="menuitem" data-context-ai-action="tags">
                     <span><?php echo $trans('Suggest tags'); ?></span>
                 </button>
-                <?php if (!$inplaceData['ai_enabled']): ?>
-                    <p class="post-editor-context-note"><?php echo $trans('AI is not configured'); ?></p>
-                <?php endif; ?>
             </section>
+<?php endif; ?>
 
             <section class="post-editor-context-section">
                 <h3><?php echo $trans('Inline formatting'); ?></h3>

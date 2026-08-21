@@ -64,7 +64,7 @@ final class PostInplaceCest
         $I->seeElement('.post-editor-context-menu-template [data-context-caret-only]');
         $I->seeElement('.post-editor-context-menu-template [data-context-action="media"]');
         $I->seeElement('.post-editor-context-menu-template [data-context-action="open-link"]');
-        $I->seeElement('.post-editor-context-menu-template [data-context-ai-action="proofread"][disabled]');
+        $I->dontSeeElement('.post-editor-context-menu-template [data-context-ai-action]');
         $I->seeElement('script[src^="/_assets/register/post-inplace.js?v="]');
 
         $selector = '.post-card[data-post-id="' . $ownId . '"] > .post-inplace-edit-form';
