@@ -6,7 +6,6 @@ function makeSecretInlineForm(formId, messages) {
     }
 
     const input = form.querySelector('input[type="password"][name="value"]');
-    const currentPassword = form.querySelector('input[name="current_password"]');
     const clearButton = form.querySelector('.secret-clear-button');
     const state = document.getElementById(formId + '-state');
     const errors = form.querySelector('.validation-errors');
@@ -39,11 +38,6 @@ function makeSecretInlineForm(formId, messages) {
 
     async function save(clear) {
         if (submitting || !input || (!clear && input.value.trim() === '')) {
-            return;
-        }
-        if (!currentPassword || currentPassword.value === '') {
-            showError(messages.passwordRequired);
-            currentPassword?.focus();
             return;
         }
         submitting = true;
@@ -82,7 +76,6 @@ function makeSecretInlineForm(formId, messages) {
             console.warn('Unable to save secret setting:', error);
             showError(messages.error);
         } finally {
-            currentPassword.value = '';
             submitting = false;
         }
     }
@@ -107,13 +100,6 @@ function makeSecretInlineForm(formId, messages) {
         });
     }
 
-    currentPassword?.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') {
-            currentPassword.value = '';
-            currentPassword.blur();
-        }
-    });
-
     clearButton.addEventListener('click', function () {
         if (window.confirm(messages.clearConfirm)) {
             save(true);
@@ -130,7 +116,6 @@ document.addEventListener('DOMContentLoaded', function () {
             saved: form.dataset.savedMessage || 'Saved',
             dirty: form.dataset.dirtyMessage || 'Not saved',
             error: form.dataset.errorMessage || 'Unable to save the value.',
-            passwordRequired: form.dataset.passwordRequiredMessage || 'Enter current password.',
             clearConfirm: form.dataset.clearConfirmMessage || ''
         });
     });

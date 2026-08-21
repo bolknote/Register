@@ -17,13 +17,12 @@ use S2\AdminYard\Database\Key;
 use S2\AdminYard\Event\BeforeSaveEvent;
 use S2\AdminYard\Translator;
 use S2\Cms\Admin\AdminConfigExtenderInterface;
-use S2\Cms\Admin\DynamicConfigFormBuilder;
 use S2\Cms\Model\AuthManager;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
-/** Enforces a fresh password check at the server boundary for sensitive admin writes. */
+/** Enforces a fresh password check for sensitive administrator account changes. */
 final readonly class ReauthenticationAdminConfigExtender implements AdminConfigExtenderInterface
 {
     private const string CURRENT_PASSWORD_FIELD = 'current_password';
@@ -41,10 +40,9 @@ final readonly class ReauthenticationAdminConfigExtender implements AdminConfigE
     ];
 
     public function __construct(
-        private AuthManager              $authManager,
-        private DynamicConfigFormBuilder $dynamicConfigFormBuilder,
-        private RequestStack             $requestStack,
-        private Translator               $translator,
+        private AuthManager  $authManager,
+        private RequestStack $requestStack,
+        private Translator   $translator,
     ) {
     }
 
@@ -54,19 +52,6 @@ final readonly class ReauthenticationAdminConfigExtender implements AdminConfigE
         $userEntity = $adminConfig->findEntityByName('User');
         if ($userEntity instanceof EntityConfig) {
             $this->protectUserChanges($userEntity);
-        }
-
-        $configEntity = $adminConfig->findEntityByName('Config');
-        if ($configEntity instanceof EntityConfig) {
-            $configEntity->addListener(
-                EntityConfig::EVENT_BEFORE_PATCH,
-                function (BeforeSaveEvent $event): void {
-                    $parameter = $event->primaryKey?->toArray()['name'] ?? null;
-                    if (\is_string($parameter) && $this->dynamicConfigFormBuilder->isSecretParameter($parameter)) {
-                        $this->verifyCurrentPassword($event);
-                    }
-                },
-            );
         }
     }
 

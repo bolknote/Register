@@ -28,13 +28,12 @@ final class SecretConfigCest
             $I->login('admin', 'admin');
             $configUrl = 'https://localhost/_admin/index.php?entity=Config&action=list';
             $I->amOnPage($configUrl);
-            $I->seeElement($formSelector . ' input[name="current_password"][autocomplete="current-password"]');
+            $I->dontSeeElement($formSelector . ' input[name="current_password"]');
 
             /** @var DynamicConfigProvider $provider */
             $provider = $I->grabAdminService(DynamicConfigProvider::class);
             /** @var DbLayer $dbLayer */
             $dbLayer = $I->grabAdminService(DbLayer::class);
-            $valueBeforeRejectedSave = $provider->get(AiSettings::API_KEY_CONFIG_KEY);
             $persistentSecrets = include $secretFile;
             $I->assertIsArray($persistentSecrets);
             $persistentParameters = ['S2_ANTISPAM_SECRET', VisitorIdentityManifest::SECRET_CONFIG_KEY];
@@ -51,17 +50,7 @@ final class SecretConfigCest
             }
 
             $I->submitForm($formSelector, [
-                'value'            => 'must-not-be-saved',
-                'current_password' => 'incorrect-current-password',
-            ]);
-            $I->seeResponseCodeIs(422);
-            $I->see('The current password is incorrect.');
-            $I->assertSame($valueBeforeRejectedSave, $provider->get(AiSettings::API_KEY_CONFIG_KEY));
-
-            $I->amOnPage($configUrl);
-            $I->submitForm($formSelector, [
-                'value'            => 'integration-api-secret',
-                'current_password' => 'admin',
+                'value' => 'integration-api-secret',
             ]);
             $I->seeResponseCodeIs(200);
             $I->see('{"success":true}');
@@ -94,8 +83,7 @@ final class SecretConfigCest
             $I->see('Key saved', '[data-config-key="' . AiSettings::API_KEY_CONFIG_KEY . '"]');
 
             $I->submitForm($formSelector, [
-                'value'            => '',
-                'current_password' => 'admin',
+                'value' => '',
             ]);
             $I->seeResponseCodeIs(200);
             $I->assertSame('', $provider->get(AiSettings::API_KEY_CONFIG_KEY));

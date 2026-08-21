@@ -110,7 +110,6 @@ return [
     'Added'                                                                   => 'Added',
     'Last used'                                                               => 'Last used',
     'Current password'                                                        => 'Current password',
-    'Enter current password'                                                  => 'Enter your current password.',
     'Revoke'                                                                  => 'Revoke',
     'Passkey name'                                                            => 'Passkey name',
     'For example: MacBook or YubiKey'                                         => 'For example: MacBook or YubiKey',

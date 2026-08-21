@@ -316,7 +316,6 @@ class AdminExtension implements ExtensionInterface
         ), [AdminConfigExtenderInterface::class]);
         $container->set(ReauthenticationAdminConfigExtender::class, static fn(Container $container): ReauthenticationAdminConfigExtender => new ReauthenticationAdminConfigExtender(
             $container->get(AuthManager::class),
-            $container->get(DynamicConfigFormBuilder::class),
             $container->get(RequestStack::class),
             $container->get(Translator::class),
         ), [AdminConfigExtenderInterface::class]);

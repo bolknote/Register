@@ -19,7 +19,6 @@ use S2\AdminYard\Database\PdoDataProvider;
 use S2\AdminYard\Database\TypeTransformer;
 use S2\AdminYard\Event\BeforeSaveEvent;
 use S2\AdminYard\Translator;
-use S2\Cms\Admin\DynamicConfigFormBuilder;
 use S2\Cms\Admin\Security\ReauthenticationAdminConfigExtender;
 use S2\Cms\Model\AuthManager;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,7 +31,6 @@ final class ReauthenticationAdminConfigExtenderTest extends Unit
         $adminConfig = $this->adminConfig();
         $this->extender(
             self::createStub(AuthManager::class),
-            self::createStub(DynamicConfigFormBuilder::class),
             new RequestStack(),
         )->extend($adminConfig);
 
@@ -61,7 +59,6 @@ final class ReauthenticationAdminConfigExtenderTest extends Unit
         $adminConfig = $this->adminConfig();
         $this->extender(
             $authManager,
-            self::createStub(DynamicConfigFormBuilder::class),
             $requestStack,
         )->extend($adminConfig);
 
@@ -78,7 +75,7 @@ final class ReauthenticationAdminConfigExtenderTest extends Unit
         self::assertArrayNotHasKey('current_password', $event->data);
     }
 
-    public function testApiSecretPatchRequiresTheActorPasswordButOrdinaryUserDataDoesNot(): void
+    public function testOrdinaryUserDataDoesNotRequireTheActorPassword(): void
     {
         $request = Request::create('/_admin/', Request::METHOD_POST, [
             'current_password' => 'actor-password',
@@ -88,16 +85,10 @@ final class ReauthenticationAdminConfigExtenderTest extends Unit
 
         $authManager = $this->createMock(AuthManager::class);
         $authManager
-            ->expects(self::once())
-            ->method('verifyCurrentPassword')
-            ->with($request, 'actor-password')
-            ->willReturn(true);
-        $formBuilder = $this->createMock(DynamicConfigFormBuilder::class);
-        $formBuilder->method('isSecretParameter')->willReturnCallback(
-            static fn(string $parameter): bool => $parameter === 'REGISTER_AI_API_KEY',
-        );
+            ->expects(self::never())
+            ->method('verifyCurrentPassword');
         $adminConfig = $this->adminConfig();
-        $this->extender($authManager, $formBuilder, $requestStack)->extend($adminConfig);
+        $this->extender($authManager, $requestStack)->extend($adminConfig);
 
         $ordinaryContext = ['security_changed_fields' => []];
         $ordinaryEvent = new BeforeSaveEvent(
@@ -109,16 +100,6 @@ final class ReauthenticationAdminConfigExtenderTest extends Unit
         $this->dispatch($adminConfig, 'User', EntityConfig::EVENT_BEFORE_UPDATE, $ordinaryEvent);
         self::assertSame([], $ordinaryEvent->errorMessages);
         self::assertArrayNotHasKey('current_password', $ordinaryEvent->data);
-
-        $secretContext = [];
-        $secretEvent = new BeforeSaveEvent(
-            $this->dataProvider(),
-            ['value' => 'new-secret'],
-            $secretContext,
-            new Key(['name' => 'REGISTER_AI_API_KEY']),
-        );
-        $this->dispatch($adminConfig, 'Config', EntityConfig::EVENT_BEFORE_PATCH, $secretEvent);
-        self::assertSame([], $secretEvent->errorMessages);
     }
 
     private function adminConfig(): AdminConfig
@@ -132,12 +113,10 @@ final class ReauthenticationAdminConfigExtenderTest extends Unit
 
     private function extender(
         AuthManager $authManager,
-        DynamicConfigFormBuilder $formBuilder,
         RequestStack $requestStack,
     ): ReauthenticationAdminConfigExtender {
         return new ReauthenticationAdminConfigExtender(
             $authManager,
-            $formBuilder,
             $requestStack,
             new Translator([
                 'Invalid current password' => 'Localized invalid password',

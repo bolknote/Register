@@ -36,7 +36,6 @@ $html         = static fn(string $text): string => htmlspecialchars($text, ENT_Q
       data-saved-message="<?= $html($trans('Setting applied')) ?>"
       data-dirty-message="<?= $html($trans('Setting not saved')) ?>"
       data-error-message="<?= $html($trans('Something went wrong and the value was not saved.')) ?>"
-      data-password-required-message="<?= $html($trans('Enter current password')) ?>"
       data-clear-confirm-message="<?= $html($trans('Clear saved API key?')) ?>">
     <?php foreach ($form->getHiddenControls() as $control): ?>
         <?= $control->getHtml() ?>
@@ -59,11 +58,6 @@ $html         = static fn(string $text): string => htmlspecialchars($text, ENT_Q
             <?= $html($trans('Clear secret')) ?>
         </button>
     </div>
-    <label class="secret-reauth-field">
-        <span><?= $html($trans('Current password')) ?></span>
-        <input type="password" name="current_password" value="" autocomplete="current-password"
-               maxlength="255" aria-describedby="<?= $html($statusId) ?>" required>
-    </label>
     <span class="validation-errors" aria-live="polite"></span>
     <span class="config-save-state" id="<?= $html($statusId) ?>" data-config-save-state
           data-state="<?= $isApplied ? 'applied' : 'pending' ?>" aria-live="polite">

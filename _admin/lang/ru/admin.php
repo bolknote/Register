@@ -110,7 +110,6 @@ return [
     'Added'                                                                   => 'Добавлен',
     'Last used'                                                               => 'Последнее использование',
     'Current password'                                                        => 'Текущий пароль',
-    'Enter current password'                                                  => 'Введите текущий пароль.',
     'Revoke'                                                                  => 'Отозвать',
     'Passkey name'                                                            => 'Название ключа доступа',
     'For example: MacBook or YubiKey'                                         => 'Например: MacBook или YubiKey',
