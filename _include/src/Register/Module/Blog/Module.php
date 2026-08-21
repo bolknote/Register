@@ -149,6 +149,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(AuthProvider::class),
             $container->get(PostInplaceTokenManager::class),
             $container->get(UrlBuilder::class),
+            $container->get(\Register\Ai\AiSettings::class),
         ));
         $container->set(PostInplaceMediaStorage::class, static fn(Container $container): PostInplaceMediaStorage => new PostInplaceMediaStorage(
             new PictureFileNameHelper(
@@ -178,6 +179,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(UrlBuilder::class),
             $container->get(PostInplaceMediaStorage::class),
             $container->getStringParameter('image_path'),
+            $container->get(\Register\Ai\AiClient::class),
+            $container->get(\Register\Ai\AiSettings::class),
             $container->get('register_blog_translator'),
             ...$container->getByTag(ContentDeletionGuardInterface::class),
         ));

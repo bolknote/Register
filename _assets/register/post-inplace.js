@@ -81,7 +81,19 @@
         if (status) {
             status.hidden = true;
             status.textContent = '';
+            status.classList.remove('is-editor-toast', 'is-error');
         }
+    }
+
+    function showEditorStatus(state, message, error = false) {
+        const status = state.card.querySelector(':scope > .post-inplace-status');
+        if (!status) {
+            return;
+        }
+        status.textContent = message;
+        status.hidden = false;
+        status.classList.add('is-editor-toast');
+        status.classList.toggle('is-error', error);
     }
 
     function toggleEditingTools(card, editing) {
@@ -133,11 +145,12 @@
     }
 
     function editableBodyHtml(state) {
-        const nativeAudio = Array.from(state.body.querySelectorAll('audio[data-register-audio-native]'));
-        nativeAudio.forEach((audio) => audio.removeAttribute('data-register-audio-native'));
-        const html = state.body.innerHTML;
-        nativeAudio.forEach((audio) => audio.setAttribute('data-register-audio-native', ''));
-        return html;
+        const clone = state.body.cloneNode(true);
+        clone.querySelectorAll('[data-register-audio-native]').forEach((audio) => {
+            audio.removeAttribute('data-register-audio-native');
+        });
+        clone.querySelectorAll('.post-editor-context-anchor').forEach((anchor) => anchor.remove());
+        return clone.innerHTML;
     }
 
     function restoreHeadingLink(state) {
@@ -148,6 +161,9 @@
     }
 
     function stopEditing(state) {
+        closeContextMenu(state, false);
+        state.aiController?.abort();
+        state.aiController = null;
         state.mediaControllers.forEach((controller) => controller.abort());
         state.mediaControllers.clear();
         state.body.classList.remove('is-media-dragover');
@@ -264,6 +280,8 @@
             tagsDirty: false,
             mediaUploads: new Set(),
             mediaControllers: new Set(),
+            contextMenu: null,
+            aiController: null,
             submitting: false,
             titleLink,
             titleLinkHadHref: titleLink?.hasAttribute('href') || false,
@@ -308,6 +326,7 @@
     }
 
     function syncEditor(state) {
+        closeContextMenu(state, false);
         const titleSource = state.titleDirty ? (state.title.textContent || '') : state.originalTitle;
         const title = titleSource
             .replace(/\u00a0/gu, ' ')
@@ -502,6 +521,17 @@
         return {
             focus: () => input.focus(),
             sync: () => commit() ? [...tags] : null,
+            replace: (value) => {
+                const replacements = normalizeTags(value);
+                if (replacements === null) {
+                    return false;
+                }
+                tags = replacements;
+                input.value = '';
+                changed();
+                render();
+                return true;
+            },
         };
     }
 
@@ -843,6 +873,9 @@
         }
         if (state) {
             state.submitting = true;
+            state.aiController?.abort();
+            state.aiController = null;
+            state.card.classList.remove('is-ai-working');
         }
 
         const buttons = card.querySelectorAll('.post-inplace-tools button, .post-delete-confirmation button');
@@ -927,6 +960,605 @@
         return changed;
     }
 
+    function rangeIsInside(element, range) {
+        return element.contains(range.startContainer)
+            && element.contains(range.endContainer)
+            && element.contains(range.commonAncestorContainer);
+    }
+
+    function selectRange(state, range) {
+        if (!rangeIsInside(state.body, range)) {
+            return false;
+        }
+        state.body.focus();
+        const selection = window.getSelection();
+        if (!selection) {
+            return false;
+        }
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return true;
+    }
+
+    function closeContextMenu(state, restoreSelection) {
+        const context = state.contextMenu;
+        if (!context) {
+            return;
+        }
+
+        const range = context.range.cloneRange();
+        context.anchor.remove();
+        state.contextMenu = null;
+        if (restoreSelection) {
+            selectRange(state, range);
+        }
+    }
+
+    function detachContextMenu(state) {
+        const context = state.contextMenu;
+        if (!context) {
+            return null;
+        }
+        const snapshot = {
+            range: context.range.cloneRange(),
+            selected: context.selected,
+            targetLink: context.targetLink,
+        };
+        closeContextMenu(state, false);
+        return snapshot;
+    }
+
+    function contextLink(context) {
+        if (context.targetLink instanceof HTMLAnchorElement && context.targetLink.isConnected) {
+            return context.targetLink;
+        }
+
+        const node = context.range.startContainer;
+        const element = node instanceof Element ? node : node.parentElement;
+        const link = element?.closest('a');
+        return link instanceof HTMLAnchorElement ? link : null;
+    }
+
+    function positionContextMenu(anchor, menu) {
+        anchor.classList.remove('is-left', 'is-above');
+        let rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth - 12) {
+            anchor.classList.add('is-left');
+            rect = menu.getBoundingClientRect();
+        }
+        if (rect.bottom > window.innerHeight - 12) {
+            anchor.classList.add('is-above');
+        }
+    }
+
+    function visibleContextButtons(menu) {
+        return Array.from(menu.querySelectorAll('button:not(:disabled)')).filter((button) => {
+            return button.closest('[hidden]') === null;
+        });
+    }
+
+    function showContextMain(state) {
+        const context = state.contextMenu;
+        if (!context) {
+            return;
+        }
+        context.main.hidden = false;
+        context.linkPanel.hidden = true;
+        context.linkError.hidden = true;
+        context.linkError.textContent = '';
+        visibleContextButtons(context.menu)[0]?.focus();
+        positionContextMenu(context.anchor, context.menu);
+    }
+
+    function showLinkPanel(state) {
+        const context = state.contextMenu;
+        if (!context) {
+            return;
+        }
+        const link = contextLink(context);
+        context.main.hidden = true;
+        context.linkPanel.hidden = false;
+        context.linkError.hidden = true;
+        context.linkError.textContent = '';
+        context.linkInput.value = link?.getAttribute('href') || '';
+        context.removeLink.hidden = !link;
+        context.linkInput.focus();
+        context.linkInput.select();
+        positionContextMenu(context.anchor, context.menu);
+    }
+
+    function normalizeLinkUrl(value) {
+        const url = String(value).trim();
+        if (url === '') {
+            return '';
+        }
+        if (
+            /[\u0000-\u001f\u007f\s]/u.test(url)
+            || /^(?:data|file|javascript|vbscript):/iu.test(url)
+        ) {
+            return null;
+        }
+        return url;
+    }
+
+    function markBodyChanged(state) {
+        state.bodyDirty = true;
+        clearError(state.form);
+        clearStatus(state.card);
+    }
+
+    function applyContextLink(state) {
+        const context = state.contextMenu;
+        if (!context) {
+            return;
+        }
+        const url = normalizeLinkUrl(context.linkInput.value);
+        if (url === null) {
+            context.linkError.textContent = state.card.dataset.invalidLink || 'Enter a safe link address.';
+            context.linkError.hidden = false;
+            context.linkInput.focus();
+            return;
+        }
+        if (url === '') {
+            removeContextLink(state);
+            return;
+        }
+
+        const link = contextLink(context);
+        const snapshot = detachContextMenu(state);
+        if (!snapshot) {
+            return;
+        }
+        if (link) {
+            link.setAttribute('href', url);
+            markBodyChanged(state);
+            state.body.focus();
+            return;
+        }
+        if (!selectRange(state, snapshot.range)) {
+            return;
+        }
+        if (snapshot.range.collapsed) {
+            const insertedLink = document.createElement('a');
+            insertedLink.setAttribute('href', url);
+            insertedLink.textContent = url;
+            snapshot.range.insertNode(insertedLink);
+            const afterLink = document.createRange();
+            afterLink.setStartAfter(insertedLink);
+            afterLink.collapse(true);
+            selectRange(state, afterLink);
+            markBodyChanged(state);
+            return;
+        }
+        runFormattingCommand(state, 'createLink', url);
+    }
+
+    function removeContextLink(state) {
+        const context = state.contextMenu;
+        if (!context) {
+            return;
+        }
+        const link = contextLink(context);
+        const snapshot = detachContextMenu(state);
+        if (!snapshot) {
+            return;
+        }
+        if (link) {
+            const fragment = document.createDocumentFragment();
+            while (link.firstChild) {
+                fragment.append(link.firstChild);
+            }
+            link.replaceWith(fragment);
+            markBodyChanged(state);
+            state.body.focus();
+            return;
+        }
+        if (selectRange(state, snapshot.range)) {
+            runFormattingCommand(state, 'unlink');
+        }
+    }
+
+    function chooseContextMedia(state) {
+        const context = detachContextMenu(state);
+        if (!context) {
+            return;
+        }
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*,audio/*,.mkv';
+        input.multiple = true;
+        input.addEventListener('change', () => {
+            const files = Array.from(input.files || []);
+            if (files.length > 0 && editorStates.get(state.card) === state) {
+                insertMediaFiles(state, files, context.range);
+            }
+        }, {once: true});
+        input.click();
+    }
+
+    function contextFormat(state, command, value = null) {
+        const context = detachContextMenu(state);
+        if (!context || !selectRange(state, context.range)) {
+            return;
+        }
+        runFormattingCommand(state, command, value);
+    }
+
+    function selectWholeBody(state) {
+        closeContextMenu(state, false);
+        const range = document.createRange();
+        range.selectNodeContents(state.body);
+        selectRange(state, range);
+    }
+
+    function htmlForRange(range) {
+        const container = document.createElement('div');
+        container.append(range.cloneContents());
+        container.querySelectorAll('[data-register-audio-native]').forEach((audio) => {
+            audio.removeAttribute('data-register-audio-native');
+        });
+        container.querySelectorAll('.post-editor-context-anchor').forEach((anchor) => anchor.remove());
+        return container.innerHTML;
+    }
+
+    function replaceRangeHtml(state, range, html) {
+        if (!rangeIsInside(state.body, range)) {
+            return false;
+        }
+        const fragment = range.createContextualFragment(html);
+        const lastNode = fragment.lastChild;
+        range.deleteContents();
+        range.insertNode(fragment);
+        if (lastNode) {
+            const after = document.createRange();
+            after.setStartAfter(lastNode);
+            after.collapse(true);
+            selectRange(state, after);
+        }
+        prepareEditableMedia(state.body);
+        markBodyChanged(state);
+        return true;
+    }
+
+    async function runContextAi(state, action) {
+        const context = state.contextMenu;
+        if (!context) {
+            return;
+        }
+
+        const usesSelection = context.selected && !['tags', 'title'].includes(action);
+        const sourceRange = usesSelection ? context.range.cloneRange() : null;
+        const source = sourceRange ? htmlForRange(sourceRange) : editableBodyHtml(state);
+        const wholeSource = editableBodyHtml(state);
+        closeContextMenu(state, false);
+        if (source.trim() === '') {
+            showEditorStatus(state, state.card.dataset.aiFailed || 'Unable to get a response from AI.', true);
+            return;
+        }
+
+        state.aiController?.abort();
+        const controller = new AbortController();
+        state.aiController = controller;
+        state.card.classList.add('is-ai-working');
+        showEditorStatus(state, state.card.dataset.aiWorking || 'AI is processing the text…');
+
+        const token = state.form.elements.namedItem('inplace_token');
+        const data = new FormData();
+        data.set('inplace_action', 'ai');
+        data.set('inplace_token', token instanceof HTMLInputElement ? token.value : '');
+        data.set('ai_action', action);
+        data.set('title', state.title.textContent || '');
+        data.set('text', source);
+
+        try {
+            const response = await window.fetch(state.form.action, {
+                method: 'POST',
+                body: data,
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                signal: controller.signal,
+            });
+            const payload = await response.json().catch(() => null);
+            if (
+                !response.ok
+                || !payload
+                || payload.success !== true
+                || payload.action !== 'ai'
+                || payload.ai_action !== action
+                || typeof payload.result !== 'string'
+            ) {
+                throw new Error(payload?.message || state.card.dataset.aiFailed || 'Unable to get a response from AI.');
+            }
+            if (editorStates.get(state.card) !== state || state.aiController !== controller) {
+                return;
+            }
+
+            if (sourceRange) {
+                if (!rangeIsInside(state.body, sourceRange) || htmlForRange(sourceRange) !== source) {
+                    showEditorStatus(state, state.card.dataset.aiSourceChanged || 'The source text has changed.', true);
+                    return;
+                }
+            } else if (editableBodyHtml(state) !== wholeSource) {
+                showEditorStatus(state, state.card.dataset.aiSourceChanged || 'The source text has changed.', true);
+                return;
+            }
+
+            if (payload.result === source && !['tags', 'title'].includes(action)) {
+                showEditorStatus(
+                    state,
+                    action === 'proofread'
+                        ? (state.card.dataset.aiProofreadClean || 'No errors found.')
+                        : (state.card.dataset.aiUnchanged || 'AI did not change the text.'),
+                );
+                return;
+            }
+
+            if (action === 'title') {
+                const title = payload.result.replace(/\s+/gu, ' ').trim();
+                if (title === '' || title.length > 255) {
+                    throw new Error(state.card.dataset.invalidContent || 'Invalid post content.');
+                }
+                state.title.textContent = title;
+                state.titleDirty = true;
+                focusEdge(state.title, true);
+            } else if (action === 'tags') {
+                if (!state.tagEditor.replace(payload.result)) {
+                    throw new Error(state.card.dataset.invalidTags || 'Invalid post tags.');
+                }
+                state.tagsDirty = true;
+                state.tagEditor.focus();
+            } else if (sourceRange) {
+                if (!replaceRangeHtml(state, sourceRange, payload.result)) {
+                    throw new Error(state.card.dataset.aiSourceChanged || 'The source text has changed.');
+                }
+            } else {
+                state.body.innerHTML = payload.result;
+                prepareEditableMedia(state.body);
+                markBodyChanged(state);
+                focusEdge(state.body, false);
+            }
+
+            clearError(state.form);
+            showEditorStatus(state, state.card.dataset.aiApplied || 'AI changes applied.');
+        } catch (error) {
+            if (!(error instanceof DOMException && error.name === 'AbortError')) {
+                showEditorStatus(
+                    state,
+                    error instanceof Error
+                        ? error.message
+                        : (state.card.dataset.aiFailed || 'Unable to get a response from AI.'),
+                    true,
+                );
+            }
+        } finally {
+            if (state.aiController === controller) {
+                state.aiController = null;
+                state.card.classList.remove('is-ai-working');
+            }
+        }
+    }
+
+    function handleContextAction(state, action) {
+        const formats = {
+            'bold': ['bold'],
+            'italic': ['italic'],
+            'strike': ['strikeThrough'],
+            'clear-format': ['removeFormat'],
+            'paragraph': ['formatBlock', 'p'],
+            'h2': ['formatBlock', 'h2'],
+            'h3': ['formatBlock', 'h3'],
+            'h4': ['formatBlock', 'h4'],
+            'quote': ['formatBlock', 'blockquote'],
+            'code': ['formatBlock', 'pre'],
+            'unordered-list': ['insertUnorderedList'],
+            'ordered-list': ['insertOrderedList'],
+            'divider': ['insertHorizontalRule'],
+            'undo': ['undo'],
+            'redo': ['redo'],
+            'cut': ['cut'],
+        };
+        if (formats[action]) {
+            contextFormat(state, ...formats[action]);
+            return;
+        }
+        if (action === 'copy') {
+            const context = detachContextMenu(state);
+            if (context && selectRange(state, context.range)) {
+                document.execCommand('copy');
+            }
+            return;
+        }
+        if (action === 'select-all') {
+            selectWholeBody(state);
+            return;
+        }
+        if (action === 'media') {
+            chooseContextMedia(state);
+            return;
+        }
+        if (action === 'open-link') {
+            showLinkPanel(state);
+            return;
+        }
+        if (action === 'link-back') {
+            showContextMain(state);
+            return;
+        }
+        if (action === 'apply-link') {
+            applyContextLink(state);
+            return;
+        }
+        if (action === 'remove-link') {
+            removeContextLink(state);
+        }
+    }
+
+    function openContextMenu(state, event = null) {
+        const template = state.card.querySelector(':scope > .post-editor-context-menu-template');
+        if (!(template instanceof HTMLTemplateElement)) {
+            return false;
+        }
+        closeContextMenu(state, false);
+
+        const selection = window.getSelection();
+        let range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+        const selected = range instanceof Range
+            && rangeIsInside(state.body, range)
+            && !range.collapsed
+            && range.toString().trim() !== '';
+        if (!selected) {
+            range = event
+                ? bodyRangeFromPoint(state, event.clientX, event.clientY)
+                : bodyRange(state, range);
+        }
+        if (!(range instanceof Range) || !rangeIsInside(state.body, range)) {
+            range = bodyRange(state);
+        }
+
+        const anchor = document.createElement('span');
+        anchor.className = 'post-editor-context-anchor';
+        anchor.contentEditable = 'false';
+        const anchorRange = event
+            ? bodyRangeFromPoint(state, event.clientX, event.clientY)
+            : range.cloneRange();
+        anchorRange.collapse(false);
+        anchorRange.insertNode(anchor);
+
+        const fragment = template.content.cloneNode(true);
+        const menu = fragment.querySelector('.post-editor-context-menu');
+        if (!(menu instanceof HTMLElement)) {
+            anchor.remove();
+            return false;
+        }
+        anchor.append(fragment);
+        menu.querySelectorAll('[data-context-selection-only]').forEach((element) => {
+            element.hidden = !selected;
+        });
+        menu.querySelectorAll('[data-context-caret-only]').forEach((element) => {
+            element.hidden = selected;
+        });
+
+        const main = menu.querySelector('.post-editor-context-main');
+        const linkPanel = menu.querySelector('.post-editor-link-panel');
+        const linkInput = menu.querySelector('[data-context-link-input]');
+        const linkError = menu.querySelector('.post-editor-link-error');
+        const removeLink = menu.querySelector('[data-context-action="remove-link"]');
+        if (
+            !(main instanceof HTMLElement)
+            || !(linkPanel instanceof HTMLElement)
+            || !(linkInput instanceof HTMLInputElement)
+            || !(linkError instanceof HTMLElement)
+            || !(removeLink instanceof HTMLButtonElement)
+        ) {
+            anchor.remove();
+            return false;
+        }
+
+        const target = event?.target instanceof Element ? event.target : null;
+        const targetLink = target?.closest('a');
+        state.contextMenu = {
+            anchor,
+            menu,
+            main,
+            linkPanel,
+            linkInput,
+            linkError,
+            removeLink,
+            range,
+            selected,
+            targetLink: targetLink instanceof HTMLAnchorElement && state.body.contains(targetLink)
+                ? targetLink
+                : null,
+        };
+
+        if (!/Mac|iPhone|iPad|iPod/u.test(navigator.platform)) {
+            const shortcutLabels = {
+                'undo': 'Ctrl+Z',
+                'redo': 'Ctrl+Y',
+                'copy': 'Ctrl+C',
+                'cut': 'Ctrl+X',
+                'select-all': 'Ctrl+A',
+            };
+            Object.entries(shortcutLabels).forEach(([action, label]) => {
+                const shortcut = menu.querySelector(`[data-context-action="${action}"] kbd`);
+                if (shortcut) {
+                    shortcut.textContent = label;
+                }
+            });
+        }
+
+        menu.addEventListener('pointerdown', (pointerEvent) => {
+            if (!(pointerEvent.target instanceof HTMLInputElement)) {
+                pointerEvent.preventDefault();
+            }
+        });
+        menu.addEventListener('contextmenu', (contextEvent) => {
+            contextEvent.preventDefault();
+            contextEvent.stopPropagation();
+        });
+        menu.addEventListener('click', (clickEvent) => {
+            const button = clickEvent.target instanceof Element
+                ? clickEvent.target.closest('button')
+                : null;
+            if (!(button instanceof HTMLButtonElement) || button.disabled) {
+                return;
+            }
+            const aiAction = button.dataset.contextAiAction;
+            if (aiAction) {
+                runContextAi(state, aiAction);
+                return;
+            }
+            const action = button.dataset.contextAction;
+            if (action) {
+                handleContextAction(state, action);
+            }
+        });
+        menu.addEventListener('keydown', (keyEvent) => {
+            if (keyEvent.key === 'Escape') {
+                keyEvent.preventDefault();
+                keyEvent.stopPropagation();
+                if (!linkPanel.hidden) {
+                    showContextMain(state);
+                } else {
+                    closeContextMenu(state, true);
+                }
+                return;
+            }
+            if (keyEvent.target === linkInput && keyEvent.key === 'Enter') {
+                keyEvent.preventDefault();
+                keyEvent.stopPropagation();
+                applyContextLink(state);
+                return;
+            }
+            if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(keyEvent.key)) {
+                return;
+            }
+            const buttons = visibleContextButtons(menu);
+            if (buttons.length === 0) {
+                return;
+            }
+            keyEvent.preventDefault();
+            keyEvent.stopPropagation();
+            const current = buttons.indexOf(document.activeElement);
+            let next = 0;
+            if (keyEvent.key === 'End') {
+                next = buttons.length - 1;
+            } else if (keyEvent.key === 'ArrowUp') {
+                next = current <= 0 ? buttons.length - 1 : current - 1;
+            } else if (keyEvent.key === 'ArrowDown') {
+                next = current < 0 || current === buttons.length - 1 ? 0 : current + 1;
+            }
+            buttons[next].focus();
+        });
+
+        positionContextMenu(anchor, menu);
+        visibleContextButtons(menu)[0]?.focus();
+        return true;
+    }
+
     function handleEditingShortcut(event, state) {
         if (event.isComposing) {
             return false;
@@ -937,6 +1569,19 @@
         if (modifier && !event.altKey && matchesKey('KeyS', 's')) {
             event.preventDefault();
             submit(state.form);
+            return true;
+        }
+
+        if (event.target instanceof Element && event.target.closest('.post-editor-context-menu')) {
+            return false;
+        }
+
+        if (
+            state.body.contains(event.target)
+            && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))
+        ) {
+            event.preventDefault();
+            openContextMenu(state);
             return true;
         }
 
@@ -976,9 +1621,8 @@
             value = 'h' + event.code.slice(-1);
         } else if (!event.shiftKey && !event.altKey && matchesKey('KeyK', 'k')) {
             event.preventDefault();
-            const url = window.prompt(state.card.dataset.linkPrompt || 'Link address');
-            if (url !== null) {
-                runFormattingCommand(state, url.trim() === '' ? 'unlink' : 'createLink', url.trim() || null);
+            if (openContextMenu(state)) {
+                showLinkPanel(state);
             }
             return true;
         }
@@ -1035,9 +1679,32 @@
         );
     }, false);
 
+    document.addEventListener('contextmenu', (event) => {
+        if (event.shiftKey) {
+            return;
+        }
+        const target = event.target instanceof Element ? event.target : null;
+        if (target?.closest('.post-editor-context-menu')) {
+            return;
+        }
+        const card = cardFor(target);
+        const state = card ? editorStates.get(card) : null;
+        if (!state || !state.body.contains(target)) {
+            return;
+        }
+        event.preventDefault();
+        openContextMenu(state, event);
+    }, false);
+
     document.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : null;
         const card = cardFor(target);
+        document.querySelectorAll('.post-card.is-editing').forEach((editingCard) => {
+            const editingState = editorStates.get(editingCard);
+            if (editingState?.contextMenu && !editingState.contextMenu.menu.contains(target)) {
+                closeContextMenu(editingState, false);
+            }
+        });
         if (card?.classList.contains('is-editing')) {
             const editableLink = target?.closest('a');
             if (editableLink && (
@@ -1138,5 +1805,14 @@
         }
         clearError(card.querySelector(':scope > .post-inplace-edit-form'));
         clearStatus(card);
+    }, false);
+
+    window.addEventListener('resize', () => {
+        document.querySelectorAll('.post-card.is-editing').forEach((card) => {
+            const state = editorStates.get(card);
+            if (state?.contextMenu) {
+                closeContextMenu(state, false);
+            }
+        });
     }, false);
 })();

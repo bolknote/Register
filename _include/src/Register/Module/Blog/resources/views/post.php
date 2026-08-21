@@ -18,7 +18,7 @@ declare(strict_types = 1);
 /** @var string $favoritePostsUrl */
 /** @var bool $showComments */
 /** @var bool $enabledComments */
-/** @var array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string}|null $inplace */
+/** @var array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string, ai_enabled: bool}|null $inplace */
 
 $heading     = empty($title_link) ? 'h1' : 'h2';
 $inplaceData = isset($inplace) && \is_array($inplace) ? $inplace : null;
@@ -46,6 +46,13 @@ $tagNames    = array_values(array_map(
     data-media-uploading="<?php echo s2_htmlencode($trans('Post media uploading')); ?>"
     data-media-upload-failed="<?php echo s2_htmlencode($trans('Post media upload failed')); ?>"
     data-media-unsupported="<?php echo s2_htmlencode($trans('Unsupported dropped media')); ?>"
+    data-ai-working="<?php echo s2_htmlencode($trans('AI working')); ?>"
+    data-ai-failed="<?php echo s2_htmlencode($trans('AI request failed')); ?>"
+    data-ai-unchanged="<?php echo s2_htmlencode($trans('AI result unchanged')); ?>"
+    data-ai-source-changed="<?php echo s2_htmlencode($trans('AI source changed')); ?>"
+    data-ai-applied="<?php echo s2_htmlencode($trans('AI changes applied')); ?>"
+    data-ai-proofread-clean="<?php echo s2_htmlencode($trans('AI proofreading clean')); ?>"
+    data-invalid-link="<?php echo s2_htmlencode($trans('Invalid link address')); ?>"
 <?php endif; ?>
 >
 <?php if ($inplaceData !== null): ?>
@@ -79,6 +86,123 @@ $tagNames    = array_values(array_map(
     </form>
 </div>
 <p class="post-inplace-status" role="status" hidden></p>
+<template class="post-editor-context-menu-template">
+    <div class="post-editor-context-menu" role="menu" aria-label="<?php echo s2_htmlencode($trans('Editor context menu')); ?>" tabindex="-1">
+        <header class="post-editor-context-header">
+            <span class="post-editor-context-kicker"><?php echo $trans('Editor'); ?></span>
+            <strong data-context-selection-only><?php echo $trans('Selected text'); ?></strong>
+            <strong data-context-caret-only><?php echo $trans('Cursor position'); ?></strong>
+        </header>
+
+        <div class="post-editor-context-main">
+            <section class="post-editor-context-section" data-context-selection-only>
+                <h3><span class="post-editor-ai-mark" aria-hidden="true">✦</span> <?php echo $trans('AI for selection'); ?></h3>
+                <button type="button" role="menuitem" data-context-ai-action="proofread"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                    <span><?php echo $trans('Proofread'); ?></span>
+                </button>
+                <button type="button" role="menuitem" data-context-ai-action="improve"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                    <span><?php echo $trans('Improve text'); ?></span>
+                </button>
+                <button type="button" role="menuitem" data-context-ai-action="shorten"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                    <span><?php echo $trans('Shorten text'); ?></span>
+                </button>
+                <?php if (!$inplaceData['ai_enabled']): ?>
+                    <p class="post-editor-context-note"><?php echo $trans('AI is not configured'); ?></p>
+                <?php endif; ?>
+            </section>
+
+            <section class="post-editor-context-section" data-context-caret-only>
+                <h3><span class="post-editor-ai-mark" aria-hidden="true">✦</span> <?php echo $trans('AI for whole text'); ?></h3>
+                <button type="button" role="menuitem" data-context-ai-action="proofread"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                    <span><?php echo $trans('Proofread'); ?></span>
+                </button>
+                <button type="button" role="menuitem" data-context-ai-action="improve"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                    <span><?php echo $trans('Improve text'); ?></span>
+                </button>
+                <button type="button" role="menuitem" data-context-ai-action="shorten"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                    <span><?php echo $trans('Shorten text'); ?></span>
+                </button>
+                <button type="button" role="menuitem" data-context-ai-action="title"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                    <span><?php echo $trans('Suggest title'); ?></span>
+                </button>
+                <button type="button" role="menuitem" data-context-ai-action="tags"<?php echo $inplaceData['ai_enabled'] ? '' : ' disabled'; ?>>
+                    <span><?php echo $trans('Suggest tags'); ?></span>
+                </button>
+                <?php if (!$inplaceData['ai_enabled']): ?>
+                    <p class="post-editor-context-note"><?php echo $trans('AI is not configured'); ?></p>
+                <?php endif; ?>
+            </section>
+
+            <section class="post-editor-context-section">
+                <h3><?php echo $trans('Inline formatting'); ?></h3>
+                <div class="post-editor-format-row" role="group" aria-label="<?php echo s2_htmlencode($trans('Inline formatting')); ?>">
+                    <button type="button" data-context-action="bold" title="<?php echo s2_htmlencode($trans('Bold')); ?>" aria-label="<?php echo s2_htmlencode($trans('Bold')); ?>"><strong>B</strong></button>
+                    <button type="button" data-context-action="italic" title="<?php echo s2_htmlencode($trans('Italic')); ?>" aria-label="<?php echo s2_htmlencode($trans('Italic')); ?>"><em>I</em></button>
+                    <button type="button" data-context-action="strike" title="<?php echo s2_htmlencode($trans('Strike')); ?>" aria-label="<?php echo s2_htmlencode($trans('Strike')); ?>"><s>S</s></button>
+                    <button type="button" data-context-action="open-link" title="<?php echo s2_htmlencode($trans('Link')); ?>" aria-label="<?php echo s2_htmlencode($trans('Link')); ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 14.5 14.5 9.5M7.4 16.6l-1.2 1.2a3.1 3.1 0 0 1-4.4-4.4l3.4-3.4a3.1 3.1 0 0 1 4.4 0M16.6 7.4l1.2-1.2a3.1 3.1 0 0 1 4.4 4.4L18.8 14a3.1 3.1 0 0 1-4.4 0" /></svg>
+                    </button>
+                    <button type="button" data-context-action="clear-format" title="<?php echo s2_htmlencode($trans('Clear formatting')); ?>" aria-label="<?php echo s2_htmlencode($trans('Clear formatting')); ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 19 14-14M9 5h10M14 5 7.8 19M5 19h6" /></svg>
+                    </button>
+                </div>
+            </section>
+
+            <section class="post-editor-context-section">
+                <h3><?php echo $trans('Block style'); ?></h3>
+                <div class="post-editor-block-row" role="group" aria-label="<?php echo s2_htmlencode($trans('Block style')); ?>">
+                    <button type="button" data-context-action="paragraph" title="<?php echo s2_htmlencode($trans('Paragraph')); ?>">¶</button>
+                    <button type="button" data-context-action="h2" title="<?php echo s2_htmlencode($trans('Header 2')); ?>">H2</button>
+                    <button type="button" data-context-action="h3" title="<?php echo s2_htmlencode($trans('Header 3')); ?>">H3</button>
+                    <button type="button" data-context-action="h4" title="<?php echo s2_htmlencode($trans('Header 4')); ?>">H4</button>
+                    <button type="button" data-context-action="quote" title="<?php echo s2_htmlencode($trans('Quote')); ?>">❝</button>
+                    <button type="button" data-context-action="code" title="<?php echo s2_htmlencode($trans('CODE')); ?>">&lt;/&gt;</button>
+                    <button type="button" data-context-action="unordered-list" title="<?php echo s2_htmlencode($trans('UL')); ?>">•≡</button>
+                    <button type="button" data-context-action="ordered-list" title="<?php echo s2_htmlencode($trans('OL')); ?>">1≡</button>
+                </div>
+            </section>
+
+            <section class="post-editor-context-section" data-context-caret-only>
+                <h3><?php echo $trans('Insert entity'); ?></h3>
+                <div class="post-editor-entity-grid">
+                    <button type="button" role="menuitem" data-context-action="media">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="13" height="12" rx="2" /><path d="m5.5 13 3-3 4.8 4.8M12.5 7.5h.01M19 8v9.5a2.5 2.5 0 1 1-2-2.45V10l4-1" /></svg>
+                        <span><?php echo $trans('Media'); ?></span>
+                    </button>
+                    <button type="button" role="menuitem" data-context-action="open-link">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 14.5 14.5 9.5M7.4 16.6l-1.2 1.2a3.1 3.1 0 0 1-4.4-4.4l3.4-3.4a3.1 3.1 0 0 1 4.4 0M16.6 7.4l1.2-1.2a3.1 3.1 0 0 1 4.4 4.4L18.8 14a3.1 3.1 0 0 1-4.4 0" /></svg>
+                        <span><?php echo $trans('Link'); ?></span>
+                    </button>
+                    <button type="button" role="menuitem" data-context-action="divider">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16" /></svg>
+                        <span><?php echo $trans('Divider'); ?></span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="post-editor-context-section post-editor-context-utility">
+                <button type="button" role="menuitem" data-context-action="undo"><span><?php echo $trans('Undo'); ?></span><kbd>⌘Z</kbd></button>
+                <button type="button" role="menuitem" data-context-action="redo"><span><?php echo $trans('Redo'); ?></span><kbd>⇧⌘Z</kbd></button>
+                <button type="button" role="menuitem" data-context-action="copy" data-context-selection-only><span><?php echo $trans('Copy'); ?></span><kbd>⌘C</kbd></button>
+                <button type="button" role="menuitem" data-context-action="cut" data-context-selection-only><span><?php echo $trans('Cut'); ?></span><kbd>⌘X</kbd></button>
+                <button type="button" role="menuitem" data-context-action="select-all" data-context-caret-only><span><?php echo $trans('Select all'); ?></span><kbd>⌘A</kbd></button>
+            </section>
+        </div>
+
+        <div class="post-editor-link-panel" hidden>
+            <button class="post-editor-link-back" type="button" data-context-action="link-back">← <?php echo $trans('Back'); ?></button>
+            <label>
+                <span><?php echo $trans('Link address'); ?></span>
+                <input type="text" inputmode="url" autocomplete="off" data-context-link-input placeholder="https://">
+            </label>
+            <p class="post-editor-link-error" role="alert" hidden></p>
+            <div class="post-editor-link-actions">
+                <button type="button" data-context-action="remove-link"><?php echo $trans('Remove link'); ?></button>
+                <button type="button" class="post-editor-link-apply" data-context-action="apply-link"><?php echo $trans('Apply'); ?></button>
+            </div>
+        </div>
+    </div>
+</template>
 <?php endif; ?>
 <div class="post author"><?php if (!empty($author)) echo s2_htmlencode($author); ?></div>
 <<?php echo $heading; ?> class="post head">

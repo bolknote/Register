@@ -1189,6 +1189,385 @@ h2.preview,
     background: color-mix(in srgb, var(--accent-color) 10%, var(--surface-background));
 }
 
+.post-editor-context-anchor {
+    position: relative;
+    display: inline-block;
+    width: 0;
+    height: 0;
+    vertical-align: baseline;
+    font-size: 0;
+    line-height: 0;
+    user-select: none;
+}
+
+.post-editor-context-menu {
+    position: absolute;
+    z-index: 30;
+    top: 0.65rem;
+    left: 0;
+    width: min(22rem, calc(100vw - 1.5rem));
+    max-height: min(28rem, calc(50vh - 0.75rem));
+    padding: 0.38rem;
+    overflow: auto;
+    border: 1px solid color-mix(in srgb, var(--text-color) 18%, transparent);
+    border-radius: 0.85rem;
+    background: color-mix(in srgb, var(--field-background) 96%, var(--page-background));
+    box-shadow:
+        0 1rem 3rem color-mix(in srgb, #000 24%, transparent),
+        0 0.15rem 0.45rem color-mix(in srgb, #000 18%, transparent);
+    color: var(--text-color);
+    font-family: var(--ui-font);
+    font-size: 0.84rem;
+    font-style: normal;
+    font-weight: 450;
+    letter-spacing: normal;
+    line-height: 1.3;
+    text-align: left;
+    text-transform: none;
+    white-space: normal;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+.post-editor-context-anchor.is-left > .post-editor-context-menu {
+    right: 0;
+    left: auto;
+}
+
+.post-editor-context-anchor.is-above > .post-editor-context-menu {
+    top: auto;
+    bottom: 0.65rem;
+}
+
+.post-editor-context-menu [hidden] {
+    display: none !important;
+}
+
+.post-editor-context-header {
+    position: sticky;
+    z-index: 1;
+    top: -0.38rem;
+    display: flex;
+    min-height: 2.7rem;
+    margin: -0.38rem -0.38rem 0;
+    padding: 0.65rem 0.8rem 0.55rem;
+    align-items: baseline;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0.85rem 0.85rem 0 0;
+    background: color-mix(in srgb, var(--field-background) 97%, var(--page-background));
+}
+
+.post-editor-context-header strong {
+    overflow: hidden;
+    font-size: 0.83rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.post-editor-context-kicker {
+    color: var(--accent-color);
+    font-size: 0.66rem;
+    font-weight: 780;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.post-editor-context-section {
+    padding: 0.45rem 0.25rem;
+}
+
+.post-editor-context-section + .post-editor-context-section {
+    border-top: 1px solid var(--border-color);
+}
+
+.post-editor-context-section h3 {
+    margin: 0;
+    padding: 0.18rem 0.55rem 0.38rem;
+    color: var(--minor-color);
+    font-size: 0.67rem;
+    font-weight: 760;
+    letter-spacing: 0.065em;
+    line-height: 1.25;
+    text-transform: uppercase;
+}
+
+.post-editor-ai-mark {
+    color: var(--accent-color);
+    font-size: 1rem;
+    line-height: 0;
+}
+
+.post-editor-context-menu button {
+    display: flex;
+    width: 100%;
+    min-height: 2.15rem;
+    margin: 0;
+    padding: 0.4rem 0.55rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    border: 0;
+    border-radius: 0.48rem;
+    appearance: none;
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-color);
+    cursor: pointer;
+    font: inherit;
+    line-height: 1.2;
+    text-align: left;
+}
+
+.post-editor-context-menu button:hover,
+.post-editor-context-menu button:focus-visible {
+    background: color-mix(in srgb, var(--accent-color) 12%, transparent);
+    color: var(--text-color);
+    outline: 0;
+}
+
+.post-editor-context-menu button:focus-visible {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 56%, transparent);
+}
+
+.post-editor-context-menu button:disabled {
+    cursor: default;
+    opacity: 0.38;
+}
+
+.post-editor-context-menu button:disabled:hover {
+    background: transparent;
+}
+
+.post-editor-context-section:has([data-context-ai-action]) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 0.2rem;
+}
+
+.post-editor-context-section:has([data-context-ai-action]) h3,
+.post-editor-context-section:has([data-context-ai-action]) .post-editor-context-note {
+    grid-column: 1 / -1;
+}
+
+.post-editor-context-note {
+    margin: 0.25rem 0.55rem 0.2rem;
+    color: var(--quiet-color);
+    font-size: 0.73rem;
+    line-height: 1.35;
+}
+
+.post-editor-format-row,
+.post-editor-block-row {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.post-editor-format-row {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.post-editor-block-row {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+}
+
+.post-editor-format-row button,
+.post-editor-block-row button {
+    min-width: 0;
+    min-height: 2.35rem;
+    padding: 0.25rem;
+    justify-content: center;
+    font-size: 0.86rem;
+    font-weight: 680;
+    text-align: center;
+}
+
+.post-editor-format-row svg,
+.post-editor-block-row svg,
+.post-editor-entity-grid svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+    vector-effect: non-scaling-stroke;
+}
+
+.post-editor-entity-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.3rem;
+}
+
+.post-editor-entity-grid button {
+    min-width: 0;
+    min-height: 4.15rem;
+    padding: 0.5rem 0.3rem;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.35rem;
+    background: color-mix(in srgb, var(--surface-background) 62%, transparent);
+    color: var(--minor-color);
+    font-size: 0.73rem;
+    font-weight: 650;
+    text-align: center;
+}
+
+.post-editor-entity-grid button:hover,
+.post-editor-entity-grid button:focus-visible {
+    color: var(--accent-color);
+}
+
+.post-editor-context-utility {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.1rem 0.25rem;
+}
+
+.post-editor-context-utility button {
+    min-width: 0;
+}
+
+.post-editor-context-menu kbd {
+    padding: 0;
+    background: transparent;
+    color: var(--quiet-color);
+    font-family: var(--ui-font);
+    font-size: 0.67rem;
+    font-weight: 560;
+    white-space: nowrap;
+}
+
+.post-editor-link-panel {
+    padding: 0.45rem 0.35rem 0.35rem;
+}
+
+.post-editor-context-menu .post-editor-link-back {
+    width: fit-content;
+    min-height: 2rem;
+    margin-bottom: 0.35rem;
+    color: var(--minor-color);
+}
+
+.post-editor-link-panel label > span {
+    display: block;
+    margin: 0 0 0.35rem 0.45rem;
+    color: var(--minor-color);
+    font-size: 0.72rem;
+    font-weight: 680;
+}
+
+.post-editor-link-panel input {
+    display: block;
+    width: 100%;
+    min-height: 2.65rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.55rem;
+    background: var(--page-background);
+    color: var(--text-color);
+    font-size: 0.84rem;
+}
+
+.post-editor-link-panel input:focus-visible {
+    border-color: var(--accent-color);
+    outline: 0;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color) 22%, transparent);
+}
+
+.post-editor-link-error {
+    margin: 0.45rem;
+    color: var(--error-color);
+    font-size: 0.73rem;
+}
+
+.post-editor-link-actions {
+    display: flex;
+    margin-top: 0.55rem;
+    justify-content: flex-end;
+    gap: 0.35rem;
+}
+
+.post-editor-link-actions button {
+    width: auto;
+    min-height: 2.2rem;
+}
+
+.post-editor-link-actions .post-editor-link-apply {
+    background: var(--text-color);
+    color: var(--page-background);
+    font-weight: 700;
+}
+
+.post-editor-link-actions .post-editor-link-apply:hover,
+.post-editor-link-actions .post-editor-link-apply:focus-visible {
+    background: var(--accent-color);
+    color: var(--page-background);
+}
+
+.post-card.is-ai-working > .post-inplace-tools {
+    cursor: progress;
+    opacity: 0.5;
+}
+
+.post-card.is-editing > .post-inplace-status.is-editor-toast {
+    position: fixed;
+    z-index: 40;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    display: flex;
+    max-width: min(30rem, calc(100vw - 2rem));
+    min-height: 2.6rem;
+    margin: 0;
+    padding: 0.65rem 0.85rem;
+    align-items: center;
+    gap: 0.6rem;
+    border: 1px solid color-mix(in srgb, var(--success-color) 42%, var(--border-color));
+    border-radius: 0.7rem;
+    background: color-mix(in srgb, var(--field-background) 96%, var(--page-background));
+    box-shadow: 0 0.7rem 2.2rem color-mix(in srgb, #000 22%, transparent);
+    color: var(--text-color);
+    font-size: 0.8rem;
+    font-weight: 620;
+}
+
+.post-card.is-editing > .post-inplace-status.is-editor-toast.is-error {
+    border-color: color-mix(in srgb, var(--error-color) 56%, var(--border-color));
+}
+
+.post-card.is-ai-working > .post-inplace-status.is-editor-toast::before {
+    width: 0.82rem;
+    height: 0.82rem;
+    flex: 0 0 auto;
+    border: 2px solid color-mix(in srgb, var(--accent-color) 24%, transparent);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    content: "";
+    animation: post-media-upload-spin 700ms linear infinite;
+}
+
+@media (max-width: 720px) {
+    .post-editor-context-menu,
+    .post-editor-context-anchor.is-left > .post-editor-context-menu,
+    .post-editor-context-anchor.is-above > .post-editor-context-menu {
+        position: fixed;
+        top: auto;
+        right: max(0.75rem, env(safe-area-inset-right));
+        bottom: max(0.75rem, env(safe-area-inset-bottom));
+        left: max(0.75rem, env(safe-area-inset-left));
+        width: auto;
+        max-height: min(78vh, 36rem);
+        max-height: min(78dvh, 36rem);
+    }
+
+    .post-editor-block-row {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
 .post-media-upload {
     display: flex;
     width: min(100%, 34rem);
@@ -1239,7 +1618,8 @@ h2.preview,
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .post-media-upload::before {
+    .post-media-upload::before,
+    .post-card.is-ai-working > .post-inplace-status.is-editor-toast::before {
         animation: none;
     }
 }

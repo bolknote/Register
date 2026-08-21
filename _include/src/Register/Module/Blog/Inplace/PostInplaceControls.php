@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Inplace;
 
+use Register\Ai\AiSettings;
 use S2\Cms\Model\AuthenticatedPublicUser;
 use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\UrlBuilder;
@@ -21,11 +22,12 @@ final readonly class PostInplaceControls
         private AuthProvider               $authProvider,
         private PostInplaceTokenManager    $tokenManager,
         private UrlBuilder                 $urlBuilder,
+        private AiSettings                 $aiSettings,
     ) {
     }
 
     /**
-     * @return array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string}|null
+     * @return array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string, ai_enabled: bool}|null
      */
     public function forPost(Request $request, int $postId, ?int $authorId, int $revision): ?array
     {
@@ -44,6 +46,7 @@ final readonly class PostInplaceControls
             'token'         => $this->tokenManager->issue($editor, $postId),
             'revision'      => $revision,
             'return_to'     => $request->getPathInfo(),
+            'ai_enabled'    => $this->aiSettings->isConfigured(),
         ];
     }
 

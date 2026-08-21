@@ -59,7 +59,25 @@ final class PostInplaceCest
         $I->seeElement('.post.foot .post-foot-tags.is-empty [data-post-inplace-tags-values]');
         $I->dontSeeElement('.post-inplace-html-editor');
         $I->seeElement('.post-delete-confirmation[hidden]');
+        $I->seeElement('template.post-editor-context-menu-template');
+        $I->seeElement('.post-editor-context-menu-template [data-context-selection-only]');
+        $I->seeElement('.post-editor-context-menu-template [data-context-caret-only]');
+        $I->seeElement('.post-editor-context-menu-template [data-context-action="media"]');
+        $I->seeElement('.post-editor-context-menu-template [data-context-action="open-link"]');
+        $I->seeElement('.post-editor-context-menu-template [data-context-ai-action="proofread"][disabled]');
         $I->seeElement('script[src^="/_assets/register/post-inplace.js?v="]');
+
+        $selector = '.post-card[data-post-id="' . $ownId . '"] > .post-inplace-edit-form';
+        $token    = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $ownId, [
+            'inplace_action' => 'ai',
+            'inplace_token'  => $token,
+            'ai_action'      => 'proofread',
+            'title'          => 'Author post',
+            'text'           => '<p>Text to check.</p>',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_CONFLICT);
+        $I->assertStringContainsString('AI assistant is not configured', $I->grabResponse());
 
         $I->amOnPage('https://localhost/admin-post');
         $I->dontSeeElement('.post-card[data-post-id="' . $otherId . '"] .post-inplace-tools');

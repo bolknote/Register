@@ -175,6 +175,7 @@ final class ContentSecurityPolicyTest extends Unit
             $root . '/_admin/js/autocomplete.js',
             $root . '/_admin/js/config-secret.js',
             $root . '/_assets/register/audio-player/player.js',
+            $root . '/_assets/register/post-inplace.js',
             $root . '/_assets/register/search/autocomplete.js',
             $root . '/_assets/register/visitor/identity.js',
             $root . '/_styles/register/script.js',

@@ -67,7 +67,6 @@ use S2\Cms\Extensions\ExtensionManagerAdapter;
 use S2\Cms\Framework\Container;
 use S2\Cms\Framework\ExtensionInterface;
 use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\HttpClient\HttpClient;
 use S2\Cms\Model\ArticleManager;
 use S2\Cms\Model\ArticleProvider;
 use S2\Cms\Model\AuthManager;
@@ -229,13 +228,6 @@ class AdminExtension implements ExtensionInterface
             );
         }, [StatefulServiceInterface::class]);
 
-        $container->set(AiSettings::class, fn(Container $container): AiSettings => new AiSettings(
-            $container->get(DynamicConfigProvider::class),
-        ));
-        $container->set(AiClient::class, fn(Container $container): AiClient => new AiClient(
-            $container->get(HttpClient::class),
-            $container->get(AiSettings::class),
-        ));
         $container->set(AiEditorController::class, fn(Container $container): AiEditorController => new AiEditorController(
             $container->get(AiClient::class),
             $container->get(AiSettings::class),

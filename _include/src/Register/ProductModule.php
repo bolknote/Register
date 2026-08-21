@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace Register;
 
+use Register\Ai\AiClient;
+use Register\Ai\AiSettings;
 use Register\Comment\ContentCommentRenderer;
 use Register\Backup\BackupEncryptionKeyProvider;
 use Register\Backup\BackupEncryptor;
@@ -56,6 +58,7 @@ use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
 use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Framework\RoutingModuleInterface;
 use S2\Cms\Framework\StatefulServiceInterface;
+use S2\Cms\HttpClient\HttpClient;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Model\ArticleProvider;
@@ -88,6 +91,13 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
     public function buildContainer(Container $container): void
     {
         $container->set(BaseModuleRegistry::class, $this->baseModuleRegistry);
+        $container->set(AiSettings::class, static fn(Container $container): AiSettings => new AiSettings(
+            $container->get(DynamicConfigProvider::class),
+        ));
+        $container->set(AiClient::class, static fn(Container $container): AiClient => new AiClient(
+            $container->get(HttpClient::class),
+            $container->get(AiSettings::class),
+        ));
         $container->set(DatabaseSnapshotter::class, static fn(Container $container): DatabaseSnapshotter => new DatabaseSnapshotter(
             $container->get(\PDO::class),
             $container->getStringParameter('db_type'),

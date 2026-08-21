@@ -9,6 +9,9 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Inplace;
 
+use Register\Ai\AiClient;
+use Register\Ai\AiException;
+use Register\Ai\AiSettings;
 use Register\Comment\CommentRepository;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentChangeDispatcher;
@@ -34,6 +37,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 final readonly class PostInplaceController implements ControllerInterface
 {
     private const int MAX_BODY_BYTES = 16 * 1024 * 1024;
+
+    private const int MAX_AI_TEXT_LENGTH = 60000;
 
     private const int MAX_TAGS = 100;
 
@@ -62,6 +67,8 @@ final readonly class PostInplaceController implements ControllerInterface
         private UrlBuilder                 $urlBuilder,
         private PostInplaceMediaStorage    $mediaStorage,
         private string                     $mediaUrlPrefix,
+        private AiClient                   $aiClient,
+        private AiSettings                 $aiSettings,
         private TranslatorInterface        $translator,
         ContentDeletionGuardInterface ...$deletionGuards,
     ) {
@@ -102,6 +109,10 @@ final readonly class PostInplaceController implements ControllerInterface
         $action = $request->request->getString('inplace_action');
         if ($action === 'media') {
             return $this->uploadMedia($request);
+        }
+
+        if ($action === 'ai') {
+            return $this->generateWithAi($request, (string)$post['title']);
         }
 
         $revision = $this->revision($request);
@@ -164,6 +175,41 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         return $this->json($payload);
+    }
+
+    private function generateWithAi(Request $request, string $storedTitle): Response
+    {
+        $action = $request->request->getString('ai_action');
+        $title  = trim($request->request->getString('title'));
+        $text   = trim($request->request->getString('text'));
+        if (!AiClient::supportsAction($action) || $text === '') {
+            return $this->error($request, 'Invalid AI request', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if (mb_strlen($text) > self::MAX_AI_TEXT_LENGTH) {
+            return $this->error($request, 'AI text is too long', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if (!$this->aiSettings->isConfigured()) {
+            return $this->error($request, 'AI is not configured', Response::HTTP_CONFLICT);
+        }
+
+        try {
+            $result = $this->aiClient->generate(
+                $action,
+                mb_substr($title !== '' ? $title : $storedTitle, 0, 500),
+                $text,
+            );
+        } catch (AiException) {
+            return $this->error($request, 'AI request failed', Response::HTTP_BAD_GATEWAY);
+        }
+
+        return $this->json([
+            'success'   => true,
+            'action'    => 'ai',
+            'ai_action' => $action,
+            'result'    => $result,
+        ]);
     }
 
     private function mediaKind(UploadedFile $file): ?string
