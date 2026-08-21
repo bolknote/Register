@@ -72,6 +72,7 @@ use S2\Cms\Template\HtmlTemplateProvider;
 use S2\Cms\Template\TemplateAssetEvent;
 use S2\Cms\Template\TemplateEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
@@ -94,9 +95,15 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(AiSettings::class, static fn(Container $container): AiSettings => new AiSettings(
             $container->get(DynamicConfigProvider::class),
         ));
+        $container->set('ai_token_cache', static fn(Container $container): FilesystemAdapter => new FilesystemAdapter(
+            'ai_tokens',
+            0,
+            $container->getStringParameter('cache_dir'),
+        ));
         $container->set(AiClient::class, static fn(Container $container): AiClient => new AiClient(
             $container->get(HttpClient::class),
             $container->get(AiSettings::class),
+            $container->get('ai_token_cache'),
         ));
         $container->set(DatabaseSnapshotter::class, static fn(Container $container): DatabaseSnapshotter => new DatabaseSnapshotter(
             $container->get(\PDO::class),

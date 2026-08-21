@@ -389,14 +389,19 @@ class AdminCest
         $I->see('AI assistant', '.config-section');
         $I->seeElement('nav.config-section-nav[aria-label="Settings sections"]');
         $I->seeElement('[data-config-page-state][data-state="applied"]');
-        $I->assertCount(27, $I->grabMultiple('.config-setting label[for]'));
+        $I->assertCount(29, $I->grabMultiple('.config-setting label[for]'));
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] select[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_AI_API_KEY"][data-depends-on="REGISTER_AI_PROVIDER"]');
+        $I->seeElement('[data-config-key="REGISTER_AI_FOLDER_ID"][data-depends-values="yandex"]');
+        $I->seeElement('[data-config-key="REGISTER_AI_GIGACHAT_SCOPE"][data-depends-values="gigachat"]');
         $I->seeElement('button[data-ai-key-help-open]');
         $I->seeElement('form[action*="name=REGISTER_AI_API_KEY"] input[type="password"]');
         $I->seeElement('dialog#ai-key-help-dialog');
         $I->seeElement('[data-ai-key-help-panel="gemini"] a[href="https://aistudio.google.com/apikey"]');
         $I->seeElement('[data-ai-key-help-panel="groq"] a[href="https://console.groq.com/keys"]');
+        $I->seeElement('[data-ai-key-help-panel="yandex"] a[href="https://aistudio.yandex.ru/"]');
+        $I->seeElement('[data-ai-key-help-panel="gigachat"] a[href="https://developers.sber.ru/studio/"]');
+        $I->seeElement('[data-ai-key-help-panel="gigachat"] a[href="https://developers.sber.ru/docs/ru/gigachat/certificates"]');
         $I->dontSee('REGISTER_LINK_INVENTORY_GENERATION');
     }
 

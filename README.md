@@ -44,8 +44,9 @@ libc resolver.
   explicit publish/unpublish controls.
 - A focused editorial screen with live preview, keyboard shortcuts, native undo/redo, and article
   body recovery from `localStorage` after navigation, a tab closure, or a browser crash.
-- Optional AI assistance through your own Gemini or Groq API key: fix spelling, grammar, punctuation,
-  and typos; improve or shorten text; suggest a title; and suggest tags.
+- Optional AI assistance through your own Gemini, Groq, Yandex AI Studio, or GigaChat credentials:
+  fix spelling, grammar, punctuation, and typos; improve or shorten text; suggest a title; and
+  suggest tags.
 - AI results are applied directly to the editor, changed fragments are marked, and every edit remains
   reversible through the normal undo/redo history. API keys are stored on the server, and Settings
   includes step-by-step instructions for creating one.
@@ -54,8 +55,9 @@ libc resolver.
 - Image, audio, and video uploads, thumbnails, clipboard image insertion, and a live media preview.
 - Multiple users with separate author, moderator, editor, and administrator permissions.
 
-AI support is disabled by default. Provider availability, free quotas, and usage limits are governed
-by Gemini and Groq rather than by Register.
+AI support is disabled by default. Provider availability, free quotas, billing, and usage limits are
+governed by each external service rather than by Register. Settings contains provider-specific setup
+steps, including the Yandex Cloud folder ID and the GigaChat access scope and certificate guide.
 
 ### Reading and discovery
 

@@ -68,6 +68,8 @@ class DynamicConfigFormBuilder
         'AI config'                         => 'title',
         AiSettings::PROVIDER_CONFIG_KEY     => 'ai_provider',
         AiSettings::API_KEY_CONFIG_KEY      => 'secret',
+        AiSettings::FOLDER_ID_CONFIG_KEY    => 'string',
+        AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => 'gigachat_scope',
         AiSettings::MODEL_CONFIG_KEY        => 'string',
 
         'Admin config'     => 'title',
@@ -324,6 +326,8 @@ class DynamicConfigFormBuilder
                     AiSettings::PROVIDER_DISABLED => $this->translator->trans('AI disabled'),
                     AiSettings::PROVIDER_GEMINI   => 'Gemini',
                     AiSettings::PROVIDER_GROQ     => 'Groq',
+                    AiSettings::PROVIDER_YANDEX   => 'Yandex AI Studio',
+                    AiSettings::PROVIDER_GIGACHAT => 'GigaChat',
                 ],
                 inlineEdit: $inlineEdit,
                 inlineFormTemplate: '_admin/templates/config/ai-provider-inline.php.inc',
@@ -334,6 +338,18 @@ class DynamicConfigFormBuilder
                 control: 'password',
                 inlineEdit: $inlineEdit,
                 inlineFormTemplate: '_admin/templates/config/secret-inline.php.inc',
+            ),
+            'gigachat_scope' => new FieldConfig(
+                'value',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING),
+                control: 'select',
+                options: [
+                    AiSettings::GIGACHAT_SCOPE_PERSONAL => $this->translator->trans('GigaChat personal scope'),
+                    AiSettings::GIGACHAT_SCOPE_BUSINESS => $this->translator->trans('GigaChat business scope'),
+                    AiSettings::GIGACHAT_SCOPE_CORPORATE => $this->translator->trans('GigaChat corporate scope'),
+                ],
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
             default => throw new \LogicException(\sprintf('Unsupported dynamic configuration field type for "%s".', $paramName)),
         };
@@ -387,7 +403,20 @@ class DynamicConfigFormBuilder
             AiSettings::API_KEY_CONFIG_KEY,
             AiSettings::MODEL_CONFIG_KEY => [
                 'key'    => AiSettings::PROVIDER_CONFIG_KEY,
-                'values' => [AiSettings::PROVIDER_GEMINI, AiSettings::PROVIDER_GROQ],
+                'values' => [
+                    AiSettings::PROVIDER_GEMINI,
+                    AiSettings::PROVIDER_GROQ,
+                    AiSettings::PROVIDER_YANDEX,
+                    AiSettings::PROVIDER_GIGACHAT,
+                ],
+            ],
+            AiSettings::FOLDER_ID_CONFIG_KEY => [
+                'key'    => AiSettings::PROVIDER_CONFIG_KEY,
+                'values' => [AiSettings::PROVIDER_YANDEX],
+            ],
+            AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => [
+                'key'    => AiSettings::PROVIDER_CONFIG_KEY,
+                'values' => [AiSettings::PROVIDER_GIGACHAT],
             ],
             'S2_ANTISPAM_SPAM_SCORE',
             'S2_ANTISPAM_BLATANT_SCORE' => [

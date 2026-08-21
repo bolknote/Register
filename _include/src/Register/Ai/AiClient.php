@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Ai;
 
+use Psr\Cache\CacheException;
+use Psr\Cache\CacheItemPoolInterface;
 use S2\Cms\HttpClient\HttpClient;
 use S2\Cms\HttpClient\HttpClientException;
 use S2\Cms\HttpClient\HttpResponse;
@@ -33,10 +35,33 @@ final readonly class AiClient
         self::ACTION_TAGS    => 'Suggest 3 to 5 concise, conventional topic tags suitable for a blog archive. Prefer stable, reusable subjects over phrases copied from the text. Use complete words and standard terminology; avoid questions, slang, casual shortenings, malformed fragments, and overly specific descriptions. Return only a comma-separated list without hashtags, explanations, or numbering.',
     ];
 
+    private const array REQUEST_OPTIONS = [
+        HttpClient::CONNECT_TIMEOUT    => 10,
+        HttpClient::READ_TIMEOUT       => 45,
+        HttpClient::MAX_RESPONSE_BYTES => 1_048_576,
+    ];
+
+    /** @var \Closure(string, string, array<string, string>, ?string, array<string, int|bool|string>): HttpResponse */
+    private \Closure $request;
+
+    /**
+     * @param null|callable(string, string, array<string, string>, ?string, array<string, int|bool|string>): HttpResponse $request
+     */
     public function __construct(
-        private HttpClient  $httpClient,
-        private AiSettings $settings,
+        HttpClient                    $httpClient,
+        private AiSettings            $settings,
+        private CacheItemPoolInterface $tokenCache,
+        ?callable                     $request = null,
     ) {
+        $this->request = $request === null
+            ? static fn(
+                string  $method,
+                string  $url,
+                array   $headers,
+                ?string $body,
+                array   $options,
+            ): HttpResponse => $httpClient->request($method, $url, $headers, $body, $options)
+            : \Closure::fromCallable($request);
     }
 
     public static function supportsAction(string $action): bool
@@ -62,6 +87,8 @@ final readonly class AiClient
             $result = match ($this->settings->provider()) {
                 AiSettings::PROVIDER_GEMINI => $this->generateWithGemini($prompt),
                 AiSettings::PROVIDER_GROQ   => $this->generateWithGroq($prompt),
+                AiSettings::PROVIDER_YANDEX => $this->generateWithYandex($prompt),
+                AiSettings::PROVIDER_GIGACHAT => $this->generateWithGigaChat($prompt),
                 default => throw new AiException('AI provider is not supported.'),
             };
         } catch (HttpClientException|\JsonException $exception) {
@@ -97,7 +124,7 @@ final readonly class AiClient
     private function generateWithGemini(string $prompt): string
     {
         $model = rawurlencode($this->settings->model());
-        $response = $this->httpClient->request(
+        $response = ($this->request)(
             'POST',
             'https://generativelanguage.googleapis.com/v1beta/models/' . $model . ':generateContent',
             [
@@ -114,7 +141,7 @@ final readonly class AiClient
                     'maxOutputTokens' => 8192,
                 ],
             ], JSON_THROW_ON_ERROR),
-            [HttpClient::CONNECT_TIMEOUT => 10, HttpClient::READ_TIMEOUT => 45],
+            self::REQUEST_OPTIONS,
         );
 
         $data = $this->decodeResponse($response);
@@ -140,7 +167,7 @@ final readonly class AiClient
      */
     private function generateWithGroq(string $prompt): string
     {
-        $response = $this->httpClient->request(
+        $response = ($this->request)(
             'POST',
             'https://api.groq.com/openai/v1/chat/completions',
             [
@@ -153,7 +180,7 @@ final readonly class AiClient
                 'temperature' => 0.25,
                 'max_tokens'  => 8192,
             ], JSON_THROW_ON_ERROR),
-            [HttpClient::CONNECT_TIMEOUT => 10, HttpClient::READ_TIMEOUT => 45],
+            self::REQUEST_OPTIONS,
         );
 
         $data = $this->decodeResponse($response);
@@ -163,6 +190,154 @@ final readonly class AiClient
         }
 
         return $result;
+    }
+
+    /**
+     * @throws HttpClientException
+     * @throws \JsonException
+     * @throws AiException
+     */
+    private function generateWithYandex(string $prompt): string
+    {
+        $model = $this->settings->model();
+        if (!str_starts_with($model, 'gpt://')) {
+            $model = 'gpt://' . $this->settings->folderId() . '/' . ltrim($model, '/');
+        }
+
+        $response = ($this->request)(
+            'POST',
+            'https://ai.api.cloud.yandex.net/v1/chat/completions',
+            [
+                'Authorization'  => 'Api-Key ' . $this->settings->apiKey(),
+                'Content-Type'   => 'application/json',
+                'OpenAI-Project' => $this->settings->folderId(),
+            ],
+            json_encode([
+                'model'       => $model,
+                'messages'    => [['role' => 'user', 'content' => $prompt]],
+                'temperature' => 0.25,
+                'max_tokens'  => 8192,
+            ], JSON_THROW_ON_ERROR),
+            self::REQUEST_OPTIONS,
+        );
+
+        return $this->chatCompletionContent($response);
+    }
+
+    /**
+     * @throws HttpClientException
+     * @throws \JsonException
+     * @throws AiException
+     */
+    private function generateWithGigaChat(string $prompt): string
+    {
+        $response = ($this->request)(
+            'POST',
+            'https://api.giga.chat/v1/chat/completions',
+            [
+                'Authorization' => 'Bearer ' . $this->gigaChatAccessToken(),
+                'Content-Type'  => 'application/json',
+                'Accept'        => 'application/json',
+            ],
+            json_encode([
+                'model'       => $this->settings->model(),
+                'messages'    => [['role' => 'user', 'content' => $prompt]],
+                'temperature' => 0.25,
+                'max_tokens'  => 8192,
+            ], JSON_THROW_ON_ERROR),
+            self::REQUEST_OPTIONS,
+        );
+
+        return $this->chatCompletionContent($response);
+    }
+
+    /**
+     * @throws HttpClientException
+     * @throws \JsonException
+     * @throws AiException
+     */
+    private function gigaChatAccessToken(): string
+    {
+        $cacheKey = 'gigachat_' . hash('sha256', $this->settings->apiKey() . "\0" . $this->settings->gigaChatScope());
+        try {
+            $cacheItem = $this->tokenCache->getItem($cacheKey);
+            $cachedToken = $cacheItem->get();
+            if ($cacheItem->isHit() && \is_string($cachedToken) && $cachedToken !== '') {
+                return $cachedToken;
+            }
+        } catch (CacheException) {
+            $cacheItem = null;
+        }
+
+        $response = ($this->request)(
+            'POST',
+            'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
+            [
+                'Authorization' => 'Basic ' . $this->settings->apiKey(),
+                'Content-Type'  => 'application/x-www-form-urlencoded',
+                'Accept'        => 'application/json',
+                'RqUID'         => self::uuidV4(),
+            ],
+            http_build_query(['scope' => $this->settings->gigaChatScope()], '', '&', PHP_QUERY_RFC3986),
+            [
+                HttpClient::CONNECT_TIMEOUT    => 10,
+                HttpClient::READ_TIMEOUT       => 20,
+                HttpClient::MAX_RESPONSE_BYTES => 65_536,
+            ],
+        );
+        $data = $this->decodeResponse($response);
+        $token = $data['access_token'] ?? null;
+        if (!\is_string($token) || $token === '') {
+            throw new AiException('The AI provider returned an empty access token.');
+        }
+
+        $expiresAt = $data['expires_at'] ?? 0;
+        if (\is_numeric($expiresAt)) {
+            $expiresAt = (int)$expiresAt;
+            if ($expiresAt > 10_000_000_000) {
+                $expiresAt = (int)floor($expiresAt / 1000);
+            }
+        } else {
+            $expiresAt = 0;
+        }
+        $ttl = max(60, $expiresAt - time() - 60);
+
+        if ($cacheItem !== null) {
+            try {
+                $cacheItem->set($token)->expiresAfter($ttl);
+                $this->tokenCache->save($cacheItem);
+            } catch (CacheException) {
+                // A cache failure must not prevent an otherwise valid provider request.
+            }
+        }
+
+        return $token;
+    }
+
+    /** @throws AiException|\JsonException */
+    private function chatCompletionContent(HttpResponse $response): string
+    {
+        $data = $this->decodeResponse($response);
+        $result = $data['choices'][0]['message']['content'] ?? null;
+        if (!\is_string($result)) {
+            throw new AiException('The AI provider returned an empty response.');
+        }
+
+        return $result;
+    }
+
+    private static function uuidV4(): string
+    {
+        $bytes = random_bytes(16);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+        $hex = bin2hex($bytes);
+
+        return substr($hex, 0, 8) . '-'
+            . substr($hex, 8, 4) . '-'
+            . substr($hex, 12, 4) . '-'
+            . substr($hex, 16, 4) . '-'
+            . substr($hex, 20);
     }
 
     /**
@@ -179,7 +354,7 @@ final readonly class AiClient
         }
 
         if (!$response->isSuccessful()) {
-            $message = $data['error']['message'] ?? null;
+            $message = $data['error']['message'] ?? $data['message'] ?? $data['error_description'] ?? null;
             if (!\is_string($message) || trim($message) === '') {
                 $message = 'HTTP ' . $response->statusCode;
             }

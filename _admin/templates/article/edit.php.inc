@@ -105,10 +105,14 @@ foreach (array_keys($additionalControls) as $fieldName) {
 $aiProvider = (string)$param(\Register\Ai\AiSettings::PROVIDER_CONFIG_KEY);
 $aiConfigured = \Register\Ai\AiSettings::isSupportedProvider($aiProvider)
     && $aiProvider !== \Register\Ai\AiSettings::PROVIDER_DISABLED
-    && trim((string)$param(\Register\Ai\AiSettings::API_KEY_CONFIG_KEY)) !== '';
+    && trim((string)$param(\Register\Ai\AiSettings::API_KEY_CONFIG_KEY)) !== ''
+    && ($aiProvider !== \Register\Ai\AiSettings::PROVIDER_YANDEX
+        || trim((string)$param(\Register\Ai\AiSettings::FOLDER_ID_CONFIG_KEY)) !== '');
 $aiProviderLabel = match ($aiProvider) {
     \Register\Ai\AiSettings::PROVIDER_GEMINI => 'Gemini',
     \Register\Ai\AiSettings::PROVIDER_GROQ => 'Groq',
+    \Register\Ai\AiSettings::PROVIDER_YANDEX => 'Yandex AI Studio',
+    \Register\Ai\AiSettings::PROVIDER_GIGACHAT => 'GigaChat',
     default => '',
 };
 

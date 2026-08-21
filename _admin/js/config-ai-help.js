@@ -12,9 +12,13 @@ function initAiKeyHelp() {
     if (!dialog || !openButton || !providerSelect || tabs.length === 0 || panels.length === 0) {
         return;
     }
+    if (openButton.dataset.aiKeyHelpInitialized === 'true') {
+        return;
+    }
+    openButton.dataset.aiKeyHelpInitialized = 'true';
 
     function normalizeProvider(provider) {
-        return provider === 'groq' ? 'groq' : 'gemini';
+        return ['gemini', 'groq', 'yandex', 'gigachat'].includes(provider) ? provider : 'gemini';
     }
 
     function activateProvider(provider, moveFocus) {
@@ -41,7 +45,7 @@ function initAiKeyHelp() {
 
     openButton.addEventListener('click', openHelp);
     providerSelect.addEventListener('change', function () {
-        if (providerSelect.value === 'gemini' || providerSelect.value === 'groq') {
+        if (['gemini', 'groq', 'yandex', 'gigachat'].includes(providerSelect.value)) {
             openHelp();
         }
     });
@@ -84,4 +88,8 @@ function initAiKeyHelp() {
     });
 }
 
-initAiKeyHelp();
+if (!window.RegisterAiKeyHelp) {
+    window.RegisterAiKeyHelp = {init: initAiKeyHelp};
+    document.addEventListener('register:navigation-updated', window.RegisterAiKeyHelp.init);
+}
+window.RegisterAiKeyHelp.init();

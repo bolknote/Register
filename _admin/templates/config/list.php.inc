@@ -153,6 +153,28 @@ foreach ($rows as $row) {
                 <span class="ai-key-help-provider-mark" aria-hidden="true">Q</span>
                 <span><strong>Groq</strong><small><?= $escape($trans('Free tier')) ?></small></span>
             </button>
+            <button
+                type="button"
+                role="tab"
+                id="ai-key-help-tab-yandex"
+                data-ai-key-help-tab="yandex"
+                aria-controls="ai-key-help-panel-yandex"
+                aria-selected="false"
+                tabindex="-1">
+                <span class="ai-key-help-provider-mark" aria-hidden="true">Я</span>
+                <span><strong>Yandex</strong><small><?= $escape($trans('Starter grant')) ?></small></span>
+            </button>
+            <button
+                type="button"
+                role="tab"
+                id="ai-key-help-tab-gigachat"
+                data-ai-key-help-tab="gigachat"
+                aria-controls="ai-key-help-panel-gigachat"
+                aria-selected="false"
+                tabindex="-1">
+                <span class="ai-key-help-provider-mark" aria-hidden="true">G</span>
+                <span><strong>GigaChat</strong><small><?= $escape($trans('Personal freemium')) ?></small></span>
+            </button>
         </div>
 
         <section
@@ -201,6 +223,61 @@ foreach ($rows as $row) {
                 </a>
                 <a href="https://console.groq.com/docs/quickstart" target="_blank" rel="noopener noreferrer">
                     <?= $escape($trans('Official instructions')) ?>
+                </a>
+            </div>
+        </section>
+
+        <section
+            class="ai-key-help-panel"
+            id="ai-key-help-panel-yandex"
+            data-ai-key-help-panel="yandex"
+            role="tabpanel"
+            aria-labelledby="ai-key-help-tab-yandex"
+            hidden>
+            <p class="ai-key-help-lead"><?= $escape($trans('Yandex key help lead')) ?></p>
+            <ol class="ai-key-help-steps">
+                <li><?= $escape($trans('Yandex key step 1')) ?></li>
+                <li><?= $escape($trans('Yandex key step 2')) ?></li>
+                <li><?= $escape($trans('Yandex key step 3')) ?></li>
+                <li><?= $escape($trans('Yandex key step 4')) ?></li>
+            </ol>
+            <p class="ai-key-help-note"><?= $escape($trans('Yandex billing note')) ?></p>
+            <p class="ai-key-help-note"><?= $escape($trans('AI key help model note')) ?></p>
+            <div class="ai-key-help-links">
+                <a class="ai-key-help-primary-link" href="https://aistudio.yandex.ru/" target="_blank" rel="noopener noreferrer">
+                    <?= $escape($trans('Open AI Studio')) ?> <span aria-hidden="true">↗</span>
+                </a>
+                <a href="https://aistudio.yandex.ru/docs/ru/ai-studio/quickstart/" target="_blank" rel="noopener noreferrer">
+                    <?= $escape($trans('Official instructions')) ?>
+                </a>
+            </div>
+        </section>
+
+        <section
+            class="ai-key-help-panel"
+            id="ai-key-help-panel-gigachat"
+            data-ai-key-help-panel="gigachat"
+            role="tabpanel"
+            aria-labelledby="ai-key-help-tab-gigachat"
+            hidden>
+            <p class="ai-key-help-lead"><?= $escape($trans('GigaChat key help lead')) ?></p>
+            <ol class="ai-key-help-steps">
+                <li><?= $escape($trans('GigaChat key step 1')) ?></li>
+                <li><?= $escape($trans('GigaChat key step 2')) ?></li>
+                <li><?= $escape($trans('GigaChat key step 3')) ?></li>
+                <li><?= $escape($trans('GigaChat key step 4')) ?></li>
+            </ol>
+            <p class="ai-key-help-note"><?= $escape($trans('GigaChat certificate note')) ?></p>
+            <p class="ai-key-help-note"><?= $escape($trans('AI key help model note')) ?></p>
+            <div class="ai-key-help-links">
+                <a class="ai-key-help-primary-link" href="https://developers.sber.ru/studio/" target="_blank" rel="noopener noreferrer">
+                    <?= $escape($trans('Open Sber Studio')) ?> <span aria-hidden="true">↗</span>
+                </a>
+                <a href="https://developers.sber.ru/docs/ru/gigachat/individuals-quickstart" target="_blank" rel="noopener noreferrer">
+                    <?= $escape($trans('Official instructions')) ?>
+                </a>
+                <a href="https://developers.sber.ru/docs/ru/gigachat/certificates" target="_blank" rel="noopener noreferrer">
+                    <?= $escape($trans('Certificate instructions')) ?>
                 </a>
             </div>
         </section>

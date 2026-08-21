@@ -19,15 +19,31 @@ final readonly class AiSettings
 
     public const string MODEL_CONFIG_KEY = 'REGISTER_AI_MODEL';
 
+    public const string FOLDER_ID_CONFIG_KEY = 'REGISTER_AI_FOLDER_ID';
+
+    public const string GIGACHAT_SCOPE_CONFIG_KEY = 'REGISTER_AI_GIGACHAT_SCOPE';
+
     public const string PROVIDER_DISABLED = 'disabled';
 
     public const string PROVIDER_GEMINI = 'gemini';
 
     public const string PROVIDER_GROQ = 'groq';
 
+    public const string PROVIDER_YANDEX = 'yandex';
+
+    public const string PROVIDER_GIGACHAT = 'gigachat';
+
+    public const string GIGACHAT_SCOPE_PERSONAL = 'GIGACHAT_API_PERS';
+
+    public const string GIGACHAT_SCOPE_BUSINESS = 'GIGACHAT_API_B2B';
+
+    public const string GIGACHAT_SCOPE_CORPORATE = 'GIGACHAT_API_CORP';
+
     private const array DEFAULT_MODELS = [
         self::PROVIDER_GEMINI => 'gemini-3.5-flash-lite',
         self::PROVIDER_GROQ   => 'openai/gpt-oss-20b',
+        self::PROVIDER_YANDEX => 'yandexgpt-5-lite',
+        self::PROVIDER_GIGACHAT => 'GigaChat-2-Pro',
     ];
 
     public function __construct(private DynamicConfigProvider $configProvider)
@@ -56,11 +72,31 @@ final readonly class AiSettings
         return self::DEFAULT_MODELS[$this->provider()] ?? '';
     }
 
+    public function folderId(): string
+    {
+        return trim((string)$this->configProvider->get(self::FOLDER_ID_CONFIG_KEY));
+    }
+
+    public function gigaChatScope(): string
+    {
+        $scope = trim((string)$this->configProvider->get(self::GIGACHAT_SCOPE_CONFIG_KEY));
+
+        return self::isSupportedGigaChatScope($scope) ? $scope : self::GIGACHAT_SCOPE_PERSONAL;
+    }
+
     public function isConfigured(): bool
     {
-        return $this->provider() !== self::PROVIDER_DISABLED
-            && $this->apiKey() !== ''
-            && $this->model() !== '';
+        if ($this->apiKey() === '' || $this->model() === '') {
+            return false;
+        }
+
+        return match ($this->provider()) {
+            self::PROVIDER_GEMINI,
+            self::PROVIDER_GROQ,
+            self::PROVIDER_GIGACHAT => true,
+            self::PROVIDER_YANDEX => $this->folderId() !== '',
+            default => false,
+        };
     }
 
     public static function isSupportedProvider(string $provider): bool
@@ -69,6 +105,17 @@ final readonly class AiSettings
             self::PROVIDER_DISABLED,
             self::PROVIDER_GEMINI,
             self::PROVIDER_GROQ,
+            self::PROVIDER_YANDEX,
+            self::PROVIDER_GIGACHAT,
+        ], true);
+    }
+
+    public static function isSupportedGigaChatScope(string $scope): bool
+    {
+        return \in_array($scope, [
+            self::GIGACHAT_SCOPE_PERSONAL,
+            self::GIGACHAT_SCOPE_BUSINESS,
+            self::GIGACHAT_SCOPE_CORPORATE,
         ], true);
     }
 }

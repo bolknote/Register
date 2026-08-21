@@ -31,6 +31,8 @@ final readonly class SchemaManager
         AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_DISABLED,
         AiSettings::API_KEY_CONFIG_KEY  => '',
         AiSettings::MODEL_CONFIG_KEY    => '',
+        AiSettings::FOLDER_ID_CONFIG_KEY => '',
+        AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
     ];
 
     public function __construct(
