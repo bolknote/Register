@@ -125,8 +125,8 @@ readonly class SearchPageController implements ControllerInterface
                 $content['output'] = '';
                 foreach ($resultSet->getItems() as $item) {
                     $content['output'] .= $this->viewer->render('search_result', [
+                        'plainTitle'    => $item->getTitle(),
                         'title'         => $item->getHighlightedTitle($this->stemmer),
-                        'url'           => $item->getUrl(),
                         'link'          => $this->urlBuilder->link($item->getUrl()),
                         'descr'         => $item->getFormattedSnippet(),
                         'time'          => $item->getDate()?->getTimestamp(),

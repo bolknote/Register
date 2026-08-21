@@ -35,7 +35,7 @@ if (isset($num)) {
             echo '<p class="s2_search_found_num">' . $num_info . '</p>';
         }
 
-        echo $output, $paging;
+        echo '<div class="search-results">', $output, '</div>', $paging;
     }
     else {
         echo '<p class="s2_search_not_found">' . $trans('No results found') . '</p>';

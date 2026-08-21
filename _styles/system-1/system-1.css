@@ -470,7 +470,6 @@ hr {
     max-width: var(--text-width);
 }
 
-#content > .e2-text,
 #content > .article-text {
     max-width: var(--article-width);
 }
@@ -549,7 +548,7 @@ blockquote {
 }
 
 #content figure img,
-#content .e2-text-picture img,
+#content .post-picture img,
 #content iframe,
 #content video {
     border: 2px solid var(--system-black);
@@ -558,7 +557,7 @@ blockquote {
 }
 
 #content figcaption,
-#content .e2-text-caption {
+#content .post-caption {
     margin-top: 0.7rem;
     color: var(--minor-color);
     font-family: var(--ui-font);
@@ -814,9 +813,8 @@ blockquote {
     flex: 0 0 auto;
 }
 
-#content p.search-result {
+#content .search-result {
     padding: 10px 0 12px 42px;
-    border-bottom: 1px dotted var(--system-black);
     background: url("document.png") 0 8px / 30px 30px no-repeat;
 }
 

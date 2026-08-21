@@ -1,12 +1,12 @@
-/* CSP-safe fallback for proportional media saved by older E2 editors. */
-html #content .e2-text-proportional-wrapper {
+/* CSP-safe fallback for proportional media saved by older editors. */
+html #content .post-proportional-wrapper {
     position: static;
     width: fit-content;
     max-width: 100%;
     height: auto;
 }
 
-html #content .e2-text-proportional-wrapper > :where(img, video) {
+html #content .post-proportional-wrapper > :where(img, video) {
     position: static;
     inset: auto;
     display: block;

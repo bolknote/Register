@@ -84,7 +84,7 @@ class StringHelper
     }
 
     /**
-     * Creates paging navigation (1  2  3 ... total_pages - 1  total_pages)
+     * Creates compact paging navigation (1 … current - 1 current current + 1 … total_pages)
      *
      * @param int $page Current page
      * @param string $url must have the following form http://example.com/page?num=%d
@@ -97,15 +97,22 @@ class StringHelper
             return '';
         }
 
+        $visiblePages = self::pagingVisiblePages($page, $totalPages);
         $links = '';
-        for ($i = 1; $i <= $totalPages; ++$i) {
-            $links .= ($i === $page
-                ? ' <span class="current digit">' . $i . '</span>'
-                : ' <a class="digit" href="' . \sprintf($url, $i) . '">' . $i . '</a>');
+        $previousPage = null;
+        foreach ($visiblePages as $visiblePage) {
+            if ($previousPage !== null && $visiblePage > $previousPage + 1) {
+                $links .= ' <span class="paging-ellipsis" aria-hidden="true">…</span>';
+            }
+
+            $links .= ' ' . ($visiblePage === $page
+                ? '<span class="current digit" aria-current="page">' . $visiblePage . '</span>'
+                : '<a class="digit" href="' . \sprintf($url, $visiblePage) . '">' . $visiblePage . '</a>');
+            $previousPage = $visiblePage;
         }
 
         if ($page <= 1 || $page > $totalPages) {
-            $prevLink = '<span class="arrow left">&larr;</span>';
+            $prevLink = '<span class="arrow left" aria-disabled="true">&larr;</span>';
         } else {
             $prevUrl                    = \sprintf($url, $page - 1);
             $linksForNavigation['prev'] = $prevUrl;
@@ -113,7 +120,7 @@ class StringHelper
         }
 
         if ($page === $totalPages) {
-            $nextLink = ' <span class="arrow right">&rarr;</span>';
+            $nextLink = ' <span class="arrow right" aria-disabled="true">&rarr;</span>';
         } else {
             $nextUrl                    = \sprintf($url, $page + 1);
             $linksForNavigation['next'] = $nextUrl;
@@ -121,6 +128,28 @@ class StringHelper
         }
 
         return '<p class="paging">' . $prevLink . $links . $nextLink . '</p>';
+    }
+
+    /** @return list<int> */
+    private static function pagingVisiblePages(int $page, int $totalPages): array
+    {
+        if ($totalPages <= 9) {
+            return range(1, $totalPages);
+        }
+
+        $currentPage = max(1, min($page, $totalPages));
+        $rangeStart = max(2, $currentPage - 2);
+        $rangeEnd = min($totalPages - 1, $currentPage + 2);
+
+        if ($rangeStart <= 3) {
+            $rangeStart = 2;
+            $rangeEnd = 6;
+        } elseif ($rangeEnd >= $totalPages - 2) {
+            $rangeStart = $totalPages - 5;
+            $rangeEnd = $totalPages - 1;
+        }
+
+        return [1, ...range($rangeStart, $rangeEnd), $totalPages];
     }
 
     /**

@@ -5,28 +5,48 @@ declare(strict_types = 1);
 /**
  * @var callable $thumbnailHtml
  * @var callable $formatDate
+ * @var $plainTitle string
  * @var $title string
  * @var $link string
  * @var $descr string
  * @var $time string
  * @var $images \S2\Rose\Entity\Metadata\ImgCollection|\S2\Rose\Entity\Metadata\Img[]
  */
+$imageCount = \count($images);
+$previewLimit = 4;
 ?>
-<div class="search-result-img-preview">
-<?php
+<article class="search-result<?php echo $imageCount > 0 ? ' search-result-has-media' : ''; ?>">
+    <h2 class="search-result-title">
+        <a class="title" href="<?php echo s2_htmlencode($link); ?>"><?php echo $title; ?></a>
+    </h2>
 
-foreach ($images as $image) {
-    $img = $thumbnailHtml($image->getSrc(), $image->getWidth(), $image->getHeight(), 300, 75);
-    echo '<a class="preview-link" href="', $link , '">', $img, '</a>';
-}
-?>
-</div>
-<p class="search-result">
-	<a class="title" href="<?php echo $link; ?>">
-        <?php echo $title; ?>
-    </a><br />
-	<?php echo trim($descr) ? $descr . '<br />' : '';  ?>
-	<small class="stuff">
-		<?php if (!empty($time)) echo $formatDate($time); ?>
-	</small>
-</p>
+    <?php if ($imageCount > 0): ?>
+        <div class="search-result-media">
+            <a class="search-result-media-link" href="<?php echo s2_htmlencode($link); ?>"
+                aria-label="<?php echo s2_htmlencode($plainTitle); ?>">
+                <?php foreach ($images as $index => $image): ?>
+                    <?php
+                    if ($index >= $previewLimit) {
+                        break;
+                    }
+                    ?>
+                    <span class="search-result-media-item">
+                        <?php echo $thumbnailHtml($image->getSrc(), $image->getWidth(), $image->getHeight(), 360, 240); ?>
+                        <?php if ($index === $previewLimit - 1 && $imageCount > $previewLimit): ?>
+                            <span class="search-result-media-more" aria-hidden="true">+<?php echo $imageCount - $previewLimit; ?></span>
+                        <?php endif; ?>
+                    </span>
+                <?php endforeach; ?>
+            </a>
+        </div>
+    <?php endif; ?>
+
+    <?php if (trim($descr) !== ''): ?>
+        <div class="search-result-snippet"><?php echo $descr; ?></div>
+    <?php endif; ?>
+    <?php if (!empty($time)): ?>
+        <footer class="search-result-meta stuff">
+            <time datetime="<?php echo gmdate(DATE_ATOM, (int)$time); ?>"><?php echo $formatDate($time); ?></time>
+        </footer>
+    <?php endif; ?>
+</article>

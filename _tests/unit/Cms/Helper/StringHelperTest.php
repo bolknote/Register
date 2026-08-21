@@ -138,21 +138,21 @@ final class StringHelperTest extends Unit
             5,
             'http://example.com/page?num=%d',
             ['next' => 'http://example.com/page?num=2'],
-            '<span class="current digit">1</span>'
+            '<span class="current digit" aria-current="page">1</span>'
         ];
         yield 'middle page' => [
             3,
             5,
             'http://example.com/page?num=%d',
             ['prev' => 'http://example.com/page?num=2', 'next' => 'http://example.com/page?num=4'],
-            '<span class="current digit">3</span>'
+            '<span class="current digit" aria-current="page">3</span>'
         ];
         yield 'last page' => [
             5,
             5,
             'http://example.com/page?num=%d',
             ['prev' => 'http://example.com/page?num=4'],
-            '<span class="current digit">5</span>'
+            '<span class="current digit" aria-current="page">5</span>'
         ];
         yield 'single page' => [
             1,
@@ -166,8 +166,31 @@ final class StringHelperTest extends Unit
             5,
             'http://example.com/page?num=%d',
             ['next' => 'http://example.com/page?num=1'],
-            '<span class="arrow left">&larr;</span>'
+            '<span class="arrow left" aria-disabled="true">&larr;</span>'
         ];
+    }
+
+    public function testPagingCompactsLongPageRanges(): void
+    {
+        $linksForNavigation = [];
+        $result = StringHelper::paging(
+            160,
+            321,
+            'http://example.com/page?num=%d',
+            $linksForNavigation,
+        );
+
+        self::assertStringContainsString('page?num=1', $result);
+        self::assertStringContainsString('page?num=158', $result);
+        self::assertStringContainsString('aria-current="page">160</span>', $result);
+        self::assertStringContainsString('page?num=162', $result);
+        self::assertStringContainsString('page?num=321', $result);
+        self::assertStringNotContainsString('page?num=100', $result);
+        self::assertSame(2, substr_count($result, 'class="paging-ellipsis"'));
+        self::assertSame([
+            'prev' => 'http://example.com/page?num=159',
+            'next' => 'http://example.com/page?num=161',
+        ], $linksForNavigation);
     }
 
     public function testBbcodeToHtml(): void

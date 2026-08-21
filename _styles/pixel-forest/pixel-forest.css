@@ -333,7 +333,7 @@ blockquote {
 }
 
 #content figure img,
-#content .e2-text-picture img,
+#content .post-picture img,
 #content iframe,
 #content video {
     border: 3px solid var(--pixel-frame);
@@ -341,7 +341,7 @@ blockquote {
 }
 
 #content figcaption,
-#content .e2-text-caption {
+#content .post-caption {
     color: var(--minor-color);
 }
 
@@ -618,7 +618,7 @@ h2.preview {
     line-height: 1.4;
 }
 
-p.search-result {
+.search-result {
     padding: 0.8rem 1rem;
     border-left: 4px solid var(--pixel-frame);
     background: rgb(16 42 37 / 68%);
