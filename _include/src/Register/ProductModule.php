@@ -277,10 +277,21 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
     {
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
             $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $publicRoot = $container->getStringParameter('public_root_dir');
+            $versionedAsset = static function (string $path) use ($basePath, $publicRoot): string {
+                $modifiedAt = \filemtime($publicRoot . ltrim($path, '/'));
+                if ($modifiedAt === false) {
+                    throw new \LogicException(\sprintf('Unable to read the modification time of "%s".', $path));
+                }
+
+                return $basePath . $path . '?v=' . $modifiedAt;
+            };
             $event->assetPack
                 ->addCss($basePath . '/_assets/register/offline.css')
-                ->addJs($basePath . '/_assets/register/offline.js', [AssetPack::OPTION_DEFER])
-                ->addJs($basePath . '/_assets/register/live-updates.js', [AssetPack::OPTION_DEFER])
+                ->addCss($versionedAsset('/_assets/register/partial-navigation.css'))
+                ->addJs($versionedAsset('/_assets/register/offline.js'), [AssetPack::OPTION_DEFER])
+                ->addJs($versionedAsset('/_assets/register/live-updates.js'), [AssetPack::OPTION_DEFER])
+                ->addJs($versionedAsset('/_assets/register/partial-navigation.js'), [AssetPack::OPTION_DEFER])
             ;
         });
 

@@ -1,13 +1,28 @@
 (function () {
     'use strict';
 
+    var cspSafeInteractionsReady = false;
+    var activeCommentStorageForm = null;
+    var commentStorageSaves = new WeakMap();
+    var commentStorageTimer = null;
+
     function initCspSafeInteractions() {
-        document.querySelectorAll('[data-history-back]').forEach(function (link) {
-            link.addEventListener('click', function (event) {
+        if (!cspSafeInteractionsReady) {
+            cspSafeInteractionsReady = true;
+            document.addEventListener('click', function (event) {
+                var link = event.target.closest ? event.target.closest('[data-history-back]') : null;
+                if (!link) {
+                    return;
+                }
                 event.preventDefault();
                 window.history.back();
             }, false);
-        });
+            document.addEventListener('load', function (event) {
+                if (event.target.matches?.('img[data-youtube-fallback-width]')) {
+                    applyYouTubeFallback(event.target);
+                }
+            }, true);
+        }
 
         function applyYouTubeFallback(image) {
             if (image.dataset.youtubeFallbackDone === '1' || !image.complete) {
@@ -24,17 +39,16 @@
             }
         }
 
-        document.addEventListener('load', function (event) {
-            if (event.target.matches?.('img[data-youtube-fallback-width]')) {
-                applyYouTubeFallback(event.target);
-            }
-        }, true);
         document.querySelectorAll('img[data-youtube-fallback-width]').forEach(applyYouTubeFallback);
     }
 
     function initCommentStorage() {
         var form = document.forms.post_comment;
-        if (!form || form.dataset.commentStorageReady === '1') {
+        activeCommentStorageForm = form || null;
+        if (!form) {
+            return;
+        }
+        if (form.dataset.commentStorageReady === '1') {
             return;
         }
 
@@ -85,7 +99,17 @@
                 field.addEventListener('change', save, false);
             });
             form.addEventListener('submit', save, false);
-            window.setInterval(save, 5000);
+            commentStorageSaves.set(form, save);
+            if (commentStorageTimer === null) {
+                commentStorageTimer = window.setInterval(function () {
+                    var activeSave = activeCommentStorageForm
+                        ? commentStorageSaves.get(activeCommentStorageForm)
+                        : null;
+                    if (activeSave) {
+                        activeSave();
+                    }
+                }, 5000);
+            }
         } catch (error) {
             // Browsers may disable local storage. Commenting must still work.
         }
@@ -94,21 +118,13 @@
     initCspSafeInteractions();
 
     function initKeyboardNavigation() {
-        var links = {};
-
-        document.querySelectorAll('link[rel]').forEach(function (link) {
-            if (['next', 'prev', 'up'].indexOf(link.rel) !== -1) {
-                links[link.rel] = link.href;
-            }
-        });
-
         document.addEventListener('keydown', function (event) {
             if (!(event.ctrlKey || event.metaKey)) {
                 return;
             }
 
             var activeElement = document.activeElement;
-            if (activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(activeElement.tagName)) {
+            if (activeElement && (/^(INPUT|TEXTAREA|SELECT)$/.test(activeElement.tagName) || activeElement.isContentEditable)) {
                 return;
             }
 
@@ -118,8 +134,13 @@
                 ArrowUp: 'up'
             }[event.key];
 
-            if (relation && links[relation]) {
-                window.location.assign(links[relation]);
+            var link = relation ? document.querySelector('link[rel="' + relation + '"]') : null;
+            if (link) {
+                if (window.RegisterNavigation) {
+                    window.RegisterNavigation.navigate(link.href);
+                } else {
+                    window.location.assign(link.href);
+                }
             }
         }, false);
     }
@@ -173,7 +194,7 @@
             }
 
             try {
-                window.history.replaceState(null, '', link.href);
+                window.history.replaceState(window.history.state, '', link.href);
             } catch (error) {
                 // Replying still works if the browser disallows History API updates.
             }
@@ -353,7 +374,7 @@
                     var anchorField = form.elements.comment_anchor;
                     if (anchorField && anchorField.value) {
                         try {
-                            window.history.replaceState(null, '', '#' + anchorField.value);
+                            window.history.replaceState(window.history.state, '', '#' + anchorField.value);
                         } catch (error) {
                             // The moderation change is already stored.
                         }
@@ -451,5 +472,11 @@
 
         initCommentReplies(root);
         initCommentModeration(root);
+        initCommentStorage();
+        initCspSafeInteractions();
+    }, false);
+
+    document.addEventListener('register:navigation-will-update', function () {
+        activeCommentStorageForm = null;
     }, false);
 }());

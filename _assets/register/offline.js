@@ -128,6 +128,68 @@
         return Array.from(urls).slice(0, 256);
     }
 
+    function currentPageAllowsStorage() {
+        return document.querySelector('meta[name="register-offline"]')?.dataset.seed === '1';
+    }
+
+    function serializePage(fragment) {
+        const root = document.documentElement.cloneNode(true);
+        root.classList.remove('register-offline-stale');
+        root.removeAttribute('data-register-navigation');
+        root.querySelectorAll('.register-offline-warning').forEach((element) => element.remove());
+        root.querySelectorAll([
+            '[data-register-audio-player-script]',
+            '[data-register-audio-player-styles]',
+            '[data-register-math-script]',
+            '[data-register-math-styles]',
+            '[data-register-syntax-highlighting-script]',
+            '[data-register-syntax-highlighting-styles]',
+        ].join(',')).forEach((element) => element.remove());
+        const body = root.querySelector('body');
+        body?.classList.remove('register-navigation-pending');
+        const currentPage = root.querySelector('[data-register-page]');
+        const template = document.createElement('template');
+        template.innerHTML = fragment.trim();
+        const cleanPage = template.content.firstElementChild;
+        if (!currentPage || !(cleanPage instanceof HTMLElement) || !cleanPage.matches('[data-register-page]')) {
+            return '';
+        }
+        currentPage.replaceWith(cleanPage);
+
+        return '<!DOCTYPE html>\n' + root.outerHTML;
+    }
+
+    async function storePage(payload, securityHeaders = {}) {
+        if (
+            !currentPageAllowsStorage()
+            || !navigator.onLine
+            || typeof payload?.fragment !== 'string'
+            || typeof securityHeaders['Content-Security-Policy'] !== 'string'
+        ) {
+            return false;
+        }
+
+        const html = serializePage(payload.fragment);
+        if (html === '') {
+            return false;
+        }
+
+        const registration = await navigator.serviceWorker.ready;
+        const worker = navigator.serviceWorker.controller || registration.active;
+        if (!worker) {
+            return false;
+        }
+
+        worker.postMessage({
+            type: 'register:offline-store-page',
+            page: window.location.href,
+            html,
+            securityHeaders,
+        });
+
+        return true;
+    }
+
     async function registerWorker() {
         const initiallyControlled = navigator.serviceWorker.controller !== null;
         const registration = await navigator.serviceWorker.register(workerUrl, {
@@ -167,5 +229,6 @@
     if (stale) {
         showWarning();
     }
+    window.RegisterOffline = Object.freeze({storePage});
     registerWorker().catch(() => {});
 })();

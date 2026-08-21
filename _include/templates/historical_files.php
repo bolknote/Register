@@ -15,6 +15,8 @@ if (!isset($this)) die; ?>
 </head>
 
 <body class="historical-files">
+<!-- register-page-start -->
+<div id="register-page" data-register-page>
     <a class="skip-link" href="#content"><!-- s2_skip_link_label --></a>
     <header id="header"><div class="site-title"><!-- s2_site_title --></div></header>
     <nav id="crumbs" aria-label="<!-- s2_breadcrumbs_label -->"><!-- s2_crumbs --></nav>
@@ -32,6 +34,8 @@ if (!isset($this)) die; ?>
         <p id="copyright"><!-- s2_copyright --></p>
         <p id="queries"><!-- s2_querytime --></p>
     </footer>
+</div>
+<!-- register-page-end -->
 <!-- s2_scripts -->
 </body>
 </html>

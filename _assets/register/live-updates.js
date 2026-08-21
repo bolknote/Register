@@ -1,37 +1,19 @@
 (() => {
     'use strict';
 
-    const config = document.querySelector('meta[name="register-live-updates"]');
-    if (!config) {
-        return;
-    }
-
-    const endpoint = config.dataset.endpoint || '';
-    let cursor = Number.parseInt(config.dataset.cursor || '', 10);
-    let regions;
-    try {
-        regions = JSON.parse(config.dataset.regions || '[]');
-    } catch (_error) {
-        return;
-    }
-    if (
-        endpoint === ''
-        || !Number.isSafeInteger(cursor)
-        || cursor < 0
-        || !Array.isArray(regions)
-        || regions.length === 0
-        || regions.some((region) => typeof region !== 'string')
-    ) {
-        return;
-    }
-
     const pollInterval = 15000;
     const maximumRetryInterval = 60000;
     const pendingPatches = new Map();
+    let endpoint = '';
+    let cursor = 0;
+    let regions = [];
     let timer = 0;
+    let generation = 0;
     let inFlight = false;
     let retryCount = 0;
     let refreshRequested = false;
+    let requestController = null;
+    let enabled = false;
 
     function findRegion(name, scope = document) {
         if (scope instanceof Element && scope.dataset.liveRegion === name) {
@@ -52,14 +34,13 @@
         return (active instanceof Element && region.contains(active))
             || region.matches('[data-live-lock]')
             || region.querySelector(
-                '[data-live-lock], .comment-form-block, .is-editing, .is-confirming, [aria-busy="true"]'
+                '[data-live-lock], .comment-form-block, .is-editing, .is-confirming, [aria-busy="true"]',
             ) !== null;
     }
 
     function destroyWidgets(region) {
-        const reactions = window.RegisterReactions;
-        if (reactions && typeof reactions.destroy === 'function') {
-            reactions.destroy(region);
+        if (window.RegisterReactions?.destroy) {
+            window.RegisterReactions.destroy(region);
         }
 
         document.dispatchEvent(new CustomEvent('register:fragment-will-update', {
@@ -74,13 +55,15 @@
             [window.RegisterSyntaxHighlighting, 'highlight'],
             [window.RegisterMath, 'render'],
             [window.RegisterAudioPlayerLoader, 'enhance'],
+            [window.RegisterSearchAutocomplete, 'enhance'],
         ];
         for (const [api, method] of enhancers) {
-            if (api && typeof api[method] === 'function') {
-                const result = api[method](region);
-                if (result && typeof result.catch === 'function') {
-                    result.catch(() => {});
-                }
+            if (typeof api?.[method] !== 'function') {
+                continue;
+            }
+            const result = api[method](region);
+            if (result && typeof result.catch === 'function') {
+                result.catch(() => {});
             }
         }
 
@@ -119,21 +102,84 @@
 
     function schedule(delay) {
         window.clearTimeout(timer);
-        if (document.hidden || !navigator.onLine) {
+        if (!enabled || document.hidden || !navigator.onLine) {
             return;
         }
         timer = window.setTimeout(poll, Math.max(0, delay));
     }
 
+    function stop() {
+        generation += 1;
+        enabled = false;
+        window.clearTimeout(timer);
+        requestController?.abort();
+        requestController = null;
+        inFlight = false;
+        retryCount = 0;
+        refreshRequested = false;
+        pendingPatches.clear();
+    }
+
+    function readConfiguration() {
+        const config = document.querySelector('meta[name="register-live-updates"]');
+        if (!config) {
+            return null;
+        }
+
+        const configuredEndpoint = config.dataset.endpoint || '';
+        const configuredCursor = Number.parseInt(config.dataset.cursor || '', 10);
+        let configuredRegions;
+        try {
+            configuredRegions = JSON.parse(config.dataset.regions || '[]');
+        } catch (_error) {
+            return null;
+        }
+        if (
+            configuredEndpoint === ''
+            || !Number.isSafeInteger(configuredCursor)
+            || configuredCursor < 0
+            || !Array.isArray(configuredRegions)
+            || configuredRegions.length === 0
+            || configuredRegions.some((region) => typeof region !== 'string')
+        ) {
+            return null;
+        }
+
+        return {
+            endpoint: configuredEndpoint,
+            cursor: configuredCursor,
+            regions: configuredRegions,
+        };
+    }
+
+    function configure(delay = 0) {
+        stop();
+        const configuration = readConfiguration();
+        if (!configuration) {
+            return false;
+        }
+
+        endpoint = configuration.endpoint;
+        cursor = configuration.cursor;
+        regions = configuration.regions;
+        enabled = true;
+        schedule(delay);
+
+        return true;
+    }
+
     async function poll() {
-        if (inFlight || document.hidden) {
+        if (!enabled || inFlight || document.hidden) {
             return;
         }
 
+        const currentGeneration = generation;
         inFlight = true;
         refreshRequested = false;
         applyPendingPatches();
         let nextDelay = pollInterval;
+        const controller = new AbortController();
+        requestController = controller;
 
         try {
             const url = new URL(endpoint, document.baseURI);
@@ -146,8 +192,12 @@
                 credentials: 'same-origin',
                 headers: {'Accept': 'application/json'},
                 cache: 'no-store',
+                signal: controller.signal,
             });
             const payload = await response.json().catch(() => null);
+            if (currentGeneration !== generation) {
+                return;
+            }
             if (
                 !response.ok
                 || !payload
@@ -170,14 +220,19 @@
 
             retryCount = 0;
             nextDelay = payload.more === true ? 0 : pollInterval + Math.floor(Math.random() * 1500);
-        } catch (_error) {
-            document.dispatchEvent(new CustomEvent('register:live-unavailable'));
-            retryCount += 1;
-            nextDelay = Math.min(maximumRetryInterval, pollInterval * (2 ** Math.min(retryCount, 2)))
-                + Math.floor(Math.random() * 2000);
+        } catch (error) {
+            if (error?.name !== 'AbortError' && currentGeneration === generation) {
+                document.dispatchEvent(new CustomEvent('register:live-unavailable'));
+                retryCount += 1;
+                nextDelay = Math.min(maximumRetryInterval, pollInterval * (2 ** Math.min(retryCount, 2)))
+                    + Math.floor(Math.random() * 2000);
+            }
         } finally {
-            inFlight = false;
-            schedule(refreshRequested ? 0 : nextDelay);
+            if (currentGeneration === generation) {
+                requestController = null;
+                inFlight = false;
+                schedule(refreshRequested ? 0 : nextDelay);
+            }
         }
     }
 
@@ -190,22 +245,32 @@
     });
     document.addEventListener('focusout', () => window.setTimeout(applyPendingPatches, 0));
     document.addEventListener('register:live-refresh', () => {
+        if (!enabled && !configure(0)) {
+            return;
+        }
         refreshRequested = true;
         if (!inFlight) {
             schedule(0);
         }
     });
     document.addEventListener('register:live-unlock', applyPendingPatches);
+    document.addEventListener('register:navigation-will-update', stop);
+    document.addEventListener('register:navigation-updated', () => configure(0));
     window.addEventListener('offline', () => {
         window.clearTimeout(timer);
+        requestController?.abort();
         document.dispatchEvent(new CustomEvent('register:live-unavailable'));
     });
     window.addEventListener('online', () => {
+        if (!enabled && !configure(0)) {
+            return;
+        }
         refreshRequested = true;
         if (!inFlight) {
             schedule(0);
         }
     });
 
-    schedule(1000);
+    window.RegisterLiveUpdates = Object.freeze({reconfigure: configure});
+    configure(1000);
 })();

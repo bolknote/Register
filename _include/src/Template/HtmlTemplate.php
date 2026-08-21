@@ -248,7 +248,11 @@ class HtmlTemplate
             $response->setStatusCode(Response::HTTP_NOT_FOUND);
         }
 
-        return $response;
+        $request = $this->requestStack->getCurrentRequest();
+
+        return $request instanceof Request
+            ? PartialPageResponse::create($request, $response)
+            : $response;
     }
 
     public function hasPlaceholder(string $placeholder): bool

@@ -24,6 +24,15 @@ const CACHEABLE_ROOT_FILES = new Set([
     '/favicon.ico',
     '/site.webmanifest',
 ]);
+const MAX_STORED_PAGE_LENGTH = 16 * 1024 * 1024;
+const STORED_PAGE_SECURITY_HEADERS = new Set([
+    'content-security-policy',
+    'content-security-policy-report-only',
+    'permissions-policy',
+    'referrer-policy',
+    'reporting-endpoints',
+    'x-content-type-options',
+]);
 
 function pathInsideScope(url) {
     const scope = new URL(self.registration.scope);
@@ -184,6 +193,55 @@ async function seedPage(pageUrl, assetUrls) {
     }
 }
 
+async function storePage(pageUrl, html, securityHeaders) {
+    if (typeof html !== 'string' || html.length === 0 || html.length > MAX_STORED_PAGE_LENGTH) {
+        return;
+    }
+
+    const scope = new URL(self.registration.scope);
+    const page = new URL(pageUrl, scope);
+    if (pathInsideScope(page) === null) {
+        return;
+    }
+    page.hash = '';
+
+    const headers = new Headers({
+        'Cache-Control': 'no-cache',
+        'Content-Type': 'text/html; charset=UTF-8',
+        [OFFLINE_CACHE_HEADER]: OFFLINE_CACHE_HEADER_VALUE,
+    });
+    let hasEnforcedPolicy = false;
+    if (securityHeaders && typeof securityHeaders === 'object') {
+        for (const [name, value] of Object.entries(securityHeaders)) {
+            if (STORED_PAGE_SECURITY_HEADERS.has(name.toLowerCase()) && typeof value === 'string') {
+                try {
+                    headers.set(name, value);
+                    if (name.toLowerCase() === 'content-security-policy') {
+                        hasEnforcedPolicy = true;
+                    }
+                } catch (_error) {
+                    // Ignore malformed metadata instead of losing the offline page.
+                }
+            }
+        }
+    }
+    if (!hasEnforcedPolicy) {
+        return;
+    }
+
+    const request = new Request(page.href, {
+        credentials: 'same-origin',
+        headers: {'Accept': 'text/html'},
+    });
+    const response = new Response(html, {status: 200, headers});
+    const cache = await caches.open(CACHE_NAME);
+    try {
+        await cache.put(request, response);
+    } catch (_error) {
+        // A full private cache must not affect the currently open page.
+    }
+}
+
 self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());
 });
@@ -213,9 +271,12 @@ self.addEventListener('fetch', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-    if (event.data?.type !== 'register:offline-seed-page' || typeof event.data.page !== 'string') {
+    if (!event.data || typeof event.data.page !== 'string') {
         return;
     }
-
-    event.waitUntil(seedPage(event.data.page, event.data.assets));
+    if (event.data.type === 'register:offline-seed-page') {
+        event.waitUntil(seedPage(event.data.page, event.data.assets));
+    } else if (event.data.type === 'register:offline-store-page') {
+        event.waitUntil(storePage(event.data.page, event.data.html, event.data.securityHeaders));
+    }
 });

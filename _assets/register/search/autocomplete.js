@@ -29,10 +29,12 @@
 		}
 	}
 
-	var last_search, search_url = '', eCurItem = null;
+	var last_search, search_url = '', eCurItem = null, initializedInput = null, documentClickBound = false;
 
 	function doSearch (str)
 	{
+		if (xhr.readyState && xhr.readyState != 4)
+			xhr.abort();
 		xhr.open('GET', search_url + encodeURIComponent(str), true);
 		xhr.onreadystatechange = function ()
 		{
@@ -57,12 +59,11 @@
 
 		if (iKey == 13 && eCurItem)
 		{
-			var new_url = eCurItem.href;
+			var selectedItem = eCurItem;
 			setTimeout(function ()
 			{
-				location.href = new_url;
+				selectedItem.click();
 			}, 0);
-			SInp.form.action = '';
 			hideResults();
 			stop_event = true;
 		}
@@ -169,17 +170,29 @@
 
 	var SInp, search_timer, blur_timer;
 
-	function init ()
+	function init (root)
 	{
 		// We have nothing to do without Ajax support
 		if (!xhr)
 			return;
 
-		SInp = document.getElementById('s2_search_input');
+		root = root && typeof root.querySelector == 'function' ? root : document;
+		SInp = root.querySelector('#s2_search_input');
 		if (!SInp)
-			SInp = document.getElementById('s2_search_input_ext');
+			SInp = root.querySelector('#s2_search_input_ext');
+		if (!SInp && root !== document)
+			SInp = document.getElementById('s2_search_input') || document.getElementById('s2_search_input_ext');
 		if (!SInp)
 			return;
+		if (initializedInput === SInp)
+			return;
+		initializedInput = SInp;
+		if (xhr.readyState && xhr.readyState != 4)
+			xhr.abort();
+		clearTimeout(search_timer);
+		clearTimeout(blur_timer);
+		last_search = '';
+		eCurItem = null;
 		search_url = SInp.getAttribute('data-s2-search-url') || '';
 		if (!search_url)
 			return;
@@ -220,20 +233,27 @@
 		SInp.setAttribute('autocomplete', 'off');
 
 		// Autosearch results div
+		if (STips && STips.isConnected)
+			STips.remove();
 		STips = document.createElement('div');
 		STips.hidden = true;
 		STips.id = 's2_search_tip';
 		(SInp.closest('.s2-search-autocomplete') || SInp.form || document.body).appendChild(STips);
 
-		if (typeof(document.addEventListener) == 'undefined')
-			document.attachEvent('onclick', hide);
-		else
-			document.addEventListener('click', hide, true);
+		if (!documentClickBound)
+		{
+			documentClickBound = true;
+			if (typeof(document.addEventListener) == 'undefined')
+				document.attachEvent('onclick', hide);
+			else
+				document.addEventListener('click', hide, true);
+		}
 	}
 
-	if (window.attachEvent)
-		window.attachEvent('onload', init);
-	else if (window.addEventListener)
-		window.addEventListener('load', init, false);
+	window.RegisterSearchAutocomplete = Object.freeze({enhance: init});
+	if (document.readyState == 'loading')
+		document.addEventListener('DOMContentLoaded', function () { init(document); }, {once: true});
+	else
+		init(document);
 
 })();

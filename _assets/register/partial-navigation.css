@@ -1,0 +1,7 @@
+#register-page {
+    display: contents;
+}
+
+body.register-navigation-pending {
+    cursor: progress;
+}
