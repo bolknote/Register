@@ -69,6 +69,7 @@ class DynamicConfigFormBuilder
         AiSettings::PROVIDER_CONFIG_KEY     => 'ai_provider',
         AiSettings::API_KEY_CONFIG_KEY      => 'secret',
         AiSettings::FOLDER_ID_CONFIG_KEY    => 'string',
+        AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => 'string',
         AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => 'gigachat_scope',
         AiSettings::MODEL_CONFIG_KEY        => 'string',
 
@@ -326,6 +327,9 @@ class DynamicConfigFormBuilder
                     AiSettings::PROVIDER_DISABLED => $this->translator->trans('AI disabled'),
                     AiSettings::PROVIDER_GEMINI   => 'Gemini',
                     AiSettings::PROVIDER_GROQ     => 'Groq',
+                    AiSettings::PROVIDER_OPENROUTER => 'OpenRouter',
+                    AiSettings::PROVIDER_MISTRAL  => 'Mistral',
+                    AiSettings::PROVIDER_CLOUDFLARE => 'Cloudflare Workers AI',
                     AiSettings::PROVIDER_YANDEX   => 'Yandex AI Studio',
                     AiSettings::PROVIDER_GIGACHAT => 'GigaChat',
                 ],
@@ -406,6 +410,9 @@ class DynamicConfigFormBuilder
                 'values' => [
                     AiSettings::PROVIDER_GEMINI,
                     AiSettings::PROVIDER_GROQ,
+                    AiSettings::PROVIDER_OPENROUTER,
+                    AiSettings::PROVIDER_MISTRAL,
+                    AiSettings::PROVIDER_CLOUDFLARE,
                     AiSettings::PROVIDER_YANDEX,
                     AiSettings::PROVIDER_GIGACHAT,
                 ],
@@ -413,6 +420,10 @@ class DynamicConfigFormBuilder
             AiSettings::FOLDER_ID_CONFIG_KEY => [
                 'key'    => AiSettings::PROVIDER_CONFIG_KEY,
                 'values' => [AiSettings::PROVIDER_YANDEX],
+            ],
+            AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => [
+                'key'    => AiSettings::PROVIDER_CONFIG_KEY,
+                'values' => [AiSettings::PROVIDER_CLOUDFLARE],
             ],
             AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => [
                 'key'    => AiSettings::PROVIDER_CONFIG_KEY,

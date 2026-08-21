@@ -156,6 +156,39 @@ foreach ($rows as $row) {
             <button
                 type="button"
                 role="tab"
+                id="ai-key-help-tab-openrouter"
+                data-ai-key-help-tab="openrouter"
+                aria-controls="ai-key-help-panel-openrouter"
+                aria-selected="false"
+                tabindex="-1">
+                <span class="ai-key-help-provider-mark" aria-hidden="true">O</span>
+                <span><strong>OpenRouter</strong><small><?= $escape($trans('Free tier')) ?></small></span>
+            </button>
+            <button
+                type="button"
+                role="tab"
+                id="ai-key-help-tab-mistral"
+                data-ai-key-help-tab="mistral"
+                aria-controls="ai-key-help-panel-mistral"
+                aria-selected="false"
+                tabindex="-1">
+                <span class="ai-key-help-provider-mark" aria-hidden="true">M</span>
+                <span><strong>Mistral</strong><small><?= $escape($trans('Free tier')) ?></small></span>
+            </button>
+            <button
+                type="button"
+                role="tab"
+                id="ai-key-help-tab-cloudflare"
+                data-ai-key-help-tab="cloudflare"
+                aria-controls="ai-key-help-panel-cloudflare"
+                aria-selected="false"
+                tabindex="-1">
+                <span class="ai-key-help-provider-mark" aria-hidden="true">C</span>
+                <span><strong>Cloudflare</strong><small><?= $escape($trans('Free tier')) ?></small></span>
+            </button>
+            <button
+                type="button"
+                role="tab"
                 id="ai-key-help-tab-yandex"
                 data-ai-key-help-tab="yandex"
                 aria-controls="ai-key-help-panel-yandex"
@@ -222,6 +255,84 @@ foreach ($rows as $row) {
                     <?= $escape($trans('Open key page')) ?> <span aria-hidden="true">↗</span>
                 </a>
                 <a href="https://console.groq.com/docs/quickstart" target="_blank" rel="noopener noreferrer">
+                    <?= $escape($trans('Official instructions')) ?>
+                </a>
+            </div>
+        </section>
+
+        <section
+            class="ai-key-help-panel"
+            id="ai-key-help-panel-openrouter"
+            data-ai-key-help-panel="openrouter"
+            role="tabpanel"
+            aria-labelledby="ai-key-help-tab-openrouter"
+            hidden>
+            <p class="ai-key-help-lead"><?= $escape($trans('OpenRouter key help lead')) ?></p>
+            <ol class="ai-key-help-steps">
+                <li><?= $escape($trans('OpenRouter key step 1')) ?></li>
+                <li><?= $escape($trans('OpenRouter key step 2')) ?></li>
+                <li><?= $escape($trans('OpenRouter key step 3')) ?></li>
+                <li><?= $escape($trans('AI key paste step')) ?></li>
+            </ol>
+            <p class="ai-key-help-note"><?= $escape($trans('OpenRouter free note')) ?></p>
+            <p class="ai-key-help-note"><?= $escape($trans('AI key help model note')) ?></p>
+            <div class="ai-key-help-links">
+                <a class="ai-key-help-primary-link" href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">
+                    <?= $escape($trans('Open key page')) ?> <span aria-hidden="true">↗</span>
+                </a>
+                <a href="https://openrouter.ai/docs/cookbook/get-started/free-models-router-playground" target="_blank" rel="noopener noreferrer">
+                    <?= $escape($trans('Official instructions')) ?>
+                </a>
+            </div>
+        </section>
+
+        <section
+            class="ai-key-help-panel"
+            id="ai-key-help-panel-mistral"
+            data-ai-key-help-panel="mistral"
+            role="tabpanel"
+            aria-labelledby="ai-key-help-tab-mistral"
+            hidden>
+            <p class="ai-key-help-lead"><?= $escape($trans('Mistral key help lead')) ?></p>
+            <ol class="ai-key-help-steps">
+                <li><?= $escape($trans('Mistral key step 1')) ?></li>
+                <li><?= $escape($trans('Mistral key step 2')) ?></li>
+                <li><?= $escape($trans('Mistral key step 3')) ?></li>
+                <li><?= $escape($trans('AI key paste step')) ?></li>
+            </ol>
+            <p class="ai-key-help-note"><?= $escape($trans('Mistral free note')) ?></p>
+            <p class="ai-key-help-note"><?= $escape($trans('AI key help model note')) ?></p>
+            <div class="ai-key-help-links">
+                <a class="ai-key-help-primary-link" href="https://console.mistral.ai/" target="_blank" rel="noopener noreferrer">
+                    <?= $escape($trans('Open Mistral Studio')) ?> <span aria-hidden="true">↗</span>
+                </a>
+                <a href="https://docs.mistral.ai/getting-started/quickstarts/studio/activate-and-generate-api-key" target="_blank" rel="noopener noreferrer">
+                    <?= $escape($trans('Official instructions')) ?>
+                </a>
+            </div>
+        </section>
+
+        <section
+            class="ai-key-help-panel"
+            id="ai-key-help-panel-cloudflare"
+            data-ai-key-help-panel="cloudflare"
+            role="tabpanel"
+            aria-labelledby="ai-key-help-tab-cloudflare"
+            hidden>
+            <p class="ai-key-help-lead"><?= $escape($trans('Cloudflare key help lead')) ?></p>
+            <ol class="ai-key-help-steps">
+                <li><?= $escape($trans('Cloudflare key step 1')) ?></li>
+                <li><?= $escape($trans('Cloudflare key step 2')) ?></li>
+                <li><?= $escape($trans('Cloudflare key step 3')) ?></li>
+                <li><?= $escape($trans('Cloudflare key step 4')) ?></li>
+            </ol>
+            <p class="ai-key-help-note"><?= $escape($trans('Cloudflare free note')) ?></p>
+            <p class="ai-key-help-note"><?= $escape($trans('AI key help model note')) ?></p>
+            <div class="ai-key-help-links">
+                <a class="ai-key-help-primary-link" href="https://dash.cloudflare.com/?to=%2F%3Aaccount%2Fai%2Fworkers-ai" target="_blank" rel="noopener noreferrer">
+                    <?= $escape($trans('Open Workers AI')) ?> <span aria-hidden="true">↗</span>
+                </a>
+                <a href="https://developers.cloudflare.com/workers-ai/get-started/rest-api/" target="_blank" rel="noopener noreferrer">
                     <?= $escape($trans('Official instructions')) ?>
                 </a>
             </div>

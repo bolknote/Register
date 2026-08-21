@@ -21,6 +21,8 @@ final readonly class AiSettings
 
     public const string FOLDER_ID_CONFIG_KEY = 'REGISTER_AI_FOLDER_ID';
 
+    public const string CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY = 'REGISTER_AI_CLOUDFLARE_ACCOUNT_ID';
+
     public const string GIGACHAT_SCOPE_CONFIG_KEY = 'REGISTER_AI_GIGACHAT_SCOPE';
 
     public const string PROVIDER_DISABLED = 'disabled';
@@ -28,6 +30,12 @@ final readonly class AiSettings
     public const string PROVIDER_GEMINI = 'gemini';
 
     public const string PROVIDER_GROQ = 'groq';
+
+    public const string PROVIDER_OPENROUTER = 'openrouter';
+
+    public const string PROVIDER_MISTRAL = 'mistral';
+
+    public const string PROVIDER_CLOUDFLARE = 'cloudflare';
 
     public const string PROVIDER_YANDEX = 'yandex';
 
@@ -42,6 +50,9 @@ final readonly class AiSettings
     private const array DEFAULT_MODELS = [
         self::PROVIDER_GEMINI => 'gemini-3.5-flash-lite',
         self::PROVIDER_GROQ   => 'openai/gpt-oss-20b',
+        self::PROVIDER_OPENROUTER => 'openrouter/free',
+        self::PROVIDER_MISTRAL => 'mistral-small-latest',
+        self::PROVIDER_CLOUDFLARE => '@cf/google/gemma-4-26b-a4b-it',
         self::PROVIDER_YANDEX => 'yandexgpt-5-lite',
         self::PROVIDER_GIGACHAT => 'GigaChat-2-Pro',
     ];
@@ -77,6 +88,11 @@ final readonly class AiSettings
         return trim((string)$this->configProvider->get(self::FOLDER_ID_CONFIG_KEY));
     }
 
+    public function cloudflareAccountId(): string
+    {
+        return trim((string)$this->configProvider->get(self::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY));
+    }
+
     public function gigaChatScope(): string
     {
         $scope = trim((string)$this->configProvider->get(self::GIGACHAT_SCOPE_CONFIG_KEY));
@@ -93,7 +109,10 @@ final readonly class AiSettings
         return match ($this->provider()) {
             self::PROVIDER_GEMINI,
             self::PROVIDER_GROQ,
+            self::PROVIDER_OPENROUTER,
+            self::PROVIDER_MISTRAL,
             self::PROVIDER_GIGACHAT => true,
+            self::PROVIDER_CLOUDFLARE => $this->cloudflareAccountId() !== '',
             self::PROVIDER_YANDEX => $this->folderId() !== '',
             default => false,
         };
@@ -105,6 +124,9 @@ final readonly class AiSettings
             self::PROVIDER_DISABLED,
             self::PROVIDER_GEMINI,
             self::PROVIDER_GROQ,
+            self::PROVIDER_OPENROUTER,
+            self::PROVIDER_MISTRAL,
+            self::PROVIDER_CLOUDFLARE,
             self::PROVIDER_YANDEX,
             self::PROVIDER_GIGACHAT,
         ], true);

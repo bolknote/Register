@@ -18,7 +18,9 @@ function initAiKeyHelp() {
     openButton.dataset.aiKeyHelpInitialized = 'true';
 
     function normalizeProvider(provider) {
-        return ['gemini', 'groq', 'yandex', 'gigachat'].includes(provider) ? provider : 'gemini';
+        return ['gemini', 'groq', 'openrouter', 'mistral', 'cloudflare', 'yandex', 'gigachat'].includes(provider)
+            ? provider
+            : 'gemini';
     }
 
     function activateProvider(provider, moveFocus) {
@@ -27,8 +29,11 @@ function initAiKeyHelp() {
             const isActive = tab.dataset.aiKeyHelpTab === activeProvider;
             tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
             tab.tabIndex = isActive ? 0 : -1;
-            if (isActive && moveFocus) {
-                tab.focus();
+            if (isActive) {
+                tab.scrollIntoView({block: 'nearest', inline: 'nearest'});
+                if (moveFocus) {
+                    tab.focus();
+                }
             }
         });
         panels.forEach(function (panel) {
@@ -37,15 +42,16 @@ function initAiKeyHelp() {
     }
 
     function openHelp() {
-        activateProvider(providerSelect.value, false);
         if (!dialog.open) {
             dialog.showModal();
         }
+        activateProvider(providerSelect.value, false);
     }
 
     openButton.addEventListener('click', openHelp);
     providerSelect.addEventListener('change', function () {
-        if (['gemini', 'groq', 'yandex', 'gigachat'].includes(providerSelect.value)) {
+        if (['gemini', 'groq', 'openrouter', 'mistral', 'cloudflare', 'yandex', 'gigachat']
+            .includes(providerSelect.value)) {
             openHelp();
         }
     });

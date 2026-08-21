@@ -57,6 +57,87 @@ final class AiClientTest extends TestCase
         );
     }
 
+    /** @dataProvider openAiCompatibleProviderDataProvider */
+    public function testOpenAiCompatibleProvidersUseExpectedEndpointAndDefaultModel(
+        string $provider,
+        string $expectedUrl,
+        string $expectedModel,
+    ): void {
+        $calls = [];
+        $client = new AiClient(
+            new HttpClient(),
+            $this->settings([
+                AiSettings::PROVIDER_CONFIG_KEY => $provider,
+                AiSettings::API_KEY_CONFIG_KEY  => 'provider-secret',
+                AiSettings::MODEL_CONFIG_KEY    => '',
+                AiSettings::FOLDER_ID_CONFIG_KEY => '',
+                AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => 'cloudflare-account',
+                AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
+            ]),
+            new ArrayAdapter(),
+            static function (
+                string  $method,
+                string  $url,
+                array   $headers,
+                ?string $body,
+                array   $options,
+            ) use (&$calls): HttpResponse {
+                $calls[] = ['method' => $method, 'url' => $url, 'headers' => $headers, 'body' => $body, 'options' => $options];
+
+                return new HttpResponse(
+                    statusCode: 200,
+                    content: '{"choices":[{"message":{"content":"Готовый текст"}}]}',
+                );
+            },
+        );
+
+        self::assertSame('Готовый текст', $client->generate(AiClient::ACTION_IMPROVE, '', 'Исходный текст'));
+        self::assertCount(1, $calls);
+        self::assertSame('POST', $calls[0]['method']);
+        self::assertSame($expectedUrl, $calls[0]['url']);
+        self::assertSame('Bearer provider-secret', $calls[0]['headers']['Authorization']);
+        self::assertSame('application/json', $calls[0]['headers']['Content-Type']);
+        self::assertSame(1_048_576, $calls[0]['options'][HttpClient::MAX_RESPONSE_BYTES]);
+
+        $body = json_decode((string)$calls[0]['body'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame($expectedModel, $body['model']);
+        self::assertStringContainsString('Исходный текст', (string)$body['messages'][0]['content']);
+    }
+
+    /** @return iterable<string, array{string, string, string}> */
+    public static function openAiCompatibleProviderDataProvider(): iterable
+    {
+        yield 'OpenRouter free router' => [
+            AiSettings::PROVIDER_OPENROUTER,
+            'https://openrouter.ai/api/v1/chat/completions',
+            'openrouter/free',
+        ];
+        yield 'Mistral free mode' => [
+            AiSettings::PROVIDER_MISTRAL,
+            'https://api.mistral.ai/v1/chat/completions',
+            'mistral-small-latest',
+        ];
+        yield 'Cloudflare Workers AI' => [
+            AiSettings::PROVIDER_CLOUDFLARE,
+            'https://api.cloudflare.com/client/v4/accounts/cloudflare-account/ai/v1/chat/completions',
+            '@cf/google/gemma-4-26b-a4b-it',
+        ];
+    }
+
+    public function testCloudflareRequiresAccountId(): void
+    {
+        $settings = $this->settings([
+            AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_CLOUDFLARE,
+            AiSettings::API_KEY_CONFIG_KEY  => 'provider-secret',
+            AiSettings::MODEL_CONFIG_KEY    => '',
+            AiSettings::FOLDER_ID_CONFIG_KEY => '',
+            AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
+            AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
+        ]);
+
+        self::assertFalse($settings->isConfigured());
+    }
+
     public function testYandexUsesFolderAndOpenAiCompatibleEndpoint(): void
     {
         $calls = [];
@@ -67,6 +148,7 @@ final class AiClientTest extends TestCase
                 AiSettings::API_KEY_CONFIG_KEY   => 'yandex-secret',
                 AiSettings::MODEL_CONFIG_KEY     => '',
                 AiSettings::FOLDER_ID_CONFIG_KEY => 'b1g-example-folder',
+                AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
                 AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
             ]),
             new ArrayAdapter(),
@@ -114,6 +196,7 @@ final class AiClientTest extends TestCase
                 AiSettings::API_KEY_CONFIG_KEY   => 'base64-authorization-key',
                 AiSettings::MODEL_CONFIG_KEY     => '',
                 AiSettings::FOLDER_ID_CONFIG_KEY => '',
+                AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
                 AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
             ]),
             new ArrayAdapter(),

@@ -87,6 +87,9 @@ final readonly class AiClient
             $result = match ($this->settings->provider()) {
                 AiSettings::PROVIDER_GEMINI => $this->generateWithGemini($prompt),
                 AiSettings::PROVIDER_GROQ   => $this->generateWithGroq($prompt),
+                AiSettings::PROVIDER_OPENROUTER => $this->generateWithOpenRouter($prompt),
+                AiSettings::PROVIDER_MISTRAL => $this->generateWithMistral($prompt),
+                AiSettings::PROVIDER_CLOUDFLARE => $this->generateWithCloudflare($prompt),
                 AiSettings::PROVIDER_YANDEX => $this->generateWithYandex($prompt),
                 AiSettings::PROVIDER_GIGACHAT => $this->generateWithGigaChat($prompt),
                 default => throw new AiException('AI provider is not supported.'),
@@ -167,13 +170,78 @@ final readonly class AiClient
      */
     private function generateWithGroq(string $prompt): string
     {
-        $response = ($this->request)(
-            'POST',
+        return $this->generateWithOpenAiCompatibleProvider(
+            $prompt,
             'https://api.groq.com/openai/v1/chat/completions',
             [
                 'Authorization' => 'Bearer ' . $this->settings->apiKey(),
-                'Content-Type'  => 'application/json',
             ],
+        );
+    }
+
+    /**
+     * @throws HttpClientException
+     * @throws \JsonException
+     * @throws AiException
+     */
+    private function generateWithOpenRouter(string $prompt): string
+    {
+        return $this->generateWithOpenAiCompatibleProvider(
+            $prompt,
+            'https://openrouter.ai/api/v1/chat/completions',
+            [
+                'Authorization' => 'Bearer ' . $this->settings->apiKey(),
+            ],
+        );
+    }
+
+    /**
+     * @throws HttpClientException
+     * @throws \JsonException
+     * @throws AiException
+     */
+    private function generateWithMistral(string $prompt): string
+    {
+        return $this->generateWithOpenAiCompatibleProvider(
+            $prompt,
+            'https://api.mistral.ai/v1/chat/completions',
+            [
+                'Authorization' => 'Bearer ' . $this->settings->apiKey(),
+            ],
+        );
+    }
+
+    /**
+     * @throws HttpClientException
+     * @throws \JsonException
+     * @throws AiException
+     */
+    private function generateWithCloudflare(string $prompt): string
+    {
+        return $this->generateWithOpenAiCompatibleProvider(
+            $prompt,
+            'https://api.cloudflare.com/client/v4/accounts/'
+            . rawurlencode($this->settings->cloudflareAccountId())
+            . '/ai/v1/chat/completions',
+            [
+                'Authorization' => 'Bearer ' . $this->settings->apiKey(),
+            ],
+        );
+    }
+
+    /**
+     * @param array<string, string> $headers
+     * @throws HttpClientException
+     * @throws \JsonException
+     * @throws AiException
+     */
+    private function generateWithOpenAiCompatibleProvider(string $prompt, string $url, array $headers): string
+    {
+        $headers['Content-Type'] = 'application/json';
+        $response = ($this->request)(
+            'POST',
+            $url,
+            $headers,
             json_encode([
                 'model'       => $this->settings->model(),
                 'messages'    => [['role' => 'user', 'content' => $prompt]],
@@ -183,13 +251,7 @@ final readonly class AiClient
             self::REQUEST_OPTIONS,
         );
 
-        $data = $this->decodeResponse($response);
-        $result = $data['choices'][0]['message']['content'] ?? null;
-        if (!\is_string($result)) {
-            throw new AiException('The AI provider returned an empty response.');
-        }
-
-        return $result;
+        return $this->chatCompletionContent($response);
     }
 
     /**
@@ -355,7 +417,11 @@ final readonly class AiClient
         }
 
         if (!$response->isSuccessful()) {
-            $message = $data['error']['message'] ?? $data['message'] ?? $data['error_description'] ?? null;
+            $message = $data['error']['message']
+                ?? $data['errors'][0]['message']
+                ?? $data['message']
+                ?? $data['error_description']
+                ?? null;
             if (!\is_string($message) || trim($message) === '') {
                 $message = 'HTTP ' . $response->statusCode;
             }

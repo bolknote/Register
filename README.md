@@ -44,7 +44,8 @@ libc resolver.
   explicit publish/unpublish controls.
 - A focused editorial screen with live preview, keyboard shortcuts, native undo/redo, and article
   body recovery from `localStorage` after navigation, a tab closure, or a browser crash.
-- Optional AI assistance through your own Gemini, Groq, Yandex AI Studio, or GigaChat credentials:
+- Optional AI assistance through your own Gemini, Groq, OpenRouter, Mistral, Cloudflare Workers AI,
+  Yandex AI Studio, or GigaChat credentials:
   fix spelling, grammar, punctuation, and typos; improve or shorten text; suggest a title; and
   suggest tags.
 - AI results are applied directly to the editor, changed fragments are marked, and every edit remains
@@ -57,7 +58,9 @@ libc resolver.
 
 AI support is disabled by default. Provider availability, free quotas, billing, and usage limits are
 governed by each external service rather than by Register. Settings contains provider-specific setup
-steps, including the Yandex Cloud folder ID and the GigaChat access scope and certificate guide.
+steps, including the Cloudflare Account ID, the Yandex Cloud folder ID, and the GigaChat access scope
+and certificate guide. When its Model field is empty, OpenRouter uses the free-model router, Mistral
+uses `mistral-small-latest`, and Cloudflare uses a multilingual Workers AI model.
 
 ### Reading and discovery
 
