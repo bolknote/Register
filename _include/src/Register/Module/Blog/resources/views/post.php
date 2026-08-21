@@ -227,12 +227,12 @@ $tagNames    = array_values(array_map(
             <path d="M7.2 8.2 8 19.3h8l.8-11.1M5.2 6.2h13.6M9 6.2V4.5h6v1.7M10.2 10.3v6.4M13.8 10.3v6.4" />
         </svg>
     </button>
-    <button class="post-inplace-button post-edit-save" type="button" title="<?php echo $trans('Save post changes'); ?>" aria-label="<?php echo $trans('Save post changes'); ?>" hidden>
+    <button class="post-inplace-button post-edit-save" type="button" title="<?php echo $trans('Save post changes'); ?>" aria-label="<?php echo $trans('Save post changes'); ?>" data-editor-shortcut="save" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="m5 12.2 4.2 4.2L19 6.8" />
         </svg>
     </button>
-    <button class="post-inplace-button post-edit-cancel" type="button" title="<?php echo $trans('Cancel post changes'); ?>" aria-label="<?php echo $trans('Cancel post changes'); ?>" hidden>
+    <button class="post-inplace-button post-edit-cancel" type="button" title="<?php echo $trans('Cancel post changes'); ?>" aria-label="<?php echo $trans('Cancel post changes'); ?>" data-editor-shortcut="cancel" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="m7 7 10 10M17 7 7 17" />
         </svg>

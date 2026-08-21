@@ -4,6 +4,79 @@
     const editorStates = new WeakMap();
     const imageExtensions = new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp']);
     const audioExtensions = new Set(['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm']);
+    const editorPlatform = (() => {
+        const platform = String(navigator.userAgentData?.platform || navigator.platform || '').toLowerCase();
+        if (/mac|iphone|ipad|ipod/u.test(platform)) {
+            return 'macos';
+        }
+        if (platform.includes('win')) {
+            return 'windows';
+        }
+        return 'linux';
+    })();
+    const editorShortcuts = editorPlatform === 'macos'
+        ? {
+            'save': ['⌘S', 'Meta+S'],
+            'cancel': ['Esc', 'Escape'],
+            'undo': ['⌘Z', 'Meta+Z'],
+            'redo': ['⇧⌘Z', 'Meta+Shift+Z'],
+            'copy': ['⌘C', 'Meta+C'],
+            'cut': ['⌘X', 'Meta+X'],
+            'select-all': ['⌘A', 'Meta+A'],
+            'bold': ['⌘B', 'Meta+B'],
+            'italic': ['⌘I', 'Meta+I'],
+            'strike': ['⇧⌘X', 'Meta+Shift+X'],
+            'open-link': ['⌘K', 'Meta+K'],
+            'h2': ['⌥⌘2', 'Meta+Alt+2'],
+            'h3': ['⌥⌘3', 'Meta+Alt+3'],
+            'h4': ['⌥⌘4', 'Meta+Alt+4'],
+            'quote': ['⇧⌘9', 'Meta+Shift+9'],
+            'ordered-list': ['⇧⌘7', 'Meta+Shift+7'],
+            'unordered-list': ['⇧⌘8', 'Meta+Shift+8'],
+        }
+        : {
+            'save': ['Ctrl+S', 'Control+S'],
+            'cancel': ['Esc', 'Escape'],
+            'undo': ['Ctrl+Z', 'Control+Z'],
+            'redo': editorPlatform === 'windows'
+                ? ['Ctrl+Y', 'Control+Y']
+                : ['Ctrl+Shift+Z', 'Control+Shift+Z'],
+            'copy': ['Ctrl+C', 'Control+C'],
+            'cut': ['Ctrl+X', 'Control+X'],
+            'select-all': ['Ctrl+A', 'Control+A'],
+            'bold': ['Ctrl+B', 'Control+B'],
+            'italic': ['Ctrl+I', 'Control+I'],
+            'strike': ['Ctrl+Shift+X', 'Control+Shift+X'],
+            'open-link': ['Ctrl+K', 'Control+K'],
+            'h2': ['Ctrl+Alt+2', 'Control+Alt+2'],
+            'h3': ['Ctrl+Alt+3', 'Control+Alt+3'],
+            'h4': ['Ctrl+Alt+4', 'Control+Alt+4'],
+            'quote': ['Ctrl+Shift+9', 'Control+Shift+9'],
+            'ordered-list': ['Ctrl+Shift+7', 'Control+Shift+7'],
+            'unordered-list': ['Ctrl+Shift+8', 'Control+Shift+8'],
+        };
+
+    function applyShortcutHints(root) {
+        root.querySelectorAll('[data-editor-shortcut], [data-context-action]').forEach((element) => {
+            const action = element.dataset.editorShortcut || element.dataset.contextAction;
+            const shortcut = editorShortcuts[action];
+            if (!shortcut) {
+                return;
+            }
+
+            const [label, ariaLabel] = shortcut;
+            const key = element.querySelector(':scope > kbd');
+            if (key) {
+                key.textContent = label;
+            }
+            if (element.hasAttribute('title')) {
+                const title = element.dataset.shortcutTitle || element.getAttribute('title') || '';
+                element.dataset.shortcutTitle = title;
+                element.setAttribute('title', `${title} — ${label}`);
+            }
+            element.setAttribute('aria-keyshortcuts', ariaLabel);
+        });
+    }
 
     function cardFor(element) {
         return element instanceof Element ? element.closest('.post-card[data-post-id]') : null;
@@ -302,6 +375,7 @@
         state.tagEditor = createTagEditor(state);
         editorStates.set(card, state);
         card.classList.add('is-editing');
+        applyShortcutHints(card);
         toggleEditingTools(card, true);
         document.execCommand('defaultParagraphSeparator', false, 'p');
         focusEdge(elements.title, true);
@@ -1440,6 +1514,7 @@
         menu.querySelectorAll('[data-context-caret-only]').forEach((element) => {
             element.hidden = selected;
         });
+        applyShortcutHints(menu);
 
         const main = menu.querySelector('.post-editor-context-main');
         const linkPanel = menu.querySelector('.post-editor-link-panel');
@@ -1473,22 +1548,6 @@
                 ? targetLink
                 : null,
         };
-
-        if (!/Mac|iPhone|iPad|iPod/u.test(navigator.platform)) {
-            const shortcutLabels = {
-                'undo': 'Ctrl+Z',
-                'redo': 'Ctrl+Y',
-                'copy': 'Ctrl+C',
-                'cut': 'Ctrl+X',
-                'select-all': 'Ctrl+A',
-            };
-            Object.entries(shortcutLabels).forEach(([action, label]) => {
-                const shortcut = menu.querySelector(`[data-context-action="${action}"] kbd`);
-                if (shortcut) {
-                    shortcut.textContent = label;
-                }
-            });
-        }
 
         menu.addEventListener('pointerdown', (pointerEvent) => {
             if (!(pointerEvent.target instanceof HTMLInputElement)) {
@@ -1603,7 +1662,17 @@
 
         let command = null;
         let value = null;
-        if (!event.shiftKey && !event.altKey && matchesKey('KeyB', 'b')) {
+        if (!event.shiftKey && !event.altKey && matchesKey('KeyZ', 'z')) {
+            command = 'undo';
+        } else if (
+            !event.altKey
+            && (
+                (editorPlatform === 'windows' && !event.shiftKey && matchesKey('KeyY', 'y'))
+                || (editorPlatform !== 'windows' && event.shiftKey && matchesKey('KeyZ', 'z'))
+            )
+        ) {
+            command = 'redo';
+        } else if (!event.shiftKey && !event.altKey && matchesKey('KeyB', 'b')) {
             command = 'bold';
         } else if (!event.shiftKey && !event.altKey && matchesKey('KeyI', 'i')) {
             command = 'italic';

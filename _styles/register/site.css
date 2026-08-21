@@ -11,6 +11,7 @@
     --link-hover-color: #bd321f;
     --accent-color: #bd321f;
     --link-underline-color: color-mix(in srgb, var(--link-color) 28%, transparent);
+    --link-underline-thickness: 1px;
     --border-color: color-mix(in srgb, var(--text-color) 16%, transparent);
     --highlight-color: #f8e8a4;
     --success-color: #2d7a45;
@@ -29,6 +30,12 @@
     --site-title-size: clamp(2.4rem, 4.2vw, 3.28125rem);
     --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     --text-font: Georgia, "Times New Roman", serif;
+}
+
+@media (min-resolution: 2dppx), (-webkit-min-device-pixel-ratio: 2) {
+    :root {
+        --link-underline-thickness: 0.5px;
+    }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -167,7 +174,7 @@ a {
     color: var(--link-color);
     text-decoration-color: var(--link-underline-color);
     text-decoration-line: underline;
-    text-decoration-thickness: 1px;
+    text-decoration-thickness: var(--link-underline-thickness);
     text-underline-offset: 0.14em;
     transition: color 120ms ease, text-decoration-color 120ms ease;
 }
@@ -289,11 +296,11 @@ hr {
     text-decoration: none;
 }
 
-.blog #header .site-title > a,
-.blog #header .site-title > a:visited {
+#header .site-title > a,
+#header .site-title > a:visited {
     text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
     text-decoration-line: underline;
-    text-decoration-thickness: 1px;
+    text-decoration-thickness: var(--link-underline-thickness);
     text-underline-offset: 0.12em;
 }
 
@@ -1850,7 +1857,7 @@ h2.preview,
 .blog-pagination a,
 .blog-pagination a:visited {
     color: var(--link-color);
-    text-decoration-thickness: 1px;
+    text-decoration-thickness: var(--link-underline-thickness);
 }
 
 .blog-pagination-current {
