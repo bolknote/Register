@@ -276,7 +276,7 @@ final readonly class AiClient
                 'Authorization' => 'Basic ' . $this->settings->apiKey(),
                 'Content-Type'  => 'application/x-www-form-urlencoded',
                 'Accept'        => 'application/json',
-                'RqUID'         => self::uuidV4(),
+                'RqUID'         => $this->uuidV4(),
             ],
             http_build_query(['scope' => $this->settings->gigaChatScope()], '', '&', PHP_QUERY_RFC3986),
             [
@@ -300,9 +300,10 @@ final readonly class AiClient
         } else {
             $expiresAt = 0;
         }
+
         $ttl = max(60, $expiresAt - time() - 60);
 
-        if ($cacheItem !== null) {
+        if ($cacheItem instanceof \Psr\Cache\CacheItemInterface) {
             try {
                 $cacheItem->set($token)->expiresAfter($ttl);
                 $this->tokenCache->save($cacheItem);
@@ -326,7 +327,7 @@ final readonly class AiClient
         return $result;
     }
 
-    private static function uuidV4(): string
+    private function uuidV4(): string
     {
         $bytes = random_bytes(16);
         $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);

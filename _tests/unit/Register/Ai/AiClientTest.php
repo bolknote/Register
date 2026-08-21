@@ -77,7 +77,7 @@ final class AiClientTest extends TestCase
                 ?string $body,
                 array   $options,
             ) use (&$calls): HttpResponse {
-                $calls[] = compact('method', 'url', 'headers', 'body', 'options');
+                $calls[] = ['method' => $method, 'url' => $url, 'headers' => $headers, 'body' => $body, 'options' => $options];
 
                 return new HttpResponse(
                     statusCode: 200,
@@ -100,7 +100,7 @@ final class AiClientTest extends TestCase
         $body = json_decode((string)$calls[0]['body'], true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('gpt://b1g-example-folder/yandexgpt-5-lite', $body['model']);
         self::assertSame('user', $body['messages'][0]['role']);
-        self::assertStringContainsString('Текст с ашибкой.', $body['messages'][0]['content']);
+        self::assertStringContainsString('Текст с ашибкой.', (string) $body['messages'][0]['content']);
     }
 
     public function testGigaChatObtainsAndCachesOAuthToken(): void
@@ -124,7 +124,7 @@ final class AiClientTest extends TestCase
                 ?string $body,
                 array   $options,
             ) use (&$calls, &$chatResponseNumber): HttpResponse {
-                $calls[] = compact('method', 'url', 'headers', 'body', 'options');
+                $calls[] = ['method' => $method, 'url' => $url, 'headers' => $headers, 'body' => $body, 'options' => $options];
                 if ($url === 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth') {
                     return new HttpResponse(
                         statusCode: 200,
@@ -165,7 +165,7 @@ final class AiClientTest extends TestCase
 
         $body = json_decode((string)$calls[1]['body'], true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('GigaChat-2-Pro', $body['model']);
-        self::assertStringContainsString('Первый текст', $body['messages'][0]['content']);
+        self::assertStringContainsString('Первый текст', (string) $body['messages'][0]['content']);
     }
 
     /** @param array<string, string> $values */
