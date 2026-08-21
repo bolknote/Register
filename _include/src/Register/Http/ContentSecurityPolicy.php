@@ -63,9 +63,19 @@ final class ContentSecurityPolicy
         . "frame-ancestors 'none'; "
         . self::REPORT_ONLY_POLICY_SUFFIX;
 
-    public static function apply(Response $response, string $reportUri = ''): void
+    public static function generateScriptNonce(): string
     {
-        self::applyHeaders($response, self::POLICY, self::REPORT_ONLY_POLICY, $reportUri);
+        return base64_encode(random_bytes(18));
+    }
+
+    public static function apply(Response $response, string $reportUri = '', ?string $scriptNonce = null): void
+    {
+        self::applyHeaders(
+            $response,
+            self::withScriptNonce(self::POLICY, $scriptNonce),
+            self::withScriptNonce(self::REPORT_ONLY_POLICY, $scriptNonce),
+            $reportUri,
+        );
     }
 
     public static function applyToAdmin(Response $response, string $reportUri = ''): void
@@ -80,16 +90,20 @@ final class ContentSecurityPolicy
         $response->headers->set('Cache-Control', 'no-store, private');
     }
 
-    public static function send(string $reportUri = ''): void
+    public static function send(string $reportUri = '', ?string $scriptNonce = null): void
     {
         if (headers_sent()) {
             return;
         }
 
-        $reportingPolicy = self::reportingPolicy(self::REPORT_ONLY_POLICY, $reportUri);
+        $policy          = self::withScriptNonce(self::POLICY, $scriptNonce);
+        $reportingPolicy = self::reportingPolicy(
+            self::withScriptNonce(self::REPORT_ONLY_POLICY, $scriptNonce),
+            $reportUri,
+        );
 
         header_remove('X-Powered-By');
-        header(self::HEADER_NAME . ': ' . self::POLICY);
+        header(self::HEADER_NAME . ': ' . $policy);
         header(self::REPORT_ONLY_HEADER_NAME . ': ' . $reportingPolicy);
         if ($reportUri !== '') {
             header('Reporting-Endpoints: ' . self::REPORTING_GROUP . '="' . $reportUri . '"');
@@ -133,5 +147,22 @@ final class ContentSecurityPolicy
         }
 
         return $policy . '; report-uri ' . $reportUri . '; report-to ' . self::REPORTING_GROUP;
+    }
+
+    private static function withScriptNonce(string $policy, ?string $scriptNonce): string
+    {
+        if ($scriptNonce === null) {
+            return $policy;
+        }
+
+        if (preg_match('~\A[A-Za-z0-9+/_-]{16,128}={0,2}\z~D', $scriptNonce) !== 1) {
+            throw new \InvalidArgumentException('The CSP script nonce is invalid.');
+        }
+
+        return str_replace(
+            "script-src 'self';",
+            "script-src 'self' 'nonce-" . $scriptNonce . "';",
+            $policy,
+        );
     }
 }

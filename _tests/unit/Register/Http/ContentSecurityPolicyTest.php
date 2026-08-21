@@ -65,6 +65,39 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertSame('no-store, private', $embeddedResponse->headers->get('Cache-Control'));
     }
 
+    public function testAddsAValidatedNonceToPublicScriptPolicies(): void
+    {
+        $nonce    = 'AbCdEfGhIjKlMnOpQrStUvWx';
+        $response = new Response();
+
+        ContentSecurityPolicy::apply($response, '/csp-report', $nonce);
+
+        $enforced = $response->headers->get(ContentSecurityPolicy::HEADER_NAME);
+        self::assertNotNull($enforced);
+        self::assertStringContainsString("script-src 'self' 'nonce-" . $nonce . "';", $enforced);
+        self::assertStringContainsString("script-src-attr 'none';", $enforced);
+        self::assertStringNotContainsString("'unsafe-inline'", $enforced);
+
+        $reportOnly = $response->headers->get(ContentSecurityPolicy::REPORT_ONLY_HEADER_NAME);
+        self::assertNotNull($reportOnly);
+        self::assertStringContainsString("script-src 'self' 'nonce-" . $nonce . "';", $reportOnly);
+    }
+
+    public function testRejectsUnsafeScriptNonce(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        ContentSecurityPolicy::apply(new Response(), '', "bad\r\nnonce");
+    }
+
+    public function testGeneratesAHeaderSafeScriptNonce(): void
+    {
+        self::assertMatchesRegularExpression(
+            '~\A[A-Za-z0-9+/]{24}\z~D',
+            ContentSecurityPolicy::generateScriptNonce(),
+        );
+    }
+
     public function testRejectsUnsafeReportUri(): void
     {
         $this->expectException(\InvalidArgumentException::class);

@@ -2,6 +2,8 @@
 
 declare(strict_types = 1);
 
+use Register\Http\TrustedScriptNonceInjector;
+
 /** @var callable $trans */
 /** @var $author string */
 /** @var $title string */
@@ -240,7 +242,9 @@ $tagNames    = array_values(array_map(
 </nav>
 <?php endif; ?>
 <?php
-	echo '<div class="post body" data-post-inplace-body>' . $text . '</div>';
+	echo '<div class="post body" data-post-inplace-body>'
+        . TrustedScriptNonceInjector::markTrustedHtml($text)
+        . '</div>';
 	if (!empty($see_also))
 		include __DIR__ . '/see_also.php';
 ?>

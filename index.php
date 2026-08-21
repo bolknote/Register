@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 use Register\Http\ContentSecurityPolicy;
 use Register\Http\ResponseCompressor;
+use Register\Http\TrustedScriptNonceInjector;
 use Register\Offline\OfflineCachePolicy;
 use S2\Cms\Model\AuthProvider;
 use S2\Cms\Queue\ShutdownWorkCoordinator;
@@ -55,8 +56,17 @@ if (str_ends_with($request_uri, '---')) {
 $request  = Request::createFromGlobals();
 $response  = $app->handle($request);
 $app->container->get(SecurityTelemetryRecorder::class)->recordResponse($request, $response);
-$reportUri = $basePath . $urlPrefix . ContentSecurityPolicy::REPORT_PATH;
-ContentSecurityPolicy::apply($response, $reportUri);
+$reportUri        = $basePath . $urlPrefix . ContentSecurityPolicy::REPORT_PATH;
+$scriptNonce      = ContentSecurityPolicy::generateScriptNonce();
+$trustedScriptNum = (new TrustedScriptNonceInjector())->injectIntoResponse($response, $scriptNonce);
+ContentSecurityPolicy::apply($response, $reportUri, $trustedScriptNum > 0 ? $scriptNonce : null);
+
+if ($trustedScriptNum > 0) {
+    // A fresh nonce changes the body on every request. Reusing a cached body with a new
+    // CSP header after a 304 response would block its scripts, so these rare pages must be 200s.
+    $response->headers->remove('ETag');
+    $response->headers->remove('Last-Modified');
+}
 
 // Disable cache since all the pages are generated dynamically. We only use conditional GET.
 $response->headers->set('Pragma', 'no-cache');
