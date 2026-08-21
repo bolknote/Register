@@ -49,9 +49,19 @@ class ThumbnailGenerator implements QueueHandlerInterface
 
         try {
             [$newWidth, $newHeight] = self::reduceSize($originalWidth, $originalHeight, $maxWidth, $maxHeight);
-            $src = $this->getThumbnailSrc($src, 2 * $newWidth, 2 * $newHeight); // 2 for retina
+            $regularSrc = $this->getThumbnailSrc($src, $newWidth, $newHeight);
+            $retinaSrc  = $this->getThumbnailSrc($src, 2 * $newWidth, 2 * $newHeight);
+            $srcset     = $regularSrc === $retinaSrc
+                ? ''
+                : sprintf(' srcset="%s 1x, %s 2x"', $regularSrc, $retinaSrc);
 
-            return sprintf('<img src="%s" width="%s" height="%s" alt="" loading="lazy" decoding="async">', $src, $newWidth, $newHeight);
+            return sprintf(
+                '<img src="%s"%s width="%s" height="%s" alt="" loading="lazy" decoding="async">',
+                $regularSrc,
+                $srcset,
+                $newWidth,
+                $newHeight,
+            );
         } catch (\InvalidArgumentException) {
             return sprintf('<img src="%s" alt="" loading="lazy" decoding="async">', $src);
         }

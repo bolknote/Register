@@ -7,7 +7,7 @@
     --minor-color: #706b63;
     --quiet-color: #9a948a;
     --link-color: #8f4633;
-    --link-visited-color: #75645b;
+    --link-visited-color: var(--link-color);
     --link-hover-color: #bd321f;
     --accent-color: #bd321f;
     --link-underline-color: color-mix(in srgb, var(--link-color) 28%, transparent);
@@ -48,7 +48,7 @@
         --minor-color: #b6aea2;
         --quiet-color: #8b8378;
         --link-color: #d1a08b;
-        --link-visited-color: #a99b92;
+        --link-visited-color: var(--link-color);
         --link-hover-color: #ef8068;
         --accent-color: #ef8068;
         --link-underline-color: color-mix(in srgb, var(--link-color) 40%, transparent);
@@ -385,6 +385,7 @@ hr {
     position: relative;
     width: 100%;
     max-width: var(--text-width);
+    container: post-editor / inline-size;
 }
 
 .post-card > .post.head {
@@ -397,6 +398,18 @@ hr {
 
 .article-text :where(p, ol, ul, pre, blockquote, table, figure) {
     max-width: var(--text-width);
+}
+
+.post.body :where(p, figcaption),
+.comment-body :where(p, figcaption) {
+    text-wrap: pretty;
+}
+
+@supports (content-visibility: auto) {
+    .blog-all-posts-list > p {
+        content-visibility: auto;
+        contain-intrinsic-size: auto 2.2rem;
+    }
 }
 
 .lj-identity-name {
@@ -1061,11 +1074,14 @@ h2.preview,
 .post-card.is-editing .post-title-text {
     color: var(--link-color);
     text-wrap: wrap;
+    text-wrap: stable;
 }
 
 .post-card.is-editing > .post.body[data-post-inplace-body] {
     margin-left: 0;
     padding: 0;
+    text-wrap: wrap;
+    text-wrap: stable;
 }
 
 .post-foot-tags.is-empty {
@@ -1562,6 +1578,24 @@ h2.preview,
     animation: post-media-upload-spin 700ms linear infinite;
 }
 
+@container post-editor (max-width: 42rem) {
+    .post-tags-editor {
+        max-width: min(calc(100vw - 1.5rem), 72cqi);
+    }
+
+    .post-editor-context-section:has([data-context-ai-action]) {
+        grid-template-columns: 1fr;
+    }
+
+    .post-editor-block-row {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .post-editor-entity-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 720px) {
     .post-editor-context-menu,
     .post-editor-context-anchor.is-left > .post-editor-context-menu,
@@ -1576,9 +1610,6 @@ h2.preview,
         max-height: min(78dvh, 36rem);
     }
 
-    .post-editor-block-row {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
 }
 
 .post-media-upload {
@@ -1994,6 +2025,7 @@ h2.comment {
 
 .comment-thread {
     --comment-thread-indent: clamp(1.5rem, 4vw, 3.25rem);
+    container: comment-thread / inline-size;
     font-size: 18px;
     line-height: 1.55;
 }
@@ -4362,6 +4394,49 @@ html:has(.files-archive-gray-demo) {
     color: var(--quiet-color);
 }
 
+@container comment-thread (max-width: 42rem) {
+    .comment-item {
+        --comment-thread-indent: 0.75rem;
+    }
+
+    .comment-children {
+        margin-left: 0;
+        padding-left: var(--comment-thread-indent);
+        border-left: 1px solid color-mix(in srgb, var(--minor-color) 32%, transparent);
+    }
+
+    .comment-item.depth-3 > .comment-children {
+        padding-left: 0;
+        border-left: 0;
+    }
+
+    .comment-item.has-userpic {
+        grid-template-columns: 34px minmax(0, 1fr);
+        column-gap: 10px;
+    }
+
+    .comment-userpic img,
+    .comment-userpic-fallback {
+        width: 34px;
+        height: 34px;
+    }
+
+    .comment-thread blockquote {
+        margin-left: 0 !important;
+        padding-left: 0.8rem;
+        border-left: 2px solid color-mix(in srgb, var(--minor-color) 38%, transparent);
+    }
+
+    .comment-identity {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .comment-body {
+        font-size: 17px;
+    }
+}
+
 @media (min-width: 1335px) {
     body:has(.remark, .sidenote) {
         --page-width: 1400px;
@@ -4435,47 +4510,6 @@ html:has(.files-archive-gray-demo) {
         margin-left: 0;
     }
 
-    .comment-thread {
-        --comment-thread-indent: 0.75rem;
-    }
-
-    .comment-children {
-        margin-left: 0;
-        padding-left: var(--comment-thread-indent);
-        border-left: 1px solid color-mix(in srgb, var(--minor-color) 32%, transparent);
-    }
-
-    .comment-item.depth-3 > .comment-children {
-        padding-left: 0;
-        border-left: 0;
-    }
-
-    .comment-item.has-userpic {
-        grid-template-columns: 34px minmax(0, 1fr);
-        column-gap: 10px;
-    }
-
-    .comment-userpic img,
-    .comment-userpic-fallback {
-        width: 34px;
-        height: 34px;
-    }
-
-    .comment-thread blockquote {
-        margin-left: 0 !important;
-        padding-left: 0.8rem;
-        border-left: 2px solid color-mix(in srgb, var(--minor-color) 38%, transparent);
-    }
-
-    .comment-identity {
-        grid-template-columns: 1fr;
-        gap: 0;
-    }
-
-    .comment-body {
-        font-size: 17px;
-    }
-
     #footer {
         padding-top: 2.75rem;
     }
@@ -4524,6 +4558,8 @@ html:has(.files-archive-gray-demo) {
     *::before,
     *::after {
         scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
 }
@@ -4567,6 +4603,92 @@ html:has(.files-archive-gray-demo) {
 
 .comment-media audio {
     width: min(100%, 32rem);
+}
+
+@media (prefers-contrast: more) {
+    :root {
+        --minor-color: color-mix(in srgb, var(--text-color) 82%, var(--page-background));
+        --quiet-color: color-mix(in srgb, var(--text-color) 68%, var(--page-background));
+        --border-color: color-mix(in srgb, var(--text-color) 42%, transparent);
+        --link-underline-color: currentColor;
+    }
+
+    :where(input, button, select, textarea):focus-visible {
+        outline-width: 3px;
+    }
+
+    .post-editor-context-menu,
+    .post-tags-surface,
+    .post-delete-confirmation,
+    .comment-action-confirmation {
+        border-color: currentColor;
+    }
+}
+
+@media (forced-colors: active) {
+    :root {
+        --page-background: Canvas;
+        --surface-background: Canvas;
+        --field-background: Field;
+        --text-color: CanvasText;
+        --minor-color: CanvasText;
+        --quiet-color: GrayText;
+        --link-color: LinkText;
+        --link-visited-color: LinkText;
+        --link-hover-color: LinkText;
+        --accent-color: Highlight;
+        --link-underline-color: currentColor;
+        --border-color: CanvasText;
+    }
+
+    .post-inplace-button,
+    .comment-moderation-button,
+    .post-editor-context-menu button {
+        border: 1px solid ButtonText;
+        background: ButtonFace;
+        color: ButtonText;
+    }
+
+    .post-editor-context-menu,
+    .post-tags-surface,
+    .post-delete-confirmation,
+    .comment-action-confirmation {
+        border: 1px solid CanvasText;
+        box-shadow: none;
+    }
+
+    .post-card.is-editing .post-title-text::before,
+    .post-card.is-editing > .post.body[data-post-inplace-body]::before {
+        background: Highlight;
+    }
+
+    .comment-children {
+        border-left-color: CanvasText;
+    }
+}
+
+@view-transition {
+    navigation: auto;
+}
+
+::view-transition-old(root) {
+    animation: 80ms ease-out both register-page-fade-out;
+}
+
+::view-transition-new(root) {
+    animation: 120ms ease-out both register-page-fade-in;
+}
+
+@keyframes register-page-fade-out {
+    to {
+        opacity: 0.94;
+    }
+}
+
+@keyframes register-page-fade-in {
+    from {
+        opacity: 0.94;
+    }
 }
 
 @media print {

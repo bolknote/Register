@@ -83,6 +83,12 @@
 	margin: 0;
 	padding: clamp(1.6rem, 4vw, 2.8rem) 0;
 	}
+	@supports (content-visibility: auto) {
+		.search-result {
+			content-visibility: auto;
+			contain-intrinsic-size: auto 22rem;
+			}
+		}
 	.search-result:first-child {
 		padding-top: 0;
 		}
