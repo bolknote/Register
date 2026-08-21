@@ -4,6 +4,7 @@ html #content .post-proportional-wrapper {
     width: fit-content;
     max-width: 100%;
     height: auto;
+    padding-bottom: 0;
 }
 
 html #content .post-proportional-wrapper > :where(img, video) {

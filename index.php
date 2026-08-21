@@ -58,10 +58,10 @@ $response  = $app->handle($request);
 $app->container->get(SecurityTelemetryRecorder::class)->recordResponse($request, $response);
 $reportUri        = $basePath . $urlPrefix . ContentSecurityPolicy::REPORT_PATH;
 $scriptNonce      = ContentSecurityPolicy::generateScriptNonce();
-$trustedScriptNum = (new TrustedScriptNonceInjector())->injectIntoResponse($response, $scriptNonce);
-ContentSecurityPolicy::apply($response, $reportUri, $trustedScriptNum > 0 ? $scriptNonce : null);
+$trustedInlineElementNum = (new TrustedScriptNonceInjector())->injectIntoResponse($response, $scriptNonce);
+ContentSecurityPolicy::apply($response, $reportUri, $trustedInlineElementNum > 0 ? $scriptNonce : null);
 
-if ($trustedScriptNum > 0) {
+if ($trustedInlineElementNum > 0) {
     // A fresh nonce changes the body on every request. Reusing a cached body with a new
     // CSP header after a 304 response would block its scripts, so these rare pages must be 200s.
     $response->headers->remove('ETag');

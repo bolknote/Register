@@ -33,7 +33,7 @@ final class ContentSecurityPolicy
         . "object-src 'none'; "
         . "script-src 'self'; "
         . "script-src-attr 'none'; "
-        . "style-src 'self' 'unsafe-eval'; "
+        . "style-src 'self'; "
         . "style-src-attr 'none'; "
         . "worker-src 'self' blob:";
 
@@ -43,7 +43,7 @@ final class ContentSecurityPolicy
         . "object-src 'none'; "
         . "script-src 'self'; "
         . "script-src-attr 'none'; "
-        . "style-src 'self' 'unsafe-eval'; "
+        . "style-src 'self'; "
         . "style-src-attr 'none'; "
         . "worker-src 'self' blob:";
 
@@ -160,8 +160,11 @@ final class ContentSecurityPolicy
         }
 
         return str_replace(
-            "script-src 'self';",
-            "script-src 'self' 'nonce-" . $scriptNonce . "';",
+            ["script-src 'self';", "style-src 'self';"],
+            [
+                "script-src 'self' 'nonce-" . $scriptNonce . "';",
+                "style-src 'self' 'nonce-" . $scriptNonce . "';",
+            ],
             $policy,
         );
     }

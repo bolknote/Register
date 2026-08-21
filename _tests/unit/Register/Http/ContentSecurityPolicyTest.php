@@ -39,7 +39,7 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertStringContainsString("base-uri 'none'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("object-src 'none'", ContentSecurityPolicy::POLICY);
         self::assertStringNotContainsString("script-src 'self' 'unsafe-inline'", ContentSecurityPolicy::POLICY);
-        self::assertStringContainsString("style-src 'self' 'unsafe-eval'", ContentSecurityPolicy::POLICY);
+        self::assertStringContainsString("style-src 'self'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("style-src-attr 'none'", ContentSecurityPolicy::POLICY);
         self::assertStringNotContainsString("'unsafe-inline'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("style-src 'self'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
@@ -75,6 +75,7 @@ final class ContentSecurityPolicyTest extends Unit
         $enforced = $response->headers->get(ContentSecurityPolicy::HEADER_NAME);
         self::assertNotNull($enforced);
         self::assertStringContainsString("script-src 'self' 'nonce-" . $nonce . "';", $enforced);
+        self::assertStringContainsString("style-src 'self' 'nonce-" . $nonce . "';", $enforced);
         self::assertStringContainsString("script-src-attr 'none';", $enforced);
         self::assertStringNotContainsString("'unsafe-inline'", $enforced);
 

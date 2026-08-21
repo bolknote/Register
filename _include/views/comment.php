@@ -37,7 +37,7 @@ $moderationData  = $moderation ?? null;
 $isDeleted      = $moderationState === 'deleted';
 $hasUserpic     = !$isDeleted;
 $avatarInitials = $userpicUrl === null ? \S2\Cms\Helper\StringHelper::nameInitials($nick) : '';
-$avatarColor    = $userpicUrl === null ? \S2\Cms\Helper\StringHelper::stablePaletteIndex($nick, 8) : 0;
+$avatarColor    = $userpicUrl === null ? \S2\Cms\Helper\StringHelper::stablePaletteIndex($nick, 24) : 0;
 $replyQuery = $isPreview ? '' : http_build_query([
     'reply_to'     => $id,
     'reply_number' => $i,

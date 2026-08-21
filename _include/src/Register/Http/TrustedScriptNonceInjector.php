@@ -11,7 +11,7 @@ namespace Register\Http;
 
 use Symfony\Component\HttpFoundation\Response;
 
-/** Grants the current response nonce only to inline scripts in explicitly trusted post bodies. */
+/** Grants the current response nonce only to inline scripts/styles in explicitly trusted post bodies. */
 final readonly class TrustedScriptNonceInjector
 {
     private const string START_MARKER = '<!--register-trusted-script-region:83e42a4f:start-->';
@@ -24,7 +24,7 @@ final readonly class TrustedScriptNonceInjector
     }
 
     /**
-     * @return int Number of inline script elements granted the nonce.
+     * @return int Number of inline script and style elements granted the nonce.
      */
     public function injectIntoResponse(Response $response, string $nonce): int
     {
@@ -94,13 +94,22 @@ final readonly class TrustedScriptNonceInjector
 
         while ($offset < $length) {
             $commentStart = stripos($html, '<!--', $offset);
-            $scriptStart  = stripos($html, '<' . 'script', $offset);
-            if ($scriptStart === false) {
+            $scriptStart = stripos($html, '<' . 'script', $offset);
+            $styleStart  = stripos($html, '<' . 'style', $offset);
+            if ($scriptStart === false && $styleStart === false) {
                 $result .= substr($html, $offset);
                 break;
             }
 
-            if ($commentStart !== false && $commentStart < $scriptStart) {
+            if ($styleStart !== false && ($scriptStart === false || $styleStart < $scriptStart)) {
+                $elementName = 'style';
+                $elementStart = $styleStart;
+            } else {
+                $elementName = 'script';
+                $elementStart = $scriptStart;
+            }
+
+            if ($commentStart !== false && $commentStart < $elementStart) {
                 $commentEnd = strpos($html, '-->', $commentStart + 4);
                 if ($commentEnd === false) {
                     $result .= substr($html, $offset);
@@ -113,7 +122,7 @@ final readonly class TrustedScriptNonceInjector
                 continue;
             }
 
-            $nameEnd = $scriptStart + 7;
+            $nameEnd = $elementStart + 1 + strlen($elementName);
             if ($nameEnd < $length && !$this->isTagNameBoundary($html[$nameEnd])) {
                 $result .= substr($html, $offset, $nameEnd - $offset);
                 $offset  = $nameEnd;
@@ -126,9 +135,9 @@ final readonly class TrustedScriptNonceInjector
                 break;
             }
 
-            $result .= substr($html, $offset, $scriptStart - $offset);
-            $tag     = substr($html, $scriptStart, $tagEnd - $scriptStart + 1);
-            [$tag, $nonceAdded] = $this->nonceOpeningTag($tag, $nonce);
+            $result .= substr($html, $offset, $elementStart - $offset);
+            $tag     = substr($html, $elementStart, $tagEnd - $elementStart + 1);
+            [$tag, $nonceAdded] = $this->nonceOpeningTag($tag, $nonce, $elementName);
             $result .= $tag;
             if ($nonceAdded) {
                 ++$scriptCount;
@@ -136,14 +145,14 @@ final readonly class TrustedScriptNonceInjector
 
             $offset = $tagEnd + 1;
 
-            // Script contents are raw text. Do not interpret tag-shaped strings inside them.
-            $closingTag = stripos($html, '</script', $offset);
+            // Script and style contents are raw text. Do not interpret tag-shaped strings inside them.
+            $closingTag = stripos($html, '</' . $elementName, $offset);
             if ($closingTag === false) {
                 $result .= substr($html, $offset);
                 break;
             }
 
-            $closingTagEnd = strpos($html, '>', $closingTag + 8);
+            $closingTagEnd = strpos($html, '>', $closingTag + 2 + strlen($elementName));
             if ($closingTagEnd === false) {
                 $result .= substr($html, $offset);
                 break;
@@ -192,20 +201,23 @@ final readonly class TrustedScriptNonceInjector
     /**
      * @return array{string, bool}
      */
-    private function nonceOpeningTag(string $tag, string $nonce): array
+    private function nonceOpeningTag(string $tag, string $nonce, string $elementName): array
     {
-        $attributes = substr($tag, 7, -1);
+        $openingLength = 1 + strlen($elementName);
+        $attributes = substr($tag, $openingLength, -1);
         $attributes = preg_replace(
             '~\s+nonce\b(?:\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+))?~iu',
             '',
             $attributes,
         );
         if ($attributes === null) {
-            throw new \RuntimeException('Unable to normalize a trusted script tag.');
+            throw new \RuntimeException('Unable to normalize a trusted inline tag.');
         }
 
-        $opening = substr($tag, 0, 7);
-        if (preg_match('~(?:^|\s)src(?:\s*=|\s|/|$)~iu', $attributes) === 1) {
+        $opening = substr($tag, 0, $openingLength);
+        if ($elementName === 'script'
+            && preg_match('~(?:^|\s)src(?:\s*=|\s|/|$)~iu', $attributes) === 1
+        ) {
             return [$opening . $attributes . '>', false];
         }
 

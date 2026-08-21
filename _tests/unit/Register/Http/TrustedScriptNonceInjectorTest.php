@@ -17,16 +17,19 @@ final class TrustedScriptNonceInjectorTest extends Unit
 {
     private const string NONCE = 'AbCdEfGhIjKlMnOpQrStUvWx';
 
-    public function testGrantsNonceOnlyToInlineScriptsInsideTrustedPostBodies(): void
+    public function testGrantsNonceOnlyToInlineScriptsAndStylesInsideTrustedPostBodies(): void
     {
         $trustedHtml = TrustedScriptNonceInjector::markTrustedHtml(<<<'HTML'
 <p>Trusted body</p>
 <!-- <script>window.commentMustStayInert = true;</script> -->
 <script nonce="stale" data-value=">">window.inlineRan = "<script>";</script>
 <script nonce="stale" src="/_assets/trusted.js"></script>
+<style nonce="stale">.historical-frame { border: 1px dotted #ccc; }</style>
 HTML);
         $response = new Response(
-            '<script>window.outsideMustStayInert = true;</script><article>' . $trustedHtml . '</article>',
+            '<script>window.outsideMustStayInert = true;</script>'
+                . '<style>.outside-must-stay-inert { color: red; }</style>'
+                . '<article>' . $trustedHtml . '</article>',
             Response::HTTP_OK,
             ['Content-Type' => 'text/html; charset=UTF-8'],
         );
@@ -34,7 +37,7 @@ HTML);
         $count = (new TrustedScriptNonceInjector())->injectIntoResponse($response, self::NONCE);
         $html  = $response->getContent();
 
-        self::assertSame(1, $count);
+        self::assertSame(2, $count);
         self::assertIsString($html);
         self::assertStringContainsString(
             '<script nonce="' . self::NONCE . '" data-value=">">window.inlineRan = "<script>";</script>',
@@ -45,7 +48,15 @@ HTML);
             $html,
         );
         self::assertStringContainsString(
+            '<style nonce="' . self::NONCE . '">.historical-frame { border: 1px dotted #ccc; }</style>',
+            $html,
+        );
+        self::assertStringContainsString(
             '<script>window.outsideMustStayInert = true;</script>',
+            $html,
+        );
+        self::assertStringContainsString(
+            '<style>.outside-must-stay-inert { color: red; }</style>',
             $html,
         );
         self::assertStringContainsString(
