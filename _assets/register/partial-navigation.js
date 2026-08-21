@@ -211,6 +211,12 @@
         return replacement;
     }
 
+    function activateMedia(root) {
+        root.querySelectorAll('audio, video').forEach((media) => {
+            media.load();
+        });
+    }
+
     function syncHead(headHtml) {
         const parsed = new DOMParser().parseFromString(
             `<!doctype html><html><head>${headHtml}</head><body></body></html>`,
@@ -275,6 +281,7 @@
             document.documentElement.lang = payload.lang;
             document.body.className = payload.bodyClass;
             current.replaceWith(replacement);
+            activateMedia(replacement);
         };
 
         if (typeof document.startViewTransition === 'function' && !reducedMotion.matches && !document.hidden) {
