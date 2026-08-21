@@ -26,9 +26,19 @@ class FulltextIndexContent
      */
     protected array $dataByExternalId = [];
 
+    /**
+     * @var array<string, array<int|string, list<int>>>
+     */
+    protected array $titleDataByExternalId = [];
+
     public function add(string $word, FulltextIndexPositionBag $positionBag): void
     {
         $serializedExtId = $positionBag->getExternalId()->toString();
+
+        $titlePositions = $positionBag->getTitlePositions();
+        if (\count($titlePositions) > 0) {
+            $this->titleDataByExternalId[$serializedExtId][$word] = $titlePositions;
+        }
 
         $contentPositions = $positionBag->getContentPositions();
         if (\count($contentPositions) > 0) {
@@ -49,6 +59,13 @@ class FulltextIndexContent
     public function iterateContentWordPositions(\Closure $callback): void
     {
         foreach ($this->dataByExternalId as $serializedExtId => $data) {
+            $callback(ExternalId::fromString($serializedExtId), new WordPositionContainer($data));
+        }
+    }
+
+    public function iterateTitleWordPositions(\Closure $callback): void
+    {
+        foreach ($this->titleDataByExternalId as $serializedExtId => $data) {
             $callback(ExternalId::fromString($serializedExtId), new WordPositionContainer($data));
         }
     }

@@ -128,21 +128,43 @@ class FulltextResult
 
         $this->fulltextIndexContent->iterateContentWordPositions(
             static function (ExternalId $id, WordPositionContainer $container) use ($referenceContainer, $wordReductionRatios, $resultSet): void {
-                $pairsDistance = $container->compareWith($referenceContainer);
-                foreach ($pairsDistance as $pairDistance) {
-                    [$word1, $word2, $distance] = $pairDistance;
-                    $weight = self::neighbourWeight($distance);
-                    if (isset($wordReductionRatios[$word1])) {
-                        $weight *= $wordReductionRatios[$word1];
-                    }
-
-                    if (isset($wordReductionRatios[$word2])) {
-                        $weight *= $wordReductionRatios[$word2];
-                    }
-
-                    $resultSet->addNeighbourWeight($word1, $word2, $id, $weight, $distance);
-                }
+                self::addNeighbourWeights($id, $container, $referenceContainer, $wordReductionRatios, $resultSet, false);
             }
         );
+
+        $this->fulltextIndexContent->iterateTitleWordPositions(
+            static function (ExternalId $id, WordPositionContainer $container) use ($referenceContainer, $wordReductionRatios, $resultSet): void {
+                self::addNeighbourWeights($id, $container, $referenceContainer, $wordReductionRatios, $resultSet, true);
+            }
+        );
+    }
+
+    /** @param array<string, float> $wordReductionRatios */
+    private static function addNeighbourWeights(
+        ExternalId            $id,
+        WordPositionContainer $container,
+        WordPositionContainer $referenceContainer,
+        array                 $wordReductionRatios,
+        ResultSet             $resultSet,
+        bool                  $isTitle,
+    ): void {
+        $pairsDistance = $container->compareWith($referenceContainer);
+        foreach ($pairsDistance as $pairDistance) {
+            [$word1, $word2, $distance] = $pairDistance;
+            $weight = self::neighbourWeight($distance);
+            if (isset($wordReductionRatios[$word1])) {
+                $weight *= $wordReductionRatios[$word1];
+            }
+
+            if (isset($wordReductionRatios[$word2])) {
+                $weight *= $wordReductionRatios[$word2];
+            }
+
+            if ($isTitle) {
+                $resultSet->addTitleNeighbourWeight($word1, $word2, $id, $weight, $distance);
+            } else {
+                $resultSet->addNeighbourWeight($word1, $word2, $id, $weight, $distance);
+            }
+        }
     }
 }

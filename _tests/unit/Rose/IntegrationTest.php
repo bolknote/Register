@@ -172,7 +172,7 @@ final class IntegrationTest extends Unit
             'Русский текст. <b>Красным заголовком</b>. АБВГ',
             $resultItems4[0]->getHighlightedTitle($stemmer)
         );
-        self::assertEqualsWithDelta(38.86779205572728, $resultSet4->getItems()[0]->getRelevance(), PHP_FLOAT_EPSILON);
+        self::assertEqualsWithDelta(56.1069041483915, $resultSet4->getItems()[0]->getRelevance(), PHP_FLOAT_EPSILON);
 
         // Query 5
         $resultSet5 = $finder->find(new Query('русский'));

@@ -46,6 +46,11 @@ class ResultTrace
         $this->data[$serializedExtId]['fulltext ' . $word1 . ' - ' . $word2][] = sprintf('%s: matches are close (shift = %d)', $weight, $distance);
     }
 
+    public function addTitleNeighbourWeight(string $word1, string $word2, string $serializedExtId, float $weight, int $distance): void
+    {
+        $this->data[$serializedExtId]['title ' . $word1 . ' - ' . $word2][] = sprintf('%s: matches are close (shift = %d)', $weight, $distance);
+    }
+
     /**
      * @return array<string, mixed>
      */

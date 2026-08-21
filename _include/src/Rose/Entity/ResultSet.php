@@ -134,6 +134,20 @@ class ResultSet
         $this->trace->addNeighbourWeight($word1, $word2, $serializedExtId, $weight, $distance);
     }
 
+    /** @throws ImmutableException */
+    public function addTitleNeighbourWeight(string $word1, string $word2, ExternalId $externalId, float $weight, int $distance): void
+    {
+        if ($this->isFrozen) {
+            throw new ImmutableException('One cannot mutate a search result after obtaining its content.');
+        }
+
+        $serializedExtId = $externalId->toString();
+
+        $this->data[$serializedExtId]['*tn_' . $word1 . '_' . $word2] = $weight;
+
+        $this->trace->addTitleNeighbourWeight($word1, $word2, $serializedExtId, $weight, $distance);
+    }
+
     /**
      * @return array<string, float|int>
      *
