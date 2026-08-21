@@ -1345,6 +1345,11 @@ button.list-action-link-delete:focus-visible {
     gap: 0.5rem;
 }
 
+.config-setting .secret-value-row .input-wrapper {
+    display: block;
+    height: auto;
+}
+
 .config-setting form.secret-inline-form .validation-errors {
     display: grid;
     gap: 0.2rem;
