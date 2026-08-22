@@ -54,6 +54,7 @@ use Register\Module\Blog\Controller\DayPageController;
 use Register\Module\Blog\Controller\FavoritePageController;
 use Register\Module\Blog\Controller\FlatCommentController;
 use Register\Module\Blog\Controller\FlatContentController;
+use Register\Module\Blog\Controller\LegacyRssRedirectController;
 use Register\Module\Blog\Controller\MainPageController;
 use Register\Module\Blog\Controller\MonthPageController;
 use Register\Module\Blog\Controller\PostPageController;
@@ -304,6 +305,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $container->set(ContentUrlAliasController::class, static fn(Container $container): ContentUrlAliasController => new ContentUrlAliasController(
             $container->get(ContentUrlAliasRepository::class),
             $container->get(ContentUrlGenerator::class),
+        ));
+        $container->set(LegacyRssRedirectController::class, static fn(Container $container): LegacyRssRedirectController => new LegacyRssRedirectController(
+            $container->get(UrlBuilder::class),
+            $container->getStringParameter('url_prefix'),
         ));
         $container->set(AllPostsController::class, static function (Container $container): \Register\Module\Blog\Controller\AllPostsController {
             $provider = $container->get(DynamicConfigProvider::class);
@@ -600,8 +605,14 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         ), $priority);
 
         $routes->add('blog_rss', new Route(
-            '/rss.xml',
+            '/rss',
             ['_controller' => RssController::class],
+            options: ['utf8' => true],
+            methods: ['GET'],
+        ), $priority);
+        $routes->add('blog_rss_legacy', new Route(
+            '/rss.xml',
+            ['_controller' => LegacyRssRedirectController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);

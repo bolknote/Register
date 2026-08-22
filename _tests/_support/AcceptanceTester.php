@@ -61,7 +61,7 @@ class AcceptanceTester extends Actor
             throw new \RuntimeException('Unable to read config.test.php');
         }
 
-        // We need '/index.php?' prefix to test urls like /rss.xml
+        // We need '/index.php?' prefix to test file-like URLs such as /sitemap.xml.
         $config['http']['url_prefix'] = '/index.php?';
         $security = $config['security'] ?? [];
         if (!\is_array($security)) {

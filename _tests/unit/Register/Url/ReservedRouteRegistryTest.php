@@ -22,6 +22,8 @@ final class ReservedRouteRegistryTest extends Unit
         self::assertTrue($registry->contains('archive'));
         self::assertTrue($registry->contains('_admin'));
         self::assertTrue($registry->contains('activitypub'));
+        self::assertTrue($registry->contains('rss'));
+        self::assertTrue($registry->contains('rss.xml'));
         self::assertTrue($registry->contains('service-worker.js'));
         self::assertTrue($registry->contains('TOPICS'));
         self::assertTrue($registry->contains('best'));

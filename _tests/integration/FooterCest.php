@@ -13,8 +13,9 @@ final class FooterCest
     {
         $I->amOnPage('/');
         $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->seeElement('head link[rel="alternate"][type="application/rss+xml"][href="/rss"]');
         $I->seeElement('#copyright > .footer-primary > .copyright-text');
-        $I->seeElement('#copyright > .footer-primary > .footer-rss[href="/rss.xml"][aria-label]');
+        $I->seeElement('#copyright > .footer-primary > .footer-rss[href="/rss"][aria-label]');
         $I->seeElement('.footer-rss img[src="/_assets/register/rss-badge.svg"][alt=""]');
         $I->seeElement('#copyright > .engine-credit');
         $I->seeElement('.engine-credit a[href="https://github.com/bolknote/Register"]');

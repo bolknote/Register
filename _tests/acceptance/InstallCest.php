@@ -384,7 +384,13 @@ class InstallCest
 
     private function testRssAndSitemap(AcceptanceTester $I): void
     {
-        $I->amOnPage('/index.php?/rss.xml'); // Other URL scheme because the built-in PHP server looks for a file rss.xml
+        $I->stopFollowingRedirects();
+        $I->amOnPage('/index.php?/rss.xml'); // Historical feed address remains valid for existing subscriptions.
+        $I->seeResponseCodeIs(301);
+        $I->assertSame(['/index.php?/rss'], $I->grabHeaders()['Location'] ?? []);
+        $I->startFollowingRedirects();
+
+        $I->amOnPage('/index.php?/rss');
         $I->seeResponseCodeIsSuccessful();
         $I->canSee('Register');
         $I->canSee('My blog');
@@ -397,7 +403,7 @@ class InstallCest
         $lastModified = $I->grabHeaders()['Last-Modified'][0]
             ?? throw new \RuntimeException('The blog RSS response has no Last-Modified header.');
         $I->haveHttpHeader('If-Modified-Since', $lastModified);
-        $I->amOnPage('/index.php?/rss.xml');
+        $I->amOnPage('/index.php?/rss');
         $I->seeResponseCodeIs(304);
         $I->dontSee('New Blog Post Title');
         $I->unsetHttpHeader('If-Modified-Since');
@@ -511,7 +517,7 @@ class InstallCest
 
     private function testBlogRssAndSitemap(AcceptanceTester $I): void
     {
-        $I->amOnPage('/index.php?/rss.xml'); // Other URL scheme because the built-in PHP server looks for a file rss.xml
+        $I->amOnPage('/index.php?/rss');
         $I->seeResponseCodeIsSuccessful();
         $I->canSee('My blog');
         $I->canSee('New Blog Post Title');

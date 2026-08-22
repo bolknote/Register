@@ -41,6 +41,7 @@ final readonly class ReservedRouteRegistry
         'favicon.ico',
         'index.php',
         'robots.txt',
+        'rss',
         'rss.xml',
         'search',
         'service-worker.js',

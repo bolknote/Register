@@ -125,7 +125,7 @@ class HtmlTemplate
         $replace['<!-- s2_meta -->'] = implode("\n", $meta_tags);
 
         if (!$this->hasContent('rss_link')) {
-            $this->page['rss_link'] = ['<link rel="alternate" type="application/rss+xml" title="' . $this->translator->trans('RSS link title') . '" href="' . $this->urlBuilder->link('/rss.xml') . '" />'];
+            $this->page['rss_link'] = ['<link rel="alternate" type="application/rss+xml" title="' . $this->translator->trans('RSS link title') . '" href="' . $this->urlBuilder->link('/rss') . '" />'];
         }
 
         $replace['<!-- s2_rss_link -->'] = implode("\n", $this->stringListValue($this->page['rss_link']));
@@ -386,7 +386,7 @@ class HtmlTemplate
 
         return '<span class="footer-primary">' .
             '<span class="copyright-text">' . $copyright . '</span>' .
-            '<a class="footer-rss" href="' . $this->urlBuilder->link('/rss.xml') .
+            '<a class="footer-rss" href="' . $this->urlBuilder->link('/rss') .
             '" aria-label="' . $rssLabel . '" title="' . $rssLabel . '">' .
             '<img src="' . $rssIcon . '" width="48" height="18" alt=""></a>' .
             '</span>' .

@@ -17,6 +17,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class ContentRssCest
 {
+    public function redirectsTheHistoricalAddressToTheCanonicalFeed(\IntegrationTester $I): void
+    {
+        $I->amOnPage('/rss.xml?reader=legacy');
+        $I->seeResponseCodeIs(Response::HTTP_MOVED_PERMANENTLY);
+        $I->seeLocationIs('/rss?reader=legacy');
+    }
+
     public function publishesOnlyTheTenNewestPostsAndRecordsTheBlogFeed(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -36,10 +43,12 @@ final class ContentRssCest
         $this->insertContent($dbLayer, ContentType::POST, 'RSS draft', 'rss-draft', false, 1_700_000_100);
         $this->insertContent($dbLayer, ContentType::PAGE, 'RSS page', 'rss-page', true, 1_700_000_200);
 
-        $I->sendRequestWithHeaders('/rss.xml', ['User-Agent' => 'Register RSS integration reader']);
+        $I->sendRequestWithHeaders('/rss', ['User-Agent' => 'Register RSS integration reader']);
         $I->seeResponseCodeIs(Response::HTTP_OK);
 
         $xml = $I->grabResponse();
+        $I->assertStringContainsString('<atom:link href="http://s2.localhost/rss" rel="self"', $xml);
+        $I->assertStringNotContainsString('/rss.xml', $xml);
         $I->assertStringContainsString('RSS post 11', $xml);
         $I->assertStringContainsString('/rss-post-11', $xml);
         $I->assertStringNotContainsString('RSS post 1</title>', $xml);
@@ -51,7 +60,7 @@ final class ContentRssCest
 
         $lastModified = $I->grabHttpHeader('Last-Modified');
         $I->assertNotNull($lastModified);
-        $I->sendRequestWithHeaders('/rss.xml', ['If-Modified-Since' => $lastModified]);
+        $I->sendRequestWithHeaders('/rss', ['If-Modified-Since' => $lastModified]);
         $I->seeResponseCodeIs(Response::HTTP_NOT_MODIFIED);
 
         $channel = $dbLayer
