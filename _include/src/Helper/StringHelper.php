@@ -214,7 +214,7 @@ class StringHelper
         // belongs to the preceding answer: <blockquote>question</blockquote>answer. E2 wrapped
         // both sides in block elements, so keep the same visual grammar for imported comments.
         if (str_contains($html, '<blockquote>')) {
-            $html = self::wrapTextAroundCommentQuotes($html);
+            return self::wrapTextAroundCommentQuotes($html);
         }
 
         return $html;

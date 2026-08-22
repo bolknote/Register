@@ -75,9 +75,10 @@ readonly class CommentController implements ControllerInterface
     public function handle(Request $request): Response
     {
         $authenticatedUser = $this->authProvider->getAuthenticatedPublicUser($request);
-        $showEmail  = $request->request->get('show_email', false) !== false;
-        $subscribed = $request->request->get('subscribed', false) !== false;
-        $id         = $request->request->getString('id', '');
+        $isAuthenticated  = $authenticatedUser instanceof AuthenticatedPublicUser;
+        $showEmail        = $request->request->get('show_email', false) !== false;
+        $subscribed       = $request->request->get('subscribed', false) !== false;
+        $id               = $request->request->getString('id', '');
         if (preg_match('#^[0-9a-f]{32}$#', $id) !== 1) {
             $id = '';
         }
@@ -123,14 +124,17 @@ readonly class CommentController implements ControllerInterface
             $errors[] = \sprintf($this->translator->trans('long_text'), self::S2_MAX_COMMENT_BYTES);
         }
 
-        $email = $authenticatedUser instanceof AuthenticatedPublicUser
+        $email = $isAuthenticated
             ? $authenticatedUser->email
             : trim($request->request->getString('email'));
-        if (!StringHelper::isValidEmail($email)) {
+        if ($isAuthenticated && $email === '') {
+            $showEmail  = false;
+            $subscribed = false;
+        } elseif (!StringHelper::isValidEmail($email)) {
             $errors[] = $this->translator->trans('email');
         }
 
-        $name = $authenticatedUser instanceof AuthenticatedPublicUser
+        $name = $isAuthenticated
             ? $authenticatedUser->commentName()
             : trim($request->request->getString('name'));
         if ($name === '') {

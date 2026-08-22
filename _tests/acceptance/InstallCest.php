@@ -483,7 +483,7 @@ class InstallCest
         $I->see('New Blog Post Title');
         $I->see('New blog post');
         $I->see('August 12, 2023');
-        $I->canWriteComment(text: 'This is my first blog comment! 👪🐶');
+        $I->canWriteAuthenticatedComment('admin', 'This is my first blog comment! 👪🐶');
 
         $I->amOnPage('/2023/08/12/new-post1');
         $I->seeResponseCodeIsClientError();

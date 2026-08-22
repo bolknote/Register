@@ -149,17 +149,17 @@ class SpamDecisionCest
                 'mailPublished'     => false,
             ],
 
-            // Ham with HTML → force moderation
+            // HTML is the normal comment format and follows global premoderation.
             [
                 'text'              => $this->composeText(false, true),
                 'status'            => SpamDetectorReport::STATUS_HAM,
                 'premoderation'     => '0',
                 'expectErrorKey'    => null,
-                'expectCommentSent' => true,
-                'expectShown'       => 0,
+                'expectCommentSent' => false,
+                'expectShown'       => 1,
                 'expectMail'        => true,
                 'mailStatus'        => SpamDetectorReport::STATUS_HAM,
-                'mailPublished'     => false,
+                'mailPublished'     => true,
             ],
             [
                 'text'              => $this->composeText(false, true),

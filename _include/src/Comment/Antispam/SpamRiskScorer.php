@@ -14,7 +14,7 @@ use S2\Cms\Pdo\DbLayerException;
 
 final readonly class SpamRiskScorer
 {
-    public const string VERSION = 'rules-5';
+    public const string VERSION = 'rules-6';
 
     public function __construct(
         private SpamIdentityHasher       $hasher,
@@ -63,10 +63,6 @@ final readonly class SpamRiskScorer
 
         if ($linkCount > 0 && mb_strlen(trim($comment->text)) <= 60) {
             $this->addPolicy($score, $reasons, $weights, 'short_link_comment');
-        }
-
-        if ($this->featureExtractor->hasHtml($comment->text)) {
-            $this->addPolicy($score, $reasons, $weights, 'html');
         }
 
         if ($this->featureExtractor->hasFormattingControls($comment->text)) {

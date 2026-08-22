@@ -84,6 +84,12 @@ class CommentCest
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
         $this->insertArticle($dbLayer);
+        $dbLayer
+            ->update('users')
+            ->set('email', "''")
+            ->where("login = 'admin'")
+            ->execute()
+        ;
 
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/thread-test');
@@ -92,6 +98,7 @@ class CommentCest
         $I->see('Commenting as', '#comment-form');
         $I->see('admin', '#comment-form .comment-authenticated-identity');
         $I->dontSeeElement('#comment-form [data-comment-guest-identity]');
+        $I->dontSeeElement('#comment-form .comment-options');
         $I->dontSeeElement('#comment-form .comment-preview');
 
         $I->sendPost('https://localhost/thread-test', [
@@ -110,7 +117,7 @@ class CommentCest
         ;
         $I->assertIsArray($comment);
         $I->assertSame('admin', $comment['nick']);
-        $I->assertSame('admin@example.com', $comment['email']);
+        $I->assertSame('', $comment['email']);
         $I->assertSame('Owner comment', CommentHtml::plainText((string)$comment['text']));
         $I->assertStringContainsString('<strong>Owner</strong>', (string)$comment['text']);
     }

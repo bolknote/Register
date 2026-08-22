@@ -24,11 +24,10 @@ readonly class SpamDecisionProvider implements SpamDecisionProviderInterface
     {
         $report    = $this->detector->getReport($comment, $clientIp);
         $linkCount = $this->featureExtractor->linkCount($comment->text);
-        $hasHtml   = $this->featureExtractor->hasHtml($comment->text);
 
         $rejectLinks     = false;
         $rejectSpam      = $report->shouldReject();
-        $forceModeration = $report->isHam() && ($linkCount > 0 || $hasHtml);
+        $forceModeration = $report->isHam() && $linkCount > 0;
 
         return new SpamDecision($report, $rejectLinks, $rejectSpam, $forceModeration);
     }

@@ -21,7 +21,6 @@ final readonly class SpamSignalPolicyRepository
         'links_many'                 => 35,
         'multiple_domains'           => 10,
         'short_link_comment'         => 15,
-        'html'                       => 10,
         'formatting_controls'        => 20,
         'long_repetition'            => 10,
         'sentence_like_latin_transliteration' => 40,

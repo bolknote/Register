@@ -208,11 +208,13 @@ final class CommentHtml
         if (preg_match('/(?:^|;)\s*font-weight\s*:\s*(?:bold|[6-9]00)\b/u', $normalized) === 1) {
             $children = '<strong>' . $children . '</strong>';
         }
+
         if (preg_match('/(?:^|;)\s*font-style\s*:\s*italic\b/u', $normalized) === 1) {
             $children = '<em>' . $children . '</em>';
         }
+
         if (preg_match('/(?:^|;)\s*text-decoration(?:-line)?\s*:[^;]*\bline-through\b/u', $normalized) === 1) {
-            $children = '<s>' . $children . '</s>';
+            return '<s>' . $children . '</s>';
         }
 
         return $children;
