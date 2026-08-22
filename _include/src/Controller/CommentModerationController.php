@@ -11,6 +11,7 @@ namespace S2\Cms\Controller;
 
 use Register\Comment\CommentRepository;
 use Register\Content\ContentType;
+use S2\Cms\Comment\CommentHtml;
 use S2\Cms\Comment\Antispam\SpamFeedbackService;
 use S2\Cms\Framework\ControllerInterface;
 use S2\Cms\Model\AuthProvider;
@@ -63,8 +64,9 @@ final readonly class CommentModerationController implements ControllerInterface
                 return $this->error($request, $this->translator->trans('Comment moderation forbidden'), Response::HTTP_FORBIDDEN);
             }
 
-            $text = trim($request->request->getString('text'));
-            if ($text === '' || strlen($text) > self::MAX_COMMENT_BYTES) {
+            $submittedText = trim($request->request->getString('text'));
+            $text = CommentHtml::sanitizeForStorage($submittedText);
+            if ($text === '' || strlen($submittedText) > self::MAX_COMMENT_BYTES || strlen($text) > self::MAX_COMMENT_BYTES) {
                 return $this->error($request, $this->translator->trans('Invalid edited comment'), Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 

@@ -23,7 +23,9 @@ use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Controller\Comment\TargetDto;
 use S2\Cms\Framework\ControllerInterface;
 use S2\Cms\Helper\StringHelper;
+use S2\Cms\Comment\CommentHtml;
 use S2\Cms\Mail\CommentMailer;
+use S2\Cms\Model\AuthenticatedPublicUser;
 use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\UrlBuilder;
 use S2\Cms\Model\User\UserProvider;
@@ -72,6 +74,7 @@ readonly class CommentController implements ControllerInterface
     #[\Override]
     public function handle(Request $request): Response
     {
+        $authenticatedUser = $this->authProvider->getAuthenticatedPublicUser($request);
         $showEmail  = $request->request->get('show_email', false) !== false;
         $subscribed = $request->request->get('subscribed', false) !== false;
         $id         = $request->request->getString('id', '');
@@ -109,24 +112,27 @@ readonly class CommentController implements ControllerInterface
             $errors[] = $this->translator->trans('disabled');
         }
 
-        $text = $request->request->getString('text');
-        $text = trim($text);
+        $submittedText = trim($request->request->getString('text'));
+        $text = CommentHtml::sanitizeForStorage($submittedText);
+        $analysisText = CommentHtml::plainText($text);
         if ($text === '') {
             $errors[] = $this->translator->trans('missing_text');
         }
 
-        if (\strlen($text) > self::S2_MAX_COMMENT_BYTES) {
+        if (\strlen($submittedText) > self::S2_MAX_COMMENT_BYTES || \strlen($text) > self::S2_MAX_COMMENT_BYTES) {
             $errors[] = \sprintf($this->translator->trans('long_text'), self::S2_MAX_COMMENT_BYTES);
         }
 
-        $email = $request->request->getString('email');
-        $email = trim($email);
+        $email = $authenticatedUser instanceof AuthenticatedPublicUser
+            ? $authenticatedUser->email
+            : trim($request->request->getString('email'));
         if (!StringHelper::isValidEmail($email)) {
             $errors[] = $this->translator->trans('email');
         }
 
-        $name = $request->request->getString('name');
-        $name = trim($name);
+        $name = $authenticatedUser instanceof AuthenticatedPublicUser
+            ? $authenticatedUser->commentName()
+            : trim($request->request->getString('name'));
         if ($name === '') {
             $errors[] = $this->translator->trans('missing_nick');
         } elseif (mb_strlen($name) > 50) {
@@ -159,7 +165,8 @@ readonly class CommentController implements ControllerInterface
                     'email'          => $email,
                     'show_email'     => $showEmail,
                     'good'           => false,
-                    'is_author'      => $this->authProvider->isOnline($email),
+                    'is_author'      => $authenticatedUser instanceof AuthenticatedPublicUser
+                        || $this->authProvider->isOnline($email),
                     'id'             => 0,
                     'i'              => 0,
                     'depth'          => 0,
@@ -201,7 +208,7 @@ readonly class CommentController implements ControllerInterface
             $rateLimit = $this->spamRateLimiter->consume(
                 (string)$request->getClientIp(),
                 $email,
-                $text,
+                $analysisText,
                 $formValidation->visitorId,
             );
             if ($rateLimit->isLimited()) {
@@ -225,7 +232,7 @@ readonly class CommentController implements ControllerInterface
                 new SpamDetectorComment(
                     $name,
                     $email,
-                    $text,
+                    $analysisText,
                     $request->headers->get('User-Agent'),
                     $request->headers->get('Referer'),
                     $this->urlBuilder->absLink($path),
@@ -319,6 +326,7 @@ readonly class CommentController implements ControllerInterface
             $text,
             (string)$request->getClientIp(),
             $parentId,
+            $authenticatedUser?->id,
         );
         $assessmentId = $spamDecision->getReport()->getAssessmentId();
         if ($assessmentId !== null) {
@@ -337,7 +345,7 @@ readonly class CommentController implements ControllerInterface
             }
         }
 
-        $message = StringHelper::bbcodeToMail($text);
+        $message = CommentHtml::plainText($text);
 
         /**
          * Sending the comment to moderators.

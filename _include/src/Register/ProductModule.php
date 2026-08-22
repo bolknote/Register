@@ -294,8 +294,10 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
                 return $basePath . $path . '?v=' . $modifiedAt;
             };
             $event->assetPack
+                ->addCss($versionedAsset('/_assets/register/comment-editor.css'))
                 ->addCss($basePath . '/_assets/register/offline.css')
                 ->addCss($versionedAsset('/_assets/register/partial-navigation.css'))
+                ->addJs($versionedAsset('/_assets/register/comment-editor.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($versionedAsset('/_assets/register/offline.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($versionedAsset('/_assets/register/live-updates.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($versionedAsset('/_assets/register/partial-navigation.js'), [AssetPack::OPTION_DEFER])

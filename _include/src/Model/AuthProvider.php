@@ -88,6 +88,16 @@ readonly class AuthProvider
     }
 
     /**
+     * Returns the identity represented by a valid signed public-side session.
+     *
+     * @throws DbLayerException
+     */
+    public function getAuthenticatedPublicUser(Request $request): ?AuthenticatedPublicUser
+    {
+        return $this->getAuthenticatedUser($request);
+    }
+
+    /**
      * Authenticates a public-side session that may edit at least its own content.
      *
      * The returned permissions still have to be checked against the content author.
@@ -144,7 +154,7 @@ readonly class AuthProvider
         }
 
         $result = $this->dbLayer
-            ->select('u.id, u.login, u.email, u.hide_comments, u.edit_comments, u.create_articles, u.edit_site, u.edit_users')
+            ->select('u.id, u.login, u.email, u.name, u.hide_comments, u.edit_comments, u.create_articles, u.edit_site, u.edit_users')
             ->from('users AS u')
             ->innerJoin('users_online AS o', 'o.login = u.login')
             ->where('o.comment_cookie = :cookie')
@@ -163,6 +173,7 @@ readonly class AuthProvider
             (int)$row['id'],
             (string)$row['login'],
             (string)$row['email'],
+            (string)$row['name'],
             (bool)$row['hide_comments'],
             (bool)$row['edit_comments'],
             (bool)$row['create_articles'],

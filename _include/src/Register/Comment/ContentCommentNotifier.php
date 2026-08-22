@@ -14,7 +14,7 @@ use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Helper\StringHelper;
+use S2\Cms\Comment\CommentHtml;
 use S2\Cms\Mail\CommentMailer;
 use S2\Cms\Pdo\DbLayerException;
 
@@ -54,7 +54,7 @@ final readonly class ContentCommentNotifier
             return;
         }
 
-        $message = StringHelper::bbcodeToMail($comment->text);
+        $message = CommentHtml::plainText($comment->text);
         $link    = $this->contentUrlGenerator->absolutePath($content->path);
 
         foreach ($this->subscriptionService->receivers($comment->contentId, $comment->email) as $receiver) {

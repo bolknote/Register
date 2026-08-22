@@ -16,6 +16,7 @@ declare(strict_types = 1);
 /** @var int|null $parent_id */
 /** @var int|null $reply_number */
 /** @var string|null $reply_name */
+/** @var \S2\Cms\Model\AuthenticatedPublicUser|null $authenticatedUser */
 
 $name         ??= '';
 $email        ??= '';
@@ -25,6 +26,12 @@ $text         ??= '';
 $parent_id    = isset($parent_id) && $parent_id > 0 ? $parent_id : null;
 $reply_number = isset($reply_number) && $reply_number > 0 ? $reply_number : 0;
 $reply_name   ??= '';
+$authenticatedUser ??= null;
+
+if ($authenticatedUser instanceof \S2\Cms\Model\AuthenticatedPublicUser) {
+    $name  = $authenticatedUser->commentName();
+    $email = $authenticatedUser->email;
+}
 
 ?>
 <section class="comment-form-block" id="add-comment" aria-labelledby="comment-form-title">
@@ -36,11 +43,24 @@ $reply_name   ??= '';
         <button class="comment-reply-cancel" type="button"><?php echo $trans('Cancel reply'); ?></button>
     </div>
     <form method="post" name="post_comment" id="comment-form" action="<?php echo s2_htmlencode($action); ?>">
-        <p class="input text">
-            <label for="comment-text"><?php echo $trans('Your comment'); ?></label>
-            <textarea id="comment-text" cols="50" rows="9" name="text"><?php echo s2_htmlencode($text); ?></textarea>
-        </p>
-        <div class="comment-identity">
+        <div class="input text comment-text-input">
+            <label id="comment-text-label" for="comment-text"><?php echo $trans('Your comment'); ?></label>
+            <?php
+            $editorId    = 'comment-text';
+            $editorValue = $text;
+            $editorRows  = 9;
+            require __DIR__ . '/comment_editor.php';
+            ?>
+        </div>
+        <?php if ($authenticatedUser instanceof \S2\Cms\Model\AuthenticatedPublicUser): ?>
+        <div class="comment-authenticated-identity">
+            <span><?php echo $trans('Commenting as'); ?></span>
+            <strong><?php echo s2_htmlencode($name); ?></strong>
+            <input type="hidden" name="name" value="<?php echo s2_htmlencode($name); ?>">
+            <input type="hidden" name="email" value="<?php echo s2_htmlencode($email); ?>">
+        </div>
+        <?php else: ?>
+        <div class="comment-identity" data-comment-guest-identity>
             <p class="input name">
                 <label for="comment-name"><?php echo $trans('Your name'); ?></label>
                 <input id="comment-name" type="text" name="name" value="<?php echo s2_htmlencode($name); ?>" maxlength="50" size="40" autocomplete="name" />
@@ -51,6 +71,7 @@ $reply_name   ??= '';
                 <small><?php echo $trans('Email privacy note'); ?></small>
             </p>
         </div>
+        <?php endif; ?>
         <div class="comment-options">
             <label for="show_email" title="<?php echo $trans('Show email label title'); ?>"><input type="checkbox" id="show_email" name="show_email" <?php if ($show_email) echo 'checked="checked" '; ?>/><?php echo $trans('Show email label'); ?></label>
             <label for="subscribed" title="<?php echo $trans('Subscribe label title'); ?>"><input type="checkbox" id="subscribed" name="subscribed" <?php if ($subscribed) echo 'checked="checked" '; ?>/><?php echo $trans('Subscribe label'); ?></label>
@@ -70,7 +91,6 @@ $reply_name   ??= '';
         <input type="hidden" name="reply_name" value="<?php echo s2_htmlencode($reply_name); ?>" />
         <p class="input buttons">
             <input class="comment-submit" type="submit" name="submit" value="<?php echo $trans('Submit'); ?>" />
-            <input class="comment-preview" type="submit" name="preview" value="<?php echo $trans('Preview'); ?>" />
         </p>
     </form>
     <a class="comment-form-origin" href="<?php echo s2_htmlencode($cancelReplyUrl); ?>" hidden></a>

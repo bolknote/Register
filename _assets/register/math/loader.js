@@ -71,7 +71,11 @@
         let parent = node.parentNode;
         while (parent && parent !== root) {
             if (parent.nodeType === Node.ELEMENT_NODE) {
-                if (ignoredTags.has(parent.nodeName) || parent.classList.contains('register-math-source')) {
+                if (
+                    ignoredTags.has(parent.nodeName)
+                    || parent.classList.contains('register-math-source')
+                    || parent.classList.contains('comment-editor-surface')
+                ) {
                     return false;
                 }
             }

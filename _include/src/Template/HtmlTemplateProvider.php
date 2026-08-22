@@ -20,6 +20,7 @@ use S2\Cms\Asset\AssetMerge;
 use S2\Cms\Asset\AssetMergeFactory;
 use S2\Cms\Asset\AssetPack;
 use S2\Cms\Model\UrlBuilder;
+use S2\Cms\Model\AuthProvider;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -46,6 +47,7 @@ class HtmlTemplateProvider
         private readonly string                   $basePath, // to be used in templates
         private readonly ?string                  $canonicalUrl,
         private readonly CommentFormTokenManager  $commentFormTokenManager,
+        private readonly AuthProvider             $authProvider,
     ) {
     }
 
@@ -72,6 +74,7 @@ class HtmlTemplateProvider
             $this->debugView,
             $this->canonicalUrl,
             $this->commentFormTokenManager,
+            $this->authProvider,
         );
 
         $this->dispatcher->dispatch(new TemplateEvent($htmlTemplate), TemplateEvent::EVENT_CREATED);

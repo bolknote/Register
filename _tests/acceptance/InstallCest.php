@@ -685,21 +685,20 @@ class InstallCest
         string           $contentType,
     ): void {
         /**
-         * Empty form validation and preview
+         * Empty form validation and rich editor for a guest.
          */
+        $commentCookie = $I->grabCookie($this->getCookieName() . '_c');
+        $I->assertIsString($commentCookie);
+        $I->setCookie($this->getCookieName() . '_c', 'wrong_value');
         $I->amOnPage($publicUrl);
+        $I->seeElement('#comment-form [data-comment-editor]');
+        $I->seeElement('#comment-form .comment-editor-toolbar');
+        $I->dontSeeElement('#comment-form .comment-preview');
+        $I->seeElement('#comment-form [data-comment-guest-identity]');
         $I->click('submit');
         $I->see('You have forgotten to enter the comment text.');
         $I->see('Invalid e-mail. Please enter the correct e-mail');
         $I->see('You have forgotten to enter your name.');
-
-        $I->fillField('name', 'Tester Name');
-        $I->fillField('email', 'tester@example.com');
-        $I->fillField('text', 'This is a test comment');
-        $I->click('preview');
-        $I->see('Your comment has not been saved yet!');
-        $I->see('Tester Name');
-        $I->see('This is a test comment');
 
         /**
          * Testing that a comment with unknown email <roman@example.com> is not published when pre-moderation is enabled
@@ -746,6 +745,8 @@ class InstallCest
             'of the comment will receive your answer.' . "\r\n" .
             '', $emails[0]);
 
+        $I->setCookie($this->getCookieName() . '_c', $commentCookie);
+
         /**
          * Testing that a comment with known email <admin@example.com> is published when pre-moderation is enabled
          * and user is logged in
@@ -757,7 +758,7 @@ class InstallCest
         $I->sendComment('Moderator', 'admin@example.com', 'This is a comment from a moderator.');
         $I->seeResponseCodeIs(200);
         $I->dontSee('Your comment has been successfully sent. It will be published after the verification.');
-        $I->see('Moderator', '.comment-name');
+        $I->see('admin', '.comment-name');
         $I->see('This is a comment from a moderator.');
 
         // Email to subscribed user
@@ -784,7 +785,7 @@ class InstallCest
             'located at the address:' . "\r\n" .
             'http://localhost:8881/index.php?' . $publicUrl . "\r\n" .
             '' . "\r\n" .
-            'The author of the new comment is Moderator.' . "\r\n" .
+            'The author of the new comment is admin.' . "\r\n" .
             '' . "\r\n" .
             '----------------------------------------------------------------------' . "\r\n" .
             'This is a comment from a moderator.' . "\r\n" .
@@ -800,7 +801,6 @@ class InstallCest
          * Testing that a comment with known email <admin@example.com> is not published when pre-moderation is enabled
          * and user is not logged in
          */
-        $commentCookie = $I->grabCookie($this->getCookieName() . '_c');
         $I->setCookie($this->getCookieName() . '_c', 'wrong_value');
 
         $I->clearEmails();
@@ -939,7 +939,7 @@ class InstallCest
         $I->amOnPage($publicUrl);
         $I->setCookie($this->getCookieName() . '_c', $commentCookie);
         $I->sendComment('Moderator3', 'admin@example.com', 'This is a comment from a moderator3.');
-        $I->see('Moderator3', '.comment-name');
+        $I->see('admin', '.comment-name');
         $I->see('This is a comment from a moderator3.');
         $I->assertCount(0, $I->getEmails());
 

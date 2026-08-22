@@ -15,6 +15,7 @@ final readonly class AuthenticatedPublicUser
         public int    $id,
         public string $login,
         public string $email,
+        public string $name,
         public bool   $canHideComments,
         public bool   $canEditComments,
         public bool   $canCreateArticles,
@@ -22,5 +23,17 @@ final readonly class AuthenticatedPublicUser
         public bool   $isAdministrator,
         public string $sessionHash,
     ) {
+    }
+
+    public function displayName(): string
+    {
+        $name = trim($this->name);
+
+        return $name !== '' ? $name : $this->login;
+    }
+
+    public function commentName(): string
+    {
+        return mb_substr($this->displayName(), 0, 50);
     }
 }

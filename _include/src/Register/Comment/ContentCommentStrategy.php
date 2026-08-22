@@ -62,8 +62,17 @@ final readonly class ContentCommentStrategy implements CommentStrategyInterface
 
     /** @throws DbLayerException */
     #[\Override]
-    public function save(int $targetId, string $name, string $email, bool $showEmail, bool $subscribed, string $text, string $ip, ?int $parentId): int
-    {
+    public function save(
+        int     $targetId,
+        string  $name,
+        string  $email,
+        bool    $showEmail,
+        bool    $subscribed,
+        string  $text,
+        string  $ip,
+        ?int    $parentId,
+        ?int    $userId,
+    ): int {
         return $this->commentRepository->save(
             $this->contentId($targetId),
             $name,
@@ -73,6 +82,7 @@ final readonly class ContentCommentStrategy implements CommentStrategyInterface
             $text,
             $ip,
             $parentId,
+            $userId,
         );
     }
 

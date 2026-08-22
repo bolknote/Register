@@ -12,6 +12,7 @@ namespace integration;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use S2\Cms\Comment\CommentHtml;
 use S2\Cms\Pdo\DbLayer;
 
 class CommentCest
@@ -57,14 +58,15 @@ class CommentCest
         $I->seeResponseCodeIs(302);
 
         $comment = $dbLayer
-            ->select('parent_id')
+            ->select('parent_id', 'text')
             ->from(CommentSchema::TABLE_NAME)
-            ->where('text = :text')->setParameter('text', 'Top-level comment text')
+            ->where('nick = :nick')->setParameter('nick', 'Top-level author')
             ->execute()
             ->fetchAssoc()
         ;
         $I->assertIsArray($comment);
         $I->assertNull($comment['parent_id']);
+        $I->assertSame('Top-level comment text', CommentHtml::plainText((string)$comment['text']));
     }
 
     public function testNonExistentPage(\IntegrationTester $I): void
@@ -75,6 +77,42 @@ class CommentCest
             'text'  => 'text',
         ]);
         $I->see('The destination page cannot be detected due to an error');
+    }
+
+    public function testAuthenticatedOwnerUsesAccountIdentityInTheRichEditor(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertArticle($dbLayer);
+
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/thread-test');
+        $I->seeElement('#comment-form [data-comment-editor]');
+        $I->seeElement('#comment-form .comment-editor-toolbar');
+        $I->see('Commenting as', '#comment-form');
+        $I->see('admin', '#comment-form .comment-authenticated-identity');
+        $I->dontSeeElement('#comment-form [data-comment-guest-identity]');
+        $I->dontSeeElement('#comment-form .comment-preview');
+
+        $I->sendPost('https://localhost/thread-test', [
+            'name'  => 'Spoofed name',
+            'email' => 'spoofed@example.test',
+            'text'  => '<p><strong>Owner</strong> comment</p>',
+        ]);
+        $I->seeResponseCodeIs(302);
+
+        $comment = $dbLayer
+            ->select('nick', 'email', 'text')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('nick = :nick')->setParameter('nick', 'admin')
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $I->assertIsArray($comment);
+        $I->assertSame('admin', $comment['nick']);
+        $I->assertSame('admin@example.com', $comment['email']);
+        $I->assertSame('Owner comment', CommentHtml::plainText((string)$comment['text']));
+        $I->assertStringContainsString('<strong>Owner</strong>', (string)$comment['text']);
     }
 
     public function testSavesAndRendersAReplyAsARealBranch(\IntegrationTester $I): void
@@ -95,14 +133,15 @@ class CommentCest
         $I->seeResponseCodeIs(302);
 
         $reply = $dbLayer
-            ->select('id', 'parent_id')
+            ->select('id', 'parent_id', 'text')
             ->from(CommentSchema::TABLE_NAME)
-            ->where('text = :text')->setParameter('text', 'A nested reply')
+            ->where('nick = :nick')->setParameter('nick', 'Reply author')
             ->execute()
             ->fetchAssoc()
         ;
         $I->assertIsArray($reply);
         $I->assertSame($parentId, (int)$reply['parent_id']);
+        $I->assertSame('A nested reply', CommentHtml::plainText((string)$reply['text']));
 
         $I->amOnPage('https://localhost/thread-test');
         $I->seeElement(

@@ -145,7 +145,7 @@ $reactionSummary = $reaction_summary ?? [];
         <?php if ($show_addressee && $parent !== null && $parent['nick'] !== ''): ?>
             <a class="comment-addressee" href="#<?php echo $parent['i']; ?>"><?php echo s2_htmlencode($parent['nick']); ?>,</a>
         <?php endif; ?>
-        <?php echo \S2\Cms\Helper\StringHelper::bbcodeToHtml(s2_htmlencode($text), $trans('Wrote')); ?>
+        <?php echo \S2\Cms\Comment\CommentHtml::render($text, $trans('Wrote')); ?>
         <?php if ($reactionSummary !== []): ?>
         <div class="comment-reaction-summary" aria-label="<?php echo $trans('Reactions'); ?>">
             <?php foreach ($reactionSummary as $reactionEmoji => $reactionCount): ?>
@@ -164,7 +164,13 @@ $reactionSummary = $reaction_summary ?? [];
     <?php endif; ?>
     <?php if ($moderationData !== null && !empty($moderationData['can_edit'])): ?>
         <form class="comment-edit-form" method="post" action="<?php echo s2_htmlencode((string)$moderationData['action_url']); ?>" hidden>
-            <textarea name="text" rows="7" maxlength="65535"><?php echo s2_htmlencode($text); ?></textarea>
+            <span class="visually-hidden" id="comment-edit-<?php echo $id; ?>-label"><?php echo $trans('Your comment'); ?></span>
+            <?php
+            $editorId    = 'comment-edit-' . $id;
+            $editorValue = $text;
+            $editorRows  = 7;
+            require __DIR__ . '/comment_editor.php';
+            ?>
             <input type="hidden" name="moderation_action" value="edit">
             <input type="hidden" name="target_type" value="<?php echo s2_htmlencode((string)$moderationData['target']); ?>">
             <input type="hidden" name="comment_id" value="<?php echo $id; ?>">

@@ -14,6 +14,8 @@ use S2\Cms\Config\BoolProxy;
 use S2\Cms\Config\IntProxy;
 use S2\Cms\Config\StringProxy;
 use S2\Cms\Helper\StringHelper;
+use S2\Cms\Model\AuthenticatedPublicUser;
+use S2\Cms\Model\AuthProvider;
 use S2\Cms\Model\UrlBuilder;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -59,6 +61,7 @@ class HtmlTemplate
         private readonly bool                     $debugView,
         private readonly ?string                  $canonicalUrlPrefix,
         private readonly CommentFormTokenManager  $commentFormTokenManager,
+        private readonly AuthProvider             $authProvider,
     ) {
     }
 
@@ -181,8 +184,12 @@ class HtmlTemplate
 
             $antispamVisitorToken = $this->commentFormTokenManager->getOrCreateVisitorToken($antispamRequest);
             $antispamVisitorCookie = $this->commentFormTokenManager->createVisitorCookie($antispamVisitorToken, $antispamRequest);
+            $authenticatedUser = $this->authProvider->getAuthenticatedPublicUser($antispamRequest);
             $replace['<!-- s2_comment_form -->'] = $this->viewer->render('comment_form', [
                 ...$comment_array,
+                'authenticatedUser' => $authenticatedUser instanceof AuthenticatedPublicUser
+                    ? $authenticatedUser
+                    : null,
                 'syntaxHelpItems' => $event->syntaxHelpItems,
                 'action'          => $this->urlBuilder->link($antispamRequest->getPathInfo()),
                 'cancelReplyUrl'  => $this->urlBuilder->link($antispamRequest->getPathInfo()) . '#add-comment',

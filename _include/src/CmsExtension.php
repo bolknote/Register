@@ -405,6 +405,7 @@ class CmsExtension implements ExtensionInterface
                 $container->getStringParameter('base_path'),
                 $container->getNullableStringParameter('canonical_url'),
                 $container->get(CommentFormTokenManager::class),
+                $container->get(AuthProvider::class),
             );
         });
 

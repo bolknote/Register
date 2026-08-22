@@ -31,11 +31,14 @@ final readonly class CommentRepository
         string    $text,
         string    $ip,
         ?int      $parentId,
+        ?int      $userId = null,
         ?int      $time = null,
     ): int {
         if ($parentId !== null && !$this->isValidParent($contentId, $parentId)) {
             throw new \InvalidArgumentException('The parent comment does not belong to the commented content.');
         }
+
+        $userpicId = $this->latestUserpicId($userId);
 
         $this->dbLayer
             ->insert(CommentSchema::TABLE_NAME)
@@ -43,6 +46,7 @@ final readonly class CommentRepository
                 'content_type' => ':content_type',
                 'content_id'   => ':content_id',
                 'parent_id'    => ':parent_id',
+                'userpic_id'   => ':userpic_id',
                 'time'         => ':time',
                 'modify_time'  => '0',
                 'ip'           => ':ip',
@@ -60,6 +64,7 @@ final readonly class CommentRepository
                 'content_type' => $contentId->type->value,
                 'content_id'   => $contentId->value,
                 'parent_id'    => $parentId,
+                'userpic_id'   => $userpicId,
                 'time'         => $time ?? time(),
                 'ip'           => $ip,
                 'nick'         => $name,
@@ -74,6 +79,25 @@ final readonly class CommentRepository
         $this->liveUpdateRepository->publishComments($contentId);
 
         return $commentId;
+    }
+
+    private function latestUserpicId(?int $userId): ?int
+    {
+        if ($userId === null || $userId <= 0) {
+            return null;
+        }
+
+        $row = $this->dbLayer
+            ->select('userpic_id')
+            ->from(\S2\Cms\Model\UserpicSchema::USER_LINK_TABLE_NAME)
+            ->where('user_id = :user_id')->setParameter('user_id', $userId)
+            ->orderBy('userpic_id DESC')
+            ->limit(1)
+            ->execute()
+            ->fetchAssoc()
+        ;
+
+        return $row === false ? null : (int)$row['userpic_id'];
     }
 
     public function find(int $commentId): ?Comment

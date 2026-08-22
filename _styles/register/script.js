@@ -59,7 +59,7 @@
         var showEmailField = fields.show_email;
         var idField = fields.id;
 
-        if (!textField || !nameField || !emailField || !showEmailField || !idField) {
+        if (!textField || !idField) {
             return;
         }
 
@@ -72,9 +72,15 @@
                 localStorage.removeItem(textKey);
             }
 
-            localStorage.setItem('comment_name', nameField.value);
-            localStorage.setItem('comment_email', emailField.value);
-            localStorage.setItem('comment_showemail', showEmailField.checked ? '1' : '0');
+            if (nameField) {
+                localStorage.setItem('comment_name', nameField.value);
+            }
+            if (emailField) {
+                localStorage.setItem('comment_email', emailField.value);
+            }
+            if (showEmailField) {
+                localStorage.setItem('comment_showemail', showEmailField.checked ? '1' : '0');
+            }
         }
 
         try {
@@ -91,11 +97,17 @@
                 textField.value = textField.value || localStorage.getItem(textKey) || '';
             }
 
-            nameField.value = nameField.value || localStorage.getItem('comment_name') || '';
-            emailField.value = emailField.value || localStorage.getItem('comment_email') || '';
-            showEmailField.checked = showEmailField.checked || localStorage.getItem('comment_showemail') === '1';
+            if (nameField) {
+                nameField.value = nameField.value || localStorage.getItem('comment_name') || '';
+            }
+            if (emailField) {
+                emailField.value = emailField.value || localStorage.getItem('comment_email') || '';
+            }
+            if (showEmailField) {
+                showEmailField.checked = showEmailField.checked || localStorage.getItem('comment_showemail') === '1';
+            }
 
-            [textField, nameField, emailField, showEmailField].forEach(function (field) {
+            [textField, nameField, emailField, showEmailField].filter(Boolean).forEach(function (field) {
                 field.addEventListener('change', save, false);
             });
             form.addEventListener('submit', save, false);
@@ -200,7 +212,9 @@
             }
 
             if (focusText && textField) {
-                textField.focus();
+                if (!window.RegisterCommentEditor?.focus(form)) {
+                    textField.focus();
+                }
             }
         }
 
@@ -427,7 +441,7 @@
                 item.classList.add('is-editing');
                 form.hidden = false;
                 var textarea = form.querySelector('textarea');
-                if (textarea) {
+                if (!window.RegisterCommentEditor?.focus(form) && textarea) {
                     textarea.focus();
                     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
                 }

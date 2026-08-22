@@ -87,12 +87,25 @@
             'data-comment-reply-bound',
             'data-comment-moderation-bound',
             'data-comment-edit-bound',
+            'data-comment-editor-ready',
         ];
 
         clone.querySelectorAll('#s2_search_tip').forEach((element) => element.remove());
         for (const attribute of bindingAttributes) {
             clone.querySelectorAll(`[${attribute}]`).forEach((element) => element.removeAttribute(attribute));
         }
+
+        clone.querySelectorAll('[data-comment-editor]').forEach((editor) => {
+            const source = editor.querySelector(':scope > .comment-editor-source');
+            const surface = editor.querySelector(':scope > .comment-editor-surface');
+            const toolbar = editor.querySelector(':scope > .comment-editor-toolbar');
+            if (source instanceof HTMLTextAreaElement) {
+                source.textContent = source.value;
+                source.removeAttribute('hidden');
+            }
+            surface?.setAttribute('hidden', '');
+            toolbar?.setAttribute('hidden', '');
+        });
 
         clone.querySelectorAll('.register-audio-player').forEach((player) => {
             const audio = player.querySelector(':scope > audio.register-audio-player__media');
@@ -233,6 +246,9 @@
     }
 
     function destroyWidgets(root) {
+        if (window.RegisterCommentEditor?.destroy) {
+            window.RegisterCommentEditor.destroy(root);
+        }
         if (window.RegisterReactions?.destroy) {
             window.RegisterReactions.destroy(root);
         }
@@ -244,6 +260,7 @@
             [window.RegisterReactions, 'enhance'],
             [window.RegisterLocalTime, 'enhance'],
             [window.RegisterSyntaxHighlighting, 'highlight'],
+            [window.RegisterCommentEditor, 'enhance'],
             [window.RegisterMath, 'render'],
             [window.RegisterAudioPlayerLoader, 'enhance'],
             [window.RegisterSearchAutocomplete, 'enhance'],

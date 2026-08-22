@@ -1,0 +1,255 @@
+.comment-editor {
+    position: relative;
+    overflow: visible;
+    border: 1px solid var(--line-color, color-mix(in srgb, currentColor 24%, transparent));
+    border-radius: 0.75rem;
+    background: var(--field-background, Canvas);
+    color: var(--text-color, CanvasText);
+}
+
+.comment-text-input {
+    margin-bottom: 1rem;
+}
+
+.comment-editor:focus-within {
+    border-color: var(--accent-color, Highlight);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color, Highlight) 22%, transparent);
+}
+
+.comment-editor-toolbar {
+    display: flex;
+    min-height: 2.9rem;
+    padding: 0.35rem 0.45rem;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.15rem;
+    border-bottom: 1px solid var(--line-color, color-mix(in srgb, currentColor 20%, transparent));
+    font-family: var(--ui-font, system-ui, sans-serif);
+}
+
+.comment-editor-toolbar[hidden],
+.comment-editor-surface[hidden],
+.comment-editor-link-panel[hidden],
+.comment-editor-source[hidden] {
+    display: none !important;
+}
+
+.comment-editor-toolbar button {
+    display: inline-grid;
+    width: 2.15rem;
+    min-width: 2.15rem;
+    min-height: 2.15rem;
+    height: 2.15rem;
+    margin: 0;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--minor-color, currentColor);
+    font: 650 0.95rem/1 var(--ui-font, system-ui, sans-serif);
+}
+
+.comment-editor-toolbar button:hover,
+.comment-editor-toolbar button:focus-visible,
+.comment-editor-toolbar button[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--accent-color, Highlight) 14%, transparent);
+    color: var(--accent-color, Highlight);
+}
+
+.comment-editor-toolbar button:focus-visible {
+    outline: 2px solid var(--accent-color, Highlight);
+    outline-offset: 1px;
+}
+
+.comment-editor-toolbar button svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+}
+
+.comment-editor-toolbar-separator {
+    width: 1px;
+    height: 1.45rem;
+    margin: 0 0.25rem;
+    background: var(--line-color, color-mix(in srgb, currentColor 20%, transparent));
+}
+
+.comment-editor-surface,
+.comment-editor-source {
+    width: 100%;
+    min-height: 10rem;
+    margin: 0;
+    padding: 0.9rem 1rem 1rem;
+    border: 0;
+    border-radius: 0 0 0.75rem 0.75rem;
+    background: transparent;
+    color: inherit;
+    font-family: var(--text-font, inherit);
+    font-size: 1.08rem;
+    line-height: 1.55;
+    resize: vertical;
+}
+
+.comment-editor-surface {
+    overflow-wrap: anywhere;
+    outline: none;
+    white-space: normal;
+}
+
+.comment-editor-surface:empty::before {
+    color: var(--quiet-color, color-mix(in srgb, currentColor 48%, transparent));
+    content: attr(data-placeholder);
+    pointer-events: none;
+}
+
+.comment-editor-surface :where(p, blockquote, ul, ol, pre) {
+    margin: 0 0 0.7em;
+}
+
+.comment-editor-surface > :last-child {
+    margin-bottom: 0;
+}
+
+.comment-editor-surface blockquote {
+    padding-left: 0.85rem;
+    border-left: 2px solid var(--accent-color, Highlight);
+    color: var(--minor-color, currentColor);
+}
+
+.comment-editor-surface :where(ul, ol) {
+    padding-left: 1.5em;
+}
+
+.comment-editor-formula {
+    display: inline-block;
+    max-width: 100%;
+    padding: 0.05em 0.2em;
+    border-radius: 0.3em;
+    cursor: text;
+    vertical-align: baseline;
+}
+
+.comment-editor-formula:hover {
+    background: color-mix(in srgb, var(--accent-color, Highlight) 12%, transparent);
+}
+
+.comment-editor-link-panel {
+    position: absolute;
+    z-index: 20;
+    top: 3.1rem;
+    left: 0.55rem;
+    display: grid;
+    width: min(34rem, calc(100% - 1.1rem));
+    padding: 0.75rem;
+    gap: 0.55rem;
+    border: 1px solid var(--line-color, color-mix(in srgb, currentColor 22%, transparent));
+    border-radius: 0.65rem;
+    background: var(--surface-background, Canvas);
+    box-shadow: 0 0.85rem 2.3rem color-mix(in srgb, #000 26%, transparent);
+    color: var(--text-color, CanvasText);
+    font-family: var(--ui-font, system-ui, sans-serif);
+}
+
+.comment-editor-link-panel label {
+    display: grid;
+    margin: 0;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.comment-editor-link-panel input {
+    width: 100%;
+    min-height: 2.45rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--line-color, color-mix(in srgb, currentColor 25%, transparent));
+    border-radius: 0.45rem;
+    background: var(--field-background, Field);
+    color: var(--text-color, FieldText);
+    font: inherit;
+    font-weight: 500;
+}
+
+.comment-editor-link-panel.is-invalid input {
+    border-color: var(--error-color, #c33);
+    outline: 1px solid var(--error-color, #c33);
+}
+
+.comment-editor-link-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.comment-editor-link-actions button {
+    min-height: 2.15rem;
+    margin: 0;
+    padding: 0.35rem 0.65rem;
+    border-radius: 0.45rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.comment-authenticated-identity {
+    display: flex;
+    margin: 1rem 0 0.8rem;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    color: var(--minor-color, currentColor);
+    font-family: var(--ui-font, system-ui, sans-serif);
+    font-size: 0.86rem;
+}
+
+.comment-authenticated-identity strong {
+    color: var(--text-color, currentColor);
+}
+
+.comment-formatting kbd {
+    display: inline-block;
+    padding: 0.05em 0.35em;
+    border: 1px solid var(--line-color, color-mix(in srgb, currentColor 25%, transparent));
+    border-radius: 0.3em;
+    background: var(--field-background, color-mix(in srgb, currentColor 7%, transparent));
+    color: var(--text-color, currentColor);
+    font: 0.92em/1.35 var(--ui-font, system-ui, sans-serif);
+}
+
+.comment-edit-form .comment-editor-surface,
+.comment-edit-form .comment-editor-source {
+    min-height: 8rem;
+}
+
+.comment-body > :where(p, blockquote, ul, ol, pre) {
+    margin-top: 0;
+    margin-bottom: 0.55em;
+}
+
+.comment-body > :where(ul, ol) {
+    padding-left: 1.45em;
+}
+
+.comment-body > :last-child {
+    margin-bottom: 0;
+}
+
+@media (max-width: 560px) {
+    .comment-editor-toolbar {
+        gap: 0.1rem;
+    }
+
+    .comment-editor-toolbar-separator {
+        margin-inline: 0.1rem;
+    }
+
+    .comment-editor-link-panel {
+        left: 0.35rem;
+        width: calc(100% - 0.7rem);
+    }
+}
