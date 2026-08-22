@@ -92,4 +92,18 @@ final readonly class PostInplaceControls
 
         return $editor;
     }
+
+    /** @return array{action_url: string, token: string}|null */
+    public function forSiteHeader(Request $request): ?array
+    {
+        $editor = $this->authProvider->getAuthenticatedPublicUser($request);
+        if (!$editor instanceof AuthenticatedPublicUser || !$editor->canEditSite) {
+            return null;
+        }
+
+        return [
+            'action_url' => $this->urlBuilder->rawLink('/_inplace/site-header'),
+            'token'      => $this->tokenManager->issueForSiteHeader($editor),
+        ];
+    }
 }

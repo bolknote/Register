@@ -133,7 +133,9 @@ class HtmlTemplate
         // Content
         $replace['<!-- s2_skip_link_label -->']  = s2_htmlencode($this->translator->trans('Skip to content'));
         $replace['<!-- s2_breadcrumbs_label -->'] = s2_htmlencode($this->translator->trans('Breadcrumbs'));
-        $replace['<!-- s2_site_title -->'] = $this->buildSiteTitle();
+        $siteTitle = $this->buildSiteTitle();
+        $replace['<!-- s2_site_title -->'] = $siteTitle;
+        $replace['<!-- s2_site_header -->'] = $this->buildSiteHeader($siteTitle);
 
         $link_navigation = [];
         foreach ($this->navLinks as $link_rel => $link_href) {
@@ -329,6 +331,14 @@ class HtmlTemplate
         }
 
         return '<a href="' . $this->urlBuilder->link('/') . '">' . $siteName . '</a>';
+    }
+
+    private function buildSiteHeader(string $siteTitle): string
+    {
+        $isHome = $this->requestStack->getCurrentRequest()?->getPathInfo() === '/';
+        $tag = $isHome ? 'h1' : 'div';
+
+        return '<' . $tag . ' class="site-title">' . $siteTitle . '</' . $tag . '>';
     }
 
     private function buildHeadTitle(): string

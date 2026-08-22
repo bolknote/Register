@@ -297,7 +297,13 @@ $tagNames    = array_values(array_map(
 <div class="post time">
     <time datetime="<?php echo gmdate(DATE_ATOM, (int)$create_time); ?>"<?php if (trim($display_date ?? '') === ''): ?> data-local-time="datetime" data-locale="<?php echo s2_htmlencode($trans('locale')); ?>"<?php endif; ?>><?php echo s2_htmlencode($time); ?></time>
 <?php if ($inplaceData !== null): ?>
-    <input class="post-inplace-datetime" type="datetime-local" step="1" aria-label="<?php echo s2_htmlencode($trans('Post publication date')); ?>" hidden>
+    <button class="post-inplace-date-button" type="button" title="<?php echo s2_htmlencode($trans('Post publication date')); ?>" aria-label="<?php echo s2_htmlencode($trans('Post publication date')); ?>" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="4" y="5.5" width="16" height="14" rx="2"></rect>
+            <path d="M8 3.5v4M16 3.5v4M4 9.5h16"></path>
+        </svg>
+    </button>
+    <input class="post-inplace-datetime" type="datetime-local" step="1" tabindex="-1" aria-label="<?php echo s2_htmlencode($trans('Post publication date')); ?>" hidden>
 <?php endif; ?>
 </div>
 <?php if ($inplaceData !== null): ?>

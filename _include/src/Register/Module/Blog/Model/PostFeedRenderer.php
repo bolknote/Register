@@ -41,38 +41,12 @@ final readonly class PostFeedRenderer
         $postsPerPage           = $configuredItemsPerPage > 0 ? $configuredItemsPerPage : 10;
         $posts                  = $this->postProvider->lastPostsArray($postsPerPage, $skip);
         $totalPosts             = $this->postProvider->publishedPostCount();
+        $showAuthors            = $this->postProvider->hasMultiplePublishedAuthors();
 
         $output = '';
-        $create = $skip === 0 ? $this->inplaceControls->forCreate($request) : null;
-        if ($create !== null) {
-            $now      = time();
-            $postHtml = $this->renderPost([
-                'id'               => 0,
-                'author_id'        => null,
-                'author'           => $create['editor_name'],
-                'revision'         => 0,
-                'title'            => '',
-                'title_link'       => '#',
-                'create_time'      => $now,
-                'display_date'     => '',
-                'time'             => $this->viewer->dateAndTime($now),
-                'text'             => '<p><br></p>',
-                'tags'             => [],
-                'link'             => '#',
-                'commented'        => false,
-                'comment_num'      => 0,
-                'favorite'         => false,
-                'see_also'         => [],
-                'inplace'          => $create,
-            ], $request, false);
-            $output .= $this->viewer->render('post-create', [
-                'post_html'     => $postHtml,
-                'always_visible' => $totalPosts < 3,
-            ], BlogModule::class);
-        }
 
         foreach ($posts as $post) {
-            $output .= $this->renderPost($post, $request);
+            $output .= $this->renderPost($post, $request, true, $showAuthors);
         }
 
         $totalPages  = (int)ceil($totalPosts / $postsPerPage);
@@ -99,9 +73,47 @@ final readonly class PostFeedRenderer
         return new PostFeed($html, $previousUrl, $nextUrl);
     }
 
-    /** @param array<string, mixed> $post */
-    private function renderPost(array $post, Request $request, bool $addControls = true): string
+    public function renderCreateTemplate(Request $request): ?string
     {
+        $create = $this->inplaceControls->forCreate($request);
+        if ($create === null) {
+            return null;
+        }
+
+        $now = time();
+
+        return $this->renderPost([
+            'id'           => 0,
+            'author_id'    => null,
+            'author'       => $create['editor_name'],
+            'revision'     => 0,
+            'title'        => '',
+            'title_link'   => '#',
+            'create_time'  => $now,
+            'display_date' => '',
+            'time'         => $this->viewer->dateAndTime($now),
+            'text'         => '<p><br></p>',
+            'tags'         => [],
+            'link'         => '#',
+            'commented'    => false,
+            'comment_num'  => 0,
+            'favorite'     => false,
+            'see_also'     => [],
+            'inplace'      => $create,
+        ], $request, false, $this->postProvider->hasMultiplePublishedAuthors());
+    }
+
+    /** @param array<string, mixed> $post */
+    private function renderPost(
+        array   $post,
+        Request $request,
+        bool    $addControls = true,
+        bool    $showAuthor = true,
+    ): string
+    {
+        if (!$showAuthor) {
+            $post['author'] = '';
+        }
         $post['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
         $post['showComments']     = $this->showComments->get();
         $post['enabledComments']  = $this->enabledComments->get();

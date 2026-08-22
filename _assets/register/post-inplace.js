@@ -2,6 +2,7 @@
     'use strict';
 
     const editorStates = new WeakMap();
+    let siteHeaderState = null;
     const imageExtensions = new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp']);
     const audioExtensions = new Set(['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm']);
     const editorPlatform = (() => {
@@ -16,6 +17,7 @@
     })();
     const editorShortcuts = editorPlatform === 'macos'
         ? {
+            'create': ['⌥⌘N', 'Meta+Alt+N'],
             'save': ['⌘S', 'Meta+S'],
             'cancel': ['Esc', 'Escape'],
             'undo': ['⌘Z', 'Meta+Z'],
@@ -36,6 +38,7 @@
             'apply-link': ['↵', 'Enter'],
         }
         : {
+            'create': ['Ctrl+Alt+N', 'Control+Alt+N'],
             'save': ['Ctrl+S', 'Control+S'],
             'cancel': ['Esc', 'Escape'],
             'undo': ['Ctrl+Z', 'Control+Z'],
@@ -189,6 +192,29 @@
             + `T${part(date.getHours())}:${part(date.getMinutes())}:${part(date.getSeconds())}`;
     }
 
+    function dateTimeText(date, locale) {
+        try {
+            let dateText = new Intl.DateTimeFormat(locale || undefined, {dateStyle: 'long'}).format(date);
+            const timeText = new Intl.DateTimeFormat(locale || undefined, {timeStyle: 'short'}).format(date);
+            if (locale?.toLowerCase().startsWith('ru')) {
+                dateText = dateText.replace(/\s+г\.$/u, ' года');
+                return `${dateText}, ${timeText}`;
+            }
+            return `${dateText}. ${timeText}`;
+        } catch (_error) {
+            return date.toLocaleString();
+        }
+    }
+
+    function updateDatePreview(state) {
+        const date = new Date(state.dateInput.value);
+        if (Number.isNaN(date.getTime())) {
+            return;
+        }
+        state.time.dateTime = date.toISOString();
+        state.time.textContent = dateTimeText(date, state.time.dataset.locale || document.documentElement.lang);
+    }
+
     function releasePendingMedia(state) {
         if (state.uploadedMediaIds.size === 0) {
             return;
@@ -240,6 +266,208 @@
         range.collapse(!atEnd);
         selection.removeAllRanges();
         selection.addRange(range);
+    }
+
+    function siteHeaderElements(shell) {
+        const form = shell.querySelector(':scope > .site-header-inplace-form');
+        const title = shell.querySelector('[data-site-header-title]');
+        const tagline = shell.querySelector('[data-site-header-tagline]');
+        const titleField = form?.elements.namedItem('title');
+        const taglineField = form?.elements.namedItem('tagline');
+        if (
+            !(form instanceof HTMLFormElement)
+            || !(title instanceof HTMLElement)
+            || !(tagline instanceof HTMLElement)
+            || !(titleField instanceof HTMLInputElement)
+            || !(taglineField instanceof HTMLTextAreaElement)
+        ) {
+            return null;
+        }
+
+        return {form, title, tagline, titleField, taglineField};
+    }
+
+    function toggleSiteHeaderTools(shell, editing) {
+        const tools = shell.querySelector(':scope > .site-header-tools');
+        tools?.querySelector('.post-create-start')?.toggleAttribute('hidden', editing);
+        tools?.querySelector('.site-header-edit-start')?.toggleAttribute('hidden', editing);
+        tools?.querySelector('.site-header-edit-save')?.toggleAttribute('hidden', !editing);
+        tools?.querySelector('.site-header-edit-cancel')?.toggleAttribute('hidden', !editing);
+    }
+
+    function clearSiteHeaderMessage(state) {
+        [state.error, state.status].forEach((message) => {
+            message.hidden = true;
+            message.textContent = '';
+        });
+    }
+
+    function siteHeaderText(element, multiline) {
+        const text = (element.innerText || element.textContent || '').replace(/\u00a0/gu, ' ');
+        if (multiline) {
+            return text.replace(/\r\n?/gu, '\n').replace(/[ \t]+\n/gu, '\n').trim();
+        }
+        return text.replace(/\s+/gu, ' ').trim();
+    }
+
+    function restoreSiteHeaderLink(state) {
+        if (state.titleLink && state.titleLinkHadHref) {
+            state.titleLink.setAttribute('href', state.titleLinkHref);
+        }
+    }
+
+    function stopSiteHeaderEditing(state, restoreValues, restoreFocus) {
+        if (restoreValues) {
+            state.title.textContent = state.originalTitle;
+            state.tagline.textContent = state.originalTagline;
+            state.titleField.value = state.originalTitle;
+            state.taglineField.value = state.originalTagline;
+        }
+
+        unsetEditable(state.title);
+        unsetEditable(state.tagline);
+        state.tagline.removeAttribute('data-placeholder');
+        restoreSiteHeaderLink(state);
+        state.shell.classList.remove('is-editing');
+        state.shell.removeAttribute('aria-busy');
+        toggleSiteHeaderTools(state.shell, false);
+        siteHeaderState = null;
+        if (restoreFocus) {
+            state.shell.querySelector('.site-header-edit-start')?.focus();
+        }
+    }
+
+    function beginSiteHeaderEdit(button) {
+        const shell = button.closest('[data-site-header]');
+        if (!(shell instanceof HTMLElement)) {
+            return false;
+        }
+        if (siteHeaderState?.shell === shell) {
+            siteHeaderState.title.focus();
+            return true;
+        }
+
+        const elements = siteHeaderElements(shell);
+        const error = shell.querySelector(':scope > .site-header-inplace-error');
+        const status = shell.querySelector(':scope > .site-header-inplace-status');
+        if (!elements || !(error instanceof HTMLElement) || !(status instanceof HTMLElement)) {
+            return false;
+        }
+
+        const titleLink = elements.title.closest('a');
+        siteHeaderState = {
+            ...elements,
+            shell,
+            error,
+            status,
+            originalTitle: elements.titleField.value,
+            originalTagline: elements.taglineField.value,
+            titleLink,
+            titleLinkHadHref: titleLink?.hasAttribute('href') || false,
+            titleLinkHref: titleLink?.getAttribute('href') || '',
+            submitting: false,
+        };
+
+        elements.title.textContent = siteHeaderState.originalTitle;
+        elements.tagline.textContent = siteHeaderState.originalTagline;
+        titleLink?.removeAttribute('href');
+        setEditable(elements.title, shell.dataset.titleLabel || 'Site title', false);
+        setEditable(elements.tagline, shell.dataset.taglineLabel || 'Site tagline', true);
+        elements.tagline.dataset.placeholder = shell.dataset.taglinePlaceholder || '';
+        shell.classList.add('is-editing');
+        toggleSiteHeaderTools(shell, true);
+        clearSiteHeaderMessage(siteHeaderState);
+        focusEdge(elements.title, true);
+        return true;
+    }
+
+    function updateDocumentTitle(oldTitle, newTitle) {
+        if (document.title === oldTitle) {
+            document.title = newTitle;
+            return;
+        }
+        const suffix = ` — ${oldTitle}`;
+        if (document.title.endsWith(suffix)) {
+            document.title = document.title.slice(0, -suffix.length) + ` — ${newTitle}`;
+        }
+    }
+
+    async function submitSiteHeader(state) {
+        if (state.submitting) {
+            return;
+        }
+
+        const title = siteHeaderText(state.title, false);
+        const tagline = siteHeaderText(state.tagline, true);
+        if (title === '') {
+            state.error.textContent = state.shell.dataset.saveError || 'Unable to save the site header.';
+            state.error.hidden = false;
+            state.error.focus();
+            return;
+        }
+
+        state.titleField.value = title;
+        state.taglineField.value = tagline;
+        state.submitting = true;
+        state.shell.setAttribute('aria-busy', 'true');
+        state.shell.querySelectorAll(':scope > .site-header-tools button').forEach((button) => {
+            button.disabled = true;
+        });
+        clearSiteHeaderMessage(state);
+
+        try {
+            const response = await window.fetch(state.form.action, {
+                method: 'POST',
+                body: new FormData(state.form),
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            const payload = await response.json().catch(() => null);
+            if (
+                !response.ok
+                || !payload
+                || payload.success !== true
+                || typeof payload.title !== 'string'
+                || typeof payload.tagline !== 'string'
+            ) {
+                throw new Error(payload?.message || state.shell.dataset.saveError || 'Unable to save the site header.');
+            }
+
+            const oldTitle = state.originalTitle;
+            state.title.textContent = payload.title;
+            state.tagline.textContent = payload.tagline;
+            state.titleField.value = payload.title;
+            state.titleField.defaultValue = payload.title;
+            state.taglineField.value = payload.tagline;
+            state.taglineField.defaultValue = payload.tagline;
+            state.originalTitle = payload.title;
+            state.originalTagline = payload.tagline;
+            updateDocumentTitle(oldTitle, payload.title);
+            stopSiteHeaderEditing(state, false, true);
+
+            const savedStatus = state.shell.querySelector(':scope > .site-header-inplace-status');
+            if (savedStatus && typeof payload.message === 'string') {
+                savedStatus.textContent = payload.message;
+                savedStatus.hidden = false;
+            }
+        } catch (error) {
+            state.error.textContent = error instanceof Error
+                ? error.message
+                : (state.shell.dataset.saveError || 'Unable to save the site header.');
+            state.error.hidden = false;
+            state.error.focus();
+        } finally {
+            state.submitting = false;
+            if (state.shell.isConnected) {
+                state.shell.removeAttribute('aria-busy');
+                state.shell.querySelectorAll(':scope > .site-header-tools button').forEach((button) => {
+                    button.disabled = false;
+                });
+            }
+        }
     }
 
     function prepareEditableMedia(root) {
@@ -296,6 +524,7 @@
         state.mediaControllers.clear();
         state.body.classList.remove('is-media-dragover');
         state.dateInput.hidden = true;
+        state.dateButton.hidden = true;
         unsetEditable(state.title);
         unsetEditable(state.body);
         restoreHeadingLink(state);
@@ -317,6 +546,7 @@
         const publishedAtField = form?.elements.namedItem('published_at');
         const uploadedMediaField = form?.elements.namedItem('uploaded_media_ids');
         const dateInput = card.querySelector(':scope > .post.time > .post-inplace-datetime');
+        const dateButton = card.querySelector(':scope > .post.time > .post-inplace-date-button');
         const time = card.querySelector(':scope > .post.time > time');
         if (
             !(form instanceof HTMLFormElement)
@@ -330,6 +560,7 @@
             || !(publishedAtField instanceof HTMLInputElement)
             || !(uploadedMediaField instanceof HTMLInputElement)
             || !(dateInput instanceof HTMLInputElement)
+            || !(dateButton instanceof HTMLButtonElement)
             || !(time instanceof HTMLTimeElement)
         ) {
             return null;
@@ -346,6 +577,7 @@
             publishedAtField,
             uploadedMediaField,
             dateInput,
+            dateButton,
             time,
         };
     }
@@ -366,6 +598,8 @@
         state.bodyField.value = state.originalBody;
         state.tagsField.value = state.originalTags;
         state.publishedAtField.value = String(state.originalPublishedAt);
+        state.time.dateTime = state.originalTimeDateTime;
+        state.time.textContent = state.originalTimeText;
         stopEditing(state);
         state.form.reset();
         clearError(state.form);
@@ -373,12 +607,9 @@
         unlock();
 
         if (creating) {
-            const slot = card.previousElementSibling?.matches?.('[data-post-create-slot]')
-                ? card.previousElementSibling
-                : card.parentElement?.querySelector?.('[data-post-create-slot]');
             card.remove();
             if (restoreFocus) {
-                slot?.querySelector('.post-create-start')?.focus();
+                document.querySelector('.post-create-start')?.focus();
             }
             return;
         }
@@ -440,6 +671,8 @@
             originalTags: elements.tagsField.value,
             originalTagsHtml: elements.tags.innerHTML,
             originalPublishedAt: Number(elements.publishedAtField.value),
+            originalTimeDateTime: elements.time.dateTime,
+            originalTimeText: elements.time.textContent || '',
             titleDirty: false,
             bodyDirty: false,
             tagsDirty: false,
@@ -473,6 +706,7 @@
         elements.title.dataset.placeholder = card.dataset.titlePlaceholder || '';
         elements.dateInput.value = localDateTimeValue(state.originalPublishedAt);
         elements.dateInput.hidden = false;
+        elements.dateButton.hidden = false;
         state.tagEditor = createTagEditor(state);
         editorStates.set(card, state);
         card.classList.add('is-editing');
@@ -485,9 +719,10 @@
     }
 
     function beginCreate(button) {
-        const slot = button.closest('[data-post-create-slot]');
-        const existing = slot?.nextElementSibling;
-        if (existing?.matches?.('.post-card[data-post-creating]')) {
+        const slot = button.closest('[data-post-create-slot]')
+            || document.querySelector('[data-post-create-slot]');
+        const existing = document.querySelector('.post-card[data-post-creating]');
+        if (existing instanceof HTMLElement) {
             const state = editorStates.get(existing);
             state?.title.focus();
             return true;
@@ -503,7 +738,11 @@
         if (!(card instanceof HTMLElement) || !(edit instanceof HTMLElement)) {
             return false;
         }
-        slot.after(fragment);
+        const host = document.querySelector('.live-post-feed') || document.querySelector('#content');
+        if (!(host instanceof HTMLElement)) {
+            return false;
+        }
+        host.prepend(fragment);
         if (!beginEdit(edit)) {
             card.remove();
             return false;
@@ -1350,14 +1589,6 @@
         const titleLink = card.querySelector(':scope > .post.head > a');
         if (titleLink instanceof HTMLAnchorElement) {
             titleLink.href = payload.url;
-        }
-        const slot = card.previousElementSibling?.matches?.('[data-post-create-slot]')
-            ? card.previousElementSibling
-            : card.parentElement?.querySelector?.('[data-post-create-slot]');
-        const feed = card.closest('.live-post-feed');
-        if (slot instanceof HTMLElement && feed) {
-            const postCount = feed.querySelectorAll('.post-card:not([data-post-creating])').length;
-            slot.classList.toggle('is-always-visible', postCount < 3);
         }
     }
 
@@ -2704,6 +2935,41 @@
 
     document.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : null;
+        const create = target?.closest('.post-create-start');
+        if (!create) {
+            return;
+        }
+        event.preventDefault();
+        beginCreate(create);
+    }, true);
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        const siteEdit = target?.closest('.site-header-edit-start');
+        if (siteEdit && beginSiteHeaderEdit(siteEdit)) {
+            event.preventDefault();
+            return;
+        }
+
+        const siteSave = target?.closest('.site-header-edit-save');
+        if (siteSave && siteHeaderState?.shell.contains(siteSave)) {
+            event.preventDefault();
+            submitSiteHeader(siteHeaderState);
+            return;
+        }
+
+        const siteCancel = target?.closest('.site-header-edit-cancel');
+        if (siteCancel && siteHeaderState?.shell.contains(siteCancel)) {
+            event.preventDefault();
+            stopSiteHeaderEditing(siteHeaderState, true, true);
+            return;
+        }
+
+        if (siteHeaderState && target?.closest('[data-site-header-link]')) {
+            event.preventDefault();
+            return;
+        }
+
         const card = cardFor(target);
         document.querySelectorAll('.post-card.is-editing').forEach((editingCard) => {
             const editingState = editorStates.get(editingCard);
@@ -2722,15 +2988,25 @@
             }
         }
 
-        const create = target?.closest('.post-create-start');
-        if (create && beginCreate(create)) {
+        const edit = target?.closest('.post-edit-start');
+        if (edit && beginEdit(edit)) {
             event.preventDefault();
             return;
         }
 
-        const edit = target?.closest('.post-edit-start');
-        if (edit && beginEdit(edit)) {
-            event.preventDefault();
+        const dateButton = target?.closest('.post-inplace-date-button');
+        if (dateButton) {
+            const dateCard = cardFor(dateButton);
+            const state = dateCard ? editorStates.get(dateCard) : null;
+            if (state) {
+                event.preventDefault();
+                try {
+                    state.dateInput.showPicker();
+                } catch (_error) {
+                    state.dateInput.focus({preventScroll: true});
+                    state.dateInput.click();
+                }
+            }
             return;
         }
 
@@ -2770,7 +3046,17 @@
 
     document.addEventListener('submit', (event) => {
         const form = event.target;
-        if (!(form instanceof HTMLFormElement) || !form.matches('.post-inplace-edit-form, .post-inplace-delete-form')) {
+        if (!(form instanceof HTMLFormElement)) {
+            return;
+        }
+        if (form.matches('.site-header-inplace-form')) {
+            event.preventDefault();
+            if (siteHeaderState?.form === form) {
+                submitSiteHeader(siteHeaderState);
+            }
+            return;
+        }
+        if (!form.matches('.post-inplace-edit-form, .post-inplace-delete-form')) {
             return;
         }
         event.preventDefault();
@@ -2778,6 +3064,51 @@
     }, false);
 
     document.addEventListener('keydown', (event) => {
+        if (siteHeaderState?.shell.contains(event.target)) {
+            const modifier = event.ctrlKey || event.metaKey;
+            if (modifier && !event.altKey && !event.shiftKey && (event.code === 'KeyS' || event.key.toLowerCase() === 's')) {
+                event.preventDefault();
+                submitSiteHeader(siteHeaderState);
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                stopSiteHeaderEditing(siteHeaderState, true, true);
+                return;
+            }
+            if (siteHeaderState.title.contains(event.target) && event.key === 'Enter') {
+                event.preventDefault();
+                focusEdge(siteHeaderState.tagline, true);
+                return;
+            }
+        }
+
+        const createModifier = editorPlatform === 'macos'
+            ? event.metaKey && !event.ctrlKey
+            : event.ctrlKey && !event.metaKey;
+        if (
+            !event.isComposing
+            && !event.repeat
+            && createModifier
+            && event.altKey
+            && !event.shiftKey
+            && event.code === 'KeyN'
+        ) {
+            const editingCard = document.querySelector('.post-card.is-editing');
+            const createButton = Array.from(document.querySelectorAll('.post-create-start'))
+                .find((button) => button.getClientRects().length > 0);
+            if (!editingCard && !siteHeaderState && createButton instanceof HTMLButtonElement) {
+                event.preventDefault();
+                beginCreate(createButton);
+                return;
+            }
+            if (editingCard?.hasAttribute('data-post-creating')) {
+                event.preventDefault();
+                editorStates.get(editingCard)?.title.focus();
+                return;
+            }
+        }
+
         const card = cardFor(event.target);
         const state = card ? editorStates.get(card) : null;
         if (state && handleEditingShortcut(event, state)) {
@@ -2804,6 +3135,11 @@
     }, false);
 
     document.addEventListener('input', (event) => {
+        if (siteHeaderState?.shell.contains(event.target)) {
+            clearSiteHeaderMessage(siteHeaderState);
+            return;
+        }
+
         const card = cardFor(event.target);
         const state = card ? editorStates.get(card) : null;
         if (!state) {
@@ -2817,6 +3153,7 @@
         }
         if (event.target === state.dateInput) {
             state.dateDirty = true;
+            updateDatePreview(state);
         }
         clearError(card.querySelector(':scope > .post-inplace-edit-form'));
         clearStatus(card);
@@ -2842,4 +3179,13 @@
             }
         });
     }, false);
+
+    document.addEventListener('register:fragment-updated', (event) => {
+        if (siteHeaderState && !siteHeaderState.shell.isConnected) {
+            siteHeaderState = null;
+        }
+        applyShortcutHints(event.detail?.root || document);
+    }, false);
+
+    applyShortcutHints(document);
 })();

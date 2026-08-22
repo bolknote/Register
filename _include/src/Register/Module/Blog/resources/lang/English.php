@@ -36,6 +36,18 @@ return [
     'Only hidden'  => 'Only hidden posts',
     'Show posts'   => 'Display posts',
     'Create new'   => 'Create new post',
+    'Site tools' => 'Site tools',
+    'Edit site header' => 'Edit the site title and tagline',
+    'Save site header' => 'Save the site title and tagline',
+    'Cancel site header changes' => 'Cancel title and tagline changes',
+    'Site title' => 'Site title',
+    'Site tagline' => 'Site tagline',
+    'Site tagline placeholder' => 'Add a site tagline',
+    'Site header changes saved' => 'The site title and tagline have been saved',
+    'Site header editing failed' => 'Unable to save the site title and tagline.',
+    'Site header editing forbidden' => 'You are not allowed to edit the site title and tagline.',
+    'Site header editing token expired' => 'The editing session has expired. Reload the page and try again.',
+    'Invalid site header content' => 'Enter a title no longer than 255 characters and a tagline no longer than 2000 characters.',
     'Date pattern' => 'Y/m/d', // For example, 'Y/m/d'. 'Y', 'm' and 'd' stand for a year, a month and a day.
 
     'Delete warning' => 'Do you want to delete the post “%s” and all its comments?',

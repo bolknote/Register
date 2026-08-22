@@ -36,6 +36,18 @@ return [
     'Only hidden'  => 'Только скрытые посты',
     'Show posts'   => 'Показать посты',
     'Create new'   => 'Создать новый пост',
+    'Site tools' => 'Инструменты сайта',
+    'Edit site header' => 'Редактировать название и подпись сайта',
+    'Save site header' => 'Сохранить название и подпись сайта',
+    'Cancel site header changes' => 'Отменить изменения названия и подписи',
+    'Site title' => 'Название сайта',
+    'Site tagline' => 'Подпись сайта',
+    'Site tagline placeholder' => 'Добавьте подпись сайта',
+    'Site header changes saved' => 'Название и подпись сохранены',
+    'Site header editing failed' => 'Не удалось сохранить название и подпись сайта.',
+    'Site header editing forbidden' => 'У вас нет права изменять название и подпись сайта.',
+    'Site header editing token expired' => 'Сеанс редактирования истёк. Обновите страницу и попробуйте снова.',
+    'Invalid site header content' => 'Введите название не длиннее 255 символов и подпись не длиннее 2000 символов.',
     'Date pattern' => 'd.m.Y', // For example, 'Y/m/d'. 'Y', 'm' and 'd' stand for a year, a month and a day.
 
     'Delete warning' => 'Удалить пост «%s» и все комментарии к нему?',

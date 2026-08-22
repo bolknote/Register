@@ -22,6 +22,7 @@ use Register\Module\Blog\Inplace\PostInplaceControls;
 use Register\Module\Blog\Inplace\PostInplaceMediaStorage;
 use Register\Module\Blog\Inplace\PostInplaceTokenManager;
 use Register\Module\Blog\Inplace\PostMediaRepository;
+use Register\Module\Blog\Inplace\SiteHeaderInplaceController;
 use S2\Cms\Admin\Picture\PictureFileNameHelper;
 use S2\Cms\Admin\Picture\PictureStorageQuota;
 use S2\Cms\Asset\AssetPack;
@@ -65,6 +66,7 @@ use Register\Module\Blog\Model\BlogPlaceholderProvider;
 use Register\Module\Blog\Model\ContentRssStrategy;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Model\PostFeedRenderer;
+use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Module\Blog\Service\TagsSearchProvider;
 use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Module\Search\Service\RecommendationProvider;
@@ -145,6 +147,18 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $provider->getIntProxy('S2_MAX_ITEMS'),
             );
         });
+        $container->set(SiteHeaderRenderer::class, static function (Container $container): SiteHeaderRenderer {
+            $provider = $container->get(DynamicConfigProvider::class);
+
+            return new SiteHeaderRenderer(
+                $container->get(Viewer::class),
+                $container->get(UrlBuilder::class),
+                $container->get(PostInplaceControls::class),
+                $container->get(PostFeedRenderer::class),
+                $provider->getStringProxy('S2_SITE_NAME'),
+                $provider->getStringProxy(SiteHeaderRenderer::TAGLINE_CONFIG_KEY),
+            );
+        });
         $container->set(PostInplaceTokenManager::class, static fn(Container $container): PostInplaceTokenManager => new PostInplaceTokenManager(
             $container->get(\S2\Cms\Comment\Antispam\SpamIdentityHasher::class),
         ));
@@ -193,6 +207,14 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(\Register\Ai\AiSettings::class),
             $container->get('register_blog_translator'),
             ...$container->getByTag(ContentDeletionGuardInterface::class),
+        ));
+        $container->set(SiteHeaderInplaceController::class, static fn(Container $container): SiteHeaderInplaceController => new SiteHeaderInplaceController(
+            $container->get(DbLayer::class),
+            $container->get(DynamicConfigProvider::class),
+            $container->get(AuthProvider::class),
+            $container->get(PostInplaceTokenManager::class),
+            $container->get(\S2\Cms\Security\Audit\SecurityAuditLogger::class),
+            $container->get('register_blog_translator'),
         ));
         $container->set(MainPageController::class, static function (Container $container): \Register\Module\Blog\Controller\MainPageController {
             $provider = $container->get(DynamicConfigProvider::class);
@@ -456,6 +478,22 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
+        $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, static function (TemplateEvent $event) use ($container): void {
+            if (!$event->htmlTemplate->hasPlaceholder('<!-- s2_site_header -->')) {
+                return;
+            }
+
+            $request = $container->get(RequestStack::class)->getCurrentRequest();
+            if (!$request instanceof \Symfony\Component\HttpFoundation\Request) {
+                return;
+            }
+
+            $event->htmlTemplate->registerPlaceholder(
+                '<!-- s2_site_header -->',
+                $container->get(SiteHeaderRenderer::class)->render($request),
+            );
+        });
+
         $eventDispatcher->addListener(TemplateEvent::EVENT_CREATED, function (TemplateEvent $event) use ($container): void {
             $blogPlaceholders = [];
             $template         = $event->htmlTemplate;
@@ -587,6 +625,12 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $routes->add('blog_post_inplace_create', new Route(
             '/_inplace/post/new',
             ['_controller' => PostInplaceController::class, 'create' => true],
+            methods: ['POST'],
+        ), $priority + 1);
+
+        $routes->add('blog_site_header_inplace', new Route(
+            '/_inplace/site-header',
+            ['_controller' => SiteHeaderInplaceController::class],
             methods: ['POST'],
         ), $priority + 1);
 

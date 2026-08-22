@@ -20,6 +20,7 @@ use Register\Content\TagRepository;
 use Register\Live\LiveUpdateRepository;
 use Register\Module\Blog\Inplace\PostMediaRepository;
 use Register\Module\LinkHealth\Manifest;
+use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
@@ -50,6 +51,8 @@ final class PostInplaceCest
 
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/author-post');
+        $I->seeElement('.site-header-tools .post-create-start[data-editor-shortcut="create"]');
+        $I->dontSeeElement('.site-header-edit-start');
         $I->seeElement('.post-card[data-post-id="' . $ownId . '"] > .post-inplace-tools');
         $I->seeElement('.post-inplace-tools .post-edit-save[hidden]');
         $I->seeElement('.post-inplace-tools .post-edit-cancel[hidden]');
@@ -305,12 +308,14 @@ final class PostInplaceCest
 
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/');
-        $I->seeElement('.post-create-slot[data-post-create-slot] .post-create-start');
-        $I->seeElement('.post-create-slot template.post-create-template');
+        $I->seeElement('.site-header-tools .post-create-start[data-editor-shortcut="create"]');
+        $I->seeElement('.site-header-shell .post-create-slot[data-post-create-slot][hidden]');
+        $I->seeElement('.site-header-shell template.post-create-template');
         $I->seeElement('.post-create-template .post-card[data-post-creating]');
         $I->seeElement('.post-create-template .post-inplace-datetime[hidden]');
+        $I->seeElement('.post-create-template .post-inplace-date-button[hidden]');
 
-        $formSelector = '.post-create-template .post-inplace-edit-form';
+        $formSelector = '.site-header-shell .post-create-template .post-inplace-edit-form';
         $token = (string)$I->grabAttributeFrom($formSelector . ' input[name="inplace_token"]', 'value');
         $publishedAt = time() - 3600;
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
@@ -373,6 +378,60 @@ final class PostInplaceCest
             ->where('id = :id')->setParameter('id', $postId)
             ->execute()
             ->result());
+    }
+
+    public function editsTheSiteTitleAndTaglineInline(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var DynamicConfigProvider $configProvider */
+        $configProvider = $I->grabService(DynamicConfigProvider::class);
+        $originalTitle = (string)$configProvider->get('S2_SITE_NAME');
+        $originalTagline = (string)$configProvider->get('S2_SITE_TAGLINE');
+
+        $I->login('author', 'author');
+        $I->sendAjaxPostRequest('https://localhost/_inplace/site-header', [
+            'inplace_token' => str_repeat('0', 64),
+            'title'         => 'Forbidden title',
+            'tagline'       => 'Forbidden tagline',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_FORBIDDEN);
+        $I->logout();
+
+        try {
+            $I->login('editor', 'editor');
+            $I->amOnPage('https://localhost/');
+            $I->seeElement('.site-header-shell.is-manageable');
+            $I->seeElement('.site-header-tools .site-header-edit-start');
+            $I->seeElement('.site-header-tools .site-header-edit-save[hidden]');
+            $I->seeElement('.site-header-tools .site-header-edit-cancel[hidden]');
+            $I->seeElement('[data-site-header-title]');
+            $I->seeElement('[data-site-header-tagline]');
+            $I->seeElement('.site-header-inplace-form[hidden]');
+
+            $form = '.site-header-inplace-form';
+            $token = (string)$I->grabAttributeFrom($form . ' input[name="inplace_token"]', 'value');
+            $I->sendAjaxPostRequest('https://localhost/_inplace/site-header', [
+                'inplace_token' => $token,
+                'title'         => 'Updated site title',
+                'tagline'       => "First line\nSecond line",
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $I->assertTrue($payload['success']);
+            $I->assertSame('Updated site title', $payload['title']);
+            $I->assertSame("First line\nSecond line", $payload['tagline']);
+            $I->assertSame('Updated site title', $this->configValue($dbLayer, 'S2_SITE_NAME'));
+            $I->assertSame("First line\nSecond line", $this->configValue($dbLayer, 'S2_SITE_TAGLINE'));
+        } finally {
+            foreach (['S2_SITE_NAME' => $originalTitle, 'S2_SITE_TAGLINE' => $originalTagline] as $name => $value) {
+                $dbLayer->upsert('config')
+                    ->setKey('name', ':name')->setParameter('name', $name)
+                    ->setValue('value', ':value')->setParameter('value', $value)
+                    ->execute();
+            }
+            $configProvider->regenerate();
+        }
     }
 
     public function tracksDuplicateImagesAndDeletesThemAfterRemoval(\IntegrationTester $I): void
@@ -717,6 +776,17 @@ final class PostInplaceCest
             ->select('id')
             ->from('users')
             ->where('login = :login')->setParameter('login', $login)
+            ->execute()
+            ->result()
+        ;
+    }
+
+    private function configValue(DbLayer $dbLayer, string $name): string
+    {
+        return (string)$dbLayer
+            ->select('value')
+            ->from('config')
+            ->where('name = :name')->setParameter('name', $name)
             ->execute()
             ->result()
         ;

@@ -18,7 +18,7 @@ if (!isset($this)) die; ?>
 <!-- register-page-start -->
 <div id="register-page" data-register-page>
     <a class="skip-link" href="#content"><!-- s2_skip_link_label --></a>
-    <header id="header"><div class="site-title"><!-- s2_site_title --></div></header>
+    <header id="header"><!-- s2_site_header --></header>
     <nav id="crumbs" aria-label="<!-- s2_breadcrumbs_label -->"><!-- s2_crumbs --></nav>
 <!-- s2_search_field -->
 
