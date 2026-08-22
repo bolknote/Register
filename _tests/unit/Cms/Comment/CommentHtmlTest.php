@@ -78,8 +78,72 @@ TEXT;
         );
     }
 
+    public function testLegacyCommentsCanBeMigratedToCanonicalHtmlStorage(): void
+    {
+        $stored = CommentHtml::migrateLegacyForStorage(
+            "[Q]цитата[/Q]\n\nОтвет [B]жирный[/B] и https://example.com/a.",
+        );
+
+        self::assertSame(
+            '<!--register-comment-html:v1--><blockquote>цитата</blockquote>'
+                . '<p>Ответ <strong>жирный</strong> и '
+                . '<a href="https://example.com/a" rel="nofollow ugc">https://example.com/a</a>.</p>',
+            $stored,
+        );
+        self::assertSame(
+            "цитата\nОтвет жирный и https://example.com/a.",
+            CommentHtml::plainText($stored),
+        );
+        self::assertSame($stored, CommentHtml::migrateLegacyForStorage($stored));
+        self::assertStringNotContainsString('[Q]', CommentHtml::render($stored, 'wrote:'));
+    }
+
+    public function testLegacyMigrationKeepsOnlyManagedCommentAttachmentsAsHtmlMedia(): void
+    {
+        $image = '/_pictures/bolknote/comments/20230820.jpg';
+        $video = '/_pictures/bolknote/comments/20230820.mp4';
+        $audio = '/_pictures/bolknote/comments/20230820.mp3';
+        $file = '/_pictures/bolknote/comments/20230820.zip';
+        $stored = CommentHtml::migrateLegacyForStorage(implode("\n", [
+            '[IMG]' . $image . '[/IMG]',
+            '[VIDEO]' . $video . '[/VIDEO]',
+            '[AUDIO]' . $audio . '[/AUDIO]',
+            '[FILE]' . $file . '[/FILE]',
+        ]));
+        $rendered = CommentHtml::render($stored, 'wrote:');
+
+        self::assertStringContainsString(
+            '<figure class="comment-media"><img src="' . $image
+                . '" alt="" loading="lazy" decoding="async"></figure>',
+            $rendered,
+        );
+        self::assertStringContainsString('<video src="' . $video . '" controls preload="metadata">', $rendered);
+        self::assertStringContainsString('<audio src="' . $audio . '" controls preload="metadata">', $rendered);
+        self::assertStringContainsString(
+            '<a class="comment-media-file" href="' . $file . '" rel="nofollow ugc">20230820.zip</a>',
+            $rendered,
+        );
+        foreach ([$image, $video, $audio, $file] as $path) {
+            self::assertStringContainsString($path, CommentHtml::plainText($stored));
+        }
+
+        self::assertSame(
+            '',
+            CommentHtml::migrateLegacyForStorage(
+                '[IMG]/_pictures/bolknote/comments/../private.jpg[/IMG]',
+            ),
+        );
+    }
+
     public function testMediaOnlyInputIsEmptyAfterSanitizing(): void
     {
         self::assertSame('', CommentHtml::sanitizeForStorage('<img src="x"><video src="x"></video>'));
+        self::assertSame(
+            '',
+            CommentHtml::sanitizeForStorage(
+                '<!--register-comment-html:v1--><img '
+                    . 'src="/_pictures/bolknote/comments/20230820.jpg">',
+            ),
+        );
     }
 }

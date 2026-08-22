@@ -14,13 +14,15 @@ use S2\Cms\Helper\StringHelper;
 /**
  * Parses the deliberately small HTML dialect accepted from the comment editor.
  *
- * Older comments remain in their original BBCode/plain-text representation. New
+ * Legacy rows without a prefix remain renderable as BBCode/plain text. Canonical
  * rich comments carry a private prefix so rendering never has to guess whether
  * angle brackets are text or trusted, already-sanitized markup.
  */
 final class CommentHtml
 {
     private const string STORAGE_PREFIX = '<!--register-comment-html:v1-->';
+
+    private const string MANAGED_COMMENT_MEDIA_PREFIX = '/_pictures/bolknote/comments/';
 
     /** @var array<string, string> */
     private const array TAG_ALIASES = [
@@ -81,6 +83,7 @@ final class CommentHtml
     private const array BLOCK_TAGS = [
         'blockquote' => true,
         'div'        => true,
+        'figure'     => true,
         'h1'         => true,
         'h2'         => true,
         'h3'         => true,
@@ -96,11 +99,34 @@ final class CommentHtml
 
     public static function sanitizeForStorage(string $input): string
     {
+        return self::sanitizeForStorageWithPolicy($input, false);
+    }
+
+    /**
+     * Converts the old plain-text/BBCode representation into canonical HTML storage.
+     *
+     * Managed comment attachments are the only media accepted here. Their paths were generated
+     * and copied by the importer; arbitrary or remote media remains inert text.
+     */
+    public static function migrateLegacyForStorage(string $input): string
+    {
+        if (str_starts_with($input, self::STORAGE_PREFIX)) {
+            return self::sanitizeForStorageWithPolicy($input, true);
+        }
+
+        return self::sanitizeForStorageWithPolicy(
+            StringHelper::bbcodeToHtml(s2_htmlencode($input), ''),
+            true,
+        );
+    }
+
+    private static function sanitizeForStorageWithPolicy(string $input, bool $allowManagedCommentMedia): string
+    {
         if (str_starts_with($input, self::STORAGE_PREFIX)) {
             $input = substr($input, \strlen(self::STORAGE_PREFIX));
         }
 
-        $html = self::sanitizeFragment($input);
+        $html = self::sanitizeFragment($input, $allowManagedCommentMedia);
         if (self::plainTextFromHtml($html, false) === '') {
             return '';
         }
@@ -114,7 +140,7 @@ final class CommentHtml
             return StringHelper::bbcodeToHtml(s2_htmlencode($stored), $wroteText);
         }
 
-        return self::sanitizeFragment(substr($stored, \strlen(self::STORAGE_PREFIX)));
+        return self::sanitizeFragment(substr($stored, \strlen(self::STORAGE_PREFIX)), true);
     }
 
     public static function editorHtml(string $stored, string $wroteText): string
@@ -132,12 +158,12 @@ final class CommentHtml
             ));
         }
 
-        $html = self::sanitizeFragment(substr($stored, \strlen(self::STORAGE_PREFIX)));
+        $html = self::sanitizeFragment(substr($stored, \strlen(self::STORAGE_PREFIX)), true);
 
         return self::plainTextFromHtml($html, $includeLinkTargets);
     }
 
-    private static function sanitizeFragment(string $input): string
+    private static function sanitizeFragment(string $input, bool $allowManagedCommentMedia = false): string
     {
         $body = self::parseFragment($input);
         if (!$body instanceof \DOMElement) {
@@ -146,13 +172,13 @@ final class CommentHtml
 
         $html = '';
         foreach ($body->childNodes as $child) {
-            $html .= self::sanitizeNode($child);
+            $html .= self::sanitizeNode($child, $allowManagedCommentMedia);
         }
 
         return trim($html);
     }
 
-    private static function sanitizeNode(\DOMNode $node): string
+    private static function sanitizeNode(\DOMNode $node, bool $allowManagedCommentMedia): string
     {
         if ($node instanceof \DOMText) {
             return htmlspecialchars(
@@ -167,13 +193,40 @@ final class CommentHtml
         }
 
         $sourceTag = mb_strtolower($node->tagName);
+        if (in_array($sourceTag, ['img', 'video', 'audio'], true)) {
+            if (!$allowManagedCommentMedia) {
+                return '';
+            }
+
+            $source = self::managedCommentMediaSource($node->getAttribute('src'));
+            if ($source === null) {
+                return '';
+            }
+
+            $encodedSource = self::encodeAttribute($source);
+            return match ($sourceTag) {
+                'img' => '<img src="' . $encodedSource . '" alt="" loading="lazy" decoding="async">',
+                'video' => '<video src="' . $encodedSource . '" controls preload="metadata"></video>',
+                'audio' => '<audio src="' . $encodedSource . '" controls preload="metadata"></audio>',
+            };
+        }
+
         if (isset(self::DROPPED_TAGS[$sourceTag])) {
             return '';
         }
 
         $children = '';
         foreach ($node->childNodes as $child) {
-            $children .= self::sanitizeNode($child);
+            $children .= self::sanitizeNode($child, $allowManagedCommentMedia);
+        }
+
+        if (
+            $allowManagedCommentMedia
+            && in_array($sourceTag, ['figure', 'span'], true)
+            && self::hasClass($node, 'comment-media')
+            && self::hasManagedCommentMediaChild($node)
+        ) {
+            return '<' . $sourceTag . ' class="comment-media">' . $children . '</' . $sourceTag . '>';
         }
 
         if ($sourceTag === 'span') {
@@ -195,11 +248,58 @@ final class CommentHtml
                 return $children;
             }
 
-            return '<a href="' . self::encodeAttribute($href) . '" rel="nofollow ugc">'
+            $class = $allowManagedCommentMedia
+                && self::hasClass($node, 'comment-media-file')
+                && self::managedCommentMediaSource($href) !== null
+                    ? ' class="comment-media-file"'
+                    : '';
+
+            return '<a' . $class . ' href="' . self::encodeAttribute($href) . '" rel="nofollow ugc">'
                 . $children . '</a>';
         }
 
         return '<' . $tag . '>' . $children . '</' . $tag . '>';
+    }
+
+    private static function hasClass(\DOMElement $node, string $expected): bool
+    {
+        $classes = preg_split('/\s+/u', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY);
+
+        return is_array($classes) && in_array($expected, $classes, true);
+    }
+
+    private static function hasManagedCommentMediaChild(\DOMElement $node): bool
+    {
+        foreach ($node->childNodes as $child) {
+            if (
+                $child instanceof \DOMElement
+                && in_array(mb_strtolower($child->tagName), ['img', 'video', 'audio'], true)
+                && self::managedCommentMediaSource($child->getAttribute('src')) !== null
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function managedCommentMediaSource(string $source): ?string
+    {
+        $source = trim($source);
+        if (
+            !str_starts_with($source, self::MANAGED_COMMENT_MEDIA_PREFIX)
+            || preg_match('~^[A-Za-z0-9._/@%-]+$~D', substr($source, 1)) !== 1
+        ) {
+            return null;
+        }
+
+        foreach (explode('/', substr($source, \strlen(self::MANAGED_COMMENT_MEDIA_PREFIX))) as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return null;
+            }
+        }
+
+        return $source;
     }
 
     private static function applySafeSpanStyle(string $children, string $style): string
@@ -280,6 +380,10 @@ final class CommentHtml
         $tag = mb_strtolower($node->tagName);
         if ($tag === 'br') {
             return "\n";
+        }
+
+        if (in_array($tag, ['img', 'video', 'audio'], true)) {
+            return self::managedCommentMediaSource($node->getAttribute('src')) ?? '';
         }
 
         $text = '';

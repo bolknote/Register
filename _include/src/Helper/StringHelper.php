@@ -159,11 +159,11 @@ class StringHelper
     {
         $s = str_replace(["''", "\r"], ['"', ''], $s);
 
-        // Imported archives can attach only files from Register's managed Telegram directory.
+        // Imported archives can attach only files from Register's managed comment directory.
         // Keeping this deliberately narrow prevents ordinary comment BBCode from becoming an
         // arbitrary external image/tracking embed.
         $s = preg_replace_callback(
-            '~\[(IMG|VIDEO|AUDIO|FILE)\](/_pictures/bolknote/telegram/[A-Za-z0-9._/@%-]+)\[/\1\]~i',
+            '~\[(IMG|VIDEO|AUDIO|FILE)\](/_pictures/bolknote/comments/[A-Za-z0-9._/@%-]+)\[/\1\]~i',
             static function (array $matches): string {
                 $kind = strtoupper($matches[1]);
                 $url = $matches[2];

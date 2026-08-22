@@ -215,9 +215,9 @@ final class StringHelperTest extends Unit
 
     public function testBbcodeToHtmlRendersOnlyManagedImportedAttachments(): void
     {
-        $managed = '[IMG]/_pictures/bolknote/telegram/comments/20230820.jpg[/IMG]';
+        $managed = '[IMG]/_pictures/bolknote/comments/20230820.jpg[/IMG]';
         self::assertSame(
-            '<figure class="comment-media"><img src="/_pictures/bolknote/telegram/comments/20230820.jpg" alt="" loading="lazy" decoding="async"></figure>',
+            '<figure class="comment-media"><img src="/_pictures/bolknote/comments/20230820.jpg" alt="" loading="lazy" decoding="async"></figure>',
             StringHelper::bbcodeToHtml($managed, 'wrote:'),
         );
 
