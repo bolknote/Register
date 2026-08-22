@@ -10,22 +10,22 @@ declare(strict_types = 1);
 namespace Register\Schema;
 
 use Register\Ai\AiSettings;
+use Register\Content\ContentMediaSchema;
 use Register\Module\BaseModuleInstaller;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Pdo\DbLayer;
 
 /**
- * Guards the one clean schema generation supported by this pre-release product.
- *
- * Register deliberately has no in-place product migrations yet. Importing data from S2 or an
- * earlier Register generation is a separate, explicit operation.
+ * Guards the current schema and applies explicitly supported additive upgrades.
  */
 final readonly class SchemaManager
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_GENERATION';
 
-    public const int CURRENT_GENERATION = 15;
+    public const int CURRENT_GENERATION = 16;
+
+    private const int MEDIA_REGISTRY_GENERATION = 15;
 
     private const array CONFIG_DEFAULTS = [
         AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_DISABLED,
@@ -54,6 +54,13 @@ final readonly class SchemaManager
         $currentGeneration = $this->currentGeneration();
         if ($currentGeneration === self::CURRENT_GENERATION) {
             return $this->ensureConfigDefaults();
+        }
+
+        if ($currentGeneration === self::MEDIA_REGISTRY_GENERATION) {
+            ContentMediaSchema::create($this->dbLayer);
+            $this->storeGeneration(self::CURRENT_GENERATION);
+
+            return true;
         }
 
         if ($currentGeneration !== 0) {

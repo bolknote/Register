@@ -12,6 +12,7 @@ namespace integration;
 use Register\Module\BaseModuleRegistry;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
+use Register\Content\ContentMediaSchema;
 use Register\Content\ContentTagSchema;
 use Register\Url\ContentUrlAliasSchema;
 use Register\Schema\SchemaManager;
@@ -94,6 +95,12 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'slug_scope_idx'));
         $I->assertTrue($dbLayer->foreignKeyExists(ContentSchema::TABLE_NAME, 'fk_parent'));
         $I->assertTrue($dbLayer->foreignKeyExists(ContentSchema::TABLE_NAME, 'fk_author'));
+        $I->assertTrue($dbLayer->tableExists(ContentMediaSchema::FILE_TABLE));
+        $I->assertTrue($dbLayer->fieldExists(ContentMediaSchema::FILE_TABLE, 'usage_count'));
+        $I->assertTrue($dbLayer->indexExists(ContentMediaSchema::FILE_TABLE, 'storage_path_idx'));
+        $I->assertTrue($dbLayer->tableExists(ContentMediaSchema::USAGE_TABLE));
+        $I->assertTrue($dbLayer->foreignKeyExists(ContentMediaSchema::USAGE_TABLE, 'fk_post'));
+        $I->assertTrue($dbLayer->foreignKeyExists(ContentMediaSchema::USAGE_TABLE, 'fk_media'));
         $I->assertTrue($dbLayer->tableExists(ContentUrlAliasSchema::TABLE_NAME));
         $I->assertTrue($dbLayer->indexExists(ContentUrlAliasSchema::TABLE_NAME, 'content_idx'));
         $I->assertTrue($dbLayer->foreignKeyExists(
@@ -149,6 +156,22 @@ final class ModuleManagerCest
         $I->setConfigValue(SchemaManager::CONFIG_KEY, (string)(SchemaManager::CURRENT_GENERATION + 1));
 
         $I->expectThrowable(\LogicException::class, $schemaManager->ensureCurrent(...));
+    }
+
+    public function generationFifteenGetsTheAdditiveMediaRegistryUpgrade(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var SchemaManager $schemaManager */
+        $schemaManager = $I->grabAdminService(SchemaManager::class);
+
+        ContentMediaSchema::drop($dbLayer);
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, '15');
+
+        $I->assertTrue($schemaManager->ensureCurrent());
+        $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
+        $I->assertTrue($dbLayer->tableExists(ContentMediaSchema::FILE_TABLE));
+        $I->assertTrue($dbLayer->tableExists(ContentMediaSchema::USAGE_TABLE));
     }
 
     public function baseManifestsDoNotExposeOptionalLifecycle(\IntegrationTester $I): void

@@ -14,6 +14,7 @@ use S2\Cms\AdminYard\UserSettingStorage;
 use S2\Cms\Comment\Antispam\AntispamSchema;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
+use Register\Content\ContentMediaSchema;
 use Register\Content\ContentType;
 use Register\Content\ContentTagSchema;
 use Register\Live\LiveUpdateSchema;
@@ -80,6 +81,7 @@ readonly class Installer
         WebAuthnSchema::create($this->dbLayer);
 
         ContentSchema::create($this->dbLayer);
+        ContentMediaSchema::create($this->dbLayer);
         ContentUrlAliasSchema::create($this->dbLayer);
         UserpicSchema::create($this->dbLayer);
 
@@ -171,6 +173,7 @@ readonly class Installer
         LiveUpdateSchema::drop($this->dbLayer);
         CommentSchema::drop($this->dbLayer);
         ContentUrlAliasSchema::drop($this->dbLayer);
+        ContentMediaSchema::drop($this->dbLayer);
         ContentSchema::drop($this->dbLayer);
         UserpicSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('extensions');
