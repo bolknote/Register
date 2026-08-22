@@ -20,7 +20,9 @@ final class SafePassword extends Password
         $autocomplete = match ($this->fieldName) {
             'current_password' => 'current-password',
             'password'         => 'new-password',
-            default            => 'off',
+            // Browsers commonly ignore "off" on password controls and autofill the
+            // administrator password into API-key fields as soon as they receive focus.
+            default            => 'new-password',
         };
         $maximumLength = \in_array($this->fieldName, ['current_password', 'password'], true)
             ? ' maxlength="255"'

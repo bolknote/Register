@@ -37,7 +37,7 @@ final class SafePasswordTest extends Unit
         self::assertInstanceOf(SafePassword::class, $factory->create('password', 'password'));
         $secretControl = $factory->create('password', 'value');
         self::assertInstanceOf(SafePassword::class, $secretControl);
-        self::assertStringContainsString('autocomplete="off"', $secretControl->getHtml());
+        self::assertStringContainsString('autocomplete="new-password"', $secretControl->getHtml());
         self::assertStringNotContainsString('maxlength=', $secretControl->getHtml());
     }
 }
