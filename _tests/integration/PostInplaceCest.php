@@ -391,6 +391,11 @@ final class PostInplaceCest
         $I->seeElement('.post-create-template .post-inplace-date-button[hidden]');
 
         $formSelector = '.site-header-shell .post-create-template .post-inplace-edit-form';
+        $I->assertSame(
+            '0',
+            $I->grabAttributeFrom($formSelector . ' input[name="published_at"]', 'value'),
+            'The dormant creation template must stay deterministic so it does not invalidate the page ETag.',
+        );
         $token = (string)$I->grabAttributeFrom($formSelector . ' input[name="inplace_token"]', 'value');
         $publishedAt = time() - 3600;
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [

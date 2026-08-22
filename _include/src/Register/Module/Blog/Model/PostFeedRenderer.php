@@ -80,8 +80,6 @@ final readonly class PostFeedRenderer
             return null;
         }
 
-        $now = time();
-
         return $this->renderPost([
             'id'           => 0,
             'author_id'    => null,
@@ -89,9 +87,11 @@ final readonly class PostFeedRenderer
             'revision'     => 0,
             'title'        => '',
             'title_link'   => '#',
-            'create_time'  => $now,
+            // The real publication time is set in the browser when the editor opens.
+            // Keeping the dormant template deterministic also keeps page ETags stable.
+            'create_time'  => 0,
             'display_date' => '',
-            'time'         => $this->viewer->dateAndTime($now),
+            'time'         => '',
             'text'         => '<p><br></p>',
             'tags'         => [],
             'link'         => '#',

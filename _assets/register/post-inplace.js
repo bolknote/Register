@@ -653,6 +653,25 @@
         if (!(host instanceof HTMLElement)) {
             return false;
         }
+
+        const publishedAt = Math.floor(Date.now() / 1000);
+        const publishedAtField = card.querySelector(
+            ':scope > .post-inplace-edit-form input[name="published_at"]',
+        );
+        const time = card.querySelector(':scope > .post.time > time');
+        if (!(publishedAtField instanceof HTMLInputElement) || !(time instanceof HTMLTimeElement)) {
+            return false;
+        }
+        const publicationDate = new Date(publishedAt * 1000);
+        publishedAtField.value = String(publishedAt);
+        publishedAtField.defaultValue = publishedAtField.value;
+        time.dateTime = publicationDate.toISOString();
+        time.textContent = dateTimeText(
+            publicationDate,
+            time.dataset.locale || document.documentElement.lang,
+        );
+        time.dataset.localTimeReady = '1';
+
         host.prepend(fragment);
         if (!beginEdit(edit)) {
             card.remove();
