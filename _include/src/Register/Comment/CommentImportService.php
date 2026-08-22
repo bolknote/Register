@@ -29,6 +29,7 @@ final readonly class CommentImportService
             $comment->text,
             '',
             $comment->parentId,
+            null,
             $comment->createdAt,
             CommentMutationSource::IMPORTED,
         );
