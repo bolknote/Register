@@ -52,6 +52,35 @@ described in [the interoperability runbook](activitypub-interoperability.md).
 After activation, the canonical origin and base path cannot be edited as ordinary settings. Use the
 Move workflow for a real identity migration.
 
+## Existing blog integration and defaults
+
+ActivityPub is an additional representation of the existing Register blog, not a replacement for
+it. Ordinary HTML pages, canonical URLs, RSS, local comments, local reactions, search, and the
+editorial workflow continue to operate without depending on federation. Installing the module does
+not rewrite content rows, and activating it does not broadcast historical material.
+
+The site manager can open **ActivityPub → Existing blog integration** before or after activation and
+choose the defaults used on the next content save:
+
+- whether blog posts are federated by default;
+- whether ordinary pages are federated by default;
+- `Article` or compatibility `Note` for newly federated posts;
+- full portable HTML or an excerpt followed by the canonical link;
+- Public or Unlisted visibility.
+
+The conservative initial policy federates new blog posts as full Public `Article` objects and keeps
+ordinary pages out of federation. The policy form itself never enqueues Create, Update, or Delete
+and never sweeps existing content. A content item's explicit ActivityPub panel always overrides the
+site default. If an already-federated item inherits a newly disabled default, it remains untouched
+until that item is next saved; the exact preview then shows the resulting Delete before the editor
+commits it.
+
+Remote replies enter Register through the normal comment import and moderation path, while local
+comments remain ordinary blog comments. Anonymous local comments and reactions are never assigned a
+fabricated actor and therefore are not sent to the federation. Authenticated author actors can use
+the private ActivityPub reader for replies, reactions, and reposts without changing the public blog
+interface.
+
 ## Root `/.well-known/` routing
 
 WebFinger and NodeInfo are rooted at the origin even when Register lives in a subdirectory. For an

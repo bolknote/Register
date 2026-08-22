@@ -14,6 +14,7 @@ use S2\AdminYard\TemplateRenderer;
 use S2\AdminYard\Translator;
 use S2\Cms\Queue\QueueMonitor;
 use s2_extensions\activitypub\Domain\CollectionAnchor;
+use s2_extensions\activitypub\Domain\FederationPolicy;
 use s2_extensions\activitypub\Application\ActivityPubIdentityRecoveryService;
 use s2_extensions\activitypub\Domain\LocalActor;
 use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
@@ -141,6 +142,7 @@ final readonly class ActivityPubAdminPage
 
         return $this->templateRenderer->render(__DIR__ . '/../resources/views/admin.php.inc', [
             'lifecycle'     => $state->lifecycle,
+            'policy'        => FederationPolicy::fromState($state),
             'draftActor'    => $state->lifecycle->value === 'installed' ? $this->actorRepository->siteActor() : null,
             'activationAttempt' => $state->lifecycle->value === 'installed'
                 ? $this->activationRepository->latest()

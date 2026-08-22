@@ -16,6 +16,7 @@ use s2_extensions\activitypub\Domain\CanonicalOrigin;
 use s2_extensions\activitypub\Domain\ContentDeliveryMode;
 use s2_extensions\activitypub\Domain\FederationState;
 use s2_extensions\activitypub\Domain\FederationLifecycleState;
+use s2_extensions\activitypub\Domain\FederationPolicy;
 use s2_extensions\activitypub\Domain\PostObjectType;
 
 final readonly class FederationStateRepository
@@ -50,7 +51,9 @@ final readonly class FederationStateRepository
                 ActorType::from((string)$row['site_actor_type']),
                 PostObjectType::from((string)$row['post_object_type']),
                 ContentDeliveryMode::from((string)$row['content_mode']),
+                (bool)$row['posts_enabled'],
                 (bool)$row['pages_enabled'],
+                (string)$row['default_visibility'],
                 (bool)$row['auto_accept_follows'],
                 (int)$row['created_at'],
                 $row['activated_at'] === null ? null : (int)$row['activated_at'],
@@ -66,6 +69,59 @@ final readonly class FederationStateRepository
     public function decommissionedAt(): ?int
     {
         return $this->state()->decommissionedAt;
+    }
+
+    public function updatePolicy(FederationPolicy $policy, int $now): void
+    {
+        if ($now < 1) {
+            throw new \InvalidArgumentException('An ActivityPub policy timestamp must be positive.');
+        }
+
+        $state = $this->state();
+        if (!\in_array($state->lifecycle, [
+            FederationLifecycleState::INSTALLED,
+            FederationLifecycleState::ACTIVE,
+            FederationLifecycleState::PAUSED,
+        ], true)) {
+            throw new \DomainException('ActivityPub policy cannot be changed during or after decommissioning.');
+        }
+
+        if (FederationPolicy::fromState($state)->equals($policy)) {
+            return;
+        }
+
+        $updatedAt = max($now, $state->updatedAt + 1);
+
+        $affected = $this->dbLayer->update(ActivityPubSchema::STATE_TABLE)
+            ->set('posts_enabled', ':posts_enabled')->setParameter('posts_enabled', $policy->postsEnabled ? 1 : 0)
+            ->set('pages_enabled', ':pages_enabled')->setParameter('pages_enabled', $policy->pagesEnabled ? 1 : 0)
+            ->set('post_object_type', ':post_object_type')->setParameter('post_object_type', $policy->postObjectType->value)
+            ->set('content_mode', ':content_mode')->setParameter('content_mode', $policy->contentMode->value)
+            ->set('default_visibility', ':default_visibility')->setParameter('default_visibility', $policy->defaultVisibility)
+            ->set('updated_at', ':updated_at')->setParameter('updated_at', $updatedAt)
+            ->where('id = :id')->setParameter('id', 'installation')
+            ->andWhere('lifecycle_state = :lifecycle')->setParameter('lifecycle', $state->lifecycle->value)
+            ->andWhere('updated_at = :previous_updated_at')->setParameter('previous_updated_at', $state->updatedAt)
+            ->andWhere('posts_enabled = :previous_posts_enabled')
+            ->setParameter('previous_posts_enabled', $state->postsEnabled ? 1 : 0)
+            ->andWhere('pages_enabled = :previous_pages_enabled')
+            ->setParameter('previous_pages_enabled', $state->pagesEnabled ? 1 : 0)
+            ->andWhere('post_object_type = :previous_post_object_type')
+            ->setParameter('previous_post_object_type', $state->postObjectType->value)
+            ->andWhere('content_mode = :previous_content_mode')
+            ->setParameter('previous_content_mode', $state->contentMode->value)
+            ->andWhere('default_visibility = :previous_default_visibility')
+            ->setParameter('previous_default_visibility', $state->defaultVisibility)
+            ->execute()
+            ->affectedRows()
+        ;
+        if ($affected !== 1) {
+            throw new \RuntimeException('ActivityPub policy changed concurrently.');
+        }
+
+        if (!FederationPolicy::fromState($this->state())->equals($policy)) {
+            throw new \RuntimeException('The stored ActivityPub policy could not be verified.');
+        }
     }
 
     public function pause(int $now): bool

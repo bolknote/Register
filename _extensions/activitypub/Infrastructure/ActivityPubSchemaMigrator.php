@@ -38,6 +38,7 @@ final class ActivityPubSchemaMigrator
                 8       => self::migrateToVersion8($dbLayer),
                 9       => self::migrateToVersion9($dbLayer),
                 10      => self::migrateToVersion10($dbLayer),
+                11      => self::migrateToVersion11($dbLayer),
                 default => throw new \LogicException('No ActivityPub database migration is defined for profile ' . $next . '.'),
             };
             $affected = $dbLayer->update(ActivityPubSchema::STATE_TABLE)
@@ -210,6 +211,26 @@ final class ActivityPubSchemaMigrator
         );
     }
 
+    private static function migrateToVersion11(DbLayer $dbLayer): void
+    {
+        $dbLayer->addField(
+            ActivityPubSchema::STATE_TABLE,
+            'posts_enabled',
+            SchemaBuilderInterface::TYPE_BOOLEAN,
+            null,
+            false,
+            1,
+        );
+        $dbLayer->addField(
+            ActivityPubSchema::STATE_TABLE,
+            'default_visibility',
+            SchemaBuilderInterface::TYPE_STRING,
+            16,
+            false,
+            'public',
+        );
+    }
+
     private static function storedVersion(DbLayer $dbLayer): int
     {
         $value = $dbLayer->select('profile_version')
@@ -228,7 +249,12 @@ final class ActivityPubSchemaMigrator
     private static function assertCurrentShape(DbLayer $dbLayer): void
     {
         foreach ([
-            ActivityPubSchema::STATE_TABLE        => ['last_runner_at', 'last_runner_code'],
+            ActivityPubSchema::STATE_TABLE        => [
+                'posts_enabled',
+                'default_visibility',
+                'last_runner_at',
+                'last_runner_code',
+            ],
             ActivityPubSchema::ACTOR_TABLE        => ['moved_to_url', 'moved_at'],
             ActivityPubSchema::REMOTE_ACTOR_TABLE => ['moved_to_url', 'moved_at', 'avatar_url', 'featured_url'],
             ActivityPubSchema::REMOTE_OBJECT_TABLE => ['featured_at'],

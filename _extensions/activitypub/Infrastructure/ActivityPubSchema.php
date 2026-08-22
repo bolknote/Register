@@ -15,7 +15,7 @@ use S2\Cms\Pdo\SchemaBuilderInterface;
 /** Portable, module-owned federation storage. No table depends on an unstable product table. */
 final class ActivityPubSchema
 {
-    public const int PROFILE_VERSION = 10;
+    public const int PROFILE_VERSION = 11;
 
     public const string STATE_TABLE = 'register_ap_state';
 
@@ -129,7 +129,9 @@ final class ActivityPubSchema
                 ->addString('site_actor_type', 16, default: 'Service')
                 ->addString('post_object_type', 16, default: 'Article')
                 ->addString('content_mode', 16, default: 'full')
+                ->addBoolean('posts_enabled', default: true)
                 ->addBoolean('pages_enabled')
+                ->addString('default_visibility', 16, default: 'public')
                 ->addBoolean('auto_accept_follows', default: true)
                 ->addInteger('created_at', true)
                 ->addInteger('activated_at', true, true, null)

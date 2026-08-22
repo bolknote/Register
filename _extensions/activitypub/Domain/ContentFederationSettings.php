@@ -53,7 +53,9 @@ final readonly class ContentFederationSettings
         return match ($this->publicationMode) {
             ContentPublicationMode::ENABLED  => true,
             ContentPublicationMode::DISABLED => false,
-            ContentPublicationMode::INHERIT  => $this->contentId->type === ContentType::POST || $state->pagesEnabled,
+            ContentPublicationMode::INHERIT  => $this->contentId->type === ContentType::POST
+                ? $state->postsEnabled
+                : $state->pagesEnabled,
         };
     }
 
@@ -71,14 +73,14 @@ final readonly class ContentFederationSettings
         return $this->deliveryMode ?? $state->contentMode;
     }
 
-    public function resolvesVisibility(): string
+    public function resolvesVisibility(FederationState $state): string
     {
-        return $this->visibility ?? 'public';
+        return $this->visibility ?? $state->defaultVisibility;
     }
 
-    public function suppressesPageDelivery(): bool
+    public function suppressesPageDelivery(FederationState $state): bool
     {
         return $this->contentId->type === ContentType::PAGE
-            && $this->publicationMode !== ContentPublicationMode::ENABLED;
+            && !$this->isEnabled($state);
     }
 }

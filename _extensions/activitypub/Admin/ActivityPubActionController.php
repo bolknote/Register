@@ -22,6 +22,7 @@ use s2_extensions\activitypub\Application\SiteActorDraft;
 use s2_extensions\activitypub\Application\ActorKeyRotationService;
 use s2_extensions\activitypub\Application\ActorIdentityMigrationService;
 use s2_extensions\activitypub\Application\FederationLifecycleService;
+use s2_extensions\activitypub\Application\FederationPolicyService;
 use s2_extensions\activitypub\Application\OutgoingInteractionService;
 use s2_extensions\activitypub\Application\OutgoingReplyService;
 use s2_extensions\activitypub\Application\ContentBackfillStarter;
@@ -32,7 +33,10 @@ use s2_extensions\activitypub\Domain\ModerationAction;
 use s2_extensions\activitypub\Domain\ActorType;
 use s2_extensions\activitypub\Domain\CanonicalBasePath;
 use s2_extensions\activitypub\Domain\CanonicalOrigin;
+use s2_extensions\activitypub\Domain\ContentDeliveryMode;
+use s2_extensions\activitypub\Domain\FederationPolicy;
 use s2_extensions\activitypub\Domain\LocalHandle;
+use s2_extensions\activitypub\Domain\PostObjectType;
 use s2_extensions\activitypub\Domain\RemoteActor;
 use s2_extensions\activitypub\Inbox\InboxQueue;
 use s2_extensions\activitypub\Media\RemoteAvatarQueue;
@@ -59,6 +63,7 @@ final readonly class ActivityPubActionController
         private ActorKeyRotationService    $keyRotationService,
         private ActorIdentityMigrationService $identityMigrationService,
         private FederationLifecycleService $lifecycleService,
+        private FederationPolicyService    $policyService,
         private ActivationReadinessStarter $activationStarter,
         private FederationActivationService $activationService,
         private AuthorActorService          $authorActorService,
@@ -100,6 +105,7 @@ final readonly class ActivityPubActionController
                 'discover'   => $this->discover($request),
                 'setup_start' => $this->setupStart($request),
                 'setup_activate' => $this->setupActivate($request),
+                'policy_save' => $this->savePolicy($request),
                 'author_save' => $this->saveAuthor($request),
                 'follow'     => $this->follow($request),
                 'unfollow'   => $this->unfollow($request),
@@ -193,6 +199,29 @@ final readonly class ActivityPubActionController
         $actor = $this->activationService->activateAttempt($request->request->getString('attempt_id'));
 
         return $this->success('ActivityPub federation activated.', ['actor_public_id' => $actor->publicId]);
+    }
+
+    private function savePolicy(Request $request): JsonResponse
+    {
+        $postObjectType = PostObjectType::tryFrom($request->request->getString('post_object_type'));
+        $contentMode = ContentDeliveryMode::tryFrom($request->request->getString('content_mode'));
+        $defaultVisibility = $request->request->getString('default_visibility');
+        if (!$postObjectType instanceof PostObjectType
+            || !$contentMode instanceof ContentDeliveryMode
+            || !\in_array($defaultVisibility, ['public', 'unlisted'], true)
+        ) {
+            throw new \InvalidArgumentException('The ActivityPub federation policy is invalid.');
+        }
+
+        $this->policyService->save(new FederationPolicy(
+            $request->request->getBoolean('posts_enabled'),
+            $request->request->getBoolean('pages_enabled'),
+            $postObjectType,
+            $contentMode,
+            $defaultVisibility,
+        ));
+
+        return $this->success('ActivityPub federation policy saved.');
     }
 
     private function saveAuthor(Request $request): JsonResponse

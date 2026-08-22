@@ -93,6 +93,7 @@ final readonly class ActivityPubAdminAccess
             'move_actor' => $this->canManageActor($actorId),
             'setup_start',
             'setup_activate',
+            'policy_save',
             'moderate',
             'push_queue',
             'pause',

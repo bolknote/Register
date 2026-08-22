@@ -19,7 +19,9 @@ final readonly class FederationState
         public ActorType                $siteActorType,
         public PostObjectType           $postObjectType,
         public ContentDeliveryMode      $contentMode,
+        public bool                     $postsEnabled,
         public bool                     $pagesEnabled,
+        public string                   $defaultVisibility,
         public bool                     $autoAcceptFollows,
         public int                      $createdAt,
         public ?int                     $activatedAt,
@@ -27,6 +29,9 @@ final readonly class FederationState
         public ?int                     $decommissionedAt,
         public int                      $updatedAt,
     ) {
+        if (!\in_array($this->defaultVisibility, ['public', 'unlisted'], true)) {
+            throw new \InvalidArgumentException('The default ActivityPub visibility is invalid.');
+        }
     }
 
     public function hasPublicIdentity(): bool

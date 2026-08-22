@@ -49,6 +49,7 @@ use s2_extensions\activitypub\Application\ContentBackfillStarter;
 use s2_extensions\activitypub\Admin\ContentFederationSettingsFormParser;
 use s2_extensions\activitypub\Admin\ContentSettingsEditor;
 use s2_extensions\activitypub\Application\FederationActivationService;
+use s2_extensions\activitypub\Application\FederationPolicyService;
 use s2_extensions\activitypub\Application\SiteActorDraft;
 use s2_extensions\activitypub\Application\SiteActorProvisioner;
 use s2_extensions\activitypub\Content\PortableHtmlSanitizer;
@@ -64,6 +65,7 @@ use s2_extensions\activitypub\Domain\ContentDeliveryMode;
 use s2_extensions\activitypub\Domain\ContentFederationSettings;
 use s2_extensions\activitypub\Domain\ContentPublicationMode;
 use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
+use s2_extensions\activitypub\Domain\FederationPolicy;
 use s2_extensions\activitypub\Domain\LocalActor;
 use s2_extensions\activitypub\Domain\LocalHandle;
 use s2_extensions\activitypub\Domain\ModerationAction;
@@ -108,6 +110,59 @@ final class ContentProjectionTest extends Unit
     protected function _after(): void
     {
         (new Filesystem())->remove($this->temporaryDirectory);
+    }
+
+    public function testGlobalPolicyControlsInheritedContentWithoutReplacingTheBlog(): void
+    {
+        $services = $this->services();
+        $stateRepository = $services['stateRepository'];
+
+        (new FederationPolicyService($stateRepository))->save(new FederationPolicy(
+            postsEnabled: false,
+            pagesEnabled: true,
+            postObjectType: PostObjectType::NOTE,
+            contentMode: ContentDeliveryMode::EXCERPT,
+            defaultVisibility: 'unlisted',
+        ), 1_000);
+
+        self::assertSame(1, (int)$services['dbLayer']->select('COUNT(*)')
+            ->from(ContentSchema::TABLE_NAME)
+            ->execute()
+            ->result()
+        );
+        foreach ([
+            ActivityPubSchema::OBJECT_TABLE,
+            ActivityPubSchema::ACTIVITY_TABLE,
+            ActivityPubSchema::DELIVERY_TABLE,
+        ] as $table) {
+            self::assertSame(0, (int)$services['dbLayer']->select('COUNT(*)')
+                ->from($table)
+                ->execute()
+                ->result()
+            );
+        }
+
+        $state = $stateRepository->state();
+        $postDefaults = ContentFederationSettings::inherited(ContentId::post(7));
+        $pageDefaults = ContentFederationSettings::inherited(ContentId::page(9));
+        self::assertFalse($postDefaults->isEnabled($state));
+        self::assertTrue($pageDefaults->isEnabled($state));
+        self::assertSame('Note', $postDefaults->resolvesObjectType($state));
+        self::assertSame(ContentDeliveryMode::EXCERPT, $postDefaults->resolvesDeliveryMode($state));
+        self::assertSame('unlisted', $postDefaults->resolvesVisibility($state));
+        self::assertFalse($pageDefaults->suppressesPageDelivery($state));
+
+        $explicitPost = new ContentFederationSettings(
+            ContentId::post(7),
+            ContentPublicationMode::ENABLED,
+            ContentDeliveryMode::FULL,
+            PostObjectType::ARTICLE,
+            'public',
+        );
+        self::assertTrue($explicitPost->isEnabled($state));
+        self::assertSame('Article', $explicitPost->resolvesObjectType($state));
+        self::assertSame(ContentDeliveryMode::FULL, $explicitPost->resolvesDeliveryMode($state));
+        self::assertSame('public', $explicitPost->resolvesVisibility($state));
     }
 
     public function testProjectsStableLifecycleAndNeverBroadcastsHistoricalBackfill(): void

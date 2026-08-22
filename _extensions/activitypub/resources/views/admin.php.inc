@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 use Register\Author\AuthorProfile;
 use s2_extensions\activitypub\Domain\FederationLifecycleState;
+use s2_extensions\activitypub\Domain\FederationPolicy;
 use s2_extensions\activitypub\Domain\LocalActor;
 use s2_extensions\activitypub\Domain\ReaderEntry;
 use s2_extensions\activitypub\Application\IdentityHealthReport;
@@ -15,6 +16,7 @@ use s2_extensions\activitypub\Infrastructure\ContentBackfillJob;
 
 /** @var callable $trans */
 /** @var FederationLifecycleState $lifecycle */
+/** @var FederationPolicy $policy */
 /** @var ?LocalActor $draftActor */
 /** @var ?ActivationReadinessAttempt $activationAttempt */
 /** @var list<ActivationReadinessCheck> $activationChecks */
@@ -256,6 +258,70 @@ $draftHeaderUrl = \is_array($draftHeader) && \is_string($draftHeader['url'] ?? n
                     </form>
                 <?php endif; ?>
             <?php endif; ?>
+        </section>
+    <?php endif; ?>
+
+    <?php if ($canManageSite && \in_array($lifecycle, [
+        FederationLifecycleState::INSTALLED,
+        FederationLifecycleState::ACTIVE,
+        FederationLifecycleState::PAUSED,
+    ], true)): ?>
+        <section class="activitypub-panel activitypub-policy" aria-labelledby="activitypub-policy-title">
+            <div class="activitypub-panel-heading">
+                <div>
+                    <p class="activitypub-eyebrow"><?= $trans('Federation policy eyebrow') ?></p>
+                    <h2 id="activitypub-policy-title"><?= $trans('Federation policy title') ?></h2>
+                </div>
+            </div>
+            <p><?= $trans('Federation policy help') ?></p>
+            <form data-activitypub-form class="activitypub-setup-form activitypub-policy-form">
+                <input type="hidden" name="operation" value="policy_save">
+                <fieldset class="activitypub-wide-field">
+                    <legend><?= $trans('Federation policy defaults') ?></legend>
+                    <label class="activitypub-checkbox">
+                        <input type="checkbox" name="posts_enabled" value="1"<?= $policy->postsEnabled ? ' checked' : '' ?>>
+                        <span><?= $trans('Federation policy posts enabled') ?></span>
+                    </label>
+                    <label class="activitypub-checkbox">
+                        <input type="checkbox" name="pages_enabled" value="1"<?= $policy->pagesEnabled ? ' checked' : '' ?>>
+                        <span><?= $trans('Federation policy pages enabled') ?></span>
+                    </label>
+                    <label>
+                        <span><?= $trans('Federation policy post object type') ?></span>
+                        <select name="post_object_type" required>
+                            <?php foreach (['Article', 'Note'] as $objectType): ?>
+                                <option value="<?= $objectType ?>"<?= $policy->postObjectType->value === $objectType ? ' selected' : '' ?>>
+                                    <?= $objectType ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label>
+                        <span><?= $trans('Federation policy content mode') ?></span>
+                        <select name="content_mode" required>
+                            <option value="full"<?= $policy->contentMode->value === 'full' ? ' selected' : '' ?>>
+                                <?= $trans('Full federated text') ?>
+                            </option>
+                            <option value="excerpt"<?= $policy->contentMode->value === 'excerpt' ? ' selected' : '' ?>>
+                                <?= $trans('Excerpt and canonical link') ?>
+                            </option>
+                        </select>
+                    </label>
+                    <label>
+                        <span><?= $trans('Federation policy visibility') ?></span>
+                        <select name="default_visibility" required>
+                            <option value="public"<?= $policy->defaultVisibility === 'public' ? ' selected' : '' ?>><?= $trans('Public') ?></option>
+                            <option value="unlisted"<?= $policy->defaultVisibility === 'unlisted' ? ' selected' : '' ?>><?= $trans('Unlisted') ?></option>
+                        </select>
+                    </label>
+                    <p class="activitypub-setup-warning activitypub-wide-field">
+                        <?= $trans('Federation policy safety') ?>
+                    </p>
+                </fieldset>
+                <div class="activitypub-setup-submit">
+                    <button type="submit" class="primary"><?= $trans('Federation policy save') ?></button>
+                </div>
+            </form>
         </section>
     <?php endif; ?>
 

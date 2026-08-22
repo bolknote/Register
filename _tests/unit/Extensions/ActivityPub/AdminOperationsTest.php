@@ -53,6 +53,7 @@ final class AdminOperationsTest extends Unit
         self::assertFalse($access->canPerform('push_queue', 0, 0));
         self::assertFalse($access->canPerform('moderate', 0, 0));
         self::assertFalse($access->canPerform('backfill_latest', 0, 0));
+        self::assertFalse($access->canPerform('policy_save', 0, 0));
 
         $permissions->setUser([
             'id'              => 9,
@@ -62,6 +63,7 @@ final class AdminOperationsTest extends Unit
         self::assertTrue($access->canManageSite());
         self::assertTrue($access->canManageActor($otherActorId));
         self::assertTrue($access->canPerform('decommission', 0, 0));
+        self::assertTrue($access->canPerform('policy_save', 0, 0));
     }
 
     public function testOperationalDashboardAggregatesDurableDatabaseState(): void

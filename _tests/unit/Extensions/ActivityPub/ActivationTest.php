@@ -442,6 +442,8 @@ final class ActivationTest extends Unit
         $dbLayer->dropField(ActivityPubSchema::INTERACTION_TABLE, 'local_note_id');
         $dbLayer->dropField(ActivityPubSchema::STATE_TABLE, 'last_runner_at');
         $dbLayer->dropField(ActivityPubSchema::STATE_TABLE, 'last_runner_code');
+        $dbLayer->dropField(ActivityPubSchema::STATE_TABLE, 'posts_enabled');
+        $dbLayer->dropField(ActivityPubSchema::STATE_TABLE, 'default_visibility');
         $dbLayer->update(ActivityPubSchema::STATE_TABLE)
             ->set('profile_version', '1')
             ->where('id = :id')->setParameter('id', 'installation')
@@ -470,6 +472,11 @@ final class ActivationTest extends Unit
         self::assertTrue($dbLayer->fieldExists(ActivityPubSchema::INTERACTION_TABLE, 'local_note_id'));
         self::assertTrue($dbLayer->fieldExists(ActivityPubSchema::STATE_TABLE, 'last_runner_at'));
         self::assertTrue($dbLayer->fieldExists(ActivityPubSchema::STATE_TABLE, 'last_runner_code'));
+        self::assertTrue($dbLayer->fieldExists(ActivityPubSchema::STATE_TABLE, 'posts_enabled'));
+        self::assertTrue($dbLayer->fieldExists(ActivityPubSchema::STATE_TABLE, 'default_visibility'));
+        $migratedState = (new FederationStateRepository($dbLayer))->state();
+        self::assertTrue($migratedState->postsEnabled);
+        self::assertSame('public', $migratedState->defaultVisibility);
 
         ActivityPubSchema::install($dbLayer);
         self::assertSame(ActivityPubSchema::PROFILE_VERSION, (new FederationStateRepository($dbLayer))->state()->profileVersion);

@@ -139,7 +139,7 @@ final readonly class ContentProjectionService
             ? $content->publishedAt
             : ($content->updatedAt !== null && $content->updatedAt > 0 ? $content->updatedAt : $now);
         $updatedAt    = max($publishedAt, $content->updatedAt ?? 0);
-        $visibility   = $settings->resolvesVisibility();
+        $visibility   = $settings->resolvesVisibility($state);
         $collective   = $this->actorResolver->collectiveFor($owner);
         $additionalFollowers = $this->actorResolver->additionalFollowerCollections($owner, $urls);
         $document     = $this->objectBuilder->build(
@@ -159,7 +159,7 @@ final readonly class ContentProjectionService
         $snapshotJson = $this->json->encode($document);
         $snapshotHash = hash('sha256', $snapshotJson);
         $incarnation  = $this->federationRepository->nextIncarnation($content->id);
-        $deliveryIntent = $mode->deliveryIntent($settings->suppressesPageDelivery());
+        $deliveryIntent = $mode->deliveryIntent($settings->suppressesPageDelivery($state));
         $object       = $this->federationRepository->insertObject(new NewStoredObject(
             $publicId,
             $content->id,
@@ -231,7 +231,7 @@ final readonly class ContentProjectionService
         $content   = $details->content;
         $additionalFollowers = $this->actorResolver->additionalFollowerCollections($owner, $urls);
         $updatedAt = max($current->updatedAt, $content->updatedAt ?? 0, $current->publishedAt);
-        $visibility = $settings->resolvesVisibility();
+        $visibility = $settings->resolvesVisibility($state);
         $document  = $this->objectBuilder->build(
             $details,
             $owner,
@@ -249,7 +249,7 @@ final readonly class ContentProjectionService
         $snapshotJson = $this->json->encode($document);
         $snapshotHash = hash('sha256', $snapshotJson);
         $deliveryIntent = $mode->deliveryIntent(
-            $settings->suppressesPageDelivery() && $current->broadcastAt === null,
+            $settings->suppressesPageDelivery($state) && $current->broadcastAt === null,
         );
         $startingBroadcast = $deliveryIntent === ActivityDeliveryIntent::FOLLOWERS
             && $current->broadcastAt === null;

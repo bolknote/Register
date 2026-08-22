@@ -88,6 +88,17 @@ final class TranslationProvider implements TranslationProviderInterface
             'Federation actor'                             => 'Локальный профиль',
             'Federation actors'                            => 'Локальные профили',
             'Federation no active actors'                  => 'Активных федеративных профилей пока нет.',
+            'Federation policy eyebrow'                    => 'Интеграция с блогом',
+            'Federation policy title'                      => 'Связь с существующим блогом',
+            'Federation policy help'                       => 'ActivityPub дополняет обычный сайт, RSS, комментарии и реакции. Здесь задаются значения по умолчанию; редактор каждой публикации может их переопределить.',
+            'Federation policy defaults'                   => 'Политика новых сохранений',
+            'Federation policy posts enabled'              => 'По умолчанию федерировать записи блога',
+            'Federation policy pages enabled'              => 'По умолчанию федерировать обычные страницы',
+            'Federation policy post object type'           => 'Тип новых записей',
+            'Federation policy content mode'               => 'Передаваемое содержимое',
+            'Federation policy visibility'                 => 'Видимость по умолчанию',
+            'Federation policy safety'                     => 'Сохранение этой формы ничего не рассылает и не меняет старые объекты массово. Политика применяется при следующем сохранении материала; явная настройка материала всегда важнее.',
+            'Federation policy save'                       => 'Сохранить политику федерации',
             'Federation author identities'                 => 'Профили авторов',
             'Federation author identities help'            => 'Каждый автор может получить отдельный Person actor и собственных подписчиков. Его записи также репостит общий профиль сайта.',
             'Federation author disabled'                   => 'Федеративный профиль не включён',
@@ -299,6 +310,8 @@ final class TranslationProvider implements TranslationProviderInterface
             'ActivityPub activation confirmation is invalid.' => 'Для активации требуется точное подтверждение ACTIVATE.',
             'ActivityPub federation activated.'            => 'Федерация ActivityPub активирована; публичные адреса зафиксированы.',
             'ActivityPub author identity saved.'           => 'Федеративный профиль автора сохранён.',
+            'ActivityPub federation policy saved.'         => 'Политика федерации сохранена; существующий блог продолжает работать как раньше.',
+            'The ActivityPub federation policy is invalid.' => 'Политика федерации содержит недопустимое значение.',
         ];
     }
 
@@ -364,6 +377,17 @@ final class TranslationProvider implements TranslationProviderInterface
             'Federation actor'                             => 'Local actor',
             'Federation actors'                            => 'Local actors',
             'Federation no active actors'                  => 'There are no active federation actors yet.',
+            'Federation policy eyebrow'                    => 'Blog integration',
+            'Federation policy title'                      => 'Existing blog integration',
+            'Federation policy help'                       => 'ActivityPub complements the ordinary site, RSS, comments, and reactions. These are defaults; each content editor may override them.',
+            'Federation policy defaults'                   => 'Policy for future saves',
+            'Federation policy posts enabled'              => 'Federate blog posts by default',
+            'Federation policy pages enabled'              => 'Federate ordinary pages by default',
+            'Federation policy post object type'           => 'New post object type',
+            'Federation policy content mode'               => 'Delivered content',
+            'Federation policy visibility'                 => 'Default visibility',
+            'Federation policy safety'                     => 'Saving this form sends nothing and never rewrites existing objects in bulk. The policy applies when content is next saved; an explicit content setting always wins.',
+            'Federation policy save'                       => 'Save federation policy',
             'Federation author identities'                 => 'Author identities',
             'Federation author identities help'            => 'Each author can have an independent Person actor and followers. The collective site actor also announces their posts.',
             'Federation author disabled'                   => 'Federation identity is not enabled',
@@ -545,6 +569,8 @@ final class TranslationProvider implements TranslationProviderInterface
             'Federation operation succeeded'               => 'Done.',
             'ActivityPub queue failures'                   => 'Federation queue failures',
             'ActivityPub author identity saved.'           => 'The ActivityPub author identity was saved.',
+            'ActivityPub federation policy saved.'         => 'The federation policy was saved; the existing blog continues to work normally.',
+            'The ActivityPub federation policy is invalid.' => 'The federation policy contains an invalid value.',
         ];
     }
 }

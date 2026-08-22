@@ -46,6 +46,7 @@ use s2_extensions\activitypub\Application\ActorKeyRotationService;
 use s2_extensions\activitypub\Application\ActorIdentityMigrationService;
 use s2_extensions\activitypub\Application\ActivityPubIdentityRecoveryService;
 use s2_extensions\activitypub\Application\FederationLifecycleService;
+use s2_extensions\activitypub\Application\FederationPolicyService;
 use s2_extensions\activitypub\Application\ActivationReadinessStarter;
 use s2_extensions\activitypub\Application\FederationActivationService;
 use s2_extensions\activitypub\Application\OutgoingInteractionService;
@@ -112,6 +113,9 @@ final class AdminExtension implements ContainerModuleInterface, ContainerAwareLi
             $container->get(Translator::class),
             $container->get(LoggerInterface::class),
         ));
+        $container->set(FederationPolicyService::class, static fn(Container $container): FederationPolicyService => new FederationPolicyService(
+            $container->get(FederationStateRepository::class),
+        ));
         $container->set(ActivityPubAdminPage::class, static fn(Container $container): ActivityPubAdminPage => new ActivityPubAdminPage(
             $container->get(ActivityPubAdminRepository::class),
             $container->get(ActivityPubIdentityRecoveryService::class),
@@ -155,6 +159,7 @@ final class AdminExtension implements ContainerModuleInterface, ContainerAwareLi
             $container->get(ActorKeyRotationService::class),
             $container->get(ActorIdentityMigrationService::class),
             $container->get(FederationLifecycleService::class),
+            $container->get(FederationPolicyService::class),
             $container->get(ActivationReadinessStarter::class),
             $container->get(FederationActivationService::class),
             $container->get(AuthorActorService::class),
