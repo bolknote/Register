@@ -319,7 +319,11 @@
             || state.tagsDirty
             || state.dateDirty
             || state.mediaUploads.size > 0
-            || state.uploadedMediaIds.size > 0;
+            || state.uploadedMediaIds.size > 0
+            || (state.title.textContent || '') !== state.originalTitle
+            || editableBodyHtml(state) !== state.originalEditableBodyHtml
+            || state.tagEditor.hasChanges()
+            || state.dateInput.value !== state.originalDateInputValue;
     }
 
     function closeDiscardChangesDialog(state, restoreFocus) {
@@ -573,6 +577,8 @@
             originalTags: elements.tagsField.value,
             originalTagsHtml: elements.tags.innerHTML,
             originalPublishedAt: Number(elements.publishedAtField.value),
+            originalDateInputValue: '',
+            originalEditableBodyHtml: '',
             originalTimeDateTime: elements.time.dateTime,
             originalTimeText: elements.time.textContent || '',
             titleDirty: false,
@@ -599,6 +605,7 @@
         elements.title.textContent = state.originalTitle;
         elements.body.innerHTML = state.originalBody;
         prepareEditableMedia(elements.body);
+        state.originalEditableBodyHtml = editableBodyHtml(state);
         elements.tags.replaceChildren();
         if (state.titleLinkHadHref) {
             titleLink.removeAttribute('href');
@@ -608,6 +615,7 @@
         setEditable(elements.body, card.dataset.bodyLabel || 'Post text', true);
         elements.title.dataset.placeholder = card.dataset.titlePlaceholder || '';
         elements.dateInput.value = localDateTimeValue(state.originalPublishedAt);
+        state.originalDateInputValue = elements.dateInput.value;
         elements.dateInput.hidden = false;
         elements.dateButton.hidden = false;
         state.tagEditor = createTagEditor(state);
@@ -797,6 +805,7 @@
         const suggestionList = document.createElement('span');
         const suggestionListId = `post-tag-suggestions-${++tagEditorSequence}`;
         let tags = normalizeTags(state.originalTags) || [];
+        const originalTags = [...tags];
         let suggestions = [];
         let matches = [];
         let activeIndex = -1;
@@ -1085,6 +1094,9 @@
 
         return {
             focus: () => input.focus(),
+            hasChanges: () => input.value.trim() !== ''
+                || tags.length !== originalTags.length
+                || tags.some((tag, index) => tag !== originalTags[index]),
             sync: () => commit() ? [...tags] : null,
             replace: (value) => {
                 const replacements = normalizeTags(value);

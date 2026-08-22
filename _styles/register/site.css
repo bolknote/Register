@@ -1183,7 +1183,7 @@ h2.preview,
     position: absolute;
     top: 0;
     bottom: 0;
-    left: -0.6rem;
+    right: -0.6rem;
     width: 3px;
     border-radius: 2px;
     background: color-mix(in srgb, var(--accent-color) 72%, transparent);
