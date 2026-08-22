@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Comment;
 
+use Register\Auth\CommentNotificationRepository;
 use Register\Content\ContentId;
 use Register\Module\Reactions\ReactionAggregateSchema;
 use Register\Core\Model\AuthProvider;
@@ -24,13 +25,28 @@ final readonly class ContentCommentRenderer
     /** @var list<CommentPresentationEnricherInterface> */
     private array $presentationEnrichers;
 
+    private ?CommentNotificationRepository $notificationRepository;
+
     public function __construct(
         private DbLayer                        $dbLayer,
         private CommentThreadRenderer          $threadRenderer,
         private AuthProvider                   $authProvider,
-        CommentPresentationEnricherInterface ...$presentationEnrichers,
+        CommentNotificationRepository|CommentPresentationEnricherInterface ...$dependencies,
     ) {
-        $this->presentationEnrichers = array_values($presentationEnrichers);
+        $notificationRepository = null;
+        $presentationEnrichers = [];
+        foreach ($dependencies as $dependency) {
+            if ($dependency instanceof CommentNotificationRepository) {
+                if ($notificationRepository instanceof CommentNotificationRepository) {
+                    throw new \LogicException('Only one comment notification repository can be configured.');
+                }
+                $notificationRepository = $dependency;
+            } else {
+                $presentationEnrichers[] = $dependency;
+            }
+        }
+        $this->notificationRepository = $notificationRepository;
+        $this->presentationEnrichers = $presentationEnrichers;
     }
 
     public function render(ContentId $contentId, Request $request, string $returnPath): string
@@ -53,7 +69,7 @@ final readonly class ContentCommentRenderer
         ;
         $commentRows = $this->dbLayer
             ->select(
-                'c.id, c.parent_id, c.nick, c.time, c.modify_time, c.email, c.show_email, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
+                'c.id, c.parent_id, c.user_id, c.nick, c.time, c.modify_time, c.email, c.show_email, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
                 '(' . $authorComment . ') AS is_author',
                 '(' . $moderatorLabel . ') AS moderator_label',
             )
@@ -78,6 +94,12 @@ final readonly class ContentCommentRenderer
         $comments = $this->attachPresentationEnrichments($comments);
 
         $moderator = $this->authProvider->getAuthenticatedCommentModerator($request);
+        $authenticatedUser = $this->authProvider->getAuthenticatedPublicUser($request);
+        if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser
+            && $this->notificationRepository instanceof CommentNotificationRepository
+        ) {
+            $this->notificationRepository->markContentRead($authenticatedUser, $contentId);
+        }
 
         return $this->threadRenderer->render(
             $comments,

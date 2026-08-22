@@ -81,6 +81,19 @@ OfflineCachePolicy::apply(
 );
 $shutdownCoordinator->closeSession();
 
+// Authentication actions are directly user-facing and do not enqueue work. On SAPIs without
+// response detachment (notably PHP's development server), attached queue processing otherwise
+// makes a simple sign-in or sign-out appear to hang after it has already succeeded.
+if (
+    $request->attributes->has('auth_action')
+    || (
+        $request->headers->get('X-Register-Foreground-Only') === '1'
+        && $request->headers->get('X-Register-Navigation') === 'partial'
+    )
+) {
+    $shutdownCoordinator->suppressBackgroundWork();
+}
+
 if ($response->isInformational() || $response->isEmpty() || $response->getContent() === false || $response->getContent() === '') {
     $response->send(false);
 } else {

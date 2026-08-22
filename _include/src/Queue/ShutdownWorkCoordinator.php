@@ -33,6 +33,8 @@ final class ShutdownWorkCoordinator
 
     private bool $responseDetached = false;
 
+    private bool $backgroundWorkSuppressed = false;
+
     /** @param \Closure(): BackgroundWorkRunnerInterface $runnerFactory */
     public function __construct(
         private readonly \PDO                    $pdo,
@@ -82,10 +84,16 @@ final class ShutdownWorkCoordinator
         }
     }
 
+    /** Keep latency-sensitive service requests from waiting for attached shutdown jobs. */
+    public function suppressBackgroundWork(): void
+    {
+        $this->backgroundWorkSuppressed = true;
+    }
+
     private function runOnShutdown(): void
     {
         try {
-            if (!$this->responseFinished || $this->hasFatalError()) {
+            if (!$this->responseFinished || $this->backgroundWorkSuppressed || $this->hasFatalError()) {
                 return;
             }
 

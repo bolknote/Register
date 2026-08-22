@@ -1364,6 +1364,7 @@ final readonly class InboxTestEnvironment
         $this->createQueueTable();
         $this->dbLayer = new DbLayerSqlite($this->pdo);
         ActivityPubSchema::install($this->dbLayer);
+        $this->pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT)');
         $this->pdo->exec('CREATE TABLE userpics (id INTEGER PRIMARY KEY AUTOINCREMENT)');
         CommentSchema::create($this->dbLayer);
         LiveUpdateSchema::create($this->dbLayer);

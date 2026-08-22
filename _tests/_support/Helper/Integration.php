@@ -56,6 +56,8 @@ class Integration extends AbstractBrowserModule
 
     private bool $commentMailerDecorated = false;
 
+    private bool $publicAuthMailerDecorated = false;
+
     /** @var list<string> */
     private array $spamResponses = [];
 
@@ -68,6 +70,9 @@ class Integration extends AbstractBrowserModule
      * @var mixed[][]
      */
     private array $subscriberMails = [];
+
+    /** @var list<array{to: string, subject: string, message: string, headers: string}> */
+    private array $publicAuthMails = [];
 
     /**
      * @throws ContainerExceptionInterface
@@ -85,6 +90,7 @@ class Integration extends AbstractBrowserModule
         $this->adminApplication->container->decorate(\PDO::class, fn(): mixed => $this->pdo);
         $this->decorateSpamDetector();
         $this->decorateCommentMailer();
+        $this->decoratePublicAuthMailer();
 
         $adminDbLayer = $this->adminApplication->container->get(DbLayer::class);
         $this->dropBaseModuleTables($adminDbLayer);
@@ -112,6 +118,7 @@ class Integration extends AbstractBrowserModule
         $this->spamResponses  = [];
         $this->moderatorMails = [];
         $this->subscriberMails = [];
+        $this->publicAuthMails = [];
     }
 
     public function _after(TestInterface $test): void
@@ -241,6 +248,17 @@ class Integration extends AbstractBrowserModule
     public function grabSubscriberMails(): array
     {
         return $this->subscriberMails;
+    }
+
+    /** @return list<array{to: string, subject: string, message: string, headers: string}> */
+    public function grabPublicAuthMails(): array
+    {
+        return $this->publicAuthMails;
+    }
+
+    public function recordPublicAuthMail(string $to, string $subject, string $message, string $headers): void
+    {
+        $this->publicAuthMails[] = compact('to', 'subject', 'message', 'headers');
     }
 
     public function shiftSpamResponse(): string
@@ -504,6 +522,33 @@ class Integration extends AbstractBrowserModule
 
         $this->publicApplication->container->decorate(\Register\Core\Mail\CommentMailer::class, $decorator);
         $this->commentMailerDecorated = true;
+    }
+
+    private function decoratePublicAuthMailer(): void
+    {
+        if ($this->publicAuthMailerDecorated) {
+            return;
+        }
+
+        $decorator = function (Container $container, callable $factory): \Register\Auth\PublicAuthMailer {
+            /** @var DynamicConfigProvider $provider */
+            $provider = $container->get(DynamicConfigProvider::class);
+
+            return new \Register\Auth\PublicAuthMailer(
+                $container->get('translator'),
+                $provider->getStringProxy('REGISTER_SITE_NAME'),
+                $provider->getStringProxy('REGISTER_WEBMASTER'),
+                $provider->getStringProxy('REGISTER_WEBMASTER_EMAIL'),
+                function (string $to, string $subject, string $message, string $headers): bool {
+                    $this->recordPublicAuthMail($to, $subject, $message, $headers);
+
+                    return true;
+                },
+            );
+        };
+
+        $this->publicApplication->container->decorate(\Register\Auth\PublicAuthMailer::class, $decorator);
+        $this->publicAuthMailerDecorated = true;
     }
 }
 

@@ -97,9 +97,7 @@ class InstallCest
         $I->seeElement('link[href$="/_styles/register/favicon.svg"]');
         $I->seeElement('script[src$="/_assets/register/syntax-highlighting/loader.js"]');
         $I->seeElement('script[src$="/_assets/register/audio-player/loader.js"]');
-        $I->seeElement('a.visual-login[href$="/_admin/index.php"]');
-        $I->see('ℜ', 'a.visual-login');
-        $I->dontSeeElement('a.visual-login svg');
+        $I->dontSeeElement('a.visual-login');
         $this->assertCsp($I);
         $I->dontSeeElement('script:not([src])');
         $I->dontSeeElement('[onclick], [onload], [onsubmit], [onchange]');

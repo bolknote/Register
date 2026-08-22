@@ -36,4 +36,9 @@ final readonly class AuthenticatedPublicUser
     {
         return mb_substr($this->displayName(), 0, 50);
     }
+
+    public function publicLogoutCsrfToken(): string
+    {
+        return hash_hmac('sha256', "public-auth\0logout", $this->sessionHash);
+    }
 }

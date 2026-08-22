@@ -21,6 +21,8 @@ use Register\Core\Comment\SpamDecision;
 use Register\Core\Comment\SpamDecisionProviderInterface;
 use Register\Core\Controller\Comment\CommentStrategyInterface;
 use Register\Core\Controller\Comment\TargetDto;
+use Register\Core\Controller\Comment\PendingEmailComment;
+use Register\Core\Controller\Comment\PendingEmailCommentServiceInterface;
 use Register\Core\Framework\ControllerInterface;
 use Register\Core\Helper\StringHelper;
 use Register\Core\Comment\CommentHtml;
@@ -57,6 +59,7 @@ readonly class CommentController implements ControllerInterface
         private SpamAssessmentRepository       $spamAssessmentRepository,
         private BoolProxy                     $commentsEnabled,
         private BoolProxy                     $premoderationEnabled,
+        private ?PendingEmailCommentServiceInterface $pendingEmailCommentService = null,
     ) {
     }
 
@@ -320,6 +323,46 @@ readonly class CommentController implements ControllerInterface
         $isOnline = $this->authProvider->isOnline($email);
 
         $moderationRequired = $forceModeration || $spamDecision->shouldModerate($this->premoderationEnabled->get());
+
+        if (!$authenticatedUser instanceof AuthenticatedPublicUser
+            && $request->request->getBoolean('email_login')
+        ) {
+            if (!$this->pendingEmailCommentService instanceof PendingEmailCommentServiceInterface) {
+                return new Response(
+                    $this->translator->trans('Email sign-in is unavailable'),
+                    Response::HTTP_SERVICE_UNAVAILABLE,
+                );
+            }
+
+            try {
+                return $this->pendingEmailCommentService->requestVerification(
+                    $request,
+                    new PendingEmailComment(
+                        $this->commentStrategy->getContentType(),
+                        $target->id,
+                        $name,
+                        $email,
+                        $showEmail,
+                        $subscribed,
+                        $text,
+                        (string)$request->getClientIp(),
+                        $parentId,
+                        $path,
+                        $moderationRequired,
+                    ),
+                );
+            } catch (\Throwable $throwable) {
+                $this->logger->error('Unable to issue an email sign-in link for a pending comment.', [
+                    'exception' => $throwable,
+                    'path'      => $path,
+                ]);
+
+                return new Response(
+                    $this->translator->trans('Unable to send sign-in link'),
+                    Response::HTTP_SERVICE_UNAVAILABLE,
+                );
+            }
+        }
 
         // Save the comment
         $commentId = $this->commentStrategy->save(

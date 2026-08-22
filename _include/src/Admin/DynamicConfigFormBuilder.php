@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Core\Admin;
 
 use Register\Ai\AiSettings;
+use Register\Auth\PublicAuthSettings;
 use Register\Module\Analytics\Manifest as AnalyticsManifest;
 use Register\Schema\SchemaManager;
 use Register\AdminYard\Config\DbColumnFieldType;
@@ -23,6 +24,7 @@ use Register\AdminYard\Validator\Length;
 use Register\AdminYard\Validator\Regex;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Model\PermissionChecker;
+use Register\Core\Model\UrlBuilder;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -74,6 +76,12 @@ class DynamicConfigFormBuilder
         AiSettings::MODEL_CONFIG_KEY        => 'string',
         AiSettings::AUTO_ALT_CONFIG_KEY     => 'boolean',
 
+        'Authentication config'                         => 'title',
+        PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY    => 'boolean',
+        PublicAuthSettings::VK_CLIENT_ID_CONFIG_KEY     => 'string',
+        PublicAuthSettings::YANDEX_CLIENT_ID_CONFIG_KEY => 'string',
+        PublicAuthSettings::YANDEX_CLIENT_SECRET_CONFIG_KEY => 'secret',
+
         'Admin config'     => 'title',
         'REGISTER_ADMIN_COLOR'   => 'color',
         'REGISTER_ADMIN_NEW_POS' => 'boolean',
@@ -99,6 +107,7 @@ class DynamicConfigFormBuilder
         private readonly RequestStack            $requestStack,
         private readonly SettingStorageInterface $settingStorage,
         private readonly DynamicConfigProvider   $dynamicConfigProvider,
+        private readonly UrlBuilder              $urlBuilder,
         DynamicConfigFormExtenderInterface       ...$dynamicConfigFormExtenders
     ) {
         $this->dynamicConfigFormExtenders = $dynamicConfigFormExtenders;
@@ -170,6 +179,7 @@ class DynamicConfigFormBuilder
                 'editable'    => $field->inlineEdit,
                 'is_applied'  => $isApplied,
                 'dependency'  => $this->dependency($paramName),
+                'callback_urls' => $this->oauthCallbackUrls($paramName),
             ];
 
             if ($field->inlineEdit) {
@@ -379,6 +389,25 @@ class DynamicConfigFormBuilder
         $slug = strtolower(trim((string)preg_replace('/[^a-zA-Z0-9]+/', '-', $title), '-'));
 
         return 'settings-' . ($slug !== '' ? $slug : substr(md5($title), 0, 10));
+    }
+
+    /** @return list<string> */
+    private function oauthCallbackUrls(string $paramName): array
+    {
+        $providers = match ($paramName) {
+            PublicAuthSettings::VK_CLIENT_ID_CONFIG_KEY => ['vk', 'mail_ru', 'ok_ru'],
+            PublicAuthSettings::YANDEX_CLIENT_ID_CONFIG_KEY => ['yandex'],
+            default => [],
+        };
+
+        return array_map(
+            fn(string $provider): string => html_entity_decode(
+                $this->urlBuilder->absLink('/auth/oauth/' . $provider . '/callback'),
+                ENT_QUOTES | ENT_HTML5,
+                'UTF-8',
+            ),
+            $providers,
+        );
     }
 
     private function appliedValue(string $paramName): ?string

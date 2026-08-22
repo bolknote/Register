@@ -105,6 +105,19 @@ final class ShutdownWorkCoordinatorTest extends Unit
         $pdo->rollBack();
     }
 
+    public function testExplicitlySuppressesAttachedBackgroundWork(): void
+    {
+        [$coordinator, $runtime, $runner] = $this->coordinator();
+        $coordinator->register();
+        $coordinator->suppressBackgroundWork();
+        $coordinator->finishResponse();
+
+        $runtime->invokeShutdown();
+
+        self::assertSame([], $runner->calls);
+        self::assertSame(1, $runtime->finishCalls);
+    }
+
     /** @return array{ShutdownWorkCoordinator, FakeShutdownRuntime, FakeBackgroundWorkRunner} */
     private function coordinator(?\PDO $pdo = null): array
     {

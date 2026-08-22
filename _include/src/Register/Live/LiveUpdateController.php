@@ -15,6 +15,7 @@ use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Module\Blog\Model\SiteHeaderRenderer;
+use Register\Auth\PublicAuthRenderer;
 use Register\Core\Framework\ControllerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,6 +35,7 @@ final readonly class LiveUpdateController implements ControllerInterface
         private ContentRepository      $contentRepository,
         private LiveFragmentRenderer   $fragmentRenderer,
         private SiteHeaderRenderer     $siteHeaderRenderer,
+        private PublicAuthRenderer     $publicAuthRenderer,
     ) {
     }
 
@@ -120,13 +122,14 @@ final readonly class LiveUpdateController implements ControllerInterface
     {
         return preg_match('/^posts:(0|[1-9][0-9]{0,6})$/D', $region) === 1
             || preg_match('/^comments:(page|post):[1-9][0-9]*$/D', $region) === 1
-            || $region === 'site-tools';
+            || $region === 'site-tools'
+            || $region === 'site-account';
     }
 
     /** @param list<LiveUpdate> $updates */
     private function regionChanged(string $region, array $updates): bool
     {
-        if ($region === 'site-tools') {
+        if ($region === 'site-tools' || $region === 'site-account') {
             foreach ($updates as $update) {
                 if ($update->topic === LiveUpdateRepository::TOPIC_COMMENTS) {
                     return true;
@@ -160,6 +163,10 @@ final readonly class LiveUpdateController implements ControllerInterface
     {
         if ($region === 'site-tools') {
             return $this->siteHeaderRenderer->renderTools($request, true);
+        }
+
+        if ($region === 'site-account') {
+            return $this->publicAuthRenderer->renderAccount($request, true);
         }
 
         if (preg_match('/^posts:([0-9]+)$/D', $region, $matches) === 1) {

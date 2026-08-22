@@ -58,6 +58,7 @@ $sourceLabel     = $presentation_source_label ?? '';
          data-comment-depth="<?php echo $depth; ?>"
          data-moderation-state="<?php echo register_htmlencode($moderationState); ?>"
          role="listitem"<?php endif; ?>>
+    <?php if (!$isPreview): ?><span class="comment-stable-anchor" id="comment-<?php echo $id; ?>" aria-hidden="true"></span><?php endif; ?>
     <?php if ($isDeleted): ?>
         <div class="comment-tombstone">
             <span><?php echo $trans('Comment deleted'); ?></span>

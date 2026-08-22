@@ -389,9 +389,17 @@ class AdminCest
         $I->see('AI assistant', '.config-section');
         $I->seeElement('nav.config-section-nav[aria-label="Settings sections"]');
         $I->seeElement('[data-config-page-state][data-state="applied"]');
-        $I->assertCount(32, $I->grabMultiple('.config-setting label[for]'));
+        $I->assertCount(36, $I->grabMultiple('.config-setting label[for]'));
         $I->seeElement('[data-config-key="REGISTER_SITE_NAME"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_SITE_TAGLINE"] input[name="value"]');
+        $I->seeElement('[data-config-key="REGISTER_AUTH_EMAIL_ENABLED"] input[type="checkbox"]');
+        $I->seeElement('[data-config-key="REGISTER_AUTH_VK_CLIENT_ID"] input[name="value"]');
+        $I->seeElement('[data-config-key="REGISTER_AUTH_YANDEX_CLIENT_ID"] input[name="value"]');
+        $I->seeElement('[data-config-key="REGISTER_AUTH_YANDEX_CLIENT_SECRET"] input[type="password"]');
+        $I->assertCount(3, $I->grabMultiple('[data-config-key="REGISTER_AUTH_VK_CLIENT_ID"] .oauth-callback-row'));
+        $I->see('http://register.localhost/auth/oauth/vk/callback', '[data-config-key="REGISTER_AUTH_VK_CLIENT_ID"] code');
+        $I->assertCount(1, $I->grabMultiple('[data-config-key="REGISTER_AUTH_YANDEX_CLIENT_ID"] .oauth-callback-row'));
+        $I->see('http://register.localhost/auth/oauth/yandex/callback', '[data-config-key="REGISTER_AUTH_YANDEX_CLIENT_ID"] code');
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] select[name="value"]');
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] option[value="openrouter"]');
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] option[value="mistral"]');

@@ -5,6 +5,57 @@
     gap: 0.45rem;
 }
 
+.oauth-callback-list {
+    display: grid;
+    gap: 0.45rem;
+    margin-top: 0.8rem;
+}
+
+.oauth-callback-list > strong {
+    color: var(--admin-text-color);
+    font-size: 0.76rem;
+}
+
+.oauth-callback-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.oauth-callback-row code {
+    min-width: 0;
+    padding: 0.5rem 0.6rem;
+    overflow-x: auto;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.35rem;
+    background: var(--admin-field-background);
+    color: var(--admin-text-color);
+    font-size: 0.72rem;
+    line-height: 1.35;
+    white-space: nowrap;
+    scrollbar-width: thin;
+}
+
+.oauth-callback-row button {
+    min-height: 2rem;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid var(--admin-border-color);
+    border-radius: 0.35rem;
+    background: var(--admin-surface-background);
+    color: var(--admin-text-color);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.oauth-callback-row button:hover,
+.oauth-callback-row button:focus-visible {
+    border-color: var(--admin-accent-color);
+    color: var(--admin-accent-color);
+}
+
 .ai-provider-inline-form > .form-control-select {
     min-width: 0;
 }

@@ -38,6 +38,13 @@ final class CommentRepositoryCest
         $dbLayer = $I->grabService(DbLayer::class);
         /** @var CommentRepository $repository */
         $repository = $I->grabService(CommentRepository::class);
+        $userId = (int)$dbLayer
+            ->select('id')
+            ->from('users')
+            ->where("login = 'admin'")
+            ->execute()
+            ->result()
+        ;
 
         $page = ContentId::page(1);
         $post = ContentId::post(1);
@@ -51,7 +58,7 @@ final class CommentRepositoryCest
             'Page comment',
             '127.0.0.1',
             null,
-            100,
+            $userId,
         );
         $repository->publish($pageCommentId, ContentType::PAGE);
         $replyId = $repository->save(
@@ -63,7 +70,7 @@ final class CommentRepositoryCest
             'Reply',
             '127.0.0.2',
             $pageCommentId,
-            101,
+            $userId,
         );
         $postCommentId = $repository->save(
             $post,
@@ -74,7 +81,7 @@ final class CommentRepositoryCest
             'Post comment',
             '127.0.0.3',
             null,
-            102,
+            $userId,
         );
 
         $I->assertNotSame($pageCommentId, $postCommentId);

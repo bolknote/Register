@@ -28,6 +28,13 @@ $reply_number = isset($reply_number) && $reply_number > 0 ? $reply_number : 0;
 $reply_name   ??= '';
 $authenticatedUser ??= null;
 
+$commentReturnPath = parse_url(html_entity_decode($action), PHP_URL_PATH);
+if (!\is_string($commentReturnPath) || $commentReturnPath === '') {
+    $commentReturnPath = '/';
+}
+$authLoginUrl = $makeLink('/auth') . '?return=' . rawurlencode($commentReturnPath . '#add-comment');
+$authLogoutUrl = $makeLink('/auth/logout');
+
 if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) {
     $name  = $authenticatedUser->commentName();
     $email = $authenticatedUser->email;
@@ -42,6 +49,19 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
         </span>
         <button class="comment-reply-cancel" type="button"><?php echo $trans('Cancel reply'); ?></button>
     </div>
+    <div class="comment-public-auth">
+    <?php if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser): ?>
+        <span class="comment-public-auth-copy"><?php echo $trans('Commenting as'); ?> <strong><?php echo register_htmlencode($authenticatedUser->displayName()); ?></strong></span>
+        <form class="comment-public-auth-logout public-auth-logout-form" method="post" action="<?php echo register_htmlencode($authLogoutUrl); ?>" data-public-auth-form="logout">
+            <input type="hidden" name="csrf_token" value="<?php echo register_htmlencode($authenticatedUser->publicLogoutCsrfToken()); ?>">
+            <input type="hidden" name="return_path" value="<?php echo register_htmlencode($commentReturnPath . '#add-comment'); ?>">
+            <button type="submit"><?php echo $trans('Sign out'); ?></button>
+        </form>
+    <?php else: ?>
+        <span class="comment-public-auth-copy"><?php echo $trans('Comment as guest or sign in to keep track of replies.'); ?></span>
+        <a class="public-auth-open comment-public-auth-login" href="<?php echo register_htmlencode($authLoginUrl); ?>" data-public-auth-open><?php echo $trans('Sign in'); ?></a>
+    <?php endif; ?>
+    </div>
     <form method="post" name="post_comment" id="comment-form" action="<?php echo register_htmlencode($action); ?>">
         <div class="input text comment-text-input">
             <label id="comment-text-label" for="comment-text"><?php echo $trans('Your comment'); ?></label>
@@ -53,9 +73,7 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
             ?>
         </div>
         <?php if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser): ?>
-        <div class="comment-authenticated-identity">
-            <span><?php echo $trans('Commenting as'); ?></span>
-            <strong><?php echo register_htmlencode($name); ?></strong>
+        <div class="comment-authenticated-identity" hidden>
             <input type="hidden" name="name" value="<?php echo register_htmlencode($name); ?>">
             <input type="hidden" name="email" value="<?php echo register_htmlencode($email); ?>">
         </div>
@@ -93,6 +111,9 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
         <input type="hidden" name="reply_name" value="<?php echo register_htmlencode($reply_name); ?>" />
         <p class="input buttons">
             <input class="comment-submit" type="submit" name="submit" value="<?php echo $trans('Submit'); ?>" />
+            <?php if (!$authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser): ?>
+            <button class="comment-email-submit" type="submit" name="email_login" value="1"><?php echo $trans('Sign in by email and publish'); ?></button>
+            <?php endif; ?>
         </p>
     </form>
     <a class="comment-form-origin" href="<?php echo register_htmlencode($cancelReplyUrl); ?>" hidden></a>

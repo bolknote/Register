@@ -49,6 +49,11 @@ final class LiveUpdateContext implements StatefulServiceInterface
         return $this->subscribe('site-tools');
     }
 
+    public function subscribeSiteAccount(): string
+    {
+        return $this->subscribe('site-account');
+    }
+
     public function cursor(): ?int
     {
         return $this->regions === [] ? null : $this->cursor;

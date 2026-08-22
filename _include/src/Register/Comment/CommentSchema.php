@@ -25,6 +25,7 @@ final class CommentSchema
                 ->addString('content_type', 8)
                 ->addInteger('content_id', true)
                 ->addInteger('parent_id', true, true, null)
+                ->addInteger('user_id', true, true, null)
             ;
             UserpicSchema::addCommentReferenceToDefinition($table);
             $table
@@ -47,10 +48,18 @@ final class CommentSchema
                     ['id'],
                     'SET NULL',
                 )
+                ->addForeignKey(
+                    'fk_user',
+                    ['user_id'],
+                    'users',
+                    ['id'],
+                    'SET NULL',
+                )
                 ->addIndex('content_sort_idx', ['content_type', 'content_id', 'time', 'shown'])
                 ->addIndex('thread_idx', ['content_type', 'content_id', 'parent_id', 'shown'])
                 ->addIndex('moderation_idx', ['shown', 'sent', 'content_type'])
                 ->addIndex('time_idx', ['time'])
+                ->addIndex('user_content_idx', ['user_id', 'content_type', 'content_id', 'shown'])
             ;
         });
     }

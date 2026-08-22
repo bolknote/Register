@@ -10,6 +10,17 @@ declare(strict_types = 1);
 namespace Register;
 
 use Register\Author\AuthorProfileRepository;
+use Register\Auth\CommentNotificationRepository;
+use Register\Auth\PublicAuthRepository;
+use Register\Auth\MagicLinkService;
+use Register\Auth\MagicLinkRateLimiter;
+use Register\Auth\PublicAuthMailer;
+use Register\Auth\PublicAuthSettings;
+use Register\Auth\PublicAuthController;
+use Register\Auth\PublicAuthFormToken;
+use Register\Auth\PublicAuthRenderer;
+use Register\Auth\PublicOAuthClient;
+use Register\Auth\PublicSessionManager;
 use Register\Ai\AiClient;
 use Register\Ai\AiSettings;
 use Register\Comment\ContentCommentRenderer;
@@ -49,6 +60,7 @@ use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Offline\OfflineCachePolicy;
 use Register\Schema\ContentMediaSchemaMigration;
+use Register\Schema\PublicAuthSchemaMigration;
 use Register\Schema\SchemaManager;
 use Register\Schema\SchemaMigrationInterface;
 use Register\Schema\SchemaMigrator;
@@ -69,6 +81,7 @@ use Register\Core\Framework\RoutingModuleInterface;
 use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\Controller\Comment\CommentStrategyInterface;
+use Register\Core\Controller\Comment\PendingEmailCommentServiceInterface;
 use Register\Core\Mail\CommentMailer;
 use Register\Core\Model\ArticleProvider;
 use Register\Core\Model\AuthProvider;
@@ -78,6 +91,7 @@ use Register\Core\Queue\QueueHandlerInterface;
 use Register\Core\Queue\QueuePublisher;
 use Register\Core\Security\Audit\SecurityAuditLogger;
 use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\Viewer;
 use Register\Core\Template\TemplateAssetEvent;
 use Register\Core\Template\TemplateEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -103,6 +117,24 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(BaseModuleRegistry::class, $this->baseModuleRegistry);
         $container->set(AiSettings::class, static fn(Container $container): AiSettings => new AiSettings(
             $container->get(DynamicConfigProvider::class),
+        ));
+        $container->set(PublicAuthSettings::class, static fn(Container $container): PublicAuthSettings => new PublicAuthSettings(
+            $container->get(DynamicConfigProvider::class),
+        ));
+        $container->set(PublicAuthFormToken::class, static function (Container $container): PublicAuthFormToken {
+            $provider = $container->get(DynamicConfigProvider::class);
+
+            return new PublicAuthFormToken($provider->getStringProxy('REGISTER_ANTISPAM_SECRET'));
+        });
+        $container->set(PublicSessionManager::class, static fn(Container $container): PublicSessionManager => new PublicSessionManager(
+            $container->get(DbLayer::class),
+            $container->get(\Register\Core\Model\LoginRateLimiter::class),
+            $container->get(SecurityAuditLogger::class),
+            $container->get('translator'),
+            $container->getStringParameter('base_path'),
+            $container->getStringParameter('base_url'),
+            $container->getStringParameter('cookie_name'),
+            $container->getBoolParameter('force_admin_https'),
         ));
         $container->set('ai_token_cache', static fn(Container $container): FilesystemAdapter => new FilesystemAdapter(
             'ai_tokens',
@@ -226,6 +258,43 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $container->get(LiveUpdateRepository::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
         ));
+        $container->set(PublicAuthRepository::class, static fn(Container $container): PublicAuthRepository => new PublicAuthRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(CommentNotificationRepository::class, static fn(Container $container): CommentNotificationRepository => new CommentNotificationRepository(
+            $container->get(DbLayer::class),
+            $container->get(PublicAuthRepository::class),
+        ));
+        $container->set(PublicOAuthClient::class, static fn(Container $container): PublicOAuthClient => new PublicOAuthClient(
+            $container->get(HttpClient::class),
+            $container->get(PublicAuthSettings::class),
+            $container->get(PublicAuthRepository::class),
+            $container->get(UrlBuilder::class),
+        ));
+        $container->set(PublicAuthRenderer::class, static fn(Container $container): PublicAuthRenderer => new PublicAuthRenderer(
+            $container->get(Viewer::class),
+            $container->get(UrlBuilder::class),
+            $container->get(AuthProvider::class),
+            $container->get(PublicAuthSettings::class),
+            $container->get(PublicAuthFormToken::class),
+            $container->get(CommentNotificationRepository::class),
+            $container->get(LiveUpdateContext::class),
+        ));
+        $container->set(PublicAuthMailer::class, static function (Container $container): PublicAuthMailer {
+            $provider = $container->get(DynamicConfigProvider::class);
+
+            return new PublicAuthMailer(
+                $container->get('translator'),
+                $provider->getStringProxy('REGISTER_SITE_NAME'),
+                $provider->getStringProxy('REGISTER_WEBMASTER'),
+                $provider->getStringProxy('REGISTER_WEBMASTER_EMAIL'),
+            );
+        });
+        $container->set(MagicLinkRateLimiter::class, static fn(Container $container): MagicLinkRateLimiter => new MagicLinkRateLimiter(
+            $container->get(DbLayer::class),
+            $container->get(\Register\Core\Comment\Antispam\SpamIdentityHasher::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+        ));
         $container->set(CommentImportService::class, static fn(Container $container): CommentImportService => new CommentImportService(
             $container->get(CommentRepository::class),
         ));
@@ -233,6 +302,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $container->get(DbLayer::class),
             $container->get(\Register\Core\Model\Comment\CommentThreadRenderer::class),
             $container->get(\Register\Core\Model\AuthProvider::class),
+            $container->get(CommentNotificationRepository::class),
             ...$container->getByTag(CommentPresentationEnricherInterface::class),
         ));
         $container->set(LiveFragmentRenderer::class, static fn(Container $container): LiveFragmentRenderer => new LiveFragmentRenderer(
@@ -245,6 +315,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $container->get(ContentRepository::class),
             $container->get(LiveFragmentRenderer::class),
             $container->get(SiteHeaderRenderer::class),
+            $container->get(PublicAuthRenderer::class),
         ));
         $container->set(ContentCommentTargetResolver::class, static fn(Container $container): ContentCommentTargetResolver => new ContentCommentTargetResolver(
             $container->get(DbLayer::class),
@@ -269,6 +340,34 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $container->get(ContentCommentTargetResolver::class),
             $container->get(ContentCommentNotifier::class),
         ), [CommentStrategyInterface::class]);
+        $container->set(MagicLinkService::class, static fn(Container $container): MagicLinkService => new MagicLinkService(
+            $container->get(PublicAuthSettings::class),
+            $container->get(PublicAuthRepository::class),
+            $container->get(PublicAuthMailer::class),
+            $container->get(UrlBuilder::class),
+            $container->get(MagicLinkRateLimiter::class),
+            $container->get('translator'),
+            ...$container->getByTag(CommentStrategyInterface::class),
+        ), [PendingEmailCommentServiceInterface::class]);
+        $container->set(
+            PendingEmailCommentServiceInterface::class,
+            static fn(Container $container): PendingEmailCommentServiceInterface => $container->get(MagicLinkService::class),
+        );
+        $container->set(PublicAuthController::class, static fn(Container $container): PublicAuthController => new PublicAuthController(
+            $container->get(AuthProvider::class),
+            $container->get(PublicSessionManager::class),
+            $container->get(PublicAuthRepository::class),
+            $container->get(PublicOAuthClient::class),
+            $container->get(MagicLinkService::class),
+            $container->get(PublicAuthRenderer::class),
+            $container->get(PublicAuthFormToken::class),
+            $container->get(CommentNotificationRepository::class),
+            $container->get(ContentUrlGenerator::class),
+            $container->get(HtmlTemplateProvider::class),
+            $container->get(UrlBuilder::class),
+            $container->get('translator'),
+            $container->get(\Psr\Log\LoggerInterface::class),
+        ));
         $container->set(
             BaseModuleInstaller::class,
             fn(Container $container): BaseModuleInstaller => new BaseModuleInstaller(
@@ -278,6 +377,11 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(
             ContentMediaSchemaMigration::class,
             new ContentMediaSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            PublicAuthSchemaMigration::class,
+            new PublicAuthSchemaMigration(),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(
@@ -335,6 +439,8 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
                 ->addJs($versionedAsset('/_assets/register/offline.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($versionedAsset('/_assets/register/live-updates.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($versionedAsset('/_assets/register/partial-navigation.js'), [AssetPack::OPTION_DEFER])
+                ->addCss($versionedAsset('/_assets/register/public-auth.css'))
+                ->addJs($versionedAsset('/_assets/register/public-auth.js'), [AssetPack::OPTION_DEFER])
             ;
         });
 
@@ -377,6 +483,54 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
     #[\Override]
     public function registerRoutes(RouteCollection $routes): void
     {
+        // Public service endpoints must win over the blog's catch-all content/comment routes.
+        $authPriority = 2;
+
+        $routes->add('register_public_auth', new Route(
+            '/auth',
+            ['_controller' => PublicAuthController::class, 'auth_action' => 'page'],
+            methods: ['GET'],
+        ), $authPriority);
+        $routes->add('register_public_auth_password', new Route(
+            '/auth/password',
+            ['_controller' => PublicAuthController::class, 'auth_action' => 'password'],
+            methods: ['POST'],
+        ), $authPriority);
+        $routes->add('register_public_auth_logout', new Route(
+            '/auth/logout',
+            ['_controller' => PublicAuthController::class, 'auth_action' => 'logout'],
+            methods: ['POST'],
+        ), $authPriority);
+        $routes->add('register_public_auth_email', new Route(
+            '/auth/email',
+            ['_controller' => PublicAuthController::class, 'auth_action' => 'email'],
+            methods: ['POST'],
+        ), $authPriority);
+        $routes->add('register_public_auth_email_callback', new Route(
+            '/auth/email/callback',
+            ['_controller' => PublicAuthController::class, 'auth_action' => 'email_callback'],
+            methods: ['GET'],
+        ), $authPriority);
+        $routes->add('register_public_auth_check_email', new Route(
+            '/auth/check-email',
+            ['_controller' => PublicAuthController::class, 'auth_action' => 'check_email'],
+            methods: ['GET'],
+        ), $authPriority);
+        $routes->add('register_public_auth_oauth_start', new Route(
+            '/auth/oauth/{provider<vk|mail_ru|ok_ru|yandex>}',
+            ['_controller' => PublicAuthController::class, 'auth_action' => 'oauth_start'],
+            methods: ['GET'],
+        ), $authPriority);
+        $routes->add('register_public_auth_oauth_callback', new Route(
+            '/auth/oauth/{provider<vk|mail_ru|ok_ru|yandex>}/callback',
+            ['_controller' => PublicAuthController::class, 'auth_action' => 'oauth_callback'],
+            methods: ['GET'],
+        ), $authPriority);
+        $routes->add('register_public_auth_unread', new Route(
+            '/auth/unread',
+            ['_controller' => PublicAuthController::class, 'auth_action' => 'unread'],
+            methods: ['GET'],
+        ), $authPriority);
         $routes->add('register_live_updates', new Route(
             '/_live',
             ['_controller' => LiveUpdateController::class],

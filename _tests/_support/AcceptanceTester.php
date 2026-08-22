@@ -82,8 +82,8 @@ class AcceptanceTester extends Actor
         $I = $this;
 
         $name = 'Roman 🌞';
-        $I->fillField('name', $name);
-        $I->fillField('email', 'roman@example.com');
+        $I->fillField('#comment-name', $name);
+        $I->fillField('#comment-email', 'roman@example.com');
         $I->checkOption('subscribed');
         $I->fillField('#comment-form textarea[name=text]', $text);
         $I->click('submit');
@@ -101,8 +101,14 @@ class AcceptanceTester extends Actor
     {
         $I = $this;
 
-        $I->fillField('name', $name);
-        $I->fillField('email', $email);
+        // Authenticated readers comment under their account identity, so the public
+        // form intentionally contains no editable name or email fields for them.
+        if ($I->grabMultiple('#comment-name') !== []) {
+            $I->fillField('#comment-name', $name);
+        }
+        if ($I->grabMultiple('#comment-email') !== []) {
+            $I->fillField('#comment-email', $email);
+        }
         $I->fillField('#comment-form textarea[name=text]', $text);
         $I->click('submit');
     }

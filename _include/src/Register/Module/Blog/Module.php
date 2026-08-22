@@ -160,6 +160,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(AuthProvider::class),
                 $container->get(\Register\Comment\CommentRepository::class),
                 $container->get(LiveUpdateContext::class),
+                $container->get(\Register\Auth\PublicAuthRenderer::class),
             );
         });
         $container->set(PostInplaceTokenManager::class, static fn(Container $container): PostInplaceTokenManager => new PostInplaceTokenManager(
@@ -450,6 +451,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(SpamAssessmentRepository::class),
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $provider->getBoolProxy('REGISTER_PREMODERATION'),
+                $container->get(\Register\Core\Controller\Comment\PendingEmailCommentServiceInterface::class),
             );
         }, ['dynamic_config_dependent']);
         $container->set(FlatCommentController::class, static fn(Container $container): \Register\Module\Blog\Controller\FlatCommentController => new FlatCommentController(

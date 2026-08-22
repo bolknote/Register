@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Schema;
 
 use Register\Ai\AiSettings;
+use Register\Auth\PublicAuthSettings;
 use Register\Module\BaseModuleInstaller;
 use Register\Core\Framework\Container;
 use Register\Core\Model\ExtensionCache;
@@ -24,7 +25,7 @@ final readonly class SchemaManager
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_GENERATION';
 
-    public const int CURRENT_GENERATION = 16;
+    public const int CURRENT_GENERATION = 17;
 
     /** Oldest installed generation accepted by the release updater. */
     public const int MINIMUM_UPGRADE_GENERATION = 15;
@@ -38,6 +39,10 @@ final readonly class SchemaManager
         AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
         AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
         AiSettings::AUTO_ALT_CONFIG_KEY => '1',
+        PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY => '1',
+        PublicAuthSettings::VK_CLIENT_ID_CONFIG_KEY => '',
+        PublicAuthSettings::YANDEX_CLIENT_ID_CONFIG_KEY => '',
+        PublicAuthSettings::YANDEX_CLIENT_SECRET_CONFIG_KEY => '',
     ];
 
     public function __construct(

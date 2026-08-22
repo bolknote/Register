@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Ai\AiSettings;
+use Register\Auth\PublicAuthSchema;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentMediaSchema;
@@ -119,6 +120,14 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'userpic_id'));
         $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'userpic_idx'));
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'deleted'));
+        $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'user_id'));
+        $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'user_content_idx'));
+        $I->assertTrue($dbLayer->foreignKeyExists(CommentSchema::TABLE_NAME, 'fk_user'));
+        $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::IDENTITIES_TABLE));
+        $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::FLOWS_TABLE));
+        $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::MAGIC_LINKS_TABLE));
+        $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::NOTIFICATION_USERS_TABLE));
+        $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::NOTIFICATION_READS_TABLE));
         foreach (self::OBSOLETE_PRODUCT_TABLES as $obsoleteTable) {
             $I->assertFalse(
                 $dbLayer->tableExists($obsoleteTable),
@@ -173,6 +182,25 @@ final class ModuleManagerCest
         $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
         $I->assertTrue($dbLayer->tableExists(ContentMediaSchema::FILE_TABLE));
         $I->assertTrue($dbLayer->tableExists(ContentMediaSchema::USAGE_TABLE));
+        $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::IDENTITIES_TABLE));
+    }
+
+    public function generationSixteenGetsThePublicIdentityUpgrade(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var SchemaManager $schemaManager */
+        $schemaManager = $I->grabAdminService(SchemaManager::class);
+
+        PublicAuthSchema::drop($dbLayer);
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, '16');
+
+        $I->assertTrue($schemaManager->ensureCurrent());
+        $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
+        $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'user_id'));
+        $I->assertTrue($dbLayer->foreignKeyExists(CommentSchema::TABLE_NAME, 'fk_user'));
+        $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::IDENTITIES_TABLE));
+        $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::NOTIFICATION_READS_TABLE));
     }
 
     public function releaseMigrationPreservesExistingSettings(\IntegrationTester $I): void

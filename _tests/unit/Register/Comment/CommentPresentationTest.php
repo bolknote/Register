@@ -123,6 +123,7 @@ final class CommentPresentationTest extends Unit
             content_type TEXT NOT NULL,
             content_id INTEGER NOT NULL,
             parent_id INTEGER,
+            user_id INTEGER,
             userpic_id INTEGER,
             time INTEGER NOT NULL,
             modify_time INTEGER NOT NULL,

@@ -35,6 +35,16 @@ final readonly class SecurityAuditLogger
 
     public const string AUTH_RECOVERY_CODE = 'recovery_code';
 
+    public const string AUTH_EMAIL_MAGIC = 'email_magic';
+
+    public const string AUTH_VK = 'vk';
+
+    public const string AUTH_YANDEX = 'yandex';
+
+    public const string AUTH_MAIL_RU = 'mail_ru';
+
+    public const string AUTH_OK_RU = 'ok_ru';
+
     private const array OUTCOMES = [
         self::OUTCOME_SUCCESS,
         self::OUTCOME_FAILURE,
@@ -46,6 +56,11 @@ final readonly class SecurityAuditLogger
         self::AUTH_PASSWORD,
         self::AUTH_PASSKEY,
         self::AUTH_RECOVERY_CODE,
+        self::AUTH_EMAIL_MAGIC,
+        self::AUTH_VK,
+        self::AUTH_YANDEX,
+        self::AUTH_MAIL_RU,
+        self::AUTH_OK_RU,
     ];
 
     private const array USER_ACTIONS = ['create', 'update'];

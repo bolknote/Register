@@ -102,6 +102,22 @@ foreach ($rows as $row) {
                                     <h3><?= $escape($name) ?></h3>
                                 <?php endif; ?>
                                 <p id="<?= $escape((string)($config['help_id'] ?? '')) ?>"><?= $escape($help) ?></p>
+                                <?php if (($config['callback_urls'] ?? []) !== []): ?>
+                                    <div class="oauth-callback-list" aria-label="<?= $escape($trans('OAuth callback addresses')) ?>">
+                                        <strong><?= $escape($trans('Redirect URI to copy')) ?></strong>
+                                        <?php foreach ($config['callback_urls'] as $callbackUrl): ?>
+                                            <div class="oauth-callback-row">
+                                                <code><?= $escape((string)$callbackUrl) ?></code>
+                                                <button
+                                                    type="button"
+                                                    data-copy-oauth-callback
+                                                    data-copy-label="<?= $escape($trans('Copy')) ?>"
+                                                    data-copied-label="<?= $escape($trans('Copied')) ?>"
+                                                    aria-label="<?= $escape($trans('Copy callback URL')) ?>"><?= $escape($trans('Copy')) ?></button>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                             <div class="config-setting-control">
                                 <?= $editable

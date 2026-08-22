@@ -398,6 +398,7 @@
                 headers: {
                     'Accept': contentType,
                     [requestHeader]: 'partial',
+                    ...(options.foregroundOnly ? {'X-Register-Foreground-Only': '1'} : {}),
                 },
                 cache: 'no-store',
                 redirect: 'follow',
@@ -545,6 +546,6 @@
     cacheCurrentPage();
 
     window.RegisterNavigation = Object.freeze({
-        navigate: (url) => navigate(new URL(url, document.baseURI)),
+        navigate: (url, options = {}) => navigate(new URL(url, document.baseURI), options),
     });
 })();

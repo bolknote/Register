@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace Register\Core\Model;
 
 use Register\Ai\AiSettings;
+use Register\Auth\PublicAuthSchema;
+use Register\Auth\PublicAuthSettings;
 use Register\Core\AdminYard\UserSettingStorage;
 use Register\Core\Comment\Antispam\AntispamSchema;
 use Register\Comment\CommentSchema;
@@ -86,6 +88,7 @@ readonly class Installer
         UserpicSchema::create($this->dbLayer);
 
         CommentSchema::create($this->dbLayer);
+        PublicAuthSchema::create($this->dbLayer);
         LiveUpdateSchema::create($this->dbLayer);
 
         $this->dbLayer->createTable('tags', function (SchemaBuilderInterface $table): void {
@@ -171,6 +174,7 @@ readonly class Installer
         ContentTagSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('tags');
         LiveUpdateSchema::drop($this->dbLayer);
+        PublicAuthSchema::drop($this->dbLayer);
         CommentSchema::drop($this->dbLayer);
         ContentUrlAliasSchema::drop($this->dbLayer);
         ContentMediaSchema::drop($this->dbLayer);
@@ -228,6 +232,10 @@ readonly class Installer
             AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
             AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
             AiSettings::AUTO_ALT_CONFIG_KEY => '1',
+            PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY => '1',
+            PublicAuthSettings::VK_CLIENT_ID_CONFIG_KEY => '',
+            PublicAuthSettings::YANDEX_CLIENT_ID_CONFIG_KEY => '',
+            PublicAuthSettings::YANDEX_CLIENT_SECRET_CONFIG_KEY => '',
             SchemaManager::CONFIG_KEY => '0',
         ];
 

@@ -57,6 +57,27 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     page.addEventListener('register:config-state', updatePageState);
     page.addEventListener('register:config-saved', updateDependencies);
+    page.addEventListener('click', async function (event) {
+        const button = event.target instanceof Element
+            ? event.target.closest('[data-copy-oauth-callback]')
+            : null;
+        if (!(button instanceof HTMLButtonElement)) {
+            return;
+        }
+        const value = button.closest('.oauth-callback-row')?.querySelector('code')?.textContent || '';
+        if (!value || !navigator.clipboard) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(value);
+            button.textContent = button.dataset.copiedLabel || button.textContent;
+            window.setTimeout(function () {
+                button.textContent = button.dataset.copyLabel || button.textContent;
+            }, 1600);
+        } catch (_) {
+            // The full address remains visible and can still be selected manually.
+        }
+    });
 
     updateDependencies();
     updatePageState();

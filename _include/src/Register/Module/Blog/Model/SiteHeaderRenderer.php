@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Model;
 
 use Register\Comment\CommentRepository;
+use Register\Auth\PublicAuthRenderer;
 use Register\Live\LiveUpdateContext;
 use Register\Module\Blog\Inplace\PostInplaceControls;
 use Register\Module\Blog\Module as BlogModule;
@@ -34,6 +35,7 @@ final readonly class SiteHeaderRenderer
         private AuthProvider        $authProvider,
         private CommentRepository   $commentRepository,
         private LiveUpdateContext   $liveUpdateContext,
+        private PublicAuthRenderer  $publicAuthRenderer,
     ) {
     }
 
@@ -45,6 +47,7 @@ final readonly class SiteHeaderRenderer
             'home_url'         => $this->urlBuilder->link('/'),
             'is_home'          => $request->getPathInfo() === '/',
             'site_tools_html'  => $this->renderTools($request),
+            'public_auth_html' => $this->publicAuthRenderer->renderHeader($request),
             'create_post_html' => $this->postFeedRenderer->renderCreateTemplate($request),
         ], BlogModule::class);
     }

@@ -185,6 +185,7 @@ class CmsExtension implements ExtensionInterface
                 'REGISTER_AKISMET_KEY',
                 'REGISTER_ANTISPAM_SECRET',
                 AiSettings::API_KEY_CONFIG_KEY,
+                \Register\Auth\PublicAuthSettings::YANDEX_CLIENT_SECRET_CONFIG_KEY,
                 VisitorIdentityManifest::SECRET_CONFIG_KEY,
         ]));
         $container->set(DynamicSecretStore::class, fn(Container $container): \Register\Core\Config\DynamicSecretStore => new DynamicSecretStore(
@@ -668,6 +669,7 @@ class CmsExtension implements ExtensionInterface
                 $container->get(SpamAssessmentRepository::class),
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $provider->getBoolProxy('REGISTER_PREMODERATION'),
+                $container->get(\Register\Core\Controller\Comment\PendingEmailCommentServiceInterface::class),
             );
         }, ['dynamic_config_dependent']);
 

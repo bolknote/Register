@@ -95,8 +95,8 @@ class CommentCest
         $I->amOnPage('https://localhost/thread-test');
         $I->seeElement('#comment-form [data-comment-editor]');
         $I->seeElement('#comment-form .comment-editor-toolbar');
-        $I->see('Commenting as', '#comment-form');
-        $I->see('admin', '#comment-form .comment-authenticated-identity');
+        $I->see('Commenting as', '.comment-public-auth');
+        $I->see('admin', '.comment-public-auth');
         $I->dontSeeElement('#comment-form [data-comment-guest-identity]');
         $I->dontSeeElement('#comment-form .comment-options');
         $I->dontSeeElement('#comment-form .comment-preview');

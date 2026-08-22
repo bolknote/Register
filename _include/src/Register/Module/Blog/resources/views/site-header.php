@@ -9,12 +9,14 @@ declare(strict_types = 1);
 /** @var bool $is_home */
 /** @var string $site_tools_html */
 /** @var string|null $create_post_html */
+/** @var string $public_auth_html */
 
 $canCreatePost = \is_string($create_post_html ?? null) && $create_post_html !== '';
 $titleTag      = $is_home ? 'h1' : 'div';
 ?>
 <div class="site-header-shell">
 <?php echo $site_tools_html; ?>
+<?php echo $public_auth_html; ?>
 
     <div class="site-header-copy">
         <<?php echo $titleTag; ?> class="site-title">
