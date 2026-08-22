@@ -70,6 +70,7 @@ class RegexExtractor implements ExtractorInterface
                     '~(?:^|[\\s<])\\Kalt\\s*=\\s*(?:"(?<double>[^"]*)"|\'(?<single>[^\']*)\'|(?<bare>[^\\s>]+))~iu',
                     $match[0],
                     $altMatch,
+                    PREG_UNMATCHED_AS_NULL,
                 ) !== 1) {
                     return ' ';
                 }

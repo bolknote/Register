@@ -251,7 +251,10 @@ final class IntegrationTest extends Unit
         // Query 11
         $resultSet11 = $finder->find(new Query('images'));
         self::assertCount(1, $resultSet11->getItems());
-        self::assertEquals('Nothing is here but <b>images</b>:', $resultSet11->getItems()[0]->getSnippet());
+        self::assertEquals(
+            'Nothing is here but <b>images</b>: Alternative text',
+            $resultSet11->getItems()[0]->getSnippet(),
+        );
         $img0 = $resultSet11->getItems()[0]->getImageCollection()->offsetGet(0);
         self::assertNotNull($img0);
         self::assertEquals('1.jpg', $img0->getSrc());
