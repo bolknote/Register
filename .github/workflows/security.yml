@@ -31,6 +31,7 @@ jobs:
           --exclude _pictures
           --exclude _tests
           --exclude tools/build-shared-hosting.php
+          --exclude tools/build-release.php
           --exclude _admin/lib
           --exclude _assets/register/analytics/highstock.js
           --exclude _assets/register/math/vendor

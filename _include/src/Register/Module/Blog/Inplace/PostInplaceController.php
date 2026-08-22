@@ -198,7 +198,8 @@ final readonly class PostInplaceController implements ControllerInterface
         $path         = '/' . date('Y/m');
         $originalName = basename(str_replace('\\', '/', $file->getClientOriginalName()));
         $mimeType     = $this->mediaStorage->detectMimeType($file);
-        $browserPreviewInfo = [];
+        /** @var array{0: int, 1: int}|null $browserPreviewInfo */
+        $browserPreviewInfo = null;
         $browserPreview = $request->files->get('media_preview');
         if ($kind === 'image' && $browserPreview instanceof UploadedFile) {
             try {
@@ -212,8 +213,9 @@ final readonly class PostInplaceController implements ControllerInterface
                 );
             }
         }
+
         try {
-            $storedFile = $this->mediaStorage->store($file, $path, $browserPreviewInfo !== []);
+            $storedFile = $this->mediaStorage->store($file, $path, $browserPreviewInfo !== null);
         } catch (\RuntimeException $runtimeException) {
             return $this->error(
                 $request,
@@ -224,9 +226,10 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $imageInfo = $kind === 'image' ? $this->mediaStorage->getImageInfo($storedFile) : [];
-        if ($kind === 'image' && $imageInfo === [] && $browserPreviewInfo !== []) {
+        if ($kind === 'image' && $imageInfo === [] && $browserPreviewInfo !== null) {
             $imageInfo = $this->browserImageInfo($request, $browserPreviewInfo);
         }
+
         try {
             $mediaId = $this->mediaRepository->register([
                 'original_name'   => $originalName,
@@ -415,8 +418,8 @@ final readonly class PostInplaceController implements ControllerInterface
             return [];
         }
 
-        $sourceRatio  = $width / $height;
-        $previewRatio = $previewInfo[0] / $previewInfo[1];
+        $sourceRatio  = (float)$width / (float)$height;
+        $previewRatio = (float)$previewInfo[0] / (float)$previewInfo[1];
         if (abs($sourceRatio - $previewRatio) > max($sourceRatio, $previewRatio) * 0.02) {
             return [];
         }

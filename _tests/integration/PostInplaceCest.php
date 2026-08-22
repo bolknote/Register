@@ -119,8 +119,12 @@ final class PostInplaceCest
         $I->assertStringContainsString('no-store', (string)$I->grabHttpHeader('Cache-Control'));
 
         $payload = $I->grabJson();
-        $I->assertTrue($payload['success']);
-        $I->assertContains('Inplace tag', $payload['tags']);
+        $I->assertIsArray($payload);
+        $I->assertSame(true, $payload['success'] ?? null);
+
+        $tags = $payload['tags'] ?? null;
+        $I->assertIsArray($tags);
+        $I->assertContains('Inplace tag', $tags);
     }
 
     public function editsAPostAndRejectsAStaleRevision(\IntegrationTester $I): void

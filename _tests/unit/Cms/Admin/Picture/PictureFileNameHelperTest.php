@@ -102,7 +102,6 @@ final class PictureFileNameHelperTest extends Unit
         }
 
         $helper->assertSafeBrowserDecodedImage($file, 'photo.avif');
-        self::assertTrue(true);
     }
 
     public function testRejectsConfiguredExtensionsWithoutASafeMimeMapping(): void

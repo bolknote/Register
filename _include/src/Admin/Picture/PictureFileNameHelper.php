@@ -270,6 +270,7 @@ readonly class PictureFileNameHelper
         if (!\is_array($sizeData)) {
             return null;
         }
+
         $boxSize = $sizeData['size'];
         if ($boxSize < 16 || $boxSize > \strlen($header)) {
             return null;
@@ -279,6 +280,7 @@ readonly class PictureFileNameHelper
         if ($majorBrand === 'avif') {
             return 'image/avif';
         }
+
         if ($majorBrand === 'avis') {
             return 'image/avif-sequence';
         }
@@ -288,6 +290,7 @@ readonly class PictureFileNameHelper
             if ($brand === 'avif') {
                 return 'image/avif';
             }
+
             if ($brand === 'avis') {
                 return 'image/avif-sequence';
             }

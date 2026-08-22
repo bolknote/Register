@@ -51,6 +51,7 @@ final readonly class PostInplaceMediaStorage
             if (!$hasBrowserPreview) {
                 throw $decodeException;
             }
+
             $this->fileNameHelper->assertSafeBrowserDecodedImage($uploadedFile, $sourceName);
         }
 

@@ -27,7 +27,7 @@ final readonly class PostTagSuggestionsController implements ControllerInterface
     }
 
     #[\Override]
-    public function handle(Request $request): Response
+    public function handle(Request $request): JsonResponse
     {
         if ($this->authProvider->getAuthenticatedContentEditor($request) === null) {
             return $this->response(
@@ -38,10 +38,10 @@ final readonly class PostTagSuggestionsController implements ControllerInterface
 
         return $this->response([
             'success' => true,
-            'tags'    => array_values(array_map(
+            'tags'    => array_map(
                 static fn(\Register\Content\TagUsage $usage): string => $usage->tag->name,
                 $this->tagRepository->findAllUsage(ContentType::POST),
-            )),
+            ),
         ]);
     }
 
