@@ -390,6 +390,8 @@ class AdminCest
         $I->seeElement('nav.config-section-nav[aria-label="Settings sections"]');
         $I->seeElement('[data-config-page-state][data-state="applied"]');
         $I->assertCount(32, $I->grabMultiple('.config-setting label[for]'));
+        $I->seeElement('[data-config-key="REGISTER_SITE_NAME"] input[name="value"]');
+        $I->seeElement('[data-config-key="REGISTER_SITE_TAGLINE"] input[name="value"]');
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] select[name="value"]');
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] option[value="openrouter"]');
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] option[value="mistral"]');

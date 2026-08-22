@@ -198,8 +198,22 @@ final readonly class PostInplaceController implements ControllerInterface
         $path         = '/' . date('Y/m');
         $originalName = basename(str_replace('\\', '/', $file->getClientOriginalName()));
         $mimeType     = $this->mediaStorage->detectMimeType($file);
+        $browserPreviewInfo = [];
+        $browserPreview = $request->files->get('media_preview');
+        if ($kind === 'image' && $browserPreview instanceof UploadedFile) {
+            try {
+                $browserPreviewInfo = $this->mediaStorage->validateBrowserPreview($browserPreview);
+            } catch (\RuntimeException $runtimeException) {
+                return $this->error(
+                    $request,
+                    $runtimeException->getMessage(),
+                    $this->uploadErrorStatus($runtimeException),
+                    false,
+                );
+            }
+        }
         try {
-            $storedFile = $this->mediaStorage->store($file, $path);
+            $storedFile = $this->mediaStorage->store($file, $path, $browserPreviewInfo !== []);
         } catch (\RuntimeException $runtimeException) {
             return $this->error(
                 $request,
@@ -210,6 +224,9 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $imageInfo = $kind === 'image' ? $this->mediaStorage->getImageInfo($storedFile) : [];
+        if ($kind === 'image' && $imageInfo === [] && $browserPreviewInfo !== []) {
+            $imageInfo = $this->browserImageInfo($request, $browserPreviewInfo);
+        }
         try {
             $mediaId = $this->mediaRepository->register([
                 'original_name'   => $originalName,
@@ -383,6 +400,28 @@ final readonly class PostInplaceController implements ControllerInterface
         return \is_int($code) && $code >= 400 && $code <= 599
             ? $code
             : Response::HTTP_UNPROCESSABLE_ENTITY;
+    }
+
+    /**
+     * @param array{0: int, 1: int} $previewInfo
+     *
+     * @return array{0: int, 1: int}|array{}
+     */
+    private function browserImageInfo(Request $request, array $previewInfo): array
+    {
+        $width  = $request->request->getInt('media_width');
+        $height = $request->request->getInt('media_height');
+        if ($width <= 0 || $height <= 0 || $width > 100000 || $height > 100000) {
+            return [];
+        }
+
+        $sourceRatio  = $width / $height;
+        $previewRatio = $previewInfo[0] / $previewInfo[1];
+        if (abs($sourceRatio - $previewRatio) > max($sourceRatio, $previewRatio) * 0.02) {
+            return [];
+        }
+
+        return [$width, $height];
     }
 
     /** @param array<string, mixed> $post */

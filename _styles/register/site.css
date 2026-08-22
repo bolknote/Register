@@ -996,8 +996,7 @@ h2.preview,
     min-width: 0;
 }
 
-.site-header-shell .site-title > :where(a, span),
-.site-header-shell [data-site-header-title] {
+.site-header-shell .site-title > :where(a, span) {
     display: block;
     width: 100%;
 }
@@ -1021,98 +1020,51 @@ h2.preview,
 .site-header-tools {
     position: absolute;
     z-index: 4;
-    top: 0.1rem;
+    top: calc((var(--site-title-size) - 2.15rem) / 2);
     left: calc(-1 * var(--site-header-tools-gutter));
     display: flex;
     width: var(--site-header-tools-gutter);
     flex-direction: column;
     align-items: center;
     gap: 0.15rem;
-    opacity: 0;
-    transform: translateY(0.2rem);
-    transition: opacity 100ms ease, transform 100ms ease;
-}
-
-.site-header-shell:hover > .site-header-tools,
-.site-header-shell:focus-within > .site-header-tools,
-.site-header-shell.is-editing > .site-header-tools {
-    opacity: 1;
-    transform: none;
 }
 
 .site-header-tools .post-create-start:hover,
-.site-header-tools .post-create-start:focus-visible,
-.site-header-edit-start:hover,
-.site-header-edit-start:focus-visible {
+.site-header-tools .post-create-start:focus-visible {
     color: var(--accent-color);
 }
 
-.site-header-edit-save {
-    color: var(--success-color);
-}
-
-.site-header-edit-cancel {
-    color: var(--error-color);
-}
-
-.site-header-shell.is-editing [data-site-header-title],
-.site-header-shell.is-editing [data-site-header-tagline] {
-    position: relative;
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--surface-background) 42%, transparent);
-    caret-color: var(--accent-color);
-    outline: none;
-}
-
-.site-header-shell.is-editing [data-site-header-title]::before,
-.site-header-shell.is-editing [data-site-header-tagline]::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -0.6rem;
-    width: 3px;
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--accent-color) 72%, transparent);
-    pointer-events: none;
-}
-
-.site-header-shell.is-editing [data-site-header-tagline] {
-    display: block;
-    min-height: 1.45em;
-}
-
-.site-header-shell.is-editing [data-site-header-tagline][data-placeholder]:empty::after {
-    content: attr(data-placeholder);
-    color: var(--quiet-color);
-    pointer-events: none;
-}
-
-.site-header-shell.is-editing :where([data-site-header-title], [data-site-header-tagline]):focus {
-    background: color-mix(in srgb, var(--surface-background) 68%, transparent);
-}
-
-.site-header-inplace-form[hidden],
-.site-header-inplace-error[hidden],
-.site-header-inplace-status[hidden],
 .post-create-slot[hidden] {
     display: none;
 }
 
-.site-header-inplace-error,
-.site-header-inplace-status {
-    max-width: var(--text-width);
-    margin: 0.7rem 0 0;
-    color: var(--error-color);
-    font-family: var(--ui-font);
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: normal;
-    line-height: 1.4;
+#header .site-header-new-comments,
+#header .site-header-new-comments:visited {
+    position: relative;
+    color: var(--accent-color);
 }
 
-.site-header-inplace-status {
-    color: var(--success-color);
+.site-header-new-comments > :where(svg, .site-header-comment-count) {
+    grid-area: 1 / 1;
+}
+
+.site-header-new-comments > svg {
+    width: 1.55rem;
+    height: 1.55rem;
+}
+
+.site-header-comment-count {
+    z-index: 1;
+    max-width: 1.1rem;
+    overflow: hidden;
+    color: currentColor;
+    font-family: var(--ui-font);
+    font-size: 0.5rem;
+    font-weight: 750;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    text-overflow: clip;
+    transform: translateY(-0.12rem);
 }
 
 .post-inplace-tools {
@@ -1460,6 +1412,62 @@ h2.preview,
 
 .post-tags-surface .post-tags-text-input:focus-visible {
     outline: 0;
+}
+
+.post-tag-suggestions {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    left: 0;
+    display: grid;
+    max-height: min(18rem, 42vh);
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0.35rem;
+    overflow-y: auto;
+    border: 1px solid color-mix(in srgb, var(--text-color) 18%, transparent);
+    border-radius: 0.55rem;
+    background: color-mix(in srgb, var(--field-background) 96%, var(--page-background));
+    box-shadow:
+        0 1rem 3rem color-mix(in srgb, #000 24%, transparent),
+        0 0.15rem 0.45rem color-mix(in srgb, #000 18%, transparent);
+    color: var(--text-color);
+    font-family: var(--ui-font);
+    font-size: 0.9rem;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 1.3;
+    list-style: none;
+    text-align: left;
+}
+
+.post-tag-suggestions[hidden],
+.post-tag-suggestions:empty {
+    display: none;
+}
+
+.post-tag-suggestions > [role="option"] {
+    display: flex;
+    min-height: 2.25rem;
+    padding: 0.42rem 0.55rem;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 0.35rem;
+    color: var(--minor-color);
+    cursor: pointer;
+}
+
+.post-tag-suggestions > [role="option"]::before {
+    color: var(--accent-color);
+    font-weight: 750;
+    content: "#";
+}
+
+.post-tag-suggestions > [role="option"]:hover,
+.post-tag-suggestions > [role="option"][aria-selected="true"] {
+    background: color-mix(in srgb, var(--accent-color) 12%, var(--surface-background));
+    color: var(--text-color);
 }
 
 .post-card.is-editing :where(.post-title-text, .post.body[data-post-inplace-body]):focus {
@@ -2028,6 +2036,10 @@ h2.preview,
     vertical-align: top;
 }
 
+#content :where(.post-media-picture, figure) > [data-post-media-overlay] {
+    margin: 0;
+}
+
 #content .post-media-overlay .post-media-image {
     margin: 0;
 }
@@ -2381,6 +2393,18 @@ h2.preview,
     color: var(--page-background);
 }
 
+.post-discard-changes-dialog {
+    width: min(34rem, 100%);
+}
+
+.post-discard-changes-actions {
+    padding-top: 1.15rem;
+}
+
+.post-discard-changes-actions button.is-danger {
+    color: var(--accent-color);
+}
+
 @media (max-width: 640px) {
     .post-media-conflict-previews {
         grid-template-columns: 1fr;
@@ -2499,11 +2523,6 @@ h2.preview,
 }
 
 @media (hover: none) {
-    .site-header-tools {
-        opacity: 1;
-        transform: none;
-    }
-
     .post-inplace-tools {
         opacity: 1;
         pointer-events: auto;

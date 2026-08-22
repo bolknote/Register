@@ -27,7 +27,7 @@ final readonly class PostInplaceControls
     }
 
     /**
-     * @return array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: false}|null
+     * @return array{action_url: string, admin_edit_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: false}|null
      */
     public function forPost(Request $request, int $postId, ?int $authorId, int $revision): ?array
     {
@@ -43,6 +43,7 @@ final readonly class PostInplaceControls
                 'action=edit',
                 'id=' . $postId,
             ]),
+            'tag_suggestions_url' => $this->urlBuilder->rawLink('/_inplace/tags'),
             'token'         => $this->tokenManager->issue($editor, $postId),
             'revision'      => $revision,
             'return_to'     => $request->getPathInfo(),
@@ -51,7 +52,7 @@ final readonly class PostInplaceControls
         ];
     }
 
-    /** @return array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: true, editor_name: string}|null */
+    /** @return array{action_url: string, admin_edit_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: true, editor_name: string}|null */
     public function forCreate(Request $request): ?array
     {
         $editor = $this->editorForCreate($request);
@@ -65,6 +66,7 @@ final readonly class PostInplaceControls
                 'entity=BlogPost',
                 'action=create',
             ]),
+            'tag_suggestions_url' => $this->urlBuilder->rawLink('/_inplace/tags'),
             'token'          => $this->tokenManager->issueForCreate($editor),
             'revision'       => 0,
             'return_to'      => $request->getPathInfo(),
@@ -93,21 +95,4 @@ final readonly class PostInplaceControls
         return $editor;
     }
 
-    /** @return array{action_url: string, token: string}|null */
-    public function forSiteHeader(Request $request): ?array
-    {
-        $editor = $this->authProvider->getAuthenticatedPublicUser($request);
-        if ($editor === null) {
-            return null;
-        }
-
-        if (!$editor->canEditSite) {
-            return null;
-        }
-
-        return [
-            'action_url' => $this->urlBuilder->rawLink('/_inplace/site-header'),
-            'token'      => $this->tokenManager->issueForSiteHeader($editor),
-        ];
-    }
 }

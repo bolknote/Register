@@ -73,6 +73,38 @@ final class PictureFileNameHelperTest extends Unit
         }
     }
 
+    public function testBrowserDecodedImageStillRequiresMatchingPassiveImageContent(): void
+    {
+        $path = $this->temporaryFile('This is not an image.');
+        $file = new UploadedFile($path, 'photo.png', 'image/png', null, true);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionCode(Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
+
+        $this->helper('png')->assertSafeBrowserDecodedImage($file, 'photo.png');
+    }
+
+    public function testBrowserDecodedImageMayBypassUnavailableServerDecoder(): void
+    {
+        $avifContainer = hex2bin('0000001c667479706176696600000000617669666d6966316d696132');
+        self::assertIsString($avifContainer);
+        $path = $this->temporaryFile($avifContainer);
+        $file = new UploadedFile($path, 'photo.avif', 'image/avif', null, true);
+        $helper = $this->helper('avif');
+
+        self::assertSame('image/avif', $helper->detectMimeType($path));
+
+        try {
+            $helper->assertSafeUploadedFile($file, 'photo.avif');
+            self::fail('The server decoder must reject the header-only AVIF fixture.');
+        } catch (\RuntimeException $runtimeException) {
+            self::assertSame(Response::HTTP_UNSUPPORTED_MEDIA_TYPE, $runtimeException->getCode());
+        }
+
+        $helper->assertSafeBrowserDecodedImage($file, 'photo.avif');
+        self::assertTrue(true);
+    }
+
     public function testRejectsConfiguredExtensionsWithoutASafeMimeMapping(): void
     {
         $path = $this->temporaryFile('custom data');

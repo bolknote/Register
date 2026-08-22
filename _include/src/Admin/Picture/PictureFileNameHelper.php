@@ -123,6 +123,17 @@ readonly class PictureFileNameHelper
         $this->assertSafeFile($uploadedFile->getPathname(), $filename);
     }
 
+    /**
+     * Applies every upload check except server-side image decoding.
+     *
+     * This is reserved for an authenticated editor upload accompanied by a separately validated,
+     * browser-rendered preview. Active and mismatched file types are still rejected.
+     */
+    public function assertSafeBrowserDecodedImage(UploadedFile $uploadedFile, string $filename): void
+    {
+        $this->assertSafeFileContent($uploadedFile->getPathname(), $filename, false);
+    }
+
     /** @param list<UploadedFile> $uploadedFiles */
     public function assertSafeBatchSize(array $uploadedFiles): void
     {
@@ -159,6 +170,11 @@ readonly class PictureFileNameHelper
 
     public function assertSafeFile(string $path, string $filename): void
     {
+        $this->assertSafeFileContent($path, $filename, true);
+    }
+
+    private function assertSafeFileContent(string $path, string $filename, bool $requireImageDecode): void
+    {
         $this->assertAllowedExtension($filename);
 
         $fileSize = register_call_without_warnings(static fn(): int|false => filesize($path));
@@ -181,11 +197,14 @@ readonly class PictureFileNameHelper
             throw new \RuntimeException('The uploaded file content does not match its extension.', Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
         }
 
-        if (str_starts_with($mimeType, 'image/')) {
+        if ($requireImageDecode && str_starts_with($mimeType, 'image/')) {
             $imageInfo = register_call_without_warnings(static fn(): array|false => getimagesize($path));
             $imageMime = \is_array($imageInfo) ? mb_strtolower($imageInfo['mime']) : '';
             if ($imageMime === '' || !\in_array($imageMime, $allowedMimeTypes, true)) {
-                throw new \RuntimeException('The uploaded image cannot be decoded safely.', Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
+                throw new UploadedImageDecodeException(
+                    'The uploaded image cannot be decoded safely.',
+                    Response::HTTP_UNSUPPORTED_MEDIA_TYPE,
+                );
             }
         }
     }
@@ -230,6 +249,50 @@ readonly class PictureFileNameHelper
             throw new \RuntimeException('Unable to determine the uploaded file type.', Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
         }
 
+        $avifMimeType = $this->detectAvifMimeType($path);
+        if ($avifMimeType !== null) {
+            return $avifMimeType;
+        }
+
         return mb_strtolower(trim(explode(';', $mimeType, 2)[0]));
+    }
+
+    private function detectAvifMimeType(string $path): ?string
+    {
+        $header = register_call_without_warnings(
+            static fn(): string|false => file_get_contents($path, false, null, 0, 4096),
+        );
+        if (!\is_string($header) || \strlen($header) < 16 || substr($header, 4, 4) !== 'ftyp') {
+            return null;
+        }
+
+        $sizeData = unpack('Nsize', substr($header, 0, 4));
+        if (!\is_array($sizeData)) {
+            return null;
+        }
+        $boxSize = $sizeData['size'];
+        if ($boxSize < 16 || $boxSize > \strlen($header)) {
+            return null;
+        }
+
+        $majorBrand = substr($header, 8, 4);
+        if ($majorBrand === 'avif') {
+            return 'image/avif';
+        }
+        if ($majorBrand === 'avis') {
+            return 'image/avif-sequence';
+        }
+
+        for ($offset = 16; $offset + 4 <= $boxSize; $offset += 4) {
+            $brand = substr($header, $offset, 4);
+            if ($brand === 'avif') {
+                return 'image/avif';
+            }
+            if ($brand === 'avis') {
+                return 'image/avif-sequence';
+            }
+        }
+
+        return null;
     }
 }

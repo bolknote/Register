@@ -11,6 +11,7 @@ namespace Register\Module\Blog\Inplace;
 
 use Register\Core\Admin\Picture\PictureFileNameHelper;
 use Register\Core\Admin\Picture\PictureStorageQuota;
+use Register\Core\Admin\Picture\UploadedImageDecodeException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -18,6 +19,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /** Stores media accepted by the public inplace editor using the common upload safety checks. */
 final readonly class PostInplaceMediaStorage
 {
+    private const int MAX_BROWSER_PREVIEW_BYTES = 8 * 1024 * 1024;
+
+    private const int MAX_BROWSER_PREVIEW_DIMENSION = 2048;
+
     private string $mediaDirectory;
 
     public function __construct(
@@ -29,7 +34,7 @@ final readonly class PostInplaceMediaStorage
         $this->mediaDirectory = rtrim($mediaDirectory, '/');
     }
 
-    public function store(UploadedFile $uploadedFile, string $path): string
+    public function store(UploadedFile $uploadedFile, string $path, bool $hasBrowserPreview = false): string
     {
         $originalName = $uploadedFile->getClientOriginalName();
         if ($uploadedFile->getError() !== UPLOAD_ERR_OK || !$uploadedFile->isValid()) {
@@ -40,7 +45,14 @@ final readonly class PostInplaceMediaStorage
         }
 
         $sourceName = $this->fileNameHelper->normalizeFileName($originalName);
-        $this->fileNameHelper->assertSafeUploadedFile($uploadedFile, $sourceName);
+        try {
+            $this->fileNameHelper->assertSafeUploadedFile($uploadedFile, $sourceName);
+        } catch (UploadedImageDecodeException $decodeException) {
+            if (!$hasBrowserPreview) {
+                throw $decodeException;
+            }
+            $this->fileNameHelper->assertSafeBrowserDecodedImage($uploadedFile, $sourceName);
+        }
 
         do {
             $storedName = $this->fileNameHelper->generateStorageFileName($sourceName);
@@ -54,6 +66,61 @@ final readonly class PostInplaceMediaStorage
         });
 
         return $path . '/' . $storedName;
+    }
+
+    /** @return array{0: int, 1: int} */
+    public function validateBrowserPreview(UploadedFile $preview): array
+    {
+        if ($preview->getError() !== UPLOAD_ERR_OK || !$preview->isValid()) {
+            throw new \RuntimeException(
+                'The browser image preview is invalid.',
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
+
+        $size = register_call_without_warnings(static fn(): int|false => $preview->getSize());
+        if ($size === false || $size <= 0 || $size > self::MAX_BROWSER_PREVIEW_BYTES) {
+            throw new \RuntimeException(
+                'The browser image preview has an invalid size.',
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
+
+        $detectedMime = $this->detectMimeType($preview);
+        if (!\in_array($detectedMime, ['image/jpeg', 'image/png'], true)) {
+            throw new \RuntimeException(
+                'The browser image preview must be a JPEG or PNG image.',
+                Response::HTTP_UNSUPPORTED_MEDIA_TYPE,
+            );
+        }
+
+        $info = register_call_without_warnings(
+            static fn(): array|false => getimagesize($preview->getPathname()),
+        );
+        if (!\is_array($info)) {
+            throw new \RuntimeException(
+                'The browser image preview cannot be decoded safely.',
+                Response::HTTP_UNSUPPORTED_MEDIA_TYPE,
+            );
+        }
+
+        $width  = $info[0];
+        $height = $info[1];
+        $mime   = mb_strtolower($info['mime']);
+        if (
+            $mime !== $detectedMime
+            || $width <= 0
+            || $height <= 0
+            || $width > self::MAX_BROWSER_PREVIEW_DIMENSION
+            || $height > self::MAX_BROWSER_PREVIEW_DIMENSION
+        ) {
+            throw new \RuntimeException(
+                'The browser image preview cannot be decoded safely.',
+                Response::HTTP_UNSUPPORTED_MEDIA_TYPE,
+            );
+        }
+
+        return [$width, $height];
     }
 
     public function normalizeName(string $originalName): string

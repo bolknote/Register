@@ -20,7 +20,6 @@ use Register\Content\TagRepository;
 use Register\Live\LiveUpdateRepository;
 use Register\Module\Blog\Inplace\PostMediaRepository;
 use Register\Module\LinkHealth\Manifest;
-use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
@@ -53,6 +52,8 @@ final class PostInplaceCest
         $I->amOnPage('https://localhost/author-post');
         $I->seeElement('.site-header-tools .post-create-start[data-editor-shortcut="create"]');
         $I->dontSeeElement('.site-header-edit-start');
+        $I->dontSeeElement('.site-header-inplace-form');
+        $I->dontSeeElement('[data-site-header-title]');
         $I->seeElement('.post-card[data-post-id="' . $ownId . '"] > .post-inplace-tools');
         $I->seeElement('.post-inplace-tools .post-edit-save[hidden]');
         $I->seeElement('.post-inplace-tools .post-edit-cancel[hidden]');
@@ -62,6 +63,7 @@ final class PostInplaceCest
         $I->seeElement('.post.head [data-post-inplace-title]');
         $I->seeElement('.post.body[data-post-inplace-body]');
         $I->seeElement('.post-card[data-media-caption-placeholder="Add a caption…"]');
+        $I->seeElement('.post-card[data-tag-suggestions-url="/_inplace/tags"]');
         $I->seeElement('.post.foot .post-foot-tags.is-empty [data-post-inplace-tags-values]');
         $I->dontSeeElement('.post-inplace-html-editor');
         $I->seeElement('.post-delete-confirmation[hidden]');
@@ -80,6 +82,9 @@ final class PostInplaceCest
         $I->seeElement('.post-image-caption-toolbar-template [data-caption-action="cancel"]');
         $I->seeElement('.post-image-caption-toolbar-template [data-caption-font="serif"]');
         $I->seeElement('.post-image-caption-toolbar-template [data-caption-background="accent"]');
+        $I->seeElement('template.post-discard-changes-template');
+        $I->seeElement('.post-discard-changes-template [data-discard-changes-action="discard"]');
+        $I->seeElement('.post-discard-changes-template [data-discard-changes-action="continue"]');
         $I->dontSeeElement('.post-editor-context-menu-template [data-context-ai-action]');
         $I->seeElement('script[src^="/_assets/register/post-inplace.js?v="]');
 
@@ -97,6 +102,25 @@ final class PostInplaceCest
 
         $I->amOnPage('https://localhost/admin-post');
         $I->dontSeeElement('.post-card[data-post-id="' . $otherId . '"] .post-inplace-tools');
+    }
+
+    public function suggestsExistingTagsToAuthorizedEditors(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertTag($dbLayer);
+
+        $I->amOnPage('https://localhost/_inplace/tags');
+        $I->seeResponseCodeIs(Response::HTTP_FORBIDDEN);
+
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/_inplace/tags');
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->assertStringContainsString('no-store', (string)$I->grabHttpHeader('Cache-Control'));
+
+        $payload = $I->grabJson();
+        $I->assertTrue($payload['success']);
+        $I->assertContains('Inplace tag', $payload['tags']);
     }
 
     public function editsAPostAndRejectsAStaleRevision(\IntegrationTester $I): void
@@ -119,13 +143,13 @@ final class PostInplaceCest
         $I->assertSame('Inplace tag', $I->grabAttributeFrom($selector . ' input[name="tags"]', 'value'));
         $cursor   = $updates->currentCursor();
         $editedBody = '<p>Updated <strong>without a reload</strong>.</p>'
-            . '<p><span class="post-media-overlay" data-post-media-overlay="" role="figure">'
+            . '<div class="post-picture post-media-picture">'
+            . '<span class="post-media-overlay" data-post-media-overlay="" role="figure">'
             . '<a class="post-media-image-link" href="/full-size"><img src="/photo.jpg" alt="A useful alt"></a>'
             . '<span class="post-media-overlay-caption" data-caption-font="serif" '
             . 'data-caption-background="accent">Caption over the image</span>'
-            . '</span></p>'
-            . '<div class="post-picture post-media-picture"><img class="post-media-image" '
-            . 'src="/another-photo.jpg" alt=""><div class="post-caption">Small caption</div></div>';
+            . '</span>'
+            . '<div class="post-caption">Small caption</div></div>';
 
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
             'inplace_action' => 'edit',
@@ -151,6 +175,7 @@ final class PostInplaceCest
         $I->assertStringContainsString('data-caption-background="accent"', $payload['body_html']);
         $I->assertStringContainsString('post-media-picture', $payload['body_html']);
         $I->assertStringContainsString('<div class="post-caption">Small caption</div>', $payload['body_html']);
+        $I->assertStringNotContainsString('post-caption post-media-overlay-caption', $payload['body_html']);
         $I->assertSame(['Inplace tag', 'Fresh tag'], array_column($payload['tags'], 'name'));
         $I->assertStringContainsString('Fresh%20tag', $payload['tags'][1]['url']);
 
@@ -226,6 +251,12 @@ final class PostInplaceCest
         $png = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
         $wav = $this->temporaryFile($this->wavContents());
         $txt = $this->temporaryFile('Not media.');
+        $browserOnlyImageContents = hex2bin(
+            '0000001c667479706176696600000000617669666d6966316d696132',
+        );
+        $I->assertIsString($browserOnlyImageContents);
+        $browserOnlyImage = $this->temporaryFile($browserOnlyImageContents);
+        $browserPreview = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
         $storedFiles = [];
 
         try {
@@ -286,13 +317,53 @@ final class PostInplaceCest
 
             $I->sendPost(
                 'https://localhost/_inplace/post/' . $postId,
+                [
+                    'inplace_action' => 'media',
+                    'inplace_token'  => $token,
+                    'media_width'    => '640',
+                    'media_height'   => '640',
+                ],
+                [
+                    'media' => new UploadedFile(
+                        $browserOnlyImage,
+                        'browser-decoded.avif',
+                        'image/avif',
+                        null,
+                        true,
+                    ),
+                    'media_preview' => new UploadedFile(
+                        $browserPreview,
+                        'browser-preview.png',
+                        'image/png',
+                        null,
+                        true,
+                    ),
+                ],
+            );
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $browserDecodedPayload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $I->assertSame(640, $browserDecodedPayload['width']);
+            $I->assertSame(640, $browserDecodedPayload['height']);
+            $browserDecodedFile = $this->storedMediaPath($browserDecodedPayload['url']);
+            $storedFiles[] = $browserDecodedFile;
+            $I->assertFileExists($browserDecodedFile);
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action' => 'media_release',
+                'inplace_token'  => $token,
+                'media_ids'      => (string)$browserDecodedPayload['media_id'],
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->assertFileDoesNotExist($browserDecodedFile);
+
+            $I->sendPost(
+                'https://localhost/_inplace/post/' . $postId,
                 ['inplace_action' => 'media', 'inplace_token' => $token],
                 ['media' => new UploadedFile($txt, 'dropped.txt', 'text/plain', null, true)],
             );
             $I->seeResponseCodeIs(Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
             $I->assertStringContainsString('Only image and audio files', $I->grabResponse());
         } finally {
-            foreach ([$png, $wav, $txt, ...$storedFiles] as $filename) {
+            foreach ([$png, $wav, $txt, $browserOnlyImage, $browserPreview, ...$storedFiles] as $filename) {
                 if (is_file($filename)) {
                     unlink($filename);
                 }
@@ -378,61 +449,6 @@ final class PostInplaceCest
             ->where('id = :id')->setParameter('id', $postId)
             ->execute()
             ->result());
-    }
-
-    public function editsTheSiteTitleAndTaglineInline(\IntegrationTester $I): void
-    {
-        /** @var DbLayer $dbLayer */
-        $dbLayer = $I->grabService(DbLayer::class);
-        /** @var DynamicConfigProvider $configProvider */
-        $configProvider = $I->grabService(DynamicConfigProvider::class);
-        $originalTitle = (string)$configProvider->get('REGISTER_SITE_NAME');
-        $originalTagline = (string)$configProvider->get('REGISTER_SITE_TAGLINE');
-
-        $I->login('author', 'author');
-        $I->sendAjaxPostRequest('https://localhost/_inplace/site-header', [
-            'inplace_token' => str_repeat('0', 64),
-            'title'         => 'Forbidden title',
-            'tagline'       => 'Forbidden tagline',
-        ]);
-        $I->seeResponseCodeIs(Response::HTTP_FORBIDDEN);
-        $I->logout();
-
-        try {
-            $I->login('editor', 'editor');
-            $I->amOnPage('https://localhost/');
-            $I->seeElement('.site-header-shell.is-manageable');
-            $I->seeElement('.site-header-tools .site-header-edit-start');
-            $I->seeElement('.site-header-tools .site-header-edit-save[hidden]');
-            $I->seeElement('.site-header-tools .site-header-edit-cancel[hidden]');
-            $I->seeElement('[data-site-header-title]');
-            $I->seeElement('[data-site-header-tagline]');
-            $I->seeElement('.site-header-inplace-form[hidden]');
-
-            $form = '.site-header-inplace-form';
-            $token = (string)$I->grabAttributeFrom($form . ' input[name="inplace_token"]', 'value');
-            $I->sendAjaxPostRequest('https://localhost/_inplace/site-header', [
-                'inplace_token' => $token,
-                'title'         => 'Updated site title',
-                'tagline'       => "First line\nSecond line",
-            ]);
-            $I->seeResponseCodeIs(Response::HTTP_OK);
-            $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
-            $I->assertTrue($payload['success']);
-            $I->assertSame('Updated site title', $payload['title']);
-            $I->assertSame("First line\nSecond line", $payload['tagline']);
-            $I->assertSame('Updated site title', $this->configValue($dbLayer, 'REGISTER_SITE_NAME'));
-            $I->assertSame("First line\nSecond line", $this->configValue($dbLayer, 'REGISTER_SITE_TAGLINE'));
-        } finally {
-            foreach (['REGISTER_SITE_NAME' => $originalTitle, 'REGISTER_SITE_TAGLINE' => $originalTagline] as $name => $value) {
-                $dbLayer->upsert('config')
-                    ->setKey('name', ':name')->setParameter('name', $name)
-                    ->setValue('value', ':value')->setParameter('value', $value)
-                    ->execute();
-            }
-
-            $configProvider->regenerate();
-        }
     }
 
     public function tracksDuplicateImagesAndDeletesThemAfterRemoval(\IntegrationTester $I): void
@@ -777,17 +793,6 @@ final class PostInplaceCest
             ->select('id')
             ->from('users')
             ->where('login = :login')->setParameter('login', $login)
-            ->execute()
-            ->result()
-        ;
-    }
-
-    private function configValue(DbLayer $dbLayer, string $name): string
-    {
-        return (string)$dbLayer
-            ->select('value')
-            ->from('config')
-            ->where('name = :name')->setParameter('name', $name)
             ->execute()
             ->result()
         ;

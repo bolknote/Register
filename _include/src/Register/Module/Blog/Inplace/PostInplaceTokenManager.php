@@ -45,17 +45,6 @@ final readonly class PostInplaceTokenManager
             && hash_equals($this->issueForCreate($editor), $token);
     }
 
-    public function issueForSiteHeader(AuthenticatedPublicUser $editor): string
-    {
-        return $this->hasher->sign('site-header-inplace', $this->createPayload($editor));
-    }
-
-    public function isValidForSiteHeader(string $token, AuthenticatedPublicUser $editor): bool
-    {
-        return preg_match('/^[0-9a-f]{64}$/D', $token) === 1
-            && hash_equals($this->issueForSiteHeader($editor), $token);
-    }
-
     private function payload(AuthenticatedPublicUser $editor, int $postId): string
     {
         return $editor->id . "\0" . $editor->login . "\0" . $editor->sessionHash . "\0" . $postId;

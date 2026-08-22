@@ -46,6 +46,7 @@ use Register\Live\LiveUpdateRepository;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Module\Blog\Model\PostFeedRenderer;
+use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Offline\OfflineCachePolicy;
 use Register\Schema\ContentMediaSchemaMigration;
 use Register\Schema\SchemaManager;
@@ -243,6 +244,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $container->get(ContentCommentRenderer::class),
             $container->get(ContentRepository::class),
             $container->get(LiveFragmentRenderer::class),
+            $container->get(SiteHeaderRenderer::class),
         ));
         $container->set(ContentCommentTargetResolver::class, static fn(Container $container): ContentCommentTargetResolver => new ContentCommentTargetResolver(
             $container->get(DbLayer::class),

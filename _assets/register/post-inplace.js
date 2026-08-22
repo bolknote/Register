@@ -2,7 +2,10 @@
     'use strict';
 
     const editorStates = new WeakMap();
-    let siteHeaderState = null;
+    const tagSuggestionRequests = new Map();
+    let tagEditorSequence = 0;
+    const browserPreviewMaxDimension = 1600;
+    const browserPreviewQuality = 0.86;
     const imageExtensions = new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp']);
     const audioExtensions = new Set(['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm']);
     const editorPlatform = (() => {
@@ -268,208 +271,6 @@
         selection.addRange(range);
     }
 
-    function siteHeaderElements(shell) {
-        const form = shell.querySelector(':scope > .site-header-inplace-form');
-        const title = shell.querySelector('[data-site-header-title]');
-        const tagline = shell.querySelector('[data-site-header-tagline]');
-        const titleField = form?.elements.namedItem('title');
-        const taglineField = form?.elements.namedItem('tagline');
-        if (
-            !(form instanceof HTMLFormElement)
-            || !(title instanceof HTMLElement)
-            || !(tagline instanceof HTMLElement)
-            || !(titleField instanceof HTMLInputElement)
-            || !(taglineField instanceof HTMLTextAreaElement)
-        ) {
-            return null;
-        }
-
-        return {form, title, tagline, titleField, taglineField};
-    }
-
-    function toggleSiteHeaderTools(shell, editing) {
-        const tools = shell.querySelector(':scope > .site-header-tools');
-        tools?.querySelector('.post-create-start')?.toggleAttribute('hidden', editing);
-        tools?.querySelector('.site-header-edit-start')?.toggleAttribute('hidden', editing);
-        tools?.querySelector('.site-header-edit-save')?.toggleAttribute('hidden', !editing);
-        tools?.querySelector('.site-header-edit-cancel')?.toggleAttribute('hidden', !editing);
-    }
-
-    function clearSiteHeaderMessage(state) {
-        [state.error, state.status].forEach((message) => {
-            message.hidden = true;
-            message.textContent = '';
-        });
-    }
-
-    function siteHeaderText(element, multiline) {
-        const text = (element.innerText || element.textContent || '').replace(/\u00a0/gu, ' ');
-        if (multiline) {
-            return text.replace(/\r\n?/gu, '\n').replace(/[ \t]+\n/gu, '\n').trim();
-        }
-        return text.replace(/\s+/gu, ' ').trim();
-    }
-
-    function restoreSiteHeaderLink(state) {
-        if (state.titleLink && state.titleLinkHadHref) {
-            state.titleLink.setAttribute('href', state.titleLinkHref);
-        }
-    }
-
-    function stopSiteHeaderEditing(state, restoreValues, restoreFocus) {
-        if (restoreValues) {
-            state.title.textContent = state.originalTitle;
-            state.tagline.textContent = state.originalTagline;
-            state.titleField.value = state.originalTitle;
-            state.taglineField.value = state.originalTagline;
-        }
-
-        unsetEditable(state.title);
-        unsetEditable(state.tagline);
-        state.tagline.removeAttribute('data-placeholder');
-        restoreSiteHeaderLink(state);
-        state.shell.classList.remove('is-editing');
-        state.shell.removeAttribute('aria-busy');
-        toggleSiteHeaderTools(state.shell, false);
-        siteHeaderState = null;
-        if (restoreFocus) {
-            state.shell.querySelector('.site-header-edit-start')?.focus();
-        }
-    }
-
-    function beginSiteHeaderEdit(button) {
-        const shell = button.closest('[data-site-header]');
-        if (!(shell instanceof HTMLElement)) {
-            return false;
-        }
-        if (siteHeaderState?.shell === shell) {
-            siteHeaderState.title.focus();
-            return true;
-        }
-
-        const elements = siteHeaderElements(shell);
-        const error = shell.querySelector(':scope > .site-header-inplace-error');
-        const status = shell.querySelector(':scope > .site-header-inplace-status');
-        if (!elements || !(error instanceof HTMLElement) || !(status instanceof HTMLElement)) {
-            return false;
-        }
-
-        const titleLink = elements.title.closest('a');
-        siteHeaderState = {
-            ...elements,
-            shell,
-            error,
-            status,
-            originalTitle: elements.titleField.value,
-            originalTagline: elements.taglineField.value,
-            titleLink,
-            titleLinkHadHref: titleLink?.hasAttribute('href') || false,
-            titleLinkHref: titleLink?.getAttribute('href') || '',
-            submitting: false,
-        };
-
-        elements.title.textContent = siteHeaderState.originalTitle;
-        elements.tagline.textContent = siteHeaderState.originalTagline;
-        titleLink?.removeAttribute('href');
-        setEditable(elements.title, shell.dataset.titleLabel || 'Site title', false);
-        setEditable(elements.tagline, shell.dataset.taglineLabel || 'Site tagline', true);
-        elements.tagline.dataset.placeholder = shell.dataset.taglinePlaceholder || '';
-        shell.classList.add('is-editing');
-        toggleSiteHeaderTools(shell, true);
-        clearSiteHeaderMessage(siteHeaderState);
-        focusEdge(elements.title, true);
-        return true;
-    }
-
-    function updateDocumentTitle(oldTitle, newTitle) {
-        if (document.title === oldTitle) {
-            document.title = newTitle;
-            return;
-        }
-        const suffix = ` — ${oldTitle}`;
-        if (document.title.endsWith(suffix)) {
-            document.title = document.title.slice(0, -suffix.length) + ` — ${newTitle}`;
-        }
-    }
-
-    async function submitSiteHeader(state) {
-        if (state.submitting) {
-            return;
-        }
-
-        const title = siteHeaderText(state.title, false);
-        const tagline = siteHeaderText(state.tagline, true);
-        if (title === '') {
-            state.error.textContent = state.shell.dataset.saveError || 'Unable to save the site header.';
-            state.error.hidden = false;
-            state.error.focus();
-            return;
-        }
-
-        state.titleField.value = title;
-        state.taglineField.value = tagline;
-        state.submitting = true;
-        state.shell.setAttribute('aria-busy', 'true');
-        state.shell.querySelectorAll(':scope > .site-header-tools button').forEach((button) => {
-            button.disabled = true;
-        });
-        clearSiteHeaderMessage(state);
-
-        try {
-            const response = await window.fetch(state.form.action, {
-                method: 'POST',
-                body: new FormData(state.form),
-                credentials: 'same-origin',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
-            const payload = await response.json().catch(() => null);
-            if (
-                !response.ok
-                || !payload
-                || payload.success !== true
-                || typeof payload.title !== 'string'
-                || typeof payload.tagline !== 'string'
-            ) {
-                throw new Error(payload?.message || state.shell.dataset.saveError || 'Unable to save the site header.');
-            }
-
-            const oldTitle = state.originalTitle;
-            state.title.textContent = payload.title;
-            state.tagline.textContent = payload.tagline;
-            state.titleField.value = payload.title;
-            state.titleField.defaultValue = payload.title;
-            state.taglineField.value = payload.tagline;
-            state.taglineField.defaultValue = payload.tagline;
-            state.originalTitle = payload.title;
-            state.originalTagline = payload.tagline;
-            updateDocumentTitle(oldTitle, payload.title);
-            stopSiteHeaderEditing(state, false, true);
-
-            const savedStatus = state.shell.querySelector(':scope > .site-header-inplace-status');
-            if (savedStatus && typeof payload.message === 'string') {
-                savedStatus.textContent = payload.message;
-                savedStatus.hidden = false;
-            }
-        } catch (error) {
-            state.error.textContent = error instanceof Error
-                ? error.message
-                : (state.shell.dataset.saveError || 'Unable to save the site header.');
-            state.error.hidden = false;
-            state.error.focus();
-        } finally {
-            state.submitting = false;
-            if (state.shell.isConnected) {
-                state.shell.removeAttribute('aria-busy');
-                state.shell.querySelectorAll(':scope > .site-header-tools button').forEach((button) => {
-                    button.disabled = false;
-                });
-            }
-        }
-    }
-
     function prepareEditableMedia(root) {
         root.querySelectorAll('audio[controls]').forEach((audio) => {
             audio.setAttribute('data-register-audio-native', '');
@@ -512,7 +313,108 @@
         state.titleLink.setAttribute('href', state.titleLinkHref);
     }
 
+    function editorHasUnsavedChanges(state) {
+        return state.titleDirty
+            || state.bodyDirty
+            || state.tagsDirty
+            || state.dateDirty
+            || state.mediaUploads.size > 0
+            || state.uploadedMediaIds.size > 0;
+    }
+
+    function closeDiscardChangesDialog(state, restoreFocus) {
+        const confirmation = state.discardConfirmation;
+        if (!confirmation) {
+            return;
+        }
+
+        state.discardConfirmation = null;
+        confirmation.controller.abort();
+        confirmation.backdrop.remove();
+        if (restoreFocus && confirmation.restoreTarget?.isConnected) {
+            confirmation.restoreTarget.focus({preventScroll: true});
+        }
+    }
+
+    function requestCloseEditor(card, restoreFocus) {
+        const state = editorStates.get(card);
+        if (!state) {
+            return;
+        }
+        if (!editorHasUnsavedChanges(state)) {
+            closeEditor(card, restoreFocus);
+            return;
+        }
+        if (state.discardConfirmation) {
+            state.discardConfirmation.continueButton.focus({preventScroll: true});
+            return;
+        }
+
+        const template = card.querySelector(':scope > .post-discard-changes-template');
+        const fragment = template instanceof HTMLTemplateElement
+            ? template.content.cloneNode(true)
+            : null;
+        const backdrop = fragment?.querySelector('.post-discard-changes-backdrop');
+        const dialog = fragment?.querySelector('.post-discard-changes-dialog');
+        const continueButton = fragment?.querySelector('[data-discard-changes-action="continue"]');
+        if (
+            !(backdrop instanceof HTMLElement)
+            || !(dialog instanceof HTMLElement)
+            || !(continueButton instanceof HTMLButtonElement)
+        ) {
+            const warning = card.dataset.discardChangesWarning || 'Discard unsaved changes?';
+            if (window.confirm(warning)) {
+                closeEditor(card, restoreFocus);
+            }
+            return;
+        }
+
+        const controller = new AbortController();
+        const restoreTarget = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+        const keepEditing = () => closeDiscardChangesDialog(state, true);
+        const discard = () => {
+            closeDiscardChangesDialog(state, false);
+            closeEditor(card, restoreFocus);
+        };
+        state.discardConfirmation = {
+            backdrop,
+            dialog,
+            continueButton,
+            controller,
+            restoreTarget,
+        };
+        document.body.append(fragment);
+        backdrop.addEventListener('click', (event) => {
+            const button = event.target instanceof Element
+                ? event.target.closest('[data-discard-changes-action]')
+                : null;
+            if (button instanceof HTMLButtonElement) {
+                if (button.dataset.discardChangesAction === 'discard') {
+                    discard();
+                } else {
+                    keepEditing();
+                }
+                return;
+            }
+            if (event.target === backdrop) {
+                keepEditing();
+            }
+        }, {signal: controller.signal});
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            keepEditing();
+        }, {capture: true, signal: controller.signal});
+        continueButton.focus({preventScroll: true});
+    }
+
     function stopEditing(state) {
+        closeDiscardChangesDialog(state, false);
         closeContextMenu(state, false);
         state.imageCaptionEditor?.controller.abort();
         state.imageCaptionEditor = null;
@@ -686,6 +588,7 @@
             contextMenu: null,
             imageCaptionEditor: null,
             aiController: null,
+            discardConfirmation: null,
             submitting: false,
             titleLink,
             titleLinkHadHref: titleLink?.hasAttribute('href') || false,
@@ -835,11 +738,68 @@
         return tags;
     }
 
+    function loadTagSuggestions(url) {
+        const requestUrl = String(url || '').trim();
+        if (requestUrl === '') {
+            return Promise.resolve([]);
+        }
+
+        const pending = tagSuggestionRequests.get(requestUrl);
+        if (pending) {
+            return pending;
+        }
+
+        const request = fetch(requestUrl, {
+            credentials: 'same-origin',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error('Unable to load tag suggestions.');
+                }
+                return response.json();
+            })
+            .then((payload) => {
+                if (!payload || !Array.isArray(payload.tags)) {
+                    return [];
+                }
+
+                const suggestions = [];
+                const used = new Set();
+                payload.tags.forEach((value) => {
+                    const normalized = normalizeTags(value);
+                    if (!normalized || normalized.length !== 1) {
+                        return;
+                    }
+                    const tag = normalized[0];
+                    const key = tag.toLocaleLowerCase();
+                    if (!used.has(key)) {
+                        used.add(key);
+                        suggestions.push(tag);
+                    }
+                });
+                return suggestions;
+            })
+            .catch((error) => {
+                tagSuggestionRequests.delete(requestUrl);
+                console.warn(error.message);
+                return [];
+            });
+
+        tagSuggestionRequests.set(requestUrl, request);
+        return request;
+    }
+
     function createTagEditor(state) {
         const root = document.createElement('span');
         const surface = document.createElement('span');
         const input = document.createElement('input');
+        const suggestionList = document.createElement('span');
+        const suggestionListId = `post-tag-suggestions-${++tagEditorSequence}`;
         let tags = normalizeTags(state.originalTags) || [];
+        let suggestions = [];
+        let matches = [];
+        let activeIndex = -1;
 
         root.className = 'post-tags-editor';
         surface.className = 'post-tags-surface';
@@ -848,8 +808,21 @@
         input.placeholder = state.tags.dataset.placeholder || '';
         input.autocomplete = 'off';
         input.setAttribute('aria-label', state.card.dataset.tagsLabel || 'Tags');
+        input.setAttribute('role', 'combobox');
+        input.setAttribute('aria-autocomplete', 'list');
+        input.setAttribute('aria-haspopup', 'listbox');
+        input.setAttribute('aria-expanded', 'false');
+        input.setAttribute('aria-controls', suggestionListId);
+        suggestionList.id = suggestionListId;
+        suggestionList.className = 'post-tag-suggestions';
+        suggestionList.hidden = true;
+        suggestionList.setAttribute('role', 'listbox');
+        suggestionList.setAttribute(
+            'aria-label',
+            state.card.dataset.tagSuggestionsLabel || state.card.dataset.tagsLabel || 'Tag suggestions',
+        );
         surface.append(input);
-        root.append(surface);
+        root.append(surface, suggestionList);
         state.tags.append(root);
 
         function changed() {
@@ -860,6 +833,78 @@
 
         function syncSurface() {
             state.tagsHost.classList.toggle('is-empty', tags.length === 0 && input.value.trim() === '');
+        }
+
+        function closeSuggestions() {
+            matches = [];
+            activeIndex = -1;
+            suggestionList.replaceChildren();
+            suggestionList.hidden = true;
+            input.setAttribute('aria-expanded', 'false');
+            input.removeAttribute('aria-activedescendant');
+        }
+
+        function setActiveSuggestion(index) {
+            if (matches.length === 0) {
+                closeSuggestions();
+                return;
+            }
+
+            activeIndex = (index + matches.length) % matches.length;
+            suggestionList.querySelectorAll('[role="option"]').forEach((option, optionIndex) => {
+                const active = optionIndex === activeIndex;
+                option.setAttribute('aria-selected', active ? 'true' : 'false');
+                if (active) {
+                    input.setAttribute('aria-activedescendant', option.id);
+                    option.scrollIntoView({block: 'nearest'});
+                }
+            });
+        }
+
+        function renderSuggestions(open) {
+            if (!open) {
+                closeSuggestions();
+                return;
+            }
+
+            const query = input.value.replace(/\s+/gu, ' ').trim().toLocaleLowerCase();
+            const selected = new Set(tags.map((tag) => tag.toLocaleLowerCase()));
+            matches = suggestions
+                .filter((tag) => {
+                    const key = tag.toLocaleLowerCase();
+                    return !selected.has(key) && (query === '' || key.includes(query));
+                })
+                .sort((left, right) => {
+                    const leftStarts = left.toLocaleLowerCase().startsWith(query);
+                    const rightStarts = right.toLocaleLowerCase().startsWith(query);
+                    if (leftStarts !== rightStarts) {
+                        return leftStarts ? -1 : 1;
+                    }
+                    return left.localeCompare(right, undefined, {sensitivity: 'base'});
+                })
+                .slice(0, 8);
+
+            suggestionList.replaceChildren();
+            activeIndex = -1;
+            input.removeAttribute('aria-activedescendant');
+            if (matches.length === 0) {
+                closeSuggestions();
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            matches.forEach((tag, index) => {
+                const option = document.createElement('span');
+                option.id = `${suggestionListId}-${index}`;
+                option.dataset.tag = tag;
+                option.setAttribute('role', 'option');
+                option.setAttribute('aria-selected', 'false');
+                option.textContent = tag;
+                fragment.append(option);
+            });
+            suggestionList.append(fragment);
+            suggestionList.hidden = false;
+            input.setAttribute('aria-expanded', 'true');
         }
 
         function render() {
@@ -901,6 +946,7 @@
             input.value = '';
             changed();
             render();
+            renderSuggestions(document.activeElement === input);
             return true;
         }
 
@@ -922,23 +968,51 @@
                     tags.splice(index, 1);
                     changed();
                     render();
+                    renderSuggestions(true);
                 }
             }
             input.focus();
         });
 
+        input.addEventListener('focus', () => {
+            renderSuggestions(true);
+        });
         input.addEventListener('input', () => {
             changed();
             syncSurface();
+            renderSuggestions(true);
         });
         input.addEventListener('keydown', (event) => {
             if (event.isComposing) {
                 return;
             }
+
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (suggestionList.hidden) {
+                    renderSuggestions(true);
+                }
+                setActiveSuggestion(activeIndex + (event.key === 'ArrowDown' ? 1 : -1));
+                return;
+            }
+
+            if (event.key === 'Tab' && activeIndex >= 0) {
+                event.preventDefault();
+                const tag = matches[activeIndex];
+                if (tag) {
+                    add(tag);
+                }
+                return;
+            }
+
             if (event.key === 'Enter' || event.key === ',' || event.key === ';') {
                 event.preventDefault();
                 event.stopPropagation();
-                if (!commit()) {
+                const tag = activeIndex >= 0 ? matches[activeIndex] : null;
+                if (tag) {
+                    add(tag);
+                } else if (!commit()) {
                     showError(state.form, state.card.dataset.invalidTags || state.card.dataset.editError || 'Invalid post tags.');
                 }
                 return;
@@ -948,6 +1022,13 @@
                 tags.pop();
                 changed();
                 render();
+                renderSuggestions(true);
+                return;
+            }
+            if (event.key === 'Escape' && !suggestionList.hidden) {
+                event.preventDefault();
+                event.stopPropagation();
+                closeSuggestions();
             }
         });
         input.addEventListener('paste', (event) => {
@@ -963,15 +1044,44 @@
             add(pasted);
         });
         input.addEventListener('blur', () => {
-            if (!root.isConnected || !state.card.classList.contains('is-editing')) {
+            setTimeout(() => {
+                if (!root.isConnected || !state.card.classList.contains('is-editing') || root.contains(document.activeElement)) {
+                    return;
+                }
+                if (!commit()) {
+                    showError(state.form, state.card.dataset.invalidTags || state.card.dataset.editError || 'Invalid post tags.');
+                }
+                closeSuggestions();
+            }, 0);
+        });
+
+        suggestionList.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+        });
+        suggestionList.addEventListener('click', (event) => {
+            const target = event.target instanceof Element ? event.target : null;
+            const option = target?.closest('[role="option"]');
+            if (!option) {
                 return;
             }
-            if (!commit()) {
-                showError(state.form, state.card.dataset.invalidTags || state.card.dataset.editError || 'Invalid post tags.');
+            const index = Array.from(suggestionList.children).indexOf(option);
+            const tag = matches[index];
+            if (tag) {
+                add(tag);
+                input.focus();
             }
         });
 
         render();
+        loadTagSuggestions(state.card.dataset.tagSuggestionsUrl).then((loadedSuggestions) => {
+            if (!root.isConnected) {
+                return;
+            }
+            suggestions = loadedSuggestions;
+            if (document.activeElement === input) {
+                renderSuggestions(true);
+            }
+        });
 
         return {
             focus: () => input.focus(),
@@ -985,6 +1095,7 @@
                 input.value = '';
                 changed();
                 render();
+                renderSuggestions(document.activeElement === input);
                 return true;
             },
         };
@@ -1037,6 +1148,122 @@
         }
 
         return bodyRange(state, range);
+    }
+
+    function abortedUploadError() {
+        return new DOMException('The upload was cancelled.', 'AbortError');
+    }
+
+    function imageElementFromFile(file, signal) {
+        return new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(file);
+            const image = new Image();
+            let settled = false;
+            const cleanup = () => {
+                signal.removeEventListener('abort', abort);
+                image.onload = null;
+                image.onerror = null;
+            };
+            const fail = (error) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                cleanup();
+                URL.revokeObjectURL(url);
+                reject(error);
+            };
+            const abort = () => fail(abortedUploadError());
+            image.onload = () => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                cleanup();
+                resolve({
+                    source: image,
+                    width: image.naturalWidth,
+                    height: image.naturalHeight,
+                    release: () => URL.revokeObjectURL(url),
+                });
+            };
+            image.onerror = () => fail(new Error('The browser cannot decode the image.'));
+            signal.addEventListener('abort', abort, {once: true});
+            image.decoding = 'async';
+            image.src = url;
+        });
+    }
+
+    async function decodedImageFromFile(file, signal) {
+        if (typeof window.createImageBitmap === 'function') {
+            try {
+                const bitmap = await window.createImageBitmap(file, {imageOrientation: 'from-image'});
+                if (signal.aborted) {
+                    bitmap.close();
+                    throw abortedUploadError();
+                }
+                return {
+                    source: bitmap,
+                    width: bitmap.width,
+                    height: bitmap.height,
+                    release: () => bitmap.close(),
+                };
+            } catch (error) {
+                if (signal.aborted) {
+                    throw abortedUploadError();
+                }
+            }
+        }
+
+        return imageElementFromFile(file, signal);
+    }
+
+    function canvasToJpeg(canvas) {
+        return new Promise((resolve, reject) => {
+            canvas.toBlob((blob) => {
+                if (blob instanceof Blob && blob.size > 0) {
+                    resolve(blob);
+                    return;
+                }
+                reject(new Error('The browser cannot create an image preview.'));
+            }, 'image/jpeg', browserPreviewQuality);
+        });
+    }
+
+    async function prepareBrowserImagePreview(file, signal) {
+        const decoded = await decodedImageFromFile(file, signal);
+        try {
+            if (decoded.width <= 0 || decoded.height <= 0) {
+                throw new Error('The browser returned invalid image dimensions.');
+            }
+
+            const scale = Math.min(
+                1,
+                browserPreviewMaxDimension / Math.max(decoded.width, decoded.height),
+            );
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(decoded.width * scale));
+            canvas.height = Math.max(1, Math.round(decoded.height * scale));
+            const context = canvas.getContext('2d', {alpha: false});
+            if (context === null) {
+                throw new Error('The browser cannot prepare an image preview.');
+            }
+            context.fillStyle = '#fff';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
+            const blob = await canvasToJpeg(canvas);
+            if (signal.aborted) {
+                throw abortedUploadError();
+            }
+
+            return {
+                blob,
+                width: decoded.width,
+                height: decoded.height,
+            };
+        } finally {
+            decoded.release();
+        }
     }
 
     function createMediaElement(state, payload, file) {
@@ -1191,7 +1418,7 @@
         });
     }
 
-    function resolveMediaConflict(state, conflict, controller) {
+    function resolveMediaConflict(state, conflict, controller, incomingPreviewUrl = '') {
         const template = state.card.querySelector(':scope > .post-media-conflict-template');
         const fragment = template instanceof HTMLTemplateElement ? template.content.cloneNode(true) : null;
         const backdrop = fragment?.querySelector('.post-media-conflict-backdrop');
@@ -1211,7 +1438,7 @@
 
         existingImage.src = conflict.existing.preview_url || conflict.existing.url;
         existingImage.alt = conflict.existing.name || '';
-        incomingImage.src = conflict.incoming.preview_url || conflict.incoming.url;
+        incomingImage.src = incomingPreviewUrl || conflict.incoming.preview_url || conflict.incoming.url;
         incomingImage.alt = conflict.incoming.name || '';
         overwrite.hidden = conflict.can_overwrite !== true;
         document.body.append(backdrop);
@@ -1303,7 +1530,23 @@
         state.mediaControllers.add(controller);
 
         const upload = (async () => {
+            let browserPreview = null;
+            let browserPreviewUrl = '';
             try {
+                if (kind === 'image') {
+                    try {
+                        browserPreview = await prepareBrowserImagePreview(file, controller.signal);
+                        formData.append('media_preview', browserPreview.blob, 'browser-preview.jpg');
+                        formData.append('media_width', String(browserPreview.width));
+                        formData.append('media_height', String(browserPreview.height));
+                        browserPreviewUrl = URL.createObjectURL(browserPreview.blob);
+                    } catch (error) {
+                        if (error instanceof DOMException && error.name === 'AbortError') {
+                            throw error;
+                        }
+                    }
+                }
+
                 const response = await window.fetch(state.form.action, {
                     method: 'POST',
                     body: formData,
@@ -1324,7 +1567,7 @@
                 ) {
                     state.uploadedMediaIds.add(Number(payload.incoming.media_id));
                     const candidateId = Number(payload.incoming.media_id);
-                    payload = await resolveMediaConflict(state, payload, controller);
+                    payload = await resolveMediaConflict(state, payload, controller, browserPreviewUrl);
                     state.uploadedMediaIds.delete(candidateId);
                     if (payload === null) {
                         placeholder.remove();
@@ -1352,6 +1595,15 @@
                     return;
                 }
 
+                if (kind === 'image' && browserPreview !== null) {
+                    if (!Number.isInteger(payload.width) || payload.width <= 0) {
+                        payload.width = browserPreview.width;
+                    }
+                    if (!Number.isInteger(payload.height) || payload.height <= 0) {
+                        payload.height = browserPreview.height;
+                    }
+                }
+
                 const media = createMediaElement(state, payload, file);
                 state.uploadedMediaIds.add(payload.media_id);
                 placeholder.replaceWith(media.element);
@@ -1372,6 +1624,9 @@
                         : mediaMessage(state.card.dataset.mediaUploadFailed || 'Unable to upload “%s”.', file.name),
                 );
             } finally {
+                if (browserPreviewUrl !== '') {
+                    URL.revokeObjectURL(browserPreviewUrl);
+                }
                 state.mediaControllers.delete(controller);
             }
         })();
@@ -1888,34 +2143,33 @@
     }
 
     function imageCaptionContext(state, image) {
+        const legacyHost = image.closest('.post-picture, figure');
+        if (legacyHost instanceof HTMLElement && state.body.contains(legacyHost)) {
+            const legacyCaption = legacyHost.matches('.post-picture')
+                ? legacyHost.querySelector(':scope > .post-caption.post-media-overlay-caption')
+                : legacyHost.querySelector(':scope > figcaption.post-media-overlay-caption');
+            if (legacyCaption instanceof HTMLElement) {
+                legacyCaption.classList.remove('post-media-overlay-caption', 'is-editing-caption');
+                legacyCaption.removeAttribute('data-caption-font');
+                legacyCaption.removeAttribute('data-caption-background');
+                legacyCaption.removeAttribute('contenteditable');
+                legacyCaption.removeAttribute('role');
+                legacyCaption.removeAttribute('aria-label');
+                legacyCaption.removeAttribute('aria-multiline');
+                legacyCaption.removeAttribute('spellcheck');
+                legacyCaption.removeAttribute('data-placeholder');
+                legacyCaption.removeAttribute('tabindex');
+                legacyHost.classList.remove('post-media-overlay');
+                state.bodyDirty = true;
+            }
+        }
+
         const generated = image.closest('[data-post-media-overlay]');
         if (generated instanceof HTMLElement && state.body.contains(generated)) {
             return {
                 wrapper: generated,
                 caption: generated.querySelector(':scope > .post-media-overlay-caption'),
                 generated: true,
-            };
-        }
-
-        const postPicture = image.closest('.post-picture');
-        if (postPicture instanceof HTMLElement && state.body.contains(postPicture)) {
-            return {
-                wrapper: postPicture,
-                caption: postPicture.querySelector(':scope > .post-caption, :scope > .post-media-overlay-caption'),
-                generated: false,
-            };
-        }
-
-        const figure = image.closest('figure');
-        if (
-            figure instanceof HTMLElement
-            && state.body.contains(figure)
-            && figure.querySelectorAll('img').length === 1
-        ) {
-            return {
-                wrapper: figure,
-                caption: figure.querySelector(':scope > figcaption, :scope > .post-media-overlay-caption'),
-                generated: false,
             };
         }
 
@@ -1972,14 +2226,7 @@
 
         let caption = context.caption;
         if (!(caption instanceof HTMLElement)) {
-            if (context.wrapper.tagName === 'FIGURE') {
-                caption = document.createElement('figcaption');
-            } else if (context.wrapper.classList.contains('post-picture')) {
-                caption = document.createElement('div');
-                caption.className = 'post-caption';
-            } else {
-                caption = document.createElement('span');
-            }
+            caption = document.createElement('span');
             context.wrapper.append(caption);
         }
 
@@ -2797,7 +3044,7 @@
 
         if (event.key === 'Escape') {
             event.preventDefault();
-            closeEditor(state.card, true);
+            requestCloseEditor(state.card, true);
             return true;
         }
 
@@ -2945,31 +3192,6 @@
 
     document.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : null;
-        const siteEdit = target?.closest('.site-header-edit-start');
-        if (siteEdit && beginSiteHeaderEdit(siteEdit)) {
-            event.preventDefault();
-            return;
-        }
-
-        const siteSave = target?.closest('.site-header-edit-save');
-        if (siteSave && siteHeaderState?.shell.contains(siteSave)) {
-            event.preventDefault();
-            submitSiteHeader(siteHeaderState);
-            return;
-        }
-
-        const siteCancel = target?.closest('.site-header-edit-cancel');
-        if (siteCancel && siteHeaderState?.shell.contains(siteCancel)) {
-            event.preventDefault();
-            stopSiteHeaderEditing(siteHeaderState, true, true);
-            return;
-        }
-
-        if (siteHeaderState && target?.closest('[data-site-header-link]')) {
-            event.preventDefault();
-            return;
-        }
-
         const card = cardFor(target);
         document.querySelectorAll('.post-card.is-editing').forEach((editingCard) => {
             const editingState = editorStates.get(editingCard);
@@ -3024,7 +3246,7 @@
         if (editCancel) {
             const editCard = cardFor(editCancel);
             if (editCard) {
-                closeEditor(editCard, true);
+                requestCloseEditor(editCard, true);
             }
             return;
         }
@@ -3049,13 +3271,6 @@
         if (!(form instanceof HTMLFormElement)) {
             return;
         }
-        if (form.matches('.site-header-inplace-form')) {
-            event.preventDefault();
-            if (siteHeaderState?.form === form) {
-                submitSiteHeader(siteHeaderState);
-            }
-            return;
-        }
         if (!form.matches('.post-inplace-edit-form, .post-inplace-delete-form')) {
             return;
         }
@@ -3064,25 +3279,6 @@
     }, false);
 
     document.addEventListener('keydown', (event) => {
-        if (siteHeaderState?.shell.contains(event.target)) {
-            const modifier = event.ctrlKey || event.metaKey;
-            if (modifier && !event.altKey && !event.shiftKey && (event.code === 'KeyS' || event.key.toLowerCase() === 's')) {
-                event.preventDefault();
-                submitSiteHeader(siteHeaderState);
-                return;
-            }
-            if (event.key === 'Escape') {
-                event.preventDefault();
-                stopSiteHeaderEditing(siteHeaderState, true, true);
-                return;
-            }
-            if (siteHeaderState.title.contains(event.target) && event.key === 'Enter') {
-                event.preventDefault();
-                focusEdge(siteHeaderState.tagline, true);
-                return;
-            }
-        }
-
         const createModifier = editorPlatform === 'macos'
             ? event.metaKey && !event.ctrlKey
             : event.ctrlKey && !event.metaKey;
@@ -3097,7 +3293,7 @@
             const editingCard = document.querySelector('.post-card.is-editing');
             const createButton = Array.from(document.querySelectorAll('.post-create-start'))
                 .find((button) => button.getClientRects().length > 0);
-            if (!editingCard && !siteHeaderState && createButton instanceof HTMLButtonElement) {
+            if (!editingCard && createButton instanceof HTMLButtonElement) {
                 event.preventDefault();
                 beginCreate(createButton);
                 return;
@@ -3135,11 +3331,6 @@
     }, false);
 
     document.addEventListener('input', (event) => {
-        if (siteHeaderState?.shell.contains(event.target)) {
-            clearSiteHeaderMessage(siteHeaderState);
-            return;
-        }
-
         const card = cardFor(event.target);
         const state = card ? editorStates.get(card) : null;
         if (!state) {
@@ -3181,9 +3372,6 @@
     }, false);
 
     document.addEventListener('register:fragment-updated', (event) => {
-        if (siteHeaderState && !siteHeaderState.shell.isConnected) {
-            siteHeaderState = null;
-        }
         applyShortcutHints(event.detail?.root || document);
     }, false);
 

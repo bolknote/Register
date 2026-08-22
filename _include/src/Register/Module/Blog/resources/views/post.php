@@ -20,7 +20,7 @@ use Register\Http\TrustedScriptNonceInjector;
 /** @var string $favoritePostsUrl */
 /** @var bool $showComments */
 /** @var bool $enabledComments */
-/** @var array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: bool}|null $inplace */
+/** @var array{action_url: string, admin_edit_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: bool}|null $inplace */
 
 $heading     = empty($title_link) ? 'h1' : 'h2';
 $inplaceData = isset($inplace) && \is_array($inplace) ? $inplace : null;
@@ -47,6 +47,8 @@ $tagNames    = array_values(array_map(
     data-title-label="<?php echo register_htmlencode($trans('Post title')); ?>"
     data-body-label="<?php echo register_htmlencode($trans('Post text')); ?>"
     data-tags-label="<?php echo register_htmlencode($trans('Post tags')); ?>"
+    data-tag-suggestions-label="<?php echo register_htmlencode($trans('Post tag suggestions')); ?>"
+    data-tag-suggestions-url="<?php echo register_htmlencode($inplaceData['tag_suggestions_url']); ?>"
     data-remove-tag-label="<?php echo register_htmlencode($trans('Remove post tag')); ?>"
     data-invalid-tags="<?php echo register_htmlencode($trans('Invalid post tags')); ?>"
     data-link-prompt="<?php echo register_htmlencode($trans('Link address')); ?>"
@@ -61,6 +63,7 @@ $tagNames    = array_values(array_map(
     data-ai-applied="<?php echo register_htmlencode($trans('AI changes applied')); ?>"
     data-ai-proofread-clean="<?php echo register_htmlencode($trans('AI proofreading clean')); ?>"
     data-invalid-link="<?php echo register_htmlencode($trans('Invalid link address')); ?>"
+    data-discard-changes-warning="<?php echo register_htmlencode($trans('Discard post changes warning')); ?>"
     data-title-placeholder="<?php echo register_htmlencode($trans('New post title')); ?>"
     data-date-label="<?php echo register_htmlencode($trans('Post publication date')); ?>"
 <?php endif; ?>
@@ -276,6 +279,21 @@ $tagNames    = array_values(array_map(
                 <button type="button" data-media-conflict-action="cancel"><?php echo $trans('Cancel'); ?></button>
                 <button type="button" data-media-conflict-action="keep"><?php echo $trans('Keep both images'); ?></button>
                 <button type="button" class="is-primary" data-media-conflict-action="overwrite"><?php echo $trans('Replace existing image'); ?></button>
+            </div>
+        </section>
+    </div>
+</template>
+<template class="post-discard-changes-template">
+    <div class="post-media-conflict-backdrop post-discard-changes-backdrop">
+        <section class="post-media-conflict-dialog post-discard-changes-dialog" role="dialog" aria-modal="true" aria-labelledby="post-discard-changes-title-<?php echo $postId; ?>" tabindex="-1">
+            <header>
+                <span><?php echo $trans('Editor'); ?></span>
+                <h2 id="post-discard-changes-title-<?php echo $postId; ?>"><?php echo $trans('Discard unsaved post changes'); ?></h2>
+                <p><?php echo $trans('Discard post changes warning'); ?></p>
+            </header>
+            <div class="post-media-conflict-actions post-discard-changes-actions">
+                <button type="button" class="is-danger" data-discard-changes-action="discard"><?php echo $trans('Discard post changes'); ?></button>
+                <button type="button" class="is-primary" data-discard-changes-action="continue"><?php echo $trans('Continue post editing'); ?></button>
             </div>
         </section>
     </div>

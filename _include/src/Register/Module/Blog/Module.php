@@ -22,7 +22,7 @@ use Register\Module\Blog\Inplace\PostInplaceControls;
 use Register\Module\Blog\Inplace\PostInplaceMediaStorage;
 use Register\Module\Blog\Inplace\PostInplaceTokenManager;
 use Register\Module\Blog\Inplace\PostMediaRepository;
-use Register\Module\Blog\Inplace\SiteHeaderInplaceController;
+use Register\Module\Blog\Inplace\PostTagSuggestionsController;
 use Register\Core\Admin\Picture\PictureFileNameHelper;
 use Register\Core\Admin\Picture\PictureStorageQuota;
 use Register\Core\Asset\AssetPack;
@@ -157,6 +157,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(PostFeedRenderer::class),
                 $provider->getStringProxy('REGISTER_SITE_NAME'),
                 $provider->getStringProxy(SiteHeaderRenderer::TAGLINE_CONFIG_KEY),
+                $container->get(AuthProvider::class),
+                $container->get(\Register\Comment\CommentRepository::class),
+                $container->get(LiveUpdateContext::class),
             );
         });
         $container->set(PostInplaceTokenManager::class, static fn(Container $container): PostInplaceTokenManager => new PostInplaceTokenManager(
@@ -208,13 +211,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get('register_blog_translator'),
             ...$container->getByTag(ContentDeletionGuardInterface::class),
         ));
-        $container->set(SiteHeaderInplaceController::class, static fn(Container $container): SiteHeaderInplaceController => new SiteHeaderInplaceController(
-            $container->get(DbLayer::class),
-            $container->get(DynamicConfigProvider::class),
+        $container->set(PostTagSuggestionsController::class, static fn(Container $container): PostTagSuggestionsController => new PostTagSuggestionsController(
             $container->get(AuthProvider::class),
-            $container->get(PostInplaceTokenManager::class),
-            $container->get(\Register\Core\Security\Audit\SecurityAuditLogger::class),
-            $container->get('register_blog_translator'),
+            $container->get(\Register\Content\TagRepository::class),
         ));
         $container->set(MainPageController::class, static function (Container $container): \Register\Module\Blog\Controller\MainPageController {
             $provider = $container->get(DynamicConfigProvider::class);
@@ -628,10 +627,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             methods: ['POST'],
         ), $priority + 1);
 
-        $routes->add('blog_site_header_inplace', new Route(
-            '/_inplace/site-header',
-            ['_controller' => SiteHeaderInplaceController::class],
-            methods: ['POST'],
+        $routes->add('blog_post_tag_suggestions', new Route(
+            '/_inplace/tags',
+            ['_controller' => PostTagSuggestionsController::class],
+            methods: ['GET'],
         ), $priority + 1);
 
         $routes->add('blog_main', new Route(

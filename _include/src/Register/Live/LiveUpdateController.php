@@ -14,6 +14,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Module\Blog\Model\PostFeedRenderer;
+use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Core\Framework\ControllerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,6 +33,7 @@ final readonly class LiveUpdateController implements ControllerInterface
         private ContentCommentRenderer $commentRenderer,
         private ContentRepository      $contentRepository,
         private LiveFragmentRenderer   $fragmentRenderer,
+        private SiteHeaderRenderer     $siteHeaderRenderer,
     ) {
     }
 
@@ -117,12 +119,23 @@ final readonly class LiveUpdateController implements ControllerInterface
     private function validRegion(string $region): bool
     {
         return preg_match('/^posts:(0|[1-9][0-9]{0,6})$/D', $region) === 1
-            || preg_match('/^comments:(page|post):[1-9][0-9]*$/D', $region) === 1;
+            || preg_match('/^comments:(page|post):[1-9][0-9]*$/D', $region) === 1
+            || $region === 'site-tools';
     }
 
     /** @param list<LiveUpdate> $updates */
     private function regionChanged(string $region, array $updates): bool
     {
+        if ($region === 'site-tools') {
+            foreach ($updates as $update) {
+                if ($update->topic === LiveUpdateRepository::TOPIC_COMMENTS) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         if (str_starts_with($region, 'posts:')) {
             foreach ($updates as $update) {
                 if ($update->contentId->type === ContentType::POST) {
@@ -145,6 +158,10 @@ final readonly class LiveUpdateController implements ControllerInterface
 
     private function renderRegion(string $region, Request $request): string
     {
+        if ($region === 'site-tools') {
+            return $this->siteHeaderRenderer->renderTools($request, true);
+        }
+
         if (preg_match('/^posts:([0-9]+)$/D', $region, $matches) === 1) {
             return $this->postFeedRenderer->render((int)$matches[1], $request)->html;
         }
