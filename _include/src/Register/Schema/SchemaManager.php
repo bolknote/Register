@@ -10,14 +10,15 @@ declare(strict_types = 1);
 namespace Register\Schema;
 
 use Register\Ai\AiSettings;
-use Register\Content\ContentMediaSchema;
 use Register\Module\BaseModuleInstaller;
 use S2\Cms\Framework\Container;
 use S2\Cms\Model\ExtensionCache;
 use S2\Cms\Pdo\DbLayer;
 
 /**
- * Guards the current schema and applies explicitly supported additive upgrades.
+ * Initializes a clean schema and applies only explicitly registered additive upgrades.
+ * The same migration chain is used by the maintenance-mode release updater and by a manual
+ * deployment that first reaches the normal application bootstrap.
  */
 final readonly class SchemaManager
 {
@@ -25,7 +26,8 @@ final readonly class SchemaManager
 
     public const int CURRENT_GENERATION = 16;
 
-    private const int MEDIA_REGISTRY_GENERATION = 15;
+    /** Oldest installed generation accepted by the release updater. */
+    public const int MINIMUM_UPGRADE_GENERATION = 15;
 
     private const array CONFIG_DEFAULTS = [
         'S2_SITE_TAGLINE' => '',
@@ -42,11 +44,12 @@ final readonly class SchemaManager
         private DbLayer             $dbLayer,
         private Container           $container,
         private BaseModuleInstaller $baseModuleInstaller,
+        private SchemaMigrator      $schemaMigrator,
     ) {
     }
 
     /**
-     * Initializes base modules for a fresh installation and rejects every stale schema.
+     * Initializes base modules for a fresh installation and upgrades a supported stale schema.
      *
      * @return bool Whether the fresh schema or its generation marker changed.
      */
@@ -57,11 +60,10 @@ final readonly class SchemaManager
             return $this->ensureConfigDefaults();
         }
 
-        if ($currentGeneration === self::MEDIA_REGISTRY_GENERATION) {
-            ContentMediaSchema::create($this->dbLayer);
-            $this->storeGeneration(self::CURRENT_GENERATION);
-
-            return true;
+        if ($currentGeneration >= self::MINIMUM_UPGRADE_GENERATION
+            && $currentGeneration < self::CURRENT_GENERATION
+        ) {
+            return $this->migrateTo(self::CURRENT_GENERATION);
         }
 
         if ($currentGeneration !== 0) {
@@ -82,6 +84,50 @@ final readonly class SchemaManager
         }
 
         return true;
+    }
+
+    /** Applies the migration chain supplied by the newly installed release. */
+    public function migrateTo(int $targetGeneration): bool
+    {
+        if ($targetGeneration !== self::CURRENT_GENERATION) {
+            throw new \LogicException(\sprintf(
+                'The running Register release can migrate only to schema generation %d.',
+                self::CURRENT_GENERATION,
+            ));
+        }
+
+        $currentGeneration = $this->currentGeneration();
+        if ($currentGeneration === 0) {
+            throw new \LogicException('A fresh database must be initialized by the installer, not the updater.');
+        }
+
+        if ($currentGeneration < self::MINIMUM_UPGRADE_GENERATION
+            || $currentGeneration > self::CURRENT_GENERATION
+        ) {
+            throw new \LogicException(\sprintf(
+                'Register schema generation %d is incompatible with the supported upgrade range %d-%d.',
+                $currentGeneration,
+                self::MINIMUM_UPGRADE_GENERATION,
+                self::CURRENT_GENERATION,
+            ));
+        }
+
+        $changed = $this->schemaMigrator->migrate(
+            $currentGeneration,
+            $targetGeneration,
+            function (int $generation): void {
+                $this->storeGeneration($generation);
+            },
+        );
+        $changed = $this->ensureConfigDefaults() || $changed;
+        if ($changed) {
+            $extensionCache = $this->container->getIfDefined(ExtensionCache::class);
+            if ($extensionCache instanceof ExtensionCache) {
+                $extensionCache->clear();
+            }
+        }
+
+        return $changed;
     }
 
     /** Adds newly introduced optional settings without changing the schema generation. */

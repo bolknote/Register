@@ -7,7 +7,14 @@ use ShipMonk\ComposerDependencyAnalyser\Config\ErrorType;
 
 $config = new Configuration();
 $projectRoot = dirname(__DIR__, 2);
-require_once $projectRoot . '/tools/deployment/SharedHostingDistributionBuilder.php';
+foreach ([
+    'SharedHostingDistributionBuilder.php',
+    'ProductionDependencyInstaller.php',
+    'ReleaseManifestBuilder.php',
+    'ReleaseArchiveBuilder.php',
+] as $deploymentFile) {
+    require_once $projectRoot . '/tools/deployment/' . $deploymentFile;
+}
 
 return $config
     ->addPathToScan($projectRoot . '/_admin', isDev: false)
@@ -23,12 +30,15 @@ return $config
         'Tests\\Support\\Helper\\AbstractBrowserModule',
     ])
     // Native mbstring/ctype are covered by direct polyfills; the other extensions are optional and guarded.
+    // The release workflow explicitly installs Bzip2 and Zip before invoking the archive builder.
     ->ignoreErrorsOnExtensions([
+        'ext-bz2',
         'ext-ctype',
         'ext-curl',
         'ext-intl',
         'ext-mbstring',
         'ext-zend-opcache',
+        'ext-zip',
         'ext-zlib',
     ], [ErrorType::SHADOW_DEPENDENCY])
     ->ignoreErrorsOnPackages([

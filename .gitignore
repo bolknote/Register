@@ -8,6 +8,10 @@ _cache/*
 _vendor/*
 /config.php
 /config.secrets.php
+/register-build.json
+/register-release.json
+/.register-maintenance.json
+/.register-maintenance.lock
 config.local.php
 config.test.php
 pictures

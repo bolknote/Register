@@ -294,7 +294,7 @@ final class CommentHtml
         }
 
         foreach (explode('/', substr($source, \strlen(self::MANAGED_COMMENT_MEDIA_PREFIX))) as $segment) {
-            if ($segment === '' || $segment === '.' || $segment === '..') {
+            if (in_array($segment, ['', '.', '..'], true)) {
                 return null;
             }
         }

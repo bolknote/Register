@@ -125,6 +125,7 @@
         "analyse:phpstan": "phpstan analyse --configuration=tools/quality/phpstan.neon --no-progress --memory-limit=1G",
         "analyse:psalm": "psalm --config=tools/quality/psalm.xml --no-cache --no-progress",
         "build:shared-hosting": "php tools/build-shared-hosting.php",
+        "build:release": "php tools/build-release.php",
         "check": [
             "@codeception:build",
             "@lint",

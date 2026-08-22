@@ -1,0 +1,142 @@
+name: Release edge build
+
+on:
+  workflow_run:
+    workflows:
+      - Unit tests
+      - Test on SQLite
+      - Test on MySQL
+      - Test on PostgreSQL
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: release-edge-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+      target_sha: ${{ steps.check.outputs.target_sha }}
+    steps:
+      - name: Require every test workflow to pass
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          echo "target_sha=${TARGET_SHA}" >> "$GITHUB_OUTPUT"
+          runs_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${TARGET_SHA}&event=push&per_page=100")"
+          required_workflows=(
+            'Unit tests'
+            'Test on SQLite'
+            'Test on MySQL'
+            'Test on PostgreSQL'
+          )
+
+          for workflow in "${required_workflows[@]}"; do
+            run="$(jq -c --arg workflow "$workflow" '[.workflow_runs[] | select(.name == $workflow)] | sort_by(.run_number) | last // empty' <<< "$runs_json")"
+            if [[ -z "$run" ]]; then
+              echo "Waiting for workflow: $workflow"
+              exit 0
+            fi
+
+            status="$(jq -r '.status' <<< "$run")"
+            conclusion="$(jq -r '.conclusion // ""' <<< "$run")"
+            if [[ "$status" != 'completed' ]]; then
+              echo "Waiting for workflow: $workflow ($status)"
+              exit 0
+            fi
+            if [[ "$conclusion" != 'success' ]]; then
+              echo "Release is blocked by workflow: $workflow ($conclusion)"
+              exit 0
+            fi
+          done
+
+          commit_date="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}" --jq '.commit.committer.date')"
+          release_stamp="$(date --utc --date="$commit_date" '+%Y%m%dT%H%M%SZ')"
+          release_tag="edge-${release_stamp}-${TARGET_SHA:0:8}"
+          if is_draft="$(gh release view "$release_tag" --json isDraft --jq '.isDraft' 2>/dev/null)" \
+            && [[ "$is_draft" != 'true' ]]; then
+            echo "Release $release_tag is already published."
+            exit 0
+          fi
+
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: gate
+    if: needs.gate.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.gate.outputs.target_sha }}
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.3'
+          extensions: bz2, dom, gd, mbstring, pdo_sqlite, zip, zlib
+
+      - name: Install build dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Build production release archives
+        id: build
+        env:
+          TARGET_SHA: ${{ needs.gate.outputs.target_sha }}
+          REGISTER_RELEASE_BUILD: ${{ github.run_id }}
+        run: |
+          source_epoch="$(git show -s --format=%ct "$TARGET_SHA")"
+          release_stamp="$(date --utc --date="@${source_epoch}" '+%Y%m%dT%H%M%SZ')"
+          version_stamp="$(date --utc --date="@${source_epoch}" '+%Y%m%d.%H%M%S')"
+          built_at="$(date --utc --date="@${source_epoch}" '+%Y-%m-%dT%H:%M:%S+00:00')"
+          short_sha="${TARGET_SHA:0:8}"
+          release_id="${release_stamp}-${short_sha}"
+          version="2.0.0-edge.${version_stamp}"
+
+          REGISTER_RELEASE_COMMIT="$TARGET_SHA" \
+          REGISTER_RELEASE_BUILT_AT="$built_at" \
+          REGISTER_RELEASE_ID="$release_id" \
+          REGISTER_RELEASE_VERSION="$version" \
+          SOURCE_DATE_EPOCH="$source_epoch" \
+            composer build:release -- dist/release
+
+          {
+            echo "release_id=${release_id}"
+            echo "version=${version}"
+            echo "tag=edge-${release_id}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.gate.outputs.target_sha }}
+          RELEASE_TAG: ${{ steps.build.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.build.outputs.version }}
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' >/tmp/register-release-draft 2>/dev/null; then
+            if [[ "$(</tmp/register-release-draft)" != 'true' ]]; then
+              echo "Release $RELEASE_TAG is already published."
+              exit 0
+            fi
+          else
+            notes="Automated production build from ${TARGET_SHA}. Download one register-* archive, not GitHub's automatic Source code assets; all three formats contain the same release. SHA256SUMS covers the archive files, and every installed file is listed inside the release manifest."
+            gh release create "$RELEASE_TAG" \
+              --draft \
+              --prerelease \
+              --target "$TARGET_SHA" \
+              --title "Register ${RELEASE_VERSION}" \
+              --notes "$notes"
+          fi
+
+          gh release upload "$RELEASE_TAG" dist/release/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false

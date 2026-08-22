@@ -187,6 +187,12 @@ final readonly class SharedHostingDistributionBuilder
                 );
             }
 
+            $this->copyExactFile(
+                $this->sourceRoot . '/_doc/self-update.md',
+                $destinationRoot . '/UPDATES.md',
+                0644,
+            );
+
             if (is_dir($applicationRoot . '/_vendor')) {
                 $this->syncPublicVendorAssets($destinationRoot);
             }
