@@ -56,14 +56,25 @@ final class PostInplaceCest
         $I->seeElement('.post-inplace-edit-form[hidden] input[type="hidden"][name="tags"]');
         $I->seeElement('.post.head [data-post-inplace-title]');
         $I->seeElement('.post.body[data-post-inplace-body]');
+        $I->seeElement('.post-card[data-media-caption-placeholder="Add a caption…"]');
         $I->seeElement('.post.foot .post-foot-tags.is-empty [data-post-inplace-tags-values]');
         $I->dontSeeElement('.post-inplace-html-editor');
         $I->seeElement('.post-delete-confirmation[hidden]');
         $I->seeElement('template.post-editor-context-menu-template');
         $I->seeElement('.post-editor-context-menu-template [data-context-selection-only]');
         $I->seeElement('.post-editor-context-menu-template [data-context-caret-only]');
+        $I->seeElement('.post-editor-context-menu-template [data-context-image-only]');
         $I->seeElement('.post-editor-context-menu-template [data-context-action="media"]');
         $I->seeElement('.post-editor-context-menu-template [data-context-action="open-link"]');
+        $I->seeElement('.post-editor-context-menu-template .post-editor-image-panel[hidden]');
+        $I->seeElement('.post-editor-context-menu-template [data-context-image-alt-input]');
+        $I->seeElement('.post-editor-image-panel [data-context-action="open-link"]');
+        $I->seeElement('.post-editor-image-panel [data-context-action="edit-image-caption"]');
+        $I->seeElement('template.post-image-caption-toolbar-template');
+        $I->seeElement('.post-image-caption-toolbar-template [data-caption-action="commit"]');
+        $I->seeElement('.post-image-caption-toolbar-template [data-caption-action="cancel"]');
+        $I->seeElement('.post-image-caption-toolbar-template [data-caption-font="serif"]');
+        $I->seeElement('.post-image-caption-toolbar-template [data-caption-background="accent"]');
         $I->dontSeeElement('.post-editor-context-menu-template [data-context-ai-action]');
         $I->seeElement('script[src^="/_assets/register/post-inplace.js?v="]');
 
@@ -102,6 +113,14 @@ final class PostInplaceCest
         $token    = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
         $I->assertSame('Inplace tag', $I->grabAttributeFrom($selector . ' input[name="tags"]', 'value'));
         $cursor   = $updates->currentCursor();
+        $editedBody = '<p>Updated <strong>without a reload</strong>.</p>'
+            . '<p><span class="post-media-overlay" data-post-media-overlay="" role="figure">'
+            . '<a class="post-media-image-link" href="/full-size"><img src="/photo.jpg" alt="A useful alt"></a>'
+            . '<span class="post-media-overlay-caption" data-caption-font="serif" '
+            . 'data-caption-background="accent">Caption over the image</span>'
+            . '</span></p>'
+            . '<div class="post-picture post-media-picture"><img class="post-media-image" '
+            . 'src="/another-photo.jpg" alt=""><div class="post-caption">Small caption</div></div>';
 
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
             'inplace_action' => 'edit',
@@ -109,7 +128,7 @@ final class PostInplaceCest
             'revision'       => '1',
             'return_to'      => '/editable-post',
             'title'          => 'Edited in place',
-            'body'           => '<p>Updated <strong>without a reload</strong>.</p>',
+            'body'           => $editedBody,
             'tags'           => 'Inplace tag, Fresh tag, fresh TAG',
         ]);
         $I->seeResponseCodeIs(Response::HTTP_OK);
@@ -121,6 +140,12 @@ final class PostInplaceCest
         $I->assertSame(2, $payload['revision']);
         $I->assertStringContainsString('data-post-inplace-body', $payload['body_html']);
         $I->assertStringContainsString('<strong>without a reload</strong>', $payload['body_html']);
+        $I->assertStringContainsString('post-media-overlay-caption', $payload['body_html']);
+        $I->assertStringContainsString('alt="A useful alt"', $payload['body_html']);
+        $I->assertStringContainsString('data-caption-font="serif"', $payload['body_html']);
+        $I->assertStringContainsString('data-caption-background="accent"', $payload['body_html']);
+        $I->assertStringContainsString('post-media-picture', $payload['body_html']);
+        $I->assertStringContainsString('<div class="post-caption">Small caption</div>', $payload['body_html']);
         $I->assertSame(['Inplace tag', 'Fresh tag'], array_column($payload['tags'], 'name'));
         $I->assertStringContainsString('Fresh%20tag', $payload['tags'][1]['url']);
 
@@ -133,7 +158,7 @@ final class PostInplaceCest
         ;
         $I->assertIsArray($stored);
         $I->assertSame('Edited in place', $stored['title']);
-        $I->assertSame('<p>Updated <strong>without a reload</strong>.</p>', $stored['body']);
+        $I->assertSame($editedBody, $stored['body']);
         $I->assertSame(2, (int)$stored['revision']);
         $I->assertSame(
             ['Inplace tag', 'Fresh tag'],
@@ -147,7 +172,7 @@ final class PostInplaceCest
             'inplace_token'  => $token,
             'revision'       => '2',
             'title'          => 'Edited in place',
-            'body'           => '<p>Updated <strong>without a reload</strong>.</p>',
+            'body'           => $editedBody,
             'tags'           => '',
         ]);
         $I->seeResponseCodeIs(Response::HTTP_OK);

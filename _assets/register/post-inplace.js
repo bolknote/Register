@@ -33,6 +33,7 @@
             'quote': ['⇧⌘9', 'Meta+Shift+9'],
             'ordered-list': ['⇧⌘7', 'Meta+Shift+7'],
             'unordered-list': ['⇧⌘8', 'Meta+Shift+8'],
+            'apply-link': ['↵', 'Enter'],
         }
         : {
             'save': ['Ctrl+S', 'Control+S'],
@@ -54,6 +55,7 @@
             'quote': ['Ctrl+Shift+9', 'Control+Shift+9'],
             'ordered-list': ['Ctrl+Shift+7', 'Control+Shift+7'],
             'unordered-list': ['Ctrl+Shift+8', 'Control+Shift+8'],
+            'apply-link': ['↵', 'Enter'],
         };
 
     function applyShortcutHints(root) {
@@ -223,6 +225,26 @@
             audio.removeAttribute('data-register-audio-native');
         });
         clone.querySelectorAll('.post-editor-context-anchor').forEach((anchor) => anchor.remove());
+        clone.querySelectorAll('.post-media-caption-toolbar').forEach((toolbar) => toolbar.remove());
+        clone.querySelectorAll('.post-media-overlay-caption.is-editing-caption').forEach((caption) => {
+            caption.classList.remove('is-editing-caption');
+            caption.removeAttribute('contenteditable');
+            caption.removeAttribute('role');
+            caption.removeAttribute('aria-label');
+            caption.removeAttribute('aria-multiline');
+            caption.removeAttribute('spellcheck');
+            caption.removeAttribute('data-placeholder');
+            caption.removeAttribute('tabindex');
+        });
+        clone.querySelectorAll('.post-caption.is-editing-inline-caption').forEach((caption) => {
+            const text = inlineMediaCaptionText(caption);
+            if (text === '') {
+                caption.remove();
+                return;
+            }
+            clearInlineMediaCaptionAttributes(caption);
+            caption.textContent = text;
+        });
         return clone.innerHTML;
     }
 
@@ -235,6 +257,10 @@
 
     function stopEditing(state) {
         closeContextMenu(state, false);
+        state.imageCaptionEditor?.controller.abort();
+        state.imageCaptionEditor = null;
+        state.mediaCaptionEditors.forEach((controller) => controller.abort());
+        state.mediaCaptionEditors.clear();
         state.aiController?.abort();
         state.aiController = null;
         state.mediaControllers.forEach((controller) => controller.abort());
@@ -353,7 +379,10 @@
             tagsDirty: false,
             mediaUploads: new Set(),
             mediaControllers: new Set(),
+            mediaCaptionEditors: new Map(),
+            mediaCaptionBodyContentEditable: null,
             contextMenu: null,
+            imageCaptionEditor: null,
             aiController: null,
             submitting: false,
             titleLink,
@@ -400,6 +429,8 @@
     }
 
     function syncEditor(state) {
+        finishImageCaptionEditing(state, true, false);
+        finishInlineMediaCaptions(state);
         closeContextMenu(state, false);
         const titleSource = state.titleDirty ? (state.title.textContent || '') : state.originalTitle;
         const title = titleSource
@@ -658,7 +689,7 @@
         return bodyRange(state, range);
     }
 
-    function createMediaElement(payload, file) {
+    function createMediaElement(state, payload, file) {
         if (payload.kind === 'image') {
             const image = document.createElement('img');
             image.className = 'post-media-image';
@@ -672,7 +703,14 @@
             if (Number.isInteger(payload.height) && payload.height > 0) {
                 image.setAttribute('height', String(payload.height));
             }
-            return image;
+
+            const picture = document.createElement('div');
+            picture.className = 'post-picture post-media-picture';
+            const caption = document.createElement('div');
+            caption.className = 'post-caption';
+            picture.append(image, caption);
+            beginInlineMediaCaption(state, caption);
+            return {element: picture, caption};
         }
 
         const audio = document.createElement('audio');
@@ -684,7 +722,121 @@
         audio.dataset.title = typeof payload.name === 'string' && payload.name !== ''
             ? payload.name
             : file.name;
-        return audio;
+        return {element: audio, caption: null};
+    }
+
+    function inlineMediaCaptionText(caption) {
+        const text = typeof caption.innerText === 'string' ? caption.innerText : caption.textContent;
+        return String(text || '').replace(/\r\n?/gu, '\n').trim();
+    }
+
+    function clearInlineMediaCaptionAttributes(caption) {
+        caption.classList.remove('is-editing-inline-caption');
+        caption.removeAttribute('contenteditable');
+        caption.removeAttribute('role');
+        caption.removeAttribute('aria-label');
+        caption.removeAttribute('aria-multiline');
+        caption.removeAttribute('spellcheck');
+        caption.removeAttribute('data-placeholder');
+        caption.removeAttribute('tabindex');
+    }
+
+    function finishInlineMediaCaption(state, caption, restoreFocus = false) {
+        const controller = state.mediaCaptionEditors.get(caption);
+        if (!(controller instanceof AbortController)) {
+            return;
+        }
+        state.mediaCaptionEditors.delete(caption);
+        controller.abort();
+        const selection = window.getSelection();
+        const selectionWasInside = Boolean(selection?.anchorNode && caption.contains(selection.anchorNode));
+        if (document.activeElement === caption) {
+            caption.blur();
+        }
+        if (selectionWasInside) {
+            selection?.removeAllRanges();
+        }
+
+        const text = inlineMediaCaptionText(caption);
+        clearInlineMediaCaptionAttributes(caption);
+        if (text === '') {
+            caption.remove();
+        } else {
+            caption.textContent = text;
+        }
+        if (state.mediaCaptionEditors.size === 0) {
+            if (state.mediaCaptionBodyContentEditable === null) {
+                state.body.removeAttribute('contenteditable');
+            } else {
+                state.body.setAttribute('contenteditable', state.mediaCaptionBodyContentEditable);
+            }
+            state.mediaCaptionBodyContentEditable = null;
+        }
+        markBodyChanged(state);
+
+        if (restoreFocus) {
+            state.body.focus({preventScroll: true});
+            window.getSelection()?.removeAllRanges();
+        }
+    }
+
+    function finishInlineMediaCaptions(state) {
+        Array.from(state.mediaCaptionEditors.keys()).forEach((caption) => {
+            finishInlineMediaCaption(state, caption, false);
+        });
+    }
+
+    function beginInlineMediaCaption(state, caption) {
+        const controller = new AbortController();
+        const placeholder = state.card.dataset.mediaCaptionPlaceholder || 'Add a caption…';
+        if (state.mediaCaptionEditors.size === 0) {
+            state.mediaCaptionBodyContentEditable = state.body.getAttribute('contenteditable');
+            state.body.setAttribute('contenteditable', 'false');
+        }
+        state.mediaCaptionEditors.set(caption, controller);
+        caption.classList.add('is-editing-inline-caption');
+        caption.setAttribute('contenteditable', 'true');
+        caption.setAttribute('role', 'textbox');
+        caption.setAttribute('aria-label', placeholder);
+        caption.setAttribute('aria-multiline', 'true');
+        caption.setAttribute('spellcheck', 'true');
+        caption.setAttribute('tabindex', '0');
+        caption.dataset.placeholder = placeholder;
+        caption.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
+                event.preventDefault();
+                event.stopPropagation();
+                finishInlineMediaCaption(state, caption, true);
+                return;
+            }
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                document.execCommand('insertText', false, '\n');
+            }
+        }, {signal: controller.signal});
+        caption.addEventListener('paste', (event) => {
+            event.preventDefault();
+            document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
+        }, {signal: controller.signal});
+    }
+
+    function focusInlineMediaCaption(state, caption) {
+        window.requestAnimationFrame(() => {
+            if (!caption.isConnected || !state.mediaCaptionEditors.has(caption)) {
+                return;
+            }
+            caption.focus({preventScroll: true});
+            const selection = window.getSelection();
+            if (!selection) {
+                return;
+            }
+            const range = document.createRange();
+            range.selectNodeContents(caption);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        });
     }
 
     function startMediaUpload(state, file, kind, placeholder) {
@@ -727,9 +879,13 @@
                     return;
                 }
 
-                placeholder.replaceWith(createMediaElement(payload, file));
+                const media = createMediaElement(state, payload, file);
+                placeholder.replaceWith(media.element);
                 state.bodyDirty = true;
                 clearStatus(state.card);
+                if (media.caption instanceof HTMLElement) {
+                    focusInlineMediaCaption(state, media.caption);
+                }
             } catch (error) {
                 placeholder.remove();
                 if (error instanceof DOMException && error.name === 'AbortError') {
@@ -1096,6 +1252,29 @@
     function positionContextMenu(anchor, menu) {
         anchor.classList.remove('is-left', 'is-above');
         let rect = menu.getBoundingClientRect();
+        if (anchor.classList.contains('is-viewport')) {
+            const edge = 12;
+            let left = Number.parseFloat(anchor.style.left) || 0;
+            let top = Number.parseFloat(anchor.style.top) || 0;
+            if (rect.width >= window.innerWidth - edge * 2) {
+                left += edge - rect.left;
+            } else if (rect.right > window.innerWidth - edge) {
+                left -= rect.right - (window.innerWidth - edge);
+            } else if (rect.left < edge) {
+                left += edge - rect.left;
+            }
+            anchor.style.left = `${left}px`;
+            rect = menu.getBoundingClientRect();
+            if (rect.height >= window.innerHeight - edge * 2) {
+                top += edge - rect.top;
+            } else if (rect.bottom > window.innerHeight - edge) {
+                top -= rect.bottom - (window.innerHeight - edge);
+            } else if (rect.top < edge) {
+                top += edge - rect.top;
+            }
+            anchor.style.top = `${top}px`;
+            return;
+        }
         if (rect.right > window.innerWidth - 12) {
             anchor.classList.add('is-left');
             rect = menu.getBoundingClientRect();
@@ -1116,11 +1295,17 @@
         if (!context) {
             return;
         }
-        context.main.hidden = false;
+        const imageMode = context.targetImage instanceof HTMLImageElement;
+        context.main.hidden = imageMode;
         context.linkPanel.hidden = true;
+        context.imagePanel.hidden = !imageMode;
         context.linkError.hidden = true;
         context.linkError.textContent = '';
-        visibleContextButtons(context.menu)[0]?.focus();
+        if (imageMode) {
+            context.imagePanel.querySelector('button, input')?.focus();
+        } else {
+            visibleContextButtons(context.menu)[0]?.focus();
+        }
         positionContextMenu(context.anchor, context.menu);
     }
 
@@ -1132,6 +1317,7 @@
         const link = contextLink(context);
         context.main.hidden = true;
         context.linkPanel.hidden = false;
+        context.imagePanel.hidden = true;
         context.linkError.hidden = true;
         context.linkError.textContent = '';
         context.linkInput.value = link?.getAttribute('href') || '';
@@ -1161,6 +1347,354 @@
         clearStatus(state.card);
     }
 
+    function imageTargetLink(state, image) {
+        const link = image.closest('a');
+        return link instanceof HTMLAnchorElement && state.body.contains(link) ? link : null;
+    }
+
+    function linkableImageNode(state, image) {
+        const proportional = image.closest('.post-proportional-wrapper');
+        if (proportional instanceof HTMLElement && state.body.contains(proportional)) {
+            return proportional;
+        }
+
+        const picture = image.closest('picture');
+        if (picture instanceof HTMLPictureElement && state.body.contains(picture)) {
+            return picture;
+        }
+
+        return image;
+    }
+
+    function imageCaptionContext(state, image) {
+        const generated = image.closest('[data-post-media-overlay]');
+        if (generated instanceof HTMLElement && state.body.contains(generated)) {
+            return {
+                wrapper: generated,
+                caption: generated.querySelector(':scope > .post-media-overlay-caption'),
+                generated: true,
+            };
+        }
+
+        const postPicture = image.closest('.post-picture');
+        if (postPicture instanceof HTMLElement && state.body.contains(postPicture)) {
+            return {
+                wrapper: postPicture,
+                caption: postPicture.querySelector(':scope > .post-caption, :scope > .post-media-overlay-caption'),
+                generated: false,
+            };
+        }
+
+        const figure = image.closest('figure');
+        if (
+            figure instanceof HTMLElement
+            && state.body.contains(figure)
+            && figure.querySelectorAll('img').length === 1
+        ) {
+            return {
+                wrapper: figure,
+                caption: figure.querySelector(':scope > figcaption, :scope > .post-media-overlay-caption'),
+                generated: false,
+            };
+        }
+
+        return {wrapper: null, caption: null, generated: false};
+    }
+
+    function imageCaptionText(state, image) {
+        return imageCaptionContext(state, image).caption?.textContent || '';
+    }
+
+    function setImageLink(state, image, url) {
+        const existing = imageTargetLink(state, image);
+        if (existing) {
+            existing.setAttribute('href', url);
+            return;
+        }
+
+        const node = linkableImageNode(state, image);
+        const link = document.createElement('a');
+        link.className = 'post-media-image-link';
+        link.setAttribute('href', url);
+        node.replaceWith(link);
+        link.append(node);
+    }
+
+    function removeImageLink(state, image) {
+        const link = imageTargetLink(state, image);
+        if (!link) {
+            return false;
+        }
+
+        const fragment = document.createDocumentFragment();
+        while (link.firstChild) {
+            fragment.append(link.firstChild);
+        }
+        link.replaceWith(fragment);
+        return true;
+    }
+
+    function ensureImageCaption(state, image) {
+        let context = imageCaptionContext(state, image);
+        if (!(context.wrapper instanceof HTMLElement)) {
+            const link = imageTargetLink(state, image);
+            const visual = linkableImageNode(state, image);
+            const media = link && link.contains(visual) ? link : visual;
+            const wrapper = document.createElement('span');
+            wrapper.className = 'post-media-overlay';
+            wrapper.dataset.postMediaOverlay = '';
+            wrapper.setAttribute('role', 'figure');
+            media.replaceWith(wrapper);
+            wrapper.append(media);
+            context = {wrapper, caption: null, generated: true};
+        }
+
+        let caption = context.caption;
+        if (!(caption instanceof HTMLElement)) {
+            if (context.wrapper.tagName === 'FIGURE') {
+                caption = document.createElement('figcaption');
+            } else if (context.wrapper.classList.contains('post-picture')) {
+                caption = document.createElement('div');
+                caption.className = 'post-caption';
+            } else {
+                caption = document.createElement('span');
+            }
+            context.wrapper.append(caption);
+        }
+
+        context.wrapper.classList.add('post-media-overlay');
+        caption.classList.add('post-media-overlay-caption');
+        if (!caption.hasAttribute('data-caption-font')) {
+            caption.dataset.captionFont = 'sans';
+        }
+        if (!caption.hasAttribute('data-caption-background')) {
+            caption.dataset.captionBackground = 'dark';
+        }
+        return {...context, caption};
+    }
+
+    function applyImageCaption(state, image, value) {
+        const text = String(value).replace(/\r\n?/gu, '\n').trim();
+        const context = imageCaptionContext(state, image);
+
+        if (text === '') {
+            context.caption?.remove();
+            context.wrapper?.classList.remove('post-media-overlay');
+            if (context.generated && context.wrapper instanceof HTMLElement) {
+                const fragment = document.createDocumentFragment();
+                while (context.wrapper.firstChild) {
+                    fragment.append(context.wrapper.firstChild);
+                }
+                context.wrapper.replaceWith(fragment);
+            }
+            return;
+        }
+
+        const captionContext = ensureImageCaption(state, image);
+        captionContext.caption.textContent = text;
+    }
+
+    function imageCaptionEditorText(caption) {
+        const text = typeof caption.innerText === 'string' ? caption.innerText : caption.textContent;
+        return String(text || '').replace(/\r\n?/gu, '\n').trim();
+    }
+
+    function finishImageCaptionEditing(state, commit, restoreFocus = false) {
+        const editor = state.imageCaptionEditor;
+        if (!editor) {
+            return;
+        }
+        state.imageCaptionEditor = null;
+        editor.controller.abort();
+        if (document.activeElement === editor.caption) {
+            editor.caption.blur();
+        }
+        window.getSelection()?.removeAllRanges();
+        editor.caption.classList.remove('is-editing-caption');
+        editor.caption.removeAttribute('contenteditable');
+        editor.caption.removeAttribute('role');
+        editor.caption.removeAttribute('aria-label');
+        editor.caption.removeAttribute('aria-multiline');
+        editor.caption.removeAttribute('spellcheck');
+        editor.caption.removeAttribute('data-placeholder');
+        editor.caption.removeAttribute('tabindex');
+        editor.toolbar.remove();
+        if (editor.bodyContentEditable === null) {
+            state.body.removeAttribute('contenteditable');
+        } else {
+            state.body.setAttribute('contenteditable', editor.bodyContentEditable);
+        }
+
+        if (!commit) {
+            if (editor.originalFontAttribute === null) {
+                editor.caption.removeAttribute('data-caption-font');
+            } else {
+                editor.caption.setAttribute('data-caption-font', editor.originalFontAttribute);
+            }
+            if (editor.originalBackgroundAttribute === null) {
+                editor.caption.removeAttribute('data-caption-background');
+            } else {
+                editor.caption.setAttribute('data-caption-background', editor.originalBackgroundAttribute);
+            }
+        }
+
+        const text = commit ? imageCaptionEditorText(editor.caption) : editor.original;
+        const styleChanged = text !== '' && (
+            editor.caption.dataset.captionFont !== editor.originalFont
+            || editor.caption.dataset.captionBackground !== editor.originalBackground
+        );
+        applyImageCaption(state, editor.image, text);
+        if (commit && (text !== editor.original || styleChanged)) {
+            markBodyChanged(state);
+        } else if (!commit) {
+            state.bodyDirty = editor.bodyDirtyBefore;
+        }
+        if (restoreFocus) {
+            state.body.focus({preventScroll: true});
+            window.getSelection()?.removeAllRanges();
+        }
+    }
+
+    function beginImageCaptionEditing(state, image, placeholder) {
+        finishImageCaptionEditing(state, true, false);
+        const originalContext = imageCaptionContext(state, image);
+        const original = (originalContext.caption?.textContent || '').replace(/\r\n?/gu, '\n').trim();
+        const originalFontAttribute = originalContext.caption?.getAttribute('data-caption-font') ?? null;
+        const originalBackgroundAttribute = originalContext.caption?.getAttribute('data-caption-background') ?? null;
+        const context = ensureImageCaption(state, image);
+        const caption = context.caption;
+        const toolbarTemplate = state.card.querySelector(':scope > .post-image-caption-toolbar-template');
+        const toolbarFragment = toolbarTemplate instanceof HTMLTemplateElement
+            ? toolbarTemplate.content.cloneNode(true)
+            : null;
+        const toolbar = toolbarFragment?.querySelector('.post-media-caption-toolbar');
+        if (!(toolbar instanceof HTMLElement)) {
+            applyImageCaption(state, image, original);
+            return;
+        }
+        context.wrapper.append(toolbarFragment);
+        const controller = new AbortController();
+        state.imageCaptionEditor = {
+            image,
+            caption,
+            toolbar,
+            controller,
+            original,
+            originalFontAttribute,
+            originalBackgroundAttribute,
+            originalFont: originalFontAttribute || 'sans',
+            originalBackground: originalBackgroundAttribute || 'dark',
+            bodyDirtyBefore: state.bodyDirty,
+            bodyContentEditable: state.body.getAttribute('contenteditable'),
+        };
+
+        state.body.setAttribute('contenteditable', 'false');
+        caption.classList.add('is-editing-caption');
+        caption.setAttribute('contenteditable', 'true');
+        caption.setAttribute('role', 'textbox');
+        caption.setAttribute('aria-label', placeholder);
+        caption.setAttribute('aria-multiline', 'true');
+        caption.setAttribute('spellcheck', 'true');
+        caption.tabIndex = 0;
+        caption.dataset.placeholder = placeholder;
+        caption.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                finishImageCaptionEditing(state, false, true);
+                return;
+            }
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (event.ctrlKey || event.metaKey) {
+                    finishImageCaptionEditing(state, true, true);
+                    return;
+                }
+                document.execCommand('insertText', false, '\n');
+            }
+        }, {signal: controller.signal});
+        caption.addEventListener('paste', (event) => {
+            event.preventDefault();
+            document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
+        }, {signal: controller.signal});
+        caption.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                if (state.imageCaptionEditor?.caption === caption && document.activeElement !== caption) {
+                    finishImageCaptionEditing(state, true, false);
+                }
+            }, 0);
+        }, {signal: controller.signal});
+        toolbar.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+        }, {signal: controller.signal});
+        const commitButton = toolbar.querySelector('[data-caption-action="commit"]');
+        if (commitButton instanceof HTMLButtonElement) {
+            const shortcutLabel = editorPlatform === 'macos' ? '⌘↵' : 'Ctrl+↵';
+            const shortcutAria = editorPlatform === 'macos' ? 'Meta+Enter' : 'Control+Enter';
+            commitButton.title = `${commitButton.title} — ${shortcutLabel}`;
+            commitButton.setAttribute('aria-keyshortcuts', shortcutAria);
+        }
+        toolbar.addEventListener('click', (event) => {
+            const button = event.target instanceof Element ? event.target.closest('button') : null;
+            if (!(button instanceof HTMLButtonElement)) {
+                return;
+            }
+            if (button.dataset.captionAction === 'commit') {
+                finishImageCaptionEditing(state, true, true);
+                return;
+            }
+            if (button.dataset.captionAction === 'cancel') {
+                finishImageCaptionEditing(state, false, true);
+                return;
+            }
+            if (button.dataset.captionFont) {
+                caption.dataset.captionFont = button.dataset.captionFont;
+            }
+            if (button.dataset.captionBackground) {
+                caption.dataset.captionBackground = button.dataset.captionBackground;
+            }
+            toolbar.querySelectorAll('[data-caption-font]').forEach((fontButton) => {
+                fontButton.setAttribute('aria-pressed', String(
+                    fontButton.getAttribute('data-caption-font') === caption.dataset.captionFont,
+                ));
+            });
+            toolbar.querySelectorAll('[data-caption-background]').forEach((backgroundButton) => {
+                backgroundButton.setAttribute('aria-pressed', String(
+                    backgroundButton.getAttribute('data-caption-background') === caption.dataset.captionBackground,
+                ));
+            });
+            caption.focus();
+        }, {signal: controller.signal});
+        toolbar.querySelectorAll('[data-caption-font]').forEach((fontButton) => {
+            fontButton.setAttribute('aria-pressed', String(
+                fontButton.getAttribute('data-caption-font') === caption.dataset.captionFont,
+            ));
+        });
+        toolbar.querySelectorAll('[data-caption-background]').forEach((backgroundButton) => {
+            backgroundButton.setAttribute('aria-pressed', String(
+                backgroundButton.getAttribute('data-caption-background') === caption.dataset.captionBackground,
+            ));
+        });
+        window.requestAnimationFrame(() => {
+            if (state.imageCaptionEditor?.caption === caption) {
+                focusEdge(caption, true);
+            }
+        });
+    }
+
+    function editImageCaption(state) {
+        const context = state.contextMenu;
+        if (!context?.targetImage?.isConnected) {
+            return;
+        }
+
+        const image = context.targetImage;
+        const placeholder = context.imageCaptionButton.dataset.captionPlaceholder || 'Type a caption';
+        closeContextMenu(state, false);
+        beginImageCaptionEditing(state, image, placeholder);
+    }
+
     function applyContextLink(state) {
         const context = state.contextMenu;
         if (!context) {
@@ -1175,6 +1709,15 @@
         }
         if (url === '') {
             removeContextLink(state);
+            return;
+        }
+
+        if (context.targetImage instanceof HTMLImageElement && context.targetImage.isConnected) {
+            const image = context.targetImage;
+            detachContextMenu(state);
+            setImageLink(state, image, url);
+            markBodyChanged(state);
+            state.body.focus();
             return;
         }
 
@@ -1210,6 +1753,15 @@
     function removeContextLink(state) {
         const context = state.contextMenu;
         if (!context) {
+            return;
+        }
+        if (context.targetImage instanceof HTMLImageElement && context.targetImage.isConnected) {
+            const image = context.targetImage;
+            detachContextMenu(state);
+            if (removeImageLink(state, image)) {
+                markBodyChanged(state);
+            }
+            state.body.focus();
             return;
         }
         const link = contextLink(context);
@@ -1272,6 +1824,7 @@
             audio.removeAttribute('data-register-audio-native');
         });
         container.querySelectorAll('.post-editor-context-anchor').forEach((anchor) => anchor.remove());
+        container.querySelectorAll('.post-media-caption-toolbar').forEach((toolbar) => toolbar.remove());
         return container.innerHTML;
     }
 
@@ -1467,23 +2020,39 @@
         }
         if (action === 'remove-link') {
             removeContextLink(state);
+            return;
+        }
+        if (action === 'edit-image-caption') {
+            editImageCaption(state);
         }
     }
 
-    function openContextMenu(state, event = null) {
+    function openContextMenu(state, event = null, targetOverride = null) {
         const template = state.card.querySelector(':scope > .post-editor-context-menu-template');
         if (!(template instanceof HTMLTemplateElement)) {
             return false;
         }
+        const target = targetOverride instanceof Element
+            ? targetOverride
+            : (event?.target instanceof Element ? event.target : null);
+        const image = target?.matches('img')
+            ? target
+            : target?.closest('[data-post-media-overlay], .post-picture, figure')?.querySelector('img');
+        const targetImage = image instanceof HTMLImageElement && state.body.contains(image) ? image : null;
+        finishImageCaptionEditing(state, true, false);
         closeContextMenu(state, false);
 
         const selection = window.getSelection();
         let range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
-        const selected = range instanceof Range
+        const selected = targetImage === null
+            && range instanceof Range
             && rangeIsInside(state.body, range)
             && !range.collapsed
             && range.toString().trim() !== '';
-        if (!selected) {
+        if (targetImage) {
+            range = document.createRange();
+            range.selectNode(targetImage);
+        } else if (!selected) {
             range = event
                 ? bodyRangeFromPoint(state, event.clientX, event.clientY)
                 : bodyRange(state, range);
@@ -1495,11 +2064,21 @@
         const anchor = document.createElement('span');
         anchor.className = 'post-editor-context-anchor';
         anchor.contentEditable = 'false';
-        const anchorRange = event
-            ? bodyRangeFromPoint(state, event.clientX, event.clientY)
-            : range.cloneRange();
-        anchorRange.collapse(false);
-        anchorRange.insertNode(anchor);
+        if (targetImage) {
+            const rect = targetImage.getBoundingClientRect();
+            const x = event ? event.clientX : rect.left + Math.min(rect.width / 2, 48);
+            const y = event ? event.clientY : rect.top + Math.min(rect.height / 2, 48);
+            anchor.classList.add('is-viewport');
+            anchor.style.left = `${Math.max(12, x)}px`;
+            anchor.style.top = `${Math.max(12, y)}px`;
+            document.body.append(anchor);
+        } else {
+            const anchorRange = event
+                ? bodyRangeFromPoint(state, event.clientX, event.clientY)
+                : range.cloneRange();
+            anchorRange.collapse(false);
+            anchorRange.insertNode(anchor);
+        }
 
         const fragment = template.content.cloneNode(true);
         const menu = fragment.querySelector('.post-editor-context-menu');
@@ -1507,12 +2086,16 @@
             anchor.remove();
             return false;
         }
+        menu.classList.toggle('is-image-menu', targetImage !== null);
         anchor.append(fragment);
         menu.querySelectorAll('[data-context-selection-only]').forEach((element) => {
-            element.hidden = !selected;
+            element.hidden = targetImage !== null || !selected;
         });
         menu.querySelectorAll('[data-context-caret-only]').forEach((element) => {
-            element.hidden = selected;
+            element.hidden = targetImage !== null || selected;
+        });
+        menu.querySelectorAll('[data-context-image-only]').forEach((element) => {
+            element.hidden = targetImage === null;
         });
         applyShortcutHints(menu);
 
@@ -1521,19 +2104,36 @@
         const linkInput = menu.querySelector('[data-context-link-input]');
         const linkError = menu.querySelector('.post-editor-link-error');
         const removeLink = menu.querySelector('[data-context-action="remove-link"]');
+        const imagePanel = menu.querySelector('.post-editor-image-panel');
+        const imageAltInput = menu.querySelector('[data-context-image-alt-input]');
+        const imageLinkButton = imagePanel?.querySelector('[data-context-action="open-link"]');
+        const imageCaptionButton = imagePanel?.querySelector('[data-context-action="edit-image-caption"]');
         if (
             !(main instanceof HTMLElement)
             || !(linkPanel instanceof HTMLElement)
             || !(linkInput instanceof HTMLInputElement)
             || !(linkError instanceof HTMLElement)
             || !(removeLink instanceof HTMLButtonElement)
+            || !(imagePanel instanceof HTMLElement)
+            || !(imageAltInput instanceof HTMLInputElement)
+            || !(imageLinkButton instanceof HTMLButtonElement)
+            || !(imageCaptionButton instanceof HTMLButtonElement)
         ) {
             anchor.remove();
             return false;
         }
 
-        const target = event?.target instanceof Element ? event.target : null;
-        const targetLink = target?.closest('a');
+        const targetLink = targetImage ? imageTargetLink(state, targetImage) : target?.closest('a');
+        main.hidden = targetImage !== null;
+        linkPanel.hidden = true;
+        imagePanel.hidden = targetImage === null;
+        if (targetImage) {
+            const targetImageLink = imageTargetLink(state, targetImage);
+            imageAltInput.value = targetImage.getAttribute('alt') || '';
+            imageLinkButton.classList.toggle('is-active', targetImageLink !== null);
+            imageLinkButton.setAttribute('aria-pressed', String(targetImageLink !== null));
+            imageCaptionButton.classList.toggle('is-active', imageCaptionText(state, targetImage).trim() !== '');
+        }
         state.contextMenu = {
             anchor,
             menu,
@@ -1542,15 +2142,30 @@
             linkInput,
             linkError,
             removeLink,
+            imagePanel,
+            imageAltInput,
+            imageLinkButton,
+            imageCaptionButton,
             range,
             selected,
+            targetImage,
             targetLink: targetLink instanceof HTMLAnchorElement && state.body.contains(targetLink)
                 ? targetLink
                 : null,
         };
 
+        if (targetImage) {
+            imageAltInput.addEventListener('input', () => {
+                targetImage.setAttribute('alt', imageAltInput.value);
+                markBodyChanged(state);
+            });
+        }
+
         menu.addEventListener('pointerdown', (pointerEvent) => {
-            if (!(pointerEvent.target instanceof HTMLInputElement)) {
+            if (
+                !(pointerEvent.target instanceof HTMLInputElement)
+                && !(pointerEvent.target instanceof HTMLTextAreaElement)
+            ) {
                 pointerEvent.preventDefault();
             }
         });
@@ -1592,6 +2207,13 @@
                 applyContextLink(state);
                 return;
             }
+            if (keyEvent.target === imageAltInput && keyEvent.key === 'Enter') {
+                keyEvent.preventDefault();
+                keyEvent.stopPropagation();
+                closeContextMenu(state, false);
+                state.body.focus();
+                return;
+            }
             if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(keyEvent.key)) {
                 return;
             }
@@ -1614,7 +2236,11 @@
         });
 
         positionContextMenu(anchor, menu);
-        visibleContextButtons(menu)[0]?.focus();
+        if (targetImage) {
+            imageLinkButton.focus();
+        } else {
+            visibleContextButtons(menu)[0]?.focus();
+        }
         return true;
     }
 
@@ -1640,7 +2266,11 @@
             && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))
         ) {
             event.preventDefault();
-            openContextMenu(state);
+            openContextMenu(
+                state,
+                null,
+                event.target instanceof Element ? event.target : null,
+            );
             return true;
         }
 
@@ -1764,6 +2394,23 @@
         event.preventDefault();
         openContextMenu(state, event);
     }, false);
+
+    document.addEventListener('pointerdown', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        document.querySelectorAll('.post-card.is-editing').forEach((card) => {
+            const state = editorStates.get(card);
+            state?.mediaCaptionEditors.forEach((_controller, caption) => {
+                if (!caption.contains(target)) {
+                    finishInlineMediaCaption(state, caption, false);
+                }
+            });
+            const caption = state?.imageCaptionEditor?.caption;
+            const toolbar = state?.imageCaptionEditor?.toolbar;
+            if (state && caption && toolbar && !caption.contains(target) && !toolbar.contains(target)) {
+                finishImageCaptionEditing(state, true, false);
+            }
+        });
+    }, true);
 
     document.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : null;

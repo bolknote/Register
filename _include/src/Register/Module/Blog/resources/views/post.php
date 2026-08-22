@@ -48,6 +48,7 @@ $tagNames    = array_values(array_map(
     data-media-uploading="<?php echo s2_htmlencode($trans('Post media uploading')); ?>"
     data-media-upload-failed="<?php echo s2_htmlencode($trans('Post media upload failed')); ?>"
     data-media-unsupported="<?php echo s2_htmlencode($trans('Unsupported dropped media')); ?>"
+    data-media-caption-placeholder="<?php echo s2_htmlencode($trans('Add image caption')); ?>"
     data-ai-working="<?php echo s2_htmlencode($trans('AI working')); ?>"
     data-ai-failed="<?php echo s2_htmlencode($trans('AI request failed')); ?>"
     data-ai-unchanged="<?php echo s2_htmlencode($trans('AI result unchanged')); ?>"
@@ -94,6 +95,7 @@ $tagNames    = array_values(array_map(
             <span class="post-editor-context-kicker"><?php echo $trans('Editor'); ?></span>
             <strong data-context-selection-only><?php echo $trans('Selected text'); ?></strong>
             <strong data-context-caret-only><?php echo $trans('Cursor position'); ?></strong>
+            <strong data-context-image-only hidden><?php echo $trans('Image'); ?></strong>
         </header>
 
         <div class="post-editor-context-main">
@@ -196,8 +198,49 @@ $tagNames    = array_values(array_map(
             <p class="post-editor-link-error" role="alert" hidden></p>
             <div class="post-editor-link-actions">
                 <button type="button" data-context-action="remove-link"><?php echo $trans('Remove link'); ?></button>
-                <button type="button" class="post-editor-link-apply" data-context-action="apply-link"><?php echo $trans('Apply'); ?></button>
+                <button type="button" class="post-editor-link-apply" data-context-action="apply-link"><span><?php echo $trans('Apply'); ?></span><kbd>↵</kbd></button>
             </div>
+        </div>
+
+        <div class="post-editor-image-panel" hidden>
+            <div class="post-editor-image-tools" role="group" aria-label="<?php echo s2_htmlencode($trans('Image')); ?>">
+                <button type="button" data-context-action="open-link" title="<?php echo s2_htmlencode($trans('Link')); ?>" aria-label="<?php echo s2_htmlencode($trans('Link')); ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 14.5 14.5 9.5M7.4 16.6l-1.2 1.2a3.1 3.1 0 0 1-4.4-4.4l3.4-3.4a3.1 3.1 0 0 1 4.4 0M16.6 7.4l1.2-1.2a3.1 3.1 0 0 1 4.4 4.4L18.8 14a3.1 3.1 0 0 1-4.4 0" /></svg>
+                    <span class="visually-hidden"><?php echo $trans('Link'); ?></span>
+                </button>
+                <button type="button" data-context-action="edit-image-caption" data-caption-placeholder="<?php echo s2_htmlencode($trans('Type image caption')); ?>" title="<?php echo s2_htmlencode($trans('Image caption')); ?>" aria-label="<?php echo s2_htmlencode($trans('Image caption')); ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 15h10M7 11h7" /></svg>
+                    <span class="visually-hidden"><?php echo $trans('Image caption'); ?></span>
+                </button>
+            </div>
+            <label class="post-editor-image-alt">
+                <span><?php echo $trans('Alternative text'); ?></span>
+                <input type="text" autocomplete="off" data-context-image-alt-input>
+            </label>
+        </div>
+    </div>
+</template>
+<template class="post-image-caption-toolbar-template">
+    <div class="post-media-caption-toolbar" role="toolbar" aria-label="<?php echo s2_htmlencode($trans('Caption tools')); ?>" contenteditable="false">
+        <div class="post-media-caption-toolbar-actions">
+            <button type="button" data-caption-action="commit" title="<?php echo s2_htmlencode($trans('Finish caption')); ?>" aria-label="<?php echo s2_htmlencode($trans('Finish caption')); ?>">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>
+            </button>
+            <button type="button" data-caption-action="cancel" title="<?php echo s2_htmlencode($trans('Cancel')); ?> — Esc" aria-label="<?php echo s2_htmlencode($trans('Cancel')); ?>">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+            </button>
+        </div>
+        <div class="post-media-caption-fonts" role="group" aria-label="<?php echo s2_htmlencode($trans('Caption fonts')); ?>">
+            <button type="button" class="is-font-sans" data-caption-font="sans" title="<?php echo s2_htmlencode($trans('Sans-serif')); ?>" aria-label="<?php echo s2_htmlencode($trans('Sans-serif')); ?>">Aa</button>
+            <button type="button" class="is-font-serif" data-caption-font="serif" title="<?php echo s2_htmlencode($trans('Serif')); ?>" aria-label="<?php echo s2_htmlencode($trans('Serif')); ?>">Aa</button>
+            <button type="button" class="is-font-mono" data-caption-font="mono" title="<?php echo s2_htmlencode($trans('Monospace')); ?>" aria-label="<?php echo s2_htmlencode($trans('Monospace')); ?>">Aa</button>
+            <button type="button" class="is-font-display" data-caption-font="display" title="<?php echo s2_htmlencode($trans('Display font')); ?>" aria-label="<?php echo s2_htmlencode($trans('Display font')); ?>">Aa</button>
+        </div>
+        <div class="post-media-caption-backgrounds" role="group" aria-label="<?php echo s2_htmlencode($trans('Caption backgrounds')); ?>">
+            <button type="button" data-caption-background="none" title="<?php echo s2_htmlencode($trans('No background')); ?>" aria-label="<?php echo s2_htmlencode($trans('No background')); ?>"><span class="is-none"></span></button>
+            <button type="button" data-caption-background="dark" title="<?php echo s2_htmlencode($trans('Dark background')); ?>" aria-label="<?php echo s2_htmlencode($trans('Dark background')); ?>"><span class="is-dark"></span></button>
+            <button type="button" data-caption-background="light" title="<?php echo s2_htmlencode($trans('Light background')); ?>" aria-label="<?php echo s2_htmlencode($trans('Light background')); ?>"><span class="is-light"></span></button>
+            <button type="button" data-caption-background="accent" title="<?php echo s2_htmlencode($trans('Accent background')); ?>" aria-label="<?php echo s2_htmlencode($trans('Accent background')); ?>"><span class="is-accent"></span></button>
         </div>
     </div>
 </template>
