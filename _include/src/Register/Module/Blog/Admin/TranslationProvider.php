@@ -24,6 +24,8 @@ class TranslationProvider implements TranslationProviderInterface
                 'Blog config'           => 'Блог',
                 'S2_BLOG_TITLE'         => 'Название блога',
                 'S2_BLOG_TITLE_help'    => 'Выводится в теге &lt;title&gt;, доступно в шаблонах.',
+                'S2_SITE_TAGLINE'       => 'Подпись сайта',
+                'S2_SITE_TAGLINE_help'  => 'Короткое описание под названием сайта.',
                 'Posts num'             => '{{ posts }} пост|{{ posts }} поста|{{ posts }} постов',
                 'Blog new comments'     => 'Непроверенные комментарии к постам',
 
@@ -47,6 +49,8 @@ class TranslationProvider implements TranslationProviderInterface
                 'Blog config'           => 'Blog',
                 'S2_BLOG_TITLE'         => 'Blog title',
                 'S2_BLOG_TITLE_help'    => 'Used in &lt;title&gt; tag, available in templates.',
+                'S2_SITE_TAGLINE'       => 'Site tagline',
+                'S2_SITE_TAGLINE_help'  => 'A short description displayed below the site title.',
                 'Posts num'             => '{{ posts }} post|{{ posts }} posts',
                 'Blog new comments'     => 'Unverified post comments',
 

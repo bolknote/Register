@@ -28,6 +28,7 @@ final readonly class SchemaManager
     private const int MEDIA_REGISTRY_GENERATION = 15;
 
     private const array CONFIG_DEFAULTS = [
+        'S2_SITE_TAGLINE' => '',
         AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_DISABLED,
         AiSettings::API_KEY_CONFIG_KEY  => '',
         AiSettings::MODEL_CONFIG_KEY    => '',

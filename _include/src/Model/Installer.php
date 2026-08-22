@@ -198,6 +198,7 @@ readonly class Installer
         // Insert config data
         $config = [
             'S2_SITE_NAME'        => $siteName,
+            'S2_SITE_TAGLINE'     => '',
             'S2_WEBMASTER'        => '',
             'S2_WEBMASTER_EMAIL'  => $email,
             'S2_START_YEAR'       => date('Y'),

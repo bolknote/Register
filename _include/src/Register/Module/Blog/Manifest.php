@@ -54,6 +54,7 @@ class Manifest implements BaseModuleInstallerInterface
         // Add extension options to the config table
         $config = [
             'S2_BLOG_TITLE' => 'My blog',
+            'S2_SITE_TAGLINE' => '',
         ];
 
         foreach ($config as $confName => $confValue) {
