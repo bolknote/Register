@@ -389,6 +389,12 @@ hr {
     container: post-editor / inline-size;
 }
 
+/* Editor popovers may extend into the following post, so keep the active card above its siblings. */
+#content > .post-card.is-editing,
+#content > .live-post-feed > .post-card.is-editing {
+    z-index: 5;
+}
+
 .post-card > .post.head {
     max-width: var(--text-width);
     text-wrap: pretty;
@@ -1177,19 +1183,6 @@ h2.preview,
     outline: none;
 }
 
-.post-card.is-editing .post-title-text::before,
-.post-card.is-editing > .post.body[data-post-inplace-body]::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    right: -0.6rem;
-    width: 3px;
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--accent-color) 72%, transparent);
-    pointer-events: none;
-}
-
 .post-card.is-editing .post-title-text {
     display: block;
     width: 100%;
@@ -1428,7 +1421,7 @@ h2.preview,
     overflow-y: auto;
     border: 1px solid color-mix(in srgb, var(--text-color) 18%, transparent);
     border-radius: 0.55rem;
-    background: color-mix(in srgb, var(--field-background) 96%, var(--page-background));
+    background: var(--field-background);
     box-shadow:
         0 1rem 3rem color-mix(in srgb, #000 24%, transparent),
         0 0.15rem 0.45rem color-mix(in srgb, #000 18%, transparent);
@@ -1472,10 +1465,6 @@ h2.preview,
 
 .post-card.is-editing :where(.post-title-text, .post.body[data-post-inplace-body]):focus {
     background: color-mix(in srgb, var(--surface-background) 68%, transparent);
-}
-
-.post-card.is-editing :where(.post-title-text, .post.body[data-post-inplace-body]):focus::before {
-    background: var(--accent-color);
 }
 
 .post-card.is-editing > .post.body[data-post-inplace-body] a {
@@ -5488,11 +5477,6 @@ html:has(.files-archive-gray-demo) {
     .comment-action-confirmation {
         border: 1px solid CanvasText;
         box-shadow: none;
-    }
-
-    .post-card.is-editing .post-title-text::before,
-    .post-card.is-editing > .post.body[data-post-inplace-body]::before {
-        background: Highlight;
     }
 
     .comment-children {
