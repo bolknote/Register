@@ -163,6 +163,8 @@ publishing model.
 - A reviewed split-root shared-hosting package keeps PHP source, dependencies, configuration,
   database, private cache, and encrypted backups outside `public_html`; Composer and shell access are
   not required on the hosting account.
+- Timestamped production prereleases in ZIP, tar.gz, and tar.bz2, plus a staged control-panel
+  updater with per-file hashes, maintenance mode, backups, database migrations, and file rollback.
 - Automatic Brotli or gzip response compression when the matching optional PHP extension is
   installed and the browser accepts it.
 - Privacy-conscious daily page-view and feed-reader statistics.

@@ -66,6 +66,7 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertFileExists($distribution . '/backups.md');
         self::assertFileExists($distribution . '/activitypub-operations.md');
         self::assertFileExists($distribution . '/activitypub-interoperability.md');
+        self::assertFileExists($distribution . '/UPDATES.md');
         self::assertDirectoryDoesNotExist($applicationDir . '/_tests');
         self::assertFileDoesNotExist($applicationDir . '/config.local.php');
 
@@ -135,6 +136,7 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertStringContainsString('activitypub-operations.md', $archiveContent);
         self::assertStringContainsString('activitypub-interoperability.md', $archiveContent);
         self::assertStringContainsString('backups.md', $archiveContent);
+        self::assertStringContainsString('UPDATES.md', $archiveContent);
     }
 
     public function testRefusesToOverwriteAnExistingDestination(): void

@@ -4,6 +4,7 @@ const CACHE_NAME = 'register-offline-v1';
 const OFFLINE_CACHE_HEADER = 'X-Register-Offline-Cache';
 const OFFLINE_CACHE_HEADER_VALUE = 'public';
 const OFFLINE_TIMING_NAME = 'register-offline';
+const MAINTENANCE_HEADER = 'X-Register-Maintenance';
 const CACHEABLE_DESTINATIONS = new Set([
     'audio',
     'font',
@@ -102,7 +103,7 @@ async function navigationResponse(request) {
         throw _error;
     }
 
-    if (response.status >= 500) {
+    if (response.status >= 500 && response.headers.get(MAINTENANCE_HEADER) !== '1') {
         const cached = await cache.match(request);
         if (cached) {
             return markOfflineResponse(cached);

@@ -25,6 +25,18 @@ use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentChangeDispatcher;
 use Register\Comment\CommentRepository;
 use Register\Module\BaseModuleRegistry;
+use Register\Update\Admin\UpdateAdminConfigExtender;
+use Register\Update\Admin\UpdateAdminController;
+use Register\Update\Admin\UpdateToken;
+use Register\Update\ArchiveCapabilities;
+use Register\Update\GeneratedAssetCacheCleaner;
+use Register\Update\MaintenanceMode;
+use Register\Update\ReleaseArchiveExtractor;
+use Register\Update\UpdateApplier;
+use Register\Update\UpdateDirectoryResolver;
+use Register\Update\UpdateManager;
+use Register\Update\UpdatePlanner;
+use Register\Update\UpdateStorage;
 use Register\Url\ContentSlugService;
 use S2\AdminYard\Database\PdoDataProvider;
 use S2\AdminYard\Database\TypeTransformer;
@@ -438,6 +450,64 @@ class AdminExtension implements ExtensionInterface
             $container->get(PermissionChecker::class),
         ), [SystemStatusProviderInterface::class]);
 
+        $container->set(ArchiveCapabilities::class, new ArchiveCapabilities());
+        $container->set(ReleaseArchiveExtractor::class, fn(Container $container): ReleaseArchiveExtractor => new ReleaseArchiveExtractor(
+            $container->get(ArchiveCapabilities::class),
+        ));
+        $container->set(UpdateStorage::class, fn(Container $container): UpdateStorage => new UpdateStorage(
+            UpdateDirectoryResolver::resolve($container->getStringParameter('root_dir')),
+        ));
+        $container->set(UpdatePlanner::class, fn(Container $container): UpdatePlanner => new UpdatePlanner(
+            $container->getStringParameter('root_dir'),
+            $container->getStringParameter('public_root_dir'),
+        ));
+        $container->set(UpdateApplier::class, fn(Container $container): UpdateApplier => new UpdateApplier(
+            $container->getStringParameter('root_dir'),
+            $container->getStringParameter('public_root_dir'),
+        ));
+        $container->set(MaintenanceMode::class, fn(Container $container): MaintenanceMode => new MaintenanceMode(
+            $container->getStringParameter('root_dir'),
+        ));
+        $container->set(GeneratedAssetCacheCleaner::class, fn(Container $container): GeneratedAssetCacheCleaner => new GeneratedAssetCacheCleaner(
+            $container->getStringParameter('public_root_dir'),
+        ));
+        $container->set(UpdateManager::class, fn(Container $container): UpdateManager => new UpdateManager(
+            $container->get(UpdateStorage::class),
+            $container->get(ReleaseArchiveExtractor::class),
+            $container->get(UpdatePlanner::class),
+            $container->get(UpdateApplier::class),
+            $container->get(BackupManager::class),
+            $container->get(\Register\Schema\SchemaManager::class),
+            $container->get(ExtensionCache::class),
+            $container->get(DynamicConfigProvider::class),
+            $container->get(GeneratedAssetCacheCleaner::class),
+            $container->get(MaintenanceMode::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+            $container->getStringParameter('root_dir'),
+            $container->getStringParameter('public_root_dir'),
+        ));
+        $container->set(UpdateToken::class, fn(Container $container): UpdateToken => new UpdateToken(
+            $container->get(SettingStorageInterface::class),
+        ));
+        $container->set(UpdateAdminController::class, fn(Container $container): UpdateAdminController => new UpdateAdminController(
+            $container->get(UpdateManager::class),
+            $container->get(UpdateToken::class),
+            $container->get(PermissionChecker::class),
+            $container->get(AuthManager::class),
+            $container->get(AdminMutationGuard::class),
+            $container->get(Translator::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+        ));
+        $container->set(UpdateAdminConfigExtender::class, fn(Container $container): UpdateAdminConfigExtender => new UpdateAdminConfigExtender(
+            $container->get(PermissionChecker::class),
+            $container->get(TemplateRenderer::class),
+            $container->get(UpdateManager::class),
+            $container->get(UpdateToken::class),
+            $container->get(ArchiveCapabilities::class),
+            $container->getStringParameter('root_dir'),
+            $container->getStringParameter('public_root_dir'),
+        ), [AdminConfigExtenderInterface::class]);
+
         $container->set(DashboardDatabaseProvider::class, fn(Container $container): \S2\Cms\Admin\Dashboard\DashboardDatabaseProvider => new DashboardDatabaseProvider(
             $container->get(DbLayer::class),
             $container->getStringParameter('db_type'),
@@ -502,6 +572,8 @@ class AdminExtension implements ExtensionInterface
     {
         $eventDispatcher->addListener(CustomTemplateRendererEvent::class, static function (CustomTemplateRendererEvent $event): void {
             $event->extraScripts[] = $event->basePath . '/_admin/js/autocomplete.js';
+            $event->extraScripts[] = $event->basePath . '/_admin/js/update.js';
+            $event->extraStyles[]  = $event->basePath . '/_admin/css/update.css';
         });
 
         $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event) use ($container): void {
@@ -531,6 +603,24 @@ class AdminExtension implements ExtensionInterface
             $event->controllerMap['register_backup_download'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
                 ->get(BackupAdminController::class)
                 ->downloadLatest($request);
+            $event->controllerMap['register_update_start'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
+                ->get(UpdateAdminController::class)
+                ->start($request);
+            $event->controllerMap['register_update_chunk'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
+                ->get(UpdateAdminController::class)
+                ->chunk($request);
+            $event->controllerMap['register_update_prepare'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
+                ->get(UpdateAdminController::class)
+                ->prepare($request);
+            $event->controllerMap['register_update_apply'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
+                ->get(UpdateAdminController::class)
+                ->apply($request);
+            $event->controllerMap['register_update_finish'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
+                ->get(UpdateAdminController::class)
+                ->finish($request);
+            $event->controllerMap['register_update_status'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
+                ->get(UpdateAdminController::class)
+                ->status($request);
             $event->controllerMap['register_saved_list_view_save'] = static fn(PermissionChecker $permissionChecker, Request $request): \Symfony\Component\HttpFoundation\JsonResponse => $container
                 ->get(SavedListViewController::class)
                 ->save($permissionChecker, $request);

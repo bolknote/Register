@@ -19,6 +19,9 @@ use Register\Installation\WelcomePostInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
+use Register\Update\BuildInfo;
+use Register\Update\MaintenanceMode;
+use Register\Update\RuntimeLock;
 use Register\Module\Search\SearchIndexRebuilder;
 use S2\Cms\Admin\AdminExtension;
 use S2\Cms\CmsExtension;
@@ -42,7 +45,6 @@ use Symfony\Component\ErrorHandler\ErrorHandler;
 use Symfony\Component\ErrorHandler\ErrorRenderer\HtmlErrorRenderer;
 use Symfony\Component\HttpFoundation\Request;
 
-define('S2_VERSION', '2.0dev');
 define('MIN_PHP_VERSION', '8.3.0');
 
 define('S2_ROOT', '../');
@@ -59,6 +61,10 @@ define('S2_SHOW_QUERIES', 1);
 
 // We need some stuff
 require S2_FS_ROOT . '_vendor/autoload.php';
+define('S2_VERSION', BuildInfo::version(S2_FS_ROOT));
+(new MaintenanceMode(S2_FS_ROOT))->enforce(false);
+$registerRuntimeLock = RuntimeLock::acquireShared(S2_FS_ROOT);
+register_shutdown_function(static fn() => $registerRuntimeLock->release());
 ContentSecurityPolicy::send();
 header('Cache-Control: no-store, private');
 header_remove('X-Powered-By');

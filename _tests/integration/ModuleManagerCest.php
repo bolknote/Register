@@ -9,13 +9,14 @@ declare(strict_types = 1);
 
 namespace integration;
 
-use Register\Module\BaseModuleRegistry;
+use Register\Ai\AiSettings;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentMediaSchema;
 use Register\Content\ContentTagSchema;
-use Register\Url\ContentUrlAliasSchema;
+use Register\Module\BaseModuleRegistry;
 use Register\Schema\SchemaManager;
+use Register\Url\ContentUrlAliasSchema;
 use S2\Cms\Extensions\ExtensionManager;
 use S2\Cms\Extensions\ManifestInterface;
 use S2\Cms\Model\ExtensionCache;
@@ -172,6 +173,62 @@ final class ModuleManagerCest
         $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
         $I->assertTrue($dbLayer->tableExists(ContentMediaSchema::FILE_TABLE));
         $I->assertTrue($dbLayer->tableExists(ContentMediaSchema::USAGE_TABLE));
+    }
+
+    public function releaseMigrationPreservesExistingSettings(\IntegrationTester $I): void
+    {
+        /** @var SchemaManager $schemaManager */
+        $schemaManager = $I->grabAdminService(SchemaManager::class);
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        ContentMediaSchema::drop($dbLayer);
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, '15');
+        $I->setConfigValue(AiSettings::AUTO_ALT_CONFIG_KEY, '0');
+        $dbLayer
+            ->insert('config')
+            ->setValue('name', ':name')->setParameter('name', 'REGISTER_TEST_PRESERVED_SETTING')
+            ->setValue('value', ':value')->setParameter('value', 'custom value')
+            ->execute();
+        $expectedSettings = $dbLayer
+            ->select('name, value')
+            ->from('config')
+            ->orderBy('name')
+            ->execute()
+            ->fetchAssocAll();
+        foreach ($expectedSettings as &$setting) {
+            if (($setting['name'] ?? null) === SchemaManager::CONFIG_KEY) {
+                $setting['value'] = (string)SchemaManager::CURRENT_GENERATION;
+            }
+        }
+
+        unset($setting);
+
+        $schemaManager->migrateTo(SchemaManager::CURRENT_GENERATION);
+
+        $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
+        $I->assertTrue($dbLayer->tableExists(ContentMediaSchema::FILE_TABLE));
+        $I->assertTrue($dbLayer->tableExists(ContentMediaSchema::USAGE_TABLE));
+
+        $autoAlt = $dbLayer
+            ->select('value')
+            ->from('config')
+            ->where('name = :name')->setParameter('name', AiSettings::AUTO_ALT_CONFIG_KEY)
+            ->execute()
+            ->result();
+        $customSetting = $dbLayer
+            ->select('value')
+            ->from('config')
+            ->where('name = :name')->setParameter('name', 'REGISTER_TEST_PRESERVED_SETTING')
+            ->execute()
+            ->result();
+        $I->assertSame('0', $autoAlt);
+        $I->assertSame('custom value', $customSetting);
+        $I->assertSame($expectedSettings, $dbLayer
+            ->select('name, value')
+            ->from('config')
+            ->orderBy('name')
+            ->execute()
+            ->fetchAssocAll());
     }
 
     public function baseManifestsDoNotExposeOptionalLifecycle(\IntegrationTester $I): void

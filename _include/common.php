@@ -16,6 +16,9 @@ use Register\Http\ContentSecurityPolicy;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
+use Register\Update\BuildInfo;
+use Register\Update\MaintenanceMode;
+use Register\Update\RuntimeLock;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Config\MediaStorageConfigResolver;
 use S2\Cms\Config\SecretConfigPathResolver;
@@ -32,13 +35,17 @@ use Symfony\Component\ErrorHandler\ErrorRenderer\HtmlErrorRenderer;
 
 $s2BootTimestamp = microtime(true);
 
-define('S2_VERSION', '2.0dev');
-
 // Uncomment these lines for debug
 //define('S2_DEBUG', 1);
 //define('S2_SHOW_QUERIES', 1);
 
 require __DIR__ . '/../_vendor/autoload.php';
+
+$registerApplicationRoot = dirname(__DIR__);
+define('S2_VERSION', BuildInfo::version($registerApplicationRoot));
+$registerUpdateRequest = MaintenanceMode::isUpdateRequest($_SERVER, $_GET, $_POST);
+(new MaintenanceMode($registerApplicationRoot))->enforce($registerUpdateRequest);
+$registerRuntimeLock = $registerUpdateRequest ? null : RuntimeLock::acquireShared($registerApplicationRoot);
 
 $staticConfigLoader = new StaticConfigLoader();
 $s2StaticConfig     = $staticConfigLoader->load(__DIR__ . '/../' . s2_get_config_filename());
@@ -249,10 +256,12 @@ if (defined('S2_ADMIN_MODE') && session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 $registerSchemaManager = $app->container->get(SchemaManager::class);
-if ($registerSchemaManager->ensureCurrent()) {
+if (!$registerUpdateRequest && $registerSchemaManager->ensureCurrent()) {
     $dynamicConfigProvider->regenerate();
 }
 
-$app->container->get(ShutdownWorkCoordinator::class)->register();
+if (!$registerUpdateRequest) {
+    $app->container->get(ShutdownWorkCoordinator::class)->register();
+}
 
 return $app;

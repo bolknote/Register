@@ -47,7 +47,10 @@ use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Offline\OfflineCachePolicy;
+use Register\Schema\ContentMediaSchemaMigration;
 use Register\Schema\SchemaManager;
+use Register\Schema\SchemaMigrationInterface;
+use Register\Schema\SchemaMigrator;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlAliasRepository;
 use Register\Url\ContentUrlGenerator;
@@ -270,10 +273,20 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
                 $container->get(BaseModuleRegistry::class),
             ),
         );
+        $container->set(
+            ContentMediaSchemaMigration::class,
+            new ContentMediaSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(
+            $container->get(DbLayer::class),
+            $container->getByTag(SchemaMigrationInterface::class),
+        ));
         $container->set(SchemaManager::class, fn(Container $container): SchemaManager => new SchemaManager(
             $container->get(DbLayer::class),
             $container,
             $container->get(BaseModuleInstaller::class),
+            $container->get(SchemaMigrator::class),
         ));
         $container->set(SlugGenerator::class, new SlugGenerator(
             new PortableAsciiTransliterator(),

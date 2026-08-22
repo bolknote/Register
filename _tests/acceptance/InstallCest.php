@@ -76,6 +76,7 @@ class InstallCest
             throw new \Exception('config.test.php must not exist for test run');
         }
 
+        $this->testInstallerHonorsMaintenanceMode($I);
         $I->install('admin', 'register-test-password', $example['db_type'], $example['db_user'], $example['db_password']);
 
         $installedConfig = include __DIR__ . '/../../config.test.php';
@@ -123,6 +124,25 @@ class InstallCest
         $this->testAdminTagListAndEdit($I);
         $this->testAdminCommentManagement($I);
         $this->testETag($I);
+    }
+
+    private function testInstallerHonorsMaintenanceMode(AcceptanceTester $I): void
+    {
+        $marker = dirname(__DIR__, 2) . '/.register-maintenance.json';
+        $content = "{\"release_id\":\"acceptance-test\"}\n";
+        if (file_put_contents($marker, $content, LOCK_EX) !== strlen($content)) {
+            throw new \RuntimeException('Unable to create the maintenance-mode acceptance fixture.');
+        }
+
+        try {
+            $I->amOnPage('/_admin/install.php');
+            $I->seeResponseCodeIs(503);
+            $I->see('Register is being updated');
+        } finally {
+            if (is_file($marker)) {
+                unlink($marker);
+            }
+        }
     }
 
     private function assertCsp(AcceptanceTester $I): void

@@ -91,6 +91,16 @@ headers for dynamic pages, but only the web-server rule can cover static files a
 
 ## Updating an existing site
 
+After the first updater-capable release has been installed, use **System → Software update** in the
+control panel. Download one supported archive from the newest GitHub prerelease; the page identifies
+which of `.tar.gz`, `.zip`, and `.tar.bz2` this server can unpack. Register stages and verifies the
+whole release, creates an encrypted backup, switches files in maintenance mode, runs database
+migrations, and reopens the site only after a final verification. See [`UPDATES.md`](UPDATES.md) for
+the complete process and recovery behavior.
+
+For the first release, or if the browser updater is unavailable, use the manual staged procedure
+below.
+
 Create and verify a backup before replacing code. Preserve all installation-specific state:
 
 - `register-app/config.php` and the configured database;

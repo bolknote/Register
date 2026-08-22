@@ -1,0 +1,227 @@
+.register-update {
+    max-width: 70rem;
+    margin: 0 auto;
+}
+
+.register-update__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 22rem);
+    gap: 2rem;
+    align-items: start;
+    margin-bottom: 1.5rem;
+}
+
+.register-update__eyebrow {
+    margin: 0 0 0.35rem;
+    color: var(--admin-accent-color);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.register-update__lead {
+    max-width: 48rem;
+    color: var(--admin-secondary-text-color);
+}
+
+.register-update__current,
+.register-update__card,
+.register-update__notice {
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.9rem;
+    background: var(--admin-surface-background);
+    box-shadow: var(--admin-shadow);
+}
+
+.register-update__current {
+    margin: 0;
+    padding: 1rem 1.2rem;
+}
+
+.register-update__current div + div {
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--admin-soft-border-color);
+}
+
+.register-update__current dt,
+.register-update__plan dt {
+    color: var(--admin-secondary-text-color);
+    font-size: 0.84rem;
+}
+
+.register-update__current dd,
+.register-update__plan dd {
+    margin: 0.2rem 0 0;
+    font-weight: 650;
+}
+
+.register-update__card,
+.register-update__notice {
+    margin: 1rem 0;
+    padding: clamp(1.1rem, 3vw, 1.8rem);
+}
+
+.register-update__card h2,
+.register-update__notice h2 {
+    margin-top: 0;
+}
+
+.register-update__formats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.7rem;
+    margin: 1rem 0;
+    padding: 0;
+    list-style: none;
+}
+
+.register-update__formats li {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.85rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.65rem;
+    background: var(--admin-secondary-background);
+}
+
+.register-update__formats li.is-unavailable {
+    opacity: 0.62;
+}
+
+.register-update__formats strong,
+.register-update__formats .is-available > span {
+    color: var(--admin-success-color);
+}
+
+.register-update__formats small,
+.register-update__hint {
+    color: var(--admin-secondary-text-color);
+}
+
+.register-update__steps {
+    padding-left: 1.3rem;
+}
+
+.register-update__drop {
+    display: grid;
+    min-height: 11rem;
+    place-content: center;
+    gap: 0.35rem;
+    margin-top: 1.4rem;
+    padding: 1.5rem;
+    border: 2px dashed var(--admin-border-color);
+    border-radius: 0.9rem;
+    background: var(--admin-secondary-background);
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 120ms ease, background 120ms ease;
+}
+
+.register-update__drop.is-dragging {
+    border-color: var(--admin-accent-color);
+    background: color-mix(in srgb, var(--admin-accent-color) 9%, var(--admin-secondary-background));
+}
+
+.register-update__drop input {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
+.register-update__drop-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.register-update__progress {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.8rem;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.register-update__progress progress {
+    width: 100%;
+}
+
+.register-update__result {
+    margin-top: 1.4rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--admin-soft-border-color);
+}
+
+.register-update__plan {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.7rem;
+}
+
+.register-update__plan div {
+    padding: 0.8rem;
+    border-radius: 0.65rem;
+    background: var(--admin-secondary-background);
+}
+
+.register-update__conflicts {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-left: 0.3rem solid var(--admin-error-color);
+    background: color-mix(in srgb, var(--admin-error-color) 8%, transparent);
+}
+
+.register-update__conflicts h3 {
+    margin-top: 0;
+    color: var(--admin-error-color);
+}
+
+.register-update__conflicts ul {
+    max-height: 16rem;
+    overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 0.82rem;
+}
+
+.register-update__approval {
+    display: flex;
+    gap: 0.8rem;
+    align-items: end;
+    margin-top: 1.2rem;
+}
+
+.register-update__approval label {
+    display: grid;
+    flex: 1;
+    gap: 0.3rem;
+}
+
+.register-update__status {
+    min-height: 1.5rem;
+    color: var(--admin-secondary-text-color);
+}
+
+.register-update__status.is-error {
+    color: var(--admin-error-color);
+}
+
+.register-update__status.is-success {
+    color: var(--admin-success-color);
+    font-weight: 650;
+}
+
+@media (max-width: 48rem) {
+    .register-update__header,
+    .register-update__formats,
+    .register-update__plan {
+        grid-template-columns: 1fr;
+    }
+
+    .register-update__approval {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

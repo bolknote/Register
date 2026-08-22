@@ -43,6 +43,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
         'LinkHealth',
         'SystemModules',
         'Extension',
+        'Update',
         'Queue',
     ];
 

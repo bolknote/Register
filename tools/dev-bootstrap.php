@@ -7,6 +7,7 @@ use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
+use Register\Schema\SchemaMigrator;
 use Register\Module\Search\SearchIndexRebuilder;
 use S2\Cms\Config\StaticConfigLoader;
 use S2\Cms\Framework\Application;
@@ -197,6 +198,7 @@ if ($isNew) {
             $dbLayer,
             $moduleContainer,
             new BaseModuleInstaller($baseModuleRegistry),
+            new SchemaMigrator($dbLayer, []),
         ))->ensureCurrent();
 
         $now = time();
