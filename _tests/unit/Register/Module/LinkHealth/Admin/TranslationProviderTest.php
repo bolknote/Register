@@ -41,6 +41,14 @@ final class TranslationProviderTest extends Unit
         self::assertSame('1 occurrence in 2 documents', $this->usage($translator, 1, 2));
     }
 
+    public function testRussianResolverFailureExplainsThatTheLinkWillBeRetried(): void
+    {
+        self::assertSame(
+            'Локальный DNS-сервер временно не ответил; ссылка будет проверена ещё раз.',
+            $this->translator('ru')->trans('The system DNS resolver exceeded its hard deadline.'),
+        );
+    }
+
     private function translator(string $locale): Translator
     {
         return new Translator(

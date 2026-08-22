@@ -131,6 +131,34 @@ final class LinkHealthPolicyTest extends Unit
         self::assertFalse($decision->lookupArchive);
     }
 
+    /** @dataProvider statusesPreservedDuringLocalResolverFailure */
+    public function testLocalResolverFailureDoesNotChangeRemoteLinkHealth(LinkHealthStatus $status): void
+    {
+        $now      = 1_800_000_000;
+        $decision = (new LinkHealthPolicy())->decide(
+            $this->target($status, 0),
+            new LinkProbeResult(
+                'https://example.test/',
+                error: 'Resolver unavailable',
+                errorReason: LinkProbeResult::ERROR_RESOLVER,
+            ),
+            $now,
+        );
+
+        self::assertSame($status, $decision->status);
+        self::assertSame(0, $decision->failureCount);
+        self::assertSame($now + 3600, $decision->nextCheckAt);
+        self::assertFalse($decision->lookupArchive);
+    }
+
+    /** @return iterable<string, array{LinkHealthStatus}> */
+    public static function statusesPreservedDuringLocalResolverFailure(): iterable
+    {
+        yield 'unchecked' => [LinkHealthStatus::UNKNOWN];
+        yield 'healthy' => [LinkHealthStatus::HEALTHY];
+        yield 'restricted' => [LinkHealthStatus::RESTRICTED];
+    }
+
     private function target(
         LinkHealthStatus $status,
         int $failureCount,

@@ -37,7 +37,7 @@ final class LinkHealthPolicy
 
         if ($probe->errorReason === LinkProbeResult::ERROR_RESOLVER) {
             return new LinkHealthDecision(
-                LinkHealthStatus::SUSPECT,
+                $current->healthStatus,
                 $current->failureCount,
                 $now + self::RESOLVER_RETRY_DELAY,
                 $current->lastSuccessAt,

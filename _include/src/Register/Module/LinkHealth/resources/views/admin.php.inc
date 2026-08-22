@@ -101,7 +101,7 @@ $filterUrl = static fn(?LinkHealthStatus $value, int $targetPage = 1): string =>
                             <span class="link-health-status status-<?= $html($targetStatus->value) ?>"><?= $trans('Link status ' . $targetStatus->value) ?></span>
                             <?php if ($target['http_status'] !== null): ?><small><?= $trans('Link HTTP status', ['{{ status }}' => $target['http_status']]) ?></small><?php endif; ?>
                             <?php if ((int)$target['failure_count'] > 0): ?><small><?= $trans('Link failures', ['{{ count }}' => $target['failure_count']]) ?></small><?php endif; ?>
-                            <?php if ($target['last_error'] !== null): ?><small class="link-health-error"><?= $html((string)$target['last_error']) ?></small><?php endif; ?>
+                            <?php if ($target['last_error'] !== null): ?><small class="link-health-error"><?= $html($trans((string)$target['last_error'])) ?></small><?php endif; ?>
                         </td>
                         <td>
                             <?= $trans('Link occurrence count', [

@@ -19,6 +19,8 @@ final readonly class NativeHostResolver implements HostResolverInterface
 {
     private const float DEFAULT_TIMEOUT_SECONDS = 1.0;
 
+    private const float RETRY_INTERVAL_SECONDS = 0.2;
+
     private const int DNS_PORT = 53;
 
     private const int MAX_NAME_SERVERS = 3;
@@ -94,73 +96,91 @@ final readonly class NativeHostResolver implements HostResolverInterface
 
         $completed = [$firstId => false, $secondId => false];
         $temporaryFailure = false;
+        $nextRetryAt = $this->monotonicNanoseconds()
+            + self::RETRY_INTERVAL_SECONDS * 1_000_000_000.0;
 
         try {
             for ($poll = 0; $poll < 1024; ++$poll) {
-                $remainingNanoseconds = $deadline - $this->monotonicNanoseconds();
+                $now                  = $this->monotonicNanoseconds();
+                $remainingNanoseconds = $deadline - $now;
                 if ($remainingNanoseconds <= 0.0) {
                     break;
                 }
 
-                $read             = array_values($sockets);
-                $write            = null;
-                $except           = null;
-                $remainingSeconds = $remainingNanoseconds / 1_000_000_000.0;
-                $seconds          = (int)$remainingSeconds;
-                $microseconds     = (int)(($remainingSeconds - (float)$seconds) * 1_000_000.0);
-                $selected = s2_call_without_warnings(
-                    static fn(): int|false => stream_select($read, $write, $except, $seconds, $microseconds),
-                );
-                if ($selected === false) {
-                    throw new RemoteHostResolverUnavailable('The bounded system DNS transport failed while waiting.');
-                }
-
-                if ($selected === 0) {
-                    break;
-                }
-
-                foreach ($read as $socket) {
-                    $message = s2_call_without_warnings(
-                        static fn(): string|false => fread($socket, self::MAX_DATAGRAM_BYTES),
+                $waitNanoseconds = min($deadline, $nextRetryAt) - $now;
+                $read            = array_values($sockets);
+                $selected        = 0;
+                if ($waitNanoseconds > 0.0) {
+                    $write            = null;
+                    $except           = null;
+                    $remainingSeconds = $waitNanoseconds / 1_000_000_000.0;
+                    $seconds          = (int)$remainingSeconds;
+                    $microseconds     = (int)ceil(($remainingSeconds - (float)$seconds) * 1_000_000.0);
+                    if ($microseconds >= 1_000_000) {
+                        ++$seconds;
+                        $microseconds = 0;
+                    }
+                    $selected = s2_call_without_warnings(
+                        static fn(): int|false => stream_select($read, $write, $except, $seconds, $microseconds),
                     );
-                    if (!\is_string($message) || $message === '') {
-                        unset($sockets[(int)$socket]);
-                        fclose($socket);
-                        continue;
+                    if ($selected === false) {
+                        throw new RemoteHostResolverUnavailable('The bounded system DNS transport failed while waiting.');
                     }
+                }
 
-                    $transactionId = $this->messageCodec->transactionId($message);
-                    if ($transactionId === null || !isset($queries[$transactionId])) {
-                        continue;
-                    }
-
-                    try {
-                        $response = $this->messageCodec->decodeResponse(
-                            $message,
-                            $transactionId,
-                            $host,
-                            $queries[$transactionId]['type'],
+                if ($selected > 0) {
+                    foreach ($read as $socket) {
+                        $message = s2_call_without_warnings(
+                            static fn(): string|false => fread($socket, self::MAX_DATAGRAM_BYTES),
                         );
-                    } catch (\UnexpectedValueException) {
-                        continue;
-                    }
-
-                    if ($response->status === DnsResponseStatus::ANSWER) {
-                        return $response->addresses;
-                    }
-
-                    if ($response->status === DnsResponseStatus::EMPTY) {
-                        $completed[$transactionId] = true;
-                        if (!\in_array(false, $completed, true)) {
-                            return [];
+                        if (!\is_string($message) || $message === '') {
+                            unset($sockets[(int)$socket]);
+                            fclose($socket);
+                            continue;
                         }
-                    } else {
-                        $temporaryFailure = true;
+
+                        $transactionId = $this->messageCodec->transactionId($message);
+                        if ($transactionId === null || !isset($queries[$transactionId])) {
+                            continue;
+                        }
+
+                        try {
+                            $response = $this->messageCodec->decodeResponse(
+                                $message,
+                                $transactionId,
+                                $host,
+                                $queries[$transactionId]['type'],
+                            );
+                        } catch (\UnexpectedValueException) {
+                            continue;
+                        }
+
+                        if ($response->status === DnsResponseStatus::ANSWER) {
+                            return $response->addresses;
+                        }
+
+                        if ($response->status === DnsResponseStatus::EMPTY) {
+                            $completed[$transactionId] = true;
+                            if (!\in_array(false, $completed, true)) {
+                                return [];
+                            }
+                        } else {
+                            $temporaryFailure = true;
+                        }
                     }
                 }
 
                 if ($sockets === []) {
                     throw new RemoteHostResolverUnavailable('All bounded system DNS transports failed.');
+                }
+
+                $now = $this->monotonicNanoseconds();
+                if ($now >= $nextRetryAt && $now < $deadline) {
+                    $this->retryQueries($sockets, $queries, $completed);
+                    if ($sockets === []) {
+                        throw new RemoteHostResolverUnavailable('All bounded system DNS transports failed.');
+                    }
+                    $nextRetryAt = $now + self::RETRY_INTERVAL_SECONDS * 1_000_000_000.0;
                 }
             }
         } finally {
@@ -226,6 +246,31 @@ final readonly class NativeHostResolver implements HostResolverInterface
         }
 
         return $sockets;
+    }
+
+    /**
+     * @param array<int, resource>                            $sockets
+     * @param array<int, array{type: int, packet: string}>    $queries
+     * @param array<int, bool>                               $completed
+     */
+    private function retryQueries(array &$sockets, array $queries, array $completed): void
+    {
+        foreach ($sockets as $socketId => $socket) {
+            foreach ($queries as $transactionId => $query) {
+                if ($completed[$transactionId]) {
+                    continue;
+                }
+
+                $written = s2_call_without_warnings(static fn(): int|false => fwrite($socket, $query['packet']));
+                if ($written === \strlen($query['packet'])) {
+                    continue;
+                }
+
+                unset($sockets[$socketId]);
+                fclose($socket);
+                break;
+            }
+        }
     }
 
     private function endpoint(string $nameServer): string
