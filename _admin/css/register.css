@@ -1607,6 +1607,24 @@ button.list-action-link-delete:focus-visible {
     padding-top: 0.25rem;
 }
 
+.backup-actions {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+.backup-actions label {
+    display: grid;
+    flex: 1 1 12rem;
+    gap: 0.35rem;
+    max-width: 20rem;
+}
+
+.backup-actions input[type="password"] {
+    width: 100%;
+}
+
 .backup-download {
     margin-top: -0.15rem;
 }
