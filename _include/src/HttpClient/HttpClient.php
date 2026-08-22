@@ -10,12 +10,12 @@ declare(strict_types = 1);
 namespace S2\Cms\HttpClient;
 
 /**
- * @phpstan-type RequestOptions array{connect_timeout?: int, read_timeout?: int, follow_redirects?: bool, resolve_ip?: string, max_response_bytes?: int}
- * @psalm-type RequestOptions = array{connect_timeout?: int, read_timeout?: int, follow_redirects?: bool, resolve_ip?: string, max_response_bytes?: int}
+ * @phpstan-type RequestOptions array{connect_timeout?: int, read_timeout?: int, connect_timeout_ms?: int, total_timeout_ms?: int, follow_redirects?: bool, resolve_ip?: string, max_response_bytes?: int}
+ * @psalm-type RequestOptions = array{connect_timeout?: int, read_timeout?: int, connect_timeout_ms?: int, total_timeout_ms?: int, follow_redirects?: bool, resolve_ip?: string, max_response_bytes?: int}
  * @phpstan-type ParsedUrl array{scheme?: string, host?: string, port?: int, user?: string, pass?: string, path?: string, query?: string, fragment?: string}
  * @psalm-type ParsedUrl = array{scheme?: string, host?: string, port?: int, user?: string, pass?: string, path?: string, query?: string, fragment?: string}
  */
-readonly class HttpClient
+readonly class HttpClient implements HttpClientInterface
 {
     public const string TRANSPORT_CURL = 'curl';
 
@@ -26,6 +26,10 @@ readonly class HttpClient
     public const string CONNECT_TIMEOUT = 'connect_timeout';
 
     public const string READ_TIMEOUT = 'read_timeout';
+
+    public const string CONNECT_TIMEOUT_MILLISECONDS = 'connect_timeout_ms';
+
+    public const string TOTAL_TIMEOUT_MILLISECONDS = 'total_timeout_ms';
 
     public const string FOLLOW_REDIRECTS = 'follow_redirects';
 
@@ -78,6 +82,7 @@ readonly class HttpClient
      * @param array<string, string> $headers
      * @param RequestOptions $options
      */
+    #[\Override]
     public function request(
         string  $method,
         string  $url,
@@ -111,6 +116,7 @@ readonly class HttpClient
      *
      * @throws HttpClientException
      */
+    #[\Override]
     public function resolveRedirectUrl(string $location, string $currentUrl): string
     {
         return $this->newUrlFromLocation($location, $this->normalizeUrl($currentUrl));
@@ -331,10 +337,20 @@ readonly class HttpClient
     /** @param RequestOptions $options */
     private function validateOptions(array $options): void
     {
-        foreach ([self::CONNECT_TIMEOUT, self::READ_TIMEOUT, self::MAX_RESPONSE_BYTES] as $name) {
+        foreach ([
+            self::CONNECT_TIMEOUT,
+            self::READ_TIMEOUT,
+            self::CONNECT_TIMEOUT_MILLISECONDS,
+            self::TOTAL_TIMEOUT_MILLISECONDS,
+            self::MAX_RESPONSE_BYTES,
+        ] as $name) {
             if (isset($options[$name]) && !$this->isPositiveInteger($options[$name])) {
                 throw new \InvalidArgumentException(\sprintf('HTTP option "%s" must be a positive integer.', $name));
             }
+        }
+
+        if (isset($options[self::CONNECT_TIMEOUT], $options[self::CONNECT_TIMEOUT_MILLISECONDS])) {
+            throw new \InvalidArgumentException('HTTP connect timeout must use seconds or milliseconds, not both.');
         }
 
         if (isset($options[self::FOLLOW_REDIRECTS]) && !$this->isBoolean($options[self::FOLLOW_REDIRECTS])) {
@@ -435,8 +451,25 @@ readonly class HttpClient
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
         curl_setopt($ch, CURLOPT_HEADER, false);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $options[self::CONNECT_TIMEOUT] ?? $this->timeout);
-        curl_setopt($ch, CURLOPT_TIMEOUT, isset($options[self::CONNECT_TIMEOUT], $options[self::READ_TIMEOUT]) ? $options[self::CONNECT_TIMEOUT] + $options[self::READ_TIMEOUT] : $this->timeout);
+        if (isset($options[self::CONNECT_TIMEOUT_MILLISECONDS])) {
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, $options[self::CONNECT_TIMEOUT_MILLISECONDS]);
+        } else {
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $options[self::CONNECT_TIMEOUT] ?? $this->timeout);
+        }
+
+        if (isset($options[self::TOTAL_TIMEOUT_MILLISECONDS])) {
+            curl_setopt($ch, CURLOPT_TIMEOUT_MS, $options[self::TOTAL_TIMEOUT_MILLISECONDS]);
+            curl_setopt($ch, CURLOPT_NOSIGNAL, true);
+        } else {
+            curl_setopt(
+                $ch,
+                CURLOPT_TIMEOUT,
+                isset($options[self::CONNECT_TIMEOUT], $options[self::READ_TIMEOUT])
+                    ? $options[self::CONNECT_TIMEOUT] + $options[self::READ_TIMEOUT]
+                    : $this->timeout,
+            );
+        }
+
         curl_setopt($ch, CURLOPT_USERAGENT, $this->userAgent);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
@@ -560,8 +593,12 @@ readonly class HttpClient
             throw new HttpClientException('Too many redirects');
         }
 
-        $connectTimeout = $options[self::CONNECT_TIMEOUT] ?? $this->timeout;
-        $readTimeout    = $options[self::READ_TIMEOUT] ?? $this->timeout;
+        $connectTimeout = isset($options[self::CONNECT_TIMEOUT_MILLISECONDS])
+            ? (float)$options[self::CONNECT_TIMEOUT_MILLISECONDS] / 1000.0
+            : (float)($options[self::CONNECT_TIMEOUT] ?? $this->timeout);
+        $readTimeout    = isset($options[self::TOTAL_TIMEOUT_MILLISECONDS])
+            ? (float)$options[self::TOTAL_TIMEOUT_MILLISECONDS] / 1000.0
+            : (float)($options[self::READ_TIMEOUT] ?? $this->timeout);
 
         $parsedUrl     = parse_url($url);
         $scheme        = $parsedUrl['scheme'] ?? 'http';
@@ -598,7 +635,9 @@ readonly class HttpClient
             });
         }
 
-        stream_set_timeout($remote, $readTimeout);
+        $readTimeoutSeconds      = (int)$readTimeout;
+        $readTimeoutMicroseconds = (int)(($readTimeout - (float)$readTimeoutSeconds) * 1_000_000.0);
+        stream_set_timeout($remote, $readTimeoutSeconds, $readTimeoutMicroseconds);
 
         $path = ($parsedUrl['path'] ?? '/')
             . (isset($parsedUrl['query']) ? '?' . $parsedUrl['query'] : '');
@@ -707,7 +746,9 @@ readonly class HttpClient
         }
 
         // NOTE: it seems like the PHP HTTP stream wrapper does not support connection timeout
-        $readTimeout = $options[self::READ_TIMEOUT] ?? $this->timeout;
+        $readTimeout = isset($options[self::TOTAL_TIMEOUT_MILLISECONDS])
+            ? (float)$options[self::TOTAL_TIMEOUT_MILLISECONDS] / 1000.0
+            : (float)($options[self::READ_TIMEOUT] ?? $this->timeout);
         $host        = (string)parse_url($url, PHP_URL_HOST);
         $resolveIp   = $options[self::RESOLVE_IP] ?? null;
         if (\is_string($resolveIp) && strcasecmp(trim($host, '[]'), trim($resolveIp, '[]')) !== 0) {

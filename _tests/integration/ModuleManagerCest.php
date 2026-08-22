@@ -41,7 +41,9 @@ final class ModuleManagerCest
         $list     = $manager->getExtensionList();
 
         $I->assertSame($registry->ids(), array_column($list['baseModules'], 'id'));
-        $I->assertSame([], $list['availableExtensions']);
+        $I->assertSame(['activitypub'], array_column($list['availableExtensions'], 'entry'));
+        $I->assertSame(1, $list['extensionNum']);
+        $I->assertSame([], $list['failedExtensions']);
         $I->assertSame([], $list['installedExtensions']);
         $I->assertSame($registry->ids(), $manager->getEnabledExtensionIds());
 

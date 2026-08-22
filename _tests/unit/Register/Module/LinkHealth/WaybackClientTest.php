@@ -11,9 +11,9 @@ namespace unit\Register\Module\LinkHealth;
 
 use Codeception\Test\Unit;
 use Register\Module\LinkHealth\ArchiveStatus;
-use Register\Module\LinkHealth\HostResolverInterface;
 use Register\Module\LinkHealth\LinkHttpClientInterface;
-use Register\Module\LinkHealth\PublicAddressGuard;
+use S2\Cms\HttpClient\Remote\HostResolverInterface;
+use S2\Cms\HttpClient\Remote\PublicAddressGuard;
 use Register\Module\LinkHealth\WaybackClient;
 use S2\Cms\HttpClient\HttpClient;
 use S2\Cms\HttpClient\HttpResponse;
@@ -98,7 +98,7 @@ final class WaybackClientTest extends Unit
         $resolver = new class implements HostResolverInterface {
             /** @return list<string> */
             #[\Override]
-            public function resolve(string $host): array
+            public function resolve(string $host, ?float $timeoutSeconds = null): array
             {
                 return $host === 'archive.org' ? ['93.184.216.34'] : [];
             }

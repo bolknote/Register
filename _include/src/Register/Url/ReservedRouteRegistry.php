@@ -32,6 +32,7 @@ final readonly class ReservedRouteRegistry
         '_pictures',
         '_styles',
         '.well-known',
+        'activitypub',
         'all',
         'archive',
         'comment-moderate',

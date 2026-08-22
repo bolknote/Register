@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\LinkHealth;
 
 use S2\Cms\HttpClient\HttpClient;
+use S2\Cms\HttpClient\Remote\PublicAddressGuard;
 
 final readonly class WaybackClient implements WaybackClientInterface
 {

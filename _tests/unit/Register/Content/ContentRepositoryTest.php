@@ -42,6 +42,28 @@ final class ContentRepositoryTest extends Unit
         self::assertFalse($page->commentsEnabled);
     }
 
+    public function testCarriesPublicIntegrationMetadataWithoutExposingStorage(): void
+    {
+        $post = new ContentItem(
+            ContentId::post(7),
+            'Post',
+            '<p>Body</p>',
+            '/post',
+            123,
+            excerpt: 'Summary',
+            authorId: 4,
+        );
+
+        self::assertSame('Summary', $post->excerpt);
+        self::assertSame(4, $post->authorId);
+    }
+
+    public function testRejectsInvalidAuthorIdentity(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new ContentItem(ContentId::post(7), 'Post', 'Body', '/post', 123, authorId: 0);
+    }
+
     public function testRejectsDuplicateSources(): void
     {
         $this->expectException(\LogicException::class);

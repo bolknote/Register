@@ -15,6 +15,7 @@ import {setEditorDeps} from './deps.js';
 import {initAiTools} from './ai.js';
 import {initImageAlt} from './image-alt.js';
 import {initPublicationState} from './publication.js';
+import {initActivityPubPreview} from './activitypub.js';
 
 const configElement = document.querySelector('[data-editor-config]');
 let config = {};
@@ -89,6 +90,10 @@ document.addEventListener('DOMContentLoaded', function () {
             entityName: config.entityName,
             contentId: config.ai.contentId
         });
+    }
+
+    if (form && config.activityPub) {
+        initActivityPubPreview(form, {...config.activityPub, entityName: config.entityName});
     }
 
     if (form && config.entityName && config.textareaName) {

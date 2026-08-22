@@ -75,7 +75,8 @@ final readonly class CommentThreadRenderer
                 'show_addressee' => $depth > 3,
                 'userpic_url'    => $node['moderation_state'] === 'deleted'
                     ? null
-                    : $this->userpicUrl($node['userpic_storage_key'] ?? null),
+                    : ($this->userpicUrl($node['userpic_storage_key'] ?? null)
+                        ?? $this->presentationAvatarUrl($node['presentation_avatar_path'] ?? null)),
                 'moderation'     => $this->moderationData($node, $moderation),
             ]);
         }
@@ -215,5 +216,28 @@ final readonly class CommentThreadRenderer
         }
 
         return rtrim($this->imagePath, '/') . '/' . implode('/', array_map(rawurlencode(...), $segments));
+    }
+
+    private function presentationAvatarUrl(mixed $path): ?string
+    {
+        if (!\is_string($path)
+            || !str_starts_with($path, '/')
+            || str_starts_with($path, '//')
+            || str_contains($path, '\\')
+            || preg_match('/[\x00-\x20\x7f]/', $path) === 1
+        ) {
+            return null;
+        }
+
+        foreach (explode('/', ltrim($path, '/')) as $segment) {
+            if ($segment === ''
+                || preg_match('/%(?![0-9a-f]{2})/i', $segment) === 1
+                || \in_array(strtolower(rawurldecode($segment)), ['.', '..'], true)
+            ) {
+                return null;
+            }
+        }
+
+        return $this->urlBuilder->link($path);
     }
 }

@@ -24,9 +24,16 @@ final readonly class ContentItem
         public string    $author = '',
         public string    $series = '',
         public bool      $commentsEnabled = true,
+        public string    $excerpt = '',
+        public ?int      $authorId = null,
+        public bool      $featured = false,
     ) {
         if (!str_starts_with($path, '/')) {
             throw new \InvalidArgumentException('A content path must start with a slash.');
+        }
+
+        if ($authorId !== null && $authorId <= 0) {
+            throw new \InvalidArgumentException('A content author identifier must be positive.');
         }
     }
 }

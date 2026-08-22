@@ -15,54 +15,25 @@ final readonly class DynamicSecretStore
 {
     public const string DATABASE_PLACEHOLDER = '$register-private-secret:v1$';
 
-    /** @var array<string, true> */
-    private array $parameterNames;
-
-    /** @var array<string, true> */
-    private array $hydrateOnlyParameterNames;
-
-    /** @var array<string, true> */
-    private array $allowedParameterNames;
+    private DynamicSecretParameterRegistry $parameterRegistry;
 
     /**
-     * @param list<string> $parameterNames
+     * @param list<string>|DynamicSecretParameterRegistry $parameterNames
      * @param list<string> $hydrateOnlyParameterNames Values migrated by an earlier release that
      *     must still be hydrated without migrating fresh database values.
      */
     public function __construct(
         private string $filename,
-        array          $parameterNames,
+        array|DynamicSecretParameterRegistry $parameterNames,
         array          $hydrateOnlyParameterNames = [],
     ) {
         if (trim($filename) === '') {
             throw new \InvalidArgumentException('The dynamic secret filename cannot be empty.');
         }
 
-        $names = [];
-        foreach ($parameterNames as $parameterName) {
-            if ($parameterName === '') {
-                throw new \InvalidArgumentException('A dynamic secret parameter name cannot be empty.');
-            }
-
-            $names[$parameterName] = true;
-        }
-
-        if ($names === []) {
-            throw new \InvalidArgumentException('At least one dynamic secret parameter must be configured.');
-        }
-
-        $hydrateOnlyNames = [];
-        foreach ($hydrateOnlyParameterNames as $hydrateOnlyParameterName) {
-            if ($hydrateOnlyParameterName === '' || isset($names[$hydrateOnlyParameterName])) {
-                throw new \InvalidArgumentException('A hydrate-only dynamic secret parameter name is invalid.');
-            }
-
-            $hydrateOnlyNames[$hydrateOnlyParameterName] = true;
-        }
-
-        $this->parameterNames            = $names;
-        $this->hydrateOnlyParameterNames = $hydrateOnlyNames;
-        $this->allowedParameterNames     = $names + $hydrateOnlyNames;
+        $this->parameterRegistry = $parameterNames instanceof DynamicSecretParameterRegistry
+            ? $parameterNames
+            : new DynamicSecretParameterRegistry($parameterNames, $hydrateOnlyParameterNames);
     }
 
     /**
@@ -80,7 +51,7 @@ final readonly class DynamicSecretStore
         $runtimeConfig   = $databaseConfig;
         $databaseUpdates = [];
 
-        foreach (array_keys($this->parameterNames) as $parameterName) {
+        foreach ($this->parameterRegistry->managedNames() as $parameterName) {
             if (!array_key_exists($parameterName, $databaseConfig)) {
                 unset($updatedSecrets[$parameterName]);
                 continue;
@@ -116,7 +87,7 @@ final readonly class DynamicSecretStore
             $databaseUpdates[$parameterName] = self::DATABASE_PLACEHOLDER;
         }
 
-        foreach (array_keys($this->hydrateOnlyParameterNames) as $parameterName) {
+        foreach ($this->parameterRegistry->hydrateOnlyNames() as $parameterName) {
             if (!array_key_exists($parameterName, $databaseConfig)) {
                 unset($updatedSecrets[$parameterName]);
                 continue;
@@ -159,7 +130,7 @@ final readonly class DynamicSecretStore
     public function requiresRegeneration(array $cachedConfig): bool
     {
         $storedSecrets = $this->read();
-        foreach (array_keys($this->parameterNames) as $parameterName) {
+        foreach ($this->parameterRegistry->managedNames() as $parameterName) {
             if (!array_key_exists($parameterName, $cachedConfig)) {
                 continue;
             }
@@ -184,7 +155,7 @@ final readonly class DynamicSecretStore
             }
         }
 
-        foreach (array_keys($this->hydrateOnlyParameterNames) as $parameterName) {
+        foreach ($this->parameterRegistry->hydrateOnlyNames() as $parameterName) {
             if (!array_key_exists($parameterName, $cachedConfig)) {
                 continue;
             }
@@ -211,7 +182,10 @@ final readonly class DynamicSecretStore
     public function hydrate(array $cachedConfig): array
     {
         $storedSecrets = $this->read();
-        foreach (array_keys($this->allowedParameterNames) as $parameterName) {
+        foreach ([
+            ...$this->parameterRegistry->managedNames(),
+            ...$this->parameterRegistry->hydrateOnlyNames(),
+        ] as $parameterName) {
             if (($cachedConfig[$parameterName] ?? null) !== self::DATABASE_PLACEHOLDER) {
                 continue;
             }
@@ -229,6 +203,55 @@ final readonly class DynamicSecretStore
         }
 
         return $cachedConfig;
+    }
+
+    public function getOrCreateExtensionPrivate(string $parameterName, int $bytes = 32): string
+    {
+        $this->assertExtensionPrivate($parameterName);
+        if ($bytes < 32 || $bytes > 1024) {
+            throw new \InvalidArgumentException('An extension-private secret must contain 32 to 1024 random bytes.');
+        }
+
+        return $this->withExclusiveLock(function () use ($parameterName, $bytes): string {
+            $secrets = $this->read();
+            if (isset($secrets[$parameterName])) {
+                return $secrets[$parameterName];
+            }
+
+            $secret                  = sodium_bin2base64(random_bytes($bytes), SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
+            $secrets[$parameterName] = $secret;
+            $this->write($secrets);
+
+            return $secret;
+        });
+    }
+
+    public function getExtensionPrivate(string $parameterName): ?string
+    {
+        $this->assertExtensionPrivate($parameterName);
+
+        return $this->read()[$parameterName] ?? null;
+    }
+
+    public function replaceExtensionPrivate(string $parameterName, string $secret): void
+    {
+        $this->assertExtensionPrivate($parameterName);
+        if ($secret === '') {
+            throw new \InvalidArgumentException('An extension-private secret cannot be empty.');
+        }
+
+        $this->withExclusiveLock(function () use ($parameterName, $secret): void {
+            $secrets                 = $this->read();
+            $secrets[$parameterName] = $secret;
+            $this->write($secrets);
+        });
+    }
+
+    private function assertExtensionPrivate(string $parameterName): void
+    {
+        if (!$this->parameterRegistry->isRegisteredExtensionPrivate($parameterName)) {
+            throw new \InvalidArgumentException('The extension-private secret is not registered in this process.');
+        }
     }
 
     /** @return array<string, string> */
@@ -263,7 +286,7 @@ final readonly class DynamicSecretStore
         $secrets = [];
         foreach ($data as $parameterName => $value) {
             if (!\is_string($parameterName)
-                || !isset($this->allowedParameterNames[$parameterName])
+                || !$this->parameterRegistry->isAllowedInFile($parameterName)
                 || !\is_string($value)
                 || $value === ''
             ) {
@@ -276,6 +299,48 @@ final readonly class DynamicSecretStore
         ksort($secrets, SORT_STRING);
 
         return $secrets;
+    }
+
+    /**
+     * @template T
+     * @param \Closure(): T $callback
+     * @return T
+     */
+    private function withExclusiveLock(\Closure $callback): mixed
+    {
+        $directory = \dirname($this->filename);
+        if (is_link($directory)) {
+            throw new ConfigurationException('The private dynamic-secret directory cannot be a symbolic link.');
+        }
+
+        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+            throw new ConfigurationException('Unable to create the private dynamic-secret directory.');
+        }
+
+        $lockFilename = $this->filename . '.lock';
+        if (is_link($lockFilename)) {
+            throw new ConfigurationException('The private dynamic-secret lock cannot be a symbolic link.');
+        }
+
+        $lock = s2_call_without_warnings(static fn() => fopen($lockFilename, 'c+b'));
+        if ($lock === false) {
+            throw new ConfigurationException('Unable to open the private dynamic-secret lock.');
+        }
+
+        try {
+            if (DIRECTORY_SEPARATOR !== '\\' && !chmod($lockFilename, 0600)) {
+                throw new ConfigurationException('Unable to secure the private dynamic-secret lock.');
+            }
+
+            if (!flock($lock, LOCK_EX)) {
+                throw new ConfigurationException('Unable to lock the private dynamic-secret file.');
+            }
+
+            return $callback();
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
     }
 
     /** @param array<string, string> $secrets */

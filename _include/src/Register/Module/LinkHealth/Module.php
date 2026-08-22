@@ -18,6 +18,7 @@ use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
 use S2\Cms\Framework\ContainerModuleInterface;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\HttpClient\HttpClient;
+use S2\Cms\HttpClient\Remote\PublicAddressGuard;
 use S2\Cms\Pdo\DbLayer;
 use S2\Cms\Queue\QueueHandlerInterface;
 use S2\Cms\Queue\QueuePublisher;
@@ -30,10 +31,6 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     public function buildContainer(Container $container): void
     {
         $container->set(HtmlLinkExtractor::class, new HtmlLinkExtractor());
-        $container->set(HostResolverInterface::class, new NativeHostResolver());
-        $container->set(PublicAddressGuard::class, static fn(Container $container): PublicAddressGuard => new PublicAddressGuard(
-            $container->get(HostResolverInterface::class),
-        ));
         $container->set(LinkHttpClientInterface::class, static fn(Container $container): LinkHttpClient => new LinkHttpClient(
             $container->get(HttpClient::class),
         ));

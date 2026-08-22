@@ -10,17 +10,17 @@ declare(strict_types = 1);
 namespace unit\Register\Module\LinkHealth;
 
 use Codeception\Test\Unit;
-use Register\Module\LinkHealth\HostResolverInterface;
 use Register\Module\LinkHealth\LinkHttpClientInterface;
 use Register\Module\LinkHealth\LinkProbeMethod;
 use Register\Module\LinkHealth\LinkProbeResult;
 use Register\Module\LinkHealth\LinkProbeState;
-use Register\Module\LinkHealth\PublicAddressGuard;
-use Register\Module\LinkHealth\RemoteHostResolverUnavailable;
-use Register\Module\LinkHealth\RemoteHostResolutionTimedOut;
 use Register\Module\LinkHealth\SafeHttpProbe;
 use S2\Cms\HttpClient\HttpClient;
 use S2\Cms\HttpClient\HttpResponse;
+use S2\Cms\HttpClient\Remote\HostResolverInterface;
+use S2\Cms\HttpClient\Remote\PublicAddressGuard;
+use S2\Cms\HttpClient\Remote\RemoteHostResolverUnavailable;
+use S2\Cms\HttpClient\Remote\RemoteHostResolutionTimedOut;
 
 final class SafeHttpProbeTest extends Unit
 {
@@ -132,7 +132,7 @@ final class SafeHttpProbeTest extends Unit
         $resolver = new class implements HostResolverInterface {
             /** @return list<string> */
             #[\Override]
-            public function resolve(string $host): array
+            public function resolve(string $host, ?float $timeoutSeconds = null): array
             {
                 throw new RemoteHostResolutionTimedOut('DNS timed out.');
             }
@@ -149,7 +149,7 @@ final class SafeHttpProbeTest extends Unit
         $resolver = new class implements HostResolverInterface {
             /** @return list<string> */
             #[\Override]
-            public function resolve(string $host): array
+            public function resolve(string $host, ?float $timeoutSeconds = null): array
             {
                 throw new RemoteHostResolverUnavailable('Resolver unavailable.');
             }
@@ -178,7 +178,7 @@ final readonly class SafeHttpProbeHostResolver implements HostResolverInterface
 
     /** @return list<string> */
     #[\Override]
-    public function resolve(string $host): array
+    public function resolve(string $host, ?float $timeoutSeconds = null): array
     {
         return $this->answers[$host] ?? [];
     }

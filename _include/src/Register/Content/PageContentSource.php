@@ -38,8 +38,9 @@ final readonly class PageContentSource implements ContentSourceInterface
         }
 
         $page = $this->dbLayer
-            ->select('page.id, page.title, page.body, page.comments_enabled')
-            ->addSelect('page.published_at, page.updated_at, page.meta_keywords, page.meta_description')
+            ->select('page.id, page.title, page.body, page.excerpt, page.comments_enabled, page.featured')
+            ->addSelect('page.published_at, page.updated_at, page.meta_keywords, page.meta_description, page.author_id')
+            ->addSelect('(' . $this->authorNameQuery() . ') AS author')
             ->from(ContentSchema::TABLE_NAME . ' AS page')
             ->where('page.id = :id')->setParameter('id', $id->value)
             ->andWhere("page.content_type = '" . ContentType::PAGE->value . "'")
@@ -67,7 +68,11 @@ final readonly class PageContentSource implements ContentSourceInterface
             keywords: (string)$page['meta_keywords'],
             description: (string)$page['meta_description'],
             updatedAt: (int)$page['updated_at'],
+            author: (string)($page['author'] ?? ''),
             commentsEnabled: (bool)$page['comments_enabled'],
+            excerpt: (string)$page['excerpt'],
+            authorId: $page['author_id'] === null ? null : (int)$page['author_id'],
+            featured: (bool)$page['featured'],
         );
     }
 
@@ -99,8 +104,9 @@ final readonly class PageContentSource implements ContentSourceInterface
         ;
 
         $query = $this->dbLayer
-            ->select('page.id, page.title, page.body, page.slug, page.published_at, page.updated_at, page.comments_enabled')
-            ->addSelect('page.meta_keywords, page.meta_description')
+            ->select('page.id, page.title, page.body, page.excerpt, page.slug, page.published_at, page.updated_at, page.comments_enabled, page.featured')
+            ->addSelect('page.meta_keywords, page.meta_description, page.author_id')
+            ->addSelect('(' . $this->authorNameQuery() . ') AS author')
             ->addSelect('(' . $childrenQuery . ') IS NOT NULL AS has_children')
             ->from(ContentSchema::TABLE_NAME . ' AS page')
             ->where("page.content_type = '" . ContentType::PAGE->value . "'")
@@ -131,10 +137,24 @@ final readonly class PageContentSource implements ContentSourceInterface
                 keywords: (string)$page['meta_keywords'],
                 description: (string)$page['meta_description'],
                 updatedAt: (int)$page['updated_at'],
+                author: (string)($page['author'] ?? ''),
                 commentsEnabled: (bool)$page['comments_enabled'],
+                excerpt: (string)$page['excerpt'],
+                authorId: $page['author_id'] === null ? null : (int)$page['author_id'],
+                featured: (bool)$page['featured'],
             );
 
             yield from $this->crawl((int)$page['id'], $segments);
         }
+    }
+
+    private function authorNameQuery(): string
+    {
+        return $this->dbLayer
+            ->select('users.name')
+            ->from('users')
+            ->where('users.id = page.author_id')
+            ->getSql()
+        ;
     }
 }

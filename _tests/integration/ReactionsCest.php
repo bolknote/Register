@@ -12,7 +12,9 @@ namespace integration;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Module\Reactions\Manifest;
-use Register\Module\Reactions\ReactionAggregateSchema;
+use Register\Module\Reactions\ReactionAggregate;
+use Register\Module\Reactions\ReactionAggregateRepository;
+use Register\Module\Reactions\ReactionAggregateTargetType;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use S2\Cms\Pdo\DbLayer;
 
@@ -22,27 +24,34 @@ final class ReactionsCest
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
+        /** @var ReactionAggregateRepository $aggregateRepository */
+        $aggregateRepository = $I->grabService(ReactionAggregateRepository::class);
         $contentId = $this->insertPost($dbLayer, 'imported-aggregate-reaction-post');
         foreach ([['like', '👍', 3, 'like'], ['', '🔥', 2, 'fire']] as [$reaction, $emoji, $count, $key]) {
-            $dbLayer->insert(ReactionAggregateSchema::TABLE_NAME)->values([
-                'target_type' => "'post'",
-                'target_id' => ':target_id',
-                'source' => "'test-archive'",
-                'source_key' => ':source_key',
-                'reaction' => ':reaction',
-                'emoji' => ':emoji',
-                'reaction_count' => ':reaction_count',
-                'created_at' => ':created_at',
-                'source_data' => "'{}'",
-            ])->execute([
-                'target_id' => $contentId,
-                'source_key' => $key,
-                'reaction' => $reaction,
-                'emoji' => $emoji,
-                'reaction_count' => $count,
-                'created_at' => time(),
-            ]);
+            $aggregateRepository->store(new ReactionAggregate(
+                ReactionAggregateTargetType::POST,
+                $contentId,
+                'test-archive',
+                $key,
+                $reaction,
+                $emoji,
+                $count,
+                time(),
+            ));
         }
+
+        // Reimporting the same source identity updates it instead of double-counting it.
+        $aggregateRepository->store(new ReactionAggregate(
+            ReactionAggregateTargetType::POST,
+            $contentId,
+            'test-archive',
+            'like',
+            'like',
+            '👍',
+            3,
+            time(),
+            ['remote_id' => 'https://social.example/likes/1'],
+        ));
 
         $I->amOnPage('https://localhost/imported-aggregate-reaction-post');
         $I->seeResponseCodeIs(200);
@@ -50,6 +59,18 @@ final class ReactionsCest
         $I->see('🔥', '.register-reaction-imported');
         $I->see('2', '.register-reaction-imported .register-reaction-count');
         $I->assertSame(0, (int)$dbLayer->select('COUNT(*)')->from(Manifest::TABLE_NAME)->execute()->result());
+        $I->assertTrue($aggregateRepository->remove(
+            ReactionAggregateTargetType::POST,
+            $contentId,
+            'test-archive',
+            'fire',
+        ));
+        $I->assertFalse($aggregateRepository->remove(
+            ReactionAggregateTargetType::POST,
+            $contentId,
+            'test-archive',
+            'fire',
+        ));
     }
 
     public function rendersCompactReactionsOnEveryPostInTheBlogList(\IntegrationTester $I): void

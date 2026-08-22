@@ -13,12 +13,14 @@ use Register\Content\ContentId;
 use Register\Content\ContentType;
 use Register\Live\LiveUpdateRepository;
 use S2\Cms\Pdo\DbLayer;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class CommentRepository
 {
     public function __construct(
         private DbLayer              $dbLayer,
         private LiveUpdateRepository $liveUpdateRepository,
+        private EventDispatcherInterface $eventDispatcher,
     ) {
     }
 
@@ -33,8 +35,13 @@ final readonly class CommentRepository
         ?int      $parentId,
         ?int      $userId = null,
         ?int      $time = null,
+        CommentMutationSource $source = CommentMutationSource::LOCAL,
     ): int {
-        if ($parentId !== null && !$this->isValidParent($contentId, $parentId)) {
+        if ($parentId !== null && !$this->isValidParent(
+            $contentId,
+            $parentId,
+            $source === CommentMutationSource::IMPORTED,
+        )) {
             throw new \InvalidArgumentException('The parent comment does not belong to the commented content.');
         }
 
@@ -77,6 +84,7 @@ final readonly class CommentRepository
 
         $commentId = (int)$this->dbLayer->insertId();
         $this->liveUpdateRepository->publishComments($contentId);
+        $this->dispatch($commentId, $contentId, CommentChangeKind::CREATED, $source);
 
         return $commentId;
     }
@@ -158,22 +166,25 @@ final readonly class CommentRepository
         return array_values(array_map($this->hydrate(...), $rows));
     }
 
-    public function isValidParent(ContentId $contentId, int $parentId): bool
+    public function isValidParent(ContentId $contentId, int $parentId, bool $includeHidden = false): bool
     {
         if ($parentId <= 0) {
             return false;
         }
 
-        return (int)$this->dbLayer
+        $query = $this->dbLayer
             ->select('COUNT(*)')
             ->from(CommentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $parentId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', $contentId->type->value)
             ->andWhere('content_id = :content_id')->setParameter('content_id', $contentId->value)
-            ->andWhere('shown = 1')
             ->andWhere('deleted = 0')
-            ->execute()
-            ->result() === 1;
+        ;
+        if (!$includeHidden) {
+            $query->andWhere('shown = 1');
+        }
+
+        return (int)$query->execute()->result() === 1;
     }
 
     public function count(ContentId $contentId, bool $includeHidden = false): int
@@ -241,7 +252,11 @@ final readonly class CommentRepository
         ;
     }
 
-    public function publish(int $commentId, ContentType $contentType): void
+    public function publish(
+        int                   $commentId,
+        ContentType           $contentType,
+        CommentMutationSource $source = CommentMutationSource::LOCAL,
+    ): void
     {
         $comment = $this->findOfType($commentId, $contentType);
         $updated = $this->dbLayer
@@ -254,6 +269,7 @@ final readonly class CommentRepository
         ;
         if ($updated && $comment instanceof Comment) {
             $this->liveUpdateRepository->publishComments($comment->contentId);
+            $this->dispatch($commentId, $comment->contentId, CommentChangeKind::PUBLISHED, $source);
         }
     }
 
@@ -282,10 +298,16 @@ final readonly class CommentRepository
         ;
         if ($updated && $comment instanceof Comment) {
             $this->liveUpdateRepository->publishComments($comment->contentId);
+            $this->dispatch($commentId, $comment->contentId, CommentChangeKind::HIDDEN);
         }
     }
 
-    public function edit(int $commentId, ContentType $contentType, string $text): bool
+    public function edit(
+        int                   $commentId,
+        ContentType           $contentType,
+        string                $text,
+        CommentMutationSource $source = CommentMutationSource::LOCAL,
+    ): bool
     {
         $comment = $this->findOfType($commentId, $contentType);
         $updated = $this->dbLayer
@@ -299,12 +321,17 @@ final readonly class CommentRepository
             ->affectedRows() > 0;
         if ($updated && $comment instanceof Comment) {
             $this->liveUpdateRepository->publishComments($comment->contentId);
+            $this->dispatch($commentId, $comment->contentId, CommentChangeKind::EDITED, $source);
         }
 
         return $updated;
     }
 
-    public function tombstone(int $commentId, ContentType $contentType): bool
+    public function tombstone(
+        int                   $commentId,
+        ContentType           $contentType,
+        CommentMutationSource $source = CommentMutationSource::LOCAL,
+    ): bool
     {
         $comment = $this->findOfType($commentId, $contentType);
         $updated = $this->dbLayer
@@ -319,6 +346,7 @@ final readonly class CommentRepository
             ->affectedRows() > 0;
         if ($updated && $comment instanceof Comment) {
             $this->liveUpdateRepository->publishComments($comment->contentId);
+            $this->dispatch($commentId, $comment->contentId, CommentChangeKind::TOMBSTONED, $source);
         }
 
         return $updated;
@@ -326,6 +354,7 @@ final readonly class CommentRepository
 
     public function removeForContent(ContentId $contentId): void
     {
+        $comments = $this->findForContent($contentId);
         $removed = $this->dbLayer
             ->delete(CommentSchema::TABLE_NAME)
             ->where('content_type = :content_type')->setParameter('content_type', $contentId->type->value)
@@ -335,7 +364,19 @@ final readonly class CommentRepository
         ;
         if ($removed) {
             $this->liveUpdateRepository->publishComments($contentId);
+            foreach ($comments as $comment) {
+                $this->dispatch($comment->id, $contentId, CommentChangeKind::REMOVED);
+            }
         }
+    }
+
+    private function dispatch(
+        int                   $commentId,
+        ContentId             $contentId,
+        CommentChangeKind     $kind,
+        CommentMutationSource $source = CommentMutationSource::LOCAL,
+    ): void {
+        $this->eventDispatcher->dispatch(new CommentChangedEvent($commentId, $contentId, $kind, $source));
     }
 
     /** @param array<string, mixed> $row */

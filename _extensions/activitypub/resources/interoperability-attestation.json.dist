@@ -1,0 +1,17 @@
+{
+    "schema": 1,
+    "module_version": "RELEASE_VERSION",
+    "protocol_profile": "register-activitypub-v1",
+    "suite_sha256": "SHA256_OF_ARCHIVED_INTEROPERABILITY_RESULTS",
+    "completed_at": "RFC3339_TIMESTAMP",
+    "peers": [
+        "akkoma",
+        "ghost",
+        "gotosocial",
+        "mastodon",
+        "misskey",
+        "register",
+        "wordpress-activitypub",
+        "writefreely"
+    ]
+}

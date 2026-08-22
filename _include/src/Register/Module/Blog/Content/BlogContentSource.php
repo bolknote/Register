@@ -112,10 +112,15 @@ final readonly class BlogContentSource implements RecentContentSourceInterface
             body: (string)$post['body'],
             path: $this->contentUrlGenerator->postPath((string)$post['slug']),
             publishedAt: $publishedAt !== null && $publishedAt > 0 ? $publishedAt : null,
+            keywords: (string)$post['meta_keywords'],
+            description: (string)$post['meta_description'],
             updatedAt: (int)$post['updated_at'],
             author: (string)($post['author'] ?? ''),
             series: (string)$post['series'],
             commentsEnabled: (bool)$post['comments_enabled'],
+            excerpt: (string)$post['excerpt'],
+            authorId: $post['author_id'] === null ? null : (int)$post['author_id'],
+            featured: (bool)$post['featured'],
         );
     }
 
@@ -133,11 +138,16 @@ final readonly class BlogContentSource implements RecentContentSourceInterface
             'id',
             'title',
             'body',
+            'excerpt',
+            'meta_keywords',
+            'meta_description',
             'published_at',
             'updated_at',
             'slug',
             'series',
             'comments_enabled',
+            'featured',
+            'author_id',
             '(' . $authorQuery . ') AS author',
         ];
     }

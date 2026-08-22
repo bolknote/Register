@@ -24,6 +24,9 @@ declare(strict_types = 1);
  * @var string|null $moderation_state
  * @var array<string, mixed>|null $moderation
  * @var array<string, int>|null $reaction_summary
+ * @var string|null $presentation_author_url
+ * @var string|null $presentation_source_url
+ * @var string|null $presentation_source_label
  */
 
 $encodedNick = s2_htmlencode($nick);
@@ -44,6 +47,9 @@ $replyQuery = $isPreview ? '' : http_build_query([
     'reply_name'   => $nick,
 ]);
 $reactionSummary = $reaction_summary ?? [];
+$authorUrl       = $presentation_author_url ?? null;
+$sourceUrl       = $presentation_source_url ?? null;
+$sourceLabel     = $presentation_source_label ?? '';
 
 ?>
 <article class="comment-item depth-<?php echo $visual_depth, !empty($good) && !$isDeleted ? ' good' : '', $is_author && !$isDeleted ? ' by-author' : '', $isPreview ? ' comment-preview-item' : '', $hasUserpic ? ' has-userpic' : '', $isDeleted ? ' is-deleted' : '', $moderationState === 'spam' ? ' is-spam' : '', $moderationState === 'hidden' ? ' is-hidden' : ''; ?>"<?php if (!$isPreview): ?>
@@ -124,7 +130,7 @@ $reactionSummary = $reaction_summary ?? [];
         <?php endif; ?>
     </div>
     <header class="comment-meta">
-        <span class="comment-name"><?php echo $name; ?></span>
+        <span class="comment-name"><?php if ($authorUrl !== null): ?><a href="<?php echo s2_htmlencode($authorUrl); ?>" rel="nofollow ugc noopener noreferrer" referrerpolicy="no-referrer"><?php echo $name; ?></a><?php else: ?><?php echo $name; ?><?php endif; ?></span>
         <?php if ($is_author): ?>
             <span class="comment-author-mark"><?php echo $trans('Site author'); ?></span>
         <?php endif; ?>
@@ -160,6 +166,9 @@ $reactionSummary = $reaction_summary ?? [];
                data-reply-comment="<?php echo $id; ?>"
                data-reply-number="<?php echo $i; ?>"
                data-reply-name="<?php echo $encodedNick; ?>"><?php echo $trans('Reply'); ?></a>
+            <?php if ($sourceUrl !== null && $sourceLabel !== ''): ?>
+                <a class="comment-source" href="<?php echo s2_htmlencode($sourceUrl); ?>" rel="nofollow ugc noopener noreferrer" referrerpolicy="no-referrer"><?php echo s2_htmlencode($sourceLabel); ?></a>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
     <?php if ($moderationData !== null && !empty($moderationData['can_edit'])): ?>

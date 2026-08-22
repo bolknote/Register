@@ -12,6 +12,8 @@ namespace unit\Register\Backup;
 use Codeception\Test\Unit;
 use Psr\Log\NullLogger;
 use Register\Backup\BackupEncryptionKeyProvider;
+use Register\Backup\BackupContributorInterface;
+use Register\Backup\BackupEntry;
 use Register\Backup\BackupEncryptor;
 use Register\Backup\BackupManager;
 use Register\Backup\DatabaseSnapshotter;
@@ -199,6 +201,33 @@ final class BackupManagerTest extends Unit
         self::assertFileDoesNotExist($directory . '/backups/database.sqlite');
     }
 
+    public function testIncludesBoundedContributorMaterialOnlyInsideEncryptedEnvelope(): void
+    {
+        $contributor = new class implements BackupContributorInterface {
+            /** @return list<BackupEntry> */
+            #[\Override]
+            public function backupEntries(): array
+            {
+                return [new BackupEntry(
+                    'extensions/example/private-recovery.json',
+                    '{"secret":"extension recovery material"}',
+                )];
+            }
+        };
+        [$manager, $directory, $encryptor] = $this->manager(2, contributors: [$contributor]);
+        $backup = $manager->createNow(1_700_000_000);
+        $encrypted = file_get_contents($backup->path);
+        self::assertIsString($encrypted);
+        self::assertStringNotContainsString('extension recovery material', $encrypted);
+
+        $decryptedPath = $directory . '/supplemental.zip';
+        $encryptor->decryptFile($backup->path, $decryptedPath);
+        $archive = file_get_contents($decryptedPath);
+        self::assertIsString($archive);
+        self::assertStringContainsString('extensions/example/private-recovery.json', $archive);
+        self::assertStringContainsString('extension recovery material', $archive);
+    }
+
     public function testRejectsSymbolicLinkBackupDirectory(): void
     {
         [$manager, $directory] = $this->manager(retention: 2);
@@ -214,8 +243,15 @@ final class BackupManagerTest extends Unit
         $manager->createNow(1_700_000_000);
     }
 
-    /** @return array{0:BackupManager,1:string,2:BackupEncryptor} */
-    private function manager(int $retention, string $encryptionSecret = 'backup-test-secret-backup-test-secret-'): array
+    /**
+     * @param list<BackupContributorInterface> $contributors
+     * @return array{0:BackupManager,1:string,2:BackupEncryptor}
+     */
+    private function manager(
+        int    $retention,
+        string $encryptionSecret = 'backup-test-secret-backup-test-secret-',
+        array  $contributors = [],
+    ): array
     {
         $directory = $this->temporaryDirectory();
         $database  = $directory . '/source.sqlite';
@@ -244,6 +280,7 @@ final class BackupManagerTest extends Unit
                 $directory . '/media',
                 $retention,
                 'test-version',
+                ...$contributors,
             ),
             $directory,
             $encryptor,

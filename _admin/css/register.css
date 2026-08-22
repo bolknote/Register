@@ -2389,6 +2389,80 @@ section.large-edit-form form {
     padding: 1rem;
 }
 
+.editor-panel-description {
+    margin: 0 0 1rem;
+    color: var(--admin-quiet-color);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.activitypub-editor-preview {
+    display: grid;
+    gap: 0.65rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--admin-soft-border-color);
+}
+
+.activitypub-editor-preview > button {
+    width: 100%;
+    min-height: 2.4rem;
+}
+
+.activitypub-editor-preview-status,
+.activitypub-editor-preview-metadata,
+.activitypub-editor-preview-provisional {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.activitypub-editor-preview-status.is-error {
+    color: var(--admin-error-color);
+}
+
+.activitypub-editor-preview-provisional {
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.4rem;
+    background: color-mix(in srgb, var(--admin-warning-color) 11%, transparent);
+    color: var(--admin-text-color);
+}
+
+.activitypub-editor-preview-frame {
+    display: block;
+    width: 100%;
+    min-height: 14rem;
+    margin-top: 0.65rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.45rem;
+    background: var(--admin-field-background);
+}
+
+.activitypub-editor-preview-json {
+    margin-top: 0.65rem;
+}
+
+.activitypub-editor-preview-json > summary {
+    color: var(--admin-secondary-text-color);
+    font-size: 0.78rem;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.activitypub-editor-preview-json pre {
+    max-height: 32rem;
+    margin: 0.55rem 0 0;
+    padding: 0.7rem;
+    overflow: auto;
+    border-radius: 0.4rem;
+    background: var(--admin-secondary-background);
+    font: 0.72rem/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .editor-secondary-panel > summary small {
     color: var(--admin-quiet-color);
     font-size: 0.75rem;

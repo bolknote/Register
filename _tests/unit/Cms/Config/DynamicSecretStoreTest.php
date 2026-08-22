@@ -11,6 +11,7 @@ namespace unit\Cms\Config;
 
 use Codeception\Test\Unit;
 use S2\Cms\Config\DynamicConfigProvider;
+use S2\Cms\Config\DynamicSecretParameterRegistry;
 use S2\Cms\Config\DynamicSecretStore;
 use S2\Cms\Framework\Exception\ConfigurationException;
 use S2\Cms\Pdo\DbLayer;
@@ -139,6 +140,60 @@ final class DynamicSecretStoreTest extends Unit
         ]);
         self::assertSame('database-only-secret', $fresh['cache']['ANTISPAM_SECRET']);
         self::assertFileDoesNotExist($freshFilename);
+    }
+
+    public function testKeepsExtensionPrivateSecretOutsideDatabaseAndCacheLifecycle(): void
+    {
+        $filename = $this->temporaryDirectory . '/config.secrets.php';
+        $name     = 'REGISTER_EXTENSION_ACTIVITYPUB_MASTER_KEY';
+        $registry = new DynamicSecretParameterRegistry(['AI_KEY']);
+        $registry->registerExtensionPrivate($name);
+
+        $store = new DynamicSecretStore($filename, $registry);
+
+        $secret = $store->getOrCreateExtensionPrivate($name);
+
+        self::assertSame($secret, $store->getOrCreateExtensionPrivate($name));
+        self::assertSame($secret, $store->getExtensionPrivate($name));
+        self::assertSame(43, \strlen($secret));
+        self::assertSame([], $store->protect(['AI_KEY' => ''])['database_updates']);
+        self::assertSame($secret, (include $filename)[$name] ?? null);
+
+        $store->replaceExtensionPrivate($name, str_repeat('r', 43));
+        self::assertSame(str_repeat('r', 43), $store->getExtensionPrivate($name));
+        self::assertFileExists($filename . '.lock');
+
+        $permissions = fileperms($filename . '.lock');
+        self::assertIsInt($permissions);
+        self::assertSame(0600, $permissions & 0777);
+    }
+
+    public function testDisabledExtensionSecretDoesNotBreakCoreSecretHydration(): void
+    {
+        $filename = $this->temporaryDirectory . '/config.secrets.php';
+        $name     = 'REGISTER_EXTENSION_ACTIVITYPUB_MASTER_KEY';
+        $registry = new DynamicSecretParameterRegistry(['AI_KEY']);
+        $registry->registerExtensionPrivate($name);
+
+        $extensionAwareStore = new DynamicSecretStore($filename, $registry);
+        $secret              = $extensionAwareStore->getOrCreateExtensionPrivate($name);
+
+        $coreOnlyStore = new DynamicSecretStore($filename, ['AI_KEY']);
+        $protected     = $coreOnlyStore->protect(['AI_KEY' => 'core-secret']);
+
+        self::assertSame('core-secret', $coreOnlyStore->hydrate($protected['cache'])['AI_KEY']);
+        self::assertSame($secret, (include $filename)[$name] ?? null);
+    }
+
+    public function testRequiresRuntimeRegistrationBeforeAccessingExtensionPrivateSecret(): void
+    {
+        $store = new DynamicSecretStore(
+            $this->temporaryDirectory . '/config.secrets.php',
+            ['AI_KEY'],
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+        $store->getOrCreateExtensionPrivate('REGISTER_EXTENSION_ACTIVITYPUB_MASTER_KEY');
     }
 
     public function testProviderMigratesDatabaseAndCacheWithoutExposingSecret(): void

@@ -34,8 +34,16 @@ final readonly class SharedHostingDistributionBuilder
     ];
 
     private const array APPLICATION_TOOL_FILES = [
+        'check-activitypub-interoperability.php',
         'decrypt-backup.php',
         'generate-backup-keypair.php',
+        'restore-activitypub-identity.php',
+    ];
+
+    private const array DISTRIBUTION_DOCUMENTATION_FILES = [
+        'activitypub-interoperability.md',
+        'activitypub-operations.md',
+        'backups.md',
     ];
 
     private const array PUBLIC_SOURCE_DIRECTORIES = [
@@ -171,11 +179,13 @@ final readonly class SharedHostingDistributionBuilder
                 $destinationRoot . '/DEPLOYMENT.md',
                 0644,
             );
-            $this->copyExactFile(
-                $this->sourceRoot . '/_doc/backups.md',
-                $destinationRoot . '/backups.md',
-                0644,
-            );
+            foreach (self::DISTRIBUTION_DOCUMENTATION_FILES as $filename) {
+                $this->copyExactFile(
+                    $this->sourceRoot . '/_doc/' . $filename,
+                    $destinationRoot . '/' . $filename,
+                    0644,
+                );
+            }
 
             if (is_dir($applicationRoot . '/_vendor')) {
                 $this->syncPublicVendorAssets($destinationRoot);

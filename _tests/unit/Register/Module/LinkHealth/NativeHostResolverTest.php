@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace unit\Register\Module\LinkHealth;
 
 use Codeception\Test\Unit;
-use Register\Module\LinkHealth\NativeHostResolver;
-use Register\Module\LinkHealth\RemoteHostResolverUnavailable;
-use Register\Module\LinkHealth\RemoteHostResolutionTimedOut;
+use S2\Cms\HttpClient\Remote\NativeHostResolver;
+use S2\Cms\HttpClient\Remote\RemoteHostResolverUnavailable;
+use S2\Cms\HttpClient\Remote\RemoteHostResolutionTimedOut;
 
 final class NativeHostResolverTest extends Unit
 {
