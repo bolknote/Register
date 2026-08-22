@@ -60,7 +60,7 @@ final class ShutdownWorkCoordinatorTest extends Unit
         self::assertSame(1, $runtime->apmCalls);
     }
 
-    public function testUsesTinyForegroundSafeSliceWithoutResponseDetachment(): void
+    public function testAttachedSliceCanRunBoundedNetworkHandlersWithoutResponseDetachment(): void
     {
         [$coordinator, $runtime, $runner] = $this->coordinator();
         $runtime->detached = false;
@@ -69,7 +69,7 @@ final class ShutdownWorkCoordinatorTest extends Unit
 
         $runtime->invokeShutdown();
 
-        self::assertSame([[1.0, 5]], $runner->calls);
+        self::assertSame([[4.5, 5]], $runner->calls);
     }
 
     public function testSkipsWorkAfterFatalErrorOrExhaustedRequestLimit(): void

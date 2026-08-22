@@ -13,6 +13,11 @@ use Psr\Log\LoggerInterface;
 
 final class ShutdownWorkCoordinator
 {
+    /** Covers the longest built-in network handler without turning shutdown into an unbounded worker. */
+    private const float ATTACHED_WORK_BUDGET_SECONDS = 4.5;
+
+    private const float DETACHED_WORK_BUDGET_SECONDS = 5.0;
+
     private const array FATAL_ERROR_TYPES = [
         E_ERROR,
         E_PARSE,
@@ -89,8 +94,12 @@ final class ShutdownWorkCoordinator
                 return;
             }
 
-            $detached        = $this->responseDetached && !$this->runtime->isDevelopmentServer();
-            $requestedBudget = $detached ? 5.0 : 1.0;
+            $detached = $this->responseDetached && !$this->runtime->isDevelopmentServer();
+            // A one-second attached slice starves handlers whose bounded network step needs longer:
+            // QueueConsumer excludes them before the first attempt, so their rows can never advance.
+            $requestedBudget = $detached
+                ? self::DETACHED_WORK_BUDGET_SECONDS
+                : self::ATTACHED_WORK_BUDGET_SECONDS;
             $maxJobs         = 5;
             $safeBudget      = $this->runtime->remainingExecutionSeconds(
                 $this->requestStartedAt,
