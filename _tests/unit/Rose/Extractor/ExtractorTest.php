@@ -106,6 +106,14 @@ final class ExtractorTest extends Unit
         yield ['<P>One sentence.</P><!--excluded--><p>Another<br>sentence.</p>', 'One sentence. Another sentence.'];
         yield ['<P>One sentence.</P><noindex><p>Another<br>sentence.</p></noindex>', 'One sentence. Another sentence.'];
         yield ['<P>One sentence.</P><p>Another<img src="1.png" alt="" />sentence.</p>', 'One sentence. Another sentence.'];
+        yield [
+            '<p>Before <img src="bird.jpg" alt="Blue &amp; yellow bird"> after.</p>',
+            'Before Blue & yellow bird after.',
+        ];
+        yield [
+            '<p>Before <img src="bird.jpg" data-alt="Internal label"> after.</p>',
+            'Before after.',
+        ];
         yield ['<p>One sentence.</p>List:<ul><li>First</li>  <li> Second<p>and a half  </p></li></ul>', 'One sentence. List: First Second and a half'];
         yield ['<P><i>This</i> sentence is a little bit <em>longer. And</em> this is not.</p>', '\\iThis\\I sentence is a little bit \\ilonger.\\I \\iAnd\\I this is not.'];
         yield ['<p>This <table><tr><td>is broken</td><td>HTML.</td></tr></table>I <b>want <i>to</b> test a</i> real-word <img><unknown-tag>example</p>', 'This is broken HTML. I \bwant \ito\I\B test a real-word example', ['this', 'is', 'broken', 'html', 'i', 'want', 'to', 'test', 'a', 'real-word', 'example']];
@@ -156,7 +164,7 @@ div {
 <p>Ошибка <i>астатически</i> даёт более простую систему.</p>
 
 <p>Еще 1 раз проверим, как gt работает защита против &lt;script&gt;alert();&lt;/script&gt; xss-уязвимостей.</p>',
-            'Должно проиндексироваться. Внешнее кольцо позволяет пренебречь. А это цитата, ее тоже надо индексировать. В цитате могут быть абзацы. Ошибка \\iастатически\\I даёт более простую систему. Еще 1 раз проверим, как gt работает защита против <script>alert();</script> xss-уязвимостей.',
+            'Должно проиндексироваться. Внешнее кольцо позволяет пренебречь. valid escaped src and alt & → → А это цитата, ее тоже надо индексировать. В цитате могут быть абзацы. invalid escaped src and alt & Ошибка \\iастатически\\I даёт более простую систему. Еще 1 раз проверим, как gt работает защита против <script>alert();</script> xss-уязвимостей.',
             null,
             '[{"src":"1.jpg","width":"300","height":"200","alt":""},{"src":"https:\/\/localhost\/2.jpg&test=1","width":"300","height":"200","alt":"valid escaped src and alt & → &rarr;"},{"src":"https:\/\/localhost\/3.jpg&test=1","width":"300","height":"200","alt":"invalid escaped src and alt &"}]'
         ];

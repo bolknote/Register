@@ -63,6 +63,30 @@ class RegexExtractor implements ExtractorInterface
 
         $text = preg_replace('#<(script|style)[^>]*?>.*?</\\1>#si', '', $text) ?? $text;
         $text = preg_replace('#<([a-z]+) [^>]*?index-skip[^>]*?>.*?</\\1>#si', '', $text) ?? $text;
+        $text = preg_replace_callback(
+            '#<img\\b[^>]*>#si',
+            static function (array $match): string {
+                if (preg_match(
+                    '~(?:^|[\\s<])\\Kalt\\s*=\\s*(?:"(?<double>[^"]*)"|\'(?<single>[^\']*)\'|(?<bare>[^\\s>]+))~iu',
+                    $match[0],
+                    $altMatch,
+                ) !== 1) {
+                    return ' ';
+                }
+
+                $alt = $altMatch['double']
+                    ?? $altMatch['single']
+                    ?? $altMatch['bare']
+                    ?? '';
+                $alt = trim(html_entity_decode(
+                    $alt,
+                    ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5,
+                ));
+
+                return $alt === '' ? ' ' : ' ' . $alt . ' ';
+            },
+            $text,
+        ) ?? $text;
 
         $paragraphs = explode(self::PARAGRAPH_SEPARATOR, $text);
         $texts      = array_map(static fn(string $string): string => trim(strip_tags($string)), $paragraphs); // TODO allow some formatting

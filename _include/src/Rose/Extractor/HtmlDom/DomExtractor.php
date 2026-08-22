@@ -245,14 +245,20 @@ class DomExtractor implements ExtractorInterface
                 return self::NODE_SKIP;
 
             case 'img':
+                $alt = trim(html_entity_decode(
+                    $domNode->getAttribute('alt'),
+                    ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5
+                ));
                 $domState->attachImg(
                     html_entity_decode($domNode->getAttribute('src'), ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5),
                     $domNode->getAttribute('width'),
                     $domNode->getAttribute('height'),
-                    html_entity_decode($domNode->getAttribute('alt'), ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5)
+                    $alt
                 );
-                // TODO Add alt text?
-                $domState->attachContent(self::getNodePath($domNode), ' ');
+                $domState->attachContent(
+                    self::getNodePath($domNode),
+                    $alt === '' ? ' ' : ' ' . $alt . ' '
+                );
                 return self::NODE_SKIP;
 
             case 'style':
