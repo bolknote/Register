@@ -111,15 +111,8 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertStringContainsString("define('REGISTER_APP_ROOT', dirname(__DIR__) . '/register-app')", $frontController);
         self::assertStringContainsString("define('REGISTER_PUBLIC_ROOT', __DIR__)", $frontController);
 
-        $vendorDemo = $applicationDir . '/_vendor/s2/admin-yard/demo';
-        mkdir($vendorDemo, 0755, true);
-        file_put_contents($vendorDemo . '/script.js', 'script');
-        file_put_contents($vendorDemo . '/style.css', 'style');
-        file_put_contents($vendorDemo . '/admin_config.php', 'secret');
-        $builder->syncPublicVendorAssets($distribution);
-        self::assertFileExists($publicDir . '/_vendor/s2/admin-yard/demo/script.js');
-        self::assertFileExists($publicDir . '/_vendor/s2/admin-yard/demo/style.css');
-        self::assertFileDoesNotExist($publicDir . '/_vendor/s2/admin-yard/demo/admin_config.php');
+        self::assertFileExists($publicDir . '/_assets/register/admin-yard/script.js');
+        self::assertFileExists($publicDir . '/_assets/register/admin-yard/style.css');
 
         $archive = $this->temporaryRoot . '/register.zip';
         $builder->createArchive($distribution, $archive);

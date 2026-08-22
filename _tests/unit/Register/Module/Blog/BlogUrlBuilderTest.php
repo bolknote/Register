@@ -5,9 +5,9 @@ declare(strict_types = 1);
 namespace unit\Register\Module\Blog;
 
 use Codeception\Test\Unit;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Pdo\DbLayer;
 use Register\Module\Blog\BlogUrlBuilder;
 
 final class BlogUrlBuilderTest extends Unit
@@ -40,8 +40,8 @@ final class BlogUrlBuilderTest extends Unit
         $dbLayer = new DbLayer($pdo);
         $dbLayer->query('CREATE TABLE config (name TEXT PRIMARY KEY, value TEXT)');
         foreach ([
-            'S2_TAGS_URL'     => 'tags',
-            'S2_FAVORITE_URL' => 'favorite',
+            'REGISTER_TAGS_URL'     => 'tags',
+            'REGISTER_FAVORITE_URL' => 'favorite',
         ] as $name => $value) {
             $dbLayer->query(
                 'INSERT INTO config (name, value) VALUES (:name, :value)',
@@ -60,8 +60,8 @@ final class BlogUrlBuilderTest extends Unit
         return [
             new BlogUrlBuilder(
                 new UrlBuilder('', 'https://example.test', ''),
-                $provider->getStringProxy('S2_TAGS_URL'),
-                $provider->getStringProxy('S2_FAVORITE_URL'),
+                $provider->getStringProxy('REGISTER_TAGS_URL'),
+                $provider->getStringProxy('REGISTER_FAVORITE_URL'),
             ),
             $configFile,
         ];

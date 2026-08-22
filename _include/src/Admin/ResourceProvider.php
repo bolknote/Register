@@ -2,12 +2,12 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin;
+namespace Register\Core\Admin;
 
 readonly class ResourceProvider
 {
@@ -16,7 +16,7 @@ readonly class ResourceProvider
     }
 
     /**
-     * Languages available in current S2 installation
+     * Languages available in current Register installation
      * @return list<string>
      */
     public function readLanguages(): array
@@ -40,7 +40,7 @@ readonly class ResourceProvider
     }
 
     /**
-     * Languages available in current S2 installation, indexed by their stable identifiers.
+     * Languages available in current Register installation, indexed by their stable identifiers.
      *
      * @return array<string, string>
      */
@@ -60,7 +60,7 @@ readonly class ResourceProvider
     }
 
     /**
-     * Styles available in current S2 installation
+     * Styles available in current Register installation
      * @return list<string>
      */
     public function readStyles(): array
@@ -84,7 +84,7 @@ readonly class ResourceProvider
     }
 
     /**
-     * Styles available in current S2 installation, indexed by their stable identifiers.
+     * Styles available in current Register installation, indexed by their stable identifiers.
      *
      * @return array<string, string>
      */
@@ -109,7 +109,7 @@ readonly class ResourceProvider
 
     private function readLocalizedName(string $metadataFile, string $fallbackName, string $locale): string
     {
-        $contents = s2_call_without_warnings(
+        $contents = register_call_without_warnings(
             static fn(): string|false => file_get_contents($metadataFile)
         );
 

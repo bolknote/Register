@@ -11,9 +11,9 @@ namespace Register\Schema;
 
 use Register\Ai\AiSettings;
 use Register\Module\BaseModuleInstaller;
-use S2\Cms\Framework\Container;
-use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Framework\Container;
+use Register\Core\Model\ExtensionCache;
+use Register\Core\Pdo\DbLayer;
 
 /**
  * Initializes a clean schema and applies only explicitly registered additive upgrades.
@@ -30,7 +30,7 @@ final readonly class SchemaManager
     public const int MINIMUM_UPGRADE_GENERATION = 15;
 
     private const array CONFIG_DEFAULTS = [
-        'S2_SITE_TAGLINE' => '',
+        'REGISTER_SITE_TAGLINE' => '',
         AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_DISABLED,
         AiSettings::API_KEY_CONFIG_KEY  => '',
         AiSettings::MODEL_CONFIG_KEY    => '',

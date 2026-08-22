@@ -7,20 +7,20 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Controller;
+namespace Register\Extension\activitypub\Controller;
 
-use S2\Cms\Framework\ControllerInterface;
-use s2_extensions\activitypub\Application\PublicFederationAccess;
-use s2_extensions\activitypub\Domain\CollectionAnchor;
-use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
-use s2_extensions\activitypub\Http\ActivityPubResponseFactory;
-use s2_extensions\activitypub\Infrastructure\InteractionRepository;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\RemoteObjectRepository;
-use s2_extensions\activitypub\Infrastructure\StoredLocalNoteRepresentation;
-use s2_extensions\activitypub\Infrastructure\StoredObjectRepresentation;
-use s2_extensions\activitypub\Presentation\ActivityStreamsContext;
-use s2_extensions\activitypub\Security\CollectionCursorCodec;
+use Register\Core\Framework\ControllerInterface;
+use Register\Extension\activitypub\Application\PublicFederationAccess;
+use Register\Extension\activitypub\Domain\CollectionAnchor;
+use Register\Extension\activitypub\Domain\FederationUrlGeneratorFactory;
+use Register\Extension\activitypub\Http\ActivityPubResponseFactory;
+use Register\Extension\activitypub\Infrastructure\InteractionRepository;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\RemoteObjectRepository;
+use Register\Extension\activitypub\Infrastructure\StoredLocalNoteRepresentation;
+use Register\Extension\activitypub\Infrastructure\StoredObjectRepresentation;
+use Register\Extension\activitypub\Presentation\ActivityStreamsContext;
+use Register\Extension\activitypub\Security\CollectionCursorCodec;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -123,7 +123,7 @@ final readonly class ObjectRepliesController implements ControllerInterface
             }
 
             $remoteObject = $this->remoteObjectRepository->findByUrl($interaction->remoteObjectUrl);
-            if (!$remoteObject instanceof \s2_extensions\activitypub\Domain\RemoteObject) {
+            if (!$remoteObject instanceof \Register\Extension\activitypub\Domain\RemoteObject) {
                 continue;
             }
 

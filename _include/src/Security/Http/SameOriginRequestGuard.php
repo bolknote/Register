@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Security\Http;
+namespace Register\Core\Security\Http;
 
 use Symfony\Component\HttpFoundation\Request;
 

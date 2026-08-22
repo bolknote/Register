@@ -1,4 +1,4 @@
-# BEGIN S2
+# BEGIN Register
 
 Options -Indexes
 
@@ -17,7 +17,7 @@ RewriteEngine On
 # The repository-root deployment layout is supported on shared hosting, but
 # implementation files and operator data must never be served over HTTP.
 RewriteRule ^(?:_doc|_include|_tests|tools|\.codex|\.git|\.github|\.local)(?:/|$) - [F,L,NC]
-RewriteRule ^_vendor/(?!s2/admin-yard/demo/(?:style\.css|script\.js)$) - [F,L,NC]
+RewriteRule ^_vendor/ - [F,L,NC]
 RewriteRule ^(?:composer\.(?:json|lock)|phpunit\.xml(?:\.dist)?|psalm\.xml|rector\.php|plan-security\.md)$ - [F,L,NC]
 RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L]
 
@@ -52,4 +52,4 @@ RewriteRule . index.php [L]
     </IfModule>
 </FilesMatch>
 
-# END S2
+# END Register

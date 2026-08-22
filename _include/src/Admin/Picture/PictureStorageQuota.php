@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Picture;
+namespace Register\Core\Admin\Picture;
 
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,7 +29,7 @@ final readonly class PictureStorageQuota
     /** @param callable(): void $store */
     public function store(UploadedFile $uploadedFile, callable $store): void
     {
-        $uploadBytes = s2_call_without_warnings(static fn(): int|false => $uploadedFile->getSize());
+        $uploadBytes = register_call_without_warnings(static fn(): int|false => $uploadedFile->getSize());
         if ($uploadBytes === false || $uploadBytes < 0) {
             throw new \RuntimeException(
                 'Unable to determine the uploaded file size.',
@@ -89,7 +89,7 @@ final readonly class PictureStorageQuota
             );
         }
 
-        $lock = s2_call_without_warnings(fn() => fopen($this->lockFile, 'c+b'));
+        $lock = register_call_without_warnings(fn() => fopen($this->lockFile, 'c+b'));
         if ($lock === false) {
             throw new \RuntimeException(
                 'Unable to open the upload quota lock.',
@@ -98,7 +98,7 @@ final readonly class PictureStorageQuota
         }
 
         $handleStat = fstat($lock);
-        $pathStat   = s2_call_without_warnings(fn(): array|false => lstat($this->lockFile));
+        $pathStat   = register_call_without_warnings(fn(): array|false => lstat($this->lockFile));
         if (
             $handleStat === false
             || $pathStat === false
@@ -113,7 +113,7 @@ final readonly class PictureStorageQuota
             );
         }
 
-        if (!s2_call_without_warnings(fn(): bool => chmod($this->lockFile, 0600))) {
+        if (!register_call_without_warnings(fn(): bool => chmod($this->lockFile, 0600))) {
             fclose($lock);
             throw new \RuntimeException(
                 'Unable to protect the upload quota lock.',
@@ -147,7 +147,7 @@ final readonly class PictureStorageQuota
                 continue;
             }
 
-            $fileBytes = s2_call_without_warnings(static fn(): int|false => $file->getSize());
+            $fileBytes = register_call_without_warnings(static fn(): int|false => $file->getSize());
             if ($fileBytes === false || $fileBytes < 0) {
                 throw new \RuntimeException(
                     'Unable to determine the upload storage usage.',

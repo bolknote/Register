@@ -6,17 +6,17 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Entity;
+namespace Register\Rose\Entity;
 
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Exception\RuntimeException;
-use S2\Rose\Helper\SnippetTextHelper;
-use S2\Rose\Helper\StringHelper;
-use S2\Rose\Stemmer\StemmerHelper;
-use S2\Rose\Stemmer\StemmerInterface;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Exception\RuntimeException;
+use Register\Rose\Helper\SnippetTextHelper;
+use Register\Rose\Helper\StringHelper;
+use Register\Rose\Stemmer\StemmerHelper;
+use Register\Rose\Stemmer\StemmerInterface;
 
 /**
- * @see \S2\Rose\Test\Entity\SnippetLineTest
+ * @see \Register\Rose\Test\Entity\SnippetLineTest
  */
 class SnippetLine
 {
@@ -147,7 +147,7 @@ class SnippetLine
 
     protected function parse(): HighlightIntervals
     {
-        if ($this->highlightIntervals instanceof \S2\Rose\Entity\HighlightIntervals) {
+        if ($this->highlightIntervals instanceof \Register\Rose\Entity\HighlightIntervals) {
             // Already parsed
             return $this->highlightIntervals;
         }

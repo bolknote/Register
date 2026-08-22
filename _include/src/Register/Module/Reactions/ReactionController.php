@@ -15,7 +15,7 @@ use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Module\VisitorIdentity\JsonMutationGuard;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
-use S2\Cms\Framework\ControllerInterface;
+use Register\Core\Framework\ControllerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

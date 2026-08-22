@@ -10,10 +10,10 @@ declare(strict_types = 1);
 namespace Register\Module\LinkHealth\Admin;
 
 use Register\Module\LinkHealth\LinkHealthStatus;
-use S2\AdminYard\TemplateRenderer;
-use S2\AdminYard\Translator;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Model\PermissionChecker;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Translator;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Model\PermissionChecker;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 

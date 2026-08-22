@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Domain;
+namespace Register\Extension\activitypub\Domain;
 
 use Register\Content\ContentId;
 use Register\Content\ContentType;

@@ -9,7 +9,7 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Framework;
+namespace Register\Core\Framework;
 
 /** Marker shared by every Register application module. */
 interface ModuleInterface

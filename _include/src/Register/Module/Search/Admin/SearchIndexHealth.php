@@ -12,10 +12,10 @@ namespace Register\Module\Search\Admin;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\ContentIndexer;
 use Register\Module\Search\Service\SearchIndexRepairer;
-use S2\Cms\Pdo\DbLayer;
-use S2\Rose\Entity\Indexable;
-use S2\Rose\Entity\TocEntry;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Core\Pdo\DbLayer;
+use Register\Rose\Entity\Indexable;
+use Register\Rose\Entity\TocEntry;
+use Register\Rose\Storage\Database\PdoStorage;
 
 /** Compares canonical published content with Rose's table of contents. */
 final readonly class SearchIndexHealth

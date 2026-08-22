@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use s2_extensions\activitypub\Domain\ContentBackfillMode;
-use s2_extensions\activitypub\Domain\ContentBackfillState;
+use Register\Extension\activitypub\Domain\ContentBackfillMode;
+use Register\Extension\activitypub\Domain\ContentBackfillState;
 
 final readonly class ContentBackfillJob
 {

@@ -15,7 +15,7 @@ declare(strict_types=1);
 /** @var array $header */
 /** @var array $hint */
 /** @var array $errorMessages */
-/** @var \S2\AdminYard\Form\Form $form */
+/** @var \Register\AdminYard\Form\Form $form */
 /** @var string|null $csrfToken */
 /** @var array|null $primaryKey */
 /** @var array $actions */
@@ -45,7 +45,7 @@ $isPost = match ($entityName) {
 $contentType = $isPost ? 'post' : 'page';
 $visibleControls = $form->getVisibleControls();
 
-if (!$isPost && $param('S2_ADMIN_CUT')) {
+if (!$isPost && $param('REGISTER_ADMIN_CUT')) {
     unset($visibleControls['excerpt']);
 }
 
@@ -230,7 +230,7 @@ $renderControl = static function (
     $controlClass = strtolower(basename(strtr(get_class($control), ['\\' => '/'])));
     $fieldLabel = $labelOverride ?? $header[$fieldName];
     ob_start();
-    if ($control instanceof \S2\AdminYard\Form\Checkbox) {
+    if ($control instanceof \Register\AdminYard\Form\Checkbox) {
         ?>
         <div class="editor-field editor-checkbox-field article-form-control form-control-<?= $controlClass ?> field-<?= $fieldName ?>">
             <label class="field-name" title="<?= htmlspecialchars($hint[$fieldName] ?? '', ENT_QUOTES, 'UTF-8') ?>" for="id-<?= $fieldName ?>">
@@ -257,7 +257,7 @@ $renderControl = static function (
             <?php endif; ?>
         </div>
         <?php
-    } elseif ($control instanceof \S2\Cms\AdminYard\Form\HtmlTextarea) {
+    } elseif ($control instanceof \Register\Core\AdminYard\Form\HtmlTextarea) {
         ?>
         <div id="id-article-editor-block" class="article-form-control form-control-<?= $controlClass ?> field-<?= $fieldName ?>" data-html-editor-root>
             <?= $control->getHtmlWithWrapper($trans, 'id-' . $fieldName, $fieldLabel) ?>
@@ -373,7 +373,7 @@ $renderControl = static function (
                     <?php else: ?>
                         <p class="ai-setup-note">
                             <?= $trans('AI setup required') ?>
-                            <?php if ($isGranted(\S2\Cms\Model\PermissionChecker::PERMISSION_VIEW_HIDDEN)): ?>
+                            <?php if ($isGranted(\Register\Core\Model\PermissionChecker::PERMISSION_VIEW_HIDDEN)): ?>
                                 <a href="?entity=Config&amp;action=list"><?= $trans('Configure AI') ?> &rarr;</a>
                             <?php endif; ?>
                         </p>

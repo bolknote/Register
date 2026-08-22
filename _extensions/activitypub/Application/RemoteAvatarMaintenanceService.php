@@ -7,12 +7,12 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
 use Psr\Log\LoggerInterface;
-use s2_extensions\activitypub\Infrastructure\RemoteAvatarRepository;
-use s2_extensions\activitypub\Media\RemoteAvatarQueue;
-use s2_extensions\activitypub\Media\RemoteAvatarStorage;
+use Register\Extension\activitypub\Infrastructure\RemoteAvatarRepository;
+use Register\Extension\activitypub\Media\RemoteAvatarQueue;
+use Register\Extension\activitypub\Media\RemoteAvatarStorage;
 
 /** Bounded refresh and derived-file retention work for shared-hosting shutdown runs. */
 final readonly class RemoteAvatarMaintenanceService

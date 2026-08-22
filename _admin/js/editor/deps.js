@@ -1,15 +1,15 @@
 /**
- * Editor dependency registry for S2.
+ * Editor dependency registry for Register.
  *
  * @copyright 2025-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 const editorDeps = {
     PopupMessages: null,
     autoComplete: null,
-    s2_lang: null,
+    register_lang: null,
     CodeMirror: null,
     loadingIndicator: null,
     sUrl: null,

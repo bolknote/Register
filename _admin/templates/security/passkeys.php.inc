@@ -4,7 +4,7 @@
  * @var callable $adminAssetVersion
  * @var string $basePath
  * @var bool $passkeysAvailable
- * @var list<\S2\Cms\Security\WebAuthn\WebAuthnCredential> $credentials
+ * @var list<\Register\Core\Security\WebAuthn\WebAuthnCredential> $credentials
  * @var array{available:int,created_at:?int} $recoveryStatus
  * @var string $registerCsrfToken
  * @var string $deleteCsrfToken

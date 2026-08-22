@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace unit\Cms\Admin;
 
 use Codeception\Test\Unit;
-use S2\Cms\Admin\AdminThemeStylesheet;
-use S2\Cms\Config\DynamicConfigProvider;
+use Register\Core\Admin\AdminThemeStylesheet;
+use Register\Core\Config\DynamicConfigProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -79,7 +79,7 @@ final class AdminThemeStylesheetTest extends Unit
     {
         $configProvider = new DynamicConfigProvider();
         $reflection = new \ReflectionClass($configProvider);
-        $reflection->getProperty('params')->setValue($configProvider, ['S2_ADMIN_COLOR' => $color]);
+        $reflection->getProperty('params')->setValue($configProvider, ['REGISTER_ADMIN_COLOR' => $color]);
 
         return new AdminThemeStylesheet($configProvider);
     }

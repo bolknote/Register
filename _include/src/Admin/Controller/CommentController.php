@@ -2,29 +2,29 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Controller;
+namespace Register\Core\Admin\Controller;
 
 use Register\Comment\CommentRepository;
 use Register\Live\LiveUpdateRepository;
-use S2\AdminYard\Config\EntityConfig;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Controller\EntityController;
-use S2\AdminYard\Controller\InvalidRequestException;
-use S2\AdminYard\Database\DatabaseHelper;
-use S2\AdminYard\Database\PdoDataProvider;
-use S2\AdminYard\Database\SafeDataProviderException;
-use S2\AdminYard\Form\FormFactory;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\AdminYard\TemplateRenderer;
-use S2\AdminYard\Transformer\ViewTransformer;
-use S2\AdminYard\Translator;
-use S2\Cms\Comment\Antispam\SpamFeedbackService;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\AdminYard\Config\EntityConfig;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Controller\EntityController;
+use Register\AdminYard\Controller\InvalidRequestException;
+use Register\AdminYard\Database\DatabaseHelper;
+use Register\AdminYard\Database\PdoDataProvider;
+use Register\AdminYard\Database\SafeDataProviderException;
+use Register\AdminYard\Form\FormFactory;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Transformer\ViewTransformer;
+use Register\AdminYard\Translator;
+use Register\Core\Comment\Antispam\SpamFeedbackService;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -91,7 +91,7 @@ class CommentController extends EntityController
         $primaryKey = $this->getEntityPrimaryKeyFromRequest($request);
 
         $field = $this->entityConfig->findFieldByName('shown');
-        if (!$field instanceof \S2\AdminYard\Config\FieldConfig) {
+        if (!$field instanceof \Register\AdminYard\Config\FieldConfig) {
             throw new \LogicException('Field "shown" is not defined.');
         }
 

@@ -2,16 +2,16 @@
 /**
  * @copyright 2007-2024 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Controller;
+namespace Register\Core\Controller;
 
-use S2\Cms\Controller\Comment\CommentStrategyInterface;
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Template\HtmlTemplateProvider;
+use Register\Core\Controller\Comment\CommentStrategyInterface;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Template\HtmlTemplateProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;

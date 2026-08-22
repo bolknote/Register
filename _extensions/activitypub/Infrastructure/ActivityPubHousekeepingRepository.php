@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\DeliveryState;
-use s2_extensions\activitypub\Domain\InboxState;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\DeliveryState;
+use Register\Extension\activitypub\Domain\InboxState;
 
 /** Small portable retention batches; immutable identities and tombstones are never pruned. */
 final readonly class ActivityPubHousekeepingRepository

@@ -9,9 +9,9 @@ declare(strict_types = 1);
 
 namespace Register\Comment;
 
-use S2\Cms\Model\UserpicSchema;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
+use Register\Core\Model\UserpicSchema;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
 
 final class CommentSchema
 {

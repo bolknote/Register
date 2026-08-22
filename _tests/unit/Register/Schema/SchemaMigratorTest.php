@@ -12,8 +12,8 @@ namespace unit\Register\Schema;
 use Codeception\Test\Unit;
 use Register\Schema\SchemaMigrationInterface;
 use Register\Schema\SchemaMigrator;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerSqlite;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerSqlite;
 
 final class SchemaMigratorTest extends Unit
 {

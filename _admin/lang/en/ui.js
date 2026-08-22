@@ -1,4 +1,4 @@
-var s2_lang = {
+var register_lang = {
 	load				: 'Loading...',
 	load_tree			: 'Loading site structure...',
 	new_page			: 'New page',

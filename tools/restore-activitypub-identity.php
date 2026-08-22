@@ -10,7 +10,7 @@
 
 declare(strict_types = 1);
 
-use s2_extensions\activitypub\Application\ActivityPubIdentityRecoveryService;
+use Register\Extension\activitypub\Application\ActivityPubIdentityRecoveryService;
 
 if (PHP_SAPI !== 'cli') {
     throw new RuntimeException('ActivityPub identity recovery can only run from the command line.');

@@ -12,8 +12,8 @@ declare(strict_types = 1);
 namespace Register\Module\VisitorIdentity;
 
 use Register\Module\BaseModuleInstallerInterface;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
 
 final class Manifest implements BaseModuleInstallerInterface
 {

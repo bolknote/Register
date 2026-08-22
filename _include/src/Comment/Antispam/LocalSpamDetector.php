@@ -2,18 +2,18 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Comment\Antispam;
+namespace Register\Core\Comment\Antispam;
 
 use Psr\Log\LoggerInterface;
-use S2\Cms\Comment\SpamDetectorComment;
-use S2\Cms\Comment\SpamDetectorInterface;
-use S2\Cms\Comment\SpamDetectorReport;
-use S2\Cms\Config\IntProxy;
+use Register\Core\Comment\SpamDetectorComment;
+use Register\Core\Comment\SpamDetectorInterface;
+use Register\Core\Comment\SpamDetectorReport;
+use Register\Core\Config\IntProxy;
 
 final readonly class LocalSpamDetector implements SpamDetectorInterface
 {

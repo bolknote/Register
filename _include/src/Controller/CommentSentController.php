@@ -2,26 +2,26 @@
 /**
  * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Controller;
+namespace Register\Core\Controller;
 
-use S2\Cms\Controller\Comment\CommentStrategyInterface;
-use S2\Cms\Comment\CommentHtml;
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Mail\CommentMailer;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Model\User\UserProvider;
-use S2\Cms\Template\HtmlTemplateProvider;
+use Register\Core\Controller\Comment\CommentStrategyInterface;
+use Register\Core\Comment\CommentHtml;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Mail\CommentMailer;
+use Register\Core\Model\AuthProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Model\User\UserProvider;
+use Register\Core\Template\HtmlTemplateProvider;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 /**
@@ -60,7 +60,7 @@ readonly class CommentSentController implements ControllerInterface
 
         foreach ($this->commentStrategies as $commentStrategy) {
             $comment = $commentStrategy->getRecentComment($commentHash, $authorIp);
-            if (!$comment instanceof \S2\Cms\Controller\Comment\CommentDto) {
+            if (!$comment instanceof \Register\Core\Controller\Comment\CommentDto) {
                 continue;
             }
 
@@ -104,7 +104,7 @@ readonly class CommentSentController implements ControllerInterface
         $template
             ->putInPlaceholder('head_title', '✅ ' . $this->translator->trans('Comment sent'))
             ->putInPlaceholder('title', $this->translator->trans('Comment sent'))
-            ->putInPlaceholder('text', \sprintf($this->translator->trans('Comment sent info'), s2_htmlencode($this->urlBuilder->link($targetPath)), $this->urlBuilder->link('/')))
+            ->putInPlaceholder('text', \sprintf($this->translator->trans('Comment sent info'), register_htmlencode($this->urlBuilder->link($targetPath)), $this->urlBuilder->link('/')))
         ;
 
         return $this->privateResponse($template->toHttpResponse());

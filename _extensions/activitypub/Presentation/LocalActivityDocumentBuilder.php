@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Presentation;
+namespace Register\Extension\activitypub\Presentation;
 
-use s2_extensions\activitypub\Domain\FederationUrlGenerator;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Infrastructure\StoredObjectRepresentation;
+use Register\Extension\activitypub\Domain\FederationUrlGenerator;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Infrastructure\StoredObjectRepresentation;
 
 final class LocalActivityDocumentBuilder
 {

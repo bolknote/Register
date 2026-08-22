@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Analytics;
 
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 final readonly class AnalyticsRepository
 {

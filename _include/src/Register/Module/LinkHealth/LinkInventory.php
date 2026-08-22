@@ -11,7 +11,7 @@ namespace Register\Module\LinkHealth;
 
 use Register\Content\ContentId;
 use Register\Content\ContentRepository;
-use S2\Cms\Queue\QueuePublisher;
+use Register\Core\Queue\QueuePublisher;
 
 final readonly class LinkInventory
 {

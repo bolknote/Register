@@ -73,19 +73,19 @@ final readonly class ReactionRenderer
                 $visible ? ' is-visible' : '',
                 $reaction->value,
                 $count,
-                s2_htmlencode($label),
+                register_htmlencode($label),
                 $isPrimary ? ' aria-haspopup="menu" aria-expanded="false" aria-controls="' . $pickerId . '"' : '',
                 $visible ? '' : ' hidden',
                 $icon,
                 $count > 0 ? '' : ' hidden',
                 $count,
-                s2_htmlencode($label),
+                register_htmlencode($label),
             );
             $picker .= sprintf(
                 '<button class="register-reaction-choice" type="button" role="menuitemradio" aria-checked="false" data-picker-reaction="%s" title="%s" aria-label="%s"><span aria-hidden="true">%s</span></button>',
                 $reaction->value,
-                s2_htmlencode($label),
-                s2_htmlencode($label),
+                register_htmlencode($label),
+                register_htmlencode($label),
                 $reaction->emoji(),
             );
         }
@@ -93,16 +93,16 @@ final readonly class ReactionRenderer
         foreach ($state->extraCounts as $emoji => $count) {
             $chips .= sprintf(
                 '<span class="register-reaction-chip register-reaction-imported is-visible" title="%s"><span class="register-reaction-emoji" aria-hidden="true">%s</span><span class="register-reaction-count">%d</span></span>',
-                s2_htmlencode($emoji . ': ' . $count),
-                s2_htmlencode($emoji),
+                register_htmlencode($emoji . ': ' . $count),
+                register_htmlencode($emoji),
                 $count,
             );
         }
 
-        $groupLabel  = s2_htmlencode($this->translator->trans('reaction.group'));
-        $chooseLabel = s2_htmlencode($this->translator->trans('reaction.choose'));
-        $saved       = s2_htmlencode($this->translator->trans('reaction.saved'));
-        $error       = s2_htmlencode($this->translator->trans('reaction.error'));
+        $groupLabel  = register_htmlencode($this->translator->trans('reaction.group'));
+        $chooseLabel = register_htmlencode($this->translator->trans('reaction.choose'));
+        $saved       = register_htmlencode($this->translator->trans('reaction.saved'));
+        $error       = register_htmlencode($this->translator->trans('reaction.error'));
 
         return sprintf(
             '<div class="register-reactions" data-register-reactions data-endpoint="%s" data-message-saved="%s" data-message-error="%s">' .
@@ -110,7 +110,7 @@ final readonly class ReactionRenderer
             '<div class="register-reaction-picker" id="%s" role="menu" aria-label="%s" hidden>%s</div>' .
             '<p class="register-reaction-status register-visually-hidden" aria-live="polite"></p>' .
             '</div>',
-            s2_htmlencode($endpoint),
+            register_htmlencode($endpoint),
             $saved,
             $error,
             $groupLabel,

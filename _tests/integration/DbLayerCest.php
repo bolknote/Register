@@ -2,7 +2,7 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,10 +10,10 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Content\ContentSchema;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Pdo\DbLayerSqlite;
-use S2\Cms\Pdo\SchemaBuilderInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerSqlite;
+use Register\Core\Pdo\SchemaBuilderInterface;
 
 /**
  * @group db
@@ -83,10 +83,10 @@ class DbLayerCest
      */
     public function testInsertOnConflictDoNothing(\IntegrationTester $I): void
     {
-        $data = $this->getAllConfigByName('S2_FAVORITE_URL');
+        $data = $this->getAllConfigByName('REGISTER_FAVORITE_URL');
 
         $I->assertCount(1, $data);
-        $I->assertEquals(['name' => 'S2_FAVORITE_URL', 'value' => 'favorite'], $data[0]);
+        $I->assertEquals(['name' => 'REGISTER_FAVORITE_URL', 'value' => 'favorite'], $data[0]);
 
         // No rows with this name
         $data = $this->getAllConfigByName('TEST');
@@ -120,30 +120,30 @@ class DbLayerCest
      */
     public function testInsertOrUpdate(\IntegrationTester $I): void
     {
-        $data = $this->getAllConfigByName('S2_FAVORITE_URL');
+        $data = $this->getAllConfigByName('REGISTER_FAVORITE_URL');
         $I->assertCount(1, $data);
-        $I->assertEquals(['name' => 'S2_FAVORITE_URL', 'value' => 'favorite'], $data[0]);
+        $I->assertEquals(['name' => 'REGISTER_FAVORITE_URL', 'value' => 'favorite'], $data[0]);
 
         $this->dbLayer
             ->upsert($this->tableName)
-            ->setKey('name', ':name')->setParameter('name', 'S2_FAVORITE_URL')
+            ->setKey('name', ':name')->setParameter('name', 'REGISTER_FAVORITE_URL')
             ->setValue('value', ':value')->setParameter('value', 'favorite2')
             ->execute()
         ;
 
-        $data = $this->getAllConfigByName('S2_FAVORITE_URL');
+        $data = $this->getAllConfigByName('REGISTER_FAVORITE_URL');
         $I->assertCount(1, $data);
-        $I->assertEquals(['name' => 'S2_FAVORITE_URL', 'value' => 'favorite2'], $data[0]);
+        $I->assertEquals(['name' => 'REGISTER_FAVORITE_URL', 'value' => 'favorite2'], $data[0]);
 
         $this->dbLayer->upsert($this->tableName)
-            ->setKey('name', ':name')->setParameter('name', 'S2_UNKNOWN')
+            ->setKey('name', ':name')->setParameter('name', 'REGISTER_UNKNOWN')
             ->setValue('value', ':value')->setParameter('value', 'unknown')
             ->execute()
         ;
 
-        $data = $this->getAllConfigByName('S2_UNKNOWN');
+        $data = $this->getAllConfigByName('REGISTER_UNKNOWN');
         $I->assertCount(1, $data);
-        $I->assertEquals(['name' => 'S2_UNKNOWN', 'value' => 'unknown'], $data[0]);
+        $I->assertEquals(['name' => 'REGISTER_UNKNOWN', 'value' => 'unknown'], $data[0]);
     }
 
     /**

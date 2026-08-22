@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace Register;
 
 use Register\Module\BaseModuleRegistry;
-use S2\Cms\Admin\AdminExtension;
-use S2\Cms\CmsExtension;
-use S2\Cms\Framework\Application;
+use Register\Core\Admin\AdminExtension;
+use Register\Core\CmsExtension;
+use Register\Core\Framework\Application;
 
 /**
  * Registers the product modules that exist in every working Register installation.

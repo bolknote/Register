@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\RemoteActor;
-use s2_extensions\activitypub\Application\RemoteAvatarScheduler;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\RemoteActor;
+use Register\Extension\activitypub\Application\RemoteAvatarScheduler;
 
 final readonly class RemoteActorRepository
 {

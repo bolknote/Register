@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Content;
 
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
 
 /** Stores editor-owned media and its use by posts. */
 final class ContentMediaSchema

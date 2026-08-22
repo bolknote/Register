@@ -12,8 +12,8 @@ namespace Register\Url;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
 
 /** Keeps historical paths unique and resolves them directly to the current post slug. */
 final readonly class ContentUrlAliasRepository

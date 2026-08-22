@@ -7,9 +7,9 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Entity\Metadata;
+namespace Register\Rose\Entity\Metadata;
 
-use S2\Rose\Exception\InvalidArgumentException;
+use Register\Rose\Exception\InvalidArgumentException;
 
 class SnippetSource implements \Stringable
 {
@@ -29,7 +29,7 @@ class SnippetSource implements \Stringable
      * formatting characters are translated into html tags by usual substitution of substrings.
      * Incorrect internal formatting will lead to incorrect html in the output.
      *
-     * @see \S2\Rose\Helper\StringHelper::convertInternalFormattingToHtml for details of internal formatting processing.
+     * @see \Register\Rose\Helper\StringHelper::convertInternalFormattingToHtml for details of internal formatting processing.
      */
     public const int FORMAT_PLAIN_TEXT = 0;
 

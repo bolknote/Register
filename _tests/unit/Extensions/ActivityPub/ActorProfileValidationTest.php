@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace unit\Extensions\ActivityPub;
 
 use Codeception\Test\Unit;
-use s2_extensions\activitypub\Application\SiteActorDraft;
-use s2_extensions\activitypub\Domain\ActorType;
-use s2_extensions\activitypub\Domain\LocalHandle;
+use Register\Extension\activitypub\Application\SiteActorDraft;
+use Register\Extension\activitypub\Domain\ActorType;
+use Register\Extension\activitypub\Domain\LocalHandle;
 
 final class ActorProfileValidationTest extends Unit
 {

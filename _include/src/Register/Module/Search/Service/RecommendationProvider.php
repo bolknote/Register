@@ -9,18 +9,18 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Service;
 
-use S2\Cms\Config\IntProxy;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\TocEntryWithMetadata;
+use Register\Core\Config\IntProxy;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\TocEntryWithMetadata;
 use Register\Module\Search\Layout\ContentItem;
 use Register\Module\Search\Layout\LayoutMatcherFactory;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Psr\Cache\InvalidArgumentException;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class RecommendationProvider implements QueueHandlerInterface
 {

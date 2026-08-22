@@ -7,32 +7,32 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Delivery\DeliveryPlanner;
-use s2_extensions\activitypub\Domain\ActivityDeliveryIntent;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorState;
-use s2_extensions\activitypub\Domain\LocalInteraction;
-use s2_extensions\activitypub\Domain\ModerationAction;
-use s2_extensions\activitypub\Domain\PublicIdGenerator;
-use s2_extensions\activitypub\Domain\RemoteActor;
-use s2_extensions\activitypub\Domain\RemoteObject;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\LocalInteractionRepository;
-use s2_extensions\activitypub\Infrastructure\ModerationRuleRepository;
-use s2_extensions\activitypub\Infrastructure\NewLocalInteraction;
-use s2_extensions\activitypub\Infrastructure\NewStoredActivity;
-use s2_extensions\activitypub\Infrastructure\PortableDatabaseTransaction;
-use s2_extensions\activitypub\Infrastructure\RemoteActorRepository;
-use s2_extensions\activitypub\Infrastructure\RemoteObjectRepository;
-use s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
-use s2_extensions\activitypub\Presentation\LocalActivityDocumentBuilder;
+use Register\Extension\activitypub\Delivery\DeliveryPlanner;
+use Register\Extension\activitypub\Domain\ActivityDeliveryIntent;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\FederationUrlGeneratorFactory;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorState;
+use Register\Extension\activitypub\Domain\LocalInteraction;
+use Register\Extension\activitypub\Domain\ModerationAction;
+use Register\Extension\activitypub\Domain\PublicIdGenerator;
+use Register\Extension\activitypub\Domain\RemoteActor;
+use Register\Extension\activitypub\Domain\RemoteObject;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\LocalInteractionRepository;
+use Register\Extension\activitypub\Infrastructure\ModerationRuleRepository;
+use Register\Extension\activitypub\Infrastructure\NewLocalInteraction;
+use Register\Extension\activitypub\Infrastructure\NewStoredActivity;
+use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
+use Register\Extension\activitypub\Infrastructure\RemoteActorRepository;
+use Register\Extension\activitypub\Infrastructure\RemoteObjectRepository;
+use Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
+use Register\Extension\activitypub\Presentation\LocalActivityDocumentBuilder;
 
 /** Durable Like, EmojiReact, Announce and exact Undo for private-reader objects. */
 final readonly class OutgoingInteractionService

@@ -7,13 +7,13 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Domain\ActorKind;
-use s2_extensions\activitypub\Domain\FederationUrlGenerator;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorState;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Domain\ActorKind;
+use Register\Extension\activitypub\Domain\FederationUrlGenerator;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorState;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
 
 /** Centralizes the actor and audience rules shared by live projection and editorial preview. */
 final readonly class ContentActorResolver

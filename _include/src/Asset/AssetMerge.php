@@ -2,18 +2,18 @@
 /**
  * @copyright 2023-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Asset;
+namespace Register\Core\Asset;
 
 use MatthiasMullie\Minify\CSS;
 use MatthiasMullie\Minify\JS;
 use MatthiasMullie\Minify\Minify;
 use Psr\Log\LoggerInterface;
-use S2\Cms\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClient;
 use Symfony\Component\Filesystem\Filesystem;
 
 class AssetMerge implements AssetMergeInterface
@@ -223,7 +223,7 @@ class AssetMerge implements AssetMergeInterface
             return false;
         }
 
-        $result = s2_call_without_warnings(static fn(): mixed => include $metadataFilename);
+        $result = register_call_without_warnings(static fn(): mixed => include $metadataFilename);
         if (!\is_array($result)) {
             return false;
         }

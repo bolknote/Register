@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace unit\Cms\Security;
 
 use Codeception\Test\Unit;
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
-use S2\Cms\Security\Audit\SecurityAuditLogger;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Security\Audit\SecurityAuditLogger;
 use Symfony\Component\HttpFoundation\Request;
 
 final class SecurityAuditLoggerTest extends Unit
@@ -79,7 +79,7 @@ final class SecurityAuditLoggerTest extends Unit
     {
         $logger = $this->logger();
         $logger->userChanged(7, 12, 'update', ['edit_users', 'password', 'edit_users']);
-        $logger->configurationChanged(7, 'S2_AI_API_KEY', true);
+        $logger->configurationChanged(7, 'REGISTER_AI_API_KEY', true);
         $logger->extensionChanged(7, 'example_extension', 'install', SecurityAuditLogger::OUTCOME_SUCCESS);
         $logger->backupOperation(7, 'download', 'manual', SecurityAuditLogger::OUTCOME_SUCCESS);
         $logger->credentialChanged(7, 'recovery_codes_regenerate', SecurityAuditLogger::OUTCOME_SUCCESS);
@@ -97,7 +97,7 @@ final class SecurityAuditLoggerTest extends Unit
             'authentication_credential_changed',
         ], array_column($records, 'event'));
         self::assertSame(['edit_users', 'password'], $records[0]['changed_fields']);
-        self::assertSame('S2_AI_API_KEY', $records[1]['parameter']);
+        self::assertSame('REGISTER_AI_API_KEY', $records[1]['parameter']);
         self::assertTrue($records[1]['secret']);
         self::assertArrayNotHasKey('value', $records[1]);
     }

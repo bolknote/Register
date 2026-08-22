@@ -9,14 +9,14 @@ declare(strict_types = 1);
 
 namespace Register\Module\VisitorIdentity;
 
-use S2\Cms\Asset\AssetPack;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
-use S2\Cms\Framework\ContainerModuleInterface;
-use S2\Cms\Framework\RoutingModuleInterface;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\TemplateAssetEvent;
+use Register\Core\Asset\AssetPack;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\ContainerAwareListenerModuleInterface;
+use Register\Core\Framework\ContainerModuleInterface;
+use Register\Core\Framework\RoutingModuleInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\TemplateAssetEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
@@ -52,9 +52,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $event->assetPack
                 ->addMeta(sprintf(
                     '<meta name="register-visitor" data-cookie="%s" data-cookie-path="%s" data-resolve-url="%s">',
-                    s2_htmlencode($identityManager->cookieName()),
-                    s2_htmlencode($identityManager->cookiePath()),
-                    s2_htmlencode($basePath . '/_visitor/resolve'),
+                    register_htmlencode($identityManager->cookieName()),
+                    register_htmlencode($identityManager->cookiePath()),
+                    register_htmlencode($basePath . '/_visitor/resolve'),
                 ))
                 ->addJs($basePath . '/_assets/register/visitor/identity.js', [AssetPack::OPTION_DEFER])
             ;

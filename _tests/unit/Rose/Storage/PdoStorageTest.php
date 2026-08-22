@@ -11,18 +11,18 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test\Storage;
+namespace Register\Rose\Test\Storage;
 
 use Codeception\Test\Unit;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\ExternalIdCollection;
-use S2\Rose\Entity\TocEntry;
-use S2\Rose\Exception\RuntimeException;
-use S2\Rose\Exception\UnknownIdException;
-use S2\Rose\Storage\Database\AbstractRepository;
-use S2\Rose\Storage\Database\PdoStorage;
-use S2\Rose\Storage\Exception\EmptyIndexException;
-use S2\Rose\Storage\FulltextIndexPositionBag;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\ExternalIdCollection;
+use Register\Rose\Entity\TocEntry;
+use Register\Rose\Exception\RuntimeException;
+use Register\Rose\Exception\UnknownIdException;
+use Register\Rose\Storage\Database\AbstractRepository;
+use Register\Rose\Storage\Database\PdoStorage;
+use Register\Rose\Storage\Exception\EmptyIndexException;
+use Register\Rose\Storage\FulltextIndexPositionBag;
 
 /**
  * @group storage
@@ -36,9 +36,9 @@ final class PdoStorageTest extends Unit
     #[\Override]
     protected function _before(): void
     {
-        global $s2_rose_test_db;
+        global $register_rose_test_db;
 
-        $this->pdo = $this->createPdo($s2_rose_test_db);
+        $this->pdo = $this->createPdo($register_rose_test_db);
     }
 
     public function testStorage(): void
@@ -94,7 +94,7 @@ final class PdoStorageTest extends Unit
         ], $fulltextResult->toArray()['word2']);
 
         $entry = $storage->getTocByExternalId($externalId2);
-        self::assertInstanceOf(\S2\Rose\Entity\TocEntry::class, $entry);
+        self::assertInstanceOf(\Register\Rose\Entity\TocEntry::class, $entry);
         self::assertSame($tocEntry2->getHash(), $entry->getHash());
 
         // Test updating
@@ -102,14 +102,14 @@ final class PdoStorageTest extends Unit
         $storage->addEntryToToc($tocEntry3, $externalId2);
 
         $entry = $storage->getTocByExternalId($externalId2);
-        self::assertInstanceOf(\S2\Rose\Entity\TocEntry::class, $entry);
+        self::assertInstanceOf(\Register\Rose\Entity\TocEntry::class, $entry);
         self::assertGreaterThan(0, $entry->getInternalId());
         self::assertSame($tocEntry3->getHash(), $entry->getHash());
 
         // Removing from index
         $storage->removeFromIndex($externalId2);
         $entry = $storage->getTocByExternalId($externalId2);
-        self::assertInstanceOf(\S2\Rose\Entity\TocEntry::class, $entry);
+        self::assertInstanceOf(\Register\Rose\Entity\TocEntry::class, $entry);
 
         $storage->removeFromToc($externalId2);
         self::assertCount(0, $storage->getTocByExternalIds(new ExternalIdCollection([$externalId2])));
@@ -132,13 +132,13 @@ final class PdoStorageTest extends Unit
 
         // Remove id_1
         $entry = $storage->getTocByExternalId($externalId1);
-        self::assertInstanceOf(\S2\Rose\Entity\TocEntry::class, $entry);
+        self::assertInstanceOf(\Register\Rose\Entity\TocEntry::class, $entry);
         self::assertSame($tocEntry1->getHash(), $entry->getHash());
 
         $storage->removeFromIndex($externalId1);
 
         $entry = $storage->getTocByExternalId($externalId1);
-        self::assertInstanceOf(\S2\Rose\Entity\TocEntry::class, $entry);
+        self::assertInstanceOf(\Register\Rose\Entity\TocEntry::class, $entry);
 
         $storage->removeFromToc($externalId1);
         self::assertCount(0, $storage->getTocByExternalIds(new ExternalIdCollection([$externalId1])));
@@ -287,9 +287,9 @@ final class PdoStorageTest extends Unit
 
     public function testParallelAddingInTransactions(): void
     {
-        global $s2_rose_test_db;
+        global $register_rose_test_db;
 
-        $pdo2 = $this->createPdo($s2_rose_test_db);
+        $pdo2 = $this->createPdo($register_rose_test_db);
 
         $driverName = $this->pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
         if ($driverName === 'mysql') {
@@ -347,9 +347,9 @@ final class PdoStorageTest extends Unit
 
     public function testParallelAddingAndErasingInTransactions(): void
     {
-        global $s2_rose_test_db;
+        global $register_rose_test_db;
 
-        $pdo2 = $this->createPdo($s2_rose_test_db);
+        $pdo2 = $this->createPdo($register_rose_test_db);
 
         $driverName = $this->pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
         if ($driverName === 'mysql') {
@@ -466,7 +466,7 @@ final class PdoStorageTest extends Unit
 
     public function testNonExistentDbGetSimilar(): void
     {
-        if (str_starts_with($GLOBALS['s2_rose_test_db']['dsn'], 'sqlite')) {
+        if (str_starts_with($GLOBALS['register_rose_test_db']['dsn'], 'sqlite')) {
             $this->expectException(\LogicException::class);
         } else {
             $this->expectException(EmptyIndexException::class);
@@ -491,11 +491,11 @@ final class PdoStorageTest extends Unit
     }
 
     /**
-     * @param array<string, mixed> $s2_rose_test_db
+     * @param array<string, mixed> $register_rose_test_db
      */
-    private function createPdo(array $s2_rose_test_db): \PDO
+    private function createPdo(array $register_rose_test_db): \PDO
     {
-        $pdo = new \PDO($s2_rose_test_db['dsn'], $s2_rose_test_db['username'], $s2_rose_test_db['passwd']);
+        $pdo = new \PDO($register_rose_test_db['dsn'], $register_rose_test_db['username'], $register_rose_test_db['passwd']);
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
         return $pdo;

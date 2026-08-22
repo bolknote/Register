@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Security;
+namespace Register\Extension\activitypub\Security;
 
 /** RFC 9421 rsa-v1_5-sha256 profile with RFC 9530 Content-Digest binding. */
 final readonly class Rfc9421HttpSignature

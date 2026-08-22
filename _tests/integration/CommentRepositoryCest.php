@@ -18,7 +18,7 @@ use Register\Comment\CommentMutationSource;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentType;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class CommentRepositoryCest
@@ -172,7 +172,7 @@ final class CommentRepositoryCest
     public function keepsDeletedCommentsOnlyWhileTheyAnchorReplies(\IntegrationTester $I): void
     {
         $events = [];
-        /** @var EventDispatcherInterface $eventDispatcher */
+        /** @var \Symfony\Component\EventDispatcher\EventDispatcherInterface $eventDispatcher */
         $eventDispatcher = $I->grabService(EventDispatcherInterface::class);
         $eventDispatcher->addListener(
             CommentChangedEvent::class,

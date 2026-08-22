@@ -9,24 +9,24 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose;
+namespace Register\Rose;
 
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\ExternalIdCollection;
-use S2\Rose\Entity\FulltextQuery;
-use S2\Rose\Entity\FulltextResult;
-use S2\Rose\Entity\Query;
-use S2\Rose\Entity\ResultSet;
-use S2\Rose\Exception\ImmutableException;
-use S2\Rose\Exception\LogicException;
-use S2\Rose\Exception\UnknownIdException;
-use S2\Rose\Snippet\SnippetBuilder;
-use S2\Rose\Stemmer\StemmerInterface;
-use S2\Rose\Storage\Dto\SnippetQuery;
-use S2\Rose\Storage\StorageReadInterface;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\ExternalIdCollection;
+use Register\Rose\Entity\FulltextQuery;
+use Register\Rose\Entity\FulltextResult;
+use Register\Rose\Entity\Query;
+use Register\Rose\Entity\ResultSet;
+use Register\Rose\Exception\ImmutableException;
+use Register\Rose\Exception\LogicException;
+use Register\Rose\Exception\UnknownIdException;
+use Register\Rose\Snippet\SnippetBuilder;
+use Register\Rose\Stemmer\StemmerInterface;
+use Register\Rose\Storage\Dto\SnippetQuery;
+use Register\Rose\Storage\StorageReadInterface;
 
 /**
- * @see \S2\Rose\Test\FinderTest
+ * @see \Register\Rose\Test\FinderTest
  */
 class Finder
 {

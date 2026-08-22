@@ -7,7 +7,7 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Extractor;
+namespace Register\Rose\Extractor;
 
 interface ExtractorInterface
 {

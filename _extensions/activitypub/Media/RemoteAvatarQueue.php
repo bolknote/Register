@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Media;
+namespace Register\Extension\activitypub\Media;
 
-use S2\Cms\Queue\QueuePublisher;
-use s2_extensions\activitypub\Infrastructure\RemoteAvatarRepository;
+use Register\Core\Queue\QueuePublisher;
+use Register\Extension\activitypub\Infrastructure\RemoteAvatarRepository;
 
 /** A generation-aware wake-up job; the media table remains the source of truth. */
 final readonly class RemoteAvatarQueue

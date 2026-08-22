@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Framework;
+namespace Register\Core\Framework;
 
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 

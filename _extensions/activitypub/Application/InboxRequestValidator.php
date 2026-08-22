@@ -7,13 +7,13 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Domain\ProtocolLimits;
-use s2_extensions\activitypub\Security\HttpSignatureRequest;
-use s2_extensions\activitypub\Security\LegacyHttpSignature;
-use s2_extensions\activitypub\Security\Rfc9421HttpSignature;
-use s2_extensions\activitypub\Security\SignatureVerificationFailed;
+use Register\Extension\activitypub\Domain\ProtocolLimits;
+use Register\Extension\activitypub\Security\HttpSignatureRequest;
+use Register\Extension\activitypub\Security\LegacyHttpSignature;
+use Register\Extension\activitypub\Security\Rfc9421HttpSignature;
+use Register\Extension\activitypub\Security\SignatureVerificationFailed;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

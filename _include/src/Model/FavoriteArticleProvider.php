@@ -7,14 +7,14 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Model;
+namespace Register\Core\Model;
 
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Config\StringProxy;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\Viewer;
 
 /**
  * Renders favorite permanent pages so page and post controllers can share one collection.

@@ -2,14 +2,14 @@
 
 declare(strict_types = 1);
 
-use S2\Cms\Http\InputSanitizer;
+use Register\Core\Http\InputSanitizer;
 
 /**
  * Proper environment setup.
  *
  * @copyright 2009-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 mb_internal_encoding('UTF-8');

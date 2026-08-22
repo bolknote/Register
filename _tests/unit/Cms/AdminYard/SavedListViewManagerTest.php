@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace unit\Cms\AdminYard;
 
 use Codeception\Test\Unit;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\Cms\AdminYard\SavedListViewManager;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\Core\AdminYard\SavedListViewManager;
 
 final class SavedListViewManagerTest extends Unit
 {

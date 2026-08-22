@@ -10,10 +10,10 @@ declare(strict_types = 1);
 namespace unit\Extensions\ActivityPub;
 
 use Codeception\Test\Unit;
-use s2_extensions\activitypub\Domain\CanonicalBasePath;
-use s2_extensions\activitypub\Domain\CanonicalOrigin;
-use s2_extensions\activitypub\Domain\FederationUrlGenerator;
-use s2_extensions\activitypub\Domain\LocalHandle;
+use Register\Extension\activitypub\Domain\CanonicalBasePath;
+use Register\Extension\activitypub\Domain\CanonicalOrigin;
+use Register\Extension\activitypub\Domain\FederationUrlGenerator;
+use Register\Extension\activitypub\Domain\LocalHandle;
 
 final class FederationDomainTest extends Unit
 {

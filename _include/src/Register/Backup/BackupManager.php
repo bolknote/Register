@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Backup;
 
 use Psr\Log\LoggerInterface;
-use S2\Cms\Security\Audit\SecurityAuditLogger;
+use Register\Core\Security\Audit\SecurityAuditLogger;
 
 final readonly class BackupManager
 {
@@ -138,7 +138,7 @@ final readonly class BackupManager
                 continue;
             }
 
-            if (!s2_call_without_warnings(static fn(): bool => unlink($path))) {
+            if (!register_call_without_warnings(static fn(): bool => unlink($path))) {
                 $this->logger->warning('Unable to remove an abandoned Register backup work file.', [
                     'file' => basename($path),
                 ]);
@@ -213,7 +213,7 @@ final readonly class BackupManager
             $writer->addString('RESTORE.txt', $this->restoreInstructions($snapshot), $now);
             $writer->close();
             $this->backupEncryptor->encryptFile($archivePath, $encryptedPath);
-            if (!s2_call_without_warnings(static fn(): bool => unlink($archivePath))) {
+            if (!register_call_without_warnings(static fn(): bool => unlink($archivePath))) {
                 throw new \RuntimeException('Unable to remove the plaintext backup work file.');
             }
 
@@ -223,7 +223,7 @@ final readonly class BackupManager
                 throw new \RuntimeException('Unable to publish the completed backup archive.');
             }
 
-            s2_call_without_warnings(static fn(): bool => chmod($finalPath, 0600));
+            register_call_without_warnings(static fn(): bool => chmod($finalPath, 0600));
 
             $size = filesize($finalPath);
             if ($size === false) {
@@ -245,15 +245,15 @@ final readonly class BackupManager
             }
 
             if (is_file($archivePath)) {
-                s2_call_without_warnings(static fn(): bool => unlink($archivePath));
+                register_call_without_warnings(static fn(): bool => unlink($archivePath));
             }
 
             if (is_file($encryptedPath)) {
-                s2_call_without_warnings(static fn(): bool => unlink($encryptedPath));
+                register_call_without_warnings(static fn(): bool => unlink($encryptedPath));
             }
 
             if ($snapshot instanceof DatabaseSnapshot && is_file($snapshot->path)) {
-                s2_call_without_warnings(static fn(): bool => unlink($snapshot->path));
+                register_call_without_warnings(static fn(): bool => unlink($snapshot->path));
             }
         }
     }
@@ -336,7 +336,7 @@ TEXT;
 
             $oldest = $backups[$candidateIndex];
             array_splice($backups, $candidateIndex, 1);
-            if (!s2_call_without_warnings(static fn(): bool => unlink($oldest->path))) {
+            if (!register_call_without_warnings(static fn(): bool => unlink($oldest->path))) {
                 $this->securityAuditLogger->backupOperation(
                     null,
                     'prune',

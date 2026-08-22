@@ -2,25 +2,25 @@
 /**
  * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Model;
+namespace Register\Core\Model;
 
-use S2\AdminYard\TemplateRenderer;
-use S2\AdminYard\Translator;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Security\Audit\SecurityAuditLogger;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Translator;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Security\Audit\SecurityAuditLogger;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class AuthManager
 {
@@ -668,7 +668,7 @@ readonly class AuthManager
     private function shouldUseSecureCookies(Request $request): bool
     {
         /*
-         * S2 can run on plain HTTP, so Secure cookies cannot be enabled unconditionally.
+         * Register can run on plain HTTP, so Secure cookies cannot be enabled unconditionally.
          * Still, if the current installation is known to use HTTPS, cookies must not be
          * allowed to leak over HTTP. We treat HTTPS as enabled when:
          *

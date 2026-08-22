@@ -9,17 +9,17 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test\Entity;
+namespace Register\Rose\Test\Entity;
 
 use Codeception\Test\Unit;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Entity\ResultSet;
-use S2\Rose\Entity\Snippet;
-use S2\Rose\Entity\SnippetLine;
-use S2\Rose\Exception\ImmutableException;
-use S2\Rose\Exception\UnknownIdException;
-use S2\Rose\Stemmer\PorterStemmerEnglish;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Entity\ResultSet;
+use Register\Rose\Entity\Snippet;
+use Register\Rose\Entity\SnippetLine;
+use Register\Rose\Exception\ImmutableException;
+use Register\Rose\Exception\UnknownIdException;
+use Register\Rose\Stemmer\PorterStemmerEnglish;
 
 /**
  * @group entity
@@ -104,7 +104,7 @@ final class ResultSetTest extends Unit
     /**
      *
      * @throws ImmutableException
-     * @throws \S2\Rose\Exception\InvalidArgumentException
+     * @throws \Register\Rose\Exception\InvalidArgumentException
      */
     private function prepareResult(ResultSet $result): ResultSet
     {

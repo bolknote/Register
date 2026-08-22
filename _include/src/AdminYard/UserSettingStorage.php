@@ -2,18 +2,18 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\AdminYard;
+namespace Register\Core\AdminYard;
 
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
 
 class UserSettingStorage implements SettingStorageInterface, StatefulServiceInterface
 {

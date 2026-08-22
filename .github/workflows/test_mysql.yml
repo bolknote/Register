@@ -6,7 +6,7 @@ permissions:
   contents: read
 
 env:
-  DB_DATABASE: s2_test
+  DB_DATABASE: register_test
   DB_USER: root
   DB_PASSWORD: ''
   APP_DB_TYPE: mysql

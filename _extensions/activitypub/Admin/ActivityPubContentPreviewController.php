@@ -7,21 +7,21 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Admin;
+namespace Register\Extension\activitypub\Admin;
 
 use Psr\Log\LoggerInterface;
 use Register\Content\ContentType;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Form\FormFactory;
-use S2\AdminYard\Form\FormParams;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\AdminYard\Translator;
-use S2\Cms\Admin\AdminConfigProvider;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Security\Http\AdminMutationGuard;
-use s2_extensions\activitypub\Application\ContentFederationPreview;
-use s2_extensions\activitypub\Application\ContentFederationPreviewService;
-use s2_extensions\activitypub\Domain\ContentProjectionAction;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Form\FormFactory;
+use Register\AdminYard\Form\FormParams;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\Translator;
+use Register\Core\Admin\AdminConfigProvider;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Security\Http\AdminMutationGuard;
+use Register\Extension\activitypub\Application\ContentFederationPreview;
+use Register\Extension\activitypub\Application\ContentFederationPreviewService;
+use Register\Extension\activitypub\Domain\ContentProjectionAction;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -78,7 +78,7 @@ final readonly class ActivityPubContentPreviewController
         }
 
         $entity = $this->adminConfigProvider->getAdminConfig()->findEntityByName($entityName);
-        if (!$entity instanceof \S2\AdminYard\Config\EntityConfig) {
+        if (!$entity instanceof \Register\AdminYard\Config\EntityConfig) {
             return $this->error('The ActivityPub preview editor is unavailable.', Response::HTTP_SERVICE_UNAVAILABLE);
         }
 

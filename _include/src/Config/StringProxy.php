@@ -2,13 +2,13 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Config;
-use S2\Cms\Pdo\DbLayerException;
+namespace Register\Core\Config;
+use Register\Core\Pdo\DbLayerException;
 
 
 final readonly class StringProxy implements \Stringable

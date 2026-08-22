@@ -17,11 +17,11 @@ use Register\Content\ContentTagSchema;
 use Register\Module\BaseModuleRegistry;
 use Register\Schema\SchemaManager;
 use Register\Url\ContentUrlAliasSchema;
-use S2\Cms\Extensions\ExtensionManager;
-use S2\Cms\Extensions\ManifestInterface;
-use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Model\UserpicSchema;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Extensions\ExtensionManager;
+use Register\Core\Extensions\ManifestInterface;
+use Register\Core\Model\ExtensionCache;
+use Register\Core\Model\UserpicSchema;
+use Register\Core\Pdo\DbLayer;
 
 final class ModuleManagerCest
 {
@@ -30,9 +30,9 @@ final class ModuleManagerCest
         'articles',
         'art_comments',
         'article_tag',
-        's2_blog_posts',
-        's2_blog_comments',
-        's2_blog_post_tag',
+        'register_blog_posts',
+        'register_blog_comments',
+        'register_blog_post_tag',
     ];
 
     public function baseModulesHaveNoOptionalLifecycle(\IntegrationTester $I): void

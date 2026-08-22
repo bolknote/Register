@@ -240,7 +240,7 @@
 
         layoutTimer = window.setTimeout(function () {
             layoutTimer = null;
-            document.dispatchEvent(new Event('preview_layout_changed.s2'));
+            document.dispatchEvent(new Event('preview_layout_changed.register'));
         }, 50);
     }
 
@@ -269,7 +269,7 @@
 
     window.RegisterMath = {render: render};
 
-    document.addEventListener('preview_updated.s2', function (event) {
+    document.addEventListener('preview_updated.register', function (event) {
         if (event.detail && event.detail.wrapper) {
             render(event.detail.wrapper);
         }

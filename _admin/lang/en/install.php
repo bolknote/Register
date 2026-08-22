@@ -6,7 +6,7 @@ declare(strict_types = 1);
 $lang_install = array(
 
 // Install Form
-'Install S2'				=>	'Install Register %s',
+'Install Register'				=>	'Install Register %s',
 'Part 0'					=>	'Change installer language',
 'Choose language help'		=>	'You can change the language of this install script if you find it easier to follow the instructions in your own language. Just choose your language from the list of installed ones below.',
 'Installer language'		=>	'Installer language',
@@ -58,9 +58,9 @@ $lang_install = array(
 'Invalid table prefix'		=>	'The table prefix “%s” contains illegal characters. The prefix may contain the letters a to z, any numbers and the underscore character. They must however not start with a number. Please choose a different prefix.',
 'Too long table prefix'		=>	'The table prefix “%s” is too long. The maximum length is 40 characters. Please choose a different prefix.',
 'SQLite prefix collision'	=>	'The table prefix “sqlite_” is reserved for use by the SQLite engine. Please choose a different prefix.',
-'S2 already installed'		=>	'A table called “%1$susers” already exists in database “%2$s”. Register may already be installed, or another application may be using the required table names.',
-'S2 already installed 2'	=>	'To install multiple Register copies in one database, choose a different table prefix.',
-'S2 already installed 3'	=>	'To connect this Register installation to the selected database, download config.php with the current parameters and place it alongside the other engine files.',
+'Register already installed'		=>	'A table called “%1$susers” already exists in database “%2$s”. Register may already be installed, or another application may be using the required table names.',
+'Register already installed 2'	=>	'To install multiple Register copies in one database, choose a different table prefix.',
+'Register already installed 3'	=>	'To connect this Register installation to the selected database, download config.php with the current parameters and place it alongside the other engine files.',
 'Invalid language'			=>	'The language pack you have chosen does not seem to exist or is corrupt. Please recheck and try again.',
 'Foreign request'			=>	'This installation request came from another site and was rejected. Reload the installer and try again.',
 'Secret file boundary failed' => 'Register cannot safely store API keys on this hosting account. Use the split-root shared-hosting package, make the directory above the document root writable by PHP, or enable and verify the supplied .htaccess rules before retrying.',

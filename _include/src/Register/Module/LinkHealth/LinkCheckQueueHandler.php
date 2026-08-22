@@ -9,9 +9,9 @@ declare(strict_types = 1);
 
 namespace Register\Module\LinkHealth;
 
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
 
 final readonly class LinkCheckQueueHandler implements QueueHandlerInterface
 {

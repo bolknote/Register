@@ -2,14 +2,14 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Template;
+namespace Register\Core\Template;
 
-use S2\Cms\Framework\ModuleInterface;
+use Register\Core\Framework\ModuleInterface;
 
 /** Resolves private view and page-template resources owned by a module. */
 final class ModuleResourceLocator

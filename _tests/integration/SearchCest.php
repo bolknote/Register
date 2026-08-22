@@ -2,7 +2,7 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -14,8 +14,8 @@ use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Content\ContentSchema;
 use Register\Module\Search\Service\ContentIndexer;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Queue\QueueConsumer;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueueConsumer;
 
 /**
  * @group search
@@ -159,18 +159,18 @@ class SearchCest
         /**
          * 2. Search
          */
-        $I->seeElement('.s2_search_form .s2-search-autocomplete > #s2_search_input');
-        $I->submitForm('form.s2_search_form', [
+        $I->seeElement('.register_search_form .register-search-autocomplete > #register_search_input');
+        $I->submitForm('form.register_search_form', [
             'q' => 'some text',
         ]);
 
         // Indexing is not done yet
         $I->see('No results found for your query.');
 
-        $quickSearchUrl = $I->grabAttributeFrom('#s2_search_input_ext', 'data-s2-search-url');
+        $quickSearchUrl = $I->grabAttributeFrom('#register_search_input_ext', 'data-register-search-url');
         $I->assertNotNull($quickSearchUrl);
         $I->assertStringContainsString('title=', $quickSearchUrl);
-        $I->seeElement('.search-form .s2-search-autocomplete > #s2_search_input_ext');
+        $I->seeElement('.search-form .register-search-autocomplete > #register_search_input_ext');
 
         // Run indexing
         /** @var QueueConsumer $consumer */
@@ -179,7 +179,7 @@ class SearchCest
         while ($consumer->runQueue());
 
         $I->amOnPage('https://localhost/?search=1&q=some+text');
-        $I->see('New blog post with <span class="s2_search_highlight">some text</span>');
+        $I->see('New blog post with <span class="register_search_highlight">some text</span>');
         $I->seeElement('.search-results > article.search-result .search-result-title');
         $I->dontSeeElement('.paging');
 

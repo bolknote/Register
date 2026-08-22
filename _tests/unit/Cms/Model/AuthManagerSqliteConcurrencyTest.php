@@ -11,17 +11,17 @@ namespace unit\Cms\Model;
 
 use Codeception\Test\Unit;
 use Psr\Log\NullLogger;
-use S2\AdminYard\TemplateRenderer;
-use S2\AdminYard\Translator;
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
-use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\AuthTokenHasher;
-use S2\Cms\Model\LoginRateLimiter;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Pdo\DbLayerSqlite;
-use S2\Cms\Pdo\PdoSqliteFactory;
-use S2\Cms\Pdo\QueryResult;
-use S2\Cms\Security\Audit\SecurityAuditLogger;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Translator;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Model\AuthManager;
+use Register\Core\Model\AuthTokenHasher;
+use Register\Core\Model\LoginRateLimiter;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Pdo\DbLayerSqlite;
+use Register\Core\Pdo\PdoSqliteFactory;
+use Register\Core\Pdo\QueryResult;
+use Register\Core\Security\Audit\SecurityAuditLogger;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 

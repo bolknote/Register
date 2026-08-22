@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Comment;
 
 use Codeception\Test\Unit;
-use S2\Cms\Comment\CommentHtml;
+use Register\Core\Comment\CommentHtml;
 
 final class CommentHtmlTest extends Unit
 {

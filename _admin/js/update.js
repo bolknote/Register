@@ -56,7 +56,7 @@
             method: 'POST',
             body: body,
             credentials: 'same-origin',
-            s2HandleErrorsInline: true
+            registerHandleErrorsInline: true
         });
         let payload;
         try {

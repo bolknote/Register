@@ -29,11 +29,13 @@ parameters:
             - ../../_include/src/Register/Module/*/resources/templates/*
             - ../../_include/src/Register/Module/*/resources/views/*
             - ../../_tests/_resources/*
+            # Vendored from AdminYard; it used to be excluded with Composer dependencies.
+            - ../../_tests/_support/Helper/AbstractBrowserModule.php
             - ../../_tests/_support/_generated/*
             - ../../tools/quality/*
     bootstrapFiles:
         - ../../_vendor/autoload.php
-        - ../../_vendor/s2/admin-yard/tests/Support/Helper/AbstractBrowserModule.php
+        - ../../_tests/_support/Helper/AbstractBrowserModule.php
     stubFiles:
         - stubs/phpstan-codeception.stub
         - stubs/static-analysis.stub.php

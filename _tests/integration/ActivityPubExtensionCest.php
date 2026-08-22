@@ -9,12 +9,12 @@ declare(strict_types = 1);
 
 namespace integration;
 
-use S2\Cms\Config\DynamicSecretStore;
-use S2\Cms\Extensions\ExtensionManager;
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Infrastructure\ActivityPubSchema;
-use s2_extensions\activitypub\Manifest;
-use s2_extensions\activitypub\Security\ActivityPubSecret;
+use Register\Core\Config\DynamicSecretStore;
+use Register\Core\Extensions\ExtensionManager;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
+use Register\Extension\activitypub\Manifest;
+use Register\Extension\activitypub\Security\ActivityPubSecret;
 
 final class ActivityPubExtensionCest
 {

@@ -7,10 +7,10 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Extractor;
+namespace Register\Rose\Extractor;
 
-use S2\Rose\Extractor\HtmlDom\DomExtractor;
-use S2\Rose\Extractor\HtmlRegex\RegexExtractor;
+use Register\Rose\Extractor\HtmlDom\DomExtractor;
+use Register\Rose\Extractor\HtmlRegex\RegexExtractor;
 
 class DefaultExtractorFactory
 {

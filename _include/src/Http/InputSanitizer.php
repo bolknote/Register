@@ -2,7 +2,7 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Http;
+namespace Register\Core\Http;
 
 final class InputSanitizer
 {

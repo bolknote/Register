@@ -11,38 +11,38 @@ namespace unit\Extensions\ActivityPub;
 
 use Codeception\Test\Unit;
 use Psr\Log\NullLogger;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpClientInterface;
-use S2\Cms\HttpClient\HttpResponse;
-use S2\Cms\HttpClient\Remote\HostResolverInterface;
-use S2\Cms\HttpClient\Remote\PublicAddressGuard;
-use S2\Cms\HttpClient\Remote\SafeRemoteHttpClient;
-use S2\Cms\Pdo\DbLayerSqlite;
-use S2\Cms\Queue\QueueConsumer;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerRegistry;
-use S2\Cms\Queue\QueuePublisher;
-use s2_extensions\activitypub\Application\RemoteAvatarMaintenanceService;
-use s2_extensions\activitypub\Application\RemoteAvatarScheduler;
-use s2_extensions\activitypub\Admin\ActivityPubAdminRepository;
-use s2_extensions\activitypub\Controller\RemoteAvatarController;
-use s2_extensions\activitypub\Domain\PublicIdGenerator;
-use s2_extensions\activitypub\Infrastructure\ActivityPubSchema;
-use s2_extensions\activitypub\Infrastructure\FetchedRemoteActor;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\InteractionRepository;
-use s2_extensions\activitypub\Infrastructure\NewRemoteInteraction;
-use s2_extensions\activitypub\Infrastructure\RemoteActorRepository;
-use s2_extensions\activitypub\Infrastructure\RemoteAvatarRepository;
-use s2_extensions\activitypub\Inbox\RemoteActorDocumentValidator;
-use s2_extensions\activitypub\Media\RemoteAvatarFetchClient;
-use s2_extensions\activitypub\Media\RemoteAvatarImageInspector;
-use s2_extensions\activitypub\Media\RemoteAvatarQueue;
-use s2_extensions\activitypub\Media\RemoteAvatarQueueHandler;
-use s2_extensions\activitypub\Media\RemoteAvatarStorage;
-use s2_extensions\activitypub\Presentation\ActivityPubCommentPresentationEnricher;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
-use s2_extensions\activitypub\Security\RsaCrypto;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientInterface;
+use Register\Core\HttpClient\HttpResponse;
+use Register\Core\HttpClient\Remote\HostResolverInterface;
+use Register\Core\HttpClient\Remote\PublicAddressGuard;
+use Register\Core\HttpClient\Remote\SafeRemoteHttpClient;
+use Register\Core\Pdo\DbLayerSqlite;
+use Register\Core\Queue\QueueConsumer;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerRegistry;
+use Register\Core\Queue\QueuePublisher;
+use Register\Extension\activitypub\Application\RemoteAvatarMaintenanceService;
+use Register\Extension\activitypub\Application\RemoteAvatarScheduler;
+use Register\Extension\activitypub\Admin\ActivityPubAdminRepository;
+use Register\Extension\activitypub\Controller\RemoteAvatarController;
+use Register\Extension\activitypub\Domain\PublicIdGenerator;
+use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
+use Register\Extension\activitypub\Infrastructure\FetchedRemoteActor;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\InteractionRepository;
+use Register\Extension\activitypub\Infrastructure\NewRemoteInteraction;
+use Register\Extension\activitypub\Infrastructure\RemoteActorRepository;
+use Register\Extension\activitypub\Infrastructure\RemoteAvatarRepository;
+use Register\Extension\activitypub\Inbox\RemoteActorDocumentValidator;
+use Register\Extension\activitypub\Media\RemoteAvatarFetchClient;
+use Register\Extension\activitypub\Media\RemoteAvatarImageInspector;
+use Register\Extension\activitypub\Media\RemoteAvatarQueue;
+use Register\Extension\activitypub\Media\RemoteAvatarQueueHandler;
+use Register\Extension\activitypub\Media\RemoteAvatarStorage;
+use Register\Extension\activitypub\Presentation\ActivityPubCommentPresentationEnricher;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
+use Register\Extension\activitypub\Security\RsaCrypto;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -394,7 +394,7 @@ final readonly class RemoteAvatarTestEnvironment
         $this->rsa = new RsaCrypto();
     }
 
-    public function saveActor(?string $avatarUrl): \s2_extensions\activitypub\Domain\RemoteActor
+    public function saveActor(?string $avatarUrl): \Register\Extension\activitypub\Domain\RemoteActor
     {
         $pair = $this->rsa->generateKeyPair();
         $snapshot = json_encode([

@@ -7,24 +7,24 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Admin;
+namespace Register\Extension\activitypub\Admin;
 
 use Register\Author\AuthorProfileRepository;
-use S2\AdminYard\TemplateRenderer;
-use S2\AdminYard\Translator;
-use S2\Cms\Queue\QueueMonitor;
-use s2_extensions\activitypub\Domain\CollectionAnchor;
-use s2_extensions\activitypub\Domain\FederationPolicy;
-use s2_extensions\activitypub\Application\ActivityPubIdentityRecoveryService;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\ActivationReadinessRepository;
-use s2_extensions\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\ContentBackfillRepository;
-use s2_extensions\activitypub\Infrastructure\ReaderRepository;
-use s2_extensions\activitypub\Security\CollectionCursorCodec;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Translator;
+use Register\Core\Queue\QueueMonitor;
+use Register\Extension\activitypub\Domain\CollectionAnchor;
+use Register\Extension\activitypub\Domain\FederationPolicy;
+use Register\Extension\activitypub\Application\ActivityPubIdentityRecoveryService;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\ActivationReadinessRepository;
+use Register\Extension\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\ContentBackfillRepository;
+use Register\Extension\activitypub\Infrastructure\ReaderRepository;
+use Register\Extension\activitypub\Security\CollectionCursorCodec;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -147,7 +147,7 @@ final readonly class ActivityPubAdminPage
             'activationAttempt' => $state->lifecycle->value === 'installed'
                 ? $this->activationRepository->latest()
                 : null,
-            'activationChecks' => \s2_extensions\activitypub\Application\ActivationReadinessCheck::cases(),
+            'activationChecks' => \Register\Extension\activitypub\Application\ActivationReadinessCheck::cases(),
             'configuredOrigin' => $this->configuredOrigin(),
             'configuredBasePath' => $this->basePath,
             'wellKnownRewrite' => $this->wellKnownRewrite(),

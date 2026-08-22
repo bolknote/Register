@@ -7,17 +7,17 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Admin;
+namespace Register\Extension\activitypub\Admin;
 
-use S2\AdminYard\Config\EntityConfig;
-use S2\AdminYard\Controller\ControllerFactoryInterface;
-use S2\AdminYard\Database\PdoDataProvider;
-use S2\AdminYard\Form\FormFactory;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\AdminYard\TemplateRenderer;
-use S2\AdminYard\Transformer\ViewTransformer;
-use S2\AdminYard\Translator;
-use s2_extensions\activitypub\Infrastructure\PortableDatabaseTransaction;
+use Register\AdminYard\Config\EntityConfig;
+use Register\AdminYard\Controller\ControllerFactoryInterface;
+use Register\AdminYard\Database\PdoDataProvider;
+use Register\AdminYard\Form\FormFactory;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Transformer\ViewTransformer;
+use Register\AdminYard\Translator;
+use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final readonly class ActivityPubContentEditorControllerFactory implements ControllerFactoryInterface

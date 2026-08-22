@@ -6,7 +6,7 @@ declare(strict_types = 1);
 /** @var string $entityName */
 /** @var string $fieldName */
 /** @var string $value */
-/** @var \S2\AdminYard\Form\Form $form */
+/** @var \Register\AdminYard\Form\Form $form */
 /** @var array $primaryKey */
 
 $formQueryParams = http_build_query(array_merge([

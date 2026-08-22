@@ -1,13 +1,13 @@
 /**
- * Editor preview rendering and sync for S2.
+ * Editor preview rendering and sync for Register.
  *
  * @copyright 2025-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 import {editorDeps, assertDeps} from './deps.js';
-import {s2_codemirror} from './codemirror.js';
+import {register_codemirror} from './codemirror.js';
 
 function countNewlines(str) {
     let count = 0;
@@ -130,7 +130,7 @@ export function renderPreviewError(doc, message, stylesheetUrl = '') {
 }
 
 export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTemplateScope = '', previewFrame = null) {
-    if (!assertDeps(['s2_lang', 'sUrl'], 'Preview')) {
+    if (!assertDeps(['register_lang', 'sUrl'], 'Preview')) {
         return;
     }
 
@@ -155,12 +155,12 @@ export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTe
             );
         } catch (error) {
             console.warn('Failed to load template preview:', error);
-            renderPreviewError(d, editorDeps.s2_lang.unknown_error, editorDeps.previewErrorStylesheet);
+            renderPreviewError(d, editorDeps.register_lang.unknown_error, editorDeps.previewErrorStylesheet);
             return;
         }
         if (!response.ok) {
             console.warn('Failed to load template preview:', response.status);
-            renderPreviewError(d, editorDeps.s2_lang.unknown_error, editorDeps.previewErrorStylesheet);
+            renderPreviewError(d, editorDeps.register_lang.unknown_error, editorDeps.previewErrorStylesheet);
             return;
         }
         const data = await response.json();
@@ -168,7 +168,7 @@ export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTe
             console.warn('Template preview is unavailable:', data && data.preview_message ? data.preview_message : 'Unknown error');
             renderPreviewError(
                 d,
-                (data && data.preview_message) ? data.preview_message : editorDeps.s2_lang.unknown_error,
+                (data && data.preview_message) ? data.preview_message : editorDeps.register_lang.unknown_error,
                 editorDeps.previewErrorStylesheet
             );
             return;
@@ -182,8 +182,8 @@ export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTe
 
     if (!eHeader && !eText) {
         const s = Preview.template
-            .replaceAll('<!-- s2_text -->', '<div id="preview-text-wrapper" data-template-name=""></div>')
-            .replaceAll('<!-- s2_title -->', '<h1 id="preview-header-wrapper"></h1>');
+            .replaceAll('<!-- register_text -->', '<div id="preview-text-wrapper" data-template-name=""></div>')
+            .replaceAll('<!-- register_title -->', '<h1 id="preview-header-wrapper"></h1>');
 
         d.open();
         d.write(s);
@@ -213,7 +213,7 @@ export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTe
 
                 applyLineMarkers(d, eText, sHtmlContent);
 
-                document.dispatchEvent(new CustomEvent('preview_updated.s2', {
+                document.dispatchEvent(new CustomEvent('preview_updated.register', {
                     detail: {
                         document: d,
                         wrapper: eText,
@@ -286,13 +286,13 @@ export function initPreviewSync(eForm, sTextareaName) {
 
     const scrollMap = new ScrollMap(function () {
         const doc = previewFrame.contentDocument;
-        const srcScroller = s2_codemirror.getScrollerElement();
+        const srcScroller = register_codemirror.getScrollerElement();
         if (!srcScroller || !doc) {
             return [[0], [0]];
         }
 
         const scrollElement = getScrollElement(doc);
-        const lineCount = s2_codemirror.getLineCount();
+        const lineCount = register_codemirror.getLineCount();
         const resultNodes = doc.querySelectorAll('#preview-text-wrapper .line[data-line]');
         const mapSrc = [0];
         const mapResult = [0];
@@ -320,7 +320,7 @@ export function initPreviewSync(eForm, sTextareaName) {
             seen.add(line);
 
             const safeLine = Math.max(0, Math.min(line, lineCount - 1));
-            const srcTop = s2_codemirror.getLineTop(safeLine);
+            const srcTop = register_codemirror.getLineTop(safeLine);
             const resultTop = getNodeScrollTop(node);
 
             mapSrc.push(Math.round(srcTop));
@@ -398,7 +398,7 @@ export function initPreviewSync(eForm, sTextareaName) {
         }
 
         const doc = previewFrame.contentDocument;
-        const srcScroller = s2_codemirror.getScrollerElement();
+        const srcScroller = register_codemirror.getScrollerElement();
         if (!srcScroller || !doc) {
             return;
         }
@@ -416,9 +416,9 @@ export function initPreviewSync(eForm, sTextareaName) {
         syncScroll = new SyncScroll(
             scrollMap,
             new Animator(function () {
-                return s2_codemirror.getScrollTop();
+                return register_codemirror.getScrollTop();
             }, function (y) {
-                s2_codemirror.setScrollTop(y);
+                register_codemirror.setScrollTop(y);
             }),
             new Animator(function () {
                 return scrollElement.scrollTop;
@@ -481,8 +481,8 @@ export function initPreviewSync(eForm, sTextareaName) {
         }
     }
 
-    document.addEventListener('preview_updated.s2', handlePreviewUpdated);
-    document.addEventListener('preview_layout_changed.s2', function () {
+    document.addEventListener('preview_updated.register', handlePreviewUpdated);
+    document.addEventListener('preview_layout_changed.register', function () {
         scheduleLayoutReset();
     });
     window.addEventListener('resize', function () {
@@ -748,11 +748,11 @@ function SyncScroll(scrollMap, animatorSrc, animatorResult, eSrc, eResult, previ
         const srcViewport = eSrc.clientHeight || eSrc.offsetHeight || 0;
         const srcScrollHeight = eSrc.scrollHeight || 0;
         if (srcScrollHeight <= srcViewport + 1) {
-            const lineCount = s2_codemirror.getLineCount();
+            const lineCount = register_codemirror.getLineCount();
             if (!lineCount) {
                 return;
             }
-            const cursorLine = s2_codemirror.getCursorLine();
+            const cursorLine = register_codemirror.getCursorLine();
             const resultViewport = eResult.clientHeight || eResult.offsetHeight || 0;
             const maxResultScroll = Math.max(0, (eResult.scrollHeight || 0) - resultViewport);
             /*

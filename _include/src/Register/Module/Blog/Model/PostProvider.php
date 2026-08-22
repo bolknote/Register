@@ -2,7 +2,7 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -16,10 +16,10 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\Viewer;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class PostProvider
 {

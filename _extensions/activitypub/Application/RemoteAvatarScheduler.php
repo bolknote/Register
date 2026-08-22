@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Infrastructure\RemoteAvatarRepository;
-use s2_extensions\activitypub\Media\RemoteAvatarQueue;
+use Register\Extension\activitypub\Infrastructure\RemoteAvatarRepository;
+use Register\Extension\activitypub\Media\RemoteAvatarQueue;
 
 final readonly class RemoteAvatarScheduler
 {

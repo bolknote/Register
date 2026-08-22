@@ -2,12 +2,12 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Security\Monitoring;
+namespace Register\Core\Security\Monitoring;
 
 use Register\Http\CspViolationReporter;
 use Symfony\Component\HttpFoundation\Response;
@@ -106,7 +106,7 @@ final readonly class SecurityAlertDetector
             return;
         }
 
-        $handle = s2_call_without_warnings(static fn() => fopen($filename, 'rb'));
+        $handle = register_call_without_warnings(static fn() => fopen($filename, 'rb'));
         if ($handle === false) {
             return;
         }
@@ -165,7 +165,7 @@ final readonly class SecurityAlertDetector
             return false;
         }
 
-        $size = s2_call_without_warnings(static fn(): int|false => filesize($filename));
+        $size = register_call_without_warnings(static fn(): int|false => filesize($filename));
 
         return $size !== false && $size >= intdiv($limit * self::CAPACITY_WARNING_PERCENT, 100);
     }

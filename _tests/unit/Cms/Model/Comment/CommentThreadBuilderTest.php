@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Model\Comment;
 
 use Codeception\Test\Unit;
-use S2\Cms\Model\Comment\CommentThreadBuilder;
+use Register\Core\Model\Comment\CommentThreadBuilder;
 
 final class CommentThreadBuilderTest extends Unit
 {

@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Discovery;
+namespace Register\Extension\activitypub\Discovery;
 
-use s2_extensions\activitypub\Domain\RemoteHandle;
+use Register\Extension\activitypub\Domain\RemoteHandle;
 
 final readonly class WebFingerResult
 {

@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Reactions;
 
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
 
 /**
  * Read-only reaction totals imported from external services.

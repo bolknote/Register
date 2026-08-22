@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Register contributors
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,16 +10,16 @@ declare(strict_types = 1);
 namespace unit\Cms\Http;
 
 use Codeception\Test\Unit;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpClientInterface;
-use S2\Cms\HttpClient\HttpResponse;
-use S2\Cms\HttpClient\Remote\HostResolverInterface;
-use S2\Cms\HttpClient\Remote\PublicAddressGuard;
-use S2\Cms\HttpClient\Remote\SafeRemoteHttpClient;
-use S2\Cms\HttpClient\Remote\SafeRemoteRequestOptions;
-use S2\Cms\HttpClient\Remote\UnsafeRemoteAddress;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueTimeBudgetExceeded;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientInterface;
+use Register\Core\HttpClient\HttpResponse;
+use Register\Core\HttpClient\Remote\HostResolverInterface;
+use Register\Core\HttpClient\Remote\PublicAddressGuard;
+use Register\Core\HttpClient\Remote\SafeRemoteHttpClient;
+use Register\Core\HttpClient\Remote\SafeRemoteRequestOptions;
+use Register\Core\HttpClient\Remote\UnsafeRemoteAddress;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueTimeBudgetExceeded;
 
 final class SafeRemoteHttpClientTest extends Unit
 {

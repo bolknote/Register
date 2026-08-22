@@ -19,15 +19,15 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Live\LiveUpdateContext;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\HtmlTemplate;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\Viewer;
-use S2\Rose\Entity\ExternalId;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Config\StringProxy;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\HtmlTemplate;
+use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\Viewer;
+use Register\Rose\Entity\ExternalId;
 use Register\Module\Search\Module as SearchModule;
 use Register\Module\Blog\Module as BlogModule;
 use Register\Module\Blog\BlogUrlBuilder;
@@ -42,7 +42,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Psr\Cache\InvalidArgumentException;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 class PostPageController extends BlogController
 {
@@ -136,7 +136,7 @@ class PostPageController extends BlogController
             $notFoundTitle = $this->translator->trans('Not found');
             $template
                 ->putInPlaceholder('head_title', $notFoundTitle)
-                ->putInPlaceholder('title', s2_htmlencode($notFoundTitle))
+                ->putInPlaceholder('title', register_htmlencode($notFoundTitle))
                 ->putInPlaceholder('text', '')
             ;
 
@@ -146,9 +146,9 @@ class PostPageController extends BlogController
         $post_id = $row['id'];
         $label   = (string)$row['label'];
 
-        if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
+        if ($template->hasPlaceholder('<!-- register_blog_calendar -->')) {
             $createTime = (int)$row['create_time'];
-            $template->registerPlaceholder('<!-- s2_blog_calendar -->', $this->calendarBuilder->calendar(
+            $template->registerPlaceholder('<!-- register_blog_calendar -->', $this->calendarBuilder->calendar(
                 (int)date('Y', $createTime),
                 (int)date('m', $createTime),
                 (int)date('d', $createTime),
@@ -158,7 +158,7 @@ class PostPageController extends BlogController
 
         $template->putInPlaceholder('canonical_path', $this->contentUrlGenerator->post((string)$row['url']));
 
-        $is_back_forward = $template->hasPlaceholder('<!-- s2_blog_back_forward -->');
+        $is_back_forward = $template->hasPlaceholder('<!-- register_blog_back_forward -->');
         $queries = [];
         $params = [];
         if ($label !== '') {
@@ -206,7 +206,7 @@ class PostPageController extends BlogController
         $result = $queries !== [] ? $this->dbLayer->query('(' . implode(') UNION (', $queries) . ')', $params) : null;
 
         $back_forward = [];
-        while ($result instanceof \S2\Cms\Pdo\QueryResult && ($row1 = $result->fetchAssoc()) !== false) {
+        while ($result instanceof \Register\Core\Pdo\QueryResult && ($row1 = $result->fetchAssoc()) !== false) {
             $post_info = [
                 'title' => $row1['title'],
                 'link'  => $this->contentUrlGenerator->post((string)$row1['url']),
@@ -224,7 +224,7 @@ class PostPageController extends BlogController
         }
 
         if ($back_forward !== []) {
-            $template->registerPlaceholder('<!-- s2_blog_back_forward -->', $this->viewer->render('back_forward_post', $back_forward, BlogModule::class));
+            $template->registerPlaceholder('<!-- register_blog_back_forward -->', $this->viewer->render('back_forward_post', $back_forward, BlogModule::class));
         }
 
         // Getting tags
@@ -239,7 +239,7 @@ class PostPageController extends BlogController
 
         $contentId = ContentId::post((int)$post_id);
         $template->putInPlaceholder('commented', $row['commented']);
-        if ((bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- s2_comments -->')) {
+        if ((bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- register_comments -->')) {
             $this->liveUpdates->subscribeComments($contentId);
             $template->putInPlaceholder(
                 'comments',
@@ -256,6 +256,7 @@ class PostPageController extends BlogController
         if (!$this->postProvider->hasMultiplePublishedAuthors()) {
             $row['author'] = '';
         }
+
         $row['inplace']          = $this->inplaceControls->forPost(
             $request,
             (int)$post_id,
@@ -266,11 +267,11 @@ class PostPageController extends BlogController
         $template
             ->putInPlaceholder('meta_description', $this->extractMetaDescriptions($row['text']))
             ->putInPlaceholder('text', $this->viewer->render('post', $row, BlogModule::class))
-            ->putInPlaceholder('id', md5('s2_blog_post_' . $post_id))
-            ->putInPlaceholder('head_title', s2_htmlencode($row['title']))
+            ->putInPlaceholder('id', md5('register_blog_post_' . $post_id))
+            ->putInPlaceholder('head_title', register_htmlencode($row['title']))
         ;
 
-        if ($this->recommendationProvider instanceof RecommendationProvider && $template->hasPlaceholder('<!-- s2_recommendations -->')) {
+        if ($this->recommendationProvider instanceof RecommendationProvider && $template->hasPlaceholder('<!-- register_recommendations -->')) {
             $request_uri = $request->getPathInfo();
             [$recommendations, $log, $rawRecommendations] = $this->recommendationProvider->getRecommendations(
                 $request_uri,

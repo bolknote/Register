@@ -12,8 +12,8 @@ namespace Register\Content\Controller;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Template\Viewer;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Template\Viewer;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

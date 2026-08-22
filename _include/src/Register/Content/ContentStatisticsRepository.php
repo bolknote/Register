@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace Register\Content;
 
 use Register\Comment\CommentSchema;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Pdo\QueryBuilder\UnionAll;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
+use Register\Core\Pdo\QueryBuilder\UnionAll;
 
 /** Calculates dashboard statistics from the canonical content and comment tables. */
 final readonly class ContentStatisticsRepository

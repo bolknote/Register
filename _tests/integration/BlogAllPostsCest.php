@@ -6,7 +6,7 @@ namespace integration;
 
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Response;
 
 final class BlogAllPostsCest
@@ -51,7 +51,7 @@ final class BlogAllPostsCest
         $configuredPrefix = $dbLayer
             ->select('COUNT(*)')
             ->from('config')
-            ->where("name = 'S2_BLOG_URL'")
+            ->where("name = 'REGISTER_BLOG_URL'")
             ->execute()
             ->result()
         ;

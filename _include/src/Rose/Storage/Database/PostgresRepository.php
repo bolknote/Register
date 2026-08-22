@@ -7,14 +7,14 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Storage\Database;
+namespace Register\Rose\Storage\Database;
 
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\TocEntry;
-use S2\Rose\Exception\RuntimeException;
-use S2\Rose\Exception\UnknownException;
-use S2\Rose\Storage\Exception\EmptyIndexException;
-use S2\Rose\Storage\Exception\InvalidEnvironmentException;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\TocEntry;
+use Register\Rose\Exception\RuntimeException;
+use Register\Rose\Exception\UnknownException;
+use Register\Rose\Storage\Exception\EmptyIndexException;
+use Register\Rose\Storage\Exception\InvalidEnvironmentException;
 
 class PostgresRepository extends AbstractRepository
 {

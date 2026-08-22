@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Asset;
 
 use Codeception\Test\Unit;
-use S2\Cms\Asset\AssetPack;
+use Register\Core\Asset\AssetPack;
 
 final class AssetPackTest extends Unit
 {

@@ -4,20 +4,20 @@
  *
  * @copyright 2007-2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
 use Register\Http\ContentSecurityPolicy;
-use S2\Cms\Admin\AdminRequestHandler;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Queue\ShutdownWorkCoordinator;
-use S2\Cms\Security\Monitoring\SecurityTelemetryRecorder;
+use Register\Core\Admin\AdminRequestHandler;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Queue\ShutdownWorkCoordinator;
+use Register\Core\Security\Monitoring\SecurityTelemetryRecorder;
 use Symfony\Component\HttpFoundation\Request;
 
 // NOTE: find a more elegant way to boot the application with the AdminExtension
-const S2_ADMIN_MODE = true;
+const REGISTER_ADMIN_MODE = true;
 
 $app = require __DIR__ . '/../_include/common.php';
 

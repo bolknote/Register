@@ -2,12 +2,12 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Controller\Comment;
+namespace Register\Core\Controller\Comment;
 
 readonly class CommentDto
 {

@@ -13,16 +13,16 @@ use Register\Content\ContentChangedEvent;
 use Register\Content\ContentDeletionGuardInterface;
 use Register\Content\ContentRepository;
 use Register\Module\LinkHealth\Admin\LocalLinkDeletionGuard;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
-use S2\Cms\Framework\ContainerModuleInterface;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\Remote\PublicAddressGuard;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\ScheduledMaintenanceTaskInterface;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\ContainerAwareListenerModuleInterface;
+use Register\Core\Framework\ContainerModuleInterface;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\Remote\PublicAddressGuard;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 final class Module implements ContainerModuleInterface, ContainerAwareListenerModuleInterface
@@ -75,7 +75,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(LinkUrlNormalizer::class),
         ));
         $container->set(LocalLinkDeletionGuard::class, static function (Container $container): LocalLinkDeletionGuard {
-            $translator = $container->getIfDefined(\S2\AdminYard\Translator::class);
+            $translator = $container->getIfDefined(\Register\AdminYard\Translator::class);
             if (!$translator instanceof \Symfony\Contracts\Translation\TranslatorInterface) {
                 $translator = $container->get('translator');
             }

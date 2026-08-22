@@ -12,9 +12,9 @@ namespace Register\Module\Blog\Model;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\Inplace\PostInplaceControls;
 use Register\Module\Blog\Module as BlogModule;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\IntProxy;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Config\IntProxy;
+use Register\Core\Template\Viewer;
 use Symfony\Component\HttpFoundation\Request;
 
 /** Produces the pageable post region shared by full pages and live responses. */
@@ -114,6 +114,7 @@ final readonly class PostFeedRenderer
         if (!$showAuthor) {
             $post['author'] = '';
         }
+
         $post['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
         $post['showComments']     = $this->showComments->get();
         $post['enabledComments']  = $this->enabledComments->get();

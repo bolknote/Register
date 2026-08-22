@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Admin;
 
-use S2\Cms\Admin\DynamicConfigFormExtenderInterface;
+use Register\Core\Admin\DynamicConfigFormExtenderInterface;
 
 class DynamicConfigFormExtender implements DynamicConfigFormExtenderInterface
 {
@@ -21,8 +21,8 @@ class DynamicConfigFormExtender implements DynamicConfigFormExtenderInterface
     {
         return [
             'Blog config'   => 'title',
-            'S2_BLOG_TITLE' => 'string',
-            'S2_SITE_TAGLINE' => 'string',
+            'REGISTER_BLOG_TITLE' => 'string',
+            'REGISTER_SITE_TAGLINE' => 'string',
         ];
     }
 }

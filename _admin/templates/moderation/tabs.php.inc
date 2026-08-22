@@ -7,7 +7,7 @@ declare(strict_types = 1);
 /** @var callable $html */
 /** @var string $entityName */
 
-use S2\Cms\Model\PermissionChecker;
+use Register\Core\Model\PermissionChecker;
 
 $moderationEntities = [
     'Comment',

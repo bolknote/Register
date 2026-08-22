@@ -3,13 +3,13 @@
 declare(strict_types = 1);
 
 /**
- * Content of <!-- s2_tags_list --> placeholder and the tags list page text.
+ * Content of <!-- register_tags_list --> placeholder and the tags list page text.
  *
  * @var array $tags
  */
 
 foreach ($tags as &$tag)
-	$tag = '<a href="'.s2_htmlencode($tag['link']).'">'.s2_htmlencode($tag['title']).'</a>'.(isset($tag['num']) ? ' ('.$tag['num'].')' : '');
+	$tag = '<a href="'.register_htmlencode($tag['link']).'">'.register_htmlencode($tag['title']).'</a>'.(isset($tag['num']) ? ' ('.$tag['num'].')' : '');
 unset($tag);
 
 ?>

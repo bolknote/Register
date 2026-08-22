@@ -2,15 +2,15 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Comment\Antispam;
+namespace Register\Core\Comment\Antispam;
 
 use Psr\Log\LoggerInterface;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 final readonly class SpamMaintenance
 {

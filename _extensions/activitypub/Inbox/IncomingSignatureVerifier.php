@@ -7,16 +7,16 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Inbox;
+namespace Register\Extension\activitypub\Inbox;
 
-use s2_extensions\activitypub\Application\IncomingActivity;
-use s2_extensions\activitypub\Domain\RemoteActor;
-use s2_extensions\activitypub\Infrastructure\ClaimedInboxItem;
-use s2_extensions\activitypub\Security\HttpSignatureRequest;
-use s2_extensions\activitypub\Security\LegacyHttpSignature;
-use s2_extensions\activitypub\Security\Rfc9421HttpSignature;
-use s2_extensions\activitypub\Security\SignatureVerificationFailed;
-use s2_extensions\activitypub\Security\VerifiedHttpSignature;
+use Register\Extension\activitypub\Application\IncomingActivity;
+use Register\Extension\activitypub\Domain\RemoteActor;
+use Register\Extension\activitypub\Infrastructure\ClaimedInboxItem;
+use Register\Extension\activitypub\Security\HttpSignatureRequest;
+use Register\Extension\activitypub\Security\LegacyHttpSignature;
+use Register\Extension\activitypub\Security\Rfc9421HttpSignature;
+use Register\Extension\activitypub\Security\SignatureVerificationFailed;
+use Register\Extension\activitypub\Security\VerifiedHttpSignature;
 
 final readonly class IncomingSignatureVerifier
 {

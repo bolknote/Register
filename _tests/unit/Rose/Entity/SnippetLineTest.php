@@ -7,13 +7,13 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test\Entity;
+namespace Register\Rose\Test\Entity;
 
 use Codeception\Test\Unit;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Entity\SnippetLine;
-use S2\Rose\Exception\RuntimeException;
-use S2\Rose\Stemmer\PorterStemmerEnglish;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Entity\SnippetLine;
+use Register\Rose\Exception\RuntimeException;
+use Register\Rose\Stemmer\PorterStemmerEnglish;
 
 /**
  * @group snippet

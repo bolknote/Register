@@ -6,12 +6,12 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Helper;
+namespace Register\Rose\Helper;
 
-use S2\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Entity\Metadata\SnippetSource;
 
 /**
- * @see \S2\Rose\Test\Helper\SnippetTextHelperTest
+ * @see \Register\Rose\Test\Helper\SnippetTextHelperTest
  */
 class SnippetTextHelper
 {

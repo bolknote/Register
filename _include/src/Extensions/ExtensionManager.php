@@ -2,20 +2,20 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Extensions;
+namespace Register\Core\Extensions;
 
 use Register\Module\BaseModuleRegistry;
-use S2\AdminYard\Translator;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Framework\Container;
-use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\AdminYard\Translator;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Framework\Container;
+use Register\Core\Model\ExtensionCache;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class ExtensionManager
 {
@@ -94,7 +94,7 @@ readonly class ExtensionManager
                 continue;
             }
 
-            $extensionClass = '\\s2_extensions\\' . $entry . '\\Manifest';
+            $extensionClass = '\\Register\Extension\\' . $entry . '\\Manifest';
             if (!class_exists($extensionClass)) {
                 $failedExtensions[] = [
                     'entry'   => $entry,
@@ -181,7 +181,7 @@ readonly class ExtensionManager
                 continue;
             }
 
-            $manifestClass = '\\s2_extensions\\' . $currentExtension['id'] . '\\Manifest';
+            $manifestClass = '\\Register\Extension\\' . $currentExtension['id'] . '\\Manifest';
             if (!class_exists($manifestClass)) {
                 continue;
             }
@@ -218,7 +218,7 @@ readonly class ExtensionManager
         $disable = $row['disabled'] === 0;
 
         if ($disable) {
-            $manifestClass = '\\s2_extensions\\' . $id . '\\Manifest';
+            $manifestClass = '\\Register\Extension\\' . $id . '\\Manifest';
             if (is_a($manifestClass, ExtensionDisableGuardInterface::class, true)) {
                 $manifest = new $manifestClass();
                 $reason   = $manifest->getDisableBlockReason($this->dbLayer, $this->container);
@@ -299,7 +299,7 @@ readonly class ExtensionManager
             ];
         }
 
-        $extensionClass = '\\s2_extensions\\' . $id . '\\Manifest';
+        $extensionClass = '\\Register\Extension\\' . $id . '\\Manifest';
         if (!class_exists($extensionClass)) {
             return [
                 $this->translator->trans('Extension loading error', ['{{ extension }}' => $id]),
@@ -415,7 +415,7 @@ readonly class ExtensionManager
         }
 
         // Run uninstall code
-        $extensionClass = '\\s2_extensions\\' . $id . '\\Manifest';
+        $extensionClass = '\\Register\Extension\\' . $id . '\\Manifest';
         if (!is_a($extensionClass, ManifestInterface::class, true)) {
             throw new \RuntimeException(\sprintf('Extension manifest "%s" is missing or invalid.', $extensionClass));
         }

@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
 final readonly class ClaimedDelivery
 {

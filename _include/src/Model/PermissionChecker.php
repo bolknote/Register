@@ -2,14 +2,14 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Model;
+namespace Register\Core\Model;
 
-use S2\Cms\Framework\StatefulServiceInterface;
+use Register\Core\Framework\StatefulServiceInterface;
 
 class PermissionChecker implements StatefulServiceInterface
 {

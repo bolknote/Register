@@ -265,7 +265,7 @@ hr {
 #crumbs,
 #container,
 #footer,
-.s2_search_form,
+.register_search_form,
 #debug {
     width: min(calc(100% - 2 * var(--page-margin)), var(--page-width));
     margin-inline: auto;
@@ -2695,16 +2695,16 @@ span.favorite-star {
     columns: 15rem;
 }
 
-.s2_search_form {
+.register_search_form {
     padding-top: 1.25rem;
 }
 
-.s2_search_form input {
+.register_search_form input {
     width: min(100%, 24rem);
 }
 
 @media (min-width: 721px) {
-    .s2_search_form {
+    .register_search_form {
         position: absolute;
         z-index: 2;
         top: var(--header-top);

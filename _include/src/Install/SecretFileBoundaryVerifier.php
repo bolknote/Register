@@ -2,17 +2,17 @@
 /**
  * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Install;
+namespace Register\Core\Install;
 
-use S2\Cms\Config\SecretConfigPathResolver;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpClientException;
-use S2\Cms\HttpClient\HttpResponse;
+use Register\Core\Config\SecretConfigPathResolver;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientException;
+use Register\Core\HttpClient\HttpResponse;
 
 final readonly class SecretFileBoundaryVerifier
 {
@@ -66,7 +66,7 @@ final readonly class SecretFileBoundaryVerifier
 
         $canary = bin2hex(random_bytes(32));
         $content = "<?php\n\n// Register private-file boundary probe: {$canary}\n\nreturn [];\n";
-        $handle = s2_call_without_warnings(static fn() => fopen($probeFile, 'xb'));
+        $handle = register_call_without_warnings(static fn() => fopen($probeFile, 'xb'));
         if ($handle === false) {
             return false;
         }

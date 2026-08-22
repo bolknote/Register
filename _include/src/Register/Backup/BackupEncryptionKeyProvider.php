@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Backup;
 
-use S2\Cms\Config\StringProxy;
+use Register\Core\Config\StringProxy;
 
 final readonly class BackupEncryptionKeyProvider
 {

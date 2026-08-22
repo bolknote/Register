@@ -3,7 +3,7 @@
 declare(strict_types = 1);
 
 /** @var callable $trans */
-/** @var \S2\Cms\Admin\Dashboard\SystemStatusProviderInterface[] $systemStatusProviders */
+/** @var \Register\Core\Admin\Dashboard\SystemStatusProviderInterface[] $systemStatusProviders */
 
 ?>
 <header class="dashboard-header">

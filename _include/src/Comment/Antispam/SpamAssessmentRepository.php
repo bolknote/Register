@@ -2,19 +2,19 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Comment\Antispam;
+namespace Register\Core\Comment\Antispam;
 
 use Register\Comment\CommentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Pdo\QueryBuilder\DeleteBuilder;
-use S2\Cms\Pdo\QueryBuilder\SelectBuilder;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
+use Register\Core\Pdo\QueryBuilder\DeleteBuilder;
+use Register\Core\Pdo\QueryBuilder\SelectBuilder;
 
 final readonly class SpamAssessmentRepository
 {

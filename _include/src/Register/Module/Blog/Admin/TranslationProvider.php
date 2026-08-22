@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Admin;
 
-use S2\Cms\Admin\TranslationProviderInterface;
+use Register\Core\Admin\TranslationProviderInterface;
 
 class TranslationProvider implements TranslationProviderInterface
 {
@@ -22,10 +22,10 @@ class TranslationProvider implements TranslationProviderInterface
         return match ($locale) {
             'ru' => [
                 'Blog config'           => 'Блог',
-                'S2_BLOG_TITLE'         => 'Название блога',
-                'S2_BLOG_TITLE_help'    => 'Выводится в теге &lt;title&gt;, доступно в шаблонах.',
-                'S2_SITE_TAGLINE'       => 'Подпись сайта',
-                'S2_SITE_TAGLINE_help'  => 'Короткое описание под названием сайта.',
+                'REGISTER_BLOG_TITLE'         => 'Название блога',
+                'REGISTER_BLOG_TITLE_help'    => 'Выводится в теге &lt;title&gt;, доступно в шаблонах.',
+                'REGISTER_SITE_TAGLINE'       => 'Подпись сайта',
+                'REGISTER_SITE_TAGLINE_help'  => 'Короткое описание под названием сайта.',
                 'Posts num'             => '{{ posts }} пост|{{ posts }} поста|{{ posts }} постов',
                 'Blog new comments'     => 'Непроверенные комментарии к постам',
 
@@ -47,10 +47,10 @@ class TranslationProvider implements TranslationProviderInterface
             ],
             'en' => [
                 'Blog config'           => 'Blog',
-                'S2_BLOG_TITLE'         => 'Blog title',
-                'S2_BLOG_TITLE_help'    => 'Used in &lt;title&gt; tag, available in templates.',
-                'S2_SITE_TAGLINE'       => 'Site tagline',
-                'S2_SITE_TAGLINE_help'  => 'A short description displayed below the site title.',
+                'REGISTER_BLOG_TITLE'         => 'Blog title',
+                'REGISTER_BLOG_TITLE_help'    => 'Used in &lt;title&gt; tag, available in templates.',
+                'REGISTER_SITE_TAGLINE'       => 'Site tagline',
+                'REGISTER_SITE_TAGLINE_help'  => 'A short description displayed below the site title.',
                 'Posts num'             => '{{ posts }} post|{{ posts }} posts',
                 'Blog new comments'     => 'Unverified post comments',
 

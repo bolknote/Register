@@ -7,19 +7,19 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Storage;
+namespace Register\Rose\Storage;
 
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\ExternalIdCollection;
-use S2\Rose\Entity\Metadata\ImgCollection;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Entity\TocEntry;
-use S2\Rose\Entity\TocEntryWithMetadata;
-use S2\Rose\Exception\LogicException;
-use S2\Rose\Exception\UnknownIdException;
-use S2\Rose\Finder;
-use S2\Rose\Storage\Dto\SnippetQuery;
-use S2\Rose\Storage\Dto\SnippetResult;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\ExternalIdCollection;
+use Register\Rose\Entity\Metadata\ImgCollection;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Entity\TocEntry;
+use Register\Rose\Entity\TocEntryWithMetadata;
+use Register\Rose\Exception\LogicException;
+use Register\Rose\Exception\UnknownIdException;
+use Register\Rose\Finder;
+use Register\Rose\Storage\Dto\SnippetQuery;
+use Register\Rose\Storage\Dto\SnippetResult;
 
 abstract class ArrayStorage implements StorageReadInterface, StorageWriteInterface
 {
@@ -50,7 +50,7 @@ abstract class ArrayStorage implements StorageReadInterface, StorageWriteInterfa
             $data = $this->fulltextProxy->getByWord($word);
             foreach ($data as $id => $positionsByType) {
                 $externalId = $this->externalIdFromInternalId($id);
-                if (!$externalId instanceof \S2\Rose\Entity\ExternalId) {
+                if (!$externalId instanceof \Register\Rose\Entity\ExternalId) {
                     continue;
                 }
 
@@ -201,7 +201,7 @@ abstract class ArrayStorage implements StorageReadInterface, StorageWriteInterfa
 
     /**
      * {@inheritdoc}
-     * @return \S2\Rose\Entity\TocEntryWithMetadata[]
+     * @return \Register\Rose\Entity\TocEntryWithMetadata[]
      */
     #[\Override]
     public function getTocByExternalIds(ExternalIdCollection $externalIds): array

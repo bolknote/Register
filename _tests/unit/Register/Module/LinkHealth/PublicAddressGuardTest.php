@@ -10,10 +10,10 @@ declare(strict_types = 1);
 namespace unit\Register\Module\LinkHealth;
 
 use Codeception\Test\Unit;
-use S2\Cms\HttpClient\Remote\HostResolverInterface;
-use S2\Cms\HttpClient\Remote\PublicAddressGuard;
-use S2\Cms\HttpClient\Remote\RemoteHostResolutionFailed;
-use S2\Cms\HttpClient\Remote\UnsafeRemoteAddress;
+use Register\Core\HttpClient\Remote\HostResolverInterface;
+use Register\Core\HttpClient\Remote\PublicAddressGuard;
+use Register\Core\HttpClient\Remote\RemoteHostResolutionFailed;
+use Register\Core\HttpClient\Remote\UnsafeRemoteAddress;
 
 final class PublicAddressGuardTest extends Unit
 {

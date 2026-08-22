@@ -12,13 +12,13 @@ namespace Register\Ai\Admin;
 use Register\Ai\AiClient;
 use Register\Ai\AiException;
 use Register\Ai\AiSettings;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Form\FormParams;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\AdminYard\Translator;
-use S2\Cms\Admin\AdminConfigProvider;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Form\FormParams;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\Translator;
+use Register\Core\Admin\AdminConfigProvider;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -134,7 +134,7 @@ final readonly class AiEditorController
         }
 
         $entityConfig = $this->adminConfigProvider->getAdminConfig()->findEntityByName($entityName);
-        if (!$entityConfig instanceof \S2\AdminYard\Config\EntityConfig) {
+        if (!$entityConfig instanceof \Register\AdminYard\Config\EntityConfig) {
             return '';
         }
 

@@ -90,7 +90,7 @@
             'data-comment-editor-ready',
         ];
 
-        clone.querySelectorAll('#s2_search_tip').forEach((element) => element.remove());
+        clone.querySelectorAll('#register_search_tip').forEach((element) => element.remove());
         for (const attribute of bindingAttributes) {
             clone.querySelectorAll(`[${attribute}]`).forEach((element) => element.removeAttribute(attribute));
         }

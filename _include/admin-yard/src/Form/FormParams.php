@@ -8,11 +8,11 @@
 
 declare(strict_types = 1);
 
-namespace S2\AdminYard\Form;
+namespace Register\AdminYard\Form;
 
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Helper\RandomHelper;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Helper\RandomHelper;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
 
 /**
  * Security-compatible replacement for the upstream class.

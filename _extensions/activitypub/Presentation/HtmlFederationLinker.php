@@ -7,16 +7,16 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Presentation;
+namespace Register\Extension\activitypub\Presentation;
 
 use Register\Content\ContentRenderedEvent;
-use s2_extensions\activitypub\Application\PublicFederationAccess;
-use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\StoredObjectRepresentation;
+use Register\Extension\activitypub\Application\PublicFederationAccess;
+use Register\Extension\activitypub\Domain\FederationUrlGeneratorFactory;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\StoredObjectRepresentation;
 
 /** Adds machine discovery to content and an h-card to the configured human actor profile. */
 final readonly class HtmlFederationLinker
@@ -66,7 +66,7 @@ final readonly class HtmlFederationLinker
         }
 
         $origin = $this->stateRepository->state()->canonicalOrigin;
-        if (!$origin instanceof \s2_extensions\activitypub\Domain\CanonicalOrigin) {
+        if (!$origin instanceof \Register\Extension\activitypub\Domain\CanonicalOrigin) {
             return;
         }
 

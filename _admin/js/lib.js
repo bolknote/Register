@@ -3,7 +3,7 @@
  *
  * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 function loadingIndicator(bState) {
@@ -54,8 +54,8 @@ async function showFetchResponseError(response) {
 const {fetch: originalFetch} = window;
 window.fetch = async (resource, config = {}) => {
     const requestConfig = {...config};
-    const handleErrorsInline = requestConfig.s2HandleErrorsInline === true;
-    delete requestConfig.s2HandleErrorsInline;
+    const handleErrorsInline = requestConfig.registerHandleErrorsInline === true;
+    delete requestConfig.registerHandleErrorsInline;
     const requestUrl = resource instanceof Request ? resource.url : String(resource);
     const headers = new Headers(resource instanceof Request ? resource.headers : undefined);
     new Headers(requestConfig.headers || {}).forEach(function (value, name) {

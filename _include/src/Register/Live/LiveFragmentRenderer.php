@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Live;
 
-use S2\Cms\Template\HtmlTemplateProvider;
+use Register\Core\Template\HtmlTemplateProvider;
 
 /** Runs live fragments through the same extension and typography pipeline as full pages. */
 final readonly class LiveFragmentRenderer

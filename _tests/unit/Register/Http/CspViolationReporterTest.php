@@ -11,7 +11,7 @@ namespace unit\Register\Http;
 
 use Codeception\Test\Unit;
 use Register\Http\CspViolationReporter;
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
 use Symfony\Component\HttpFoundation\Request;
 
 final class CspViolationReporterTest extends Unit

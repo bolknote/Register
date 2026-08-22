@@ -1,9 +1,9 @@
 /** Automatic alt generation and the inline image/alt editor. */
 
-import {s2_codemirror} from './codemirror.js';
+import {register_codemirror} from './codemirror.js';
 
 export function initImageAlt(form, config) {
-    if (!form || !config || !config.enabled || !s2_codemirror.isReady()) {
+    if (!form || !config || !config.enabled || !register_codemirror.isReady()) {
         return;
     }
 
@@ -61,7 +61,7 @@ export function initImageAlt(form, config) {
             }
             finished = true;
             const nextAlt = input.value.trim();
-            if (save && s2_codemirror.replaceImageAlt(image.src, image.alt, nextAlt)) {
+            if (save && register_codemirror.replaceImageAlt(image.src, image.alt, nextAlt)) {
                 requestStates.set(image.src, {
                     status: 'ready',
                     alt: nextAlt,
@@ -135,12 +135,12 @@ export function initImageAlt(form, config) {
             overlay.append(altText, regenerate);
         }
 
-        activeWidget = s2_codemirror.addLineWidget(image.line, root);
+        activeWidget = register_codemirror.addLineWidget(image.line, root);
         activeSource = image.src;
     }
 
     function syncWithCursor() {
-        const image = s2_codemirror.getCursorImage();
+        const image = register_codemirror.getCursorImage();
         if (!image) {
             const state = activeSource ? requestStates.get(activeSource) : null;
             if (!state || state.status !== 'generating') {
@@ -173,7 +173,7 @@ export function initImageAlt(form, config) {
         data.set('content_id', String(config.contentId || 0));
         data.set('image_src', image.src);
         data.set('title', form.elements.title ? form.elements.title.value : '');
-        data.set('text', s2_codemirror.getValue());
+        data.set('text', register_codemirror.getValue());
         const csrfInput = form.elements['__csrf_token'];
         data.set('__csrf_token', csrfInput ? csrfInput.value : '');
 
@@ -182,7 +182,7 @@ export function initImageAlt(form, config) {
                 method: 'POST',
                 body: data,
                 signal: controller.signal,
-                s2HandleErrorsInline: true
+                registerHandleErrorsInline: true
             });
             let responseData = null;
             try {
@@ -194,7 +194,7 @@ export function initImageAlt(form, config) {
                 throw new Error(config.requestFailed);
             }
 
-            if (!s2_codemirror.replaceImageAlt(image.src, state.expectedAlt, responseData.result)) {
+            if (!register_codemirror.replaceImageAlt(image.src, state.expectedAlt, responseData.result)) {
                 requestStates.delete(image.src);
                 syncWithCursor();
                 return;
@@ -205,7 +205,7 @@ export function initImageAlt(form, config) {
                 alt: responseData.result,
                 expectedAlt: responseData.result
             });
-            const updated = s2_codemirror.getImageBySrc(image.src, responseData.result);
+            const updated = register_codemirror.getImageBySrc(image.src, responseData.result);
             if (updated) {
                 render(updated, requestStates.get(image.src));
             }
@@ -218,22 +218,22 @@ export function initImageAlt(form, config) {
                 alt: state.expectedAlt,
                 expectedAlt: state.expectedAlt
             });
-            const current = s2_codemirror.getImageBySrc(image.src, state.expectedAlt);
+            const current = register_codemirror.getImageBySrc(image.src, state.expectedAlt);
             if (current) {
                 render(current, requestStates.get(image.src));
             }
         }
     }
 
-    document.addEventListener('image_inserted.s2', function (event) {
-        const image = s2_codemirror.getImageBySrc(String(event.detail?.src || ''), '');
+    document.addEventListener('image_inserted.register', function (event) {
+        const image = register_codemirror.getImageBySrc(String(event.detail?.src || ''), '');
         if (image) {
             generate(image);
         }
     });
 
-    s2_codemirror.onCursorActivity(syncWithCursor);
-    s2_codemirror.onChange(function () {
+    register_codemirror.onCursorActivity(syncWithCursor);
+    register_codemirror.onChange(function () {
         queueMicrotask(syncWithCursor);
     });
 }

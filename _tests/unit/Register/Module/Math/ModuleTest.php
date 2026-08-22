@@ -11,9 +11,9 @@ namespace unit\Register\Module\Math;
 
 use Codeception\Test\Unit;
 use Register\Module\Math\Module;
-use S2\Cms\Asset\AssetPack;
-use S2\Cms\Framework\Container;
-use S2\Cms\Template\TemplateAssetEvent;
+use Register\Core\Asset\AssetPack;
+use Register\Core\Framework\Container;
+use Register\Core\Template\TemplateAssetEvent;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final class ModuleTest extends Unit

@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Service;
 
-use S2\Rose\Entity\Indexable;
+use Register\Rose\Entity\Indexable;
 
 /** Makes search-algorithm changes visible to Rose even when document content is unchanged. */
 final class SearchIndexable extends Indexable

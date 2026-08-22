@@ -4,24 +4,24 @@
  *
  * @copyright 2007-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Model;
+namespace Register\Core\Model;
 
 use Register\Comment\CommentRepository;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\QueryBuilder\UnionAll;
-use S2\Cms\Template\Viewer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Config\StringProxy;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\QueryBuilder\UnionAll;
+use Register\Core\Template\Viewer;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class ArticleProvider
 {
@@ -45,7 +45,7 @@ readonly class ArticleProvider
      * Returns an array containing full URLs, keys are preserved.
      * If somewhere is a hidden parent, the URL is removed from the returning array.
      *
-     * Actually it's one of the best things in S2! :)
+     * Actually it's one of the best things in Register! :)
      *
      * @throws DbLayerException
      * @param array<mixed> $parentIds

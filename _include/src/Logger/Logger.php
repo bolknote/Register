@@ -6,12 +6,12 @@
  * @copyright (C) 2024 Roman Parpalak, partially based on code (C) 2017 Mark Rogoyski
  * @license MIT
  * @see https://github.com/markrogoyski/simplelog-php
- * @package S2
+ * @package Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Logger;
+namespace Register\Core\Logger;
 
 use Psr\Log\LoggerInterface;
 use Psr\Log\LoggerTrait;

@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\LinkHealth;
 
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpResponse;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpResponse;
 
 final readonly class LinkHttpClient implements LinkHttpClientInterface
 {

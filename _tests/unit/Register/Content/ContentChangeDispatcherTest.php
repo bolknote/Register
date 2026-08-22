@@ -15,7 +15,7 @@ use Register\Content\ContentChangedEvent;
 use Register\Content\ContentId;
 use Register\Live\LiveUpdateRepository;
 use Register\Live\LiveUpdateSchema;
-use S2\Cms\Pdo\DbLayerSqlite;
+use Register\Core\Pdo\DbLayerSqlite;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final class ContentChangeDispatcherTest extends Unit

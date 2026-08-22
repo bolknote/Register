@@ -16,14 +16,14 @@ use Register\Module\Search\Morphology\HybridWordNormalizer;
 use Register\Module\Search\Morphology\OpenCorporaDictionary;
 use Register\Module\Search\Morphology\PreReformRussianNormalizer;
 use Register\Module\Search\Service\SimilarWordsDetector;
-use S2\Rose\Entity\Indexable;
-use S2\Rose\Entity\Query;
-use S2\Rose\Entity\ResultItem;
-use S2\Rose\Finder;
-use S2\Rose\Indexer;
-use S2\Rose\Stemmer\PorterStemmerEnglish;
-use S2\Rose\Stemmer\PorterStemmerRussian;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Rose\Entity\Indexable;
+use Register\Rose\Entity\Query;
+use Register\Rose\Entity\ResultItem;
+use Register\Rose\Finder;
+use Register\Rose\Indexer;
+use Register\Rose\Stemmer\PorterStemmerEnglish;
+use Register\Rose\Stemmer\PorterStemmerRussian;
+use Register\Rose\Storage\Database\PdoStorage;
 
 final class OpenCorporaDictionaryTest extends Unit
 {

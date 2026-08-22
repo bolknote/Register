@@ -7,17 +7,17 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
 use Psr\Log\LoggerInterface;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
-use s2_extensions\activitypub\Domain\ContentProjectionMode;
-use s2_extensions\activitypub\Infrastructure\ContentBackfillJob;
-use s2_extensions\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
-use s2_extensions\activitypub\Infrastructure\ContentBackfillRepository;
-use s2_extensions\activitypub\Infrastructure\PortableDatabaseTransaction;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
+use Register\Extension\activitypub\Domain\ContentProjectionMode;
+use Register\Extension\activitypub\Infrastructure\ContentBackfillJob;
+use Register\Extension\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
+use Register\Extension\activitypub\Infrastructure\ContentBackfillRepository;
+use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
 
 /** Projects exactly one historical content item per shutdown queue generation. */
 final readonly class ContentBackfillQueueHandler implements QueueHandlerInterface

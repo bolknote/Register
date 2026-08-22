@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Manifest;
+use Register\Extension\activitypub\Manifest;
 
 /** Refuses public identity creation unless this exact release ships a peer-matrix attestation. */
 final readonly class BundledReleaseInteroperabilityGate implements ReleaseInteroperabilityGateInterface

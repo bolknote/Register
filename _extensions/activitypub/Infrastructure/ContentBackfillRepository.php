@@ -7,14 +7,14 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
 use Register\Content\ContentId;
 use Register\Content\ContentType;
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\ContentBackfillMode;
-use s2_extensions\activitypub\Domain\ContentBackfillState;
-use s2_extensions\activitypub\Domain\ContentProjectionAction;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\ContentBackfillMode;
+use Register\Extension\activitypub\Domain\ContentBackfillState;
+use Register\Extension\activitypub\Domain\ContentProjectionAction;
 
 /** Durable audit and cursor for bounded, delivery-free historical projection. */
 final readonly class ContentBackfillRepository

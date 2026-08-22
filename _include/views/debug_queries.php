@@ -30,8 +30,8 @@ foreach ($saved_queries as $cur_query) {
 
 ?>
 					<tr>
-						<td class="tcl" valign="top"><meter min="0" max="<?= s2_htmlencode((string)max($maximumTime, 1.0E-12)) ?>" value="<?= s2_htmlencode((string)$cur_query['time']) ?>"><?php echo $numberFormat($cur_query['time']*1000, true) ?></meter> <?php echo ($cur_query['time'] > 0.0 ? $numberFormat($cur_query['time']*1000, true) : '&#160;') ?></td>
-                        <td valign="top" class="tcr"><code><?php echo s2_htmlencode($cur_query['statement']) ?></code></td>
+						<td class="tcl" valign="top"><meter min="0" max="<?= register_htmlencode((string)max($maximumTime, 1.0E-12)) ?>" value="<?= register_htmlencode((string)$cur_query['time']) ?>"><?php echo $numberFormat($cur_query['time']*1000, true) ?></meter> <?php echo ($cur_query['time'] > 0.0 ? $numberFormat($cur_query['time']*1000, true) : '&#160;') ?></td>
+                        <td valign="top" class="tcr"><code><?php echo register_htmlencode($cur_query['statement']) ?></code></td>
 					</tr>
 <?php
 

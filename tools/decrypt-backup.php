@@ -28,7 +28,7 @@ if (\count($arguments) < 2 || \count($arguments) > 4) {
 
 $source = absolutePath($arguments[1]);
 $output = isset($arguments[2]) ? absolutePath($arguments[2]) : preg_replace('/\.enc$/D', '', $source);
-$config = isset($arguments[3]) ? absolutePath($arguments[3]) : $projectRoot . '/' . s2_get_config_filename();
+$config = isset($arguments[3]) ? absolutePath($arguments[3]) : $projectRoot . '/' . register_get_config_filename();
 if (!\is_string($output) || $output === $source) {
     fwrite(STDERR, "The encrypted backup filename must end in .enc or an explicit output path is required.\n");
     exit(64);

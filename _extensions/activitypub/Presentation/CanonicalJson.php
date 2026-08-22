@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Presentation;
+namespace Register\Extension\activitypub\Presentation;
 
 /** Deterministic JSON encoding for immutable snapshots and deduplication hashes. */
 final class CanonicalJson

@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Domain\ActorType;
-use s2_extensions\activitypub\Domain\ActorProfileInputValidator;
-use s2_extensions\activitypub\Domain\LocalHandle;
+use Register\Extension\activitypub\Domain\ActorType;
+use Register\Extension\activitypub\Domain\ActorProfileInputValidator;
+use Register\Extension\activitypub\Domain\LocalHandle;
 
 final readonly class SiteActorDraft
 {

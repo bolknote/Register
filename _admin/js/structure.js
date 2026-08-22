@@ -5,7 +5,7 @@
  *
  * @copyright 2007-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 const structureRoot = document.querySelector('.admin-structure');
 var sUrl = structureRoot ? structureRoot.dataset.ajaxUrl : '';
@@ -16,10 +16,10 @@ const Search = (function () {
         eInput;
 
     function DoSearch() {
-        $(document).trigger('do_search.s2');
+        $(document).trigger('do_search.register');
     }
 
-    $(document).on('tree_reload.s2', function () {
+    $(document).on('tree_reload.register', function () {
         // Cancel search mode
         if (!eInput) {
             return;
@@ -103,7 +103,7 @@ $(function () {
     function createArticle() {
         tree.jstree('create', null, (new_page_pos === '1') ? 'first' : 'last', {
             data: {
-                title: s2_lang.new_page,
+                title: register_lang.new_page,
                 attr: {'class': 'Draft'}
             }
         });
@@ -122,11 +122,11 @@ $(function () {
     }
 
     function refreshTree() {
-        $(document).trigger('tree_reload.s2');
+        $(document).trigger('tree_reload.register');
         run_search();
     }
 
-    $(document).on('do_search.s2', run_search);
+    $(document).on('do_search.register', run_search);
 
     function rollback(data) {
         eButtons.remove();
@@ -141,9 +141,9 @@ $(function () {
                 e.stopImmediatePropagation();
                 const selectedNode = data.args[0];
                 window.AdminConfirm.ask({
-                    title: s2_lang.delete_title,
-                    message: str_replace('%s', tree.jstree('get_text', selectedNode), s2_lang.delete_item),
-                    confirmLabel: s2_lang.delete_confirm,
+                    title: register_lang.delete_title,
+                    message: str_replace('%s', tree.jstree('get_text', selectedNode), register_lang.delete_item),
+                    confirmLabel: register_lang.delete_confirm,
                     dangerous: true
                 }).then(function (confirmed) {
                     if (!confirmed) {
@@ -341,8 +341,8 @@ $(function () {
                 progressive_render: true,
                 open_parents: false,
                 strings: {
-                    loading: s2_lang.load_tree,
-                    new_node: s2_lang.new_page
+                    loading: register_lang.load_tree,
+                    new_node: register_lang.new_page
                 }
             },
             plugins: ['json_data', 'dnd', 'ui', 'crrm', 'hotkeys']

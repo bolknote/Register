@@ -7,9 +7,9 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Extractor;
+namespace Register\Rose\Extractor;
 
-use S2\Rose\Entity\ContentWithMetadata;
+use Register\Rose\Entity\ContentWithMetadata;
 
 class ExtractionResult
 {

@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -12,10 +12,10 @@ namespace unit\Cms\Asset;
 use Codeception\Test\Unit;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;
-use S2\Cms\Asset\AssetMerge;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpClientException;
-use S2\Cms\HttpClient\HttpResponse;
+use Register\Core\Asset\AssetMerge;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientException;
+use Register\Core\HttpClient\HttpResponse;
 
 final class AssetMergeTest extends Unit
 {
@@ -24,7 +24,7 @@ final class AssetMergeTest extends Unit
     #[\Override]
     protected function _before(): void
     {
-        $this->cacheDir = \sys_get_temp_dir() . '/s2_asset_merge_test_' . \bin2hex(\random_bytes(4)) . '/';
+        $this->cacheDir = \sys_get_temp_dir() . '/register_asset_merge_test_' . \bin2hex(\random_bytes(4)) . '/';
         \mkdir($this->cacheDir, 0777, true);
     }
 

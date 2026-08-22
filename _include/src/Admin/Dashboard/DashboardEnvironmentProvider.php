@@ -2,14 +2,14 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Dashboard;
+namespace Register\Core\Admin\Dashboard;
 
-use S2\AdminYard\TemplateRenderer;
+use Register\AdminYard\TemplateRenderer;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 readonly class DashboardEnvironmentProvider implements SystemStatusProviderInterface
@@ -48,7 +48,7 @@ readonly class DashboardEnvironmentProvider implements SystemStatusProviderInter
         }
 
         if (is_readable('/proc/loadavg')) {
-            $loadAverages = s2_call_without_warnings(static fn(): string|false => file_get_contents('/proc/loadavg'));
+            $loadAverages = register_call_without_warnings(static fn(): string|false => file_get_contents('/proc/loadavg'));
             if ($loadAverages !== false) {
                 $loadAverages = explode(' ', $loadAverages);
                 if (isset($loadAverages[2])) {

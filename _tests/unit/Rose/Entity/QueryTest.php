@@ -7,10 +7,10 @@ declare(strict_types = 1);
  * @license   https://opensource.org/license/mit MIT
  */
 
-namespace S2\Rose\Test\Entity;
+namespace Register\Rose\Test\Entity;
 
 use Codeception\Test\Unit;
-use S2\Rose\Entity\Query;
+use Register\Rose\Entity\Query;
 
 /**
  * @group entity

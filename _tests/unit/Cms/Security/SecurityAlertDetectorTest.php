@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Security;
 
 use Codeception\Test\Unit;
-use S2\Cms\Security\Monitoring\SecurityAlertDetector;
+use Register\Core\Security\Monitoring\SecurityAlertDetector;
 
 final class SecurityAlertDetectorTest extends Unit
 {

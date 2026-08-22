@@ -2,21 +2,21 @@
 /**
  * @copyright 2007-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Picture;
+namespace Register\Core\Admin\Picture;
 
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Form\FormParams;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\AdminYard\Translator;
-use S2\Cms\AdminYard\CustomTemplateRenderer;
-use S2\Cms\Framework\Exception\AccessDeniedException;
-use S2\Cms\Image\ThumbnailGenerator;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Form\FormParams;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\Translator;
+use Register\Core\AdminYard\CustomTemplateRenderer;
+use Register\Core\Framework\Exception\AccessDeniedException;
+use Register\Core\Image\ThumbnailGenerator;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -171,7 +171,7 @@ class PictureManager
     public function deleteFolder(string $dir, bool $deleteRoot = true): void
     {
         $fullDir = $this->imageDir . $dir;
-        $dirHandle = s2_call_without_warnings(static fn() => opendir($fullDir));
+        $dirHandle = register_call_without_warnings(static fn() => opendir($fullDir));
         if ($dirHandle === false) {
             return;
         }
@@ -186,7 +186,7 @@ class PictureManager
                 continue;
             }
 
-            if (is_dir($fullDir . '/' . $item) || !s2_call_without_warnings(static fn(): bool => unlink($fullDir . '/' . $item))) {
+            if (is_dir($fullDir . '/' . $item) || !register_call_without_warnings(static fn(): bool => unlink($fullDir . '/' . $item))) {
                 $this->deleteFolder($dir . '/' . $item);
             }
         }
@@ -194,20 +194,20 @@ class PictureManager
         closedir($dirHandle);
 
         if ($deleteRoot) {
-            s2_call_without_warnings(static fn(): bool => rmdir($fullDir));
+            register_call_without_warnings(static fn(): bool => rmdir($fullDir));
         }
     }
 
     public function deleteFile(string $path): void
     {
         if (file_exists($this->imageDir . $path)) {
-            s2_call_without_warnings(fn(): bool => unlink($this->imageDir . $path));
+            register_call_without_warnings(fn(): bool => unlink($this->imageDir . $path));
         }
     }
 
     public function renameFolder(string $path, string $newName): string
     {
-        $parentPath = $this->s2_dirname($path);
+        $parentPath = $this->register_dirname($path);
 
         $newFullName = $this->imageDir . $parentPath . '/' . $newName;
         if (file_exists($newFullName)) {
@@ -228,7 +228,7 @@ class PictureManager
 
     public function renameFile(string $path, string $newName): string
     {
-        $parentPath = $this->s2_dirname($path);
+        $parentPath = $this->register_dirname($path);
 
         $newFullPath = $this->imageDir . $parentPath . '/' . $newName;
         if (file_exists($newFullPath)) {
@@ -248,7 +248,7 @@ class PictureManager
     public function moveFolder(string $sourcePath, string $destPath): string
     {
         $fullSourcePath = $this->imageDir . $sourcePath;
-        $fullDestPath   = $this->imageDir . $destPath . '/' . $this->s2_basename($sourcePath);
+        $fullDestPath   = $this->imageDir . $destPath . '/' . $this->register_basename($sourcePath);
 
         if (file_exists($fullDestPath)) {
             throw new \RuntimeException($this->translator->trans('Move file exists', ['{{ dir }}' => $fullDestPath]), Response::HTTP_CONFLICT);
@@ -259,7 +259,7 @@ class PictureManager
             throw new \RuntimeException($this->translator->trans('Move error'), Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
-        return $destPath . '/' . $this->s2_basename($sourcePath);
+        return $destPath . '/' . $this->register_basename($sourcePath);
     }
 
     /**
@@ -269,7 +269,7 @@ class PictureManager
     {
         $skippedFiles = [];
         foreach ($fileNames as $fileName) {
-            $fileName       = $this->s2_basename($fileName);
+            $fileName       = $this->register_basename($fileName);
             $fullSourcePath = $this->imageDir . $sourcePath . '/' . $fileName;
             $fullDestPath   = $this->imageDir . $destPath . '/' . $fileName;
 
@@ -465,7 +465,7 @@ class PictureManager
 
     public function assertFileCsrfToken(string $filePath, string $csrfToken): void
     {
-        $this->assertFolderCsrfToken($this->s2_dirname($filePath), $csrfToken);
+        $this->assertFolderCsrfToken($this->register_dirname($filePath), $csrfToken);
     }
 
     private function getFolderTokenKey(string $path): string
@@ -478,7 +478,7 @@ class PictureManager
             $realPath = $fullPath;
         }
 
-        $inode = s2_call_without_warnings(static fn(): int|false => fileinode($fullPath));
+        $inode = register_call_without_warnings(static fn(): int|false => fileinode($fullPath));
         if ($inode === false) {
             return $realPath;
         }
@@ -486,12 +486,12 @@ class PictureManager
         return 'inode:' . $inode;
     }
 
-    private function s2_basename(string $dir): string
+    private function register_basename(string $dir): string
     {
         return false !== ($pos = strrpos($dir, '/')) ? substr($dir, $pos + 1) : $dir;
     }
 
-    private function s2_dirname(string $dir): string
+    private function register_dirname(string $dir): string
     {
         return preg_replace('#/[^/]*$#', '', $dir) ?? $dir;
     }

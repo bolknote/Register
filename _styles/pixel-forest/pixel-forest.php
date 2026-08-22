@@ -2,7 +2,7 @@
 
 declare(strict_types = 1);
 
-use S2\Cms\Asset\AssetPack;
+use Register\Core\Asset\AssetPack;
 
 return (new AssetPack(__DIR__))
     ->addMeta('<meta name="viewport" content="width=device-width, initial-scale=1">')

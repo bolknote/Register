@@ -12,15 +12,15 @@ namespace unit\Register\Module\LinkHealth;
 use Codeception\Test\Unit;
 use Register\Module\LinkHealth\ArchiveStatus;
 use Register\Module\LinkHealth\LinkHttpClientInterface;
-use S2\Cms\HttpClient\Remote\HostResolverInterface;
-use S2\Cms\HttpClient\Remote\PublicAddressGuard;
+use Register\Core\HttpClient\Remote\HostResolverInterface;
+use Register\Core\HttpClient\Remote\PublicAddressGuard;
 use Register\Module\LinkHealth\WaybackClient;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpResponse;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpResponse;
 
 final class WaybackClientTest extends Unit
 {
-    public function testAcceptsOnlyAvailableStatus200ReplayAndPinsArchiveHost(): void
+    public function testAcceptsOnlyAvailableSuccessfulReplayAndPinsArchiveHost(): void
     {
         $httpClient = new WaybackRecordingClient(new HttpResponse(
             statusCode: 200,

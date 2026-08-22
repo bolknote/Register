@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -11,14 +11,14 @@ namespace unit\Cms\Model;
 
 use Codeception\Test\Unit;
 use Psr\Log\NullLogger;
-use S2\AdminYard\TemplateRenderer;
-use S2\AdminYard\Translator;
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
-use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\LoginRateLimiter;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Security\Audit\SecurityAuditLogger;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Translator;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Model\AuthManager;
+use Register\Core\Model\LoginRateLimiter;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Security\Audit\SecurityAuditLogger;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -40,7 +40,7 @@ final class AuthManagerRedirectTest extends Unit
             new SecurityAuditLogger('php://memory', new SpamIdentityHasher(str_repeat('a', 32))),
             '/blog',
             'http://trusted.example/blog',
-            's2_cookie',
+            'register_cookie',
             true,
         );
 

@@ -1,9 +1,9 @@
 /**
- * Editor bootstrap and global exports for S2.
+ * Editor bootstrap and global exports for Register.
  *
  * @copyright 2025-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 import {initArticleEditForm} from './form.js';
@@ -29,7 +29,7 @@ if (configElement) {
 
 setEditorDeps({
     PopupMessages: window.PopupMessages,
-    s2_lang: window.s2_lang,
+    register_lang: window.register_lang,
     CodeMirror: window.CodeMirror,
     loadingIndicator: window.loadingIndicator,
     sUrl: config.sUrl || window.sUrl || null,

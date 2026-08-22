@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
 /** Portable transaction/savepoint wrapper that composes with Register's test and product transactions. */
 final class PortableDatabaseTransaction

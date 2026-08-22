@@ -2,17 +2,17 @@
 /**
  * @copyright 2026 Register contributors
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\HttpClient\Remote;
+namespace Register\Core\HttpClient\Remote;
 
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpClientInterface;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueTimeBudgetExceeded;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientInterface;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueTimeBudgetExceeded;
 
 /**
  * Executes exactly one validated HTTP hop.
@@ -74,7 +74,7 @@ final readonly class SafeRemoteHttpClient
 
     private function usableBudgetSeconds(?QueueExecutionBudget $budget, float $safetyMargin): ?float
     {
-        if (!$budget instanceof \S2\Cms\Queue\QueueExecutionBudget) {
+        if (!$budget instanceof \Register\Core\Queue\QueueExecutionBudget) {
             return null;
         }
 

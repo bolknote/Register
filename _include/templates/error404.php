@@ -4,35 +4,35 @@ declare(strict_types = 1);
 
 if (!isset($this)) die; ?>
 <!DOCTYPE html>
-<html lang="<!-- s2_html_lang -->">
+<html lang="<!-- register_html_lang -->">
 <head>
 <meta charset="utf-8">
-<title><!-- s2_head_title --></title>
-<!-- s2_meta -->
-<!-- s2_styles -->
+<title><!-- register_head_title --></title>
+<!-- register_meta -->
+<!-- register_styles -->
 </head>
 
 <body class="e404">
 <!-- register-page-start -->
 <div id="register-page" data-register-page>
-    <a class="skip-link" href="#content"><!-- s2_skip_link_label --></a>
-	<header id="header"><!-- s2_site_header --></header>
-	<nav id="crumbs" aria-label="<!-- s2_breadcrumbs_label -->"><!-- s2_crumbs --></nav>
+    <a class="skip-link" href="#content"><!-- register_skip_link_label --></a>
+	<header id="header"><!-- register_site_header --></header>
+	<nav id="crumbs" aria-label="<!-- register_breadcrumbs_label -->"><!-- register_crumbs --></nav>
 
     <main id="container">
         <article id="content" tabindex="-1">
-            <!-- s2_title -->
-            <!-- s2_text -->
+            <!-- register_title -->
+            <!-- register_text -->
         </article>
     </main>
-<!-- s2_debug -->
+<!-- register_debug -->
 
 	<footer id="footer">
-		<p id="copyright"><!-- s2_copyright --></p>
-        <p id="queries"><!-- s2_querytime --></p>
+		<p id="copyright"><!-- register_copyright --></p>
+        <p id="queries"><!-- register_querytime --></p>
     </footer>
 </div>
 <!-- register-page-end -->
-<!-- s2_scripts -->
+<!-- register_scripts -->
 </body>
 </html>

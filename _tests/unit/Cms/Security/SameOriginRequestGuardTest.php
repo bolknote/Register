@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Security;
 
 use Codeception\Test\Unit;
-use S2\Cms\Security\Http\SameOriginRequestGuard;
+use Register\Core\Security\Http\SameOriginRequestGuard;
 use Symfony\Component\HttpFoundation\Request;
 
 final class SameOriginRequestGuardTest extends Unit

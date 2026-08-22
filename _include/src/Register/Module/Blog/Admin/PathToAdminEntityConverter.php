@@ -11,9 +11,9 @@ namespace Register\Module\Blog\Admin;
 
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\AdminYard\Config\FieldConfig;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\AdminYard\Config\FieldConfig;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class PathToAdminEntityConverter
 {

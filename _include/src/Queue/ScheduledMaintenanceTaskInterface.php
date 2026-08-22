@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Queue;
+namespace Register\Core\Queue;
 
 /** Lets product modules add durable work to the hourly maintenance pass. */
 interface ScheduledMaintenanceTaskInterface

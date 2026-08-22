@@ -2,12 +2,12 @@
 /**
  * @copyright 2024-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms;
+namespace Register\Core;
 
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
@@ -20,104 +20,104 @@ use Register\Http\CspViolationReportController;
 use Register\Http\CspViolationReporter;
 use Register\Http\InlineStyleAttributeStripper;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
-use S2\Cms\Asset\AssetMergeFactory;
-use S2\Cms\Comment\AkismetProxy;
-use S2\Cms\Comment\Antispam\CommentFormTokenManager;
-use S2\Cms\Comment\Antispam\ConfigurableSpamDetector;
-use S2\Cms\Comment\Antispam\LocalSpamDetector;
-use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
-use S2\Cms\Comment\Antispam\SpamFeatureExtractor;
-use S2\Cms\Comment\Antispam\SpamFeedbackService;
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
-use S2\Cms\Comment\Antispam\SpamMaintenance;
-use S2\Cms\Comment\Antispam\SpamMaintenanceQueueHandler;
-use S2\Cms\Comment\Antispam\SpamMetricsRepository;
-use S2\Cms\Comment\Antispam\SpamRateLimiter;
-use S2\Cms\Comment\Antispam\SpamRatePolicyRepository;
-use S2\Cms\Comment\Antispam\SpamReputationRepository;
-use S2\Cms\Comment\Antispam\SpamRiskScorer;
-use S2\Cms\Comment\Antispam\SpamRuleRepository;
-use S2\Cms\Comment\Antispam\SpamSignalPolicyRepository;
-use S2\Cms\Comment\Antispam\SpamTextClassifier;
-use S2\Cms\Comment\Antispam\SpamTextFeatureExtractor;
-use S2\Cms\Comment\Antispam\SpamTextModelRepository;
-use S2\Cms\Comment\SpamDetectorInterface;
-use S2\Cms\Comment\SpamDecisionProvider;
-use S2\Cms\Comment\SpamDecisionProviderInterface;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Config\DynamicSecretStore;
-use S2\Cms\Config\DynamicSecretParameterRegistry;
-use S2\Cms\Controller\Comment\CommentStrategyInterface;
-use S2\Cms\Controller\CommentController;
-use S2\Cms\Controller\CommentModerationController;
-use S2\Cms\Controller\CommentSentController;
-use S2\Cms\Controller\CommentUnsubscribeController;
-use S2\Cms\Controller\NotFoundController;
-use S2\Cms\Controller\PageCommon;
-use S2\Cms\Controller\PageFavorite;
-use S2\Cms\Controller\PageTag;
-use S2\Cms\Controller\PageTags;
+use Register\Core\Asset\AssetMergeFactory;
+use Register\Core\Comment\AkismetProxy;
+use Register\Core\Comment\Antispam\CommentFormTokenManager;
+use Register\Core\Comment\Antispam\ConfigurableSpamDetector;
+use Register\Core\Comment\Antispam\LocalSpamDetector;
+use Register\Core\Comment\Antispam\SpamAssessmentRepository;
+use Register\Core\Comment\Antispam\SpamFeatureExtractor;
+use Register\Core\Comment\Antispam\SpamFeedbackService;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Comment\Antispam\SpamMaintenance;
+use Register\Core\Comment\Antispam\SpamMaintenanceQueueHandler;
+use Register\Core\Comment\Antispam\SpamMetricsRepository;
+use Register\Core\Comment\Antispam\SpamRateLimiter;
+use Register\Core\Comment\Antispam\SpamRatePolicyRepository;
+use Register\Core\Comment\Antispam\SpamReputationRepository;
+use Register\Core\Comment\Antispam\SpamRiskScorer;
+use Register\Core\Comment\Antispam\SpamRuleRepository;
+use Register\Core\Comment\Antispam\SpamSignalPolicyRepository;
+use Register\Core\Comment\Antispam\SpamTextClassifier;
+use Register\Core\Comment\Antispam\SpamTextFeatureExtractor;
+use Register\Core\Comment\Antispam\SpamTextModelRepository;
+use Register\Core\Comment\SpamDetectorInterface;
+use Register\Core\Comment\SpamDecisionProvider;
+use Register\Core\Comment\SpamDecisionProviderInterface;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Config\DynamicSecretStore;
+use Register\Core\Config\DynamicSecretParameterRegistry;
+use Register\Core\Controller\Comment\CommentStrategyInterface;
+use Register\Core\Controller\CommentController;
+use Register\Core\Controller\CommentModerationController;
+use Register\Core\Controller\CommentSentController;
+use Register\Core\Controller\CommentUnsubscribeController;
+use Register\Core\Controller\NotFoundController;
+use Register\Core\Controller\PageCommon;
+use Register\Core\Controller\PageFavorite;
+use Register\Core\Controller\PageTag;
+use Register\Core\Controller\PageTags;
 use Register\Content\Controller\ContentSitemapController;
 use Register\Content\Controller\RobotsTxtController;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\Event\NotFoundEvent;
-use S2\Cms\Framework\Exception\ConfigurationException;
-use S2\Cms\Framework\ExtensionInterface;
-use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\Http\RedirectDetector;
-use S2\Cms\Http\TrustedProxyConfigurator;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\Remote\HostResolverInterface;
-use S2\Cms\HttpClient\Remote\NativeHostResolver;
-use S2\Cms\HttpClient\Remote\PublicAddressGuard;
-use S2\Cms\HttpClient\Remote\SafeRemoteHttpClient;
-use S2\Cms\Image\ThumbnailGenerator;
-use S2\Cms\Logger\Logger;
-use S2\Cms\Mail\CommentMailer;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\Comment\CommentModerationTokenManager;
-use S2\Cms\Model\Comment\CommentThreadBuilder;
-use S2\Cms\Model\Comment\CommentThreadRenderer;
-use S2\Cms\Model\CommentProvider;
-use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Model\FavoriteArticleProvider;
-use S2\Cms\Model\LoginRateLimiter;
-use S2\Cms\Model\TagsProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Model\User\UserProvider;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerPostgres;
-use S2\Cms\Pdo\DbLayerSqlite;
-use S2\Cms\Pdo\PDO;
-use S2\Cms\Pdo\PdoSqliteFactory;
-use S2\Cms\Queue\BackgroundWorkRunner;
-use S2\Cms\Queue\QueueConsumer;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueueHandlerRegistry;
-use S2\Cms\Queue\QueueMonitor;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\QueueRecovery;
-use S2\Cms\Queue\QueueRunnerLease;
-use S2\Cms\Queue\ScheduledMaintenanceTaskInterface;
-use S2\Cms\Queue\NativeShutdownRuntime;
-use S2\Cms\Queue\ScheduledMaintenance;
-use S2\Cms\Queue\ShutdownWorkCoordinator;
-use S2\Cms\Security\Audit\SecurityAuditLogger;
-use S2\Cms\Security\Monitoring\SecurityTelemetryRecorder;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\TemplateEvent;
-use S2\Cms\Template\TemplateAssetEvent;
-use S2\Cms\Template\TemplateFinalReplaceEvent;
-use S2\Cms\Template\Viewer;
-use S2\Cms\Translation\ExtensibleTranslator;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\Event\NotFoundEvent;
+use Register\Core\Framework\Exception\ConfigurationException;
+use Register\Core\Framework\ExtensionInterface;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Http\RedirectDetector;
+use Register\Core\Http\TrustedProxyConfigurator;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\Remote\HostResolverInterface;
+use Register\Core\HttpClient\Remote\NativeHostResolver;
+use Register\Core\HttpClient\Remote\PublicAddressGuard;
+use Register\Core\HttpClient\Remote\SafeRemoteHttpClient;
+use Register\Core\Image\ThumbnailGenerator;
+use Register\Core\Logger\Logger;
+use Register\Core\Mail\CommentMailer;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\AuthProvider;
+use Register\Core\Model\Comment\CommentModerationTokenManager;
+use Register\Core\Model\Comment\CommentThreadBuilder;
+use Register\Core\Model\Comment\CommentThreadRenderer;
+use Register\Core\Model\CommentProvider;
+use Register\Core\Model\ExtensionCache;
+use Register\Core\Model\FavoriteArticleProvider;
+use Register\Core\Model\LoginRateLimiter;
+use Register\Core\Model\TagsProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Model\User\UserProvider;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerPostgres;
+use Register\Core\Pdo\DbLayerSqlite;
+use Register\Core\Pdo\PDO;
+use Register\Core\Pdo\PdoSqliteFactory;
+use Register\Core\Queue\BackgroundWorkRunner;
+use Register\Core\Queue\QueueConsumer;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueueHandlerRegistry;
+use Register\Core\Queue\QueueMonitor;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\QueueRecovery;
+use Register\Core\Queue\QueueRunnerLease;
+use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
+use Register\Core\Queue\NativeShutdownRuntime;
+use Register\Core\Queue\ScheduledMaintenance;
+use Register\Core\Queue\ShutdownWorkCoordinator;
+use Register\Core\Security\Audit\SecurityAuditLogger;
+use Register\Core\Security\Monitoring\SecurityTelemetryRecorder;
+use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\TemplateEvent;
+use Register\Core\Template\TemplateAssetEvent;
+use Register\Core\Template\TemplateFinalReplaceEvent;
+use Register\Core\Template\Viewer;
+use Register\Core\Translation\ExtensibleTranslator;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
-use S2\Cms\Framework\Exception\ServiceAlreadyDefinedException;
+use Register\Core\Framework\Exception\ServiceAlreadyDefinedException;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 class CmsExtension implements ExtensionInterface
@@ -130,7 +130,7 @@ class CmsExtension implements ExtensionInterface
     {
         TrustedProxyConfigurator::configure(array_values($container->getArrayParameter('trusted_proxies')));
 
-        $container->set(DbLayer::class, function (Container $container): \S2\Cms\Pdo\DbLayer|\S2\Cms\Pdo\DbLayerSqlite|\S2\Cms\Pdo\DbLayerPostgres {
+        $container->set(DbLayer::class, function (Container $container): \Register\Core\Pdo\DbLayer|\Register\Core\Pdo\DbLayerSqlite|\Register\Core\Pdo\DbLayerPostgres {
             $db_prefix = $container->getStringParameter('db_prefix');
             $db_type   = $container->getStringParameter('db_type');
 
@@ -141,7 +141,7 @@ class CmsExtension implements ExtensionInterface
                 default => throw new \RuntimeException(\sprintf('Unsupported db_type="%s"', $db_type)),
             };
         });
-        $container->set(\PDO::class, function (Container $container): \S2\Cms\Pdo\PDO {
+        $container->set(\PDO::class, function (Container $container): \Register\Core\Pdo\PDO {
             $container->getStringParameter('db_prefix');
             $db_type     = $container->getStringParameter('db_type');
             $db_host     = $container->getStringParameter('db_host');
@@ -166,41 +166,41 @@ class CmsExtension implements ExtensionInterface
             };
         }, [StatefulServiceInterface::class]);
 
-        $container->set(ExtensionCache::class, fn(Container $container): \S2\Cms\Model\ExtensionCache => new ExtensionCache(
+        $container->set(ExtensionCache::class, fn(Container $container): \Register\Core\Model\ExtensionCache => new ExtensionCache(
             $container->get(DbLayer::class),
             $container->getBoolParameter('disable_cache'),
             $container->getStringParameter('cache_dir'),
         ));
 
-        $container->set(ThumbnailGenerator::class, fn(Container $container): \S2\Cms\Image\ThumbnailGenerator => new ThumbnailGenerator(
+        $container->set(ThumbnailGenerator::class, fn(Container $container): \Register\Core\Image\ThumbnailGenerator => new ThumbnailGenerator(
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container->get(QueuePublisher::class),
             $container->getStringParameter('image_path'),
             $container->getStringParameter('image_dir'),
         ), [QueueHandlerInterface::class]);
-        $container->set(LoggerInterface::class, fn(Container $container): \S2\Cms\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'app.log', 'app', LogLevel::INFO));
+        $container->set(LoggerInterface::class, fn(Container $container): \Register\Core\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'app.log', 'app', LogLevel::INFO));
         $container->set('config_cache', fn(Container $container): \Symfony\Component\Cache\Adapter\FilesystemAdapter => new FilesystemAdapter('config', 0, $container->getStringParameter('cache_dir')));
 
         $container->set(DynamicSecretParameterRegistry::class, new DynamicSecretParameterRegistry([
-                'S2_AKISMET_KEY',
-                'S2_ANTISPAM_SECRET',
+                'REGISTER_AKISMET_KEY',
+                'REGISTER_ANTISPAM_SECRET',
                 AiSettings::API_KEY_CONFIG_KEY,
                 VisitorIdentityManifest::SECRET_CONFIG_KEY,
         ]));
-        $container->set(DynamicSecretStore::class, fn(Container $container): \S2\Cms\Config\DynamicSecretStore => new DynamicSecretStore(
+        $container->set(DynamicSecretStore::class, fn(Container $container): \Register\Core\Config\DynamicSecretStore => new DynamicSecretStore(
             $container->getStringParameter('secret_config_file'),
             $container->get(DynamicSecretParameterRegistry::class),
         ));
-        $container->set(DynamicConfigProvider::class, fn(Container $container): \S2\Cms\Config\DynamicConfigProvider => new DynamicConfigProvider(
+        $container->set(DynamicConfigProvider::class, fn(Container $container): \Register\Core\Config\DynamicConfigProvider => new DynamicConfigProvider(
             $container->get(DbLayer::class),
-            $container->getStringParameter('cache_dir') . 'cache_config.php',
+            $container->getStringParameter('cache_dir') . 'register_config.php',
             $container->getBoolParameter('disable_cache'),
             $container->get(DynamicSecretStore::class),
         ), [StatefulServiceInterface::class]); // TODO not enough, parameters are set into many other services
 
-        $container->set('translator', function (Container $container): \S2\Cms\Translation\ExtensibleTranslator {
+        $container->set('translator', function (Container $container): \Register\Core\Translation\ExtensibleTranslator {
             $provider = $container->get(DynamicConfigProvider::class);
-            $language = $provider->getStringProxy('S2_LANGUAGE');
+            $language = $provider->getStringProxy('REGISTER_LANGUAGE');
 
             $translator = new ExtensibleTranslator($language);
 
@@ -225,32 +225,32 @@ class CmsExtension implements ExtensionInterface
             return $translator;
         }, [StatefulServiceInterface::class]);
 
-        $container->set(QueuePublisher::class, fn(Container $container): \S2\Cms\Queue\QueuePublisher => new QueuePublisher(
+        $container->set(QueuePublisher::class, fn(Container $container): \Register\Core\Queue\QueuePublisher => new QueuePublisher(
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
         ));
-        $container->set(QueueMonitor::class, fn(Container $container): \S2\Cms\Queue\QueueMonitor => new QueueMonitor(
+        $container->set(QueueMonitor::class, fn(Container $container): \Register\Core\Queue\QueueMonitor => new QueueMonitor(
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
         ));
-        $container->set(QueueRecovery::class, fn(Container $container): \S2\Cms\Queue\QueueRecovery => new QueueRecovery(
+        $container->set(QueueRecovery::class, fn(Container $container): \Register\Core\Queue\QueueRecovery => new QueueRecovery(
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
         ));
-        $container->set(QueueHandlerRegistry::class, fn(Container $container): \S2\Cms\Queue\QueueHandlerRegistry => new QueueHandlerRegistry(
+        $container->set(QueueHandlerRegistry::class, fn(Container $container): \Register\Core\Queue\QueueHandlerRegistry => new QueueHandlerRegistry(
             ...$container->getByTag(QueueHandlerInterface::class)
         ));
-        $container->set(QueueConsumer::class, fn(Container $container): \S2\Cms\Queue\QueueConsumer => new QueueConsumer(
+        $container->set(QueueConsumer::class, fn(Container $container): \Register\Core\Queue\QueueConsumer => new QueueConsumer(
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
             $container->get(LoggerInterface::class),
             $container->get(QueueHandlerRegistry::class),
         ));
-        $container->set(QueueRunnerLease::class, fn(Container $container): \S2\Cms\Queue\QueueRunnerLease => new QueueRunnerLease(
+        $container->set(QueueRunnerLease::class, fn(Container $container): \Register\Core\Queue\QueueRunnerLease => new QueueRunnerLease(
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
         ));
-        $container->set(ScheduledMaintenance::class, fn(Container $container): \S2\Cms\Queue\ScheduledMaintenance => new ScheduledMaintenance(
+        $container->set(ScheduledMaintenance::class, fn(Container $container): \Register\Core\Queue\ScheduledMaintenance => new ScheduledMaintenance(
             $container->get(\PDO::class),
             $container->getStringParameter('db_prefix'),
             $container->get(QueuePublisher::class),
@@ -258,14 +258,14 @@ class CmsExtension implements ExtensionInterface
             $container->getBoolParameter('backup_enabled'),
             ...$container->getByTag(ScheduledMaintenanceTaskInterface::class),
         ));
-        $container->set(BackgroundWorkRunner::class, fn(Container $container): \S2\Cms\Queue\BackgroundWorkRunner => new BackgroundWorkRunner(
+        $container->set(BackgroundWorkRunner::class, fn(Container $container): \Register\Core\Queue\BackgroundWorkRunner => new BackgroundWorkRunner(
             $container->get(\PDO::class),
             $container->get(QueueRunnerLease::class),
             $container->get(QueueConsumer::class),
             $container->get(ScheduledMaintenance::class),
             $container->get(LoggerInterface::class),
         ));
-        $container->set(ShutdownWorkCoordinator::class, fn(Container $container): \S2\Cms\Queue\ShutdownWorkCoordinator => new ShutdownWorkCoordinator(
+        $container->set(ShutdownWorkCoordinator::class, fn(Container $container): \Register\Core\Queue\ShutdownWorkCoordinator => new ShutdownWorkCoordinator(
             $container->get(\PDO::class),
             $container->get(LoggerInterface::class),
             new NativeShutdownRuntime(),
@@ -273,7 +273,7 @@ class CmsExtension implements ExtensionInterface
             $container->getFloatParameter('boot_timestamp'),
         ));
 
-        $container->set(UrlBuilder::class, fn(Container $container): \S2\Cms\Model\UrlBuilder => new UrlBuilder(
+        $container->set(UrlBuilder::class, fn(Container $container): \Register\Core\Model\UrlBuilder => new UrlBuilder(
             $container->getStringParameter('base_path'),
             $container->getStringParameter('base_url'),
             $container->getStringParameter('url_prefix'),
@@ -281,11 +281,11 @@ class CmsExtension implements ExtensionInterface
 
         $container->set(RequestStack::class, fn(Container $_container): \Symfony\Component\HttpFoundation\RequestStack => new RequestStack());
 
-        $container->set(SpamIdentityHasher::class, function (Container $container): \S2\Cms\Comment\Antispam\SpamIdentityHasher {
+        $container->set(SpamIdentityHasher::class, function (Container $container): \Register\Core\Comment\Antispam\SpamIdentityHasher {
             $staticSecret = $container->getNullableStringParameter('antispam_secret');
             $secret       = \is_string($staticSecret) && \strlen($staticSecret) >= 32
                 ? $staticSecret
-                : $container->get(DynamicConfigProvider::class)->getStringProxy('S2_ANTISPAM_SECRET');
+                : $container->get(DynamicConfigProvider::class)->getStringProxy('REGISTER_ANTISPAM_SECRET');
 
             return new SpamIdentityHasher($secret);
         });
@@ -318,26 +318,26 @@ class CmsExtension implements ExtensionInterface
             $container->get(SpamTextModelRepository::class),
             $container->get(SpamTextFeatureExtractor::class),
         ));
-        $container->set(SpamAssessmentRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamAssessmentRepository => new SpamAssessmentRepository(
+        $container->set(SpamAssessmentRepository::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamAssessmentRepository => new SpamAssessmentRepository(
             $container->get(DbLayer::class),
         ));
-        $container->set(SpamMetricsRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamMetricsRepository => new SpamMetricsRepository(
+        $container->set(SpamMetricsRepository::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamMetricsRepository => new SpamMetricsRepository(
             $container->get(DbLayer::class),
             $container->get(SpamTextModelRepository::class),
         ));
-        $container->set(SpamReputationRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamReputationRepository => new SpamReputationRepository(
+        $container->set(SpamReputationRepository::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamReputationRepository => new SpamReputationRepository(
             $container->get(DbLayer::class),
         ));
-        $container->set(SpamRuleRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRuleRepository => new SpamRuleRepository(
+        $container->set(SpamRuleRepository::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamRuleRepository => new SpamRuleRepository(
             $container->get(DbLayer::class),
         ));
-        $container->set(SpamSignalPolicyRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamSignalPolicyRepository => new SpamSignalPolicyRepository(
+        $container->set(SpamSignalPolicyRepository::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamSignalPolicyRepository => new SpamSignalPolicyRepository(
             $container->get(DbLayer::class),
         ));
-        $container->set(SpamRatePolicyRepository::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRatePolicyRepository => new SpamRatePolicyRepository(
+        $container->set(SpamRatePolicyRepository::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamRatePolicyRepository => new SpamRatePolicyRepository(
             $container->get(DbLayer::class),
         ));
-        $container->set(SpamRiskScorer::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRiskScorer => new SpamRiskScorer(
+        $container->set(SpamRiskScorer::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamRiskScorer => new SpamRiskScorer(
             $container->get(SpamIdentityHasher::class),
             $container->get(SpamFeatureExtractor::class),
             $container->get(SpamReputationRepository::class),
@@ -345,16 +345,16 @@ class CmsExtension implements ExtensionInterface
             $container->get(SpamSignalPolicyRepository::class),
             $container->get(SpamTextClassifier::class),
         ));
-        $container->set(CommentFormTokenManager::class, fn(Container $container): \S2\Cms\Comment\Antispam\CommentFormTokenManager => new CommentFormTokenManager(
+        $container->set(CommentFormTokenManager::class, fn(Container $container): \Register\Core\Comment\Antispam\CommentFormTokenManager => new CommentFormTokenManager(
             $container->get(SpamIdentityHasher::class),
             $container->get(DbLayer::class),
             $container->getStringParameter('cookie_name'),
             $container->getStringParameter('base_path'),
         ));
-        $container->set(CommentModerationTokenManager::class, fn(Container $container): \S2\Cms\Model\Comment\CommentModerationTokenManager => new CommentModerationTokenManager(
+        $container->set(CommentModerationTokenManager::class, fn(Container $container): \Register\Core\Model\Comment\CommentModerationTokenManager => new CommentModerationTokenManager(
             $container->get(SpamIdentityHasher::class),
         ));
-        $container->set(SpamRateLimiter::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamRateLimiter => new SpamRateLimiter(
+        $container->set(SpamRateLimiter::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamRateLimiter => new SpamRateLimiter(
             $container->get(DbLayer::class),
             $container->get(SpamIdentityHasher::class),
             $container->get(SpamRatePolicyRepository::class),
@@ -365,20 +365,20 @@ class CmsExtension implements ExtensionInterface
             $container->get(SpamIdentityHasher::class),
             $container->get(LoggerInterface::class),
         ));
-        $container->set(SpamMaintenance::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamMaintenance => new SpamMaintenance(
+        $container->set(SpamMaintenance::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamMaintenance => new SpamMaintenance(
             $container->get(DbLayer::class),
             $container->get(SpamRateLimiter::class),
             $container->get(SpamAssessmentRepository::class),
             $container->get(SpamReputationRepository::class),
             $container->get(LoggerInterface::class),
         ));
-        $container->set(SpamMaintenanceQueueHandler::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamMaintenanceQueueHandler => new SpamMaintenanceQueueHandler(
+        $container->set(SpamMaintenanceQueueHandler::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamMaintenanceQueueHandler => new SpamMaintenanceQueueHandler(
             $container->get(SpamMaintenance::class),
             $container->get(QueuePublisher::class),
         ), [QueueHandlerInterface::class]);
 
-        $container->set(HttpClient::class, fn(Container $_container): \S2\Cms\HttpClient\HttpClient => new HttpClient());
-        $container->set('asset_http_client', fn(Container $_container): \S2\Cms\HttpClient\HttpClient => new HttpClient(verifySsl: true));
+        $container->set(HttpClient::class, fn(Container $_container): \Register\Core\HttpClient\HttpClient => new HttpClient());
+        $container->set('asset_http_client', fn(Container $_container): \Register\Core\HttpClient\HttpClient => new HttpClient(verifySsl: true));
         $container->set(HostResolverInterface::class, new NativeHostResolver());
         $container->set(PublicAddressGuard::class, static fn(Container $container): PublicAddressGuard => new PublicAddressGuard(
             $container->get(HostResolverInterface::class),
@@ -388,7 +388,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(PublicAddressGuard::class),
         ));
 
-        $container->set(AssetMergeFactory::class, fn(Container $container): \S2\Cms\Asset\AssetMergeFactory => new AssetMergeFactory(
+        $container->set(AssetMergeFactory::class, fn(Container $container): \Register\Core\Asset\AssetMergeFactory => new AssetMergeFactory(
             $container->get('asset_http_client'),
             $container->get(LoggerInterface::class),
             $container->getBoolParameter('debug'),
@@ -399,7 +399,7 @@ class CmsExtension implements ExtensionInterface
             $container->getBoolParameter('disable_cache'),
         ));
 
-        $container->set(HtmlTemplateProvider::class, function (Container $container): \S2\Cms\Template\HtmlTemplateProvider {
+        $container->set(HtmlTemplateProvider::class, function (Container $container): \Register\Core\Template\HtmlTemplateProvider {
             $provider = $container->get(DynamicConfigProvider::class);
             return new HtmlTemplateProvider(
                 $container->get(RequestStack::class),
@@ -408,12 +408,12 @@ class CmsExtension implements ExtensionInterface
                 $container->get(Viewer::class),
                 $container->get(AssetMergeFactory::class),
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
-                $provider->getStringProxy('S2_STYLE'),
-                $provider->getStringProxy('S2_SITE_NAME'),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
-                $provider->getStringProxy('S2_WEBMASTER'),
-                $provider->getStringProxy('S2_WEBMASTER_EMAIL'),
-                $provider->getIntProxy('S2_START_YEAR'),
+                $provider->getStringProxy('REGISTER_STYLE'),
+                $provider->getStringProxy('REGISTER_SITE_NAME'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
+                $provider->getStringProxy('REGISTER_WEBMASTER'),
+                $provider->getStringProxy('REGISTER_WEBMASTER_EMAIL'),
+                $provider->getIntProxy('REGISTER_START_YEAR'),
                 $container->getBoolParameter('debug_view'),
                 $container->getStringParameter('root_dir'),
                 $container->getStringParameter('base_path'),
@@ -423,13 +423,13 @@ class CmsExtension implements ExtensionInterface
             );
         });
 
-        $container->set(Viewer::class, function (Container $container): \S2\Cms\Template\Viewer {
+        $container->set(Viewer::class, function (Container $container): \Register\Core\Template\Viewer {
             $provider = $container->get(DynamicConfigProvider::class);
             return new Viewer(
                 $container->get('translator'),
                 $container->get(UrlBuilder::class),
                 $container->getStringParameter('root_dir'),
-                $provider->getStringProxy('S2_STYLE'),
+                $provider->getStringProxy('REGISTER_STYLE'),
                 $container->getBoolParameter('debug_view')
             );
         });
@@ -443,18 +443,18 @@ class CmsExtension implements ExtensionInterface
             $container->getStringParameter('image_path'),
         ));
 
-        $container->set('strict_viewer', function (Container $container): \S2\Cms\Template\Viewer {
+        $container->set('strict_viewer', function (Container $container): \Register\Core\Template\Viewer {
             $provider = $container->get(DynamicConfigProvider::class);
             return new Viewer(
                 $container->get('translator'),
                 $container->get(UrlBuilder::class),
                 $container->getStringParameter('root_dir'),
-                $provider->getStringProxy('S2_STYLE'),
+                $provider->getStringProxy('REGISTER_STYLE'),
                 false // no HTML debug info for XML and other non-HTML content
             );
         });
 
-        $container->set(ArticleProvider::class, function (Container $container): \S2\Cms\Model\ArticleProvider {
+        $container->set(ArticleProvider::class, function (Container $container): \Register\Core\Model\ArticleProvider {
             $provider = $container->get(DynamicConfigProvider::class);
             return new ArticleProvider(
                 $container->get(DbLayer::class),
@@ -462,21 +462,21 @@ class CmsExtension implements ExtensionInterface
                 $container->get(\Register\Url\ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->get(Viewer::class),
-                $provider->getStringProxy('S2_FAVORITE_URL'),
-                $provider->getBoolProxy('S2_USE_HIERARCHY'),
+                $provider->getStringProxy('REGISTER_FAVORITE_URL'),
+                $provider->getBoolProxy('REGISTER_USE_HIERARCHY'),
             );
         });
 
-        $container->set(TagsProvider::class, function (Container $container): \S2\Cms\Model\TagsProvider {
+        $container->set(TagsProvider::class, function (Container $container): \Register\Core\Model\TagsProvider {
             $provider = $container->get(DynamicConfigProvider::class);
             return new TagsProvider(
                 $container->get(\Register\Content\TagRepository::class),
                 $container->get(UrlBuilder::class),
-                $provider->getStringProxy('S2_TAGS_URL'),
+                $provider->getStringProxy('REGISTER_TAGS_URL'),
             );
         }, [StatefulServiceInterface::class]);
 
-        $container->set(CommentProvider::class, function (Container $container): \S2\Cms\Model\CommentProvider {
+        $container->set(CommentProvider::class, function (Container $container): \Register\Core\Model\CommentProvider {
             $provider = $container->get(DynamicConfigProvider::class);
             return new CommentProvider(
                 $container->get(DbLayer::class),
@@ -484,23 +484,23 @@ class CmsExtension implements ExtensionInterface
                 $container->get(ArticleProvider::class),
                 $container->get(UrlBuilder::class),
                 $container->get(Viewer::class),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
             );
         });
 
-        $container->set(RedirectDetector::class, fn(Container $container): \S2\Cms\Http\RedirectDetector => new RedirectDetector(
+        $container->set(RedirectDetector::class, fn(Container $container): \Register\Core\Http\RedirectDetector => new RedirectDetector(
             $container->get(UrlBuilder::class),
             $container->getArrayParameter('redirect_map'),
         ));
 
-        $container->set(NotFoundController::class, fn(Container $container): \S2\Cms\Controller\NotFoundController => new NotFoundController(
+        $container->set(NotFoundController::class, fn(Container $container): \Register\Core\Controller\NotFoundController => new NotFoundController(
             $container->get(ArticleProvider::class),
             $container->get(UrlBuilder::class),
             $container->get('translator'),
             $container->get(HtmlTemplateProvider::class),
         ));
 
-        $container->set(PageFavorite::class, fn(Container $container): \S2\Cms\Controller\PageFavorite => new PageFavorite(
+        $container->set(PageFavorite::class, fn(Container $container): \Register\Core\Controller\PageFavorite => new PageFavorite(
             $container->get(FavoriteArticleProvider::class),
             $container->get(ArticleProvider::class),
             $container->get(UrlBuilder::class),
@@ -508,19 +508,19 @@ class CmsExtension implements ExtensionInterface
             $container->get(HtmlTemplateProvider::class),
         ));
 
-        $container->set(FavoriteArticleProvider::class, function (Container $container): \S2\Cms\Model\FavoriteArticleProvider {
+        $container->set(FavoriteArticleProvider::class, function (Container $container): \Register\Core\Model\FavoriteArticleProvider {
             $provider = $container->get(DynamicConfigProvider::class);
             return new FavoriteArticleProvider(
                 $container->get(DbLayer::class),
                 $container->get(ArticleProvider::class),
                 $container->get(UrlBuilder::class),
                 $container->get(Viewer::class),
-                $provider->getStringProxy('S2_FAVORITE_URL'),
-                $provider->getBoolProxy('S2_USE_HIERARCHY'),
+                $provider->getStringProxy('REGISTER_FAVORITE_URL'),
+                $provider->getBoolProxy('REGISTER_USE_HIERARCHY'),
             );
         });
 
-        $container->set(PageTags::class, fn(Container $container): \S2\Cms\Controller\PageTags => new PageTags(
+        $container->set(PageTags::class, fn(Container $container): \Register\Core\Controller\PageTags => new PageTags(
             $container->get(TagsProvider::class),
             $container->get(ArticleProvider::class),
             $container->get(UrlBuilder::class),
@@ -529,7 +529,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(Viewer::class),
         ));
 
-        $container->set(PageTag::class, function (Container $container): \S2\Cms\Controller\PageTag {
+        $container->set(PageTag::class, function (Container $container): \Register\Core\Controller\PageTag {
             $provider = $container->get(DynamicConfigProvider::class);
             return new PageTag(
                 $container->get(DbLayer::class),
@@ -539,13 +539,13 @@ class CmsExtension implements ExtensionInterface
                 $container->get('translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
-                $provider->getStringProxy('S2_TAGS_URL'),
-                $provider->getStringProxy('S2_FAVORITE_URL'),
-                $provider->getBoolProxy('S2_USE_HIERARCHY'),
+                $provider->getStringProxy('REGISTER_TAGS_URL'),
+                $provider->getStringProxy('REGISTER_FAVORITE_URL'),
+                $provider->getBoolProxy('REGISTER_USE_HIERARCHY'),
             );
         });
 
-        $container->set(PageCommon::class, function (Container $container): \S2\Cms\Controller\PageCommon {
+        $container->set(PageCommon::class, function (Container $container): \Register\Core\Controller\PageCommon {
             $provider = $container->get(DynamicConfigProvider::class);
             return new PageCommon(
                 $container->get(DbLayer::class),
@@ -558,25 +558,25 @@ class CmsExtension implements ExtensionInterface
                 $container->get(Viewer::class),
                 $container->get(\Register\Comment\ContentCommentRenderer::class),
                 $container->get(\Register\Live\LiveUpdateContext::class),
-                $provider->getBoolProxy('S2_USE_HIERARCHY'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getStringProxy('S2_TAGS_URL'),
-                $provider->getStringProxy('S2_FAVORITE_URL'),
-                $provider->getIntProxy('S2_MAX_ITEMS'),
+                $provider->getBoolProxy('REGISTER_USE_HIERARCHY'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getStringProxy('REGISTER_TAGS_URL'),
+                $provider->getStringProxy('REGISTER_FAVORITE_URL'),
+                $provider->getIntProxy('REGISTER_MAX_ITEMS'),
                 $container->getBoolParameter('debug'),
             );
         });
 
-        $container->set(CommentMailer::class, function (Container $container): \S2\Cms\Mail\CommentMailer {
+        $container->set(CommentMailer::class, function (Container $container): \Register\Core\Mail\CommentMailer {
             $provider = $container->get(DynamicConfigProvider::class);
             return new CommentMailer(
                 $container->get('comments_translator'),
-                $provider->getStringProxy('S2_WEBMASTER'),
-                $provider->getStringProxy('S2_WEBMASTER_EMAIL'),
+                $provider->getStringProxy('REGISTER_WEBMASTER'),
+                $provider->getStringProxy('REGISTER_WEBMASTER_EMAIL'),
             );
         });
 
-        $container->set(SpamFeedbackService::class, fn(Container $container): \S2\Cms\Comment\Antispam\SpamFeedbackService => new SpamFeedbackService(
+        $container->set(SpamFeedbackService::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamFeedbackService => new SpamFeedbackService(
             $container->get(\Register\Comment\CommentRepository::class),
             $container->get(SpamIdentityHasher::class),
             $container->get(SpamFeatureExtractor::class),
@@ -585,7 +585,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(ContentCommentNotifier::class),
         ));
 
-        $container->set(CommentModerationController::class, fn(Container $container): \S2\Cms\Controller\CommentModerationController => new CommentModerationController(
+        $container->set(CommentModerationController::class, fn(Container $container): \Register\Core\Controller\CommentModerationController => new CommentModerationController(
             $container->get(\Register\Comment\CommentRepository::class),
             $container->get(AuthProvider::class),
             $container->get(CommentModerationTokenManager::class),
@@ -602,26 +602,26 @@ class CmsExtension implements ExtensionInterface
             return $translator;
         });
 
-        $container->set(AuthProvider::class, fn(Container $container): \S2\Cms\Model\AuthProvider => new AuthProvider(
+        $container->set(AuthProvider::class, fn(Container $container): \Register\Core\Model\AuthProvider => new AuthProvider(
             $container->get(DbLayer::class),
             $container->getStringParameter('cookie_name'),
         ));
 
-        $container->set(UserProvider::class, fn(Container $container): \S2\Cms\Model\User\UserProvider => new UserProvider(
+        $container->set(UserProvider::class, fn(Container $container): \Register\Core\Model\User\UserProvider => new UserProvider(
             $container->get(DbLayer::class),
         ));
 
-        $container->set(AkismetProxy::class, function (Container $container): \S2\Cms\Comment\AkismetProxy {
+        $container->set(AkismetProxy::class, function (Container $container): \Register\Core\Comment\AkismetProxy {
             $provider = $container->get(DynamicConfigProvider::class);
             return new AkismetProxy(
                 $container->get(HttpClient::class),
                 $container->get(UrlBuilder::class),
                 $container->get(LoggerInterface::class),
-                $provider->getStringProxy('S2_AKISMET_KEY'),
+                $provider->getStringProxy('REGISTER_AKISMET_KEY'),
             );
         });
 
-        $container->set(LocalSpamDetector::class, function (Container $container): \S2\Cms\Comment\Antispam\LocalSpamDetector {
+        $container->set(LocalSpamDetector::class, function (Container $container): \Register\Core\Comment\Antispam\LocalSpamDetector {
             $provider = $container->get(DynamicConfigProvider::class);
             return new LocalSpamDetector(
                 $container->get(SpamRiskScorer::class),
@@ -629,28 +629,28 @@ class CmsExtension implements ExtensionInterface
                 $container->get(SpamIdentityHasher::class),
                 $container->get(SpamFeatureExtractor::class),
                 $container->get(LoggerInterface::class),
-                $provider->getIntProxy('S2_ANTISPAM_SPAM_SCORE'),
-                $provider->getIntProxy('S2_ANTISPAM_BLATANT_SCORE'),
+                $provider->getIntProxy('REGISTER_ANTISPAM_SPAM_SCORE'),
+                $provider->getIntProxy('REGISTER_ANTISPAM_BLATANT_SCORE'),
             );
         });
 
-        $container->set(SpamDetectorInterface::class, function (Container $container): \S2\Cms\Comment\Antispam\ConfigurableSpamDetector {
+        $container->set(SpamDetectorInterface::class, function (Container $container): \Register\Core\Comment\Antispam\ConfigurableSpamDetector {
             $provider = $container->get(DynamicConfigProvider::class);
             return new ConfigurableSpamDetector(
                 $container->get(LocalSpamDetector::class),
                 $container->get(AkismetProxy::class),
                 $container->get(SpamAssessmentRepository::class),
-                $provider->getStringProxy('S2_ANTISPAM_MODE'),
+                $provider->getStringProxy('REGISTER_ANTISPAM_MODE'),
                 $container->get(LoggerInterface::class),
             );
         }, ['dynamic_config_dependent']);
 
-        $container->set(SpamDecisionProviderInterface::class, fn(Container $container): \S2\Cms\Comment\SpamDecisionProvider => new SpamDecisionProvider(
+        $container->set(SpamDecisionProviderInterface::class, fn(Container $container): \Register\Core\Comment\SpamDecisionProvider => new SpamDecisionProvider(
             $container->get(SpamDetectorInterface::class),
             $container->get(SpamFeatureExtractor::class),
         ));
 
-        $container->set(CommentController::class, function (Container $container): \S2\Cms\Controller\CommentController {
+        $container->set(CommentController::class, function (Container $container): \Register\Core\Controller\CommentController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new CommentController(
                 $container->get(AuthProvider::class),
@@ -666,12 +666,12 @@ class CmsExtension implements ExtensionInterface
                 $container->get(CommentFormTokenManager::class),
                 $container->get(SpamRateLimiter::class),
                 $container->get(SpamAssessmentRepository::class),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
-                $provider->getBoolProxy('S2_PREMODERATION'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_PREMODERATION'),
             );
         }, ['dynamic_config_dependent']);
 
-        $container->set(CommentSentController::class, fn(Container $container): \S2\Cms\Controller\CommentSentController => new CommentSentController(
+        $container->set(CommentSentController::class, fn(Container $container): \Register\Core\Controller\CommentSentController => new CommentSentController(
             $container->get(AuthProvider::class),
             $container->get(UserProvider::class),
             $container->get('comments_translator'),
@@ -681,7 +681,7 @@ class CmsExtension implements ExtensionInterface
             ...$container->getByTag(CommentStrategyInterface::class)
         ), ['dynamic_config_dependent']);
 
-        $container->set(CommentUnsubscribeController::class, fn(Container $container): \S2\Cms\Controller\CommentUnsubscribeController => new CommentUnsubscribeController(
+        $container->set(CommentUnsubscribeController::class, fn(Container $container): \Register\Core\Controller\CommentUnsubscribeController => new CommentUnsubscribeController(
             $container->get('comments_translator'),
             $container->get(HtmlTemplateProvider::class),
             ...$container->getByTag(CommentStrategyInterface::class)
@@ -709,26 +709,26 @@ class CmsExtension implements ExtensionInterface
         $eventDispatcher->addListener(TemplateEvent::EVENT_CREATED, function (TemplateEvent $event) use ($container): void {
             $template = $event->htmlTemplate;
 
-            if ($template->hasPlaceholder('<!-- s2_last_articles -->')) {
+            if ($template->hasPlaceholder('<!-- register_last_articles -->')) {
                 $articleProvider = $container->get(ArticleProvider::class);
-                $template->registerPlaceholder('<!-- s2_last_articles -->', $articleProvider->lastArticlesPlaceholder(5));
+                $template->registerPlaceholder('<!-- register_last_articles -->', $articleProvider->lastArticlesPlaceholder(5));
             }
 
-            if ($template->hasPlaceholder('<!-- s2_tags_list -->')) {
+            if ($template->hasPlaceholder('<!-- register_tags_list -->')) {
                 $tagsProvider = $container->get(TagsProvider::class);
                 $tagsList     = $tagsProvider->tagsList();
 
                 if (\count($tagsList) > 0) {
                     $viewer = $container->get(Viewer::class);
-                    $template->registerPlaceholder('<!-- s2_tags_list -->', $viewer->render('tags_list', [
+                    $template->registerPlaceholder('<!-- register_tags_list -->', $viewer->render('tags_list', [
                         'tags' => $tagsList,
                     ]));
                 } else {
-                    $template->registerPlaceholder('<!-- s2_tags_list -->', '');
+                    $template->registerPlaceholder('<!-- register_tags_list -->', '');
                 }
             }
 
-            if ($template->hasPlaceholder('<!-- s2_last_comments -->')) {
+            if ($template->hasPlaceholder('<!-- register_last_comments -->')) {
                 $commentProvider = $container->get(CommentProvider::class);
                 $lastComments    = $commentProvider->lastArticleComments();
 
@@ -736,16 +736,16 @@ class CmsExtension implements ExtensionInterface
                     $viewer = $container->get(Viewer::class);
                     /** @var TranslatorInterface $translator */
                     $translator = $container->get('translator');
-                    $template->registerPlaceholder('<!-- s2_last_comments -->', $viewer->render('menu_comments', [
+                    $template->registerPlaceholder('<!-- register_last_comments -->', $viewer->render('menu_comments', [
                         'title' => $translator->trans('Last comments'),
                         'menu'  => $lastComments,
                     ]));
                 } else {
-                    $template->registerPlaceholder('<!-- s2_last_comments -->', '');
+                    $template->registerPlaceholder('<!-- register_last_comments -->', '');
                 }
             }
 
-            if ($template->hasPlaceholder('<!-- s2_last_discussions -->')) {
+            if ($template->hasPlaceholder('<!-- register_last_discussions -->')) {
                 $commentProvider = $container->get(CommentProvider::class);
                 $lastDiscussions = $commentProvider->lastDiscussions();
 
@@ -753,29 +753,29 @@ class CmsExtension implements ExtensionInterface
                     $viewer = $container->get(Viewer::class);
                     /** @var TranslatorInterface $translator */
                     $translator = $container->get('translator');
-                    $template->registerPlaceholder('<!-- s2_last_discussions -->', $viewer->render('menu_block', [
+                    $template->registerPlaceholder('<!-- register_last_discussions -->', $viewer->render('menu_block', [
                         'title' => $translator->trans('Last discussions'),
                         'menu'  => $lastDiscussions,
                     ]));
                 } else {
-                    $template->registerPlaceholder('<!-- s2_last_discussions -->', '');
+                    $template->registerPlaceholder('<!-- register_last_discussions -->', '');
                 }
             }
         });
 
         $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, function (TemplateEvent $event) use ($container): void {
-            $s2DebugOutput = '';
+            $registerDebugOutput = '';
             if ($container->getBoolParameter('show_queries')) {
                 $pdo     = $container->getIfInstantiated(\PDO::class);
                 $pdoLogs = $pdo instanceof PDO ? $pdo->cleanLogs() : [];
 
                 $viewer        = $container->get(Viewer::class);
-                $s2DebugOutput = $viewer->render('debug_queries', [
+                $registerDebugOutput = $viewer->render('debug_queries', [
                     'saved_queries' => $pdoLogs,
                 ]);
             }
 
-            $event->htmlTemplate->registerPlaceholder('<!-- s2_debug -->', $s2DebugOutput);
+            $event->htmlTemplate->registerPlaceholder('<!-- register_debug -->', $registerDebugOutput);
         });
 
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
@@ -787,7 +787,7 @@ class CmsExtension implements ExtensionInterface
             $content = '';
             $request = $container->get(RequestStack::class)->getCurrentRequest();
             if (
-                ($container->getBoolParameter('debug') || defined('S2_SHOW_TIME'))
+                ($container->getBoolParameter('debug') || defined('REGISTER_SHOW_TIME'))
                 && $request instanceof Request
                 && $container->get(AuthProvider::class)->isAuthenticatedAdministrator($request)
             ) {
@@ -805,7 +805,7 @@ class CmsExtension implements ExtensionInterface
                 ) . '</span>';
             }
 
-            $event->replace('<!-- s2_querytime -->', $content);
+            $event->replace('<!-- register_querytime -->', $content);
         }, -256);
 
         $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, static function (TemplateFinalReplaceEvent $event) use ($container): void {
@@ -817,8 +817,8 @@ class CmsExtension implements ExtensionInterface
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
         $configProvider = $container->get(DynamicConfigProvider::class);
-        $favoriteUrl    = $configProvider->getStringProxy('S2_FAVORITE_URL')->get();
-        $tagsUrl        = $configProvider->getStringProxy('S2_TAGS_URL')->get();
+        $favoriteUrl    = $configProvider->getStringProxy('REGISTER_FAVORITE_URL')->get();
+        $tagsUrl        = $configProvider->getStringProxy('REGISTER_TAGS_URL')->get();
 
         $routes->add('csp_report', new Route(
             ContentSecurityPolicy::REPORT_PATH,

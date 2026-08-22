@@ -7,15 +7,15 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Extractor\HtmlRegex;
+namespace Register\Rose\Extractor\HtmlRegex;
 
-use S2\Rose\Entity\ContentWithMetadata;
-use S2\Rose\Entity\Metadata\ImgCollection;
-use S2\Rose\Entity\Metadata\SentenceMap;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Extractor\ExtractionErrors;
-use S2\Rose\Extractor\ExtractionResult;
-use S2\Rose\Extractor\ExtractorInterface;
+use Register\Rose\Entity\ContentWithMetadata;
+use Register\Rose\Entity\Metadata\ImgCollection;
+use Register\Rose\Entity\Metadata\SentenceMap;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Extractor\ExtractionErrors;
+use Register\Rose\Extractor\ExtractionResult;
+use Register\Rose\Extractor\ExtractorInterface;
 
 class RegexExtractor implements ExtractorInterface
 {

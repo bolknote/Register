@@ -8,7 +8,7 @@ declare(strict_types = 1);
  * @var string $version
  * @var int $maxContentTime
  * @var string $items
- * @var \S2\Cms\Controller\Rss\FeedDto $feedInfo
+ * @var \Register\Core\Controller\Rss\FeedDto $feedInfo
  */
 
 echo '<?xml version="1.0" encoding="utf-8"?>'."\n".
@@ -17,9 +17,9 @@ echo '<?xml version="1.0" encoding="utf-8"?>'."\n".
 ?>
 	<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
 		<channel>
-			<title><?php echo s2_htmlencode($feedInfo->title); ?></title>
+			<title><?php echo register_htmlencode($feedInfo->title); ?></title>
 			<link><?php echo $feedInfo->link; ?></link>
-			<description><?php echo s2_htmlencode($feedInfo->description); ?></description>
+			<description><?php echo register_htmlencode($feedInfo->description); ?></description>
 			<generator>Register v<?php echo $version; ?></generator>
 			<ttl>10</ttl>
 			<atom:link href="<?php echo $selfLink; ?>" rel="self" type="application/rss+xml" />

@@ -2,14 +2,14 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Model\Article;
+namespace Register\Core\Model\Article;
 
-use S2\Cms\Template\HtmlTemplate;
+use Register\Core\Template\HtmlTemplate;
 
 readonly class ArticleRenderedEvent
 {

@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace Register\Module\Analytics;
 
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Controller\Rss\RssStrategyInterface;
+use Register\Core\Config\StringProxy;
+use Register\Core\Controller\Rss\RssStrategyInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 final class AnalyticsRecorder

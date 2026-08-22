@@ -29,7 +29,7 @@
         : $trans('Automatic backups disabled') ?></p>
     <p class="technical-data backup-encryption"><?= $trans('Backup encryption status') ?></p>
     <form class="backup-actions" method="post" action="<?= $basePath ?>/_admin/ajax.php?action=register_backup_create">
-        <input type="hidden" name="csrf_token" value="<?= s2_htmlencode($csrfToken) ?>">
+        <input type="hidden" name="csrf_token" value="<?= register_htmlencode($csrfToken) ?>">
         <label>
             <span><?= $trans('Current password') ?></span>
             <input type="password" name="password" autocomplete="current-password" maxlength="255" required>

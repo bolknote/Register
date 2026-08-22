@@ -7,15 +7,15 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Presentation;
+namespace Register\Extension\activitypub\Presentation;
 
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorKey;
-use s2_extensions\activitypub\Domain\LocalActorState;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\FederationUrlGeneratorFactory;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorKey;
+use Register\Extension\activitypub\Domain\LocalActorState;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
 
 final readonly class ActorDocumentBuilder
 {
@@ -115,7 +115,7 @@ final readonly class ActorDocumentBuilder
         ));
         if ($aliases !== []) {
             $origin = $state->canonicalOrigin;
-            if (!$origin instanceof \s2_extensions\activitypub\Domain\CanonicalOrigin) {
+            if (!$origin instanceof \Register\Extension\activitypub\Domain\CanonicalOrigin) {
                 throw new \RuntimeException('A public ActivityPub actor has no canonical origin.');
             }
 

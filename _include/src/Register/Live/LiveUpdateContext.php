@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Live;
 
 use Register\Content\ContentId;
-use S2\Cms\Framework\StatefulServiceInterface;
+use Register\Core\Framework\StatefulServiceInterface;
 
 /** Collects live regions while one server-rendered page is being built. */
 final class LiveUpdateContext implements StatefulServiceInterface

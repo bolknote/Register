@@ -7,16 +7,16 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Controller;
+namespace Register\Extension\activitypub\Controller;
 
-use S2\Cms\Framework\ControllerInterface;
-use s2_extensions\activitypub\Application\PublicFederationAccess;
-use s2_extensions\activitypub\Application\ActivationProbeService;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorState;
-use s2_extensions\activitypub\Http\ActivityPubResponseFactory;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Presentation\ActorDocumentBuilder;
+use Register\Core\Framework\ControllerInterface;
+use Register\Extension\activitypub\Application\PublicFederationAccess;
+use Register\Extension\activitypub\Application\ActivationProbeService;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorState;
+use Register\Extension\activitypub\Http\ActivityPubResponseFactory;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Presentation\ActorDocumentBuilder;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

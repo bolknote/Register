@@ -1,6 +1,6 @@
 /** Side-effect-free ActivityPub preview for the current unsaved editor form. */
 
-import {s2_codemirror} from './codemirror.js';
+import {register_codemirror} from './codemirror.js';
 
 export function initActivityPubPreview(form, config) {
     if (!form || !config || !config.enabled) {
@@ -54,7 +54,7 @@ export function initActivityPubPreview(form, config) {
         setStatus(config.working, false);
         result.hidden = true;
 
-        s2_codemirror.flip();
+        register_codemirror.flip();
         const data = new FormData(form);
         data.set('entity_name', config.entityName);
         data.set('content_id', String(config.contentId || 0));
@@ -66,7 +66,7 @@ export function initActivityPubPreview(form, config) {
                 headers: {'X-Requested-With': 'XMLHttpRequest'},
                 body: data,
                 signal: controller.signal,
-                s2HandleErrorsInline: true
+                registerHandleErrorsInline: true
             });
             let payload = null;
             try {

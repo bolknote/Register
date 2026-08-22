@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Security;
+namespace Register\Extension\activitypub\Security;
 
 /** Immutable transport view used identically by HTTP signature signers and verifiers. */
 final readonly class HttpSignatureRequest

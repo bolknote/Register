@@ -21,14 +21,14 @@ if (!isset($this)) {
 
 ?>
 <!DOCTYPE html>
-<html lang="<?= $locale ?>" data-color-scheme="<?= s2_htmlencode($styleColorScheme()) ?>">
+<html lang="<?= $locale ?>" data-color-scheme="<?= register_htmlencode($styleColorScheme()) ?>">
 <head>
     <meta charset="utf-8">
-    <title><?php echo $trans('Admin panel'), $param('S2_SITE_NAME') ? ' - ' . $param('S2_SITE_NAME') : ''; ?></title>
+    <title><?php echo $trans('Admin panel'), $param('REGISTER_SITE_NAME') ? ' - ' . $param('REGISTER_SITE_NAME') : ''; ?></title>
     <meta name="ROBOTS" content="NOINDEX, NOFOLLOW">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/svg+xml" href="<?= $basePath ?>/_styles/register/favicon.svg">
-    <link rel="stylesheet" href="<?php echo $basePath; ?>/_vendor/s2/admin-yard/demo/style.css">
+    <link rel="stylesheet" href="<?php echo $basePath; ?>/_assets/register/admin-yard/style.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
     <link id="admin-theme-stylesheet" rel="stylesheet" href="<?= $basePath ?>/_admin/index.php?action=theme-stylesheet">
@@ -38,7 +38,7 @@ if (!isset($this)) {
     <?php endforeach; ?>
 
     <script src="<?= $basePath ?>/_assets/register/local-time.js"></script>
-    <script src="<?php echo $basePath; ?>/_vendor/s2/admin-yard/demo/script.js"></script>
+    <script src="<?php echo $basePath; ?>/_assets/register/admin-yard/script.js"></script>
     <script src="<?= $basePath ?>/_admin/js/lib.js"></script>
     <?php foreach ($extraScripts as $script): ?>
         <script src="<?= $script ?>"></script>

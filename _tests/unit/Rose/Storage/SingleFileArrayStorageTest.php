@@ -9,12 +9,12 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test\Storage;
+namespace Register\Rose\Test\Storage;
 
 use Codeception\Test\Unit;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\TocEntry;
-use S2\Rose\Storage\File\SingleFileArrayStorage;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\TocEntry;
+use Register\Rose\Storage\File\SingleFileArrayStorage;
 
 /**
  * @group storage
@@ -58,9 +58,9 @@ final class SingleFileArrayStorageTest extends Unit
 
         $entry1 = $storage->getTocByExternalId(new ExternalId('test_id_1'));
         $entry2 = $storage->getTocByExternalId(new ExternalId('test_id_2'));
-        self::assertInstanceOf(\S2\Rose\Entity\TocEntry::class, $entry1);
+        self::assertInstanceOf(\Register\Rose\Entity\TocEntry::class, $entry1);
         self::assertSame(1, $entry1->getInternalId());
-        self::assertInstanceOf(\S2\Rose\Entity\TocEntry::class, $entry2);
+        self::assertInstanceOf(\Register\Rose\Entity\TocEntry::class, $entry2);
         self::assertSame(2, $entry2->getInternalId());
 
         $storage->addToFulltextIndex(['titleword'], ['keyword1', 'keyword2'], [1 => 'hello', 2 => 'world', 3=>'world'], new ExternalId('test_id_1'));
@@ -85,12 +85,12 @@ final class SingleFileArrayStorageTest extends Unit
         $storage->load();
 
         $entry1 = $storage->getTocByExternalId(new ExternalId('test_id_1'));
-        self::assertInstanceOf(\S2\Rose\Entity\TocEntry::class, $entry1);
+        self::assertInstanceOf(\Register\Rose\Entity\TocEntry::class, $entry1);
         self::assertSame('test title 1', $entry1->getTitle());
         self::assertSame('4567890lkjhgfd', $entry1->getHash());
 
         $entry3 = $storage->getTocByExternalId(new ExternalId('test_id_3'));
-        self::assertNotInstanceOf(\S2\Rose\Entity\TocEntry::class, $entry3);
+        self::assertNotInstanceOf(\Register\Rose\Entity\TocEntry::class, $entry3);
 
         $storage->addToFulltextIndex([], [], [10 => 'hello', 20 => 'world'], new ExternalId('test_id_2'));
 

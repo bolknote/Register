@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Media;
+namespace Register\Extension\activitypub\Media;
 
 final readonly class InspectedRemoteAvatar
 {

@@ -6,10 +6,10 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Entity;
+namespace Register\Rose\Entity;
 
 /**
- * @see \S2\Rose\Test\Entity\SnippetTest
+ * @see \Register\Rose\Test\Entity\SnippetTest
  */
 class Snippet
 {

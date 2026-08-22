@@ -1,16 +1,16 @@
-.s2-image-overlay-wrap {
+.register-image-overlay-wrap {
     position: relative;
     display: inline-block;
     max-width: 100%;
 }
 
-.s2-image-overlay-wrap > img {
+.register-image-overlay-wrap > img {
     display: block;
     max-width: 100%;
     height: auto;
 }
 
-.s2-image-overlay {
+.register-image-overlay {
     position: absolute;
     top: 8px;
     left: 8px;
@@ -24,15 +24,15 @@
     font: 12px/1.35 "Trebuchet MS", Verdana, sans-serif;
 }
 
-.s2-image-overlay[data-status="done"] {
+.register-image-overlay[data-status="done"] {
     background: rgb(16 28 18 / 0.88);
 }
 
-.s2-image-overlay[data-status="uploading"] {
+.register-image-overlay[data-status="uploading"] {
     background: rgb(32 24 12 / 0.9);
 }
 
-.s2-image-overlay-controls {
+.register-image-overlay-controls {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -41,12 +41,12 @@
     margin: 6px 0;
 }
 
-.s2-image-overlay-group {
+.register-image-overlay-group {
     display: flex;
     gap: 4px;
 }
 
-.s2-image-overlay-controls button {
+.register-image-overlay-controls button {
     padding: 2px 6px;
     border: 1px solid rgb(255 255 255 / 0.3);
     border-radius: 3px;
@@ -56,23 +56,23 @@
     cursor: pointer;
 }
 
-.s2-image-overlay-controls button.is-active {
+.register-image-overlay-controls button.is-active {
     border-color: #f5d66c;
     background: #f5d66c;
     color: #1e1e1e;
 }
 
-.s2-image-overlay-line {
+.register-image-overlay-line {
     margin: 2px 0;
     white-space: nowrap;
 }
 
-.s2-image-overlay-formats {
+.register-image-overlay-formats {
     display: grid;
     row-gap: 4px;
 }
 
-.s2-image-format {
+.register-image-format {
     display: grid;
     grid-template-columns: 16px 44px max-content 1fr;
     align-items: center;
@@ -80,29 +80,29 @@
     font-size: 11px;
 }
 
-.s2-image-format input {
+.register-image-format input {
     margin: 0 2px 0 0;
 }
 
-.s2-image-format .s2-format-name {
+.register-image-format .register-format-name {
     width: 44px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
 
-.s2-image-format .s2-format-size {
+.register-image-format .register-format-size {
     text-align: right;
 }
 
-.s2-image-format .s2-format-info {
+.register-image-format .register-format-info {
     opacity: 0.75;
 }
 
-.s2-image-format.is-best {
+.register-image-format.is-best {
     color: #f5d66c;
 }
 
-.s2-image-overlay-close {
+.register-image-overlay-close {
     position: absolute;
     top: 6px;
     right: 6px;

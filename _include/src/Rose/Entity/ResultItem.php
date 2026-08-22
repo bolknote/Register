@@ -6,13 +6,13 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Entity;
+namespace Register\Rose\Entity;
 
-use S2\Rose\Entity\Metadata\ImgCollection;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Exception\InvalidArgumentException;
-use S2\Rose\Exception\RuntimeException;
-use S2\Rose\Stemmer\StemmerInterface;
+use Register\Rose\Entity\Metadata\ImgCollection;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Exception\InvalidArgumentException;
+use Register\Rose\Exception\RuntimeException;
+use Register\Rose\Stemmer\StemmerInterface;
 
 class ResultItem
 {
@@ -86,7 +86,7 @@ class ResultItem
 
     public function getSnippet(): string
     {
-        if (!$this->snippet instanceof \S2\Rose\Entity\Snippet) {
+        if (!$this->snippet instanceof \Register\Rose\Entity\Snippet) {
             return $this->description;
         }
 
@@ -100,7 +100,7 @@ class ResultItem
 
     public function getFormattedSnippet(): string
     {
-        if (!$this->snippet instanceof \S2\Rose\Entity\Snippet) {
+        if (!$this->snippet instanceof \Register\Rose\Entity\Snippet) {
             return $this->description;
         }
 

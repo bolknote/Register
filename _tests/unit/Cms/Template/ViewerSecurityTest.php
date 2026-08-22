@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,16 +10,16 @@ declare(strict_types = 1);
 namespace unit\Cms\Template;
 
 use Codeception\Test\Unit;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Template\Viewer;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class ViewerSecurityTest extends Unit
 {
     public function testTemplateVariablesCannotReplaceSelectedFileOrHelpers(): void
     {
-        $rootDir = \sys_get_temp_dir() . '/s2_viewer_security_' . \bin2hex(\random_bytes(8)) . '/';
+        $rootDir = \sys_get_temp_dir() . '/register_viewer_security_' . \bin2hex(\random_bytes(8)) . '/';
         $viewDir = $rootDir . '_include/views/';
         self::assertTrue(mkdir($viewDir, 0700, true));
 
@@ -57,12 +57,12 @@ final class ViewerSecurityTest extends Unit
         }
     }
 
-    private function styleProxy(): \S2\Cms\Config\StringProxy
+    private function styleProxy(): \Register\Core\Config\StringProxy
     {
         $provider = new DynamicConfigProvider();
         $reflection = new \ReflectionClass($provider);
-        $reflection->getProperty('params')->setValue($provider, ['S2_STYLE' => 'register']);
+        $reflection->getProperty('params')->setValue($provider, ['REGISTER_STYLE' => 'register']);
 
-        return $provider->getStringProxy('S2_STYLE');
+        return $provider->getStringProxy('REGISTER_STYLE');
     }
 }

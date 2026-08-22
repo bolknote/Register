@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Inplace;
 
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
-use S2\Cms\Model\AuthenticatedPublicUser;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Model\AuthenticatedPublicUser;
 
 /** Issues a session-bound token for public-side post mutations. */
 final readonly class PostInplaceTokenManager

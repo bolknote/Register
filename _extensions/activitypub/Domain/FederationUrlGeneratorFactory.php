@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Domain;
+namespace Register\Extension\activitypub\Domain;
 
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
 
 final readonly class FederationUrlGeneratorFactory
 {

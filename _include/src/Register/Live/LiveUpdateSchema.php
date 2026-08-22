@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Live;
 
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
 
 /** Stores a monotonic, payload-free change journal for live browser regions. */
 final class LiveUpdateSchema

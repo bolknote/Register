@@ -3,12 +3,12 @@
 /**
  * @copyright 2009-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Helper;
+namespace Register\Core\Helper;
 
 class StringHelper
 {
@@ -176,7 +176,7 @@ class StringHelper
                     'AUDIO' => '<span class="comment-media"><audio src="' . $url
                         . '" controls preload="metadata"></audio></span>',
                     'FILE' => '<a class="comment-media-file" href="' . $url . '">'
-                        . s2_htmlencode(rawurldecode(basename($url))) . '</a>',
+                        . register_htmlencode(rawurldecode(basename($url))) . '</a>',
                     default => throw new \LogicException('Unsupported managed comment attachment.'),
                 };
             },

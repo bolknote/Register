@@ -9,7 +9,7 @@ if ($roseTestProcessId === false) {
 
 $roseTestDatabase = sys_get_temp_dir() . '/register-rose-' . $roseTestProcessId . '.sqlite';
 
-$GLOBALS['s2_rose_test_db'] = [
+$GLOBALS['register_rose_test_db'] = [
     'dsn'      => 'sqlite:' . $roseTestDatabase,
     'username' => '',
     'passwd'   => '',

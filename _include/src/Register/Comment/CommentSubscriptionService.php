@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Comment;
 
 use Register\Content\ContentId;
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
 
 final readonly class CommentSubscriptionService
 {

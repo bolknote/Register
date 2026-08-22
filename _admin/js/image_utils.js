@@ -1,9 +1,9 @@
 /**
- * Image analysis and compression helpers for the editor image pipeline in S2.
+ * Image analysis and compression helpers for the editor image pipeline in Register.
  *
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 function fileToImage(file) {

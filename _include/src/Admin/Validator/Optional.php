@@ -2,9 +2,9 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Validator;
+namespace Register\Core\Admin\Validator;
 
-use S2\AdminYard\Validator\ValidatorInterface;
+use Register\AdminYard\Validator\ValidatorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final readonly class Optional implements ValidatorInterface

@@ -8,4 +8,4 @@ declare(strict_types = 1);
  * @var string $title
  */
 ?>
-<span class="tag-title"><?php echo s2_htmlencode($title); ?></span>
+<span class="tag-title"><?php echo register_htmlencode($title); ?></span>

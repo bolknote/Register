@@ -8,7 +8,7 @@ declare(strict_types = 1);
 /** @var array $header */
 /** @var array $hint */
 /** @var array $errorMessages */
-/** @var \S2\AdminYard\Form\Form $form */
+/** @var \Register\AdminYard\Form\Form $form */
 /** @var string $csrfToken */
 /** @var array $primaryKey */
 /** @var array $actions */

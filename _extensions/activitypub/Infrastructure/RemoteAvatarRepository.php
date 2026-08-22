@@ -7,12 +7,12 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\QueryBuilder\UpdateBuilder;
-use s2_extensions\activitypub\Domain\PublicIdGenerator;
-use s2_extensions\activitypub\Media\InspectedRemoteAvatar;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\QueryBuilder\UpdateBuilder;
+use Register\Extension\activitypub\Domain\PublicIdGenerator;
+use Register\Extension\activitypub\Media\InspectedRemoteAvatar;
 
 /** Durable truth for privacy-preserving remote avatar mirroring. */
 final readonly class RemoteAvatarRepository

@@ -3,7 +3,7 @@
  *
  * @copyright 2025-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 import {smartParagraphs} from './text/paragraphs.js';
 import {editorDeps} from './deps.js';
@@ -29,7 +29,7 @@ function accessibleTextareaLabel(textarea) {
     return textarea.name || 'Text';
 }
 
-const s2_codemirror = (function () {
+const register_codemirror = (function () {
     let instance, scrollTop = null;
     let aiChangeMarkers = [];
     let applyingAiChanges = false;
@@ -609,8 +609,8 @@ const s2_codemirror = (function () {
     return api;
 }());
 
-document.addEventListener('check_changes_start.s2', s2_codemirror.flip);
-document.addEventListener('save_article_start.s2', s2_codemirror.flip);
-document.addEventListener('changes_present.s2', s2_codemirror.flip);
+document.addEventListener('check_changes_start.register', register_codemirror.flip);
+document.addEventListener('save_article_start.register', register_codemirror.flip);
+document.addEventListener('changes_present.register', register_codemirror.flip);
 
-export {s2_codemirror};
+export {register_codemirror};

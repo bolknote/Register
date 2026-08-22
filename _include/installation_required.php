@@ -2,7 +2,7 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  *
  * @var string $installationPath
  * @var string $configFilename
@@ -23,7 +23,7 @@ if ($publicAssetPath === '/' || $publicAssetPath === '.') {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Register Setup Required</title>
-    <link rel="stylesheet" href="<?= s2_htmlencode($publicAssetPath . '/_assets/register/standalone.css') ?>">
+    <link rel="stylesheet" href="<?= register_htmlencode($publicAssetPath . '/_assets/register/standalone.css') ?>">
 </head>
 <body class="register-standalone">
 <main class="standalone-card setup-card">
@@ -64,7 +64,7 @@ return [
     'database' => [
         'type'      => 'mysql',
         'host'      => '127.0.0.1',
-        'name'      => 's2_test',
+        'name'      => 'register_test',
         'user'      => 'root',
         'password'  => '',
         'prefix'    => '',
@@ -83,7 +83,7 @@ return [
         'show_queries'      => 0,
     ],
     'cookies' => [
-        'name' => 's2_cookie_82378103978', // some random string
+        'name' => 'register_cookie_82378103978', // some random string
     ],
 ];
 </code></pre>
@@ -91,6 +91,6 @@ return [
     </div>
 </main>
 
-<script src="<?= s2_htmlencode($adminAssetPath . '/js/installation-required.js') ?>" defer></script>
+<script src="<?= register_htmlencode($adminAssetPath . '/js/installation-required.js') ?>" defer></script>
 </body>
 </html>

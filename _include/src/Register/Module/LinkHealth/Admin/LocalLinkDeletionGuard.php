@@ -15,7 +15,7 @@ use Register\Content\ContentSchema;
 use Register\Module\LinkHealth\ContentPathResolver;
 use Register\Module\LinkHealth\LinkKind;
 use Register\Module\LinkHealth\Manifest;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final readonly class LocalLinkDeletionGuard implements ContentDeletionGuardInterface

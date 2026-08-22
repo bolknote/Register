@@ -7,12 +7,12 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Media;
+namespace Register\Extension\activitypub\Media;
 
-use S2\Cms\HttpClient\Remote\SafeRemoteHttpClient;
-use S2\Cms\HttpClient\Remote\SafeRemoteRequestOptions;
-use S2\Cms\HttpClient\Remote\SafeRemoteResponse;
-use S2\Cms\Queue\QueueExecutionBudget;
+use Register\Core\HttpClient\Remote\SafeRemoteHttpClient;
+use Register\Core\HttpClient\Remote\SafeRemoteRequestOptions;
+use Register\Core\HttpClient\Remote\SafeRemoteResponse;
+use Register\Core\Queue\QueueExecutionBudget;
 
 final readonly class RemoteAvatarFetchClient
 {

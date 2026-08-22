@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Validator;
+namespace Register\Core\Admin\Validator;
 
-use S2\AdminYard\Validator\ValidatorInterface;
-use S2\Cms\Model\PasswordPolicy;
+use Register\AdminYard\Validator\ValidatorInterface;
+use Register\Core\Model\PasswordPolicy;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final readonly class SecurePassword implements ValidatorInterface

@@ -37,16 +37,16 @@ use Register\Module\LinkHealth\LinkQueue;
 use Register\Module\LinkHealth\LinkRepairQueueHandler;
 use Register\Module\LinkHealth\Manifest;
 use Register\Module\LinkHealth\Admin\LocalLinkDeletionGuard;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Queue\BackgroundWorkRunner;
-use S2\Cms\Queue\QueueConsumer;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerRegistry;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\QueueRunnerLease;
-use S2\Cms\Queue\QueueSchema;
-use S2\Cms\Queue\ScheduledMaintenance;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\BackgroundWorkRunner;
+use Register\Core\Queue\QueueConsumer;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerRegistry;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\QueueRunnerLease;
+use Register\Core\Queue\QueueSchema;
+use Register\Core\Queue\ScheduledMaintenance;
 
 final class LinkHealthCest
 {
@@ -886,7 +886,7 @@ final class LinkHealthCest
             throw new \RuntimeException('Unable to prepare the shutdown queue fixture.');
         }
 
-        $statement->execute(['name' => 'S2_LAST_MAINTENANCE', 'value' => (string)time()]);
+        $statement->execute(['name' => 'REGISTER_LAST_MAINTENANCE', 'value' => (string)time()]);
 
         return $pdo;
     }

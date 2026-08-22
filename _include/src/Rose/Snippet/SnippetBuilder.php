@@ -6,17 +6,17 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Snippet;
+namespace Register\Rose\Snippet;
 
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Entity\ResultSet;
-use S2\Rose\Entity\Snippet;
-use S2\Rose\Entity\SnippetLine;
-use S2\Rose\Exception\ImmutableException;
-use S2\Rose\Exception\UnknownIdException;
-use S2\Rose\Stemmer\StemmerInterface;
-use S2\Rose\Storage\Dto\SnippetResult;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Entity\ResultSet;
+use Register\Rose\Entity\Snippet;
+use Register\Rose\Entity\SnippetLine;
+use Register\Rose\Exception\ImmutableException;
+use Register\Rose\Exception\UnknownIdException;
+use Register\Rose\Stemmer\StemmerInterface;
+use Register\Rose\Storage\Dto\SnippetResult;
 
 class SnippetBuilder
 {

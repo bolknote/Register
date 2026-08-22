@@ -2,12 +2,12 @@
 /**
  * @copyright 2026 Register contributors
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\HttpClient\Remote;
+namespace Register\Core\HttpClient\Remote;
 
 /** Limits for one DNS-pinned HTTP hop. Redirects are always returned to the caller. */
 final readonly class SafeRemoteRequestOptions

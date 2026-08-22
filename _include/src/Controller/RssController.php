@@ -4,21 +4,21 @@
  *
  * @copyright 2009-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Controller;
+namespace Register\Core\Controller;
 
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Controller\Rss\FeedItemRenderEvent;
-use S2\Cms\Controller\Rss\FeedRenderEvent;
-use S2\Cms\Controller\Rss\RssHitEvent;
-use S2\Cms\Controller\Rss\RssStrategyInterface;
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\StringProxy;
+use Register\Core\Controller\Rss\FeedItemRenderEvent;
+use Register\Core\Controller\Rss\FeedRenderEvent;
+use Register\Core\Controller\Rss\RssHitEvent;
+use Register\Core\Controller\Rss\RssStrategyInterface;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Template\Viewer;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;

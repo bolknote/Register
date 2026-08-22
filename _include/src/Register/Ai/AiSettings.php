@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Ai;
 
-use S2\Cms\Config\DynamicConfigProvider;
+use Register\Core\Config\DynamicConfigProvider;
 
 final readonly class AiSettings
 {

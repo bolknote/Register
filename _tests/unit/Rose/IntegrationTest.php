@@ -10,23 +10,23 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test;
+namespace Register\Rose\Test;
 
 use Codeception\Test\Unit;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\Indexable;
-use S2\Rose\Entity\Query;
-use S2\Rose\Entity\TocEntryWithMetadata;
-use S2\Rose\Finder;
-use S2\Rose\Indexer;
-use S2\Rose\Stemmer\PorterStemmerEnglish;
-use S2\Rose\Stemmer\PorterStemmerRussian;
-use S2\Rose\Storage\Database\MysqlRepository;
-use S2\Rose\Storage\Database\PdoStorage;
-use S2\Rose\Storage\Exception\EmptyIndexException;
-use S2\Rose\Storage\File\SingleFileArrayStorage;
-use S2\Rose\Storage\StorageReadInterface;
-use S2\Rose\Storage\StorageWriteInterface;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\Indexable;
+use Register\Rose\Entity\Query;
+use Register\Rose\Entity\TocEntryWithMetadata;
+use Register\Rose\Finder;
+use Register\Rose\Indexer;
+use Register\Rose\Stemmer\PorterStemmerEnglish;
+use Register\Rose\Stemmer\PorterStemmerRussian;
+use Register\Rose\Storage\Database\MysqlRepository;
+use Register\Rose\Storage\Database\PdoStorage;
+use Register\Rose\Storage\Exception\EmptyIndexException;
+use Register\Rose\Storage\File\SingleFileArrayStorage;
+use Register\Rose\Storage\StorageReadInterface;
+use Register\Rose\Storage\StorageWriteInterface;
 
 /**
  * @group int
@@ -278,7 +278,7 @@ final class IntegrationTest extends Unit
         self::assertCount(0, $finder->find(new Query('..'))->getItems());
         self::assertCount(0, $finder->find(new Query('...'))->getItems());
 
-        if ($readStorage instanceof PdoStorage && !str_starts_with($GLOBALS['s2_rose_test_db']['dsn'], 'sqlite')) {
+        if ($readStorage instanceof PdoStorage && !str_starts_with($GLOBALS['register_rose_test_db']['dsn'], 'sqlite')) {
             $indexer->index(new Indexable('dummy', 'Dummy new', ''));
             $similarItems = $readStorage->getSimilar(new ExternalId('id_2', 20), false);
             self::assertInstanceOf(TocEntryWithMetadata::class, $similarItems[0]['tocWithMetadata']);
@@ -380,8 +380,8 @@ final class IntegrationTest extends Unit
 
     public function testAutoErase(): void
     {
-        global $s2_rose_test_db;
-        $pdo = new \PDO($s2_rose_test_db['dsn'], $s2_rose_test_db['username'], $s2_rose_test_db['passwd']);
+        global $register_rose_test_db;
+        $pdo = new \PDO($register_rose_test_db['dsn'], $register_rose_test_db['username'], $register_rose_test_db['passwd']);
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
         $pdo->exec('DROP TABLE IF EXISTS ' . 'test_' . MysqlRepository::TOC);
@@ -397,14 +397,14 @@ final class IntegrationTest extends Unit
         } catch (EmptyIndexException $e) {
         }
 
-        self::assertInstanceOf(\S2\Rose\Storage\Exception\EmptyIndexException::class, $e);
+        self::assertInstanceOf(\Register\Rose\Storage\Exception\EmptyIndexException::class, $e);
 
         $indexer->setAutoErase(true);
         $indexer->index($indexable);
     }
 
     /**
-     * @return array<string, \S2\Rose\Storage\File\SingleFileArrayStorage[]|\S2\Rose\Entity\Indexable[][]|\S2\Rose\Storage\Database\PdoStorage[]>
+     * @return array<string, \Register\Rose\Storage\File\SingleFileArrayStorage[]|\Register\Rose\Entity\Indexable[][]|\Register\Rose\Storage\Database\PdoStorage[]>
      */
     public function indexableProvider(): array
     {
@@ -441,8 +441,8 @@ final class IntegrationTest extends Unit
             ,
         ];
 
-        global $s2_rose_test_db;
-        $pdo = new \PDO($s2_rose_test_db['dsn'], $s2_rose_test_db['username'], $s2_rose_test_db['passwd']);
+        global $register_rose_test_db;
+        $pdo = new \PDO($register_rose_test_db['dsn'], $register_rose_test_db['username'], $register_rose_test_db['passwd']);
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
         $filename = $this->getTempFilename();

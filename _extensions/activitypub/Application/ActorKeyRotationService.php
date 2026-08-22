@@ -7,18 +7,18 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorKey;
-use s2_extensions\activitypub\Domain\LocalActorState;
-use s2_extensions\activitypub\Domain\PublicIdGenerator;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Infrastructure\PortableDatabaseTransaction;
-use s2_extensions\activitypub\Security\ActorKeyVault;
-use s2_extensions\activitypub\Security\RsaCrypto;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorKey;
+use Register\Extension\activitypub\Domain\LocalActorState;
+use Register\Extension\activitypub\Domain\PublicIdGenerator;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
+use Register\Extension\activitypub\Security\ActorKeyVault;
+use Register\Extension\activitypub\Security\RsaCrypto;
 
 /** Generates, verifies, encrypts and atomically promotes a new actor signing key. */
 final readonly class ActorKeyRotationService

@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
 use Register\Comment\CommentImport;
 use Register\Comment\CommentImportService;
@@ -15,28 +15,28 @@ use Register\Content\ContentType;
 use Register\Module\Reactions\ReactionAggregate;
 use Register\Module\Reactions\ReactionAggregateRepository;
 use Register\Module\Reactions\ReactionAggregateTargetType;
-use s2_extensions\activitypub\Domain\InboxState;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorState;
-use s2_extensions\activitypub\Domain\ModerationAction;
-use s2_extensions\activitypub\Domain\RemoteActor;
-use s2_extensions\activitypub\Domain\RemoteInteraction;
-use s2_extensions\activitypub\Domain\RemoteObject;
-use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
-use s2_extensions\activitypub\Inbox\RemoteObjectDocumentValidator;
-use s2_extensions\activitypub\Infrastructure\ClaimedInboxItem;
-use s2_extensions\activitypub\Infrastructure\FollowRepository;
-use s2_extensions\activitypub\Infrastructure\InteractionRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\ModerationRuleRepository;
-use s2_extensions\activitypub\Infrastructure\NewRemoteInteraction;
-use s2_extensions\activitypub\Infrastructure\NotificationRepository;
-use s2_extensions\activitypub\Infrastructure\RemoteObjectRepository;
-use s2_extensions\activitypub\Infrastructure\StoredObjectRepresentation;
-use s2_extensions\activitypub\Infrastructure\StoredLocalNoteRepresentation;
-use s2_extensions\activitypub\Infrastructure\ValidatedRemoteObject;
-use s2_extensions\activitypub\Presentation\RemoteCommentTextFormatter;
+use Register\Extension\activitypub\Domain\InboxState;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorState;
+use Register\Extension\activitypub\Domain\ModerationAction;
+use Register\Extension\activitypub\Domain\RemoteActor;
+use Register\Extension\activitypub\Domain\RemoteInteraction;
+use Register\Extension\activitypub\Domain\RemoteObject;
+use Register\Extension\activitypub\Domain\FederationUrlGeneratorFactory;
+use Register\Extension\activitypub\Inbox\RemoteObjectDocumentValidator;
+use Register\Extension\activitypub\Infrastructure\ClaimedInboxItem;
+use Register\Extension\activitypub\Infrastructure\FollowRepository;
+use Register\Extension\activitypub\Infrastructure\InteractionRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\ModerationRuleRepository;
+use Register\Extension\activitypub\Infrastructure\NewRemoteInteraction;
+use Register\Extension\activitypub\Infrastructure\NotificationRepository;
+use Register\Extension\activitypub\Infrastructure\RemoteObjectRepository;
+use Register\Extension\activitypub\Infrastructure\StoredObjectRepresentation;
+use Register\Extension\activitypub\Infrastructure\StoredLocalNoteRepresentation;
+use Register\Extension\activitypub\Infrastructure\ValidatedRemoteObject;
+use Register\Extension\activitypub\Presentation\RemoteCommentTextFormatter;
 
 /** Applies signed social activities through public Register integration boundaries. */
 final readonly class InboxInteractionProcessor

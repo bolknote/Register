@@ -13,9 +13,9 @@ use PHPUnit\Framework\TestCase;
 use Register\Ai\AiClient;
 use Register\Ai\AiImageInput;
 use Register\Ai\AiSettings;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpResponse;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpResponse;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 final class AiClientTest extends TestCase

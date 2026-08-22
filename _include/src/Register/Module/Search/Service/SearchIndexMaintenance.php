@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace Register\Module\Search\Service;
 
 use Register\Module\Search\Admin\SearchIndexHealth;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\ScheduledMaintenanceTaskInterface;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
 
 /** Detects an abandoned partial index during normal hourly maintenance. */
 final readonly class SearchIndexMaintenance implements ScheduledMaintenanceTaskInterface

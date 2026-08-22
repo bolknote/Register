@@ -2,14 +2,14 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\AdminYard\Form;
+namespace Register\Core\AdminYard\Form;
 
-use S2\AdminYard\Form\Datetime;
+use Register\AdminYard\Form\Datetime;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 class CustomDateTime extends Datetime

@@ -9,28 +9,28 @@ declare(strict_types = 1);
  * @license   https://opensource.org/license/mit MIT
  */
 
-namespace S2\Rose\Storage\Database;
+namespace Register\Rose\Storage\Database;
 
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\ExternalIdCollection;
-use S2\Rose\Entity\Metadata\ImgCollection;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Entity\TocEntry;
-use S2\Rose\Entity\TocEntryWithMetadata;
-use S2\Rose\Exception\LogicException;
-use S2\Rose\Exception\UnknownException;
-use S2\Rose\Exception\UnknownIdException;
-use S2\Rose\Helper\SnippetTextHelper;
-use S2\Rose\Storage\Dto\SnippetQuery;
-use S2\Rose\Storage\Dto\SnippetResult;
-use S2\Rose\Storage\Exception\EmptyIndexException;
-use S2\Rose\Storage\Exception\InvalidEnvironmentException;
-use S2\Rose\Storage\FulltextIndexContent;
-use S2\Rose\Storage\FulltextIndexPositionBag;
-use S2\Rose\Storage\StorageEraseInterface;
-use S2\Rose\Storage\StorageReadInterface;
-use S2\Rose\Storage\StorageWriteInterface;
-use S2\Rose\Storage\TransactionalStorageInterface;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\ExternalIdCollection;
+use Register\Rose\Entity\Metadata\ImgCollection;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Entity\TocEntry;
+use Register\Rose\Entity\TocEntryWithMetadata;
+use Register\Rose\Exception\LogicException;
+use Register\Rose\Exception\UnknownException;
+use Register\Rose\Exception\UnknownIdException;
+use Register\Rose\Helper\SnippetTextHelper;
+use Register\Rose\Storage\Dto\SnippetQuery;
+use Register\Rose\Storage\Dto\SnippetResult;
+use Register\Rose\Storage\Exception\EmptyIndexException;
+use Register\Rose\Storage\Exception\InvalidEnvironmentException;
+use Register\Rose\Storage\FulltextIndexContent;
+use Register\Rose\Storage\FulltextIndexPositionBag;
+use Register\Rose\Storage\StorageEraseInterface;
+use Register\Rose\Storage\StorageReadInterface;
+use Register\Rose\Storage\StorageWriteInterface;
+use Register\Rose\Storage\TransactionalStorageInterface;
 
 class PdoStorage implements StorageWriteInterface, StorageReadInterface, StorageEraseInterface, TransactionalStorageInterface
 {
@@ -48,7 +48,7 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
      *
      * @throws InvalidEnvironmentException
      */
-    public function __construct(protected \PDO $pdo, protected string $prefix = 's2_rose_', protected array $options = [])
+    public function __construct(protected \PDO $pdo, protected string $prefix = 'register_rose_', protected array $options = [])
     {
         $this->mapping = new IdMappingStorage();
     }
@@ -130,7 +130,7 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
      * @throws EmptyIndexException
      * @throws UnknownException
      * @throws UnknownIdException
-     * @throws \S2\Rose\Exception\RuntimeException
+     * @throws \Register\Rose\Exception\RuntimeException
      */
     #[\Override]
     public function addToFulltextIndex(array $titleWords, array $keywords, array $contentWords, ExternalId $externalId): void
@@ -144,7 +144,7 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
         $wordIds    = $this->getWordIds($allWords);
 
         /**
-         * @see \S2\Rose\Entity\WordPositionContainer::compareArrays for sorting requirement
+         * @see \Register\Rose\Entity\WordPositionContainer::compareArrays for sorting requirement
          */
         ksort($titleWords);
         ksort($keywords);
@@ -390,7 +390,7 @@ class PdoStorage implements StorageWriteInterface, StorageReadInterface, Storage
      *
      * @return array<int|string, int>
      * @throws UnknownException
-     * @throws \S2\Rose\Exception\RuntimeException
+     * @throws \Register\Rose\Exception\RuntimeException
      */
     protected function getWordIds(array $words): array
     {

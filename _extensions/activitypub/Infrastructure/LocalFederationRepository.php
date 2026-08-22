@@ -7,13 +7,13 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
 use Register\Content\ContentId;
 use Register\Content\ContentType;
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\ActivityDeliveryIntent;
-use s2_extensions\activitypub\Domain\CollectionAnchor;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\ActivityDeliveryIntent;
+use Register\Extension\activitypub\Domain\CollectionAnchor;
 
 final readonly class LocalFederationRepository
 {

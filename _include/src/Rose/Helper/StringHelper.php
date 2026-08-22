@@ -6,10 +6,10 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Helper;
+namespace Register\Rose\Helper;
 
 /**
- * @see \S2\Rose\Test\Helper\StringHelperTest
+ * @see \Register\Rose\Test\Helper\StringHelperTest
  */
 class StringHelper
 {

@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Delivery;
+namespace Register\Extension\activitypub\Delivery;
 
-use S2\Cms\Queue\QueuePublisher;
-use s2_extensions\activitypub\Infrastructure\DeliveryRepository;
+use Register\Core\Queue\QueuePublisher;
+use Register\Extension\activitypub\Infrastructure\DeliveryRepository;
 
 /** A single generation-aware wake-up job; delivery truth remains in the module tables. */
 final readonly class DeliveryQueue

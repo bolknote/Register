@@ -7,16 +7,16 @@ declare(strict_types = 1);
  *
  * @copyright 2009-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 use Register\Http\ContentSecurityPolicy;
 use Register\Http\ResponseCompressor;
 use Register\Http\TrustedScriptNonceInjector;
 use Register\Offline\OfflineCachePolicy;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Queue\ShutdownWorkCoordinator;
-use S2\Cms\Security\Monitoring\SecurityTelemetryRecorder;
+use Register\Core\Model\AuthProvider;
+use Register\Core\Queue\ShutdownWorkCoordinator;
+use Register\Core\Security\Monitoring\SecurityTelemetryRecorder;
 use Symfony\Component\HttpFoundation\Request;
 
 $app = require __DIR__ . '/_include/common.php';

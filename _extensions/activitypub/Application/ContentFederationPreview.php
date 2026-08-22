@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Domain\ContentProjectionAction;
+use Register\Extension\activitypub\Domain\ContentProjectionAction;
 
 /** Read-only result produced through the same document builder as a live projection. */
 final readonly class ContentFederationPreview

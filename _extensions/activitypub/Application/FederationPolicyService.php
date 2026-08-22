@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Domain\FederationPolicy;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Domain\FederationPolicy;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
 
 /** Changes defaults only; it never projects, updates, or deletes content in bulk. */
 final readonly class FederationPolicyService

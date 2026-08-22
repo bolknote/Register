@@ -7,21 +7,21 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Delivery;
+namespace Register\Extension\activitypub\Delivery;
 
-use S2\Cms\HttpClient\HttpClientException;
-use S2\Cms\HttpClient\Remote\RemoteHostResolutionFailed;
-use S2\Cms\HttpClient\Remote\SafeRemoteResponse;
-use S2\Cms\HttpClient\Remote\UnsafeRemoteAddress;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueueTimeBudgetExceeded;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Application\FederationLifecycleService;
-use s2_extensions\activitypub\Infrastructure\ClaimedDelivery;
-use s2_extensions\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
-use s2_extensions\activitypub\Infrastructure\DeliveryRepository;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
+use Register\Core\HttpClient\HttpClientException;
+use Register\Core\HttpClient\Remote\RemoteHostResolutionFailed;
+use Register\Core\HttpClient\Remote\SafeRemoteResponse;
+use Register\Core\HttpClient\Remote\UnsafeRemoteAddress;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueueTimeBudgetExceeded;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Application\FederationLifecycleService;
+use Register\Extension\activitypub\Infrastructure\ClaimedDelivery;
+use Register\Extension\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
+use Register\Extension\activitypub\Infrastructure\DeliveryRepository;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
 
 /** Advances exactly one durable delivery by at most one network hop. */
 final readonly class DeliveryQueueHandler implements QueueHandlerInterface

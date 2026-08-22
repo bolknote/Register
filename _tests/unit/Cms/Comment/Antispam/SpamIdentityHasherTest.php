@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Comment\Antispam;
 
 use Codeception\Test\Unit;
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
 
 final class SpamIdentityHasherTest extends Unit
 {

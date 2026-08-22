@@ -14,11 +14,11 @@ use Register\Module\Search\Admin\SearchIndexHealth;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\ContentIndexer;
 use Register\Module\Search\Service\SearchIndexRepairer;
-use S2\Cms\Pdo\DbLayerSqlite;
-use S2\Rose\Entity\Indexable;
-use S2\Rose\Indexer;
-use S2\Rose\Stemmer\PorterStemmerEnglish;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Core\Pdo\DbLayerSqlite;
+use Register\Rose\Entity\Indexable;
+use Register\Rose\Indexer;
+use Register\Rose\Stemmer\PorterStemmerEnglish;
+use Register\Rose\Storage\Database\PdoStorage;
 
 final class SearchIndexHealthTest extends Unit
 {

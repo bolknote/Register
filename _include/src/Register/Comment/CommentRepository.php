@@ -12,7 +12,7 @@ namespace Register\Comment;
 use Register\Content\ContentId;
 use Register\Content\ContentType;
 use Register\Live\LiveUpdateRepository;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class CommentRepository
@@ -97,7 +97,7 @@ final readonly class CommentRepository
 
         $row = $this->dbLayer
             ->select('userpic_id')
-            ->from(\S2\Cms\Model\UserpicSchema::USER_LINK_TABLE_NAME)
+            ->from(\Register\Core\Model\UserpicSchema::USER_LINK_TABLE_NAME)
             ->where('user_id = :user_id')->setParameter('user_id', $userId)
             ->orderBy('userpic_id DESC')
             ->limit(1)
@@ -390,7 +390,11 @@ final readonly class CommentRepository
             }
 
             $parent = $this->find($parentId);
-            if (!$parent instanceof Comment || !$parent->deleted || !$parent->contentId->equals($comment->contentId)) {
+            if ($parent === null) {
+                break;
+            }
+
+            if (!$parent->deleted || !$parent->contentId->equals($comment->contentId)) {
                 break;
             }
 

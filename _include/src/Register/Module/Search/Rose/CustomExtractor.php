@@ -12,9 +12,9 @@ declare(strict_types = 1);
 namespace Register\Module\Search\Rose;
 
 use Psr\Log\LoggerInterface;
-use S2\Rose\Extractor\ExtractionErrors;
-use S2\Rose\Extractor\HtmlDom\DomExtractor;
-use S2\Rose\Extractor\HtmlDom\DomState;
+use Register\Rose\Extractor\ExtractionErrors;
+use Register\Rose\Extractor\HtmlDom\DomExtractor;
+use Register\Rose\Extractor\HtmlDom\DomState;
 use Register\Module\Search\Event\TextNodeExtractEvent;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 

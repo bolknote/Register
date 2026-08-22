@@ -12,7 +12,7 @@ namespace Register\Module\LinkHealth\Admin;
 use Register\Module\LinkHealth\LinkHealthStatus;
 use Register\Module\LinkHealth\LinkKind;
 use Register\Module\LinkHealth\Manifest;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 final readonly class LinkHealthAdminRepository
 {

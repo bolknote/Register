@@ -9,13 +9,13 @@ declare(strict_types = 1);
 
 namespace Register\Module\LinkHealth;
 
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpClientException;
-use S2\Cms\HttpClient\Remote\PublicAddressGuard;
-use S2\Cms\HttpClient\Remote\RemoteHostResolverUnavailable;
-use S2\Cms\HttpClient\Remote\RemoteHostResolutionFailed;
-use S2\Cms\HttpClient\Remote\RemoteHostResolutionTimedOut;
-use S2\Cms\HttpClient\Remote\UnsafeRemoteAddress;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientException;
+use Register\Core\HttpClient\Remote\PublicAddressGuard;
+use Register\Core\HttpClient\Remote\RemoteHostResolverUnavailable;
+use Register\Core\HttpClient\Remote\RemoteHostResolutionFailed;
+use Register\Core\HttpClient\Remote\RemoteHostResolutionTimedOut;
+use Register\Core\HttpClient\Remote\UnsafeRemoteAddress;
 
 final readonly class SafeHttpProbe implements LinkProbeInterface
 {
@@ -98,7 +98,7 @@ final readonly class SafeHttpProbe implements LinkProbeInterface
     }
 
     /** @param array<string, string> $headers */
-    private function request(string $method, string $url, string $resolvedIp, array $headers = []): \S2\Cms\HttpClient\HttpResponse
+    private function request(string $method, string $url, string $resolvedIp, array $headers = []): \Register\Core\HttpClient\HttpResponse
     {
         return $this->httpClient->request($method, $url, $headers, [
             HttpClient::CONNECT_TIMEOUT    => self::CONNECT_TIMEOUT,

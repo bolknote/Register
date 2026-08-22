@@ -15,15 +15,15 @@ namespace Register\Module\Blog\Controller;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Module\Blog\Module as BlogModule;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\IntProxy;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\HtmlTemplate;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Config\IntProxy;
+use Register\Core\Config\StringProxy;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\HtmlTemplate;
+use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Model\PostProvider;
@@ -31,7 +31,7 @@ use Register\Url\ContentUrlGenerator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 class YearPageController extends BlogController
 {
@@ -76,8 +76,8 @@ class YearPageController extends BlogController
     {
         $year = $request->attributes->getInt('year');
 
-        if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
-            $template->registerPlaceholder('<!-- s2_blog_calendar -->', '');
+        if ($template->hasPlaceholder('<!-- register_blog_calendar -->')) {
+            $template->registerPlaceholder('<!-- register_blog_calendar -->', '');
         }
 
         $start_time = mktime(0, 0, 0, 1, 1, $year);

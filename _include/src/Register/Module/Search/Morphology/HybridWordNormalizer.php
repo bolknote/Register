@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Morphology;
 
-use S2\Rose\Stemmer\StemmerInterface;
-use S2\Rose\Stemmer\WordNormalizerInterface;
+use Register\Rose\Stemmer\StemmerInterface;
+use Register\Rose\Stemmer\WordNormalizerInterface;
 
 /** Uses OpenCorpora lemmas for known Russian words and Porter for everything else. */
 final class HybridWordNormalizer implements WordNormalizerInterface

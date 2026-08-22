@@ -28,71 +28,71 @@ use Register\Url\PortableAsciiTransliterator;
 use Register\Url\ReservedRouteRegistry;
 use Register\Url\SlugGenerator;
 use Register\Url\UniqueSlugGenerator;
-use S2\Cms\Config\DynamicSecretParameterRegistry;
-use S2\Cms\Config\DynamicSecretStore;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayerSqlite;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\QueueExecutionBudget;
-use s2_extensions\activitypub\Application\ActivationCheckResult;
-use s2_extensions\activitypub\Application\ActivationReadinessCheck;
-use s2_extensions\activitypub\Application\ActivationReadinessReport;
-use s2_extensions\activitypub\Application\AuthorActorDraft;
-use s2_extensions\activitypub\Application\AuthorActorService;
-use s2_extensions\activitypub\Application\ContentProjectionService;
-use s2_extensions\activitypub\Application\ContentActorResolver;
-use s2_extensions\activitypub\Application\ContentProjectionStaging;
-use s2_extensions\activitypub\Application\ContentFederationPreviewService;
-use s2_extensions\activitypub\Application\ContentBackfillQueueHandler;
-use s2_extensions\activitypub\Application\ContentBackfillStarter;
-use s2_extensions\activitypub\Admin\ContentFederationSettingsFormParser;
-use s2_extensions\activitypub\Admin\ContentSettingsEditor;
-use s2_extensions\activitypub\Application\FederationActivationService;
-use s2_extensions\activitypub\Application\FederationPolicyService;
-use s2_extensions\activitypub\Application\SiteActorDraft;
-use s2_extensions\activitypub\Application\SiteActorProvisioner;
-use s2_extensions\activitypub\Content\PortableHtmlSanitizer;
-use s2_extensions\activitypub\Content\ContentAttachmentExtractor;
-use s2_extensions\activitypub\Domain\ActivityDeliveryIntent;
-use s2_extensions\activitypub\Domain\ActorKind;
-use s2_extensions\activitypub\Domain\ActorType;
-use s2_extensions\activitypub\Domain\CanonicalBasePath;
-use s2_extensions\activitypub\Domain\CanonicalOrigin;
-use s2_extensions\activitypub\Domain\ContentProjectionAction;
-use s2_extensions\activitypub\Domain\ContentProjectionMode;
-use s2_extensions\activitypub\Domain\ContentDeliveryMode;
-use s2_extensions\activitypub\Domain\ContentFederationSettings;
-use s2_extensions\activitypub\Domain\ContentPublicationMode;
-use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
-use s2_extensions\activitypub\Domain\FederationPolicy;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalHandle;
-use s2_extensions\activitypub\Domain\ModerationAction;
-use s2_extensions\activitypub\Domain\PublicIdGenerator;
-use s2_extensions\activitypub\Domain\PostObjectType;
-use s2_extensions\activitypub\Delivery\DeliveryPlanner;
-use s2_extensions\activitypub\Delivery\DeliveryQueue;
-use s2_extensions\activitypub\Delivery\MentionDeliveryPlanner;
-use s2_extensions\activitypub\Delivery\MentionDeliveryQueue;
-use s2_extensions\activitypub\Infrastructure\ActivityPubSchema;
-use s2_extensions\activitypub\Infrastructure\DeliveryRepository;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\FetchedRemoteActor;
-use s2_extensions\activitypub\Infrastructure\ContentFederationSettingsRepository;
-use s2_extensions\activitypub\Infrastructure\ContentBackfillRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\ModerationRuleRepository;
-use s2_extensions\activitypub\Infrastructure\PortableDatabaseTransaction;
-use s2_extensions\activitypub\Infrastructure\RemoteActorRepository;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
-use s2_extensions\activitypub\Presentation\ActorDocumentBuilder;
-use s2_extensions\activitypub\Presentation\ContentObjectDocumentBuilder;
-use s2_extensions\activitypub\Presentation\LocalActivityDocumentBuilder;
-use s2_extensions\activitypub\Security\ActivityPubSecret;
-use s2_extensions\activitypub\Security\ActorKeyVault;
-use s2_extensions\activitypub\Security\RsaCrypto;
+use Register\Core\Config\DynamicSecretParameterRegistry;
+use Register\Core\Config\DynamicSecretStore;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Pdo\DbLayerSqlite;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Extension\activitypub\Application\ActivationCheckResult;
+use Register\Extension\activitypub\Application\ActivationReadinessCheck;
+use Register\Extension\activitypub\Application\ActivationReadinessReport;
+use Register\Extension\activitypub\Application\AuthorActorDraft;
+use Register\Extension\activitypub\Application\AuthorActorService;
+use Register\Extension\activitypub\Application\ContentProjectionService;
+use Register\Extension\activitypub\Application\ContentActorResolver;
+use Register\Extension\activitypub\Application\ContentProjectionStaging;
+use Register\Extension\activitypub\Application\ContentFederationPreviewService;
+use Register\Extension\activitypub\Application\ContentBackfillQueueHandler;
+use Register\Extension\activitypub\Application\ContentBackfillStarter;
+use Register\Extension\activitypub\Admin\ContentFederationSettingsFormParser;
+use Register\Extension\activitypub\Admin\ContentSettingsEditor;
+use Register\Extension\activitypub\Application\FederationActivationService;
+use Register\Extension\activitypub\Application\FederationPolicyService;
+use Register\Extension\activitypub\Application\SiteActorDraft;
+use Register\Extension\activitypub\Application\SiteActorProvisioner;
+use Register\Extension\activitypub\Content\PortableHtmlSanitizer;
+use Register\Extension\activitypub\Content\ContentAttachmentExtractor;
+use Register\Extension\activitypub\Domain\ActivityDeliveryIntent;
+use Register\Extension\activitypub\Domain\ActorKind;
+use Register\Extension\activitypub\Domain\ActorType;
+use Register\Extension\activitypub\Domain\CanonicalBasePath;
+use Register\Extension\activitypub\Domain\CanonicalOrigin;
+use Register\Extension\activitypub\Domain\ContentProjectionAction;
+use Register\Extension\activitypub\Domain\ContentProjectionMode;
+use Register\Extension\activitypub\Domain\ContentDeliveryMode;
+use Register\Extension\activitypub\Domain\ContentFederationSettings;
+use Register\Extension\activitypub\Domain\ContentPublicationMode;
+use Register\Extension\activitypub\Domain\FederationUrlGeneratorFactory;
+use Register\Extension\activitypub\Domain\FederationPolicy;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalHandle;
+use Register\Extension\activitypub\Domain\ModerationAction;
+use Register\Extension\activitypub\Domain\PublicIdGenerator;
+use Register\Extension\activitypub\Domain\PostObjectType;
+use Register\Extension\activitypub\Delivery\DeliveryPlanner;
+use Register\Extension\activitypub\Delivery\DeliveryQueue;
+use Register\Extension\activitypub\Delivery\MentionDeliveryPlanner;
+use Register\Extension\activitypub\Delivery\MentionDeliveryQueue;
+use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
+use Register\Extension\activitypub\Infrastructure\DeliveryRepository;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\FetchedRemoteActor;
+use Register\Extension\activitypub\Infrastructure\ContentFederationSettingsRepository;
+use Register\Extension\activitypub\Infrastructure\ContentBackfillRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\ModerationRuleRepository;
+use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
+use Register\Extension\activitypub\Infrastructure\RemoteActorRepository;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
+use Register\Extension\activitypub\Presentation\ActorDocumentBuilder;
+use Register\Extension\activitypub\Presentation\ContentObjectDocumentBuilder;
+use Register\Extension\activitypub\Presentation\LocalActivityDocumentBuilder;
+use Register\Extension\activitypub\Security\ActivityPubSecret;
+use Register\Extension\activitypub\Security\ActorKeyVault;
+use Register\Extension\activitypub\Security\RsaCrypto;
 use Symfony\Component\Filesystem\Filesystem;
 
 final class ContentProjectionTest extends Unit
@@ -419,7 +419,7 @@ final class ContentProjectionTest extends Unit
         self::assertSame(1, $services['repository']->outboxCount($actor->id));
 
         $body = '<script>bad()</script><p>Previewed update. <a href="/inside" onclick="bad()">inside</a></p>';
-        $draft = new \s2_extensions\activitypub\Domain\ContentFederationSettingsDraft(
+        $draft = new \Register\Extension\activitypub\Domain\ContentFederationSettingsDraft(
             ContentType::POST,
             ContentPublicationMode::ENABLED,
             ContentDeliveryMode::FULL,
@@ -540,7 +540,7 @@ final class ContentProjectionTest extends Unit
         self::assertNotNull($created->object);
         self::assertSame(7_100, $created->object->featuredAt);
         self::assertSame(['Create', 'Add'], array_map(
-            static fn(\s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation $activity): string => $activity->type,
+            static fn(\Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation $activity): string => $activity->type,
             $created->activities,
         ));
         self::assertSame(1, $services['repository']->featuredCount($actor->id));
@@ -740,7 +740,7 @@ final class ContentProjectionTest extends Unit
         self::assertSame($authorActor->id, $created->object->ownerActorId);
         self::assertCount(2, $created->activities);
         self::assertSame(['Create', 'Announce'], array_map(
-            static fn(\s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation $activity): string => $activity->type,
+            static fn(\Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation $activity): string => $activity->type,
             $created->activities,
         ));
         self::assertSame($siteActor->id, $created->activities[1]->actorId);

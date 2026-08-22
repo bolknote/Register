@@ -2,7 +2,7 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -11,8 +11,8 @@ namespace acceptance;
 
 use AcceptanceTester;
 use Codeception\Example;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpClientException;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientException;
 
 /**
  * @group http
@@ -196,7 +196,7 @@ class HttpClientCest
 
         $I->expectThrowable(
             new \InvalidArgumentException('Pinned DNS resolution requires redirects to be disabled.'),
-            static fn(): \S2\Cms\HttpClient\HttpResponse => $client->request(
+            static fn(): \Register\Core\HttpClient\HttpResponse => $client->request(
                 'GET',
                 'http://pinning.invalid/',
                 options: [HttpClient::RESOLVE_IP => '127.0.0.1'],

@@ -7,15 +7,15 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test;
+namespace Register\Rose\Test;
 
 use Codeception\Test\Unit;
-use S2\Rose\Entity\Indexable;
-use S2\Rose\Entity\Query;
-use S2\Rose\Finder;
-use S2\Rose\Indexer;
-use S2\Rose\Stemmer\WordNormalizerInterface;
-use S2\Rose\Storage\File\SingleFileArrayStorage;
+use Register\Rose\Entity\Indexable;
+use Register\Rose\Entity\Query;
+use Register\Rose\Finder;
+use Register\Rose\Indexer;
+use Register\Rose\Stemmer\WordNormalizerInterface;
+use Register\Rose\Storage\File\SingleFileArrayStorage;
 
 final class WordNormalizerTest extends Unit
 {
@@ -32,13 +32,13 @@ final class WordNormalizerTest extends Unit
         $finder->setHighlightTemplate('<b>%s</b>');
 
         $verbResult = $finder->find(new Query('стать'));
-        self::assertSame(['verb'], array_map(static fn(\S2\Rose\Entity\ResultItem $item): string => $item->getId(), $verbResult->getItems()));
+        self::assertSame(['verb'], array_map(static fn(\Register\Rose\Entity\ResultItem $item): string => $item->getId(), $verbResult->getItems()));
         self::assertSame('Они <b>стали</b> сильнее.', $verbResult->getItems()[0]->getSnippet());
 
         $nounResult = $finder->find(new Query('сталь'));
         self::assertEqualsCanonicalizing(
             ['verb', 'noun'],
-            array_map(static fn(\S2\Rose\Entity\ResultItem $item): string => $item->getId(), $nounResult->getItems())
+            array_map(static fn(\Register\Rose\Entity\ResultItem $item): string => $item->getId(), $nounResult->getItems())
         );
 
         $verbItem = null;

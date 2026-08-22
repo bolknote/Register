@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Content;
 
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Queue\QueueExecutionBudget;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueueExecutionBudget;
 
 /** Publishes due drafts without exposing future content to public readers. */
 final readonly class ContentPublicationScheduler

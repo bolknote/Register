@@ -7,23 +7,23 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Delivery;
+namespace Register\Extension\activitypub\Delivery;
 
 use Psr\Log\LoggerInterface;
-use S2\Cms\HttpClient\Remote\SafeRemoteResponse;
-use S2\Cms\HttpClient\Remote\UnsafeRemoteAddress;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerInterface;
-use s2_extensions\activitypub\Domain\ActivityDeliveryIntent;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\RemoteActor;
-use s2_extensions\activitypub\Inbox\RemoteActorDocumentValidator;
-use s2_extensions\activitypub\Inbox\RemoteActorFetchClient;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\RemoteActorRepository;
-use s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation;
+use Register\Core\HttpClient\Remote\SafeRemoteResponse;
+use Register\Core\HttpClient\Remote\UnsafeRemoteAddress;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Extension\activitypub\Domain\ActivityDeliveryIntent;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\RemoteActor;
+use Register\Extension\activitypub\Inbox\RemoteActorDocumentValidator;
+use Register\Extension\activitypub\Inbox\RemoteActorFetchClient;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\RemoteActorRepository;
+use Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation;
 
 /** Resolves one previously unknown Mention actor, then materializes its durable delivery. */
 final readonly class MentionDeliveryQueueHandler implements QueueHandlerInterface

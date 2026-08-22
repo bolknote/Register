@@ -7,14 +7,14 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Entity;
+namespace Register\Rose\Entity;
 
-use S2\Rose\Exception\ImmutableException;
-use S2\Rose\Exception\UnknownIdException;
-use S2\Rose\Helper\ProfileHelper;
+use Register\Rose\Exception\ImmutableException;
+use Register\Rose\Exception\UnknownIdException;
+use Register\Rose\Helper\ProfileHelper;
 
 /**
- * @see \S2\Rose\Test\Entity\ResultSetTest
+ * @see \Register\Rose\Test\Entity\ResultSetTest
  */
 class ResultSet
 {

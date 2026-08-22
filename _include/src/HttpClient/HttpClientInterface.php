@@ -2,12 +2,12 @@
 /**
  * @copyright 2026 Register contributors
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\HttpClient;
+namespace Register\Core\HttpClient;
 
 /**
  * @phpstan-type RequestOptions array{connect_timeout?: int, read_timeout?: int, connect_timeout_ms?: int, total_timeout_ms?: int, follow_redirects?: bool, resolve_ip?: string, max_response_bytes?: int}

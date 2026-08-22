@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Content;
 
-use S2\Cms\Template\HtmlTemplate;
+use Register\Core\Template\HtmlTemplate;
 
 /** Fired once a complete public content item has been placed in its HTML template. */
 final readonly class ContentRenderedEvent

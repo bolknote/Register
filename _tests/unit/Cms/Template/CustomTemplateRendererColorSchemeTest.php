@@ -10,10 +10,10 @@ declare(strict_types = 1);
 namespace unit\Cms\Template;
 
 use Codeception\Test\Unit;
-use S2\Cms\AdminYard\CustomTemplateRenderer;
-use S2\Cms\Asset\AssetPack;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Model\PermissionChecker;
+use Register\Core\AdminYard\CustomTemplateRenderer;
+use Register\Core\Asset\AssetPack;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Model\PermissionChecker;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -37,7 +37,7 @@ final class CustomTemplateRendererColorSchemeTest extends Unit
         try {
             $configProvider = new DynamicConfigProvider();
             $reflection = new \ReflectionClass($configProvider);
-            $reflection->getProperty('params')->setValue($configProvider, ['S2_STYLE' => 'test']);
+            $reflection->getProperty('params')->setValue($configProvider, ['REGISTER_STYLE' => 'test']);
 
             $translator = self::createStub(TranslatorInterface::class);
             $translator->method('getLocale')->willReturn('en');

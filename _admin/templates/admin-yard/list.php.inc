@@ -2,15 +2,15 @@
 
 declare(strict_types = 1);
 
-use S2\AdminYard\Form\Autocomplete;
-use S2\AdminYard\Form\CheckboxArray;
-use S2\AdminYard\Form\MultiSelect;
-use S2\AdminYard\Form\Radio;
+use Register\AdminYard\Form\Autocomplete;
+use Register\AdminYard\Form\CheckboxArray;
+use Register\AdminYard\Form\MultiSelect;
+use Register\AdminYard\Form\Radio;
 
 /** @var callable $trans */
 /** @var string $title */
 /** @var string $entityName */
-/** @var array<string, \S2\AdminYard\Form\FormControlInterface> $filterControls */
+/** @var array<string, \Register\AdminYard\Form\FormControlInterface> $filterControls */
 /** @var array<string, string> $filterLabels */
 /** @var array<string, mixed> $filterData */
 /** @var list<string> $sortableFields */

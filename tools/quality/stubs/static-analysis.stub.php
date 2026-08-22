@@ -1,6 +1,6 @@
 <?php
 
-namespace S2\AdminYard\Config;
+namespace Register\AdminYard\Config;
 
 readonly abstract class AbstractFieldType
 {

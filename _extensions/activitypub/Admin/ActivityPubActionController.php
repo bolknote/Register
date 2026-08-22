@@ -7,42 +7,42 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Admin;
+namespace Register\Extension\activitypub\Admin;
 
 use Psr\Log\LoggerInterface;
-use S2\AdminYard\Translator;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Security\Http\AdminMutationGuard;
-use s2_extensions\activitypub\Application\OutgoingFollowService;
-use s2_extensions\activitypub\Application\AuthorActorDraft;
-use s2_extensions\activitypub\Application\AuthorActorService;
-use s2_extensions\activitypub\Application\ActivationReadinessStarter;
-use s2_extensions\activitypub\Application\FederationActivationService;
-use s2_extensions\activitypub\Application\SiteActorDraft;
-use s2_extensions\activitypub\Application\ActorKeyRotationService;
-use s2_extensions\activitypub\Application\ActorIdentityMigrationService;
-use s2_extensions\activitypub\Application\FederationLifecycleService;
-use s2_extensions\activitypub\Application\FederationPolicyService;
-use s2_extensions\activitypub\Application\OutgoingInteractionService;
-use s2_extensions\activitypub\Application\OutgoingReplyService;
-use s2_extensions\activitypub\Application\ContentBackfillStarter;
+use Register\AdminYard\Translator;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Security\Http\AdminMutationGuard;
+use Register\Extension\activitypub\Application\OutgoingFollowService;
+use Register\Extension\activitypub\Application\AuthorActorDraft;
+use Register\Extension\activitypub\Application\AuthorActorService;
+use Register\Extension\activitypub\Application\ActivationReadinessStarter;
+use Register\Extension\activitypub\Application\FederationActivationService;
+use Register\Extension\activitypub\Application\SiteActorDraft;
+use Register\Extension\activitypub\Application\ActorKeyRotationService;
+use Register\Extension\activitypub\Application\ActorIdentityMigrationService;
+use Register\Extension\activitypub\Application\FederationLifecycleService;
+use Register\Extension\activitypub\Application\FederationPolicyService;
+use Register\Extension\activitypub\Application\OutgoingInteractionService;
+use Register\Extension\activitypub\Application\OutgoingReplyService;
+use Register\Extension\activitypub\Application\ContentBackfillStarter;
 use Register\Content\ContentId;
-use s2_extensions\activitypub\Delivery\DeliveryQueue;
-use s2_extensions\activitypub\Discovery\RemoteActorDiscovery;
-use s2_extensions\activitypub\Domain\ModerationAction;
-use s2_extensions\activitypub\Domain\ActorType;
-use s2_extensions\activitypub\Domain\CanonicalBasePath;
-use s2_extensions\activitypub\Domain\CanonicalOrigin;
-use s2_extensions\activitypub\Domain\ContentDeliveryMode;
-use s2_extensions\activitypub\Domain\FederationPolicy;
-use s2_extensions\activitypub\Domain\LocalHandle;
-use s2_extensions\activitypub\Domain\PostObjectType;
-use s2_extensions\activitypub\Domain\RemoteActor;
-use s2_extensions\activitypub\Inbox\InboxQueue;
-use s2_extensions\activitypub\Media\RemoteAvatarQueue;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Infrastructure\ModerationRuleRepository;
-use s2_extensions\activitypub\Infrastructure\RemoteActorRepository;
+use Register\Extension\activitypub\Delivery\DeliveryQueue;
+use Register\Extension\activitypub\Discovery\RemoteActorDiscovery;
+use Register\Extension\activitypub\Domain\ModerationAction;
+use Register\Extension\activitypub\Domain\ActorType;
+use Register\Extension\activitypub\Domain\CanonicalBasePath;
+use Register\Extension\activitypub\Domain\CanonicalOrigin;
+use Register\Extension\activitypub\Domain\ContentDeliveryMode;
+use Register\Extension\activitypub\Domain\FederationPolicy;
+use Register\Extension\activitypub\Domain\LocalHandle;
+use Register\Extension\activitypub\Domain\PostObjectType;
+use Register\Extension\activitypub\Domain\RemoteActor;
+use Register\Extension\activitypub\Inbox\InboxQueue;
+use Register\Extension\activitypub\Media\RemoteAvatarQueue;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Infrastructure\ModerationRuleRepository;
+use Register\Extension\activitypub\Infrastructure\RemoteActorRepository;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -145,7 +145,7 @@ final readonly class ActivityPubActionController
     private function discover(Request $request): JsonResponse
     {
         $localActorId = $request->request->getInt('local_actor_id');
-        if (!$this->localActorRepository->findById($localActorId) instanceof \s2_extensions\activitypub\Domain\LocalActor) {
+        if (!$this->localActorRepository->findById($localActorId) instanceof \Register\Extension\activitypub\Domain\LocalActor) {
             throw new \DomainException('The selected local ActivityPub actor does not exist.');
         }
 
@@ -260,7 +260,7 @@ final readonly class ActivityPubActionController
             $request->request->getInt('remote_actor_id'),
         );
 
-        return $this->success($activity instanceof \s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation
+        return $this->success($activity instanceof \Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation
             ? 'ActivityPub Undo Follow queued.'
             : 'The ActivityPub follow had already ended.');
     }
@@ -319,7 +319,7 @@ final readonly class ActivityPubActionController
             $type === 'emoji_react' ? $request->request->getString('emoji') : '',
         );
 
-        if (!$interaction instanceof \s2_extensions\activitypub\Domain\LocalInteraction) {
+        if (!$interaction instanceof \Register\Extension\activitypub\Domain\LocalInteraction) {
             return $this->success('The ActivityPub interaction had already ended.');
         }
 
@@ -389,7 +389,7 @@ final readonly class ActivityPubActionController
             $request->request->getString('new_handle'),
         );
 
-        return $this->success($activity instanceof \s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation
+        return $this->success($activity instanceof \Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation
             ? 'ActivityPub actor handle changed and Update queued.'
             : 'The ActivityPub actor already uses this handle.');
     }

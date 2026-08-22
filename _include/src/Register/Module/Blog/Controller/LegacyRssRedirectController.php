@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Model\UrlBuilder;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Model\UrlBuilder;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

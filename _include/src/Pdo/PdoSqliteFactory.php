@@ -2,25 +2,25 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Pdo;
+namespace Register\Core\Pdo;
 
 class PdoSqliteFactory
 {
     public static function create(string $dbFilename, bool $persistentConnection): PDO
     {
         if (!file_exists($dbFilename)) {
-            s2_call_without_warnings(static fn(): bool => touch($dbFilename));
+            register_call_without_warnings(static fn(): bool => touch($dbFilename));
             if (!file_exists($dbFilename)) {
                 throw new \RuntimeException("Unable to create new database file '" . $dbFilename . "'. Permission denied. Please allow write permissions for the '" . \dirname($dbFilename) . "' directory.");
             }
         }
 
-        if (DIRECTORY_SEPARATOR !== '\\' && !s2_call_without_warnings(static fn(): bool => chmod($dbFilename, 0600))) {
+        if (DIRECTORY_SEPARATOR !== '\\' && !register_call_without_warnings(static fn(): bool => chmod($dbFilename, 0600))) {
             throw new \RuntimeException("Unable to secure database file '" . $dbFilename . "' with mode 0600.");
         }
 
@@ -51,7 +51,7 @@ class PdoSqliteFactory
 
         foreach ([$dbFilename . '-wal', $dbFilename . '-shm'] as $sqliteSidecar) {
             if (is_file($sqliteSidecar)) {
-                s2_call_without_warnings(static fn(): bool => chmod($sqliteSidecar, 0600));
+                register_call_without_warnings(static fn(): bool => chmod($sqliteSidecar, 0600));
             }
         }
 

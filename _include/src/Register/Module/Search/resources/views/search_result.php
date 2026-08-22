@@ -10,20 +10,20 @@ declare(strict_types = 1);
  * @var $link string
  * @var $descr string
  * @var $time string
- * @var $images \S2\Rose\Entity\Metadata\ImgCollection|\S2\Rose\Entity\Metadata\Img[]
+ * @var $images \Register\Rose\Entity\Metadata\ImgCollection|\Register\Rose\Entity\Metadata\Img[]
  */
 $imageCount = \count($images);
 $previewLimit = 4;
 ?>
 <article class="search-result<?php echo $imageCount > 0 ? ' search-result-has-media' : ''; ?>">
     <h2 class="search-result-title">
-        <a class="title" href="<?php echo s2_htmlencode($link); ?>"><?php echo $title; ?></a>
+        <a class="title" href="<?php echo register_htmlencode($link); ?>"><?php echo $title; ?></a>
     </h2>
 
     <?php if ($imageCount > 0): ?>
         <div class="search-result-media">
-            <a class="search-result-media-link" href="<?php echo s2_htmlencode($link); ?>"
-                aria-label="<?php echo s2_htmlencode($plainTitle); ?>">
+            <a class="search-result-media-link" href="<?php echo register_htmlencode($link); ?>"
+                aria-label="<?php echo register_htmlencode($plainTitle); ?>">
                 <?php foreach ($images as $index => $image): ?>
                     <?php
                     if ($index >= $previewLimit) {

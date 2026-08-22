@@ -1,9 +1,9 @@
 /**
- * Image pipeline shared state and config for editor in S2.
+ * Image pipeline shared state and config for editor in Register.
  *
  * @copyright 2025-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 const imageState = {
@@ -14,7 +14,7 @@ const imageState = {
     pasteImageJobs: new Map(),
     pasteImageBySrc: new Map(),
     pasteImageCounter: 0,
-    previewOverlayStylesId: 's2-image-overlay-styles',
+    previewOverlayStylesId: 'register-image-overlay-styles',
     sizeOptions: [1024, 1200, 1600, Infinity],
     imagePolicyConfig: {
         base: {

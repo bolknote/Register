@@ -2,14 +2,14 @@
 /**
  * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\AdminYard\Form;
+namespace Register\Core\AdminYard\Form;
 
-use S2\AdminYard\Form\Password;
+use Register\AdminYard\Form\Password;
 
 /** Password control that never reflects submitted credentials back into HTML. */
 final class SafePassword extends Password

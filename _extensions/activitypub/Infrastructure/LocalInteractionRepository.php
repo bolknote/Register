@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\LocalInteraction;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\LocalInteraction;
 
 final readonly class LocalInteractionRepository
 {
@@ -63,7 +63,7 @@ final readonly class LocalInteractionRepository
             return $existing;
         }
 
-        if (!$existing instanceof \s2_extensions\activitypub\Domain\LocalInteraction) {
+        if (!$existing instanceof \Register\Extension\activitypub\Domain\LocalInteraction) {
             $this->dbLayer->insert(ActivityPubSchema::LOCAL_INTERACTION_TABLE)
                 ->values([
                     'local_actor_id'     => ':local_actor_id',

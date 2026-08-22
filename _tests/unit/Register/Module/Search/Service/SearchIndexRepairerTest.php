@@ -17,12 +17,12 @@ use Register\Content\ContentSourceInterface;
 use Register\Content\ContentType;
 use Register\Module\Search\Service\ContentIndexer;
 use Register\Module\Search\Service\SearchIndexRepairer;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Rose\Entity\Indexable;
-use S2\Rose\Indexer;
-use S2\Rose\Stemmer\PorterStemmerEnglish;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueuePublisher;
+use Register\Rose\Entity\Indexable;
+use Register\Rose\Indexer;
+use Register\Rose\Stemmer\PorterStemmerEnglish;
+use Register\Rose\Storage\Database\PdoStorage;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 final class SearchIndexRepairerTest extends Unit

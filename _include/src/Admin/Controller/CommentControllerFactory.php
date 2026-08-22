@@ -2,25 +2,25 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Controller;
+namespace Register\Core\Admin\Controller;
 
 use Register\Comment\CommentRepository;
 use Register\Live\LiveUpdateRepository;
-use S2\AdminYard\Config\EntityConfig;
-use S2\AdminYard\Controller\ControllerFactoryInterface;
-use S2\AdminYard\Database\PdoDataProvider;
-use S2\AdminYard\Form\FormFactory;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\AdminYard\TemplateRenderer;
-use S2\AdminYard\Transformer\ViewTransformer;
-use S2\AdminYard\Translator;
-use S2\Cms\Comment\Antispam\SpamFeedbackService;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\AdminYard\Config\EntityConfig;
+use Register\AdminYard\Controller\ControllerFactoryInterface;
+use Register\AdminYard\Database\PdoDataProvider;
+use Register\AdminYard\Form\FormFactory;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Transformer\ViewTransformer;
+use Register\AdminYard\Translator;
+use Register\Core\Comment\Antispam\SpamFeedbackService;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final readonly class CommentControllerFactory implements ControllerFactoryInterface
@@ -43,7 +43,7 @@ final readonly class CommentControllerFactory implements ControllerFactoryInterf
         TemplateRenderer        $templateRenderer,
         FormFactory             $formFactory,
         SettingStorageInterface $settingStorage,
-    ): \S2\Cms\Admin\Controller\CommentController {
+    ): \Register\Core\Admin\Controller\CommentController {
         return new CommentController(
             $entityConfig,
             $eventDispatcher,

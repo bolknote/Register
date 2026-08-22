@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,11 +10,11 @@ declare(strict_types = 1);
 namespace unit\Cms\Config;
 
 use Codeception\Test\Unit;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Config\DynamicSecretParameterRegistry;
-use S2\Cms\Config\DynamicSecretStore;
-use S2\Cms\Framework\Exception\ConfigurationException;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Config\DynamicSecretParameterRegistry;
+use Register\Core\Config\DynamicSecretStore;
+use Register\Core\Framework\Exception\ConfigurationException;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Component\Filesystem\Filesystem;
 
 final class DynamicSecretStoreTest extends Unit

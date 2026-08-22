@@ -28,15 +28,15 @@ foreach ($menu as $item)
 	if (!empty($item['is_current']))
 	{
 ?>
-	<li class="menu-item active"><span><?php echo s2_htmlencode($item['title']); ?></span></li>
+	<li class="menu-item active"><span><?php echo register_htmlencode($item['title']); ?></span></li>
 <?php
 	}
 	else
 	{
 ?>
 	<li class="menu-item">
-		<a href="<?php echo s2_htmlencode($item['link']); ?>"<?php if (!empty($item['hint'])) echo ' title="', s2_htmlencode($item['hint']), '"'; ?>>
-			<?php echo s2_htmlencode($item['title']); ?>
+		<a href="<?php echo register_htmlencode($item['link']); ?>"<?php if (!empty($item['hint'])) echo ' title="', register_htmlencode($item['hint']), '"'; ?>>
+			<?php echo register_htmlencode($item['title']); ?>
 
 		</a>
 	</li>

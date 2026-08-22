@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Domain;
+namespace Register\Extension\activitypub\Domain;
 
 /** Generates the frozen 128-bit, unpadded base64url identifier format. */
 final class PublicIdGenerator

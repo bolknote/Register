@@ -2,7 +2,7 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace unit\Cms\Config;
 
 use Codeception\Test\Unit;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
 
 final class DynamicConfigProxyTest extends Unit
 {
@@ -22,20 +22,20 @@ final class DynamicConfigProxyTest extends Unit
     public function testProxiesReuseInstancesAndFollowUpdates(): void
     {
         [$provider, $dbLayer] = $this->createProvider([
-            'S2_FEATURE' => '1',
-            'S2_LIMIT'   => '15',
+            'REGISTER_FEATURE' => '1',
+            'REGISTER_LIMIT'   => '15',
         ]);
 
-        $boolProxy = $provider->getBoolProxy('S2_FEATURE');
-        $intProxy  = $provider->getIntProxy('S2_LIMIT');
+        $boolProxy = $provider->getBoolProxy('REGISTER_FEATURE');
+        $intProxy  = $provider->getIntProxy('REGISTER_LIMIT');
 
-        self::assertSame($boolProxy, $provider->getBoolProxy('S2_FEATURE'));
+        self::assertSame($boolProxy, $provider->getBoolProxy('REGISTER_FEATURE'));
         self::assertTrue($boolProxy->get());
         self::assertSame(15, $intProxy->get());
 
         $this->updateConfig($dbLayer, [
-            'S2_FEATURE' => '0',
-            'S2_LIMIT'   => '8',
+            'REGISTER_FEATURE' => '0',
+            'REGISTER_LIMIT'   => '8',
         ]);
         $provider->clearState();
 
@@ -49,16 +49,16 @@ final class DynamicConfigProxyTest extends Unit
      */
     public function testStringProxyValidatesType(): void
     {
-        [$provider] = $this->createProvider(['S2_TITLE' => 'Hello']);
+        [$provider] = $this->createProvider(['REGISTER_TITLE' => 'Hello']);
 
-        self::assertSame('Hello', $provider->getStringProxy('S2_TITLE')->get());
+        self::assertSame('Hello', $provider->getStringProxy('REGISTER_TITLE')->get());
 
         $reflection = new \ReflectionClass($provider);
         $paramsProp = $reflection->getProperty('params');
-        $paramsProp->setValue($provider, ['S2_TITLE' => 123]);
+        $paramsProp->setValue($provider, ['REGISTER_TITLE' => 123]);
 
         $this->expectException(\LogicException::class);
-        $provider->getStringProxy('S2_TITLE')->get();
+        $provider->getStringProxy('REGISTER_TITLE')->get();
     }
 
     /**
@@ -69,7 +69,7 @@ final class DynamicConfigProxyTest extends Unit
         [$provider] = $this->createProvider([]);
 
         $this->expectException(\LogicException::class);
-        $provider->getBoolProxy('S2_UNKNOWN')->get();
+        $provider->getBoolProxy('REGISTER_UNKNOWN')->get();
     }
 
     /**
@@ -86,7 +86,7 @@ final class DynamicConfigProxyTest extends Unit
         $dbLayer->query('CREATE TABLE config (name TEXT PRIMARY KEY, value TEXT)');
         $this->updateConfig($dbLayer, $data);
 
-        $file = \tempnam(\sys_get_temp_dir(), 's2_dyn_cfg_');
+        $file = \tempnam(\sys_get_temp_dir(), 'register_dyn_cfg_');
         if ($file === false) {
             throw new \RuntimeException('Unable to allocate a temporary configuration file.');
         }

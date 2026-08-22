@@ -7,18 +7,18 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\WebAuthn;
+namespace Register\Core\Admin\WebAuthn;
 
 use Psr\Log\LoggerInterface;
-use S2\AdminYard\Translator;
-use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\LoginRateLimiter;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Security\Audit\SecurityAuditLogger;
-use S2\Cms\Security\Http\AdminMutationGuard;
-use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
-use S2\Cms\Security\WebAuthn\WebAuthnCredentialRepository;
-use S2\Cms\Security\WebAuthn\WebAuthnService;
+use Register\AdminYard\Translator;
+use Register\Core\Model\AuthManager;
+use Register\Core\Model\LoginRateLimiter;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Security\Audit\SecurityAuditLogger;
+use Register\Core\Security\Http\AdminMutationGuard;
+use Register\Core\Security\WebAuthn\RecoveryCodeRepository;
+use Register\Core\Security\WebAuthn\WebAuthnCredentialRepository;
+use Register\Core\Security\WebAuthn\WebAuthnService;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;

@@ -20,8 +20,8 @@ use Register\Content\TagRepository;
 use Register\Live\LiveUpdateRepository;
 use Register\Module\Blog\Inplace\PostMediaRepository;
 use Register\Module\LinkHealth\Manifest;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -386,8 +386,8 @@ final class PostInplaceCest
         $dbLayer = $I->grabService(DbLayer::class);
         /** @var DynamicConfigProvider $configProvider */
         $configProvider = $I->grabService(DynamicConfigProvider::class);
-        $originalTitle = (string)$configProvider->get('S2_SITE_NAME');
-        $originalTagline = (string)$configProvider->get('S2_SITE_TAGLINE');
+        $originalTitle = (string)$configProvider->get('REGISTER_SITE_NAME');
+        $originalTagline = (string)$configProvider->get('REGISTER_SITE_TAGLINE');
 
         $I->login('author', 'author');
         $I->sendAjaxPostRequest('https://localhost/_inplace/site-header', [
@@ -421,15 +421,16 @@ final class PostInplaceCest
             $I->assertTrue($payload['success']);
             $I->assertSame('Updated site title', $payload['title']);
             $I->assertSame("First line\nSecond line", $payload['tagline']);
-            $I->assertSame('Updated site title', $this->configValue($dbLayer, 'S2_SITE_NAME'));
-            $I->assertSame("First line\nSecond line", $this->configValue($dbLayer, 'S2_SITE_TAGLINE'));
+            $I->assertSame('Updated site title', $this->configValue($dbLayer, 'REGISTER_SITE_NAME'));
+            $I->assertSame("First line\nSecond line", $this->configValue($dbLayer, 'REGISTER_SITE_TAGLINE'));
         } finally {
-            foreach (['S2_SITE_NAME' => $originalTitle, 'S2_SITE_TAGLINE' => $originalTagline] as $name => $value) {
+            foreach (['REGISTER_SITE_NAME' => $originalTitle, 'REGISTER_SITE_TAGLINE' => $originalTagline] as $name => $value) {
                 $dbLayer->upsert('config')
                     ->setKey('name', ':name')->setParameter('name', $name)
                     ->setValue('value', ':value')->setParameter('value', $value)
                     ->execute();
             }
+
             $configProvider->regenerate();
         }
     }

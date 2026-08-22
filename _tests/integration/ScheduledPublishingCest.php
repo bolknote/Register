@@ -16,11 +16,11 @@ use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Module\Search\Service\ContentIndexer;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Queue\QueueConsumer;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerRegistry;
-use S2\Cms\Queue\QueuePublisher;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueueConsumer;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerRegistry;
+use Register\Core\Queue\QueuePublisher;
 
 final class ScheduledPublishingCest
 {

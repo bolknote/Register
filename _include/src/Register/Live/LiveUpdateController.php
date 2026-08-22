@@ -14,7 +14,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Module\Blog\Model\PostFeedRenderer;
-use S2\Cms\Framework\ControllerInterface;
+use Register\Core\Framework\ControllerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -153,13 +153,13 @@ final readonly class LiveUpdateController implements ControllerInterface
         $content   = $this->contentRepository->find($contentId);
         if (!$content instanceof \Register\Content\ContentItem) {
             return '<div class="live-comments-region" data-live-region="'
-                . s2_htmlencode($region)
+                . register_htmlencode($region)
                 . '"></div>';
         }
 
         if (!$content->commentsEnabled) {
             return '<div class="live-comments-region" data-live-region="'
-                . s2_htmlencode($region)
+                . register_htmlencode($region)
                 . '"></div>';
         }
 

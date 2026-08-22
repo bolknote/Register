@@ -7,14 +7,14 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
 use Register\Content\ContentId;
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\ContentDeliveryMode;
-use s2_extensions\activitypub\Domain\ContentFederationSettings;
-use s2_extensions\activitypub\Domain\ContentPublicationMode;
-use s2_extensions\activitypub\Domain\PostObjectType;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\ContentDeliveryMode;
+use Register\Extension\activitypub\Domain\ContentFederationSettings;
+use Register\Extension\activitypub\Domain\ContentPublicationMode;
+use Register\Extension\activitypub\Domain\PostObjectType;
 
 /** Persists sparse content overrides without depending on Register's mutable content schema. */
 final readonly class ContentFederationSettingsRepository

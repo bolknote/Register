@@ -1,15 +1,15 @@
 /**
- * Article editor form logic for S2.
+ * Article editor form logic for Register.
  *
  * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 import {editorDeps} from './deps.js';
 import {hex_md5} from './hash.js';
 import {Preview, initPreviewSync} from './preview.js';
-import {s2_codemirror} from './codemirror.js';
+import {register_codemirror} from './codemirror.js';
 import {escapeHtml, sanitizeUrlForAttribute} from './utils/escape.js';
 
 export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaName, sTemplateId, sSlugFieldName = 'url', sTemplateScope = '') {
@@ -61,11 +61,11 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             return;
         }
 
-        document.dispatchEvent(new Event('save_article_start.s2'));
+        document.dispatchEvent(new Event('save_article_start.register'));
 
         function successHandler(nextStatusData) {
             editorDeps.PopupMessages.hide(sLowerEntityName + '-save');
-            document.dispatchEvent(new Event('save_article_end.s2'));
+            document.dispatchEvent(new Event('save_article_end.register'));
 
             eForm.elements['revision'].value = nextStatusData['revision'];
             statusData = nextStatusData;
@@ -97,7 +97,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             const response = await fetch(eForm.action, {method: 'POST', headers: headers, body: formData});
 
             if (response.redirected) {
-                document.dispatchEvent(new Event('save_article_end.s2'));
+                document.dispatchEvent(new Event('save_article_end.register'));
                 try {
                     localStorage.removeItem(draftStorageKey);
                 } catch (error) {
@@ -139,9 +139,9 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
     eForm.addEventListener('publication-state-change', function () {
         decorateForm(statusData);
     });
-    document.addEventListener('save_form.s2', saveForm);
+    document.addEventListener('save_form.register', saveForm);
 
-    document.addEventListener('return_image.s2', function (e) {
+    document.addEventListener('return_image.register', function (e) {
         let w = e.detail.width;
         let h = e.detail.height;
         let s = e.detail.file_path;
@@ -149,7 +149,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
 
         const sOpenTag = '<img src="' + s + '" width="' + w + '" height="' + h + '" ' + 'loading="lazy" alt="',
             sCloseTag = '" />';
-        document.dispatchEvent(new CustomEvent('insert_tag.s2', {
+        document.dispatchEvent(new CustomEvent('insert_tag.register', {
             detail: {sStart: sOpenTag, sEnd: sCloseTag, imageSrc: s}
         }));
 
@@ -159,11 +159,11 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         }
     });
 
-    document.addEventListener('return_audio.s2', function (e) {
+    document.addEventListener('return_audio.register', function (e) {
         const src = sanitizeUrlForAttribute(e.detail.file_path);
         const title = escapeHtml(e.detail.title || '');
         const audio = '<audio controls preload="metadata" src="' + src + '" data-title="' + title + '"></audio>';
-        document.dispatchEvent(new CustomEvent('insert_tag.s2', {detail: {sStart: audio, sEnd: ''}}));
+        document.dispatchEvent(new CustomEvent('insert_tag.register', {detail: {sStart: audio, sEnd: ''}}));
 
         const dialog = document.getElementById('picture_dialog');
         if (dialog) {
@@ -207,14 +207,14 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         }
 
         function persistCurrentText() {
-            s2_codemirror.flip();
+            register_codemirror.flip();
             persistDraft(eTextarea.value);
         }
 
         function checkChanges() {
-            document.dispatchEvent(new Event('check_changes_start.s2'));
+            document.dispatchEvent(new Event('check_changes_start.register'));
 
-            s2_codemirror.flip();
+            register_codemirror.flip();
             const currentText = eTextarea.value;
             persistDraft(currentText);
 
@@ -235,18 +235,18 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
 
         function wireLivePreview() {
             const updatePreview = debounceWithMaxWait(function () {
-                s2_codemirror.flip();
+                register_codemirror.flip();
                 checkChanges();
             }, 300, 3000);
 
             function handleTextChange() {
-                s2_codemirror.flip();
+                register_codemirror.flip();
                 persistDraft(eTextarea.value);
                 updatePreview();
             }
 
-            if (s2_codemirror.isReady()) {
-                s2_codemirror.onChange(handleTextChange);
+            if (register_codemirror.isReady()) {
+                register_codemirror.onChange(handleTextChange);
             } else {
                 eTextarea.addEventListener('input', handleTextChange);
             }
@@ -271,7 +271,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         }
 
         function markSaved() {
-            s2_codemirror.flip();
+            register_codemirror.flip();
             currentFormHash = getFormHash();
             savedText = eTextarea.value;
             removeDraft();
@@ -282,10 +282,10 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         wireLivePreview();
 
         if (recoveredText !== null && recoveredText !== savedText) {
-            if (!s2_codemirror.setValue(recoveredText, true)) {
+            if (!register_codemirror.setValue(recoveredText, true)) {
                 eTextarea.value = recoveredText;
             }
-            s2_codemirror.flip();
+            register_codemirror.flip();
             previousText = recoveredText;
         } else if (recoveredText !== null) {
             removeDraft();
@@ -302,12 +302,12 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             sTemplateScope,
             previewFrame
         );
-        document.addEventListener('save_article_end.s2', markSaved);
+        document.addEventListener('save_article_end.register', markSaved);
 
         return {
             persist: persistCurrentText,
             present: function () {
-                document.dispatchEvent(new Event('changes_present.s2'));
+                document.dispatchEvent(new Event('changes_present.register'));
 
                 return currentFormHash !== getFormHash();
             }
@@ -318,7 +318,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
     window.onbeforeunload = function () {
         Changes.persist();
         if (Changes.present()) {
-            return editorDeps.s2_lang.unsaved_exit;
+            return editorDeps.register_lang.unsaved_exit;
         }
     };
 }

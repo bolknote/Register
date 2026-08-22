@@ -7,19 +7,19 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Domain\FederationUrlGenerator;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorKey;
-use s2_extensions\activitypub\Domain\ProtocolLimits;
-use s2_extensions\activitypub\Http\ActivityPubResponseFactory;
-use s2_extensions\activitypub\Infrastructure\ActivationReadinessRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Presentation\ActivationProbeDocumentBuilder;
-use s2_extensions\activitypub\Security\HttpSignatureRequest;
-use s2_extensions\activitypub\Security\LegacyHttpSignature;
-use s2_extensions\activitypub\Security\SignatureVerificationFailed;
+use Register\Extension\activitypub\Domain\FederationUrlGenerator;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorKey;
+use Register\Extension\activitypub\Domain\ProtocolLimits;
+use Register\Extension\activitypub\Http\ActivityPubResponseFactory;
+use Register\Extension\activitypub\Infrastructure\ActivationReadinessRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Presentation\ActivationProbeDocumentBuilder;
+use Register\Extension\activitypub\Security\HttpSignatureRequest;
+use Register\Extension\activitypub\Security\LegacyHttpSignature;
+use Register\Extension\activitypub\Security\SignatureVerificationFailed;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

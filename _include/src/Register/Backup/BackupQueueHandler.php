@@ -9,9 +9,9 @@ declare(strict_types = 1);
 
 namespace Register\Backup;
 
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
 
 /** Runs the automatic full backup as durable, observable queue work. */
 final readonly class BackupQueueHandler implements QueueHandlerInterface

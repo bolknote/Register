@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Domain;
+namespace Register\Extension\activitypub\Domain;
 
 /** A normalized, already URL-encoded installation path; the origin root is the empty string. */
 final readonly class CanonicalBasePath

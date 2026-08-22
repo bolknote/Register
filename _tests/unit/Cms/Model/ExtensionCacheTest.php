@@ -11,8 +11,8 @@ namespace unit\Cms\Model;
 
 use Codeception\Test\Unit;
 use Register\Module\BaseModuleRegistry;
-use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Model\ExtensionCache;
+use Register\Core\Pdo\DbLayer;
 
 final class ExtensionCacheTest extends Unit
 {
@@ -20,7 +20,7 @@ final class ExtensionCacheTest extends Unit
     {
         $pdo = new \PDO('sqlite::memory:');
         $pdo->exec('CREATE TABLE extensions (id VARCHAR(255) NOT NULL, disabled INTEGER NOT NULL)');
-        $pdo->exec("INSERT INTO extensions (id, disabled) VALUES ('s2_blog', 0), ('s2_search', 0)");
+        $pdo->exec("INSERT INTO extensions (id, disabled) VALUES ('register_blog', 0), ('register_search', 0)");
 
         $cache = new ExtensionCache(new DbLayer($pdo), true, '');
 

@@ -1,6 +1,6 @@
 <?php
 /** @var callable $trans */
-/** @var \S2\Cms\Admin\Dashboard\DashboardStatProviderInterface[] $dashboardStatProviders */
+/** @var \Register\Core\Admin\Dashboard\DashboardStatProviderInterface[] $dashboardStatProviders */
 ?>
 <header class="dashboard-header">
     <h1 id="dashboard-title"><?= $trans('Overview') ?></h1>

@@ -3,7 +3,7 @@
  *
  * @copyright 2007-2024 Roman Parpalak
  * @license MIT
- * @package S2
+ * @package Register
  */
 
 function str_replace(from, to, str) {
@@ -19,7 +19,7 @@ function str_replace(from, to, str) {
 //
 
 function checkAjaxStatus(XHR) {
-    XHR.s2ErrorFlag = true;
+    XHR.registerErrorFlag = true;
 
     if (XHR.status === 401) {
         const data = JSON.parse(XHR.responseText);
@@ -51,14 +51,14 @@ function checkAjaxStatus(XHR) {
         return false;
     }
 
-    XHR.s2ErrorFlag = false;
+    XHR.registerErrorFlag = false;
     return true;
 }
 
 function UnknownError(sError, iStatus) {
     if (sError.indexOf('</body>') === -1 || sError.indexOf('</html>') === -1) {
-        sError = s2_lang.unknown_error + ' ' + iStatus + '<br />' +
-            s2_lang.server_response + '<br />' + sError;
+        sError = register_lang.unknown_error + ' ' + iStatus + '<br />' +
+            register_lang.server_response + '<br />' + sError;
     }
 
     DisplayError(sError);

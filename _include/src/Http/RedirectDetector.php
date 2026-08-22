@@ -2,14 +2,14 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Http;
+namespace Register\Core\Http;
 
-use S2\Cms\Model\UrlBuilder;
+use Register\Core\Model\UrlBuilder;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

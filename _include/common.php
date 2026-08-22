@@ -7,7 +7,7 @@ declare(strict_types = 1);
  *
  * @copyright 2009-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 use Psr\Log\LoggerInterface;
@@ -19,38 +19,38 @@ use Register\Schema\SchemaManager;
 use Register\Update\BuildInfo;
 use Register\Update\MaintenanceMode;
 use Register\Update\RuntimeLock;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Config\MediaStorageConfigResolver;
-use S2\Cms\Config\SecretConfigPathResolver;
-use S2\Cms\Config\StaticConfigLoader;
-use S2\Cms\Framework\Application;
-use S2\Cms\Framework\Exception\ConfigurationException;
-use S2\Cms\Framework\Exception\ParameterNotFoundException;
-use S2\Cms\Framework\ModuleInterface;
-use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Queue\ShutdownWorkCoordinator;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Config\MediaStorageConfigResolver;
+use Register\Core\Config\SecretConfigPathResolver;
+use Register\Core\Config\StaticConfigLoader;
+use Register\Core\Framework\Application;
+use Register\Core\Framework\Exception\ConfigurationException;
+use Register\Core\Framework\Exception\ParameterNotFoundException;
+use Register\Core\Framework\ModuleInterface;
+use Register\Core\Model\ExtensionCache;
+use Register\Core\Queue\ShutdownWorkCoordinator;
 use Symfony\Component\ErrorHandler\Debug;
 use Symfony\Component\ErrorHandler\ErrorHandler;
 use Symfony\Component\ErrorHandler\ErrorRenderer\HtmlErrorRenderer;
 
-$s2BootTimestamp = microtime(true);
+$registerBootTimestamp = microtime(true);
 
 // Uncomment these lines for debug
-//define('S2_DEBUG', 1);
-//define('S2_SHOW_QUERIES', 1);
+//define('REGISTER_DEBUG', 1);
+//define('REGISTER_SHOW_QUERIES', 1);
 
 require __DIR__ . '/../_vendor/autoload.php';
 
 $registerApplicationRoot = dirname(__DIR__);
-define('S2_VERSION', BuildInfo::version($registerApplicationRoot));
+define('REGISTER_VERSION', BuildInfo::version($registerApplicationRoot));
 $registerUpdateRequest = MaintenanceMode::isUpdateRequest($_SERVER, $_GET, $_POST);
 (new MaintenanceMode($registerApplicationRoot))->enforce($registerUpdateRequest);
 $registerRuntimeLock = $registerUpdateRequest ? null : RuntimeLock::acquireShared($registerApplicationRoot);
 
 $staticConfigLoader = new StaticConfigLoader();
-$s2StaticConfig     = $staticConfigLoader->load(__DIR__ . '/../' . s2_get_config_filename());
+$registerStaticConfig     = $staticConfigLoader->load(__DIR__ . '/../' . register_get_config_filename());
 
-$debugEnabled = defined('S2_DEBUG') || ($s2StaticConfig['options']['debug'] ?? false) === true;
+$debugEnabled = defined('REGISTER_DEBUG') || ($registerStaticConfig['options']['debug'] ?? false) === true;
 error_reporting($debugEnabled ? E_ALL : E_ALL ^ E_NOTICE);
 
 require __DIR__ . '/../_include/setup.php';
@@ -63,13 +63,13 @@ if ($debugEnabled) {
 
 HtmlErrorRenderer::setTemplate(__DIR__ . '/views/error.php');
 
-$s2BaseStaticParameters = s2_build_base_static_parameters($s2StaticConfig);
+$registerBaseStaticParameters = register_build_base_static_parameters($registerStaticConfig);
 
 /**
  * @param array<string, mixed> $config
  * @return array<string, mixed>
  */
-function s2_build_base_static_parameters(array $config): array
+function register_build_base_static_parameters(array $config): array
 {
     $rootDir       = dirname(__DIR__) . '/';
     $publicRootDir = \defined('REGISTER_PUBLIC_ROOT')
@@ -79,7 +79,7 @@ function s2_build_base_static_parameters(array $config): array
     $filesConfig = \is_array($config['files'] ?? null) ? $config['files'] : [];
     $cacheDir = isset($filesConfig['cache_dir']) && \is_string($filesConfig['cache_dir'])
         ? rtrim($filesConfig['cache_dir'], '/') . '/'
-        : s2_get_default_cache_dir();
+        : register_get_default_cache_dir();
 
     $logDir = isset($filesConfig['log_dir']) && \is_string($filesConfig['log_dir'])
         ? rtrim($filesConfig['log_dir'], '/') . '/'
@@ -132,7 +132,7 @@ function s2_build_base_static_parameters(array $config): array
         'show_queries'       => $showQueries,
         'force_admin_https'  => $forceAdminHttps,
         'canonical_url'      => $canonicalUrl,
-        'version'            => S2_VERSION,
+        'version'            => REGISTER_VERSION,
         'redirect_map'       => $config['redirects'] ?? [],
         'cookie_name'        => $config['cookies']['name'] ?? StaticConfigLoader::DEFAULT_COOKIE_NAME,
         'antispam_secret'    => $config['security']['antispam_secret'] ?? null,
@@ -166,21 +166,21 @@ function s2_build_base_static_parameters(array $config): array
 /** @return array<string, mixed> */
 function collectParameters(): array
 {
-    global $s2BootTimestamp, $s2BaseStaticParameters;
+    global $registerBootTimestamp, $registerBaseStaticParameters;
 
-    $result                   = $s2BaseStaticParameters;
-    $result['boot_timestamp'] = $s2BootTimestamp;
+    $result                   = $registerBaseStaticParameters;
+    $result['boot_timestamp'] = $registerBootTimestamp;
 
     return $result;
 }
 
 $app                = new Application();
 $baseModuleRegistry = new BaseModuleRegistry();
-(new RegisterKernel($baseModuleRegistry))->registerBaseModules($app, defined('S2_ADMIN_MODE'));
+(new RegisterKernel($baseModuleRegistry))->registerBaseModules($app, defined('REGISTER_ADMIN_MODE'));
 
 $enabledExtensions = null;
-$cacheDir          = (string)$s2BaseStaticParameters['cache_dir'];
-$disableCache      = (bool)$s2BaseStaticParameters['disable_cache'];
+$cacheDir          = (string)$registerBaseStaticParameters['cache_dir'];
+$disableCache      = (bool)$registerBaseStaticParameters['disable_cache'];
 if (!$disableCache && file_exists($cacheDir . ExtensionCache::CACHE_ENABLED_EXTENSIONS_FILENAME)) {
     $enabledExtensions = include $cacheDir . ExtensionCache::CACHE_ENABLED_EXTENSIONS_FILENAME;
 }
@@ -209,7 +209,7 @@ try {
         $app->addModule(new $module());
     }
 
-    if (defined('S2_ADMIN_MODE')) {
+    if (defined('REGISTER_ADMIN_MODE')) {
         foreach ($enabledExtensions['admin'] as $module) {
             if (is_string($module) && in_array(ltrim($module, '\\'), $staticallyLoadedClasses, true)) {
                 continue;
@@ -231,9 +231,9 @@ try {
 
     $app->container->getParameter('base_url');
 } catch (ParameterNotFoundException $e) {
-    // S2 is not installed
+    // Register is not installed
     ContentSecurityPolicy::send();
-    $configFilename   = s2_get_config_filename();
+    $configFilename   = register_get_config_filename();
     $installationPath = substr(
             dirname(__DIR__),
             str_ends_with($_SERVER['SCRIPT_FILENAME'], $_SERVER['SCRIPT_NAME'])
@@ -249,9 +249,9 @@ $errorHandler->setDefaultLogger($app->container->get(LoggerInterface::class));
 
 $dynamicConfigProvider = $app->container->get(DynamicConfigProvider::class);
 
-if (defined('S2_ADMIN_MODE') && session_status() !== PHP_SESSION_ACTIVE) {
+if (defined('REGISTER_ADMIN_MODE') && session_status() !== PHP_SESSION_ACTIVE) {
     ini_set('session.cookie_lifetime', '0');
-    ini_set('session.gc_maxlifetime', (string)\S2\Cms\Model\AuthManager::PERSISTENT_SESSION_LIFETIME);
+    ini_set('session.gc_maxlifetime', (string)\Register\Core\Model\AuthManager::PERSISTENT_SESSION_LIFETIME);
     ini_set('session.cookie_httponly', true);
 }
 

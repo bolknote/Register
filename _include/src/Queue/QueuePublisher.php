@@ -2,14 +2,14 @@
 /**
  * @copyright 2023-2026 Roman Parpalak
  * @license MIT
- * @package S2
+ * @package Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Queue;
+namespace Register\Core\Queue;
 
-use S2\Rose\Storage\Exception\InvalidEnvironmentException;
+use Register\Rose\Storage\Exception\InvalidEnvironmentException;
 
 readonly class QueuePublisher
 {

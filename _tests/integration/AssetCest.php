@@ -2,16 +2,16 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
 namespace integration;
 
-use S2\Cms\Asset\AssetMerge;
-use S2\Cms\Asset\AssetMergeFactory;
-use S2\Cms\HttpClient\HttpClient;
+use Register\Core\Asset\AssetMerge;
+use Register\Core\Asset\AssetMergeFactory;
+use Register\Core\HttpClient\HttpClient;
 
 class AssetCest
 {

@@ -19,7 +19,6 @@ final class FooterCest
         $I->seeElement('.footer-rss img[src="/_assets/register/rss-badge.svg"][alt=""]');
         $I->seeElement('#copyright > .engine-credit');
         $I->seeElement('.engine-credit a[href="https://github.com/bolknote/Register"]');
-        $I->dontSeeElement('.engine-credit a[href="https://github.com/parpalak/s2"]');
     }
 
     public function testPerformanceInfoIsVisibleOnlyToAdministrator(\IntegrationTester $I): void

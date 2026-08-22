@@ -11,8 +11,8 @@ namespace integration;
 
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\PartialPageResponse;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\PartialPageResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 final class PartialNavigationCest

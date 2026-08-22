@@ -9,24 +9,24 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose;
+namespace Register\Rose;
 
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
-use S2\Rose\Entity\ContentWithMetadata;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\Indexable;
-use S2\Rose\Exception\RuntimeException;
-use S2\Rose\Exception\UnknownException;
-use S2\Rose\Extractor\DefaultExtractorFactory;
-use S2\Rose\Extractor\ExtractorInterface;
-use S2\Rose\Helper\StringHelper;
-use S2\Rose\Stemmer\StemmerHelper;
-use S2\Rose\Stemmer\StemmerInterface;
-use S2\Rose\Storage\Exception\EmptyIndexException;
-use S2\Rose\Storage\StorageEraseInterface;
-use S2\Rose\Storage\StorageWriteInterface;
-use S2\Rose\Storage\TransactionalStorageInterface;
+use Register\Rose\Entity\ContentWithMetadata;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\Indexable;
+use Register\Rose\Exception\RuntimeException;
+use Register\Rose\Exception\UnknownException;
+use Register\Rose\Extractor\DefaultExtractorFactory;
+use Register\Rose\Extractor\ExtractorInterface;
+use Register\Rose\Helper\StringHelper;
+use Register\Rose\Stemmer\StemmerHelper;
+use Register\Rose\Stemmer\StemmerInterface;
+use Register\Rose\Storage\Exception\EmptyIndexException;
+use Register\Rose\Storage\StorageEraseInterface;
+use Register\Rose\Storage\StorageWriteInterface;
+use Register\Rose\Storage\TransactionalStorageInterface;
 
 class Indexer
 {
@@ -150,7 +150,7 @@ class Indexer
 
             $this->storage->addEntryToToc($indexable->toTocEntry(), $externalId);
 
-            if (!$oldTocEntry instanceof \S2\Rose\Entity\TocEntry || $oldTocEntry->getHash() !== $indexable->calcHash()) {
+            if (!$oldTocEntry instanceof \Register\Rose\Entity\TocEntry || $oldTocEntry->getHash() !== $indexable->calcHash()) {
                 $this->storage->removeFromIndex($externalId);
 
                 $extractionResult = $this->extractor->extract($indexable->getContent());

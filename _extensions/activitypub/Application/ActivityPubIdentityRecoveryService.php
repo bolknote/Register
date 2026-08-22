@@ -7,15 +7,15 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use S2\Cms\Config\DynamicSecretStore;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
-use s2_extensions\activitypub\Security\ActivityPubSecret;
-use s2_extensions\activitypub\Security\ActorKeyVault;
-use s2_extensions\activitypub\Security\RsaCrypto;
+use Register\Core\Config\DynamicSecretStore;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
+use Register\Extension\activitypub\Security\ActivityPubSecret;
+use Register\Extension\activitypub\Security\ActorKeyVault;
+use Register\Extension\activitypub\Security\RsaCrypto;
 
 /** Exports and authenticates the one secret required to recover encrypted actor keys. */
 final readonly class ActivityPubIdentityRecoveryService

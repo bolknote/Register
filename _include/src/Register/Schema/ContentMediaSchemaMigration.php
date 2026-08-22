@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Schema;
 
 use Register\Content\ContentMediaSchema;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 /** Adds the editor-owned media registry introduced by schema generation 16. */
 final readonly class ContentMediaSchemaMigration implements SchemaMigrationInterface

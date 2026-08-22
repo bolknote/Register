@@ -9,9 +9,9 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog;
 
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\Model\UrlBuilder;
+use Register\Core\Config\StringProxy;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Model\UrlBuilder;
 
 class BlogUrlBuilder implements StatefulServiceInterface
 {

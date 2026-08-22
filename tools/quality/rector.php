@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-use Rector\Config\RectorConfig;
 use Rector\CodingStyle\Rector\Catch_\CatchExceptionNameMatchingTypeRector;
+use Rector\CodeQuality\Rector\Identical\FlipTypeControlToUseExclusiveTypeRector;
+use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\Assign\RemoveUnusedVariableAssignRector;
 use Rector\DeadCode\Rector\Concat\RemoveConcatAutocastRector;
 use Rector\DeadCode\Rector\ConstFetch\RemovePhpVersionIdCheckRector;
@@ -38,6 +39,8 @@ return RectorConfig::configure()
         RemoveDefaultValueFromAssignedPropertyRector::class,
         RemovePhpVersionIdCheckRector::class,
         RemoveUnusedVariableAssignRector::class,
+        // Explicit null guards narrow reliably in all configured analyzers.
+        FlipTypeControlToUseExclusiveTypeRector::class,
         $projectRoot . '/_extensions/*/lang',
         $projectRoot . '/_extensions/*/templates',
         $projectRoot . '/_extensions/*/views',
@@ -46,6 +49,7 @@ return RectorConfig::configure()
         $projectRoot . '/_include/src/Register/Module/*/resources/views',
         $projectRoot . '/_tests/_resources',
         $projectRoot . '/_tests/_output',
+        $projectRoot . '/_tests/_support/Helper/AbstractBrowserModule.php',
         $projectRoot . '/_tests/_support/_generated',
         $projectRoot . '/tools/quality',
     ])

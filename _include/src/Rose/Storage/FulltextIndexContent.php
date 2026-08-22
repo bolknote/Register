@@ -7,10 +7,10 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Storage;
+namespace Register\Rose\Storage;
 
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\WordPositionContainer;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\WordPositionContainer;
 
 class FulltextIndexContent
 {

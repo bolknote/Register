@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Security;
 
 use Codeception\Test\Unit;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\Request;
 
 final class AdminMutationGuardTest extends Unit

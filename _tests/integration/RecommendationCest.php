@@ -11,16 +11,16 @@ namespace integration;
 
 use Psr\Cache\CacheItemPoolInterface;
 use Register\Module\Search\Service\RecommendationProvider;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\Indexable;
-use S2\Rose\Indexer;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\Indexable;
+use Register\Rose\Indexer;
 
 /** @group search */
 final class RecommendationCest
 {
     public function tryToFindRecommendationsOnSqlite(\IntegrationTester $I): void
     {
-        $I->setConfigValue('S2_SEARCH_RECOMMENDATIONS_LIMIT', '10');
+        $I->setConfigValue('REGISTER_SEARCH_RECOMMENDATIONS_LIMIT', '10');
 
         $cache = $I->grabService('recommendations_cache');
         if (!$cache instanceof CacheItemPoolInterface) {

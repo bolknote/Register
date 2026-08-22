@@ -11,12 +11,12 @@ namespace unit\Register\Module\Search\Service;
 
 use Codeception\Test\Unit;
 use Register\Module\Search\Service\RecommendationFinder;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\Indexable;
-use S2\Rose\Entity\TocEntryWithMetadata;
-use S2\Rose\Indexer;
-use S2\Rose\Stemmer\PorterStemmerEnglish;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\Indexable;
+use Register\Rose\Entity\TocEntryWithMetadata;
+use Register\Rose\Indexer;
+use Register\Rose\Stemmer\PorterStemmerEnglish;
+use Register\Rose\Storage\Database\PdoStorage;
 
 final class RecommendationFinderTest extends Unit
 {

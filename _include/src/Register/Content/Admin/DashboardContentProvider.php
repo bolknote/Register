@@ -12,9 +12,9 @@ namespace Register\Content\Admin;
 use Register\Comment\CommentRepository;
 use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentType;
-use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Admin\Dashboard\DashboardStatProviderInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\AdminYard\TemplateRenderer;
+use Register\Core\Admin\Dashboard\DashboardStatProviderInterface;
+use Register\Core\Pdo\DbLayerException;
 
 /** Renders one dashboard summary for all publishable content. */
 final readonly class DashboardContentProvider implements DashboardStatProviderInterface

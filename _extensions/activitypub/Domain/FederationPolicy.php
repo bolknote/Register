@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Domain;
+namespace Register\Extension\activitypub\Domain;
 
 /** Installation-wide defaults; an explicit per-content choice always wins. */
 final readonly class FederationPolicy

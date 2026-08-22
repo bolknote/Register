@@ -7,16 +7,16 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Storage\File;
+namespace Register\Rose\Storage\File;
 
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\Metadata\Img;
-use S2\Rose\Entity\Metadata\ImgCollection;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Entity\TocEntry;
-use S2\Rose\Helper\ProfileHelper;
-use S2\Rose\Storage\ArrayFulltextStorage;
-use S2\Rose\Storage\ArrayStorage;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\Metadata\Img;
+use Register\Rose\Entity\Metadata\ImgCollection;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Entity\TocEntry;
+use Register\Rose\Helper\ProfileHelper;
+use Register\Rose\Storage\ArrayFulltextStorage;
+use Register\Rose\Storage\ArrayStorage;
 
 class SingleFileArrayStorage extends ArrayStorage
 {

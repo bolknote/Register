@@ -7,20 +7,20 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
 use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
-use S2\Cms\Queue\QueuePublisher;
-use s2_extensions\activitypub\Domain\ContentBackfillMode;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\PublicIdGenerator;
-use s2_extensions\activitypub\Infrastructure\ContentBackfillJob;
-use s2_extensions\activitypub\Infrastructure\ContentBackfillRepository;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\PortableDatabaseTransaction;
+use Register\Core\Queue\QueuePublisher;
+use Register\Extension\activitypub\Domain\ContentBackfillMode;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\PublicIdGenerator;
+use Register\Extension\activitypub\Infrastructure\ContentBackfillJob;
+use Register\Extension\activitypub\Infrastructure\ContentBackfillRepository;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
 
 /** Creates a finite backfill manifest and its first shutdown generation atomically. */
 final readonly class ContentBackfillStarter

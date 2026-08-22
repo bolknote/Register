@@ -52,7 +52,7 @@ $maxPostSize = $bytesFromString(ini_get('post_max_size'));
 
     <div id="tree_div" class="media-browser">
         <aside class="treetree media-browser-sidebar">
-            <?php if ($isGranted(\S2\Cms\Model\PermissionChecker::PERMISSION_CREATE_ARTICLES)): ?>
+            <?php if ($isGranted(\Register\Core\Model\PermissionChecker::PERMISSION_CREATE_ARTICLES)): ?>
                 <form id="uploadForm" class="media-upload-panel" enctype="multipart/form-data"
                       action="<?= $html($basePath) ?>/_admin/ajax.php?action=upload" method="post">
                     <div id="loading_pict" class="loading-indicator"></div>

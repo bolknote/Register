@@ -7,11 +7,11 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Extractor;
+namespace Register\Rose\Extractor;
 
 use Psr\Log\LoggerAwareTrait;
-use S2\Rose\Exception\LogicException;
-use S2\Rose\Exception\RuntimeException;
+use Register\Rose\Exception\LogicException;
+use Register\Rose\Exception\RuntimeException;
 
 class ChainExtractor implements ExtractorInterface
 {

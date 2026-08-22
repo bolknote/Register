@@ -2,41 +2,41 @@
 /**
  * @copyright 2007-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Controller;
+namespace Register\Core\Controller;
 
 use Psr\Log\LoggerInterface;
 use Register\Content\ContentType;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Comment\Antispam\CommentFormTokenManager;
-use S2\Cms\Comment\Antispam\CommentFormTokenValidation;
-use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
-use S2\Cms\Comment\Antispam\SpamRateLimiter;
-use S2\Cms\Comment\SpamDetectorComment;
-use S2\Cms\Comment\SpamDecision;
-use S2\Cms\Comment\SpamDecisionProviderInterface;
-use S2\Cms\Controller\Comment\CommentStrategyInterface;
-use S2\Cms\Controller\Comment\TargetDto;
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Helper\StringHelper;
-use S2\Cms\Comment\CommentHtml;
-use S2\Cms\Mail\CommentMailer;
-use S2\Cms\Model\AuthenticatedPublicUser;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Model\User\UserProvider;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Comment\Antispam\CommentFormTokenManager;
+use Register\Core\Comment\Antispam\CommentFormTokenValidation;
+use Register\Core\Comment\Antispam\SpamAssessmentRepository;
+use Register\Core\Comment\Antispam\SpamRateLimiter;
+use Register\Core\Comment\SpamDetectorComment;
+use Register\Core\Comment\SpamDecision;
+use Register\Core\Comment\SpamDecisionProviderInterface;
+use Register\Core\Controller\Comment\CommentStrategyInterface;
+use Register\Core\Controller\Comment\TargetDto;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Helper\StringHelper;
+use Register\Core\Comment\CommentHtml;
+use Register\Core\Mail\CommentMailer;
+use Register\Core\Model\AuthenticatedPublicUser;
+use Register\Core\Model\AuthProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Model\User\UserProvider;
+use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\Viewer;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 readonly class CommentController implements ControllerInterface
@@ -60,7 +60,7 @@ readonly class CommentController implements ControllerInterface
     ) {
     }
 
-    private const int S2_MAX_COMMENT_BYTES = 65535;
+    private const int REGISTER_MAX_COMMENT_BYTES = 65535;
 
     public static function commentHash(int $commentId, int $targetId, string $email, string $ip, ContentType $contentType): string
     {
@@ -119,8 +119,8 @@ readonly class CommentController implements ControllerInterface
             $errors[] = $this->translator->trans('missing_text');
         }
 
-        if (\strlen($submittedText) > self::S2_MAX_COMMENT_BYTES || \strlen($text) > self::S2_MAX_COMMENT_BYTES) {
-            $errors[] = \sprintf($this->translator->trans('long_text'), self::S2_MAX_COMMENT_BYTES);
+        if (\strlen($submittedText) > self::REGISTER_MAX_COMMENT_BYTES || \strlen($text) > self::REGISTER_MAX_COMMENT_BYTES) {
+            $errors[] = \sprintf($this->translator->trans('long_text'), self::REGISTER_MAX_COMMENT_BYTES);
         }
 
         if ($authenticatedUser instanceof AuthenticatedPublicUser) {
@@ -256,11 +256,11 @@ readonly class CommentController implements ControllerInterface
         // What are we going to comment?
         $target = $this->commentStrategy->getTargetByRequest($request);
 
-        if (!$target instanceof \S2\Cms\Controller\Comment\TargetDto && \count($errors) === 0) {
+        if (!$target instanceof \Register\Core\Controller\Comment\TargetDto && \count($errors) === 0) {
             $errors[] = $this->translator->trans('no_item');
         }
 
-        if ($target instanceof \S2\Cms\Controller\Comment\TargetDto && $parentId !== null && !$this->commentStrategy->isValidParent($target->id, $parentId)) {
+        if ($target instanceof \Register\Core\Controller\Comment\TargetDto && $parentId !== null && !$this->commentStrategy->isValidParent($target->id, $parentId)) {
             $errors[]    = $this->translator->trans('invalid_parent');
             $parentId    = null;
             $replyNumber = 0;
@@ -280,9 +280,9 @@ readonly class CommentController implements ControllerInterface
             $template
                 ->putInPlaceholder('head_title', $this->translator->trans('Error'))
                 ->putInPlaceholder('title', $this->translator->trans('Error'))
-                ->putInPlaceholder('text', $errorText . ($target instanceof \S2\Cms\Controller\Comment\TargetDto ? '<p>' . $this->translator->trans('Fix error') . '</p>' : ''))
+                ->putInPlaceholder('text', $errorText . ($target instanceof \Register\Core\Controller\Comment\TargetDto ? '<p>' . $this->translator->trans('Fix error') . '</p>' : ''))
                 ->putInPlaceholder('id', $id)
-                ->putInPlaceholder('commented', $target instanceof \S2\Cms\Controller\Comment\TargetDto) // can be commented, i.e. render comment form
+                ->putInPlaceholder('commented', $target instanceof \Register\Core\Controller\Comment\TargetDto) // can be commented, i.e. render comment form
                 ->putInPlaceholder('comment_form', [
                     'name'         => $name,
                     'email'        => $email,
@@ -359,7 +359,7 @@ readonly class CommentController implements ControllerInterface
          * It cannot be done right now due to a special cookie is available in CommentSentController only.
          *
          * @see CommentSentController
-         * @see \S2\Cms\Model\AuthManager::createCommentCookie
+         * @see \Register\Core\Model\AuthManager::createCommentCookie
          */
         foreach ($this->userProvider->getModerators([], $moderationRequired && $isOnline ? [$email] : []) as $moderator) {
             $this->commentMailer->mailToModerator(

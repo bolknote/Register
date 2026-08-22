@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use s2_extensions\activitypub\Domain\ActivityDeliveryIntent;
+use Register\Extension\activitypub\Domain\ActivityDeliveryIntent;
 
 final readonly class StoredActivityRepresentation
 {

@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin;
+namespace Register\Core\Admin;
 
-use S2\Cms\Config\DynamicConfigProvider;
+use Register\Core\Config\DynamicConfigProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -61,7 +61,7 @@ final readonly class AdminThemeStylesheet
     private function storedColor(): string
     {
         try {
-            $color = $this->dynamicConfigProvider->get('S2_ADMIN_COLOR');
+            $color = $this->dynamicConfigProvider->get('REGISTER_ADMIN_COLOR');
         } catch (\LogicException) {
             return self::DEFAULT_COLOR;
         }

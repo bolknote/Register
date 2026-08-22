@@ -9,18 +9,18 @@ declare(strict_types = 1);
  *
  * @copyright 2007-2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 use Register\Http\ContentSecurityPolicy;
-use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Queue\ShutdownWorkCoordinator;
+use Register\AdminYard\TemplateRenderer;
+use Register\Core\Model\AuthManager;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Queue\ShutdownWorkCoordinator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-define('S2_ADMIN_MODE', true);
+define('REGISTER_ADMIN_MODE', true);
 $app = require __DIR__ . '/../_include/common.php';
 
 $request = Request::createFromGlobals();

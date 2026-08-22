@@ -7,9 +7,9 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Entity;
+namespace Register\Rose\Entity;
 
-use S2\Rose\Exception\InvalidArgumentException;
+use Register\Rose\Exception\InvalidArgumentException;
 
 class ExternalId
 {

@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Security;
+namespace Register\Extension\activitypub\Security;
 
-use S2\Cms\Config\DynamicSecretStore;
-use s2_extensions\activitypub\Domain\CollectionAnchor;
+use Register\Core\Config\DynamicSecretStore;
+use Register\Extension\activitypub\Domain\CollectionAnchor;
 
 /** Deterministic authenticated encryption keeps collection cursors stable without exposing DB keys. */
 final readonly class CollectionCursorCodec

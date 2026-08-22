@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Content;
 
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
 
 /** Defines the clean, shared storage contract for posts and permanent pages. */
 final class ContentSchema

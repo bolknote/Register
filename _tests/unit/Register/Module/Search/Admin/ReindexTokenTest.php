@@ -11,7 +11,7 @@ namespace unit\Register\Module\Search\Admin;
 
 use Codeception\Test\Unit;
 use Register\Module\Search\Admin\ReindexToken;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
 
 final class ReindexTokenTest extends Unit
 {

@@ -2,7 +2,7 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license MIT
- * @package S2
+ * @package Register
  */
 
 declare(strict_types = 1);
@@ -169,7 +169,7 @@ final class TypographTest extends Unit
 <head>
 <meta charset="utf-8">
 <title>Апгрейд обезьяны - Сайт Романа Парпалака</title>
-<meta name="Generator" content="S2 2.0dev" />
+<meta name="Generator" content="Register 2.0dev" />
 <meta name="keywords" content="Апгрейд обезьяны, Никонов, Глобализация, проблемы, экология, загрязнение," />
 <meta name="description" content="Отзыв о книге &quot;Апгрейд обезьяны&quot; Александра Никонова" />
 <link rel="canonical" href="https://parpalak.com/articles/books/Monkey_Upgrade" />
@@ -646,11 +646,11 @@ final class TypographTest extends Unit
 
 <!--noindex-->
 	<div id="counters">
-		<form class="s2_search_form" role="search" aria-label="Поиск" method="get" action="/search"><label class="visually-hidden" for="s2_search_input">Поиск</label><input type="search" name="q" id="s2_search_input" placeholder="Поиск" autocomplete="off" enterkeyhint="search" /></form>
-		<!--  s2_counter_img -->
+		<form class="register_search_form" role="search" aria-label="Поиск" method="get" action="/search"><label class="visually-hidden" for="register_search_input">Поиск</label><input type="search" name="q" id="register_search_input" placeholder="Поиск" autocomplete="off" enterkeyhint="search" /></form>
+		<!--  register_counter_img -->
 	</div>
 <!--/noindex-->
-	<div id="copyright">© <script type="text/javascript">var mailto="roman"+"%40"+"parpalak.com";document.write('<a href="mailto:'+mailto+'">Роман Парпалак</a>');</script><noscript>Роман Парпалак, <small>[roman at parpalak.com]</small></noscript>, 2005–2024. Сайт работает на движке <a href="http://s2cms.ru/">S2</a>.<br />t = 0,064; q = 7</div>
+	<div id="copyright">© <script type="text/javascript">var mailto="roman"+"%40"+"parpalak.com";document.write('<a href="mailto:'+mailto+'">Роман Парпалак</a>');</script><noscript>Роман Парпалак, <small>[roman at parpalak.com]</small></noscript>, 2005–2024. Сайт работает на движке <a href="https://github.com/bolknote/Register">Register</a>.<br />t = 0,064; q = 7</div>
 <script src="/_styles/written_ru/highlight-js/highlight.min.js" defer></script>
 <script src="/_assets/register/math/loader.js" defer></script>
 <script src="/_cache/written_ru_scripts.js?v=82697bb590e61a8340e5450d946051a4" defer></script>

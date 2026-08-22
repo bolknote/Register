@@ -7,9 +7,9 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Storage\Exception;
+namespace Register\Rose\Storage\Exception;
 
-use S2\Rose\Exception\RuntimeException;
+use Register\Rose\Exception\RuntimeException;
 
 class EmptyIndexException extends RuntimeException
 {

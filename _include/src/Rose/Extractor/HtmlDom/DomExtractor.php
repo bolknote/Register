@@ -6,16 +6,16 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Extractor\HtmlDom;
+namespace Register\Rose\Extractor\HtmlDom;
 
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
-use S2\Rose\Entity\Metadata\SentenceMap;
-use S2\Rose\Exception\RuntimeException;
-use S2\Rose\Extractor\ExtractionErrors;
-use S2\Rose\Extractor\ExtractionResult;
-use S2\Rose\Extractor\ExtractorInterface;
-use S2\Rose\Helper\StringHelper;
+use Register\Rose\Entity\Metadata\SentenceMap;
+use Register\Rose\Exception\RuntimeException;
+use Register\Rose\Extractor\ExtractionErrors;
+use Register\Rose\Extractor\ExtractionResult;
+use Register\Rose\Extractor\ExtractorInterface;
+use Register\Rose\Helper\StringHelper;
 
 class DomExtractor implements ExtractorInterface
 {

@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Inbox;
+namespace Register\Extension\activitypub\Inbox;
 
-use S2\Cms\Queue\QueuePublisher;
-use s2_extensions\activitypub\Infrastructure\InboxRepository;
+use Register\Core\Queue\QueuePublisher;
+use Register\Extension\activitypub\Infrastructure\InboxRepository;
 
 final readonly class InboxQueue
 {

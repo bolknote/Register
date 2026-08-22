@@ -9,9 +9,9 @@ declare(strict_types = 1);
 
 namespace integration;
 
-use S2\Cms\Admin\AdminRequestHandler;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
+use Register\Core\Admin\AdminRequestHandler;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Security\WebAuthn\RecoveryCodeRepository;
 use Symfony\Component\HttpFoundation\Request;
 
 final class SecurityAuditCest
@@ -21,12 +21,12 @@ final class SecurityAuditCest
     public function _before(): void
     {
         $this->auditFile = dirname(__DIR__, 2) . '/_cache/test/security-audit.jsonl';
-        s2_call_without_warnings(fn(): bool => unlink($this->auditFile));
+        register_call_without_warnings(fn(): bool => unlink($this->auditFile));
     }
 
     public function _after(): void
     {
-        s2_call_without_warnings(fn(): bool => unlink($this->auditFile));
+        register_call_without_warnings(fn(): bool => unlink($this->auditFile));
     }
 
     public function testPasswordAndRecoveryLoginsAreAuditedWithoutCredentials(\IntegrationTester $I): void

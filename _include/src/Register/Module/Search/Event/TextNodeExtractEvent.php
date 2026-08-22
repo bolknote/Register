@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Event;
 
-use S2\Rose\Extractor\HtmlDom\DomState;
+use Register\Rose\Extractor\HtmlDom\DomState;
 use Symfony\Contracts\EventDispatcher\Event;
 
 class TextNodeExtractEvent extends Event

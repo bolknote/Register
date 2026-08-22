@@ -2,7 +2,7 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -12,9 +12,9 @@ namespace integration;
 use Register\Content\ContentSchema;
 use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentType;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
 
 /**
  * @group article

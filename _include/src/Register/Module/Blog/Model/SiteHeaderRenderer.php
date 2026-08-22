@@ -11,15 +11,15 @@ namespace Register\Module\Blog\Model;
 
 use Register\Module\Blog\Inplace\PostInplaceControls;
 use Register\Module\Blog\Module as BlogModule;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\StringProxy;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Template\Viewer;
 use Symfony\Component\HttpFoundation\Request;
 
 /** Renders the public site heading together with authoring controls. */
 final readonly class SiteHeaderRenderer
 {
-    public const string TAGLINE_CONFIG_KEY = 'S2_SITE_TAGLINE';
+    public const string TAGLINE_CONFIG_KEY = 'REGISTER_SITE_TAGLINE';
 
     public function __construct(
         private Viewer              $viewer,

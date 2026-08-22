@@ -9,16 +9,16 @@ use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
 use Register\Schema\SchemaMigrator;
 use Register\Module\Search\SearchIndexRebuilder;
-use S2\Cms\Config\StaticConfigLoader;
-use S2\Cms\Framework\Application;
-use S2\Cms\Framework\Container;
-use S2\Cms\Model\Installer;
-use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Pdo\DbLayerSqlite;
-use S2\Cms\Pdo\PdoSqliteFactory;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Core\Config\StaticConfigLoader;
+use Register\Core\Framework\Application;
+use Register\Core\Framework\Container;
+use Register\Core\Model\Installer;
+use Register\Core\Model\ExtensionCache;
+use Register\Core\Pdo\DbLayerSqlite;
+use Register\Core\Pdo\PdoSqliteFactory;
+use Register\Rose\Storage\Database\PdoStorage;
 
-const S2_DEV_REQUIRED_EXTENSIONS = [
+const REGISTER_DEV_REQUIRED_EXTENSIONS = [
     'dom',
     'gd',
     'mbstring',
@@ -41,31 +41,31 @@ if (PHP_VERSION_ID < 80300) {
     throw new RuntimeException(sprintf('Register requires PHP 8.3 or newer; %s is running.', PHP_VERSION));
 }
 
-foreach (S2_DEV_REQUIRED_EXTENSIONS as $extension) {
+foreach (REGISTER_DEV_REQUIRED_EXTENSIONS as $extension) {
     if (!extension_loaded($extension)) {
         throw new RuntimeException(sprintf('The required PHP extension "%s" is not loaded.', $extension));
     }
 }
 
-$host = getenv('S2_DEV_HOST');
-$port = getenv('S2_DEV_PORT');
+$host = getenv('REGISTER_DEV_HOST');
+$port = getenv('REGISTER_DEV_PORT');
 $host = is_string($host) && $host !== '' ? $host : 'localhost';
 $port = is_string($port) && $port !== '' ? $port : '8080';
 
 if (preg_match('/^(?:localhost|[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?|\d{1,3}(?:\.\d{1,3}){3})$/iD', $host) !== 1) {
-    throw new RuntimeException(sprintf('Invalid S2_DEV_HOST value "%s".', $host));
+    throw new RuntimeException(sprintf('Invalid REGISTER_DEV_HOST value "%s".', $host));
 }
 
 if (filter_var($port, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]) === false) {
-    throw new RuntimeException(sprintf('Invalid S2_DEV_PORT value "%s".', $port));
+    throw new RuntimeException(sprintf('Invalid REGISTER_DEV_PORT value "%s".', $port));
 }
 
 $localDir    = $rootDir . '/.local';
-$database    = $localDir . '/s2.sqlite';
+$database    = $localDir . '/register.sqlite';
 $baseUrl     = sprintf('http://%s:%s', $host, $port);
 $configFile  = $rootDir . '/config.local.php';
-$adminLogin  = getenv('S2_DEV_ADMIN_LOGIN');
-$adminPass   = getenv('S2_DEV_ADMIN_PASSWORD');
+$adminLogin  = getenv('REGISTER_DEV_ADMIN_LOGIN');
+$adminPass   = getenv('REGISTER_DEV_ADMIN_PASSWORD');
 $adminLogin  = is_string($adminLogin) && $adminLogin !== '' ? $adminLogin : 'admin';
 $adminPass   = is_string($adminPass) && $adminPass !== '' ? $adminPass : 'admin';
 
@@ -81,7 +81,7 @@ $config = [
     'database' => [
         'type'      => 'sqlite',
         'host'      => '',
-        'name'      => '.local/s2.sqlite',
+        'name'      => '.local/register.sqlite',
         'user'      => '',
         'password'  => '',
         'prefix'    => '',
@@ -105,7 +105,7 @@ $config = [
         'upload_quota_bytes' => StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
     ],
     'cookies' => [
-        'name' => 's2_local_' . substr(hash('sha256', $rootDir), 0, 16),
+        'name' => 'register_local_' . substr(hash('sha256', $rootDir), 0, 16),
     ],
     'security' => [
         'antispam_secret' => hash('sha256', 'register-local-antispam:' . $rootDir),
@@ -173,7 +173,7 @@ if ($isNew) {
         $dbLayer
             ->insert('users')
             ->setValue('login', ':login')->setParameter('login', $adminLogin)
-            ->setValue('password', ':password')->setParameter('password', \S2\Cms\Model\PasswordHasher::hash($adminPass))
+            ->setValue('password', ':password')->setParameter('password', \Register\Core\Model\PasswordHasher::hash($adminPass))
             ->setValue('email', ':email')->setParameter('email', 'admin@example.test')
             ->setValue('view', '1')
             ->setValue('view_hidden', '1')

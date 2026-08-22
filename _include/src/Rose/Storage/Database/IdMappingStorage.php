@@ -7,9 +7,9 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Storage\Database;
+namespace Register\Rose\Storage\Database;
 
-use S2\Rose\Entity\ExternalId;
+use Register\Rose\Entity\ExternalId;
 
 class IdMappingStorage
 {

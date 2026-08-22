@@ -7,25 +7,25 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Controller;
+namespace Register\Extension\activitypub\Controller;
 
 use Psr\Log\LoggerInterface;
-use S2\Cms\Framework\ControllerInterface;
-use s2_extensions\activitypub\Application\InboxRateLimiter;
-use s2_extensions\activitypub\Application\ActivationProbeService;
-use s2_extensions\activitypub\Application\InboxRequestException;
-use s2_extensions\activitypub\Application\InboxRequestValidator;
-use s2_extensions\activitypub\Application\PublicFederationAccess;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorState;
-use s2_extensions\activitypub\Http\ActivityPubResponseFactory;
-use s2_extensions\activitypub\Inbox\InboxQueue;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\InboxRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Infrastructure\NewInboxItem;
+use Register\Core\Framework\ControllerInterface;
+use Register\Extension\activitypub\Application\InboxRateLimiter;
+use Register\Extension\activitypub\Application\ActivationProbeService;
+use Register\Extension\activitypub\Application\InboxRequestException;
+use Register\Extension\activitypub\Application\InboxRequestValidator;
+use Register\Extension\activitypub\Application\PublicFederationAccess;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\FederationUrlGeneratorFactory;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorState;
+use Register\Extension\activitypub\Http\ActivityPubResponseFactory;
+use Register\Extension\activitypub\Inbox\InboxQueue;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\InboxRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Infrastructure\NewInboxItem;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

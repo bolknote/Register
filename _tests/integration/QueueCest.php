@@ -2,7 +2,7 @@
 /**
  * @copyright 2024-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -16,21 +16,21 @@ use Register\Content\ContentPublicationQueueHandler;
 use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Comment\Antispam\SpamMaintenance;
-use S2\Cms\Comment\Antispam\SpamMaintenanceQueueHandler;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Queue\BackgroundWorkRunner;
-use S2\Cms\Queue\QueueConsumer;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueueHandlerRegistry;
-use S2\Cms\Queue\QueueMonitor;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\QueueRecovery;
-use S2\Cms\Queue\QueueRunnerLease;
-use S2\Cms\Queue\QueueSchema;
-use S2\Cms\Queue\QueueTimeBudgetExceeded;
-use S2\Cms\Queue\ScheduledMaintenance;
+use Register\Core\Comment\Antispam\SpamMaintenance;
+use Register\Core\Comment\Antispam\SpamMaintenanceQueueHandler;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\BackgroundWorkRunner;
+use Register\Core\Queue\QueueConsumer;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueueHandlerRegistry;
+use Register\Core\Queue\QueueMonitor;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\QueueRecovery;
+use Register\Core\Queue\QueueRunnerLease;
+use Register\Core\Queue\QueueSchema;
+use Register\Core\Queue\QueueTimeBudgetExceeded;
+use Register\Core\Queue\ScheduledMaintenance;
 
 /** @group queue */
 final class QueueCest
@@ -66,7 +66,7 @@ final class QueueCest
     public function maintenanceRunsAtMostOncePerInterval(IntegrationTester $I): void
     {
         $pdo = $this->pdo($I);
-        $pdo->exec("UPDATE config SET value = '0' WHERE name = 'S2_LAST_MAINTENANCE'");
+        $pdo->exec("UPDATE config SET value = '0' WHERE name = 'REGISTER_LAST_MAINTENANCE'");
 
         /** @var ScheduledMaintenance $maintenance */
         $maintenance = $I->grabService(ScheduledMaintenance::class);
@@ -120,7 +120,7 @@ final class QueueCest
         $I->assertSame('keep-me', $publicationJob['last_error']);
         $I->assertSame(123, (int)$publicationJob['failed_at']);
 
-        $pdo->exec("UPDATE config SET value = '0' WHERE name = 'S2_LAST_MAINTENANCE'");
+        $pdo->exec("UPDATE config SET value = '0' WHERE name = 'REGISTER_LAST_MAINTENANCE'");
         /** @var ContentPublicationScheduler $publicationScheduler */
         $publicationScheduler = $I->grabService(ContentPublicationScheduler::class);
         $enabledMaintenance   = new ScheduledMaintenance($pdo, '', $publisher, $publicationScheduler, true);
@@ -223,7 +223,7 @@ final class QueueCest
         $I->assertTrue($dbLayer->indexExists('queue', 'due_idx'));
         $I->assertTrue($dbLayer->tableExists(QueueSchema::LEASE_TABLE));
 
-        $statement = $this->pdo($I)->query("SELECT value FROM config WHERE name = 'S2_LAST_MAINTENANCE'");
+        $statement = $this->pdo($I)->query("SELECT value FROM config WHERE name = 'REGISTER_LAST_MAINTENANCE'");
         if ($statement === false) {
             throw new \RuntimeException('Unable to query migrated maintenance config.');
         }

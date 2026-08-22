@@ -12,7 +12,7 @@ namespace integration;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Module\Analytics\AnalyticsRecorder;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ContentRssCest
@@ -47,7 +47,7 @@ final class ContentRssCest
         $I->seeResponseCodeIs(Response::HTTP_OK);
 
         $xml = $I->grabResponse();
-        $I->assertStringContainsString('<atom:link href="http://s2.localhost/rss" rel="self"', $xml);
+        $I->assertStringContainsString('<atom:link href="http://register.localhost/rss" rel="self"', $xml);
         $I->assertStringNotContainsString('/rss.xml', $xml);
         $I->assertStringContainsString('RSS post 11', $xml);
         $I->assertStringContainsString('/rss-post-11', $xml);

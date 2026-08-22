@@ -7,13 +7,13 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Admin;
+namespace Register\Extension\activitypub\Admin;
 
 use Register\Content\ContentType;
-use s2_extensions\activitypub\Domain\ContentDeliveryMode;
-use s2_extensions\activitypub\Domain\ContentFederationSettingsDraft;
-use s2_extensions\activitypub\Domain\ContentPublicationMode;
-use s2_extensions\activitypub\Domain\PostObjectType;
+use Register\Extension\activitypub\Domain\ContentDeliveryMode;
+use Register\Extension\activitypub\Domain\ContentFederationSettingsDraft;
+use Register\Extension\activitypub\Domain\ContentPublicationMode;
+use Register\Extension\activitypub\Domain\PostObjectType;
 
 /** Converts the shared editorial form fields into one validated federation draft. */
 final readonly class ContentFederationSettingsFormParser

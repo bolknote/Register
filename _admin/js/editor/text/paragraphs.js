@@ -1,9 +1,9 @@
 /**
- * Text formatting helpers for S2.
+ * Text formatting helpers for Register.
  *
  * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 export function smartParagraphs(sText) {

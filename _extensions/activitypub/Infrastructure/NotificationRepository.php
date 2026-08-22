@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
 
 final readonly class NotificationRepository
 {

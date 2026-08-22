@@ -11,7 +11,7 @@ namespace unit\Register\Backup;
 
 use Codeception\Test\Unit;
 use Register\Backup\BackupFile;
-use S2\AdminYard\Translator;
+use Register\AdminYard\Translator;
 
 final class DashboardBackupViewTest extends Unit
 {

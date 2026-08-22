@@ -6,7 +6,7 @@ namespace integration;
 
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 class BlogPaginationCest
 {
@@ -14,7 +14,7 @@ class BlogPaginationCest
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
-        $I->setConfigValue('S2_MAX_ITEMS', '2');
+        $I->setConfigValue('REGISTER_MAX_ITEMS', '2');
 
         $this->insertPost($dbLayer, 1);
         $this->insertPost($dbLayer, 2);
@@ -42,7 +42,7 @@ class BlogPaginationCest
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
-        $I->setConfigValue('S2_MAX_ITEMS', '2');
+        $I->setConfigValue('REGISTER_MAX_ITEMS', '2');
         $this->insertPost($dbLayer, 1);
 
         $I->amOnPage('https://localhost/');

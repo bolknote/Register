@@ -14,15 +14,15 @@ use Register\Comment\CommentPresentationEnricherInterface;
 use Register\Comment\CommentPresentationEnrichment;
 use Register\Comment\ContentCommentRenderer;
 use Register\Content\ContentId;
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\Comment\CommentModerationTokenManager;
-use S2\Cms\Model\Comment\CommentThreadBuilder;
-use S2\Cms\Model\Comment\CommentThreadRenderer;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayerSqlite;
-use S2\Cms\Template\Viewer;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Model\AuthProvider;
+use Register\Core\Model\Comment\CommentModerationTokenManager;
+use Register\Core\Model\Comment\CommentThreadBuilder;
+use Register\Core\Model\Comment\CommentThreadRenderer;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Pdo\DbLayerSqlite;
+use Register\Core\Template\Viewer;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -156,12 +156,12 @@ final class CommentPresentationTest extends Unit
         return $translator;
     }
 
-    private function styleProxy(): \S2\Cms\Config\StringProxy
+    private function styleProxy(): \Register\Core\Config\StringProxy
     {
         $provider = new DynamicConfigProvider();
         $reflection = new \ReflectionClass($provider);
-        $reflection->getProperty('params')->setValue($provider, ['S2_STYLE' => 'register']);
+        $reflection->getProperty('params')->setValue($provider, ['REGISTER_STYLE' => 'register']);
 
-        return $provider->getStringProxy('S2_STYLE');
+        return $provider->getStringProxy('REGISTER_STYLE');
     }
 }

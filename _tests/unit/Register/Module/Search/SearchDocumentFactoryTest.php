@@ -13,7 +13,7 @@ use Codeception\Test\Unit;
 use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Module\Search\Service\SearchDocumentFactory;
-use S2\Rose\Entity\Indexable;
+use Register\Rose\Entity\Indexable;
 
 final class SearchDocumentFactoryTest extends Unit
 {

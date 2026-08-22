@@ -177,11 +177,11 @@
 			return;
 
 		root = root && typeof root.querySelector == 'function' ? root : document;
-		SInp = root.querySelector('#s2_search_input');
+		SInp = root.querySelector('#register_search_input');
 		if (!SInp)
-			SInp = root.querySelector('#s2_search_input_ext');
+			SInp = root.querySelector('#register_search_input_ext');
 		if (!SInp && root !== document)
-			SInp = document.getElementById('s2_search_input') || document.getElementById('s2_search_input_ext');
+			SInp = document.getElementById('register_search_input') || document.getElementById('register_search_input_ext');
 		if (!SInp)
 			return;
 		if (initializedInput === SInp)
@@ -193,7 +193,7 @@
 		clearTimeout(blur_timer);
 		last_search = '';
 		eCurItem = null;
-		search_url = SInp.getAttribute('data-s2-search-url') || '';
+		search_url = SInp.getAttribute('data-register-search-url') || '';
 		if (!search_url)
 			return;
 
@@ -237,8 +237,8 @@
 			STips.remove();
 		STips = document.createElement('div');
 		STips.hidden = true;
-		STips.id = 's2_search_tip';
-		(SInp.closest('.s2-search-autocomplete') || SInp.form || document.body).appendChild(STips);
+		STips.id = 'register_search_tip';
+		(SInp.closest('.register-search-autocomplete') || SInp.form || document.body).appendChild(STips);
 
 		if (!documentClickBound)
 		{

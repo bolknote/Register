@@ -19,19 +19,19 @@ declare(strict_types = 1);
 
 $tagLinks = [];
 foreach ($tags as $tag) {
-    $tagLinks[] = '<a href="' . s2_htmlencode($tag['link']) . '">' . s2_htmlencode($tag['title']) . '</a>';
+    $tagLinks[] = '<a href="' . register_htmlencode($tag['link']) . '">' . register_htmlencode($tag['title']) . '</a>';
 }
 
 ?>
 <h2 class="preview">
 <?php if ($title_link !== '') {?>
-    <a href="<?php echo s2_htmlencode($title_link); ?>"><?php echo s2_htmlencode($title); ?></a>
+    <a href="<?php echo register_htmlencode($title_link); ?>"><?php echo register_htmlencode($title); ?></a>
 <?php } else {?>
-    <?php echo s2_htmlencode($title); ?>
+    <?php echo register_htmlencode($title); ?>
 <?php } ?>
 </h2>
 <div class="preview meta">
-    <span class="preview time"><time datetime="<?php echo gmdate(DATE_ATOM, (int)$create_time); ?>"<?php if (trim($display_date ?? '') === ''): ?> data-local-time="datetime" data-locale="<?php echo s2_htmlencode($trans('locale')); ?>"<?php endif; ?>><?php echo s2_htmlencode($time); ?></time></span>
+    <span class="preview time"><time datetime="<?php echo gmdate(DATE_ATOM, (int)$create_time); ?>"<?php if (trim($display_date ?? '') === ''): ?> data-local-time="datetime" data-locale="<?php echo register_htmlencode($trans('locale')); ?>"<?php endif; ?>><?php echo register_htmlencode($time); ?></time></span>
 <?php if ($tagLinks !== []) { ?>
     <span class="preview tags"><?php echo implode(', ', $tagLinks); ?></span>
 <?php } ?>

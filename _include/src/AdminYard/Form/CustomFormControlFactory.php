@@ -2,15 +2,15 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\AdminYard\Form;
+namespace Register\Core\AdminYard\Form;
 
-use S2\AdminYard\Form\FormControlFactory;
-use S2\AdminYard\Form\FormControlInterface;
+use Register\AdminYard\Form\FormControlFactory;
+use Register\AdminYard\Form\FormControlInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 class CustomFormControlFactory extends FormControlFactory

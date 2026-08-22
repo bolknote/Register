@@ -2,7 +2,7 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -11,7 +11,7 @@ namespace integration;
 
 use Codeception\Example;
 use FilesystemIterator;
-use S2\Cms\Admin\Picture\PictureManager;
+use Register\Core\Admin\Picture\PictureManager;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
@@ -704,7 +704,7 @@ class PicturesCest
 
     private function createTemporaryPng(): string
     {
-        $filename = tempnam(sys_get_temp_dir(), 's2_test_image_');
+        $filename = tempnam(sys_get_temp_dir(), 'register_test_image_');
         if ($filename === false) {
             throw new \RuntimeException('Unable to allocate a temporary image file.');
         }

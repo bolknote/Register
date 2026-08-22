@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\RemoteInteraction;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\RemoteInteraction;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
 
 final readonly class InteractionRepository
 {
@@ -205,7 +205,7 @@ final readonly class InteractionRepository
     /** @return list<RemoteInteraction> */
     public function publicLocalNoteRepliesPage(
         int $localNoteId,
-        ?\s2_extensions\activitypub\Domain\CollectionAnchor $before,
+        ?\Register\Extension\activitypub\Domain\CollectionAnchor $before,
         int $limit,
     ): array {
         if ($localNoteId < 1 || $limit < 1 || $limit > 100) {
@@ -221,7 +221,7 @@ final readonly class InteractionRepository
             ->orderBy('created_at DESC, id DESC')
             ->limit($limit)
         ;
-        if ($before instanceof \s2_extensions\activitypub\Domain\CollectionAnchor) {
+        if ($before instanceof \Register\Extension\activitypub\Domain\CollectionAnchor) {
             $query->andWhere('(created_at < :before_time OR (created_at = :before_time AND id < :before_id))')
                 ->setParameter('before_time', $before->timestamp)
                 ->setParameter('before_id', $before->id)
@@ -232,7 +232,7 @@ final readonly class InteractionRepository
     }
 
     /** @return list<RemoteInteraction> */
-    public function publicRepliesPage(int $localObjectId, ?\s2_extensions\activitypub\Domain\CollectionAnchor $before, int $limit): array
+    public function publicRepliesPage(int $localObjectId, ?\Register\Extension\activitypub\Domain\CollectionAnchor $before, int $limit): array
     {
         if ($localObjectId < 1 || $limit < 1 || $limit > 100) {
             throw new \InvalidArgumentException('A public remote reply page is invalid.');
@@ -247,7 +247,7 @@ final readonly class InteractionRepository
             ->orderBy('created_at DESC, id DESC')
             ->limit($limit)
         ;
-        if ($before instanceof \s2_extensions\activitypub\Domain\CollectionAnchor) {
+        if ($before instanceof \Register\Extension\activitypub\Domain\CollectionAnchor) {
             $query->andWhere('(created_at < :before_time OR (created_at = :before_time AND id < :before_id))')
                 ->setParameter('before_time', $before->timestamp)
                 ->setParameter('before_id', $before->id)

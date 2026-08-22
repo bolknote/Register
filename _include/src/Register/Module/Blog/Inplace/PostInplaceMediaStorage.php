@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Inplace;
 
-use S2\Cms\Admin\Picture\PictureFileNameHelper;
-use S2\Cms\Admin\Picture\PictureStorageQuota;
+use Register\Core\Admin\Picture\PictureFileNameHelper;
+use Register\Core\Admin\Picture\PictureStorageQuota;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -50,7 +50,7 @@ final readonly class PostInplaceMediaStorage
         $this->ensureDirectoryExists($directory);
         $this->storageQuota->store($uploadedFile, function () use ($uploadedFile, $directory, $storedName): void {
             $uploadedFile->move($directory, $storedName);
-            s2_call_without_warnings(static fn(): bool => chmod($directory . '/' . $storedName, 0644));
+            register_call_without_warnings(static fn(): bool => chmod($directory . '/' . $storedName, 0644));
         });
 
         return $path . '/' . $storedName;
@@ -97,13 +97,13 @@ final readonly class PostInplaceMediaStorage
             throw new \RuntimeException('Unable to replace the uploaded media file.', Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
-        s2_call_without_warnings(static fn(): bool => chmod($temporary, 0644));
+        register_call_without_warnings(static fn(): bool => chmod($temporary, 0644));
         if (!rename($temporary, $destination)) {
-            s2_call_without_warnings(static fn(): bool => unlink($temporary));
+            register_call_without_warnings(static fn(): bool => unlink($temporary));
             throw new \RuntimeException('Unable to replace the uploaded media file.', Response::HTTP_SERVICE_UNAVAILABLE);
         }
 
-        if (!s2_call_without_warnings(static fn(): bool => unlink($source))) {
+        if (!register_call_without_warnings(static fn(): bool => unlink($source))) {
             throw new \RuntimeException('Unable to remove the replaced media file.', Response::HTTP_SERVICE_UNAVAILABLE);
         }
     }
@@ -115,7 +115,7 @@ final readonly class PostInplaceMediaStorage
             return;
         }
 
-        if (!s2_call_without_warnings(static fn(): bool => unlink($filename))) {
+        if (!register_call_without_warnings(static fn(): bool => unlink($filename))) {
             throw new \RuntimeException('Unable to remove the unused media file.', Response::HTTP_SERVICE_UNAVAILABLE);
         }
     }
@@ -126,7 +126,7 @@ final readonly class PostInplaceMediaStorage
             return;
         }
 
-        $created = s2_call_without_warnings(static fn(): bool => mkdir($directory, 0755, true));
+        $created = register_call_without_warnings(static fn(): bool => mkdir($directory, 0755, true));
         if (!$created && !is_dir($directory)) {
             throw new \RuntimeException(
                 \sprintf('Directory "%s" was not created.', $directory),
@@ -134,7 +134,7 @@ final readonly class PostInplaceMediaStorage
             );
         }
 
-        s2_call_without_warnings(static fn(): bool => chmod($directory, 0755));
+        register_call_without_warnings(static fn(): bool => chmod($directory, 0755));
     }
 
     private function fullPath(string $storedFile): string

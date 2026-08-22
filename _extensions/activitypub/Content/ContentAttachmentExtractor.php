@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Content;
+namespace Register\Extension\activitypub\Content;
 
-use S2\Cms\HttpClient\HttpClientException;
-use S2\Cms\HttpClient\HttpClientInterface;
+use Register\Core\HttpClient\HttpClientException;
+use Register\Core\HttpClient\HttpClientInterface;
 
 /** Extracts bounded metadata for locally stored images without network I/O or path traversal. */
 final readonly class ContentAttachmentExtractor
@@ -93,7 +93,7 @@ final readonly class ContentAttachmentExtractor
                 continue;
             }
 
-            $imageInfo = \s2_call_without_warnings(static fn(): array|false => getimagesize($file));
+            $imageInfo = \register_call_without_warnings(static fn(): array|false => getimagesize($file));
             if (!\is_array($imageInfo)) {
                 continue;
             }

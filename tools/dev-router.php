@@ -2,7 +2,7 @@
 
 declare(strict_types = 1);
 
-use S2\Cms\Http\DevelopmentRouterPolicy;
+use Register\Core\Http\DevelopmentRouterPolicy;
 
 if (PHP_SAPI !== 'cli-server') {
     throw new RuntimeException('The development router must run under the PHP built-in server.');

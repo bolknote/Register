@@ -9,11 +9,11 @@ declare(strict_types = 1);
 
 namespace Register\Module\LinkHealth;
 
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\ScheduledMaintenanceTaskInterface;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
 
 final readonly class LinkMaintenanceTask implements ScheduledMaintenanceTaskInterface
 {

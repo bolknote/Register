@@ -11,10 +11,10 @@
 
 ?>
 <!DOCTYPE html>
-<html lang="<?= $locale ?>" data-color-scheme="<?= s2_htmlencode($styleColorScheme()) ?>">
+<html lang="<?= $locale ?>" data-color-scheme="<?= register_htmlencode($styleColorScheme()) ?>">
 <head>
     <meta charset="UTF-8">
-    <title><?php echo $trans('Admin panel'), $param('S2_SITE_NAME') ? ' - ' . $param('S2_SITE_NAME') : ''; ?></title>
+    <title><?php echo $trans('Admin panel'), $param('REGISTER_SITE_NAME') ? ' - ' . $param('REGISTER_SITE_NAME') : ''; ?></title>
     <meta name="ROBOTS" content="NOINDEX, NOFOLLOW">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/svg+xml" href="<?= $basePath ?>/_styles/register/favicon.svg">
@@ -24,10 +24,10 @@
     <script src="<?= $basePath ?>/_admin/js/webauthn.js?v=<?= $adminAssetVersion('_admin/js/webauthn.js') ?>" defer></script>
 </head>
 <body class="login_page" data-webauthn-messages
-      data-webauthn-operation-failed="<?= s2_htmlencode($trans('The security operation failed.')) ?>"
-      data-webauthn-verification-failed="<?= s2_htmlencode($trans('The passkey could not be verified.')) ?>"
-      data-webauthn-no-passkey="<?= s2_htmlencode($trans('No passkey was selected.')) ?>"
-      data-webauthn-creation-failed="<?= s2_htmlencode($trans('The passkey was not created.')) ?>">
+      data-webauthn-operation-failed="<?= register_htmlencode($trans('The security operation failed.')) ?>"
+      data-webauthn-verification-failed="<?= register_htmlencode($trans('The passkey could not be verified.')) ?>"
+      data-webauthn-no-passkey="<?= register_htmlencode($trans('No passkey was selected.')) ?>"
+      data-webauthn-creation-failed="<?= register_htmlencode($trans('The passkey was not created.')) ?>">
 <main id="login_wrap">
     <h1 class="login-heading">
         <a class="login-brand" href="<?= $basePath ?>/" title="<?= $trans('Open site') ?>">

@@ -7,17 +7,17 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Admin;
+namespace Register\Extension\activitypub\Admin;
 
 use Register\Content\ContentId;
 use Register\Content\ContentType;
-use s2_extensions\activitypub\Application\ContentProjectionService;
-use s2_extensions\activitypub\Application\ContentProjectionStaging;
-use s2_extensions\activitypub\Domain\ContentFederationSettingsDraft;
-use s2_extensions\activitypub\Domain\PostObjectType;
-use s2_extensions\activitypub\Infrastructure\ContentFederationSettingsRepository;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\StoredObjectRepresentation;
+use Register\Extension\activitypub\Application\ContentProjectionService;
+use Register\Extension\activitypub\Application\ContentProjectionStaging;
+use Register\Extension\activitypub\Domain\ContentFederationSettingsDraft;
+use Register\Extension\activitypub\Domain\PostObjectType;
+use Register\Extension\activitypub\Infrastructure\ContentFederationSettingsRepository;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\StoredObjectRepresentation;
 
 /** Parses editor controls, freezes protocol invariants and commits one post-save projection. */
 final readonly class ContentSettingsEditor

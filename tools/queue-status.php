@@ -5,12 +5,12 @@
  *
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-use S2\Cms\Queue\QueueMonitor;
+use Register\Core\Queue\QueueMonitor;
 
 if (PHP_SAPI !== 'cli') {
     exit(1);

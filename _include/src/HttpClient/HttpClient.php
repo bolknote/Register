@@ -2,12 +2,12 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\HttpClient;
+namespace Register\Core\HttpClient;
 
 /**
  * @phpstan-type RequestOptions array{connect_timeout?: int, read_timeout?: int, connect_timeout_ms?: int, total_timeout_ms?: int, follow_redirects?: bool, resolve_ip?: string, max_response_bytes?: int}
@@ -612,7 +612,7 @@ readonly class HttpClient implements HttpClientInterface
         $errno         = 0;
         $errstr        = '';
         $socketWarning = null;
-        $remote        = s2_call_without_warnings(
+        $remote        = register_call_without_warnings(
             static function () use ($scheme, $socketHost, $port, $connectTimeout, $socketContext, &$errno, &$errstr) {
                 return stream_socket_client(
                     ($scheme === 'https' ? 'ssl://' : 'tcp://') . $socketHost . ':' . $port,
@@ -809,7 +809,7 @@ readonly class HttpClient implements HttpClientInterface
 
         $start          = microtime(true);
         $warningMessage = null;
-        [$content, $rawResponseHeaders] = s2_call_without_warnings($fetch, $warningMessage);
+        [$content, $rawResponseHeaders] = register_call_without_warnings($fetch, $warningMessage);
         if ($content === false) {
             $errorMessage = $warningMessage ?? 'Unable to fetch the URL';
             throw new HttpClientException($errorMessage, match (true) {

@@ -60,7 +60,7 @@ final readonly class UpdateStorage
         }
 
         fclose($archive);
-        s2_call_without_warnings(static fn(): bool => chmod($archivePath, 0600));
+        register_call_without_warnings(static fn(): bool => chmod($archivePath, 0600));
 
         $now   = gmdate(\DateTimeInterface::ATOM);
         $state = [

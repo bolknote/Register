@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\VisitorIdentity;
 
-use S2\Cms\Config\DynamicConfigProvider;
+use Register\Core\Config\DynamicConfigProvider;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Request;
 

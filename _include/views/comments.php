@@ -3,7 +3,7 @@
 declare(strict_types = 1);
 
 /**
- * Content of <!-- s2_comments --> placeholder
+ * Content of <!-- register_comments --> placeholder
  *
  * @var callable $trans
  * @var string $comments

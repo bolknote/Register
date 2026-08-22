@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Admin;
+namespace Register\Extension\activitypub\Admin;
 
-use S2\Cms\Admin\TranslationProviderInterface;
+use Register\Core\Admin\TranslationProviderInterface;
 
 final class TranslationProvider implements TranslationProviderInterface
 {

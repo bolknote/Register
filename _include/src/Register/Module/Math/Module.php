@@ -9,16 +9,16 @@ declare(strict_types = 1);
 
 namespace Register\Module\Math;
 
-use S2\Cms\Asset\AssetPack;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
-use S2\Cms\Framework\ContainerModuleInterface;
-use S2\Cms\Template\TemplateAssetEvent;
-use S2\Cms\Template\TemplatePreCommentRenderEvent;
-use S2\Rose\Finder;
+use Register\Core\Asset\AssetPack;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\ContainerAwareListenerModuleInterface;
+use Register\Core\Framework\ContainerModuleInterface;
+use Register\Core\Template\TemplateAssetEvent;
+use Register\Core\Template\TemplatePreCommentRenderEvent;
+use Register\Rose\Finder;
 use Register\Module\Search\Event\TextNodeExtractEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use S2\Cms\Translation\ExtensibleTranslator;
+use Register\Core\Translation\ExtensibleTranslator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 class Module implements ContainerModuleInterface, ContainerAwareListenerModuleInterface

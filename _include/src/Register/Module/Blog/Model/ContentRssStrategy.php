@@ -15,12 +15,12 @@ use Register\Content\ContentType;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\Module as BlogModule;
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Controller\Rss\FeedDto;
-use S2\Cms\Controller\Rss\FeedItemDto;
-use S2\Cms\Controller\Rss\RssStrategyInterface;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\StringProxy;
+use Register\Core\Controller\Rss\FeedDto;
+use Register\Core\Controller\Rss\FeedItemDto;
+use Register\Core\Controller\Rss\RssStrategyInterface;
+use Register\Core\Pdo\DbLayerException;
+use Register\Core\Template\Viewer;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /** Publishes Register's canonical post stream as its single RSS feed. */

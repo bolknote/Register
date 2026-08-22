@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\ActivityDeliveryIntent;
-use s2_extensions\activitypub\Domain\DeliveryState;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\ActivityDeliveryIntent;
+use Register\Extension\activitypub\Domain\DeliveryState;
 
 /** Durable fan-out, claim, recovery, and terminal-state transitions for outgoing POSTs. */
 final readonly class DeliveryRepository
@@ -376,7 +376,7 @@ final readonly class DeliveryRepository
         return $value === null || $value === false ? null : (int)$value;
     }
 
-    private function deliveryQuery(): \S2\Cms\Pdo\QueryBuilder\SelectBuilder
+    private function deliveryQuery(): \Register\Core\Pdo\QueryBuilder\SelectBuilder
     {
         return $this->dbLayer->select('delivery.*, activity.actor_id, activity.serialized_body, activity.body_hash')
             ->from(ActivityPubSchema::DELIVERY_TABLE . ' AS delivery')

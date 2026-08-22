@@ -7,13 +7,13 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Controller;
+namespace Register\Extension\activitypub\Controller;
 
-use S2\Cms\Framework\ControllerInterface;
-use s2_extensions\activitypub\Application\PublicFederationAccess;
-use s2_extensions\activitypub\Http\ActivityPubResponseFactory;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation;
+use Register\Core\Framework\ControllerInterface;
+use Register\Extension\activitypub\Application\PublicFederationAccess;
+use Register\Extension\activitypub\Http\ActivityPubResponseFactory;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

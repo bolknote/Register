@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\LinkHealth\Admin;
 
 use Register\Module\LinkHealth\Manifest;
-use S2\Cms\Admin\DynamicConfigFormExtenderInterface;
+use Register\Core\Admin\DynamicConfigFormExtenderInterface;
 
 final class DynamicConfigFormExtender implements DynamicConfigFormExtenderInterface
 {

@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Security\WebAuthn;
+namespace Register\Core\Security\WebAuthn;
 
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
 
 final class WebAuthnSchema
 {

@@ -2,14 +2,14 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Picture;
+namespace Register\Core\Admin\Picture;
 
-use S2\AdminYard\Helper\RandomHelper;
+use Register\AdminYard\Helper\RandomHelper;
 use Symfony\Component\HttpFoundation\Response;
 
 class PictureReserveManager
@@ -82,7 +82,7 @@ class PictureReserveManager
             return false;
         }
 
-        $payload = s2_call_without_warnings(static fn(): string|false => file_get_contents($reserveFile));
+        $payload = register_call_without_warnings(static fn(): string|false => file_get_contents($reserveFile));
         if ($payload === false) {
             return false;
         }
@@ -99,7 +99,7 @@ class PictureReserveManager
 
         $expiresAt = (int)($data['expires_at'] ?? 0);
         if ($expiresAt < time()) {
-            s2_call_without_warnings(static fn(): bool => unlink($reserveFile));
+            register_call_without_warnings(static fn(): bool => unlink($reserveFile));
             return false;
         }
 
@@ -112,7 +112,7 @@ class PictureReserveManager
     {
         $reserveFile = $this->getReserveFilePath($path, $filename);
         if (is_file($reserveFile)) {
-            s2_call_without_warnings(static fn(): bool => unlink($reserveFile));
+            register_call_without_warnings(static fn(): bool => unlink($reserveFile));
         }
     }
 
@@ -136,7 +136,7 @@ class PictureReserveManager
 
             $reserveFile = $item->getPathname();
             if ($this->isReserveExpired($reserveFile)) {
-                s2_call_without_warnings(static fn(): bool => unlink($reserveFile));
+                register_call_without_warnings(static fn(): bool => unlink($reserveFile));
             }
         }
     }
@@ -164,22 +164,22 @@ class PictureReserveManager
                 return false;
             }
 
-            s2_call_without_warnings(static fn(): bool => unlink($reserveFile));
+            register_call_without_warnings(static fn(): bool => unlink($reserveFile));
         } else {
             $dir = \dirname($reserveFile);
             $this->ensureDirExists($dir);
         }
 
-        $fh = s2_call_without_warnings(static fn() => fopen($reserveFile, 'xb'));
+        $fh = register_call_without_warnings(static fn() => fopen($reserveFile, 'xb'));
         if ($fh === false) {
             if ($this->isReserveExpired($reserveFile)) {
-                s2_call_without_warnings(static fn(): bool => unlink($reserveFile));
+                register_call_without_warnings(static fn(): bool => unlink($reserveFile));
             }
 
             return false;
         }
 
-        s2_call_without_warnings(static fn(): bool => chmod($reserveFile, 0600));
+        register_call_without_warnings(static fn(): bool => chmod($reserveFile, 0600));
 
         $payload = json_encode([
             'token'      => $token,
@@ -196,7 +196,7 @@ class PictureReserveManager
 
     private function isReserveExpired(string $reserveFile): bool
     {
-        $payload = s2_call_without_warnings(static fn(): string|false => file_get_contents($reserveFile));
+        $payload = register_call_without_warnings(static fn(): string|false => file_get_contents($reserveFile));
         if ($payload === false) {
             return true;
         }

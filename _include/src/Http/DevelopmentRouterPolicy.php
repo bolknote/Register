@@ -2,12 +2,12 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Http;
+namespace Register\Core\Http;
 
 final class DevelopmentRouterPolicy
 {
@@ -25,11 +25,6 @@ final class DevelopmentRouterPolicy
         '/_extensions/',
         '/_pictures/',
         '/_styles/',
-    ];
-
-    private const array PUBLIC_VENDOR_FILES = [
-        '/_vendor/s2/admin-yard/demo/script.js',
-        '/_vendor/s2/admin-yard/demo/style.css',
     ];
 
     private const array PUBLIC_ROOT_FILES = [
@@ -54,10 +49,6 @@ final class DevelopmentRouterPolicy
     {
         if (str_starts_with($requestPath, '/_cache/')) {
             return preg_match('#^/_cache/[a-z0-9_-]+\.[0-9a-f]+\.(?:css|js)(?:\.gz)?$#Di', $requestPath) === 1;
-        }
-
-        if (\in_array($requestPath, self::PUBLIC_VENDOR_FILES, true)) {
-            return true;
         }
 
         if (\in_array($requestPath, self::PUBLIC_ROOT_FILES, true)) {

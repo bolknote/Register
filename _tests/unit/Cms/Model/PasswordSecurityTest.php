@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace unit\Cms\Model;
 
 use Codeception\Test\Unit;
-use S2\Cms\Model\AuthTokenHasher;
-use S2\Cms\Model\PasswordHasher;
-use S2\Cms\Model\PasswordPolicy;
+use Register\Core\Model\AuthTokenHasher;
+use Register\Core\Model\PasswordHasher;
+use Register\Core\Model\PasswordPolicy;
 
 final class PasswordSecurityTest extends Unit
 {

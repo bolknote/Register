@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\ModerationAction;
-use s2_extensions\activitypub\Domain\RemoteActor;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\ModerationAction;
+use Register\Extension\activitypub\Domain\RemoteActor;
 
 /** Deterministic database-backed actor/origin/domain moderation policy. */
 final readonly class ModerationRuleRepository

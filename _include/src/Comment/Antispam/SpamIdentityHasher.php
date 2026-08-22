@@ -2,14 +2,14 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Comment\Antispam;
+namespace Register\Core\Comment\Antispam;
 
-use S2\Cms\Config\StringProxy;
+use Register\Core\Config\StringProxy;
 
 final readonly class SpamIdentityHasher
 {

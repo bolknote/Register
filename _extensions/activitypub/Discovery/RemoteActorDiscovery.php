@@ -7,14 +7,14 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Discovery;
+namespace Register\Extension\activitypub\Discovery;
 
-use S2\Cms\Queue\QueueExecutionBudget;
-use s2_extensions\activitypub\Domain\RemoteActor;
-use s2_extensions\activitypub\Domain\RemoteHandle;
-use s2_extensions\activitypub\Inbox\RemoteActorDocumentValidator;
-use s2_extensions\activitypub\Inbox\RemoteActorFetchClient;
-use s2_extensions\activitypub\Infrastructure\RemoteActorRepository;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Extension\activitypub\Domain\RemoteActor;
+use Register\Extension\activitypub\Domain\RemoteHandle;
+use Register\Extension\activitypub\Inbox\RemoteActorDocumentValidator;
+use Register\Extension\activitypub\Inbox\RemoteActorFetchClient;
+use Register\Extension\activitypub\Infrastructure\RemoteActorRepository;
 
 /** Resolves and caches a remote actor for an explicit admin preview. */
 final readonly class RemoteActorDiscovery

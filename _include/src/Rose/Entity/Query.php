@@ -7,12 +7,12 @@ declare(strict_types = 1);
  * @license   https://opensource.org/license/mit MIT
  */
 
-namespace S2\Rose\Entity;
+namespace Register\Rose\Entity;
 
-use S2\Rose\Helper\StringHelper;
+use Register\Rose\Helper\StringHelper;
 
 /**
- * @see \S2\Rose\Test\Entity\QueryTest
+ * @see \Register\Rose\Test\Entity\QueryTest
  */
 class Query
 {

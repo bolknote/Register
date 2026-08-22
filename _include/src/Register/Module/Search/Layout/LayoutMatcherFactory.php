@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Search\Layout;
 
 use Psr\Log\LoggerInterface;
-use S2\Cms\Config\IntProxy;
+use Register\Core\Config\IntProxy;
 
 readonly class LayoutMatcherFactory
 {
@@ -414,7 +414,7 @@ readonly class LayoutMatcherFactory
         ]);
         $r->addGroup('i ir 2 t', ...[
             // http://localhost:8081/?/blog/2011/06/10/Opera_car
-            // http://localhost:8081/?/blog/2011/03/16/s2_and_susy
+            // http://localhost:8081/?/blog/2011/03/16/register_and_susy
             new BlockGroup(['1/1/3/2'], Block::img1column()->bigTitle()),
             new BlockGroup(['1/2/3/3'], Block::imgRight()->text(0, 150)),
             new BlockGroup(['1/4/3/5'], Block::thumbnail()->text()),
@@ -585,7 +585,7 @@ readonly class LayoutMatcherFactory
             // http://localhost:8081/?/blog/2008/08/26/LHC
             // http://localhost:8081/?/blog/2020/05/20/Kazakov_lecture
             // http://localhost:8081/?/blog/2012/01/28/kollaideru_net
-            // http://localhost:8081/?/blog/2011/06/15/cool_S2
+            // http://localhost:8081/?/blog/2011/06/15/cool_Register
             new BlockGroup(['1/1/4/3'], (new Block())->img(0, 0.8, $minImgWidth2)->bigTitle()->text(0, 0, 500)),
             new BlockGroup(['1/3/3/4'], Block::img1column()->text(0, 150)->bigTitle(15)),
             new BlockGroup(['', '', '', ''], (new Block())->text(0, 80)),
@@ -690,7 +690,7 @@ readonly class LayoutMatcherFactory
             // http://localhost:8081/?/blog/2007/11/04/Vpe4atleniaot4t
             // http://localhost:8081/?/blog/2009/01/22/CIS
             // http://localhost:8081/?/blog/2010/03/31/VSC
-            // http://localhost:8081/?/blog/2011/02/04/S2_alpha_1
+            // http://localhost:8081/?/blog/2011/02/04/REGISTER_alpha_1
             new BlockGroup(['1/1/4/3'], (new Block())->img(0, 0.8, $minImgWidth2)->bigTitle()->text(0, -300, 1500)),
             new BlockGroup(['1/3'],/**/ Block::thumbnail()->text(0, -100, 300)->bigTitle()),
             new BlockGroup(['1/4', '2/3', '2/4'], (new Block())->text(0, 300)),
@@ -743,7 +743,7 @@ readonly class LayoutMatcherFactory
         $r->addGroup('t 2 2 ir', ...[
             // http://localhost:8081/?/blog/2006/12/07/Grammatikaiasjk
             // http://localhost:8081/?/blog/2009/12/12/Thumbelina
-            // http://localhost:8081/?/blog/2010/01/04/s2_db
+            // http://localhost:8081/?/blog/2010/01/04/register_db
             new BlockGroup(['1/1/3/2'], Block::thumbnail()->bigTitle()->text(0, 0, 500)),
             new BlockGroup(['1/4/3/5'], Block::imgRight()->text(0, 350)),
             new BlockGroup(['', ''], (new Block())->text(0, 200)),
@@ -819,7 +819,7 @@ readonly class LayoutMatcherFactory
             // http://localhost:8081/?/blog/2020/03/29/sars-cov2
             // http://localhost:8081/?/blog/2020/10/25/talk_rule
             // http://localhost:8081/?/blog/2016/09/20/adblock_myths
-            // http://localhost:8081/?/blog/2012/06/27/S2_movie
+            // http://localhost:8081/?/blog/2012/06/27/REGISTER_movie
             // http://localhost:8081/?/blog/2012/03/05/elections
             // http://localhost:8081/?/blog/2009/11/11/Samierazdrajau6
             new BlockGroup(['1/1/3/3'], (new Block())->img(0.4, 2, 180)->imgClass('right')->bigTitle()->text()),

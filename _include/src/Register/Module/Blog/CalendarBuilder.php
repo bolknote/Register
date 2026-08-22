@@ -12,8 +12,8 @@ namespace Register\Module\Blog;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Config\IntProxy;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Config\IntProxy;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 readonly class CalendarBuilder
@@ -30,7 +30,7 @@ readonly class CalendarBuilder
     /**
      * @param ?int $day 0 for skipping highlight, null for skipping header
      *
-     * @throws \S2\Cms\Pdo\DbLayerException
+     * @throws \Register\Core\Pdo\DbLayerException
      * @param array<int, list<string>>|null $dayUrls
      */
     public function calendar(?int $year = null, ?int $month = null, ?int $day = 0, string $url = '', ?array $dayUrls = null): string

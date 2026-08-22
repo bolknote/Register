@@ -2,16 +2,16 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
 namespace Register\Module\Search\Admin;
 
-use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Admin\Dashboard\SystemStatusProviderInterface;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\AdminYard\TemplateRenderer;
+use Register\Core\Admin\Dashboard\SystemStatusProviderInterface;
+use Register\Rose\Storage\Database\PdoStorage;
 
 readonly class DashboardSearchProvider implements SystemStatusProviderInterface
 {

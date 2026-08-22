@@ -22,31 +22,31 @@ use Register\Content\TagRepository;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlGenerator;
 use Register\Url\ContentUrlAliasRepository;
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\Config\DbColumnFieldType;
-use S2\AdminYard\Config\EntityConfig;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Config\Filter;
-use S2\AdminYard\Config\FilterLinkTo;
-use S2\AdminYard\Config\LinkTo;
-use S2\AdminYard\Config\LinkToEntityParams;
-use S2\AdminYard\Config\VirtualFieldType;
-use S2\AdminYard\Database\Key;
-use S2\AdminYard\Database\LogicalExpression;
-use S2\AdminYard\Event\AfterLoadEvent;
-use S2\AdminYard\Event\AfterSaveEvent;
-use S2\AdminYard\Event\BeforeRenderEvent;
-use S2\AdminYard\Event\BeforeDeleteEvent;
-use S2\AdminYard\Event\BeforeSaveEvent;
-use S2\AdminYard\Translator;
-use S2\AdminYard\Validator\Length;
-use S2\AdminYard\Validator\Regex;
-use S2\Cms\Admin\AdminConfigExtenderInterface;
-use S2\Cms\Admin\AdminConfigProvider;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Model\TagsProvider;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\Config\DbColumnFieldType;
+use Register\AdminYard\Config\EntityConfig;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Config\Filter;
+use Register\AdminYard\Config\FilterLinkTo;
+use Register\AdminYard\Config\LinkTo;
+use Register\AdminYard\Config\LinkToEntityParams;
+use Register\AdminYard\Config\VirtualFieldType;
+use Register\AdminYard\Database\Key;
+use Register\AdminYard\Database\LogicalExpression;
+use Register\AdminYard\Event\AfterLoadEvent;
+use Register\AdminYard\Event\AfterSaveEvent;
+use Register\AdminYard\Event\BeforeRenderEvent;
+use Register\AdminYard\Event\BeforeDeleteEvent;
+use Register\AdminYard\Event\BeforeSaveEvent;
+use Register\AdminYard\Translator;
+use Register\AdminYard\Validator\Length;
+use Register\AdminYard\Validator\Regex;
+use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Core\Admin\AdminConfigProvider;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Model\TagsProvider;
 use Register\Module\Blog\Model\PostProvider;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class AdminConfigExtender implements AdminConfigExtenderInterface
 {
@@ -133,7 +133,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 })()),
                 control: 'input',
                 validators: [
-                    (static function (): \S2\AdminYard\Validator\Regex {
+                    (static function (): \Register\AdminYard\Validator\Regex {
                         $validator          = new Regex('#^[\p{L}\p{N}_\- ,\.!]*$#u');
                         $validator->message = 'Tags must contain only letters, numbers and spaces.';
                         return $validator;
@@ -448,7 +448,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW]
             ), 'used_in_articles')
             ->addField(new FieldConfig(
-                name: 's2_blog_important',
+                name: 'register_blog_important',
                 label: $this->translator->trans('Important tag'),
                 hint: $this->translator->trans('Important tag info'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),

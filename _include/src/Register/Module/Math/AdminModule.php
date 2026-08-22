@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Math;
 
-use S2\Cms\AdminYard\CustomTemplateRendererEvent;
-use S2\Cms\Framework\ListenerModuleInterface;
+use Register\Core\AdminYard\CustomTemplateRendererEvent;
+use Register\Core\Framework\ListenerModuleInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 class AdminModule implements ListenerModuleInterface

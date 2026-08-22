@@ -7,12 +7,12 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Inbox;
+namespace Register\Extension\activitypub\Inbox;
 
-use s2_extensions\activitypub\Domain\ProtocolLimits;
-use s2_extensions\activitypub\Infrastructure\FetchedRemoteActor;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
-use s2_extensions\activitypub\Security\RsaCrypto;
+use Register\Extension\activitypub\Domain\ProtocolLimits;
+use Register\Extension\activitypub\Infrastructure\FetchedRemoteActor;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
+use Register\Extension\activitypub\Security\RsaCrypto;
 
 /** Strictly validates the actor subset Register consumes; JSON-LD contexts are never fetched. */
 final readonly class RemoteActorDocumentValidator

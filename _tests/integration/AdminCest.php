@@ -2,7 +2,7 @@
 /**
  * @copyright 2024-2026 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -11,20 +11,20 @@ namespace integration;
 
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Admin\AdminAjaxRequestHandler;
-use S2\Cms\Admin\AdminConfigProvider;
-use S2\Cms\Admin\AdminRequestHandler;
-use S2\Cms\Comment\Antispam\SpamAssessment;
-use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
-use S2\Cms\Comment\SpamDetectorReport;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Model\AuthTokenHasher;
-use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\LoginRateLimiter;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
-use S2\Cms\Security\WebAuthn\WebAuthnChallengeRepository;
-use S2\Cms\Security\WebAuthn\WebAuthnService;
+use Register\Core\Admin\AdminAjaxRequestHandler;
+use Register\Core\Admin\AdminConfigProvider;
+use Register\Core\Admin\AdminRequestHandler;
+use Register\Core\Comment\Antispam\SpamAssessment;
+use Register\Core\Comment\Antispam\SpamAssessmentRepository;
+use Register\Core\Comment\SpamDetectorReport;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Model\AuthTokenHasher;
+use Register\Core\Model\AuthManager;
+use Register\Core\Model\LoginRateLimiter;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Security\WebAuthn\RecoveryCodeRepository;
+use Register\Core\Security\WebAuthn\WebAuthnChallengeRepository;
+use Register\Core\Security\WebAuthn\WebAuthnService;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -161,17 +161,17 @@ class AdminCest
         /** @var WebAuthnService $service */
         $service = $I->grabAdminService(WebAuthnService::class);
         $request = Request::create(
-            'https://s2.localhost/_admin/index.php?action=webauthn_auth_options',
+            'https://register.localhost/_admin/index.php?action=webauthn_auth_options',
             Request::METHOD_POST,
             server: [
-                'HTTP_ORIGIN'     => 'https://s2.localhost',
+                'HTTP_ORIGIN'     => 'https://register.localhost',
                 'HTTP_USER_AGENT' => 'WebAuthn integration test',
                 'REMOTE_ADDR'     => '192.0.2.20',
             ],
         );
 
         $result = $service->beginAuthentication($request, true);
-        $I->assertSame('s2.localhost', $result['options']['rpId']);
+        $I->assertSame('register.localhost', $result['options']['rpId']);
         $I->assertSame('required', $result['options']['userVerification']);
         $I->assertSame([], $result['options']['allowCredentials']);
         $I->assertMatchesRegularExpression('/^[A-Za-z0-9_-]{43}$/D', (string)$result['options']['challenge']);
@@ -214,11 +214,11 @@ class AdminCest
         $innerSession = 't' . sprintf('%08x', time()) . str_repeat('b', 64);
         $requestStack->push(Request::create(
             'https://localhost/',
-            cookies: ['s2_cookie_904732485' => $outerSession],
+            cookies: ['register_cookie_904732485' => $outerSession],
         ));
         $requestStack->push(Request::create(
             'https://localhost/_admin/index.php',
-            cookies: ['s2_cookie_904732485' => $innerSession],
+            cookies: ['register_cookie_904732485' => $innerSession],
         ));
 
         try {
@@ -389,7 +389,7 @@ class AdminCest
         $I->see('AI assistant', '.config-section');
         $I->seeElement('nav.config-section-nav[aria-label="Settings sections"]');
         $I->seeElement('[data-config-page-state][data-state="applied"]');
-        $I->assertCount(31, $I->grabMultiple('.config-setting label[for]'));
+        $I->assertCount(32, $I->grabMultiple('.config-setting label[for]'));
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] select[name="value"]');
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] option[value="openrouter"]');
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] option[value="mistral"]');
@@ -492,7 +492,7 @@ class AdminCest
         $configProvider = $I->grabAdminService(DynamicConfigProvider::class);
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabAdminService(DbLayer::class);
-        $originalStyle = (string)$configProvider->get('S2_STYLE');
+        $originalStyle = (string)$configProvider->get('REGISTER_STYLE');
 
         $I->login('admin', 'admin');
 
@@ -500,7 +500,7 @@ class AdminCest
             foreach (['oldschool' => 'light', 'register' => 'light dark', 'system-1' => 'light'] as $style => $colorScheme) {
                 $dbLayer->update('config')
                     ->set('value', ':value')->setParameter('value', $style)
-                    ->where('name = :name')->setParameter('name', 'S2_STYLE')
+                    ->where('name = :name')->setParameter('name', 'REGISTER_STYLE')
                     ->execute()
                 ;
                 $configProvider->regenerate();
@@ -511,7 +511,7 @@ class AdminCest
         } finally {
             $dbLayer->update('config')
                 ->set('value', ':value')->setParameter('value', $originalStyle)
-                ->where('name = :name')->setParameter('name', 'S2_STYLE')
+                ->where('name = :name')->setParameter('name', 'REGISTER_STYLE')
                 ->execute()
             ;
             $configProvider->regenerate();
@@ -524,12 +524,12 @@ class AdminCest
         $configProvider = $I->grabAdminService(DynamicConfigProvider::class);
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabAdminService(DbLayer::class);
-        $appliedSiteName = (string)$configProvider->get('S2_SITE_NAME');
+        $appliedSiteName = (string)$configProvider->get('REGISTER_SITE_NAME');
         $configProvider->regenerate();
 
         $dbLayer->update('config')
             ->set('value', ':value')->setParameter('value', 'Stored but not applied')
-            ->where('name = :name')->setParameter('name', 'S2_SITE_NAME')
+            ->where('name = :name')->setParameter('name', 'REGISTER_SITE_NAME')
             ->execute()
         ;
 
@@ -537,13 +537,13 @@ class AdminCest
             $I->login('admin', 'admin');
             $I->amOnPage('https://localhost/_admin/index.php?entity=Config&action=list');
 
-            $I->seeElement('[data-config-key="S2_SITE_NAME"] input[value="Stored but not applied"]');
-            $I->seeElement('[data-config-key="S2_SITE_NAME"] [data-config-save-state][data-state="pending"]');
+            $I->seeElement('[data-config-key="REGISTER_SITE_NAME"] input[value="Stored but not applied"]');
+            $I->seeElement('[data-config-key="REGISTER_SITE_NAME"] [data-config-save-state][data-state="pending"]');
             $I->see('Some saved settings are not applied', '[data-config-page-state][data-state="pending"]');
         } finally {
             $dbLayer->update('config')
                 ->set('value', ':value')->setParameter('value', $appliedSiteName)
-                ->where('name = :name')->setParameter('name', 'S2_SITE_NAME')
+                ->where('name = :name')->setParameter('name', 'REGISTER_SITE_NAME')
                 ->execute()
             ;
             $configProvider->regenerate();
@@ -663,8 +663,8 @@ class AdminCest
             $I->assertJsonSubResponseEquals(1, ['updated']);
             $I->assertSame($originallyPublic ? 1 : 0, $this->contentPublishedState($dbLayer, $contentId));
 
-            /** @var \S2\Cms\AdminYard\BulkListActionProvider $provider */
-            $provider = $I->grabAdminService(\S2\Cms\AdminYard\BulkListActionProvider::class);
+            /** @var \Register\Core\AdminYard\BulkListActionProvider $provider */
+            $provider = $I->grabAdminService(\Register\Core\AdminYard\BulkListActionProvider::class);
             $I->assertSame(['publish', 'unpublish', 'delete'], $provider->actionsFor('BlogPost'));
             $I->assertSame(['publish', 'unpublish'], $provider->actionsFor('Article'));
             $I->assertSame(['ham', 'spam', 'reject', 'delete'], $provider->actionsFor('Comment'));
@@ -962,7 +962,7 @@ class AdminCest
         $response = json_decode($I->grabResponse(), true, 512, JSON_THROW_ON_ERROR);
         $I->assertIsArray($response);
         $I->assertTrue($response['success'] ?? false);
-        $I->assertStringContainsString('<!-- s2_text -->', (string)($response['template'] ?? ''));
+        $I->assertStringContainsString('<!-- register_text -->', (string)($response['template'] ?? ''));
     }
 
     public function testLoginLifetimeAndSharedComputerMode(\IntegrationTester $I): void
@@ -1058,7 +1058,7 @@ class AdminCest
 
         $httpApplication = $I->createAdminApplication([
             'force_admin_https' => false,
-            'base_url'          => 'http://s2.localhost',
+            'base_url'          => 'http://register.localhost',
         ]);
         /** @var AuthManager $httpAuthManager */
         $httpAuthManager = $httpApplication->container->get(AuthManager::class);
@@ -1067,7 +1067,7 @@ class AdminCest
 
         $httpsBaseUrlApplication = $I->createAdminApplication([
             'force_admin_https' => false,
-            'base_url'          => 'https://s2.localhost',
+            'base_url'          => 'https://register.localhost',
         ]);
         /** @var AuthManager $httpsBaseUrlAuthManager */
         $httpsBaseUrlAuthManager = $httpsBaseUrlApplication->container->get(AuthManager::class);

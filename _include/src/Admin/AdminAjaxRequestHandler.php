@@ -2,37 +2,37 @@
 /**
  * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin;
+namespace Register\Core\Admin;
 
 use Register\Content\ContentType;
 use Register\Http\ContentSecurityPolicy;
 use Register\Module\Blog\Module as BlogModule;
 use Register\Url\ContentUrlCollisionException;
-use S2\AdminYard\Translator;
-use S2\AdminYard\Translator as T;
-use S2\Cms\Admin\Event\AdminAjaxControllerMapEvent;
-use S2\Cms\Admin\Picture\PictureFileNameHelper;
-use S2\Cms\Admin\Picture\PictureManager;
-use S2\Cms\Admin\Picture\PictureReserveManager;
-use S2\Cms\Extensions\ExtensionManagerAdapter;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\Container as C;
-use S2\Cms\Framework\Exception\AccessDeniedException;
-use S2\Cms\Framework\Exception\NotFoundException;
-use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\Model\ArticleManager;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Model\PermissionChecker as P;
-use S2\Cms\Security\Http\AdminMutationGuard;
-use S2\Cms\Security\Http\SameOriginRequestGuard;
-use S2\Cms\Template\HtmlTemplateProvider;
+use Register\AdminYard\Translator;
+use Register\AdminYard\Translator as T;
+use Register\Core\Admin\Event\AdminAjaxControllerMapEvent;
+use Register\Core\Admin\Picture\PictureFileNameHelper;
+use Register\Core\Admin\Picture\PictureManager;
+use Register\Core\Admin\Picture\PictureReserveManager;
+use Register\Core\Extensions\ExtensionManagerAdapter;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\Container as C;
+use Register\Core\Framework\Exception\AccessDeniedException;
+use Register\Core\Framework\Exception\NotFoundException;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Model\ArticleManager;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\AuthManager;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Model\PermissionChecker as P;
+use Register\Core\Security\Http\AdminMutationGuard;
+use Register\Core\Security\Http\SameOriginRequestGuard;
+use Register\Core\Template\HtmlTemplateProvider;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\JsonResponse as Json;
 use Symfony\Component\HttpFoundation\Request;
@@ -41,7 +41,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 class AdminAjaxRequestHandler
 {

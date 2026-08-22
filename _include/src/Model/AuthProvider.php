@@ -2,17 +2,17 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Model;
+namespace Register\Core\Model;
 
-use S2\Cms\Model\Comment\CommentModerator;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Model\Comment\CommentModerator;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Request;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 readonly class AuthProvider
@@ -70,7 +70,7 @@ readonly class AuthProvider
     public function isAuthenticatedAdministrator(Request $request): bool
     {
         $user = $this->getAuthenticatedUser($request);
-        if (!$user instanceof \S2\Cms\Model\AuthenticatedPublicUser) {
+        if (!$user instanceof \Register\Core\Model\AuthenticatedPublicUser) {
             return false;
         }
 
@@ -123,7 +123,7 @@ readonly class AuthProvider
     public function getAuthenticatedCommentModerator(Request $request): ?CommentModerator
     {
         $user = $this->getAuthenticatedUser($request);
-        if (!$user instanceof \S2\Cms\Model\AuthenticatedPublicUser || (!$user->canHideComments && !$user->canEditComments)) {
+        if (!$user instanceof \Register\Core\Model\AuthenticatedPublicUser || (!$user->canHideComments && !$user->canEditComments)) {
             return null;
         }
 

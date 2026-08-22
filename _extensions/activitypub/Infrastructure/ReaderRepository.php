@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\CollectionAnchor;
-use s2_extensions\activitypub\Domain\ReaderEntry;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\CollectionAnchor;
+use Register\Extension\activitypub\Domain\ReaderEntry;
 
 /** Private chronological reader over normalized, sanitized remote object snapshots. */
 final readonly class ReaderRepository
@@ -80,7 +80,7 @@ final readonly class ReaderRepository
         return array_values(array_map($this->hydrate(...), $rows));
     }
 
-    private function baseQuery(string ...$fields): \S2\Cms\Pdo\QueryBuilder\SelectBuilder
+    private function baseQuery(string ...$fields): \Register\Core\Pdo\QueryBuilder\SelectBuilder
     {
         return $this->dbLayer->select(...$fields)
             ->from(ActivityPubSchema::REMOTE_RECIPIENT_TABLE . ' AS recipient')
@@ -99,7 +99,7 @@ final readonly class ReaderRepository
         ;
     }
 
-    private function viewCondition(\S2\Cms\Pdo\QueryBuilder\SelectBuilder $query, string $view): void
+    private function viewCondition(\Register\Core\Pdo\QueryBuilder\SelectBuilder $query, string $view): void
     {
         match ($view) {
             'feed' => $query->andWhere('remote_object.visibility IN (:public, :unlisted, :followers)')

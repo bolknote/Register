@@ -2,7 +2,7 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -12,8 +12,8 @@ namespace integration;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Comment\CommentHtml;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Comment\CommentHtml;
+use Register\Core\Pdo\DbLayer;
 
 class CommentCest
 {

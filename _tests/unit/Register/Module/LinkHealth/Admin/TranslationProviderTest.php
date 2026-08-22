@@ -11,7 +11,7 @@ namespace unit\Register\Module\LinkHealth\Admin;
 
 use Codeception\Test\Unit;
 use Register\Module\LinkHealth\Admin\TranslationProvider;
-use S2\AdminYard\Translator;
+use Register\AdminYard\Translator;
 
 final class TranslationProviderTest extends Unit
 {

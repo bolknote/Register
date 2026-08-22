@@ -2,32 +2,32 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin;
+namespace Register\Core\Admin;
 
 use Register\Ai\AiSettings;
 use Register\Module\Analytics\Manifest as AnalyticsManifest;
 use Register\Schema\SchemaManager;
-use S2\AdminYard\Config\DbColumnFieldType;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Database\TypeTransformer;
-use S2\AdminYard\Form\FormFactory;
-use S2\AdminYard\Form\FormParams;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\AdminYard\TemplateRenderer;
-use S2\AdminYard\Validator\Length;
-use S2\AdminYard\Validator\Regex;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Model\PermissionChecker;
+use Register\AdminYard\Config\DbColumnFieldType;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Database\TypeTransformer;
+use Register\AdminYard\Form\FormFactory;
+use Register\AdminYard\Form\FormParams;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Validator\Length;
+use Register\AdminYard\Validator\Regex;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Model\PermissionChecker;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Gathers information about S2 configuration parameters and transforms the list of configuration parameters,
+ * Gathers information about Register configuration parameters and transforms the list of configuration parameters,
  * read by the AdminYard library from the database, into a set of mini-forms for editing these parameters.
  */
 class DynamicConfigFormBuilder
@@ -38,32 +38,32 @@ class DynamicConfigFormBuilder
     public ?array $paramTypes = null;
 
     /**
-     * S2 parameters. Extensions may add their own parameters via DynamicConfigFormExtenderInterface instances.
+     * Register parameters. Extensions may add their own parameters via DynamicConfigFormExtenderInterface instances.
      */
     private const array PARAM_TYPES = [
         'Site config'        => 'title',
-        'S2_SITE_NAME'       => 'string',
-        'S2_WEBMASTER'       => 'string',
-        'S2_WEBMASTER_EMAIL' => 'email',
-        'S2_START_YEAR'      => 'int',
-        'S2_LANGUAGE'        => 'language',
-        'S2_STYLE'           => 'style',
+        'REGISTER_SITE_NAME'       => 'string',
+        'REGISTER_WEBMASTER'       => 'string',
+        'REGISTER_WEBMASTER_EMAIL' => 'email',
+        'REGISTER_START_YEAR'      => 'int',
+        'REGISTER_LANGUAGE'        => 'language',
+        'REGISTER_STYLE'           => 'style',
 
         'Comments config'     => 'title',
-        'S2_SHOW_COMMENTS'    => 'boolean',
-        'S2_ENABLED_COMMENTS' => 'boolean',
-        'S2_ANTISPAM_MODE'    => 'antispam_mode',
-        'S2_ANTISPAM_SECRET'  => 'hidden',
-        'S2_ANTISPAM_SPAM_SCORE' => 'int',
-        'S2_ANTISPAM_BLATANT_SCORE' => 'int',
-        'S2_AKISMET_KEY'      => 'secret',
-        'S2_PREMODERATION'    => 'boolean',
+        'REGISTER_SHOW_COMMENTS'    => 'boolean',
+        'REGISTER_ENABLED_COMMENTS' => 'boolean',
+        'REGISTER_ANTISPAM_MODE'    => 'antispam_mode',
+        'REGISTER_ANTISPAM_SECRET'  => 'hidden',
+        'REGISTER_ANTISPAM_SPAM_SCORE' => 'int',
+        'REGISTER_ANTISPAM_BLATANT_SCORE' => 'int',
+        'REGISTER_AKISMET_KEY'      => 'secret',
+        'REGISTER_PREMODERATION'    => 'boolean',
 
         'Navigation config' => 'title',
-        'S2_USE_HIERARCHY'  => 'boolean',
-        'S2_MAX_ITEMS'      => 'int',
-        'S2_FAVORITE_URL'   => 'string',
-        'S2_TAGS_URL'       => 'string',
+        'REGISTER_USE_HIERARCHY'  => 'boolean',
+        'REGISTER_MAX_ITEMS'      => 'int',
+        'REGISTER_FAVORITE_URL'   => 'string',
+        'REGISTER_TAGS_URL'       => 'string',
 
         'AI config'                         => 'title',
         AiSettings::PROVIDER_CONFIG_KEY     => 'ai_provider',
@@ -75,11 +75,11 @@ class DynamicConfigFormBuilder
         AiSettings::AUTO_ALT_CONFIG_KEY     => 'boolean',
 
         'Admin config'     => 'title',
-        'S2_ADMIN_COLOR'   => 'color',
-        'S2_ADMIN_NEW_POS' => 'boolean',
-        'S2_ADMIN_CUT'     => 'boolean',
-        'S2_LOGIN_TIMEOUT' => 'hidden',
-        'S2_LAST_MAINTENANCE' => 'hidden',
+        'REGISTER_ADMIN_COLOR'   => 'color',
+        'REGISTER_ADMIN_NEW_POS' => 'boolean',
+        'REGISTER_ADMIN_CUT'     => 'boolean',
+        'REGISTER_LOGIN_TIMEOUT' => 'hidden',
+        'REGISTER_LAST_MAINTENANCE' => 'hidden',
         SchemaManager::CONFIG_KEY => 'hidden',
         AnalyticsManifest::SALT_CONFIG_KEY => 'hidden',
     ];
@@ -256,7 +256,7 @@ class DynamicConfigFormBuilder
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING),
                 control: 'input',
                 validators: [
-                    (static function (): \S2\AdminYard\Validator\Regex {
+                    (static function (): \Register\AdminYard\Validator\Regex {
                         $validator          = new Regex('/^(([^<>()[\]\\.,;:\s@"\']+(\.[^<>()[\]\\.,;:\s@"\']+)*)|("[^"\']+"))@((\[\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])|(([a-zA-Z\d\-]+\.)+[a-zA-Z]{2,}))$/');
                         $validator->message = 'Invalid webmaster email';
                         return $validator;
@@ -431,13 +431,13 @@ class DynamicConfigFormBuilder
                 'key'    => AiSettings::PROVIDER_CONFIG_KEY,
                 'values' => [AiSettings::PROVIDER_GIGACHAT],
             ],
-            'S2_ANTISPAM_SPAM_SCORE',
-            'S2_ANTISPAM_BLATANT_SCORE' => [
-                'key'    => 'S2_ANTISPAM_MODE',
+            'REGISTER_ANTISPAM_SPAM_SCORE',
+            'REGISTER_ANTISPAM_BLATANT_SCORE' => [
+                'key'    => 'REGISTER_ANTISPAM_MODE',
                 'values' => ['local', 'shadow'],
             ],
-            'S2_AKISMET_KEY' => [
-                'key'    => 'S2_ANTISPAM_MODE',
+            'REGISTER_AKISMET_KEY' => [
+                'key'    => 'REGISTER_ANTISPAM_MODE',
                 'values' => ['shadow', 'akismet'],
             ],
             default => null,

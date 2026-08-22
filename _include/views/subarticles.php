@@ -3,7 +3,7 @@
 declare(strict_types = 1);
 
 /**
- * Content of <!-- s2_subarticles --> placeholder
+ * Content of <!-- register_subarticles --> placeholder
  *
  * @var callable $trans
  * @var string   $sections

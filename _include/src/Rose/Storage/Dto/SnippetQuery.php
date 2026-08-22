@@ -7,11 +7,11 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Storage\Dto;
+namespace Register\Rose\Storage\Dto;
 
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\ExternalIdCollection;
-use S2\Rose\Exception\LogicException;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\ExternalIdCollection;
+use Register\Rose\Exception\LogicException;
 
 class SnippetQuery
 {

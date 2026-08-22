@@ -68,7 +68,7 @@
             method: 'POST',
             headers: {'X-Requested-With': 'XMLHttpRequest'},
             body: new URLSearchParams(formData),
-            s2HandleErrorsInline: true,
+            registerHandleErrorsInline: true,
         });
         const result = await response.json().catch(function () {
             return {};
@@ -87,7 +87,7 @@
                 'X-Requested-With': 'XMLHttpRequest',
             },
             body: JSON.stringify({credential: credentialPayload(credential)}),
-            s2HandleErrorsInline: true,
+            registerHandleErrorsInline: true,
         });
         const result = await response.json().catch(function () {
             return {};

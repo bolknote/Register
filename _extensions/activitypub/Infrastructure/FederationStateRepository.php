@@ -7,17 +7,17 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\ActorType;
-use s2_extensions\activitypub\Domain\CanonicalBasePath;
-use s2_extensions\activitypub\Domain\CanonicalOrigin;
-use s2_extensions\activitypub\Domain\ContentDeliveryMode;
-use s2_extensions\activitypub\Domain\FederationState;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\FederationPolicy;
-use s2_extensions\activitypub\Domain\PostObjectType;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\ActorType;
+use Register\Extension\activitypub\Domain\CanonicalBasePath;
+use Register\Extension\activitypub\Domain\CanonicalOrigin;
+use Register\Extension\activitypub\Domain\ContentDeliveryMode;
+use Register\Extension\activitypub\Domain\FederationState;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\FederationPolicy;
+use Register\Extension\activitypub\Domain\PostObjectType;
 
 final readonly class FederationStateRepository
 {

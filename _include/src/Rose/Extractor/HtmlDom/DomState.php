@@ -7,14 +7,14 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Extractor\HtmlDom;
+namespace Register\Rose\Extractor\HtmlDom;
 
-use S2\Rose\Entity\ContentWithMetadata;
-use S2\Rose\Entity\Metadata\Img;
-use S2\Rose\Entity\Metadata\ImgCollection;
-use S2\Rose\Entity\Metadata\SentenceMap;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Helper\StringHelper;
+use Register\Rose\Entity\ContentWithMetadata;
+use Register\Rose\Entity\Metadata\Img;
+use Register\Rose\Entity\Metadata\ImgCollection;
+use Register\Rose\Entity\Metadata\SentenceMap;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Helper\StringHelper;
 
 class DomState
 {
@@ -57,7 +57,7 @@ class DomState
 
         /**
          * Decode all entities. '&' was encoded before and decoded in DOM processing.
-         * @see \S2\Rose\Extractor\HtmlDom\DomExtractor::getDomDocument
+         * @see \Register\Rose\Extractor\HtmlDom\DomExtractor::getDomDocument
          */
         $textContent = html_entity_decode($textContent, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5);
 

@@ -2,18 +2,18 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\AdminYard;
+namespace Register\Core\AdminYard;
 
-use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Asset\AssetPack;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\Model\PermissionChecker;
+use Register\AdminYard\TemplateRenderer;
+use Register\Core\Asset\AssetPack;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Model\PermissionChecker;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -89,7 +89,7 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
         }
 
         $normalizedPath = str_replace('\\', '/', $realPath);
-        if (!str_ends_with(dirname($normalizedPath), '/s2/admin-yard/templates')) {
+        if (!str_ends_with(dirname($normalizedPath), '/_include/admin-yard/templates')) {
             return $templatePath;
         }
 
@@ -160,7 +160,7 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
 
     private function styleColorScheme(): string
     {
-        $styleName = $this->dynamicConfigProvider->get('S2_STYLE');
+        $styleName = $this->dynamicConfigProvider->get('REGISTER_STYLE');
         if (!\is_string($styleName) || preg_match('#\A[0-9a-zA-Z_-]+\z#D', $styleName) !== 1) {
             throw new \LogicException('The selected style name is invalid.');
         }

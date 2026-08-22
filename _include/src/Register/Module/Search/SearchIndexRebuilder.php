@@ -11,9 +11,9 @@ namespace Register\Module\Search;
 
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
-use S2\Rose\Indexer;
-use S2\Rose\Storage\Database\PdoStorage;
-use S2\Rose\Storage\Exception\EmptyIndexException;
+use Register\Rose\Indexer;
+use Register\Rose\Storage\Database\PdoStorage;
+use Register\Rose\Storage\Exception\EmptyIndexException;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\RecommendationProvider;
 

@@ -74,7 +74,7 @@ final class MaintenanceModeTest extends Unit
     #[PreserveGlobalState(false)]
     public function testMaintenanceAllowsOnlyUpdaterAndRecoveryLoginRequests(): void
     {
-        \define('S2_ADMIN_MODE', true);
+        \define('REGISTER_ADMIN_MODE', true);
 
         self::assertTrue(MaintenanceMode::isUpdateRequest(
             ['SCRIPT_NAME' => '/_admin/index.php'],

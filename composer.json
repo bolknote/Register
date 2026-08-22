@@ -4,9 +4,6 @@
         "allow-plugins": {
             "dealerdirect/phpcodesniffer-composer-installer": true
         },
-        "preferred-install": {
-            "s2/admin-yard": "source"
-        },
         "platform": {
             "php": "8.3.33"
         },
@@ -40,7 +37,6 @@
         "psr/container": "^2.0",
         "psr/event-dispatcher": "^1.0",
         "psr/log": "^3.0",
-        "s2/admin-yard": "dev-master",
         "symfony/cache": "^7.0",
         "symfony/cache-contracts": "^3.0",
         "symfony/error-handler": "^7.0",
@@ -64,23 +60,19 @@
     "autoload": {
         "psr-4": {
             "Register\\": "_include/src/Register",
-            "S2\\AdminYard\\Form\\": "_include/overrides/AdminYard/Form",
-            "S2\\Cms\\": "_include/src",
-            "S2\\Rose\\": "_include/src/Rose",
-            "s2_extensions\\": "_extensions"
+            "Register\\AdminYard\\": "_include/admin-yard/src",
+            "Register\\Core\\": "_include/src",
+            "Register\\Extension\\": "_extensions",
+            "Register\\Rose\\": "_include/src/Rose"
         },
         "files": [
             "_include/functions.php"
-        ],
-        "exclude-from-classmap": [
-            "/_vendor/s2/admin-yard/src/Form/Form.php",
-            "/_vendor/s2/admin-yard/src/Form/FormParams.php"
         ]
     },
     "autoload-dev": {
         "psr-4": {
             "_generated\\": "_tests/_support/_generated/",
-            "S2\\Rose\\Test\\": "_tests/unit/Rose"
+            "Register\\Rose\\Test\\": "_tests/unit/Rose"
         },
         "classmap": [
             "_tests/_support/"

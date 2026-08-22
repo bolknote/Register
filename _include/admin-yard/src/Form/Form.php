@@ -8,12 +8,12 @@
 
 declare(strict_types = 1);
 
-namespace S2\AdminYard\Form;
+namespace Register\AdminYard\Form;
 
-use S2\AdminYard\Helper\RandomHelper;
+use Register\AdminYard\Helper\RandomHelper;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\Request;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 class Form

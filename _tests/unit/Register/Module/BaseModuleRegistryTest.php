@@ -17,13 +17,13 @@ final class BaseModuleRegistryTest extends Unit
     public function testContainsEveryModuleThatFormsTheRegisterProduct(): void
     {
         self::assertSame([
-            's2_blog',
-            's2_search',
-            's2_latex',
+            'register_blog',
+            'register_search',
+            'register_latex',
             'register_visitor_identity',
-            's2_counter',
+            'register_counter',
             'register_reactions',
-            's2_typo',
+            'register_typo',
             'register_syntax_highlighting',
             'register_audio_player',
             'register_link_health',
@@ -47,7 +47,7 @@ final class BaseModuleRegistryTest extends Unit
 
     public function testDistinguishesBaseModulesFromFutureOptionalModules(): void
     {
-        self::assertTrue($this->registry()->contains('s2_blog'));
+        self::assertTrue($this->registry()->contains('register_blog'));
         self::assertFalse($this->registry()->contains('example_optional_module'));
     }
 

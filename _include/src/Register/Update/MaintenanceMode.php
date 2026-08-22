@@ -22,7 +22,7 @@ final readonly class MaintenanceMode
     /** @param array<string, mixed> $server */
     public static function isUpdateRequest(array $server, mixed $query, mixed $request): bool
     {
-        if (!\defined('S2_ADMIN_MODE')) {
+        if (!\defined('REGISTER_ADMIN_MODE')) {
             return false;
         }
 

@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Http;
 
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -254,7 +254,7 @@ final readonly class CspViolationReporter
             throw new \RuntimeException('Unable to create the CSP report directory.');
         }
 
-        s2_call_without_warnings(static fn(): bool => chmod($directory, 0700));
+        register_call_without_warnings(static fn(): bool => chmod($directory, 0700));
 
         if (is_link($this->filePath) || (file_exists($this->filePath) && !is_file($this->filePath))) {
             throw new \RuntimeException('The CSP report file must be a regular file.');
@@ -265,7 +265,7 @@ final readonly class CspViolationReporter
             throw new \RuntimeException('Unable to open the CSP report file.');
         }
 
-        s2_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
+        register_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
 
         try {
             if (!flock($handle, LOCK_EX)) {
@@ -308,7 +308,7 @@ final readonly class CspViolationReporter
             fclose($handle);
         }
 
-        s2_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
+        register_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
 
         return true;
     }

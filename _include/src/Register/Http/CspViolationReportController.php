@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Http;
 
-use S2\Cms\Framework\ControllerInterface;
+use Register\Core\Framework\ControllerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Dashboard;
+namespace Register\Core\Admin\Dashboard;
 
 interface SystemStatusProviderInterface
 {

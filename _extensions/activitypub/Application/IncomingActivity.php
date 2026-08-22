@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Domain\ProtocolLimits;
+use Register\Extension\activitypub\Domain\ProtocolLimits;
 
 /** A bounded, context-free structural view of an incoming ActivityStreams activity. */
 final readonly class IncomingActivity

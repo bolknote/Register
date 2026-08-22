@@ -15,9 +15,9 @@ declare(strict_types = 1);
 namespace Register\Module\Blog;
 
 use Register\Module\BaseModuleInstallerInterface;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
+use Register\Core\Pdo\DbLayerException;
 
 class Manifest implements BaseModuleInstallerInterface
 {
@@ -53,8 +53,8 @@ class Manifest implements BaseModuleInstallerInterface
     {
         // Add extension options to the config table
         $config = [
-            'S2_BLOG_TITLE' => 'My blog',
-            'S2_SITE_TAGLINE' => '',
+            'REGISTER_BLOG_TITLE' => 'My blog',
+            'REGISTER_SITE_TAGLINE' => '',
         ];
 
         foreach ($config as $confName => $confValue) {
@@ -67,8 +67,8 @@ class Manifest implements BaseModuleInstallerInterface
         }
 
         // A field in tags table for important tags displaying
-        $dbLayer->addField('tags', 's2_blog_important', SchemaBuilderInterface::TYPE_BOOLEAN, null, false, 0);
+        $dbLayer->addField('tags', 'register_blog_important', SchemaBuilderInterface::TYPE_BOOLEAN, null, false, 0);
 
-        $dbLayer->addIndex('tags', 's2_blog_important_idx', ['s2_blog_important']);
+        $dbLayer->addIndex('tags', 'register_blog_important_idx', ['register_blog_important']);
     }
 }

@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Delivery;
+namespace Register\Extension\activitypub\Delivery;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Infrastructure\ActivityPubSchema;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
 
 /** Durable per-origin cadence and small circuit breaker shared by all PHP requests. */
 final readonly class OriginDeliveryThrottle

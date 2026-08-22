@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace unit\Cms\Queue;
 
 use Codeception\Test\Unit;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueTimeBudgetExceeded;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueTimeBudgetExceeded;
 
 final class QueueExecutionBudgetTest extends Unit
 {

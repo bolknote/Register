@@ -2,24 +2,24 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin;
+namespace Register\Core\Admin;
 
 use Psr\Log\LoggerInterface;
-use S2\AdminYard\AdminPanel;
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\Config\EntityConfig;
-use S2\AdminYard\Database\PdoDataProvider;
-use S2\AdminYard\Event\BeforeRenderEvent;
-use S2\AdminYard\Form\FormFactory;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\AdminYard\TemplateRenderer;
-use S2\AdminYard\Transformer\ViewTransformer;
-use S2\AdminYard\Translator;
-use S2\Cms\AdminYard\CustomMenuGenerator;
-use S2\Cms\AdminYard\BulkListActionProvider;
-use S2\Cms\AdminYard\SavedListViewManager;
-use S2\Cms\Framework\Container;
-use S2\Cms\Model\PermissionChecker;
+use Register\AdminYard\AdminPanel;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\Config\EntityConfig;
+use Register\AdminYard\Database\PdoDataProvider;
+use Register\AdminYard\Event\BeforeRenderEvent;
+use Register\AdminYard\Form\FormFactory;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Transformer\ViewTransformer;
+use Register\AdminYard\Translator;
+use Register\Core\AdminYard\CustomMenuGenerator;
+use Register\Core\AdminYard\BulkListActionProvider;
+use Register\Core\AdminYard\SavedListViewManager;
+use Register\Core\Framework\Container;
+use Register\Core\Model\PermissionChecker;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -52,7 +52,7 @@ readonly class AdminPanelFactory
             $adminConfig,
             $this->container->get(TemplateRenderer::class),
             $this->container->get(PermissionChecker::class),
-            $this->container->get(\S2\Cms\Model\AuthManager::class),
+            $this->container->get(\Register\Core\Model\AuthManager::class),
             $this->container->get(EventDispatcherInterface::class),
             $this->container->get(RequestStack::class),
         );

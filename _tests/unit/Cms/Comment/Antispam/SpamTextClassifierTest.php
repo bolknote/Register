@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Comment\Antispam;
+namespace Register\Core\Comment\Antispam;
 
 use Codeception\Test\Unit;
 

@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Admin;
+namespace Register\Extension\activitypub\Admin;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Infrastructure\ActivityPubSchema;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
 
 final readonly class ActivityPubAdminRepository
 {

@@ -2,22 +2,22 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin;
+namespace Register\Core\Admin;
 
 use Register\Content\ContentChangeDispatcher;
 use Register\Http\ContentSecurityPolicy;
-use S2\Cms\Admin\Event\RedirectFromPublicEvent;
-use S2\Cms\Admin\WebAuthn\WebAuthnAdminController;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Security\Http\SameOriginRequestGuard;
+use Register\Core\Admin\Event\RedirectFromPublicEvent;
+use Register\Core\Admin\WebAuthn\WebAuthnAdminController;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Model\AuthManager;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Security\Http\SameOriginRequestGuard;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,7 +25,7 @@ use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class AdminRequestHandler
 {
@@ -59,7 +59,7 @@ readonly class AdminRequestHandler
             $originViolation = $this->sameOriginRequestGuard->violation($request);
             if ($originViolation !== null) {
                 $response = new Response(
-                    $this->container->get(\S2\AdminYard\Translator::class)->trans($originViolation),
+                    $this->container->get(\Register\AdminYard\Translator::class)->trans($originViolation),
                     Response::HTTP_FORBIDDEN,
                 );
                 ContentSecurityPolicy::applyToAdmin($response);

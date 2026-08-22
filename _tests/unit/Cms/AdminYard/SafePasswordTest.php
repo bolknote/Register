@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace unit\Cms\AdminYard;
 
 use Codeception\Test\Unit;
-use S2\AdminYard\Translator;
-use S2\Cms\AdminYard\Form\CustomFormControlFactory;
-use S2\Cms\AdminYard\Form\SafePassword;
+use Register\AdminYard\Translator;
+use Register\Core\AdminYard\Form\CustomFormControlFactory;
+use Register\Core\AdminYard\Form\SafePassword;
 
 final class SafePasswordTest extends Unit
 {

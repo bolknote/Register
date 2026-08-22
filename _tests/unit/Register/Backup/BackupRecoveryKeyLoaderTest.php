@@ -51,7 +51,7 @@ final class BackupRecoveryKeyLoaderTest extends Unit
         $secret         = str_repeat('dynamic-antispam-secret-', 2);
         file_put_contents(
             $secretFilename,
-            '<?php return ' . var_export(['S2_ANTISPAM_SECRET' => $secret], true) . ';',
+            '<?php return ' . var_export(['REGISTER_ANTISPAM_SECRET' => $secret], true) . ';',
         );
         $config = $this->writeConfig([
             'security' => [

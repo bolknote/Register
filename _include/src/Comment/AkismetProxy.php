@@ -2,18 +2,18 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Comment;
+namespace Register\Core\Comment;
 
 use Psr\Log\LoggerInterface;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpClientException;
-use S2\Cms\Model\UrlBuilder;
+use Register\Core\Config\StringProxy;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientException;
+use Register\Core\Model\UrlBuilder;
 
 readonly class AkismetProxy implements SpamDetectorInterface
 {

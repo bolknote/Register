@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Domain;
+namespace Register\Extension\activitypub\Domain;
 
 /** Whether an immutable local activity may be fanned out to remote inboxes. */
 enum ActivityDeliveryIntent: string

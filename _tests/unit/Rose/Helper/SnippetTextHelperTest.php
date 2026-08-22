@@ -6,11 +6,11 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Test\Helper;
+namespace Register\Rose\Test\Helper;
 
 use Codeception\Test\Unit;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Helper\SnippetTextHelper;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Helper\SnippetTextHelper;
 
 final class SnippetTextHelperTest extends Unit
 {

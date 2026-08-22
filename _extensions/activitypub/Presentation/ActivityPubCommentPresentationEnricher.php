@@ -7,12 +7,12 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Presentation;
+namespace Register\Extension\activitypub\Presentation;
 
 use Register\Comment\CommentPresentationEnricherInterface;
 use Register\Comment\CommentPresentationEnrichment;
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Infrastructure\ActivityPubSchema;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
 
 /** Adds verified provenance and only locally cached avatars to imported public comments. */
 final readonly class ActivityPubCommentPresentationEnricher implements CommentPresentationEnricherInterface

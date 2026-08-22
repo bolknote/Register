@@ -15,9 +15,9 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlCollisionException;
-use S2\Cms\Framework\Exception\AccessDeniedException;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Framework\Exception\AccessDeniedException;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Pdo\DbLayer;
 
 final readonly class ContentBulkPublicationService
 {

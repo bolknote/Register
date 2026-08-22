@@ -12,7 +12,7 @@ namespace Register\Module\LinkHealth;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentRepository;
 use Register\Content\ContentSchema;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 final readonly class LinkRepairService
 {

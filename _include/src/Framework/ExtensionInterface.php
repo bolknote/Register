@@ -6,15 +6,15 @@
  *
  * @copyright 2024 Roman Parpalak
  * @license MIT
- * @package S2
+ * @package Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Framework;
+namespace Register\Core\Framework;
 
 /**
- * Backward-compatible name for modules supplied by the S2 extension API.
+ * Backward-compatible name for modules supplied by the Register extension API.
  *
  * New Register code should depend on ModuleInterface. This interface remains while third-party
  * extensions migrate without requiring an all-at-once ecosystem break.

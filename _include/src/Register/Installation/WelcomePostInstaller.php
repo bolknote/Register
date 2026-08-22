@@ -11,7 +11,7 @@ namespace Register\Installation;
 
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 final readonly class WelcomePostInstaller
 {

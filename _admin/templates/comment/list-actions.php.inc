@@ -13,7 +13,7 @@ if ((bool)$row['virtual_write_access_control']) {
 }
 
 $spamLabel = (string)($row['column_spam_label'] ?? '');
-if ($isGranted(\S2\Cms\Model\PermissionChecker::PERMISSION_HIDE_COMMENTS)) {
+if ($isGranted(\Register\Core\Model\PermissionChecker::PERMISSION_HIDE_COMMENTS)) {
     foreach ([
                  'ham'  => ['label' => $trans('Not spam'), 'title' => $trans('Publish and learn as ham')],
                  'spam' => ['label' => $trans('Spam'), 'title' => $trans('Hide and learn as spam')],
@@ -29,7 +29,7 @@ if ($isGranted(\S2\Cms\Model\PermissionChecker::PERMISSION_HIDE_COMMENTS)) {
         ?>
         <a class="list-action-link list-action-link-<?= $feedbackAction ?>"
            data-list-action="submit-reload"
-           data-csrf-token="<?= s2_htmlencode($csrfToken) ?>"
+           data-csrf-token="<?= register_htmlencode($csrfToken) ?>"
            title="<?= $feedback['title'] ?>"
            href="?<?= $feedbackParams ?>"><span><?= $feedback['label'] ?></span></a>
         <?php
@@ -44,11 +44,11 @@ $queryParams = http_build_query(array_merge([
     'action' => 'reject',
 ], $primaryKey));
 
-if (!$row['column_sent'] && !$row['column_shown'] && $isGranted(\S2\Cms\Model\PermissionChecker::PERMISSION_HIDE_COMMENTS)) {
+if (!$row['column_sent'] && !$row['column_shown'] && $isGranted(\Register\Core\Model\PermissionChecker::PERMISSION_HIDE_COMMENTS)) {
 ?>
     <a class="list-action-link list-action-link-reject"
        data-list-action="submit-remove"
-       data-csrf-token="<?= s2_htmlencode($csrfToken) ?>"
+       data-csrf-token="<?= register_htmlencode($csrfToken) ?>"
        title="<?= $actionTitle ?>"
        href="?<?= $queryParams ?>"><span><?= $actionName ?></span></a>
     <?php
@@ -67,14 +67,14 @@ foreach ($rowActions as $action) {
         ?>
         <button type="button"
                 class="list-action-link list-action-link-delete"
-                title="<?= s2_htmlencode($actionTitle) ?>"
+                title="<?= register_htmlencode($actionTitle) ?>"
                 data-admin-delete
-                data-delete-url="?<?= s2_htmlencode($queryParams) ?>"
-                data-csrf-token="<?= s2_htmlencode($csrfToken) ?>"
-                data-confirm-title="<?= s2_htmlencode($trans('Delete record')) ?>"
-                data-confirm="<?= s2_htmlencode($trans('Delete record confirmation')) ?>"
-                data-confirm-label="<?= s2_htmlencode($trans('Delete permanently')) ?>"
-                data-error="<?= s2_htmlencode($trans('Delete record failed')) ?>"><span><?= s2_htmlencode($actionName) ?></span></button>
+                data-delete-url="?<?= register_htmlencode($queryParams) ?>"
+                data-csrf-token="<?= register_htmlencode($csrfToken) ?>"
+                data-confirm-title="<?= register_htmlencode($trans('Delete record')) ?>"
+                data-confirm="<?= register_htmlencode($trans('Delete record confirmation')) ?>"
+                data-confirm-label="<?= register_htmlencode($trans('Delete permanently')) ?>"
+                data-error="<?= register_htmlencode($trans('Delete record failed')) ?>"><span><?= register_htmlencode($actionName) ?></span></button>
         <?php
     } else {
         ?>

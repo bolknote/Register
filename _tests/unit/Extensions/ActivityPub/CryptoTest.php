@@ -11,13 +11,13 @@ namespace unit\Extensions\ActivityPub;
 
 use Codeception\Test\Unit;
 use phpseclib3\Crypt\RSA;
-use S2\Cms\Config\DynamicSecretParameterRegistry;
-use S2\Cms\Config\DynamicSecretStore;
-use s2_extensions\activitypub\Domain\PublicIdGenerator;
-use s2_extensions\activitypub\Security\ActivityPubSecret;
-use s2_extensions\activitypub\Security\ActorKeyVault;
-use s2_extensions\activitypub\Security\EncryptedPrivateKey;
-use s2_extensions\activitypub\Security\RsaCrypto;
+use Register\Core\Config\DynamicSecretParameterRegistry;
+use Register\Core\Config\DynamicSecretStore;
+use Register\Extension\activitypub\Domain\PublicIdGenerator;
+use Register\Extension\activitypub\Security\ActivityPubSecret;
+use Register\Extension\activitypub\Security\ActorKeyVault;
+use Register\Extension\activitypub\Security\EncryptedPrivateKey;
+use Register\Extension\activitypub\Security\RsaCrypto;
 use Symfony\Component\Filesystem\Filesystem;
 
 final class CryptoTest extends Unit

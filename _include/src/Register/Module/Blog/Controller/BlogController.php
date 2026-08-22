@@ -15,15 +15,15 @@ namespace Register\Module\Blog\Controller;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\HtmlTemplate;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Config\StringProxy;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\HtmlTemplate;
+use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Module as BlogModule;
@@ -32,7 +32,7 @@ use Register\Url\ContentUrlGenerator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 abstract class BlogController implements ControllerInterface
 {
@@ -68,10 +68,10 @@ abstract class BlogController implements ControllerInterface
         /** @noinspection HtmlUnknownTarget */
         $template
             ->putInPlaceholder('commented', 0)
-            ->putInPlaceholder('class', 's2_blog')
+            ->putInPlaceholder('class', 'register_blog')
             ->putInPlaceholder('rss_link', [\sprintf(
                 '<link rel="alternate" type="application/rss+xml" title="%s" href="%s" />',
-                s2_htmlencode($this->translator->trans('RSS blog link title')),
+                register_htmlencode($this->translator->trans('RSS blog link title')),
                 $this->blogUrlBuilder->main() . 'rss'
             )])
         ;

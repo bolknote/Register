@@ -6,10 +6,10 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Test\Helper;
+namespace Register\Rose\Test\Helper;
 
 use Codeception\Test\Unit;
-use S2\Rose\Helper\StringHelper;
+use Register\Rose\Helper\StringHelper;
 
 /**
  * @group string

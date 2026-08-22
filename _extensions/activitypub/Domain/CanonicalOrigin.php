@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Domain;
+namespace Register\Extension\activitypub\Domain;
 
 /** A normalized HTTPS origin without path, credentials, query, or fragment. */
 final readonly class CanonicalOrigin

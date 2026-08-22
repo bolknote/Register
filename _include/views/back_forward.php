@@ -3,7 +3,7 @@
 declare(strict_types = 1);
 
 /**
- * Content of <!-- s2_back_forward --> placeholder
+ * Content of <!-- register_back_forward --> placeholder
  *
  * @var array $links
  */
@@ -13,7 +13,7 @@ declare(strict_types = 1);
 <?php if (!empty($links['up'])) { ?>
 	<li class="up">
 		<span class="arrow">&uarr;</span>
-		<a href="<?php echo s2_htmlencode($links['up']['link']); ?>"><?php echo s2_htmlencode($links['up']['title']); ?></a>
+		<a href="<?php echo register_htmlencode($links['up']['link']); ?>"><?php echo register_htmlencode($links['up']['title']); ?></a>
 	</li>
 <?php } else { ?>
 	<li class="up empty">
@@ -23,7 +23,7 @@ declare(strict_types = 1);
 <?php if (!empty($links['back'])) { ?>
 	<li class="back">
 		<span class="arrow">&larr;</span>
-		<a href="<?php echo s2_htmlencode($links['back']['link']); ?>"><?php echo s2_htmlencode($links['back']['title']); ?></a>
+		<a href="<?php echo register_htmlencode($links['back']['link']); ?>"><?php echo register_htmlencode($links['back']['title']); ?></a>
 	</li>
 <?php } else { ?>
 	<li class="back empty">
@@ -33,7 +33,7 @@ declare(strict_types = 1);
 <?php if (!empty($links['forward'])) { ?>
 	<li class="forward">
 		<span class="arrow">&rarr;</span>
-		<a href="<?php echo s2_htmlencode($links['forward']['link']); ?>"><?php echo s2_htmlencode($links['forward']['title']); ?></a>
+		<a href="<?php echo register_htmlencode($links['forward']['link']); ?>"><?php echo register_htmlencode($links['forward']['title']); ?></a>
 	</li>
 <?php } else { ?>
 	<li class="forward empty">

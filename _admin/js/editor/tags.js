@@ -3,7 +3,7 @@
  *
  * @copyright 2009-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 function normalizeTag(value) {
@@ -324,7 +324,7 @@ export function initTagsInput(config) {
         renderTags();
         closeSuggestions();
     });
-    sourceInput.addEventListener('focus_tag_editor.s2', function () {
+    sourceInput.addEventListener('focus_tag_editor.register', function () {
         input.focus();
         renderSuggestions(true);
     });

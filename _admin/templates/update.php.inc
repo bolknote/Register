@@ -19,22 +19,22 @@ declare(strict_types = 1);
 ?>
 <div class="register-update"
      data-register-update
-     data-endpoint="<?= s2_htmlencode($basePath) ?>/_admin/ajax.php"
-     data-csrf-token="<?= s2_htmlencode($csrfToken) ?>"
+     data-endpoint="<?= register_htmlencode($basePath) ?>/_admin/ajax.php"
+     data-csrf-token="<?= register_htmlencode($csrfToken) ?>"
      data-chunk-bytes="<?= $chunkBytes ?>"
      data-max-archive-bytes="<?= $maxArchiveBytes ?>"
-     data-session-id="<?= s2_htmlencode(\is_array($recoverable) && \is_string($recoverable['id'] ?? null) ? $recoverable['id'] : '') ?>"
-     data-message-uploading="<?= s2_htmlencode($trans('Uploading release')) ?>"
-     data-message-checking="<?= s2_htmlencode($trans('Checking release')) ?>"
-     data-message-ready="<?= s2_htmlencode($trans('Release ready')) ?>"
-     data-message-applying="<?= s2_htmlencode($trans('Applying release')) ?>"
-     data-message-finalizing="<?= s2_htmlencode($trans('Finalizing release')) ?>"
-     data-message-complete="<?= s2_htmlencode($trans('Update completed')) ?>"
-     data-message-invalid-file="<?= s2_htmlencode($trans('Select a supported release archive')) ?>"
-     data-message-password="<?= s2_htmlencode($trans('Enter your current password')) ?>"
-     data-message-confirm="<?= s2_htmlencode($trans('Update confirmation')) ?>"
-     data-label-install="<?= s2_htmlencode($trans('Back up and install')) ?>"
-     data-label-finalize="<?= s2_htmlencode($trans('Retry finalization')) ?>">
+     data-session-id="<?= register_htmlencode(\is_array($recoverable) && \is_string($recoverable['id'] ?? null) ? $recoverable['id'] : '') ?>"
+     data-message-uploading="<?= register_htmlencode($trans('Uploading release')) ?>"
+     data-message-checking="<?= register_htmlencode($trans('Checking release')) ?>"
+     data-message-ready="<?= register_htmlencode($trans('Release ready')) ?>"
+     data-message-applying="<?= register_htmlencode($trans('Applying release')) ?>"
+     data-message-finalizing="<?= register_htmlencode($trans('Finalizing release')) ?>"
+     data-message-complete="<?= register_htmlencode($trans('Update completed')) ?>"
+     data-message-invalid-file="<?= register_htmlencode($trans('Select a supported release archive')) ?>"
+     data-message-password="<?= register_htmlencode($trans('Enter your current password')) ?>"
+     data-message-confirm="<?= register_htmlencode($trans('Update confirmation')) ?>"
+     data-label-install="<?= register_htmlencode($trans('Back up and install')) ?>"
+     data-label-finalize="<?= register_htmlencode($trans('Retry finalization')) ?>">
     <header class="register-update__header">
         <div>
             <p class="register-update__eyebrow">Register</p>
@@ -44,12 +44,12 @@ declare(strict_types = 1);
         <dl class="register-update__current">
             <div>
                 <dt><?= $trans('Installed version') ?></dt>
-                <dd><code><?= s2_htmlencode($installed->version ?? \Register\Update\BuildInfo::DEVELOPMENT_VERSION) ?></code></dd>
+                <dd><code><?= register_htmlencode($installed->version ?? \Register\Update\BuildInfo::DEVELOPMENT_VERSION) ?></code></dd>
             </div>
             <?php if ($installed instanceof \Register\Update\ReleaseManifest): ?>
                 <div>
                     <dt><?= $trans('Release date') ?></dt>
-                    <dd><time data-local-time datetime="<?= s2_htmlencode($installed->builtAt) ?>"><?= s2_htmlencode($installed->builtAt) ?></time></dd>
+                    <dd><time data-local-time datetime="<?= register_htmlencode($installed->builtAt) ?>"><?= register_htmlencode($installed->builtAt) ?></time></dd>
                 </div>
             <?php endif; ?>
         </dl>
@@ -61,12 +61,12 @@ declare(strict_types = 1);
         <ul class="register-update__formats">
             <?php foreach ($formats as $format => $details): ?>
                 <li class="<?= $details['available'] ? 'is-available' : 'is-unavailable' ?>">
-                    <code><?= s2_htmlencode($details['extension']) ?></code>
+                    <code><?= register_htmlencode($details['extension']) ?></code>
                     <span><?= $details['available'] ? $trans('Supported by this server') : $trans('Not supported by this server') ?></span>
                     <?php if ($format === $preferredFormat): ?>
                         <strong><?= $trans('Recommended') ?></strong>
                     <?php endif; ?>
-                    <small><?= s2_htmlencode($details['requirement']) ?></small>
+                    <small><?= register_htmlencode($details['requirement']) ?></small>
                 </li>
             <?php endforeach; ?>
         </ul>

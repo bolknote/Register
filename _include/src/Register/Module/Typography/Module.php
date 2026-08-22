@@ -9,11 +9,11 @@ declare(strict_types = 1);
 
 namespace Register\Module\Typography;
 
-use S2\Cms\Controller\Rss\FeedItemRenderEvent;
-use S2\Cms\Controller\Rss\FeedRenderEvent;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
-use S2\Cms\Template\TemplateFinalReplaceEvent;
+use Register\Core\Controller\Rss\FeedItemRenderEvent;
+use Register\Core\Controller\Rss\FeedRenderEvent;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\ContainerAwareListenerModuleInterface;
+use Register\Core\Template\TemplateFinalReplaceEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 

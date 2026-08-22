@@ -20,12 +20,12 @@ final class CspViolationReportCest
     public function _before(): void
     {
         $this->reportFile = dirname(__DIR__, 2) . '/_cache/test/csp-violations.jsonl';
-        s2_call_without_warnings(fn(): bool => unlink($this->reportFile));
+        register_call_without_warnings(fn(): bool => unlink($this->reportFile));
     }
 
     public function _after(): void
     {
-        s2_call_without_warnings(fn(): bool => unlink($this->reportFile));
+        register_call_without_warnings(fn(): bool => unlink($this->reportFile));
     }
 
     public function reportEndpointIsPostOnlyAndStoresSanitizedTelemetry(\IntegrationTester $I): void

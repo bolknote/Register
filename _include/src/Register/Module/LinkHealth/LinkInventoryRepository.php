@@ -11,7 +11,7 @@ namespace Register\Module\LinkHealth;
 
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 final readonly class LinkInventoryRepository
 {

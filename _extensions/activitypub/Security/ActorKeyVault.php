@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Security;
+namespace Register\Extension\activitypub\Security;
 
-use S2\Cms\Config\DynamicSecretStore;
+use Register\Core\Config\DynamicSecretStore;
 
 /** Encrypts every actor private key with a key-id-bound key derived from the private master key. */
 final readonly class ActorKeyVault

@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Controller;
+namespace Register\Extension\activitypub\Controller;
 
-use S2\Cms\Framework\ControllerInterface;
-use s2_extensions\activitypub\Infrastructure\RemoteAvatarRepository;
-use s2_extensions\activitypub\Media\RemoteAvatarStorage;
+use Register\Core\Framework\ControllerInterface;
+use Register\Extension\activitypub\Infrastructure\RemoteAvatarRepository;
+use Register\Extension\activitypub\Media\RemoteAvatarStorage;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -39,14 +39,14 @@ final readonly class RemoteAvatarController implements ControllerInterface
         }
 
         $asset = $this->repository->findPublicAsset($publicId, ($this->clock)());
-        if (!$asset instanceof \s2_extensions\activitypub\Infrastructure\RemoteAvatarAsset) {
+        if (!$asset instanceof \Register\Extension\activitypub\Infrastructure\RemoteAvatarAsset) {
             return $this->notFound();
         }
 
         try {
             $filename = $this->storage->path($asset->storageKey);
             $warning = null;
-            $content = s2_call_without_warnings(static fn(): string|false => file_get_contents($filename), $warning);
+            $content = register_call_without_warnings(static fn(): string|false => file_get_contents($filename), $warning);
             unset($warning);
         } catch (\InvalidArgumentException) {
             return $this->notFound();

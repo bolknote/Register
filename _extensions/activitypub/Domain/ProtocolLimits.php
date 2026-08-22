@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Domain;
+namespace Register\Extension\activitypub\Domain;
 
 /** Security and interoperability limits frozen by the ActivityPub protocol profile. */
 final class ProtocolLimits

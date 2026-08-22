@@ -7,22 +7,22 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Queue\QueuePublisher;
-use s2_extensions\activitypub\Domain\CanonicalBasePath;
-use s2_extensions\activitypub\Domain\CanonicalOrigin;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorKey;
-use s2_extensions\activitypub\Domain\PublicIdGenerator;
-use s2_extensions\activitypub\Infrastructure\ActivationReadinessRepository;
-use s2_extensions\activitypub\Infrastructure\ActivityPubSchema;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Security\ActorKeyVault;
-use s2_extensions\activitypub\Security\RsaCrypto;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueuePublisher;
+use Register\Extension\activitypub\Domain\CanonicalBasePath;
+use Register\Extension\activitypub\Domain\CanonicalOrigin;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorKey;
+use Register\Extension\activitypub\Domain\PublicIdGenerator;
+use Register\Extension\activitypub\Infrastructure\ActivationReadinessRepository;
+use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Security\ActorKeyVault;
+use Register\Extension\activitypub\Security\RsaCrypto;
 
 /** Prepares an identity and schedules bounded public-path probes without publishing it. */
 final readonly class ActivationReadinessStarter

@@ -13,8 +13,8 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Controller;
 
 use Register\Module\Blog\Module as BlogModule;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Template\HtmlTemplate;
+use Register\Core\Pdo\DbLayerException;
+use Register\Core\Template\HtmlTemplate;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

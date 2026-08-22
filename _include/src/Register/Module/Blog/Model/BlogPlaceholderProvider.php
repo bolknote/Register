@@ -19,21 +19,21 @@ use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\IntProxy;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Config\IntProxy;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Psr\Cache\InvalidArgumentException;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class BlogPlaceholderProvider
 {
-    private const string CACHE_KEY_NAVIGATION = 's2_blog_navigation';
+    private const string CACHE_KEY_NAVIGATION = 'register_blog_navigation';
 
     public function __construct(
         private DbLayer             $dbLayer,
@@ -102,7 +102,7 @@ readonly class BlogPlaceholderProvider
                 ->from('tags AS t')
                 ->innerJoin(ContentTagSchema::TABLE_NAME . ' AS pt', 't.id = pt.tag_id')
                 ->innerJoin(ContentSchema::TABLE_NAME . ' AS p', 'p.id = pt.content_id')
-                ->where('t.s2_blog_important = 1')
+                ->where('t.register_blog_important = 1')
                 ->andWhere("pt.content_type = '" . ContentType::POST->value . "'")
                 ->andWhere("p.content_type = '" . ContentType::POST->value . "'")
                 ->andWhere('p.published = 1')

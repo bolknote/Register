@@ -7,12 +7,12 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Controller;
+namespace Register\Core\Admin\Controller;
 
-use S2\AdminYard\Translator;
-use S2\Cms\AdminYard\SavedListViewManager;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\AdminYard\Translator;
+use Register\Core\AdminYard\SavedListViewManager;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

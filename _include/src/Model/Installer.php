@@ -2,16 +2,16 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Model;
+namespace Register\Core\Model;
 
 use Register\Ai\AiSettings;
-use S2\Cms\AdminYard\UserSettingStorage;
-use S2\Cms\Comment\Antispam\AntispamSchema;
+use Register\Core\AdminYard\UserSettingStorage;
+use Register\Core\Comment\Antispam\AntispamSchema;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentMediaSchema;
@@ -20,11 +20,11 @@ use Register\Content\ContentTagSchema;
 use Register\Live\LiveUpdateSchema;
 use Register\Url\ContentUrlAliasSchema;
 use Register\Schema\SchemaManager;
-use S2\Cms\Security\WebAuthn\WebAuthnSchema;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Queue\QueueSchema;
+use Register\Core\Security\WebAuthn\WebAuthnSchema;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
+use Register\Core\Pdo\DbLayerException;
+use Register\Core\Queue\QueueSchema;
 
 readonly class Installer
 {
@@ -197,30 +197,30 @@ readonly class Installer
 
         // Insert config data
         $config = [
-            'S2_SITE_NAME'        => $siteName,
-            'S2_SITE_TAGLINE'     => '',
-            'S2_WEBMASTER'        => '',
-            'S2_WEBMASTER_EMAIL'  => $email,
-            'S2_START_YEAR'       => date('Y'),
-            'S2_USE_HIERARCHY'    => '1',
-            'S2_MAX_ITEMS'        => '0',
-            'S2_FAVORITE_URL'     => 'favorite',
-            'S2_TAGS_URL'         => 'tags',
-            'S2_STYLE'            => 'register',
-            'S2_LANGUAGE'         => $defaultLanguage,
-            'S2_SHOW_COMMENTS'    => '1',
-            'S2_ENABLED_COMMENTS' => '1',
-            'S2_PREMODERATION'    => '0',
-            'S2_ANTISPAM_MODE'    => 'local',
-            'S2_ANTISPAM_SECRET'  => $antispamFallbackSecret,
-            'S2_ANTISPAM_SPAM_SCORE' => '35',
-            'S2_ANTISPAM_BLATANT_SCORE' => '80',
-            'S2_AKISMET_KEY'      => '',
-            'S2_ADMIN_COLOR'      => '#eeeeee',
-            'S2_ADMIN_NEW_POS'    => '0',
-            'S2_ADMIN_CUT'        => '0',
-            'S2_LOGIN_TIMEOUT'    => '60',
-            'S2_LAST_MAINTENANCE' => '0',
+            'REGISTER_SITE_NAME'        => $siteName,
+            'REGISTER_SITE_TAGLINE'     => '',
+            'REGISTER_WEBMASTER'        => '',
+            'REGISTER_WEBMASTER_EMAIL'  => $email,
+            'REGISTER_START_YEAR'       => date('Y'),
+            'REGISTER_USE_HIERARCHY'    => '1',
+            'REGISTER_MAX_ITEMS'        => '0',
+            'REGISTER_FAVORITE_URL'     => 'favorite',
+            'REGISTER_TAGS_URL'         => 'tags',
+            'REGISTER_STYLE'            => 'register',
+            'REGISTER_LANGUAGE'         => $defaultLanguage,
+            'REGISTER_SHOW_COMMENTS'    => '1',
+            'REGISTER_ENABLED_COMMENTS' => '1',
+            'REGISTER_PREMODERATION'    => '0',
+            'REGISTER_ANTISPAM_MODE'    => 'local',
+            'REGISTER_ANTISPAM_SECRET'  => $antispamFallbackSecret,
+            'REGISTER_ANTISPAM_SPAM_SCORE' => '35',
+            'REGISTER_ANTISPAM_BLATANT_SCORE' => '80',
+            'REGISTER_AKISMET_KEY'      => '',
+            'REGISTER_ADMIN_COLOR'      => '#eeeeee',
+            'REGISTER_ADMIN_NEW_POS'    => '0',
+            'REGISTER_ADMIN_CUT'        => '0',
+            'REGISTER_LOGIN_TIMEOUT'    => '60',
+            'REGISTER_LAST_MAINTENANCE' => '0',
             AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_DISABLED,
             AiSettings::API_KEY_CONFIG_KEY  => '',
             AiSettings::MODEL_CONFIG_KEY    => '',

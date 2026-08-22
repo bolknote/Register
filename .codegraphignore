@@ -1,7 +1,7 @@
 **/_vendor/**
 **/_cache/**
 **/_admin/lib/**
-**/_extensions/s2_counter/highcharts/**
+**/_extensions/register_counter/highcharts/**
 **/_assets/register/syntax-highlighting/vendor/**
 **/.git/**
 **/.local/**

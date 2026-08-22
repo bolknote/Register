@@ -7,16 +7,16 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Inbox;
+namespace Register\Extension\activitypub\Inbox;
 
-use S2\Cms\HttpClient\Remote\SafeRemoteHttpClient;
-use S2\Cms\HttpClient\Remote\SafeRemoteRequestOptions;
-use S2\Cms\HttpClient\Remote\SafeRemoteResponse;
-use S2\Cms\Queue\QueueExecutionBudget;
-use s2_extensions\activitypub\Http\ActivityPubResponseFactory;
-use s2_extensions\activitypub\Domain\ProtocolLimits;
-use s2_extensions\activitypub\Security\HttpSignatureRequest;
-use s2_extensions\activitypub\Security\LocalActorSigningService;
+use Register\Core\HttpClient\Remote\SafeRemoteHttpClient;
+use Register\Core\HttpClient\Remote\SafeRemoteRequestOptions;
+use Register\Core\HttpClient\Remote\SafeRemoteResponse;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Extension\activitypub\Http\ActivityPubResponseFactory;
+use Register\Extension\activitypub\Domain\ProtocolLimits;
+use Register\Extension\activitypub\Security\HttpSignatureRequest;
+use Register\Extension\activitypub\Security\LocalActorSigningService;
 
 final readonly class RemoteActorFetchClient
 {

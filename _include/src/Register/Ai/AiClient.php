@@ -11,9 +11,9 @@ namespace Register\Ai;
 
 use Psr\Cache\CacheException;
 use Psr\Cache\CacheItemPoolInterface;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpClientException;
-use S2\Cms\HttpClient\HttpResponse;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientException;
+use Register\Core\HttpClient\HttpResponse;
 
 final readonly class AiClient
 {

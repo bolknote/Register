@@ -3,7 +3,7 @@
 declare(strict_types = 1);
 
 /**
- * Content of <!-- s2_title --> placeholder
+ * Content of <!-- register_title --> placeholder
  *
  * @var callable $trans
  * @var string $title

@@ -7,24 +7,24 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Delivery\DeliveryPlanner;
-use s2_extensions\activitypub\Delivery\DeliveryQueue;
-use s2_extensions\activitypub\Domain\ActivityDeliveryIntent;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\PublicIdGenerator;
-use s2_extensions\activitypub\Inbox\InboxQueue;
-use s2_extensions\activitypub\Infrastructure\DeliveryRepository;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\InboxRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\NewStoredActivity;
-use s2_extensions\activitypub\Infrastructure\PortableDatabaseTransaction;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
-use s2_extensions\activitypub\Presentation\LocalActivityDocumentBuilder;
-use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
+use Register\Extension\activitypub\Delivery\DeliveryPlanner;
+use Register\Extension\activitypub\Delivery\DeliveryQueue;
+use Register\Extension\activitypub\Domain\ActivityDeliveryIntent;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\PublicIdGenerator;
+use Register\Extension\activitypub\Inbox\InboxQueue;
+use Register\Extension\activitypub\Infrastructure\DeliveryRepository;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\InboxRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\NewStoredActivity;
+use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
+use Register\Extension\activitypub\Presentation\LocalActivityDocumentBuilder;
+use Register\Extension\activitypub\Domain\FederationUrlGeneratorFactory;
 
 /** Safe pause/resume and actor-tombstoning decommission workflow. */
 final readonly class FederationLifecycleService
@@ -112,7 +112,7 @@ final readonly class FederationLifecycleService
             foreach ($actors as $actor) {
                 $deduplicationKey = 'actor-delete:' . $actor->publicId;
                 $activity = $this->federationRepository->findActivityByDeduplicationKey($deduplicationKey);
-                if (!$activity instanceof \s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation) {
+                if (!$activity instanceof \Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation) {
                     $publicId = $this->publicIdGenerator->generate();
                     $document = $this->activityBuilder->deleteActor(
                         $publicId,

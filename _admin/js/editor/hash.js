@@ -1,5 +1,5 @@
 /**
- * MD5 hashing helper for editor state in S2.
+ * MD5 hashing helper for editor state in Register.
  *
  * Based on http://www.webtoolkit.info/javascript-md5.html
  */
@@ -95,7 +95,8 @@ export function hex_md5(string) {
 
     var k, AA, BB, CC, DD, a, b, c, d,
         S11 = 7, S12 = 12, S13 = 17, S14 = 22,
-        S21 = 5, S22 = 9, S23 = 14, S24 = 20,
+        ROUND_TWO_SHIFT_1 = 5, ROUND_TWO_SHIFT_2 = 9,
+        ROUND_TWO_SHIFT_3 = 14, ROUND_TWO_SHIFT_4 = 20,
         S31 = 4, S32 = 11, S33 = 16, S34 = 23,
         S41 = 6, S42 = 10, S43 = 15, S44 = 21;
 
@@ -129,22 +130,22 @@ export function hex_md5(string) {
         d = FF(d, a, b, c, x[k + 13], S12, 0xFD987193);
         c = FF(c, d, a, b, x[k + 14], S13, 0xA679438E);
         b = FF(b, c, d, a, x[k + 15], S14, 0x49B40821);
-        a = GG(a, b, c, d, x[k + 1], S21, 0xF61E2562);
-        d = GG(d, a, b, c, x[k + 6], S22, 0xC040B340);
-        c = GG(c, d, a, b, x[k + 11], S23, 0x265E5A51);
-        b = GG(b, c, d, a, x[k + 0], S24, 0xE9B6C7AA);
-        a = GG(a, b, c, d, x[k + 5], S21, 0xD62F105D);
-        d = GG(d, a, b, c, x[k + 10], S22, 0x2441453);
-        c = GG(c, d, a, b, x[k + 15], S23, 0xD8A1E681);
-        b = GG(b, c, d, a, x[k + 4], S24, 0xE7D3FBC8);
-        a = GG(a, b, c, d, x[k + 9], S21, 0x21E1CDE6);
-        d = GG(d, a, b, c, x[k + 14], S22, 0xC33707D6);
-        c = GG(c, d, a, b, x[k + 3], S23, 0xF4D50D87);
-        b = GG(b, c, d, a, x[k + 8], S24, 0x455A14ED);
-        a = GG(a, b, c, d, x[k + 13], S21, 0xA9E3E905);
-        d = GG(d, a, b, c, x[k + 2], S22, 0xFCEFA3F8);
-        c = GG(c, d, a, b, x[k + 7], S23, 0x676F02D9);
-        b = GG(b, c, d, a, x[k + 12], S24, 0x8D2A4C8A);
+        a = GG(a, b, c, d, x[k + 1], ROUND_TWO_SHIFT_1, 0xF61E2562);
+        d = GG(d, a, b, c, x[k + 6], ROUND_TWO_SHIFT_2, 0xC040B340);
+        c = GG(c, d, a, b, x[k + 11], ROUND_TWO_SHIFT_3, 0x265E5A51);
+        b = GG(b, c, d, a, x[k + 0], ROUND_TWO_SHIFT_4, 0xE9B6C7AA);
+        a = GG(a, b, c, d, x[k + 5], ROUND_TWO_SHIFT_1, 0xD62F105D);
+        d = GG(d, a, b, c, x[k + 10], ROUND_TWO_SHIFT_2, 0x2441453);
+        c = GG(c, d, a, b, x[k + 15], ROUND_TWO_SHIFT_3, 0xD8A1E681);
+        b = GG(b, c, d, a, x[k + 4], ROUND_TWO_SHIFT_4, 0xE7D3FBC8);
+        a = GG(a, b, c, d, x[k + 9], ROUND_TWO_SHIFT_1, 0x21E1CDE6);
+        d = GG(d, a, b, c, x[k + 14], ROUND_TWO_SHIFT_2, 0xC33707D6);
+        c = GG(c, d, a, b, x[k + 3], ROUND_TWO_SHIFT_3, 0xF4D50D87);
+        b = GG(b, c, d, a, x[k + 8], ROUND_TWO_SHIFT_4, 0x455A14ED);
+        a = GG(a, b, c, d, x[k + 13], ROUND_TWO_SHIFT_1, 0xA9E3E905);
+        d = GG(d, a, b, c, x[k + 2], ROUND_TWO_SHIFT_2, 0xFCEFA3F8);
+        c = GG(c, d, a, b, x[k + 7], ROUND_TWO_SHIFT_3, 0x676F02D9);
+        b = GG(b, c, d, a, x[k + 12], ROUND_TWO_SHIFT_4, 0x8D2A4C8A);
         a = HH(a, b, c, d, x[k + 5], S31, 0xFFFA3942);
         d = HH(d, a, b, c, x[k + 8], S32, 0x8771F681);
         c = HH(c, d, a, b, x[k + 11], S33, 0x6D9D6122);

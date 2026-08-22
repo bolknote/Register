@@ -11,10 +11,10 @@ namespace Register\Update\Admin;
 
 use Psr\Log\LoggerInterface;
 use Register\Update\UpdateManager;
-use S2\AdminYard\Translator;
-use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\AdminYard\Translator;
+use Register\Core\Model\AuthManager;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;

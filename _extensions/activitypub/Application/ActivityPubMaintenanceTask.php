@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\ScheduledMaintenanceTaskInterface;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
 
 final readonly class ActivityPubMaintenanceTask implements ScheduledMaintenanceTaskInterface
 {

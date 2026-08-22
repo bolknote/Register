@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Security;
+namespace Register\Extension\activitypub\Security;
 
 final class SignatureVerificationFailed extends \RuntimeException
 {

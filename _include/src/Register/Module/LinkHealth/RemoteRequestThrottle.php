@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\LinkHealth;
 
-use S2\Rose\Storage\Exception\InvalidEnvironmentException;
+use Register\Rose\Storage\Exception\InvalidEnvironmentException;
 
 /** Coordinates remote-request slots across queue workers and application nodes without sleeping. */
 final readonly class RemoteRequestThrottle

@@ -3,12 +3,12 @@
 /**
  * @copyright 2023-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Asset;
+namespace Register\Core\Asset;
 
 class AssetPack
 {
@@ -228,7 +228,7 @@ class AssetPack
         }
 
         foreach ($this->css as $cssItem) {
-            if ($assetMerge instanceof \S2\Cms\Asset\AssetMergeInterface && $cssItem['merge']) {
+            if ($assetMerge instanceof \Register\Core\Asset\AssetMergeInterface && $cssItem['merge']) {
                 $assetMerge->concat(($this->requireDirPrefix($cssItem['src']) ? $this->localDir . '/' : '') . $cssItem['src']);
             } else {
                 $cssPath  = $this->getPrefixedPath($cssItem['src'], $pathPrefix);
@@ -236,7 +236,7 @@ class AssetPack
             }
         }
 
-        if ($assetMerge instanceof \S2\Cms\Asset\AssetMergeInterface) {
+        if ($assetMerge instanceof \Register\Core\Asset\AssetMergeInterface) {
             $mergedPaths = $assetMerge->getMergedPaths();
             foreach ($mergedPaths as $mergedPath) {
                 $result[] = \sprintf('<link rel="stylesheet" href="%s" />', $mergedPath);
@@ -271,7 +271,7 @@ class AssetPack
     {
         $result = [];
         foreach ($this->js as $jsItem) {
-            if ($assetMerge instanceof \S2\Cms\Asset\AssetMergeInterface && $jsItem['merge']) {
+            if ($assetMerge instanceof \Register\Core\Asset\AssetMergeInterface && $jsItem['merge']) {
                 $assetMerge->concat(($this->requireDirPrefix($jsItem['src']) ? $this->localDir . '/' : '') . $jsItem['src']);
             } else {
                 $result[] = \sprintf(
@@ -283,7 +283,7 @@ class AssetPack
             }
         }
 
-        if ($assetMerge instanceof \S2\Cms\Asset\AssetMergeInterface) {
+        if ($assetMerge instanceof \Register\Core\Asset\AssetMergeInterface) {
             foreach ($assetMerge->getMergedPaths() as $mergedPath) {
                 $result[] = \sprintf('<script src="%s" defer></script>', $mergedPath);
             }

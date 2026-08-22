@@ -7,13 +7,13 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test\Extractor;
+namespace Register\Rose\Test\Extractor;
 
 use Codeception\Test\Unit;
-use S2\Rose\Extractor\ExtractorInterface;
-use S2\Rose\Extractor\HtmlDom\DomExtractor;
-use S2\Rose\Extractor\HtmlRegex\RegexExtractor;
-use S2\Rose\Helper\StringHelper;
+use Register\Rose\Extractor\ExtractorInterface;
+use Register\Rose\Extractor\HtmlDom\DomExtractor;
+use Register\Rose\Extractor\HtmlRegex\RegexExtractor;
+use Register\Rose\Helper\StringHelper;
 
 /**
  * @group extract

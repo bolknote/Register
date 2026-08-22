@@ -7,11 +7,11 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test\Entity;
+namespace Register\Rose\Test\Entity;
 
 use Codeception\Test\Unit;
-use S2\Rose\Entity\Metadata\SentenceMap;
-use S2\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Entity\Metadata\SentenceMap;
+use Register\Rose\Entity\Metadata\SnippetSource;
 
 /**
  * @group sentence

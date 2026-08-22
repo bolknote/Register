@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Infrastructure\StoredLocalNoteRepresentation;
+use Register\Extension\activitypub\Infrastructure\StoredLocalNoteRepresentation;
 
 /** Identifies a locally-authored standalone Note as an incoming reply target. */
 final readonly class LocalNoteReplyTarget

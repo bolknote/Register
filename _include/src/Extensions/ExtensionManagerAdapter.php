@@ -2,26 +2,26 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Extensions;
+namespace Register\Core\Extensions;
 
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Form\FormParams;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\AdminYard\TemplateRenderer;
-use S2\AdminYard\Translator;
-use S2\Cms\Admin\AdminConfigExtenderInterface;
-use S2\Cms\Framework\Exception\AccessDeniedException;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Security\Audit\SecurityAuditLogger;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Form\FormParams;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Translator;
+use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Core\Framework\Exception\AccessDeniedException;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Security\Audit\SecurityAuditLogger;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Psr\Cache\InvalidArgumentException;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class ExtensionManagerAdapter implements AdminConfigExtenderInterface
 {

@@ -8,5 +8,5 @@ declare(strict_types = 1);
 
 ?>
     <sitemap>
-        <loc><?php echo s2_htmlencode($link); ?></loc>
+        <loc><?php echo register_htmlencode($link); ?></loc>
     </sitemap>

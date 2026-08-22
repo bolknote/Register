@@ -12,10 +12,10 @@ namespace unit\Cms\Template;
 use Codeception\Test\Unit;
 use Register\Module\Blog\Module as BlogModule;
 use Register\Module\Search\Module as SearchModule;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Template\ModuleResourceLocator;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Template\ModuleResourceLocator;
+use Register\Core\Template\Viewer;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class ViewerTest extends Unit
@@ -104,12 +104,12 @@ final class ViewerTest extends Unit
         self::assertDoesNotMatchRegularExpression('~\sstyle\s*=~i', $html);
     }
 
-    private function styleProxy(): \S2\Cms\Config\StringProxy
+    private function styleProxy(): \Register\Core\Config\StringProxy
     {
         $provider = new DynamicConfigProvider();
         $reflection = new \ReflectionClass($provider);
-        $reflection->getProperty('params')->setValue($provider, ['S2_STYLE' => 'register']);
+        $reflection->getProperty('params')->setValue($provider, ['REGISTER_STYLE' => 'register']);
 
-        return $provider->getStringProxy('S2_STYLE');
+        return $provider->getStringProxy('REGISTER_STYLE');
     }
 }

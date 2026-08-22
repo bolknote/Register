@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Pdo;
 
 use Codeception\Test\Unit;
-use S2\Cms\Pdo\PdoSqliteFactory;
+use Register\Core\Pdo\PdoSqliteFactory;
 
 final class PdoSqliteFactoryTest extends Unit
 {
@@ -29,7 +29,7 @@ final class PdoSqliteFactoryTest extends Unit
 
     public function testConfiguresSqliteForOverlappingRequestAndShutdownAccess(): void
     {
-        $path = tempnam(sys_get_temp_dir(), 's2_sqlite_');
+        $path = tempnam(sys_get_temp_dir(), 'register_sqlite_');
         self::assertIsString($path);
         unlink($path);
 

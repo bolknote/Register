@@ -11,11 +11,11 @@ namespace Register\Module\LinkHealth\Admin;
 
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentId;
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\Config\EntityConfig;
-use S2\AdminYard\Event\BeforeDeleteEvent;
-use S2\Cms\Admin\AdminConfigExtenderInterface;
-use S2\Cms\Model\PermissionChecker;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\Config\EntityConfig;
+use Register\AdminYard\Event\BeforeDeleteEvent;
+use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Core\Model\PermissionChecker;
 
 final readonly class AdminConfigExtender implements AdminConfigExtenderInterface
 {

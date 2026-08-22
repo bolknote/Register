@@ -13,7 +13,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 final class ContentTagRepositoryCest
 {

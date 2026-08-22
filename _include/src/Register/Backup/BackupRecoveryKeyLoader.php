@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Backup;
 
-use S2\Cms\Config\SecretConfigPathResolver;
-use S2\Cms\Config\StaticConfigLoader;
+use Register\Core\Config\SecretConfigPathResolver;
+use Register\Core\Config\StaticConfigLoader;
 
 /** Loads only the separately stored key material needed for an offline backup recovery. */
 final class BackupRecoveryKeyLoader
@@ -89,14 +89,14 @@ final class BackupRecoveryKeyLoader
             return null;
         }
 
-        $secrets = s2_call_without_warnings(
+        $secrets = register_call_without_warnings(
             static fn(): mixed => (static fn(string $path): mixed => include $path)($filename),
         );
         if (!\is_array($secrets)) {
             throw new \RuntimeException('The Register private secret file is invalid.');
         }
 
-        $secret = $secrets['S2_ANTISPAM_SECRET'] ?? null;
+        $secret = $secrets['REGISTER_ANTISPAM_SECRET'] ?? null;
 
         return \is_string($secret) && \strlen($secret) >= BackupEncryptionKeyProvider::KEY_BYTES
             ? $secret

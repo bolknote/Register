@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Domain\InboxState;
+use Register\Extension\activitypub\Domain\InboxState;
 
 final readonly class InboxProcessingResult
 {

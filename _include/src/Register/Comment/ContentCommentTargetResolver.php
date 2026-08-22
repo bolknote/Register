@@ -12,10 +12,10 @@ namespace Register\Comment;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Controller\Comment\TargetDto;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Controller\Comment\TargetDto;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\Request;
 
 /** Resolves comment targets while keeping type-specific URL lookup in one place. */

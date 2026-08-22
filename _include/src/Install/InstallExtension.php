@@ -2,17 +2,17 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Install;
+namespace Register\Core\Install;
 
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Config\InstallationConfigProvider;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ExtensionInterface;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Config\InstallationConfigProvider;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\ExtensionInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\RouteCollection;
 
@@ -21,7 +21,7 @@ class InstallExtension implements ExtensionInterface
     #[\Override]
     public function buildContainer(Container $container): void
     {
-        $container->decorate(DynamicConfigProvider::class, static fn(Container $_container): \S2\Cms\Config\InstallationConfigProvider => new InstallationConfigProvider());
+        $container->decorate(DynamicConfigProvider::class, static fn(Container $_container): \Register\Core\Config\InstallationConfigProvider => new InstallationConfigProvider());
     }
 
     #[\Override]

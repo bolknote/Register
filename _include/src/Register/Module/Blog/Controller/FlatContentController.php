@@ -6,10 +6,10 @@ namespace Register\Module\Blog\Controller;
 
 use Register\Module\Blog\Model\PostProvider;
 use Register\Url\ContentUrlAliasController;
-use S2\Cms\Controller\PageCommon;
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\UrlBuilder;
+use Register\Core\Controller\PageCommon;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\UrlBuilder;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

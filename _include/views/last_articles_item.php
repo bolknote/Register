@@ -3,7 +3,7 @@
 declare(strict_types = 1);
 
 /**
- * An item of <!-- s2_last_articles --> content
+ * An item of <!-- register_last_articles --> content
  *
  * @var callable $trans
  * @var string $parent_link
@@ -26,10 +26,10 @@ if (!empty($favorite))
 ?>
 <h2 class="<?php echo implode(' ', $class)?>">
 	<small>
-		<a class="preview_section" href="<?php echo s2_htmlencode($parent_link); ?>"><?php echo s2_htmlencode($parent_title); ?></a>
+		<a class="preview_section" href="<?php echo register_htmlencode($parent_link); ?>"><?php echo register_htmlencode($parent_title); ?></a>
 		&rarr;
 	</small>
-	<a href="<?php echo s2_htmlencode($link); ?>"><?php echo s2_htmlencode($title); ?></a>
+	<a href="<?php echo register_htmlencode($link); ?>"><?php echo register_htmlencode($title); ?></a>
     <?php echo $postfix; ?>
 </h2>
 <div class="preview time"><?php echo $date; ?></div>

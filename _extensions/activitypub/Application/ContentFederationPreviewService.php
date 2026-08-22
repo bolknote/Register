@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
 use Register\Author\AuthorProfile;
 use Register\Author\AuthorProfileRepository;
@@ -19,18 +19,18 @@ use Register\Content\ContentType;
 use Register\Content\Tag;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\ContentFederationSettings;
-use s2_extensions\activitypub\Domain\ContentFederationSettingsDraft;
-use s2_extensions\activitypub\Domain\ContentProjectionAction;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\FederationState;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\StoredObjectRepresentation;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
-use s2_extensions\activitypub\Presentation\ContentObjectDocumentBuilder;
-use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\ContentFederationSettings;
+use Register\Extension\activitypub\Domain\ContentFederationSettingsDraft;
+use Register\Extension\activitypub\Domain\ContentProjectionAction;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\FederationState;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\StoredObjectRepresentation;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
+use Register\Extension\activitypub\Presentation\ContentObjectDocumentBuilder;
+use Register\Extension\activitypub\Domain\FederationUrlGeneratorFactory;
 
 /** Produces an exact, side-effect-free object preview from the unsaved AdminYard form. */
 final readonly class ContentFederationPreviewService

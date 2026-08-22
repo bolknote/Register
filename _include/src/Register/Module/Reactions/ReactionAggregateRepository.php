@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Reactions;
 
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 /** Public write boundary for imported reactions; local visitor identities are never synthesized. */
 final readonly class ReactionAggregateRepository

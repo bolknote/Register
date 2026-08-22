@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Schema;
 
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 interface SchemaMigrationInterface
 {

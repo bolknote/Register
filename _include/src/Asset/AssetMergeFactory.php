@@ -2,15 +2,15 @@
 /**
  * @copyright 2025-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Asset;
+namespace Register\Core\Asset;
 
 use Psr\Log\LoggerInterface;
-use S2\Cms\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClient;
 
 readonly class AssetMergeFactory
 {

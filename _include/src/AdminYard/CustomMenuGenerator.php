@@ -2,19 +2,19 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\AdminYard;
+namespace Register\Core\AdminYard;
 
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\MenuGenerator;
-use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\PermissionChecker;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\MenuGenerator;
+use Register\AdminYard\TemplateRenderer;
+use Register\Core\Model\AuthManager;
+use Register\Core\Model\PermissionChecker;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 

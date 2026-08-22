@@ -2,12 +2,12 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin;
+namespace Register\Core\Admin;
 
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
@@ -24,44 +24,44 @@ use Register\Content\TagRepository;
 use Register\Live\LiveUpdateRepository;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlGenerator;
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\Config\DbColumnFieldType;
-use S2\AdminYard\Config\EntityConfig;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Config\Filter;
-use S2\AdminYard\Config\FilterLinkTo;
-use S2\AdminYard\Config\LinkTo;
-use S2\AdminYard\Config\LinkToEntityParams;
-use S2\AdminYard\Config\VirtualFieldType;
-use S2\AdminYard\Database\Key;
-use S2\AdminYard\Database\LogicalExpression;
-use S2\AdminYard\Database\PdoDataProvider;
-use S2\AdminYard\Event\AfterLoadEvent;
-use S2\AdminYard\Event\AfterSaveEvent;
-use S2\AdminYard\Event\BeforeDeleteEvent;
-use S2\AdminYard\Event\BeforeRenderEvent;
-use S2\AdminYard\Event\BeforeSaveEvent;
-use S2\AdminYard\Translator;
-use S2\AdminYard\Validator\Length;
-use S2\AdminYard\Validator\NotBlank;
-use S2\AdminYard\Validator\Regex;
-use S2\Cms\Admin\Controller\CommentControllerFactory;
-use S2\Cms\Admin\Validator\IntegerRange;
-use S2\Cms\Admin\Validator\Optional;
-use S2\Cms\Admin\Validator\SecurePassword;
-use S2\Cms\Comment\Antispam\SpamMetricsRepository;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\AuthManager;
-use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Model\PasswordHasher;
-use S2\Cms\Model\PasswordPolicy;
-use S2\Cms\Model\TagsProvider;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Security\Audit\SecurityAuditLogger;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\Config\DbColumnFieldType;
+use Register\AdminYard\Config\EntityConfig;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Config\Filter;
+use Register\AdminYard\Config\FilterLinkTo;
+use Register\AdminYard\Config\LinkTo;
+use Register\AdminYard\Config\LinkToEntityParams;
+use Register\AdminYard\Config\VirtualFieldType;
+use Register\AdminYard\Database\Key;
+use Register\AdminYard\Database\LogicalExpression;
+use Register\AdminYard\Database\PdoDataProvider;
+use Register\AdminYard\Event\AfterLoadEvent;
+use Register\AdminYard\Event\AfterSaveEvent;
+use Register\AdminYard\Event\BeforeDeleteEvent;
+use Register\AdminYard\Event\BeforeRenderEvent;
+use Register\AdminYard\Event\BeforeSaveEvent;
+use Register\AdminYard\Translator;
+use Register\AdminYard\Validator\Length;
+use Register\AdminYard\Validator\NotBlank;
+use Register\AdminYard\Validator\Regex;
+use Register\Core\Admin\Controller\CommentControllerFactory;
+use Register\Core\Admin\Validator\IntegerRange;
+use Register\Core\Admin\Validator\Optional;
+use Register\Core\Admin\Validator\SecurePassword;
+use Register\Core\Comment\Antispam\SpamMetricsRepository;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\AuthManager;
+use Register\Core\Model\ExtensionCache;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Model\PasswordHasher;
+use Register\Core\Model\PasswordPolicy;
+use Register\Core\Model\TagsProvider;
+use Register\Core\Pdo\DbLayerException;
+use Register\Core\Security\Audit\SecurityAuditLogger;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 class AdminConfigProvider implements StatefulServiceInterface
@@ -119,7 +119,7 @@ class AdminConfigProvider implements StatefulServiceInterface
 
     public function getAdminConfig(): AdminConfig
     {
-        if ($this->cachedConfig instanceof \S2\AdminYard\Config\AdminConfig) {
+        if ($this->cachedConfig instanceof \Register\AdminYard\Config\AdminConfig) {
             return $this->cachedConfig;
         }
 
@@ -742,7 +742,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 })()),
                 control: 'input',
                 validators: [
-                    (static function (): \S2\AdminYard\Validator\Regex {
+                    (static function (): \Register\AdminYard\Validator\Regex {
                         $validator          = new Regex('#^[\p{L}\p{N}_\- ,\.!]*$#u');
                         $validator->message = 'Tags must contain only letters, numbers and spaces.';
                         return $validator;
@@ -1068,7 +1068,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     validators: [
                         new NotBlank(),
                         new Length(max: 255),
-                        (static function (): \S2\AdminYard\Validator\Regex {
+                        (static function (): \Register\AdminYard\Validator\Regex {
                             $r          = new Regex('#^[\p{L}\p{N}_\- !\.]*$#u');
                             $r->message = 'Tag name must contain only letters, numbers and spaces';
                             return $r;
@@ -1150,8 +1150,8 @@ class AdminConfigProvider implements StatefulServiceInterface
                             $this->dynamicConfigProvider->regenerate();
                             $parameter = $this->requirePrimaryKey($event->primaryKey)->toArray()['name'] ?? null;
                             switch ($parameter) {
-                                case 'S2_FAVORITE_URL':
-                                case 'S2_TAGS_URL':
+                                case 'REGISTER_FAVORITE_URL':
+                                case 'REGISTER_TAGS_URL':
                                     $this->extensionCache->clearRoutesCache();
                             }
 
@@ -1644,7 +1644,7 @@ class AdminConfigProvider implements StatefulServiceInterface
     }
 
     /**
-     * @throws \S2\AdminYard\Database\DataProviderException
+     * @throws \Register\AdminYard\Database\DataProviderException
      * @throws \PDOException
      * @param string[] $tags
      * @return array<mixed>

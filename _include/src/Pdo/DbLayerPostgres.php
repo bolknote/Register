@@ -4,17 +4,17 @@
  *
  * @copyright 2009-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Pdo;
+namespace Register\Core\Pdo;
 
-use S2\Cms\Pdo\QueryBuilder\InsertBuilder;
-use S2\Cms\Pdo\QueryBuilder\InsertCommonCompiler;
-use S2\Cms\Pdo\QueryBuilder\UpsertBuilder;
-use S2\Cms\Pdo\QueryBuilder\UpsertPgsqlCompiler;
+use Register\Core\Pdo\QueryBuilder\InsertBuilder;
+use Register\Core\Pdo\QueryBuilder\InsertCommonCompiler;
+use Register\Core\Pdo\QueryBuilder\UpsertBuilder;
+use Register\Core\Pdo\QueryBuilder\UpsertPgsqlCompiler;
 
 class DbLayerPostgres extends DbLayer
 {

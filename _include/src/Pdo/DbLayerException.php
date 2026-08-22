@@ -4,12 +4,12 @@
  *
  * @copyright 2014-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Pdo;
+namespace Register\Core\Pdo;
 
 class DbLayerException extends \Exception
 {

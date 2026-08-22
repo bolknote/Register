@@ -2,17 +2,17 @@
 /**
  * @copyright 2007-2025 Roman Parpalak
  * @license   https://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Model;
+namespace Register\Core\Model;
 
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Framework\StatefulServiceInterface;
+use Register\Core\Config\StringProxy;
+use Register\Core\Framework\StatefulServiceInterface;
 
 class TagsProvider implements StatefulServiceInterface
 {

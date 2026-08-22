@@ -15,33 +15,33 @@ use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Module\Search\Module;
 use Register\Module\Search\Service\HistoricalTitleSearch;
-use S2\Cms\Config\IntProxy;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Helper\StringHelper;
-use S2\Cms\Image\ThumbnailGenerator;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\Viewer;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\Query;
-use S2\Rose\Finder;
-use S2\Rose\Helper\ProfileHelper;
-use S2\Rose\Stemmer\StemmerHelper;
-use S2\Rose\Stemmer\StemmerInterface;
-use S2\Rose\Storage\Exception\EmptyIndexException;
+use Register\Core\Config\IntProxy;
+use Register\Core\Config\StringProxy;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Helper\StringHelper;
+use Register\Core\Image\ThumbnailGenerator;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\Viewer;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\Query;
+use Register\Rose\Finder;
+use Register\Rose\Helper\ProfileHelper;
+use Register\Rose\Stemmer\StemmerHelper;
+use Register\Rose\Stemmer\StemmerInterface;
+use Register\Rose\Storage\Exception\EmptyIndexException;
 use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Module\Search\Service\SimilarWordsDetector;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Rose\Exception\ImmutableException;
-use S2\Rose\Exception\RuntimeException;
-use S2\Rose\Exception\UnknownIdException;
-use S2\Rose\Storage\Exception\InvalidEnvironmentException;
+use Register\Core\Pdo\DbLayerException;
+use Register\Rose\Exception\ImmutableException;
+use Register\Rose\Exception\RuntimeException;
+use Register\Rose\Exception\UnknownIdException;
+use Register\Rose\Storage\Exception\InvalidEnvironmentException;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 readonly class SearchPageController implements ControllerInterface
@@ -111,7 +111,7 @@ readonly class SearchPageController implements ControllerInterface
 
             $content += ['tags' => $this->findInTags($queryObj)];
 
-            if ($content['num'] > 0 && $resultSet instanceof \S2\Rose\Entity\ResultSet) {
+            if ($content['num'] > 0 && $resultSet instanceof \Register\Rose\Entity\ResultSet) {
                 $content['num_info'] = $this->translator->trans('Found N pages', ['%count%' => $content['num'], '{{ pages }}' => $content['num']]);
 
                 $totalPages = intdiv($content['num'] + $items_per_page - 1, $items_per_page);
@@ -152,7 +152,7 @@ readonly class SearchPageController implements ControllerInterface
 
         $template->putInPlaceholder('text', $this->viewer->render('search', $content, Module::class));
         $template->putInPlaceholder('title', $this->translator->trans('Search'));
-        $template->registerPlaceholder('<!-- s2_search_field -->', '');
+        $template->registerPlaceholder('<!-- register_search_field -->', '');
 
         $template->addBreadCrumb($this->articleProvider->mainPageTitle(), $this->urlBuilder->link('/'));
         $template->addBreadCrumb($this->translator->trans('Search'));
@@ -181,7 +181,7 @@ readonly class SearchPageController implements ControllerInterface
         foreach ($this->tagRepository->findPublishedUsage(ContentType::PAGE) as $usage) {
             $tag = $usage->tag;
             if ($this->similarWordsDetector->wordIsSimilarToOtherWords($tag->name, $words)) {
-                $tags[] = '<a href="' . $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($tag->slug) . '/') . '">' . s2_htmlencode($tag->name) . '</a>';
+                $tags[] = '<a href="' . $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($tag->slug) . '/') . '">' . register_htmlencode($tag->name) . '</a>';
             }
         }
 
@@ -194,7 +194,7 @@ readonly class SearchPageController implements ControllerInterface
 
         $string = $event->getLine();
         if ($string !== null) {
-            return '<p class="s2_search_found_tags">' . $string . '</p>';
+            return '<p class="register_search_found_tags">' . $string . '</p>';
         }
 
         return '';

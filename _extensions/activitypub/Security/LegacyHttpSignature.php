@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Security;
+namespace Register\Extension\activitypub\Security;
 
 /** Fediverse-compatible cavage-style HTTP Signatures with strict coverage and digest policy. */
 final readonly class LegacyHttpSignature

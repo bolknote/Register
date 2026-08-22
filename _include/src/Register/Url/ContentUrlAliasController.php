@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Url;
 
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Framework\Exception\NotFoundException;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Framework\Exception\NotFoundException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

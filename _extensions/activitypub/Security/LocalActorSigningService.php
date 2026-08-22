@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Security;
+namespace Register\Extension\activitypub\Security;
 
-use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
-use s2_extensions\activitypub\Domain\LocalActorKey;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Domain\FederationUrlGeneratorFactory;
+use Register\Extension\activitypub\Domain\LocalActorKey;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
 
 /** Loads and decrypts a local actor key for only the duration of one signing operation. */
 final readonly class LocalActorSigningService

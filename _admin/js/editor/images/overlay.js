@@ -1,9 +1,9 @@
 /**
- * Image optimization overlay UI for editor preview in S2.
+ * Image optimization overlay UI for editor preview in Register.
  *
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 import {formatDimensions, humanFileSize, imageState} from './state.js';
@@ -35,7 +35,7 @@ function findJobOverlayContainer(job) {
         return null;
     }
     const overlay = job.overlay.overlay;
-    return overlay.closest('.s2-image-overlay-wrap');
+    return overlay.closest('.register-image-overlay-wrap');
 }
 
 function detachJobOverlay(job) {
@@ -67,7 +67,7 @@ function ensurePreviewOverlayStyles(doc) {
 
 function createOverlayLine(doc, className) {
     const line = doc.createElement('div');
-    line.className = 's2-image-overlay-line ' + className;
+    line.className = 'register-image-overlay-line ' + className;
     line.textContent = '-';
     return line;
 }
@@ -82,7 +82,7 @@ function createOverlayButton(doc, attributeName, value, label) {
 
 function createFormatRow(doc, format, label) {
     const row = doc.createElement('label');
-    row.className = 's2-image-format';
+    row.className = 'register-image-format';
     row.setAttribute('data-format', format);
 
     const input = doc.createElement('input');
@@ -90,15 +90,15 @@ function createFormatRow(doc, format, label) {
     input.setAttribute('data-format', format);
 
     const name = doc.createElement('span');
-    name.className = 's2-format-name';
+    name.className = 'register-format-name';
     name.textContent = label;
 
     const size = doc.createElement('span');
-    size.className = 's2-format-size';
+    size.className = 'register-format-size';
     size.textContent = '-';
 
     const info = doc.createElement('span');
-    info.className = 's2-format-info';
+    info.className = 'register-format-info';
     row.append(input, name, size, info);
     return row;
 }
@@ -110,24 +110,24 @@ function renderImageOverlay(img, job, handlers) {
 
     const doc = img.ownerDocument;
     ensurePreviewOverlayStyles(doc);
-    let container = img.closest('.s2-image-overlay-wrap');
+    let container = img.closest('.register-image-overlay-wrap');
     if (!container || container.getAttribute('data-job-id') !== String(job.id)) {
         container = doc.createElement('span');
-        container.className = 's2-image-overlay-wrap';
+        container.className = 'register-image-overlay-wrap';
         container.setAttribute('data-job-id', String(job.id));
         img.parentNode.insertBefore(container, img);
         container.appendChild(img);
     }
 
-    let overlay = container.querySelector('.s2-image-overlay');
+    let overlay = container.querySelector('.register-image-overlay');
     if (!overlay) {
         overlay = doc.createElement('div');
-        overlay.className = 's2-image-overlay';
+        overlay.className = 'register-image-overlay';
 
         const controls = doc.createElement('div');
-        controls.className = 's2-image-overlay-controls';
+        controls.className = 'register-image-overlay-controls';
         const modeGroup = doc.createElement('div');
-        modeGroup.className = 's2-image-overlay-group s2-image-overlay-mode';
+        modeGroup.className = 'register-image-overlay-group register-image-overlay-mode';
         modeGroup.append(
             createOverlayButton(doc, 'data-mode', '1x', '1x'),
             createOverlayButton(doc, 'data-mode', '2x', '2x')
@@ -135,7 +135,7 @@ function renderImageOverlay(img, job, handlers) {
         controls.appendChild(modeGroup);
 
         const formats = doc.createElement('div');
-        formats.className = 's2-image-overlay-formats';
+        formats.className = 'register-image-overlay-formats';
         formats.append(
             createFormatRow(doc, 'jpeg', 'jpg'),
             createFormatRow(doc, 'png8', 'png8'),
@@ -143,8 +143,8 @@ function renderImageOverlay(img, job, handlers) {
         );
 
         overlay.append(
-            createOverlayLine(doc, 's2-image-overlay-dims'),
-            createOverlayLine(doc, 's2-image-overlay-sizes'),
+            createOverlayLine(doc, 'register-image-overlay-dims'),
+            createOverlayLine(doc, 'register-image-overlay-sizes'),
             controls,
             formats
         );
@@ -152,7 +152,7 @@ function renderImageOverlay(img, job, handlers) {
 
         const closeButton = doc.createElement('button');
         closeButton.type = 'button';
-        closeButton.className = 's2-image-overlay-close';
+        closeButton.className = 'register-image-overlay-close';
         closeButton.textContent = '×';
         closeButton.addEventListener('click', function () {
             if (handlers && handlers.closeImageJob) {
@@ -180,7 +180,7 @@ function renderImageOverlay(img, job, handlers) {
         });
 
         const sizeGroup = doc.createElement('div');
-        sizeGroup.className = 's2-image-overlay-group s2-image-overlay-size';
+        sizeGroup.className = 'register-image-overlay-group register-image-overlay-size';
         imageState.sizeOptions.forEach(function (sizeOption) {
             const value = sizeOption === Infinity ? 'inf' : String(sizeOption);
             const button = createOverlayButton(doc, 'data-size', value, sizeOption === Infinity ? '∞' : String(sizeOption));
@@ -197,14 +197,14 @@ function renderImageOverlay(img, job, handlers) {
 
     job.overlay = {
         overlay: overlay,
-        dims: overlay.querySelector('.s2-image-overlay-dims'),
-        sizes: overlay.querySelector('.s2-image-overlay-sizes'),
+        dims: overlay.querySelector('.register-image-overlay-dims'),
+        sizes: overlay.querySelector('.register-image-overlay-sizes'),
         modeButtons: overlay.querySelectorAll('button[data-mode]'),
         sizeButtons: overlay.querySelectorAll('button[data-size]'),
         formatRows: {
-            jpeg: overlay.querySelector('.s2-image-format[data-format="jpeg"]'),
-            png8: overlay.querySelector('.s2-image-format[data-format="png8"]'),
-            png24: overlay.querySelector('.s2-image-format[data-format="png24"]')
+            jpeg: overlay.querySelector('.register-image-format[data-format="jpeg"]'),
+            png8: overlay.querySelector('.register-image-format[data-format="png8"]'),
+            png24: overlay.querySelector('.register-image-format[data-format="png24"]')
         }
     };
 
@@ -288,8 +288,8 @@ function updateImageJobOverlay(job, handlers) {
             return;
         }
         const input = row.querySelector('input');
-        const size = row.querySelector('.s2-format-size');
-        const info = row.querySelector('.s2-format-info');
+        const size = row.querySelector('.register-format-size');
+        const info = row.querySelector('.register-format-info');
         if (input) {
             input.checked = !!state.formatEnabled[format];
         }

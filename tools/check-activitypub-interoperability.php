@@ -10,7 +10,7 @@
 
 declare(strict_types = 1);
 
-use s2_extensions\activitypub\Application\BundledReleaseInteroperabilityGate;
+use Register\Extension\activitypub\Application\BundledReleaseInteroperabilityGate;
 
 if (PHP_SAPI !== 'cli') {
     throw new RuntimeException('ActivityPub interoperability verification can only run from the command line.');

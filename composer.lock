@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "81a4e883ee825437d9408149fb785b44",
+    "content-hash": "f3cb756485cd3ff4c7f2d2261bb3d770",
     "packages": [
         {
             "name": "brick/math",
@@ -937,60 +937,6 @@
                 "source": "https://github.com/php-fig/log/tree/3.0.2"
             },
             "time": "2024-09-11T13:17:53+00:00"
-        },
-        {
-            "name": "s2/admin-yard",
-            "version": "dev-master",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/parpalak/admin-yard.git",
-                "reference": "5aedb46beaaa9a838ec0b3a39e13873881f7bf30"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/parpalak/admin-yard/zipball/5aedb46beaaa9a838ec0b3a39e13873881f7bf30",
-                "reference": "5aedb46beaaa9a838ec0b3a39e13873881f7bf30",
-                "shasum": ""
-            },
-            "require": {
-                "psr/log": "^1.1 || ^2.0 || ^3.0",
-                "symfony/event-dispatcher": "^5.4 || ^6.0 || ^7.0 || ^8.0",
-                "symfony/http-foundation": "^5.4 || ^6.0 || ^7.0 || ^8.0",
-                "symfony/translation-contracts": "^3.5"
-            },
-            "require-dev": {
-                "codeception/codeception": "^5.1",
-                "codeception/module-asserts": "^3.0",
-                "codeception/module-phpbrowser": "^3.0",
-                "league/commonmark": "^2.4",
-                "symfony/error-handler": "^7.0 || ^8.0"
-            },
-            "suggest": {
-                "ext-pdo": "*"
-            },
-            "default-branch": true,
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "S2\\AdminYard\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Roman Parpalak",
-                    "email": "roman@parpalak.com"
-                }
-            ],
-            "description": "Simple admin panel without heavy dependencies",
-            "support": {
-                "issues": "https://github.com/parpalak/admin-yard/issues",
-                "source": "https://github.com/parpalak/admin-yard/tree/master"
-            },
-            "time": "2026-04-19T22:07:26+00:00"
         },
         {
             "name": "spomky-labs/cbor-php",
@@ -10977,8 +10923,7 @@
     "minimum-stability": "dev",
     "stability-flags": {
         "phpcompatibility/php-compatibility": 15,
-        "phpmd/phpmd": 20,
-        "s2/admin-yard": 20
+        "phpmd/phpmd": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

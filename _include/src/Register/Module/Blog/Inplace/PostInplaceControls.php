@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Inplace;
 
 use Register\Ai\AiSettings;
-use S2\Cms\Model\AuthenticatedPublicUser;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\UrlBuilder;
+use Register\Core\Model\AuthenticatedPublicUser;
+use Register\Core\Model\AuthProvider;
+use Register\Core\Model\UrlBuilder;
 use Symfony\Component\HttpFoundation\Request;
 
 /** Builds public editing controls only for users allowed to mutate the post. */
@@ -82,7 +82,7 @@ final readonly class PostInplaceControls
     public function editorForPost(Request $request, ?int $authorId): ?AuthenticatedPublicUser
     {
         $editor = $this->authProvider->getAuthenticatedContentEditor($request);
-        if (!$editor instanceof AuthenticatedPublicUser) {
+        if ($editor === null) {
             return null;
         }
 
@@ -97,7 +97,11 @@ final readonly class PostInplaceControls
     public function forSiteHeader(Request $request): ?array
     {
         $editor = $this->authProvider->getAuthenticatedPublicUser($request);
-        if (!$editor instanceof AuthenticatedPublicUser || !$editor->canEditSite) {
+        if ($editor === null) {
+            return null;
+        }
+
+        if (!$editor->canEditSite) {
             return null;
         }
 

@@ -193,26 +193,10 @@ final readonly class SharedHostingDistributionBuilder
                 0644,
             );
 
-            if (is_dir($applicationRoot . '/_vendor')) {
-                $this->syncPublicVendorAssets($destinationRoot);
-            }
-
             $this->validatePublicBoundary($destinationRoot);
         } catch (\Throwable $throwable) {
             $this->removeTree($destinationRoot);
             throw $throwable;
-        }
-    }
-
-    public function syncPublicVendorAssets(string $distributionRoot): void
-    {
-        $applicationDemo = $distributionRoot . '/' . self::APPLICATION_DIRECTORY
-            . '/_vendor/s2/admin-yard/demo';
-        $publicDemo = $distributionRoot . '/' . self::PUBLIC_DIRECTORY
-            . '/_vendor/s2/admin-yard/demo';
-
-        foreach (['script.js', 'style.css'] as $filename) {
-            $this->copyExactFile($applicationDemo . '/' . $filename, $publicDemo . '/' . $filename, 0644);
         }
     }
 

@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\AdminYard;
+namespace Register\Core\AdminYard;
 
-use S2\AdminYard\Form\FormParams;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\AdminYard\Form\FormParams;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\Core\Security\Http\AdminMutationGuard;
 
 final readonly class SavedListViewManager
 {

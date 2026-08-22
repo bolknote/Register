@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Presentation;
+namespace Register\Extension\activitypub\Presentation;
 
 /** Converts already-sanitized remote HTML to Register's bounded comment markup. */
 final class RemoteCommentTextFormatter

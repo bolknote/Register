@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace Register\Url;
 
 use Register\Content\ContentSchema;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
 
 /** Stores historical paths without coupling them to the current canonical slug. */
 final class ContentUrlAliasSchema

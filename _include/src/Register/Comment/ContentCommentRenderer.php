@@ -11,11 +11,11 @@ namespace Register\Comment;
 
 use Register\Content\ContentId;
 use Register\Module\Reactions\ReactionAggregateSchema;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\Comment\CommentModerationContext;
-use S2\Cms\Model\Comment\CommentModerator;
-use S2\Cms\Model\Comment\CommentThreadRenderer;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Model\AuthProvider;
+use Register\Core\Model\Comment\CommentModerationContext;
+use Register\Core\Model\Comment\CommentModerator;
+use Register\Core\Model\Comment\CommentThreadRenderer;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Request;
 
 /** Queries and renders one comment thread for either posts or permanent pages. */
@@ -91,7 +91,7 @@ final readonly class ContentCommentRenderer
     {
         $region = 'comments:' . (string)$contentId;
 
-        return '<div class="live-comments-region" data-live-region="' . s2_htmlencode($region) . '">'
+        return '<div class="live-comments-region" data-live-region="' . register_htmlencode($region) . '">'
             . $this->render($contentId, $request, $returnPath)
             . '</div>';
     }

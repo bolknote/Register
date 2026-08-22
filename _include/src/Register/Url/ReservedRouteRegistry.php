@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Url;
 
-use S2\Cms\Config\StringProxy;
+use Register\Core\Config\StringProxy;
 
 /**
  * Owns the first path segments that cannot be used by root content.

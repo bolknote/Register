@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\LinkHealth;
 
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
 
 final readonly class LinkRepairQueueHandler implements QueueHandlerInterface
 {

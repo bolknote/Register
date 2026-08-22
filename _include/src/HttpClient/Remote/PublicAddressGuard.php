@@ -2,12 +2,12 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\HttpClient\Remote;
+namespace Register\Core\HttpClient\Remote;
 
 /** Resolves once, rejects mixed/private answers, and returns the address to pin in the transport. */
 final readonly class PublicAddressGuard

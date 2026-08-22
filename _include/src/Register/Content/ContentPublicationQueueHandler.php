@@ -9,9 +9,9 @@ declare(strict_types = 1);
 
 namespace Register\Content;
 
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
 
 /** Publishes due content in small, independently retryable batches. */
 final readonly class ContentPublicationQueueHandler implements QueueHandlerInterface

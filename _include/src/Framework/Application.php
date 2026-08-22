@@ -5,16 +5,16 @@
  *
  * @copyright 2024-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Framework;
+namespace Register\Core\Framework;
 
-use S2\Cms\Framework\Event\NotFoundEvent;
-use S2\Cms\Framework\Exception\ConfigurationException;
-use S2\Cms\Framework\Exception\NotFoundException;
+use Register\Core\Framework\Event\NotFoundEvent;
+use Register\Core\Framework\Exception\ConfigurationException;
+use Register\Core\Framework\Exception\NotFoundException;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -253,7 +253,7 @@ class Application
 
         if ($this->compiledRoutes === null) {
             if (file_exists($cacheFilename)) {
-                $compiledRoutes = s2_call_without_warnings(static fn(): mixed => include $cacheFilename);
+                $compiledRoutes = register_call_without_warnings(static fn(): mixed => include $cacheFilename);
                 if (\is_array($compiledRoutes)) {
                     $this->compiledRoutes = $compiledRoutes;
                 }
@@ -262,7 +262,7 @@ class Application
             if ($this->compiledRoutes === null) {
                 $compiledUrlMatcherDumper = new CompiledUrlMatcherDumper($this->getRoutes());
                 $this->compiledRoutes     = $compiledUrlMatcherDumper->getCompiledRoutes();
-                s2_overwrite_file_skip_locked($cacheFilename, $compiledUrlMatcherDumper->dump());
+                register_overwrite_file_skip_locked($cacheFilename, $compiledUrlMatcherDumper->dump());
                 if (\function_exists('opcache_invalidate')) {
                     opcache_invalidate($cacheFilename, true);
                 }

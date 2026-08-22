@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Template;
 
 use Codeception\Test\Unit;
-use S2\Cms\Template\TemplateFinalReplaceEvent;
+use Register\Core\Template\TemplateFinalReplaceEvent;
 
 final class TemplateFinalReplaceEventTest extends Unit
 {

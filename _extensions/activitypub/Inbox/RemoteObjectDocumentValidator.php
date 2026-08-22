@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Inbox;
+namespace Register\Extension\activitypub\Inbox;
 
-use s2_extensions\activitypub\Content\PortableHtmlSanitizer;
-use s2_extensions\activitypub\Infrastructure\ValidatedRemoteObject;
-use s2_extensions\activitypub\Presentation\ActivityStreamsContext;
+use Register\Extension\activitypub\Content\PortableHtmlSanitizer;
+use Register\Extension\activitypub\Infrastructure\ValidatedRemoteObject;
+use Register\Extension\activitypub\Presentation\ActivityStreamsContext;
 
 /** Validates and minimizes an embedded remote object without dereferencing JSON-LD contexts. */
 final readonly class RemoteObjectDocumentValidator

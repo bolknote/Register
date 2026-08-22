@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Domain\ActorProfileInputValidator;
-use s2_extensions\activitypub\Domain\LocalHandle;
+use Register\Extension\activitypub\Domain\ActorProfileInputValidator;
+use Register\Extension\activitypub\Domain\LocalHandle;
 
 /** Public author identity input. It deliberately contains no login name, email, or credentials. */
 final readonly class AuthorActorDraft

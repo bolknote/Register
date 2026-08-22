@@ -7,7 +7,7 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Helper;
+namespace Register\Rose\Helper;
 
 class ProfileHelper
 {

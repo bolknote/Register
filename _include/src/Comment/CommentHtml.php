@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Comment;
+namespace Register\Core\Comment;
 
-use S2\Cms\Helper\StringHelper;
+use Register\Core\Helper\StringHelper;
 
 /**
  * Parses the deliberately small HTML dialect accepted from the comment editor.
@@ -115,7 +115,7 @@ final class CommentHtml
         }
 
         return self::sanitizeForStorageWithPolicy(
-            StringHelper::bbcodeToHtml(s2_htmlencode($input), ''),
+            StringHelper::bbcodeToHtml(register_htmlencode($input), ''),
             true,
         );
     }
@@ -137,7 +137,7 @@ final class CommentHtml
     public static function render(string $stored, string $wroteText): string
     {
         if (!str_starts_with($stored, self::STORAGE_PREFIX)) {
-            return StringHelper::bbcodeToHtml(s2_htmlencode($stored), $wroteText);
+            return StringHelper::bbcodeToHtml(register_htmlencode($stored), $wroteText);
         }
 
         return self::sanitizeFragment(substr($stored, \strlen(self::STORAGE_PREFIX)), true);

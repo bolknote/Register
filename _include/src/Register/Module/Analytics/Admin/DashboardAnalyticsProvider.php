@@ -11,8 +11,8 @@ declare(strict_types = 1);
 namespace Register\Module\Analytics\Admin;
 
 use Register\Module\VisitorIdentity\VisitorIdentityRepository;
-use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Admin\Dashboard\DashboardBlockProviderInterface;
+use Register\AdminYard\TemplateRenderer;
+use Register\Core\Admin\Dashboard\DashboardBlockProviderInterface;
 
 final readonly class DashboardAnalyticsProvider implements DashboardBlockProviderInterface
 {

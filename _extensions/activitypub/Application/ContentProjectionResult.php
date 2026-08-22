@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Domain\ContentProjectionAction;
-use s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation;
-use s2_extensions\activitypub\Infrastructure\StoredObjectRepresentation;
+use Register\Extension\activitypub\Domain\ContentProjectionAction;
+use Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation;
+use Register\Extension\activitypub\Infrastructure\StoredObjectRepresentation;
 
 final readonly class ContentProjectionResult
 {

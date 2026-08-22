@@ -2,12 +2,12 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\HttpClient\Remote;
+namespace Register\Core\HttpClient\Remote;
 
 /**
  * Uses non-blocking DNS datagrams to the host's configured recursive resolvers.
@@ -121,7 +121,7 @@ final readonly class NativeHostResolver implements HostResolverInterface
                         $microseconds = 0;
                     }
 
-                    $selected = s2_call_without_warnings(
+                    $selected = register_call_without_warnings(
                         static fn(): int|false => stream_select($read, $write, $except, $seconds, $microseconds),
                     );
                     if ($selected === false) {
@@ -131,7 +131,7 @@ final readonly class NativeHostResolver implements HostResolverInterface
 
                 if ($selected > 0) {
                     foreach ($read as $socket) {
-                        $message = s2_call_without_warnings(
+                        $message = register_call_without_warnings(
                             static fn(): string|false => fread($socket, self::MAX_DATAGRAM_BYTES),
                         );
                         if (!\is_string($message) || $message === '') {
@@ -214,7 +214,7 @@ final readonly class NativeHostResolver implements HostResolverInterface
             $endpoint     = $this->endpoint($nameServer);
             $errorCode    = 0;
             $errorMessage = '';
-            $socket = s2_call_without_warnings(
+            $socket = register_call_without_warnings(
                 static function () use ($endpoint, $remainingSeconds, &$errorCode, &$errorMessage) {
                     return stream_socket_client(
                         $endpoint,
@@ -232,7 +232,7 @@ final readonly class NativeHostResolver implements HostResolverInterface
             stream_set_blocking($socket, false);
             $sent = true;
             foreach ($queries as $query) {
-                $written = s2_call_without_warnings(static fn(): int|false => fwrite($socket, $query['packet']));
+                $written = register_call_without_warnings(static fn(): int|false => fwrite($socket, $query['packet']));
                 if ($written !== \strlen($query['packet'])) {
                     $sent = false;
                     break;
@@ -263,7 +263,7 @@ final readonly class NativeHostResolver implements HostResolverInterface
                     continue;
                 }
 
-                $written = s2_call_without_warnings(static fn(): int|false => fwrite($socket, $query['packet']));
+                $written = register_call_without_warnings(static fn(): int|false => fwrite($socket, $query['packet']));
                 if ($written === \strlen($query['packet'])) {
                     continue;
                 }
@@ -317,7 +317,7 @@ final readonly class NativeHostResolver implements HostResolverInterface
     /** @return list<string> */
     private function systemNameServers(): array
     {
-        $lines = s2_call_without_warnings(
+        $lines = register_call_without_warnings(
             static fn(): array|false => file('/etc/resolv.conf', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES),
         );
         if (!\is_array($lines)) {

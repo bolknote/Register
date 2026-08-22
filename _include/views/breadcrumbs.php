@@ -15,9 +15,9 @@ foreach ($breadcrumbs as $item)
 		echo ' &rarr; ';
 
 	if (!empty($item['link']))
-		echo '<a class="bread-crumb-item" href="'.s2_htmlencode($item['link']).'">'.s2_htmlencode($item['title']).'</a>';
+		echo '<a class="bread-crumb-item" href="'.register_htmlencode($item['link']).'">'.register_htmlencode($item['title']).'</a>';
 	else
-		echo '<span class="bread-crumb-item">'.s2_htmlencode($item['title']).'</span>';
+		echo '<span class="bread-crumb-item">'.register_htmlencode($item['title']).'</span>';
 
 	$num++;
 }

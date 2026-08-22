@@ -16,7 +16,7 @@ use Register\Module\Reactions\ReactionAggregate;
 use Register\Module\Reactions\ReactionAggregateRepository;
 use Register\Module\Reactions\ReactionAggregateTargetType;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 final class ReactionsCest
 {

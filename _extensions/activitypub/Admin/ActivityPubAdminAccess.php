@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Admin;
+namespace Register\Extension\activitypub\Admin;
 
-use S2\Cms\Model\PermissionChecker;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
+use Register\Core\Model\PermissionChecker;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
 
 /** Central authorization policy for site-wide and author-owned federation controls. */
 final readonly class ActivityPubAdminAccess

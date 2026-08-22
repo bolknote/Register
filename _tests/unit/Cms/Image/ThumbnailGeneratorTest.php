@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace unit\Cms\Image;
 
 use Codeception\Test\Unit;
-use S2\Cms\Image\ThumbnailGenerator;
-use S2\Cms\Queue\QueuePublisher;
+use Register\Core\Image\ThumbnailGenerator;
+use Register\Core\Queue\QueuePublisher;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final class ThumbnailGeneratorTest extends Unit
@@ -23,7 +23,7 @@ final class ThumbnailGeneratorTest extends Unit
     #[\Override]
     protected function _before(): void
     {
-        $this->cacheDir = \sys_get_temp_dir() . '/s2_thumbnail_generator_' . \bin2hex(\random_bytes(4));
+        $this->cacheDir = \sys_get_temp_dir() . '/register_thumbnail_generator_' . \bin2hex(\random_bytes(4));
         \mkdir($this->cacheDir, 0777, true);
 
         $pdo = new \PDO('sqlite::memory:');

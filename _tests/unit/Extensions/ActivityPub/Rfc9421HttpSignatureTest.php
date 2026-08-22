@@ -10,11 +10,11 @@ declare(strict_types = 1);
 namespace unit\Extensions\ActivityPub;
 
 use Codeception\Test\Unit;
-use s2_extensions\activitypub\Security\HttpSignatureKind;
-use s2_extensions\activitypub\Security\HttpSignatureRequest;
-use s2_extensions\activitypub\Security\Rfc9421HttpSignature;
-use s2_extensions\activitypub\Security\RsaCrypto;
-use s2_extensions\activitypub\Security\SignatureVerificationFailed;
+use Register\Extension\activitypub\Security\HttpSignatureKind;
+use Register\Extension\activitypub\Security\HttpSignatureRequest;
+use Register\Extension\activitypub\Security\Rfc9421HttpSignature;
+use Register\Extension\activitypub\Security\RsaCrypto;
+use Register\Extension\activitypub\Security\SignatureVerificationFailed;
 
 final class Rfc9421HttpSignatureTest extends Unit
 {

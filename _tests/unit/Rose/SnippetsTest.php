@@ -10,16 +10,16 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test;
+namespace Register\Rose\Test;
 
 use Codeception\Test\Unit;
-use S2\Rose\Entity\Indexable;
-use S2\Rose\Entity\Query;
-use S2\Rose\Entity\ResultItem;
-use S2\Rose\Finder;
-use S2\Rose\Indexer;
-use S2\Rose\Stemmer\PorterStemmerRussian;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Rose\Entity\Indexable;
+use Register\Rose\Entity\Query;
+use Register\Rose\Entity\ResultItem;
+use Register\Rose\Finder;
+use Register\Rose\Indexer;
+use Register\Rose\Stemmer\PorterStemmerRussian;
+use Register\Rose\Storage\Database\PdoStorage;
 
 /**
  * @group snippet
@@ -45,9 +45,9 @@ final class SnippetsTest extends Unit
     #[\Override]
     protected function _before(): void
     {
-        global $s2_rose_test_db;
+        global $register_rose_test_db;
 
-        $pdo = new \PDO($s2_rose_test_db['dsn'], $s2_rose_test_db['username'], $s2_rose_test_db['passwd']);
+        $pdo = new \PDO($register_rose_test_db['dsn'], $register_rose_test_db['username'], $register_rose_test_db['passwd']);
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
         $this->readStorage  = new PdoStorage($pdo, 'test_');

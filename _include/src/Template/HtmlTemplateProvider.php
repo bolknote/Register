@@ -5,26 +5,26 @@
  *
  * @copyright 2009-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Template;
+namespace Register\Core\Template;
 
-use S2\Cms\Comment\Antispam\CommentFormTokenManager;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\IntProxy;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Asset\AssetMerge;
-use S2\Cms\Asset\AssetMergeFactory;
-use S2\Cms\Asset\AssetPack;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Model\AuthProvider;
+use Register\Core\Comment\Antispam\CommentFormTokenManager;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Config\IntProxy;
+use Register\Core\Config\StringProxy;
+use Register\Core\Asset\AssetMerge;
+use Register\Core\Asset\AssetMergeFactory;
+use Register\Core\Asset\AssetPack;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Model\AuthProvider;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 class HtmlTemplateProvider
 {
@@ -129,7 +129,7 @@ class HtmlTemplateProvider
             $this->assetMergeFactory->create($this->getStyleName() . '_scripts', AssetMerge::TYPE_JS)
         );
 
-        $template = str_replace(['<!-- s2_styles -->', '<!-- s2_scripts -->'], [$styles, $scripts], $template);
+        $template = str_replace(['<!-- register_styles -->', '<!-- register_scripts -->'], [$styles, $scripts], $template);
 
         $this->dispatcher->dispatch($buildEvent, TemplateBuildEvent::EVENT_END);
 

@@ -15,9 +15,9 @@ use Register\Module\Search\Morphology\HistoricalRussianNormalizer;
 use Register\Module\Search\Morphology\OpenCorporaDictionary;
 use Register\Module\Search\Morphology\PreReformRussianNormalizer;
 use Register\Module\Search\Service\HistoricalTitleSearch;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\TocEntry;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\TocEntry;
+use Register\Rose\Storage\Database\PdoStorage;
 
 final class HistoricalTitleSearchTest extends Unit
 {
@@ -82,13 +82,13 @@ final class HistoricalTitleSearchTest extends Unit
     }
 
     /**
-     * @param list<\S2\Rose\Entity\TocEntryWithMetadata> $entries
+     * @param list<\Register\Rose\Entity\TocEntryWithMetadata> $entries
      * @return list<string>
      */
     private function ids(array $entries): array
     {
         return array_map(
-            static fn(\S2\Rose\Entity\TocEntryWithMetadata $entry): string => $entry->getExternalId()->getId(),
+            static fn(\Register\Rose\Entity\TocEntryWithMetadata $entry): string => $entry->getExternalId()->getId(),
             $entries,
         );
     }

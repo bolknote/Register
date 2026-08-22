@@ -16,16 +16,16 @@ use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Framework\Exception\NotFoundException;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\QueryBuilder\SelectBuilder;
-use S2\Cms\Template\HtmlTemplate;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Config\StringProxy;
+use Register\Core\Framework\Exception\NotFoundException;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\QueryBuilder\SelectBuilder;
+use Register\Core\Template\HtmlTemplate;
+use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Model\PostProvider;
@@ -34,7 +34,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 
 class TagPageController extends BlogController
@@ -81,8 +81,8 @@ class TagPageController extends BlogController
     {
         $params = $request->attributes->all();
 
-        if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
-            $template->registerPlaceholder('<!-- s2_blog_calendar -->', $this->calendarBuilder->calendar());
+        if ($template->hasPlaceholder('<!-- register_blog_calendar -->')) {
+            $template->registerPlaceholder('<!-- register_blog_calendar -->', $this->calendarBuilder->calendar());
         }
 
         $tag = $params['tag'];
@@ -147,7 +147,7 @@ class TagPageController extends BlogController
         $template->addBreadCrumb($tagName);
 
         $template
-            ->putInPlaceholder('head_title', s2_htmlencode($tagName))
+            ->putInPlaceholder('head_title', register_htmlencode($tagName))
             ->putInPlaceholder('title', $this->viewer->render('tag_title', ['title' => $tagName]))
             ->putInPlaceholder('text', $tagDescription . $output)
         ;

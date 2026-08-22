@@ -7,11 +7,11 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test\Stemmer;
+namespace Register\Rose\Test\Stemmer;
 
 use Codeception\Test\Unit;
-use S2\Rose\Stemmer\PorterStemmerEnglish;
-use S2\Rose\Stemmer\PorterStemmerRussian;
+use Register\Rose\Stemmer\PorterStemmerEnglish;
+use Register\Rose\Stemmer\PorterStemmerRussian;
 
 /**
  * @group stem

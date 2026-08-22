@@ -1,6 +1,6 @@
 /** AI-assisted editorial actions. Every result is applied immediately. */
 
-import {s2_codemirror} from './codemirror.js';
+import {register_codemirror} from './codemirror.js';
 import {findCorrectionRanges} from './text/corrections.js';
 
 export function initAiTools(form, config) {
@@ -30,7 +30,7 @@ export function initAiTools(form, config) {
     }
 
     async function runAction(action) {
-        const snapshot = s2_codemirror.getSelectionSnapshot();
+        const snapshot = register_codemirror.getSelectionSnapshot();
         if (snapshot.text.trim() === '') {
             setStatus(config.emptyText, true);
             return;
@@ -58,7 +58,7 @@ export function initAiTools(form, config) {
                 method: 'POST',
                 body: data,
                 signal: controller.signal,
-                s2HandleErrorsInline: true
+                registerHandleErrorsInline: true
             });
             let responseData = null;
             try {
@@ -86,14 +86,14 @@ export function initAiTools(form, config) {
                 if (tagsInput) {
                     tagsInput.value = responseData.result;
                     tagsInput.dispatchEvent(new Event('input', {bubbles: true}));
-                    tagsInput.dispatchEvent(new Event('focus_tag_editor.s2'));
+                    tagsInput.dispatchEvent(new Event('focus_tag_editor.register'));
                 }
                 setStatus('', false);
                 return;
             }
 
             {
-                const currentText = s2_codemirror.getValue().slice(snapshot.start, snapshot.end);
+                const currentText = register_codemirror.getValue().slice(snapshot.start, snapshot.end);
                 if (currentText !== snapshot.text) {
                     setStatus(config.sourceChanged, true);
                     return;
@@ -104,7 +104,7 @@ export function initAiTools(form, config) {
                     return;
                 }
 
-                s2_codemirror.replaceRangeWithHighlights(
+                register_codemirror.replaceRangeWithHighlights(
                     responseData.result,
                     snapshot.start,
                     snapshot.end,

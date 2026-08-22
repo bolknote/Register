@@ -12,7 +12,7 @@ namespace integration;
 use Register\Module\Analytics\AnalyticsRepository;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Module\VisitorIdentity\VisitorIdentityRepository;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 final class AnalyticsCest
 {

@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
 use Register\Backup\BackupContributorInterface;
 use Register\Backup\BackupEntry;
-use s2_extensions\activitypub\Application\ActivityPubIdentityRecoveryService;
+use Register\Extension\activitypub\Application\ActivityPubIdentityRecoveryService;
 
 final readonly class ActivityPubBackupContributor implements BackupContributorInterface
 {

@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,10 +10,10 @@ declare(strict_types = 1);
 namespace unit\Cms\Admin;
 
 use Codeception\Test\Unit;
-use S2\Cms\Admin\AdminExtension;
-use S2\Cms\AdminYard\CustomTemplateRendererEvent;
-use S2\Cms\AdminYard\Form\CustomAutocomplete;
-use S2\Cms\Framework\Container;
+use Register\Core\Admin\AdminExtension;
+use Register\Core\AdminYard\CustomTemplateRendererEvent;
+use Register\Core\AdminYard\Form\CustomAutocomplete;
+use Register\Core\Framework\Container;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final class CustomAutocompleteTest extends Unit

@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Content;
+namespace Register\Extension\activitypub\Content;
 
-use S2\Cms\HttpClient\HttpClientException;
-use S2\Cms\HttpClient\HttpClientInterface;
+use Register\Core\HttpClient\HttpClientException;
+use Register\Core\HttpClient\HttpClientInterface;
 
 /** Produces a bounded, script-free, absolute-URL HTML subset suitable for federation. */
 final readonly class PortableHtmlSanitizer

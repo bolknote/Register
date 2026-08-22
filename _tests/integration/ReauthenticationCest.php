@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
-use S2\Cms\Model\PasswordHasher;
+use Register\Core\Model\PasswordHasher;
 
 final class ReauthenticationCest
 {

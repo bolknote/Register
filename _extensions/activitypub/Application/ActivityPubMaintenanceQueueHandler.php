@@ -7,13 +7,13 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
-use s2_extensions\activitypub\Infrastructure\ActivityPubHousekeepingRepository;
-use s2_extensions\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
+use Register\Extension\activitypub\Infrastructure\ActivityPubHousekeepingRepository;
+use Register\Extension\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
 
 /** Advances one bounded retention operation per shutdown queue generation. */
 final readonly class ActivityPubMaintenanceQueueHandler implements QueueHandlerInterface

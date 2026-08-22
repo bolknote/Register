@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace unit\Cms\Admin\Picture;
 
 use Codeception\Test\Unit;
-use S2\AdminYard\Translator;
-use S2\Cms\Admin\Picture\PictureStorageQuota;
+use Register\AdminYard\Translator;
+use Register\Core\Admin\Picture\PictureStorageQuota;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 

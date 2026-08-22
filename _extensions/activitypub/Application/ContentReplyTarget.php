@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use s2_extensions\activitypub\Infrastructure\StoredObjectRepresentation;
+use Register\Extension\activitypub\Infrastructure\StoredObjectRepresentation;
 
 /** Identifies local published content, optionally through one imported parent comment. */
 final readonly class ContentReplyTarget

@@ -15,8 +15,8 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\RecentContentSourceInterface;
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
 
 /** Exposes published posts from Register's shared content storage. */
 final readonly class BlogContentSource implements RecentContentSourceInterface

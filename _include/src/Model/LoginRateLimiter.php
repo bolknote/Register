@@ -2,16 +2,16 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Model;
+namespace Register\Core\Model;
 
 use Psr\Log\LoggerInterface;
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Pdo\DbLayer;
 
 /** Limits password guessing while storing neither login names nor IP addresses. */
 final readonly class LoginRateLimiter

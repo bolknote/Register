@@ -7,15 +7,15 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Presentation;
+namespace Register\Extension\activitypub\Presentation;
 
 use Register\Content\ContentDetails;
 use Register\Content\Tag;
-use s2_extensions\activitypub\Content\ContentAttachmentExtractor;
-use s2_extensions\activitypub\Content\PortableHtmlSanitizer;
-use s2_extensions\activitypub\Domain\ContentDeliveryMode;
-use s2_extensions\activitypub\Domain\FederationUrlGenerator;
-use s2_extensions\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Content\ContentAttachmentExtractor;
+use Register\Extension\activitypub\Content\PortableHtmlSanitizer;
+use Register\Extension\activitypub\Domain\ContentDeliveryMode;
+use Register\Extension\activitypub\Domain\FederationUrlGenerator;
+use Register\Extension\activitypub\Domain\LocalActor;
 
 /** Builds the portable, recipient-independent snapshot served and embedded in activities. */
 final readonly class ContentObjectDocumentBuilder

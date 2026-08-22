@@ -9,10 +9,10 @@ declare(strict_types = 1);
 
 namespace Register\Module\AudioPlayer;
 
-use S2\Cms\Asset\AssetPack;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
-use S2\Cms\Template\TemplateAssetEvent;
+use Register\Core\Asset\AssetPack;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\ContainerAwareListenerModuleInterface;
+use Register\Core\Template\TemplateAssetEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 final class Module implements ContainerAwareListenerModuleInterface

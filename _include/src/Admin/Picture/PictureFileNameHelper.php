@@ -2,12 +2,12 @@
 /**
  * @copyright 2007-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Picture;
+namespace Register\Core\Admin\Picture;
 
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
@@ -132,7 +132,7 @@ readonly class PictureFileNameHelper
                 continue;
             }
 
-            $fileSize = s2_call_without_warnings(static fn(): int|false => $uploadedFile->getSize());
+            $fileSize = register_call_without_warnings(static fn(): int|false => $uploadedFile->getSize());
             if ($fileSize === false) {
                 throw new \RuntimeException('Unable to determine the uploaded file size.', Response::HTTP_UNPROCESSABLE_ENTITY);
             }
@@ -161,7 +161,7 @@ readonly class PictureFileNameHelper
     {
         $this->assertAllowedExtension($filename);
 
-        $fileSize = s2_call_without_warnings(static fn(): int|false => filesize($path));
+        $fileSize = register_call_without_warnings(static fn(): int|false => filesize($path));
         if ($fileSize === false) {
             throw new \RuntimeException('Unable to determine the uploaded file size.', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -182,7 +182,7 @@ readonly class PictureFileNameHelper
         }
 
         if (str_starts_with($mimeType, 'image/')) {
-            $imageInfo = s2_call_without_warnings(static fn(): array|false => getimagesize($path));
+            $imageInfo = register_call_without_warnings(static fn(): array|false => getimagesize($path));
             $imageMime = \is_array($imageInfo) ? mb_strtolower($imageInfo['mime']) : '';
             if ($imageMime === '' || !\in_array($imageMime, $allowedMimeTypes, true)) {
                 throw new \RuntimeException('The uploaded image cannot be decoded safely.', Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
@@ -225,7 +225,7 @@ readonly class PictureFileNameHelper
         }
 
         $fileInfo = new \finfo(FILEINFO_MIME_TYPE);
-        $mimeType = s2_call_without_warnings(static fn(): string|false => $fileInfo->file($path));
+        $mimeType = register_call_without_warnings(static fn(): string|false => $fileInfo->file($path));
         if (!\is_string($mimeType) || $mimeType === '') {
             throw new \RuntimeException('Unable to determine the uploaded file type.', Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
         }

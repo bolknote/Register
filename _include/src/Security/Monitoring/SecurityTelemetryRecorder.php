@@ -2,14 +2,14 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Security\Monitoring;
+namespace Register\Core\Security\Monitoring;
 
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -123,7 +123,7 @@ final readonly class SecurityTelemetryRecorder
             throw new \RuntimeException('Unable to create the security telemetry directory.');
         }
 
-        s2_call_without_warnings(static fn(): bool => chmod($directory, 0700));
+        register_call_without_warnings(static fn(): bool => chmod($directory, 0700));
 
         if (is_link($this->filePath) || (file_exists($this->filePath) && !is_file($this->filePath))) {
             throw new \RuntimeException('The security telemetry file must be a regular file.');
@@ -134,7 +134,7 @@ final readonly class SecurityTelemetryRecorder
             throw new \RuntimeException('Unable to open the security telemetry file.');
         }
 
-        s2_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
+        register_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
 
         try {
             if (!flock($handle, LOCK_EX)) {
@@ -177,7 +177,7 @@ final readonly class SecurityTelemetryRecorder
             fclose($handle);
         }
 
-        s2_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
+        register_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
 
         return true;
     }

@@ -2,24 +2,24 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Queue;
+namespace Register\Core\Queue;
 
 use Register\Backup\BackupQueueHandler;
 use Register\Content\ContentPublicationQueueHandler;
 use Register\Content\ContentPublicationScheduler;
-use S2\Cms\Comment\Antispam\SpamMaintenance;
-use S2\Cms\Comment\Antispam\SpamMaintenanceQueueHandler;
+use Register\Core\Comment\Antispam\SpamMaintenance;
+use Register\Core\Comment\Antispam\SpamMaintenanceQueueHandler;
 
 final readonly class ScheduledMaintenance
 {
     public const int INTERVAL_SECONDS = 3600;
 
-    private const string CONFIG_KEY = 'S2_LAST_MAINTENANCE';
+    private const string CONFIG_KEY = 'REGISTER_LAST_MAINTENANCE';
 
     private const int INITIAL_QUEUE_DELAY_SECONDS = 1;
 

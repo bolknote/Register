@@ -2,17 +2,17 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Pdo\QueryBuilder;
+namespace Register\Core\Pdo\QueryBuilder;
 
 readonly class UnionAll
 {
     /**
-     * @var array<int|string, \S2\Cms\Pdo\QueryBuilder\SelectBuilder>
+     * @var array<int|string, \Register\Core\Pdo\QueryBuilder\SelectBuilder>
      */
     public array $selects;
 

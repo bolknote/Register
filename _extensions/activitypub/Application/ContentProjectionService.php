@@ -7,36 +7,36 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
 use Register\Content\ContentDetails;
 use Register\Content\ContentDetailsRepository;
 use Register\Content\ContentId;
-use s2_extensions\activitypub\Domain\ActivityDeliveryIntent;
-use s2_extensions\activitypub\Domain\ContentProjectionAction;
-use s2_extensions\activitypub\Domain\ContentProjectionMode;
-use s2_extensions\activitypub\Domain\ContentFederationSettings;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\FederationState;
-use s2_extensions\activitypub\Domain\FederationUrlGenerator;
-use s2_extensions\activitypub\Domain\FederationUrlGeneratorFactory;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorState;
-use s2_extensions\activitypub\Domain\PublicIdGenerator;
-use s2_extensions\activitypub\Delivery\DeliveryPlanner;
-use s2_extensions\activitypub\Delivery\MentionDeliveryPlanner;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\ContentFederationSettingsRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Infrastructure\LocalFederationRepository;
-use s2_extensions\activitypub\Infrastructure\NewStoredActivity;
-use s2_extensions\activitypub\Infrastructure\NewStoredObject;
-use s2_extensions\activitypub\Infrastructure\PortableDatabaseTransaction;
-use s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation;
-use s2_extensions\activitypub\Infrastructure\StoredObjectRepresentation;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
-use s2_extensions\activitypub\Presentation\ContentObjectDocumentBuilder;
-use s2_extensions\activitypub\Presentation\LocalActivityDocumentBuilder;
+use Register\Extension\activitypub\Domain\ActivityDeliveryIntent;
+use Register\Extension\activitypub\Domain\ContentProjectionAction;
+use Register\Extension\activitypub\Domain\ContentProjectionMode;
+use Register\Extension\activitypub\Domain\ContentFederationSettings;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\FederationState;
+use Register\Extension\activitypub\Domain\FederationUrlGenerator;
+use Register\Extension\activitypub\Domain\FederationUrlGeneratorFactory;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorState;
+use Register\Extension\activitypub\Domain\PublicIdGenerator;
+use Register\Extension\activitypub\Delivery\DeliveryPlanner;
+use Register\Extension\activitypub\Delivery\MentionDeliveryPlanner;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\ContentFederationSettingsRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
+use Register\Extension\activitypub\Infrastructure\NewStoredActivity;
+use Register\Extension\activitypub\Infrastructure\NewStoredObject;
+use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
+use Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation;
+use Register\Extension\activitypub\Infrastructure\StoredObjectRepresentation;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
+use Register\Extension\activitypub\Presentation\ContentObjectDocumentBuilder;
+use Register\Extension\activitypub\Presentation\LocalActivityDocumentBuilder;
 
 /**
  * Projects Register's canonical publication state into immutable ActivityPub history.

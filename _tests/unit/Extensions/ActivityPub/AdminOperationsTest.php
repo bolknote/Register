@@ -10,18 +10,18 @@ declare(strict_types = 1);
 namespace unit\Extensions\ActivityPub;
 
 use Codeception\Test\Unit;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Pdo\DbLayerSqlite;
-use s2_extensions\activitypub\Admin\ActivityPubAdminAccess;
-use s2_extensions\activitypub\Admin\ActivityPubAdminRepository;
-use s2_extensions\activitypub\Domain\ActorKind;
-use s2_extensions\activitypub\Domain\ActorType;
-use s2_extensions\activitypub\Domain\LocalActorState;
-use s2_extensions\activitypub\Domain\LocalHandle;
-use s2_extensions\activitypub\Domain\NewLocalActor;
-use s2_extensions\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
-use s2_extensions\activitypub\Infrastructure\ActivityPubSchema;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Pdo\DbLayerSqlite;
+use Register\Extension\activitypub\Admin\ActivityPubAdminAccess;
+use Register\Extension\activitypub\Admin\ActivityPubAdminRepository;
+use Register\Extension\activitypub\Domain\ActorKind;
+use Register\Extension\activitypub\Domain\ActorType;
+use Register\Extension\activitypub\Domain\LocalActorState;
+use Register\Extension\activitypub\Domain\LocalHandle;
+use Register\Extension\activitypub\Domain\NewLocalActor;
+use Register\Extension\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
+use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
 
 final class AdminOperationsTest extends Unit
 {

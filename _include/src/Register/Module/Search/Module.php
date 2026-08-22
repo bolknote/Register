@@ -14,34 +14,34 @@ use Psr\Log\LogLevel;
 use Register\Content\ContentId;
 use Register\Content\ContentChangedEvent;
 use Register\Content\ContentRepository;
-use S2\Cms\Asset\AssetPack;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
-use S2\Cms\Framework\ContainerModuleInterface;
-use S2\Cms\Framework\RoutingModuleInterface;
-use S2\Cms\Image\ThumbnailGenerateEvent;
-use S2\Cms\Image\ThumbnailGenerator;
-use S2\Cms\Logger\Logger;
-use S2\Cms\Model\Article\ArticleRenderedEvent;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\ScheduledMaintenanceTaskInterface;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\TemplateAssetEvent;
-use S2\Cms\Template\TemplateEvent;
-use S2\Cms\Template\Viewer;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Extractor\ExtractorInterface;
-use S2\Rose\Finder;
-use S2\Rose\Indexer;
-use S2\Rose\Stemmer\PorterStemmerEnglish;
-use S2\Rose\Stemmer\PorterStemmerRussian;
-use S2\Rose\Stemmer\StemmerInterface;
-use S2\Rose\Stemmer\WordNormalizerInterface;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Core\Asset\AssetPack;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\ContainerAwareListenerModuleInterface;
+use Register\Core\Framework\ContainerModuleInterface;
+use Register\Core\Framework\RoutingModuleInterface;
+use Register\Core\Image\ThumbnailGenerateEvent;
+use Register\Core\Image\ThumbnailGenerator;
+use Register\Core\Logger\Logger;
+use Register\Core\Model\Article\ArticleRenderedEvent;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
+use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\TemplateAssetEvent;
+use Register\Core\Template\TemplateEvent;
+use Register\Core\Template\Viewer;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Extractor\ExtractorInterface;
+use Register\Rose\Finder;
+use Register\Rose\Indexer;
+use Register\Rose\Stemmer\PorterStemmerEnglish;
+use Register\Rose\Stemmer\PorterStemmerRussian;
+use Register\Rose\Stemmer\StemmerInterface;
+use Register\Rose\Stemmer\WordNormalizerInterface;
+use Register\Rose\Storage\Database\PdoStorage;
 use Register\Module\Search\Controller\SearchPageController;
 use Register\Module\Search\Admin\SearchIndexHealth;
 use Register\Module\Search\Layout\LayoutMatcherFactory;
@@ -67,7 +67,7 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
-use S2\Cms\Translation\ExtensibleTranslator;
+use Register\Core\Translation\ExtensibleTranslator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class Module implements ContainerModuleInterface, ContainerAwareListenerModuleInterface, RoutingModuleInterface
@@ -80,7 +80,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     {
         return new PdoStorage(
             $container->get(\PDO::class),
-            $container->getStringParameter('db_prefix') . 's2_search_idx_'
+            $container->getStringParameter('db_prefix') . 'register_search_idx_'
         );
     }
 
@@ -103,15 +103,15 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             new PorterStemmerRussian(new PorterStemmerEnglish()),
         ));
         $container->set(StemmerInterface::class, static fn(Container $container): WordNormalizerInterface => $container->get(WordNormalizerInterface::class));
-        $container->set(Finder::class, fn(Container $container): \S2\Rose\Finder => (new Finder(
+        $container->set(Finder::class, fn(Container $container): \Register\Rose\Finder => (new Finder(
             $container->get(PdoStorage::class),
             $container->get(StemmerInterface::class),
         ))
-            ->setHighlightTemplate('<span class="s2_search_highlight">%s</span>')
+            ->setHighlightTemplate('<span class="register_search_highlight">%s</span>')
             ->setSnippetLineSeparator(' ⋄&nbsp;'));
 
         // Indexing is performed in the queue consumer, so this service belongs to the public module.
-        $container->set(Indexer::class, static fn(Container $container): \S2\Rose\Indexer => new Indexer(
+        $container->set(Indexer::class, static fn(Container $container): \Register\Rose\Indexer => new Indexer(
             $container->get(PdoStorage::class),
             $container->get(StemmerInterface::class),
             $container->get(ExtractorInterface::class),
@@ -129,7 +129,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
 
         $container->set(SearchIndexHealth::class, static fn(Container $container): SearchIndexHealth => new SearchIndexHealth(
             $container->get(PdoStorage::class),
-            $container->get(\S2\Cms\Pdo\DbLayer::class),
+            $container->get(\Register\Core\Pdo\DbLayer::class),
             $container->get(ContentIndexer::class),
         ));
 
@@ -190,24 +190,24 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
                 $container->getBoolParameter('debug_view'),
-                $provider->getStringProxy('S2_TAGS_URL'),
-                $provider->getIntProxy('S2_MAX_ITEMS'),
+                $provider->getStringProxy('REGISTER_TAGS_URL'),
+                $provider->getIntProxy('REGISTER_MAX_ITEMS'),
             );
         });
 
-        $container->set('recommendations_logger', fn(Container $container): \S2\Cms\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'recommendations.log', 'recommendations', LogLevel::INFO));
+        $container->set('recommendations_logger', fn(Container $container): \Register\Core\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'recommendations.log', 'recommendations', LogLevel::INFO));
         $container->set('recommendations_cache', fn(Container $container): \Symfony\Component\Cache\Adapter\FilesystemAdapter => new FilesystemAdapter('recommendations', 0, $container->getStringParameter('cache_dir')));
         $container->set(RecommendationFinder::class, static fn(Container $container): RecommendationFinder => new RecommendationFinder(
             $container->get(PdoStorage::class),
             $container->get(\PDO::class),
             $container->getStringParameter('db_type'),
-            $container->getStringParameter('db_prefix') . 's2_search_idx_',
+            $container->getStringParameter('db_prefix') . 'register_search_idx_',
         ));
         $container->set(LayoutMatcherFactory::class, function (Container $container): LayoutMatcherFactory {
             $provider = $container->get(DynamicConfigProvider::class);
             return new LayoutMatcherFactory(
                 $container->get('recommendations_logger'),
-                $provider->getIntProxy('S2_SEARCH_RECOMMENDATIONS_LIMIT'),
+                $provider->getIntProxy('REGISTER_SEARCH_RECOMMENDATIONS_LIMIT'),
             );
         });
         $container->set(RecommendationProvider::class, function (Container $container): RecommendationProvider {
@@ -217,7 +217,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(LayoutMatcherFactory::class),
                 $container->get('recommendations_cache'),
                 $container->get(QueuePublisher::class),
-                $provider->getIntProxy('S2_SEARCH_RECOMMENDATIONS_LIMIT'),
+                $provider->getIntProxy('REGISTER_SEARCH_RECOMMENDATIONS_LIMIT'),
             );
         }, [QueueHandlerInterface::class]);
     }
@@ -242,13 +242,13 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $urlBuilder->hasPrefix() ? ['search=1', 'title='] : ['title=']
             );
             $event->htmlTemplate->registerPlaceholder(
-                '<!-- s2_search_field -->',
-                '<form class="s2_search_form" role="search" aria-label="' . s2_htmlencode($translator->trans('Search'))
+                '<!-- register_search_field -->',
+                '<form class="register_search_form" role="search" aria-label="' . register_htmlencode($translator->trans('Search'))
                 . '" method="get" action="' . $urlBuilder->link('/search') . '">'
                 . ($urlBuilder->hasPrefix() ? '<input type="hidden" name="search" value="1" />' : '')
-                . '<label class="visually-hidden" for="s2_search_input">' . s2_htmlencode($translator->trans('Search')) . '</label>'
-                . '<span class="s2-search-autocomplete"><input type="search" name="q" id="s2_search_input" data-s2-search-url="'
-                . s2_htmlencode($quickSearchUrl) . '" placeholder="' . s2_htmlencode($translator->trans('Search'))
+                . '<label class="visually-hidden" for="register_search_input">' . register_htmlencode($translator->trans('Search')) . '</label>'
+                . '<span class="register-search-autocomplete"><input type="search" name="q" id="register_search_input" data-register-search-url="'
+                . register_htmlencode($quickSearchUrl) . '" placeholder="' . register_htmlencode($translator->trans('Search'))
                 . '" autocomplete="off" enterkeyhint="search" /></span></form>'
             );
         });
@@ -256,7 +256,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
             $event->assetPack->addCss('../../_assets/register/search/search.css', [AssetPack::OPTION_MERGE]);
             $provider = $container->get(DynamicConfigProvider::class);
-            if ($provider->getBoolProxy('S2_SEARCH_QUICK')->get()) {
+            if ($provider->getBoolProxy('REGISTER_SEARCH_QUICK')->get()) {
                 $event->assetPack
                     ->addJs('../../_assets/register/search/autocomplete.js', [AssetPack::OPTION_MERGE])
                 ;
@@ -264,7 +264,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         });
 
         $eventDispatcher->addListener(ArticleRenderedEvent::class, static function (ArticleRenderedEvent $event) use ($container): void {
-            if ($event->template->hasPlaceholder('<!-- s2_recommendations -->')) {
+            if ($event->template->hasPlaceholder('<!-- register_recommendations -->')) {
                 $recommendationProvider = $container->get(RecommendationProvider::class);
                 $requestStack = $container->get(RequestStack::class);
                 $request_uri  = $requestStack->getCurrentRequest()?->getPathInfo() ?? '/';

@@ -53,7 +53,6 @@ $hash = null;
 try {
     $builder->buildDirectory($temporaryRoot, includeInstalledVendor: is_dir($projectRoot . '/_vendor'));
     installProductionDependencies($temporaryRoot . '/' . SharedHostingDistributionBuilder::APPLICATION_DIRECTORY);
-    $builder->syncPublicVendorAssets($temporaryRoot);
     $builder->validatePublicBoundary($temporaryRoot);
     $builder->createArchive($temporaryRoot, $temporaryArchive);
 

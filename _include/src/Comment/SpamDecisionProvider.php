@@ -2,14 +2,14 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Comment;
+namespace Register\Core\Comment;
 
-use S2\Cms\Comment\Antispam\SpamFeatureExtractor;
+use Register\Core\Comment\Antispam\SpamFeatureExtractor;
 
 readonly class SpamDecisionProvider implements SpamDecisionProviderInterface
 {

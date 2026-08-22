@@ -5,12 +5,12 @@
  *
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Config;
+namespace Register\Core\Config;
 
 final class StaticConfigLoader
 {
@@ -18,7 +18,7 @@ final class StaticConfigLoader
 
     public const string DEFAULT_ALLOWED_EXTENSIONS = 'gif bmp jpg jpeg png webp avif ico mp3 wav ogg flac mp4 avi mov webm flv mpg mpeg mkv zip 7z rar doc docx ppt pptx odt odp ods xlsx xls pdf txt rtf csv';
 
-    public const string DEFAULT_COOKIE_NAME        = 's2_cookie_6094033457';
+    public const string DEFAULT_COOKIE_NAME        = 'register_cookie_6094033457';
 
     public const int DEFAULT_UPLOAD_QUOTA_BYTES    = 1024 * 1024 * 1024;
 
@@ -143,47 +143,47 @@ final class StaticConfigLoader
      */
     private function overrideWithGlobalConstants(array &$config): void
     {
-        if (\defined('S2_CACHE_DIR')) {
-            $config['files']['cache_dir'] = rtrim((string)S2_CACHE_DIR, '/') . '/';
+        if (\defined('REGISTER_CACHE_DIR')) {
+            $config['files']['cache_dir'] = rtrim((string)REGISTER_CACHE_DIR, '/') . '/';
         }
 
-        if (\defined('S2_LOG_DIR')) {
-            $config['files']['log_dir'] = rtrim((string)S2_LOG_DIR, '/') . '/';
+        if (\defined('REGISTER_LOG_DIR')) {
+            $config['files']['log_dir'] = rtrim((string)REGISTER_LOG_DIR, '/') . '/';
         }
 
-        if (\defined('S2_PATH')) {
-            $config['http']['base_path'] = (string)S2_PATH;
+        if (\defined('REGISTER_PATH')) {
+            $config['http']['base_path'] = (string)REGISTER_PATH;
         }
 
-        if (\defined('S2_BASE_URL')) {
-            $config['http']['base_url'] = (string)S2_BASE_URL;
+        if (\defined('REGISTER_BASE_URL')) {
+            $config['http']['base_url'] = (string)REGISTER_BASE_URL;
         }
 
-        if (\defined('S2_URL_PREFIX')) {
-            $config['http']['url_prefix'] = (string)S2_URL_PREFIX;
+        if (\defined('REGISTER_URL_PREFIX')) {
+            $config['http']['url_prefix'] = (string)REGISTER_URL_PREFIX;
         }
 
-        if (\defined('S2_CANONICAL_URL')) {
-            $config['options']['canonical_url'] = (string)S2_CANONICAL_URL;
+        if (\defined('REGISTER_CANONICAL_URL')) {
+            $config['options']['canonical_url'] = (string)REGISTER_CANONICAL_URL;
         }
 
-        if (\defined('S2_FORCE_ADMIN_HTTPS')) {
+        if (\defined('REGISTER_FORCE_ADMIN_HTTPS')) {
             $config['options']['force_admin_https'] = true;
         }
 
-        if (\defined('S2_DISABLE_CACHE')) {
+        if (\defined('REGISTER_DISABLE_CACHE')) {
             $config['options']['disable_cache'] = true;
         }
 
-        if (\defined('S2_DEBUG')) {
+        if (\defined('REGISTER_DEBUG')) {
             $config['options']['debug'] = true;
         }
 
-        if (\defined('S2_DEBUG_VIEW')) {
+        if (\defined('REGISTER_DEBUG_VIEW')) {
             $config['options']['debug_view'] = true;
         }
 
-        if (\defined('S2_SHOW_QUERIES')) {
+        if (\defined('REGISTER_SHOW_QUERIES')) {
             $config['options']['show_queries'] = true;
         }
     }
@@ -197,12 +197,12 @@ final class StaticConfigLoader
             return;
         }
 
-        if (isset($config['files']['cache_dir']) && !\defined('S2_CACHE_DIR')) {
-            \define('S2_CACHE_DIR', $config['files']['cache_dir']);
+        if (isset($config['files']['cache_dir']) && !\defined('REGISTER_CACHE_DIR')) {
+            \define('REGISTER_CACHE_DIR', $config['files']['cache_dir']);
         }
 
-        if (isset($config['files']['log_dir']) && !\defined('S2_LOG_DIR')) {
-            \define('S2_LOG_DIR', $config['files']['log_dir']);
+        if (isset($config['files']['log_dir']) && !\defined('REGISTER_LOG_DIR')) {
+            \define('REGISTER_LOG_DIR', $config['files']['log_dir']);
         }
     }
 
@@ -225,8 +225,8 @@ final class StaticConfigLoader
 
             $config = include $filename;
             $legacyVariables = get_defined_vars();
-            $legacyCookieName = $legacyVariables['s2_cookie_name'] ?? null;
-            $legacyRedirects  = $legacyVariables['s2_redirect'] ?? [];
+            $legacyCookieName = $legacyVariables['register_cookie_name'] ?? null;
+            $legacyRedirects  = $legacyVariables['register_redirect'] ?? [];
 
             return [
                 $config,
@@ -241,26 +241,26 @@ final class StaticConfigLoader
                         'p_connect' => $p_connect,
                     ],
                     'http' => [
-                        'base_url'   => \defined('S2_BASE_URL') ? (string)S2_BASE_URL : null,
-                        'base_path'  => \defined('S2_PATH') ? (string)S2_PATH : '',
-                        'url_prefix' => \defined('S2_URL_PREFIX') ? (string)S2_URL_PREFIX : '',
+                        'base_url'   => \defined('REGISTER_BASE_URL') ? (string)REGISTER_BASE_URL : null,
+                        'base_path'  => \defined('REGISTER_PATH') ? (string)REGISTER_PATH : '',
+                        'url_prefix' => \defined('REGISTER_URL_PREFIX') ? (string)REGISTER_URL_PREFIX : '',
                         'trusted_proxies' => [],
                     ],
                     'options' => [
-                        'force_admin_https' => \defined('S2_FORCE_ADMIN_HTTPS'),
-                        'canonical_url'     => \defined('S2_CANONICAL_URL') ? (string)S2_CANONICAL_URL : null,
-                        'disable_cache'     => \defined('S2_DISABLE_CACHE'),
-                        'debug'             => \defined('S2_DEBUG'),
-                        'debug_view'        => \defined('S2_DEBUG_VIEW'),
-                        'show_queries'      => \defined('S2_SHOW_QUERIES'),
+                        'force_admin_https' => \defined('REGISTER_FORCE_ADMIN_HTTPS'),
+                        'canonical_url'     => \defined('REGISTER_CANONICAL_URL') ? (string)REGISTER_CANONICAL_URL : null,
+                        'disable_cache'     => \defined('REGISTER_DISABLE_CACHE'),
+                        'debug'             => \defined('REGISTER_DEBUG'),
+                        'debug_view'        => \defined('REGISTER_DEBUG_VIEW'),
+                        'show_queries'      => \defined('REGISTER_SHOW_QUERIES'),
                     ],
                     'files' => [
-                        'cache_dir'          => \defined('S2_CACHE_DIR') ? (string)S2_CACHE_DIR : null,
-                        'image_dir'          => \defined('S2_IMG_DIR') ? (string)S2_IMG_DIR : self::DEFAULT_IMAGE_DIR,
+                        'cache_dir'          => \defined('REGISTER_CACHE_DIR') ? (string)REGISTER_CACHE_DIR : null,
+                        'image_dir'          => \defined('REGISTER_IMG_DIR') ? (string)REGISTER_IMG_DIR : self::DEFAULT_IMAGE_DIR,
                         'image_url'          => null,
-                        'allowed_extensions' => \defined('S2_ALLOWED_EXTENSIONS') ? (string)S2_ALLOWED_EXTENSIONS : self::DEFAULT_ALLOWED_EXTENSIONS,
+                        'allowed_extensions' => \defined('REGISTER_ALLOWED_EXTENSIONS') ? (string)REGISTER_ALLOWED_EXTENSIONS : self::DEFAULT_ALLOWED_EXTENSIONS,
                         'upload_quota_bytes' => self::DEFAULT_UPLOAD_QUOTA_BYTES,
-                        'log_dir'            => \defined('S2_LOG_DIR') ? (string)S2_LOG_DIR : null,
+                        'log_dir'            => \defined('REGISTER_LOG_DIR') ? (string)REGISTER_LOG_DIR : null,
                     ],
                     'cookies' => [
                         'name' => \is_string($legacyCookieName) && $legacyCookieName !== '' ? $legacyCookieName : self::DEFAULT_COOKIE_NAME,

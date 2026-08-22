@@ -14,11 +14,11 @@ use Psr\Cache\InvalidArgumentException;
 use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Rose\Entity\Indexable;
-use S2\Rose\Indexer;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Rose\Entity\Indexable;
+use Register\Rose\Indexer;
 
 /** Indexes posts and pages through Register's common content contract. */
 final readonly class ContentIndexer implements QueueHandlerInterface, BulkIndexingProviderInterface

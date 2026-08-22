@@ -7,14 +7,14 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\WebAuthn;
+namespace Register\Core\Admin\WebAuthn;
 
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Admin\AdminConfigExtenderInterface;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Security\WebAuthn\RecoveryCodeRepository;
-use S2\Cms\Security\WebAuthn\WebAuthnCredentialRepository;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\TemplateRenderer;
+use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Security\WebAuthn\RecoveryCodeRepository;
+use Register\Core\Security\WebAuthn\WebAuthnCredentialRepository;
 
 final readonly class WebAuthnAdminConfigExtender implements AdminConfigExtenderInterface
 {

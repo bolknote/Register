@@ -4,12 +4,12 @@
  *
  * @copyright 2007-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Controller;
+namespace Register\Core\Controller;
 
 use Register\Comment\ContentCommentRenderer;
 use Register\Content\ContentId;
@@ -19,25 +19,25 @@ use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Live\LiveUpdateContext;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Config\IntProxy;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Framework\Exception\ConfigurationException;
-use S2\Cms\Framework\Exception\NotFoundException;
-use S2\Cms\Helper\StringHelper;
-use S2\Cms\Model\Article\ArticleRenderedEvent;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\Viewer;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Config\IntProxy;
+use Register\Core\Config\StringProxy;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Framework\Exception\ConfigurationException;
+use Register\Core\Framework\Exception\NotFoundException;
+use Register\Core\Helper\StringHelper;
+use Register\Core\Model\Article\ArticleRenderedEvent;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\Viewer;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 
@@ -139,7 +139,7 @@ readonly class PageCommon implements ControllerInterface
 
                 if ($found_node_num > 1) {
                     throw new ConfigurationException(
-                        $this->translator->trans('DB repeat items') . ($this->debug ? ' (parent_id=' . $parent_id . ', url="' . s2_htmlencode($request_array[$i]) . '")' : ''),
+                        $this->translator->trans('DB repeat items') . ($this->debug ? ' (parent_id=' . $parent_id . ', url="' . register_htmlencode($request_array[$i]) . '")' : ''),
                         $this->translator->trans('Error encountered')
                     );
                 }
@@ -208,7 +208,7 @@ readonly class PageCommon implements ControllerInterface
 
         if ($result->fetchAssoc() !== false) {
             throw new ConfigurationException(
-                $this->translator->trans('DB repeat items') . ($this->debug ? ' (parent_id=' . $parent_id . ', url="' . s2_htmlencode($requestedPage) . '")' : ''),
+                $this->translator->trans('DB repeat items') . ($this->debug ? ' (parent_id=' . $parent_id . ', url="' . register_htmlencode($requestedPage) . '")' : ''),
                 $this->translator->trans('Error encountered')
             );
         }
@@ -224,7 +224,7 @@ readonly class PageCommon implements ControllerInterface
                     'title' => $page['title'],
                 ];
 
-                $errorMessage = \sprintf($this->translator->trans('Error no template'), implode('<br />', array_map(static fn(array $a): string => '<a href="' . $a['link'] . '">' . s2_htmlencode($a['title']) . '</a>', $bread_crumbs)));
+                $errorMessage = \sprintf($this->translator->trans('Error no template'), implode('<br />', array_map(static fn(array $a): string => '<a href="' . $a['link'] . '">' . register_htmlencode($a['title']) . '</a>', $bread_crumbs)));
             } else {
                 $errorMessage = $this->translator->trans('Error no template flat');
             }
@@ -261,10 +261,10 @@ readonly class PageCommon implements ControllerInterface
         $bread_crumbs[] = [
             'title' => $page['title']
         ];
-        $template->putInPlaceholder('title', s2_htmlencode($page['title']));
+        $template->putInPlaceholder('title', register_htmlencode($page['title']));
 
         if ($page['author'] !== null && $page['author'] !== '') {
-            $template->putInPlaceholder('author', s2_htmlencode($page['author']));
+            $template->putInPlaceholder('author', register_htmlencode($page['author']));
         }
 
         if ($useHierarchy) {
@@ -288,10 +288,10 @@ readonly class PageCommon implements ControllerInterface
             $useHierarchy
             && (bool)$page['children_exist']
             && (
-                $template->hasPlaceholder('<!-- s2_subarticles -->')
-                || $template->hasPlaceholder('<!-- s2_menu_children -->')
-                || $template->hasPlaceholder('<!-- s2_menu_subsections -->')
-                || $template->hasPlaceholder('<!-- s2_navigation_link -->')
+                $template->hasPlaceholder('<!-- register_subarticles -->')
+                || $template->hasPlaceholder('<!-- register_menu_children -->')
+                || $template->hasPlaceholder('<!-- register_menu_subsections -->')
+                || $template->hasPlaceholder('<!-- register_navigation_link -->')
             )
         ) {
             // It's a section. We have to fetch subsections and articles.
@@ -419,9 +419,9 @@ readonly class PageCommon implements ControllerInterface
             $useHierarchy
             && !(bool)$page['children_exist']
             && (
-                $template->hasPlaceholder('<!-- s2_menu_siblings -->')
-                || $template->hasPlaceholder('<!-- s2_back_forward -->')
-                || $template->hasPlaceholder('<!-- s2_navigation_link -->')
+                $template->hasPlaceholder('<!-- register_menu_siblings -->')
+                || $template->hasPlaceholder('<!-- register_back_forward -->')
+                || $template->hasPlaceholder('<!-- register_navigation_link -->')
             )
         ) {
             // It's an article. We have to fetch other articles in the parent section
@@ -509,16 +509,16 @@ readonly class PageCommon implements ControllerInterface
         }
 
         // Tags
-        if ($template->hasPlaceholder('<!-- s2_article_tags -->')) {
+        if ($template->hasPlaceholder('<!-- register_article_tags -->')) {
             $template->putInPlaceholder('article_tags', $this->tagged_articles($articleId));
         }
 
-        if ($template->hasPlaceholder('<!-- s2_tags -->')) {
+        if ($template->hasPlaceholder('<!-- register_tags -->')) {
             $template->putInPlaceholder('tags', $this->get_tags($articleId));
         }
 
         // Comments
-        if ((bool)$page['commented'] && $showComments && $template->hasPlaceholder('<!-- s2_comments -->')) {
+        if ((bool)$page['commented'] && $showComments && $template->hasPlaceholder('<!-- register_comments -->')) {
             $contentId = ContentId::page($articleId);
             $this->liveUpdates->subscribeComments($contentId);
             $template->putInPlaceholder(

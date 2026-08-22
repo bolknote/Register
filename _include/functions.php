@@ -7,13 +7,13 @@ declare(strict_types = 1);
  *
  * @copyright 2009-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 /**
  * Encodes the contents of $str so that they are safe to output on an HTML page
  */
-function s2_htmlencode(mixed $str): string
+function register_htmlencode(mixed $str): string
 {
     if (!\is_scalar($str) && $str !== null && !$str instanceof \Stringable) {
         throw new \InvalidArgumentException('Only scalar or stringable values can be HTML-encoded.');
@@ -31,7 +31,7 @@ function s2_htmlencode(mixed $str): string
  * @param callable(): T $callback
  * @return T
  */
-function s2_call_without_warnings(callable $callback, ?string &$warningMessage = null): mixed
+function register_call_without_warnings(callable $callback, ?string &$warningMessage = null): mixed
 {
     set_error_handler(
         static function (int $_severity, string $message) use (&$warningMessage): bool {
@@ -51,26 +51,26 @@ function s2_call_without_warnings(callable $callback, ?string &$warningMessage =
 /**
  * @throws \RuntimeException
  */
-function s2_overwrite_file_skip_locked(string $filename, string $content): void
+function register_overwrite_file_skip_locked(string $filename, string $content): void
 {
     $dir = dirname($filename);
     if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) {
         throw new RuntimeException(sprintf('Cannot create directory "%s".', $dir));
     }
 
-    $fh = s2_call_without_warnings(static fn() => fopen($filename, 'a+b'));
+    $fh = register_call_without_warnings(static fn() => fopen($filename, 'a+b'));
 
     if ($fh === false) {
         // Try to remove the file if it's not writable
-        s2_call_without_warnings(static fn(): bool => unlink($filename));
-        $fh = s2_call_without_warnings(static fn() => fopen($filename, 'a+b'));
+        register_call_without_warnings(static fn(): bool => unlink($filename));
+        $fh = register_call_without_warnings(static fn() => fopen($filename, 'a+b'));
     }
 
     if ($fh === false) {
         throw new RuntimeException(sprintf('Cannot open file "%s" for write.', $filename));
     }
 
-    s2_call_without_warnings(static fn(): bool => chmod($filename, 0600));
+    register_call_without_warnings(static fn(): bool => chmod($filename, 0600));
 
     if (flock($fh, LOCK_EX | LOCK_NB)) {
         ftruncate($fh, 0);
@@ -87,7 +87,7 @@ function s2_overwrite_file_skip_locked(string $filename, string $content): void
  *
  * @see https://gist.github.com/samdark/01279afbce4871bd02b556bbb7ca4790 for details of getenv() / $_ENV
  */
-function s2_get_config_filename(): string
+function register_get_config_filename(): string
 {
     $appEnv = getenv('APP_ENV');
     if (is_string($appEnv) && $appEnv !== '') {
@@ -97,7 +97,7 @@ function s2_get_config_filename(): string
     return 'config.php';
 }
 
-function s2_get_default_cache_dir(): string
+function register_get_default_cache_dir(): string
 {
     $appEnv   = getenv('APP_ENV');
     $cacheDir = dirname(__DIR__) . '/_cache/';

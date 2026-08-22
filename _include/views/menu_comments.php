@@ -26,11 +26,11 @@ foreach ($menu as $item)
 ?>
 	<li>
 <?php if (empty($item['is_current'])) { ?>
-		<a href="<?php echo s2_htmlencode($item['link']); ?>"><?php echo s2_htmlencode($item['title']); ?></a>,
+		<a href="<?php echo register_htmlencode($item['link']); ?>"><?php echo register_htmlencode($item['title']); ?></a>,
 <?php } else { ?>
-		<span><?php echo s2_htmlencode($item['title']); ?></span>,
+		<span><?php echo register_htmlencode($item['title']); ?></span>,
 <?php } ?>
-		<em><?php echo s2_htmlencode($item['author']); ?></em>
+		<em><?php echo register_htmlencode($item['author']); ?></em>
 	</li>
 <?php
 

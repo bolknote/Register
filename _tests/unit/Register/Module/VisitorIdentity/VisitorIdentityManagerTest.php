@@ -13,8 +13,8 @@ use Codeception\Test\Unit;
 use Register\Module\VisitorIdentity\Manifest;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Module\VisitorIdentity\VisitorIdentityRepository;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Pdo\DbLayer;
 
 final class VisitorIdentityManagerTest extends Unit
 {
@@ -38,9 +38,9 @@ final class VisitorIdentityManagerTest extends Unit
         }
 
         try {
-            file_put_contents($configFile, "<?php return ['S2_SITE_NAME' => 'Stale cache'];");
+            file_put_contents($configFile, "<?php return ['REGISTER_SITE_NAME' => 'Stale cache'];");
             $provider = new DynamicConfigProvider($dbLayer, $configFile, false);
-            self::assertSame('Stale cache', $provider->get('S2_SITE_NAME'));
+            self::assertSame('Stale cache', $provider->get('REGISTER_SITE_NAME'));
 
             $manager   = new VisitorIdentityManager(new VisitorIdentityRepository($dbLayer), $provider, 'test', '');
             $visitorId = str_repeat('1', 32);

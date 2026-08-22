@@ -4,20 +4,20 @@
  *
  * @copyright 2024 Roman Parpalak
  * @license MIT
- * @package S2
+ * @package Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Framework;
+namespace Register\Core\Framework;
 
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
-use S2\Cms\Framework\Exception\DecoratedServiceNotFoundException;
-use S2\Cms\Framework\Exception\ParameterNotFoundException;
-use S2\Cms\Framework\Exception\ServiceAlreadyDefinedException;
-use S2\Cms\Framework\Exception\ServiceNotFoundException;
+use Register\Core\Framework\Exception\DecoratedServiceNotFoundException;
+use Register\Core\Framework\Exception\ParameterNotFoundException;
+use Register\Core\Framework\Exception\ServiceAlreadyDefinedException;
+use Register\Core\Framework\Exception\ServiceNotFoundException;
 
 class Container implements ContainerInterface
 {

@@ -7,27 +7,27 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use S2\Cms\HttpClient\Remote\SafeRemoteHttpClient;
-use S2\Cms\HttpClient\Remote\SafeRemoteRequestOptions;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\QueueTimeBudgetExceeded;
-use s2_extensions\activitypub\Domain\FederationUrlGenerator;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorKey;
-use s2_extensions\activitypub\Http\ActivityPubResponseFactory;
-use s2_extensions\activitypub\Infrastructure\ActivationReadinessRepository;
-use s2_extensions\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Presentation\ActivationProbeDocumentBuilder;
-use s2_extensions\activitypub\Presentation\ActivityStreamsContext;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
-use s2_extensions\activitypub\Security\ActorKeyVault;
-use s2_extensions\activitypub\Security\HttpSignatureRequest;
-use s2_extensions\activitypub\Security\LegacyHttpSignature;
+use Register\Core\HttpClient\Remote\SafeRemoteHttpClient;
+use Register\Core\HttpClient\Remote\SafeRemoteRequestOptions;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\QueueTimeBudgetExceeded;
+use Register\Extension\activitypub\Domain\FederationUrlGenerator;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorKey;
+use Register\Extension\activitypub\Http\ActivityPubResponseFactory;
+use Register\Extension\activitypub\Infrastructure\ActivationReadinessRepository;
+use Register\Extension\activitypub\Infrastructure\ActivityPubRunnerTelemetryRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Presentation\ActivationProbeDocumentBuilder;
+use Register\Extension\activitypub\Presentation\ActivityStreamsContext;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
+use Register\Extension\activitypub\Security\ActorKeyVault;
+use Register\Extension\activitypub\Security\HttpSignatureRequest;
+use Register\Extension\activitypub\Security\LegacyHttpSignature;
 
 /** Advances exactly one externally observable activation probe per shutdown generation. */
 final readonly class ActivationReadinessQueueHandler implements QueueHandlerInterface

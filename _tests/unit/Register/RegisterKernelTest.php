@@ -31,10 +31,10 @@ use Register\ProductModule;
 use Register\RegisterKernel;
 use Register\Url\SlugGenerator;
 use Register\Url\UniqueSlugGenerator;
-use S2\Cms\Admin\AdminExtension;
-use S2\Cms\CmsExtension;
-use S2\Cms\Framework\Application;
-use S2\Cms\Framework\ModuleInterface;
+use Register\Core\Admin\AdminExtension;
+use Register\Core\CmsExtension;
+use Register\Core\Framework\Application;
+use Register\Core\Framework\ModuleInterface;
 
 final class RegisterKernelTest extends Unit
 {
@@ -91,7 +91,7 @@ final class RegisterKernelTest extends Unit
 
     public function testProductModuleRegistersCanonicalSlugServices(): void
     {
-        $container = new \S2\Cms\Framework\Container([]);
+        $container = new \Register\Core\Framework\Container([]);
         (new ProductModule(new BaseModuleRegistry()))->buildContainer($container);
 
         self::assertSame('new-post', $container->get(SlugGenerator::class)->generate('New post'));

@@ -2,16 +2,16 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\AdminYard\Form;
+namespace Register\Core\AdminYard\Form;
 
-use S2\AdminYard\Form\Autocomplete;
-use S2\AdminYard\Form\FormFactory;
-use S2\AdminYard\Validator\Choice;
+use Register\AdminYard\Form\Autocomplete;
+use Register\AdminYard\Form\FormFactory;
+use Register\AdminYard\Validator\Choice;
 
 final class CustomAutocomplete extends Autocomplete
 {

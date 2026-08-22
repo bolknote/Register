@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Domain;
+namespace Register\Extension\activitypub\Domain;
 
 use Register\Content\ContentId;
 use Register\Content\ContentType;
@@ -24,7 +24,7 @@ final readonly class ContentFederationSettings
         public string                 $summary = '',
         public ?string                $language = null,
     ) {
-        if ($this->contentId->type === ContentType::PAGE && $this->postObjectType instanceof \s2_extensions\activitypub\Domain\PostObjectType) {
+        if ($this->contentId->type === ContentType::PAGE && $this->postObjectType instanceof \Register\Extension\activitypub\Domain\PostObjectType) {
             throw new \InvalidArgumentException('A page cannot override its frozen ActivityPub Page type.');
         }
 

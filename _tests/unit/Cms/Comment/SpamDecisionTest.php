@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace unit\Cms\Comment;
 
 use Codeception\Test\Unit;
-use S2\Cms\Comment\SpamDecision;
-use S2\Cms\Comment\SpamDetectorReport;
+use Register\Core\Comment\SpamDecision;
+use Register\Core\Comment\SpamDetectorReport;
 
 final class SpamDecisionTest extends Unit
 {

@@ -12,8 +12,8 @@ namespace Register\Update;
 use Psr\Log\LoggerInterface;
 use Register\Backup\BackupManager;
 use Register\Schema\SchemaManager;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Model\ExtensionCache;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Model\ExtensionCache;
 
 final readonly class UpdateManager
 {

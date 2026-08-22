@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\RemoteObject;
-use s2_extensions\activitypub\Presentation\CanonicalJson;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\RemoteObject;
+use Register\Extension\activitypub\Presentation\CanonicalJson;
 
 /** Ownership-enforcing storage for verified, sanitized remote ActivityStreams objects. */
 final readonly class RemoteObjectRepository

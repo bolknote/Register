@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Delivery;
+namespace Register\Extension\activitypub\Delivery;
 
-use S2\Cms\Queue\QueuePublisher;
+use Register\Core\Queue\QueuePublisher;
 
 /** Persists deferred actor discovery for a single immutable activity Mention. */
 final readonly class MentionDeliveryQueue

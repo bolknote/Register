@@ -1,9 +1,9 @@
 /**
- * Dialog helpers for editor actions in S2.
+ * Dialog helpers for editor actions in Register.
  *
  * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 import {editorDeps} from './deps.js';
@@ -29,11 +29,11 @@ function GetImage() {
 }
 
 function ReturnImage(s, w, h) {
-    document.dispatchEvent(new CustomEvent('return_image.s2', {detail: {file_path: s, width: w, height: h}}));
+    document.dispatchEvent(new CustomEvent('return_image.register', {detail: {file_path: s, width: w, height: h}}));
 }
 
 function ReturnAudio(filePath, title) {
-    document.dispatchEvent(new CustomEvent('return_audio.s2', {detail: {file_path: filePath, title: title}}));
+    document.dispatchEvent(new CustomEvent('return_audio.register', {detail: {file_path: filePath, title: title}}));
 }
 
 function ClosePictureDialog() {

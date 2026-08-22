@@ -11,7 +11,7 @@ namespace integration;
 
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ContentSitemapCest
@@ -34,7 +34,7 @@ final class ContentSitemapCest
             '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
             $indexXml,
         );
-        $I->assertStringContainsString('<loc>http://s2.localhost/sitemap-1.xml</loc>', $indexXml);
+        $I->assertStringContainsString('<loc>http://register.localhost/sitemap-1.xml</loc>', $indexXml);
         $I->assertSame('application/xml; charset=utf-8', $I->grabHttpHeader('Content-Type'));
 
         $indexEtag = $I->grabHttpHeader('ETag');
@@ -72,7 +72,7 @@ final class ContentSitemapCest
         $I->seeResponseCodeIs(Response::HTTP_OK);
         $I->assertSame('text/plain; charset=utf-8', $I->grabHttpHeader('Content-Type'));
         $I->assertSame(
-            "User-agent: *\nDisallow: /_admin/\nSitemap: http://s2.localhost/sitemap.xml\n",
+            "User-agent: *\nDisallow: /_admin/\nSitemap: http://register.localhost/sitemap.xml\n",
             $I->grabResponse(),
         );
 

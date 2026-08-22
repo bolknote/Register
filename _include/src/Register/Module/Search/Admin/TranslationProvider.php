@@ -2,14 +2,14 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
 namespace Register\Module\Search\Admin;
 
-use S2\Cms\Admin\TranslationProviderInterface;
+use Register\Core\Admin\TranslationProviderInterface;
 
 class TranslationProvider implements TranslationProviderInterface
 {
@@ -22,10 +22,10 @@ class TranslationProvider implements TranslationProviderInterface
         return match ($locale) {
             'ru' => [
                 'Search config'                        => 'Поиск',
-                'S2_SEARCH_QUICK'                      => 'Быстрый поиск',
-                'S2_SEARCH_QUICK_help'                 => 'По мере набора поискового запроса показывать подсказки с совпадающими заголовками.',
-                'S2_SEARCH_RECOMMENDATIONS_LIMIT'      => 'Объем рекомендаций',
-                'S2_SEARCH_RECOMMENDATIONS_LIMIT_help' => 'Максимальное количество рекомендаций. 0 отключает рекомендации совсем.',
+                'REGISTER_SEARCH_QUICK'                      => 'Быстрый поиск',
+                'REGISTER_SEARCH_QUICK_help'                 => 'По мере набора поискового запроса показывать подсказки с совпадающими заголовками.',
+                'REGISTER_SEARCH_RECOMMENDATIONS_LIMIT'      => 'Объем рекомендаций',
+                'REGISTER_SEARCH_RECOMMENDATIONS_LIMIT_help' => 'Максимальное количество рекомендаций. 0 отключает рекомендации совсем.',
                 'Search index'                         => 'Поисковый индекс',
                 'Search current'                       => 'Индекс актуален и обновляется автоматически.',
                 'Search repairing'                     => 'Индекс автоматически восстанавливается после HTTP-ответов.',
@@ -40,10 +40,10 @@ class TranslationProvider implements TranslationProviderInterface
             ],
             'en' => [
                 'Search config'                        => 'Search',
-                'S2_SEARCH_QUICK'                      => 'Quick search',
-                'S2_SEARCH_QUICK_help'                 => 'Show suggestions based on the search over titles while typing a search query.',
-                'S2_SEARCH_RECOMMENDATIONS_LIMIT'      => 'Recommendations size',
-                'S2_SEARCH_RECOMMENDATIONS_LIMIT_help' => 'Maximum number of recommendations. Set 0 to disable recommendations.',
+                'REGISTER_SEARCH_QUICK'                      => 'Quick search',
+                'REGISTER_SEARCH_QUICK_help'                 => 'Show suggestions based on the search over titles while typing a search query.',
+                'REGISTER_SEARCH_RECOMMENDATIONS_LIMIT'      => 'Recommendations size',
+                'REGISTER_SEARCH_RECOMMENDATIONS_LIMIT_help' => 'Maximum number of recommendations. Set 0 to disable recommendations.',
                 'Search index'                         => 'Search index',
                 'Search current'                       => 'The index is current and updates automatically.',
                 'Search repairing'                     => 'The index is repaired automatically after HTTP responses.',

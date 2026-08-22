@@ -10,11 +10,11 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Inplace;
 
 use Register\Module\Blog\Model\SiteHeaderRenderer;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Security\Audit\SecurityAuditLogger;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Model\AuthProvider;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Security\Audit\SecurityAuditLogger;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -38,10 +38,14 @@ final readonly class SiteHeaderInplaceController implements ControllerInterface
     }
 
     #[\Override]
-    public function handle(Request $request): Response
+    public function handle(Request $request): JsonResponse
     {
         $editor = $this->authProvider->getAuthenticatedPublicUser($request);
-        if ($editor === null || !$editor->canEditSite) {
+        if ($editor === null) {
+            return $this->error('Site header editing forbidden', Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$editor->canEditSite) {
             return $this->error('Site header editing forbidden', Response::HTTP_FORBIDDEN);
         }
 
@@ -62,7 +66,7 @@ final readonly class SiteHeaderInplaceController implements ControllerInterface
         }
 
         foreach ([
-            'S2_SITE_NAME' => $title,
+            'REGISTER_SITE_NAME' => $title,
             SiteHeaderRenderer::TAGLINE_CONFIG_KEY => $tagline,
         ] as $name => $value) {
             $this->dbLayer
@@ -73,7 +77,7 @@ final readonly class SiteHeaderInplaceController implements ControllerInterface
         }
 
         $this->configProvider->regenerate();
-        $this->auditLogger->configurationChanged($editor->id, 'S2_SITE_NAME', false);
+        $this->auditLogger->configurationChanged($editor->id, 'REGISTER_SITE_NAME', false);
         $this->auditLogger->configurationChanged($editor->id, SiteHeaderRenderer::TAGLINE_CONFIG_KEY, false);
 
         return new JsonResponse([

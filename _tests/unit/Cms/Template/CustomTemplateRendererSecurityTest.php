@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace unit\Cms\Template;
 
 use Codeception\Test\Unit;
-use S2\Cms\AdminYard\CustomTemplateRenderer;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Model\PermissionChecker;
+use Register\Core\AdminYard\CustomTemplateRenderer;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Model\PermissionChecker;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -20,7 +20,7 @@ final class CustomTemplateRendererSecurityTest extends Unit
 {
     public function testTemplateDataCannotReplaceSelectedFileOrHelpers(): void
     {
-        $tempDir = \sys_get_temp_dir() . '/s2_admin_renderer_security_' . \bin2hex(\random_bytes(8));
+        $tempDir = \sys_get_temp_dir() . '/register_admin_renderer_security_' . \bin2hex(\random_bytes(8));
         self::assertTrue(mkdir($tempDir, 0700));
 
         $safeTemplate = $tempDir . '/safe.php';
@@ -69,7 +69,7 @@ final class CustomTemplateRendererSecurityTest extends Unit
             $root,
         );
 
-        $output = $renderer->render($root . '_vendor/s2/admin-yard/src/Config/../../templates/list-actions.php.inc', [
+        $output = $renderer->render($root . '_include/admin-yard/templates/list-actions.php.inc', [
             'row'         => ['virtual_write_access_control' => true],
             'rowActions'  => [['name' => 'delete']],
             'csrfToken'   => 'test-token',

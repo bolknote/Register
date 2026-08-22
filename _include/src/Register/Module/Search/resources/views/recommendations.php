@@ -25,7 +25,7 @@ $getImgMarkup = static function (ImgDto $imgDto, int $columnNum): string
     $width              = max(1, (int)round($imgDto->getWidth()));
     $height             = max(1, (int)round($imgDto->getHeight()));
     $fallbackAttributes = '';
-    $escapedSrc         = s2_htmlencode($src);
+    $escapedSrc         = register_htmlencode($src);
 
     if ($class === 'right') {
         return "<div class='recommendation-img-right-wrapper recommendation-img-right-wide'><img loading='lazy' src=\"$escapedSrc\" width='$width' height='$height' class='recommendation-img' alt=''></div>";
@@ -50,7 +50,7 @@ $getImgMarkup = static function (ImgDto $imgDto, int $columnNum): string
         $class = 'recommendation-video-wrapper';
     }
 
-    $escapedSrc = s2_htmlencode($src);
+    $escapedSrc = register_htmlencode($src);
 
     return "<div class='recommendation-img-wrapper {$class}'><img loading='lazy' class='recommendation-img' src='$escapedSrc' width='$width' height='$height' alt='' {$fallbackAttributes}></div>";
 };
@@ -136,7 +136,7 @@ foreach ($content as $recommendation) {
                     echo $getImgMarkup($imgDto, $columnNum);
                 }
                 ?>
-                <span class="recommendation-header recommendation-header-<?= $recommendation['headingSize'] ?>"><?php echo s2_htmlencode($recommendation['title']); ?></span>
+                <span class="recommendation-header recommendation-header-<?= $recommendation['headingSize'] ?>"><?php echo register_htmlencode($recommendation['title']); ?></span>
             </a>
             <div class="recommendation-snippet"><?= $recommendation['snippet'] ?></div>
             <div class="recommendation-date"

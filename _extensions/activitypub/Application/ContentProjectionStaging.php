@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
 use Register\Content\ContentId;
 use Register\Content\ContentType;
-use S2\Cms\Framework\StatefulServiceInterface;
+use Register\Core\Framework\StatefulServiceInterface;
 
 /** Request-scoped barrier ensuring editor settings are stored before their one canonical projection. */
 final class ContentProjectionStaging implements StatefulServiceInterface

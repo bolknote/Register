@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace unit\Extensions\ActivityPub;
 
 use Codeception\Test\Unit;
-use S2\Cms\HttpClient\HttpClient;
-use s2_extensions\activitypub\Content\PortableHtmlSanitizer;
+use Register\Core\HttpClient\HttpClient;
+use Register\Extension\activitypub\Content\PortableHtmlSanitizer;
 
 final class PortableHtmlSanitizerTest extends Unit
 {

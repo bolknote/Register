@@ -7,17 +7,17 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\ActorKind;
-use s2_extensions\activitypub\Domain\ActorType;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorKey;
-use s2_extensions\activitypub\Domain\LocalActorState;
-use s2_extensions\activitypub\Domain\LocalHandle;
-use s2_extensions\activitypub\Domain\NewLocalActor;
-use s2_extensions\activitypub\Security\EncryptedPrivateKey;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\ActorKind;
+use Register\Extension\activitypub\Domain\ActorType;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorKey;
+use Register\Extension\activitypub\Domain\LocalActorState;
+use Register\Extension\activitypub\Domain\LocalHandle;
+use Register\Extension\activitypub\Domain\NewLocalActor;
+use Register\Extension\activitypub\Security\EncryptedPrivateKey;
 
 final readonly class LocalActorRepository
 {
@@ -587,7 +587,7 @@ final readonly class LocalActorRepository
         ;
     }
 
-    private function actorQuery(): \S2\Cms\Pdo\QueryBuilder\SelectBuilder
+    private function actorQuery(): \Register\Core\Pdo\QueryBuilder\SelectBuilder
     {
         return $this->dbLayer->select('actor.*, handle.handle')
             ->from(ActivityPubSchema::ACTOR_TABLE . ' AS actor')

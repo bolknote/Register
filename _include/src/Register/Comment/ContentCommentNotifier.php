@@ -14,9 +14,9 @@ use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Comment\CommentHtml;
-use S2\Cms\Mail\CommentMailer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Comment\CommentHtml;
+use Register\Core\Mail\CommentMailer;
+use Register\Core\Pdo\DbLayerException;
 
 /** Sends notifications and manages subscriptions for every Register content type. */
 final readonly class ContentCommentNotifier

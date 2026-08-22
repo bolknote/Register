@@ -7,18 +7,18 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub;
+namespace Register\Extension\activitypub;
 
-use S2\Cms\Config\DynamicSecretParameterRegistry;
-use S2\Cms\Config\DynamicSecretStore;
-use S2\Cms\Extensions\ManifestInterface;
-use S2\Cms\Extensions\ExtensionDisableGuardInterface;
-use S2\Cms\Framework\Container;
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Infrastructure\ActivityPubSchema;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Security\ActivityPubSecret;
+use Register\Core\Config\DynamicSecretParameterRegistry;
+use Register\Core\Config\DynamicSecretStore;
+use Register\Core\Extensions\ManifestInterface;
+use Register\Core\Extensions\ExtensionDisableGuardInterface;
+use Register\Core\Framework\Container;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Security\ActivityPubSecret;
 
 final class Manifest implements ExtensionDisableGuardInterface, ManifestInterface
 {

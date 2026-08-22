@@ -2,7 +2,7 @@
 /**
  * @copyright 2023-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -194,7 +194,7 @@ class InstallCest
         $I->amOnPage('/_admin/index.php?entity=SystemModules');
         $I->see('System modules', 'h1');
 
-        foreach (['s2_blog', 's2_search', 's2_latex', 'register_visitor_identity', 's2_counter', 'register_reactions', 's2_typo', 'register_syntax_highlighting', 'register_audio_player'] as $moduleId) {
+        foreach (['register_blog', 'register_search', 'register_latex', 'register_visitor_identity', 'register_counter', 'register_reactions', 'register_typo', 'register_syntax_highlighting', 'register_audio_player'] as $moduleId) {
             $I->seeElement('.base-module [title=' . $moduleId . ']');
             $I->dontSeeElement('.extension.available [title=' . $moduleId . ']');
             $I->dontSeeElement('.extension:not(.base-module) [title=' . $moduleId . ']');
@@ -202,10 +202,10 @@ class InstallCest
 
         $I->dontSeeElement('.base-module button');
         $I->seeElement('link[href$="/_assets/register/blog/admin.css"]');
-        $I->dontSeeElement('link[href*="/_extensions/s2_blog/"]');
+        $I->dontSeeElement('link[href*="/_extensions/register_blog/"]');
         $I->seeElement('link[href$="/_assets/register/math/math.css"]');
         $I->seeElement('script[src$="/_assets/register/math/loader.js"]');
-        $I->dontSeeElement('script[src*="/_extensions/s2_latex/"]');
+        $I->dontSeeElement('script[src*="/_extensions/register_latex/"]');
 
         $I->amOnPage('/_admin/index.php?entity=Extension');
         $I->dontSee('Built-in modules', 'h2');
@@ -215,18 +215,17 @@ class InstallCest
         $I->see('Overview', 'h1');
         $I->see('Needs attention', 'h3');
         $I->dontSeeElement('a[href="https://github.com/bolknote/Register"]');
-        $I->dontSeeElement('a[href="https://github.com/parpalak/s2"]');
 
         $I->amOnPage('/_admin/index.php?entity=Statistics');
         $I->see('Analytics', 'h1');
         $I->seeElement('script[src$="/_assets/register/analytics/highstock.js"]');
         $I->seeElement('script[src$="/_assets/register/analytics/charts.js"]');
-        $I->dontSeeElement('script[src*="/_extensions/s2_counter/"]');
+        $I->dontSeeElement('script[src*="/_extensions/register_counter/"]');
 
         $I->amOnPage('/_admin/index.php?entity=SystemStatus');
         $I->see('System status', 'h1');
         $I->seeElement('script[src$="/_assets/register/search/index-manager.js"]');
-        $I->dontSeeElement('script[src*="/_extensions/s2_search/"]');
+        $I->dontSeeElement('script[src*="/_extensions/register_search/"]');
         $I->seeElement('input[name=register_search_csrf_token]');
 
         $I->amOnPage('/_admin/index.php?entity=Configuration');
@@ -368,8 +367,8 @@ class InstallCest
         $I->see('New Page Title', '.article_tags a');
         $I->see('New Page 4', '.article_tags span');
 
-        $I->see('See in blog', '.header.s2_blog_tags');
-        $I->see('tag1', '.s2_blog_tags a');
+        $I->see('See in blog', '.header.register_blog_tags');
+        $I->see('tag1', '.register_blog_tags a');
 
         // Links to sub-pages
         $I->amOnPage('/section1/');
@@ -564,7 +563,7 @@ class InstallCest
         $I->see('New Page Title');
 
         $I->amOnPage('/section1/new-page1');
-        $I->submitForm('.s2_search_form', ['q' => 'new']);
+        $I->submitForm('.register_search_form', ['q' => 'new']);
         $I->seeCurrentUrlEquals('/index.php?search=1&q=new');
         $I->see('Search', 'h1');
         $I->see('New Blog Post Title');
@@ -582,7 +581,7 @@ class InstallCest
 
         $I->amOnPage('/new-post1');
         $I->dontSeeElement('h2.recommendation-title#recommendations');
-        $I->changeSetting('S2_SEARCH_RECOMMENDATIONS_LIMIT', 10);
+        $I->changeSetting('REGISTER_SEARCH_RECOMMENDATIONS_LIMIT', 10);
         $I->amOnPage('/new-post1');
         $I->seeElement('h2.recommendation-title#recommendations');
         $I->seeElement('div.recommendations > div.recommendation > a.recommendation-link');
@@ -590,7 +589,7 @@ class InstallCest
         $I->see('New Page Title', '.recommendation-header-2');
         $I->see('2023', '.recommendation-date');
 
-        $I->submitForm('.s2_search_form', ['q' => 'new']);
+        $I->submitForm('.register_search_form', ['q' => 'new']);
         $I->seeCurrentUrlEquals('/index.php?search=1&q=new');
         $I->see('Search', 'h1');
         $I->see('New Blog Post Title');
@@ -643,9 +642,9 @@ class InstallCest
         $I->amOnPage('/_admin/index.php?entity=Comment&action=list');
         $I->see('This is my first comment!');
 
-        $I->changeSetting('S2_PREMODERATION', true);
-        $I->changeSetting('S2_WEBMASTER_EMAIL', 'webmaster@example.com');
-        $I->changeSetting('S2_WEBMASTER', 'Webmaster Name');
+        $I->changeSetting('REGISTER_PREMODERATION', true);
+        $I->changeSetting('REGISTER_WEBMASTER_EMAIL', 'webmaster@example.com');
+        $I->changeSetting('REGISTER_WEBMASTER', 'Webmaster Name');
 
         // Set moderator email
         $I->amOnPage('/_admin/index.php?entity=User&action=list');
@@ -674,11 +673,11 @@ class InstallCest
     private function testETag(AcceptanceTester $I): void
     {
         // Disable comments and recommendations
-        $I->changeSetting('S2_SHOW_COMMENTS', false);
-        $I->changeSetting('S2_ENABLED_COMMENTS', false);
-        $I->changeSetting('S2_SEARCH_RECOMMENDATIONS_LIMIT', 0);
+        $I->changeSetting('REGISTER_SHOW_COMMENTS', false);
+        $I->changeSetting('REGISTER_ENABLED_COMMENTS', false);
+        $I->changeSetting('REGISTER_SEARCH_RECOMMENDATIONS_LIMIT', 0);
 
-        // Test <!-- s2_last_comments --> and <!-- s2_last_discussions --> placeholders when comments are disabled
+        // Test <!-- register_last_comments --> and <!-- register_last_discussions --> placeholders when comments are disabled
         $I->amOnPage('/');
         $I->seeResponseCodeIsSuccessful();
 

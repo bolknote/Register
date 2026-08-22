@@ -7,15 +7,15 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Application\ActivationCheckResult;
-use s2_extensions\activitypub\Application\ActivationReadinessAttempt;
-use s2_extensions\activitypub\Application\ActivationReadinessCheck;
-use s2_extensions\activitypub\Application\ActivationReadinessState;
-use s2_extensions\activitypub\Domain\CanonicalBasePath;
-use s2_extensions\activitypub\Domain\CanonicalOrigin;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Application\ActivationCheckResult;
+use Register\Extension\activitypub\Application\ActivationReadinessAttempt;
+use Register\Extension\activitypub\Application\ActivationReadinessCheck;
+use Register\Extension\activitypub\Application\ActivationReadinessState;
+use Register\Extension\activitypub\Domain\CanonicalBasePath;
+use Register\Extension\activitypub\Domain\CanonicalOrigin;
 
 /** Durable source of truth for the two-phase activation protocol. */
 final readonly class ActivationReadinessRepository

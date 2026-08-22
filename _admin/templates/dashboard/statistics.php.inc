@@ -3,7 +3,7 @@
 declare(strict_types = 1);
 
 /** @var callable $trans */
-/** @var \S2\Cms\Admin\Dashboard\DashboardBlockProviderInterface[] $dashboardBlockProviders */
+/** @var \Register\Core\Admin\Dashboard\DashboardBlockProviderInterface[] $dashboardBlockProviders */
 
 ?>
 <header class="dashboard-header">

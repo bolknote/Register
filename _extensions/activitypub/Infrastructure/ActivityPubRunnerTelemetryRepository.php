@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 /** Records the latest ActivityPub handler entered by the shared shutdown runner. */
 final readonly class ActivityPubRunnerTelemetryRepository

@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Security\WebAuthn;
+namespace Register\Core\Security\WebAuthn;
 
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Serializer\SerializerInterface;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;

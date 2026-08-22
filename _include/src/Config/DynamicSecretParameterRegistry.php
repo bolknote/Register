@@ -2,12 +2,12 @@
 /**
  * @copyright 2026 Register contributors
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Config;
+namespace Register\Core\Config;
 
 /**
  * Describes secrets owned by core configuration and optional extensions.

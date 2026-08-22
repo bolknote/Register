@@ -15,12 +15,12 @@ use Register\Module\LinkHealth\LinkProbeMethod;
 use Register\Module\LinkHealth\LinkProbeResult;
 use Register\Module\LinkHealth\LinkProbeState;
 use Register\Module\LinkHealth\SafeHttpProbe;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpResponse;
-use S2\Cms\HttpClient\Remote\HostResolverInterface;
-use S2\Cms\HttpClient\Remote\PublicAddressGuard;
-use S2\Cms\HttpClient\Remote\RemoteHostResolverUnavailable;
-use S2\Cms\HttpClient\Remote\RemoteHostResolutionTimedOut;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpResponse;
+use Register\Core\HttpClient\Remote\HostResolverInterface;
+use Register\Core\HttpClient\Remote\PublicAddressGuard;
+use Register\Core\HttpClient\Remote\RemoteHostResolverUnavailable;
+use Register\Core\HttpClient\Remote\RemoteHostResolutionTimedOut;
 
 final class SafeHttpProbeTest extends Unit
 {

@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace Register\Content;
 
 use Register\Live\LiveUpdateRepository;
-use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 /**

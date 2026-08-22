@@ -7,11 +7,11 @@ declare(strict_types = 1);
  * @license   https://opensource.org/license/mit MIT
  */
 
-namespace S2\Rose\Test\Storage\Database;
+namespace Register\Rose\Test\Storage\Database;
 
 use Codeception\Test\Unit;
-use S2\Rose\Exception\InvalidArgumentException;
-use S2\Rose\Storage\Database\MysqlRepository;
+use Register\Rose\Exception\InvalidArgumentException;
+use Register\Rose\Storage\Database\MysqlRepository;
 
 final class RepositoryValidationTest extends Unit
 {

@@ -59,26 +59,26 @@ use Register\Url\PortableAsciiTransliterator;
 use Register\Url\ReservedRouteRegistry;
 use Register\Url\SlugGenerator;
 use Register\Url\UniqueSlugGenerator;
-use S2\Cms\Asset\AssetPack;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
-use S2\Cms\Framework\ContainerModuleInterface;
-use S2\Cms\Framework\RoutingModuleInterface;
-use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\Controller\Comment\CommentStrategyInterface;
-use S2\Cms\Mail\CommentMailer;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Security\Audit\SecurityAuditLogger;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\TemplateAssetEvent;
-use S2\Cms\Template\TemplateEvent;
+use Register\Core\Asset\AssetPack;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\ContainerAwareListenerModuleInterface;
+use Register\Core\Framework\ContainerModuleInterface;
+use Register\Core\Framework\RoutingModuleInterface;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\Controller\Comment\CommentStrategyInterface;
+use Register\Core\Mail\CommentMailer;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\AuthProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Security\Audit\SecurityAuditLogger;
+use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\TemplateAssetEvent;
+use Register\Core\Template\TemplateEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\HttpFoundation\Request;
@@ -88,7 +88,7 @@ use Symfony\Component\Routing\RouteCollection;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Registers services owned by the Register product rather than the reusable S2 foundation.
+ * Registers services owned by the Register product rather than the reusable Register foundation.
  */
 readonly class ProductModule implements ContainerModuleInterface, ContainerAwareListenerModuleInterface, RoutingModuleInterface
 {
@@ -230,8 +230,8 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         ));
         $container->set(ContentCommentRenderer::class, static fn(Container $container): ContentCommentRenderer => new ContentCommentRenderer(
             $container->get(DbLayer::class),
-            $container->get(\S2\Cms\Model\Comment\CommentThreadRenderer::class),
-            $container->get(\S2\Cms\Model\AuthProvider::class),
+            $container->get(\Register\Core\Model\Comment\CommentThreadRenderer::class),
+            $container->get(\Register\Core\Model\AuthProvider::class),
             ...$container->getByTag(CommentPresentationEnricherInterface::class),
         ));
         $container->set(LiveFragmentRenderer::class, static fn(Container $container): LiveFragmentRenderer => new LiveFragmentRenderer(
@@ -299,8 +299,8 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $provider = $container->get(DynamicConfigProvider::class);
 
             return new ReservedRouteRegistry(
-                $provider->getStringProxy('S2_TAGS_URL'),
-                $provider->getStringProxy('S2_FAVORITE_URL'),
+                $provider->getStringProxy('REGISTER_TAGS_URL'),
+                $provider->getStringProxy('REGISTER_FAVORITE_URL'),
             );
         });
         $container->set(ContentSlugService::class, static fn(Container $container): ContentSlugService => new ContentSlugService(
@@ -348,12 +348,12 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $event->htmlTemplate->addMetaTag(sprintf(
                 '<meta name="register-offline" data-worker="%s/service-worker.js" data-scope="%s/"'
                     . ' data-seed="%s" data-warning="%s" data-syncing="%s" data-reload="%s">',
-                s2_htmlencode($basePath),
-                s2_htmlencode($basePath),
+                register_htmlencode($basePath),
+                register_htmlencode($basePath),
                 $allowsInitialSeed ? '1' : '0',
-                s2_htmlencode($translator->trans('Offline cache warning')),
-                s2_htmlencode($translator->trans('Offline cache syncing')),
-                s2_htmlencode($translator->trans('Reload current page')),
+                register_htmlencode($translator->trans('Offline cache warning')),
+                register_htmlencode($translator->trans('Offline cache syncing')),
+                register_htmlencode($translator->trans('Reload current page')),
             ));
 
             $context = $container->get(LiveUpdateContext::class);
@@ -365,9 +365,9 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
 
             $event->htmlTemplate->addMetaTag(sprintf(
                 '<meta name="register-live-updates" data-endpoint="%s" data-cursor="%d" data-regions="%s">',
-                s2_htmlencode($container->get(UrlBuilder::class)->link('/_live')),
+                register_htmlencode($container->get(UrlBuilder::class)->link('/_live')),
                 $cursor,
-                s2_htmlencode(json_encode($regions, JSON_THROW_ON_ERROR)),
+                register_htmlencode(json_encode($regions, JSON_THROW_ON_ERROR)),
             ));
         });
     }

@@ -1,9 +1,9 @@
 /**
- * HTML escaping helpers for editor modules in S2.
+ * HTML escaping helpers for editor modules in Register.
  *
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 function escapeHtml(value) {

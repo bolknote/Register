@@ -1,13 +1,13 @@
 /**
- * Editor toolbar and keyboard shortcuts for S2.
+ * Editor toolbar and keyboard shortcuts for Register.
  *
  * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 import {GetImage} from './dialogs.js';
-import {s2_codemirror} from './codemirror.js';
+import {register_codemirror} from './codemirror.js';
 
 let editorDocumentEventsBound = false;
 
@@ -17,19 +17,19 @@ function bindEditorDocumentEvents() {
     }
     editorDocumentEventsBound = true;
 
-    document.addEventListener('insert_paragraph.s2', function (event) {
+    document.addEventListener('insert_paragraph.register', function (event) {
         const sType = event.detail.sType;
         if (sType === 'h2' || sType === 'h3' || sType === 'h4' || sType === 'blockquote' || sType === 'pre') {
-            s2_codemirror.paragraph('<' + sType + '>', '</' + sType + '>');
+            register_codemirror.paragraph('<' + sType + '>', '</' + sType + '>');
         } else {
-            s2_codemirror.paragraph('<p' + (sType ? ' align="' + sType + '"' : '') + '>', '</p>');
+            register_codemirror.paragraph('<p' + (sType ? ' align="' + sType + '"' : '') + '>', '</p>');
         }
     });
 
-    document.addEventListener('insert_tag.s2', function (event) {
-        const inserted = s2_codemirror.addTag(event.detail.sStart, event.detail.sEnd);
+    document.addEventListener('insert_tag.register', function (event) {
+        const inserted = register_codemirror.addTag(event.detail.sStart, event.detail.sEnd);
         if (inserted && event.detail.imageSrc) {
-            document.dispatchEvent(new CustomEvent('image_inserted.s2', {
+            document.dispatchEvent(new CustomEvent('image_inserted.register', {
                 detail: {src: event.detail.imageSrc}
             }));
         }
@@ -41,7 +41,7 @@ export function initHtmlTextarea(eTextarea) {
         return;
     }
     bindEditorDocumentEvents();
-    s2_codemirror.get_instance(eTextarea);
+    register_codemirror.get_instance(eTextarea);
 
     // Use parentNode to catch events from CodeMirror.
     const textareaWrapper = eTextarea.parentNode;
@@ -51,7 +51,7 @@ export function initHtmlTextarea(eTextarea) {
     textareaWrapper.dataset.editorShortcutsBound = 'true';
     textareaWrapper.addEventListener('keydown', function (e) {
         function insertParagraph(sType) {
-            document.dispatchEvent(new CustomEvent('insert_paragraph.s2', {detail: {sType: sType}}));
+            document.dispatchEvent(new CustomEvent('insert_paragraph.register', {detail: {sType: sType}}));
         }
 
         function tagSelection(sTag) {
@@ -59,7 +59,7 @@ export function initHtmlTextarea(eTextarea) {
         }
 
         function insertTag(sStart, sEnd) {
-            document.dispatchEvent(new CustomEvent('insert_tag.s2', {detail: {sStart: sStart, sEnd: sEnd}}));
+            document.dispatchEvent(new CustomEvent('insert_tag.register', {detail: {sStart: sStart, sEnd: sEnd}}));
         }
 
         const ch = String.fromCharCode(e.which).toLowerCase();
@@ -109,11 +109,11 @@ export function initHtmlToolbar(eToolbar) {
     }
 
     function insertParagraph(sType) {
-        document.dispatchEvent(new CustomEvent('insert_paragraph.s2', {detail: {sType: sType}}));
+        document.dispatchEvent(new CustomEvent('insert_paragraph.register', {detail: {sType: sType}}));
     }
 
     function insertTag(sStart, sEnd) {
-        document.dispatchEvent(new CustomEvent('insert_tag.s2', {detail: {sStart: sStart, sEnd: sEnd}}));
+        document.dispatchEvent(new CustomEvent('insert_tag.register', {detail: {sStart: sStart, sEnd: sEnd}}));
     }
 
     function tagSelection(sTag) {
@@ -123,8 +123,8 @@ export function initHtmlToolbar(eToolbar) {
     eToolbar.addEventListener('click', function (e) {
         if (e.target.tagName === 'BUTTON') {
             const actions = {
-                'undo': () => s2_codemirror.undo(),
-                'redo': () => s2_codemirror.redo(),
+                'undo': () => register_codemirror.undo(),
+                'redo': () => register_codemirror.redo(),
                 'b': () => tagSelection('strong'),
                 'i': () => tagSelection('em'),
                 'strike': () => tagSelection('s'),
@@ -148,7 +148,7 @@ export function initHtmlToolbar(eToolbar) {
                 'li': () => tagSelection('li'),
                 'pre': () => insertParagraph('pre'),
                 'code': () => tagSelection('code'),
-                'parag': () => s2_codemirror.smart(),
+                'parag': () => register_codemirror.smart(),
                 'fullscreen': function () {
                     const editorRoot = eToolbar.closest('[data-html-editor-root]')
                         || document.getElementById('id-article-editor-block');
@@ -176,7 +176,7 @@ export function initHtmlToolbar(eToolbar) {
 
 document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyS') {
-        document.dispatchEvent(new Event('save_form.s2'));
+        document.dispatchEvent(new Event('save_form.register'));
         e.preventDefault();
     }
 });

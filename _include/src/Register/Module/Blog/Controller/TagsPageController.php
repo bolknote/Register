@@ -14,28 +14,28 @@ namespace Register\Module\Blog\Controller;
 
 use Register\Content\TagRepository;
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Template\HtmlTemplate;
+use Register\Core\Template\HtmlTemplate;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 class TagsPageController extends BlogController
 {
     public function __construct(
-        \S2\Cms\Pdo\DbLayer $dbLayer,
+        \Register\Core\Pdo\DbLayer $dbLayer,
         \Register\Module\Blog\CalendarBuilder $calendarBuilder,
         \Register\Module\Blog\BlogUrlBuilder $blogUrlBuilder,
-        \S2\Cms\Model\ArticleProvider $articleProvider,
+        \Register\Core\Model\ArticleProvider $articleProvider,
         \Register\Module\Blog\Model\PostProvider $postProvider,
         ContentUrlGenerator $contentUrlGenerator,
-        \S2\Cms\Model\UrlBuilder $urlBuilder,
+        \Register\Core\Model\UrlBuilder $urlBuilder,
         \Symfony\Contracts\Translation\TranslatorInterface $translator,
-        \S2\Cms\Template\HtmlTemplateProvider $templateProvider,
-        \S2\Cms\Template\Viewer $viewer,
-        \S2\Cms\Config\StringProxy $blogTitle,
-        \S2\Cms\Config\BoolProxy $showComments,
-        \S2\Cms\Config\BoolProxy $enabledComments,
+        \Register\Core\Template\HtmlTemplateProvider $templateProvider,
+        \Register\Core\Template\Viewer $viewer,
+        \Register\Core\Config\StringProxy $blogTitle,
+        \Register\Core\Config\BoolProxy $showComments,
+        \Register\Core\Config\BoolProxy $enabledComments,
         private readonly TagRepository $tagRepository,
     ) {
         parent::__construct(
@@ -65,10 +65,10 @@ class TagsPageController extends BlogController
             return new RedirectResponse($this->urlBuilder->link($request->getPathInfo() . '/'), Response::HTTP_MOVED_PERMANENTLY);
         }
 
-        $template->registerPlaceholder('<!-- s2_blog_navigation -->', '');
+        $template->registerPlaceholder('<!-- register_blog_navigation -->', '');
 
-        if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
-            $template->registerPlaceholder('<!-- s2_blog_calendar -->', $this->calendarBuilder->calendar());
+        if ($template->hasPlaceholder('<!-- register_blog_calendar -->')) {
+            $template->registerPlaceholder('<!-- register_blog_calendar -->', $this->calendarBuilder->calendar());
         }
 
         $tags = [];

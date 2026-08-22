@@ -2,16 +2,16 @@
 /**
  * @copyright 2023-2026 Roman Parpalak
  * @license   https://opensource.org/license/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Image;
+namespace Register\Core\Image;
 
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Cms\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\QueueExecutionBudget;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 class ThumbnailGenerator implements QueueHandlerInterface
@@ -251,7 +251,7 @@ class ThumbnailGenerator implements QueueHandlerInterface
                 throw new \RuntimeException('Unable to publish thumbnail: ' . $outputFilename);
             }
 
-            s2_call_without_warnings(static fn(): bool => chmod($outputFilename, 0644));
+            register_call_without_warnings(static fn(): bool => chmod($outputFilename, 0644));
         } finally {
             if (file_exists($temporaryFilename)) {
                 unlink($temporaryFilename);

@@ -7,12 +7,12 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Storage;
+namespace Register\Rose\Storage;
 
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\Metadata\ImgCollection;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Entity\TocEntry;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\Metadata\ImgCollection;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Entity\TocEntry;
 
 interface StorageWriteInterface
 {

@@ -9,14 +9,14 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Service;
 
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\Metadata\ImgCollection;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Entity\TocEntry;
-use S2\Rose\Entity\TocEntryWithMetadata;
-use S2\Rose\Exception\UnknownException;
-use S2\Rose\Helper\SnippetTextHelper;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\Metadata\ImgCollection;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Entity\TocEntry;
+use Register\Rose\Entity\TocEntryWithMetadata;
+use Register\Rose\Exception\UnknownException;
+use Register\Rose\Helper\SnippetTextHelper;
+use Register\Rose\Storage\Database\PdoStorage;
 
 /** Finds semantically related indexed content on every supported database. */
 final readonly class RecommendationFinder

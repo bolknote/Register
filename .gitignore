@@ -15,4 +15,4 @@ _vendor/*
 config.local.php
 config.test.php
 pictures
-s2_test
+register_test

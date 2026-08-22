@@ -90,7 +90,7 @@ final readonly class BackupEncryptor
             }
 
             if ($destinationCreated && is_file($destinationPath)) {
-                s2_call_without_warnings(static fn(): bool => unlink($destinationPath));
+                register_call_without_warnings(static fn(): bool => unlink($destinationPath));
             }
 
             throw $throwable;
@@ -145,7 +145,7 @@ final readonly class BackupEncryptor
             }
 
             if ($destinationCreated && is_file($destinationPath)) {
-                s2_call_without_warnings(static fn(): bool => unlink($destinationPath));
+                register_call_without_warnings(static fn(): bool => unlink($destinationPath));
             }
 
             throw $throwable;
@@ -270,14 +270,14 @@ final readonly class BackupEncryptor
             throw new \RuntimeException('The backup output directory is not available.');
         }
 
-        $stream = s2_call_without_warnings(static fn() => fopen($path, 'xb'));
+        $stream = register_call_without_warnings(static fn() => fopen($path, 'xb'));
         if ($stream === false) {
             throw new \RuntimeException('Unable to create the backup encryption output.');
         }
 
         if (DIRECTORY_SEPARATOR !== '\\' && !chmod($path, 0600)) {
             fclose($stream);
-            s2_call_without_warnings(static fn(): bool => unlink($path));
+            register_call_without_warnings(static fn(): bool => unlink($path));
             throw new \RuntimeException('Unable to secure the backup encryption output.');
         }
 

@@ -7,6 +7,7 @@ return [
     'minimum_target_php_version' => '8.3',
     'directory_list' => [
         '_admin',
+        '_include/admin-yard/src',
         '_include/src',
         '_extensions',
         '_vendor',
@@ -27,6 +28,7 @@ return [
     ],
     'exclude_analysis_directory_list' => [
         '_vendor',
+        '_include/admin-yard/src',
         '_admin/lang',
         '_admin/templates',
         '_include/src/Register/Module/Blog/resources/lang',

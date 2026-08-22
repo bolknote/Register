@@ -7,16 +7,16 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test\Entity;
+namespace Register\Rose\Test\Entity;
 
 use Codeception\Test\Unit;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\FulltextQuery;
-use S2\Rose\Entity\FulltextResult;
-use S2\Rose\Entity\ResultSet;
-use S2\Rose\Stemmer\PorterStemmerEnglish;
-use S2\Rose\Storage\FulltextIndexContent;
-use S2\Rose\Storage\FulltextIndexPositionBag;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\FulltextQuery;
+use Register\Rose\Entity\FulltextResult;
+use Register\Rose\Entity\ResultSet;
+use Register\Rose\Stemmer\PorterStemmerEnglish;
+use Register\Rose\Storage\FulltextIndexContent;
+use Register\Rose\Storage\FulltextIndexPositionBag;
 
 /**
  * @group entity

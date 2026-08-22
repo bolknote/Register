@@ -12,14 +12,14 @@ namespace Register\Module\Analytics;
 
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Module\VisitorIdentity\VisitorResolvedEvent;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Controller\Rss\RssHitEvent;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
-use S2\Cms\Framework\ContainerModuleInterface;
-use S2\Cms\Framework\RoutingModuleInterface;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\TemplateEvent;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Controller\Rss\RssHitEvent;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\ContainerAwareListenerModuleInterface;
+use Register\Core\Framework\ContainerModuleInterface;
+use Register\Core\Framework\RoutingModuleInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\TemplateEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
@@ -54,7 +54,7 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
         $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, static function (TemplateEvent $event) use ($container): void {
             $basePath = $container->getStringParameter('base_path');
             $event->htmlTemplate->registerPlaceholder(
-                '<!-- s2_counter_img -->',
+                '<!-- register_counter_img -->',
                 '<img class="register-analytics-counter" src="' . $basePath . '/_analytics/counter.png" width="88" height="31" alt="Page views" />',
             );
 

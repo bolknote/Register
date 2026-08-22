@@ -7,14 +7,14 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Delivery;
+namespace Register\Extension\activitypub\Delivery;
 
-use s2_extensions\activitypub\Domain\ActivityDeliveryIntent;
-use s2_extensions\activitypub\Domain\ModerationAction;
-use s2_extensions\activitypub\Domain\RemoteActor;
-use s2_extensions\activitypub\Infrastructure\ModerationRuleRepository;
-use s2_extensions\activitypub\Infrastructure\RemoteActorRepository;
-use s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation;
+use Register\Extension\activitypub\Domain\ActivityDeliveryIntent;
+use Register\Extension\activitypub\Domain\ModerationAction;
+use Register\Extension\activitypub\Domain\RemoteActor;
+use Register\Extension\activitypub\Infrastructure\ModerationRuleRepository;
+use Register\Extension\activitypub\Infrastructure\RemoteActorRepository;
+use Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation;
 
 /** Plans Mention fan-out from immutable object snapshots without publication-time network I/O. */
 final readonly class MentionDeliveryPlanner

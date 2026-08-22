@@ -7,9 +7,9 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Security\WebAuthn;
+namespace Register\Core\Security\WebAuthn;
 
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 final readonly class WebAuthnChallengeRepository
 {

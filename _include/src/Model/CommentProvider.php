@@ -2,21 +2,21 @@
 /**
  * @copyright 2007-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Model;
+namespace Register\Core\Model;
 
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Config\BoolProxy;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\Viewer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Config\BoolProxy;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\Viewer;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class CommentProvider
 {

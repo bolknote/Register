@@ -14,10 +14,10 @@ use Register\Update\ReleaseManifest;
 use Register\Update\UpdateDirectoryResolver;
 use Register\Update\UpdateManager;
 use Register\Update\UpdateStorage;
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Admin\AdminConfigExtenderInterface;
-use S2\Cms\Model\PermissionChecker;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\TemplateRenderer;
+use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Core\Model\PermissionChecker;
 
 final readonly class UpdateAdminConfigExtender implements AdminConfigExtenderInterface
 {

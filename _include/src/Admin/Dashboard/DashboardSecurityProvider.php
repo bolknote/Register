@@ -2,15 +2,15 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Dashboard;
+namespace Register\Core\Admin\Dashboard;
 
-use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Security\Monitoring\SecurityAlertDetector;
+use Register\AdminYard\TemplateRenderer;
+use Register\Core\Security\Monitoring\SecurityAlertDetector;
 
 final readonly class DashboardSecurityProvider implements DashboardStatProviderInterface, SystemStatusProviderInterface
 {

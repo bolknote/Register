@@ -582,7 +582,7 @@
     }
 
     window.RegisterAudioPlayer = api;
-    document.addEventListener('preview_updated.s2', function (event) {
+    document.addEventListener('preview_updated.register', function (event) {
         if (event.detail && event.detail.wrapper) {
             api.enhance(event.detail.wrapper).catch(function (error) {
                 console.error(error);

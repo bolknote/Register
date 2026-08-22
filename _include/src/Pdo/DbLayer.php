@@ -5,24 +5,24 @@
  *
  * @copyright 2009-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Pdo;
+namespace Register\Core\Pdo;
 
-use S2\Cms\Pdo\QueryBuilder\DeleteBuilder;
-use S2\Cms\Pdo\QueryBuilder\DeleteCommonCompiler;
-use S2\Cms\Pdo\QueryBuilder\InsertBuilder;
-use S2\Cms\Pdo\QueryBuilder\InsertMysqlCompiler;
-use S2\Cms\Pdo\QueryBuilder\SelectBuilder;
-use S2\Cms\Pdo\QueryBuilder\SelectCommonCompiler;
-use S2\Cms\Pdo\QueryBuilder\UnionAll;
-use S2\Cms\Pdo\QueryBuilder\UpdateBuilder;
-use S2\Cms\Pdo\QueryBuilder\UpdateCommonCompiler;
-use S2\Cms\Pdo\QueryBuilder\UpsertBuilder;
-use S2\Cms\Pdo\QueryBuilder\UpsertMysqlCompiler;
+use Register\Core\Pdo\QueryBuilder\DeleteBuilder;
+use Register\Core\Pdo\QueryBuilder\DeleteCommonCompiler;
+use Register\Core\Pdo\QueryBuilder\InsertBuilder;
+use Register\Core\Pdo\QueryBuilder\InsertMysqlCompiler;
+use Register\Core\Pdo\QueryBuilder\SelectBuilder;
+use Register\Core\Pdo\QueryBuilder\SelectCommonCompiler;
+use Register\Core\Pdo\QueryBuilder\UnionAll;
+use Register\Core\Pdo\QueryBuilder\UpdateBuilder;
+use Register\Core\Pdo\QueryBuilder\UpdateCommonCompiler;
+use Register\Core\Pdo\QueryBuilder\UpsertBuilder;
+use Register\Core\Pdo\QueryBuilder\UpsertMysqlCompiler;
 
 class DbLayer implements QueryBuilder\QueryExecutorInterface
 {

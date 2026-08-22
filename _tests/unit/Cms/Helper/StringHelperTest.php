@@ -2,7 +2,7 @@
 /**
  * @copyright 2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Helper;
 
 use Codeception\Test\Unit;
-use S2\Cms\Helper\StringHelper;
+use Register\Core\Helper\StringHelper;
 
 final class StringHelperTest extends Unit
 {

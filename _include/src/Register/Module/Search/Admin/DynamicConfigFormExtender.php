@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Admin;
 
-use S2\Cms\Admin\DynamicConfigFormExtenderInterface;
+use Register\Core\Admin\DynamicConfigFormExtenderInterface;
 
 class DynamicConfigFormExtender implements DynamicConfigFormExtenderInterface
 {
@@ -21,8 +21,8 @@ class DynamicConfigFormExtender implements DynamicConfigFormExtenderInterface
     {
         return [
             'Search config'                   => 'title',
-            'S2_SEARCH_QUICK'                 => 'boolean',
-            'S2_SEARCH_RECOMMENDATIONS_LIMIT' => 'int',
+            'REGISTER_SEARCH_QUICK'                 => 'boolean',
+            'REGISTER_SEARCH_RECOMMENDATIONS_LIMIT' => 'int',
         ];
     }
 }

@@ -7,7 +7,7 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Stemmer;
+namespace Register\Rose\Stemmer;
 
 /**
  * A stemmer which can return several equivalent search forms for one word.

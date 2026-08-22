@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 ?>
     <url>
-        <loc><?php echo s2_htmlencode($link); ?></loc>
+        <loc><?php echo register_htmlencode($link); ?></loc>
 <?php if ($modify_time !== null) { ?>
         <lastmod><?php echo gmdate('c', $modify_time); ?></lastmod>
 <?php } ?>

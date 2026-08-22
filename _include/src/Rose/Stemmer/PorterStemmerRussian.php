@@ -2,7 +2,7 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Stemmer;
+namespace Register\Rose\Stemmer;
 
 /**
  * @see http://forum.dklab.ru/php/advises/HeuristicWithoutTheDictionaryExtractionOfARootFromRussianWord.html
@@ -362,7 +362,7 @@ class PorterStemmerRussian extends AbstractStemmer implements StemmerInterface
         }
 
         if (\preg_match(self::SUPPORTS_REGEX, $word) !== 1) {
-            return $this->nextStemmer instanceof \S2\Rose\Stemmer\StemmerInterface ? $this->nextStemmer->stemWord($word) : $word;
+            return $this->nextStemmer instanceof \Register\Rose\Stemmer\StemmerInterface ? $this->nextStemmer->stemWord($word) : $word;
         }
 
         $stem = $word;

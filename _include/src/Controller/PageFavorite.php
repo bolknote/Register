@@ -4,23 +4,23 @@
  *
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Controller;
+namespace Register\Core\Controller;
 
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\FavoriteArticleProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Template\HtmlTemplateProvider;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\FavoriteArticleProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Template\HtmlTemplateProvider;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class PageFavorite implements ControllerInterface
 {

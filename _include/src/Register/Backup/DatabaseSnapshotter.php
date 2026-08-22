@@ -178,7 +178,7 @@ final readonly class DatabaseSnapshotter
     private function removeIncompleteFile(string $targetPath): void
     {
         if (is_file($targetPath)) {
-            s2_call_without_warnings(static fn(): bool => unlink($targetPath));
+            register_call_without_warnings(static fn(): bool => unlink($targetPath));
         }
     }
 }

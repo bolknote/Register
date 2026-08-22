@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,10 +10,10 @@ declare(strict_types = 1);
 namespace unit\Cms\Install;
 
 use Codeception\Test\Unit;
-use S2\Cms\Config\SecretConfigPathResolver;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpResponse;
-use S2\Cms\Install\SecretFileBoundaryVerifier;
+use Register\Core\Config\SecretConfigPathResolver;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpResponse;
+use Register\Core\Install\SecretFileBoundaryVerifier;
 use Symfony\Component\Filesystem\Filesystem;
 
 final class SecretFileBoundaryVerifierTest extends Unit

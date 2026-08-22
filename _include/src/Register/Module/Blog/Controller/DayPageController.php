@@ -11,11 +11,11 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
-use S2\Cms\Pdo\QueryBuilder\SelectBuilder;
-use S2\Cms\Template\HtmlTemplate;
+use Register\Core\Pdo\QueryBuilder\SelectBuilder;
+use Register\Core\Template\HtmlTemplate;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 class DayPageController extends BlogController
 {
@@ -29,8 +29,8 @@ class DayPageController extends BlogController
         $month = (int)($textMonth = $request->attributes->get('month'));
         $day   = (int)($textDay = $request->attributes->get('day'));
 
-        if ($template->hasPlaceholder('<!-- s2_blog_calendar -->')) {
-            $template->registerPlaceholder('<!-- s2_blog_calendar -->', $this->calendarBuilder->calendar($year, $month, $day));
+        if ($template->hasPlaceholder('<!-- register_blog_calendar -->')) {
+            $template->registerPlaceholder('<!-- register_blog_calendar -->', $this->calendarBuilder->calendar($year, $month, $day));
         }
 
         $template->putInPlaceholder('title', '');
@@ -39,7 +39,7 @@ class DayPageController extends BlogController
         $endTime   = $startTime + 60 * 60 * 24;
 
         $output = $this->getPosts(
-            fn (SelectBuilder $qb): \S2\Cms\Pdo\QueryBuilder\SelectBuilder => $qb
+            fn (SelectBuilder $qb): \Register\Core\Pdo\QueryBuilder\SelectBuilder => $qb
                 ->andWhere('p.published_at < ' . $endTime)
                 ->andWhere('p.published_at >= ' . $startTime)
         );

@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Domain;
+namespace Register\Extension\activitypub\Domain;
 
 /** A bounded, ASCII ActivityPub account handle suitable for WebFinger discovery. */
 final readonly class RemoteHandle implements \Stringable

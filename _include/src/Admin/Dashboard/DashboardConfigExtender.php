@@ -2,17 +2,17 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Dashboard;
+namespace Register\Core\Admin\Dashboard;
 
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\TemplateRenderer;
-use S2\Cms\Admin\AdminConfigExtenderInterface;
-use S2\Cms\Model\PermissionChecker;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\TemplateRenderer;
+use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Core\Model\PermissionChecker;
 
 readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
 {

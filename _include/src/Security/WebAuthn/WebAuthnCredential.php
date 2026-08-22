@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Security\WebAuthn;
+namespace Register\Core\Security\WebAuthn;
 
 use Webauthn\CredentialRecord;
 

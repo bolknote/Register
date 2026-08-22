@@ -12,10 +12,10 @@ namespace Register\Url;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Pdo\QueryBuilder\UnionAll;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
+use Register\Core\Pdo\QueryBuilder\UnionAll;
 
 /** Generates every canonical public URL for Register content. */
 final readonly class ContentUrlGenerator

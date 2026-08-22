@@ -2,15 +2,15 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Translation;
+namespace Register\Core\Translation;
 
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Framework\StatefulServiceInterface;
+use Register\Core\Config\StringProxy;
+use Register\Core\Framework\StatefulServiceInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\Contracts\Translation\TranslatorTrait;
 

@@ -7,19 +7,19 @@
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Controller;
+namespace Register\Core\Admin\Controller;
 
 use Psr\Log\LoggerInterface;
 use Register\Content\Admin\ContentBulkPublicationService;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentType;
 use Register\Url\ContentUrlCollisionException;
-use S2\AdminYard\Translator;
-use S2\Cms\Admin\AdminPanelFactory;
-use S2\Cms\AdminYard\BulkListActionProvider;
-use S2\Cms\Framework\Exception\AccessDeniedException;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\AdminYard\Translator;
+use Register\Core\Admin\AdminPanelFactory;
+use Register\Core\AdminYard\BulkListActionProvider;
+use Register\Core\Framework\Exception\AccessDeniedException;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;

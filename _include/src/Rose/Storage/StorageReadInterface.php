@@ -7,12 +7,12 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Storage;
+namespace Register\Rose\Storage;
 
-use S2\Rose\Entity\ExternalIdCollection;
-use S2\Rose\Entity\TocEntryWithMetadata;
-use S2\Rose\Storage\Dto\SnippetResult;
-use S2\Rose\Storage\Dto\SnippetQuery;
+use Register\Rose\Entity\ExternalIdCollection;
+use Register\Rose\Entity\TocEntryWithMetadata;
+use Register\Rose\Storage\Dto\SnippetResult;
+use Register\Rose\Storage\Dto\SnippetQuery;
 
 interface StorageReadInterface
 {

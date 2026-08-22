@@ -7,10 +7,10 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Infrastructure;
+namespace Register\Extension\activitypub\Infrastructure;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\InboxState;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\InboxState;
 
 /** Durable first-seen inbox envelope storage, claims, and crash recovery. */
 final readonly class InboxRepository
@@ -301,7 +301,7 @@ final readonly class InboxRepository
 
     public function markObjectFetched(ClaimedInboxItem $item, string $json, int $now): void
     {
-        if ($json === '' || \strlen($json) > \s2_extensions\activitypub\Domain\ProtocolLimits::OBJECT_DOCUMENT_BYTES) {
+        if ($json === '' || \strlen($json) > \Register\Extension\activitypub\Domain\ProtocolLimits::OBJECT_DOCUMENT_BYTES) {
             throw new \InvalidArgumentException('The fetched remote ActivityPub object is empty or too large.');
         }
 
@@ -325,7 +325,7 @@ final readonly class InboxRepository
 
     public function markMoveTargetFetched(ClaimedInboxItem $item, string $json, int $now): void
     {
-        if ($json === '' || \strlen($json) > \s2_extensions\activitypub\Domain\ProtocolLimits::ACTOR_DOCUMENT_BYTES) {
+        if ($json === '' || \strlen($json) > \Register\Extension\activitypub\Domain\ProtocolLimits::ACTOR_DOCUMENT_BYTES) {
             throw new \InvalidArgumentException('The fetched ActivityPub Move target actor is empty or too large.');
         }
 

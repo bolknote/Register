@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace Register\Module\VisitorIdentity;
 
 use Register\Module\VisitorIdentity\Admin\DynamicConfigFormExtender;
-use S2\Cms\Admin\DynamicConfigFormExtenderInterface;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ContainerModuleInterface;
+use Register\Core\Admin\DynamicConfigFormExtenderInterface;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\ContainerModuleInterface;
 
 final class AdminModule implements ContainerModuleInterface
 {

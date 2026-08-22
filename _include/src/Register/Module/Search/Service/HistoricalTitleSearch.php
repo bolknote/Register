@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace Register\Module\Search\Service;
 
 use Register\Module\Search\Morphology\HistoricalRussianNormalizer;
-use S2\Rose\Entity\TocEntryWithMetadata;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Rose\Entity\TocEntryWithMetadata;
+use Register\Rose\Storage\Database\PdoStorage;
 
 /** Matches quick-search titles after historical spelling has been canonicalized. */
 final readonly class HistoricalTitleSearch
@@ -47,7 +47,7 @@ final readonly class HistoricalTitleSearch
     public function highlight(string $title, string $query): string
     {
         if ($query === '') {
-            return s2_htmlencode($title);
+            return register_htmlencode($title);
         }
 
         $literalPosition = mb_stripos($title, $query);
@@ -57,13 +57,13 @@ final readonly class HistoricalTitleSearch
 
         $needle = $this->comparisonKey($query);
         if ($needle === '') {
-            return s2_htmlencode($title);
+            return register_htmlencode($title);
         }
 
         [$normalizedTitle, $segments] = $this->normalizeWithSegments($title);
         $normalizedPosition           = mb_strpos($normalizedTitle, $needle);
         if ($normalizedPosition === false) {
-            return s2_htmlencode($title);
+            return register_htmlencode($title);
         }
 
         $normalizedEnd = $normalizedPosition + mb_strlen($needle);
@@ -83,12 +83,12 @@ final readonly class HistoricalTitleSearch
         }
 
         if ($firstRawByte === null || $lastRawByte === null) {
-            return s2_htmlencode($title);
+            return register_htmlencode($title);
         }
 
-        return s2_htmlencode(substr($title, 0, $firstRawByte))
-            . '<em>' . s2_htmlencode(substr($title, $firstRawByte, $lastRawByte - $firstRawByte)) . '</em>'
-            . s2_htmlencode(substr($title, $lastRawByte));
+        return register_htmlencode(substr($title, 0, $firstRawByte))
+            . '<em>' . register_htmlencode(substr($title, $firstRawByte, $lastRawByte - $firstRawByte)) . '</em>'
+            . register_htmlencode(substr($title, $lastRawByte));
     }
 
     /** @return list<TocEntryWithMetadata> */
@@ -135,9 +135,9 @@ final readonly class HistoricalTitleSearch
 
     private function highlightCharacterRange(string $title, int $start, int $length): string
     {
-        return s2_htmlencode(mb_substr($title, 0, $start))
-            . '<em>' . s2_htmlencode(mb_substr($title, $start, $length)) . '</em>'
-            . s2_htmlencode(mb_substr($title, $start + $length));
+        return register_htmlencode(mb_substr($title, 0, $start))
+            . '<em>' . register_htmlencode(mb_substr($title, $start, $length)) . '</em>'
+            . register_htmlencode(mb_substr($title, $start + $length));
     }
 
     /**

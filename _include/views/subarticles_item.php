@@ -3,7 +3,7 @@
 declare(strict_types = 1);
 
 /**
- * An item of <!-- s2_subarticles --> content
+ * An item of <!-- register_subarticles --> content
  *
  * @var callable $trans
  * @var string $parent_link
@@ -19,7 +19,7 @@ $postfix = '';
 $class = ['subsection'];
 if (!empty($favorite)) {
 	if ($favorite !== 2) {
-        $postfix = '<a href="' . s2_htmlencode($favorite_link) . '" class="favorite-star" title="' . $trans('Favorite') . '">★</a>';
+        $postfix = '<a href="' . register_htmlencode($favorite_link) . '" class="favorite-star" title="' . $trans('Favorite') . '">★</a>';
     }
 	else {
         $postfix = '<span class="favorite-star" title="' . $trans('Favorite') . '">★</span>';
@@ -29,7 +29,7 @@ if (!empty($favorite)) {
 
 ?>
 				<h3 class="<?php echo implode(' ', $class)?>">
-                    <a href="<?php echo s2_htmlencode($link); ?>"><?php echo s2_htmlencode($title); ?></a>
+                    <a href="<?php echo register_htmlencode($link); ?>"><?php echo register_htmlencode($title); ?></a>
 <?php if ($postfix) { ?>
 					<?php echo $postfix; ?>
 

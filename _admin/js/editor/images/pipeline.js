@@ -1,14 +1,14 @@
 /**
- * Image optimization and upload pipeline for editor in S2.
+ * Image optimization and upload pipeline for editor in Register.
  *
  * @copyright 2024-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 import {runOptipng} from '../../png-optimize-setup.js';
 import {resizeImageFile, analyzeImage, findJpegCandidateForSsim, compressToPng, computeCandidateSsimScore, selectBestImageCandidate} from '../../image_utils.js';
-import {s2_codemirror} from '../codemirror.js';
+import {register_codemirror} from '../codemirror.js';
 import {editorDeps} from '../deps.js';
 import {sanitizeUrlForAttribute} from '../utils/escape.js';
 import {imageState, formatDimensionValue, getModePolicy, getResizeOptionsForMode, getDisplayDimensionsForMode, shouldPreferJpegOnly, logPipelineSummary} from './state.js';
@@ -169,7 +169,7 @@ function insertImageTag(src, width, height) {
     const safeSrc = sanitizeImageSrc(src);
     const sOpenTag = '<img src="' + safeSrc + '" width="' + (w || 'auto') + '" height="' + (h || 'auto') + '" ' + 'loading="lazy" alt="',
         sCloseTag = '" />';
-    document.dispatchEvent(new CustomEvent('insert_tag.s2', {
+    document.dispatchEvent(new CustomEvent('insert_tag.register', {
         detail: {sStart: sOpenTag, sEnd: sCloseTag, imageSrc: safeSrc}
     }));
 }
@@ -180,7 +180,7 @@ function replaceImageSrcInEditor(oldSrc, newSrc) {
     }
     const safeOld = sanitizeImageSrc(oldSrc);
     const safeNew = sanitizeImageSrc(newSrc);
-    s2_codemirror.replaceAllText(safeOld, safeNew);
+    register_codemirror.replaceAllText(safeOld, safeNew);
 }
 
 function replaceImageTagInEditor(oldSrc, newSrc, width, height) {
@@ -189,7 +189,7 @@ function replaceImageTagInEditor(oldSrc, newSrc, width, height) {
     }
 
     const safeOld = sanitizeImageSrc(oldSrc);
-    const content = s2_codemirror.getValue();
+    const content = register_codemirror.getValue();
     const index = content.indexOf(safeOld);
     if (index === -1) {
         return;
@@ -218,7 +218,7 @@ function replaceImageTagInEditor(oldSrc, newSrc, width, height) {
     updated = ensureAttr(updated, 'width', widthValue);
     updated = ensureAttr(updated, 'height', heightValue);
 
-    s2_codemirror.replaceRangeByIndex(updated, start, end + 1);
+    register_codemirror.replaceRangeByIndex(updated, start, end + 1);
 }
 
 function applyPendingImages(wrapper) {
@@ -1115,11 +1115,11 @@ export function optimizeAndUploadFile(file) {
 let pipelineInitialized = false;
 
 function bindCodemirrorImageHandlers() {
-    if (!s2_codemirror.isReady()) {
+    if (!register_codemirror.isReady()) {
         return;
     }
 
-    s2_codemirror.onPaste(function (event) {
+    register_codemirror.onPaste(function (event) {
         var items = (event.clipboardData || event.originalEvent.clipboardData).items,
             hasImage = false;
 
@@ -1137,7 +1137,7 @@ function bindCodemirrorImageHandlers() {
         return !hasImage;
     });
 
-    s2_codemirror.onDrop(function (e) {
+    register_codemirror.onDrop(function (e) {
         var dt = e.dataTransfer;
         if (!dt || !dt.files) {
             return;
@@ -1152,7 +1152,7 @@ function bindCodemirrorImageHandlers() {
                 processed = true;
                 uploadBlobToPictureDir(files[i], files[i].name)
                     .then(function (result) {
-                        document.dispatchEvent(new CustomEvent('return_image.s2', {
+                        document.dispatchEvent(new CustomEvent('return_image.register', {
                             detail: {
                                 file_path: result.res.file_path,
                                 width: result.width || 'auto',
@@ -1167,7 +1167,7 @@ function bindCodemirrorImageHandlers() {
 
         if (processed) {
             // Move cursor to a new position where a file was drpopped
-            s2_codemirror.setSelectionFromCoords(e.x, e.y);
+            register_codemirror.setSelectionFromCoords(e.x, e.y);
             e.preventDefault();
         }
     });
@@ -1180,7 +1180,7 @@ export function initImagePipeline() {
     }
     pipelineInitialized = true;
 
-    document.addEventListener('preview_updated.s2', function (event) {
+    document.addEventListener('preview_updated.register', function (event) {
         if (!event.detail || !event.detail.wrapper) {
             return;
         }

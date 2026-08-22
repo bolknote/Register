@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -11,9 +11,9 @@ namespace unit\Cms\Queue;
 
 use Codeception\Test\Unit;
 use Psr\Log\NullLogger;
-use S2\Cms\Queue\BackgroundWorkRunnerInterface;
-use S2\Cms\Queue\ShutdownRuntimeInterface;
-use S2\Cms\Queue\ShutdownWorkCoordinator;
+use Register\Core\Queue\BackgroundWorkRunnerInterface;
+use Register\Core\Queue\ShutdownRuntimeInterface;
+use Register\Core\Queue\ShutdownWorkCoordinator;
 
 final class ShutdownWorkCoordinatorTest extends Unit
 {

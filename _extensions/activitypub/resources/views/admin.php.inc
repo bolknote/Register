@@ -3,16 +3,16 @@
 declare(strict_types = 1);
 
 use Register\Author\AuthorProfile;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\FederationPolicy;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\ReaderEntry;
-use s2_extensions\activitypub\Application\IdentityHealthReport;
-use s2_extensions\activitypub\Application\ActivationReadinessAttempt;
-use s2_extensions\activitypub\Application\ActivationReadinessCheck;
-use s2_extensions\activitypub\Application\ActivationReadinessState;
-use s2_extensions\activitypub\Infrastructure\StoredLocalNoteRepresentation;
-use s2_extensions\activitypub\Infrastructure\ContentBackfillJob;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\FederationPolicy;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\ReaderEntry;
+use Register\Extension\activitypub\Application\IdentityHealthReport;
+use Register\Extension\activitypub\Application\ActivationReadinessAttempt;
+use Register\Extension\activitypub\Application\ActivationReadinessCheck;
+use Register\Extension\activitypub\Application\ActivationReadinessState;
+use Register\Extension\activitypub\Infrastructure\StoredLocalNoteRepresentation;
+use Register\Extension\activitypub\Infrastructure\ContentBackfillJob;
 
 /** @var callable $trans */
 /** @var FederationLifecycleState $lifecycle */

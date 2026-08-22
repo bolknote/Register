@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Media;
+namespace Register\Extension\activitypub\Media;
 
 /** Private derived-file storage. Public access is exclusively through the bounded media controller. */
 final readonly class RemoteAvatarStorage
@@ -54,13 +54,13 @@ final readonly class RemoteAvatarStorage
                 throw new \RuntimeException('Unable to write a complete remote avatar file.');
             }
 
-            s2_call_without_warnings(static fn(): bool => chmod($temporary, 0600));
+            register_call_without_warnings(static fn(): bool => chmod($temporary, 0600));
             if (!rename($temporary, $filename)) {
                 throw new \RuntimeException('Unable to atomically publish a remote avatar file.');
             }
         } finally {
             if (is_file($temporary)) {
-                s2_call_without_warnings(static fn(): bool => unlink($temporary));
+                register_call_without_warnings(static fn(): bool => unlink($temporary));
             }
         }
 
@@ -81,7 +81,7 @@ final readonly class RemoteAvatarStorage
     public function remove(string $storageKey): void
     {
         $filename = $this->path($storageKey);
-        if (is_file($filename) && !s2_call_without_warnings(static fn(): bool => unlink($filename))) {
+        if (is_file($filename) && !register_call_without_warnings(static fn(): bool => unlink($filename))) {
             throw new \RuntimeException('Unable to remove a retired remote avatar file.');
         }
     }
@@ -99,7 +99,7 @@ final readonly class RemoteAvatarStorage
         }
 
         $warning = null;
-        $content = s2_call_without_warnings(static fn(): string|false => file_get_contents($filename), $warning);
+        $content = register_call_without_warnings(static fn(): string|false => file_get_contents($filename), $warning);
         unset($warning);
 
         return \is_string($content)
@@ -113,7 +113,7 @@ final readonly class RemoteAvatarStorage
             throw new \RuntimeException('Unable to create the private remote avatar directory.');
         }
 
-        s2_call_without_warnings(static fn(): bool => chmod($directory, 0700));
+        register_call_without_warnings(static fn(): bool => chmod($directory, 0700));
     }
 
     private function ensureDenyPolicy(): void
@@ -123,7 +123,7 @@ final readonly class RemoteAvatarStorage
             . "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n"
             . "<IfModule !mod_authz_core.c>\n    Deny from all\n</IfModule>\n";
         $existing = is_file($filename)
-            ? s2_call_without_warnings(static fn(): string|false => file_get_contents($filename))
+            ? register_call_without_warnings(static fn(): string|false => file_get_contents($filename))
             : false;
         if ($existing === $policy) {
             return;
@@ -141,10 +141,10 @@ final readonly class RemoteAvatarStorage
                 throw new \RuntimeException('Unable to install the remote avatar access policy.');
             }
 
-            s2_call_without_warnings(static fn(): bool => chmod($filename, 0644));
+            register_call_without_warnings(static fn(): bool => chmod($filename, 0644));
         } finally {
             if (is_file($temporary)) {
-                s2_call_without_warnings(static fn(): bool => unlink($temporary));
+                register_call_without_warnings(static fn(): bool => unlink($temporary));
             }
         }
     }

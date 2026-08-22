@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Service;
 
-use S2\Rose\Stemmer\StemmerHelper;
-use S2\Rose\Stemmer\StemmerInterface;
+use Register\Rose\Stemmer\StemmerHelper;
+use Register\Rose\Stemmer\StemmerInterface;
 
 final class SimilarWordsDetector
 {

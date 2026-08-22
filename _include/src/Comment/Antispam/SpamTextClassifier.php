@@ -2,17 +2,17 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Comment\Antispam;
+namespace Register\Core\Comment\Antispam;
 
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 /**
- * @see \S2\Cms\Comment\Antispam\SpamTextClassifierTest
+ * @see \Register\Core\Comment\Antispam\SpamTextClassifierTest
  */
 final readonly class SpamTextClassifier
 {
@@ -26,7 +26,7 @@ final readonly class SpamTextClassifier
     public function matches(string $name, string $text): bool
     {
         $model = $this->repository?->get();
-        if (!$model instanceof \S2\Cms\Comment\Antispam\SpamTextModel) {
+        if (!$model instanceof \Register\Core\Comment\Antispam\SpamTextModel) {
             return false;
         }
 

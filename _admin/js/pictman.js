@@ -5,7 +5,7 @@
  *
  * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package S2
+ * @package Register
  */
 
 var pictureManagerRoot = document.querySelector('[data-picture-manager]');
@@ -50,7 +50,7 @@ function strNatCmp(a, b) {
     return aa.length - bb.length;
 }
 
-var s2Retina = (function () {
+var registerRetina = (function () {
     var is_local_storage = false;
     try {
         is_local_storage = 'localStorage' in window && window['localStorage'] !== null;
@@ -58,13 +58,13 @@ var s2Retina = (function () {
         is_local_storage = false;
     }
 
-    var is_retina = is_local_storage && !!(localStorage.getItem('s2_use_retina') - 0);
+    var is_retina = is_local_storage && !!(localStorage.getItem('register_use_retina') - 0);
 
     return {
         'set': function (val) {
             is_retina = val;
             if (is_local_storage)
-                localStorage.setItem('s2_use_retina', 0 + is_retina);
+                localStorage.setItem('register_use_retina', 0 + is_retina);
         },
         'get': function () {
             return is_retina;
@@ -105,7 +105,7 @@ function appendInsertButton(container) {
     var button = document.createElement('input');
     button.type = 'button';
     button.className = 'link-as-button';
-    button.value = s2_lang.insert;
+    button.value = register_lang.insert;
     button.addEventListener('click', function () {
         fExecDouble();
     });
@@ -115,7 +115,7 @@ function appendInsertButton(container) {
 function renderFileInformation(container, fileName, filePath, fileSize, dimensions, bits) {
     container.replaceChildren();
 
-    container.append(document.createTextNode(s2_lang.file));
+    container.append(document.createTextNode(register_lang.file));
     var fileLink = document.createElement('a');
     fileLink.href = encodeURI(filePath);
     fileLink.target = '_blank';
@@ -124,7 +124,7 @@ function renderFileInformation(container, fileName, filePath, fileSize, dimensio
     container.append(fileLink);
 
     if (fileSize) {
-        appendInformationLine(container, s2_lang.value + fileSize);
+        appendInformationLine(container, register_lang.value + fileSize);
     }
 
     if (dimensions) {
@@ -132,32 +132,32 @@ function renderFileInformation(container, fileName, filePath, fileSize, dimensio
         var width = Number.parseInt(size[0] || '0', 10);
         var height = Number.parseInt(size[1] || '0', 10);
 
-        appendInformationLine(container, s2_lang.color + bits);
-        appendInformationLine(container, s2_lang.size + width + '×' + height);
+        appendInformationLine(container, register_lang.color + bits);
+        appendInformationLine(container, register_lang.size + width + '×' + height);
 
         var retinaSize = document.createElement('span');
-        retinaSize.id = 's2_retina_size';
-        retinaSize.hidden = !s2Retina.get();
-        retinaSize.textContent = s2_lang.reduction + Math.round(width / 2) + '×' + Math.round(height / 2);
+        retinaSize.id = 'register_retina_size';
+        retinaSize.hidden = !registerRetina.get();
+        retinaSize.textContent = register_lang.reduction + Math.round(width / 2) + '×' + Math.round(height / 2);
         container.append(retinaSize);
 
         var retinaLabel = document.createElement('label');
         var retinaCheckbox = document.createElement('input');
         retinaCheckbox.type = 'checkbox';
-        retinaCheckbox.checked = s2Retina.get();
+        retinaCheckbox.checked = registerRetina.get();
         retinaCheckbox.addEventListener('change', function () {
-            s2Retina.set(retinaCheckbox.checked);
+            registerRetina.set(retinaCheckbox.checked);
             retinaSize.hidden = !retinaCheckbox.checked;
         });
-        retinaLabel.append(retinaCheckbox, document.createTextNode(s2_lang.retina_help));
+        retinaLabel.append(retinaCheckbox, document.createTextNode(register_lang.retina_help));
         container.append(document.createElement('br'), retinaLabel);
 
         fExecDouble = function () {
             if (parentWnd.ReturnImage) {
                 parentWnd.ReturnImage(
                     filePath,
-                    s2Retina.get() ? Math.round(width / 2) : width,
-                    s2Retina.get() ? Math.round(height / 2) : height
+                    registerRetina.get() ? Math.round(width / 2) : width,
+                    registerRetina.get() ? Math.round(height / 2) : height
                 );
             }
         };
@@ -233,15 +233,15 @@ $(function () {
     $('<button>', {
         type: 'button',
         id: 'context_add',
-        title: s2_lang.create_subfolder,
-        'aria-label': s2_lang.create_subfolder
+        title: register_lang.create_subfolder,
+        'aria-label': register_lang.create_subfolder
     }).text('+').appendTo(eButtons);
     $('<button>', {
         type: 'button',
         id: 'context_delete',
         class: 'is-dangerous',
-        title: s2_lang.delete_folder,
-        'aria-label': s2_lang.delete_folder
+        title: register_lang.delete_folder,
+        'aria-label': register_lang.delete_folder
     }).text('−').appendTo(eButtons);
     $('body').append(eButtons);
     initContext();
@@ -267,9 +267,9 @@ $(function () {
             if (!folderDeletionConfirmed) {
                 e.stopImmediatePropagation();
                 window.AdminConfirm.ask({
-                    title: s2_lang.delete_title,
-                    message: str_replace('%s', folderTree.jstree('get_text', selectedFolder), s2_lang.delete_item),
-                    confirmLabel: s2_lang.delete_confirm,
+                    title: register_lang.delete_title,
+                    message: str_replace('%s', folderTree.jstree('get_text', selectedFolder), register_lang.delete_item),
+                    confirmLabel: register_lang.delete_confirm,
                     dangerous: true
                 }).then(function (confirmed) {
                     if (!confirmed) {
@@ -491,7 +491,7 @@ $(function () {
                 progressive_render: true,
                 open_parents: false,
                 strings: {
-                    loading: s2_lang.load,
+                    loading: register_lang.load,
                     new_node: 'new'
                 }
             },
@@ -520,9 +520,9 @@ $(function () {
             }
             e.stopImmediatePropagation();
             window.AdminConfirm.ask({
-                title: s2_lang.delete_title,
-                message: str_replace('%s', names.join(', '), s2_lang.delete_file),
-                confirmLabel: s2_lang.delete_confirm,
+                title: register_lang.delete_title,
+                message: str_replace('%s', names.join(', '), register_lang.delete_file),
+                confirmLabel: register_lang.delete_confirm,
                 dangerous: true
             }).then(function (confirmed) {
                 if (!confirmed) {
@@ -649,7 +649,7 @@ $(function () {
                             $('#loadstatus').text('');
                             return data;
                         }
-                        $('#loadstatus').text(data.message || s2_lang.unknown_error);
+                        $('#loadstatus').text(data.message || register_lang.unknown_error);
                         return false;
                     }
                 }
@@ -663,8 +663,8 @@ $(function () {
             },
             core: {
                 strings: {
-                    loading: s2_lang.load,
-                    multiple_selection: s2_lang.multiple_files
+                    loading: register_lang.load,
+                    multiple_selection: register_lang.multiple_files
                 }
             },
             sort: function (a, b) {
@@ -744,7 +744,7 @@ function initFileDrop() {
         }
 
         if (not_sent !== '') {
-            PopupMessages.show(str_replace('%s', sFriendlyMaxFileSize, s2_lang.files_too_big) + not_sent);
+            PopupMessages.show(str_replace('%s', sFriendlyMaxFileSize, register_lang.files_too_big) + not_sent);
         }
 
         e.preventDefault();

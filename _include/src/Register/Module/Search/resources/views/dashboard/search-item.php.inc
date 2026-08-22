@@ -9,11 +9,11 @@
 ?>
 <div class="stat-item search-stat-item"
      data-register-search
-     data-reindex-url="<?= s2_htmlencode($basePath . '/_admin/ajax.php?action=register_search_reindex') ?>"
-     data-csrf-token="<?= s2_htmlencode($csrfToken) ?>"
-     data-scheduled-message="<?= s2_htmlencode($trans('Repair scheduled')) ?>"
-     data-failure-message="<?= s2_htmlencode($trans('Repair scheduling failed')) ?>">
-    <input type="hidden" name="register_search_csrf_token" value="<?= s2_htmlencode($csrfToken) ?>">
+     data-reindex-url="<?= register_htmlencode($basePath . '/_admin/ajax.php?action=register_search_reindex') ?>"
+     data-csrf-token="<?= register_htmlencode($csrfToken) ?>"
+     data-scheduled-message="<?= register_htmlencode($trans('Repair scheduled')) ?>"
+     data-failure-message="<?= register_htmlencode($trans('Repair scheduling failed')) ?>">
+    <input type="hidden" name="register_search_csrf_token" value="<?= register_htmlencode($csrfToken) ?>">
     <h3><?= $trans('Search index') ?></h3>
     <p class="stat-status">
     <?php if ($health->repairPending): ?>

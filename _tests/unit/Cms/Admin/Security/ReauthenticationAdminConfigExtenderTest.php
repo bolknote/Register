@@ -10,17 +10,17 @@ declare(strict_types = 1);
 namespace unit\Cms\Admin\Security;
 
 use Codeception\Test\Unit;
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\Config\EntityConfig;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Config\VirtualFieldType;
-use S2\AdminYard\Database\Key;
-use S2\AdminYard\Database\PdoDataProvider;
-use S2\AdminYard\Database\TypeTransformer;
-use S2\AdminYard\Event\BeforeSaveEvent;
-use S2\AdminYard\Translator;
-use S2\Cms\Admin\Security\ReauthenticationAdminConfigExtender;
-use S2\Cms\Model\AuthManager;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\Config\EntityConfig;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Config\VirtualFieldType;
+use Register\AdminYard\Database\Key;
+use Register\AdminYard\Database\PdoDataProvider;
+use Register\AdminYard\Database\TypeTransformer;
+use Register\AdminYard\Event\BeforeSaveEvent;
+use Register\AdminYard\Translator;
+use Register\Core\Admin\Security\ReauthenticationAdminConfigExtender;
+use Register\Core\Model\AuthManager;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 

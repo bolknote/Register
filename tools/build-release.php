@@ -86,7 +86,6 @@ try {
     (new ProductionDependencyInstaller())->install(
         $temporaryRoot . '/' . SharedHostingDistributionBuilder::APPLICATION_DIRECTORY,
     );
-    $distributionBuilder->syncPublicVendorAssets($temporaryRoot);
     $distributionBuilder->validatePublicBoundary($temporaryRoot);
 
     $buildInfo     = BuildInfo::toJson($releaseId, $version, $builtAt, $commit);

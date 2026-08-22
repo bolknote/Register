@@ -9,29 +9,29 @@ declare(strict_types = 1);
 
 namespace Register\Module;
 
-use S2\Cms\Framework\ModuleInterface;
+use Register\Core\Framework\ModuleInterface;
 
 /**
  * The product modules that make up every Register installation.
  *
  * Keeping the list here makes the product contract independent from extension database rows while
- * the remaining S2-era code moves into Register namespaces.
+ * the remaining Register-era code moves into Register namespaces.
  */
 final class BaseModuleRegistry
 {
-    public const string BLOG       = 's2_blog';
+    public const string BLOG       = 'register_blog';
 
-    public const string SEARCH     = 's2_search';
+    public const string SEARCH     = 'register_search';
 
-    public const string MATH       = 's2_latex';
+    public const string MATH       = 'register_latex';
 
     public const string VISITOR_IDENTITY = 'register_visitor_identity';
 
-    public const string ANALYTICS  = 's2_counter';
+    public const string ANALYTICS  = 'register_counter';
 
     public const string REACTIONS  = 'register_reactions';
 
-    public const string TYPOGRAPHY = 's2_typo';
+    public const string TYPOGRAPHY = 'register_typo';
 
     public const string SYNTAX_HIGHLIGHTING = 'register_syntax_highlighting';
 

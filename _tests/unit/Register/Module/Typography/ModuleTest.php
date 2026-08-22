@@ -11,10 +11,10 @@ namespace unit\Register\Module\Typography;
 
 use Codeception\Test\Unit;
 use Register\Module\Typography\Module;
-use S2\Cms\Controller\Rss\FeedItemDto;
-use S2\Cms\Controller\Rss\FeedItemRenderEvent;
-use S2\Cms\Framework\Container;
-use S2\Cms\Template\TemplateFinalReplaceEvent;
+use Register\Core\Controller\Rss\FeedItemDto;
+use Register\Core\Controller\Rss\FeedItemRenderEvent;
+use Register\Core\Framework\Container;
+use Register\Core\Template\TemplateFinalReplaceEvent;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Contracts\Translation\TranslatorInterface;
 

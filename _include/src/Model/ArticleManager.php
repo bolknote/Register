@@ -2,12 +2,12 @@
 /**
  * @copyright 2024-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Model;
+namespace Register\Core\Model;
 
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
@@ -20,15 +20,15 @@ use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlCollisionException;
-use S2\Cms\Config\BoolProxy;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Form\FormParams;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\Cms\Framework\Exception\AccessDeniedException;
-use S2\Cms\Framework\Exception\NotFoundException;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Security\Http\AdminMutationGuard;
+use Register\Core\Config\BoolProxy;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Form\FormParams;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\Core\Framework\Exception\AccessDeniedException;
+use Register\Core\Framework\Exception\NotFoundException;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
+use Register\Core\Security\Http\AdminMutationGuard;
 
 readonly class ArticleManager
 {

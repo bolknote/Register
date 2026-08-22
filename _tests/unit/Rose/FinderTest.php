@@ -9,23 +9,23 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Test;
+namespace Register\Rose\Test;
 
 use Codeception\Test\Unit;
 use Codeception\Stub;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\ExternalIdCollection;
-use S2\Rose\Entity\Metadata\ImgCollection;
-use S2\Rose\Entity\Query;
-use S2\Rose\Entity\TocEntry;
-use S2\Rose\Entity\TocEntryWithMetadata;
-use S2\Rose\Finder;
-use S2\Rose\Stemmer\PorterStemmerRussian;
-use S2\Rose\Storage\Dto\SnippetQuery;
-use S2\Rose\Storage\Dto\SnippetResult;
-use S2\Rose\Storage\FulltextIndexContent;
-use S2\Rose\Storage\FulltextIndexPositionBag;
-use S2\Rose\Storage\StorageReadInterface;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\ExternalIdCollection;
+use Register\Rose\Entity\Metadata\ImgCollection;
+use Register\Rose\Entity\Query;
+use Register\Rose\Entity\TocEntry;
+use Register\Rose\Entity\TocEntryWithMetadata;
+use Register\Rose\Finder;
+use Register\Rose\Stemmer\PorterStemmerRussian;
+use Register\Rose\Storage\Dto\SnippetQuery;
+use Register\Rose\Storage\Dto\SnippetResult;
+use Register\Rose\Storage\FulltextIndexContent;
+use Register\Rose\Storage\FulltextIndexPositionBag;
+use Register\Rose\Storage\StorageReadInterface;
 
 if (!class_exists(Stub::class)) {
     // Remove on dropping support for Codeception 4.x
@@ -42,7 +42,7 @@ final class FinderTest extends Unit
         $storedSnippetQuery = null;
         $storage = Stub::makeEmpty(StorageReadInterface::class, [
             'getTocSize'                      => static fn(): int => 30,
-            'fulltextResultByWords'           => static function (array $words): \S2\Rose\Storage\FulltextIndexContent {
+            'fulltextResultByWords'           => static function (array $words): \Register\Rose\Storage\FulltextIndexContent {
                 $result = new FulltextIndexContent();
                 foreach ($words as $k => $word) {
                     if ($word === 'find') {
@@ -90,7 +90,7 @@ final class FinderTest extends Unit
 
                 return $result;
             },
-            'getTocByExternalIds'             => static fn(ExternalIdCollection $ids): array => array_map(static fn(ExternalId $id): \S2\Rose\Entity\TocEntryWithMetadata => new TocEntryWithMetadata(
+            'getTocByExternalIds'             => static fn(ExternalIdCollection $ids): array => array_map(static fn(ExternalId $id): \Register\Rose\Entity\TocEntryWithMetadata => new TocEntryWithMetadata(
                 new TocEntry('Title ' . $id->getId(), '', null, 'url_' . $id->getId(), 1, 'hash_' . $id->getId()),
                 $id,
                 new ImgCollection()

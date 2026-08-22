@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Domain;
+namespace Register\Extension\activitypub\Domain;
 
 /** Runtime validation shared by actor drafts, hydrated commands, and future author actors. */
 final class ActorProfileInputValidator

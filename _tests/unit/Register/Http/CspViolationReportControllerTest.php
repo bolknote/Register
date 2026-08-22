@@ -13,7 +13,7 @@ use Codeception\Test\Unit;
 use Register\Http\ContentSecurityPolicy;
 use Register\Http\CspViolationReportController;
 use Register\Http\CspViolationReporter;
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

@@ -9,7 +9,7 @@ declare(strict_types = 1);
 /** @var string $logoutCsrfToken */
 /** @var ?int $userId */
 
-use S2\Cms\AdminYard\Signal;
+use Register\Core\AdminYard\Signal;
 
 $html = static fn(string $text): string => htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
 

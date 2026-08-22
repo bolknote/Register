@@ -2,22 +2,22 @@
 /**
  * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin\Security;
+namespace Register\Core\Admin\Security;
 
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\Config\EntityConfig;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Config\VirtualFieldType;
-use S2\AdminYard\Database\Key;
-use S2\AdminYard\Event\BeforeSaveEvent;
-use S2\AdminYard\Translator;
-use S2\Cms\Admin\AdminConfigExtenderInterface;
-use S2\Cms\Model\AuthManager;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\Config\EntityConfig;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Config\VirtualFieldType;
+use Register\AdminYard\Database\Key;
+use Register\AdminYard\Event\BeforeSaveEvent;
+use Register\AdminYard\Translator;
+use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Core\Model\AuthManager;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;

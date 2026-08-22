@@ -14,7 +14,7 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlAliasRepository;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ContentUrlAliasCest

@@ -7,20 +7,20 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Admin;
+namespace Register\Extension\activitypub\Admin;
 
 use Register\Content\ContentId;
 use Register\Content\ContentType;
-use S2\AdminYard\Config\AdminConfig;
-use S2\AdminYard\Config\EntityConfig;
-use S2\AdminYard\Config\FieldConfig;
-use S2\AdminYard\Config\VirtualFieldType;
-use S2\AdminYard\Event\AfterSaveEvent;
-use S2\AdminYard\Event\BeforeSaveEvent;
-use S2\AdminYard\Translator;
-use S2\AdminYard\Validator\Length;
-use S2\Cms\Admin\AdminConfigExtenderInterface;
-use s2_extensions\activitypub\Infrastructure\ActivityPubSchema;
+use Register\AdminYard\Config\AdminConfig;
+use Register\AdminYard\Config\EntityConfig;
+use Register\AdminYard\Config\FieldConfig;
+use Register\AdminYard\Config\VirtualFieldType;
+use Register\AdminYard\Event\AfterSaveEvent;
+use Register\AdminYard\Event\BeforeSaveEvent;
+use Register\AdminYard\Translator;
+use Register\AdminYard\Validator\Length;
+use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
 
 final readonly class AdminConfigExtender implements AdminConfigExtenderInterface
 {
@@ -190,9 +190,9 @@ final readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             . " WHERE local_type = '" . $contentType->value . "' AND local_id = entity.id AND state = 'live'), 'inherit')";
     }
 
-    private function primaryKey(?\S2\AdminYard\Database\Key $key): int
+    private function primaryKey(?\Register\AdminYard\Database\Key $key): int
     {
-        if (!$key instanceof \S2\AdminYard\Database\Key) {
+        if (!$key instanceof \Register\AdminYard\Database\Key) {
             throw new \LogicException('The ActivityPub content editor primary key is missing.');
         }
 

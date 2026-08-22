@@ -15,11 +15,11 @@ declare(strict_types = 1);
 namespace Register\Module\Search;
 
 use Register\Module\ContainerAwareBaseModuleInstallerInterface;
-use S2\Cms\Framework\Container;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Framework\Container;
+use Register\Core\Pdo\DbLayer;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 final class Manifest implements ContainerAwareBaseModuleInstallerInterface
 {
@@ -56,8 +56,8 @@ final class Manifest implements ContainerAwareBaseModuleInstallerInterface
     public function installFresh(DbLayer $dbLayer, Container $container): void
     {
         $config = [
-            'S2_SEARCH_QUICK'                 => '0',
-            'S2_SEARCH_RECOMMENDATIONS_LIMIT' => '0',
+            'REGISTER_SEARCH_QUICK'                 => '0',
+            'REGISTER_SEARCH_RECOMMENDATIONS_LIMIT' => '0',
         ];
         foreach ($config as $confName => $confValue) {
             $dbLayer

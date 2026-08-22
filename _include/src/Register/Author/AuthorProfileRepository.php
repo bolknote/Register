@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Author;
 
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 /** Exposes author presentation data without leaking authentication fields to integrations. */
 final readonly class AuthorProfileRepository
@@ -82,7 +82,7 @@ final readonly class AuthorProfileRepository
         return $profiles;
     }
 
-    private function baseQuery(): \S2\Cms\Pdo\QueryBuilder\SelectBuilder
+    private function baseQuery(): \Register\Core\Pdo\QueryBuilder\SelectBuilder
     {
         return $this->dbLayer
             ->select('id, name, create_articles, edit_site')

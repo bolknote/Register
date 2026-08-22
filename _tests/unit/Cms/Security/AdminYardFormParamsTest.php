@@ -10,10 +10,10 @@ declare(strict_types = 1);
 namespace unit\Cms\Security;
 
 use Codeception\Test\Unit;
-use S2\AdminYard\Form\Form;
-use S2\AdminYard\Form\FormParams;
-use S2\AdminYard\SettingStorage\SettingStorageInterface;
-use S2\AdminYard\Translator;
+use Register\AdminYard\Form\Form;
+use Register\AdminYard\Form\FormParams;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\Translator;
 use Symfony\Component\HttpFoundation\Request;
 
 final class AdminYardFormParamsTest extends Unit

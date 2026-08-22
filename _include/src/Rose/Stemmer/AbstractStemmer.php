@@ -6,7 +6,7 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Stemmer;
+namespace Register\Rose\Stemmer;
 
 abstract class AbstractStemmer
 {

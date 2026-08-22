@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Discovery;
+namespace Register\Extension\activitypub\Discovery;
 
-use S2\Cms\HttpClient\Remote\SafeRemoteHttpClient;
-use S2\Cms\HttpClient\Remote\SafeRemoteRequestOptions;
-use s2_extensions\activitypub\Domain\RemoteHandle;
+use Register\Core\HttpClient\Remote\SafeRemoteHttpClient;
+use Register\Core\HttpClient\Remote\SafeRemoteRequestOptions;
+use Register\Extension\activitypub\Domain\RemoteHandle;
 
 /** Performs an explicitly requested, SSRF-safe WebFinger lookup with bounded redirects. */
 final readonly class WebFingerClient

@@ -1,6 +1,6 @@
 <?php
 /** @var callable $trans */
-/** @var \S2\Cms\Security\Monitoring\SecurityAlertSummary $securitySummary */
+/** @var \Register\Core\Security\Monitoring\SecurityAlertSummary $securitySummary */
 ?>
 <div class="stat-item security-stat-item">
     <h3><?= $trans('Security monitoring') ?></h3>

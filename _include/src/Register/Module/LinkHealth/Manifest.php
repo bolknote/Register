@@ -13,8 +13,8 @@ namespace Register\Module\LinkHealth;
 
 use Register\Content\ContentSchema;
 use Register\Module\BaseModuleInstallerInterface;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\SchemaBuilderInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
 
 final class Manifest implements BaseModuleInstallerInterface
 {

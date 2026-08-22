@@ -12,10 +12,10 @@ namespace unit\Register\Security;
 use Codeception\Test\Unit;
 use Register\Backup\PortableZipWriter;
 use Register\Url\ContentUrlAliasRepository;
-use S2\AdminYard\Translator;
-use S2\Cms\Admin\Picture\PictureFileNameHelper;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpClientException;
+use Register\AdminYard\Translator;
+use Register\Core\Admin\Picture\PictureFileNameHelper;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientException;
 
 /** Exercises security invariants with deterministic generated inputs. */
 final class SecurityBoundaryPropertyTest extends Unit

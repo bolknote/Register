@@ -24,11 +24,8 @@ return $config
     ->addPathToScan($projectRoot . '/_tests', isDev: true)
     ->addPathToScan($projectRoot . '/tools', isDev: true)
     ->addPathToScan($projectRoot . '/index.php', isDev: false)
+    ->addPathToExclude($projectRoot . '/_tests/_support/Helper/AbstractBrowserModule.php')
     ->addPathToExclude($projectRoot . '/tools/quality/stubs')
-    // Codeception creates these actors and traits from suite configuration at runtime.
-    ->ignoreUnknownClasses([
-        'Tests\\Support\\Helper\\AbstractBrowserModule',
-    ])
     // Native mbstring/ctype are covered by direct polyfills; the other extensions are optional and guarded.
     // The release workflow explicitly installs Bzip2 and Zip before invoking the archive builder.
     ->ignoreErrorsOnExtensions([

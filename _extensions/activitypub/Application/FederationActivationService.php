@@ -7,18 +7,18 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Application;
+namespace Register\Extension\activitypub\Application;
 
-use S2\Cms\Pdo\DbLayer;
-use s2_extensions\activitypub\Domain\ActorKind;
-use s2_extensions\activitypub\Domain\FederationLifecycleState;
-use s2_extensions\activitypub\Domain\LocalActor;
-use s2_extensions\activitypub\Domain\LocalActorState;
-use s2_extensions\activitypub\Infrastructure\ActivityPubSchema;
-use s2_extensions\activitypub\Infrastructure\ActivationReadinessRepository;
-use s2_extensions\activitypub\Infrastructure\FederationStateRepository;
-use s2_extensions\activitypub\Infrastructure\LocalActorRepository;
-use s2_extensions\activitypub\Infrastructure\PortableDatabaseTransaction;
+use Register\Core\Pdo\DbLayer;
+use Register\Extension\activitypub\Domain\ActorKind;
+use Register\Extension\activitypub\Domain\FederationLifecycleState;
+use Register\Extension\activitypub\Domain\LocalActor;
+use Register\Extension\activitypub\Domain\LocalActorState;
+use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
+use Register\Extension\activitypub\Infrastructure\ActivationReadinessRepository;
+use Register\Extension\activitypub\Infrastructure\FederationStateRepository;
+use Register\Extension\activitypub\Infrastructure\LocalActorRepository;
+use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
 
 /** Freezes public identity only after every local, external, signed, and release check passes. */
 final readonly class FederationActivationService
@@ -84,7 +84,7 @@ final readonly class FederationActivationService
 
         return $this->transaction->run(function () use ($report, $attemptId, $timestamp): LocalActor {
             $state = $this->stateRepository->state();
-            if ($state->lifecycle !== FederationLifecycleState::INSTALLED || $state->canonicalOrigin instanceof \s2_extensions\activitypub\Domain\CanonicalOrigin) {
+            if ($state->lifecycle !== FederationLifecycleState::INSTALLED || $state->canonicalOrigin instanceof \Register\Extension\activitypub\Domain\CanonicalOrigin) {
                 throw new \DomainException('The ActivityPub installation has already frozen a public identity.');
             }
 
@@ -97,7 +97,7 @@ final readonly class FederationActivationService
                 throw new \DomainException('The readiness report does not identify the unpublished site actor.');
             }
 
-            if (!$this->actorRepository->currentKey($actor->id) instanceof \s2_extensions\activitypub\Domain\LocalActorKey) {
+            if (!$this->actorRepository->currentKey($actor->id) instanceof \Register\Extension\activitypub\Domain\LocalActorKey) {
                 throw new \DomainException('The site actor has no current signing key.');
             }
 

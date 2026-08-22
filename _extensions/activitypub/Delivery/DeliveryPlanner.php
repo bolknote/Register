@@ -7,11 +7,11 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Delivery;
+namespace Register\Extension\activitypub\Delivery;
 
-use s2_extensions\activitypub\Domain\ActivityDeliveryIntent;
-use s2_extensions\activitypub\Infrastructure\DeliveryRepository;
-use s2_extensions\activitypub\Infrastructure\StoredActivityRepresentation;
+use Register\Extension\activitypub\Domain\ActivityDeliveryIntent;
+use Register\Extension\activitypub\Infrastructure\DeliveryRepository;
+use Register\Extension\activitypub\Infrastructure\StoredActivityRepresentation;
 
 /** Materializes current follower endpoints in the activity's publication transaction. */
 final readonly class DeliveryPlanner

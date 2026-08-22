@@ -11,16 +11,16 @@ namespace integration;
 
 use Register\Ai\AiSettings;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Config\DynamicSecretStore;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Config\DynamicSecretStore;
+use Register\Core\Pdo\DbLayer;
 
 final class SecretConfigCest
 {
     public function testManagedSecretsLeaveDatabaseAndCache(\IntegrationTester $I): void
     {
         $secretFile = \dirname(__DIR__) . '/_output/config.secrets.php';
-        $cacheFile  = \dirname(__DIR__, 2) . '/_cache/test/cache_config.php';
+        $cacheFile  = \dirname(__DIR__, 2) . '/_cache/test/register_config.php';
         $formSelector = 'form[action="?entity=Config&action=patch&field=value&name='
             . AiSettings::API_KEY_CONFIG_KEY . '"]';
 
@@ -36,7 +36,7 @@ final class SecretConfigCest
             $dbLayer = $I->grabAdminService(DbLayer::class);
             $persistentSecrets = include $secretFile;
             $I->assertIsArray($persistentSecrets);
-            $persistentParameters = ['S2_ANTISPAM_SECRET', VisitorIdentityManifest::SECRET_CONFIG_KEY];
+            $persistentParameters = ['REGISTER_ANTISPAM_SECRET', VisitorIdentityManifest::SECRET_CONFIG_KEY];
             foreach ($persistentParameters as $parameter) {
                 $I->assertArrayHasKey($parameter, $persistentSecrets);
                 $I->assertSame(

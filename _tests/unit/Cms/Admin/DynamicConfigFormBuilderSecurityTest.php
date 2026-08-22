@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace unit\Cms\Admin;
 
 use Codeception\Test\Unit;
-use S2\AdminYard\Config\FieldConfig;
-use S2\Cms\Admin\DynamicConfigFormBuilder;
-use S2\Cms\Model\PermissionChecker;
+use Register\AdminYard\Config\FieldConfig;
+use Register\Core\Admin\DynamicConfigFormBuilder;
+use Register\Core\Model\PermissionChecker;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class DynamicConfigFormBuilderSecurityTest extends Unit
@@ -26,7 +26,7 @@ final class DynamicConfigFormBuilderSecurityTest extends Unit
         $builder = $reflection->newInstanceWithoutConstructor();
         $builder->paramTypes = $types;
 
-        self::assertTrue($builder->isSecretParameter('S2_AKISMET_KEY'));
+        self::assertTrue($builder->isSecretParameter('REGISTER_AKISMET_KEY'));
     }
 
     public function testAdminColorAcceptsOnlySixDigitHexValues(): void
@@ -39,7 +39,7 @@ final class DynamicConfigFormBuilderSecurityTest extends Unit
         $builder->paramTypes = $types;
         $reflection->getProperty('permissionChecker')->setValue($builder, new PermissionChecker());
 
-        $field = $reflection->getMethod('createDynamicFieldConfig')->invoke($builder, 'S2_ADMIN_COLOR');
+        $field = $reflection->getMethod('createDynamicFieldConfig')->invoke($builder, 'REGISTER_ADMIN_COLOR');
         self::assertInstanceOf(FieldConfig::class, $field);
         self::assertCount(1, $field->validators);
 

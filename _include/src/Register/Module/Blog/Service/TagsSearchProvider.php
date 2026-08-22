@@ -33,7 +33,7 @@ readonly class TagsSearchProvider
         foreach ($this->tagRepository->findPublishedUsage(ContentType::POST) as $usage) {
             $tag = $usage->tag;
             if ($this->similarWordsDetector->wordIsSimilarToOtherWords($tag->name, $words)) {
-                $tags[] = '<a href="' . $this->blogUrlBuilder->tag($tag->slug) . '">' . s2_htmlencode($tag->name) . '</a>';
+                $tags[] = '<a href="' . $this->blogUrlBuilder->tag($tag->slug) . '">' . register_htmlencode($tag->name) . '</a>';
             }
         }
 

@@ -2,22 +2,22 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Controller;
+namespace Register\Core\Controller;
 
 use Register\Comment\CommentRepository;
 use Register\Content\ContentType;
-use S2\Cms\Comment\CommentHtml;
-use S2\Cms\Comment\Antispam\SpamFeedbackService;
-use S2\Cms\Framework\ControllerInterface;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\Comment\CommentModerationTokenManager;
-use S2\Cms\Model\Comment\CommentModerator;
-use S2\Cms\Model\UrlBuilder;
+use Register\Core\Comment\CommentHtml;
+use Register\Core\Comment\Antispam\SpamFeedbackService;
+use Register\Core\Framework\ControllerInterface;
+use Register\Core\Model\AuthProvider;
+use Register\Core\Model\Comment\CommentModerationTokenManager;
+use Register\Core\Model\Comment\CommentModerator;
+use Register\Core\Model\UrlBuilder;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;

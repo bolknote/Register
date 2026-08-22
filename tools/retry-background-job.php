@@ -5,12 +5,12 @@
  *
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-use S2\Cms\Queue\QueueRecovery;
+use Register\Core\Queue\QueueRecovery;
 
 if (PHP_SAPI !== 'cli') {
     exit(1);

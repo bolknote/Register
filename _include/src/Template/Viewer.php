@@ -7,13 +7,13 @@ declare(strict_types = 1);
  *
  * @copyright 2014-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
-namespace S2\Cms\Template;
+namespace Register\Core\Template;
 
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Model\UrlBuilder;
+use Register\Core\Config\StringProxy;
+use Register\Core\Model\UrlBuilder;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 class Viewer
@@ -60,7 +60,7 @@ class Viewer
 
         if ($this->debug) {
             echo '<div class="view-debug-block"><details class="view-debug-details">',
-                '<summary><code>', s2_htmlencode($name), '</code></summary><pre>',
+                '<summary><code>', register_htmlencode($name), '</code></summary><pre>',
                 $this->jsonFormat($vars),
                 '</pre></details>';
         }
@@ -68,7 +68,7 @@ class Viewer
         if ($foundFile !== null) {
             $this->includeFile($foundFile, $vars);
         } elseif ($this->debug) {
-            echo 'View file not found in ', s2_htmlencode(var_export($dirs, true));
+            echo 'View file not found in ', register_htmlencode(var_export($dirs, true));
         }
 
         if ($this->debug) {
@@ -148,7 +148,7 @@ class Viewer
      */
     private function jsonFormat(mixed $vars): string
     {
-        return s2_htmlencode(json_encode(
+        return register_htmlencode(json_encode(
             $vars,
             JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
         ));

@@ -12,13 +12,13 @@ namespace Register\Module\Search\Service;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
 use Register\Content\ContentRepository;
-use S2\Cms\Queue\QueueExecutionBudget;
-use S2\Cms\Queue\QueueHandlerInterface;
-use S2\Cms\Queue\QueuePublisher;
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Indexer;
-use S2\Rose\Storage\Database\PdoStorage;
-use S2\Rose\Storage\Exception\EmptyIndexException;
+use Register\Core\Queue\QueueExecutionBudget;
+use Register\Core\Queue\QueueHandlerInterface;
+use Register\Core\Queue\QueuePublisher;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Indexer;
+use Register\Rose\Storage\Database\PdoStorage;
+use Register\Rose\Storage\Exception\EmptyIndexException;
 
 /**
  * Plans a complete index reconciliation through durable, independently retryable queue jobs.

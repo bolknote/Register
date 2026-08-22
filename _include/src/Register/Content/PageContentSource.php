@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace Register\Content;
 
 use Register\Url\ContentUrlGenerator;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
 
 /** Exposes published pages through Register's shared content contract. */
 final readonly class PageContentSource implements ContentSourceInterface

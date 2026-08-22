@@ -23,33 +23,33 @@ use Register\Module\Blog\Inplace\PostInplaceMediaStorage;
 use Register\Module\Blog\Inplace\PostInplaceTokenManager;
 use Register\Module\Blog\Inplace\PostMediaRepository;
 use Register\Module\Blog\Inplace\SiteHeaderInplaceController;
-use S2\Cms\Admin\Picture\PictureFileNameHelper;
-use S2\Cms\Admin\Picture\PictureStorageQuota;
-use S2\Cms\Asset\AssetPack;
-use S2\Cms\Comment\Antispam\CommentFormTokenManager;
-use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
-use S2\Cms\Comment\Antispam\SpamRateLimiter;
-use S2\Cms\Comment\SpamDecisionProviderInterface;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Controller\CommentController;
-use S2\Cms\Controller\RssController;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\ContainerAwareListenerModuleInterface;
-use S2\Cms\Framework\ContainerAwareRoutingModuleInterface;
-use S2\Cms\Framework\ContainerModuleInterface;
-use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\Mail\CommentMailer;
-use S2\Cms\Model\Article\ArticleRenderedEvent;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Model\FavoriteArticleProvider;
-use S2\Cms\Model\AuthProvider;
-use S2\Cms\Model\UrlBuilder;
-use S2\Cms\Model\User\UserProvider;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Template\HtmlTemplateProvider;
-use S2\Cms\Template\TemplateAssetEvent;
-use S2\Cms\Template\TemplateEvent;
-use S2\Cms\Template\Viewer;
+use Register\Core\Admin\Picture\PictureFileNameHelper;
+use Register\Core\Admin\Picture\PictureStorageQuota;
+use Register\Core\Asset\AssetPack;
+use Register\Core\Comment\Antispam\CommentFormTokenManager;
+use Register\Core\Comment\Antispam\SpamAssessmentRepository;
+use Register\Core\Comment\Antispam\SpamRateLimiter;
+use Register\Core\Comment\SpamDecisionProviderInterface;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Controller\CommentController;
+use Register\Core\Controller\RssController;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\ContainerAwareListenerModuleInterface;
+use Register\Core\Framework\ContainerAwareRoutingModuleInterface;
+use Register\Core\Framework\ContainerModuleInterface;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Mail\CommentMailer;
+use Register\Core\Model\Article\ArticleRenderedEvent;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Model\FavoriteArticleProvider;
+use Register\Core\Model\AuthProvider;
+use Register\Core\Model\UrlBuilder;
+use Register\Core\Model\User\UserProvider;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\HtmlTemplateProvider;
+use Register\Core\Template\TemplateAssetEvent;
+use Register\Core\Template\TemplateEvent;
+use Register\Core\Template\Viewer;
 use Register\Module\Blog\Controller\AllPostsController;
 use Register\Module\Blog\Controller\DayPageController;
 use Register\Module\Blog\Controller\FavoritePageController;
@@ -81,7 +81,7 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
-use S2\Cms\Translation\ExtensibleTranslator;
+use Register\Core\Translation\ExtensibleTranslator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 final class Module implements ContainerModuleInterface, ContainerAwareListenerModuleInterface, ContainerAwareRoutingModuleInterface
@@ -93,8 +93,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $provider = $container->get(DynamicConfigProvider::class);
             return new BlogUrlBuilder(
                 $container->get(UrlBuilder::class),
-                $provider->getStringProxy('S2_TAGS_URL'),
-                $provider->getStringProxy('S2_FAVORITE_URL'),
+                $provider->getStringProxy('REGISTER_TAGS_URL'),
+                $provider->getStringProxy('REGISTER_FAVORITE_URL'),
             );
         }, [StatefulServiceInterface::class]);
         $container->set(BlogContentSource::class, static fn(Container $container): BlogContentSource => new BlogContentSource(
@@ -115,7 +115,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get(ContentUrlGenerator::class),
                 $container->get('register_blog_translator'),
-                $provider->getIntProxy('S2_START_YEAR'),
+                $provider->getIntProxy('REGISTER_START_YEAR'),
             );
         });
         $container->set(BlogPlaceholderProvider::class, static function (Container $container): \Register\Module\Blog\Model\BlogPlaceholderProvider {
@@ -129,8 +129,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(Viewer::class),
                 $container->get(RequestStack::class),
                 $container->get('config_cache'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getIntProxy('S2_MAX_ITEMS'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getIntProxy('REGISTER_MAX_ITEMS'),
                 $container->getStringParameter('url_prefix'),
             );
         });
@@ -142,9 +142,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get(Viewer::class),
                 $container->get(PostInplaceControls::class),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
-                $provider->getIntProxy('S2_MAX_ITEMS'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
+                $provider->getIntProxy('REGISTER_MAX_ITEMS'),
             );
         });
         $container->set(SiteHeaderRenderer::class, static function (Container $container): SiteHeaderRenderer {
@@ -155,12 +155,12 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(UrlBuilder::class),
                 $container->get(PostInplaceControls::class),
                 $container->get(PostFeedRenderer::class),
-                $provider->getStringProxy('S2_SITE_NAME'),
+                $provider->getStringProxy('REGISTER_SITE_NAME'),
                 $provider->getStringProxy(SiteHeaderRenderer::TAGLINE_CONFIG_KEY),
             );
         });
         $container->set(PostInplaceTokenManager::class, static fn(Container $container): PostInplaceTokenManager => new PostInplaceTokenManager(
-            $container->get(\S2\Cms\Comment\Antispam\SpamIdentityHasher::class),
+            $container->get(\Register\Core\Comment\Antispam\SpamIdentityHasher::class),
         ));
         $container->set(PostInplaceControls::class, static fn(Container $container): PostInplaceControls => new PostInplaceControls(
             $container->get(AuthProvider::class),
@@ -213,7 +213,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(DynamicConfigProvider::class),
             $container->get(AuthProvider::class),
             $container->get(PostInplaceTokenManager::class),
-            $container->get(\S2\Cms\Security\Audit\SecurityAuditLogger::class),
+            $container->get(\Register\Core\Security\Audit\SecurityAuditLogger::class),
             $container->get('register_blog_translator'),
         ));
         $container->set(MainPageController::class, static function (Container $container): \Register\Module\Blog\Controller\MainPageController {
@@ -231,9 +231,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(Viewer::class),
                 $container->get(PostFeedRenderer::class),
                 $container->get(LiveUpdateContext::class),
-                $provider->getStringProxy('S2_BLOG_TITLE'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
             );
         });
         $container->set(DayPageController::class, static function (Container $container): \Register\Module\Blog\Controller\DayPageController {
@@ -249,9 +249,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
-                $provider->getStringProxy('S2_BLOG_TITLE'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
             );
         });
         $container->set(MonthPageController::class, static function (Container $container): \Register\Module\Blog\Controller\MonthPageController {
@@ -267,10 +267,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
-                $provider->getStringProxy('S2_BLOG_TITLE'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
-                $provider->getIntProxy('S2_START_YEAR'),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
+                $provider->getIntProxy('REGISTER_START_YEAR'),
             );
         });
         $container->set(YearPageController::class, static function (Container $container): \Register\Module\Blog\Controller\YearPageController {
@@ -286,10 +286,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
-                $provider->getStringProxy('S2_BLOG_TITLE'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
-                $provider->getIntProxy('S2_START_YEAR'),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
+                $provider->getIntProxy('REGISTER_START_YEAR'),
             );
         });
         $container->set(PostPageController::class, static function (Container $container): \Register\Module\Blog\Controller\PostPageController {
@@ -311,14 +311,14 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(PostInplaceControls::class),
                 $container->get(\Register\Content\TagRepository::class),
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
-                $provider->getStringProxy('S2_BLOG_TITLE'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
             );
         });
         $container->set(FlatContentController::class, static fn(Container $container): \Register\Module\Blog\Controller\FlatContentController => new FlatContentController(
             $container->get(ArticleProvider::class),
-            $container->get(\S2\Cms\Controller\PageCommon::class),
+            $container->get(\Register\Core\Controller\PageCommon::class),
             $container->get(PostPageController::class),
             $container->get(ContentUrlAliasController::class),
             $container->get(PostProvider::class),
@@ -345,9 +345,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
-                $provider->getStringProxy('S2_BLOG_TITLE'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
             );
         });
         $container->set(TagsPageController::class, static function (Container $container): \Register\Module\Blog\Controller\TagsPageController {
@@ -363,9 +363,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
-                $provider->getStringProxy('S2_BLOG_TITLE'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $container->get(\Register\Content\TagRepository::class),
             );
         });
@@ -382,11 +382,11 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
-                $provider->getStringProxy('S2_BLOG_TITLE'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $container->get(\Register\Content\TagRepository::class),
-                $provider->getBoolProxy('S2_USE_HIERARCHY'),
+                $provider->getBoolProxy('REGISTER_USE_HIERARCHY'),
             );
         });
         $container->set(FavoritePageController::class, static function (Container $container): \Register\Module\Blog\Controller\FavoritePageController {
@@ -402,9 +402,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
-                $provider->getStringProxy('S2_BLOG_TITLE'),
-                $provider->getBoolProxy('S2_SHOW_COMMENTS'),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $container->get(FavoriteArticleProvider::class),
             );
         });
@@ -417,7 +417,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(ContentUrlGenerator::class),
                 $container->get('register_blog_translator'),
                 $container->get('strict_viewer'),
-                $provider->getStringProxy('S2_BLOG_TITLE'),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
             );
         });
         $container->set(RssController::class, static function (Container $container): RssController {
@@ -430,10 +430,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->getStringParameter('base_path'),
                 $container->getStringParameter('base_url'),
                 $container->getStringParameter('version'),
-                $provider->getStringProxy('S2_WEBMASTER'),
+                $provider->getStringProxy('REGISTER_WEBMASTER'),
             );
         });
-        $container->set('register_blog.comment_controller', static function (Container $container): \S2\Cms\Controller\CommentController {
+        $container->set('register_blog.comment_controller', static function (Container $container): \Register\Core\Controller\CommentController {
             $provider = $container->get(DynamicConfigProvider::class);
             return new CommentController(
                 $container->get(AuthProvider::class),
@@ -449,8 +449,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(CommentFormTokenManager::class),
                 $container->get(SpamRateLimiter::class),
                 $container->get(SpamAssessmentRepository::class),
-                $provider->getBoolProxy('S2_ENABLED_COMMENTS'),
-                $provider->getBoolProxy('S2_PREMODERATION'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_PREMODERATION'),
             );
         }, ['dynamic_config_dependent']);
         $container->set(FlatCommentController::class, static fn(Container $container): \Register\Module\Blog\Controller\FlatCommentController => new FlatCommentController(
@@ -479,7 +479,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, static function (TemplateEvent $event) use ($container): void {
-            if (!$event->htmlTemplate->hasPlaceholder('<!-- s2_site_header -->')) {
+            if (!$event->htmlTemplate->hasPlaceholder('<!-- register_site_header -->')) {
                 return;
             }
 
@@ -489,7 +489,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             }
 
             $event->htmlTemplate->registerPlaceholder(
-                '<!-- s2_site_header -->',
+                '<!-- register_site_header -->',
                 $container->get(SiteHeaderRenderer::class)->render($request),
             );
         });
@@ -498,7 +498,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $blogPlaceholders = [];
             $template         = $event->htmlTemplate;
 
-            foreach (['s2_blog_last_comments', 's2_blog_last_discussions', 's2_blog_last_post', 's2_blog_navigation'] as $blogPlaceholder) {
+            foreach (['register_blog_last_comments', 'register_blog_last_discussions', 'register_blog_last_post', 'register_blog_navigation'] as $blogPlaceholder) {
                 if ($template->hasPlaceholder('<!-- ' . $blogPlaceholder . ' -->')) {
                     $blogPlaceholders[$blogPlaceholder] = 1;
                 }
@@ -513,42 +513,42 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
 
             $viewer = $container->get(Viewer::class);
 
-            if (isset($blogPlaceholders['s2_blog_last_comments'])) {
+            if (isset($blogPlaceholders['register_blog_last_comments'])) {
                 $placeholderProvider = $container->get(BlogPlaceholderProvider::class);
                 $recentComments      = $placeholderProvider->getRecentComments();
 
-                $template->registerPlaceholder('<!-- s2_blog_last_comments -->', $recentComments === [] ? '' : $viewer->render('menu_comments', [
+                $template->registerPlaceholder('<!-- register_blog_last_comments -->', $recentComments === [] ? '' : $viewer->render('menu_comments', [
                     'title' => $translator->trans('Last blog comments'),
                     'menu'  => $recentComments,
                 ]));
             }
 
-            if (isset($blogPlaceholders['s2_blog_last_discussions'])) {
+            if (isset($blogPlaceholders['register_blog_last_discussions'])) {
                 $placeholderProvider = $container->get(BlogPlaceholderProvider::class);
                 $lastDiscussions     = $placeholderProvider->getRecentDiscussions();
 
-                $template->registerPlaceholder('<!-- s2_blog_last_discussions -->', $lastDiscussions === [] ? '' : $viewer->render('menu_block', [
+                $template->registerPlaceholder('<!-- register_blog_last_discussions -->', $lastDiscussions === [] ? '' : $viewer->render('menu_block', [
                     'title' => $translator->trans('Last blog discussions'),
                     'menu'  => $lastDiscussions,
-                    'class' => 's2_blog_last_discussions',
+                    'class' => 'register_blog_last_discussions',
                 ]));
             }
 
-            if (isset($blogPlaceholders['s2_blog_last_post'])) {
+            if (isset($blogPlaceholders['register_blog_last_post'])) {
                 $postProvider = $container->get(PostProvider::class);
                 $lastPosts    = $postProvider->lastPostsArray(1);
 
-                foreach ($lastPosts as &$s2_blog_post) {
-                    $s2_blog_post = $viewer->render('post_short', $s2_blog_post, self::class);
+                foreach ($lastPosts as &$register_blog_post) {
+                    $register_blog_post = $viewer->render('post_short', $register_blog_post, self::class);
                 }
 
-                unset($s2_blog_post);
-                $template->registerPlaceholder('<!-- s2_blog_last_post -->', implode('', $lastPosts));
+                unset($register_blog_post);
+                $template->registerPlaceholder('<!-- register_blog_last_post -->', implode('', $lastPosts));
             }
 
-            if (isset($blogPlaceholders['s2_blog_navigation'])) {
+            if (isset($blogPlaceholders['register_blog_navigation'])) {
                 $placeholderProvider = $container->get(BlogPlaceholderProvider::class);
-                $template->registerPlaceholder('<!-- s2_blog_navigation -->', $viewer->render(
+                $template->registerPlaceholder('<!-- register_blog_navigation -->', $viewer->render(
                     'navigation',
                     $placeholderProvider->getBlogNavigationData(),
                     self::class
@@ -557,17 +557,17 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         });
 
         $eventDispatcher->addListener(ArticleRenderedEvent::class, static function (ArticleRenderedEvent $event) use ($container): void {
-            if ($event->template->hasPlaceholder('<!-- s2_blog_tags -->')) {
+            if ($event->template->hasPlaceholder('<!-- register_blog_tags -->')) {
                 $viewer = $container->get(Viewer::class);
                 /** @var TranslatorInterface $translator */
                 $translator = $container->get('register_blog_translator');
                 $placeholderProvider = $container->get(BlogPlaceholderProvider::class);
 
-                $s2_blog_tags = $placeholderProvider->getBlogTagsForArticle($event->articleId);
-                $event->template->registerPlaceholder('<!-- s2_blog_tags -->', $s2_blog_tags === [] ? '' : $viewer->render('menu_block', [
+                $register_blog_tags = $placeholderProvider->getBlogTagsForArticle($event->articleId);
+                $event->template->registerPlaceholder('<!-- register_blog_tags -->', $register_blog_tags === [] ? '' : $viewer->render('menu_block', [
                     'title' => $translator->trans('See in blog'),
-                    'menu'  => $s2_blog_tags,
-                    'class' => 's2_blog_tags',
+                    'menu'  => $register_blog_tags,
+                    'class' => 'register_blog_tags',
                 ]));
             }
         });
@@ -611,8 +611,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     public function registerRoutes(RouteCollection $routes, Container $container): void
     {
         $configProvider = $container->get(DynamicConfigProvider::class);
-        $favoriteUrl    = $configProvider->getStringProxy('S2_FAVORITE_URL')->get();
-        $tagsUrl        = $configProvider->getStringProxy('S2_TAGS_URL')->get();
+        $favoriteUrl    = $configProvider->getStringProxy('REGISTER_FAVORITE_URL')->get();
+        $tagsUrl        = $configProvider->getStringProxy('REGISTER_TAGS_URL')->get();
         $priority       = 1;
         $flatPriority   = -1;
 

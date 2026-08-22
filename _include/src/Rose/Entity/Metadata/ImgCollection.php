@@ -7,7 +7,7 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Entity\Metadata;
+namespace Register\Rose\Entity\Metadata;
 
 /**
  * @extends \ArrayIterator<int, Img>

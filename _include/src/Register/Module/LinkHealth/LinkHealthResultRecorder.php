@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\LinkHealth;
 
-use S2\Cms\Queue\QueuePublisher;
+use Register\Core\Queue\QueuePublisher;
 
 final readonly class LinkHealthResultRecorder
 {

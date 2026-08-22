@@ -19,8 +19,10 @@
     <file>../../index.php</file>
 
     <exclude-pattern>*/_vendor/*</exclude-pattern>
+    <exclude-pattern>*/_include/admin-yard/*</exclude-pattern>
     <exclude-pattern>*/_cache/*</exclude-pattern>
     <exclude-pattern>*/_tests/_output/*</exclude-pattern>
+    <exclude-pattern>*/_tests/_support/Helper/AbstractBrowserModule.php</exclude-pattern>
     <exclude-pattern>*/tools/quality/*</exclude-pattern>
 
     <rule ref="PHPCompatibility" />

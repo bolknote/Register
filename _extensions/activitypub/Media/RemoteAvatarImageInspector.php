@@ -7,7 +7,7 @@
 
 declare(strict_types = 1);
 
-namespace s2_extensions\activitypub\Media;
+namespace Register\Extension\activitypub\Media;
 
 /** Validates actual image bytes; SVG and formats with inconsistent shared-hosting support are rejected. */
 final readonly class RemoteAvatarImageInspector
@@ -26,7 +26,7 @@ final readonly class RemoteAvatarImageInspector
         }
 
         $warning = null;
-        $info = s2_call_without_warnings(
+        $info = register_call_without_warnings(
             static fn(): array|false => getimagesizefromstring($content),
             $warning,
         );

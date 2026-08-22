@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Inplace;
 
 use Register\Content\ContentMediaSchema;
-use S2\Cms\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayer;
 
 /** Keeps the media registry in sync with media ids embedded by the post editor. */
 final readonly class PostMediaRepository

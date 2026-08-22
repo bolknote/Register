@@ -8,17 +8,17 @@
 
 declare(strict_types = 1);
 
-namespace S2\Rose\Storage\Database;
+namespace Register\Rose\Storage\Database;
 
-use S2\Rose\Entity\ExternalId;
-use S2\Rose\Entity\ExternalIdCollection;
-use S2\Rose\Entity\Metadata\SnippetSource;
-use S2\Rose\Entity\TocEntry;
-use S2\Rose\Exception\InvalidArgumentException;
-use S2\Rose\Exception\UnknownException;
-use S2\Rose\Storage\Dto\SnippetQuery;
-use S2\Rose\Storage\Exception\EmptyIndexException;
-use S2\Rose\Storage\Exception\InvalidEnvironmentException;
+use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\ExternalIdCollection;
+use Register\Rose\Entity\Metadata\SnippetSource;
+use Register\Rose\Entity\TocEntry;
+use Register\Rose\Exception\InvalidArgumentException;
+use Register\Rose\Exception\UnknownException;
+use Register\Rose\Storage\Dto\SnippetQuery;
+use Register\Rose\Storage\Exception\EmptyIndexException;
+use Register\Rose\Storage\Exception\InvalidEnvironmentException;
 
 abstract class AbstractRepository
 {

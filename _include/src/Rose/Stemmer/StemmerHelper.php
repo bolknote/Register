@@ -7,7 +7,7 @@ declare(strict_types = 1);
  * @license   MIT
  */
 
-namespace S2\Rose\Stemmer;
+namespace Register\Rose\Stemmer;
 
 final class StemmerHelper
 {

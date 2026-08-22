@@ -7,7 +7,7 @@ declare(strict_types = 1);
  *
  * @copyright 2009-2025 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 
@@ -23,23 +23,23 @@ use Register\Update\BuildInfo;
 use Register\Update\MaintenanceMode;
 use Register\Update\RuntimeLock;
 use Register\Module\Search\SearchIndexRebuilder;
-use S2\Cms\Admin\AdminExtension;
-use S2\Cms\CmsExtension;
-use S2\Cms\Config\StaticConfigLoader;
-use S2\Cms\Config\SecretConfigPathResolver;
-use S2\Cms\Framework\Application;
-use S2\Cms\Helper\StringHelper;
-use S2\Cms\HttpClient\HttpClient;
-use S2\Cms\HttpClient\HttpClientException;
-use S2\Cms\Install\InstallExtension;
-use S2\Cms\Install\SecretFileBoundaryVerifier;
-use S2\Cms\Logger\Logger;
-use S2\Cms\Model\ExtensionCache;
-use S2\Cms\Model\PasswordHasher;
-use S2\Cms\Model\PasswordPolicy;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerException;
-use S2\Cms\Security\Http\SameOriginRequestGuard;
+use Register\Core\Admin\AdminExtension;
+use Register\Core\CmsExtension;
+use Register\Core\Config\StaticConfigLoader;
+use Register\Core\Config\SecretConfigPathResolver;
+use Register\Core\Framework\Application;
+use Register\Core\Helper\StringHelper;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpClientException;
+use Register\Core\Install\InstallExtension;
+use Register\Core\Install\SecretFileBoundaryVerifier;
+use Register\Core\Logger\Logger;
+use Register\Core\Model\ExtensionCache;
+use Register\Core\Model\PasswordHasher;
+use Register\Core\Model\PasswordPolicy;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerException;
+use Register\Core\Security\Http\SameOriginRequestGuard;
 use Symfony\Component\ErrorHandler\Debug;
 use Symfony\Component\ErrorHandler\ErrorHandler;
 use Symfony\Component\ErrorHandler\ErrorRenderer\HtmlErrorRenderer;
@@ -47,23 +47,23 @@ use Symfony\Component\HttpFoundation\Request;
 
 define('MIN_PHP_VERSION', '8.3.0');
 
-define('S2_ROOT', '../');
+define('REGISTER_ROOT', '../');
 define(
-    'S2_FS_ROOT',
+    'REGISTER_FS_ROOT',
     rtrim(defined('REGISTER_APP_ROOT') ? (string)constant('REGISTER_APP_ROOT') : dirname(__DIR__), '/\\') . '/',
 );
 define(
-    'S2_PUBLIC_FS_ROOT',
+    'REGISTER_PUBLIC_FS_ROOT',
     rtrim(defined('REGISTER_PUBLIC_ROOT') ? (string)constant('REGISTER_PUBLIC_ROOT') : dirname(__DIR__), '/\\') . '/',
 );
-define('S2_DEBUG', 1);
-define('S2_SHOW_QUERIES', 1);
+define('REGISTER_DEBUG', 1);
+define('REGISTER_SHOW_QUERIES', 1);
 
 // We need some stuff
-require S2_FS_ROOT . '_vendor/autoload.php';
-define('S2_VERSION', BuildInfo::version(S2_FS_ROOT));
-(new MaintenanceMode(S2_FS_ROOT))->enforce(false);
-$registerRuntimeLock = RuntimeLock::acquireShared(S2_FS_ROOT);
+require REGISTER_FS_ROOT . '_vendor/autoload.php';
+define('REGISTER_VERSION', BuildInfo::version(REGISTER_FS_ROOT));
+(new MaintenanceMode(REGISTER_FS_ROOT))->enforce(false);
+$registerRuntimeLock = RuntimeLock::acquireShared(REGISTER_FS_ROOT);
 register_shutdown_function(static fn() => $registerRuntimeLock->release());
 ContentSecurityPolicy::send();
 header('Cache-Control: no-store, private');
@@ -105,7 +105,7 @@ function error(
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="Generator" content="Register">
         <title><?php echo htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?> - Register</title>
-        <link rel="stylesheet" href="<?php echo rtrim(S2_ROOT, '/') ?>/_assets/register/standalone.css">
+        <link rel="stylesheet" href="<?php echo rtrim(REGISTER_ROOT, '/') ?>/_assets/register/standalone.css">
     </head>
     <body class="register-standalone">
     <main class="standalone-card error-container">
@@ -122,13 +122,13 @@ function error(
     exit;
 }
 
-if (file_exists(S2_FS_ROOT . s2_get_config_filename())) {
+if (file_exists(REGISTER_FS_ROOT . register_get_config_filename())) {
     error(
         sprintf(
             "The file '%s' already exists, which means that Register is already installed.",
-            s2_get_config_filename(),
+            register_get_config_filename(),
         ),
-        actionUrl: S2_ROOT,
+        actionUrl: REGISTER_ROOT,
         actionLabel: 'Open Register',
     );
 }
@@ -139,20 +139,20 @@ if (!function_exists('version_compare') || version_compare(PHP_VERSION, MIN_PHP_
 }
 
 // Disable error reporting for uninitialized variables
-error_reporting(defined('S2_DEBUG') ? E_ALL : E_ALL ^ E_NOTICE);
+error_reporting(defined('REGISTER_DEBUG') ? E_ALL : E_ALL ^ E_NOTICE);
 
 // Turn off PHP time limit
-s2_call_without_warnings(static fn(): bool => set_time_limit(0));
+register_call_without_warnings(static fn(): bool => set_time_limit(0));
 
 require __DIR__ . '/../_include/setup.php';
 
-if (defined('S2_DEBUG')) {
+if (defined('REGISTER_DEBUG')) {
     $errorHandler = Debug::enable();
 } else {
     $errorHandler = ErrorHandler::register();
 }
 HtmlErrorRenderer::setTemplate(__DIR__ . '/../_include/views/error.php');
-$errorHandler->setDefaultLogger(new Logger(S2_FS_ROOT . '_cache/install.log', 'install', LogLevel::DEBUG));
+$errorHandler->setDefaultLogger(new Logger(REGISTER_FS_ROOT . '_cache/install.log', 'install', LogLevel::DEBUG));
 
 /** @param array<int|string, mixed> $config */
 function render_install_config_array(array $config, int $indentLevel = 0): string
@@ -183,8 +183,7 @@ function has_register_generator(?string $content): bool
         return false;
     }
 
-    return str_contains($content, '<meta name="Generator" content="Register">') ||
-        str_contains($content, '<meta name="Generator" content="S2">');
+    return str_contains($content, '<meta name="Generator" content="Register">');
 }
 
 function normalize_install_base_url(string $baseUrl): ?string
@@ -278,7 +277,7 @@ function can_create_private_file(string $directory): bool
     }
 
     $probe = rtrim($directory, '/\\') . '/.register-secret-write-' . bin2hex(random_bytes(8));
-    $handle = s2_call_without_warnings(static fn() => fopen($probe, 'xb'));
+    $handle = register_call_without_warnings(static fn() => fopen($probe, 'xb'));
     if ($handle === false) {
         return false;
     }
@@ -292,13 +291,13 @@ function can_create_private_file(string $directory): bool
 
 function install_secret_file_setting(): ?string
 {
-    $applicationRoot = realpath(S2_FS_ROOT);
-    $publicRoot      = realpath(S2_PUBLIC_FS_ROOT);
+    $applicationRoot = realpath(REGISTER_FS_ROOT);
+    $publicRoot      = realpath(REGISTER_PUBLIC_FS_ROOT);
     if ($applicationRoot === false || $publicRoot === false || $applicationRoot !== $publicRoot) {
         return null;
     }
 
-    $defaultFilename = SecretConfigPathResolver::resolve(S2_FS_ROOT, S2_PUBLIC_FS_ROOT, null);
+    $defaultFilename = SecretConfigPathResolver::resolve(REGISTER_FS_ROOT, REGISTER_PUBLIC_FS_ROOT, null);
 
     return can_create_private_file(\dirname($defaultFilename))
         ? null
@@ -328,7 +327,7 @@ function verify_install_secret_file_boundary(HttpClient $httpClient, string $bas
     }
 
     return (new SecretFileBoundaryVerifier($httpClient))->verifyFallback(
-        S2_PUBLIC_FS_ROOT,
+        REGISTER_PUBLIC_FS_ROOT,
         $baseUrl,
         $requestHost,
         $serverAddress,
@@ -477,20 +476,20 @@ function installApplicationParameters(
     $basePath = preg_replace('#^[^:/]+://[^/]*#', '', $baseUrl) ?? '';
 
     return [
-        'root_dir'      => S2_FS_ROOT,
-        'public_root_dir' => S2_PUBLIC_FS_ROOT,
-        'cache_dir'     => s2_get_default_cache_dir(),
+        'root_dir'      => REGISTER_FS_ROOT,
+        'public_root_dir' => REGISTER_PUBLIC_FS_ROOT,
+        'cache_dir'     => register_get_default_cache_dir(),
         'disable_cache' => false,
-        'log_dir'       => s2_get_default_cache_dir(),
+        'log_dir'       => register_get_default_cache_dir(),
         'base_url'      => $baseUrl,
         'base_path'     => $basePath,
         'trusted_proxies' => [],
-        'secret_config_file' => SecretConfigPathResolver::resolve(S2_FS_ROOT, S2_PUBLIC_FS_ROOT, null),
+        'secret_config_file' => SecretConfigPathResolver::resolve(REGISTER_FS_ROOT, REGISTER_PUBLIC_FS_ROOT, null),
         'backup_encryption_key' => null,
         'backup_recipient_public_key' => null,
         'url_prefix'    => '',
-        'debug'         => defined('S2_DEBUG'),
-        'debug_view'    => defined('S2_DEBUG_VIEW'),
+        'debug'         => defined('REGISTER_DEBUG'),
+        'debug_view'    => defined('REGISTER_DEBUG_VIEW'),
         'redirect_map'  => [],
         'db_type'       => $dbType,
         'db_host'       => $dbHost,
@@ -538,7 +537,7 @@ $emptyApp->addExtension(new InstallExtension());
 $emptyApp->boot(installApplicationParameters());
 
 
-$resourceProvider = $emptyApp->container->get(\S2\Cms\Admin\ResourceProvider::class);
+$resourceProvider = $emptyApp->container->get(\Register\Core\Admin\ResourceProvider::class);
 $languages        = $resourceProvider->readLanguages();
 
 function installPostString(string $name): string
@@ -564,17 +563,17 @@ if ($languageIndex === false) {
 }
 $language = $languages[$languageIndex];
 
-/** @var \S2\Cms\Config\InstallationConfigProvider $dynamicConfigProvider */
-$dynamicConfigProvider = $emptyApp->container->get(\S2\Cms\Config\DynamicConfigProvider::class);
+/** @var \Register\Core\Config\InstallationConfigProvider $dynamicConfigProvider */
+$dynamicConfigProvider = $emptyApp->container->get(\Register\Core\Config\DynamicConfigProvider::class);
 $dynamicConfigProvider->setCallback(static fn(string $paramName): string => match ($paramName) {
-    'S2_LANGUAGE' => $language,
+    'REGISTER_LANGUAGE' => $language,
     default => throw new LogicException(sprintf('Parameter "%s" is not available during installation.', $paramName))
 });
 
 // Load the language files
 /** @var \Symfony\Contracts\Translation\TranslatorInterface $translator */
 $translator = $emptyApp->container->get('translator');
-require S2_FS_ROOT . '_admin/lang/' . $translator->getLocale() . '/install.php';
+require REGISTER_FS_ROOT . '_admin/lang/' . $translator->getLocale() . '/install.php';
 /** @var array<string, string> $lang_install */
 
 $originViolation = (new SameOriginRequestGuard())->violation(Request::createFromGlobals());
@@ -598,8 +597,8 @@ if (isset($_POST['generate_config'])) {
         error($lang_install['Secret file boundary failed']);
     }
 
-    header(sprintf('Content-Type: text/plain; charset=utf-8; name="%s"', s2_get_config_filename()));
-    header(sprintf("Content-disposition: attachment; filename=%s", s2_get_config_filename()));
+    header(sprintf('Content-Type: text/plain; charset=utf-8; name="%s"', register_get_config_filename()));
+    header(sprintf("Content-disposition: attachment; filename=%s", register_get_config_filename()));
     header('X-Content-Type-Options: nosniff');
 
     echo generate_config_file(
@@ -674,22 +673,22 @@ function renderInstallForm(
     $base_url_guess = guessBaseUrl();
     ?>
     <!DOCTYPE html>
-    <html lang="<?php echo s2_htmlencode($locale); ?>">
+    <html lang="<?php echo register_htmlencode($locale); ?>">
     <head>
         <meta charset="utf-8">
-        <meta name="Generator" content="Register <?php echo S2_VERSION; ?>">
+        <meta name="Generator" content="Register <?php echo REGISTER_VERSION; ?>">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light dark">
-        <title><?php printf($lang_install['Install S2'], S2_VERSION) ?></title>
-        <link rel="icon" type="image/svg+xml" href="<?php echo S2_ROOT ?>_styles/register/favicon.svg">
-        <link rel="stylesheet" href="<?php echo S2_ROOT ?>_admin/css/style.css">
+        <title><?php printf($lang_install['Install Register'], REGISTER_VERSION) ?></title>
+        <link rel="icon" type="image/svg+xml" href="<?php echo REGISTER_ROOT ?>_styles/register/favicon.svg">
+        <link rel="stylesheet" href="<?php echo REGISTER_ROOT ?>_admin/css/style.css">
     </head>
     <body class="install-page">
     <main class="install-shell">
 
     <header class="install-header">
         <div class="install-brand"><span aria-hidden="true">ℜ</span> Register</div>
-        <h1><?php printf($lang_install['Install S2'], S2_VERSION) ?></h1>
+        <h1><?php printf($lang_install['Install Register'], REGISTER_VERSION) ?></h1>
     </header>
 
     <?php
@@ -730,29 +729,29 @@ function renderInstallForm(
     </div>
     <?php if (isset($validationErrors['db_error'])): ?>
         <div class="error-box">
-            <p><?php echo s2_htmlencode(sprintf($lang_install['Database error'], $validationErrors['db_error'][0])); ?></p>
+            <p><?php echo register_htmlencode(sprintf($lang_install['Database error'], $validationErrors['db_error'][0])); ?></p>
         </div>
     <?php endif; ?>
     <?php if (isset($validationErrors['secret_boundary'])): ?>
         <div class="error-box">
-            <p><?php echo s2_htmlencode($validationErrors['secret_boundary'][0]); ?></p>
+            <p><?php echo register_htmlencode($validationErrors['secret_boundary'][0]); ?></p>
         </div>
     <?php endif; ?>
     <?php if (isset($validationErrors['db_is_used'])): ?>
         <div class="error-box">
-            <p><?php echo s2_htmlencode($validationErrors['db_is_used'][0]); ?></p>
-            <p><?php echo $lang_install['S2 already installed 2'] ?></p>
-            <p><?php echo $lang_install['S2 already installed 3'] ?></p>
+            <p><?php echo register_htmlencode($validationErrors['db_is_used'][0]); ?></p>
+            <p><?php echo $lang_install['Register already installed 2'] ?></p>
+            <p><?php echo $lang_install['Register already installed 3'] ?></p>
             <form method="post" accept-charset="utf-8" action="install.php">
                 <input type="hidden" name="generate_config" value="1">
-                <input type="hidden" name="db_type" value="<?php echo s2_htmlencode($values['req_db_type']); ?>">
-                <input type="hidden" name="db_host" value="<?php echo s2_htmlencode($values['req_db_host']); ?>">
-                <input type="hidden" name="db_name" value="<?php echo s2_htmlencode($values['req_db_name']); ?>">
-                <input type="hidden" name="db_username" value="<?php echo s2_htmlencode($values['db_username']); ?>">
-                <input type="hidden" name="db_password" value="<?php echo s2_htmlencode($values['db_password']); ?>">
-                <input type="hidden" name="db_prefix" value="<?php echo s2_htmlencode($values['db_prefix']); ?>">
-                <input type="hidden" name="base_url" value="<?php echo s2_htmlencode($values['req_base_url']); ?>">
-                <input type="hidden" name="cookie_name" value="<?php echo s2_htmlencode('s2_cookie_' . mt_rand()); ?>">
+                <input type="hidden" name="db_type" value="<?php echo register_htmlencode($values['req_db_type']); ?>">
+                <input type="hidden" name="db_host" value="<?php echo register_htmlencode($values['req_db_host']); ?>">
+                <input type="hidden" name="db_name" value="<?php echo register_htmlencode($values['req_db_name']); ?>">
+                <input type="hidden" name="db_username" value="<?php echo register_htmlencode($values['db_username']); ?>">
+                <input type="hidden" name="db_password" value="<?php echo register_htmlencode($values['db_password']); ?>">
+                <input type="hidden" name="db_prefix" value="<?php echo register_htmlencode($values['db_prefix']); ?>">
+                <input type="hidden" name="base_url" value="<?php echo register_htmlencode($values['req_base_url']); ?>">
+                <input type="hidden" name="cookie_name" value="<?php echo register_htmlencode('register_cookie_' . mt_rand()); ?>">
                 <div class="button-wrapper"><input type="submit" value="<?php echo $lang_install['Download config'] ?>">
                 </div>
             </form>
@@ -782,10 +781,10 @@ function renderInstallForm(
             <label for="fld2">
                 <span><?php echo $lang_install['Database server'] ?><em>*</em>
                 </span><input id="fld2" type="text" name="req_db_host"
-                              value="<?php echo s2_htmlencode($values['req_db_host'] ?? 'localhost'); ?>" size="50"
+                              value="<?php echo register_htmlencode($values['req_db_host'] ?? 'localhost'); ?>" size="50"
                               maxlength="100" spellcheck="false" autocapitalize="none" required />
                 <?php foreach ($validationErrors['req_db_host'] ?? [] as $error) {
-                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
+                    echo '<small class="error">' . register_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Database server help'] ?></small>
             </label>
@@ -794,10 +793,10 @@ function renderInstallForm(
             <label for="fld3">
                 <span><?php echo $lang_install['Database name'] ?><em>*</em>
                 </span><input id="fld3" type="text" name="req_db_name"
-                              value="<?php echo s2_htmlencode($values['req_db_name'] ?? ''); ?>" size="35"
+                              value="<?php echo register_htmlencode($values['req_db_name'] ?? ''); ?>" size="35"
                               maxlength="50" spellcheck="false" autocapitalize="none" required />
                 <?php foreach ($validationErrors['req_db_name'] ?? [] as $error) {
-                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
+                    echo '<small class="error">' . register_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Database name help'] ?></small>
             </label>
@@ -806,10 +805,10 @@ function renderInstallForm(
             <label for="fld4">
                 <span><?php echo $lang_install['Database username'] ?>
                 </span><input id="fld4" type="text" name="db_username"
-                              value="<?php echo s2_htmlencode($values['db_username'] ?? ''); ?>" size="35"
+                              value="<?php echo register_htmlencode($values['db_username'] ?? ''); ?>" size="35"
                               maxlength="50" autocomplete="username" autocapitalize="none" />
                 <?php foreach ($validationErrors['db_username'] ?? [] as $error) {
-                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
+                    echo '<small class="error">' . register_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Database username help'] ?></small>
             </label>
@@ -818,9 +817,9 @@ function renderInstallForm(
             <label for="fld5">
                 <span><?php echo $lang_install['Database password'] ?>
                 </span><input id="fld5" type="password" name="db_password"
-                              value="<?php echo s2_htmlencode($values['db_password'] ?? ''); ?>" size="35" autocomplete="off" />
+                              value="<?php echo register_htmlencode($values['db_password'] ?? ''); ?>" size="35" autocomplete="off" />
                 <?php foreach ($validationErrors['db_password'] ?? [] as $error) {
-                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
+                    echo '<small class="error">' . register_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Database password help'] ?></small>
             </label>
@@ -829,9 +828,9 @@ function renderInstallForm(
             <label for="fld6">
                 <span><?php echo $lang_install['Table prefix'] ?>
                 </span><input id="fld6" type="text" name="db_prefix" size="20" maxlength="30"
-                              value="<?php echo s2_htmlencode($values['db_prefix'] ?? ''); ?>">
+                              value="<?php echo register_htmlencode($values['db_prefix'] ?? ''); ?>">
                 <?php foreach ($validationErrors['db_prefix'] ?? [] as $error) {
-                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
+                    echo '<small class="error">' . register_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Table prefix help'] ?></small>
             </label>
@@ -845,9 +844,9 @@ function renderInstallForm(
             <label for="fld7">
                 <span><?php echo $lang_install['Admin username'] ?><em>*</em>
                 </span><input id="fld7" type="text" name="req_username" size="35" maxlength="40"
-                              value="<?php echo s2_htmlencode($values['req_username'] ?? 'admin'); ?>" autocomplete="username" autocapitalize="none" required />
+                              value="<?php echo register_htmlencode($values['req_username'] ?? 'admin'); ?>" autocomplete="username" autocapitalize="none" required />
                 <?php foreach ($validationErrors['req_username'] ?? [] as $error) {
-                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
+                    echo '<small class="error">' . register_htmlencode($error) . '</small>';
                 } ?>
             </label>
         </div>
@@ -855,9 +854,9 @@ function renderInstallForm(
             <label for="fld8">
                 <span><?php echo $lang_install['Admin password'] ?><em>*</em>
                 </span><input id="fld8" type="password" name="req_password" size="35" maxlength="200"
-                              value="<?php echo s2_htmlencode($values['req_password'] ?? ''); ?>" autocomplete="new-password" required />
+                              value="<?php echo register_htmlencode($values['req_password'] ?? ''); ?>" autocomplete="new-password" required />
                 <?php foreach ($validationErrors['req_password'] ?? [] as $error) {
-                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
+                    echo '<small class="error">' . register_htmlencode($error) . '</small>';
                 } ?>
             </label>
         </div>
@@ -865,9 +864,9 @@ function renderInstallForm(
             <label for="fld10">
                 <span><?php echo $lang_install['Admin e-mail'] ?>
                 </span><input id="fld10" type="email" name="adm_email" size="50" maxlength="80"
-                              value="<?php echo s2_htmlencode($values['adm_email'] ?? ''); ?>" autocomplete="email" />
+                              value="<?php echo register_htmlencode($values['adm_email'] ?? ''); ?>" autocomplete="email" />
                 <?php foreach ($validationErrors['adm_email'] ?? [] as $error) {
-                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
+                    echo '<small class="error">' . register_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['E-mail address help'] ?></small>
             </label>
@@ -877,9 +876,9 @@ function renderInstallForm(
             <label for="fld13">
                 <span><?php echo $lang_install['Base URL'] ?><em>*</em>
                 </span><input id="fld13" type="url" name="req_base_url" maxlength="100" size="50"
-                              value="<?php echo s2_htmlencode($values['req_base_url'] ?? $base_url_guess); ?>" inputmode="url" autocapitalize="none" spellcheck="false" required>
+                              value="<?php echo register_htmlencode($values['req_base_url'] ?? $base_url_guess); ?>" inputmode="url" autocapitalize="none" spellcheck="false" required>
                 <?php foreach ($validationErrors['req_base_url'] ?? [] as $error) {
-                    echo '<small class="error">' . s2_htmlencode($error) . '</small>';
+                    echo '<small class="error">' . register_htmlencode($error) . '</small>';
                 } ?>
                 <small><?php echo $lang_install['Base URL help'] ?></small>
             </label>
@@ -902,7 +901,7 @@ function renderInstallForm(
                     </select>
                     <br/>
                     <?php foreach ($validationErrors['req_language'] ?? [] as $error) {
-                        echo '<small class="error">' . s2_htmlencode($error) . '</small>';
+                        echo '<small class="error">' . register_htmlencode($error) . '</small>';
                     } ?>
                     <small><?php echo $lang_install['Default language help'] ?></small>
                 </label>
@@ -1005,7 +1004,7 @@ if ($base_url === '') {
     $validationErrors['req_base_url'][] = $lang_install['Invalid base url'];
 }
 
-if (!file_exists(S2_FS_ROOT . '_lang/' . $default_lang . '/common.php')) {
+if (!file_exists(REGISTER_FS_ROOT . '_lang/' . $default_lang . '/common.php')) {
     $validationErrors['req_language'][] = $lang_install['Invalid language'];
 }
 
@@ -1036,7 +1035,7 @@ if ($validationErrors !== []) {
 }
 
 try {
-    [$app, $s2_db] = createInstallationApplication(
+    [$app, $register_db] = createInstallationApplication(
         $db_type,
         $db_host,
         $db_name,
@@ -1053,14 +1052,14 @@ try {
 
 // Make sure Register isn't already installed.
 try {
-    $result           = $s2_db->select('count(id)')->from('users')->execute();
+    $result           = $register_db->select('count(id)')->from('users')->execute();
     $databaseHasUsers = $result->fetchRow() !== false;
 } catch (DbLayerException|PDOException) {
     $databaseHasUsers = false;
 }
 
 if ($databaseHasUsers) {
-    $validationErrors['db_is_used'][] = sprintf($lang_install['S2 already installed'], $db_prefix, $db_name);
+    $validationErrors['db_is_used'][] = sprintf($lang_install['Register already installed'], $db_prefix, $db_name);
     renderInstallForm($lang_install, $languages, $language, $translator->getLocale(), $submittedValues, $validationErrors);
     exit;
 }
@@ -1068,16 +1067,16 @@ if ($databaseHasUsers) {
 
 if ($db_type !== 'mysql') {
     // Skip for MySQL, as it implicitly commits a transaction on DDL queries
-    $s2_db->startTransaction();
+    $register_db->startTransaction();
 }
 
-$installer = new \S2\Cms\Model\Installer($s2_db);
+$installer = new \Register\Core\Model\Installer($register_db);
 $installer->createTables();
 
 $now = time();
 
 // Admin user
-$s2_db
+$register_db
     ->insert('users')
     ->setValue('login', ':login')->setParameter('login', $username)
     ->setValue('password', ':password')->setParameter('password', PasswordHasher::hash($password))
@@ -1091,7 +1090,7 @@ $s2_db
     ->setValue('edit_users', '1')
     ->execute()
 ;
-$admin_uid = $s2_db->insertId();
+$admin_uid = $register_db->insertId();
 
 $antispamSecret = bin2hex(random_bytes(32));
 $installer->insertConfigData(
@@ -1104,7 +1103,7 @@ $app->container->get(SchemaManager::class)->ensureCurrent();
 
 // Insert some other default data
 $rootPageId = $installer->insertMainPage($lang_install['Main Page'], $now);
-$s2_db->insert(ContentSchema::TABLE_NAME)
+$register_db->insert(ContentSchema::TABLE_NAME)
     ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
     ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $rootPageId)
     ->setValue('slug_scope', "'root'")
@@ -1119,8 +1118,8 @@ $s2_db->insert(ContentSchema::TABLE_NAME)
     ->setValue('body', "''")
     ->execute()
 ;
-$sectionId = (int)$s2_db->insertId();
-$s2_db
+$sectionId = (int)$register_db->insertId();
+$register_db
     ->insert(ContentSchema::TABLE_NAME)
     ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
     ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $sectionId)
@@ -1137,12 +1136,12 @@ $s2_db
     ->setValue('author_id', ':author_id')->setParameter('author_id', $admin_uid)
     ->execute()
 ;
-(new WelcomePostInstaller($s2_db))->create($lang_install['Welcome title'], $lang_install['Welcome text'], (int)$admin_uid, $now);
+(new WelcomePostInstaller($register_db))->create($lang_install['Welcome title'], $lang_install['Welcome text'], (int)$admin_uid, $now);
 
 $app->container->get(SearchIndexRebuilder::class)->rebuild();
 
 if ($db_type !== 'mysql') {
-    $s2_db->endTransaction();
+    $register_db->endTransaction();
 }
 
 $cache = $app->container->get(ExtensionCache::class);
@@ -1150,12 +1149,12 @@ $cache->clear();
 
 $alerts = [];
 // Check if the cache directory is writable
-if (!is_writable(s2_get_default_cache_dir())) {
+if (!is_writable(register_get_default_cache_dir())) {
     $alerts[] = '<li><span>' . $lang_install['No cache write'] . '</span></li>';
 }
 
 // Check if default pictures directory is writable
-if (!is_writable(S2_PUBLIC_FS_ROOT . '_pictures/')) {
+if (!is_writable(REGISTER_PUBLIC_FS_ROOT . '_pictures/')) {
     $alerts[] = '<li><span>' . $lang_install['No pictures write'] . '</span></li>';
 }
 
@@ -1166,7 +1165,7 @@ if (!$uploads) {
 }
 
 // Add some random bytes at the end of the cookie name to prevent collisions
-$s2_cookie_name = 's2_cookie_' . mt_rand();
+$register_cookie_name = 'register_cookie_' . mt_rand();
 
 /// Generate the config.php file data
 $config = generate_config_file(
@@ -1178,7 +1177,7 @@ $config = generate_config_file(
     $db_password,
     $db_prefix,
     $base_url,
-    $s2_cookie_name,
+    $register_cookie_name,
     $antispamSecret,
     can_probe_install_base_url($base_url),
     $secretFileSetting,
@@ -1186,43 +1185,43 @@ $config = generate_config_file(
 
 // Attempt to write config.php and serve it up for download if writing fails
 $written = false;
-if (is_writable(S2_FS_ROOT)) {
-    $configPath = S2_FS_ROOT . s2_get_config_filename();
-    $fh = s2_call_without_warnings(static fn() => fopen($configPath, 'wb'));
+if (is_writable(REGISTER_FS_ROOT)) {
+    $configPath = REGISTER_FS_ROOT . register_get_config_filename();
+    $fh = register_call_without_warnings(static fn() => fopen($configPath, 'wb'));
     if ($fh !== false) {
         $writtenBytes = fwrite($fh, $config);
         fflush($fh);
         $permissionsSecured = DIRECTORY_SEPARATOR === '\\'
-            || s2_call_without_warnings(static fn(): bool => chmod($configPath, 0600));
+            || register_call_without_warnings(static fn(): bool => chmod($configPath, 0600));
         fclose($fh);
 
         $written = $writtenBytes === strlen($config) && $permissionsSecured;
         if (!$written) {
-            s2_call_without_warnings(static fn(): bool => unlink($configPath));
+            register_call_without_warnings(static fn(): bool => unlink($configPath));
         }
     }
 }
 
 ?>
     <!DOCTYPE html>
-    <html lang="<?php echo s2_htmlencode($translator->getLocale()); ?>">
+    <html lang="<?php echo register_htmlencode($translator->getLocale()); ?>">
     <head>
         <meta charset="utf-8">
-        <meta name="Generator" content="Register <?php echo S2_VERSION; ?>"/>
+        <meta name="Generator" content="Register <?php echo REGISTER_VERSION; ?>"/>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="color-scheme" content="light dark">
-        <title><?php printf($lang_install['Install S2'], S2_VERSION) ?></title>
-        <link rel="icon" type="image/svg+xml" href="<?php echo S2_ROOT ?>_styles/register/favicon.svg">
-        <link rel="stylesheet" type="text/css" href="<?php echo S2_ROOT ?>_admin/css/style.css"/>
+        <title><?php printf($lang_install['Install Register'], REGISTER_VERSION) ?></title>
+        <link rel="icon" type="image/svg+xml" href="<?php echo REGISTER_ROOT ?>_styles/register/favicon.svg">
+        <link rel="stylesheet" type="text/css" href="<?php echo REGISTER_ROOT ?>_admin/css/style.css"/>
     </head>
     <body class="install-page install-success-page">
     <main class="install-shell">
 
     <header class="install-header">
         <div class="install-brand"><span aria-hidden="true">ℜ</span> Register</div>
-        <h1><?php printf($lang_install['Install S2'], S2_VERSION) ?></h1>
+        <h1><?php printf($lang_install['Install Register'], REGISTER_VERSION) ?></h1>
     </header>
-    <p><?php printf($lang_install['Success description'], S2_VERSION) ?></p>
+    <p><?php printf($lang_install['Success description'], REGISTER_VERSION) ?></p>
     <p><?php echo $lang_install['Success welcome'] ?></p>
     <h2><?php echo $lang_install['Final instructions'] ?></h2>
     <?php
@@ -1245,19 +1244,19 @@ if (is_writable(S2_FS_ROOT)) {
         ?>
         <div class="warning-box">
             <p class="warn"><?php echo $lang_install['No write info 1'] ?></p>
-            <p class="warn"><?php printf($lang_install['No write info 2'], '<a href="' . S2_ROOT . '">' . $lang_install['Go to index'] . '</a>') ?></p>
+            <p class="warn"><?php printf($lang_install['No write info 2'], '<a href="' . REGISTER_ROOT . '">' . $lang_install['Go to index'] . '</a>') ?></p>
         </div>
         <form method="post" accept-charset="utf-8" action="install.php">
             <input type="hidden" name="generate_config" value="1"/>
-            <input type="hidden" name="db_type" value="<?php echo s2_htmlencode($db_type); ?>"/>
-            <input type="hidden" name="db_host" value="<?php echo s2_htmlencode($db_host); ?>"/>
-            <input type="hidden" name="db_name" value="<?php echo s2_htmlencode($db_name); ?>"/>
-            <input type="hidden" name="db_username" value="<?php echo s2_htmlencode($db_username); ?>"/>
-            <input type="hidden" name="db_password" value="<?php echo s2_htmlencode($db_password); ?>"/>
-            <input type="hidden" name="db_prefix" value="<?php echo s2_htmlencode($db_prefix); ?>"/>
-            <input type="hidden" name="base_url" value="<?php echo s2_htmlencode($base_url); ?>"/>
-            <input type="hidden" name="cookie_name" value="<?php echo s2_htmlencode($s2_cookie_name); ?>"/>
-            <input type="hidden" name="antispam_secret" value="<?php echo s2_htmlencode($antispamSecret); ?>"/>
+            <input type="hidden" name="db_type" value="<?php echo register_htmlencode($db_type); ?>"/>
+            <input type="hidden" name="db_host" value="<?php echo register_htmlencode($db_host); ?>"/>
+            <input type="hidden" name="db_name" value="<?php echo register_htmlencode($db_name); ?>"/>
+            <input type="hidden" name="db_username" value="<?php echo register_htmlencode($db_username); ?>"/>
+            <input type="hidden" name="db_password" value="<?php echo register_htmlencode($db_password); ?>"/>
+            <input type="hidden" name="db_prefix" value="<?php echo register_htmlencode($db_prefix); ?>"/>
+            <input type="hidden" name="base_url" value="<?php echo register_htmlencode($base_url); ?>"/>
+            <input type="hidden" name="cookie_name" value="<?php echo register_htmlencode($register_cookie_name); ?>"/>
+            <input type="hidden" name="antispam_secret" value="<?php echo register_htmlencode($antispamSecret); ?>"/>
             <div class="button-wrapper"><input type="submit" value="<?php echo $lang_install['Download config'] ?>"/>
             </div>
         </form>
@@ -1267,7 +1266,7 @@ if (is_writable(S2_FS_ROOT)) {
 
         ?>
         <div class="success-box">
-            <p class="warn"><?php printf($lang_install['Write info'], '<a href="' . S2_ROOT . '">' . $lang_install['Go to index'] . '</a>') ?></p>
+            <p class="warn"><?php printf($lang_install['Write info'], '<a href="' . REGISTER_ROOT . '">' . $lang_install['Go to index'] . '</a>') ?></p>
         </div>
         <?php
 

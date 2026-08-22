@@ -2,14 +2,14 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Security\Audit;
+namespace Register\Core\Security\Audit;
 
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -238,7 +238,7 @@ final readonly class SecurityAuditLogger
                 fclose($handle);
             }
 
-            s2_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
+            register_call_without_warnings(fn(): bool => chmod($this->filePath, 0600));
         } catch (\Throwable) {
             $this->reportFailure();
         }

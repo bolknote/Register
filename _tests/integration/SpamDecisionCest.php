@@ -2,7 +2,7 @@
 /**
  * @copyright 2025-2026 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -12,21 +12,21 @@ namespace integration;
 use Codeception\Example;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Comment\SpamDetectorReport;
+use Register\Core\Comment\SpamDetectorReport;
 
 /**
  * @group spam
  */
 class SpamDecisionCest
 {
-    private const string COMMENT_URL = 'http://s2.localhost/';
+    private const string COMMENT_URL = 'http://register.localhost/';
 
     /**
      * @dataProvider decisionProvider
      */
     public function testSpamDecision(\IntegrationTester $I, Example $example): void
     {
-        $I->setConfigValue('S2_PREMODERATION', $example['premoderation']);
+        $I->setConfigValue('REGISTER_PREMODERATION', $example['premoderation']);
         $I->setSpamResponses([$example['status']]);
 
         $startCount = $this->commentCount($I);
@@ -67,7 +67,7 @@ class SpamDecisionCest
 
     public function testCommentSentPageReadsQueryParameters(\IntegrationTester $I): void
     {
-        $I->setConfigValue('S2_PREMODERATION', '1');
+        $I->setConfigValue('REGISTER_PREMODERATION', '1');
         $I->setSpamResponses([SpamDetectorReport::STATUS_HAM]);
 
         $I->sendPost(

@@ -2,7 +2,7 @@
 /**
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -13,31 +13,31 @@ use Psr\Log\LoggerInterface;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use S2\Cms\Comment\AkismetProxy;
-use S2\Cms\Comment\Antispam\CommentFormTokenManager;
-use S2\Cms\Comment\Antispam\ConfigurableSpamDetector;
-use S2\Cms\Comment\Antispam\LocalSpamDetector;
-use S2\Cms\Comment\Antispam\SpamAssessment;
-use S2\Cms\Comment\Antispam\SpamAssessmentRepository;
-use S2\Cms\Comment\Antispam\SpamFeedbackService;
-use S2\Cms\Comment\Antispam\SpamFeatureExtractor;
-use S2\Cms\Comment\Antispam\SpamIdentityHasher;
-use S2\Cms\Comment\Antispam\SpamMaintenance;
-use S2\Cms\Comment\Antispam\SpamMetricsRepository;
-use S2\Cms\Comment\Antispam\SpamRateLimiter;
-use S2\Cms\Comment\Antispam\SpamRatePolicyRepository;
-use S2\Cms\Comment\Antispam\SpamReputationRepository;
-use S2\Cms\Comment\Antispam\SpamRiskScorer;
-use S2\Cms\Comment\Antispam\SpamRuleRepository;
-use S2\Cms\Comment\Antispam\SpamSignalPolicyRepository;
-use S2\Cms\Comment\Antispam\SpamTextFeatureExtractor;
-use S2\Cms\Comment\Antispam\SpamTextModel;
-use S2\Cms\Comment\Antispam\SpamTextModelRepository;
-use S2\Cms\Comment\SpamDetectorComment;
-use S2\Cms\Comment\SpamDetectorReport;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Pdo\DbLayer;
-use S2\Cms\Pdo\DbLayerSqlite;
+use Register\Core\Comment\AkismetProxy;
+use Register\Core\Comment\Antispam\CommentFormTokenManager;
+use Register\Core\Comment\Antispam\ConfigurableSpamDetector;
+use Register\Core\Comment\Antispam\LocalSpamDetector;
+use Register\Core\Comment\Antispam\SpamAssessment;
+use Register\Core\Comment\Antispam\SpamAssessmentRepository;
+use Register\Core\Comment\Antispam\SpamFeedbackService;
+use Register\Core\Comment\Antispam\SpamFeatureExtractor;
+use Register\Core\Comment\Antispam\SpamIdentityHasher;
+use Register\Core\Comment\Antispam\SpamMaintenance;
+use Register\Core\Comment\Antispam\SpamMetricsRepository;
+use Register\Core\Comment\Antispam\SpamRateLimiter;
+use Register\Core\Comment\Antispam\SpamRatePolicyRepository;
+use Register\Core\Comment\Antispam\SpamReputationRepository;
+use Register\Core\Comment\Antispam\SpamRiskScorer;
+use Register\Core\Comment\Antispam\SpamRuleRepository;
+use Register\Core\Comment\Antispam\SpamSignalPolicyRepository;
+use Register\Core\Comment\Antispam\SpamTextFeatureExtractor;
+use Register\Core\Comment\Antispam\SpamTextModel;
+use Register\Core\Comment\Antispam\SpamTextModelRepository;
+use Register\Core\Comment\SpamDetectorComment;
+use Register\Core\Comment\SpamDetectorReport;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerSqlite;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -70,7 +70,7 @@ final class AntispamCest
             ->execute()
         ;
 
-        $I->amOnPage('http://s2.localhost/form-test');
+        $I->amOnPage('http://register.localhost/form-test');
         $I->seeResponseCodeIs(200);
 
         $response = $I->grabResponse();
@@ -86,7 +86,7 @@ final class AntispamCest
         $I->assertStringContainsString('httponly', mb_strtolower($cookie));
         $I->assertStringContainsString('samesite=lax', mb_strtolower($cookie));
 
-        $I->amOnPage('http://s2.localhost/form-test');
+        $I->amOnPage('http://register.localhost/form-test');
         $I->assertNotSame($etag, $I->grabHttpHeader('ETag'), 'A fresh one-time form token must invalidate the old ETag.');
     }
 
@@ -94,7 +94,7 @@ final class AntispamCest
     {
         /** @var CommentFormTokenManager $manager */
         $manager      = $I->grabService(CommentFormTokenManager::class);
-        $request      = Request::create('https://s2.localhost/article');
+        $request      = Request::create('https://register.localhost/article');
         $visitorToken = $manager->getOrCreateVisitorToken($request);
         $visitorCookie = $manager->createVisitorCookie($visitorToken, $request);
         $request->cookies->set($visitorCookie->getName(), $visitorToken);
@@ -111,7 +111,7 @@ final class AntispamCest
         $I->assertFalse($replay->valid);
         $I->assertSame('replayed', $replay->error);
 
-        $wrongTargetRequest = Request::create('https://s2.localhost/other');
+        $wrongTargetRequest = Request::create('https://register.localhost/other');
         $wrongTargetRequest->cookies->set($visitorCookie->getName(), $visitorToken);
 
         $wrongTarget = $manager->validateAndMaybeConsume($manager->issue('/article', $visitorToken, 1_000), $wrongTargetRequest, false, 1_005);
@@ -122,7 +122,7 @@ final class AntispamCest
         $I->assertFalse($expired->valid);
         $I->assertSame('expired', $expired->error);
 
-        $missingVisitor = Request::create('https://s2.localhost/article');
+        $missingVisitor = Request::create('https://register.localhost/article');
         $unbound = $manager->validateAndMaybeConsume($manager->issue('/article', $visitorToken, 1_000), $missingVisitor, false, 1_005);
         $I->assertFalse($unbound->valid);
         $I->assertSame('visitor', $unbound->error);
@@ -133,11 +133,11 @@ final class AntispamCest
         $before = $this->commentCount($I);
         $data   = $this->commentData('A normal comment');
 
-        $I->sendPost('http://s2.localhost/', [...$data, 'antispam_token' => 'invalid']);
+        $I->sendPost('http://register.localhost/', [...$data, 'antispam_token' => 'invalid']);
         $I->seeResponseCodeIs(200);
         $I->see('The comment form is invalid or has expired');
 
-        $I->sendPost('http://s2.localhost/', [...$data, 'homepage' => 'https://spam.example']);
+        $I->sendPost('http://register.localhost/', [...$data, 'homepage' => 'https://spam.example']);
         $I->seeResponseCodeIs(200);
         $I->see('Your comment cannot be saved because it contains spam');
         $I->assertSame($before, $this->commentCount($I));
@@ -147,17 +147,17 @@ final class AntispamCest
     {
         /** @var CommentFormTokenManager $manager */
         $manager      = $I->grabService(CommentFormTokenManager::class);
-        $request      = Request::create('http://s2.localhost/');
+        $request      = Request::create('http://register.localhost/');
         $visitorToken = $manager->getOrCreateVisitorToken($request);
         $token        = $manager->issue('/', $visitorToken, time() - 5);
         $data         = [...$this->commentData('Only one copy must be saved'), 'antispam_token' => $token];
         $before       = $this->commentCount($I);
 
-        $I->sendPostWithAntispamVisitor('http://s2.localhost/', $data, $visitorToken);
+        $I->sendPostWithAntispamVisitor('http://register.localhost/', $data, $visitorToken);
         $I->seeResponseCodeIs(302);
         $I->assertSame($before + 1, $this->commentCount($I));
 
-        $I->sendPostWithAntispamVisitor('http://s2.localhost/', $data, $visitorToken);
+        $I->sendPostWithAntispamVisitor('http://register.localhost/', $data, $visitorToken);
         $I->seeResponseCodeIs(200);
         $I->see('The comment form is invalid or has expired');
         $I->assertSame($before + 1, $this->commentCount($I));
@@ -167,18 +167,18 @@ final class AntispamCest
     {
         /** @var CommentFormTokenManager $manager */
         $manager      = $I->grabService(CommentFormTokenManager::class);
-        $request      = Request::create('http://s2.localhost/');
+        $request      = Request::create('http://register.localhost/');
         $visitorToken = $manager->getOrCreateVisitorToken($request);
 
         for ($i = 1; $i <= 4; ++$i) {
-            $I->sendPostWithAntispamVisitor('http://s2.localhost/', [
+            $I->sendPostWithAntispamVisitor('http://register.localhost/', [
                 ...$this->commentData('Rate test message ' . $i),
                 'antispam_token' => $manager->issue('/', $visitorToken, time() - 5),
             ], $visitorToken);
             $I->seeResponseCodeIs(302);
         }
 
-        $I->sendPostWithAntispamVisitor('http://s2.localhost/', [
+        $I->sendPostWithAntispamVisitor('http://register.localhost/', [
             ...$this->commentData('Rate test message 5'),
             'antispam_token' => $manager->issue('/', $visitorToken, time() - 5),
         ], $visitorToken);
@@ -285,8 +285,8 @@ final class AntispamCest
             'reader@example.test',
             str_repeat('Useful context ', 6) . 'https://example.test/details',
             'Mozilla/5.0',
-            'https://s2.localhost/',
-            'https://s2.localhost/',
+            'https://register.localhost/',
+            'https://register.localhost/',
             10,
         ), '203.0.113.40');
 
@@ -305,8 +305,8 @@ final class AntispamCest
             'a-new-random-address@example.test',
             'hemu k gadalkam idut',
             'Mozilla/5.0',
-            'https://s2.localhost/article',
-            'https://s2.localhost/',
+            'https://register.localhost/article',
+            'https://register.localhost/',
             10,
         ), '203.0.113.144');
 
@@ -346,8 +346,8 @@ final class AntispamCest
             'reader@example.test',
             $text,
             'Mozilla/5.0',
-            'https://s2.localhost/',
-            'https://s2.localhost/',
+            'https://register.localhost/',
+            'https://register.localhost/',
             10,
         ), '203.0.113.41');
 
@@ -386,8 +386,8 @@ final class AntispamCest
             'changing-address@example.test',
             $text,
             'Mozilla/5.0',
-            'https://s2.localhost/',
-            'https://s2.localhost/',
+            'https://register.localhost/',
+            'https://register.localhost/',
             10,
         ), '203.0.113.142');
 
@@ -421,8 +421,8 @@ final class AntispamCest
             'sender@example.test',
             'Please BUY NOW',
             'Mozilla/5.0',
-            'https://s2.localhost/',
-            'https://s2.localhost/',
+            'https://register.localhost/',
+            'https://register.localhost/',
             10,
         ), '203.0.113.1');
 
@@ -815,7 +815,7 @@ final class AntispamCest
 
     public function testLocalDetectorAuditsEngineFailureWhenStorageIsAvailable(\IntegrationTester $I): void
     {
-        $unavailableDb = new DbLayerSqlite(new \S2\Cms\Pdo\PDO('sqlite::memory:'));
+        $unavailableDb = new DbLayerSqlite(new \Register\Core\Pdo\PDO('sqlite::memory:'));
         /** @var SpamIdentityHasher $hasher */
         $hasher = $I->grabService(SpamIdentityHasher::class);
         /** @var SpamFeatureExtractor $featureExtractor */

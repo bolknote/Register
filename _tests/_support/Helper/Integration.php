@@ -2,7 +2,7 @@
 /**
  * @copyright 2024-2026 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -13,21 +13,21 @@ use Codeception\TestInterface;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;
-use S2\Cms\Admin\AdminAjaxRequestHandler;
-use S2\Cms\Admin\AdminRequestHandler;
-use S2\Cms\Comment\Antispam\CommentFormTokenManager;
-use S2\Cms\Comment\SpamDetectorComment;
-use S2\Cms\Comment\SpamDetectorInterface;
-use S2\Cms\Comment\SpamDetectorReport;
-use S2\Cms\Config\StringProxy;
-use S2\Cms\Config\DynamicConfigProvider;
-use S2\Cms\Framework\Application;
-use S2\Cms\Framework\Container;
-use S2\Cms\Framework\StatefulServiceInterface;
-use S2\Cms\Model\Installer;
-use S2\Cms\Model\PermissionChecker;
-use S2\Cms\Pdo\DbLayer;
-use S2\Rose\Storage\Database\PdoStorage;
+use Register\Core\Admin\AdminAjaxRequestHandler;
+use Register\Core\Admin\AdminRequestHandler;
+use Register\Core\Comment\Antispam\CommentFormTokenManager;
+use Register\Core\Comment\SpamDetectorComment;
+use Register\Core\Comment\SpamDetectorInterface;
+use Register\Core\Comment\SpamDetectorReport;
+use Register\Core\Config\StringProxy;
+use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Framework\Application;
+use Register\Core\Framework\Container;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Model\Installer;
+use Register\Core\Model\PermissionChecker;
+use Register\Core\Pdo\DbLayer;
+use Register\Rose\Storage\Database\PdoStorage;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\Session;
@@ -35,10 +35,10 @@ use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Tests\Support\Helper\AbstractBrowserModule;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
-use S2\Cms\Pdo\DbLayerException;
+use Register\Core\Pdo\DbLayerException;
 
 // "Tests\Support\Helper\AbstractBrowserModule" is loaded in AdminYard via autoload-dev and is not available here
-require_once __DIR__ . '/../../../_vendor/s2/admin-yard/tests/Support/Helper/AbstractBrowserModule.php';
+require_once __DIR__ . '/../../../_tests/_support/Helper/AbstractBrowserModule.php';
 
 class Integration extends AbstractBrowserModule
 {
@@ -319,10 +319,10 @@ class Integration extends AbstractBrowserModule
             'log_dir'            => '_cache/test/',
             'image_dir'          => self::ROOT_DIR . $imgDir . '/', // filesystem
             'image_path'         => '/' . $imgDir, // web URL prefix
-            'allowed_extensions' => \S2\Cms\Config\StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS,
-            'upload_quota_bytes' => \S2\Cms\Config\StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
+            'allowed_extensions' => \Register\Core\Config\StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS,
+            'upload_quota_bytes' => \Register\Core\Config\StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
             'disable_cache'      => false,
-            'base_url'           => 'http://s2.localhost',
+            'base_url'           => 'http://register.localhost',
             'base_path'          => '',
             'trusted_proxies'    => [],
             'url_prefix'         => '',
@@ -336,7 +336,7 @@ class Integration extends AbstractBrowserModule
             'version'            => '2.0dev',
             'canonical_url'      => null,
 
-            'cookie_name'       => 's2_cookie_904732485',
+            'cookie_name'       => 'register_cookie_904732485',
             'antispam_secret'   => str_repeat('ab', 32),
             'secret_config_file' => self::ROOT_DIR . '_tests/_output/config.secrets.php',
             'backup_enabled'    => false,
@@ -346,7 +346,7 @@ class Integration extends AbstractBrowserModule
             'backup_recipient_public_key' => null,
             'force_admin_https' => true,
             'db_host'           => '127.0.0.1',
-            'db_name'           => 's2_test',
+            'db_name'           => 'register_test',
             'db_prefix'         => '',
             'p_connect'         => false,
             ...(match (getenv('APP_DB_TYPE')) {
@@ -446,13 +446,13 @@ class Integration extends AbstractBrowserModule
 
     private function clearConfigCache(): void
     {
-        s2_call_without_warnings(static fn(): bool => self::deleteRecursive(self::ROOT_DIR . '_cache/test/config/'));
-        s2_call_without_warnings(static fn(): bool => unlink(self::ROOT_DIR . '_cache/test/cache_config.php'));
+        register_call_without_warnings(static fn(): bool => self::deleteRecursive(self::ROOT_DIR . '_cache/test/config/'));
+        register_call_without_warnings(static fn(): bool => unlink(self::ROOT_DIR . '_cache/test/register_config.php'));
     }
 
     private function clearSecretConfig(): void
     {
-        s2_call_without_warnings(static fn(): bool => unlink(self::ROOT_DIR . '_tests/_output/config.secrets.php'));
+        register_call_without_warnings(static fn(): bool => unlink(self::ROOT_DIR . '_tests/_output/config.secrets.php'));
     }
 
     private function decorateSpamDetector(): void
@@ -461,7 +461,7 @@ class Integration extends AbstractBrowserModule
             return;
         }
 
-        $decorator = (fn(Container $container, callable $factory): \S2\Cms\Comment\SpamDetectorInterface => new readonly class($this) implements SpamDetectorInterface {
+        $decorator = (fn(Container $container, callable $factory): \Register\Core\Comment\SpamDetectorInterface => new readonly class($this) implements SpamDetectorInterface {
             public function __construct(private Integration $helper)
             {
             }
@@ -496,18 +496,18 @@ class Integration extends AbstractBrowserModule
 
             return new IntegrationCommentMailer(
                 $container->get('comments_translator'),
-                $provider->getStringProxy('S2_WEBMASTER'),
-                $provider->getStringProxy('S2_WEBMASTER_EMAIL'),
+                $provider->getStringProxy('REGISTER_WEBMASTER'),
+                $provider->getStringProxy('REGISTER_WEBMASTER_EMAIL'),
                 $this
             );
         };
 
-        $this->publicApplication->container->decorate(\S2\Cms\Mail\CommentMailer::class, $decorator);
+        $this->publicApplication->container->decorate(\Register\Core\Mail\CommentMailer::class, $decorator);
         $this->commentMailerDecorated = true;
     }
 }
 
-readonly class IntegrationCommentMailer extends \S2\Cms\Mail\CommentMailer
+readonly class IntegrationCommentMailer extends \Register\Core\Mail\CommentMailer
 {
     public function __construct(
         \Symfony\Contracts\Translation\TranslatorInterface $translator,

@@ -2,16 +2,16 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
 
-namespace S2\Cms\Admin;
+namespace Register\Core\Admin;
 
-use S2\AdminYard\Config\FieldConfig;
-use S2\Cms\Model\ArticleProvider;
-use S2\Cms\Pdo\DbLayerException;
+use Register\AdminYard\Config\FieldConfig;
+use Register\Core\Model\ArticleProvider;
+use Register\Core\Pdo\DbLayerException;
 
 readonly class PathToAdminEntityConverter
 {

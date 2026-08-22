@@ -2,7 +2,7 @@
 /**
  * @copyright 2024 Roman Parpalak
  * @license   http://opensource.org/licenses/MIT MIT
- * @package   S2
+ * @package   Register
  */
 
 declare(strict_types = 1);
@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Pdo;
 
 use Codeception\Test\Unit;
-use S2\Cms\Pdo\SqliteCreateTableQuery;
+use Register\Core\Pdo\SqliteCreateTableQuery;
 
 final class SqliteCreateTableQueryTest extends Unit
 {
