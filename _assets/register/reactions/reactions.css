@@ -22,6 +22,7 @@
 }
 
 .register-reaction-toolbar {
+    min-height: 1.5rem;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -50,7 +51,7 @@
     align-items: center;
     justify-content: center;
     gap: .28rem;
-    padding: .08rem .12rem;
+    padding: 0 .12rem;
     border-color: transparent;
     border-radius: .35rem;
     color: var(--reaction-muted);
@@ -89,7 +90,7 @@
     stroke-width: 1.75;
     stroke-linecap: round;
     stroke-linejoin: round;
-    transform: translateY(-.2rem);
+    transform: translateY(-.04rem);
 }
 
 .register-reaction-emoji {

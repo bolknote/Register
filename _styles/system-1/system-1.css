@@ -677,7 +677,7 @@ blockquote {
 
 .register-reaction-chip {
     min-height: 24px;
-    padding: 2px 5px;
+    padding: 0 5px;
     border: 1px solid transparent;
     border-radius: 0;
 }
