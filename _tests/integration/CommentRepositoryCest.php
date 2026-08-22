@@ -168,4 +168,58 @@ final class CommentRepositoryCest
         $I->assertSame(CommentMutationSource::IMPORTED, $events[0]->source);
         $I->assertSame(CommentChangeKind::CREATED, $events[0]->kind);
     }
+
+    public function keepsDeletedCommentsOnlyWhileTheyAnchorReplies(\IntegrationTester $I): void
+    {
+        $events = [];
+        /** @var EventDispatcherInterface $eventDispatcher */
+        $eventDispatcher = $I->grabService(EventDispatcherInterface::class);
+        $eventDispatcher->addListener(
+            CommentChangedEvent::class,
+            static function (CommentChangedEvent $event) use (&$events): void {
+                $events[] = $event;
+            },
+        );
+        /** @var CommentRepository $repository */
+        $repository = $I->grabService(CommentRepository::class);
+
+        $contentId = ContentId::page(1);
+        $rootId = $repository->save(
+            $contentId,
+            'Root author',
+            'root@example.com',
+            false,
+            false,
+            'Root comment',
+            '127.0.0.1',
+            null,
+        );
+        $repository->publish($rootId, ContentType::PAGE);
+        $replyId = $repository->save(
+            $contentId,
+            'Reply author',
+            'reply@example.com',
+            false,
+            false,
+            'Reply comment',
+            '127.0.0.2',
+            $rootId,
+        );
+        $events = [];
+
+        $I->assertTrue($repository->tombstone($rootId, ContentType::PAGE));
+        $root = $repository->find($rootId);
+        $I->assertNotNull($root);
+        $I->assertTrue($root->deleted);
+        $I->assertSame([CommentChangeKind::TOMBSTONED], array_column($events, 'kind'));
+
+        $I->assertTrue($repository->tombstone($replyId, ContentType::PAGE));
+        $I->assertNull($repository->find($replyId));
+        $I->assertNull($repository->find($rootId));
+        $I->assertSame(
+            [CommentChangeKind::TOMBSTONED, CommentChangeKind::REMOVED, CommentChangeKind::REMOVED],
+            array_column($events, 'kind'),
+        );
+        $I->assertSame([$rootId, $replyId, $rootId], array_column($events, 'commentId'));
+    }
 }

@@ -496,9 +496,7 @@ final class InboxTest extends Unit
         );
         self::assertTrue($environment->runInboxQueue());
 
-        $comment = $environment->singleRow(CommentSchema::TABLE_NAME);
-        self::assertSame(1, (int)$comment['deleted']);
-        self::assertSame(0, (int)$comment['shown']);
+        self::assertSame(0, $environment->tableCount(CommentSchema::TABLE_NAME));
         self::assertSame('deleted', $environment->singleRow(ActivityPubSchema::REMOTE_OBJECT_TABLE)['state']);
         self::assertSame('deleted', $environment->singleRow(ActivityPubSchema::INTERACTION_TABLE)['state']);
         self::assertSame(3, $environment->tableCount(ActivityPubSchema::INBOX_TABLE));

@@ -346,10 +346,71 @@ final readonly class CommentRepository
             ->affectedRows() > 0;
         if ($updated && $comment instanceof Comment) {
             $this->liveUpdateRepository->publishComments($comment->contentId);
-            $this->dispatch($commentId, $comment->contentId, CommentChangeKind::TOMBSTONED, $source);
+            $removedIds = $this->pruneLeafTombstones($comment);
+            if ($removedIds === []) {
+                $this->dispatch($commentId, $comment->contentId, CommentChangeKind::TOMBSTONED, $source);
+            } else {
+                foreach ($removedIds as $removedId) {
+                    $this->dispatch($removedId, $comment->contentId, CommentChangeKind::REMOVED, $source);
+                }
+            }
         }
 
         return $updated;
+    }
+
+    /**
+     * A tombstone is useful only while it anchors replies. Removing the last reply can make an
+     * already deleted ancestor unnecessary as well, so prune the whole empty tombstone chain.
+     *
+     * @return list<int>
+     */
+    private function pruneLeafTombstones(Comment $comment): array
+    {
+        $removedIds = [];
+        $currentId  = $comment->id;
+        $parentId   = $comment->parentId;
+        while (!$this->hasReplies($currentId, $comment->contentId)) {
+            $removed = $this->dbLayer
+                ->delete(CommentSchema::TABLE_NAME)
+                ->where('id = :id')->setParameter('id', $currentId)
+                ->andWhere('content_type = :content_type')->setParameter('content_type', $comment->contentId->type->value)
+                ->andWhere('content_id = :content_id')->setParameter('content_id', $comment->contentId->value)
+                ->andWhere('deleted = 1')
+                ->execute()
+                ->affectedRows() > 0
+            ;
+            if (!$removed) {
+                break;
+            }
+
+            $removedIds[] = $currentId;
+            if ($parentId === null) {
+                break;
+            }
+
+            $parent = $this->find($parentId);
+            if (!$parent instanceof Comment || !$parent->deleted || !$parent->contentId->equals($comment->contentId)) {
+                break;
+            }
+
+            $currentId = $parent->id;
+            $parentId  = $parent->parentId;
+        }
+
+        return $removedIds;
+    }
+
+    private function hasReplies(int $commentId, ContentId $contentId): bool
+    {
+        return (int)$this->dbLayer
+            ->select('COUNT(*)')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('parent_id = :parent_id')->setParameter('parent_id', $commentId)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', $contentId->type->value)
+            ->andWhere('content_id = :content_id')->setParameter('content_id', $contentId->value)
+            ->execute()
+            ->result() > 0;
     }
 
     public function removeForContent(ContentId $contentId): void
