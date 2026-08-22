@@ -56,8 +56,8 @@ a.nav_mon:hover { background: var(--highlight-color, #ffa); }
 .post.head {
 	margin: 0;
 	}
-.post.time {
-	margin: 0 0 1.6rem;
+.post.head + .post.time {
+	margin: 0.4rem 0 1.2rem;
 	}
 .post.foot {
 	color: var(--minor-color, #666);

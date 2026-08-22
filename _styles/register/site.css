@@ -1073,6 +1073,19 @@ h2.preview,
     transform: translateY(-0.12rem);
 }
 
+@media (min-width: 881px) {
+    .post-card.is-manageable::before {
+        position: absolute;
+        z-index: 1;
+        top: 0;
+        bottom: 0;
+        left: calc(-1 * var(--content-tools-gutter));
+        width: var(--content-tools-gutter);
+        content: "";
+        pointer-events: auto;
+    }
+}
+
 .post-inplace-tools {
     position: absolute;
     z-index: 3;
