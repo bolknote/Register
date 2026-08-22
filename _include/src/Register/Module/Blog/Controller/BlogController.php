@@ -148,6 +148,7 @@ abstract class BlogController implements ControllerInterface
 
         $showComments    = $this->showComments->get();
         $enabledComments = $this->enabledComments->get();
+        $showAuthors     = $this->postProvider->hasMultiplePublishedAuthors();
         $output = '';
         foreach ($ids as $id) {
             $post               = &$posts[$id];
@@ -170,6 +171,9 @@ abstract class BlogController implements ControllerInterface
             $post['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
             $post['showComments']     = $showComments;
             $post['enabledComments']  = $enabledComments;
+            if (!$showAuthors) {
+                $post['author'] = '';
+            }
 
             $output .= $this->viewer->render('post', $post, BlogModule::class);
         }

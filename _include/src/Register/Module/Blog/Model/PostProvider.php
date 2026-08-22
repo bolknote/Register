@@ -49,6 +49,18 @@ readonly class PostProvider
     }
 
     /** @throws DbLayerException */
+    public function hasMultiplePublishedAuthors(): bool
+    {
+        return (int)$this->dbLayer
+            ->select('COUNT(DISTINCT author_id)')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('published = 1')
+            ->execute()
+            ->result() > 1;
+    }
+
+    /** @throws DbLayerException */
     public function hasPublishedPost(string $slug): bool
     {
         return (int)$this->dbLayer

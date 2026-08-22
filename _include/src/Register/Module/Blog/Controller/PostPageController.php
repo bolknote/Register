@@ -253,6 +253,9 @@ class PostPageController extends BlogController
         $row['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
         $row['showComments']     = $this->showComments->get();
         $row['enabledComments']  = $this->enabledComments->get();
+        if (!$this->postProvider->hasMultiplePublishedAuthors()) {
+            $row['author'] = '';
+        }
         $row['inplace']          = $this->inplaceControls->forPost(
             $request,
             (int)$post_id,

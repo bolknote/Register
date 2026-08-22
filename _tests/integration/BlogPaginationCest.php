@@ -51,7 +51,31 @@ class BlogPaginationCest
         $I->dontSeeElement('.blog-pagination');
     }
 
-    private function insertPost(DbLayer $dbLayer, int $number): void
+    public function testPostAuthorsAppearOnlyOnAMultiAuthorSite(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $authorId = $this->userId($dbLayer, 'author');
+        $adminId  = $this->userId($dbLayer, 'admin');
+        $this->setUserName($dbLayer, $authorId, 'Author name');
+        $this->setUserName($dbLayer, $adminId, 'Admin name');
+
+        $this->insertPost($dbLayer, 1, $authorId);
+
+        $I->amOnPage('https://localhost/');
+        $I->dontSeeElement('.post.author:not(:empty)');
+        $I->amOnPage('https://localhost/post-1');
+        $I->dontSeeElement('.post.author:not(:empty)');
+
+        $this->insertPost($dbLayer, 2, $adminId);
+
+        $I->amOnPage('https://localhost/');
+        $I->seeElement('.post.author:not(:empty)');
+        $I->see($this->userName($dbLayer, $authorId), '.post.author');
+        $I->see($this->userName($dbLayer, $adminId), '.post.author');
+    }
+
+    private function insertPost(DbLayer $dbLayer, int $number, ?int $authorId = null): void
     {
         $dbLayer
             ->insert(ContentSchema::TABLE_NAME)
@@ -69,7 +93,39 @@ class BlogPaginationCest
             ->setValue('comments_enabled', '1')
             ->setValue('series', "''")
             ->setValue('slug', ':url')->setParameter('url', 'post-' . $number)
-            ->setValue('author_id', 'NULL')
+            ->setValue('author_id', ':author_id')->setParameter('author_id', $authorId)
+            ->execute()
+        ;
+    }
+
+    private function userId(DbLayer $dbLayer, string $login): int
+    {
+        return (int)$dbLayer
+            ->select('id')
+            ->from('users')
+            ->where('login = :login')->setParameter('login', $login)
+            ->execute()
+            ->result()
+        ;
+    }
+
+    private function userName(DbLayer $dbLayer, int $userId): string
+    {
+        return (string)$dbLayer
+            ->select('name')
+            ->from('users')
+            ->where('id = :id')->setParameter('id', $userId)
+            ->execute()
+            ->result()
+        ;
+    }
+
+    private function setUserName(DbLayer $dbLayer, int $userId, string $name): void
+    {
+        $dbLayer
+            ->update('users')
+            ->set('name', ':name')->setParameter('name', $name)
+            ->where('id = :id')->setParameter('id', $userId)
             ->execute()
         ;
     }
