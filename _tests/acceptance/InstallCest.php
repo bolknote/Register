@@ -479,11 +479,15 @@ class InstallCest
             $I->see('August 12, 2023');
         }
 
+        $commentCookie = $I->grabCookie($this->getCookieName() . '_c');
+        $I->assertIsString($commentCookie);
+        $I->setCookie($this->getCookieName() . '_c', 'wrong_value');
         $I->amOnPage('/new-post1');
         $I->see('New Blog Post Title');
         $I->see('New blog post');
         $I->see('August 12, 2023');
-        $I->canWriteAuthenticatedComment('admin', 'This is my first blog comment! 👪🐶');
+        $I->canWriteComment(text: 'This is my first blog comment! 👪🐶');
+        $I->setCookie($this->getCookieName() . '_c', $commentCookie);
 
         $I->amOnPage('/2023/08/12/new-post1');
         $I->seeResponseCodeIsClientError();

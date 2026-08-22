@@ -36,7 +36,15 @@ if (!str_starts_with($filename, DIRECTORY_SEPARATOR)
 }
 
 try {
-    if (!is_file($filename) || is_link($filename)) {
+    $directory = realpath(dirname($filename));
+    $basename  = basename($filename);
+    if ($directory === false || $basename === '.' || $basename === '..') {
+        throw new RuntimeException('The ActivityPub recovery document path is invalid.');
+    }
+
+    $expectedFilename = $directory . DIRECTORY_SEPARATOR . $basename;
+    $filename         = realpath($expectedFilename);
+    if ($filename === false || $filename !== $expectedFilename || !is_file($filename)) {
         throw new RuntimeException('The ActivityPub recovery document must be a regular non-symlink file.');
     }
     $size = filesize($filename);

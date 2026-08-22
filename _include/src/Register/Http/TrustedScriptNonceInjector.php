@@ -96,18 +96,14 @@ final readonly class TrustedScriptNonceInjector
             $commentStart = stripos($html, '<!--', $offset);
             $scriptStart = stripos($html, '<' . 'script', $offset);
             $styleStart  = stripos($html, '<' . 'style', $offset);
-            if ($scriptStart === false && $styleStart === false) {
+            $element = $this->firstInlineElement($scriptStart, $styleStart);
+            if ($element === null) {
                 $result .= substr($html, $offset);
                 break;
             }
 
-            if ($styleStart !== false && ($scriptStart === false || $styleStart < $scriptStart)) {
-                $elementName = 'style';
-                $elementStart = $styleStart;
-            } else {
-                $elementName = 'script';
-                $elementStart = $scriptStart;
-            }
+            $elementName  = $element['name'];
+            $elementStart = $element['start'];
 
             if ($commentStart !== false && $commentStart < $elementStart) {
                 $commentEnd = strpos($html, '-->', $commentStart + 4);
@@ -163,6 +159,22 @@ final readonly class TrustedScriptNonceInjector
         }
 
         return [$result, $scriptCount];
+    }
+
+    /**
+     * @return null|array{name: 'script'|'style', start: int}
+     */
+    private function firstInlineElement(int|false $scriptStart, int|false $styleStart): ?array
+    {
+        if ($scriptStart === false) {
+            return $styleStart === false ? null : ['name' => 'style', 'start' => $styleStart];
+        }
+
+        if ($styleStart === false || $scriptStart <= $styleStart) {
+            return ['name' => 'script', 'start' => $scriptStart];
+        }
+
+        return ['name' => 'style', 'start' => $styleStart];
     }
 
     private function isTagNameBoundary(string $character): bool

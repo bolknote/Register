@@ -120,6 +120,7 @@ final readonly class NativeHostResolver implements HostResolverInterface
                         ++$seconds;
                         $microseconds = 0;
                     }
+
                     $selected = s2_call_without_warnings(
                         static fn(): int|false => stream_select($read, $write, $except, $seconds, $microseconds),
                     );
@@ -180,6 +181,7 @@ final readonly class NativeHostResolver implements HostResolverInterface
                     if ($sockets === []) {
                         throw new RemoteHostResolverUnavailable('All bounded system DNS transports failed.');
                     }
+
                     $nextRetryAt = $now + self::RETRY_INTERVAL_SECONDS * 1_000_000_000.0;
                 }
             }
@@ -267,9 +269,16 @@ final readonly class NativeHostResolver implements HostResolverInterface
                 }
 
                 unset($sockets[$socketId]);
-                fclose($socket);
+                $this->closeSocket($socket);
                 break;
             }
+        }
+    }
+
+    private function closeSocket(mixed $socket): void
+    {
+        if (\is_resource($socket)) {
+            fclose($socket);
         }
     }
 

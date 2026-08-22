@@ -94,41 +94,41 @@ final class NativeHostResolverTest extends Unit
 
     private function dnsRetryServerScript(): string
     {
-        return <<<'PHP'
-$errorCode = 0;
-$errorMessage = '';
-$server = stream_socket_server(
-    'udp://127.0.0.1:0',
-    $errorCode,
-    $errorMessage,
-    STREAM_SERVER_BIND,
-);
-if (!is_resource($server)) {
-    fwrite(STDERR, $errorMessage);
-    exit(1);
-}
-stream_set_timeout($server, 2);
-echo stream_socket_get_name($server, false), PHP_EOL;
-flush();
-for ($requestNumber = 1; $requestNumber <= 4; ++$requestNumber) {
-    $peer = null;
-    $request = stream_socket_recvfrom($server, 4096, 0, $peer);
-    if (!is_string($request) || strlen($request) < 13 || !is_string($peer) || $peer === '') {
-        exit(2);
-    }
-    if ($requestNumber <= 2) {
-        continue;
-    }
-    $header = unpack('nid', substr($request, 0, 2));
-    if (!is_array($header)) {
-        exit(3);
-    }
-    $response = pack('nnnnnn', $header['id'], 0x8180, 1, 0, 0, 0) . substr($request, 12);
-    if (stream_socket_sendto($server, $response, 0, $peer) !== strlen($response)) {
-        exit(4);
-    }
-}
-fclose($server);
-PHP;
+        return <<<'PHP_WRAP'
+        $errorCode = 0;
+        $errorMessage = '';
+        $server = stream_socket_server(
+            'udp://127.0.0.1:0',
+            $errorCode,
+            $errorMessage,
+            STREAM_SERVER_BIND,
+        );
+        if (!is_resource($server)) {
+            fwrite(STDERR, $errorMessage);
+            exit(1);
+        }
+        stream_set_timeout($server, 2);
+        echo stream_socket_get_name($server, false), PHP_EOL;
+        flush();
+        for ($requestNumber = 1; $requestNumber <= 4; ++$requestNumber) {
+            $peer = null;
+            $request = stream_socket_recvfrom($server, 4096, 0, $peer);
+            if (!is_string($request) || strlen($request) < 13 || !is_string($peer) || $peer === '') {
+                exit(2);
+            }
+            if ($requestNumber <= 2) {
+                continue;
+            }
+            $header = unpack('nid', substr($request, 0, 2));
+            if (!is_array($header)) {
+                exit(3);
+            }
+            $response = pack('nnnnnn', $header['id'], 0x8180, 1, 0, 0, 0) . substr($request, 12);
+            if (stream_socket_sendto($server, $response, 0, $peer) !== strlen($response)) {
+                exit(4);
+            }
+        }
+        fclose($server);
+        PHP_WRAP;
     }
 }

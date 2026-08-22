@@ -75,7 +75,6 @@ readonly class CommentController implements ControllerInterface
     public function handle(Request $request): Response
     {
         $authenticatedUser = $this->authProvider->getAuthenticatedPublicUser($request);
-        $isAuthenticated  = $authenticatedUser instanceof AuthenticatedPublicUser;
         $showEmail        = $request->request->get('show_email', false) !== false;
         $subscribed       = $request->request->get('subscribed', false) !== false;
         $id               = $request->request->getString('id', '');
@@ -124,19 +123,21 @@ readonly class CommentController implements ControllerInterface
             $errors[] = \sprintf($this->translator->trans('long_text'), self::S2_MAX_COMMENT_BYTES);
         }
 
-        $email = $isAuthenticated
-            ? $authenticatedUser->email
-            : trim($request->request->getString('email'));
-        if ($isAuthenticated && $email === '') {
+        if ($authenticatedUser instanceof AuthenticatedPublicUser) {
+            $email = $authenticatedUser->email;
+            $name  = $authenticatedUser->commentName();
+        } else {
+            $email = trim($request->request->getString('email'));
+            $name  = trim($request->request->getString('name'));
+        }
+
+        if ($authenticatedUser instanceof AuthenticatedPublicUser && $email === '') {
             $showEmail  = false;
             $subscribed = false;
         } elseif (!StringHelper::isValidEmail($email)) {
             $errors[] = $this->translator->trans('email');
         }
 
-        $name = $isAuthenticated
-            ? $authenticatedUser->commentName()
-            : trim($request->request->getString('name'));
         if ($name === '') {
             $errors[] = $this->translator->trans('missing_nick');
         } elseif (mb_strlen($name) > 50) {

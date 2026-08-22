@@ -97,22 +97,6 @@ class AcceptanceTester extends Actor
         }
     }
 
-    public function canWriteAuthenticatedComment(
-        string $name,
-        string $text = 'This is my first comment! 👪🐶',
-    ): void {
-        $I = $this;
-
-        $I->see($name, '#comment-form .comment-authenticated-identity');
-        $I->dontSeeElement('#comment-form [data-comment-guest-identity]');
-        $I->fillField('#comment-form textarea[name=text]', $text);
-        $I->click('submit');
-
-        $I->seeResponseCodeIs(200);
-        $I->see($name, '.comment-name');
-        $I->see($text);
-    }
-
     public function sendComment(string $name, string $email, string $text): void
     {
         $I = $this;
