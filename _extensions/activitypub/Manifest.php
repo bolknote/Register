@@ -37,7 +37,7 @@ final class Manifest implements ExtensionDisableGuardInterface, ManifestInterfac
     #[\Override]
     public function getAuthor(): string
     {
-        return 'Register contributors';
+        return 'Evgeny Stepanischev';
     }
 
     #[\Override]
