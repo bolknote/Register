@@ -196,10 +196,21 @@ final class StringHelperTest extends Unit
     public function testBbcodeToHtml(): void
     {
         $input = '[B]bold[/B] [I]italic[/I] [Q=Author]quote[/Q] http://example.com';
-        $expected = '<strong>bold</strong> <em>italic</em><blockquote><strong>Author</strong> wrote:<br/><br/><em>quote</em></blockquote><noindex><a href="http://example.com" rel="nofollow">http://example.com</a></noindex>';
+        $expected = '<p><strong>bold</strong> <em>italic</em></p><blockquote><strong>Author</strong> wrote:<br/><br/><em>quote</em></blockquote><p><noindex><a href="http://example.com" rel="nofollow">http://example.com</a></noindex></p>';
 
         $result = StringHelper::bbcodeToHtml($input, 'wrote:');
         self::assertSame($expected, $result);
+    }
+
+    public function testBbcodeToHtmlKeepsQuoteAndAnswerPairsAsBlocks(): void
+    {
+        $input = '[Q]First question[/Q]First answer[Q]Second question[/Q]Second answer';
+
+        self::assertSame(
+            '<blockquote>First question</blockquote><p>First answer</p>'
+            . '<blockquote>Second question</blockquote><p>Second answer</p>',
+            StringHelper::bbcodeToHtml($input, 'wrote:'),
+        );
     }
 
     public function testBbcodeToHtmlRendersOnlyManagedImportedAttachments(): void

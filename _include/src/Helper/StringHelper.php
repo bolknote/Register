@@ -208,7 +208,44 @@ class StringHelper
             $s
         ) ?? throw new \RuntimeException('Invalid URL pattern.');
 
-        return str_replace("\n", '<br />', $s);
+        $html = str_replace("\n", '<br />', $s);
+
+        // A quote followed by an unwrapped text node makes the next quote look as though it
+        // belongs to the preceding answer: <blockquote>question</blockquote>answer. E2 wrapped
+        // both sides in block elements, so keep the same visual grammar for imported comments.
+        if (str_contains($html, '<blockquote>')) {
+            $html = self::wrapTextAroundCommentQuotes($html);
+        }
+
+        return $html;
+    }
+
+    private static function wrapTextAroundCommentQuotes(string $html): string
+    {
+        $parts = preg_split(
+            '~(<blockquote\b[^>]*>.*?</blockquote>|<figure\b[^>]*>.*?</figure>)~isS',
+            $html,
+            -1,
+            PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY,
+        );
+        if ($parts === false) {
+            throw new \RuntimeException('Invalid comment paragraph pattern.');
+        }
+
+        $result = '';
+        foreach ($parts as $part) {
+            if (preg_match('~^<(?:blockquote|figure)\b~i', $part) === 1) {
+                $result .= $part;
+                continue;
+            }
+
+            $part = trim($part);
+            if ($part !== '') {
+                $result .= '<p>' . $part . '</p>';
+            }
+        }
+
+        return $result;
     }
 
     /**
