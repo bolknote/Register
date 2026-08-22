@@ -182,6 +182,35 @@
         tools.querySelector('.post-edit-cancel')?.toggleAttribute('hidden', !editing);
     }
 
+    function localDateTimeValue(timestamp) {
+        const date = new Date(timestamp * 1000);
+        const part = (value) => String(value).padStart(2, '0');
+        return `${date.getFullYear()}-${part(date.getMonth() + 1)}-${part(date.getDate())}`
+            + `T${part(date.getHours())}:${part(date.getMinutes())}:${part(date.getSeconds())}`;
+    }
+
+    function releasePendingMedia(state) {
+        if (state.uploadedMediaIds.size === 0) {
+            return;
+        }
+        const token = state.form.elements.namedItem('inplace_token');
+        const data = new FormData();
+        data.set('inplace_action', 'media_release');
+        data.set('inplace_token', token instanceof HTMLInputElement ? token.value : '');
+        data.set('media_ids', Array.from(state.uploadedMediaIds).join(','));
+        state.uploadedMediaIds.clear();
+        window.fetch(state.form.action, {
+            method: 'POST',
+            body: data,
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            keepalive: true,
+        }).catch(() => {});
+    }
+
     function setEditable(element, label, multiline) {
         element.setAttribute('contenteditable', 'true');
         element.setAttribute('role', 'textbox');
@@ -266,6 +295,7 @@
         state.mediaControllers.forEach((controller) => controller.abort());
         state.mediaControllers.clear();
         state.body.classList.remove('is-media-dragover');
+        state.dateInput.hidden = true;
         unsetEditable(state.title);
         unsetEditable(state.body);
         restoreHeadingLink(state);
@@ -284,6 +314,10 @@
         const titleField = form?.elements.namedItem('title');
         const bodyField = form?.elements.namedItem('body');
         const tagsField = form?.elements.namedItem('tags');
+        const publishedAtField = form?.elements.namedItem('published_at');
+        const uploadedMediaField = form?.elements.namedItem('uploaded_media_ids');
+        const dateInput = card.querySelector(':scope > .post.time > .post-inplace-datetime');
+        const time = card.querySelector(':scope > .post.time > time');
         if (
             !(form instanceof HTMLFormElement)
             || !(title instanceof HTMLElement)
@@ -293,10 +327,27 @@
             || !(titleField instanceof HTMLInputElement)
             || !(bodyField instanceof HTMLTextAreaElement)
             || !(tagsField instanceof HTMLInputElement)
+            || !(publishedAtField instanceof HTMLInputElement)
+            || !(uploadedMediaField instanceof HTMLInputElement)
+            || !(dateInput instanceof HTMLInputElement)
+            || !(time instanceof HTMLTimeElement)
         ) {
             return null;
         }
-        return {form, title, body, tags, tagsHost, titleField, bodyField, tagsField};
+        return {
+            form,
+            title,
+            body,
+            tags,
+            tagsHost,
+            titleField,
+            bodyField,
+            tagsField,
+            publishedAtField,
+            uploadedMediaField,
+            dateInput,
+            time,
+        };
     }
 
     function closeEditor(card, restoreFocus) {
@@ -305,6 +356,8 @@
             return;
         }
 
+        const creating = state.creating;
+        releasePendingMedia(state);
         state.title.textContent = state.originalTitle;
         state.body.innerHTML = state.originalBody;
         state.tags.innerHTML = state.originalTagsHtml;
@@ -312,11 +365,23 @@
         state.titleField.value = state.originalTitle;
         state.bodyField.value = state.originalBody;
         state.tagsField.value = state.originalTags;
+        state.publishedAtField.value = String(state.originalPublishedAt);
         stopEditing(state);
         state.form.reset();
         clearError(state.form);
         enhanceWidgets(state.body);
         unlock();
+
+        if (creating) {
+            const slot = card.previousElementSibling?.matches?.('[data-post-create-slot]')
+                ? card.previousElementSibling
+                : card.parentElement?.querySelector?.('[data-post-create-slot]');
+            card.remove();
+            if (restoreFocus) {
+                slot?.querySelector('.post-create-start')?.focus();
+            }
+            return;
+        }
 
         if (restoreFocus) {
             card.querySelector(':scope > .post-inplace-tools .post-edit-start')?.focus();
@@ -374,11 +439,15 @@
             originalBody: elements.bodyField.value,
             originalTags: elements.tagsField.value,
             originalTagsHtml: elements.tags.innerHTML,
+            originalPublishedAt: Number(elements.publishedAtField.value),
             titleDirty: false,
             bodyDirty: false,
             tagsDirty: false,
+            dateDirty: false,
+            creating: card.hasAttribute('data-post-creating'),
             mediaUploads: new Set(),
             mediaControllers: new Set(),
+            uploadedMediaIds: new Set(),
             mediaCaptionEditors: new Map(),
             mediaCaptionBodyContentEditable: null,
             contextMenu: null,
@@ -401,6 +470,9 @@
 
         setEditable(elements.title, card.dataset.titleLabel || 'Title', false);
         setEditable(elements.body, card.dataset.bodyLabel || 'Post text', true);
+        elements.title.dataset.placeholder = card.dataset.titlePlaceholder || '';
+        elements.dateInput.value = localDateTimeValue(state.originalPublishedAt);
+        elements.dateInput.hidden = false;
         state.tagEditor = createTagEditor(state);
         editorStates.set(card, state);
         card.classList.add('is-editing');
@@ -408,6 +480,34 @@
         toggleEditingTools(card, true);
         document.execCommand('defaultParagraphSeparator', false, 'p');
         focusEdge(elements.title, true);
+
+        return true;
+    }
+
+    function beginCreate(button) {
+        const slot = button.closest('[data-post-create-slot]');
+        const existing = slot?.nextElementSibling;
+        if (existing?.matches?.('.post-card[data-post-creating]')) {
+            const state = editorStates.get(existing);
+            state?.title.focus();
+            return true;
+        }
+        const template = slot?.querySelector('.post-create-template');
+        if (!(slot instanceof HTMLElement) || !(template instanceof HTMLTemplateElement)) {
+            return false;
+        }
+
+        const fragment = template.content.cloneNode(true);
+        const card = fragment.querySelector('.post-card[data-post-creating]');
+        const edit = card?.querySelector('.post-edit-start');
+        if (!(card instanceof HTMLElement) || !(edit instanceof HTMLElement)) {
+            return false;
+        }
+        slot.after(fragment);
+        if (!beginEdit(edit)) {
+            card.remove();
+            return false;
+        }
 
         return true;
     }
@@ -447,6 +547,16 @@
         state.titleField.value = title;
         state.bodyField.value = state.bodyDirty ? editableBodyHtml(state) : state.originalBody;
 
+        const publishedAt = state.dateDirty
+            ? Math.floor(new Date(state.dateInput.value).getTime() / 1000)
+            : state.originalPublishedAt;
+        if (!Number.isInteger(publishedAt) || publishedAt < 1 || publishedAt > 4102444799) {
+            showError(state.form, state.card.dataset.invalidContent || state.card.dataset.editError || 'Invalid post content.');
+            state.dateInput.focus();
+            return false;
+        }
+        state.publishedAtField.value = String(publishedAt);
+
         const tags = state.tagEditor.sync();
         if (tags === null) {
             showError(state.form, state.card.dataset.invalidTags || state.card.dataset.editError || 'Invalid post tags.');
@@ -456,6 +566,7 @@
         const tagValue = tags.join(', ');
         state.tagsHost.classList.toggle('is-empty', tagValue === '');
         state.tagsField.value = tagValue;
+        state.uploadedMediaField.value = Array.from(state.uploadedMediaIds).join(',');
         return true;
     }
 
@@ -697,6 +808,7 @@
             image.setAttribute('alt', '');
             image.setAttribute('loading', 'lazy');
             image.setAttribute('decoding', 'async');
+            image.dataset.postMediaId = String(payload.media_id);
             if (Number.isInteger(payload.width) && payload.width > 0) {
                 image.setAttribute('width', String(payload.width));
             }
@@ -719,6 +831,7 @@
         audio.setAttribute('preload', 'metadata');
         audio.setAttribute('controls', '');
         audio.setAttribute('data-register-audio-native', '');
+        audio.dataset.postMediaId = String(payload.media_id);
         audio.dataset.title = typeof payload.name === 'string' && payload.name !== ''
             ? payload.name
             : file.name;
@@ -839,6 +952,108 @@
         });
     }
 
+    function resolveMediaConflict(state, conflict, controller) {
+        const template = state.card.querySelector(':scope > .post-media-conflict-template');
+        const fragment = template instanceof HTMLTemplateElement ? template.content.cloneNode(true) : null;
+        const backdrop = fragment?.querySelector('.post-media-conflict-backdrop');
+        const dialog = fragment?.querySelector('.post-media-conflict-dialog');
+        const existingImage = fragment?.querySelector('[data-media-conflict-existing]');
+        const incomingImage = fragment?.querySelector('[data-media-conflict-incoming]');
+        const overwrite = fragment?.querySelector('[data-media-conflict-action="overwrite"]');
+        if (
+            !(backdrop instanceof HTMLElement)
+            || !(dialog instanceof HTMLElement)
+            || !(existingImage instanceof HTMLImageElement)
+            || !(incomingImage instanceof HTMLImageElement)
+            || !(overwrite instanceof HTMLButtonElement)
+        ) {
+            return Promise.reject(new Error(state.card.dataset.mediaUploadFailed || 'Unable to upload the image.'));
+        }
+
+        existingImage.src = conflict.existing.preview_url || conflict.existing.url;
+        existingImage.alt = conflict.existing.name || '';
+        incomingImage.src = conflict.incoming.preview_url || conflict.incoming.url;
+        incomingImage.alt = conflict.incoming.name || '';
+        overwrite.hidden = conflict.can_overwrite !== true;
+        document.body.append(backdrop);
+
+        return new Promise((resolve, reject) => {
+            let settled = false;
+            let choosing = false;
+            const cleanup = () => {
+                document.removeEventListener('keydown', handleKeyDown, true);
+                backdrop.remove();
+            };
+            const finish = (value, error = null) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                cleanup();
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(value);
+                }
+            };
+            const choose = async (decision) => {
+                if (choosing || settled) {
+                    return;
+                }
+                choosing = true;
+                dialog.querySelectorAll('button').forEach((button) => {
+                    button.disabled = true;
+                });
+                dialog.setAttribute('aria-busy', 'true');
+                const token = state.form.elements.namedItem('inplace_token');
+                const data = new FormData();
+                data.set('inplace_action', 'media_conflict');
+                data.set('inplace_token', token instanceof HTMLInputElement ? token.value : '');
+                data.set('media_id', String(conflict.incoming.media_id));
+                data.set('existing_id', String(conflict.existing.media_id));
+                data.set('conflict_action', decision);
+                try {
+                    const response = await window.fetch(state.form.action, {
+                        method: 'POST',
+                        body: data,
+                        credentials: 'same-origin',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        signal: controller.signal,
+                    });
+                    const payload = await response.json().catch(() => null);
+                    if (!response.ok || !payload || payload.success !== true) {
+                        throw new Error(payload?.message || state.card.dataset.mediaUploadFailed || 'Unable to upload the image.');
+                    }
+                    finish(payload.action === 'media_cancelled' ? null : payload);
+                } catch (error) {
+                    finish(null, error);
+                }
+            };
+            const handleKeyDown = (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    choose('cancel');
+                }
+            };
+            backdrop.addEventListener('click', (event) => {
+                const button = event.target instanceof Element
+                    ? event.target.closest('[data-media-conflict-action]')
+                    : null;
+                if (button instanceof HTMLButtonElement) {
+                    choose(button.dataset.mediaConflictAction || 'cancel');
+                }
+            });
+            controller.signal.addEventListener('abort', () => {
+                finish(null, new DOMException('The upload was cancelled.', 'AbortError'));
+            }, {once: true});
+            document.addEventListener('keydown', handleKeyDown, true);
+            dialog.focus();
+        });
+    }
+
     function startMediaUpload(state, file, kind, placeholder) {
         const token = state.form.elements.namedItem('inplace_token');
         const controller = new AbortController();
@@ -860,13 +1075,32 @@
                     },
                     signal: controller.signal,
                 });
-                const payload = await response.json().catch(() => null);
+                let payload = await response.json().catch(() => null);
+                let accepted = response.ok;
                 if (
-                    !response.ok
+                    response.status === 409
+                    && payload?.action === 'media_conflict'
+                    && payload.incoming?.media_id
+                    && payload.existing?.media_id
+                ) {
+                    state.uploadedMediaIds.add(Number(payload.incoming.media_id));
+                    const candidateId = Number(payload.incoming.media_id);
+                    payload = await resolveMediaConflict(state, payload, controller);
+                    state.uploadedMediaIds.delete(candidateId);
+                    if (payload === null) {
+                        placeholder.remove();
+                        return;
+                    }
+                    accepted = true;
+                }
+                if (
+                    !accepted
                     || !payload
                     || payload.success !== true
                     || payload.action !== 'media'
                     || payload.kind !== kind
+                    || !Number.isInteger(payload.media_id)
+                    || payload.media_id <= 0
                     || typeof payload.url !== 'string'
                     || payload.url === ''
                 ) {
@@ -880,6 +1114,7 @@
                 }
 
                 const media = createMediaElement(state, payload, file);
+                state.uploadedMediaIds.add(payload.media_id);
                 placeholder.replaceWith(media.element);
                 state.bodyDirty = true;
                 clearStatus(state.card);
@@ -973,6 +1208,8 @@
         const currentBody = state?.body || card.querySelector(':scope > .post.body[data-post-inplace-body]');
         const tagValues = state?.tags || card.querySelector(':scope > .post.foot [data-post-inplace-tags-values]');
         const tagsHost = state?.tagsHost || tagValues?.closest('.post-foot-tags');
+        const time = state?.time || card.querySelector(':scope > .post.time > time');
+        const dateInput = state?.dateInput || card.querySelector(':scope > .post.time > .post-inplace-datetime');
         const replacementBody = typeof payload.body_html === 'string' ? parseBody(payload.body_html) : null;
         if (
             !title
@@ -980,7 +1217,12 @@
             || !replacementBody
             || !(tagValues instanceof HTMLElement)
             || !(tagsHost instanceof HTMLElement)
+            || !(time instanceof HTMLTimeElement)
+            || !(dateInput instanceof HTMLInputElement)
             || typeof payload.title !== 'string'
+            || !Number.isInteger(payload.published_at)
+            || typeof payload.datetime !== 'string'
+            || typeof payload.time !== 'string'
             || !Array.isArray(payload.tags)
             || payload.tags.some((tag) => !tag || typeof tag.name !== 'string' || typeof tag.url !== 'string')
         ) {
@@ -991,6 +1233,9 @@
             stopEditing(state);
         }
         title.textContent = payload.title;
+        time.dateTime = payload.datetime;
+        time.textContent = payload.time;
+        dateInput.value = localDateTimeValue(payload.published_at);
 
         const tagFragment = document.createDocumentFragment();
         payload.tags.forEach((tag, index) => {
@@ -1023,6 +1268,8 @@
         const titleField = form.elements.namedItem('title');
         const bodyField = form.elements.namedItem('body');
         const tagsField = form.elements.namedItem('tags');
+        const publishedAtField = form.elements.namedItem('published_at');
+        const uploadedMediaField = form.elements.namedItem('uploaded_media_ids');
         if (titleField instanceof HTMLInputElement) {
             titleField.value = payload.title;
             titleField.defaultValue = payload.title;
@@ -1033,6 +1280,14 @@
         if (tagsField instanceof HTMLInputElement) {
             tagsField.value = payload.tags.map((tag) => tag.name).join(', ');
             tagsField.defaultValue = tagsField.value;
+        }
+        if (publishedAtField instanceof HTMLInputElement) {
+            publishedAtField.value = String(payload.published_at);
+            publishedAtField.defaultValue = publishedAtField.value;
+        }
+        if (uploadedMediaField instanceof HTMLInputElement) {
+            uploadedMediaField.value = '';
+            uploadedMediaField.defaultValue = '';
         }
         card.querySelectorAll('input[name="revision"]').forEach((field) => {
             field.value = String(payload.revision);
@@ -1048,6 +1303,62 @@
         unlock();
         refresh();
         card.querySelector(':scope > .post-inplace-tools .post-edit-start')?.focus();
+    }
+
+    function updateCreatedCard(card, form, payload) {
+        if (
+            !Number.isInteger(payload.id)
+            || payload.id <= 0
+            || typeof payload.url !== 'string'
+            || typeof payload.action_url !== 'string'
+            || typeof payload.admin_edit_url !== 'string'
+            || typeof payload.token !== 'string'
+        ) {
+            throw new Error(card.dataset.applyError || 'Unable to apply the created post.');
+        }
+
+        card.dataset.postId = String(payload.id);
+        card.removeAttribute('data-post-creating');
+        card.classList.remove('is-creating');
+        form.action = payload.action_url;
+        const action = form.elements.namedItem('inplace_action');
+        const token = form.elements.namedItem('inplace_token');
+        if (action instanceof HTMLInputElement) {
+            action.value = 'edit';
+            action.defaultValue = 'edit';
+        }
+        if (token instanceof HTMLInputElement) {
+            token.value = payload.token;
+            token.defaultValue = payload.token;
+        }
+
+        const deleteForm = card.querySelector(':scope > .post-delete-confirmation .post-inplace-delete-form');
+        if (deleteForm instanceof HTMLFormElement) {
+            deleteForm.action = payload.action_url;
+            const deleteToken = deleteForm.elements.namedItem('inplace_token');
+            if (deleteToken instanceof HTMLInputElement) {
+                deleteToken.value = payload.token;
+                deleteToken.defaultValue = payload.token;
+            }
+        }
+        const editLink = card.querySelector(':scope > .post-inplace-tools .post-edit-start');
+        if (editLink instanceof HTMLAnchorElement) {
+            editLink.href = payload.admin_edit_url;
+        }
+
+        updateEditedCard(card, form, payload);
+        const titleLink = card.querySelector(':scope > .post.head > a');
+        if (titleLink instanceof HTMLAnchorElement) {
+            titleLink.href = payload.url;
+        }
+        const slot = card.previousElementSibling?.matches?.('[data-post-create-slot]')
+            ? card.previousElementSibling
+            : card.parentElement?.querySelector?.('[data-post-create-slot]');
+        const feed = card.closest('.live-post-feed');
+        if (slot instanceof HTMLElement && feed) {
+            const postCount = feed.querySelectorAll('.post-card:not([data-post-creating])').length;
+            slot.classList.toggle('is-always-visible', postCount < 3);
+        }
     }
 
     function removeDeletedCard(card, payload) {
@@ -1125,7 +1436,7 @@
                 if (editorStates.get(card) !== state || !syncEditor(state)) {
                     return;
                 }
-                if (!state.titleDirty && !state.bodyDirty && !state.tagsDirty) {
+                if (!state.creating && !state.titleDirty && !state.bodyDirty && !state.tagsDirty && !state.dateDirty) {
                     closeEditor(card, true);
                     return;
                 }
@@ -1148,6 +1459,8 @@
 
             if (payload.action === 'edit') {
                 updateEditedCard(card, form, payload);
+            } else if (payload.action === 'create') {
+                updateCreatedCard(card, form, payload);
             } else if (payload.action === 'delete') {
                 removeDeletedCard(card, payload);
             } else {
@@ -1252,29 +1565,6 @@
     function positionContextMenu(anchor, menu) {
         anchor.classList.remove('is-left', 'is-above');
         let rect = menu.getBoundingClientRect();
-        if (anchor.classList.contains('is-viewport')) {
-            const edge = 12;
-            let left = Number.parseFloat(anchor.style.left) || 0;
-            let top = Number.parseFloat(anchor.style.top) || 0;
-            if (rect.width >= window.innerWidth - edge * 2) {
-                left += edge - rect.left;
-            } else if (rect.right > window.innerWidth - edge) {
-                left -= rect.right - (window.innerWidth - edge);
-            } else if (rect.left < edge) {
-                left += edge - rect.left;
-            }
-            anchor.style.left = `${left}px`;
-            rect = menu.getBoundingClientRect();
-            if (rect.height >= window.innerHeight - edge * 2) {
-                top += edge - rect.top;
-            } else if (rect.bottom > window.innerHeight - edge) {
-                top -= rect.bottom - (window.innerHeight - edge);
-            } else if (rect.top < edge) {
-                top += edge - rect.top;
-            }
-            anchor.style.top = `${top}px`;
-            return;
-        }
         if (rect.right > window.innerWidth - 12) {
             anchor.classList.add('is-left');
             rect = menu.getBoundingClientRect();
@@ -2065,13 +2355,13 @@
         anchor.className = 'post-editor-context-anchor';
         anchor.contentEditable = 'false';
         if (targetImage) {
-            const rect = targetImage.getBoundingClientRect();
-            const x = event ? event.clientX : rect.left + Math.min(rect.width / 2, 48);
-            const y = event ? event.clientY : rect.top + Math.min(rect.height / 2, 48);
-            anchor.classList.add('is-viewport');
-            anchor.style.left = `${Math.max(12, x)}px`;
-            anchor.style.top = `${Math.max(12, y)}px`;
-            document.body.append(anchor);
+            const host = targetImage.closest('[data-post-media-overlay], .post-picture, figure, a')
+                || targetImage.parentElement;
+            if (!(host instanceof HTMLElement)) {
+                return false;
+            }
+            anchor.classList.add('is-image');
+            host.append(anchor);
         } else {
             const anchorRange = event
                 ? bodyRangeFromPoint(state, event.clientX, event.clientY)
@@ -2197,7 +2487,7 @@
                 if (!linkPanel.hidden) {
                     showContextMain(state);
                 } else {
-                    closeContextMenu(state, true);
+                    closeContextMenu(state, targetImage === null);
                 }
                 return;
             }
@@ -2432,6 +2722,12 @@
             }
         }
 
+        const create = target?.closest('.post-create-start');
+        if (create && beginCreate(create)) {
+            event.preventDefault();
+            return;
+        }
+
         const edit = target?.closest('.post-edit-start');
         if (edit && beginEdit(edit)) {
             event.preventDefault();
@@ -2519,6 +2815,9 @@
         if (state.body.contains(event.target)) {
             state.bodyDirty = true;
         }
+        if (event.target === state.dateInput) {
+            state.dateDirty = true;
+        }
         clearError(card.querySelector(':scope > .post-inplace-edit-form'));
         clearStatus(card);
     }, false);
@@ -2528,6 +2827,18 @@
             const state = editorStates.get(card);
             if (state?.contextMenu) {
                 closeContextMenu(state, false);
+            }
+        });
+    }, false);
+
+    window.addEventListener('pagehide', (event) => {
+        if (event.persisted) {
+            return;
+        }
+        document.querySelectorAll('.post-card.is-editing').forEach((card) => {
+            const state = editorStates.get(card);
+            if (state) {
+                releasePendingMedia(state);
             }
         });
     }, false);

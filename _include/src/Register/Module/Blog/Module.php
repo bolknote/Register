@@ -21,6 +21,7 @@ use Register\Module\Blog\Inplace\PostInplaceController;
 use Register\Module\Blog\Inplace\PostInplaceControls;
 use Register\Module\Blog\Inplace\PostInplaceMediaStorage;
 use Register\Module\Blog\Inplace\PostInplaceTokenManager;
+use Register\Module\Blog\Inplace\PostMediaRepository;
 use S2\Cms\Admin\Picture\PictureFileNameHelper;
 use S2\Cms\Admin\Picture\PictureStorageQuota;
 use S2\Cms\Asset\AssetPack;
@@ -68,6 +69,7 @@ use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SimilarWordsDetector;
 use Register\Url\ContentUrlGenerator;
+use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlAliasController;
 use Register\Url\ContentUrlAliasRepository;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -165,6 +167,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get('register_blog_translator'),
             $container->getStringParameter('image_dir'),
         ));
+        $container->set(PostMediaRepository::class, static fn(Container $container): PostMediaRepository => new PostMediaRepository(
+            $container->get(DbLayer::class),
+            $container->getStringParameter('image_path'),
+        ));
         $container->set(PostInplaceController::class, static fn(Container $container): PostInplaceController => new PostInplaceController(
             $container->get(DbLayer::class),
             $container->get(\PDO::class),
@@ -178,7 +184,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(BlogUrlBuilder::class),
             $container->get(UrlBuilder::class),
             $container->get(PostInplaceMediaStorage::class),
-            $container->getStringParameter('image_path'),
+            $container->get(PostMediaRepository::class),
+            $container->get(ContentSlugService::class),
+            $container->get(ContentUrlGenerator::class),
+            $container->get(PostProvider::class),
             $container->get(\Register\Ai\AiClient::class),
             $container->get(\Register\Ai\AiSettings::class),
             $container->get('register_blog_translator'),
@@ -567,6 +576,12 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $routes->add('blog_post_inplace', new Route(
             '/_inplace/post/{id<[1-9][0-9]*>}',
             ['_controller' => PostInplaceController::class],
+            methods: ['POST'],
+        ), $priority + 1);
+
+        $routes->add('blog_post_inplace_create', new Route(
+            '/_inplace/post/new',
+            ['_controller' => PostInplaceController::class, 'create' => true],
             methods: ['POST'],
         ), $priority + 1);
 

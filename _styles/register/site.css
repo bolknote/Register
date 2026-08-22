@@ -984,6 +984,61 @@ h2.preview,
     margin-bottom: 0.6rem;
 }
 
+.post-create-slot {
+    position: relative;
+    display: grid;
+    width: 100%;
+    height: clamp(3.25rem, 6vw, 4.75rem);
+    place-items: center;
+}
+
+.post-create-start {
+    display: grid;
+    width: 3.25rem;
+    height: 3.25rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    appearance: none;
+    place-items: center;
+    background: transparent;
+    box-shadow: none;
+    color: var(--minor-color);
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.9);
+    transition: color 120ms ease, opacity 120ms ease, transform 120ms ease;
+}
+
+.post-create-slot:hover .post-create-start,
+.post-create-start:focus-visible,
+.post-create-slot.is-always-visible .post-create-start {
+    opacity: 1;
+    transform: none;
+}
+
+.post-create-start:hover,
+.post-create-start:focus-visible {
+    color: var(--accent-color);
+    outline: none;
+    transform: scale(1.06);
+}
+
+.post-create-start svg {
+    width: 3rem;
+    height: 3rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.35;
+}
+
+.post-create-slot:has(+ .post-card.is-creating) {
+    display: none;
+}
+
 .post-inplace-tools {
     position: absolute;
     z-index: 3;
@@ -1109,6 +1164,44 @@ h2.preview,
     color: var(--link-color);
     text-wrap: wrap;
     text-wrap: stable;
+}
+
+.post-card.is-editing .post-title-text[data-placeholder]:empty::after {
+    content: attr(data-placeholder);
+    color: var(--quiet-color);
+    pointer-events: none;
+}
+
+.post.time {
+    position: relative;
+    width: max-content;
+    max-width: 100%;
+}
+
+.post-inplace-datetime {
+    position: absolute;
+    z-index: 4;
+    top: 50%;
+    left: 0;
+    width: min(19rem, calc(100vw - var(--page-margin) - var(--page-margin)));
+    max-width: none;
+    min-height: 2.25rem;
+    margin: 0;
+    padding: 0.28rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--field-background);
+    color: var(--text-color);
+    font: inherit;
+    transform: translateY(-50%);
+}
+
+.post-inplace-datetime[hidden] {
+    display: none;
+}
+
+.post-card.is-editing > .post.time > time {
+    visibility: hidden;
 }
 
 .post-card.is-editing > .post.body[data-post-inplace-body] {
@@ -1271,9 +1364,15 @@ h2.preview,
     user-select: none;
 }
 
-.post-editor-context-anchor.is-viewport {
-    position: fixed;
+.post-card.is-editing > .post.body :has(> .post-editor-context-anchor.is-image) {
+    position: relative;
+}
+
+.post-editor-context-anchor.is-image {
+    position: absolute;
     z-index: 40;
+    top: 0.5rem;
+    left: 0.5rem;
     display: block;
     vertical-align: top;
 }
@@ -2034,6 +2133,135 @@ h2.preview,
 .post-card[aria-busy="true"] > .post-inplace-tools {
     cursor: progress;
     opacity: 0.55;
+}
+
+.post-media-conflict-backdrop {
+    position: fixed;
+    z-index: 120;
+    inset: 0;
+    display: grid;
+    padding: max(1rem, 4vh) var(--page-margin);
+    place-items: center;
+    background: color-mix(in srgb, #000 52%, transparent);
+    backdrop-filter: blur(4px);
+}
+
+.post-media-conflict-dialog {
+    width: min(58rem, 100%);
+    max-height: min(48rem, 92vh);
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--surface-background);
+    box-shadow: 0 1.2rem 4rem color-mix(in srgb, #000 36%, transparent);
+    color: var(--text-color);
+    font-family: var(--ui-font);
+}
+
+.post-media-conflict-dialog > header {
+    padding: 1.3rem 1.4rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.post-media-conflict-dialog > header > span {
+    color: var(--accent-color);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.post-media-conflict-dialog h2 {
+    margin: 0.25rem 0 0.2rem;
+    font-size: clamp(1.2rem, 3vw, 1.65rem);
+    line-height: 1.2;
+}
+
+.post-media-conflict-dialog header p {
+    margin: 0;
+    color: var(--minor-color);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.post-media-conflict-previews {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    padding: 1.25rem 1.4rem;
+}
+
+.post-media-conflict-previews figure {
+    min-width: 0;
+    margin: 0;
+}
+
+.post-media-conflict-image {
+    display: grid;
+    height: clamp(12rem, 42vh, 25rem);
+    overflow: hidden;
+    place-items: center;
+    border-radius: 8px;
+    background:
+        linear-gradient(45deg, color-mix(in srgb, var(--border-color) 55%, transparent) 25%, transparent 25%) 0 0 / 1rem 1rem,
+        linear-gradient(-45deg, color-mix(in srgb, var(--border-color) 55%, transparent) 25%, transparent 25%) 0 0 / 1rem 1rem,
+        linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--border-color) 55%, transparent) 75%) 0 0 / 1rem 1rem,
+        linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--border-color) 55%, transparent) 75%) 0 0 / 1rem 1rem;
+}
+
+.post-media-conflict-image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.post-media-conflict-previews figcaption {
+    margin-top: 0.45rem;
+    color: var(--minor-color);
+    font-size: 0.8rem;
+}
+
+.post-media-conflict-actions {
+    display: flex;
+    padding: 0 1.4rem 1.35rem;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.post-media-conflict-actions button {
+    min-height: 2.35rem;
+    margin: 0;
+    padding: 0.42rem 0.82rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-color);
+    font: 650 0.84rem/1.2 var(--ui-font);
+}
+
+.post-media-conflict-actions button:hover,
+.post-media-conflict-actions button:focus-visible {
+    border-color: var(--accent-color);
+    outline: none;
+}
+
+.post-media-conflict-actions button.is-primary {
+    border-color: var(--accent-color);
+    background: var(--accent-color);
+    color: var(--page-background);
+}
+
+@media (max-width: 640px) {
+    .post-media-conflict-previews {
+        grid-template-columns: 1fr;
+    }
+
+    .post-media-conflict-image {
+        height: min(28vh, 14rem);
+    }
 }
 
 .post-inplace-actions {

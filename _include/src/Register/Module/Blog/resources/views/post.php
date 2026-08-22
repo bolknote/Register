@@ -20,19 +20,24 @@ use Register\Http\TrustedScriptNonceInjector;
 /** @var string $favoritePostsUrl */
 /** @var bool $showComments */
 /** @var bool $enabledComments */
-/** @var array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string, ai_enabled: bool}|null $inplace */
+/** @var array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: bool}|null $inplace */
 
 $heading     = empty($title_link) ? 'h1' : 'h2';
 $inplaceData = isset($inplace) && \is_array($inplace) ? $inplace : null;
+$isCreating  = $inplaceData !== null && ($inplaceData['create'] ?? false) === true;
 $postId      = (int)$id;
+$editFormId  = 'post-inplace-edit-' . $postId;
 $tagNames    = array_values(array_map(
     static fn(array $tag): string => (string)($tag['title'] ?? ''),
     \is_array($tags ?? null) ? $tags : [],
 ));
 ?>
 <article
-    class="post-card<?php echo $inplaceData !== null ? ' is-manageable' : ''; ?>"
+    class="post-card<?php echo $inplaceData !== null ? ' is-manageable' : ''; ?><?php echo $isCreating ? ' is-creating' : ''; ?>"
     data-post-id="<?php echo $postId; ?>"
+<?php if ($isCreating): ?>
+    data-post-creating
+<?php endif; ?>
 <?php if ($inplaceData !== null): ?>
     data-edit-error="<?php echo s2_htmlencode($trans('Post editing failed')); ?>"
     data-apply-error="<?php echo s2_htmlencode($trans('Post update apply failed')); ?>"
@@ -56,10 +61,13 @@ $tagNames    = array_values(array_map(
     data-ai-applied="<?php echo s2_htmlencode($trans('AI changes applied')); ?>"
     data-ai-proofread-clean="<?php echo s2_htmlencode($trans('AI proofreading clean')); ?>"
     data-invalid-link="<?php echo s2_htmlencode($trans('Invalid link address')); ?>"
+    data-title-placeholder="<?php echo s2_htmlencode($trans('New post title')); ?>"
+    data-date-label="<?php echo s2_htmlencode($trans('Post publication date')); ?>"
 <?php endif; ?>
 >
 <?php if ($inplaceData !== null): ?>
 <form
+    id="<?php echo $editFormId; ?>"
     class="post-inplace-edit-form"
     method="post"
     action="<?php echo s2_htmlencode($inplaceData['action_url']); ?>"
@@ -68,7 +76,9 @@ $tagNames    = array_values(array_map(
     <input name="title" type="hidden" value="<?php echo s2_htmlencode($title); ?>">
     <textarea name="body" hidden><?php echo s2_htmlencode($text); ?></textarea>
     <input name="tags" type="hidden" value="<?php echo s2_htmlencode(implode(', ', $tagNames)); ?>">
-    <input type="hidden" name="inplace_action" value="edit">
+    <input name="published_at" type="hidden" value="<?php echo (int)$create_time; ?>">
+    <input name="uploaded_media_ids" type="hidden" value="">
+    <input type="hidden" name="inplace_action" value="<?php echo $isCreating ? 'create' : 'edit'; ?>">
     <input type="hidden" name="inplace_token" value="<?php echo s2_htmlencode($inplaceData['token']); ?>">
     <input type="hidden" name="revision" value="<?php echo $inplaceData['revision']; ?>">
     <input type="hidden" name="return_to" value="<?php echo s2_htmlencode($inplaceData['return_to']); ?>">
@@ -244,6 +254,32 @@ $tagNames    = array_values(array_map(
         </div>
     </div>
 </template>
+<template class="post-media-conflict-template">
+    <div class="post-media-conflict-backdrop">
+        <section class="post-media-conflict-dialog" role="dialog" aria-modal="true" aria-labelledby="post-media-conflict-title-<?php echo $postId; ?>" tabindex="-1">
+            <header>
+                <span><?php echo $trans('Editor'); ?></span>
+                <h2 id="post-media-conflict-title-<?php echo $postId; ?>"><?php echo $trans('Image with this name exists'); ?></h2>
+                <p><?php echo $trans('Choose how to save duplicate image'); ?></p>
+            </header>
+            <div class="post-media-conflict-previews">
+                <figure>
+                    <div class="post-media-conflict-image"><img data-media-conflict-existing alt=""></div>
+                    <figcaption><?php echo $trans('Existing image'); ?></figcaption>
+                </figure>
+                <figure>
+                    <div class="post-media-conflict-image"><img data-media-conflict-incoming alt=""></div>
+                    <figcaption><?php echo $trans('New image'); ?></figcaption>
+                </figure>
+            </div>
+            <div class="post-media-conflict-actions">
+                <button type="button" data-media-conflict-action="cancel"><?php echo $trans('Cancel'); ?></button>
+                <button type="button" data-media-conflict-action="keep"><?php echo $trans('Keep both images'); ?></button>
+                <button type="button" class="is-primary" data-media-conflict-action="overwrite"><?php echo $trans('Replace existing image'); ?></button>
+            </div>
+        </section>
+    </div>
+</template>
 <?php endif; ?>
 <div class="post author"><?php if (!empty($author)) echo s2_htmlencode($author); ?></div>
 <<?php echo $heading; ?> class="post head">
@@ -258,16 +294,21 @@ $tagNames    = array_values(array_map(
     <span class="favorite-star" title="<?php echo $trans('Favorite posts'); ?>">★</span>
 <?php } ?>
 </<?php echo $heading; ?>>
-<div class="post time"><time datetime="<?php echo gmdate(DATE_ATOM, (int)$create_time); ?>"<?php if (trim($display_date ?? '') === ''): ?> data-local-time="datetime" data-locale="<?php echo s2_htmlencode($trans('locale')); ?>"<?php endif; ?>><?php echo s2_htmlencode($time); ?></time></div>
+<div class="post time">
+    <time datetime="<?php echo gmdate(DATE_ATOM, (int)$create_time); ?>"<?php if (trim($display_date ?? '') === ''): ?> data-local-time="datetime" data-locale="<?php echo s2_htmlencode($trans('locale')); ?>"<?php endif; ?>><?php echo s2_htmlencode($time); ?></time>
+<?php if ($inplaceData !== null): ?>
+    <input class="post-inplace-datetime" type="datetime-local" step="1" aria-label="<?php echo s2_htmlencode($trans('Post publication date')); ?>" hidden>
+<?php endif; ?>
+</div>
 <?php if ($inplaceData !== null): ?>
 <nav class="post-inplace-tools" aria-label="<?php echo $trans('Post tools'); ?>">
-    <a class="post-inplace-button post-edit-start" href="<?php echo s2_htmlencode($inplaceData['admin_edit_url']); ?>" title="<?php echo $trans('Edit post inplace'); ?>" aria-label="<?php echo $trans('Edit post inplace'); ?>">
+    <a class="post-inplace-button post-edit-start" href="<?php echo s2_htmlencode($inplaceData['admin_edit_url']); ?>" title="<?php echo $trans('Edit post inplace'); ?>" aria-label="<?php echo $trans('Edit post inplace'); ?>"<?php echo $isCreating ? ' hidden' : ''; ?>>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M5.2 18.8 6.4 14.4 16.6 4.2a2.1 2.1 0 0 1 3 3L9.4 17.4l-4.2 1.4Z" />
             <path d="m14.7 6.1 3.2 3.2M6.4 14.4l3 3" />
         </svg>
     </a>
-    <button class="post-inplace-button post-delete-start" type="button" title="<?php echo $trans('Delete post inplace'); ?>" aria-label="<?php echo $trans('Delete post inplace'); ?>">
+    <button class="post-inplace-button post-delete-start" type="button" title="<?php echo $trans('Delete post inplace'); ?>" aria-label="<?php echo $trans('Delete post inplace'); ?>"<?php echo $isCreating ? ' hidden' : ''; ?>>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M7.2 8.2 8 19.3h8l.8-11.1M5.2 6.2h13.6M9 6.2V4.5h6v1.7M10.2 10.3v6.4M13.8 10.3v6.4" />
         </svg>

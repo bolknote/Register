@@ -12,11 +12,13 @@ namespace integration;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
+use Register\Content\ContentMediaSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Live\LiveUpdateRepository;
+use Register\Module\Blog\Inplace\PostMediaRepository;
 use Register\Module\LinkHealth\Manifest;
 use S2\Cms\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -242,7 +244,14 @@ final class PostInplaceCest
                 $imagePayload['url'],
             );
             $storedFiles[] = $this->storedMediaPath($imagePayload['url']);
-            $I->assertFileExists($storedFiles[array_key_last($storedFiles)]);
+            $staleImageFile = $storedFiles[array_key_last($storedFiles)];
+            $I->assertFileExists($staleImageFile);
+            $dbLayer
+                ->update(ContentMediaSchema::FILE_TABLE)
+                ->set('created_at', '1')
+                ->where('id = :id')->setParameter('id', (int)$imagePayload['media_id'])
+                ->execute()
+            ;
 
             $I->sendPost(
                 'https://localhost/_inplace/post/' . $postId,
@@ -261,6 +270,16 @@ final class PostInplaceCest
             );
             $storedFiles[] = $this->storedMediaPath($audioPayload['url']);
             $I->assertFileExists($storedFiles[array_key_last($storedFiles)]);
+            $I->assertFileDoesNotExist($staleImageFile);
+            $I->assertSame(0, (int)$dbLayer
+                ->select('COUNT(*)')
+                ->from(ContentMediaSchema::FILE_TABLE)
+                ->where('storage_path = :storage_path')->setParameter(
+                    'storage_path',
+                    substr((string)$imagePayload['url'], strlen('/_tests/_output/images')),
+                )
+                ->execute()
+                ->result());
 
             $I->sendPost(
                 'https://localhost/_inplace/post/' . $postId,
@@ -271,6 +290,301 @@ final class PostInplaceCest
             $I->assertStringContainsString('Only image and audio files', $I->grabResponse());
         } finally {
             foreach ([$png, $wav, $txt, ...$storedFiles] as $filename) {
+                if (is_file($filename)) {
+                    unlink($filename);
+                }
+            }
+        }
+    }
+
+    public function createsAPostInlineAndEditsItsPublicationDate(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $authorId = $this->userId($dbLayer, 'author');
+
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/');
+        $I->seeElement('.post-create-slot[data-post-create-slot] .post-create-start');
+        $I->seeElement('.post-create-slot template.post-create-template');
+        $I->seeElement('.post-create-template .post-card[data-post-creating]');
+        $I->seeElement('.post-create-template .post-inplace-datetime[hidden]');
+
+        $formSelector = '.post-create-template .post-inplace-edit-form';
+        $token = (string)$I->grabAttributeFrom($formSelector . ' input[name="inplace_token"]', 'value');
+        $publishedAt = time() - 3600;
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+            'inplace_action' => 'create',
+            'inplace_token'  => $token,
+            'revision'       => '0',
+            'title'          => 'Created on the public page',
+            'body'           => '<p>Created directly in the feed.</p>',
+            'tags'           => 'Public editor',
+            'published_at'   => (string)$publishedAt,
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertSame('create', $payload['action']);
+        $I->assertGreaterThan(0, $payload['id']);
+        $I->assertSame($publishedAt, $payload['published_at']);
+        $I->assertStringStartsWith('/', $payload['url']);
+
+        $postId = (int)$payload['id'];
+        $stored = $dbLayer
+            ->select('author_id, title, body, published_at, revision')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $I->assertIsArray($stored);
+        $I->assertSame($authorId, (int)$stored['author_id']);
+        $I->assertSame('Created on the public page', $stored['title']);
+        $I->assertSame('<p>Created directly in the feed.</p>', $stored['body']);
+        $I->assertSame($publishedAt, (int)$stored['published_at']);
+        $I->assertSame(1, (int)$stored['revision']);
+
+        $dbLayer
+            ->update(ContentSchema::TABLE_NAME)
+            ->set('date_label', "'A custom date label'")
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute()
+        ;
+        $updatedAt = $publishedAt - 86400;
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+            'inplace_action' => 'edit',
+            'inplace_token'  => $payload['token'],
+            'revision'       => '1',
+            'title'          => 'Created on the public page',
+            'body'           => '<p>Created directly in the feed.</p>',
+            'tags'           => 'Public editor',
+            'published_at'   => (string)$updatedAt,
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $edited = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertSame('edit', $edited['action']);
+        $I->assertSame(2, $edited['revision']);
+        $I->assertSame($updatedAt, $edited['published_at']);
+        $I->assertSame('', $dbLayer
+            ->select('date_label')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute()
+            ->result());
+    }
+
+    public function tracksDuplicateImagesAndDeletesThemAfterRemoval(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var PostMediaRepository $mediaRegistry */
+        $mediaRegistry = $I->grabService(PostMediaRepository::class);
+        $postId  = $this->insertPost($dbLayer, 'tracked-media-post', $this->userId($dbLayer, 'author'));
+
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/tracked-media-post');
+
+        $selector = '.post-card[data-post-id="' . $postId . '"] > .post-inplace-edit-form';
+        $token = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
+        $temporaryFiles = [];
+        $storedFiles = [];
+
+        try {
+            $discardedTemporary = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
+            $temporaryFiles[] = $discardedTemporary;
+            $I->sendPost(
+                'https://localhost/_inplace/post/' . $postId,
+                ['inplace_action' => 'media', 'inplace_token' => $token],
+                ['media' => new UploadedFile($discardedTemporary, 'discarded.png', 'image/png', null, true)],
+            );
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $discarded = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $discardedId = (int)$discarded['media_id'];
+            $discardedFile = $this->storedMediaPath($discarded['url']);
+            $storedFiles[] = $discardedFile;
+            $I->assertFileExists($discardedFile);
+
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action'     => 'edit',
+                'inplace_token'      => $token,
+                'revision'           => '1',
+                'title'              => 'Tracked media post',
+                'body'               => '<p>Original body</p>',
+                'tags'               => '',
+                'uploaded_media_ids' => (string)$discardedId,
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $unchanged = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $I->assertSame(1, $unchanged['revision']);
+            $I->assertFileDoesNotExist($discardedFile);
+            $I->assertSame(0, (int)$dbLayer
+                ->select('COUNT(*)')
+                ->from(ContentMediaSchema::FILE_TABLE)
+                ->where('id = :id')->setParameter('id', $discardedId)
+                ->execute()
+                ->result());
+
+            $upload = function () use ($I, $postId, $token, &$temporaryFiles, &$storedFiles): array {
+                $temporary = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
+                $temporaryFiles[] = $temporary;
+                $I->sendPost(
+                    'https://localhost/_inplace/post/' . $postId,
+                    ['inplace_action' => 'media', 'inplace_token' => $token],
+                    ['media' => new UploadedFile($temporary, 'duplicate.png', 'image/png', null, true)],
+                );
+                $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+                if (isset($payload['url']) && \is_string($payload['url'])) {
+                    $storedFiles[] = $this->storedMediaPath($payload['url']);
+                } elseif (isset($payload['incoming']['url']) && \is_string($payload['incoming']['url'])) {
+                    $storedFiles[] = $this->storedMediaPath($payload['incoming']['url']);
+                }
+
+                return $payload;
+            };
+
+            $first = $upload();
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $firstId = (int)$first['media_id'];
+            $firstFile = $this->storedMediaPath($first['url']);
+            $I->assertFileExists($firstFile);
+            $I->assertSame(0, (int)$dbLayer
+                ->select('usage_count')
+                ->from(ContentMediaSchema::FILE_TABLE)
+                ->where('id = :id')->setParameter('id', $firstId)
+                ->execute()
+                ->result());
+
+            $normalizedName = (string)$dbLayer
+                ->select('normalized_name')
+                ->from(ContentMediaSchema::FILE_TABLE)
+                ->where('id = :id')->setParameter('id', $firstId)
+                ->execute()
+                ->result()
+            ;
+            $otherEditorId = $this->userId($dbLayer, 'power_guest');
+            $I->assertNull($mediaRegistry->findImageWithName(
+                $normalizedName,
+                0,
+                $otherEditorId,
+                false,
+            ));
+            $otherPostId = $this->insertPost($dbLayer, 'other-editor-media-post', $otherEditorId);
+            $mediaRegistry->syncPost(
+                $otherPostId,
+                '<img src="' . $first['url'] . '" data-post-media-id="' . $firstId . '" alt="">',
+                [],
+                $otherEditorId,
+            );
+            $I->assertSame(0, (int)$dbLayer
+                ->select('COUNT(*)')
+                ->from(ContentMediaSchema::USAGE_TABLE)
+                ->where('post_id = :post_id')->setParameter('post_id', $otherPostId)
+                ->execute()
+                ->result());
+
+            $body = '<p><img src="' . $first['url'] . '" data-post-media-id="' . $firstId . '" alt=""></p>';
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action'     => 'edit',
+                'inplace_token'      => $token,
+                'revision'           => '1',
+                'title'              => 'Tracked media post',
+                'body'               => $body,
+                'tags'               => '',
+                'uploaded_media_ids' => (string)$firstId,
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->assertSame(1, (int)$dbLayer
+                ->select('usage_count')
+                ->from(ContentMediaSchema::FILE_TABLE)
+                ->where('id = :id')->setParameter('id', $firstId)
+                ->execute()
+                ->result());
+            $I->assertSame(1, (int)$dbLayer
+                ->select('COUNT(*)')
+                ->from(ContentMediaSchema::USAGE_TABLE)
+                ->where('post_id = :post_id')->setParameter('post_id', $postId)
+                ->andWhere('media_id = :media_id')->setParameter('media_id', $firstId)
+                ->execute()
+                ->result());
+
+            $duplicate = $upload();
+            $I->seeResponseCodeIs(Response::HTTP_CONFLICT);
+            $I->assertSame('media_conflict', $duplicate['action']);
+            $I->assertSame($firstId, $duplicate['existing']['media_id']);
+            $I->assertTrue($duplicate['can_overwrite']);
+            $candidateId = (int)$duplicate['incoming']['media_id'];
+            $candidateFile = $this->storedMediaPath($duplicate['incoming']['url']);
+            $I->assertFileExists($candidateFile);
+
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action' => 'media_conflict',
+                'inplace_token'  => $token,
+                'media_id'       => (string)$candidateId,
+                'existing_id'    => (string)$firstId,
+                'conflict_action' => 'keep',
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $kept = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $I->assertSame($candidateId, $kept['media_id']);
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action' => 'media_release',
+                'inplace_token'  => $token,
+                'media_ids'      => (string)$candidateId,
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->assertFileDoesNotExist($candidateFile);
+
+            $cancelled = $upload();
+            $I->seeResponseCodeIs(Response::HTTP_CONFLICT);
+            $cancelledId = (int)$cancelled['incoming']['media_id'];
+            $cancelledFile = $this->storedMediaPath($cancelled['incoming']['url']);
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action' => 'media_conflict',
+                'inplace_token'  => $token,
+                'media_id'       => (string)$cancelledId,
+                'existing_id'    => (string)$firstId,
+                'conflict_action' => 'cancel',
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->assertFileDoesNotExist($cancelledFile);
+
+            $replacement = $upload();
+            $I->seeResponseCodeIs(Response::HTTP_CONFLICT);
+            $replacementId = (int)$replacement['incoming']['media_id'];
+            $replacementFile = $this->storedMediaPath($replacement['incoming']['url']);
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action' => 'media_conflict',
+                'inplace_token'  => $token,
+                'media_id'       => (string)$replacementId,
+                'existing_id'    => (string)$firstId,
+                'conflict_action' => 'overwrite',
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $replaced = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $I->assertSame($firstId, $replaced['media_id']);
+            $I->assertFileExists($firstFile);
+            $I->assertFileDoesNotExist($replacementFile);
+
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action' => 'edit',
+                'inplace_token'  => $token,
+                'revision'       => '2',
+                'title'          => 'Tracked media post',
+                'body'           => '<p>The image has been removed.</p>',
+                'tags'           => '',
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->assertFileDoesNotExist($firstFile);
+            $I->assertSame(0, (int)$dbLayer
+                ->select('COUNT(*)')
+                ->from(ContentMediaSchema::FILE_TABLE)
+                ->where('id = :id')->setParameter('id', $firstId)
+                ->execute()
+                ->result());
+        } finally {
+            foreach ([...$temporaryFiles, ...$storedFiles] as $filename) {
                 if (is_file($filename)) {
                     unlink($filename);
                 }

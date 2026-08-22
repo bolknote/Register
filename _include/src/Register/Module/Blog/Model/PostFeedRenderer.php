@@ -40,22 +40,41 @@ final readonly class PostFeedRenderer
         $configuredItemsPerPage = $this->itemsPerPage->get();
         $postsPerPage           = $configuredItemsPerPage > 0 ? $configuredItemsPerPage : 10;
         $posts                  = $this->postProvider->lastPostsArray($postsPerPage, $skip);
+        $totalPosts             = $this->postProvider->publishedPostCount();
 
         $output = '';
-        foreach ($posts as $post) {
-            $post['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
-            $post['showComments']     = $this->showComments->get();
-            $post['enabledComments']  = $this->enabledComments->get();
-            $post['inplace']          = $this->inplaceControls->forPost(
-                $request,
-                (int)$post['id'],
-                $post['author_id'] === null ? null : (int)$post['author_id'],
-                (int)$post['revision'],
-            );
-            $output                  .= $this->viewer->render('post', $post, BlogModule::class);
+        $create = $skip === 0 ? $this->inplaceControls->forCreate($request) : null;
+        if ($create !== null) {
+            $now      = time();
+            $postHtml = $this->renderPost([
+                'id'               => 0,
+                'author_id'        => null,
+                'author'           => $create['editor_name'],
+                'revision'         => 0,
+                'title'            => '',
+                'title_link'       => '#',
+                'create_time'      => $now,
+                'display_date'     => '',
+                'time'             => $this->viewer->dateAndTime($now),
+                'text'             => '<p><br></p>',
+                'tags'             => [],
+                'link'             => '#',
+                'commented'        => false,
+                'comment_num'      => 0,
+                'favorite'         => false,
+                'see_also'         => [],
+                'inplace'          => $create,
+            ], $request, false);
+            $output .= $this->viewer->render('post-create', [
+                'post_html'     => $postHtml,
+                'always_visible' => $totalPosts < 3,
+            ], BlogModule::class);
         }
 
-        $totalPosts  = $this->postProvider->publishedPostCount();
+        foreach ($posts as $post) {
+            $output .= $this->renderPost($post, $request);
+        }
+
         $totalPages  = (int)ceil($totalPosts / $postsPerPage);
         $currentPage = intdiv($skip, $postsPerPage) + 1;
         $previousUrl = null;
@@ -78,6 +97,24 @@ final readonly class PostFeedRenderer
         $html   = '<div class="live-post-feed" data-live-region="' . $region . '">' . $output . '</div>';
 
         return new PostFeed($html, $previousUrl, $nextUrl);
+    }
+
+    /** @param array<string, mixed> $post */
+    private function renderPost(array $post, Request $request, bool $addControls = true): string
+    {
+        $post['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
+        $post['showComments']     = $this->showComments->get();
+        $post['enabledComments']  = $this->enabledComments->get();
+        if ($addControls) {
+            $post['inplace'] = $this->inplaceControls->forPost(
+                $request,
+                (int)$post['id'],
+                $post['author_id'] === null ? null : (int)$post['author_id'],
+                (int)$post['revision'],
+            );
+        }
+
+        return $this->viewer->render('post', $post, BlogModule::class);
     }
 
     private function pageUrl(int $page, int $postsPerPage): string

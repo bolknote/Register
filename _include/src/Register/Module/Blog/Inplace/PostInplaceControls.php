@@ -27,7 +27,7 @@ final readonly class PostInplaceControls
     }
 
     /**
-     * @return array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string, ai_enabled: bool}|null
+     * @return array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: false}|null
      */
     public function forPost(Request $request, int $postId, ?int $authorId, int $revision): ?array
     {
@@ -47,7 +47,36 @@ final readonly class PostInplaceControls
             'revision'      => $revision,
             'return_to'     => $request->getPathInfo(),
             'ai_enabled'    => $this->aiSettings->isConfigured(),
+            'create'        => false,
         ];
+    }
+
+    /** @return array{action_url: string, admin_edit_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: true, editor_name: string}|null */
+    public function forCreate(Request $request): ?array
+    {
+        $editor = $this->editorForCreate($request);
+        if (!$editor instanceof AuthenticatedPublicUser) {
+            return null;
+        }
+
+        return [
+            'action_url'     => $this->urlBuilder->rawLink('/_inplace/post/new'),
+            'admin_edit_url' => $this->urlBuilder->rawLink('/_admin/index.php', [
+                'entity=BlogPost',
+                'action=create',
+            ]),
+            'token'          => $this->tokenManager->issueForCreate($editor),
+            'revision'       => 0,
+            'return_to'      => $request->getPathInfo(),
+            'ai_enabled'     => $this->aiSettings->isConfigured(),
+            'create'         => true,
+            'editor_name'    => $editor->displayName(),
+        ];
+    }
+
+    public function editorForCreate(Request $request): ?AuthenticatedPublicUser
+    {
+        return $this->authProvider->getAuthenticatedContentEditor($request);
     }
 
     public function editorForPost(Request $request, ?int $authorId): ?AuthenticatedPublicUser

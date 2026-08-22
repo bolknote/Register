@@ -34,8 +34,24 @@ final readonly class PostInplaceTokenManager
             && hash_equals($this->issue($editor, $postId), $token);
     }
 
+    public function issueForCreate(AuthenticatedPublicUser $editor): string
+    {
+        return $this->hasher->sign('post-inplace-create', $this->createPayload($editor));
+    }
+
+    public function isValidForCreate(string $token, AuthenticatedPublicUser $editor): bool
+    {
+        return preg_match('/^[0-9a-f]{64}$/D', $token) === 1
+            && hash_equals($this->issueForCreate($editor), $token);
+    }
+
     private function payload(AuthenticatedPublicUser $editor, int $postId): string
     {
         return $editor->id . "\0" . $editor->login . "\0" . $editor->sessionHash . "\0" . $postId;
+    }
+
+    private function createPayload(AuthenticatedPublicUser $editor): string
+    {
+        return $editor->id . "\0" . $editor->login . "\0" . $editor->sessionHash;
     }
 }

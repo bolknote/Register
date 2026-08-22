@@ -56,6 +56,11 @@ final readonly class PostInplaceMediaStorage
         return $path . '/' . $storedName;
     }
 
+    public function normalizeName(string $originalName): string
+    {
+        return $this->fileNameHelper->normalizeFileName($originalName);
+    }
+
     public function detectMimeType(UploadedFile $uploadedFile): string
     {
         return $this->fileNameHelper->detectMimeType($uploadedFile->getPathname());
@@ -70,6 +75,49 @@ final readonly class PostInplaceMediaStorage
 
         $imageInfo = getimagesize($this->mediaDirectory . $storedFile);
         return $imageInfo !== false ? $imageInfo : [];
+    }
+
+    public function fileSize(string $storedFile): int
+    {
+        $size = filesize($this->fullPath($storedFile));
+        if ($size === false) {
+            throw new \RuntimeException('Unable to read the uploaded media file.', Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+
+        return $size;
+    }
+
+    public function replace(string $destinationFile, string $sourceFile): void
+    {
+        $destination = $this->fullPath($destinationFile);
+        $source      = $this->fullPath($sourceFile);
+        $temporary   = $destination . '.replace-' . bin2hex(random_bytes(8));
+
+        if (!copy($source, $temporary)) {
+            throw new \RuntimeException('Unable to replace the uploaded media file.', Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+
+        s2_call_without_warnings(static fn(): bool => chmod($temporary, 0644));
+        if (!rename($temporary, $destination)) {
+            s2_call_without_warnings(static fn(): bool => unlink($temporary));
+            throw new \RuntimeException('Unable to replace the uploaded media file.', Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+
+        if (!s2_call_without_warnings(static fn(): bool => unlink($source))) {
+            throw new \RuntimeException('Unable to remove the replaced media file.', Response::HTTP_SERVICE_UNAVAILABLE);
+        }
+    }
+
+    public function delete(string $storedFile): void
+    {
+        $filename = $this->fullPath($storedFile);
+        if (!is_file($filename)) {
+            return;
+        }
+
+        if (!s2_call_without_warnings(static fn(): bool => unlink($filename))) {
+            throw new \RuntimeException('Unable to remove the unused media file.', Response::HTTP_SERVICE_UNAVAILABLE);
+        }
     }
 
     private function ensureDirectoryExists(string $directory): void
@@ -87,5 +135,14 @@ final readonly class PostInplaceMediaStorage
         }
 
         s2_call_without_warnings(static fn(): bool => chmod($directory, 0755));
+    }
+
+    private function fullPath(string $storedFile): string
+    {
+        if (preg_match('~^/[0-9]{4}/[0-9]{2}/[a-f0-9]{32}\.[a-z0-9]+$~D', $storedFile) !== 1) {
+            throw new \InvalidArgumentException('Invalid stored media path.');
+        }
+
+        return $this->mediaDirectory . $storedFile;
     }
 }
