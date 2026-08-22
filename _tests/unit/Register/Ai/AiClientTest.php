@@ -11,6 +11,7 @@ namespace unit\Register\Ai;
 
 use PHPUnit\Framework\TestCase;
 use Register\Ai\AiClient;
+use Register\Ai\AiImageInput;
 use Register\Ai\AiSettings;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\HttpClient\HttpClient;
@@ -19,6 +20,124 @@ use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 final class AiClientTest extends TestCase
 {
+    /** @dataProvider imageCapabilityProvider */
+    public function testImageCapabilityDetection(string $provider, string $model, bool $expected): void
+    {
+        self::assertSame($expected, AiSettings::supportsImageInputFor($provider, $model));
+    }
+
+    /** @return iterable<string, array{string, string, bool}> */
+    public static function imageCapabilityProvider(): iterable
+    {
+        yield 'Gemini' => [AiSettings::PROVIDER_GEMINI, 'gemini-3.5-flash-lite', true];
+        yield 'Gemini embedding' => [AiSettings::PROVIDER_GEMINI, 'gemini-embedding-001', false];
+        yield 'Groq default text model' => [AiSettings::PROVIDER_GROQ, 'openai/gpt-oss-20b', false];
+        yield 'Groq vision model' => [AiSettings::PROVIDER_GROQ, 'meta-llama/llama-4-scout', true];
+        yield 'OpenRouter free router' => [AiSettings::PROVIDER_OPENROUTER, 'openrouter/free', true];
+        yield 'Mistral Small' => [AiSettings::PROVIDER_MISTRAL, 'mistral-small-latest', true];
+        yield 'Cloudflare Gemma' => [AiSettings::PROVIDER_CLOUDFLARE, '@cf/google/gemma-4-26b-a4b-it', true];
+        yield 'Yandex text endpoint' => [AiSettings::PROVIDER_YANDEX, 'yandexgpt-5-lite', false];
+        yield 'Unknown custom model' => [AiSettings::PROVIDER_OPENROUTER, 'vendor/text-model', false];
+    }
+
+    public function testGeminiImageAltUsesInlineImageAndNormalizesResponse(): void
+    {
+        $calls = [];
+        $client = new AiClient(
+            new HttpClient(),
+            $this->settings([
+                AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_GEMINI,
+                AiSettings::API_KEY_CONFIG_KEY => 'gemini-secret',
+                AiSettings::MODEL_CONFIG_KEY => '',
+                AiSettings::FOLDER_ID_CONFIG_KEY => '',
+                AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
+                AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
+                AiSettings::AUTO_ALT_CONFIG_KEY => '1',
+            ]),
+            new ArrayAdapter(),
+            static function (string $method, string $url, array $headers, ?string $body, array $options) use (&$calls): HttpResponse {
+                $calls[] = ['method' => $method, 'url' => $url, 'headers' => $headers, 'body' => $body, 'options' => $options];
+                return new HttpResponse(
+                    statusCode: 200,
+                    content: '{"candidates":[{"content":{"parts":[{"text":"Alt: «Рыжий кот спит на синем кресле»"}]}}]}',
+                );
+            },
+        );
+
+        self::assertSame(
+            'Рыжий кот спит на синем кресле',
+            $client->generateImageAlt('Дом', '<p>Выходной.</p>', new AiImageInput('image/png', 'png-bytes')),
+        );
+        self::assertCount(1, $calls);
+        self::assertStringContainsString('/gemini-3.5-flash-lite:generateContent', $calls[0]['url']);
+        $body = json_decode((string)$calls[0]['body'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('image/png', $body['contents'][0]['parts'][1]['inline_data']['mime_type']);
+        self::assertSame(base64_encode('png-bytes'), $body['contents'][0]['parts'][1]['inline_data']['data']);
+        self::assertSame(256, $body['generationConfig']['maxOutputTokens']);
+    }
+
+    /** @dataProvider imageCompatibleProviderDataProvider */
+    public function testOpenAiCompatibleImageAltUsesProviderSpecificImageShape(
+        string $provider,
+        string $expectedUrl,
+        bool $flatImageUrl,
+    ): void {
+        $calls = [];
+        $client = new AiClient(
+            new HttpClient(),
+            $this->settings([
+                AiSettings::PROVIDER_CONFIG_KEY => $provider,
+                AiSettings::API_KEY_CONFIG_KEY => 'provider-secret',
+                AiSettings::MODEL_CONFIG_KEY => '',
+                AiSettings::FOLDER_ID_CONFIG_KEY => '',
+                AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => 'cloudflare-account',
+                AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
+                AiSettings::AUTO_ALT_CONFIG_KEY => '1',
+            ]),
+            new ArrayAdapter(),
+            static function (string $method, string $url, array $headers, ?string $body, array $options) use (&$calls): HttpResponse {
+                $calls[] = ['method' => $method, 'url' => $url, 'headers' => $headers, 'body' => $body, 'options' => $options];
+                return new HttpResponse(
+                    statusCode: 200,
+                    content: '{"choices":[{"message":{"content":"Ночной город в дождь"}}]}',
+                );
+            },
+        );
+
+        self::assertSame(
+            'Ночной город в дождь',
+            $client->generateImageAlt('', '', new AiImageInput('image/jpeg', 'jpeg-bytes')),
+        );
+        self::assertSame($expectedUrl, $calls[0]['url']);
+        $body = json_decode((string)$calls[0]['body'], true, 512, JSON_THROW_ON_ERROR);
+        $imageUrl = $body['messages'][0]['content'][1]['image_url'];
+        self::assertSame(
+            'data:image/jpeg;base64,' . base64_encode('jpeg-bytes'),
+            $flatImageUrl ? $imageUrl : $imageUrl['url'],
+        );
+        self::assertSame(256, $body['max_tokens']);
+    }
+
+    /** @return iterable<string, array{string, string, bool}> */
+    public static function imageCompatibleProviderDataProvider(): iterable
+    {
+        yield 'OpenRouter' => [
+            AiSettings::PROVIDER_OPENROUTER,
+            'https://openrouter.ai/api/v1/chat/completions',
+            false,
+        ];
+        yield 'Mistral' => [
+            AiSettings::PROVIDER_MISTRAL,
+            'https://api.mistral.ai/v1/chat/completions',
+            true,
+        ];
+        yield 'Cloudflare' => [
+            AiSettings::PROVIDER_CLOUDFLARE,
+            'https://api.cloudflare.com/client/v4/accounts/cloudflare-account/ai/v1/chat/completions',
+            false,
+        ];
+    }
+
     public function testTagNormalizationDoesNotCorruptCyrillicEndings(): void
     {
         $client = new AiClient(
@@ -249,6 +368,58 @@ final class AiClientTest extends TestCase
         $body = json_decode((string)$calls[1]['body'], true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('GigaChat-2-Pro', $body['model']);
         self::assertStringContainsString('Первый текст', (string) $body['messages'][0]['content']);
+    }
+
+    public function testGigaChatUploadsAttachesAndRemovesImageForAlt(): void
+    {
+        $calls = [];
+        $client = new AiClient(
+            new HttpClient(),
+            $this->settings([
+                AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_GIGACHAT,
+                AiSettings::API_KEY_CONFIG_KEY => 'base64-authorization-key',
+                AiSettings::MODEL_CONFIG_KEY => '',
+                AiSettings::FOLDER_ID_CONFIG_KEY => '',
+                AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
+                AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
+                AiSettings::AUTO_ALT_CONFIG_KEY => '1',
+            ]),
+            new ArrayAdapter(),
+            static function (string $method, string $url, array $headers, ?string $body, array $options) use (&$calls): HttpResponse {
+                $calls[] = ['method' => $method, 'url' => $url, 'headers' => $headers, 'body' => $body, 'options' => $options];
+                return match ($url) {
+                    'https://ngw.devices.sberbank.ru:9443/api/v2/oauth' => new HttpResponse(
+                        statusCode: 200,
+                        content: json_encode([
+                            'access_token' => 'giga-token',
+                            'expires_at' => time() + 1800,
+                        ], JSON_THROW_ON_ERROR),
+                    ),
+                    'https://api.giga.chat/v1/files' => new HttpResponse(
+                        statusCode: 200,
+                        content: '{"id":"file-123"}',
+                    ),
+                    'https://api.giga.chat/v1/chat/completions' => new HttpResponse(
+                        statusCode: 200,
+                        content: '{"choices":[{"message":{"content":"Собака бежит по снегу"}}]}',
+                    ),
+                    'https://api.giga.chat/v1/files/file-123/delete' => new HttpResponse(statusCode: 200, content: '{}'),
+                    default => throw new \LogicException('Unexpected URL ' . $url),
+                };
+            },
+        );
+
+        self::assertSame(
+            'Собака бежит по снегу',
+            $client->generateImageAlt('', '', new AiImageInput('image/png', 'image-binary')),
+        );
+        self::assertCount(4, $calls);
+        self::assertStringContainsString('multipart/form-data; boundary=', $calls[1]['headers']['Content-Type']);
+        self::assertStringContainsString('name="purpose"', (string)$calls[1]['body']);
+        self::assertStringContainsString('image-binary', (string)$calls[1]['body']);
+        $chatBody = json_decode((string)$calls[2]['body'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['file-123'], $chatBody['messages'][0]['attachments']);
+        self::assertSame('https://api.giga.chat/v1/files/file-123/delete', $calls[3]['url']);
     }
 
     /** @param array<string, string> $values */

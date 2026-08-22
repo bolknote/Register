@@ -103,14 +103,32 @@ foreach (array_keys($additionalControls) as $fieldName) {
 }
 
 $aiProvider = (string)$param(\Register\Ai\AiSettings::PROVIDER_CONFIG_KEY);
+$aiModel = trim((string)$param(\Register\Ai\AiSettings::MODEL_CONFIG_KEY));
+if ($aiModel === '') {
+    $aiModel = \Register\Ai\AiSettings::defaultModelForProvider($aiProvider);
+}
 $aiConfigured = \Register\Ai\AiSettings::isSupportedProvider($aiProvider)
     && $aiProvider !== \Register\Ai\AiSettings::PROVIDER_DISABLED
     && trim((string)$param(\Register\Ai\AiSettings::API_KEY_CONFIG_KEY)) !== ''
+    && $aiModel !== ''
     && ($aiProvider !== \Register\Ai\AiSettings::PROVIDER_YANDEX
-        || trim((string)$param(\Register\Ai\AiSettings::FOLDER_ID_CONFIG_KEY)) !== '');
+        || trim((string)$param(\Register\Ai\AiSettings::FOLDER_ID_CONFIG_KEY)) !== '')
+    && ($aiProvider !== \Register\Ai\AiSettings::PROVIDER_CLOUDFLARE
+        || trim((string)$param(\Register\Ai\AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY)) !== '');
+$aiAutoAltSetting = \in_array(
+    strtolower(trim((string)$param(\Register\Ai\AiSettings::AUTO_ALT_CONFIG_KEY))),
+    ['1', 'true', 'yes', 'on'],
+    true,
+);
+$aiAutoAltEnabled = $aiConfigured
+    && $aiAutoAltSetting
+    && \Register\Ai\AiSettings::supportsImageInputFor($aiProvider, $aiModel);
 $aiProviderLabel = match ($aiProvider) {
     \Register\Ai\AiSettings::PROVIDER_GEMINI => 'Gemini',
     \Register\Ai\AiSettings::PROVIDER_GROQ => 'Groq',
+    \Register\Ai\AiSettings::PROVIDER_OPENROUTER => 'OpenRouter',
+    \Register\Ai\AiSettings::PROVIDER_MISTRAL => 'Mistral',
+    \Register\Ai\AiSettings::PROVIDER_CLOUDFLARE => 'Cloudflare Workers AI',
     \Register\Ai\AiSettings::PROVIDER_YANDEX => 'Yandex AI Studio',
     \Register\Ai\AiSettings::PROVIDER_GIGACHAT => 'GigaChat',
     default => '',
@@ -153,6 +171,17 @@ $editorConfig = [
         'sourceChanged'    => $trans('AI source changed'),
         'emptyText'        => $trans('AI empty text'),
         'proofreadClean'   => $trans('AI proofreading clean'),
+        'alt'              => [
+            'enabled'       => $aiAutoAltEnabled,
+            'url'           => $basePath . '/_admin/ajax.php?action=register_ai_generate_alt',
+            'generating'    => $trans('AI alt generating'),
+            'requestFailed' => $trans('AI alt failed'),
+            'retry'         => $trans('AI alt retry'),
+            'regenerate'    => $trans('AI alt regenerate'),
+            'edit'          => $trans('AI alt edit'),
+            'empty'         => $trans('AI alt empty'),
+            'preview'       => $trans('AI alt preview'),
+        ],
     ],
 ];
 $editorConfigJson = htmlspecialchars(

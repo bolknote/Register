@@ -27,7 +27,12 @@ function bindEditorDocumentEvents() {
     });
 
     document.addEventListener('insert_tag.s2', function (event) {
-        s2_codemirror.addTag(event.detail.sStart, event.detail.sEnd);
+        const inserted = s2_codemirror.addTag(event.detail.sStart, event.detail.sEnd);
+        if (inserted && event.detail.imageSrc) {
+            document.dispatchEvent(new CustomEvent('image_inserted.s2', {
+                detail: {src: event.detail.imageSrc}
+            }));
+        }
     });
 }
 

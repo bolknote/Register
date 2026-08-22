@@ -169,7 +169,9 @@ function insertImageTag(src, width, height) {
     const safeSrc = sanitizeImageSrc(src);
     const sOpenTag = '<img src="' + safeSrc + '" width="' + (w || 'auto') + '" height="' + (h || 'auto') + '" ' + 'loading="lazy" alt="',
         sCloseTag = '" />';
-    document.dispatchEvent(new CustomEvent('insert_tag.s2', {detail: {sStart: sOpenTag, sEnd: sCloseTag}}));
+    document.dispatchEvent(new CustomEvent('insert_tag.s2', {
+        detail: {sStart: sOpenTag, sEnd: sCloseTag, imageSrc: safeSrc}
+    }));
 }
 
 function replaceImageSrcInEditor(oldSrc, newSrc) {

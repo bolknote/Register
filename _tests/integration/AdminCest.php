@@ -389,7 +389,7 @@ class AdminCest
         $I->see('AI assistant', '.config-section');
         $I->seeElement('nav.config-section-nav[aria-label="Settings sections"]');
         $I->seeElement('[data-config-page-state][data-state="applied"]');
-        $I->assertCount(30, $I->grabMultiple('.config-setting label[for]'));
+        $I->assertCount(31, $I->grabMultiple('.config-setting label[for]'));
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] select[name="value"]');
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] option[value="openrouter"]');
         $I->seeElement('form[action*="name=REGISTER_AI_PROVIDER"] option[value="mistral"]');
@@ -398,6 +398,7 @@ class AdminCest
         $I->seeElement('[data-config-key="REGISTER_AI_FOLDER_ID"][data-depends-values="yandex"]');
         $I->seeElement('[data-config-key="REGISTER_AI_CLOUDFLARE_ACCOUNT_ID"][data-depends-values="cloudflare"]');
         $I->seeElement('[data-config-key="REGISTER_AI_GIGACHAT_SCOPE"][data-depends-values="gigachat"]');
+        $I->seeElement('form[action*="name=REGISTER_AI_AUTO_ALT"] input[type="checkbox"]');
         $I->seeElement('button[data-ai-key-help-open]');
         $I->seeElement('form[action*="name=REGISTER_AI_API_KEY"] input[type="password"]');
         $I->seeElement('dialog#ai-key-help-dialog');

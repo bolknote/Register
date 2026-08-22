@@ -34,29 +34,15 @@ final readonly class AiEditorController
         private SettingStorageInterface $settingStorage,
         private Translator              $translator,
         private AdminMutationGuard      $mutationGuard,
+        private AiImageLoader           $imageLoader,
     ) {
     }
 
     public function generate(PermissionChecker $permissionChecker, Request $request): JsonResponse
     {
-        if (!$this->mutationGuard->isPost($request)) {
-            return $this->error('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
-        }
-
-        if (!$permissionChecker->isGrantedAny(PermissionChecker::PERMISSION_CREATE_ARTICLES, PermissionChecker::PERMISSION_EDIT_SITE)) {
-            return $this->error($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
-        }
-
-        if (!$this->mutationGuard->hasValidCsrfToken(
-            $request,
-            $this->csrfToken($request),
-            '__csrf_token',
-        )) {
-            return $this->error($this->translator->trans('Invalid AI security token'), Response::HTTP_FORBIDDEN);
-        }
-
-        if (!$this->settings->isConfigured()) {
-            return $this->error($this->translator->trans('AI is not configured'), Response::HTTP_CONFLICT);
+        $requestError = $this->requestError($permissionChecker, $request);
+        if ($requestError instanceof JsonResponse) {
+            return $requestError;
         }
 
         $action = $request->request->getString('ai_action');
@@ -79,6 +65,65 @@ final readonly class AiEditorController
         } catch (AiException $exception) {
             return $this->error($exception->getMessage(), Response::HTTP_BAD_GATEWAY);
         }
+    }
+
+    public function generateAlt(PermissionChecker $permissionChecker, Request $request): JsonResponse
+    {
+        $requestError = $this->requestError($permissionChecker, $request);
+        if ($requestError instanceof JsonResponse) {
+            return $requestError;
+        }
+
+        if (!$this->settings->autoAltEnabled() || !$this->settings->supportsImageInput()) {
+            return $this->error($this->translator->trans('AI image input unavailable'), Response::HTTP_CONFLICT);
+        }
+
+        $source = $request->request->getString('image_src');
+        $title  = trim($request->request->getString('title'));
+        $text   = trim($request->request->getString('text'));
+        if ($source === '' || mb_strlen($text) > self::MAX_TEXT_LENGTH) {
+            return $this->error($this->translator->trans('Invalid AI request'), Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            return new JsonResponse([
+                'success' => true,
+                'result'  => $this->aiClient->generateImageAlt(
+                    mb_substr($title, 0, 500),
+                    $text,
+                    $this->imageLoader->load($source),
+                ),
+                'target'    => 'image_alt',
+                'image_src' => $source,
+            ]);
+        } catch (AiException $exception) {
+            return $this->error($exception->getMessage(), Response::HTTP_BAD_GATEWAY);
+        }
+    }
+
+    private function requestError(PermissionChecker $permissionChecker, Request $request): ?JsonResponse
+    {
+        if (!$this->mutationGuard->isPost($request)) {
+            return $this->error('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
+        }
+
+        if (!$permissionChecker->isGrantedAny(PermissionChecker::PERMISSION_CREATE_ARTICLES, PermissionChecker::PERMISSION_EDIT_SITE)) {
+            return $this->error($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->mutationGuard->hasValidCsrfToken(
+            $request,
+            $this->csrfToken($request),
+            '__csrf_token',
+        )) {
+            return $this->error($this->translator->trans('Invalid AI security token'), Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->settings->isConfigured()) {
+            return $this->error($this->translator->trans('AI is not configured'), Response::HTTP_CONFLICT);
+        }
+
+        return null;
     }
 
     private function csrfToken(Request $request): string

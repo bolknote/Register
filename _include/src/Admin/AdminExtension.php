@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace S2\Cms\Admin;
 
 use Register\Ai\Admin\AiEditorController;
+use Register\Ai\Admin\AiImageLoader;
 use Register\Ai\AiClient;
 use Register\Ai\AiSettings;
 use Register\Backup\Admin\BackupAdminController;
@@ -235,6 +236,11 @@ class AdminExtension implements ExtensionInterface
             $container->get(SettingStorageInterface::class),
             $container->get(Translator::class),
             $container->get(AdminMutationGuard::class),
+            $container->get(AiImageLoader::class),
+        ));
+        $container->set(AiImageLoader::class, fn(Container $container): AiImageLoader => new AiImageLoader(
+            $container->getStringParameter('image_dir'),
+            $container->getStringParameter('image_path'),
         ));
 
         $container->set(CommentControllerFactory::class, fn(Container $container): \S2\Cms\Admin\Controller\CommentControllerFactory => new CommentControllerFactory(
@@ -516,6 +522,9 @@ class AdminExtension implements ExtensionInterface
             $event->controllerMap['register_ai_generate'] = static fn(PermissionChecker $permissionChecker, Request $request): \Symfony\Component\HttpFoundation\JsonResponse => $container
                 ->get(AiEditorController::class)
                 ->generate($permissionChecker, $request);
+            $event->controllerMap['register_ai_generate_alt'] = static fn(PermissionChecker $permissionChecker, Request $request): \Symfony\Component\HttpFoundation\JsonResponse => $container
+                ->get(AiEditorController::class)
+                ->generateAlt($permissionChecker, $request);
             $event->controllerMap['register_backup_create'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
                 ->get(BackupAdminController::class)
                 ->create($request);

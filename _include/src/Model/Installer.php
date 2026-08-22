@@ -223,6 +223,7 @@ readonly class Installer
             AiSettings::FOLDER_ID_CONFIG_KEY => '',
             AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
             AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
+            AiSettings::AUTO_ALT_CONFIG_KEY => '1',
             SchemaManager::CONFIG_KEY => '0',
         ];
 

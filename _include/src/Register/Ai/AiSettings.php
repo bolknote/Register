@@ -25,6 +25,8 @@ final readonly class AiSettings
 
     public const string GIGACHAT_SCOPE_CONFIG_KEY = 'REGISTER_AI_GIGACHAT_SCOPE';
 
+    public const string AUTO_ALT_CONFIG_KEY = 'REGISTER_AI_AUTO_ALT';
+
     public const string PROVIDER_DISABLED = 'disabled';
 
     public const string PROVIDER_GEMINI = 'gemini';
@@ -80,7 +82,34 @@ final readonly class AiSettings
             return $model;
         }
 
-        return self::DEFAULT_MODELS[$this->provider()] ?? '';
+        return self::defaultModelForProvider($this->provider());
+    }
+
+    public function autoAltEnabled(): bool
+    {
+        try {
+            $value = $this->configProvider->get(self::AUTO_ALT_CONFIG_KEY);
+        } catch (\LogicException) {
+            // Older installations are upgraded by SchemaManager. Keeping the fallback enabled
+            // also makes the feature safe during the short interval before that upgrade runs.
+            return true;
+        }
+
+        if (\is_bool($value)) {
+            return $value;
+        }
+
+        return \in_array(strtolower(trim((string)$value)), ['1', 'true', 'yes', 'on'], true);
+    }
+
+    public function supportsImageInput(): bool
+    {
+        return self::supportsImageInputFor($this->provider(), $this->model());
+    }
+
+    public function autoAltAvailable(): bool
+    {
+        return $this->isConfigured() && $this->autoAltEnabled() && $this->supportsImageInput();
     }
 
     public function folderId(): string
@@ -139,5 +168,33 @@ final readonly class AiSettings
             self::GIGACHAT_SCOPE_BUSINESS,
             self::GIGACHAT_SCOPE_CORPORATE,
         ], true);
+    }
+
+    public static function defaultModelForProvider(string $provider): string
+    {
+        return self::DEFAULT_MODELS[$provider] ?? '';
+    }
+
+    /**
+     * The providers do not expose one common capabilities endpoint. Keep this list deliberately
+     * conservative: an unknown custom model is treated as text-only instead of receiving an image.
+     */
+    public static function supportsImageInputFor(string $provider, string $model): bool
+    {
+        $model = strtolower(trim($model));
+        if ($model === '' || str_contains($model, 'embedding')) {
+            return false;
+        }
+
+        return match ($provider) {
+            self::PROVIDER_GEMINI => str_starts_with($model, 'gemini-'),
+            self::PROVIDER_GROQ => preg_match('/(?:vision|(?:^|\/)qwen[^\/]*-vl|llama-4)/', $model) === 1,
+            self::PROVIDER_OPENROUTER => \in_array($model, ['openrouter/auto', 'openrouter/free'], true)
+                || preg_match('/(?:gemini|claude-(?:3|4)|gpt-(?:4o|5)|llama-4|gemma-4|pixtral|vision|qwen[^\/]*-vl|mistral-(?:small|medium|large)|ministral)/', $model) === 1,
+            self::PROVIDER_MISTRAL => preg_match('/(?:pixtral|ministral|mistral-(?:small|medium|large))/', $model) === 1,
+            self::PROVIDER_CLOUDFLARE => preg_match('/(?:gemma-4|llama-4|llava|vision|qwen[^\/]*-vl)/', $model) === 1,
+            self::PROVIDER_GIGACHAT => str_starts_with($model, 'gigachat'),
+            default => false,
+        };
     }
 }

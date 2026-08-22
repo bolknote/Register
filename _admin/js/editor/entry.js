@@ -13,6 +13,7 @@ import {initImagePipeline} from './images/pipeline.js';
 import {ClosePictureDialog, ReturnAudio, ReturnImage} from './dialogs.js';
 import {setEditorDeps} from './deps.js';
 import {initAiTools} from './ai.js';
+import {initImageAlt} from './image-alt.js';
 import {initPublicationState} from './publication.js';
 
 const configElement = document.querySelector('[data-editor-config]');
@@ -83,6 +84,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (form && config.ai) {
         initAiTools(form, {...config.ai, entityName: config.entityName});
+        initImageAlt(form, {
+            ...config.ai.alt,
+            entityName: config.entityName,
+            contentId: config.ai.contentId
+        });
     }
 
     if (form && config.entityName && config.textareaName) {

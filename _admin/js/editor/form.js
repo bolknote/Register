@@ -149,7 +149,9 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
 
         const sOpenTag = '<img src="' + s + '" width="' + w + '" height="' + h + '" ' + 'loading="lazy" alt="',
             sCloseTag = '" />';
-        document.dispatchEvent(new CustomEvent('insert_tag.s2', {detail: {sStart: sOpenTag, sEnd: sCloseTag}}));
+        document.dispatchEvent(new CustomEvent('insert_tag.s2', {
+            detail: {sStart: sOpenTag, sEnd: sCloseTag, imageSrc: s}
+        }));
 
         const dialog = document.getElementById('picture_dialog');
         if (dialog) {

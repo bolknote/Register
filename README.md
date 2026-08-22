@@ -51,6 +51,9 @@ libc resolver.
 - AI results are applied directly to the editor, changed fragments are marked, and every edit remains
   reversible through the normal undo/redo history. API keys are stored on the server, and Settings
   includes step-by-step instructions for creating one.
+- With a vision-capable model, uploaded images receive concise alt text automatically. The setting is
+  on by default when available, can be switched off manually, and generated alt text can be edited,
+  regenerated, undone, or redone directly in the editor.
 - Tag entry with reusable suggestions, keyboard navigation, deduplication, and selected tags rendered
   as removable tokens instead of a comma-filled text box.
 - Image, audio, and video uploads, thumbnails, clipboard image insertion, and a live media preview.

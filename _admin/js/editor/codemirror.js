@@ -7,6 +7,7 @@
  */
 import {smartParagraphs} from './text/paragraphs.js';
 import {editorDeps} from './deps.js';
+import {escapeHtml} from './utils/escape.js';
 
 let codeMirrorInitialized = false;
 
@@ -38,6 +39,51 @@ const s2_codemirror = (function () {
             marker.clear();
         });
         aiChangeMarkers = [];
+    }
+
+    function decodeHtmlAttribute(value) {
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = value;
+        return textarea.value;
+    }
+
+    function readImageAttribute(tag, name) {
+        const match = tag.match(new RegExp('\\b' + name + '\\s*=\\s*(["\\\'])([\\s\\S]*?)\\1', 'i'));
+        return match ? decodeHtmlAttribute(match[2]) : '';
+    }
+
+    function imageTags() {
+        if (!instance) {
+            return [];
+        }
+
+        const content = instance.getValue();
+        const images = [];
+        const pattern = /<img\b[^>]*>/gi;
+        let match;
+        while ((match = pattern.exec(content)) !== null) {
+            images.push({
+                src: readImageAttribute(match[0], 'src'),
+                alt: readImageAttribute(match[0], 'alt'),
+                tag: match[0],
+                start: match.index,
+                end: match.index + match[0].length,
+                line: instance.posFromIndex(match.index).line
+            });
+        }
+
+        return images;
+    }
+
+    function findImageBySource(src, expectedAlt) {
+        src = decodeHtmlAttribute(src);
+        const images = imageTags();
+        for (let i = images.length - 1; i >= 0; i--) {
+            if (images[i].src === src && (expectedAlt === undefined || images[i].alt === expectedAlt)) {
+                return images[i];
+            }
+        }
+        return null;
     }
 
     /** Duplicate a current line in CodeMirror doc */
@@ -170,6 +216,14 @@ const s2_codemirror = (function () {
                 handler();
             });
         },
+        onCursorActivity: function (handler) {
+            if (!instance || typeof handler !== 'function') {
+                return;
+            }
+            instance.on('cursorActivity', function () {
+                handler();
+            });
+        },
         onPaste: function (handler) {
             if (!instance || typeof handler !== 'function') {
                 return;
@@ -251,6 +305,75 @@ const s2_codemirror = (function () {
             const doc = instance.getDoc();
             doc.replaceRange(text, doc.posFromIndex(startIndex), doc.posFromIndex(endIndex));
             instance.focus();
+        },
+        getImageBySrc: function (src, expectedAlt) {
+            return findImageBySource(src, expectedAlt);
+        },
+        getCursorImage: function () {
+            if (!instance) {
+                return null;
+            }
+
+            const doc = instance.getDoc();
+            const cursor = doc.getCursor();
+            const cursorIndex = doc.indexFromPos(cursor);
+            const lineStart = doc.indexFromPos({line: cursor.line, ch: 0});
+            const lineEnd = lineStart + instance.getLine(cursor.line).length;
+            const candidates = imageTags().filter(function (image) {
+                return image.start <= lineEnd && image.end >= lineStart;
+            });
+            if (candidates.length === 0) {
+                return null;
+            }
+
+            return candidates.find(function (image) {
+                return image.start <= cursorIndex && image.end >= cursorIndex;
+            }) || candidates.filter(function (image) {
+                return image.start <= cursorIndex;
+            }).pop() || candidates[0];
+        },
+        replaceImageAlt: function (src, expectedAlt, nextAlt) {
+            if (!instance) {
+                return false;
+            }
+
+            const image = findImageBySource(src, expectedAlt);
+            if (!image) {
+                return false;
+            }
+
+            const escapedAlt = escapeHtml(nextAlt);
+            const altPattern = /\balt\s*=\s*(["'])([\s\S]*?)\1/i;
+            let updatedTag;
+            if (altPattern.test(image.tag)) {
+                updatedTag = image.tag.replace(altPattern, function (attribute, quote) {
+                    return 'alt=' + quote + escapedAlt + quote;
+                });
+            } else {
+                updatedTag = image.tag.replace(/\s*\/?>(?=\s*$)/, function (ending) {
+                    return ' alt="' + escapedAlt + '"' + (ending.includes('/') ? ' />' : '>');
+                });
+            }
+
+            const doc = instance.getDoc();
+            doc.replaceRange(
+                updatedTag,
+                doc.posFromIndex(image.start),
+                doc.posFromIndex(image.end),
+                'ai-image-alt'
+            );
+            instance.save();
+            return true;
+        },
+        addLineWidget: function (line, node) {
+            if (!instance || !node || !instance.addLineWidget) {
+                return null;
+            }
+            return instance.addLineWidget(line, node, {
+                above: false,
+                coverGutter: false,
+                noHScroll: false
+            });
         },
         replaceRangeWithHighlights: function (text, startIndex, endIndex, ranges) {
             if (!instance) {
