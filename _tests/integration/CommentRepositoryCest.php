@@ -10,15 +10,30 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Comment\CommentRepository;
+use Register\Comment\CommentChangeKind;
+use Register\Comment\CommentChangedEvent;
+use Register\Comment\CommentImport;
+use Register\Comment\CommentImportService;
+use Register\Comment\CommentMutationSource;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentType;
 use S2\Cms\Pdo\DbLayer;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class CommentRepositoryCest
 {
     public function storesOneGloballyIdentifiedThreadForEveryContentType(\IntegrationTester $I): void
     {
+        $events = [];
+        /** @var \Symfony\Component\EventDispatcher\EventDispatcherInterface $eventDispatcher */
+        $eventDispatcher = $I->grabService(EventDispatcherInterface::class);
+        $eventDispatcher->addListener(
+            CommentChangedEvent::class,
+            static function (CommentChangedEvent $event) use (&$events): void {
+                $events[] = $event;
+            },
+        );
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
         /** @var CommentRepository $repository */
@@ -108,5 +123,49 @@ final class CommentRepositoryCest
         $repository->removeForContent($page);
         $I->assertSame([], $repository->findForContent($page));
         $I->assertNotNull($repository->find($postCommentId));
+        $I->assertSame([
+            CommentChangeKind::CREATED,
+            CommentChangeKind::PUBLISHED,
+            CommentChangeKind::CREATED,
+            CommentChangeKind::CREATED,
+            CommentChangeKind::EDITED,
+            CommentChangeKind::REMOVED,
+            CommentChangeKind::REMOVED,
+        ], array_column($events, 'kind'));
+        $I->assertSame(CommentMutationSource::LOCAL, $events[0]->source);
+    }
+
+    public function importsWithoutInventingContactOrNetworkIdentity(\IntegrationTester $I): void
+    {
+        $events = [];
+        /** @var \Symfony\Component\EventDispatcher\EventDispatcherInterface $eventDispatcher */
+        $eventDispatcher = $I->grabService(EventDispatcherInterface::class);
+        $eventDispatcher->addListener(
+            CommentChangedEvent::class,
+            static function (CommentChangedEvent $event) use (&$events): void {
+                $events[] = $event;
+            },
+        );
+        /** @var CommentImportService $importService */
+        $importService = $I->grabService(CommentImportService::class);
+        /** @var CommentRepository $repository */
+        $repository = $I->grabService(CommentRepository::class);
+
+        $commentId = $importService->import(new CommentImport(
+            ContentId::page(1),
+            'Remote author',
+            '<p>Remote reply</p>',
+            null,
+            123,
+        ));
+        $comment = $repository->find($commentId);
+
+        $I->assertNotNull($comment);
+        $I->assertSame('', $comment->email);
+        $I->assertSame('', $comment->ip);
+        $I->assertFalse($comment->showEmail);
+        $I->assertFalse($comment->subscribed);
+        $I->assertSame(CommentMutationSource::IMPORTED, $events[0]->source);
+        $I->assertSame(CommentChangeKind::CREATED, $events[0]->kind);
     }
 }

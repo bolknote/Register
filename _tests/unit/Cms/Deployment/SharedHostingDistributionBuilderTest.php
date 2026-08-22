@@ -56,7 +56,16 @@ final class SharedHostingDistributionBuilderTest extends Unit
         $keyToolPermissions = fileperms($applicationDir . '/tools/generate-backup-keypair.php');
         self::assertIsInt($keyToolPermissions);
         self::assertSame(0755, $keyToolPermissions & 0777);
+        self::assertFileExists($applicationDir . '/tools/check-activitypub-interoperability.php');
+        self::assertFileExists($applicationDir . '/tools/restore-activitypub-identity.php');
+        $activityPubRecoveryPermissions = fileperms(
+            $applicationDir . '/tools/restore-activitypub-identity.php',
+        );
+        self::assertIsInt($activityPubRecoveryPermissions);
+        self::assertSame(0755, $activityPubRecoveryPermissions & 0777);
         self::assertFileExists($distribution . '/backups.md');
+        self::assertFileExists($distribution . '/activitypub-operations.md');
+        self::assertFileExists($distribution . '/activitypub-interoperability.md');
         self::assertDirectoryDoesNotExist($applicationDir . '/_tests');
         self::assertFileDoesNotExist($applicationDir . '/config.local.php');
 
@@ -121,6 +130,10 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertStringContainsString('register-app/_include/common.php', $archiveContent);
         self::assertStringContainsString('register-app/tools/decrypt-backup.php', $archiveContent);
         self::assertStringContainsString('register-app/tools/generate-backup-keypair.php', $archiveContent);
+        self::assertStringContainsString('register-app/tools/check-activitypub-interoperability.php', $archiveContent);
+        self::assertStringContainsString('register-app/tools/restore-activitypub-identity.php', $archiveContent);
+        self::assertStringContainsString('activitypub-operations.md', $archiveContent);
+        self::assertStringContainsString('activitypub-interoperability.md', $archiveContent);
         self::assertStringContainsString('backups.md', $archiveContent);
     }
 

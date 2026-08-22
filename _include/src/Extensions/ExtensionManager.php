@@ -217,6 +217,17 @@ readonly class ExtensionManager
         // Are we disabling or enabling?
         $disable = $row['disabled'] === 0;
 
+        if ($disable) {
+            $manifestClass = '\\s2_extensions\\' . $id . '\\Manifest';
+            if (is_a($manifestClass, ExtensionDisableGuardInterface::class, true)) {
+                $manifest = new $manifestClass();
+                $reason   = $manifest->getDisableBlockReason($this->dbLayer, $this->container);
+                if ($reason !== null) {
+                    return $reason;
+                }
+            }
+        }
+
         // Check dependencies
         if ($disable) {
             $result = $this->dbLayer->select('e.id')

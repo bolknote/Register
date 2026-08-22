@@ -46,6 +46,7 @@ use S2\Cms\Comment\SpamDecisionProvider;
 use S2\Cms\Comment\SpamDecisionProviderInterface;
 use S2\Cms\Config\DynamicConfigProvider;
 use S2\Cms\Config\DynamicSecretStore;
+use S2\Cms\Config\DynamicSecretParameterRegistry;
 use S2\Cms\Controller\Comment\CommentStrategyInterface;
 use S2\Cms\Controller\CommentController;
 use S2\Cms\Controller\CommentModerationController;
@@ -66,6 +67,10 @@ use S2\Cms\Framework\StatefulServiceInterface;
 use S2\Cms\Http\RedirectDetector;
 use S2\Cms\Http\TrustedProxyConfigurator;
 use S2\Cms\HttpClient\HttpClient;
+use S2\Cms\HttpClient\Remote\HostResolverInterface;
+use S2\Cms\HttpClient\Remote\NativeHostResolver;
+use S2\Cms\HttpClient\Remote\PublicAddressGuard;
+use S2\Cms\HttpClient\Remote\SafeRemoteHttpClient;
 use S2\Cms\Image\ThumbnailGenerator;
 use S2\Cms\Logger\Logger;
 use S2\Cms\Mail\CommentMailer;
@@ -176,14 +181,15 @@ class CmsExtension implements ExtensionInterface
         $container->set(LoggerInterface::class, fn(Container $container): \S2\Cms\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'app.log', 'app', LogLevel::INFO));
         $container->set('config_cache', fn(Container $container): \Symfony\Component\Cache\Adapter\FilesystemAdapter => new FilesystemAdapter('config', 0, $container->getStringParameter('cache_dir')));
 
-        $container->set(DynamicSecretStore::class, fn(Container $container): \S2\Cms\Config\DynamicSecretStore => new DynamicSecretStore(
-            $container->getStringParameter('secret_config_file'),
-            [
+        $container->set(DynamicSecretParameterRegistry::class, new DynamicSecretParameterRegistry([
                 'S2_AKISMET_KEY',
                 'S2_ANTISPAM_SECRET',
                 AiSettings::API_KEY_CONFIG_KEY,
                 VisitorIdentityManifest::SECRET_CONFIG_KEY,
-            ],
+        ]));
+        $container->set(DynamicSecretStore::class, fn(Container $container): \S2\Cms\Config\DynamicSecretStore => new DynamicSecretStore(
+            $container->getStringParameter('secret_config_file'),
+            $container->get(DynamicSecretParameterRegistry::class),
         ));
         $container->set(DynamicConfigProvider::class, fn(Container $container): \S2\Cms\Config\DynamicConfigProvider => new DynamicConfigProvider(
             $container->get(DbLayer::class),
@@ -373,6 +379,14 @@ class CmsExtension implements ExtensionInterface
 
         $container->set(HttpClient::class, fn(Container $_container): \S2\Cms\HttpClient\HttpClient => new HttpClient());
         $container->set('asset_http_client', fn(Container $_container): \S2\Cms\HttpClient\HttpClient => new HttpClient(verifySsl: true));
+        $container->set(HostResolverInterface::class, new NativeHostResolver());
+        $container->set(PublicAddressGuard::class, static fn(Container $container): PublicAddressGuard => new PublicAddressGuard(
+            $container->get(HostResolverInterface::class),
+        ));
+        $container->set(SafeRemoteHttpClient::class, static fn(Container $container): SafeRemoteHttpClient => new SafeRemoteHttpClient(
+            $container->get(HttpClient::class),
+            $container->get(PublicAddressGuard::class),
+        ));
 
         $container->set(AssetMergeFactory::class, fn(Container $container): \S2\Cms\Asset\AssetMergeFactory => new AssetMergeFactory(
             $container->get('asset_http_client'),

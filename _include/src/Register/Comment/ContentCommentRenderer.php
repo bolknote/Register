@@ -21,11 +21,16 @@ use Symfony\Component\HttpFoundation\Request;
 /** Queries and renders one comment thread for either posts or permanent pages. */
 final readonly class ContentCommentRenderer
 {
+    /** @var list<CommentPresentationEnricherInterface> */
+    private array $presentationEnrichers;
+
     public function __construct(
-        private DbLayer               $dbLayer,
-        private CommentThreadRenderer $threadRenderer,
-        private AuthProvider          $authProvider,
+        private DbLayer                        $dbLayer,
+        private CommentThreadRenderer          $threadRenderer,
+        private AuthProvider                   $authProvider,
+        CommentPresentationEnricherInterface ...$presentationEnrichers,
     ) {
+        $this->presentationEnrichers = array_values($presentationEnrichers);
     }
 
     public function render(ContentId $contentId, Request $request, string $returnPath): string
@@ -70,6 +75,7 @@ final readonly class ContentCommentRenderer
         }
 
         $comments = $this->attachImportedReactionSummaries($comments);
+        $comments = $this->attachPresentationEnrichments($comments);
 
         $moderator = $this->authProvider->getAuthenticatedCommentModerator($request);
 
@@ -141,6 +147,61 @@ final readonly class ContentCommentRenderer
             $id = (int)($comment['id'] ?? 0);
             if ($id > 0) {
                 $comment['reaction_summary'] = $summaries[$id] ?? [];
+            }
+
+            $result[] = $comment;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $comments
+     * @return list<array<string, mixed>>
+     */
+    private function attachPresentationEnrichments(array $comments): array
+    {
+        if ($comments === [] || $this->presentationEnrichers === []) {
+            return $comments;
+        }
+
+        $commentIds = [];
+        foreach ($comments as $comment) {
+            $id = (int)($comment['id'] ?? 0);
+            if ($id > 0) {
+                $commentIds[$id] = $id;
+            }
+        }
+
+        if ($commentIds === []) {
+            return $comments;
+        }
+
+        /** @var array<int, CommentPresentationEnrichment> $enrichments */
+        $enrichments = [];
+        $requestedIds = array_values($commentIds);
+        foreach ($this->presentationEnrichers as $enricher) {
+            foreach ($enricher->enrich($requestedIds) as $enrichment) {
+                if (!isset($commentIds[$enrichment->commentId])) {
+                    throw new \LogicException('A comment presentation enricher returned an unrequested comment.');
+                }
+
+                if (isset($enrichments[$enrichment->commentId])) {
+                    throw new \LogicException('More than one comment presentation enricher claimed the same comment.');
+                }
+
+                $enrichments[$enrichment->commentId] = $enrichment;
+            }
+        }
+
+        $result = [];
+        foreach ($comments as $comment) {
+            $enrichment = $enrichments[(int)($comment['id'] ?? 0)] ?? null;
+            if ($enrichment instanceof CommentPresentationEnrichment) {
+                $comment['presentation_avatar_path'] = $enrichment->localAvatarPath;
+                $comment['presentation_author_url']  = $enrichment->authorUrl;
+                $comment['presentation_source_url']  = $enrichment->sourceUrl;
+                $comment['presentation_source_label'] = $enrichment->sourceLabel;
             }
 
             $result[] = $comment;

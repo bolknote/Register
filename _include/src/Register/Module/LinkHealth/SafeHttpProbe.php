@@ -11,6 +11,11 @@ namespace Register\Module\LinkHealth;
 
 use S2\Cms\HttpClient\HttpClient;
 use S2\Cms\HttpClient\HttpClientException;
+use S2\Cms\HttpClient\Remote\PublicAddressGuard;
+use S2\Cms\HttpClient\Remote\RemoteHostResolverUnavailable;
+use S2\Cms\HttpClient\Remote\RemoteHostResolutionFailed;
+use S2\Cms\HttpClient\Remote\RemoteHostResolutionTimedOut;
+use S2\Cms\HttpClient\Remote\UnsafeRemoteAddress;
 
 final readonly class SafeHttpProbe implements LinkProbeInterface
 {

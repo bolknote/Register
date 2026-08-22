@@ -1,0 +1,1072 @@
+.activitypub-admin {
+    --ap-ink: #18201e;
+    --ap-muted: #66716e;
+    --ap-line: color-mix(in srgb, currentColor 14%, transparent);
+    --ap-panel: color-mix(in srgb, Canvas 96%, #edf4f2);
+    --ap-accent: #1d725f;
+    --ap-accent-soft: color-mix(in srgb, var(--ap-accent) 12%, transparent);
+    --ap-danger: #a3393c;
+    color: var(--ap-ink);
+    display: grid;
+    gap: 1.25rem;
+    margin: 0 auto;
+    max-width: 82rem;
+}
+
+.activitypub-admin *,
+.activitypub-admin *::before,
+.activitypub-admin *::after {
+    box-sizing: border-box;
+}
+
+.activitypub-hero {
+    align-items: end;
+    background: linear-gradient(135deg, #153d37, #276d5c 62%, #998346);
+    border-radius: 1rem;
+    color: #fff;
+    display: flex;
+    gap: 2rem;
+    justify-content: space-between;
+    overflow: hidden;
+    padding: clamp(1.4rem, 3vw, 2.5rem);
+    position: relative;
+}
+
+.activitypub-hero::after {
+    border: 1px solid rgb(255 255 255 / 20%);
+    border-radius: 50%;
+    content: "";
+    height: 18rem;
+    position: absolute;
+    right: -6rem;
+    top: -11rem;
+    width: 18rem;
+}
+
+.activitypub-hero h1 {
+    color: inherit;
+    font-size: clamp(1.8rem, 4vw, 3rem);
+    letter-spacing: -.035em;
+    line-height: 1;
+    margin: .25rem 0 .75rem;
+}
+
+.activitypub-hero p {
+    color: rgb(255 255 255 / 78%);
+    margin: 0;
+    max-width: 45rem;
+}
+
+.activitypub-kicker,
+.activitypub-eyebrow {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+}
+
+.activitypub-lifecycle {
+    backdrop-filter: blur(8px);
+    background: rgb(255 255 255 / 12%);
+    border: 1px solid rgb(255 255 255 / 22%);
+    border-radius: .75rem;
+    display: grid;
+    flex: 0 0 auto;
+    gap: .25rem;
+    min-width: 12rem;
+    padding: .8rem 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.activitypub-lifecycle span {
+    color: rgb(255 255 255 / 65%);
+    font-size: .75rem;
+}
+
+.activitypub-lifecycle strong::before {
+    background: #7fe7ab;
+    border-radius: 50%;
+    content: "";
+    display: inline-block;
+    height: .55rem;
+    margin-right: .45rem;
+    width: .55rem;
+}
+
+.activitypub-lifecycle.state-paused strong::before,
+.activitypub-lifecycle.state-installed strong::before {
+    background: #f3c66b;
+}
+
+.activitypub-lifecycle.state-decommissioning strong::before {
+    background: #e49c49;
+}
+
+.activitypub-lifecycle.state-decommissioned strong::before {
+    background: #d7d9d8;
+}
+
+.activitypub-action-status {
+    border-radius: .6rem;
+    color: var(--ap-accent);
+    font-weight: 650;
+    margin: 0;
+    min-height: 1.35rem;
+    padding: 0 .25rem;
+}
+
+.activitypub-action-status.is-error {
+    color: var(--ap-danger);
+}
+
+.activitypub-panel {
+    background: var(--ap-panel);
+    border: 1px solid var(--ap-line);
+    border-radius: .9rem;
+    padding: clamp(1rem, 2vw, 1.5rem);
+}
+
+.activitypub-panel h2 {
+    font-size: 1.2rem;
+    margin: .15rem 0 0;
+}
+
+.activitypub-panel-heading {
+    align-items: center;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-bottom: 1.1rem;
+}
+
+.activitypub-setup {
+    border-color: color-mix(in srgb, var(--ap-accent) 32%, transparent);
+}
+
+.activitypub-setup-state {
+    background: var(--ap-accent-soft);
+    border-radius: 999px;
+    color: var(--ap-accent);
+    font-size: .78rem;
+    font-weight: 750;
+    padding: .4rem .7rem;
+}
+
+.activitypub-setup-state.state-failed {
+    background: color-mix(in srgb, var(--ap-danger) 12%, transparent);
+    color: var(--ap-danger);
+}
+
+.activitypub-rewrite-help {
+    background: color-mix(in srgb, #d39424 10%, Canvas);
+    border-left: 3px solid #d39424;
+    border-radius: .5rem;
+    margin: 1rem 0;
+    padding: .8rem 1rem;
+}
+
+.activitypub-rewrite-help p {
+    margin: .35rem 0 .65rem;
+}
+
+.activitypub-rewrite-help pre {
+    background: #17201e;
+    border-radius: .4rem;
+    color: #e8f3ef;
+    margin: 0;
+    overflow: auto;
+    padding: .7rem;
+}
+
+.activitypub-setup-form {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 1rem;
+}
+
+.activitypub-setup-form fieldset {
+    border: 1px solid var(--ap-line);
+    border-radius: .7rem;
+    display: grid;
+    gap: .7rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+    min-width: 0;
+    padding: 1rem;
+}
+
+.activitypub-setup-form legend {
+    color: var(--ap-accent);
+    font-weight: 750;
+    padding: 0 .35rem;
+}
+
+.activitypub-setup-form .activitypub-wide-field {
+    grid-column: 1 / -1;
+}
+
+.activitypub-author-grid {
+    display: grid;
+    gap: .8rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.activitypub-author-card {
+    border: 1px solid var(--ap-line);
+    border-radius: .7rem;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.activitypub-author-card > summary {
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    padding: .9rem 1rem;
+}
+
+.activitypub-author-card > summary > span:first-child {
+    display: grid;
+    gap: .15rem;
+}
+
+.activitypub-author-card > summary small {
+    color: var(--ap-muted);
+}
+
+.activitypub-author-card > .warning-box {
+    margin: 0 1rem 1rem;
+}
+
+.activitypub-author-form {
+    border-top: 1px solid var(--ap-line);
+    display: grid;
+    gap: .75rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 1rem;
+}
+
+.activitypub-author-form .activitypub-wide-field {
+    grid-column: 1 / -1;
+}
+
+.activitypub-author-warning {
+    color: var(--ap-muted);
+    font-size: .82rem;
+    margin: 0;
+}
+
+.activitypub-backfill-default {
+    border-inline-start: 3px solid var(--ap-accent);
+    color: var(--ap-muted);
+    padding-inline-start: .75rem;
+}
+
+.activitypub-backfill-actions {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 1rem;
+}
+
+.activitypub-backfill-actions form {
+    border: 1px solid var(--ap-line);
+    border-radius: .7rem;
+    display: grid;
+    gap: .75rem;
+    padding: 1rem;
+}
+
+.activitypub-backfill-actions label {
+    display: grid;
+    gap: .35rem;
+}
+
+.activitypub-backfill-actions textarea {
+    min-height: 5.5rem;
+    resize: vertical;
+}
+
+.activitypub-backfill-history {
+    border-top: 1px solid var(--ap-line);
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+}
+
+.activitypub-backfill-history h3 {
+    font-size: .9rem;
+    margin: 0 0 .65rem;
+}
+
+.activitypub-backfill-history ul {
+    display: grid;
+    gap: .45rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.activitypub-backfill-history li {
+    align-items: center;
+    background: var(--ap-soft);
+    border-radius: .5rem;
+    display: flex;
+    gap: .75rem;
+    justify-content: space-between;
+    padding: .65rem .75rem;
+}
+
+.activitypub-backfill-history li > div {
+    display: grid;
+    gap: .1rem;
+}
+
+.activitypub-backfill-history li > span {
+    color: var(--ap-muted);
+    font-size: .78rem;
+    text-align: end;
+}
+
+.activitypub-checkbox {
+    align-items: center;
+    display: flex !important;
+    grid-template-columns: auto 1fr;
+}
+
+.activitypub-checkbox input {
+    min-height: auto;
+}
+
+.activitypub-setup-warning {
+    color: var(--ap-muted);
+    font-size: .82rem;
+    margin: .25rem 0 0;
+}
+
+.activitypub-setup-submit {
+    grid-column: 1 / -1;
+}
+
+.activitypub-check-list {
+    display: grid;
+    gap: .55rem;
+    list-style: none;
+    margin: 1.2rem 0 0;
+    padding: 0;
+}
+
+.activitypub-check-list li {
+    align-items: start;
+    background: Canvas;
+    border: 1px solid var(--ap-line);
+    border-radius: .55rem;
+    display: grid;
+    gap: .65rem;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: .65rem .75rem;
+}
+
+.activitypub-check-list li > span {
+    background: #b5bbb9;
+    border-radius: 50%;
+    height: .65rem;
+    margin-top: .25rem;
+    width: .65rem;
+}
+
+.activitypub-check-list li.state-passed > span {
+    background: var(--ap-accent);
+}
+
+.activitypub-check-list li.state-failed > span {
+    background: var(--ap-danger);
+}
+
+.activitypub-check-list div {
+    display: grid;
+    gap: .15rem;
+}
+
+.activitypub-check-list small {
+    color: var(--ap-muted);
+    overflow-wrap: anywhere;
+}
+
+.activitypub-setup-progress {
+    color: var(--ap-accent);
+    font-weight: 650;
+}
+
+.activitypub-activation-confirm {
+    align-items: end;
+    background: var(--ap-accent-soft);
+    border-radius: .65rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem;
+    margin-top: 1rem;
+    padding: 1rem;
+}
+
+.activitypub-eyebrow {
+    color: var(--ap-accent);
+    margin: 0;
+}
+
+.activitypub-count {
+    align-items: center;
+    background: var(--ap-accent-soft);
+    border-radius: 999px;
+    color: var(--ap-accent);
+    display: inline-flex;
+    font-size: .8rem;
+    font-weight: 750;
+    justify-content: center;
+    min-height: 2rem;
+    min-width: 2rem;
+    padding: .25rem .6rem;
+}
+
+.activitypub-two-column {
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.activitypub-lifecycle-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .55rem;
+}
+
+.activitypub-danger-zone {
+    border-top: 1px solid color-mix(in srgb, var(--ap-danger) 35%, transparent);
+    margin-top: 1rem;
+    padding-top: 1rem;
+}
+
+.activitypub-identity-change {
+    border-top: 1px solid var(--ap-line);
+    margin-top: 1rem;
+    padding-top: 1rem;
+}
+
+.activitypub-identity-change summary {
+    cursor: pointer;
+    font-weight: 750;
+}
+
+.activitypub-identity-change form {
+    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem;
+}
+
+.activitypub-danger-zone summary {
+    color: var(--ap-danger);
+    cursor: pointer;
+    font-weight: 750;
+}
+
+.activitypub-danger-zone form {
+    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem;
+}
+
+.activitypub-admin .activitypub-danger-button {
+    background: var(--ap-danger);
+    border-color: var(--ap-danger);
+    color: #fff;
+}
+
+.activitypub-actor-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+}
+
+.activitypub-actor-tabs a {
+    border: 1px solid var(--ap-line);
+    border-radius: .7rem;
+    color: inherit;
+    display: grid;
+    gap: .15rem;
+    min-width: 12rem;
+    padding: .65rem .85rem;
+    text-decoration: none;
+}
+
+.activitypub-actor-tabs a[aria-current="page"] {
+    background: var(--ap-accent-soft);
+    border-color: var(--ap-accent);
+}
+
+.activitypub-actor-tabs span,
+.activitypub-entry-author span,
+.activitypub-follow-list span {
+    color: var(--ap-muted);
+    font-size: .8rem;
+}
+
+.activitypub-discovery-form {
+    align-items: end;
+    display: grid;
+    gap: .65rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.activitypub-admin label {
+    display: grid;
+    font-size: .78rem;
+    font-weight: 650;
+    gap: .3rem;
+}
+
+.activitypub-admin input,
+.activitypub-admin select,
+.activitypub-admin textarea,
+.activitypub-admin button {
+    font: inherit;
+}
+
+.activitypub-admin input,
+.activitypub-admin select,
+.activitypub-admin textarea {
+    background: Canvas;
+    border: 1px solid var(--ap-line);
+    border-radius: .48rem;
+    color: inherit;
+    min-height: 2.35rem;
+    padding: .45rem .6rem;
+}
+
+.activitypub-admin textarea {
+    min-height: 5rem;
+    resize: vertical;
+    width: 100%;
+}
+
+.activitypub-admin button,
+.activitypub-load-older a {
+    background: Canvas;
+    border: 1px solid var(--ap-line);
+    border-radius: .48rem;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    justify-content: center;
+    min-height: 2.35rem;
+    padding: .48rem .72rem;
+    text-decoration: none;
+}
+
+.activitypub-admin button.primary,
+.activitypub-load-older a {
+    background: var(--ap-accent);
+    border-color: var(--ap-accent);
+    color: #fff;
+}
+
+.activitypub-admin button:disabled {
+    cursor: wait;
+    opacity: .55;
+}
+
+.activitypub-actor-preview {
+    background: var(--ap-accent-soft);
+    border-radius: .7rem;
+    margin-top: 1rem;
+    padding: 1rem;
+}
+
+.activitypub-actor-preview p {
+    margin: 0 0 .5rem;
+    overflow-wrap: anywhere;
+}
+
+.activitypub-preview-name {
+    font-size: 1.05rem;
+    font-weight: 750;
+}
+
+.activitypub-follow-list {
+    display: grid;
+    gap: .7rem;
+    list-style: none;
+    margin: 0;
+    max-height: 20rem;
+    overflow: auto;
+    padding: 0;
+}
+
+.activitypub-follow-list li {
+    align-items: center;
+    border-bottom: 1px solid var(--ap-line);
+    display: flex;
+    gap: .75rem;
+    justify-content: space-between;
+    padding-bottom: .7rem;
+}
+
+.activitypub-follow-list a,
+.activitypub-follow-list small {
+    display: grid;
+    gap: .1rem;
+    text-decoration: none;
+}
+
+.activitypub-feed-tabs {
+    border-bottom: 1px solid var(--ap-line);
+    display: flex;
+    gap: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.activitypub-feed-tabs a {
+    color: inherit;
+    padding: .6rem .15rem;
+    text-decoration: none;
+}
+
+.activitypub-feed-tabs a[aria-current="page"] {
+    border-bottom: 2px solid var(--ap-accent);
+    color: var(--ap-accent);
+    font-weight: 750;
+}
+
+.activitypub-direct-warning {
+    background: color-mix(in srgb, #d39424 12%, transparent);
+    border-left: 3px solid #d39424;
+    border-radius: .35rem;
+    padding: .75rem 1rem;
+}
+
+.activitypub-feed {
+    display: grid;
+    gap: 1rem;
+}
+
+.activitypub-entry {
+    background: Canvas;
+    border: 1px solid var(--ap-line);
+    border-radius: .8rem;
+    overflow: hidden;
+    padding: 1rem;
+}
+
+.activitypub-entry.visibility-direct {
+    border-left: 3px solid #b88425;
+}
+
+.activitypub-entry > header {
+    align-items: center;
+    display: grid;
+    gap: .75rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.activitypub-entry-avatar {
+    align-items: center;
+    background: var(--ap-accent-soft);
+    border-radius: 50%;
+    color: var(--ap-accent);
+    display: flex;
+    font-size: 1.1rem;
+    font-weight: 800;
+    height: 2.7rem;
+    justify-content: center;
+    width: 2.7rem;
+}
+
+.activitypub-entry-author,
+.activitypub-entry-author a {
+    display: grid;
+    text-decoration: none;
+}
+
+.activitypub-entry-author small {
+    color: var(--ap-muted);
+}
+
+.activitypub-original {
+    font-size: .78rem;
+}
+
+.activitypub-in-reply-to {
+    color: var(--ap-muted);
+    font-size: .78rem;
+    overflow-wrap: anywhere;
+}
+
+.activitypub-entry h3 {
+    font-size: 1.25rem;
+    margin: 1rem 0 .5rem;
+}
+
+.activitypub-entry-content {
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.activitypub-entry-content img {
+    height: auto;
+    max-width: 100%;
+}
+
+.activitypub-content-warning summary {
+    cursor: pointer;
+    font-weight: 700;
+    margin: 1rem 0;
+}
+
+.activitypub-local-note {
+    background: color-mix(in srgb, Canvas 88%, var(--ap-accent-soft));
+    border-left: .22rem solid var(--ap-accent);
+    border-radius: .4rem;
+    display: grid;
+    gap: .55rem;
+    margin: 1rem 0 0 2.4rem;
+    padding: .75rem;
+}
+
+.activitypub-local-note > div,
+.activitypub-local-note-form > div {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .55rem;
+}
+
+.activitypub-local-note > div span {
+    color: var(--ap-muted);
+    font-size: .78rem;
+}
+
+.activitypub-local-note > p {
+    margin: 0;
+}
+
+.activitypub-local-note-form {
+    display: grid;
+    gap: .55rem;
+}
+
+.activitypub-local-note-form label,
+.activitypub-local-note-form textarea {
+    width: 100%;
+}
+
+.activitypub-local-note-form .danger {
+    margin-left: auto;
+}
+
+.activitypub-entry-actions {
+    border-top: 1px solid var(--ap-line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+    margin-top: 1rem;
+    padding-top: .8rem;
+}
+
+.activitypub-entry-actions button {
+    min-height: 2rem;
+    padding: .32rem .55rem;
+}
+
+.activitypub-entry-tools {
+    display: grid;
+    gap: .75rem;
+    margin-top: .75rem;
+}
+
+.activitypub-entry-tools form {
+    align-items: end;
+    background: color-mix(in srgb, Canvas 85%, var(--ap-accent-soft));
+    border-radius: .6rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .55rem;
+    padding: .7rem;
+}
+
+.activitypub-reply-form label {
+    flex: 1 0 100%;
+}
+
+.activitypub-reply-form > div {
+    display: flex;
+    gap: .5rem;
+    justify-content: flex-end;
+    width: 100%;
+}
+
+.activitypub-moderation-form {
+    justify-content: flex-end;
+}
+
+.activitypub-load-older {
+    margin: 1.2rem 0 0;
+    text-align: center;
+}
+
+.activitypub-empty {
+    color: var(--ap-muted);
+    margin: .75rem 0;
+}
+
+.activitypub-metrics {
+    display: grid;
+    gap: .65rem;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.activitypub-metrics > div {
+    background: Canvas;
+    border: 1px solid var(--ap-line);
+    border-radius: .65rem;
+    display: grid;
+    gap: .2rem;
+    padding: .75rem;
+}
+
+.activitypub-metrics strong {
+    font-size: 1.45rem;
+}
+
+.activitypub-metrics span {
+    color: var(--ap-muted);
+    font-size: .75rem;
+}
+
+.activitypub-metrics .is-error {
+    border-color: color-mix(in srgb, var(--ap-danger) 60%, transparent);
+}
+
+.activitypub-metrics .is-error strong {
+    color: var(--ap-danger);
+}
+
+.activitypub-queue-state {
+    align-items: center;
+    border-top: 1px solid var(--ap-line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+}
+
+.activitypub-queue-state span {
+    color: var(--ap-muted);
+    font-size: .8rem;
+}
+
+.activitypub-runner-state {
+    align-items: center;
+    background: Canvas;
+    border: 1px solid var(--ap-line);
+    border-radius: .55rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem 1rem;
+    margin-top: .75rem;
+    padding: .7rem .85rem;
+}
+
+.activitypub-runner-state span {
+    color: var(--ap-muted);
+    font-size: .8rem;
+}
+
+.activitypub-runner-state code {
+    background: var(--ap-accent-soft);
+    border-radius: .25rem;
+    color: var(--ap-accent);
+    font-size: .75rem;
+    padding: .18rem .35rem;
+}
+
+.activitypub-identity-health {
+    align-items: start;
+    background: var(--ap-accent-soft);
+    border-left: 3px solid var(--ap-accent);
+    border-radius: .45rem;
+    display: grid;
+    gap: .45rem;
+    margin-top: 1rem;
+    padding: .8rem 1rem;
+}
+
+.activitypub-identity-health.is-error {
+    background: color-mix(in srgb, var(--ap-danger) 10%, transparent);
+    border-left-color: var(--ap-danger);
+}
+
+.activitypub-identity-health > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem 1rem;
+}
+
+.activitypub-identity-health span,
+.activitypub-identity-health ul {
+    color: var(--ap-muted);
+    font-size: .8rem;
+    margin: 0;
+}
+
+.activitypub-operations-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 1rem;
+}
+
+.activitypub-operations-grid > section {
+    border: 1px solid var(--ap-line);
+    border-radius: .6rem;
+    min-width: 0;
+    padding: .85rem;
+}
+
+.activitypub-operations-grid h3 {
+    font-size: .9rem;
+    margin: 0 0 .65rem;
+}
+
+.activitypub-operations-list {
+    display: grid;
+    gap: .45rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.activitypub-operations-list li {
+    align-items: start;
+    display: flex;
+    gap: .65rem;
+    justify-content: space-between;
+}
+
+.activitypub-operations-list li > div {
+    display: grid;
+    min-width: 0;
+}
+
+.activitypub-operations-list strong {
+    overflow-wrap: anywhere;
+}
+
+.activitypub-operations-list small,
+.activitypub-operations-list li > span {
+    color: var(--ap-muted);
+    font-size: .75rem;
+}
+
+.activitypub-operations-list li > span {
+    flex: 0 0 auto;
+    text-align: end;
+}
+
+@media (max-width: 850px) {
+    .activitypub-hero {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .activitypub-lifecycle {
+        min-width: 0;
+    }
+
+    .activitypub-two-column {
+        grid-template-columns: 1fr;
+    }
+
+    .activitypub-setup-form {
+        grid-template-columns: 1fr;
+    }
+
+    .activitypub-author-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .activitypub-backfill-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .activitypub-operations-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .activitypub-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .activitypub-setup-form fieldset {
+        grid-template-columns: 1fr;
+    }
+
+    .activitypub-setup-form .activitypub-wide-field {
+        grid-column: auto;
+    }
+
+    .activitypub-author-form {
+        grid-template-columns: 1fr;
+    }
+
+    .activitypub-author-form .activitypub-wide-field {
+        grid-column: auto;
+    }
+
+    .activitypub-discovery-form,
+    .activitypub-entry > header {
+        grid-template-columns: 1fr;
+    }
+
+    .activitypub-entry-avatar {
+        display: none;
+    }
+
+    .activitypub-original {
+        justify-self: start;
+    }
+
+    .activitypub-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .activitypub-backfill-history li {
+        align-items: start;
+        flex-direction: column;
+    }
+
+    .activitypub-backfill-history li > span {
+        text-align: start;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .activitypub-admin * {
+        scroll-behavior: auto !important;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .activitypub-admin {
+        --ap-ink: #e6eeeb;
+        --ap-muted: #aab6b2;
+        --ap-panel: color-mix(in srgb, Canvas 92%, #1a332e);
+        --ap-accent: #65c6aa;
+    }
+}

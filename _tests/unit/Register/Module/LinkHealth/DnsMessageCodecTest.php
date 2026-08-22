@@ -10,8 +10,8 @@ declare(strict_types = 1);
 namespace unit\Register\Module\LinkHealth;
 
 use Codeception\Test\Unit;
-use Register\Module\LinkHealth\DnsMessageCodec;
-use Register\Module\LinkHealth\DnsResponseStatus;
+use S2\Cms\HttpClient\Remote\DnsMessageCodec;
+use S2\Cms\HttpClient\Remote\DnsResponseStatus;
 
 final class DnsMessageCodecTest extends Unit
 {

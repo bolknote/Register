@@ -46,6 +46,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $container->set(ReactionRepository::class, static fn(Container $container): ReactionRepository => new ReactionRepository(
             $container->get(DbLayer::class),
         ));
+        $container->set(ReactionAggregateRepository::class, static fn(Container $container): ReactionAggregateRepository => new ReactionAggregateRepository(
+            $container->get(DbLayer::class),
+        ));
         $container->set(ReactionRenderer::class, static fn(Container $container): ReactionRenderer => new ReactionRenderer(
             $container->get(ReactionRepository::class),
             $container->get('register_reactions_translator'),

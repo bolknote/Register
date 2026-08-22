@@ -2524,20 +2524,33 @@ h2.comment {
 }
 
 .comment-actions {
+    display: flex;
     margin-top: 0.5rem;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.9rem;
     font-family: var(--ui-font);
     font-size: 13px;
 }
 
 .comment-reply,
-.comment-reply:visited {
+.comment-reply:visited,
+.comment-source,
+.comment-source:visited {
     color: var(--minor-color);
     text-decoration: none;
 }
 
 .comment-reply:hover,
-.comment-reply:focus-visible {
+.comment-reply:focus-visible,
+.comment-source:hover,
+.comment-source:focus-visible {
     color: var(--accent-color);
+}
+
+.comment-source::before {
+    margin-right: 0.25em;
+    content: "↗";
 }
 
 .comment-form-block {

@@ -10,10 +10,10 @@ declare(strict_types = 1);
 namespace unit\Register\Module\LinkHealth;
 
 use Codeception\Test\Unit;
-use Register\Module\LinkHealth\HostResolverInterface;
-use Register\Module\LinkHealth\PublicAddressGuard;
-use Register\Module\LinkHealth\RemoteHostResolutionFailed;
-use Register\Module\LinkHealth\UnsafeRemoteAddress;
+use S2\Cms\HttpClient\Remote\HostResolverInterface;
+use S2\Cms\HttpClient\Remote\PublicAddressGuard;
+use S2\Cms\HttpClient\Remote\RemoteHostResolutionFailed;
+use S2\Cms\HttpClient\Remote\UnsafeRemoteAddress;
 
 final class PublicAddressGuardTest extends Unit
 {
@@ -77,7 +77,7 @@ final readonly class PublicAddressHostResolver implements HostResolverInterface
 
     /** @return list<string> */
     #[\Override]
-    public function resolve(string $host): array
+    public function resolve(string $host, ?float $timeoutSeconds = null): array
     {
         return $this->answers[$host] ?? [];
     }

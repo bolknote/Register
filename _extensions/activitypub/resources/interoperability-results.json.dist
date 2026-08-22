@@ -1,0 +1,59 @@
+{
+    "schema": 1,
+    "module_version": "RELEASE_VERSION",
+    "protocol_profile": "register-activitypub-v1",
+    "completed_at": "RFC3339_TIMESTAMP",
+    "database_profiles": [
+        "mysql",
+        "pgsql",
+        "sqlite"
+    ],
+    "runtime": {
+        "shared_hosting": true,
+        "redis": false,
+        "external_cron": false,
+        "ext_openssl": false
+    },
+    "peers": [
+        {
+            "family": "akkoma",
+            "implementation_version": "EXACT_TESTED_VERSION",
+            "scenarios": ["announce", "create", "delete", "discovery", "duplicate_delivery", "follow", "like", "reply", "retry", "signed_fetch", "undo", "update"]
+        },
+        {
+            "family": "ghost",
+            "implementation_version": "EXACT_TESTED_VERSION",
+            "scenarios": ["announce", "create", "delete", "discovery", "duplicate_delivery", "follow", "like", "reply", "retry", "signed_fetch", "undo", "update"]
+        },
+        {
+            "family": "gotosocial",
+            "implementation_version": "EXACT_TESTED_VERSION",
+            "scenarios": ["announce", "create", "delete", "discovery", "duplicate_delivery", "follow", "like", "reply", "retry", "signed_fetch", "undo", "update"]
+        },
+        {
+            "family": "mastodon",
+            "implementation_version": "EXACT_TESTED_VERSION",
+            "scenarios": ["announce", "create", "delete", "discovery", "duplicate_delivery", "follow", "like", "reply", "retry", "signed_fetch", "undo", "update"]
+        },
+        {
+            "family": "misskey",
+            "implementation_version": "EXACT_TESTED_VERSION",
+            "scenarios": ["announce", "create", "delete", "discovery", "duplicate_delivery", "follow", "like", "reply", "retry", "signed_fetch", "undo", "update"]
+        },
+        {
+            "family": "register",
+            "implementation_version": "EXACT_TESTED_VERSION",
+            "scenarios": ["announce", "create", "delete", "discovery", "duplicate_delivery", "follow", "like", "reply", "retry", "signed_fetch", "undo", "update"]
+        },
+        {
+            "family": "wordpress-activitypub",
+            "implementation_version": "EXACT_TESTED_VERSION",
+            "scenarios": ["announce", "create", "delete", "discovery", "duplicate_delivery", "follow", "like", "reply", "retry", "signed_fetch", "undo", "update"]
+        },
+        {
+            "family": "writefreely",
+            "implementation_version": "EXACT_TESTED_VERSION",
+            "scenarios": ["announce", "create", "delete", "discovery", "duplicate_delivery", "follow", "like", "reply", "retry", "signed_fetch", "undo", "update"]
+        }
+    ]
+}

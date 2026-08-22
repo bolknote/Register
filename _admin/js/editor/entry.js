@@ -14,6 +14,7 @@ import {ClosePictureDialog, ReturnAudio, ReturnImage} from './dialogs.js';
 import {setEditorDeps} from './deps.js';
 import {initAiTools} from './ai.js';
 import {initPublicationState} from './publication.js';
+import {initActivityPubPreview} from './activitypub.js';
 
 const configElement = document.querySelector('[data-editor-config]');
 let config = {};
@@ -83,6 +84,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (form && config.ai) {
         initAiTools(form, {...config.ai, entityName: config.entityName});
+    }
+
+    if (form && config.activityPub) {
+        initActivityPubPreview(form, {...config.activityPub, entityName: config.entityName});
     }
 
     if (form && config.entityName && config.textareaName) {

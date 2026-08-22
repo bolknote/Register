@@ -18,6 +18,9 @@ final readonly class BackupManager
 
     private const string FILE_PATTERN = '/^register-backup-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}\.zip(?:\.enc)?$/D';
 
+    /** @var list<BackupContributorInterface> */
+    private array $contributors;
+
     public function __construct(
         private DatabaseSnapshotter $databaseSnapshotter,
         private BackupEncryptor     $backupEncryptor,
@@ -27,10 +30,13 @@ final readonly class BackupManager
         private string              $imageDirectory,
         private int                 $retention,
         private string              $registerVersion,
+        BackupContributorInterface  ...$contributors,
     ) {
         if ($retention < 1) {
             throw new \InvalidArgumentException('At least one backup must be retained.');
         }
+
+        $this->contributors = array_values($contributors);
     }
 
     public function createNow(?int $now = null): BackupFile
@@ -165,6 +171,23 @@ final readonly class BackupManager
                 ++$mediaFiles;
             }
 
+            $supplementalEntries = [];
+            foreach ($this->contributors as $contributor) {
+                foreach ($contributor->backupEntries() as $entry) {
+                    if (isset($supplementalEntries[$entry->name])) {
+                        throw new \RuntimeException('Duplicate supplemental backup entry: ' . $entry->name);
+                    }
+
+                    $bytes = $writer->addString($entry->name, $entry->contents, $now);
+                    $supplementalEntries[$entry->name] = [
+                        'bytes'  => $bytes,
+                        'sha256' => hash('sha256', $entry->contents),
+                    ];
+                }
+            }
+
+            ksort($supplementalEntries, SORT_STRING);
+
             $manifest = json_encode([
                 'format'         => 'register-backup',
                 'format_version' => 1,
@@ -184,6 +207,7 @@ final readonly class BackupManager
                     'files'     => $mediaFiles,
                     'bytes'     => $mediaBytes,
                 ],
+                'supplemental' => $supplementalEntries,
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
             $writer->addString('manifest.json', $manifest . "\n", $now);
             $writer->addString('RESTORE.txt', $this->restoreInstructions($snapshot), $now);

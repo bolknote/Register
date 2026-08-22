@@ -66,6 +66,14 @@ $bodyControls        = $takeControls(['body']);
 $additionalControls  = $takeControls(['excerpt', 'meta_description', 'meta_keywords']);
 $tagControls         = $takeControls(['tags']);
 $publicationControls = $takeControls(['published', 'scheduled_at', 'published_at', 'date_label']);
+$activityPubControls = $takeControls([
+    'activitypub_publication',
+    'activitypub_delivery',
+    'activitypub_object_type',
+    'activitypub_visibility',
+    'activitypub_summary',
+    'activitypub_language',
+]);
 $detailControls      = array_merge(
     $takeControls(['series', 'template', 'author_id', 'featured', 'comments_enabled', 'slug', 'updated_at']),
     $visibleControls,
@@ -94,6 +102,14 @@ $publicationSubmitLabel = $isNew
     }
     : $trans('Save');
 $dateLabelHaveValue = trim((string)($formData['date_label'] ?? '')) !== '';
+$activityPubHaveValue = false;
+foreach (array_keys($activityPubControls) as $fieldName) {
+    $value = trim((string)($formData[$fieldName] ?? ''));
+    if ($value !== '' && $value !== 'inherit') {
+        $activityPubHaveValue = true;
+        break;
+    }
+}
 $additionalHaveValue = false;
 foreach (array_keys($additionalControls) as $fieldName) {
     if (trim((string)($formData[$fieldName] ?? '')) !== '') {
@@ -149,6 +165,14 @@ $editorConfig = [
         'sourceChanged'    => $trans('AI source changed'),
         'emptyText'        => $trans('AI empty text'),
         'proofreadClean'   => $trans('AI proofreading clean'),
+    ],
+    'activityPub'   => [
+        'enabled'   => $activityPubControls !== [],
+        'url'       => $basePath . '/_admin/ajax.php?action=register_activitypub_content_preview',
+        'contentId' => isset($primaryKey['id']) ? (int)$primaryKey['id'] : 0,
+        'working'   => $trans('ActivityPub preview working'),
+        'failed'    => $trans('ActivityPub preview failed'),
+        'noObject'  => $trans('ActivityPub preview no object'),
     ],
 ];
 $editorConfigJson = htmlspecialchars(
@@ -439,6 +463,44 @@ $renderControl = static function (
                         </div>
                     <?php endif; ?>
                 </section>
+
+                <?php if ($activityPubControls !== []): ?>
+                    <details
+                        class="editor-sidebar-card editor-details-card editor-activitypub-card"
+                        data-activitypub-editor-panel
+                        <?= $activityPubHaveValue ? 'open' : '' ?>
+                    >
+                        <summary>ActivityPub</summary>
+                        <div class="editor-detail-fields">
+                            <p class="editor-panel-description">
+                                <?= $trans('ActivityPub editor panel help') ?>
+                            </p>
+                            <?php foreach ($activityPubControls as $fieldName => $control): ?>
+                                <?= $renderControl($fieldName, $control) ?>
+                            <?php endforeach; ?>
+                            <div class="activitypub-editor-preview">
+                                <button type="button" data-activitypub-preview-button>
+                                    <?= $trans('ActivityPub build preview') ?>
+                                </button>
+                                <p class="activitypub-editor-preview-status" data-activitypub-preview-status aria-live="polite"></p>
+                                <div data-activitypub-preview-result hidden>
+                                    <p class="activitypub-editor-preview-metadata" data-activitypub-preview-metadata></p>
+                                    <p class="activitypub-editor-preview-provisional" data-activitypub-preview-provisional hidden></p>
+                                    <iframe
+                                        class="activitypub-editor-preview-frame"
+                                        data-activitypub-preview-frame
+                                        sandbox=""
+                                        title="<?= $trans('ActivityPub content preview') ?>"
+                                    ></iframe>
+                                    <details class="activitypub-editor-preview-json">
+                                        <summary><?= $trans('ActivityPub exact JSON') ?></summary>
+                                        <pre data-activitypub-preview-json></pre>
+                                    </details>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                <?php endif; ?>
 
                 <?php if ($detailControls !== []): ?>
                     <details class="editor-sidebar-card editor-details-card">

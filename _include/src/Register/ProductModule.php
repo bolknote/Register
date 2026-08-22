@@ -9,20 +9,25 @@ declare(strict_types = 1);
 
 namespace Register;
 
+use Register\Author\AuthorProfileRepository;
 use Register\Ai\AiClient;
 use Register\Ai\AiSettings;
 use Register\Comment\ContentCommentRenderer;
 use Register\Backup\BackupEncryptionKeyProvider;
+use Register\Backup\BackupContributorInterface;
 use Register\Backup\BackupEncryptor;
 use Register\Backup\BackupManager;
 use Register\Backup\BackupQueueHandler;
 use Register\Backup\BackupScheduler;
 use Register\Backup\DatabaseSnapshotter;
 use Register\Comment\CommentRepository;
+use Register\Comment\CommentImportService;
+use Register\Comment\CommentPresentationEnricherInterface;
 use Register\Comment\ContentCommentNotifier;
 use Register\Comment\ContentCommentStrategy;
 use Register\Comment\ContentCommentTargetResolver;
 use Register\Content\ContentChangeDispatcher;
+use Register\Content\ContentDetailsRepository;
 use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentPublicationQueueHandler;
 use Register\Content\ContentRepository;
@@ -133,6 +138,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $container->getStringParameter('image_dir'),
             $container->getIntParameter('backup_retention'),
             $container->getStringParameter('version'),
+            ...$container->getByTag(BackupContributorInterface::class),
         ));
         $container->set(BackupScheduler::class, static fn(Container $container): BackupScheduler => new BackupScheduler(
             $container->get(BackupManager::class),
@@ -157,6 +163,9 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         ), [ContentSourceInterface::class]);
         $container->set(ContentRepository::class, static fn(Container $container): ContentRepository => new ContentRepository(
             ...$container->getByTag(ContentSourceInterface::class),
+        ));
+        $container->set(AuthorProfileRepository::class, static fn(Container $container): AuthorProfileRepository => new AuthorProfileRepository(
+            $container->get(DbLayer::class),
         ));
         $container->set(LiveUpdateRepository::class, static fn(Container $container): LiveUpdateRepository => new LiveUpdateRepository(
             $container->get(DbLayer::class),
@@ -196,14 +205,24 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(TagRepository::class, static fn(Container $container): TagRepository => new TagRepository(
             $container->get(DbLayer::class),
         ));
+        $container->set(ContentDetailsRepository::class, static fn(Container $container): ContentDetailsRepository => new ContentDetailsRepository(
+            $container->get(ContentRepository::class),
+            $container->get(AuthorProfileRepository::class),
+            $container->get(TagRepository::class),
+        ));
         $container->set(CommentRepository::class, static fn(Container $container): CommentRepository => new CommentRepository(
             $container->get(DbLayer::class),
             $container->get(LiveUpdateRepository::class),
+            $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+        ));
+        $container->set(CommentImportService::class, static fn(Container $container): CommentImportService => new CommentImportService(
+            $container->get(CommentRepository::class),
         ));
         $container->set(ContentCommentRenderer::class, static fn(Container $container): ContentCommentRenderer => new ContentCommentRenderer(
             $container->get(DbLayer::class),
             $container->get(\S2\Cms\Model\Comment\CommentThreadRenderer::class),
             $container->get(\S2\Cms\Model\AuthProvider::class),
+            ...$container->getByTag(CommentPresentationEnricherInterface::class),
         ));
         $container->set(LiveFragmentRenderer::class, static fn(Container $container): LiveFragmentRenderer => new LiveFragmentRenderer(
             $container->get(HtmlTemplateProvider::class),
