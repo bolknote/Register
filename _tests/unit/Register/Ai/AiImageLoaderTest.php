@@ -15,18 +15,29 @@ use Register\Ai\AiException;
 
 final class AiImageLoaderTest extends TestCase
 {
+    /** @psalm-suppress PropertyNotSetInConstructor PHPUnit initializes this property in setUp(). */
     private string $directory;
 
+    #[\Override]
     protected function setUp(): void
     {
         $this->directory = sys_get_temp_dir() . '/register-ai-image-' . bin2hex(random_bytes(8));
         mkdir($this->directory, 0700, true);
+        $image = base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+            true,
+        );
+        if ($image === false) {
+            throw new \LogicException('Invalid embedded PNG fixture.');
+        }
+
         file_put_contents(
             $this->directory . '/pixel.png',
-            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', true),
+            $image,
         );
     }
 
+    #[\Override]
     protected function tearDown(): void
     {
         $filename = $this->directory . '/pixel.png';

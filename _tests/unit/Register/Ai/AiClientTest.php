@@ -71,6 +71,10 @@ final class AiClientTest extends TestCase
         self::assertCount(1, $calls);
         self::assertStringContainsString('/gemini-3.5-flash-lite:generateContent', $calls[0]['url']);
         $body = json_decode((string)$calls[0]['body'], true, 512, JSON_THROW_ON_ERROR);
+        $prompt = (string)$body['contents'][0]['parts'][0]['text'];
+        self::assertStringContainsString('photograph or illustration with a scene', $prompt);
+        self::assertStringContainsString('document, screenshot, interface, diagram, chart, or meme', $prompt);
+        self::assertStringContainsString('main readable text or data', $prompt);
         self::assertSame('image/png', $body['contents'][0]['parts'][1]['inline_data']['mime_type']);
         self::assertSame(base64_encode('png-bytes'), $body['contents'][0]['parts'][1]['inline_data']['data']);
         self::assertSame(256, $body['generationConfig']['maxOutputTokens']);

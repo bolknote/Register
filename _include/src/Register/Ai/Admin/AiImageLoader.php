@@ -34,7 +34,11 @@ final readonly class AiImageLoader
 
         $filename = realpath($root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath));
         $rootPrefix = rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-        if ($filename === false || !str_starts_with($filename, $rootPrefix) || !is_file($filename)) {
+        if ($filename === false) {
+            throw new AiException('The image is unavailable.');
+        }
+
+        if (!str_starts_with($filename, $rootPrefix) || !is_file($filename)) {
             throw new AiException('The image is unavailable.');
         }
 
