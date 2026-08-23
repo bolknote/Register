@@ -768,6 +768,14 @@ class AdminConfigProvider implements StatefulServiceInterface
                 useOnActions: [FieldConfig::ACTION_EDIT],
             ))
             ->addField(new FieldConfig(
+                name: 'social_image',
+                label: $this->translator->trans('Social image'),
+                hint: $this->translator->trans('Social image help'),
+                control: 'input',
+                validators: [new Length(max: 2048)],
+                useOnActions: [FieldConfig::ACTION_EDIT],
+            ))
+            ->addField(new FieldConfig(
                 name: 'excerpt',
                 label: $this->translator->trans('Excerpt'),
                 hint: $this->translator->trans('Excerpt help'),
@@ -951,7 +959,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 $revision = $this->contentRevisionService->resolve(
                     $event->data,
                     $oldData,
-                    ['body', 'title', 'slug', 'meta_keywords', 'meta_description', 'scheduled_at'],
+                    ['body', 'title', 'slug', 'meta_keywords', 'meta_description', 'social_image', 'scheduled_at'],
                 );
                 if (!$revision instanceof ContentRevision) {
                     $event->errorMessages[] = $this->translator->trans('Outdated version');

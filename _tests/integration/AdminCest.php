@@ -389,9 +389,10 @@ class AdminCest
         $I->see('AI assistant', '.config-section');
         $I->seeElement('nav.config-section-nav[aria-label="Settings sections"]');
         $I->seeElement('[data-config-page-state][data-state="applied"]');
-        $I->assertCount(36, $I->grabMultiple('.config-setting label[for]'));
+        $I->assertCount(37, $I->grabMultiple('.config-setting label[for]'));
         $I->seeElement('[data-config-key="REGISTER_SITE_NAME"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_SITE_TAGLINE"] input[name="value"]');
+        $I->seeElement('[data-config-key="REGISTER_SOCIAL_IMAGE"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_AUTH_EMAIL_ENABLED"] input[type="checkbox"]');
         $I->seeElement('[data-config-key="REGISTER_AUTH_VK_CLIENT_ID"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_AUTH_YANDEX_CLIENT_ID"] input[name="value"]');
@@ -712,6 +713,9 @@ class AdminCest
         $I->dontSeeElement('.editor-title-block label[for="id-title"]');
         $I->seeElement('.editor-main-column > .editor-tags-block:last-child');
         $I->seeElement('.editor-tags-block input[name="tags"][placeholder="Tags"]');
+        $I->seeElement('input[name="meta_description"]');
+        $I->seeElement('input[name="social_image"]');
+        $I->seeElement('[data-social-preview]');
         $I->seeElement('label[for="id-body"]');
         $I->dontSeeElement('.editor-tags-block details');
         $I->assertStringContainsString(
@@ -729,6 +733,8 @@ class AdminCest
             'tags'       => 'register, admin',
             'date_label' => '',
             'body'       => '<p>Created through the shared editor.</p>',
+            'meta_description' => 'Editorial social description',
+            'social_image' => '/_pictures/editorial-social-card.jpg',
         ]);
 
         $I->seeResponseCodeIs(302);
@@ -739,6 +745,8 @@ class AdminCest
         $I->amOnPage('https://localhost/_admin/index.php' . $location);
         $I->assertSame('Editorial editor draft', $I->grabValueFrom('input[name="title"]'));
         $I->assertSame('register, admin', $I->grabValueFrom('input[name="tags"]'));
+        $I->assertSame('Editorial social description', $I->grabValueFrom('input[name="meta_description"]'));
+        $I->assertSame('/_pictures/editorial-social-card.jpg', $I->grabValueFrom('input[name="social_image"]'));
         $I->seeElement('section.post-edit-content.is-edit');
     }
 

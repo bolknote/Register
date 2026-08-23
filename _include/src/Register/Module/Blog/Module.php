@@ -14,6 +14,8 @@ use Register\Comment\ContentCommentRenderer;
 use Register\Comment\ContentCommentStrategy;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentRepository;
+use Register\Content\ContentRenderedEvent;
+use Register\Content\ContentViewRepository;
 use Register\Content\ContentDeletionGuardInterface;
 use Register\Live\LiveUpdateContext;
 use Register\Module\Blog\Content\BlogContentSource;
@@ -32,6 +34,7 @@ use Register\Core\Comment\Antispam\SpamRateLimiter;
 use Register\Core\Comment\SpamDecisionProviderInterface;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Controller\CommentController;
+use Register\Core\Controller\JsonFeedController;
 use Register\Core\Controller\RssController;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
@@ -59,14 +62,18 @@ use Register\Module\Blog\Controller\LegacyRssRedirectController;
 use Register\Module\Blog\Controller\MainPageController;
 use Register\Module\Blog\Controller\MonthPageController;
 use Register\Module\Blog\Controller\PostPageController;
+use Register\Module\Blog\Controller\RandomPostController;
+use Register\Module\Blog\Controller\RankedPostsController;
 use Register\Module\Blog\Controller\TagPageController;
 use Register\Module\Blog\Controller\TagsPageController;
 use Register\Module\Blog\Controller\YearPageController;
 use Register\Module\Blog\Model\BlogPlaceholderProvider;
 use Register\Module\Blog\Model\ContentRssStrategy;
+use Register\Module\Blog\Model\ContentFeedItemProvider;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Module\Blog\Model\SiteHeaderRenderer;
+use Register\Module\Blog\Model\TagRssStrategy;
 use Register\Module\Blog\Service\TagsSearchProvider;
 use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Module\Search\Service\RecommendationProvider;
@@ -408,15 +415,57 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(FavoriteArticleProvider::class),
             );
         });
+        $container->set(RankedPostsController::class, static function (Container $container): RankedPostsController {
+            $provider = $container->get(DynamicConfigProvider::class);
+            return new RankedPostsController(
+                $container->get(DbLayer::class),
+                $container->get(CalendarBuilder::class),
+                $container->get(BlogUrlBuilder::class),
+                $container->get(ArticleProvider::class),
+                $container->get(PostProvider::class),
+                $container->get(ContentUrlGenerator::class),
+                $container->get(UrlBuilder::class),
+                $container->get('register_blog_translator'),
+                $container->get(HtmlTemplateProvider::class),
+                $container->get(Viewer::class),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
+                $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
+                $container->get(ContentViewRepository::class),
+                $provider->getIntProxy('REGISTER_MAX_ITEMS'),
+            );
+        });
+        $container->set(RandomPostController::class, static fn(Container $container): RandomPostController => new RandomPostController(
+            $container->get(PostProvider::class),
+            $container->get(BlogUrlBuilder::class),
+        ));
         $container->set(ContentRssStrategy::class, static function (Container $container): ContentRssStrategy {
             $provider = $container->get(DynamicConfigProvider::class);
             return new ContentRssStrategy(
                 $container->get(ContentRepository::class),
-                $container->get(PostProvider::class),
+                $container->get(ContentFeedItemProvider::class),
                 $container->get(BlogUrlBuilder::class),
-                $container->get(ContentUrlGenerator::class),
                 $container->get('register_blog_translator'),
-                $container->get('strict_viewer'),
+                $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+            );
+        });
+        $container->set(ContentFeedItemProvider::class, static fn(Container $container): ContentFeedItemProvider => new ContentFeedItemProvider(
+            $container->get(PostProvider::class),
+            $container->get(\Register\Content\TagRepository::class),
+            $container->get(BlogUrlBuilder::class),
+            $container->get(ContentUrlGenerator::class),
+            $container->get('register_blog_translator'),
+            $container->get('strict_viewer'),
+        ));
+        $container->set(TagRssStrategy::class, static function (Container $container): TagRssStrategy {
+            $provider = $container->get(DynamicConfigProvider::class);
+            return new TagRssStrategy(
+                $container->get(RequestStack::class),
+                $container->get(\Register\Content\TagRepository::class),
+                $container->get(ContentRepository::class),
+                $container->get(ContentFeedItemProvider::class),
+                $container->get(BlogUrlBuilder::class),
+                $container->get('register_blog_translator'),
                 $provider->getStringProxy('REGISTER_BLOG_TITLE'),
             );
         });
@@ -427,7 +476,27 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(UrlBuilder::class),
                 $container->get('strict_viewer'),
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
-                $container->getStringParameter('base_path'),
+                $container->getStringParameter('base_url'),
+                $container->getStringParameter('version'),
+                $provider->getStringProxy('REGISTER_WEBMASTER'),
+            );
+        });
+        $jsonFeedController = static fn(Container $container, string $strategy): JsonFeedController => new JsonFeedController(
+            $container->get($strategy),
+            $container->get(UrlBuilder::class),
+            $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+            $container->getStringParameter('base_url'),
+            $container->get(DynamicConfigProvider::class)->getStringProxy('REGISTER_WEBMASTER'),
+        );
+        $container->set('register_blog.json_feed_controller', static fn(Container $container): JsonFeedController => $jsonFeedController($container, ContentRssStrategy::class));
+        $container->set('register_blog.tag_json_feed_controller', static fn(Container $container): JsonFeedController => $jsonFeedController($container, TagRssStrategy::class));
+        $container->set('register_blog.tag_rss_controller', static function (Container $container): RssController {
+            $provider = $container->get(DynamicConfigProvider::class);
+            return new RssController(
+                $container->get(TagRssStrategy::class),
+                $container->get(UrlBuilder::class),
+                $container->get('strict_viewer'),
+                $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
                 $container->getStringParameter('base_url'),
                 $container->getStringParameter('version'),
                 $provider->getStringProxy('REGISTER_WEBMASTER'),
@@ -468,6 +537,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(BlogUrlBuilder::class),
             $container->get(ContentUrlGenerator::class),
             $container->get(Viewer::class),
+            $container->get(ContentViewRepository::class),
         ));
 
         $container->set(TagsSearchProvider::class, static fn(Container $container): \Register\Module\Blog\Service\TagsSearchProvider => new TagsSearchProvider(
@@ -480,6 +550,23 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
+        $eventDispatcher->addListener(ContentRenderedEvent::class, static function (ContentRenderedEvent $event) use ($container): void {
+            $request = $container->get(RequestStack::class)->getCurrentRequest();
+            $purpose = strtolower(trim(implode(' ', [
+                $request?->headers->get('Purpose', '') ?? '',
+                $request?->headers->get('Sec-Purpose', '') ?? '',
+            ])));
+            if (!$request instanceof \Symfony\Component\HttpFoundation\Request
+                || !$request->isMethod('GET')
+                || str_contains($purpose, 'prefetch')
+                || $container->get(\Register\Module\Analytics\BotDetector::class)->isBot($request->headers->get('User-Agent', '') ?? '')
+            ) {
+                return;
+            }
+
+            $container->get(ContentViewRepository::class)->record($event->contentId);
+        });
+
         $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, static function (TemplateEvent $event) use ($container): void {
             if (!$event->htmlTemplate->hasPlaceholder('<!-- register_site_header -->')) {
                 return;
@@ -656,6 +743,12 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
+        $routes->add('blog_json_feed', new Route(
+            '/feed.json',
+            ['_controller' => 'register_blog.json_feed_controller'],
+            options: ['utf8' => true],
+            methods: ['GET'],
+        ), $priority);
         $routes->add('blog_rss_legacy', new Route(
             '/rss.xml',
             ['_controller' => LegacyRssRedirectController::class],
@@ -675,6 +768,24 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
+        $routes->add('blog_popular', new Route(
+            '/popular{slash</?>}',
+            ['_controller' => RankedPostsController::class, 'ranking' => 'popular'],
+            options: ['utf8' => true],
+            methods: ['GET'],
+        ), $priority);
+        $routes->add('blog_hot', new Route(
+            '/hot{slash</?>}',
+            ['_controller' => RankedPostsController::class, 'ranking' => 'hot'],
+            options: ['utf8' => true],
+            methods: ['GET'],
+        ), $priority);
+        $routes->add('blog_random', new Route(
+            '/random{slash</?>}',
+            ['_controller' => RandomPostController::class],
+            options: ['utf8' => true],
+            methods: ['GET'],
+        ), $priority);
 
         $routes->add('blog_tags', new Route(
             '/' . $tagsUrl . '{slash</?>}',
@@ -682,6 +793,18 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
+        $routes->add('blog_tag_rss', new Route(
+            '/' . $tagsUrl . '/{tag}/rss',
+            ['_controller' => 'register_blog.tag_rss_controller'],
+            options: ['utf8' => true],
+            methods: ['GET'],
+        ), $priority + 1);
+        $routes->add('blog_tag_json_feed', new Route(
+            '/' . $tagsUrl . '/{tag}/feed.json',
+            ['_controller' => 'register_blog.tag_json_feed_controller'],
+            options: ['utf8' => true],
+            methods: ['GET'],
+        ), $priority + 1);
         $routes->add('blog_tag', new Route(
             '/' . $tagsUrl . '/{tag}{slash</?>}',
             ['_controller' => TagPageController::class],

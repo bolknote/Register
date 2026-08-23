@@ -2491,6 +2491,61 @@ section.large-edit-form form {
     font-weight: 500;
 }
 
+.editor-social-preview {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.65rem;
+    background: var(--admin-surface-background);
+    grid-template-columns: minmax(8rem, 32%) minmax(0, 1fr);
+}
+
+.editor-social-preview-image {
+    min-height: 9rem;
+    background-position: center;
+    background-size: cover;
+}
+
+.editor-social-preview-image[hidden] {
+    display: none;
+}
+
+.editor-social-preview-image[hidden] + .editor-social-preview-copy {
+    grid-column: 1 / -1;
+}
+
+.editor-social-preview-copy {
+    display: grid;
+    min-width: 0;
+    align-content: center;
+    gap: 0.35rem;
+    padding: 1rem;
+}
+
+.editor-social-preview-copy small {
+    overflow: hidden;
+    color: var(--admin-quiet-color);
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.editor-social-preview-copy strong {
+    overflow-wrap: anywhere;
+    font-size: 1rem;
+    line-height: 1.25;
+}
+
+.editor-social-preview-copy span {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.82rem;
+    line-height: 1.4;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
 .content-editor-ai-tools {
     padding: 0.8rem 0.9rem;
     border: 1px solid color-mix(in srgb, var(--admin-accent-color) 24%, var(--admin-soft-border-color));

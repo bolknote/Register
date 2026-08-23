@@ -47,5 +47,25 @@ final class SearchDocumentFactoryTest extends Unit
         self::assertSame(123, $page->getDate()?->getTimestamp());
         self::assertSame(':post:9', $post->getExternalId()->toString());
         self::assertSame('/post', $post->getUrl());
+        self::assertSame(1.0, $post->getRelevanceRatio());
+
+        $featuredContent = new ContentItem(
+            ContentId::post(10),
+            'Featured post',
+            'Body',
+            '/featured-post',
+            456,
+            featured: true,
+        );
+        $featured = $factory->create($featuredContent);
+        $unfeaturedTwin = $factory->create(new ContentItem(
+            $featuredContent->id,
+            $featuredContent->title,
+            $featuredContent->body,
+            $featuredContent->path,
+            $featuredContent->publishedAt,
+        ));
+        self::assertSame(1.25, $featured->getRelevanceRatio());
+        self::assertNotSame($unfeaturedTwin->calcHash(), $featured->calcHash());
     }
 }

@@ -11,6 +11,7 @@ if (!isset($this)) die; ?>
 <!-- register_meta -->
 <!-- register_styles -->
 <!-- register_navigation_link -->
+<!-- register_rss_link -->
 </head>
 
 <body class="service">

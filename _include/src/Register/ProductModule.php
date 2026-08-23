@@ -45,6 +45,7 @@ use Register\Content\ContentRepository;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentStatisticsRepository;
+use Register\Content\ContentViewRepository;
 use Register\Content\ContentType;
 use Register\Content\Controller\ContentSitemapController;
 use Register\Content\Controller\RobotsTxtController;
@@ -65,6 +66,7 @@ use Register\Schema\SchemaManager;
 use Register\Schema\SchemaMigrationInterface;
 use Register\Schema\SchemaMigrator;
 use Register\Schema\VisitorUserSchemaMigration;
+use Register\Schema\SocialEngagementSchemaMigration;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlAliasRepository;
 use Register\Url\ContentUrlGenerator;
@@ -118,6 +120,9 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(BaseModuleRegistry::class, $this->baseModuleRegistry);
         $container->set(AiSettings::class, static fn(Container $container): AiSettings => new AiSettings(
             $container->get(DynamicConfigProvider::class),
+        ));
+        $container->set(ContentViewRepository::class, static fn(Container $container): ContentViewRepository => new ContentViewRepository(
+            $container->get(DbLayer::class),
         ));
         $container->set(PublicAuthSettings::class, static fn(Container $container): PublicAuthSettings => new PublicAuthSettings(
             $container->get(DynamicConfigProvider::class),
@@ -390,6 +395,11 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(
             VisitorUserSchemaMigration::class,
             new VisitorUserSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            SocialEngagementSchemaMigration::class,
+            new SocialEngagementSchemaMigration(),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

@@ -234,6 +234,10 @@ return [
     'Meta keywords'              => 'Meta-keywords',
     'Meta description'           => 'Meta-description',
     'Meta help'                  => 'The meta-information can be used by search engines. Fill in to improve indexing.',
+    'Social image'               => 'Social sharing image',
+    'Social image help'          => 'Use an absolute URL or a site-root path. When empty, Register uses the first image in the body and then the site-wide image.',
+    'Social preview empty title' => 'Untitled',
+    'Social preview empty text'  => 'Add a description or body text to preview the shared link.',
     'Excerpt'                    => 'Excerpt',
     'Excerpt help'               => 'Used as a description in sections and RSS',
     'Tags'                       => 'Tags',
@@ -646,8 +650,11 @@ return [
 
     'Site config'        => 'Site settings',
     'REGISTER_SITE_NAME'       => 'Site name',
+    'REGISTER_SITE_TAGLINE'    => 'Site description',
+    'REGISTER_SOCIAL_IMAGE'    => 'Site-wide social sharing image',
     'REGISTER_WEBMASTER'       => 'Webmaster name',
     'REGISTER_WEBMASTER_EMAIL' => 'Webmaster e-mail',
+    'REGISTER_SOCIAL_IMAGE_help' => 'Use an absolute URL or a site-root path. This is the fallback when a content item has no cover or body image.',
 
     'Comments config'     => 'Comments',
     'REGISTER_SHOW_COMMENTS'    => 'Show comments',

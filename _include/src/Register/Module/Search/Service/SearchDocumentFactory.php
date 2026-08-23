@@ -30,6 +30,7 @@ final class SearchDocumentFactory
             ->setDescription($content->description)
             ->setDate($publishedAt)
             ->setUrl($content->path)
+            ->setRelevanceRatio($content->featured ? 1.25 : 1.0)
         ;
 
         return $indexable;

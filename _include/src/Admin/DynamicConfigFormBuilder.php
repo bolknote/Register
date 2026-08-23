@@ -45,6 +45,8 @@ class DynamicConfigFormBuilder
     private const array PARAM_TYPES = [
         'Site config'        => 'title',
         'REGISTER_SITE_NAME'       => 'string',
+        'REGISTER_SITE_TAGLINE'    => 'string',
+        'REGISTER_SOCIAL_IMAGE'    => 'string',
         'REGISTER_WEBMASTER'       => 'string',
         'REGISTER_WEBMASTER_EMAIL' => 'email',
         'REGISTER_START_YEAR'      => 'int',

@@ -92,6 +92,19 @@ readonly class BlogPlaceholderProvider
                 ];
             }
 
+            $blogNavigation['popular'] = [
+                'title' => $this->translator->trans('Nav popular'),
+                'link'  => $this->blogUrlBuilder->popular(),
+            ];
+            $blogNavigation['hot'] = [
+                'title' => $this->translator->trans('Nav hot'),
+                'link'  => $this->blogUrlBuilder->hot(),
+            ];
+            $blogNavigation['random'] = [
+                'title' => $this->translator->trans('Nav random'),
+                'link'  => $this->blogUrlBuilder->random(),
+            ];
+
             // Fetch important tags
             $blogNavigation['tags_header'] = [
                 'title' => $this->translator->trans('Nav tags'),

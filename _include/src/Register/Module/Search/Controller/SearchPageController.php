@@ -152,6 +152,16 @@ readonly class SearchPageController implements ControllerInterface
 
         $template->putInPlaceholder('text', $this->viewer->render('search', $content, Module::class));
         $template->putInPlaceholder('title', $this->translator->trans('Search'));
+        if ($query !== '') {
+            $encodedQuery = 'q=' . rawurlencode($query);
+            $template
+                ->putInPlaceholder('meta_description', \sprintf($this->translator->trans('Search page description'), $query))
+                ->putInPlaceholder('rss_link', [
+                    '<link rel="alternate" type="application/rss+xml" title="' . register_htmlencode($this->translator->trans('Search RSS link title')) . '" href="' . $this->urlBuilder->link('/search/rss', [$encodedQuery]) . '" />',
+                    '<link rel="alternate" type="application/feed+json" title="' . register_htmlencode($this->translator->trans('Search JSON link title')) . '" href="' . $this->urlBuilder->link('/search/feed.json', [$encodedQuery]) . '" />',
+                ]);
+        }
+
         $template->registerPlaceholder('<!-- register_search_field -->', '');
 
         $template->addBreadCrumb($this->articleProvider->mainPageTitle(), $this->urlBuilder->link('/'));

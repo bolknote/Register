@@ -63,7 +63,7 @@ $takeControls = static function (array $fieldNames) use (&$visibleControls): arr
 
 $titleControls       = $takeControls(['title']);
 $bodyControls        = $takeControls(['body']);
-$additionalControls  = $takeControls(['excerpt', 'meta_description', 'meta_keywords']);
+$additionalControls  = $takeControls(['excerpt', 'meta_description', 'social_image', 'meta_keywords']);
 $tagControls         = $takeControls(['tags']);
 $publicationControls = $takeControls(['published', 'scheduled_at', 'published_at', 'date_label']);
 $activityPubControls = $takeControls([
@@ -206,6 +206,12 @@ $editorConfig = [
         'working'   => $trans('ActivityPub preview working'),
         'failed'    => $trans('ActivityPub preview failed'),
         'noObject'  => $trans('ActivityPub preview no object'),
+    ],
+    'socialPreview' => [
+        'siteName'     => (string)$param('REGISTER_SITE_NAME'),
+        'defaultImage' => (string)$param('REGISTER_SOCIAL_IMAGE'),
+        'emptyTitle'   => $trans('Social preview empty title'),
+        'emptyText'    => $trans('Social preview empty text'),
     ],
 ];
 $editorConfigJson = htmlspecialchars(
@@ -399,6 +405,15 @@ $renderControl = static function (
                         </div>
                     </details>
                 <?php endif; ?>
+
+                <section class="editor-social-preview" data-social-preview>
+                    <div class="editor-social-preview-image" data-social-preview-image hidden></div>
+                    <div class="editor-social-preview-copy">
+                        <small data-social-preview-site></small>
+                        <strong data-social-preview-title></strong>
+                        <span data-social-preview-description></span>
+                    </div>
+                </section>
 
                 <?php if ($tagControls !== []): ?>
                     <div class="editor-tags-block">

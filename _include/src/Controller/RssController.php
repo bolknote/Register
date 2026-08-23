@@ -30,7 +30,6 @@ readonly class RssController implements ControllerInterface
         private UrlBuilder               $urlBuilder,
         private Viewer                   $viewer,
         private EventDispatcherInterface $eventDispatcher,
-        private string                   $basePath,
         private string                   $baseUrl,
         private string                   $version,
         private StringProxy              $webmaster,
@@ -57,16 +56,13 @@ readonly class RssController implements ControllerInterface
 
             $maxContentTime = max($maxContentTime, $itemUpdatedAt);
 
-            // Fixing URLs without a domain
-            $item->text = str_replace('href="' . $this->basePath . '/', 'href="' . $this->baseUrl . '/', $item->text);
-            $item->text = str_replace('src="' . $this->basePath . '/', 'src="' . $this->baseUrl . '/', $item->text);
-
             $webmaster = $this->webmaster->get();
             if ($item->author === '' && $webmaster !== '') {
                 $item->author = $webmaster;
             }
 
             $this->eventDispatcher->dispatch(new FeedItemRenderEvent($item));
+            $item->text = $this->absoluteHtml($item->text);
 
             $items .= $this->viewer->render('rss_item', ['item' => $item]);
         }
@@ -76,7 +72,11 @@ readonly class RssController implements ControllerInterface
         }
 
         $feedInfo = $this->rssStrategy->getFeedInfo();
-        $selfLink = $this->urlBuilder->absLink($request->getPathInfo());
+        $query = $request->getQueryString();
+        $selfLink = $this->urlBuilder->absLink(
+            $request->getPathInfo(),
+            $query === null || $query === '' ? [] : explode('&', $query),
+        );
 
         $this->eventDispatcher->dispatch(new FeedRenderEvent($feedInfo));
 
@@ -94,5 +94,22 @@ readonly class RssController implements ControllerInterface
         $response->setLastModified(new \DateTimeImmutable('@' . $maxContentTime));
 
         return $response;
+    }
+
+    private function absoluteHtml(string $html): string
+    {
+        if (preg_match('#^https?://[^/]+#i', $this->baseUrl, $originMatch) !== 1) {
+            return $html;
+        }
+
+        return preg_replace_callback(
+            '#\b(href|src)(\s*=\s*)(["\'])/(?!/)#i',
+            static function (array $match) use ($originMatch): string {
+                $attributePrefix = $match[1] . $match[2] . $match[3];
+
+                return $attributePrefix . $originMatch[0] . '/';
+            },
+            $html,
+        ) ?? $html;
     }
 }

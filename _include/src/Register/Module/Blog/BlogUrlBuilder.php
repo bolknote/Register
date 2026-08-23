@@ -38,6 +38,16 @@ class BlogUrlBuilder implements StatefulServiceInterface
         return $this->absBlogPath ?? $this->absBlogPath = $this->urlBuilder->absLink('/');
     }
 
+    public function jsonFeed(): string
+    {
+        return $this->main() . 'feed.json';
+    }
+
+    public function absJsonFeed(): string
+    {
+        return $this->absMain() . 'feed.json';
+    }
+
     public function favorite(): string
     {
         return $this->main() . rawurlencode($this->favoriteUrl->get()) . '/';
@@ -53,9 +63,39 @@ class BlogUrlBuilder implements StatefulServiceInterface
         return $this->main() . 'all/';
     }
 
+    public function popular(): string
+    {
+        return $this->main() . 'popular/';
+    }
+
+    public function hot(): string
+    {
+        return $this->main() . 'hot/';
+    }
+
+    public function random(): string
+    {
+        return $this->main() . 'random/';
+    }
+
     public function tag(string $tagUrl): string
     {
         return $this->tags() . rawurlencode($tagUrl) . '/';
+    }
+
+    public function absTag(string $tagUrl): string
+    {
+        return $this->absMain() . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($tagUrl) . '/';
+    }
+
+    public function tagRss(string $tagUrl): string
+    {
+        return $this->tag($tagUrl) . 'rss';
+    }
+
+    public function tagJsonFeed(string $tagUrl): string
+    {
+        return $this->tag($tagUrl) . 'feed.json';
     }
 
     public function year(int $year): string

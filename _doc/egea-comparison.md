@@ -4,7 +4,7 @@ This document compares Register with the capabilities advertised on the
 [Aegea feature page](https://blogengine.ru/features/). It is intended as a product-gap inventory for
 future planning, not as a commitment to reproduce every Aegea feature.
 
-The snapshot was reviewed on 2026-08-14 against first-party Register source code, routes, database schema,
+The snapshot was reviewed on 2026-08-23 against first-party Register source code, routes, database schema,
 tests, and the CodeGraph index. Repeated items from Aegea's release summaries and thematic sections
 are consolidated. A feature that can only be recreated with arbitrary HTML, a custom theme, or a new
 extension is not marked as built in.
@@ -76,7 +76,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Typography in posts, comments, and subtitles | Available | Applied to the final rendered page. |
 | Create and list drafts | Available | Unpublished records are stored and filterable in the control panel. |
 | Draft thumbnails in the draft list | Missing | No specialised draft-card view. |
-| Social-card preview for a draft | Missing | No Open Graph/social preview pipeline. |
+| Social-card preview for a draft | Available | The editor previews the title, description, and selected/fallback cover; public pages emit Open Graph and Twitter Card metadata. |
 | Return a published item to drafts | Available | Publication can be disabled without deleting the item. |
 | Preserve date and comments when hiding an item | Available | Unpublishing does not delete either. |
 | Author-only hidden item on the public site | Partial | Authors can access unpublished content in the control panel, but there is no separate public hidden mode. |
@@ -98,7 +98,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Subscribe to and unsubscribe from a discussion | Available | Email notification and unsubscribe links are implemented. |
 | Notify authors/moderators about new comments | Available | Implemented by the comment notification services. |
 | Toggle author email in the footer | Missing | No dedicated setting. |
-| Per-post view count | Missing | Register Analytics records site-level daily aggregates without raw IP or User-Agent storage rather than a counter for each post. |
+| Per-post view count | Available | Daily per-content aggregates are shown on posts without storing IP addresses, user agents, or visitor identifiers. |
 
 ## Navigation, recommendations, and broadcasting
 
@@ -107,27 +107,27 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Configurable main menu | Partial | Register has a page tree and blog navigation, but no equivalent menu composer. |
 | Drag menu items directly in the public menu | Missing | Ordering is managed in the control panel. |
 | Favourites, tags, and calendar navigation | Available | Corresponding pages and routes exist. |
-| Popular, hot, and random-item navigation | Missing | No first-party popularity model or random route. |
+| Popular, hot, and random-item navigation | Available | `/popular/`, seven-day `/hot/`, and `/random/` are built-in; hot ranking combines views and comments, and favourites receive a boost. |
 | Promote selected tags into navigation | Partial | Possible through navigation/templates, but not a dedicated setting. |
 | Year, month, and day calendar | Available | Implemented by the built-in Blog module. |
 | Semantic related-content recommendations | Available | Implemented through the search index on SQLite, MySQL/MariaDB, and PostgreSQL. |
 | Adaptive recommendations with images | Available | Recommendation snippets account for available images. |
 | Restrict recommendations to favourites | Missing | The favourite flag is not part of recommendation ranking. |
 | Recommendation intercuts in the home feed | Missing | Recommendations are attached to content pages. |
-| Popular-content fallback for recommendations | Missing | Popularity is not calculated. |
+| Popular-content fallback for recommendations | Partial | Popularity is calculated, but it is not yet used as the empty-result fallback for semantic recommendations. |
 | Popular gallery for a tag | Missing | No first-party implementation. |
 | Built-in social share buttons | Missing | Can be added by a theme or extension. |
 | Image-aware Pinterest sharing | Missing | No built-in sharing pipeline. |
 | Social/YouTube/TikTok subscription popup | Missing | No first-party implementation. |
 | Main RSS feed | Available | Provided by the unified Content and Blog modules. |
 | Configurable RSS size | Available | Controlled by the common item limit. |
-| Tag and search-result RSS feeds | Missing | No dedicated routes. |
-| JSON Feed | Missing | No JSON Feed route or serializer. |
+| Tag and search-result RSS feeds | Available | Dedicated tag and saved-search RSS routes use the shared full-content feed model. |
+| JSON Feed | Available | JSON Feed 1.1 is available for the main blog, individual tags, and search-result queries. |
 | JSON representation of a single item | Missing | No public content JSON route. |
 | Podcast feed, artwork, and Apple metadata | Missing | No podcast subsystem. |
 | Synchronisation with the Blogs aggregator | Missing | No first-party integration. |
-| Dedicated social image / cover | Missing | No social-card data model. |
-| SEO descriptions for site, tag, and item | Partial | Items have `meta_desc`; site/tag/social metadata is not equivalent. |
+| Dedicated social image / cover | Available | Posts and pages have a dedicated cover with first-body-image and site-wide fallbacks. |
+| SEO descriptions for site, tag, and item | Available | Site description, tag introductions, and per-item metadata feed standard, Open Graph, and Twitter descriptions. |
 | Telegram Instant View support | Missing | No first-party integration. |
 | Google Analytics and Yandex Metrica settings | Missing | No dedicated configuration fields. |
 | Arbitrary analytics | Partial | Can be added through a custom template or extension. |
@@ -142,25 +142,25 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Rich tag introduction | Partial | Tags have an HTML description, but not Aegea's complete intro/social model. |
 | Hidden tags | Missing | The tag schema has no visibility flag. |
 | Semantically related tags | Partial | Morphological/prefix matching exists; there is no semantic tag graph. |
-| Tag RSS and JSON feeds | Missing | No dedicated feed routes. |
+| Tag RSS and JSON feeds | Available | Every public tag page advertises dedicated RSS and JSON Feed 1.1 routes. |
 | Built-in full-text search | Available | Implemented with Rose. |
 | Russian and English morphology | Available | Russian uses bundled OpenCorpora dictionary lemmatization with Porter fallback; English uses Porter. The behavior is identical on SQLite, MySQL/MariaDB, and PostgreSQL. |
 | Tag suggestions | Partial | Autocomplete and morphological matches exist. |
 | Start searching by typing anywhere | Missing | The search field must be focused. |
-| Boost favourites in search ranking | Missing | The favourite flag is not indexed as a ranking signal. |
+| Boost favourites in search ranking | Available | Favourite content receives a 1.25 relevance multiplier in the shared search index. |
 | Image and YouTube snippets in search | Available | Implemented. |
-| Search RSS and JSON feeds | Missing | No dedicated routes. |
+| Search RSS and JSON feeds | Available | A non-empty search page advertises query-preserving RSS and JSON Feed 1.1 routes. |
 | Open search in a new window when initiated from a form | Missing | No context-specific target behaviour. |
 | Automatic search indexing | Available | Index updates are queued automatically. |
 | Generated snippets in tags and archives | Partial | Excerpts are shown, but those pages do not use the full search snippet generator. |
 | Favourite marker and page | Available | Implemented by the built-in Content and Blog modules. |
-| Favourites influence search/recommendations | Missing | Not used as a ranking input. |
-| Monthly popular/hot pages | Missing | Per-item popularity is not stored. |
+| Favourites influence search/recommendations | Partial | Favourites boost search plus popular/hot rankings; semantic recommendations do not yet apply that signal. |
+| Monthly popular/hot pages | Partial | Per-item daily popularity is stored and global popular/hot pages exist, but there are no month-specific ranking pages. |
 | Popular gallery on the 404 page | Missing | No first-party implementation. |
 | Year, month, and day archives | Available | Implemented by blog routes. |
 | Calendar archive navigation | Available | Implemented. |
 | `/all` archive | Available | `/all/` is a compact technical index of every published post. |
-| Configurable popularity period | Missing | No popularity subsystem. |
+| Configurable popularity period | Missing | The hot window is currently fixed at seven days. |
 | Russian and English interface | Available | Bundled. |
 | French, Italian, Ukrainian, and Belarusian interface | Missing | Not bundled. |
 | Arbitrary UTF-8 content | Available | Supported throughout the application. |
@@ -244,10 +244,7 @@ and implementation scope; it is not an approved roadmap.
 
 ### Smaller, high-value increments
 
-- add JSON Feed plus tag/search feeds;
-- add social/SEO metadata and a social-card preview;
 - track URL history and create automatic redirects;
-- add per-item view counts and basic popular-content routes;
 - make editor shortcuts consistent across Windows, Linux, and macOS.
 
 ### Medium product projects
@@ -266,7 +263,7 @@ and implementation scope; it is not an approved roadmap.
 - podcast publishing;
 - a broader bundled theme catalogue;
 - French, Italian, Ukrainian, and Belarusian interface packs;
-- a full popularity/recommendation model that combines views, favourites, recency, and tags.
+- extend the basic popularity model with configurable periods, recency decay, tags, and recommendation fallbacks.
 
 ## Evidence map
 
@@ -286,6 +283,9 @@ The main implementation anchors used during review are:
 - search and indexing: [`Register\Module\Search\Module`](../_include/src/Register/Module/Search/Module.php);
 - recommendations: [`Register\Module\Search\Service\RecommendationProvider`](../_include/src/Register/Module/Search/Service/RecommendationProvider.php);
 - blog routes and archives: [`Register\Module\Blog\Module`](../_include/src/Register/Module/Blog/Module.php);
+- social metadata: [`Register\Core\Template\HtmlTemplate`](../_include/src/Template/HtmlTemplate.php);
+- JSON Feed serialization: [`Register\Core\Controller\JsonFeedController`](../_include/src/Controller/JsonFeedController.php);
+- per-content views and rankings: [`Register\Content\ContentViewRepository`](../_include/src/Register/Content/ContentViewRepository.php);
 - anonymous identity and reactions: [`Register\Module\VisitorIdentity\Module`](../_include/src/Register/Module/VisitorIdentity/Module.php) and [`Register\Module\Reactions\Module`](../_include/src/Register/Module/Reactions/Module.php);
 - full post index: [`Register\Module\Blog\Controller\AllPostsController`](../_include/src/Register/Module/Blog/Controller/AllPostsController.php);
 - daily and manual backups: [`Register\Backup\BackupManager`](../_include/src/Register/Backup/BackupManager.php);

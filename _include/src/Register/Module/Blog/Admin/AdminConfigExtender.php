@@ -189,6 +189,30 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 useOnActions: [FieldConfig::ACTION_NEW, FieldConfig::ACTION_EDIT],
             ))
             ->addField(new FieldConfig(
+                name: 'meta_description',
+                label: $this->translator->trans('Meta description'),
+                hint: $this->translator->trans('Meta help'),
+                control: 'input',
+                validators: [new Length(max: 255)],
+                useOnActions: [FieldConfig::ACTION_NEW, FieldConfig::ACTION_EDIT],
+            ))
+            ->addField(new FieldConfig(
+                name: 'meta_keywords',
+                label: $this->translator->trans('Meta keywords'),
+                hint: $this->translator->trans('Meta help'),
+                control: 'input',
+                validators: [new Length(max: 255)],
+                useOnActions: [FieldConfig::ACTION_NEW, FieldConfig::ACTION_EDIT],
+            ))
+            ->addField(new FieldConfig(
+                name: 'social_image',
+                label: $this->translator->trans('Social image'),
+                hint: $this->translator->trans('Social image help'),
+                control: 'input',
+                validators: [new Length(max: 2048)],
+                useOnActions: [FieldConfig::ACTION_NEW, FieldConfig::ACTION_EDIT],
+            ))
+            ->addField(new FieldConfig(
                 name: 'published',
                 label: $this->translator->trans('Published'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
@@ -328,7 +352,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 $revision = $this->contentRevisionService->resolve(
                     $event->data,
                     $oldData,
-                    ['body', 'title', 'slug', 'date_label', 'scheduled_at'],
+                    ['body', 'title', 'slug', 'date_label', 'meta_keywords', 'meta_description', 'social_image', 'scheduled_at'],
                 );
                 if (!$revision instanceof ContentRevision) {
                     $event->errorMessages[] = $this->translator->trans('Outdated version');

@@ -44,6 +44,7 @@ return [
     // RSS
     'RSS description'        => '%s. Latest pages.',
     'RSS link title'         => 'Latest pages on the site',
+    'JSON Feed link title'   => 'Latest site content as JSON Feed',
 
     // Comments
     'Wrote'                  => 'Wrote:',

@@ -15,6 +15,7 @@ use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentMediaSchema;
 use Register\Content\ContentTagSchema;
+use Register\Content\ContentViewSchema;
 use Register\Module\BaseModuleRegistry;
 use Register\Module\Reactions\Manifest as ReactionsManifest;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
@@ -94,6 +95,7 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'type_parent_sort_idx'));
         $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'type_publication_idx'));
         $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'scheduled_at'));
+        $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'social_image'));
         $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'scheduled_publication_idx'));
         $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'slug_scope'));
         $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'slug_scope_idx'));
@@ -145,6 +147,9 @@ final class ModuleManagerCest
 
         $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'date_label'));
         $I->assertTrue($dbLayer->tableExists(ContentTagSchema::TABLE_NAME));
+        $I->assertTrue($dbLayer->tableExists(ContentViewSchema::TABLE_NAME));
+        $I->assertTrue($dbLayer->foreignKeyExists(ContentViewSchema::TABLE_NAME, 'fk_content'));
+        $I->assertTrue($dbLayer->indexExists(ContentViewSchema::TABLE_NAME, 'day_type_idx'));
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'content_tag_idx'));
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'tag_content_idx'));
         $I->assertTrue($dbLayer->tableExists('register_visitor'));
@@ -245,6 +250,25 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->fieldExists(PublicAuthSchema::MAGIC_LINKS_TABLE, 'moderation_required'));
         $I->assertTrue($dbLayer->fieldExists(ReactionsManifest::TABLE_NAME, 'user_id'));
         $I->assertTrue($dbLayer->tableExists(VisitorIdentityManifest::USER_LINK_TABLE));
+    }
+
+    public function generationEighteenGetsSocialImagesAndContentCounters(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var SchemaManager $schemaManager */
+        $schemaManager = $I->grabAdminService(SchemaManager::class);
+
+        ContentViewSchema::drop($dbLayer);
+        $dbLayer->dropField(ContentSchema::TABLE_NAME, 'social_image');
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, '18');
+
+        $I->assertTrue($schemaManager->ensureCurrent());
+        $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
+        $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'social_image'));
+        $I->assertTrue($dbLayer->tableExists(ContentViewSchema::TABLE_NAME));
+        $I->assertTrue($dbLayer->foreignKeyExists(ContentViewSchema::TABLE_NAME, 'fk_content'));
+        $I->assertTrue($dbLayer->indexExists(ContentViewSchema::TABLE_NAME, 'day_type_idx'));
     }
 
     public function releaseMigrationPreservesExistingSettings(\IntegrationTester $I): void

@@ -27,6 +27,7 @@ final readonly class ContentItem
         public string    $excerpt = '',
         public ?int      $authorId = null,
         public bool      $featured = false,
+        public string    $socialImage = '',
     ) {
         if (!str_starts_with($path, '/')) {
             throw new \InvalidArgumentException('A content path must start with a slash.');

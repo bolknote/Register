@@ -14,11 +14,13 @@ use Register\Rose\Entity\Indexable;
 /** Makes search-algorithm changes visible to Rose even when document content is unchanged. */
 final class SearchIndexable extends Indexable
 {
-    private const string INDEX_FORMAT_VERSION = 'opencorpora-ru-2.4.417150.4580142-historical-ru-v2';
+    private const string INDEX_FORMAT_VERSION = 'opencorpora-ru-2.4.417150.4580142-historical-ru-v3-featured';
 
     #[\Override]
     public function calcHash(): string
     {
-        return md5(parent::calcHash() . "\0" . self::INDEX_FORMAT_VERSION);
+        $ratio = json_encode($this->getRelevanceRatio(), JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
+
+        return md5(parent::calcHash() . "\0" . self::INDEX_FORMAT_VERSION . "\0" . $ratio);
     }
 }

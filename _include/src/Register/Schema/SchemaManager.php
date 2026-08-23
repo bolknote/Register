@@ -25,13 +25,14 @@ final readonly class SchemaManager
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_GENERATION';
 
-    public const int CURRENT_GENERATION = 18;
+    public const int CURRENT_GENERATION = 19;
 
     /** Oldest installed generation accepted by the release updater. */
     public const int MINIMUM_UPGRADE_GENERATION = 15;
 
     private const array CONFIG_DEFAULTS = [
         'REGISTER_SITE_TAGLINE' => '',
+        'REGISTER_SOCIAL_IMAGE' => '',
         AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_DISABLED,
         AiSettings::API_KEY_CONFIG_KEY  => '',
         AiSettings::MODEL_CONFIG_KEY    => '',

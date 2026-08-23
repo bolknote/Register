@@ -361,6 +361,10 @@ $tagNames    = array_values(array_map(
 <?php
 	$footer = [];
 
+    $viewCount = (int)($view_count ?? 0);
+    $viewLabel = $trans('N Views', ['%count%' => $viewCount, '{{ count }}' => $viewCount]);
+    $footer['views'] = '<span class="post-foot-views" aria-label="' . register_htmlencode($viewLabel) . '">' . register_htmlencode($viewLabel) . '</span>';
+
 	if ($commented && $showComments) {
         if ($comment_num) {
             $commentLabel = $trans('N Comments', ['%count%' => $comment_num, '{{ count }}' => $comment_num]);

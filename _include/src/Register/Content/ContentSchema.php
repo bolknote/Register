@@ -31,6 +31,7 @@ final class ContentSchema
                 ->addLongText('body', nullable: false)
                 ->addString('meta_keywords', 255)
                 ->addString('meta_description', 255)
+                ->addString('social_image', 2048)
                 ->addInteger('created_at', true)
                 ->addInteger('published_at', true, true, null)
                 ->addInteger('scheduled_at', true, default: 0)

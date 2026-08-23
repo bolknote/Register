@@ -39,7 +39,7 @@ final readonly class PageContentSource implements ContentSourceInterface
 
         $page = $this->dbLayer
             ->select('page.id, page.title, page.body, page.excerpt, page.comments_enabled, page.featured')
-            ->addSelect('page.published_at, page.updated_at, page.meta_keywords, page.meta_description, page.author_id')
+            ->addSelect('page.published_at, page.updated_at, page.meta_keywords, page.meta_description, page.social_image, page.author_id')
             ->addSelect('(' . $this->authorNameQuery() . ') AS author')
             ->from(ContentSchema::TABLE_NAME . ' AS page')
             ->where('page.id = :id')->setParameter('id', $id->value)
@@ -73,6 +73,7 @@ final readonly class PageContentSource implements ContentSourceInterface
             excerpt: (string)$page['excerpt'],
             authorId: $page['author_id'] === null ? null : (int)$page['author_id'],
             featured: (bool)$page['featured'],
+            socialImage: (string)$page['social_image'],
         );
     }
 
@@ -105,7 +106,7 @@ final readonly class PageContentSource implements ContentSourceInterface
 
         $query = $this->dbLayer
             ->select('page.id, page.title, page.body, page.excerpt, page.slug, page.published_at, page.updated_at, page.comments_enabled, page.featured')
-            ->addSelect('page.meta_keywords, page.meta_description, page.author_id')
+            ->addSelect('page.meta_keywords, page.meta_description, page.social_image, page.author_id')
             ->addSelect('(' . $this->authorNameQuery() . ') AS author')
             ->addSelect('(' . $childrenQuery . ') IS NOT NULL AS has_children')
             ->from(ContentSchema::TABLE_NAME . ' AS page')
@@ -142,6 +143,7 @@ final readonly class PageContentSource implements ContentSourceInterface
                 excerpt: (string)$page['excerpt'],
                 authorId: $page['author_id'] === null ? null : (int)$page['author_id'],
                 featured: (bool)$page['featured'],
+                socialImage: (string)$page['social_image'],
             );
 
             yield from $this->crawl((int)$page['id'], $segments);

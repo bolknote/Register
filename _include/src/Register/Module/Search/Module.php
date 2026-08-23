@@ -16,6 +16,8 @@ use Register\Content\ContentChangedEvent;
 use Register\Content\ContentRepository;
 use Register\Core\Asset\AssetPack;
 use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Controller\JsonFeedController;
+use Register\Core\Controller\RssController;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
@@ -60,6 +62,7 @@ use Register\Module\Search\Service\SearchDocumentFactory;
 use Register\Module\Search\Service\SearchIndexMaintenance;
 use Register\Module\Search\Service\SearchIndexRepairer;
 use Register\Module\Search\Service\SimilarWordsDetector;
+use Register\Module\Search\Service\SearchRssStrategy;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -194,6 +197,33 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $provider->getIntProxy('REGISTER_MAX_ITEMS'),
             );
         });
+        $container->set(SearchRssStrategy::class, static fn(Container $container): SearchRssStrategy => new SearchRssStrategy(
+            $container->get(RequestStack::class),
+            $container->get(Finder::class),
+            $container->get(ContentRepository::class),
+            $container->get(\Register\Module\Blog\Model\ContentFeedItemProvider::class),
+            $container->get(UrlBuilder::class),
+            $container->get('register_search_translator'),
+        ));
+        $container->set('register_search.rss_controller', static function (Container $container): RssController {
+            $provider = $container->get(DynamicConfigProvider::class);
+            return new RssController(
+                $container->get(SearchRssStrategy::class),
+                $container->get(UrlBuilder::class),
+                $container->get('strict_viewer'),
+                $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+                $container->getStringParameter('base_url'),
+                $container->getStringParameter('version'),
+                $provider->getStringProxy('REGISTER_WEBMASTER'),
+            );
+        });
+        $container->set('register_search.json_feed_controller', static fn(Container $container): JsonFeedController => new JsonFeedController(
+            $container->get(SearchRssStrategy::class),
+            $container->get(UrlBuilder::class),
+            $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+            $container->getStringParameter('base_url'),
+            $container->get(DynamicConfigProvider::class)->getStringProxy('REGISTER_WEBMASTER'),
+        ));
 
         $container->set('recommendations_logger', fn(Container $container): \Register\Core\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'recommendations.log', 'recommendations', LogLevel::INFO));
         $container->set('recommendations_cache', fn(Container $container): \Symfony\Component\Cache\Adapter\FilesystemAdapter => new FilesystemAdapter('recommendations', 0, $container->getStringParameter('cache_dir')));
@@ -302,6 +332,16 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     #[\Override]
     public function registerRoutes(RouteCollection $routes): void
     {
+        $routes->add('search_rss', new Route(
+            '/search/rss',
+            ['_controller' => 'register_search.rss_controller'],
+            methods: ['GET'],
+        ));
+        $routes->add('search_json_feed', new Route(
+            '/search/feed.json',
+            ['_controller' => 'register_search.json_feed_controller'],
+            methods: ['GET'],
+        ));
         $routes->add('search', new Route('/search', ['_controller' => SearchPageController::class]));
 
         // Hack for alternative URL schemes

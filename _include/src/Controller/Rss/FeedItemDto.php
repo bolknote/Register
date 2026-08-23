@@ -18,6 +18,10 @@ class FeedItemDto
         public string $text,
         public int $time,
         public int $modifyTime,
+        public string $summary = '',
+        public string $image = '',
+        /** @var list<string> */
+        public array $tags = [],
     ) {
     }
 }

@@ -121,6 +121,7 @@ final readonly class BlogContentSource implements RecentContentSourceInterface
             excerpt: (string)$post['excerpt'],
             authorId: $post['author_id'] === null ? null : (int)$post['author_id'],
             featured: (bool)$post['featured'],
+            socialImage: (string)$post['social_image'],
         );
     }
 
@@ -141,6 +142,7 @@ final readonly class BlogContentSource implements RecentContentSourceInterface
             'excerpt',
             'meta_keywords',
             'meta_description',
+            'social_image',
             'published_at',
             'updated_at',
             'slug',

@@ -44,6 +44,7 @@ return [
     // RSS
     'RSS description'        => '%s. Последние страницы.',
     'RSS link title'         => 'Последние страницы сайта',
+    'JSON Feed link title'   => 'Последние материалы сайта в JSON Feed',
 
     // Comments
     'Wrote'                  => 'пишет:',

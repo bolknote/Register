@@ -69,11 +69,18 @@ abstract class BlogController implements ControllerInterface
         $template
             ->putInPlaceholder('commented', 0)
             ->putInPlaceholder('class', 'register_blog')
-            ->putInPlaceholder('rss_link', [\sprintf(
-                '<link rel="alternate" type="application/rss+xml" title="%s" href="%s" />',
-                register_htmlencode($this->translator->trans('RSS blog link title')),
-                $this->blogUrlBuilder->main() . 'rss'
-            )])
+            ->putInPlaceholder('rss_link', [
+                \sprintf(
+                    '<link rel="alternate" type="application/rss+xml" title="%s" href="%s" />',
+                    register_htmlencode($this->translator->trans('RSS blog link title')),
+                    $this->blogUrlBuilder->main() . 'rss',
+                ),
+                \sprintf(
+                    '<link rel="alternate" type="application/feed+json" title="%s" href="%s" />',
+                    register_htmlencode($this->translator->trans('JSON blog link title')),
+                    $this->blogUrlBuilder->jsonFeed(),
+                ),
+            ])
         ;
 
         $result = $this->body($request, $template);
@@ -89,9 +96,15 @@ abstract class BlogController implements ControllerInterface
     }
 
     /**
+     * @param list<int>|null $idOrder
      * @throws DbLayerException
      */
-    public function getPosts(callable $queryModifier, bool $sortAsc = true, string $sortField = 'create_time'): string
+    public function getPosts(
+        callable $queryModifier,
+        bool $sortAsc = true,
+        string $sortField = 'create_time',
+        ?array $idOrder = null,
+    ): string
     {
         // Obtaining posts
         $qb = $this->dbLayer
@@ -129,7 +142,13 @@ abstract class BlogController implements ControllerInterface
         while ($row = $result->fetchAssoc()) {
             $posts[$row['id']]  = $row;
             $ids[]              = $row['id'];
-            $sort_array[]       = $row[$sortField];
+            if ($idOrder === null) {
+                $sort_array[] = $row[$sortField];
+            } else {
+                $orderPosition = array_search((int)$row['id'], $idOrder, true);
+                $sort_array[] = $orderPosition === false ? PHP_INT_MAX : $orderPosition;
+            }
+
             $labels[$row['id']] = $row['label'];
             if ((string)$row['label'] !== '') {
                 $merge_labels[$row['label']] = 1;
@@ -143,8 +162,9 @@ abstract class BlogController implements ControllerInterface
         $see_also = [];
         $tags = [];
         $this->postProvider->postsLinks($ids, $merge_labels, $see_also, $tags);
+        $viewCounts = $this->postProvider->viewCounts($ids);
 
-        array_multisort($sort_array, $sortAsc ? SORT_ASC : SORT_DESC, $ids);
+        array_multisort($sort_array, $idOrder !== null || $sortAsc ? SORT_ASC : SORT_DESC, $ids);
 
         $showComments    = $this->showComments->get();
         $enabledComments = $this->enabledComments->get();
@@ -157,6 +177,7 @@ abstract class BlogController implements ControllerInterface
             $post['title_link'] = $link;
             $post['time']       = $this->postProvider->displayDate((int)$post['create_time'], (string)$post['display_date']);
             $post['tags']       = $tags[$id] ?? [];
+            $post['view_count'] = $viewCounts[(int)$id] ?? 0;
 
             $post['see_also'] = [];
             if (isset($labels[$id]) && (string)$labels[$id] !== '' && isset($see_also[$labels[$id]])) {

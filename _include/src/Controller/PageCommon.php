@@ -181,7 +181,7 @@ readonly class PageCommon implements ControllerInterface
         ;
 
         $qb = $this->dbLayer
-            ->select('a.id, a.title, a.meta_keywords, a.meta_description')
+            ->select('a.id, a.title, a.meta_keywords, a.meta_description, a.social_image')
             ->addSelect('a.excerpt, a.body AS text, a.published_at AS date')
             ->addSelect('a.featured AS favorite, a.comments_enabled AS commented, a.template')
             ->addSelect('(' . $raw_query_children . ') IS NOT NULL AS children_exist, (' . $raw_query_author . ') AS author')
@@ -245,6 +245,8 @@ readonly class PageCommon implements ControllerInterface
             ->putInPlaceholder('id', md5('article_' . $articleId)) // for comments form
             ->putInPlaceholder('meta_keywords', $page['meta_keywords'])
             ->putInPlaceholder('meta_description', $page['meta_description'])
+            ->putInPlaceholder('social_image', $page['social_image'])
+            ->putInPlaceholder('social_type', 'article')
             ->putInPlaceholder('excerpt', $page['excerpt'])
             ->putInPlaceholder('text', $page['text'])
             ->putInPlaceholder('date', $page['date'])

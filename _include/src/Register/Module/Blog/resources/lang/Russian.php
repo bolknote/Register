@@ -5,6 +5,7 @@ declare(strict_types = 1);
 return [
 
     'N Comments'   => '{{ count }} комментарий|{{ count }} комментария|{{ count }} комментариев',
+    'N Views'      => '{{ count }} просмотр|{{ count }} просмотра|{{ count }} просмотров',
     'N Posts'      => '{{ count }} пост|{{ count }} поста|{{ count }} постов',
     'Post comment' => 'Оставить комментарий',
     'Pagination'   => 'Страницы блога',
@@ -12,6 +13,11 @@ return [
     'Next page'     => 'Следующая страница',
 
     'Favorite posts'        => 'Избранные посты',
+    'JSON blog link title'  => 'Последние посты в JSON Feed',
+    'Tag RSS link title'    => 'Посты с этой темой в RSS',
+    'Tag JSON link title'   => 'Посты с этой темой в JSON Feed',
+    'Tag feed title'        => '%s — %s',
+    'Tag feed description'  => 'Посты с темой «%s».',
     'See also'              => 'Смотрите также:',
     'Last blog comments'    => 'Последние комментарии в блоге',
     'Last blog discussions' => 'Обсуждаемое в блоге',
@@ -21,7 +27,15 @@ return [
     'Navigation'   => 'Посты',
     'Nav last'     => 'Последние %d',
     'Nav favorite' => 'Избранные',
+    'Nav popular'  => 'Популярные',
+    'Nav hot'      => 'Сейчас читают',
+    'Nav random'   => 'Случайный пост',
     'Nav tags'     => 'По %sключевым словам%s:',
+    'Popular'      => 'Популярные посты',
+    'Hot'          => 'Сейчас читают',
+    'Popular description' => 'Самые просматриваемые посты.',
+    'Hot description' => 'Посты с наибольшей активностью за последние семь дней.',
+    'No ranked posts' => 'Здесь пока недостаточно данных.',
 
     'See in blog' => 'Посмотрите в блоге',
 

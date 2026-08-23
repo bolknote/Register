@@ -54,6 +54,8 @@ class HtmlTemplate
         private readonly Viewer                   $viewer,
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly StringProxy              $siteName,
+        private readonly StringProxy              $siteTagline,
+        private readonly StringProxy              $socialImageDefault,
         private readonly BoolProxy                $enabledComments,
         private readonly StringProxy              $webmaster,
         private readonly StringProxy              $webmasterEmail,
@@ -122,10 +124,15 @@ class HtmlTemplate
             $meta_tags[] = '<link rel="canonical" href="' . $this->canonicalUrlPrefix . register_htmlencode($this->page['canonical_path']) . '" />';
         }
 
+        array_push($meta_tags, ...$this->buildSocialMetaTags());
+
         $replace['<!-- register_meta -->'] = implode("\n", $meta_tags);
 
         if (!$this->hasContent('rss_link')) {
-            $this->page['rss_link'] = ['<link rel="alternate" type="application/rss+xml" title="' . $this->translator->trans('RSS link title') . '" href="' . $this->urlBuilder->link('/rss') . '" />'];
+            $this->page['rss_link'] = [
+                '<link rel="alternate" type="application/rss+xml" title="' . $this->translator->trans('RSS link title') . '" href="' . $this->urlBuilder->link('/rss') . '" />',
+                '<link rel="alternate" type="application/feed+json" title="' . $this->translator->trans('JSON Feed link title') . '" href="' . $this->urlBuilder->link('/feed.json') . '" />',
+            ];
         }
 
         $replace['<!-- register_rss_link -->'] = implode("\n", $this->stringListValue($this->page['rss_link']));
@@ -358,6 +365,128 @@ class HtmlTemplate
         }
 
         return register_htmlencode($pageTitle) . ' &mdash; ' . register_htmlencode($siteName);
+    }
+
+    /** @return list<string> */
+    private function buildSocialMetaTags(): array
+    {
+        $title = $this->plainText($this->hasContent('social_title')
+            ? $this->renderValue($this->page['social_title'])
+            : $this->buildHeadTitle());
+        $description = $this->plainText($this->hasContent('social_description')
+            ? $this->renderValue($this->page['social_description'])
+            : ($this->hasContent('meta_description')
+                ? $this->renderValue($this->page['meta_description'])
+                : $this->siteTagline->get()));
+        $description = mb_substr($description, 0, 300);
+
+        $request = $this->requestStack->getCurrentRequest();
+        $path = $request?->getPathInfo() ?? '/';
+        if ($this->hasContent('canonical_path')) {
+            $canonicalPath = (string)$this->page['canonical_path'];
+            $url = $this->canonicalUrlPrefix !== null
+                ? $this->canonicalUrlPrefix . $canonicalPath
+                : $this->urlBuilder->rawAbsLink($canonicalPath);
+        } else {
+            $url = $this->urlBuilder->rawAbsLink(
+                $path,
+                $request !== null && $request->getQueryString() !== null
+                    ? [$request->getQueryString()]
+                    : [],
+            );
+        }
+
+        $configuredImage = $this->hasContent('social_image')
+            ? $this->renderValue($this->page['social_image'])
+            : '';
+        $bodyImage = $configuredImage === '' && $this->hasContent('text')
+            ? $this->firstImage($this->renderValue($this->page['text']))
+            : '';
+        $image = $this->absoluteImage($configuredImage !== ''
+            ? $configuredImage
+            : ($bodyImage !== '' ? $bodyImage : $this->socialImageDefault->get()));
+
+        $type = $this->hasContent('social_type') && $this->page['social_type'] === 'article'
+            ? 'article'
+            : 'website';
+        $language = strtolower(str_replace('_', '-', $this->translator->trans('locale')));
+        $locale = match ($language) {
+            'en' => 'en_US',
+            'ru' => 'ru_RU',
+            default => str_replace('-', '_', $language),
+        };
+        $siteName = $this->siteName->get();
+        $card = $image === '' ? 'summary' : 'summary_large_image';
+
+        $tags = [
+            $this->propertyMeta('og:title', $title),
+            $this->propertyMeta('og:type', $type),
+            $this->propertyMeta('og:url', $url),
+            $this->propertyMeta('og:site_name', $siteName),
+            $this->propertyMeta('og:locale', $locale),
+            $this->namedMeta('twitter:card', $card),
+            $this->namedMeta('twitter:title', $title),
+        ];
+
+        if ($description !== '') {
+            $tags[] = $this->propertyMeta('og:description', $description);
+            $tags[] = $this->namedMeta('twitter:description', $description);
+        }
+
+        if ($image !== '') {
+            $tags[] = $this->propertyMeta('og:image', $image);
+            $tags[] = $this->namedMeta('twitter:image', $image);
+        }
+
+        return $tags;
+    }
+
+    private function propertyMeta(string $property, string $content): string
+    {
+        return '<meta property="' . $property . '" content="' . register_htmlencode($content) . '" />';
+    }
+
+    private function namedMeta(string $name, string $content): string
+    {
+        return '<meta name="' . $name . '" content="' . register_htmlencode($content) . '" />';
+    }
+
+    private function plainText(string $value): string
+    {
+        return trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+    }
+
+    private function firstImage(string $html): string
+    {
+        if (preg_match('#<img\b[^>]*\bsrc\s*=\s*(["\'])(.*?)\1#is', $html, $matches) !== 1) {
+            return '';
+        }
+
+        return html_entity_decode(trim($matches[2]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    private function absoluteImage(string $image): string
+    {
+        $image = trim(html_entity_decode($image, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if ($image === '' || str_starts_with($image, 'data:') || str_starts_with($image, 'blob:')) {
+            return '';
+        }
+
+        if (preg_match('#^https?://#i', $image) === 1) {
+            return $image;
+        }
+
+        $absoluteMain = $this->urlBuilder->rawAbsLink('/');
+        if (preg_match('#^https?://[^/]+#i', $absoluteMain, $originMatch) !== 1) {
+            return '';
+        }
+
+        if (str_starts_with($image, '//')) {
+            $scheme = parse_url($originMatch[0], PHP_URL_SCHEME);
+            return (\is_string($scheme) && $scheme !== '' ? $scheme : 'https') . ':' . $image;
+        }
+
+        return str_starts_with($image, '/') ? $originMatch[0] . $image : '';
     }
 
     /**

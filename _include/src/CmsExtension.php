@@ -411,6 +411,8 @@ class CmsExtension implements ExtensionInterface
                 $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
                 $provider->getStringProxy('REGISTER_STYLE'),
                 $provider->getStringProxy('REGISTER_SITE_NAME'),
+                $provider->getStringProxy('REGISTER_SITE_TAGLINE'),
+                $provider->getStringProxy('REGISTER_SOCIAL_IMAGE'),
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $provider->getStringProxy('REGISTER_WEBMASTER'),
                 $provider->getStringProxy('REGISTER_WEBMASTER_EMAIL'),

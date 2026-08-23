@@ -148,6 +148,11 @@ class TagPageController extends BlogController
 
         $template
             ->putInPlaceholder('head_title', register_htmlencode($tagName))
+            ->putInPlaceholder('meta_description', trim(preg_replace('/\s+/u', ' ', strip_tags($tagEntity->description)) ?? ''))
+            ->putInPlaceholder('rss_link', [
+                '<link rel="alternate" type="application/rss+xml" title="' . register_htmlencode($this->translator->trans('Tag RSS link title')) . '" href="' . register_htmlencode($this->blogUrlBuilder->tagRss($tagUrl)) . '" />',
+                '<link rel="alternate" type="application/feed+json" title="' . register_htmlencode($this->translator->trans('Tag JSON link title')) . '" href="' . register_htmlencode($this->blogUrlBuilder->tagJsonFeed($tagUrl)) . '" />',
+            ])
             ->putInPlaceholder('title', $this->viewer->render('tag_title', ['title' => $tagName]))
             ->putInPlaceholder('text', $tagDescription . $output)
         ;

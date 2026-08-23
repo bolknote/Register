@@ -5,6 +5,7 @@ declare(strict_types = 1);
 return [
 
     'N Comments'   => '{{ count }} comment|{{ count }} comments',
+    'N Views'      => '{{ count }} view|{{ count }} views',
     'N Posts'      => '{{ count }} post|{{ count }} posts',
     'Post comment' => 'Leave a comment',
     'Pagination'   => 'Blog pages',
@@ -12,6 +13,11 @@ return [
     'Next page'     => 'Next page',
 
     'Favorite posts'        => 'Favorite posts',
+    'JSON blog link title'  => 'Latest posts as JSON Feed',
+    'Tag RSS link title'    => 'Posts with this tag as RSS',
+    'Tag JSON link title'   => 'Posts with this tag as JSON Feed',
+    'Tag feed title'        => '%s — %s',
+    'Tag feed description'  => 'Posts tagged “%s”.',
     'See also'              => 'See also:',
     'Last blog comments'    => 'Last blog comments',
     'Last blog discussions' => 'Last blog discussions',
@@ -21,7 +27,15 @@ return [
     'Navigation'   => 'Posts',
     'Nav last'     => 'Last %d',
     'Nav favorite' => 'Favorite',
+    'Nav popular'  => 'Popular',
+    'Nav hot'      => 'Trending',
+    'Nav random'   => 'Random post',
     'Nav tags'     => 'By %stags%s:',
+    'Popular'      => 'Popular posts',
+    'Hot'          => 'Trending now',
+    'Popular description' => 'The most viewed posts.',
+    'Hot description' => 'Posts with the most activity over the last seven days.',
+    'No ranked posts' => 'There is not enough data yet.',
 
     'See in blog' => 'See in blog',
 

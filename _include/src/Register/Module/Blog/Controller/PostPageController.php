@@ -116,7 +116,7 @@ class PostPageController extends BlogController
 
         $result = $this->dbLayer
             ->select(
-                'published_at AS create_time, date_label AS display_date, title, body AS text, id, author_id, revision, comments_enabled AS commented, series AS label, featured AS favorite',
+                'published_at AS create_time, date_label AS display_date, title, body AS text, id, author_id, revision, comments_enabled AS commented, series AS label, featured AS favorite, meta_description, social_image',
                 '(' . $this->dbLayer
                     ->select('u.name')
                     ->from('users AS u')
@@ -248,6 +248,7 @@ class PostPageController extends BlogController
         }
 
         $row['time']             = $this->postProvider->displayDate((int)$row['create_time'], (string)$row['display_date']);
+        $row['view_count']       = $this->postProvider->viewCount((int)$post_id);
         $row['commented']        = 0; // for template
         $row['tags']             = $tags;
         $row['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
@@ -265,7 +266,11 @@ class PostPageController extends BlogController
         );
 
         $template
-            ->putInPlaceholder('meta_description', $this->extractMetaDescriptions($row['text']))
+            ->putInPlaceholder('meta_description', trim((string)$row['meta_description']) !== ''
+                ? (string)$row['meta_description']
+                : $this->extractMetaDescriptions($row['text']))
+            ->putInPlaceholder('social_image', (string)$row['social_image'])
+            ->putInPlaceholder('social_type', 'article')
             ->putInPlaceholder('text', $this->viewer->render('post', $row, BlogModule::class))
             ->putInPlaceholder('id', md5('register_blog_post_' . $post_id))
             ->putInPlaceholder('head_title', register_htmlencode($row['title']))

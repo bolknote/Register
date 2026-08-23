@@ -9,18 +9,14 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Model;
 
-use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Module\Blog\BlogUrlBuilder;
-use Register\Module\Blog\Module as BlogModule;
-use Register\Url\ContentUrlGenerator;
 use Register\Core\Config\StringProxy;
 use Register\Core\Controller\Rss\FeedDto;
 use Register\Core\Controller\Rss\FeedItemDto;
 use Register\Core\Controller\Rss\RssStrategyInterface;
 use Register\Core\Pdo\DbLayerException;
-use Register\Core\Template\Viewer;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /** Publishes Register's canonical post stream as its single RSS feed. */
@@ -30,11 +26,9 @@ final readonly class ContentRssStrategy implements RssStrategyInterface
 
     public function __construct(
         private ContentRepository   $contentRepository,
-        private PostProvider        $postProvider,
+        private ContentFeedItemProvider $itemProvider,
         private BlogUrlBuilder      $blogUrlBuilder,
-        private ContentUrlGenerator $contentUrlGenerator,
         private TranslatorInterface $translator,
-        private Viewer              $viewer,
         private StringProxy         $blogTitle,
     ) {
     }
@@ -64,56 +58,8 @@ final readonly class ContentRssStrategy implements RssStrategyInterface
     #[\Override]
     public function getFeedItems(): array
     {
-        $contentItems = iterator_to_array(
+        return $this->itemProvider->provide(
             $this->contentRepository->recent(ContentType::POST, self::ITEM_LIMIT),
-            false,
         );
-        $ids          = array_map(static fn(ContentItem $item): int => $item->id->value, $contentItems);
-        $series       = [];
-        foreach ($contentItems as $contentItem) {
-            if ($contentItem->series !== '') {
-                $series[$contentItem->series] = 1;
-            }
-        }
-
-        $related = [];
-        $tags    = [];
-        $this->postProvider->postsLinks($ids, $series, $related, $tags);
-
-        $feedItems = [];
-        foreach ($contentItems as $contentItem) {
-            $publishedAt = $contentItem->publishedAt ?? 0;
-            $updatedAt   = max($contentItem->updatedAt ?? 0, $publishedAt);
-            $feedItems[] = new FeedItemDto(
-                $contentItem->title,
-                $contentItem->author,
-                $this->contentUrlGenerator->absolutePath($contentItem->path),
-                $this->renderBody($contentItem, $related, $tags),
-                $publishedAt,
-                $updatedAt,
-            );
-        }
-
-        return $feedItems;
-    }
-
-    /**
-     * @param array<mixed> $related
-     * @param array<mixed> $tags
-     */
-    private function renderBody(ContentItem $contentItem, array $related, array $tags): string
-    {
-        $postRelated = $contentItem->series === '' ? [] : ($related[$contentItem->series] ?? []);
-        unset($postRelated[$contentItem->id->value]);
-        $postTags    = $tags[$contentItem->id->value] ?? [];
-
-        return $contentItem->body
-            . ($postRelated === [] ? '' : $this->viewer->render('see_also', [
-                'see_also' => $postRelated,
-            ], BlogModule::class))
-            . ($postTags === [] ? '' : $this->viewer->render('tags', [
-                'title' => $this->translator->trans('Tags'),
-                'tags'  => $postTags,
-            ], BlogModule::class));
     }
 }

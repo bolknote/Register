@@ -234,6 +234,10 @@ return [
     'Meta keywords'              => 'Meta-keywords',
     'Meta description'           => 'Meta-description',
     'Meta help'                  => 'Мета-информацию могут использовать поисковики. Заполните для улучшения индексации.',
+    'Social image'               => 'Обложка для соцсетей',
+    'Social image help'          => 'Абсолютный URL или путь от корня сайта. Если поле пустое, будет использована первая картинка из текста, затем общая обложка сайта.',
+    'Social preview empty title' => 'Без заголовка',
+    'Social preview empty text'  => 'Добавьте описание или текст, чтобы увидеть карточку ссылки.',
     'Excerpt'                    => 'Выдержка',
     'Excerpt help'               => 'Выдержка используется как описание в разделах и попадает в RSS',
     'Tags'                       => 'Теги',
@@ -646,8 +650,11 @@ return [
 
     'Site config'        => 'Сайт',
     'REGISTER_SITE_NAME'       => 'Название сайта',
+    'REGISTER_SITE_TAGLINE'    => 'Описание сайта',
+    'REGISTER_SOCIAL_IMAGE'    => 'Обложка сайта для соцсетей',
     'REGISTER_WEBMASTER'       => 'Автор сайта',
     'REGISTER_WEBMASTER_EMAIL' => 'Электронная почта автора',
+    'REGISTER_SOCIAL_IMAGE_help' => 'Абсолютный URL или путь от корня сайта. Используется, когда у материала нет отдельной обложки и картинок в тексте.',
 
     'Comments config'     => 'Комментарии',
     'REGISTER_SHOW_COMMENTS'    => 'Отображать комментарии',

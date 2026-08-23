@@ -14,6 +14,7 @@ use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Content\ContentViewRepository;
 use Register\Content\TagRepository;
 use Register\Url\ContentUrlGenerator;
 use Register\Core\Pdo\DbLayer;
@@ -30,6 +31,7 @@ readonly class PostProvider
         private BlogUrlBuilder  $blogUrlBuilder,
         private ContentUrlGenerator $contentUrlGenerator,
         private Viewer          $viewer,
+        private ContentViewRepository $contentViewRepository,
     ) {
     }
 
@@ -169,6 +171,7 @@ readonly class PostProvider
         $seeAlso = [];
         $tags = [];
         $this->postsLinks($ids, $mergeLabels, $seeAlso, $tags);
+        $viewCounts = $this->viewCounts($ids);
 
         foreach ($posts as $postId => &$post) {
             $posts[$postId]['see_also'] = [];
@@ -182,6 +185,7 @@ readonly class PostProvider
             }
 
             $post['tags'] = $tags[$postId] ?? [];
+            $post['view_count'] = $viewCounts[(int)$postId] ?? 0;
             if (!isset($post['author'])) {
                 $post['author'] = '';
             }
@@ -193,6 +197,53 @@ readonly class PostProvider
         }
 
         return $posts;
+    }
+
+    /**
+     * @param list<int|string> $postIds
+     * @return array<int, int>
+     */
+    public function viewCounts(array $postIds): array
+    {
+        $contentIds = array_map(
+            static fn(int|string $id): ContentId => ContentId::post((int)$id),
+            $postIds,
+        );
+        $totals = $this->contentViewRepository->totals($contentIds);
+
+        $result = [];
+        foreach ($contentIds as $contentId) {
+            $result[$contentId->value] = $totals[(string)$contentId] ?? 0;
+        }
+
+        return $result;
+    }
+
+    public function viewCount(int $postId): int
+    {
+        return $this->contentViewRepository->total(ContentId::post($postId));
+    }
+
+    public function randomPublishedPostUrl(): ?string
+    {
+        $count = $this->publishedPostCount();
+        if ($count === 0) {
+            return null;
+        }
+
+        $slug = $this->dbLayer
+            ->select('slug')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+            ->andWhere('published = 1')
+            ->orderBy('id')
+            ->limit(1)
+            ->offset(random_int(0, $count - 1))
+            ->execute()
+            ->result()
+        ;
+
+        return \is_string($slug) ? $this->contentUrlGenerator->post($slug) : null;
     }
 
     public function displayDate(int $createTime, string $displayDate): string

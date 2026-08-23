@@ -19,6 +19,7 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentMediaSchema;
 use Register\Content\ContentType;
 use Register\Content\ContentTagSchema;
+use Register\Content\ContentViewSchema;
 use Register\Live\LiveUpdateSchema;
 use Register\Url\ContentUrlAliasSchema;
 use Register\Schema\SchemaManager;
@@ -83,6 +84,7 @@ readonly class Installer
         WebAuthnSchema::create($this->dbLayer);
 
         ContentSchema::create($this->dbLayer);
+        ContentViewSchema::create($this->dbLayer);
         ContentMediaSchema::create($this->dbLayer);
         ContentUrlAliasSchema::create($this->dbLayer);
         UserpicSchema::create($this->dbLayer);
@@ -178,6 +180,7 @@ readonly class Installer
         CommentSchema::drop($this->dbLayer);
         ContentUrlAliasSchema::drop($this->dbLayer);
         ContentMediaSchema::drop($this->dbLayer);
+        ContentViewSchema::drop($this->dbLayer);
         ContentSchema::drop($this->dbLayer);
         UserpicSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('extensions');
@@ -203,6 +206,7 @@ readonly class Installer
         $config = [
             'REGISTER_SITE_NAME'        => $siteName,
             'REGISTER_SITE_TAGLINE'     => '',
+            'REGISTER_SOCIAL_IMAGE'     => '',
             'REGISTER_WEBMASTER'        => '',
             'REGISTER_WEBMASTER_EMAIL'  => $email,
             'REGISTER_START_YEAR'       => date('Y'),
