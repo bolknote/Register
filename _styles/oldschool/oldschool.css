@@ -91,6 +91,10 @@ body {
     border-radius: 2px;
 }
 
+#header .public-auth-header {
+    top: 3rem;
+}
+
 .register_search_form input {
     min-height: 2.5rem;
     padding: 0.45rem 0.7rem;
@@ -523,6 +527,15 @@ input.comment-submit:focus-visible,
 
     #header .site-tagline {
         font-size: 0.88rem;
+    }
+
+    #header .public-auth-header {
+        top: 0.55rem;
+        right: 0.55rem;
+    }
+
+    #header .site-header-copy {
+        padding-right: 2.75rem;
     }
 
     #container,
