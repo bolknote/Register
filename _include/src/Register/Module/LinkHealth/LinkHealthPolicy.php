@@ -13,6 +13,8 @@ final class LinkHealthPolicy
 {
     public const int HEALTHY_INTERVAL = 30 * 86400;
 
+    public const int BROKEN_INTERVAL = 30 * 86400;
+
     private const int FIRST_RETRY_DELAY = 86400;
 
     private const int LATER_RETRY_DELAY = 3 * 86400;
@@ -73,7 +75,7 @@ final class LinkHealthPolicy
             return new LinkHealthDecision(
                 LinkHealthStatus::BROKEN,
                 $failures,
-                null,
+                $now + self::BROKEN_INTERVAL,
                 $current->lastSuccessAt,
                 true,
             );
@@ -82,7 +84,9 @@ final class LinkHealthPolicy
         return new LinkHealthDecision(
             LinkHealthStatus::SUSPECT,
             $failures,
-            $now + ($failures === 1 ? self::FIRST_RETRY_DELAY : self::LATER_RETRY_DELAY),
+            $now + ($hard
+                ? self::BROKEN_INTERVAL
+                : ($failures === 1 ? self::FIRST_RETRY_DELAY : self::LATER_RETRY_DELAY)),
             $current->lastSuccessAt,
             false,
         );

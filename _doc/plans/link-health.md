@@ -21,7 +21,8 @@ The database is a persistent, rebuildable link index, not a generic SQL query ca
 - Treat one failed request as evidence, not a verdict.
 - `401` and `403` mean restricted but present; throttling, timeouts, DNS/TLS failures, and `5xx` are
   initially suspect. Confirm `404`/`410` or repeated network failure before declaring a target broken.
-- Confirmed broken targets leave the ordinary schedule. Administrators can request a recheck.
+- `404`/`410` targets, including confirmed broken ones, stay on a monthly schedule so restored pages
+  are discovered automatically. Administrators can also request an immediate recheck.
 - Look up an archive only after the target is confirmed broken.
 - Automatic repair is configurable and enabled by default. It requires a confirmed broken state, an
   accessible Wayback result with status `200`, and an unchanged content revision.

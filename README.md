@@ -161,9 +161,10 @@ publishing model.
   requests. It handles scheduled publication, search maintenance, link checking, thumbnails,
   anti-spam cleanup, ActivityPub delivery and inbox work, and backups without a separate worker
   process.
-- Automatic inventory of local and external links, bounded SSRF-safe background checks, visible
-  history, deliberate rechecks, Wayback discovery, and revision-safe replacement of confirmed broken
-  links. Local references also protect targets from accidental deletion.
+- Automatic inventory of local and external links, bounded SSRF-safe background checks, monthly
+  rechecks of `404`/`410` targets, visible history, deliberate rechecks, Wayback discovery, and
+  revision-safe replacement of confirmed broken links. Local references also protect targets from
+  accidental deletion.
 - Daily database-and-media backups protected by authenticated encryption, with retention, manual
   creation, control-panel download, offline decryption tools, and optional recipient encryption whose
   private recovery key never reaches the hosting account.

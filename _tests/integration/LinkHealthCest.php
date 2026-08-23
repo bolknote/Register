@@ -160,6 +160,37 @@ final class LinkHealthCest
         );
     }
 
+    public function schedulesConfirmedBrokenTargetsMonthly(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $postId = $this->insertPost(
+            $dbLayer,
+            'monthly-broken-link-check',
+            '<a href="https://outside.example/monthly-broken">External</a>',
+        );
+
+        /** @var LinkInventory $inventory */
+        $inventory = $I->grabService(LinkInventory::class);
+        $checkedAt = 1_800_000_000;
+        $inventory->synchronize(ContentId::post($postId), $checkedAt);
+
+        $targetId = $this->targetId($dbLayer, 'https://outside.example/monthly-broken');
+        $dbLayer->update(Manifest::TARGET_TABLE)
+            ->set('health_status', "'broken'")
+            ->set('failure_count', '2')
+            ->set('last_checked_at', ':last_checked_at')->setParameter('last_checked_at', $checkedAt)
+            ->set('next_check_at', 'NULL')
+            ->where('id = :id')->setParameter('id', $targetId)
+            ->execute();
+
+        /** @var LinkInventoryRepository $repository */
+        $repository = $I->grabService(LinkInventoryRepository::class);
+        $dueAt = $checkedAt + LinkHealthPolicy::BROKEN_INTERVAL;
+        $I->assertSame([], $repository->dueTargetIds($dueAt - 1, 50));
+        $I->assertSame([$targetId], $repository->dueTargetIds($dueAt, 50));
+    }
+
     public function advancesHttpProbeAcrossFiveSecondShutdownSlices(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -176,6 +207,11 @@ final class LinkHealthCest
 
         $url      = 'https://outside.example/resumable';
         $targetId = $this->targetId($dbLayer, $url);
+        $dbLayer->update(Manifest::TARGET_TABLE)
+            ->set('health_status', "'broken'")
+            ->set('failure_count', '2')
+            ->where('id = :id')->setParameter('id', $targetId)
+            ->execute();
         $probe    = new SequencedLinkProbe([
             LinkProbeStep::pending(new LinkProbeState($url, LinkProbeMethod::GET)),
             LinkProbeStep::complete(new LinkProbeResult($url, 200)),

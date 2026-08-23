@@ -77,7 +77,6 @@ final readonly class LinkCheckQueueHandler implements QueueHandlerInterface
         }
 
         if (!$force && \in_array($target->healthStatus, [
-            LinkHealthStatus::BROKEN,
             LinkHealthStatus::BLOCKED,
             LinkHealthStatus::IGNORED,
         ], true)) {

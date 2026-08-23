@@ -20,6 +20,8 @@ in-place publishing and a release package designed for ordinary shared hosting.
 - Comment email addresses are now unconditionally private. The obsolete public-email flags are
   removed during the generation-20 migration, and discussion subscriptions now control both email
   delivery and the authenticated user's unread-comment counter.
+- Link health rechecks `404`/`410` targets monthly, including confirmed broken links, so a restored
+  page returns to healthy status without an administrator having to notice it first.
 - CI-gated edge builds and manually promoted release-candidate or stable archives.
 
 ### Deployment notes

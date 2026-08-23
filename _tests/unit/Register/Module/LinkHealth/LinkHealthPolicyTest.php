@@ -52,21 +52,24 @@ final class LinkHealthPolicyTest extends Unit
     public function testRequiresTwoHardFailuresBeforeArchiveLookup(): void
     {
         $policy = new LinkHealthPolicy();
+        $firstCheckedAt = 1_800_000_000;
         $first  = $policy->decide(
             $this->target(LinkHealthStatus::HEALTHY, 0),
             new LinkProbeResult('https://example.test/', 404),
-            1_800_000_000,
+            $firstCheckedAt,
         );
+        $secondCheckedAt = $firstCheckedAt + LinkHealthPolicy::BROKEN_INTERVAL;
         $second = $policy->decide(
             $this->target(LinkHealthStatus::SUSPECT, $first->failureCount),
             new LinkProbeResult('https://example.test/', 404),
-            1_800_086_400,
+            $secondCheckedAt,
         );
 
         self::assertSame(LinkHealthStatus::SUSPECT, $first->status);
+        self::assertSame($firstCheckedAt + LinkHealthPolicy::BROKEN_INTERVAL, $first->nextCheckAt);
         self::assertFalse($first->lookupArchive);
         self::assertSame(LinkHealthStatus::BROKEN, $second->status);
-        self::assertNull($second->nextCheckAt);
+        self::assertSame($secondCheckedAt + LinkHealthPolicy::BROKEN_INTERVAL, $second->nextCheckAt);
         self::assertTrue($second->lookupArchive);
     }
 
