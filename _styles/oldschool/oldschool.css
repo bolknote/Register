@@ -31,7 +31,8 @@
     color: var(--oldschool-teal-deep);
 }
 
-#content > .post.head {
+#content > .post.head,
+#content .post-card > .post.head {
     max-width: var(--text-width);
     padding: 0.32rem 0.6rem 0.4rem;
     border-radius: 4px 4px 0 0;
@@ -54,7 +55,9 @@
     text-decoration-color: color-mix(in srgb, var(--oldschool-white) 70%, transparent);
 }
 
-#content > .post.head + .post.time {
+#content > .post.head + .post.time,
+#content .post-card > .post.head + .post.time {
+    width: min(100%, var(--text-width));
     max-width: var(--text-width);
     margin-top: -0.35rem;
     padding: 0.38rem 0.6rem 0.45rem;
@@ -442,7 +445,9 @@ input.comment-submit:focus-visible,
     }
 
     #content > .post.head,
-    #content > .post.head + .post.time {
+    #content .post-card > .post.head,
+    #content > .post.head + .post.time,
+    #content .post-card > .post.head + .post.time {
         padding: 0;
         border: 0;
         background: transparent;
@@ -451,7 +456,9 @@ input.comment-submit:focus-visible,
     }
 
     #content > .post.head a,
-    #content > .post.head a:visited {
+    #content > .post.head a:visited,
+    #content .post-card > .post.head a,
+    #content .post-card > .post.head a:visited {
         color: #000;
     }
 

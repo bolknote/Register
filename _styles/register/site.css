@@ -1955,8 +1955,32 @@ h2.preview,
 }
 
 @container post-editor (max-width: 42rem) {
+    .post-card.is-editing > .post.foot {
+        position: relative;
+    }
+
+    .post-card.is-editing > .post.foot > .post-foot-tags {
+        transform: none;
+    }
+
+    .post-card.is-editing .post-tag-values {
+        position: static;
+    }
+
     .post-tags-editor {
-        max-width: min(calc(100vw - 1.5rem), 72cqi);
+        top: auto;
+        right: auto;
+        bottom: 0;
+        left: 0;
+        width: min(100%, calc(100vw - 1.5rem));
+        max-width: none;
+    }
+
+    .post-card.is-editing .post-inplace-date-button {
+        top: 50%;
+        right: 0.35rem;
+        left: auto;
+        transform: translateY(-50%);
     }
 
     .post-editor-context-section:has([data-context-ai-action]) {

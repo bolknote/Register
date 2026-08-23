@@ -92,4 +92,25 @@ final class AssetPackTest extends Unit
             self::assertFileExists($themeDir . $asset);
         }
     }
+
+    public function testAlternativeThemesStyleWrappedPostCards(): void
+    {
+        $rootDir = \dirname(__DIR__, 4) . '/';
+
+        foreach (['oldschool', 'pixel-forest', 'system-1'] as $style) {
+            $css = file_get_contents($rootDir . '_styles/' . $style . '/' . $style . '.css');
+
+            self::assertIsString($css);
+            self::assertStringContainsString('#content .post-card > .post.head', $css);
+        }
+    }
+
+    public function testSystemOneChromeFollowsPartialNavigation(): void
+    {
+        $script = file_get_contents(\dirname(__DIR__, 4) . '/_styles/system-1/system-1.js');
+
+        self::assertIsString($script);
+        self::assertStringContainsString('.post-card > .post.head', $script);
+        self::assertStringContainsString("'register:navigation-updated'", $script);
+    }
 }

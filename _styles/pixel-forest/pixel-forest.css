@@ -358,11 +358,13 @@ blockquote {
     clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 100%, 50% 50%, 0 50%);
 }
 
-#content > .post.author:empty {
+#content > .post.author:empty,
+#content .post-card > .post.author:empty {
     display: none;
 }
 
-#content > .post.author:not(:empty) {
+#content > .post.author:not(:empty),
+#content .post-card > .post.author:not(:empty) {
     width: fit-content;
     margin: 0 0 0.5rem;
     padding: 0.2rem 0.45rem;
@@ -373,7 +375,8 @@ blockquote {
     text-transform: uppercase;
 }
 
-#content > .post.head {
+#content > .post.head,
+#content .post-card > .post.head {
     width: min(100%, var(--text-width));
     max-width: var(--text-width);
     margin: 0;
@@ -390,7 +393,8 @@ blockquote {
     text-shadow: 3px 3px 0 var(--pixel-shadow);
 }
 
-#content > .post.head::before {
+#content > .post.head::before,
+#content .post-card > .post.head::before {
     display: inline-block;
     width: 0.48em;
     height: 0.48em;
@@ -402,17 +406,22 @@ blockquote {
 }
 
 #content > .post.head a,
-#content > .post.head a:visited {
+#content > .post.head a:visited,
+#content .post-card > .post.head a,
+#content .post-card > .post.head a:visited {
     color: inherit;
     text-decoration: none;
 }
 
 #content > .post.head a:hover,
-#content > .post.head a:focus-visible {
+#content > .post.head a:focus-visible,
+#content .post-card > .post.head a:hover,
+#content .post-card > .post.head a:focus-visible {
     color: var(--pixel-moon);
 }
 
-#content > .post.time {
+#content > .post.time,
+#content .post-card > .post.time {
     width: min(100%, var(--text-width));
     margin: 0;
     padding: 0.45rem clamp(0.8rem, 3vw, 1.35rem) 0.55rem;
@@ -426,7 +435,8 @@ blockquote {
     text-transform: uppercase;
 }
 
-#content > .post.time::before {
+#content > .post.time::before,
+#content .post-card > .post.time::before {
     display: inline-block;
     width: 6px;
     height: 6px;
@@ -437,7 +447,8 @@ blockquote {
     vertical-align: 0.12em;
 }
 
-#content > .post.body {
+#content > .post.body,
+#content .post-card > .post.body {
     width: min(100%, var(--text-width));
     margin: 0;
     padding: clamp(1.1rem, 3vw, 1.65rem) clamp(0.8rem, 3vw, 1.35rem) 0.9rem;
@@ -446,11 +457,13 @@ blockquote {
     background: var(--pixel-panel);
 }
 
-#content > .post.body > :first-child {
+#content > .post.body > :first-child,
+#content .post-card > .post.body > :first-child {
     margin-top: 0;
 }
 
-#content > .post.foot {
+#content > .post.foot,
+#content .post-card > .post.foot {
     width: min(100%, var(--text-width));
     margin: 0 0 clamp(3.7rem, 8vw, 6rem);
     padding: 0.75rem clamp(0.8rem, 3vw, 1.35rem) 1rem;
@@ -989,12 +1002,37 @@ ul.back_forward li {
     }
 
     #header {
-        min-height: 184px;
+        min-height: 210px;
         margin-top: 14px;
-        padding: 78px 18px 22px;
+        padding: 72px 18px 20px;
         background-position: 58% center;
         box-shadow: 5px 5px 0 var(--pixel-shadow), 0 0 0 3px var(--pixel-frame);
-        font-size: clamp(2rem, 10vw, 3.2rem);
+        font-size: clamp(1.85rem, 8.6vw, 2.65rem);
+    }
+
+    #header .site-header-shell {
+        position: static;
+    }
+
+    #header .site-header-shell:has(> .site-header-tools) > .site-header-copy {
+        padding-left: 0;
+    }
+
+    #header .site-header-tools {
+        top: 14px;
+        left: 14px;
+        width: 2.2rem;
+    }
+
+    #header .public-auth-header {
+        top: 13px;
+        right: 13px;
+    }
+
+    #header .site-tagline {
+        margin-top: 0.65rem;
+        font-size: 13px;
+        line-height: 1.42;
     }
 
     #header::before {
@@ -1029,24 +1067,29 @@ ul.back_forward li {
         line-height: 1.65;
     }
 
-    #content > .post.head {
+    #content > .post.head,
+    #content .post-card > .post.head {
         border-width: 3px;
         box-shadow: 5px 0 0 var(--pixel-shadow), 0 -3px 0 var(--pixel-frame-light);
     }
 
     #content > .post.time,
-    #content > .post.body {
+    #content > .post.body,
+    #content .post-card > .post.time,
+    #content .post-card > .post.body {
         border-right-width: 3px;
         border-left-width: 3px;
     }
 
-    #content > .post.foot {
+    #content > .post.foot,
+    #content .post-card > .post.foot {
         border-width: 3px;
         border-top: 0;
         box-shadow: 5px 5px 0 var(--pixel-shadow), 0 3px 0 var(--pixel-frame);
     }
 
-    #content > .post.time::before {
+    #content > .post.time::before,
+    #content .post-card > .post.time::before {
         box-shadow: none;
     }
 
@@ -1127,6 +1170,10 @@ ul.back_forward li {
     #content > .post.time,
     #content > .post.body,
     #content > .post.foot,
+    #content .post-card > .post.head,
+    #content .post-card > .post.time,
+    #content .post-card > .post.body,
+    #content .post-card > .post.foot,
     blockquote,
     pre {
         border-color: #555;
