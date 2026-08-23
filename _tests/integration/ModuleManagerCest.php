@@ -26,6 +26,7 @@ use Register\Core\Extensions\ManifestInterface;
 use Register\Core\Model\ExtensionCache;
 use Register\Core\Model\UserpicSchema;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\SchemaBuilderInterface;
 
 final class ModuleManagerCest
 {
@@ -269,6 +270,39 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->tableExists(ContentViewSchema::TABLE_NAME));
         $I->assertTrue($dbLayer->foreignKeyExists(ContentViewSchema::TABLE_NAME, 'fk_content'));
         $I->assertTrue($dbLayer->indexExists(ContentViewSchema::TABLE_NAME, 'day_type_idx'));
+    }
+
+    public function generationNineteenRemovesPublicCommentEmailFlags(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var SchemaManager $schemaManager */
+        $schemaManager = $I->grabAdminService(SchemaManager::class);
+
+        $dbLayer->addField(
+            CommentSchema::TABLE_NAME,
+            'show_email',
+            SchemaBuilderInterface::TYPE_BOOLEAN,
+            null,
+            false,
+            false,
+        );
+        $dbLayer->addField(
+            PublicAuthSchema::MAGIC_LINKS_TABLE,
+            'show_email',
+            SchemaBuilderInterface::TYPE_BOOLEAN,
+            null,
+            false,
+            false,
+        );
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, '19');
+
+        $I->assertTrue($schemaManager->ensureCurrent());
+        $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
+        $I->assertFalse($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'show_email'));
+        $I->assertFalse($dbLayer->fieldExists(PublicAuthSchema::MAGIC_LINKS_TABLE, 'show_email'));
+        $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'email'));
+        $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'subscribed'));
     }
 
     public function releaseMigrationPreservesExistingSettings(\IntegrationTester $I): void

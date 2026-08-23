@@ -61,6 +61,7 @@ use Register\Module\BaseModuleRegistry;
 use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Offline\OfflineCachePolicy;
+use Register\Schema\CommentPrivacySchemaMigration;
 use Register\Schema\ContentMediaSchemaMigration;
 use Register\Schema\PublicAuthSchemaMigration;
 use Register\Schema\SchemaManager;
@@ -406,6 +407,11 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(
             SocialEngagementSchemaMigration::class,
             new SocialEngagementSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            CommentPrivacySchemaMigration::class,
+            new CommentPrivacySchemaMigration(),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

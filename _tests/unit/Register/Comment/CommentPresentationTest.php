@@ -37,8 +37,8 @@ final class CommentPresentationTest extends Unit
         $this->createTables($pdo);
         $pdo->exec("INSERT INTO comments (
             id, content_type, content_id, parent_id, userpic_id, time, modify_time, nick, email,
-            show_email, good, text, shown, deleted
-        ) VALUES (42, 'post', 7, NULL, NULL, 1700000000, 0, 'Remote Alice', '', 0, 0,
+            good, text, shown, deleted
+        ) VALUES (42, 'post', 7, NULL, NULL, 1700000000, 0, 'Remote Alice', '', 0,
             'A federated reply.', 1, 0)");
 
         $urlBuilder = new UrlBuilder('/register', '', '');
@@ -129,7 +129,6 @@ final class CommentPresentationTest extends Unit
             modify_time INTEGER NOT NULL,
             nick TEXT NOT NULL,
             email TEXT NOT NULL,
-            show_email INTEGER NOT NULL,
             good INTEGER NOT NULL,
             text TEXT NOT NULL,
             shown INTEGER NOT NULL,

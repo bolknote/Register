@@ -44,8 +44,8 @@ that is reusable without Register's blog domain.
 - Product storage has one current schema generation; optional modules retain independent migrations
   and compatibility metadata.
 - The current implementation stores that integer in `REGISTER_SCHEMA_GENERATION`. Fresh installs
-  use generation 19, and releases carry explicit one-generation migrations for supported installed
-  generations 15 through 18. Older data remains an explicit import operation.
+  use generation 20, and releases carry explicit one-generation migrations for supported installed
+  generations 15 through 19. Older data remains an explicit import operation.
 - Optional modules integrate through public Register contracts and events rather than querying base
   module tables directly.
 - Base-module code and resources live in `Register\*` namespaces; `_extensions` is reserved for the

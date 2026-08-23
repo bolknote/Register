@@ -29,7 +29,6 @@ interface CommentStrategyInterface
         int     $targetId,
         string  $name,
         string  $email,
-        bool    $showEmail,
         bool    $subscribed,
         string  $text,
         string  $ip,

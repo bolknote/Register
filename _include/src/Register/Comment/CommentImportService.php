@@ -25,7 +25,6 @@ final readonly class CommentImportService
             $comment->name,
             '',
             false,
-            false,
             $comment->text,
             '',
             $comment->parentId,

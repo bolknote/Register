@@ -346,7 +346,6 @@ return [
     'New comments'                         => 'Unchecked comments on the site',
     'No comments'                          => 'No comments',
     'N comments'                           => '{{ count }} comment|{{ count }} comments',
-    'Show email'                           => 'Show email to visitors',
     'Hidden'                               => 'hidden',
     'Subscribed'                           => 'subscribed',
     'Subscribed to comments'               => 'Subscribed to comments',

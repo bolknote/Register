@@ -16,7 +16,10 @@ in-place publishing and a release package designed for ordinary shared hosting.
 - Public accounts through existing Register credentials, optional email links, VK ID, Mail.ru,
   Odnoklassniki, and Yandex, with relevant unread-comment counters.
 - Split-root shared-hosting archives, encrypted backups, a staged control-panel updater, and
-  explicit database migrations from schema generations 15 through 18 to generation 19.
+  explicit database migrations from schema generations 15 through 19 to generation 20.
+- Comment email addresses are now unconditionally private. The obsolete public-email flags are
+  removed during the generation-20 migration, and discussion subscriptions now control both email
+  delivery and the authenticated user's unread-comment counter.
 - CI-gated edge builds and manually promoted release-candidate or stable archives.
 
 ### Deployment notes

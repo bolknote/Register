@@ -8,8 +8,6 @@ declare(strict_types = 1);
  * @var string $text
  * @var int|string $time
  * @var string $nick
- * @var string $email
- * @var bool|int|string $show_email
  * @var bool|int|string $good
  * @var bool $is_author
  * @var int $id
@@ -30,9 +28,7 @@ declare(strict_types = 1);
  */
 
 $encodedNick = register_htmlencode($nick);
-$name        = !empty($show_email)
-    ? \Register\Core\Helper\StringHelper::jsMailTo($encodedNick, $email)
-    : $encodedNick;
+$name        = $encodedNick;
 $isPreview = $is_preview ?? false;
 $userpicUrl = $userpic_url ?? null;
 $moderationState = $moderation_state ?? 'visible';

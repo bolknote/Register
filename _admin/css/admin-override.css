@@ -204,8 +204,7 @@ body.login_page {
 .list-content .field-Article-commented,
 .list-content .field-Comment-email,
 .list-content .field-Comment-sent,
-.list-content .field-Comment-subscribed,
-.list-content .field-Comment-show_email {
+.list-content .field-Comment-subscribed {
     display: none;
 }
 

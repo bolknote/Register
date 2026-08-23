@@ -54,7 +54,6 @@ final class CommentRepositoryCest
             'Page author',
             'page@example.com',
             true,
-            true,
             'Page comment',
             '127.0.0.1',
             null,
@@ -66,7 +65,6 @@ final class CommentRepositoryCest
             'Reply author',
             'reply@example.com',
             false,
-            false,
             'Reply',
             '127.0.0.2',
             $pageCommentId,
@@ -76,7 +74,6 @@ final class CommentRepositoryCest
             $post,
             'Post author',
             'post@example.com',
-            false,
             false,
             'Post comment',
             '127.0.0.3',
@@ -113,7 +110,6 @@ final class CommentRepositoryCest
                 $post,
                 'Invalid reply',
                 'invalid@example.com',
-                false,
                 false,
                 'Wrong thread',
                 '127.0.0.4',
@@ -170,7 +166,6 @@ final class CommentRepositoryCest
         $I->assertNotNull($comment);
         $I->assertSame('', $comment->email);
         $I->assertSame('', $comment->ip);
-        $I->assertFalse($comment->showEmail);
         $I->assertFalse($comment->subscribed);
         $I->assertSame(CommentMutationSource::IMPORTED, $events[0]->source);
         $I->assertSame(CommentChangeKind::CREATED, $events[0]->kind);
@@ -196,7 +191,6 @@ final class CommentRepositoryCest
             'Root author',
             'root@example.com',
             false,
-            false,
             'Root comment',
             '127.0.0.1',
             null,
@@ -206,7 +200,6 @@ final class CommentRepositoryCest
             $contentId,
             'Reply author',
             'reply@example.com',
-            false,
             false,
             'Reply comment',
             '127.0.0.2',

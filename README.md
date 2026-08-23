@@ -25,8 +25,8 @@ External-link DNS uses non-blocking datagrams to the system resolvers from `/etc
 never starts a process or calls the potentially blocking libc resolver.
 
 > **Development status:** Register is preparing its first 2.0 release. Fresh installations use
-> schema generation 19, and the staged updater can migrate an installed Register database from
-> generations 15 through 18. Older S2/Register databases require an explicit import or a fresh
+> schema generation 20, and the staged updater can migrate an installed Register database from
+> generations 15 through 19. Older S2/Register databases require an explicit import or a fresh
 > installation; Register never silently recreates them.
 
 ## Why Register
@@ -144,8 +144,9 @@ publishing model.
   Odnoklassniki, or Yandex. External-provider buttons appear only after their credentials are
   configured; email-link sign-in is disabled on new sites until the operator verifies mail delivery.
 - Logged-in users comment under their account identity and receive a counter that opens their first
-  relevant unread comment. A guest may prepare a comment while requesting an email sign-in link;
-  the validated comment is published after the link is opened.
+  relevant unread comment. Direct replies always count; subscribing adds every new comment from that
+  discussion to the counter and, when possible, sends it by email. A guest may prepare a comment
+  while requesting an email sign-in link; the validated comment is published after the link is opened.
 - Inline moderation in the control panel, important-comment marking, and author replies.
 - Built-in local anti-spam scoring, rate limits, reputation, configurable rules, diagnostics, and
   optional Akismet integration.

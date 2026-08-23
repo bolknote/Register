@@ -117,7 +117,7 @@ final class PublicationMetadataGeneratorTest extends TestCase
                 AiSettings::AUTO_METADATA_CONFIG_KEY => '1',
             ]),
             static function (string $method, string $url, array $headers, ?string $body, array $options) use (&$calls): HttpResponse {
-                $calls[] = compact('method', 'url', 'headers', 'body', 'options');
+                $calls[] = ['method' => $method, 'url' => $url, 'headers' => $headers, 'body' => $body, 'options' => $options];
 
                 return new HttpResponse(statusCode: 200, content: json_encode([
                     'choices' => [[

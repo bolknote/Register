@@ -697,7 +697,6 @@ final class PostInplaceCest
             'Reader',
             'reader@example.test',
             false,
-            false,
             'This comment is deleted with the post.',
             '127.0.0.1',
             null,

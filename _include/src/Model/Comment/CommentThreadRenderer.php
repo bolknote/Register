@@ -151,9 +151,7 @@ final readonly class CommentThreadRenderer
             if (isset($tombstoneIds[$id])) {
                 $comment['moderation_state']    = 'deleted';
                 $comment['nick']                = '';
-                $comment['email']               = '';
                 $comment['text']                = '';
-                $comment['show_email']          = false;
                 $comment['is_author']           = false;
                 $comment['userpic_storage_key'] = null;
             }

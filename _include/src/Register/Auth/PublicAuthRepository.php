@@ -199,7 +199,7 @@ final readonly class PublicAuthRepository
     }
 
     /**
-     * @param array{content_type?: string, content_id?: int|null, parent_id?: int|null, text?: string, show_email?: bool, subscribed?: bool, moderation_required?: bool, ip?: string}|null $pendingComment
+     * @param array{content_type?: string, content_id?: int|null, parent_id?: int|null, text?: string, subscribed?: bool, moderation_required?: bool, ip?: string}|null $pendingComment
      */
     public function storeMagicLink(
         string $token,
@@ -224,7 +224,6 @@ final readonly class PublicAuthRepository
                 'parent_id'    => ':parent_id',
                 'comment_text' => ':comment_text',
                 'visitor_id'   => ':visitor_id',
-                'show_email'   => ':show_email',
                 'subscribed'   => ':subscribed',
                 'moderation_required' => ':moderation_required',
                 'ip'           => ':ip',
@@ -242,7 +241,6 @@ final readonly class PublicAuthRepository
                 'parent_id'    => $pendingComment['parent_id'] ?? null,
                 'comment_text' => $pendingComment['text'] ?? null,
                 'visitor_id'   => $visitorId,
-                'show_email'   => (int)($pendingComment['show_email'] ?? false),
                 'subscribed'   => (int)($pendingComment['subscribed'] ?? false),
                 'moderation_required' => (int)($pendingComment['moderation_required'] ?? false),
                 'ip'           => mb_substr($pendingComment['ip'] ?? '', 0, 39),

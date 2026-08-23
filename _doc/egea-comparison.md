@@ -205,7 +205,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | MySQL/MariaDB, PostgreSQL, and SQLite | Available | All three database families are supported. |
 | Table prefixes and multiple installations per database | Available | Supported. |
 | Production database settings from environment variables | Missing | Production configuration is file-based. |
-| Upgrade an existing Register database | Partial | The staged updater migrates supported installed generations 15 through 18 to generation 19. Older S2/Register data still needs an explicit importer or a clean installation. |
+| Upgrade an existing Register database | Partial | The staged updater migrates supported installed generations 15 through 19 to generation 20. Older S2/Register data still needs an explicit importer or a clean installation. |
 | Import an existing Aegea database | Missing | No importer. |
 | Semi-automatic code and database update | Available | The control-panel updater verifies a release archive, backs up the installation, stages and switches files, applies the registered database migration chain, and rolls files back on failure. |
 | Automatic database backup | Available | A durable request-driven queue job creates a private daily authenticated encrypted database-and-media archive and prunes it to configured retention; the CLI drain covers hosts without response detachment. |

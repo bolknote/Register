@@ -28,7 +28,6 @@ final readonly class CommentRepository
         ContentId $contentId,
         string    $name,
         string    $email,
-        bool      $showEmail,
         bool      $subscribed,
         string    $text,
         string    $ip,
@@ -62,7 +61,6 @@ final readonly class CommentRepository
                 'ip'           => ':ip',
                 'nick'         => ':nick',
                 'email'        => ':email',
-                'show_email'   => ':show_email',
                 'subscribed'   => ':subscribed',
                 'shown'        => '0',
                 'deleted'      => '0',
@@ -81,7 +79,6 @@ final readonly class CommentRepository
                 'ip'           => $ip,
                 'nick'         => $name,
                 'email'        => $email,
-                'show_email'   => $showEmail ? 1 : 0,
                 'subscribed'   => $subscribed ? 1 : 0,
                 'text'         => $text,
             ])
@@ -235,6 +232,7 @@ final readonly class CommentRepository
             ->andWhere('content_id = :content_id')->setParameter('content_id', $contentId->value)
             ->andWhere('subscribed = 1')
             ->andWhere('shown = 1')
+            ->andWhere("email <> ''")
             ->andWhere($sameEmail ? 'email = :email' : 'email <> :email')->setParameter('email', $email)
             ->orderBy('time', 'id')
             ->execute()
@@ -464,7 +462,6 @@ final readonly class CommentRepository
             (string)$row['ip'],
             (string)$row['nick'],
             (string)$row['email'],
-            (bool)$row['show_email'],
             (bool)$row['subscribed'],
             (bool)$row['shown'],
             (bool)$row['deleted'],

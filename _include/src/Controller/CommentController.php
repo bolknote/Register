@@ -80,7 +80,6 @@ readonly class CommentController implements ControllerInterface
     public function handle(Request $request): Response
     {
         $authenticatedUser = $this->authProvider->getAuthenticatedPublicUser($request);
-        $showEmail        = $request->request->get('show_email', false) !== false;
         $subscribed       = $request->request->get('subscribed', false) !== false;
         $id               = $request->request->getString('id', '');
         if (preg_match('#^[0-9a-f]{32}$#', $id) !== 1) {
@@ -136,10 +135,7 @@ readonly class CommentController implements ControllerInterface
             $name  = trim($request->request->getString('name'));
         }
 
-        if ($authenticatedUser instanceof AuthenticatedPublicUser && $email === '') {
-            $showEmail  = false;
-            $subscribed = false;
-        } elseif (!StringHelper::isValidEmail($email)) {
+        if (!$authenticatedUser instanceof AuthenticatedPublicUser && !StringHelper::isValidEmail($email)) {
             $errors[] = $this->translator->trans('email');
         }
 
@@ -172,8 +168,6 @@ readonly class CommentController implements ControllerInterface
                     'text'           => $text,
                     'nick'           => $name,
                     'time'           => time(),
-                    'email'          => $email,
-                    'show_email'     => $showEmail,
                     'good'           => false,
                     'is_author'      => $authenticatedUser instanceof AuthenticatedPublicUser
                         || $this->authProvider->isOnline($email),
@@ -198,7 +192,6 @@ readonly class CommentController implements ControllerInterface
                 ->putInPlaceholder('comment_form', [
                     'name'         => $name,
                     'email'        => $email,
-                    'show_email'   => $showEmail,
                     'subscribed'   => $subscribed,
                     'text'         => $text,
                     'parent_id'    => $parentId,
@@ -291,7 +284,6 @@ readonly class CommentController implements ControllerInterface
                 ->putInPlaceholder('comment_form', [
                     'name'         => $name,
                     'email'        => $email,
-                    'show_email'   => $showEmail,
                     'subscribed'   => $subscribed,
                     'text'         => $text,
                     'parent_id'    => $parentId,
@@ -348,7 +340,6 @@ readonly class CommentController implements ControllerInterface
                         $target->id,
                         $name,
                         $email,
-                        $showEmail,
                         $subscribed,
                         $text,
                         (string)$request->getClientIp(),
@@ -376,7 +367,6 @@ readonly class CommentController implements ControllerInterface
             $target->id,
             $name,
             $email,
-            $showEmail,
             $subscribed,
             $text,
             (string)$request->getClientIp(),

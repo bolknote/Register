@@ -35,7 +35,6 @@ final class CommentSchema
                 ->addString('ip', 39)
                 ->addString('nick', 50)
                 ->addString('email', 80)
-                ->addBoolean('show_email')
                 ->addBoolean('subscribed')
                 ->addBoolean('shown')
                 ->addBoolean('deleted')

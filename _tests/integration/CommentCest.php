@@ -110,7 +110,8 @@ class CommentCest
         $I->see('Commenting as', '.comment-public-auth');
         $I->see('admin', '.comment-public-auth');
         $I->dontSeeElement('#comment-form [data-comment-guest-identity]');
-        $I->dontSeeElement('#comment-form .comment-options');
+        $I->seeElement('#comment-form .comment-options input[name="subscribed"]');
+        $I->dontSeeElement('#comment-form input[name="show_email"]');
         $I->dontSeeElement('#comment-form .comment-preview');
 
         $I->sendPost('https://localhost/thread-test', [
@@ -457,7 +458,6 @@ class CommentCest
             ->setValue('ip', "'127.0.0.1'")
             ->setValue('nick', ':nick')->setParameter('nick', $nick)
             ->setValue('email', ':email')->setParameter('email', $email)
-            ->setValue('show_email', '0')
             ->setValue('subscribed', '0')
             ->setValue('shown', '1')
             ->setValue('sent', '1')

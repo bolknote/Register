@@ -18,7 +18,6 @@ final readonly class PendingEmailComment
         public int         $targetId,
         public string      $name,
         public string      $email,
-        public bool        $showEmail,
         public bool        $subscribed,
         public string      $text,
         public string      $ip,

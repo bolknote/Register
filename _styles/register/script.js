@@ -56,7 +56,6 @@
         var textField = fields.text;
         var nameField = fields.name;
         var emailField = fields.email;
-        var showEmailField = fields.show_email;
         var idField = fields.id;
 
         if (!textField || !idField) {
@@ -78,9 +77,6 @@
             if (emailField) {
                 localStorage.setItem('comment_email', emailField.value);
             }
-            if (showEmailField) {
-                localStorage.setItem('comment_showemail', showEmailField.checked ? '1' : '0');
-            }
         }
 
         try {
@@ -89,6 +85,7 @@
             }
 
             form.dataset.commentStorageReady = '1';
+            localStorage.removeItem('comment_showemail');
 
             if (document.cookie.indexOf('comment_form_sent=') !== -1) {
                 document.cookie = 'comment_form_sent=0; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/';
@@ -103,11 +100,7 @@
             if (emailField) {
                 emailField.value = emailField.value || localStorage.getItem('comment_email') || '';
             }
-            if (showEmailField) {
-                showEmailField.checked = showEmailField.checked || localStorage.getItem('comment_showemail') === '1';
-            }
-
-            [textField, nameField, emailField, showEmailField].filter(Boolean).forEach(function (field) {
+            [textField, nameField, emailField].filter(Boolean).forEach(function (field) {
                 field.addEventListener('change', save, false);
             });
             form.addEventListener('submit', save, false);

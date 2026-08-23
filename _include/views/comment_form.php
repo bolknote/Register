@@ -10,7 +10,6 @@ declare(strict_types = 1);
 /** @var string $antispamToken */
 /** @var string|null $name */
 /** @var string|null $email */
-/** @var bool|null $show_email */
 /** @var bool|null $subscribed */
 /** @var string|null $text */
 /** @var int|null $parent_id */
@@ -20,7 +19,6 @@ declare(strict_types = 1);
 
 $name         ??= '';
 $email        ??= '';
-$show_email   ??= false;
 $subscribed   ??= false;
 $text         ??= '';
 $parent_id    = isset($parent_id) && $parent_id > 0 ? $parent_id : null;
@@ -90,12 +88,9 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
             </p>
         </div>
         <?php endif; ?>
-        <?php if (!$authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser || $email !== ''): ?>
         <div class="comment-options">
-            <label for="show_email" title="<?php echo $trans('Show email label title'); ?>"><input type="checkbox" id="show_email" name="show_email" <?php if ($show_email) echo 'checked="checked" '; ?>/><?php echo $trans('Show email label'); ?></label>
             <label for="subscribed" title="<?php echo $trans('Subscribe label title'); ?>"><input type="checkbox" id="subscribed" name="subscribed" <?php if ($subscribed) echo 'checked="checked" '; ?>/><?php echo $trans('Subscribe label'); ?></label>
         </div>
-        <?php endif; ?>
         <details class="comment-formatting">
             <summary><?php echo $trans('Formatting help'); ?></summary>
             <div class="comment-syntax"><?php foreach ($syntaxHelpItems as $item) { echo $item . "\n"; } ?></div>

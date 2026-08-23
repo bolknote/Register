@@ -724,7 +724,7 @@ class InstallCest
         $I->seeElement('#comment-form [data-comment-guest-identity]');
         $I->click('submit');
         $I->see('You have forgotten to enter the comment text.');
-        $I->see('Invalid e-mail. Please enter the correct e-mail');
+        $I->see('Invalid e-mail. Please enter a valid address.');
         $I->see('You have forgotten to enter your name.');
 
         /**

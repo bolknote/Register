@@ -62,5 +62,6 @@ addressee explicitly.
 Reply links carry the parent in the query string as a no-JavaScript fallback. Progressive enhancement
 moves the same form below the selected comment and updates its hidden parent field. For authenticated
 participants, the header counter links to the first relevant unread comment. Site participants see
-new comments in their posts; other users see comments addressed to them or in discussions where they
-already participate.
+new comments in their posts; other users always see direct replies and see every new comment in a
+discussion only after selecting **Subscribe to new comments** there. The same subscription continues
+to control email delivery when the account has an email address.

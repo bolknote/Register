@@ -56,7 +56,6 @@ final class CommentThreadBuilderTest extends Unit
             'nick'       => $nick,
             'time'       => 1_700_000_000 + $id,
             'email'      => $nick . '@example.test',
-            'show_email' => 0,
             'good'       => 0,
             'text'       => $nick . ' text',
             'is_author'  => false,

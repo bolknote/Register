@@ -73,7 +73,6 @@ final class PublicAuthSchema
                 ->addInteger('parent_id', true, true, null)
                 ->addLongText('comment_text')
                 ->addString('visitor_id', 32, true, null)
-                ->addBoolean('show_email')
                 ->addBoolean('subscribed')
                 ->addBoolean('moderation_required')
                 ->addString('ip', 39)

@@ -611,8 +611,7 @@ final class TypographTest extends Unit
 	<p class="input email">
 		<label>Электронная почта:<br />
             <input type="text" name="email" value="" maxlength="50" size="40" /></label><br />
-		<label for="show_email" title=""><input type="checkbox" id="show_email" name="show_email" />Показывать адрес посетителям сайта</label><br />
-		<label for="subscribed" title="Комментарии других пользователей будут приходить вам по почте. Сможете отписаться, когда надоест."><input type="checkbox" id="subscribed" name="subscribed" />Подписаться на новые комментарии</label>
+		<label for="subscribed" title="Новые комментарии появятся в счётчике непрочитанных и придут по почте."><input type="checkbox" id="subscribed" name="subscribed" />Подписаться на новые комментарии</label>
 	</p>
 	<p class="input text">
 		<label>Комментарий:<br />

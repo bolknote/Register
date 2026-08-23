@@ -17,7 +17,7 @@ use Register\Core\Model\ExtensionCache;
 use Register\Core\Pdo\DbLayer;
 
 /**
- * Initializes a clean schema and applies only explicitly registered additive upgrades.
+ * Initializes a clean schema and applies only explicitly registered upgrades.
  * The same migration chain is used by the maintenance-mode release updater and by a manual
  * deployment that first reaches the normal application bootstrap.
  */
@@ -25,7 +25,7 @@ final readonly class SchemaManager
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_GENERATION';
 
-    public const int CURRENT_GENERATION = 19;
+    public const int CURRENT_GENERATION = 20;
 
     /** Oldest installed generation accepted by the release updater. */
     public const int MINIMUM_UPGRADE_GENERATION = 15;

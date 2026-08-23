@@ -71,7 +71,7 @@ final readonly class ContentCommentRenderer
         ;
         $commentRows = $this->dbLayer
             ->select(
-                'c.id, c.parent_id, c.user_id, c.nick, c.time, c.modify_time, c.email, c.show_email, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
+                'c.id, c.parent_id, c.user_id, c.nick, c.time, c.modify_time, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
                 '(' . $authorComment . ') AS is_author',
                 '(' . $moderatorLabel . ') AS moderator_label',
             )

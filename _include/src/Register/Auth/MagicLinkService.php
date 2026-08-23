@@ -59,7 +59,6 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
                 'content_id'          => $comment->targetId,
                 'parent_id'           => $comment->parentId,
                 'text'                => $comment->text,
-                'show_email'          => $comment->showEmail,
                 'subscribed'          => $comment->subscribed,
                 'ip'                  => $comment->ip,
                 'moderation_required' => $comment->moderationRequired,
@@ -118,7 +117,6 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
                 $targetId,
                 $name,
                 $email,
-                (bool)$row['show_email'],
                 (bool)$row['subscribed'],
                 $row['comment_text'],
                 (string)$row['ip'],
@@ -141,7 +139,7 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
         ];
     }
 
-    /** @param array{content_type?: string, content_id?: int|null, parent_id?: int|null, text?: string, show_email?: bool, subscribed?: bool, moderation_required?: bool, ip?: string}|null $pendingComment */
+    /** @param array{content_type?: string, content_id?: int|null, parent_id?: int|null, text?: string, subscribed?: bool, moderation_required?: bool, ip?: string}|null $pendingComment */
     private function request(
         Request $request,
         string $email,

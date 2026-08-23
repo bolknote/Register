@@ -408,17 +408,26 @@ final class PublicAuthCest
         $authRepository->ensureNotificationBaseline($userId);
 
         $ownedId = $this->insertContent($dbLayer, 'owned-notifications', $userId);
-        $participatedId = $this->insertContent($dbLayer, 'participated-notifications');
+        $subscribedId = $this->insertContent($dbLayer, 'subscribed-notifications');
+        $unsubscribedId = $this->insertContent($dbLayer, 'unsubscribed-notifications');
         $replyId = $this->insertContent($dbLayer, 'reply-notifications');
         $unrelatedId = $this->insertContent($dbLayer, 'unrelated-notifications');
 
         $ownedComment = $this->insertComment($dbLayer, $ownedId, 'Owned reader', 'owned@example.test');
-        $this->insertComment($dbLayer, $participatedId, 'Admin', $user->email, $userId);
-        $participatedComment = $this->insertComment(
+        $this->insertComment($dbLayer, $subscribedId, 'Before subscription', 'before@example.test');
+        $this->insertComment($dbLayer, $subscribedId, 'Admin', $user->email, $userId, subscribed: true);
+        $subscribedComment = $this->insertComment(
             $dbLayer,
-            $participatedId,
-            'Participant reply',
-            'participant@example.test',
+            $subscribedId,
+            'Subscribed discussion',
+            'subscribed@example.test',
+        );
+        $this->insertComment($dbLayer, $unsubscribedId, 'Admin', $user->email, $userId);
+        $this->insertComment(
+            $dbLayer,
+            $unsubscribedId,
+            'Unsubscribed discussion',
+            'unsubscribed@example.test',
         );
         $parentId = $this->insertComment($dbLayer, $replyId, 'Admin', $user->email, $userId);
         $replyComment = $this->insertComment(
@@ -435,9 +444,9 @@ final class PublicAuthCest
 
         $notifications->markContentRead($user, ContentId::page($ownedId));
         $I->assertSame(2, $notifications->countUnread($user));
-        $I->assertSame($participatedComment, $notifications->firstUnread($user)?->commentId);
+        $I->assertSame($subscribedComment, $notifications->firstUnread($user)?->commentId);
 
-        $notifications->markContentRead($user, ContentId::page($participatedId));
+        $notifications->markContentRead($user, ContentId::page($subscribedId));
         $I->assertSame(1, $notifications->countUnread($user));
         $I->assertSame($replyComment, $notifications->firstUnread($user)?->commentId);
     }
@@ -506,6 +515,7 @@ final class PublicAuthCest
         string $email,
         ?int $userId = null,
         ?int $parentId = null,
+        bool $subscribed = false,
     ): int {
         $dbLayer
             ->insert(CommentSchema::TABLE_NAME)
@@ -518,8 +528,7 @@ final class PublicAuthCest
             ->setValue('ip', "'127.0.0.1'")
             ->setValue('nick', ':nick')->setParameter('nick', $name)
             ->setValue('email', ':email')->setParameter('email', $email)
-            ->setValue('show_email', '0')
-            ->setValue('subscribed', '0')
+            ->setValue('subscribed', $subscribed ? '1' : '0')
             ->setValue('shown', '1')
             ->setValue('sent', '1')
             ->setValue('good', '0')

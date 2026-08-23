@@ -449,7 +449,7 @@ final class AiClientTest extends TestCase
             ]),
             new ArrayAdapter(),
             static function (string $method, string $url, array $headers, ?string $body, array $options) use (&$calls): HttpResponse {
-                $calls[] = compact('method', 'url', 'headers', 'body', 'options');
+                $calls[] = ['method' => $method, 'url' => $url, 'headers' => $headers, 'body' => $body, 'options' => $options];
 
                 return new HttpResponse(
                     statusCode: 200,

@@ -105,7 +105,10 @@ final readonly class CommentNotificationRepository
             . ' OR EXISTS (SELECT 1 FROM ' . $prefix . 'comments AS own_comment'
             . ' WHERE own_comment.content_type = c.content_type'
             . ' AND own_comment.content_id = c.content_id'
+            . ' AND own_comment.id < c.id'
+            . ' AND own_comment.shown = 1'
             . ' AND own_comment.deleted = 0'
+            . ' AND own_comment.subscribed = 1'
             . ' AND (own_comment.user_id = :participant_user_id'
             . " OR (own_comment.email <> '' AND LOWER(own_comment.email) = LOWER(:participant_email))))"
             . ')';

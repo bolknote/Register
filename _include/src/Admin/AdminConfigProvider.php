@@ -193,13 +193,6 @@ class AdminConfigProvider implements StatefulServiceInterface
                 viewTemplate: null,
             ))
             ->addField(new FieldConfig(
-                name: 'show_email',
-                label: $this->translator->trans('Show email'),
-                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
-                control: 'checkbox',
-                viewTemplate: null,
-            ))
-            ->addField(new FieldConfig(
                 name: 'subscribed',
                 label: $this->translator->trans('Subscribed to comments'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),

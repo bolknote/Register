@@ -50,8 +50,8 @@ All feature modules live under `Register\Module`; `_extensions` is reserved for 
 Some inherited page and administration infrastructure still lives in `S2\Cms` and moves only when a
 Register-owned replacement exists. All base schemas use the integer `REGISTER_SCHEMA_GENERATION`
 marker managed by [`SchemaManager`](../_include/src/Register/Schema/SchemaManager.php). A fresh
-installation creates generation 19. The registered additive migration chain accepts installed
-generations 15 through 18; older S2/Register data requires an explicit importer or a clean database.
+installation creates generation 20. The registered migration chain accepts installed generations 15
+through 19; older S2/Register data requires an explicit importer or a clean database.
 Manifest versions are transitional metadata and are not product schema state.
 
 The Visitor Identity module signs a random anonymous identifier and mirrors it into a cookie,

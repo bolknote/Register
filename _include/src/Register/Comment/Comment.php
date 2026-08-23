@@ -25,7 +25,6 @@ final readonly class Comment
         public string    $ip,
         public string    $name,
         public string    $email,
-        public bool      $showEmail,
         public bool      $subscribed,
         public bool      $shown,
         public bool      $deleted,
