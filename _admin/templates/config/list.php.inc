@@ -74,6 +74,23 @@ foreach ($rows as $row) {
                 <header class="config-section-header">
                     <h2><?= $escape($section['title']) ?></h2>
                 </header>
+                <?php if ($section['id'] === 'settings-ai-config'
+                    && array_filter(
+                        $section['rows'],
+                        static fn(array $row): bool => (bool)($row['config']['editable'] ?? false),
+                    ) !== []
+                ): ?>
+                    <p class="ai-availability-status"
+                       data-ai-availability
+                       data-endpoint="<?= $escape($basePath) ?>/_admin/ajax.php?action=register_ai_check"
+                       data-disabled-message="<?= $escape($trans('AI availability disabled')) ?>"
+                       data-checking-message="<?= $escape($trans('AI availability checking')) ?>"
+                       data-error-message="<?= $escape($trans('AI availability network error')) ?>"
+                       data-state="idle"
+                       role="status" aria-live="polite">
+                        <?= $escape($trans('AI availability waiting')) ?>
+                    </p>
+                <?php endif; ?>
                 <div class="config-setting-list">
                     <?php foreach ($section['rows'] as $row): ?>
                         <?php

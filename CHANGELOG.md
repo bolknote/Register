@@ -9,6 +9,8 @@ in-place publishing and a release package designed for ordinary shared hosting.
 
 - Public in-place creation, editing, deletion, dates, tags, media, captions, keyboard shortcuts,
   local draft recovery, and optional AI tools.
+- Empty excerpts and meta descriptions are completed on save with a local sentence-aware summary or
+  an opt-in AI pass; Settings automatically verifies the configured AI provider.
 - Partial page navigation, request-driven live updates, same-origin offline fallback, local search,
   reactions, rich comments, and accessible media players.
 - Public accounts through existing Register credentials, optional email links, VK ID, Mail.ru,

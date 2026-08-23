@@ -15,6 +15,7 @@ use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentId;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentPublicationScheduler;
+use Register\Content\PublicationMetadataGenerator;
 use Register\Content\Admin\ContentRevision;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSchema;
@@ -102,6 +103,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly ExtensionCache           $extensionCache,
         private readonly ContentChangeDispatcher  $contentChangeDispatcher,
         private readonly ContentPublicationScheduler $contentPublicationScheduler,
+        private readonly PublicationMetadataGenerator $publicationMetadataGenerator,
         private readonly CommentControllerFactory $commentControllerFactory,
         private readonly SpamMetricsRepository     $spamMetricsRepository,
         private readonly SecurityAuditLogger       $securityAuditLogger,
@@ -949,6 +951,16 @@ class AdminConfigProvider implements StatefulServiceInterface
                     $event->data['excerpt'] = \count($textParts) > 1 ? $textParts[0] : '';
                 }
 
+                $metadata = $this->publicationMetadataGenerator->complete(
+                    (string)$event->data['title'],
+                    (string)$event->data['body'],
+                    (string)$event->data['excerpt'],
+                    (string)$event->data['meta_description'],
+                    generateExcerpt: !$this->adminCut->get(),
+                );
+                $event->data['excerpt'] = $metadata->excerpt;
+                $event->data['meta_description'] = $metadata->metaDescription;
+
                 $articleId = $this->requirePrimaryKey($event->primaryKey)->getIntId();
                 $urlStatus = $this->contentSlugService->pageStatus($articleId, (string)$event->data['slug']);
                 if ((bool)$event->data['published'] && !\in_array($urlStatus, [ContentSlugService::STATUS_OK, ContentSlugService::STATUS_MAIN_PAGE], true)) {
@@ -959,7 +971,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 $revision = $this->contentRevisionService->resolve(
                     $event->data,
                     $oldData,
-                    ['body', 'title', 'slug', 'meta_keywords', 'meta_description', 'social_image', 'scheduled_at'],
+                    ['body', 'title', 'slug', 'excerpt', 'meta_keywords', 'meta_description', 'social_image', 'scheduled_at'],
                 );
                 if (!$revision instanceof ContentRevision) {
                     $event->errorMessages[] = $this->translator->trans('Outdated version');

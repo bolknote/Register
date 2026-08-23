@@ -5,6 +5,27 @@
     gap: 0.45rem;
 }
 
+.ai-availability-status {
+    margin: 0 0 0.9rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.45rem;
+    background: var(--admin-secondary-background);
+    color: var(--admin-secondary-text-color);
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.ai-availability-status[data-state="available"] {
+    border-color: color-mix(in srgb, var(--admin-success-color) 55%, var(--admin-soft-border-color));
+    color: var(--admin-success-color);
+}
+
+.ai-availability-status[data-state="unavailable"] {
+    border-color: color-mix(in srgb, var(--admin-error-color) 55%, var(--admin-soft-border-color));
+    color: var(--admin-error-color);
+}
+
 .oauth-callback-list {
     display: grid;
     gap: 0.45rem;

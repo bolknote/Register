@@ -42,6 +42,7 @@ use Register\Content\ContentDetailsRepository;
 use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentPublicationQueueHandler;
 use Register\Content\ContentRepository;
+use Register\Content\PublicationMetadataGenerator;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentStatisticsRepository;
@@ -151,6 +152,11 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $container->get(HttpClient::class),
             $container->get(AiSettings::class),
             $container->get('ai_token_cache'),
+        ));
+        $container->set(PublicationMetadataGenerator::class, static fn(Container $container): PublicationMetadataGenerator => new PublicationMetadataGenerator(
+            $container->get(AiClient::class),
+            $container->get(AiSettings::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
         ));
         $container->set(DatabaseSnapshotter::class, static fn(Container $container): DatabaseSnapshotter => new DatabaseSnapshotter(
             $container->get(\PDO::class),

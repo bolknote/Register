@@ -127,7 +127,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Podcast feed, artwork, and Apple metadata | Missing | No podcast subsystem. |
 | Synchronisation with the Blogs aggregator | Missing | No first-party integration. |
 | Dedicated social image / cover | Available | Posts and pages have a dedicated cover with first-body-image and site-wide fallbacks. |
-| SEO descriptions for site, tag, and item | Available | Site description, tag introductions, and per-item metadata feed standard, Open Graph, and Twitter descriptions. |
+| SEO descriptions for site, tag, and item | Available | Site description, tag introductions, and per-item metadata feed standard, Open Graph, and Twitter descriptions. Empty item descriptions are completed locally or, when explicitly enabled, through the configured AI provider. |
 | Telegram Instant View support | Missing | No first-party integration. |
 | Google Analytics and Yandex Metrica settings | Missing | No dedicated configuration fields. |
 | Arbitrary analytics | Partial | Can be added through a custom template or extension. |

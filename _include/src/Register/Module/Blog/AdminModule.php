@@ -51,6 +51,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(ContentUrlAliasRepository::class),
             $container->get(ContentChangeDispatcher::class),
             $container->get(ContentPublicationScheduler::class),
+            $container->get(\Register\Content\PublicationMetadataGenerator::class),
             $container->getStringParameter('db_type'),
             $container->getStringParameter('db_prefix'),
         ), [AdminConfigExtenderInterface::class]);

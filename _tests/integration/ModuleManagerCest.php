@@ -318,6 +318,13 @@ final class ModuleManagerCest
             ->execute()
             ->result();
         $I->assertSame('0', $autoAlt);
+        $autoMetadata = $dbLayer
+            ->select('value')
+            ->from('config')
+            ->where('name = :name')->setParameter('name', AiSettings::AUTO_METADATA_CONFIG_KEY)
+            ->execute()
+            ->result();
+        $I->assertSame('0', $autoMetadata);
         $I->assertSame('custom value', $customSetting);
         $I->assertSame($expectedSettings, $dbLayer
             ->select('name, value')

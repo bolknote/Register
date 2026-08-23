@@ -13,6 +13,7 @@ use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentPublicationScheduler;
+use Register\Content\PublicationMetadataGenerator;
 use Register\Content\Admin\ContentRevision;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentSchema;
@@ -62,6 +63,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private ContentUrlAliasRepository $contentUrlAliases,
         private ContentChangeDispatcher  $contentChangeDispatcher,
         private ContentPublicationScheduler $contentPublicationScheduler,
+        private PublicationMetadataGenerator $publicationMetadataGenerator,
         private string                   $dbType,
         private string                   $dbPrefix
     ) {
@@ -105,8 +107,11 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ))
             ->addField(new FieldConfig(
                 name: 'excerpt',
+                label: $this->translator->trans('Excerpt'),
+                hint: $this->translator->trans('Excerpt help'),
                 type: new DbColumnFieldType(defaultValue: ''),
-                useOnActions: [],
+                control: 'input',
+                useOnActions: [FieldConfig::ACTION_NEW, FieldConfig::ACTION_EDIT],
             ))
             ->addField(new FieldConfig(
                 name: 'title',
@@ -308,6 +313,16 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ->addListener(EntityConfig::EVENT_BEFORE_CREATE, function (BeforeSaveEvent $event): void {
                 $event->data['slug'] = $this->contentSlugService->generatePost((string)$event->data['title']);
             })
+            ->addListener([EntityConfig::EVENT_BEFORE_CREATE, EntityConfig::EVENT_BEFORE_UPDATE], function (BeforeSaveEvent $event): void {
+                $metadata = $this->publicationMetadataGenerator->complete(
+                    (string)$event->data['title'],
+                    (string)$event->data['body'],
+                    (string)$event->data['excerpt'],
+                    (string)$event->data['meta_description'],
+                );
+                $event->data['excerpt'] = $metadata->excerpt;
+                $event->data['meta_description'] = $metadata->metaDescription;
+            })
             ->addListener(EntityConfig::EVENT_BEFORE_EDIT_RENDER, function (BeforeRenderEvent $event): void {
                 if (!\is_array($event->data)) {
                     throw new \LogicException('Blog post render data must be an array.');
@@ -352,7 +367,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 $revision = $this->contentRevisionService->resolve(
                     $event->data,
                     $oldData,
-                    ['body', 'title', 'slug', 'date_label', 'meta_keywords', 'meta_description', 'social_image', 'scheduled_at'],
+                    ['body', 'title', 'slug', 'excerpt', 'date_label', 'meta_keywords', 'meta_description', 'social_image', 'scheduled_at'],
                 );
                 if (!$revision instanceof ContentRevision) {
                     $event->errorMessages[] = $this->translator->trans('Outdated version');

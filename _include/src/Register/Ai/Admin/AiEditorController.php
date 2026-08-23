@@ -27,6 +27,15 @@ final readonly class AiEditorController
 {
     private const int MAX_TEXT_LENGTH = 60000;
 
+    private const array AVAILABILITY_CONFIG_KEYS = [
+        AiSettings::PROVIDER_CONFIG_KEY,
+        AiSettings::API_KEY_CONFIG_KEY,
+        AiSettings::MODEL_CONFIG_KEY,
+        AiSettings::FOLDER_ID_CONFIG_KEY,
+        AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY,
+        AiSettings::GIGACHAT_SCOPE_CONFIG_KEY,
+    ];
+
     public function __construct(
         private AiClient                $aiClient,
         private AiSettings              $settings,
@@ -101,6 +110,67 @@ final readonly class AiEditorController
         }
     }
 
+    public function checkAvailability(PermissionChecker $permissionChecker, Request $request): JsonResponse
+    {
+        if (!$this->mutationGuard->isPost($request)) {
+            return $this->error('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
+        }
+
+        if (!$permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS)) {
+            return $this->error($this->translator->trans('No permission'), Response::HTTP_FORBIDDEN);
+        }
+
+        $configKey = $request->request->getString('config_key');
+        if (!\in_array($configKey, self::AVAILABILITY_CONFIG_KEYS, true)
+            || !$this->mutationGuard->hasValidCsrfToken(
+                $request,
+                $this->configCsrfToken($configKey),
+                '__csrf_token',
+            )
+        ) {
+            return $this->error($this->translator->trans('Invalid AI security token'), Response::HTTP_FORBIDDEN);
+        }
+
+        if ($this->settings->provider() === AiSettings::PROVIDER_DISABLED) {
+            return new JsonResponse([
+                'success' => true,
+                'status'  => 'disabled',
+                'message' => $this->translator->trans('AI availability disabled'),
+            ]);
+        }
+
+        if (!$this->settings->isConfigured()) {
+            return new JsonResponse([
+                'success' => true,
+                'status'  => 'incomplete',
+                'message' => $this->translator->trans('AI availability incomplete'),
+            ]);
+        }
+
+        try {
+            $this->aiClient->checkAvailability();
+        } catch (AiException $exception) {
+            return new JsonResponse([
+                'success' => false,
+                'status'  => 'unavailable',
+                'message' => sprintf(
+                    $this->translator->trans('AI availability unavailable'),
+                    $exception->getMessage(),
+                ),
+            ], Response::HTTP_BAD_GATEWAY);
+        }
+
+        return new JsonResponse([
+            'success' => true,
+            'status'  => 'available',
+            'message' => sprintf(
+                $this->translator->trans('AI availability available'),
+                $this->settings->provider(),
+                $this->settings->model(),
+            ),
+        ]);
+    }
+
     private function requestError(PermissionChecker $permissionChecker, Request $request): ?JsonResponse
     {
         if (!$this->mutationGuard->isPost($request)) {
@@ -147,6 +217,17 @@ final readonly class AiEditorController
             $this->settingStorage,
             $formAction,
             $primaryKey,
+        ))->getCsrfToken();
+    }
+
+    private function configCsrfToken(string $configKey): string
+    {
+        return (new FormParams(
+            'Config',
+            ['value' => new FieldConfig('value')],
+            $this->settingStorage,
+            'patch',
+            ['name' => $configKey],
         ))->getCsrfToken();
     }
 

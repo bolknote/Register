@@ -40,6 +40,14 @@ final class AiClientTest extends TestCase
         yield 'Unknown custom model' => [AiSettings::PROVIDER_OPENROUTER, 'vendor/text-model', false];
     }
 
+    public function testAutomaticMetadataRemainsOptInWhenSettingIsMissing(): void
+    {
+        $settings = new AiSettings(new DynamicConfigProvider());
+
+        self::assertFalse($settings->autoMetadataEnabled());
+        self::assertTrue($settings->autoAltEnabled());
+    }
+
     public function testGeminiImageAltUsesInlineImageAndNormalizesResponse(): void
     {
         $calls = [];
@@ -424,6 +432,39 @@ final class AiClientTest extends TestCase
         $chatBody = json_decode((string)$calls[2]['body'], true, 512, JSON_THROW_ON_ERROR);
         self::assertSame(['file-123'], $chatBody['messages'][0]['attachments']);
         self::assertSame('https://api.giga.chat/v1/files/file-123/delete', $calls[3]['url']);
+    }
+
+    public function testAvailabilityCheckUsesSmallRequestAndCachesSuccess(): void
+    {
+        $calls = [];
+        $client = new AiClient(
+            new HttpClient(),
+            $this->settings([
+                AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_OPENROUTER,
+                AiSettings::API_KEY_CONFIG_KEY => 'provider-secret',
+                AiSettings::MODEL_CONFIG_KEY => '',
+                AiSettings::FOLDER_ID_CONFIG_KEY => '',
+                AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
+                AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
+            ]),
+            new ArrayAdapter(),
+            static function (string $method, string $url, array $headers, ?string $body, array $options) use (&$calls): HttpResponse {
+                $calls[] = compact('method', 'url', 'headers', 'body', 'options');
+
+                return new HttpResponse(
+                    statusCode: 200,
+                    content: '{"choices":[{"message":{"content":"OK"}}]}',
+                );
+            },
+        );
+
+        $client->checkAvailability();
+        $client->checkAvailability();
+
+        self::assertCount(1, $calls);
+        $request = json_decode((string)$calls[0]['body'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(16, $request['max_tokens']);
+        self::assertSame('This is a connection check. Reply with the single word OK.', $request['messages'][0]['content']);
     }
 
     /** @param array<string, string> $values */

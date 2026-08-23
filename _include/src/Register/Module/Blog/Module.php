@@ -216,6 +216,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(PostProvider::class),
             $container->get(\Register\Ai\AiClient::class),
             $container->get(\Register\Ai\AiSettings::class),
+            $container->get(\Register\Content\PublicationMetadataGenerator::class),
             $container->get('register_blog_translator'),
             ...$container->getByTag(ContentDeletionGuardInterface::class),
         ));

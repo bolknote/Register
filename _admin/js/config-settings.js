@@ -21,6 +21,74 @@ document.addEventListener('DOMContentLoaded', function () {
         return control.value;
     }
 
+    const aiAvailability = page.querySelector('[data-ai-availability]');
+    const aiAvailabilityKeys = new Set([
+        'REGISTER_AI_PROVIDER',
+        'REGISTER_AI_API_KEY',
+        'REGISTER_AI_MODEL',
+        'REGISTER_AI_FOLDER_ID',
+        'REGISTER_AI_CLOUDFLARE_ACCOUNT_ID',
+        'REGISTER_AI_GIGACHAT_SCOPE'
+    ]);
+    let availabilityRequest = null;
+
+    function setAiAvailability(state, message) {
+        if (!aiAvailability) {
+            return;
+        }
+        aiAvailability.dataset.state = state;
+        aiAvailability.textContent = message;
+    }
+
+    async function checkAiAvailability(configKey) {
+        if (!aiAvailability) {
+            return;
+        }
+        if (controlValue('REGISTER_AI_PROVIDER') === 'disabled') {
+            availabilityRequest?.abort();
+            setAiAvailability('disabled', aiAvailability.dataset.disabledMessage || '');
+            return;
+        }
+
+        const setting = Array.from(page.querySelectorAll('.config-setting[data-config-key]')).find(function (candidate) {
+            return candidate.dataset.configKey === configKey;
+        });
+        const form = setting?.querySelector('form[data-config-key]');
+        const csrfToken = form?.querySelector('input[name="__csrf_token"]');
+        if (!(form instanceof HTMLFormElement) || !(csrfToken instanceof HTMLInputElement)) {
+            return;
+        }
+
+        availabilityRequest?.abort();
+        availabilityRequest = new AbortController();
+        setAiAvailability('checking', aiAvailability.dataset.checkingMessage || '');
+        const data = new FormData();
+        data.set('config_key', configKey);
+        data.set('__csrf_token', csrfToken.value);
+        try {
+            const response = await fetch(aiAvailability.dataset.endpoint || '', {
+                method: 'POST',
+                body: data,
+                signal: availabilityRequest.signal
+            });
+            const responseData = await response.json().catch(function () {
+                return {};
+            });
+            setAiAvailability(
+                typeof responseData.status === 'string' ? responseData.status : 'unavailable',
+                typeof responseData.message === 'string'
+                    ? responseData.message
+                    : (aiAvailability.dataset.errorMessage || '')
+            );
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                return;
+            }
+            console.warn('Unable to check AI availability:', error);
+            setAiAvailability('unavailable', aiAvailability.dataset.errorMessage || '');
+        }
+    }
+
     function updateDependencies() {
         page.querySelectorAll('.config-setting[data-depends-on]').forEach(function (setting) {
             const allowedValues = (setting.dataset.dependsValues || '').split(/\s+/).filter(Boolean);
@@ -56,7 +124,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
     page.addEventListener('register:config-state', updatePageState);
-    page.addEventListener('register:config-saved', updateDependencies);
+    page.addEventListener('register:config-saved', function (event) {
+        updateDependencies();
+        const key = event.detail?.key || '';
+        if (aiAvailabilityKeys.has(key)) {
+            checkAiAvailability(key);
+        }
+    });
     page.addEventListener('click', async function (event) {
         const button = event.target instanceof Element
             ? event.target.closest('[data-copy-oauth-callback]')
@@ -81,4 +155,5 @@ document.addEventListener('DOMContentLoaded', function () {
 
     updateDependencies();
     updatePageState();
+    checkAiAvailability('REGISTER_AI_PROVIDER');
 });

@@ -64,17 +64,21 @@ never starts a process or calls the potentially blocking libc resolver.
 - With a vision-capable model, uploaded images receive concise alt text automatically. The setting is
   on by default when available, can be switched off manually, and generated alt text can be edited,
   regenerated, undone, or redone directly in the editor.
+- Empty excerpts and meta descriptions are completed automatically without overwriting editorial
+  text. A sentence-aware local summary is always available; an opt-in setting uses the configured AI
+  provider first and falls back locally if that request fails.
 - Tag entry with reusable suggestions, keyboard navigation, deduplication, and selected tags rendered
   as removable tokens instead of a comma-filled text box.
 - Image, audio, and video uploads, thumbnails, clipboard image insertion, tracked media usage, a live
   media preview, and editable captions placed over images.
 - Multiple users with separate author, moderator, editor, and administrator permissions.
 
-AI support is disabled by default. Provider availability, free quotas, billing, and usage limits are
-governed by each external service rather than by Register. Settings contains provider-specific setup
-steps, including the Cloudflare Account ID, the Yandex Cloud folder ID, and the GigaChat access scope
-and certificate guide. When its Model field is empty, OpenRouter uses the free-model router, Mistral
-uses `mistral-small-latest`, and Cloudflare uses a multilingual Workers AI model.
+AI support is disabled by default. Register automatically checks a configured provider from Settings;
+free quotas, billing, and usage limits are governed by each external service. Settings contains
+provider-specific setup steps, including the Cloudflare Account ID, the Yandex Cloud folder ID, and
+the GigaChat access scope and certificate guide. When its Model field is empty, OpenRouter uses the
+free-model router, Mistral uses `mistral-small-latest`, and Cloudflare uses a multilingual Workers AI
+model.
 
 ### Reading and discovery
 

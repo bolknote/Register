@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Ai\AiSettings;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Admin\AdminAjaxRequestHandler;
@@ -389,7 +390,7 @@ class AdminCest
         $I->see('AI assistant', '.config-section');
         $I->seeElement('nav.config-section-nav[aria-label="Settings sections"]');
         $I->seeElement('[data-config-page-state][data-state="applied"]');
-        $I->assertCount(37, $I->grabMultiple('.config-setting label[for]'));
+        $I->assertCount(38, $I->grabMultiple('.config-setting label[for]'));
         $I->seeElement('[data-config-key="REGISTER_SITE_NAME"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_SITE_TAGLINE"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_SOCIAL_IMAGE"] input[name="value"]');
@@ -410,6 +411,8 @@ class AdminCest
         $I->seeElement('[data-config-key="REGISTER_AI_CLOUDFLARE_ACCOUNT_ID"][data-depends-values="cloudflare"]');
         $I->seeElement('[data-config-key="REGISTER_AI_GIGACHAT_SCOPE"][data-depends-values="gigachat"]');
         $I->seeElement('form[action*="name=REGISTER_AI_AUTO_ALT"] input[type="checkbox"]');
+        $I->seeElement('form[action*="name=REGISTER_AI_AUTO_METADATA"] input[type="checkbox"]');
+        $I->seeElement('[data-ai-availability][data-endpoint$="action=register_ai_check"]');
         $I->seeElement('button[data-ai-key-help-open]');
         $I->seeElement('form[action*="name=REGISTER_AI_API_KEY"] input[type="password"]');
         $I->seeElement('dialog#ai-key-help-dialog');
@@ -422,6 +425,14 @@ class AdminCest
         $I->seeElement('[data-ai-key-help-panel="gigachat"] a[href="https://developers.sber.ru/studio/"]');
         $I->seeElement('[data-ai-key-help-panel="gigachat"] a[href="https://developers.sber.ru/docs/ru/gigachat/certificates"]');
         $I->dontSee('REGISTER_LINK_INVENTORY_GENERATION');
+
+        $providerForm = 'form[action*="name=REGISTER_AI_PROVIDER"]';
+        $I->sendAjaxPostRequest('https://localhost/_admin/ajax.php?action=register_ai_check', [
+            'config_key'  => AiSettings::PROVIDER_CONFIG_KEY,
+            '__csrf_token' => $I->grabValueFrom($providerForm . ' input[name="__csrf_token"]'),
+        ]);
+        $I->seeResponseCodeIs(200);
+        $I->assertSame('disabled', $I->grabJson()['status'] ?? null);
     }
 
     public function testNavigationRemainsCoherentForIndependentPermissions(\IntegrationTester $I): void
@@ -714,6 +725,7 @@ class AdminCest
         $I->seeElement('.editor-main-column > .editor-tags-block:last-child');
         $I->seeElement('.editor-tags-block input[name="tags"][placeholder="Tags"]');
         $I->seeElement('input[name="meta_description"]');
+        $I->seeElement('input[name="excerpt"]');
         $I->seeElement('input[name="social_image"]');
         $I->seeElement('[data-social-preview]');
         $I->seeElement('label[for="id-body"]');
@@ -746,6 +758,7 @@ class AdminCest
         $I->assertSame('Editorial editor draft', $I->grabValueFrom('input[name="title"]'));
         $I->assertSame('register, admin', $I->grabValueFrom('input[name="tags"]'));
         $I->assertSame('Editorial social description', $I->grabValueFrom('input[name="meta_description"]'));
+        $I->assertSame('Created through the shared editor.', $I->grabValueFrom('input[name="excerpt"]'));
         $I->assertSame('/_pictures/editorial-social-card.jpg', $I->grabValueFrom('input[name="social_image"]'));
         $I->seeElement('section.post-edit-content.is-edit');
     }

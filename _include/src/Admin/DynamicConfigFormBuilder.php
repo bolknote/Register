@@ -77,6 +77,7 @@ class DynamicConfigFormBuilder
         AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => 'gigachat_scope',
         AiSettings::MODEL_CONFIG_KEY        => 'string',
         AiSettings::AUTO_ALT_CONFIG_KEY     => 'boolean',
+        AiSettings::AUTO_METADATA_CONFIG_KEY => 'boolean',
 
         'Authentication config'                         => 'title',
         PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY    => 'boolean',
@@ -438,7 +439,8 @@ class DynamicConfigFormBuilder
         return match ($paramName) {
             AiSettings::API_KEY_CONFIG_KEY,
             AiSettings::MODEL_CONFIG_KEY,
-            AiSettings::AUTO_ALT_CONFIG_KEY => [
+            AiSettings::AUTO_ALT_CONFIG_KEY,
+            AiSettings::AUTO_METADATA_CONFIG_KEY => [
                 'key'    => AiSettings::PROVIDER_CONFIG_KEY,
                 'values' => [
                     AiSettings::PROVIDER_GEMINI,

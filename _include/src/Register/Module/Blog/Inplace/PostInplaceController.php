@@ -19,6 +19,7 @@ use Register\Content\ContentDeletionGuardInterface;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Content\PublicationMetadataGenerator;
 use Register\Content\TagRepository;
 use Register\Live\LiveFragmentRenderer;
 use Register\Module\Blog\BlogUrlBuilder;
@@ -77,6 +78,7 @@ final readonly class PostInplaceController implements ControllerInterface
         private PostProvider                $postProvider,
         private AiClient                   $aiClient,
         private AiSettings                 $aiSettings,
+        private PublicationMetadataGenerator $publicationMetadataGenerator,
         private TranslatorInterface        $translator,
         ContentDeletionGuardInterface ...$deletionGuards,
     ) {
@@ -96,7 +98,7 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $post = $this->dbLayer
-            ->select('id, author_id, revision, title, body, slug, published_at, date_label')
+            ->select('id, author_id, revision, title, excerpt, body, meta_description, slug, published_at, date_label')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $postId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
@@ -461,22 +463,33 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $metadata = $this->publicationMetadataGenerator->complete(
+            $title,
+            $body,
+            (string)$post['excerpt'],
+            (string)$post['meta_description'],
+        );
+
         $revision = $this->revisionService->resolve(
             [
                 'title'    => $title,
+                'excerpt'  => $metadata->excerpt,
                 'body'     => $body,
+                'meta_description' => $metadata->metaDescription,
                 'tags'     => $tagNames,
                 'published_at' => $publishedAt,
                 'revision' => $submittedRevision,
             ],
             [
                 'column_title'    => (string)$post['title'],
+                'column_excerpt'  => (string)$post['excerpt'],
                 'column_body'     => (string)$post['body'],
+                'column_meta_description' => (string)$post['meta_description'],
                 'column_tags'     => $storedTagNames,
                 'column_published_at' => (int)$post['published_at'],
                 'column_revision' => (int)$post['revision'],
             ],
-            ['title', 'body', 'tags', 'published_at'],
+            ['title', 'excerpt', 'body', 'meta_description', 'tags', 'published_at'],
         );
         if (!$revision instanceof \Register\Content\Admin\ContentRevision) {
             return $this->error($request, 'Post has changed in another window', Response::HTTP_CONFLICT);
@@ -486,11 +499,13 @@ final readonly class PostInplaceController implements ControllerInterface
         $dateChanged = $publishedAt !== (int)$post['published_at'];
         $orphanMedia = [];
         if ($revision->contentChanged) {
-            $updated = $this->transactional(function () use ($request, $contentId, $postId, $title, $body, $publishedAt, $dateChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia): bool {
+            $updated = $this->transactional(function () use ($request, $contentId, $postId, $title, $metadata, $body, $publishedAt, $dateChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia): bool {
                 $update = $this->dbLayer
                     ->update(ContentSchema::TABLE_NAME)
                     ->set('title', ':title')->setParameter('title', $title)
+                    ->set('excerpt', ':excerpt')->setParameter('excerpt', $metadata->excerpt)
                     ->set('body', ':body')->setParameter('body', $body)
+                    ->set('meta_description', ':meta_description')->setParameter('meta_description', $metadata->metaDescription)
                     ->set('updated_at', ':updated_at')->setParameter('updated_at', time())
                     ->set('revision', ':new_revision')->setParameter('new_revision', (int)$revision->value)
                     ->where('id = :id')->setParameter('id', $postId)
@@ -593,10 +608,12 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $metadata = $this->publicationMetadataGenerator->complete($title, $body);
+
         $postId      = 0;
         $slug        = '';
         $orphanMedia = [];
-        $created = $this->transactional(function () use ($request, $editor, $title, $body, $publishedAt, $tagNames, &$postId, &$slug, &$orphanMedia): bool {
+        $created = $this->transactional(function () use ($request, $editor, $title, $metadata, $body, $publishedAt, $tagNames, &$postId, &$slug, &$orphanMedia): bool {
             $now  = time();
             $slug = $this->contentSlugService->generatePost($title);
             $this->dbLayer
@@ -606,8 +623,9 @@ final readonly class PostInplaceController implements ControllerInterface
                     'slug_scope'       => "'root'",
                     'slug'             => ':slug',
                     'title'            => ':title',
-                    'excerpt'          => "''",
+                    'excerpt'          => ':excerpt',
                     'body'             => ':body',
+                    'meta_description' => ':meta_description',
                     'created_at'       => ':created_at',
                     'published_at'     => ':published_at',
                     'updated_at'       => ':updated_at',
@@ -620,7 +638,9 @@ final readonly class PostInplaceController implements ControllerInterface
                     'content_type' => ContentType::POST->value,
                     'slug'         => $slug,
                     'title'        => $title,
+                    'excerpt'      => $metadata->excerpt,
                     'body'         => $body,
+                    'meta_description' => $metadata->metaDescription,
                     'created_at'   => $now,
                     'published_at' => $publishedAt,
                     'updated_at'   => $now,

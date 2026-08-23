@@ -232,6 +232,7 @@ class AdminExtension implements ExtensionInterface
                 $container->get(ExtensionCache::class),
                 $container->get(ContentChangeDispatcher::class),
                 $container->get(\Register\Content\ContentPublicationScheduler::class),
+                $container->get(\Register\Content\PublicationMetadataGenerator::class),
                 $container->get(CommentControllerFactory::class),
                 $container->get(\Register\Core\Comment\Antispam\SpamMetricsRepository::class),
                 $container->get(SecurityAuditLogger::class),
@@ -598,6 +599,9 @@ class AdminExtension implements ExtensionInterface
             $event->controllerMap['register_ai_generate_alt'] = static fn(PermissionChecker $permissionChecker, Request $request): \Symfony\Component\HttpFoundation\JsonResponse => $container
                 ->get(AiEditorController::class)
                 ->generateAlt($permissionChecker, $request);
+            $event->controllerMap['register_ai_check'] = static fn(PermissionChecker $permissionChecker, Request $request): \Symfony\Component\HttpFoundation\JsonResponse => $container
+                ->get(AiEditorController::class)
+                ->checkAvailability($permissionChecker, $request);
             $event->controllerMap['register_backup_create'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
                 ->get(BackupAdminController::class)
                 ->create($request);

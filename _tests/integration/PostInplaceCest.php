@@ -417,7 +417,7 @@ final class PostInplaceCest
 
         $postId = (int)$payload['id'];
         $stored = $dbLayer
-            ->select('author_id, title, body, published_at, revision')
+            ->select('author_id, title, excerpt, body, meta_description, published_at, revision')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $postId)
             ->execute()
@@ -426,7 +426,9 @@ final class PostInplaceCest
         $I->assertIsArray($stored);
         $I->assertSame($authorId, (int)$stored['author_id']);
         $I->assertSame('Created on the public page', $stored['title']);
+        $I->assertSame('Created directly in the feed.', $stored['excerpt']);
         $I->assertSame('<p>Created directly in the feed.</p>', $stored['body']);
+        $I->assertSame('Created directly in the feed.', $stored['meta_description']);
         $I->assertSame($publishedAt, (int)$stored['published_at']);
         $I->assertSame(1, (int)$stored['revision']);
 
@@ -502,7 +504,7 @@ final class PostInplaceCest
             ]);
             $I->seeResponseCodeIs(Response::HTTP_OK);
             $unchanged = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
-            $I->assertSame(1, $unchanged['revision']);
+            $I->assertSame(2, $unchanged['revision']);
             $I->assertFileDoesNotExist($discardedFile);
             $I->assertSame(0, (int)$dbLayer
                 ->select('COUNT(*)')
@@ -573,7 +575,7 @@ final class PostInplaceCest
             $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
                 'inplace_action'     => 'edit',
                 'inplace_token'      => $token,
-                'revision'           => '1',
+                'revision'           => '2',
                 'title'              => 'Tracked media post',
                 'body'               => $body,
                 'tags'               => '',
@@ -655,7 +657,7 @@ final class PostInplaceCest
             $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
                 'inplace_action' => 'edit',
                 'inplace_token'  => $token,
-                'revision'       => '2',
+                'revision'       => '3',
                 'title'          => 'Tracked media post',
                 'body'           => '<p>The image has been removed.</p>',
                 'tags'           => '',

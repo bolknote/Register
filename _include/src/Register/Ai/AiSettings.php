@@ -27,6 +27,8 @@ final readonly class AiSettings
 
     public const string AUTO_ALT_CONFIG_KEY = 'REGISTER_AI_AUTO_ALT';
 
+    public const string AUTO_METADATA_CONFIG_KEY = 'REGISTER_AI_AUTO_METADATA';
+
     public const string PROVIDER_DISABLED = 'disabled';
 
     public const string PROVIDER_GEMINI = 'gemini';
@@ -87,19 +89,16 @@ final readonly class AiSettings
 
     public function autoAltEnabled(): bool
     {
-        try {
-            $value = $this->configProvider->get(self::AUTO_ALT_CONFIG_KEY);
-        } catch (\LogicException) {
-            // Older installations are upgraded by SchemaManager. Keeping the fallback enabled
-            // also makes the feature safe during the short interval before that upgrade runs.
-            return true;
-        }
+        // Older installations are upgraded by SchemaManager. Keeping the fallback enabled
+        // also makes the feature safe during the short interval before that upgrade runs.
+        return $this->booleanSetting(self::AUTO_ALT_CONFIG_KEY, true);
+    }
 
-        if (\is_bool($value)) {
-            return $value;
-        }
-
-        return \in_array(strtolower(trim((string)$value)), ['1', 'true', 'yes', 'on'], true);
+    public function autoMetadataEnabled(): bool
+    {
+        // Text must not be sent to an external provider merely because an older installation
+        // has not reached the config-default bootstrap yet.
+        return $this->booleanSetting(self::AUTO_METADATA_CONFIG_KEY, false);
     }
 
     public function supportsImageInput(): bool
@@ -173,6 +172,21 @@ final readonly class AiSettings
     public static function defaultModelForProvider(string $provider): string
     {
         return self::DEFAULT_MODELS[$provider] ?? '';
+    }
+
+    private function booleanSetting(string $name, bool $fallback): bool
+    {
+        try {
+            $value = $this->configProvider->get($name);
+        } catch (\LogicException) {
+            return $fallback;
+        }
+
+        if (\is_bool($value)) {
+            return $value;
+        }
+
+        return \in_array(strtolower(trim((string)$value)), ['1', 'true', 'yes', 'on'], true);
     }
 
     /**
