@@ -24,6 +24,24 @@ $statusCount = static fn(LinkHealthStatus $value): int => $summary['statuses'][$
 $filterUrl = static fn(?LinkHealthStatus $value, int $targetPage = 1): string => '?entity=LinkHealth'
     . ($value instanceof LinkHealthStatus ? '&status=' . rawurlencode($value->value) : '')
     . ($targetPage > 1 ? '&page=' . $targetPage : '');
+
+$visiblePages = [1, $pageCount];
+for ($pageNumber = max(1, $page - 2); $pageNumber <= min($pageCount, $page + 2); ++$pageNumber) {
+    $visiblePages[] = $pageNumber;
+}
+$visiblePages = array_values(array_unique($visiblePages));
+sort($visiblePages);
+
+/** @var list<int|null> $paginationItems */
+$paginationItems = [];
+$previousVisiblePage = null;
+foreach ($visiblePages as $visiblePage) {
+    if ($previousVisiblePage !== null && $visiblePage > $previousVisiblePage + 1) {
+        $paginationItems[] = null;
+    }
+    $paginationItems[] = $visiblePage;
+    $previousVisiblePage = $visiblePage;
+}
 ?>
 <section class="link-health-admin"
          data-link-health-admin
@@ -156,10 +174,24 @@ $filterUrl = static fn(?LinkHealthStatus $value, int $targetPage = 1): string =>
     <?php endif; ?>
 
     <?php if ($pageCount > 1): ?>
-        <nav class="link-health-pagination" aria-label="Pagination">
-            <?php for ($pageNumber = 1; $pageNumber <= $pageCount; ++$pageNumber): ?>
-                <a href="<?= $filterUrl($status, $pageNumber) ?>"<?= $pageNumber === $page ? ' aria-current="page"' : '' ?>><?= $pageNumber ?></a>
-            <?php endfor; ?>
+        <nav class="link-health-pagination" aria-label="<?= $html($trans('Link pagination')) ?>">
+            <?php if ($page > 1): ?>
+                <a class="link-health-pagination-arrow" href="<?= $html($filterUrl($status, $page - 1)) ?>"
+                   rel="prev" aria-label="<?= $html($trans('Link previous page')) ?>">←</a>
+            <?php endif; ?>
+            <?php foreach ($paginationItems as $pageNumber): ?>
+                <?php if ($pageNumber === null): ?>
+                    <span class="link-health-pagination-ellipsis" aria-hidden="true">…</span>
+                <?php elseif ($pageNumber === $page): ?>
+                    <strong class="link-health-pagination-current" aria-current="page"><?= $pageNumber ?></strong>
+                <?php else: ?>
+                    <a class="link-health-pagination-page" href="<?= $html($filterUrl($status, $pageNumber)) ?>"><?= $pageNumber ?></a>
+                <?php endif; ?>
+            <?php endforeach; ?>
+            <?php if ($page < $pageCount): ?>
+                <a class="link-health-pagination-arrow" href="<?= $html($filterUrl($status, $page + 1)) ?>"
+                   rel="next" aria-label="<?= $html($trans('Link next page')) ?>">→</a>
+            <?php endif; ?>
         </nav>
     <?php endif; ?>
 </section>

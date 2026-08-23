@@ -3689,9 +3689,11 @@ body.login_page {
 }
 
 .link-health-filters a,
-.link-health-pagination a {
+.link-health-pagination a,
+.link-health-pagination-current {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.4rem;
     padding: 0.4rem 0.65rem;
     border: 1px solid var(--admin-soft-border-color);
@@ -3705,13 +3707,13 @@ body.login_page {
 .link-health-filters a:hover,
 .link-health-filters a[aria-current="page"],
 .link-health-pagination a:hover,
-.link-health-pagination a[aria-current="page"] {
+.link-health-pagination-current {
     border-color: var(--admin-accent-color);
     color: var(--admin-text-color);
 }
 
 .link-health-filters a[aria-current="page"],
-.link-health-pagination a[aria-current="page"] {
+.link-health-pagination-current {
     background: color-mix(in srgb, var(--admin-accent-color) 9%, var(--admin-surface-background));
 }
 
@@ -3833,8 +3835,34 @@ body.login_page {
 
 .link-health-pagination {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    margin-top: 1rem;
+}
+
+.link-health-pagination a,
+.link-health-pagination-current {
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    box-sizing: border-box;
+}
+
+.link-health-pagination-current {
+    font-weight: 700;
+}
+
+.link-health-pagination-ellipsis {
+    display: inline-flex;
+    min-width: 1.25rem;
+    min-height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    color: var(--admin-quiet-color);
+}
+
+.link-health-pagination-arrow {
+    font-size: 1.05rem !important;
 }
 
 @media (max-width: 860px) {
