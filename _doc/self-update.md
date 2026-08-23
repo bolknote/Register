@@ -1,8 +1,10 @@
 # Release builds and control-panel updates
 
 Register publishes an `edge` prerelease after every successful push to `main`. The release workflow
-waits for unit, SQLite, MySQL/MariaDB, and PostgreSQL workflows for the exact commit. One GitHub
-prerelease then contains the same production build in three compression formats:
+waits for Quality, Security analysis, Unit tests, SQLite, MySQL/MariaDB, and PostgreSQL workflows for
+the exact commit. A failed or missing required workflow fails the release gate rather than producing
+a green no-op run. One GitHub prerelease then contains the same production build in three compression
+formats:
 
 - `register-<UTC date-time>-<commit>.zip`;
 - `register-<UTC date-time>-<commit>.tar.gz`;
@@ -23,8 +25,8 @@ three separate releases.
 The browser updater requires the split shared-hosting layout: `register-app` and the document root
 must be separate sibling directories. It also requires an installed `register-release.json`.
 Therefore, install the first updater-capable release manually using the staged switch described in
-`DEPLOYMENT.md`. After that bootstrap, administrators with user-management permission can use
-**System → Software update**.
+the [shared-hosting runbook](shared-hosting.md). After that bootstrap, administrators with
+user-management permission can use **System → Software update**.
 
 The update page detects the PHP extractors available on the server. Prefer the format marked
 **Recommended**. Normally this is `.tar.gz` (Phar + Zlib), with `.zip` (ZipArchive) as the next
@@ -32,7 +34,7 @@ choice and `.tar.bz2` (Phar + Bzip2) as another equivalent option.
 
 ## Browser update sequence
 
-1. Download one archive from the newest GitHub prerelease and drag it onto the update page.
+1. Download one archive from the intended GitHub release and drag it onto the update page.
 2. The browser sends 1 MiB chunks, staying below ordinary shared-hosting upload-size limits even
    after multipart form overhead.
 3. Register reads the internal manifest, checks the release version and PHP/database requirements,
@@ -90,3 +92,23 @@ composer build:release -- dist/release
 
 CI supplies the commit, UTC build timestamp, monotonically increasing build number, and release ID.
 Local defaults are intended only for testing the package builder.
+
+## Release candidates and stable releases
+
+Edge builds are development snapshots. To publish a candidate or stable release, open GitHub Actions,
+choose **Publish candidate or stable release**, and supply:
+
+- an exact semantic version: `2.0.0-rc.1` for the `rc` channel or `2.0.0` for `stable`;
+- the matching channel;
+- the commit, tag, or branch to release.
+
+The workflow resolves that reference to one exact commit and refuses to publish unless all six
+required push workflows above completed successfully for that commit. It also refuses to replace an
+existing version tag. The archives are rebuilt from the verified commit rather than from the workflow
+caller’s checkout.
+
+For the same base version, the updater orders channels as `edge` → `rc` → `stable`; it never offers
+a move back to an earlier channel. Within one channel, the monotonically increasing build number
+orders builds. An operator should first install the release candidate on a production-like copy,
+exercise the browser updater and the actual host’s mail/database/media configuration, and only then
+publish the stable version.

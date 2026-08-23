@@ -1,0 +1,152 @@
+name: Publish candidate or stable release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semantic version, for example 2.0.0-rc.1 or 2.0.0
+        required: true
+        type: string
+      channel:
+        description: Release channel
+        required: true
+        default: rc
+        type: choice
+        options:
+          - rc
+          - stable
+      ref:
+        description: Commit, tag, or branch whose exact commit passed CI
+        required: true
+        default: main
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publish-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      target_sha: ${{ steps.verify.outputs.target_sha }}
+      base_version: ${{ steps.verify.outputs.base_version }}
+    steps:
+      - name: Resolve version and require successful CI
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+          RELEASE_REF: ${{ inputs.ref }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$RELEASE_CHANNEL" == 'stable' ]]; then
+            version_pattern='^[0-9]+\.[0-9]+\.[0-9]+$'
+          else
+            version_pattern='^[0-9]+\.[0-9]+\.[0-9]+-rc\.[1-9][0-9]*$'
+          fi
+          if [[ ! "$RELEASE_VERSION" =~ $version_pattern ]]; then
+            echo "::error::Version $RELEASE_VERSION does not match channel $RELEASE_CHANNEL."
+            exit 1
+          fi
+
+          target_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_REF}" --jq '.sha')"
+          runs_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${target_sha}&event=push&per_page=100")"
+          required_workflows=(
+            'Quality'
+            'Security analysis'
+            'Unit tests'
+            'Test on SQLite'
+            'Test on MySQL'
+            'Test on PostgreSQL'
+          )
+
+          for workflow in "${required_workflows[@]}"; do
+            run="$(jq -c --arg workflow "$workflow" '[.workflow_runs[] | select(.name == $workflow)] | sort_by(.run_number) | last // empty' <<< "$runs_json")"
+            if [[ -z "$run" ]]; then
+              echo "::error::No push run found for required workflow: $workflow"
+              exit 1
+            fi
+            status="$(jq -r '.status' <<< "$run")"
+            conclusion="$(jq -r '.conclusion // ""' <<< "$run")"
+            if [[ "$status" != 'completed' || "$conclusion" != 'success' ]]; then
+              echo "::error::Required workflow did not pass: $workflow ($status/$conclusion)"
+              exit 1
+            fi
+          done
+
+          if gh release view "v${RELEASE_VERSION}" >/dev/null 2>&1; then
+            echo "::error::Release v${RELEASE_VERSION} already exists."
+            exit 1
+          fi
+
+          echo "target_sha=${target_sha}" >> "$GITHUB_OUTPUT"
+          echo "base_version=${RELEASE_VERSION%%-*}" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.verify.outputs.target_sha }}
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.3'
+          extensions: bz2, dom, gd, mbstring, pdo_sqlite, zip, zlib
+
+      - name: Install build dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Build verified release archives
+        env:
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          TARGET_SHA: ${{ needs.verify.outputs.target_sha }}
+          BASE_VERSION: ${{ needs.verify.outputs.base_version }}
+          REGISTER_RELEASE_BUILD: ${{ github.run_number }}
+        run: |
+          source_epoch="$(git show -s --format=%ct "$TARGET_SHA")"
+          built_at="$(date --utc --date="@${source_epoch}" '+%Y-%m-%dT%H:%M:%S+00:00')"
+          release_id="${RELEASE_VERSION}-${TARGET_SHA:0:8}"
+
+          REGISTER_RELEASE_COMMIT="$TARGET_SHA" \
+          REGISTER_RELEASE_BUILT_AT="$built_at" \
+          REGISTER_RELEASE_ID="$release_id" \
+          REGISTER_RELEASE_VERSION="$RELEASE_VERSION" \
+          REGISTER_BASE_VERSION="$BASE_VERSION" \
+          REGISTER_RELEASE_CHANNEL="$RELEASE_CHANNEL" \
+          SOURCE_DATE_EPOCH="$source_epoch" \
+            composer build:release -- dist/release
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          TARGET_SHA: ${{ needs.verify.outputs.target_sha }}
+        run: |
+          release_args=(
+            "v${RELEASE_VERSION}"
+            --target "$TARGET_SHA"
+            --title "Register ${RELEASE_VERSION}"
+            --generate-notes
+          )
+          if [[ "$RELEASE_CHANNEL" == 'rc' ]]; then
+            release_args+=(--prerelease --latest=false)
+          else
+            release_args+=(--latest)
+          fi
+
+          # Passing assets to create keeps the release in GitHub's internal draft until every
+          # archive has uploaded successfully, so a network failure cannot publish an empty release.
+          gh release create "${release_args[@]}" dist/release/*

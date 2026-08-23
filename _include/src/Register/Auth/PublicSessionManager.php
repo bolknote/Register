@@ -83,6 +83,7 @@ final readonly class PublicSessionManager
                 ->execute()
             ;
         }
+
         $this->loginRateLimiter->clear($clientIp, $login);
 
         return $this->createSession(
@@ -190,6 +191,7 @@ final readonly class PublicSessionManager
         $expiresAt = $temporary ? 0 : $time + self::PERSISTENT_SESSION_LIFETIME;
         $response->headers->setCookie($this->adminCookie($sessionId, $secure, $expiresAt));
         $response->headers->setCookie($this->publicCookie($commentCookie, $secure, $expiresAt));
+
         $this->securityAuditLogger->authentication(
             $request,
             $authMethod,

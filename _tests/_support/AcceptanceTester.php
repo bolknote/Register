@@ -106,9 +106,11 @@ class AcceptanceTester extends Actor
         if ($I->grabMultiple('#comment-name') !== []) {
             $I->fillField('#comment-name', $name);
         }
+
         if ($I->grabMultiple('#comment-email') !== []) {
             $I->fillField('#comment-email', $email);
         }
+
         $I->fillField('#comment-form textarea[name=text]', $text);
         $I->click('submit');
     }

@@ -686,7 +686,7 @@ return [
     'AI config'             => 'AI assistant',
     'Authentication config' => 'Public sign-in',
     'REGISTER_AUTH_EMAIL_ENABLED' => 'Email magic-link sign-in',
-    'REGISTER_AUTH_EMAIL_ENABLED_help' => 'Allows passwordless sign-in with a one-time email link. Delivery uses the server mail() configuration.',
+    'REGISTER_AUTH_EMAIL_ENABLED_help' => 'Allows passwordless sign-in with a one-time email link. Enable it after verifying delivery from this host: messages use the server mail() configuration. New sites keep this method disabled by default.',
     'REGISTER_AUTH_VK_CLIENT_ID' => 'VK ID application ID',
     'REGISTER_AUTH_VK_CLIENT_ID_help' => 'Create a VK ID web application. Add all three ready-to-use Redirect URIs shown below to its settings, then paste the application ID here. One application enables VK, Mail.ru and Odnoklassniki sign-in. Those buttons stay hidden while the ID is empty.',
     'REGISTER_AUTH_YANDEX_CLIENT_ID' => 'Yandex application ID',

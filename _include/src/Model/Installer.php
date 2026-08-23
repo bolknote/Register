@@ -236,7 +236,7 @@ readonly class Installer
             AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
             AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
             AiSettings::AUTO_ALT_CONFIG_KEY => '1',
-            PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY => '1',
+            PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY => '0',
             PublicAuthSettings::VK_CLIENT_ID_CONFIG_KEY => '',
             PublicAuthSettings::YANDEX_CLIENT_ID_CONFIG_KEY => '',
             PublicAuthSettings::YANDEX_CLIENT_SECRET_CONFIG_KEY => '',

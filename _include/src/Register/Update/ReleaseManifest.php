@@ -21,6 +21,13 @@ final readonly class ReleaseManifest
 
     public const int MAX_TOTAL_BYTES = 512 * 1024 * 1024;
 
+    /** @var array<string, int> */
+    private const array CHANNEL_PRIORITIES = [
+        'edge'   => 0,
+        'rc'     => 1,
+        'stable' => 2,
+    ];
+
     /** @var list<ReleaseFile> */
     public array $files;
 
@@ -53,8 +60,8 @@ final readonly class ReleaseManifest
             throw new \InvalidArgumentException('The release version is invalid.');
         }
 
-        if (preg_match('/^[a-z][a-z0-9-]{0,31}$/D', $channel) !== 1) {
-            throw new \InvalidArgumentException('The release channel is invalid.');
+        if (!isset(self::CHANNEL_PRIORITIES[$channel])) {
+            throw new \InvalidArgumentException('The release channel is not supported.');
         }
 
         if ($buildNumber < 1) {
@@ -207,12 +214,22 @@ final readonly class ReleaseManifest
             return $versionComparison > 0;
         }
 
+        $channelComparison = $this->channelPriority() <=> $installed->channelPriority();
+        if ($channelComparison !== 0) {
+            return $channelComparison > 0;
+        }
+
         return $this->channel === $installed->channel && $this->buildNumber > $installed->buildNumber;
     }
 
     public function totalBytes(): int
     {
         return array_sum(array_map(static fn(ReleaseFile $file): int => $file->size, $this->files));
+    }
+
+    private function channelPriority(): int
+    {
+        return self::CHANNEL_PRIORITIES[$this->channel];
     }
 
     /** @param array<string, mixed> $data */

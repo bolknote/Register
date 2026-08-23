@@ -40,11 +40,13 @@ final readonly class ContentCommentRenderer
                 if ($notificationRepository instanceof CommentNotificationRepository) {
                     throw new \LogicException('Only one comment notification repository can be configured.');
                 }
+
                 $notificationRepository = $dependency;
             } else {
                 $presentationEnrichers[] = $dependency;
             }
         }
+
         $this->notificationRepository = $notificationRepository;
         $this->presentationEnrichers = $presentationEnrichers;
     }

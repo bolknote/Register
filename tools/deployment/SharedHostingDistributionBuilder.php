@@ -43,7 +43,11 @@ final readonly class SharedHostingDistributionBuilder
     private const array DISTRIBUTION_DOCUMENTATION_FILES = [
         'activitypub-interoperability.md',
         'activitypub-operations.md',
+        'activitypub-protocol-profile.md',
         'backups.md',
+        'secret-rotation.md',
+        'self-update.md',
+        'shared-hosting.md',
     ];
 
     private const array PUBLIC_SOURCE_DIRECTORIES = [

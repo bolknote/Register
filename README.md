@@ -24,9 +24,10 @@ sleeping inside a request. A site without incoming traffic simply waits for its 
 External-link DNS uses non-blocking datagrams to the system resolvers from `/etc/resolv.conf`; it
 never starts a process or calls the potentially blocking libc resolver.
 
-> **Development status:** the current line is `2.0dev`. Register deliberately supports a fresh
-> current schema while the product is pre-release; in-place migration from older S2/Register data
-> generations is not yet a compatibility promise.
+> **Development status:** Register is preparing its first 2.0 release. Fresh installations use
+> schema generation 19, and the staged updater can migrate an installed Register database from
+> generations 15 through 18. Older S2/Register databases require an explicit import or a fresh
+> installation; Register never silently recreates them.
 
 ## Why Register
 
@@ -133,8 +134,14 @@ publishing model.
 
 ### Comments, reactions, and moderation
 
-- Threaded comments with a rich editor, sanitized canonical HTML storage, preview, moderation,
-  subscriptions, email notifications, and private commenter email addresses.
+- Threaded comments with a compact rich-text editor, server-side sanitized canonical HTML storage,
+  moderation, subscriptions, email notifications, and private commenter email addresses.
+- Public sign-in with an existing site account, an optional one-time email link, VK ID, Mail.ru,
+  Odnoklassniki, or Yandex. External-provider buttons appear only after their credentials are
+  configured; email-link sign-in is disabled on new sites until the operator verifies mail delivery.
+- Logged-in users comment under their account identity and receive a counter that opens their first
+  relevant unread comment. A guest may prepare a comment while requesting an email sign-in link;
+  the validated comment is published after the link is opened.
 - Inline moderation in the control panel, important-comment marking, and author replies.
 - Built-in local anti-spam scoring, rate limits, reputation, configurable rules, diagnostics, and
   optional Akismet integration.
@@ -163,8 +170,9 @@ publishing model.
 - A reviewed split-root shared-hosting package keeps PHP source, dependencies, configuration,
   database, private cache, and encrypted backups outside `public_html`; Composer and shell access are
   not required on the hosting account.
-- Timestamped production prereleases in ZIP, tar.gz, and tar.bz2, plus a staged control-panel
-  updater with per-file hashes, maintenance mode, backups, database migrations, and file rollback.
+- CI-gated edge builds and explicitly promoted release candidates or stable releases in ZIP,
+  tar.gz, and tar.bz2, plus a staged control-panel updater with per-file hashes, maintenance mode,
+  backups, database migrations, and file rollback.
 - Automatic Brotli or gzip response compression when the matching optional PHP extension is
   installed and the browser accepts it.
 - Privacy-conscious daily page-view and feed-reader statistics.
@@ -321,9 +329,11 @@ identity requires a separate explicit activation lifecycle.
 
 ## Documentation
 
+- [Changelog](CHANGELOG.md)
 - [Development](_doc/development.md)
 - [Production deployment](_doc/deployment.md)
 - [Shared-hosting package](_doc/shared-hosting.md)
+- [Release builds and control-panel updates](_doc/self-update.md)
 - [Architecture](_doc/architecture.md)
 - [Assets and loading policy](_doc/assets.md)
 - [URL and slug generation](_doc/url-slugs.md)

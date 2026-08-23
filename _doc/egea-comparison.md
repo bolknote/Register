@@ -86,10 +86,10 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Automatically close old discussions | Missing | Comment availability is not derived from post age. |
 | Delete a comment with Undo | Missing | No undo workflow. |
 | Sequential new-comment marker | Partial | Administrative counters exist, but not Aegea's sequential marker. |
-| Comment formatting equivalent to posts | Partial | Comments have limited BBCode and preview, not the full article editor. |
-| Social identities for commenters | Missing | No Twitter, Facebook, VK, or Telegram authentication. |
+| Comment formatting equivalent to posts | Partial | Comments use a compact rich-text editor with the common text and block styles, while media and AI tools remain exclusive to the post editor. Submitted HTML is sanitized on the server. |
+| Social identities for commenters | Partial | Public sign-in supports VK ID, Mail.ru, Odnoklassniki, Yandex, email magic links, and existing Register accounts; Twitter, Facebook, and Telegram are not providers. |
 | Login-free emoji reactions | Available | A visitor can keep one of six reactions on a post or page; clicking it again removes it and choosing another switches it. |
-| Configure or require social providers | Missing | No social-login provider layer. |
+| Configure or require social providers | Partial | Operators configure email, VK ID, and Yandex in Settings; unavailable methods are hidden. There is no site-wide policy requiring every reader to sign in. |
 | Nested author replies | Available | Comments have parent identities and render as bounded-indentation threads with a no-JavaScript reply fallback. |
 | Edit and moderate comments | Available | Supported in the control panel. |
 | Mark a comment as important | Available | Stored using the comment quality flag. |
@@ -198,16 +198,16 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Author photo and settings-managed favicon | Missing | A favicon can be supplied by a theme; there is no equivalent author profile feature. |
 | Multiple device sessions with revocation | Available | Active sessions can be inspected and revoked. |
 | Password reset through email or a file | Missing | No first-party reset workflow. |
-| Inline administration without a separate control panel | Missing | Register uses the `_admin` application. |
+| Inline administration without a separate control panel | Partial | Authorized authors create, edit, and delete posts in place on public pages; site-wide settings and administrative lists remain in `_admin`. |
 | Multiple users and role-based permissions | Available | This is a Register capability beyond Aegea's advertised single-author workflow. |
 | Web installer | Available | Creates configuration and database tables. |
 | Environment and permission diagnostics | Available | Performed during installation. |
 | MySQL/MariaDB, PostgreSQL, and SQLite | Available | All three database families are supported. |
 | Table prefixes and multiple installations per database | Available | Supported. |
 | Production database settings from environment variables | Missing | Production configuration is file-based. |
-| Upgrade an existing Register database | Missing | The pre-release product supports one clean schema generation and intentionally rejects old generations; an explicit importer can be added later. |
+| Upgrade an existing Register database | Partial | The staged updater migrates supported installed generations 15 through 18 to generation 19. Older S2/Register data still needs an explicit importer or a clean installation. |
 | Import an existing Aegea database | Missing | No importer. |
-| Semi-automatic code and database update | Missing | Code deployment and future data import are external; Register currently performs no in-place product migration. |
+| Semi-automatic code and database update | Available | The control-panel updater verifies a release archive, backs up the installation, stages and switches files, applies the registered database migration chain, and rolls files back on failure. |
 | Automatic database backup | Available | A durable request-driven queue job creates a private daily authenticated encrypted database-and-media archive and prunes it to configured retention; the CLI drain covers hosts without response detachment. |
 | Downloadable backup ZIP | Available | Administrators can create or download the latest encrypted ZIP envelope in Search & statistics; the CLI offers creation and offline decryption. |
 | Continuous incremental backup | Missing | No first-party implementation. |

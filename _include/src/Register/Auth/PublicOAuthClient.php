@@ -32,15 +32,16 @@ final readonly class PublicOAuthClient
         if ($provider === 'yandex' && !$this->settings->yandexEnabled()) {
             throw new \RuntimeException('Yandex sign-in is not configured.');
         }
+
         if ($provider !== 'yandex' && !$this->settings->vkEnabled()) {
             throw new \RuntimeException('VK ID sign-in is not configured.');
         }
 
         $returnPath = PublicReturnPath::normalize($returnPath);
-        $state = self::randomUrlToken(32);
-        $verifier = self::randomUrlToken(48);
-        $deviceId = self::uuidV4();
-        $challenge = self::base64Url(hash('sha256', $verifier, true));
+        $state = $this->randomUrlToken(32);
+        $verifier = $this->randomUrlToken(48);
+        $deviceId = $this->uuidV4();
+        $challenge = $this->base64Url(hash('sha256', $verifier, true));
         $this->repository->storeFlow($state, $provider, $verifier, $deviceId, $returnPath);
 
         if ($provider === 'yandex') {
@@ -136,6 +137,7 @@ final readonly class PublicOAuthClient
         if ($returnedDeviceId !== '' && !hash_equals($expectedDeviceId, $returnedDeviceId)) {
             throw new \RuntimeException('VK ID returned a mismatched device identifier.');
         }
+
         $deviceId = $returnedDeviceId !== '' ? $returnedDeviceId : $expectedDeviceId;
         $token = $this->requestJson(
             'POST',
@@ -182,6 +184,7 @@ final readonly class PublicOAuthClient
         if ($subject === '') {
             throw new \RuntimeException('The authentication provider returned no stable user identifier.');
         }
+
         if ($name === '') {
             $localPart = strstr($email, '@', true);
             $name = $email !== ''
@@ -220,6 +223,7 @@ final readonly class PublicOAuthClient
         } catch (\JsonException $exception) {
             throw new \RuntimeException('The authentication provider returned an invalid response.', 0, $exception);
         }
+
         if (!\is_array($decoded) || isset($decoded['error'])) {
             throw new \RuntimeException('The authentication provider rejected the authentication attempt.');
         }
@@ -242,21 +246,21 @@ final readonly class PublicOAuthClient
         return html_entity_decode($this->urlBuilder->absLink('/auth/oauth/' . rawurlencode($provider) . '/callback'));
     }
 
-    private static function randomUrlToken(int $bytes): string
+    private function randomUrlToken(int $bytes): string
     {
         if ($bytes <= 0) {
             throw new \InvalidArgumentException('A random token must contain at least one byte.');
         }
 
-        return self::base64Url(random_bytes($bytes));
+        return $this->base64Url(random_bytes($bytes));
     }
 
-    private static function base64Url(string $value): string
+    private function base64Url(string $value): string
     {
         return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
     }
 
-    private static function uuidV4(): string
+    private function uuidV4(): string
     {
         $bytes = random_bytes(16);
         $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);

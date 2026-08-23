@@ -120,9 +120,11 @@ final class PublicAuthSchema
         if ($dbLayer->foreignKeyExists(CommentSchema::TABLE_NAME, 'fk_user')) {
             $dbLayer->dropForeignKey(CommentSchema::TABLE_NAME, 'fk_user');
         }
+
         if ($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'user_content_idx')) {
             $dbLayer->dropIndex(CommentSchema::TABLE_NAME, 'user_content_idx');
         }
+
         if ($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'user_id')) {
             $dbLayer->dropField(CommentSchema::TABLE_NAME, 'user_id');
         }

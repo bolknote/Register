@@ -23,6 +23,7 @@ use Register\Rose\Exception\UnknownIdException;
 use Register\Rose\Snippet\SnippetBuilder;
 use Register\Rose\Stemmer\StemmerInterface;
 use Register\Rose\Storage\Dto\SnippetQuery;
+use Register\Rose\Storage\Exception\EmptyIndexException;
 use Register\Rose\Storage\StorageReadInterface;
 
 /**
@@ -67,6 +68,7 @@ class Finder
 
     /**
      * @throws ImmutableException
+     * @throws EmptyIndexException
      */
     public function find(Query $query, bool $isDebug = false): ResultSet
     {

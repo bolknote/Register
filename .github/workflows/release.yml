@@ -2,11 +2,7 @@ name: Release edge build
 
 on:
   workflow_run:
-    workflows:
-      - Unit tests
-      - Test on SQLite
-      - Test on MySQL
-      - Test on PostgreSQL
+    workflows: [Quality]
     types: [completed]
     branches: [main]
 
@@ -21,9 +17,11 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-24.04
+    timeout-minutes: 35
     outputs:
       ready: ${{ steps.check.outputs.ready }}
       target_sha: ${{ steps.check.outputs.target_sha }}
+    if: github.event.workflow_run.event == 'push'
     steps:
       - name: Require every test workflow to pass
         id: check
@@ -32,31 +30,49 @@ jobs:
           TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           echo "target_sha=${TARGET_SHA}" >> "$GITHUB_OUTPUT"
-          runs_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${TARGET_SHA}&event=push&per_page=100")"
           required_workflows=(
+            'Quality'
+            'Security analysis'
             'Unit tests'
             'Test on SQLite'
             'Test on MySQL'
             'Test on PostgreSQL'
           )
 
-          for workflow in "${required_workflows[@]}"; do
-            run="$(jq -c --arg workflow "$workflow" '[.workflow_runs[] | select(.name == $workflow)] | sort_by(.run_number) | last // empty' <<< "$runs_json")"
-            if [[ -z "$run" ]]; then
-              echo "Waiting for workflow: $workflow"
-              exit 0
+          deadline=$((SECONDS + 1800))
+          while true; do
+            runs_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${TARGET_SHA}&event=push&per_page=100")"
+            waiting=()
+
+            for workflow in "${required_workflows[@]}"; do
+              run="$(jq -c --arg workflow "$workflow" '[.workflow_runs[] | select(.name == $workflow)] | sort_by(.run_number) | last // empty' <<< "$runs_json")"
+              if [[ -z "$run" ]]; then
+                waiting+=("$workflow (not started)")
+                continue
+              fi
+
+              status="$(jq -r '.status' <<< "$run")"
+              conclusion="$(jq -r '.conclusion // ""' <<< "$run")"
+              if [[ "$status" != 'completed' ]]; then
+                waiting+=("$workflow ($status)")
+                continue
+              fi
+              if [[ "$conclusion" != 'success' ]]; then
+                echo "::error::Release is blocked by workflow: $workflow ($conclusion)"
+                exit 1
+              fi
+            done
+
+            if [[ ${#waiting[@]} -eq 0 ]]; then
+              break
+            fi
+            if (( SECONDS >= deadline )); then
+              printf '::error::Timed out waiting for required workflows: %s\n' "${waiting[*]}"
+              exit 1
             fi
 
-            status="$(jq -r '.status' <<< "$run")"
-            conclusion="$(jq -r '.conclusion // ""' <<< "$run")"
-            if [[ "$status" != 'completed' ]]; then
-              echo "Waiting for workflow: $workflow ($status)"
-              exit 0
-            fi
-            if [[ "$conclusion" != 'success' ]]; then
-              echo "Release is blocked by workflow: $workflow ($conclusion)"
-              exit 0
-            fi
+            printf 'Waiting for required workflows: %s\n' "${waiting[*]}"
+            sleep 15
           done
 
           commit_date="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}" --jq '.commit.committer.date')"
@@ -74,6 +90,7 @@ jobs:
     needs: gate
     if: needs.gate.outputs.ready == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:

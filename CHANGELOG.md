@@ -1,0 +1,34 @@
+# Changelog
+
+## 2.0.0-rc.1 — unreleased
+
+Register 2.0 turns the inherited S2 codebase into a self-hosted, public-first blog engine with
+in-place publishing and a release package designed for ordinary shared hosting.
+
+### Highlights
+
+- Public in-place creation, editing, deletion, dates, tags, media, captions, keyboard shortcuts,
+  local draft recovery, and optional AI tools.
+- Partial page navigation, request-driven live updates, same-origin offline fallback, local search,
+  reactions, rich comments, and accessible media players.
+- Public accounts through existing Register credentials, optional email links, VK ID, Mail.ru,
+  Odnoklassniki, and Yandex, with relevant unread-comment counters.
+- Split-root shared-hosting archives, encrypted backups, a staged control-panel updater, and
+  explicit database migrations from schema generations 15 through 18 to generation 19.
+- CI-gated edge builds and manually promoted release-candidate or stable archives.
+
+### Deployment notes
+
+- Install the first updater-capable build with the [staged deployment procedure](_doc/deployment.md).
+  Later compatible releases can be installed under **System → Software update**.
+- Older databases below generation 15 are not modified automatically. Recreate the installation or
+  import the data explicitly.
+- Email-link sign-in is disabled on new sites. Enable it only after confirming that production PHP
+  mail reaches its recipient.
+- OAuth buttons stay hidden until their application credentials are configured.
+
+### Known limitation
+
+- ActivityPub remains optional and inactive by default. A production actor cannot be activated from
+  an ordinary source or release-candidate build without the exact-version interoperability report
+  and attestation described in the [ActivityPub release gate](_doc/activitypub-interoperability.md).

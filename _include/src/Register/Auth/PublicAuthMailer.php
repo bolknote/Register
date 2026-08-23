@@ -13,27 +13,22 @@ use Register\Core\Config\StringProxy;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /** Sends a short, single-purpose sign-in link without placing the token in logs. */
-final class PublicAuthMailer
+final readonly class PublicAuthMailer
 {
     /** @var \Closure(string, string, string, string): bool */
     private \Closure $sender;
 
     /** @param (callable(string, string, string, string): bool)|null $sender */
     public function __construct(
-        private readonly TranslatorInterface $translator,
-        private readonly StringProxy         $siteName,
-        private readonly StringProxy         $webmasterName,
-        private readonly StringProxy         $webmasterEmail,
+        private TranslatorInterface $translator,
+        private StringProxy         $siteName,
+        private StringProxy         $webmasterName,
+        private StringProxy         $webmasterEmail,
         ?callable                            $sender = null,
     ) {
         $this->sender = $sender !== null
             ? $sender(...)
-            : static fn(string $to, string $subject, string $message, string $headers): bool => mail(
-                $to,
-                $subject,
-                $message,
-                $headers,
-            );
+            : mail(...);
     }
 
     public function sendMagicLink(string $email, string $url, bool $publishesComment): bool
@@ -49,11 +44,13 @@ final class PublicAuthMailer
                 '%url%'  => $url,
             ]);
         $message = str_replace(["\r\n", "\r", "\0"], ["\n", "\n", ''], $message);
+
         $subject = '=?UTF-8?B?' . base64_encode($subjectText) . '?=';
         $fromEmail = trim($this->webmasterEmail->get());
         if ($fromEmail === '') {
             $fromEmail = 'noreply@localhost';
         }
+
         $fromName = trim($this->webmasterName->get());
         $from = $fromName === ''
             ? $fromEmail

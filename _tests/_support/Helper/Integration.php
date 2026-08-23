@@ -260,7 +260,7 @@ class Integration extends AbstractBrowserModule
 
     public function recordPublicAuthMail(string $to, string $subject, string $message, string $headers): void
     {
-        $this->publicAuthMails[] = compact('to', 'subject', 'message', 'headers');
+        $this->publicAuthMails[] = ['to' => $to, 'subject' => $subject, 'message' => $message, 'headers' => $headers];
     }
 
     public function shiftSpamResponse(): string

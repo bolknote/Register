@@ -15,8 +15,9 @@ Audio Player live under `Register\Module`; their code and private resources no l
 optional-module directory. Their status is defined by
 [`BaseModuleRegistry`](../_include/src/Register/Module/BaseModuleRegistry.php).
 
-Their schemas are installed with Register's single `REGISTER_SCHEMA_GENERATION` marker. Register
-does not migrate old product schemas in place while it is pre-release.
+Their schemas are installed with Register's single `REGISTER_SCHEMA_GENERATION` marker. The current
+release installs generation 19 and carries an explicit additive migration chain from generations
+15 through 18. Earlier S2/Register schemas require a separate importer or a clean installation.
 Base manifest versions are not consulted after a database has entered that generation, and their
 `uninstall()` methods cannot remove product data.
 

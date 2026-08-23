@@ -31,6 +31,26 @@ final class ReleaseManifestTest extends Unit
         self::assertFalse($this->manifest(20, 'old')->isNewerThan($this->manifest(20, 'old')));
     }
 
+    public function testReleaseChannelsCanAdvanceFromEdgeToCandidateToStable(): void
+    {
+        $edge = $this->manifest(30, 'edge', 'edge');
+        $candidate = $this->manifest(10, 'candidate', 'rc');
+        $stable = $this->manifest(1, 'stable', 'stable');
+
+        self::assertTrue($candidate->isNewerThan($edge));
+        self::assertTrue($stable->isNewerThan($candidate));
+        self::assertFalse($edge->isNewerThan($candidate));
+        self::assertFalse($candidate->isNewerThan($stable));
+    }
+
+    public function testUnknownReleaseChannelIsRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('release channel is not supported');
+
+        $this->manifest(1, 'nightly', 'nightly');
+    }
+
     public function testReleaseFileRejectsDirectoryTraversal(): void
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -61,13 +81,17 @@ final class ReleaseManifestTest extends Unit
         );
     }
 
-    private function manifest(int $build, string $contents): ReleaseManifest
+    private function manifest(int $build, string $contents, string $channel = 'edge'): ReleaseManifest
     {
         return new ReleaseManifest(
             '20260822T000000Z-01234567-' . $build,
-            '2.0.0-edge.20260822.000000.' . $build,
+            match ($channel) {
+                'rc'     => '2.0.0-rc.' . $build,
+                'stable' => '2.0.0',
+                default  => '2.0.0-edge.20260822.000000.' . $build,
+            },
             '2.0.0',
-            'edge',
+            $channel,
             $build,
             '2026-08-22T00:00:00+00:00',
             str_repeat('a', 40),

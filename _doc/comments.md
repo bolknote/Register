@@ -1,80 +1,66 @@
-## Comment System Overview
+# Comments
 
-Register includes a flexible and secure comment system designed to handle validation, spam detection, and moderation.
+Register renders threaded comments on posts and pages. Comment submission remains a normal HTML
+`POST`; JavaScript progressively enhances the same server-rendered form and is not required for
+publishing or replying.
 
-### Comment Submission Flow
+## Editor and stored format
 
-1. **Request Handling**
-   Incoming comments are sent to the `CommentController`. This controller performs initial validation:
-   comments must be enabled, the target item must exist, the text and author name must be present,
-   the text must fit the size limit, and the email must be valid. Replies additionally require a visible
-   parent comment that belongs to the same page or post.
+The public form contains a compact rich-text editor for bold, italic, strikethrough, links, quotes,
+code, and ordered or unordered lists. It deliberately has no image, audio, video, or AI controls.
+Paste and drag-and-drop are reduced to the same small HTML dialect before submission.
 
-2. **Preview Mode**
-   If the comment is submitted with the preview flag, it is formatted and returned without being stored or processed further.
+Formulas are entered as source such as `$$f(x) = x^2-\sqrt{x}$$`. A complete pair is rendered
+locally in the editor. Clicking the rendered formula, moving into it, or deleting beside it restores
+the original source for editing. `Ctrl+Enter` submits on Windows and Linux; `Command+Enter` submits
+on macOS.
 
-3. **Spam Detection**
-   If the comment is valid, it is passed to the `SpamDetectorInterface`. Register includes a single implementation of this interface, which uses the Akismet service for spam detection. A `SpamDecisionProvider` wraps the detector and applies local heuristics.
+The browser mirrors the editor contents into the ordinary `text` form field. The server then parses
+and sanitizes the fragment again in [`CommentHtml`](../_include/src/Comment/CommentHtml.php), without
+requiring an extra PHP extension. Canonical rich comments carry a private storage marker; legacy
+plain-text and BBCode rows remain renderable. Scripts, event attributes, forms, styles, iframes,
+arbitrary media, unsafe links, and unknown attributes never enter canonical comment HTML.
 
-   `SpamDetectorInterface` may return one of the following statuses:
-    - `disabled`: The spam detection service is not enabled (API key not configured under Settings → Comments in the control panel).
-    - `failed`: An error occurred while calling the service.
-    - `ham`: The comment is classified as not spam.
-    - `spam`: The comment is considered spam.
-    - `blatant`: The comment is blatant spam and can be safely ignored.
+## Identity and email sign-in
 
-   The decision logic combines the detector status and local heuristics:
-   - If the comment is not marked as `ham` and contains links, an error about links is returned.
-   - If the comment is marked as `blatant`, an error about spam is returned.
-   - Even when Akismet returns `ham`, comments that contain links or HTML tags are sent to manual moderation (not auto-published).
+An authenticated participant comments under the name and email of the account; the public form does
+not ask for a second name or address. A guest supplies a name and email. When email-link sign-in is
+enabled, the guest may prepare the comment while requesting a one-time link. The same validation,
+sanitizer, replay protection, rate limiting, and spam checks run before the message is queued, and
+the pending comment is published only after the link is opened successfully.
 
-4. **Moderation Logic**
-   The engine supports optional manual moderation, controlled via the `S2_PREMODERATION` parameter,
-   which can be enabled under Settings → Comments in the control panel.
+Email-link sign-in is disabled on new sites. Enable it under **Settings → Public sign-in** only after
+verifying that PHP `mail()` from the production host reaches the intended mailbox. VK ID and Yandex
+buttons likewise remain hidden until their application credentials are configured.
 
-   The moderation decision is made by the `SpamDecision`:
+## Submission and moderation
 
-   - If the comment is `ham` and contains no links or HTML tags, it is published immediately.
-   - Comments classified as `spam` or `blatant` are never published directly.
-   - Comments marked as `ham` but containing links or HTML tags are always sent for manual review.
-   - If moderation is **enabled**, comments with spam check statuses `disabled` or `failed`
-     are sent for manual review.
-   - If moderation is **disabled**, comments with spam check statuses `disabled` or `failed`
-     can be published immediately as long as no other validation or spam-policy branch rejects them.
+`CommentController` rejects a submission when comments are disabled, the target or reply parent is
+invalid, the form token has expired, text or identity fields are invalid, the size limit is exceeded,
+or the honeypot/rate-limit policy rejects it. The server derives the identity from the authenticated
+session when one exists.
 
-### Comment Publishing
+The configurable detector supports local scoring, Akismet, or shadow comparison. It returns `ham`,
+`spam`, `blatant`, `failed`, or `disabled`; local assessments retain hashed evidence and never need
+raw visitor identifiers in the audit tables. Blatant spam is rejected. A failed detector, a spam
+verdict, or an otherwise forced review is not published directly. Valid links in otherwise clean
+comments are accepted as HTML but force moderation.
 
-If the decision is to publish the comment, the following actions are performed in `CommentController`:
-- The comment is stored with its optional parent and is visible on the page.
-- Notification emails are sent to moderators and to users who subscribed to comment replies.
-- The user is redirected to the commented page.
+Manual premoderation is controlled by `REGISTER_PREMODERATION` under **Settings → Comments**. When it
+is enabled, ordinary `ham` comments also wait for review. A published comment is stored with its
+optional parent, subscriber and moderator notifications are scheduled, and the browser is redirected
+to the comment anchor.
 
-### Thread Rendering
+## Thread rendering and unread comments
 
-Comments are fetched in chronological order and assembled into a tree on the server. Missing parents,
-forward references, and cycles in imported data are shown safely as top-level comments. The public theme
-uses no connector lines: nesting is communicated through spacing and indentation. Visual indentation stops
-after three levels; deeper replies keep their logical parent and show the addressee explicitly.
+Comments are fetched in chronological order and assembled into a tree on the server. Missing
+parents, forward references, and cycles in imported data are shown safely as top-level comments.
+The public theme communicates nesting through spacing and indentation rather than connector lines.
+Visual indentation stops after three levels; deeper replies keep their logical parent and show the
+addressee explicitly.
 
-The reply form works without client-side rendering. Its links carry the parent in the query string as a
-no-JavaScript fallback. A small progressive-enhancement script moves the same server-rendered form below
-the selected comment and updates the hidden parent field; submission remains a normal HTML POST.
-
-### Manual Moderation Flow
-
-If the comment requires manual moderation:
-- Notification emails are sent only to moderators whose email does not match the commenter's email.
-- The user is redirected to a special controller `CommentSentController`.
-
-The `CommentSentController` can access a special admin cookie (with the `_c` postfix),
-which is set upon admin login.
-If the logged-in admin’s email matches the commenter's email,
-the system assumes the comment was submitted by that moderator:
-
-- The comment is published immediately.
-- Subscribers are notified.
-- The user is redirected to the post.
-
-If the emails do not match:
-- The comment is queued for review.
-- Moderators can publish it later via the admin panel.
+Reply links carry the parent in the query string as a no-JavaScript fallback. Progressive enhancement
+moves the same form below the selected comment and updates its hidden parent field. For authenticated
+participants, the header counter links to the first relevant unread comment. Site participants see
+new comments in their posts; other users see comments addressed to them or in discussions where they
+already participate.

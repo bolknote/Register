@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Auth\CommentNotificationRepository;
+use Register\Auth\PublicAuthFormToken;
 use Register\Auth\PublicAuthRepository;
 use Register\Auth\PublicAuthSchema;
 use Register\Auth\PublicAuthSettings;
@@ -24,6 +25,23 @@ use Register\Module\VisitorIdentity\VisitorIdentityManager;
 
 final class PublicAuthCest
 {
+    public function _before(\IntegrationTester $I): void
+    {
+        $I->setConfigValue(PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY, '1');
+    }
+
+    public function testGuestFormTokenKeepsPageEtagStableWithinAnHour(\IntegrationTester $I): void
+    {
+        /** @var PublicAuthFormToken $formToken */
+        $formToken = $I->grabService(PublicAuthFormToken::class);
+        $hour = 1_700_000_000 - (1_700_000_000 % 3600);
+
+        $first = $formToken->issue($hour + 1);
+        $I->assertSame($first, $formToken->issue($hour + 3599));
+        $I->assertNotSame($first, $formToken->issue($hour + 3600));
+        $I->assertTrue($formToken->matches($first, $hour + 3599));
+    }
+
     public function testGuestSeesOnlyConfiguredMethods(\IntegrationTester $I): void
     {
         $I->amOnPage('https://localhost/');
@@ -187,6 +205,7 @@ final class PublicAuthCest
         ]);
 
         $I->seeResponseCodeIs(200);
+
         $mails = $I->grabPublicAuthMails();
         $I->assertCount(1, $mails);
         $callbackUrl = $this->callbackUrl($mails[0]['message']);
@@ -236,6 +255,7 @@ final class PublicAuthCest
             ]);
             $I->seeResponseCodeIs(200);
         }
+
         $I->sendAjaxPostRequest('https://localhost/auth/email', [
             'email'       => 'limited-reader@example.test',
             'name'        => 'Limited reader',
@@ -246,6 +266,7 @@ final class PublicAuthCest
         $I->seeResponseCodeIs(429);
         $I->assertGreaterThan(0, (int)$I->grabHttpHeader('Retry-After'));
         $I->assertCount(3, $I->grabPublicAuthMails());
+
         $rateEvents = $dbLayer
             ->select('bucket_type', 'bucket_key')
             ->from('spam_rate_events')
@@ -269,6 +290,7 @@ final class PublicAuthCest
 
         $I->amOnPage('https://localhost/auth/oauth/vk?return=%2F%2Fforeign.example%2Fpath');
         $I->seeResponseCodeIs(302);
+
         $location = (string)$I->grabHttpHeader('Location');
         $I->assertStringStartsWith('https://id.vk.ru/authorize?', $location);
         parse_str((string)parse_url($location, PHP_URL_QUERY), $query);
@@ -277,6 +299,7 @@ final class PublicAuthCest
         $I->assertIsString($codeChallengeMethod);
         $I->assertSame('S256', strtoupper($codeChallengeMethod));
         $I->assertNotSame('', $query['code_challenge'] ?? '');
+
         $state = $query['state'] ?? null;
         $I->assertIsString($state);
         $I->assertNotSame('', $state);

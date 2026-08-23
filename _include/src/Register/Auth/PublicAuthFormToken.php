@@ -16,6 +16,9 @@ final readonly class PublicAuthFormToken
 {
     private const int LIFETIME = 86400;
 
+    /** Keep guest page bodies and their ETags stable while retaining short-lived form credentials. */
+    private const int ISSUE_INTERVAL = 3600;
+
     public function __construct(private StringProxy $secret)
     {
     }
@@ -23,6 +26,7 @@ final readonly class PublicAuthFormToken
     public function issue(?int $now = null): string
     {
         $timestamp = $now ?? time();
+        $timestamp = intdiv($timestamp, self::ISSUE_INTERVAL) * self::ISSUE_INTERVAL;
 
         return $timestamp . '.' . $this->signature($timestamp);
     }
@@ -32,6 +36,7 @@ final readonly class PublicAuthFormToken
         if (preg_match('/^([1-9][0-9]{8,11})\.([0-9a-f]{64})$/D', $candidate, $matches) !== 1) {
             return false;
         }
+
         $timestamp = (int)$matches[1];
         $now ??= time();
         if ($timestamp > $now + 300 || $timestamp < $now - self::LIFETIME) {

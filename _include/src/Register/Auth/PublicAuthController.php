@@ -128,6 +128,7 @@ final readonly class PublicAuthController implements ControllerInterface
         if (!$request->isMethod(Request::METHOD_POST)) {
             return new Response('Logout requires POST.', Response::HTTP_METHOD_NOT_ALLOWED, ['Allow' => 'POST']);
         }
+
         if (!$this->sessionManager->logoutCsrfTokenMatches($request, $request->request->getString('csrf_token'))) {
             return $this->error($request, $this->translator->trans('The session has changed. Reload the page.'), Response::HTTP_FORBIDDEN);
         }
@@ -143,6 +144,7 @@ final readonly class PublicAuthController implements ControllerInterface
         if (!StringHelper::isValidEmail($email)) {
             throw new \InvalidArgumentException($this->translator->trans('Enter a valid email address'));
         }
+
         $name = mb_substr(trim($request->request->getString('name')), 0, 80);
         $returnPath = PublicReturnPath::normalize($request->request->getString('return_path'));
         $this->magicLinkService->requestLogin($request, $email, $name, $returnPath);
@@ -155,7 +157,7 @@ final readonly class PublicAuthController implements ControllerInterface
         return new RedirectResponse($checkEmailUrl);
     }
 
-    private function emailCallback(Request $request): Response
+    private function emailCallback(Request $request): \Symfony\Component\HttpFoundation\RedirectResponse
     {
         $result = $this->magicLinkService->consume($request->query->getString('token'));
         $returnPath = $result['return_path'];
@@ -175,7 +177,7 @@ final readonly class PublicAuthController implements ControllerInterface
         return $this->redirectWithCookies($session, $returnPath);
     }
 
-    private function oauthStart(Request $request): Response
+    private function oauthStart(Request $request): \Symfony\Component\HttpFoundation\RedirectResponse
     {
         $provider = $request->attributes->getString('provider');
         $returnPath = PublicReturnPath::normalize($request->query->getString('return'));
@@ -183,7 +185,7 @@ final readonly class PublicAuthController implements ControllerInterface
         return new RedirectResponse($this->oauthClient->authorizationUrl($provider, $returnPath));
     }
 
-    private function oauthCallback(Request $request): Response
+    private function oauthCallback(Request $request): \Symfony\Component\HttpFoundation\RedirectResponse
     {
         $provider = $request->attributes->getString('provider');
         $identity = $this->oauthClient->exchange($request, $provider);
@@ -206,7 +208,7 @@ final readonly class PublicAuthController implements ControllerInterface
         return $this->redirectWithCookies($session, $identity->returnPath);
     }
 
-    private function unread(Request $request): Response
+    private function unread(Request $request): \Symfony\Component\HttpFoundation\RedirectResponse
     {
         $user = $this->authProvider->getAuthenticatedPublicUser($request);
         if (!$user instanceof \Register\Core\Model\AuthenticatedPublicUser) {
@@ -214,6 +216,7 @@ final readonly class PublicAuthController implements ControllerInterface
                 'return=' . rawurlencode($request->getRequestUri()),
             ]));
         }
+
         $notification = $this->notifications->firstUnread($user);
         if (!$notification instanceof CommentNotification) {
             return new RedirectResponse($this->urlBuilder->rawLink('/'));
@@ -232,6 +235,7 @@ final readonly class PublicAuthController implements ControllerInterface
         if (!$request->isMethod(Request::METHOD_POST)) {
             throw new \InvalidArgumentException('This action requires POST.');
         }
+
         if (!$this->formToken->matches($request->request->getString('auth_token'))) {
             throw new \InvalidArgumentException($this->translator->trans('The form has expired. Reload the page.'));
         }

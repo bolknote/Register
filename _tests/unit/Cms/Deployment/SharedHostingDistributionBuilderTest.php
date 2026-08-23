@@ -66,6 +66,10 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertFileExists($distribution . '/backups.md');
         self::assertFileExists($distribution . '/activitypub-operations.md');
         self::assertFileExists($distribution . '/activitypub-interoperability.md');
+        self::assertFileExists($distribution . '/activitypub-protocol-profile.md');
+        self::assertFileExists($distribution . '/secret-rotation.md');
+        self::assertFileExists($distribution . '/self-update.md');
+        self::assertFileExists($distribution . '/shared-hosting.md');
         self::assertFileExists($distribution . '/UPDATES.md');
         self::assertDirectoryDoesNotExist($applicationDir . '/_tests');
         self::assertFileDoesNotExist($applicationDir . '/config.local.php');
@@ -128,7 +132,11 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertStringContainsString('register-app/tools/restore-activitypub-identity.php', $archiveContent);
         self::assertStringContainsString('activitypub-operations.md', $archiveContent);
         self::assertStringContainsString('activitypub-interoperability.md', $archiveContent);
+        self::assertStringContainsString('activitypub-protocol-profile.md', $archiveContent);
         self::assertStringContainsString('backups.md', $archiveContent);
+        self::assertStringContainsString('secret-rotation.md', $archiveContent);
+        self::assertStringContainsString('self-update.md', $archiveContent);
+        self::assertStringContainsString('shared-hosting.md', $archiveContent);
         self::assertStringContainsString('UPDATES.md', $archiveContent);
     }
 

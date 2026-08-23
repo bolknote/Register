@@ -55,6 +55,7 @@ final readonly class MagicLinkRateLimiter
                     $stats['oldest'] + self::WINDOW_SECONDS - $now + 1,
                 );
             }
+
             if ($retryAfter > 0) {
                 throw new MagicLinkRateLimitException($retryAfter);
             }

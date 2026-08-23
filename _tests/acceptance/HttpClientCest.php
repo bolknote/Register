@@ -244,7 +244,10 @@ class HttpClientCest
             $client->request(
                 'GET',
                 'http://this-domain-should-not-exist-12345.test',
-                options: [HttpClient::CONNECT_TIMEOUT => 1],
+                options: [
+                    HttpClient::CONNECT_TIMEOUT_MILLISECONDS => 750,
+                    HttpClient::TOTAL_TIMEOUT_MILLISECONDS   => 1_500,
+                ],
             );
         } catch (HttpClientException $httpClientException) {
             $e = $httpClientException;
@@ -254,7 +257,13 @@ class HttpClientCest
             throw new \RuntimeException('The request unexpectedly succeeded.');
         }
 
-        $I->assertEquals(HttpClientException::REASON_HOST_RESOLVE_FAILURE, $e->reason);
+        // A resolver that returns NXDOMAIN is a host-resolution failure. If the CI resolver does
+        // not answer before the hard request deadline, cURL and PHP can only report a timeout.
+        // Both are correct classifications; relying on an external DNS response made this test flaky.
+        $I->assertContains($e->reason, [
+            HttpClientException::REASON_HOST_RESOLVE_FAILURE,
+            HttpClientException::REASON_TIMEOUT,
+        ]);
     }
 
     /**
