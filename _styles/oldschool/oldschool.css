@@ -8,37 +8,135 @@
     --oldschool-comment-bubble: #1e2329;
     --oldschool-comment-meta: #e1e1e1;
     --oldschool-comment-border: #c8c8c8;
-    --page-background: var(--oldschool-white);
-    --surface-background: #e6e6e6;
-    --field-background: #f8f8f8;
-    --text-color: #363636;
-    --minor-color: #5f5f5f;
-    --quiet-color: #737373;
+    --page-background: #edf1f0;
+    --surface-background: #e1e7e5;
+    --field-background: var(--oldschool-white);
+    --text-color: #252b2a;
+    --minor-color: #596360;
+    --quiet-color: #75807d;
     --link-color: #006666;
     --link-visited-color: #4f6f6f;
     --link-hover-color: var(--oldschool-teal-hover);
     --accent-color: var(--oldschool-teal);
     --link-underline-color: color-mix(in srgb, var(--link-color) 38%, transparent);
-    --border-color: #ccc;
+    --border-color: #c4cecb;
     --highlight-color: #fff6bf;
     --success-color: #264409;
     --error-color: #8a1f11;
     --star-color: #a96f00;
     --sunday-color: #900;
+    --page-width: 980px;
+    --article-width: 820px;
+    --text-width: 760px;
+    --comments-width: 760px;
+    --form-width: 700px;
+    --page-margin: clamp(14px, 4vw, 40px);
+    --header-top: clamp(18px, 3vw, 34px);
+    --site-title-size: clamp(2rem, 4.2vw, 3rem);
+    --ui-font: Arial, Helvetica, sans-serif;
+    --text-font: Arial, Helvetica, sans-serif;
+}
+
+body {
+    background:
+        linear-gradient(rgb(255 255 255 / 58%), transparent 22rem),
+        var(--page-background);
 }
 
 #header {
-    color: var(--oldschool-teal-deep);
+    box-sizing: border-box;
+    padding: clamp(1.15rem, 3vw, 1.65rem) clamp(1rem, 3vw, 1.8rem) clamp(1rem, 2.5vw, 1.4rem);
+    border-top: 6px solid var(--oldschool-teal-deep);
+    border-bottom: 1px solid color-mix(in srgb, var(--oldschool-teal-deep) 78%, var(--oldschool-white));
+    background: linear-gradient(135deg, var(--oldschool-teal), var(--oldschool-teal-deep));
+    box-shadow: 0 3px 0 rgb(0 0 0 / 10%);
+    color: var(--oldschool-white);
+    letter-spacing: -0.035em;
+}
+
+#header .site-tagline {
+    max-width: 640px;
+    margin-top: 0.55rem;
+    color: #dcecea;
+    font-family: var(--ui-font);
+    font-size: clamp(0.9rem, 1.6vw, 1rem);
+    line-height: 1.45;
+}
+
+#header .site-header-tools .post-create-start,
+#header .site-header-new-comments,
+#header .site-header-new-comments:visited {
+    color: var(--oldschool-white);
+}
+
+#header .public-auth-login-button,
+#header .public-auth-user-menu > summary {
+    border: 1px solid rgb(255 255 255 / 52%);
+    border-radius: 2px;
+    background: rgb(255 255 255 / 12%);
+    color: var(--oldschool-white);
+    backdrop-filter: none;
+}
+
+#header .public-auth-login-button:hover,
+#header .public-auth-login-button:focus-visible,
+#header .public-auth-user-menu > summary:hover,
+#header .public-auth-user-menu > summary:focus-visible {
+    border-color: var(--oldschool-white);
+    background: rgb(255 255 255 / 22%);
+    color: var(--oldschool-white);
+}
+
+#header .public-auth-avatar {
+    border-radius: 2px;
+}
+
+.register_search_form input {
+    min-height: 2.5rem;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--oldschool-teal-deep);
+    background: var(--oldschool-white);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 13%);
+}
+
+#container,
+.mainpage #container {
+    margin-top: clamp(1.25rem, 3vw, 2rem);
+    padding: clamp(1.15rem, 3.5vw, 2.25rem);
+    border: 1px solid var(--border-color);
+    background: var(--oldschool-white);
+    box-shadow: 0 3px 12px rgb(25 54 52 / 9%);
+}
+
+#content {
+    width: 100%;
+    max-width: var(--article-width);
+    margin-inline: auto;
+    font-size: clamp(16px, 1.6vw, 18px);
+    line-height: 1.65;
+}
+
+#content > .post-card,
+#content > .live-post-feed > .post-card {
+    max-width: var(--text-width);
+    margin-bottom: clamp(2.5rem, 6vw, 4.5rem);
+    border: 1px solid var(--border-color);
+    background: var(--oldschool-white);
+    box-shadow: 0 2px 0 rgb(0 0 0 / 5%);
 }
 
 #content > .post.head,
 #content .post-card > .post.head {
-    max-width: var(--text-width);
-    padding: 0.32rem 0.6rem 0.4rem;
-    border-radius: 4px 4px 0 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0.55rem 0.75rem 0.6rem;
+    border-radius: 0;
     background: var(--oldschool-teal);
     color: var(--oldschool-white);
-    letter-spacing: -0.04em;
+    font-size: clamp(1.35rem, 3vw, 1.85rem);
+    letter-spacing: -0.025em;
+    line-height: 1.18;
     text-shadow: 0 1px 0 color-mix(in srgb, var(--oldschool-teal-deep) 65%, transparent);
 }
 
@@ -57,13 +155,37 @@
 
 #content > .post.head + .post.time,
 #content .post-card > .post.head + .post.time {
-    width: min(100%, var(--text-width));
-    max-width: var(--text-width);
-    margin-top: -0.35rem;
-    padding: 0.38rem 0.6rem 0.45rem;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0.42rem 0.75rem 0.48rem;
     border-bottom: 1px solid #ddd;
     background: var(--oldschool-story-meta);
     color: #4d4d4d;
+    font-size: 12px;
+}
+
+#content > .post.body,
+#content .post-card > .post.body {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 1.2rem 0.85rem 0.35rem;
+}
+
+#content > .post.body > :first-child,
+#content .post-card > .post.body > :first-child {
+    margin-top: 0;
+}
+
+#content > .post.foot,
+#content .post-card > .post.foot {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0.7rem 0.85rem 1rem;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: #fafbfb;
 }
 
 .post.foot {
@@ -390,6 +512,41 @@ input.comment-submit:focus-visible,
 }
 
 @media (max-width: 720px) {
+    :root {
+        --page-margin: 10px;
+    }
+
+    #header {
+        padding: 1rem 0.9rem;
+        border-top-width: 4px;
+    }
+
+    #header .site-tagline {
+        font-size: 0.88rem;
+    }
+
+    #container,
+    .mainpage #container {
+        padding: 0.85rem;
+        box-shadow: none;
+    }
+
+    #content > .post.head,
+    #content .post-card > .post.head {
+        font-size: 1.3rem;
+    }
+
+    #content > .post.body,
+    #content .post-card > .post.body {
+        padding: 1rem 0.7rem 0.25rem;
+    }
+
+    #content > .post.foot,
+    #content .post-card > .post.foot {
+        padding-right: 0.7rem;
+        padding-left: 0.7rem;
+    }
+
     .post-foot-tags {
         padding-top: 0;
     }

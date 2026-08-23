@@ -31,14 +31,14 @@
     --register-accent: var(--system-black);
     --register-ui-font: var(--ui-font);
     --txt-lightweight-color: var(--quiet-color);
-    --page-width: 1120px;
-    --article-width: 960px;
-    --text-width: 780px;
-    --comments-width: 840px;
-    --form-width: 760px;
-    --page-margin: clamp(14px, 3.2vw, 46px);
-    --desktop-rail: 106px;
-    --window-padding: clamp(20px, 4.2vw, 48px);
+    --page-width: 960px;
+    --article-width: 880px;
+    --text-width: 820px;
+    --comments-width: 800px;
+    --form-width: 720px;
+    --page-margin: clamp(12px, 3vw, 32px);
+    --desktop-rail: 96px;
+    --window-padding: clamp(22px, 3vw, 36px);
     --header-top: 0;
     --site-title-size: 14px;
     --ui-font: Geneva, Chicago, "Helvetica Neue", Arial, sans-serif;
@@ -315,11 +315,22 @@ hr {
 }
 
 #header .site-tagline {
-    grid-column: 3 / -1;
+    grid-column: 1 / -1;
     grid-row: 2;
-    margin-top: 0.45rem;
-    margin-bottom: 0.15rem;
-    color: var(--system-dark-gray);
+    max-width: none;
+    margin: 3px -16px -3px;
+    padding: 7px 16px 8px;
+    overflow: hidden;
+    border-top: 1px solid var(--system-black);
+    background:
+        repeating-linear-gradient(90deg, transparent 0 2px, rgb(0 0 0 / 7%) 2px 3px),
+        var(--surface-background);
+    color: #333;
+    font-family: var(--ui-font);
+    font-size: 12px;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 #header .post-create-slot {
@@ -391,12 +402,19 @@ hr {
     justify-content: flex-end;
 }
 
+.register_search_form .register-search-autocomplete {
+    max-width: 280px;
+    width: min(100%, 280px);
+    margin-left: auto;
+    flex: 0 1 280px;
+}
+
 #crumbs:not(:empty) + .register_search_form {
     margin-top: 10px;
 }
 
 .register_search_form input {
-    width: min(100%, 280px);
+    width: 100%;
     min-height: 32px;
     padding: 4px 9px;
     border: 2px solid var(--system-black);
@@ -418,7 +436,7 @@ hr {
     order: 0;
     display: grid;
     min-width: 0;
-    margin-top: 22px;
+    margin-top: 18px;
     padding: 50px var(--window-padding) 0;
     border: 2px solid var(--system-black);
     grid-template-columns: minmax(0, 1fr);
@@ -514,7 +532,7 @@ hr {
 .system-desktop-icons {
     position: absolute;
     z-index: 3;
-    top: 58px;
+    top: 68px;
     right: 12px;
     display: grid;
     width: 86px;
@@ -628,7 +646,13 @@ h4 {
     flex: 0 0 auto;
     background: url("document.png") center / contain no-repeat;
     content: "";
-    filter: grayscale(1) contrast(1.3);
+    filter:
+        grayscale(1)
+        contrast(1.3)
+        drop-shadow(1px 0 0 var(--system-black))
+        drop-shadow(-1px 0 0 var(--system-black))
+        drop-shadow(0 1px 0 var(--system-black))
+        drop-shadow(0 -1px 0 var(--system-black));
 }
 
 #content li::marker {
@@ -724,7 +748,13 @@ blockquote {
     flex: 0 0 auto;
     background: url("document.png") center / contain no-repeat;
     content: "";
-    filter: grayscale(1) contrast(1.35);
+    filter:
+        grayscale(1)
+        contrast(1.35)
+        drop-shadow(1px 0 0 var(--system-black))
+        drop-shadow(-1px 0 0 var(--system-black))
+        drop-shadow(0 1px 0 var(--system-black))
+        drop-shadow(0 -1px 0 var(--system-black));
 }
 
 #content > .post.head a,
@@ -1095,6 +1125,12 @@ input[type="radio"] {
     border-top: 3px double var(--system-black);
 }
 
+#comments-title,
+#add-comment,
+.comment-stable-anchor {
+    scroll-margin-top: 84px;
+}
+
 h2.comment,
 .comment.form {
     width: fit-content;
@@ -1377,12 +1413,13 @@ ul.back_forward {
 
     #header .site-tagline {
         grid-column: 1 / -1;
-        margin-top: 0.45rem;
-        margin-bottom: 0.2rem;
-        padding-top: 0.45rem;
+        margin: 3px -8px -3px;
+        padding: 7px 8px 8px;
         border-top: 1px solid var(--system-black);
-        font-size: 14px;
-        line-height: 1.38;
+        font-size: 12px;
+        line-height: 1.4;
+        text-overflow: clip;
+        white-space: normal;
     }
 
     #header::after {
@@ -1408,6 +1445,12 @@ ul.back_forward {
 
     .register_search_form input {
         width: 100%;
+    }
+
+    .register_search_form .register-search-autocomplete {
+        max-width: none;
+        width: 100%;
+        flex-basis: 100%;
     }
 
     #container,

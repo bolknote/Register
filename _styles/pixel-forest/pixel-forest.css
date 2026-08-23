@@ -47,14 +47,14 @@
     --register-accent: var(--pixel-moon);
     --register-ui-font: var(--ui-font);
     --txt-lightweight-color: var(--quiet-color);
-    --page-width: 1180px;
-    --article-width: 1040px;
-    --text-width: 900px;
-    --comments-width: 900px;
-    --form-width: 800px;
-    --page-margin: clamp(16px, 4vw, 48px);
-    --header-top: clamp(20px, 3vw, 36px);
-    --site-title-size: clamp(2rem, 5.2vw, 4.25rem);
+    --page-width: 1080px;
+    --article-width: 860px;
+    --text-width: 800px;
+    --comments-width: 800px;
+    --form-width: 720px;
+    --page-margin: clamp(14px, 3vw, 32px);
+    --header-top: clamp(14px, 2vw, 24px);
+    --site-title-size: clamp(2.25rem, 4.5vw, 3.5rem);
     --ui-font: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, "Liberation Mono", monospace;
     --text-font: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
@@ -70,8 +70,8 @@ html {
 body {
     background-color: var(--page-background);
     background-image:
-        repeating-linear-gradient(0deg, transparent 0 3px, rgb(0 0 0 / 8%) 3px 4px),
-        repeating-linear-gradient(90deg, rgb(111 168 93 / 2%) 0 1px, transparent 1px 16px);
+        repeating-linear-gradient(0deg, transparent 0 3px, rgb(0 0 0 / 5%) 3px 4px),
+        repeating-linear-gradient(90deg, rgb(111 168 93 / 1.5%) 0 1px, transparent 1px 16px);
     background-size: 4px 4px, 16px 16px;
     letter-spacing: 0.005em;
 }
@@ -175,27 +175,27 @@ hr {
     position: relative;
     isolation: isolate;
     display: flex;
-    min-height: clamp(190px, 22vw, 240px);
+    min-height: clamp(184px, 19vw, 216px);
     margin-top: var(--header-top);
-    padding: clamp(82px, 10vw, 116px) clamp(20px, 4vw, 44px) clamp(22px, 3vw, 34px);
-    border: 4px solid var(--pixel-ink);
+    padding: clamp(72px, 8vw, 92px) clamp(20px, 4vw, 40px) clamp(22px, 3vw, 30px);
+    border: 3px solid var(--pixel-ink);
     align-items: flex-end;
     background-color: var(--pixel-sky);
     background-image: linear-gradient(rgb(3 13 11 / 8%), rgb(3 13 11 / 8%)), url("forest-header.svg");
     background-position: center;
     background-size: cover;
-    box-shadow: 8px 8px 0 var(--pixel-shadow), 0 0 0 4px var(--pixel-frame);
+    box-shadow: 6px 6px 0 var(--pixel-shadow), 0 0 0 3px var(--pixel-frame);
     color: var(--pixel-leaf-bright);
     font-size: var(--site-title-size);
     font-weight: 900;
     letter-spacing: -0.055em;
     line-height: 0.98;
     text-shadow:
-        3px 0 var(--pixel-ink),
-        -3px 0 var(--pixel-ink),
-        0 3px var(--pixel-ink),
-        0 -3px var(--pixel-ink),
-        5px 5px 0 var(--pixel-shadow);
+        2px 0 var(--pixel-ink),
+        -2px 0 var(--pixel-ink),
+        0 2px var(--pixel-ink),
+        0 -2px var(--pixel-ink),
+        4px 4px 0 var(--pixel-shadow);
 }
 
 #header::before {
@@ -234,6 +234,39 @@ hr {
     color: var(--pixel-moon);
 }
 
+#header .public-auth-login-button,
+#header .public-auth-user-menu > summary {
+    border: 2px solid var(--pixel-frame-light);
+    border-radius: 0;
+    background: rgb(3 13 11 / 82%);
+    box-shadow: 3px 3px 0 var(--pixel-shadow);
+    color: var(--text-color);
+    backdrop-filter: none;
+}
+
+#header .public-auth-login-button:hover,
+#header .public-auth-login-button:focus-visible,
+#header .public-auth-user-menu > summary:hover,
+#header .public-auth-user-menu > summary:focus-visible {
+    border-color: var(--pixel-moon);
+    background: var(--pixel-panel);
+    color: var(--pixel-leaf-bright);
+}
+
+#header .public-auth-avatar {
+    border-radius: 0;
+}
+
+#header .site-tagline {
+    max-width: 48rem;
+    margin-top: 0.7rem;
+    color: #d9e9cf;
+    font-size: clamp(0.82rem, 1.35vw, 1rem);
+    line-height: 1.5;
+    letter-spacing: 0;
+    text-shadow: 2px 2px 0 var(--pixel-shadow);
+}
+
 #crumbs {
     min-height: 1.8rem;
     padding-top: 1.65rem;
@@ -262,13 +295,16 @@ hr {
 
 #container {
     flex: 1 0 auto;
-    padding-top: clamp(2.5rem, 6vw, 4.5rem);
+    padding-top: clamp(2.75rem, 5vw, 4rem);
     gap: 3rem;
 }
 
 #content {
-    font-size: clamp(17px, 1.65vw, 19px);
-    line-height: 1.68;
+    width: 100%;
+    max-width: var(--article-width);
+    margin-inline: auto;
+    font-size: clamp(16px, 1.35vw, 18px);
+    line-height: 1.72;
 }
 
 #content > * {
@@ -380,24 +416,24 @@ blockquote {
     width: min(100%, var(--text-width));
     max-width: var(--text-width);
     margin: 0;
-    padding: 0.75rem clamp(0.8rem, 3vw, 1.35rem) 0.85rem;
-    border: 4px solid var(--pixel-ink);
+    padding: 0.65rem clamp(0.8rem, 3vw, 1.1rem) 0.72rem;
+    border: 3px solid var(--pixel-ink);
     border-bottom: 0;
     background:
         repeating-linear-gradient(90deg, rgb(255 255 255 / 3%) 0 4px, transparent 4px 8px),
         var(--pixel-frame);
-    box-shadow: 8px 0 0 var(--pixel-shadow), 0 -4px 0 var(--pixel-frame-light);
+    box-shadow: 5px 0 0 var(--pixel-shadow), 0 -3px 0 var(--pixel-frame-light);
     color: var(--pixel-leaf-bright);
-    font-size: clamp(1.5rem, 3.7vw, 2.35rem);
+    font-size: clamp(1.4rem, 3vw, 1.95rem);
     line-height: 1.2;
-    text-shadow: 3px 3px 0 var(--pixel-shadow);
+    text-shadow: 2px 2px 0 var(--pixel-shadow);
 }
 
 #content > .post.head::before,
 #content .post-card > .post.head::before {
     display: inline-block;
-    width: 0.48em;
-    height: 0.48em;
+    width: 0.4em;
+    height: 0.4em;
     margin-right: 0.45em;
     background: var(--pixel-moon);
     box-shadow: 3px 3px 0 var(--pixel-shadow);
@@ -424,9 +460,9 @@ blockquote {
 #content .post-card > .post.time {
     width: min(100%, var(--text-width));
     margin: 0;
-    padding: 0.45rem clamp(0.8rem, 3vw, 1.35rem) 0.55rem;
-    border-right: 4px solid var(--pixel-ink);
-    border-left: 4px solid var(--pixel-ink);
+    padding: 0.42rem clamp(0.8rem, 3vw, 1.1rem) 0.5rem;
+    border-right: 3px solid var(--pixel-ink);
+    border-left: 3px solid var(--pixel-ink);
     background: #0b201c;
     color: var(--pixel-water);
     font-size: 12px;
@@ -451,10 +487,10 @@ blockquote {
 #content .post-card > .post.body {
     width: min(100%, var(--text-width));
     margin: 0;
-    padding: clamp(1.1rem, 3vw, 1.65rem) clamp(0.8rem, 3vw, 1.35rem) 0.9rem;
-    border-right: 4px solid var(--pixel-ink);
-    border-left: 4px solid var(--pixel-ink);
-    background: var(--pixel-panel);
+    padding: clamp(1.1rem, 3vw, 1.5rem) clamp(0.85rem, 3vw, 1.15rem) 0.85rem;
+    border-right: 3px solid var(--pixel-ink);
+    border-left: 3px solid var(--pixel-ink);
+    background: #102824;
 }
 
 #content > .post.body > :first-child,
@@ -466,12 +502,12 @@ blockquote {
 #content .post-card > .post.foot {
     width: min(100%, var(--text-width));
     margin: 0 0 clamp(3.7rem, 8vw, 6rem);
-    padding: 0.75rem clamp(0.8rem, 3vw, 1.35rem) 1rem;
-    border: 4px solid var(--pixel-ink);
+    padding: 0.7rem clamp(0.85rem, 3vw, 1.15rem) 0.9rem;
+    border: 3px solid var(--pixel-ink);
     border-top: 0;
     align-items: center;
     background: var(--pixel-panel);
-    box-shadow: 8px 8px 0 var(--pixel-shadow), 0 4px 0 var(--pixel-frame);
+    box-shadow: 5px 5px 0 var(--pixel-shadow), 0 3px 0 var(--pixel-frame);
     color: var(--minor-color);
     font-size: 12px;
 }
@@ -530,11 +566,12 @@ h2.preview {
 
 .register_search_form input {
     width: min(100%, 22rem);
-    min-height: 2.5rem;
+    min-height: 2.35rem;
     padding: 0.45rem 0.7rem;
+    border-width: 2px;
     border-color: var(--pixel-frame-light);
     background: rgb(3 13 11 / 90%);
-    box-shadow: 4px 4px 0 var(--pixel-shadow), inset 0 0 0 2px var(--pixel-frame);
+    box-shadow: 3px 3px 0 var(--pixel-shadow), inset 0 0 0 1px var(--pixel-frame);
     font-size: 14px;
 }
 
@@ -1002,12 +1039,12 @@ ul.back_forward li {
     }
 
     #header {
-        min-height: 210px;
+        min-height: 184px;
         margin-top: 14px;
-        padding: 72px 18px 20px;
+        padding: 66px 18px 18px;
         background-position: 58% center;
         box-shadow: 5px 5px 0 var(--pixel-shadow), 0 0 0 3px var(--pixel-frame);
-        font-size: clamp(1.85rem, 8.6vw, 2.65rem);
+        font-size: clamp(1.8rem, 8vw, 2.45rem);
     }
 
     #header .site-header-shell {
@@ -1059,7 +1096,7 @@ ul.back_forward li {
     }
 
     #container {
-        padding-top: 2.5rem;
+        padding-top: 2.2rem;
     }
 
     #content {
