@@ -11,6 +11,8 @@ namespace Register\Module\LinkHealth;
 
 final class LinkHealthPolicy
 {
+    private const array RESTRICTED_STATUS_CODES = [401, 402, 403, 429, 451];
+
     public const int HEALTHY_INTERVAL = 30 * 86400;
 
     public const int BROKEN_INTERVAL = 30 * 86400;
@@ -57,7 +59,7 @@ final class LinkHealthPolicy
             );
         }
 
-        if ($probe->error === null && \in_array($probe->statusCode, [401, 403, 451], true)) {
+        if ($probe->error === null && \in_array($probe->statusCode, self::RESTRICTED_STATUS_CODES, true)) {
             return new LinkHealthDecision(
                 LinkHealthStatus::RESTRICTED,
                 0,

@@ -35,11 +35,12 @@ final class LinkHealthPolicyTest extends Unit
         self::assertFalse($decision->lookupArchive);
     }
 
-    public function testAccessDeniedMeansRestrictedRatherThanBroken(): void
+    /** @dataProvider restrictedStatusCodes */
+    public function testAccessDeniedMeansRestrictedRatherThanBroken(int $statusCode): void
     {
         $decision = (new LinkHealthPolicy())->decide(
             $this->target(LinkHealthStatus::SUSPECT, 2, 1_700_000_000),
-            new LinkProbeResult('https://example.test/', 403),
+            new LinkProbeResult('https://example.test/', $statusCode),
             1_800_000_000,
         );
 
@@ -47,6 +48,16 @@ final class LinkHealthPolicyTest extends Unit
         self::assertSame(0, $decision->failureCount);
         self::assertSame(1_700_000_000, $decision->lastSuccessAt);
         self::assertFalse($decision->lookupArchive);
+    }
+
+    /** @return iterable<string, array{int}> */
+    public static function restrictedStatusCodes(): iterable
+    {
+        yield 'unauthorized' => [401];
+        yield 'payment required' => [402];
+        yield 'forbidden' => [403];
+        yield 'rate limited' => [429];
+        yield 'legal restriction' => [451];
     }
 
     public function testRequiresTwoHardFailuresBeforeArchiveLookup(): void

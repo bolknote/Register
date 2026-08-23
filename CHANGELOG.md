@@ -21,7 +21,8 @@ in-place publishing and a release package designed for ordinary shared hosting.
   removed during the generation-20 migration, and discussion subscriptions now control both email
   delivery and the authenticated user's unread-comment counter.
 - Link health rechecks `404`/`410` targets monthly, including confirmed broken links, so a restored
-  page returns to healthy status without an administrator having to notice it first.
+  page returns to healthy status without an administrator having to notice it first; payment and
+  rate-limit responses are treated as restricted access rather than broken links.
 - Link inventory recognizes the configured canonical host during local runs, preserves Unicode and
   IDN links, and reuses completed Wayback results instead of repeating imported lookups. Wayback
   jobs now back off together when the archive API is unavailable or rate-limited.
