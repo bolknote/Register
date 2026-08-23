@@ -125,6 +125,35 @@ final class SafeHttpProbeTest extends Unit
         self::assertCount(1, $client->calls);
     }
 
+    public function testReportsAnInvalidRedirectHostAsAProbeFailure(): void
+    {
+        $client = new RecordingLinkHttpClient([
+            new HttpResponse(['HTTP/1.1 302 Found', 'Location: https://*/'], 302, ''),
+        ]);
+        $resolver = new class implements HostResolverInterface {
+            /** @return list<string> */
+            #[\Override]
+            public function resolve(string $host, ?float $timeoutSeconds = null): array
+            {
+                if ($host === '*') {
+                    throw new \InvalidArgumentException('A DNS host label is invalid.');
+                }
+
+                return $host === 'first.example' ? ['93.184.216.34'] : [];
+            }
+        };
+        $probe = new SafeHttpProbe($client, new PublicAddressGuard($resolver));
+
+        $firstStep = $probe->step(LinkProbeState::initial('https://first.example/'));
+        self::assertNotNull($firstStep->nextState);
+        $result = $probe->step($firstStep->nextState)->result;
+
+        self::assertNotNull($result);
+        self::assertSame(LinkProbeResult::ERROR_REDIRECT, $result->errorReason);
+        self::assertSame('A DNS host label is invalid.', $result->error);
+        self::assertCount(1, $client->calls);
+    }
+
     public function testStopsAtThePersistedRedirectLimit(): void
     {
         $client = new RecordingLinkHttpClient([

@@ -106,6 +106,14 @@ final readonly class SafeHttpProbe implements LinkProbeInterface
                     default => LinkProbeResult::ERROR_NETWORK,
                 },
             ));
+        } catch (\InvalidArgumentException $exception) {
+            // Redirect destinations are untrusted input. A syntactically invalid hostname must
+            // become a probe result instead of making the durable queue retry the same job forever.
+            return LinkProbeStep::complete(new LinkProbeResult(
+                $state->url,
+                error: $exception->getMessage(),
+                errorReason: LinkProbeResult::ERROR_REDIRECT,
+            ));
         }
     }
 
