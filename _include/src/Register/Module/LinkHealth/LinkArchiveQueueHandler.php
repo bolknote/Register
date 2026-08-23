@@ -104,9 +104,12 @@ final readonly class LinkArchiveQueueHandler implements QueueHandlerInterface
         }
 
         try {
+            $referenceTime = $target->lastSuccessAt
+                ?? $this->repository->archiveReferenceTime($targetId)
+                ?? $target->lastSeenAt;
             $result = $this->waybackClient->lookup(
                 $target->url,
-                $target->lastSuccessAt ?? $target->lastSeenAt,
+                $referenceTime,
             );
         } catch (\Throwable $throwable) {
             $this->requestThrottle->backOff(

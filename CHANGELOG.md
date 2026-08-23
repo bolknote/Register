@@ -25,7 +25,8 @@ in-place publishing and a release package designed for ordinary shared hosting.
   rate-limit responses are treated as restricted access rather than broken links.
 - Link inventory recognizes the configured canonical host during local runs, preserves Unicode and
   IDN links, and reuses completed Wayback results instead of repeating imported lookups. Wayback
-  jobs now back off together when the archive API is unavailable or rate-limited.
+  jobs with no prior successful check use the oldest linked publication as their historical
+  reference and back off together when the archive API is unavailable or rate-limited.
 - CI-gated edge builds and manually promoted release-candidate or stable archives.
 
 ### Deployment notes

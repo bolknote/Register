@@ -68,6 +68,29 @@ final readonly class LinkHealthRepository
             ->result() > 0;
     }
 
+    public function archiveReferenceTime(int $targetId): ?int
+    {
+        if ($targetId < 1) {
+            return null;
+        }
+
+        $value = $this->dbLayer
+            ->select('MIN(CASE WHEN c.published_at IS NOT NULL AND c.published_at > 0 '
+                . 'THEN c.published_at ELSE c.created_at END)')
+            ->from(Manifest::CONTENT_LINK_TABLE . ' AS cl')
+            ->innerJoin(ContentSchema::TABLE_NAME . ' AS c', 'c.id = cl.source_content_id')
+            ->where('cl.target_id = :target_id')->setParameter('target_id', $targetId)
+            ->andWhere('c.published = 1')
+            ->execute()
+            ->result()
+        ;
+        $timestamp = \is_int($value) || (\is_string($value) && ctype_digit($value))
+            ? (int)$value
+            : 0;
+
+        return $timestamp > 0 ? $timestamp : null;
+    }
+
     public function probeWasRecorded(string $token): bool
     {
         if (!LinkQueue::isOperationToken($token)) {

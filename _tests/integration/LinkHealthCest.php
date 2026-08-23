@@ -744,6 +744,67 @@ final class LinkHealthCest
         $I->assertSame(2, $waybackClient->lookups);
     }
 
+    public function usesTheOldestLinkedPublicationAsWaybackReference(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $url = 'https://broken.example/historical-context';
+        $olderContentId = $this->insertPost(
+            $dbLayer,
+            'older-wayback-context',
+            '<a href="' . $url . '">Older</a>',
+            1_100_000_000,
+        );
+        $newerContentId = $this->insertPost(
+            $dbLayer,
+            'newer-wayback-context',
+            '<a href="' . $url . '">Newer</a>',
+            1_300_000_000,
+        );
+
+        /** @var LinkInventory $inventory */
+        $inventory = $I->grabService(LinkInventory::class);
+        $inventory->synchronize(ContentId::post($newerContentId), 1_800_000_000);
+        $inventory->synchronize(ContentId::post($olderContentId), 1_800_000_001);
+
+        $targetId = $this->targetId($dbLayer, $url);
+        $this->markBroken($dbLayer, $targetId);
+        $dbLayer->update(Manifest::THROTTLE_TABLE)
+            ->set('next_request_at', '0')
+            ->where('service = :service')->setParameter('service', WaybackRequestThrottle::SERVICE)
+            ->execute();
+
+        $waybackClient = new CountingWaybackClient();
+        /** @var LinkHealthRepository $healthRepository */
+        $healthRepository = $I->grabService(LinkHealthRepository::class);
+        /** @var WaybackRequestThrottle $throttle */
+        $throttle = $I->grabService(WaybackRequestThrottle::class);
+        /** @var LinkHealthResultRecorder $resultRecorder */
+        $resultRecorder = $I->grabService(LinkHealthResultRecorder::class);
+        /** @var QueuePublisher $queuePublisher */
+        $queuePublisher = $I->grabService(QueuePublisher::class);
+        /** @var DynamicConfigProvider $configProvider */
+        $configProvider = $I->grabService(DynamicConfigProvider::class);
+        $handler = new LinkArchiveQueueHandler(
+            $healthRepository,
+            $waybackClient,
+            $throttle,
+            $resultRecorder,
+            $queuePublisher,
+            $configProvider->getBoolProxy(Manifest::AUTO_REPAIR_CONFIG_KEY),
+            static fn(): int => 1_800_000_002,
+        );
+
+        $handler->handle(
+            LinkQueue::targetJobId($targetId),
+            LinkQueue::ARCHIVE_CODE,
+            LinkQueue::archivePayload($targetId),
+            new QueueExecutionBudget(5.0),
+        );
+
+        $I->assertSame([1_100_000_000], $waybackClient->referenceTimes);
+    }
+
     public function backsOffEveryWaybackJobAfterRateLimiting(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -965,9 +1026,9 @@ final class LinkHealthCest
         throw new \RuntimeException('Target not found: ' . $url);
     }
 
-    private function insertPost(DbLayer $dbLayer, string $slug, string $body): int
+    private function insertPost(DbLayer $dbLayer, string $slug, string $body, ?int $publishedAt = null): int
     {
-        $now = time();
+        $now = $publishedAt ?? time();
         $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
             'content_type' => ':content_type',
             'parent_id'    => 'NULL',
@@ -1100,10 +1161,14 @@ final class CountingWaybackClient implements WaybackClientInterface
 {
     public int $lookups = 0;
 
+    /** @var list<int> */
+    public array $referenceTimes = [];
+
     #[\Override]
     public function lookup(string $url, int $referenceTime): ArchiveLookupResult
     {
         ++$this->lookups;
+        $this->referenceTimes[] = $referenceTime;
         return ArchiveLookupResult::missing();
     }
 }
