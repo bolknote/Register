@@ -13,6 +13,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
+use Register\Core\Model\AuthProvider;
 use Register\Module\VisitorIdentity\JsonMutationGuard;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Core\Framework\ControllerInterface;
@@ -29,6 +30,7 @@ final readonly class ReactionController implements ControllerInterface
         private ContentRepository      $contentRepository,
         private VisitorIdentityManager $identityManager,
         private JsonMutationGuard      $mutationGuard,
+        private AuthProvider            $authProvider,
     ) {
     }
 
@@ -89,7 +91,15 @@ final readonly class ReactionController implements ControllerInterface
             return $this->error('Unknown reaction.', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        return $this->stateResponse($this->repository->toggle($contentId->value, $visitorId, $reaction));
+        $userId = $this->authProvider->getAuthenticatedPublicUser($request)?->id;
+        $this->identityManager->recordInteraction($request, $userId);
+
+        return $this->stateResponse($this->repository->toggle(
+            $contentId->value,
+            $visitorId,
+            $reaction,
+            $userId,
+        ));
     }
 
     private function stateResponse(ReactionState $state): JsonResponse

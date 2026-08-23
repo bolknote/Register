@@ -208,6 +208,7 @@ final readonly class PublicAuthRepository
         string $returnPath,
         ?array $pendingComment = null,
         int $lifetime = 900,
+        ?string $visitorId = null,
     ): void {
         $this->cleanupExpired();
         $now = time();
@@ -222,6 +223,7 @@ final readonly class PublicAuthRepository
                 'content_id'   => ':content_id',
                 'parent_id'    => ':parent_id',
                 'comment_text' => ':comment_text',
+                'visitor_id'   => ':visitor_id',
                 'show_email'   => ':show_email',
                 'subscribed'   => ':subscribed',
                 'moderation_required' => ':moderation_required',
@@ -239,6 +241,7 @@ final readonly class PublicAuthRepository
                 'content_id'   => $pendingComment['content_id'] ?? null,
                 'parent_id'    => $pendingComment['parent_id'] ?? null,
                 'comment_text' => $pendingComment['text'] ?? null,
+                'visitor_id'   => $visitorId,
                 'show_email'   => (int)($pendingComment['show_email'] ?? false),
                 'subscribed'   => (int)($pendingComment['subscribed'] ?? false),
                 'moderation_required' => (int)($pendingComment['moderation_required'] ?? false),

@@ -65,6 +65,30 @@ final readonly class VisitorIdentityManager
         return \is_string($token) ? $this->visitorIdFromToken($token) : null;
     }
 
+    /** Records an action made with an already issued browser identity. */
+    public function recordInteraction(Request $request, ?int $userId = null): ?string
+    {
+        $visitorId = $this->visitorIdFromRequest($request);
+        if ($visitorId === null) {
+            return null;
+        }
+
+        $now = time();
+        if ($userId !== null) {
+            $this->linkUser($visitorId, $userId, $now);
+        } else {
+            $this->repository->touchVisitor($visitorId, $now);
+        }
+
+        return $visitorId;
+    }
+
+    /** Links a previously validated and persisted visitor identifier to a verified user. */
+    public function linkStoredVisitor(string $visitorId, int $userId): void
+    {
+        $this->linkUser($visitorId, $userId, time());
+    }
+
     public function visitorIdFromToken(string $token): ?string
     {
         if (substr_count($token, '.') !== 1) {
@@ -105,6 +129,19 @@ final readonly class VisitorIdentityManager
     private function tokenFor(string $visitorId): string
     {
         return $visitorId . '.' . $this->signature($visitorId);
+    }
+
+    private function linkUser(string $visitorId, int $userId, int $now): void
+    {
+        if (preg_match('/^[a-f0-9]{32}$/D', $visitorId) !== 1) {
+            throw new \InvalidArgumentException('A visitor identifier must contain 32 lowercase hexadecimal characters.');
+        }
+
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('A user identifier must be a positive integer.');
+        }
+
+        $this->repository->linkUser($visitorId, $userId, $now);
     }
 
     private function signature(string $visitorId): string

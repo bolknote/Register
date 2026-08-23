@@ -137,7 +137,12 @@ final readonly class ReactionRepository
         return $states;
     }
 
-    public function toggle(int $contentId, string $visitorId, ReactionType $reaction): ReactionState
+    public function toggle(
+        int          $contentId,
+        string       $visitorId,
+        ReactionType $reaction,
+        ?int         $userId = null,
+    ): ReactionState
     {
         $current = $this->dbLayer->select('reaction')
             ->from(Manifest::TABLE_NAME)
@@ -158,6 +163,7 @@ final readonly class ReactionRepository
             $this->dbLayer->upsert(Manifest::TABLE_NAME)
                 ->setKey('content_id', ':content_id')->setParameter('content_id', $contentId)
                 ->setKey('visitor_id', ':visitor_id')->setParameter('visitor_id', $visitorId)
+                ->setValue('user_id', ':user_id')->setParameter('user_id', $userId)
                 ->setValue('reaction', ':reaction')->setParameter('reaction', $reaction->value)
                 ->setValue('created_at', ':created_at')->setParameter('created_at', $now)
                 ->setValue('updated_at', ':updated_at')->setParameter('updated_at', $now)

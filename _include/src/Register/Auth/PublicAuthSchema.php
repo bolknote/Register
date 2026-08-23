@@ -72,6 +72,7 @@ final class PublicAuthSchema
                 ->addInteger('content_id', true, true, null)
                 ->addInteger('parent_id', true, true, null)
                 ->addLongText('comment_text')
+                ->addString('visitor_id', 32, true, null)
                 ->addBoolean('show_email')
                 ->addBoolean('subscribed')
                 ->addBoolean('moderation_required')
@@ -84,6 +85,7 @@ final class PublicAuthSchema
                 ->addIndex('email_idx', ['email'])
             ;
         });
+        self::ensureMagicLinkModerationRequirement($dbLayer);
 
         $dbLayer->createTable(self::NOTIFICATION_USERS_TABLE, static function (SchemaBuilderInterface $table): void {
             $table
@@ -148,6 +150,19 @@ final class PublicAuthSchema
             'users',
             ['id'],
             'SET NULL',
+        );
+    }
+
+    /** Repairs generation-17 databases produced before pending-comment moderation was persisted. */
+    public static function ensureMagicLinkModerationRequirement(DbLayer $dbLayer): void
+    {
+        $dbLayer->addField(
+            self::MAGIC_LINKS_TABLE,
+            'moderation_required',
+            SchemaBuilderInterface::TYPE_BOOLEAN,
+            null,
+            false,
+            false,
         );
     }
 }

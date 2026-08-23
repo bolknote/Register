@@ -72,6 +72,7 @@ final readonly class ContentCommentStrategy implements CommentStrategyInterface
         string  $ip,
         ?int    $parentId,
         ?int    $userId,
+        ?string $visitorId,
     ): int {
         return $this->commentRepository->save(
             $this->contentId($targetId),
@@ -83,6 +84,7 @@ final readonly class ContentCommentStrategy implements CommentStrategyInterface
             $ip,
             $parentId,
             $userId,
+            visitorId: $visitorId,
         );
     }
 

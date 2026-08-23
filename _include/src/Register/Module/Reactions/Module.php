@@ -20,6 +20,7 @@ use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Framework\RoutingModuleInterface;
+use Register\Core\Model\AuthProvider;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Template\TemplateAssetEvent;
 use Register\Core\Template\TemplateEvent;
@@ -59,6 +60,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(ContentRepository::class),
             $container->get(VisitorIdentityManager::class),
             $container->get(JsonMutationGuard::class),
+            $container->get(AuthProvider::class),
         ));
     }
 

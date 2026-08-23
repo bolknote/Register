@@ -64,6 +64,7 @@ use Register\Schema\PublicAuthSchemaMigration;
 use Register\Schema\SchemaManager;
 use Register\Schema\SchemaMigrationInterface;
 use Register\Schema\SchemaMigrator;
+use Register\Schema\VisitorUserSchemaMigration;
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlAliasRepository;
 use Register\Url\ContentUrlGenerator;
@@ -347,6 +348,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $container->get(UrlBuilder::class),
             $container->get(MagicLinkRateLimiter::class),
             $container->get('translator'),
+            $container->get(\Register\Module\VisitorIdentity\VisitorIdentityManager::class),
             ...$container->getByTag(CommentStrategyInterface::class),
         ), [PendingEmailCommentServiceInterface::class]);
         $container->set(
@@ -367,6 +369,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $container->get(UrlBuilder::class),
             $container->get('translator'),
             $container->get(\Psr\Log\LoggerInterface::class),
+            $container->get(\Register\Module\VisitorIdentity\VisitorIdentityManager::class),
         ));
         $container->set(
             BaseModuleInstaller::class,
@@ -382,6 +385,11 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(
             PublicAuthSchemaMigration::class,
             new PublicAuthSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            VisitorUserSchemaMigration::class,
+            new VisitorUserSchemaMigration(),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

@@ -16,6 +16,8 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentMediaSchema;
 use Register\Content\ContentTagSchema;
 use Register\Module\BaseModuleRegistry;
+use Register\Module\Reactions\Manifest as ReactionsManifest;
+use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use Register\Schema\SchemaManager;
 use Register\Url\ContentUrlAliasSchema;
 use Register\Core\Extensions\ExtensionManager;
@@ -123,9 +125,15 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'user_id'));
         $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'user_content_idx'));
         $I->assertTrue($dbLayer->foreignKeyExists(CommentSchema::TABLE_NAME, 'fk_user'));
+        $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'visitor_id'));
+        $I->assertTrue($dbLayer->indexExists(CommentSchema::TABLE_NAME, 'visitor_content_idx'));
+        $I->assertTrue($dbLayer->foreignKeyExists(CommentSchema::TABLE_NAME, 'fk_visitor'));
         $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::IDENTITIES_TABLE));
         $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::FLOWS_TABLE));
         $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::MAGIC_LINKS_TABLE));
+        $I->assertTrue($dbLayer->fieldExists(PublicAuthSchema::MAGIC_LINKS_TABLE, 'visitor_id'));
+        $I->assertTrue($dbLayer->fieldExists(PublicAuthSchema::MAGIC_LINKS_TABLE, 'moderation_required'));
+        $I->assertTrue($dbLayer->foreignKeyExists(PublicAuthSchema::MAGIC_LINKS_TABLE, 'fk_visitor'));
         $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::NOTIFICATION_USERS_TABLE));
         $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::NOTIFICATION_READS_TABLE));
         foreach (self::OBSOLETE_PRODUCT_TABLES as $obsoleteTable) {
@@ -141,12 +149,19 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->indexExists(ContentTagSchema::TABLE_NAME, 'tag_content_idx'));
         $I->assertTrue($dbLayer->tableExists('register_visitor'));
         $I->assertTrue($dbLayer->indexExists('register_visitor', 'last_seen_idx'));
+        $I->assertTrue($dbLayer->tableExists(VisitorIdentityManifest::USER_LINK_TABLE));
+        $I->assertTrue($dbLayer->indexExists(VisitorIdentityManifest::USER_LINK_TABLE, 'user_visitor_idx'));
+        $I->assertTrue($dbLayer->foreignKeyExists(VisitorIdentityManifest::USER_LINK_TABLE, 'fk_visitor'));
+        $I->assertTrue($dbLayer->foreignKeyExists(VisitorIdentityManifest::USER_LINK_TABLE, 'fk_user'));
         $I->assertTrue($dbLayer->tableExists('register_visitor_fingerprint'));
         $I->assertTrue($dbLayer->foreignKeyExists('register_visitor_fingerprint', 'fk_visitor'));
         $I->assertTrue($dbLayer->tableExists('register_reaction'));
+        $I->assertTrue($dbLayer->fieldExists(ReactionsManifest::TABLE_NAME, 'user_id'));
+        $I->assertTrue($dbLayer->indexExists(ReactionsManifest::TABLE_NAME, 'user_content_idx'));
         $I->assertTrue($dbLayer->indexExists('register_reaction', 'content_reaction_idx'));
         $I->assertTrue($dbLayer->foreignKeyExists('register_reaction', 'fk_content'));
         $I->assertTrue($dbLayer->foreignKeyExists('register_reaction', 'fk_visitor'));
+        $I->assertTrue($dbLayer->foreignKeyExists(ReactionsManifest::TABLE_NAME, 'fk_user'));
         $I->assertTrue($dbLayer->tableExists(\Register\Module\Reactions\ReactionAggregateSchema::TABLE_NAME));
         $I->assertTrue($dbLayer->indexExists(
             \Register\Module\Reactions\ReactionAggregateSchema::TABLE_NAME,
@@ -201,6 +216,35 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->foreignKeyExists(CommentSchema::TABLE_NAME, 'fk_user'));
         $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::IDENTITIES_TABLE));
         $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::NOTIFICATION_READS_TABLE));
+    }
+
+    public function generationSeventeenGetsVisitorUserAttribution(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var SchemaManager $schemaManager */
+        $schemaManager = $I->grabAdminService(SchemaManager::class);
+
+        $dbLayer->dropForeignKey(CommentSchema::TABLE_NAME, 'fk_visitor');
+        $dbLayer->dropIndex(CommentSchema::TABLE_NAME, 'visitor_content_idx');
+        $dbLayer->dropField(CommentSchema::TABLE_NAME, 'visitor_id');
+        $dbLayer->dropForeignKey(PublicAuthSchema::MAGIC_LINKS_TABLE, 'fk_visitor');
+        $dbLayer->dropField(PublicAuthSchema::MAGIC_LINKS_TABLE, 'visitor_id');
+        $dbLayer->dropField(PublicAuthSchema::MAGIC_LINKS_TABLE, 'moderation_required');
+        $dbLayer->dropForeignKey(ReactionsManifest::TABLE_NAME, 'fk_user');
+        $dbLayer->dropIndex(ReactionsManifest::TABLE_NAME, 'user_content_idx');
+        $dbLayer->dropField(ReactionsManifest::TABLE_NAME, 'user_id');
+        $dbLayer->dropTable(VisitorIdentityManifest::USER_LINK_TABLE);
+
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, '17');
+
+        $I->assertTrue($schemaManager->ensureCurrent());
+        $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
+        $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'visitor_id'));
+        $I->assertTrue($dbLayer->fieldExists(PublicAuthSchema::MAGIC_LINKS_TABLE, 'visitor_id'));
+        $I->assertTrue($dbLayer->fieldExists(PublicAuthSchema::MAGIC_LINKS_TABLE, 'moderation_required'));
+        $I->assertTrue($dbLayer->fieldExists(ReactionsManifest::TABLE_NAME, 'user_id'));
+        $I->assertTrue($dbLayer->tableExists(VisitorIdentityManifest::USER_LINK_TABLE));
     }
 
     public function releaseMigrationPreservesExistingSettings(\IntegrationTester $I): void

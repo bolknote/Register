@@ -31,6 +31,7 @@ use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Model\User\UserProvider;
+use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Core\Template\HtmlTemplateProvider;
 use Register\Core\Template\Viewer;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -57,6 +58,7 @@ readonly class CommentController implements ControllerInterface
         private CommentFormTokenManager        $commentFormTokenManager,
         private SpamRateLimiter                $spamRateLimiter,
         private SpamAssessmentRepository       $spamAssessmentRepository,
+        private VisitorIdentityManager          $visitorIdentityManager,
         private BoolProxy                     $commentsEnabled,
         private BoolProxy                     $premoderationEnabled,
         private ?PendingEmailCommentServiceInterface $pendingEmailCommentService = null,
@@ -314,6 +316,10 @@ readonly class CommentController implements ControllerInterface
         $link = $this->urlBuilder->absLink($path);
 
         $target = $this->requireTarget($target);
+        $visitorId = $this->visitorIdentityManager->recordInteraction(
+            $request,
+            $authenticatedUser?->id,
+        );
 
         /**
          * Everything is ok, save and send the comment
@@ -349,6 +355,7 @@ readonly class CommentController implements ControllerInterface
                         $parentId,
                         $path,
                         $moderationRequired,
+                        $visitorId,
                     ),
                 );
             } catch (\Throwable $throwable) {
@@ -375,6 +382,7 @@ readonly class CommentController implements ControllerInterface
             (string)$request->getClientIp(),
             $parentId,
             $authenticatedUser?->id,
+            $visitorId,
         );
         $assessmentId = $spamDecision->getReport()->getAssessmentId();
         if ($assessmentId !== null) {

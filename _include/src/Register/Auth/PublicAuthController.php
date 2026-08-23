@@ -17,6 +17,7 @@ use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Security\Audit\SecurityAuditLogger;
 use Register\Core\Template\HtmlTemplateProvider;
+use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -41,6 +42,7 @@ final readonly class PublicAuthController implements ControllerInterface
         private UrlBuilder                    $urlBuilder,
         private TranslatorInterface           $translator,
         private LoggerInterface               $logger,
+        private VisitorIdentityManager         $visitorIdentityManager,
     ) {
     }
 
@@ -115,6 +117,7 @@ final readonly class PublicAuthController implements ControllerInterface
         $userId = $this->repository->findUserIdByLogin($login);
         if ($userId !== null) {
             $this->repository->ensureNotificationBaseline($userId);
+            $this->visitorIdentityManager->recordInteraction($request, $userId);
         }
 
         return $this->success($request, $response, $returnPath);
@@ -157,14 +160,17 @@ final readonly class PublicAuthController implements ControllerInterface
         $result = $this->magicLinkService->consume($request->query->getString('token'));
         $returnPath = $result['return_path'];
         if ($result['comment_id'] !== null && $result['published']) {
-            $returnPath = preg_replace('/#.*$/D', '', $returnPath) . '#comment-' . $result['comment_id'];
+            $returnPath = (preg_replace('/#.*$/D', '', $returnPath) ?? $returnPath)
+                . '#comment-' . $result['comment_id'];
         }
+
         $session = $this->sessionManager->loginVerifiedUser(
             $request,
             $result['user_id'],
             true,
             SecurityAuditLogger::AUTH_EMAIL_MAGIC,
         );
+        $this->visitorIdentityManager->recordInteraction($request, $result['user_id']);
 
         return $this->redirectWithCookies($session, $returnPath);
     }
@@ -195,6 +201,7 @@ final readonly class PublicAuthController implements ControllerInterface
             default   => SecurityAuditLogger::AUTH_YANDEX,
         };
         $session = $this->sessionManager->loginVerifiedUser($request, $userId, true, $auditMethod);
+        $this->visitorIdentityManager->recordInteraction($request, $userId);
 
         return $this->redirectWithCookies($session, $identity->returnPath);
     }

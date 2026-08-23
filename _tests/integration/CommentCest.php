@@ -14,6 +14,8 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Comment\CommentHtml;
 use Register\Core\Pdo\DbLayer;
+use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
+use Register\Module\VisitorIdentity\VisitorIdentityManager;
 
 class CommentCest
 {
@@ -83,6 +85,8 @@ class CommentCest
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
+        /** @var VisitorIdentityManager $identityManager */
+        $identityManager = $I->grabService(VisitorIdentityManager::class);
         $this->insertArticle($dbLayer);
         $dbLayer
             ->update('users')
@@ -90,6 +94,14 @@ class CommentCest
             ->where("login = 'admin'")
             ->execute()
         ;
+
+        $I->sendJson('https://localhost/_visitor/resolve', [
+            'trackPage' => false,
+        ], headers: ['Origin' => 'https://localhost']);
+        $resolved = $I->grabJson();
+        $I->assertIsArray($resolved);
+        $visitorId = $identityManager->visitorIdFromToken((string)($resolved['token'] ?? ''));
+        $I->assertNotNull($visitorId);
 
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/thread-test');
@@ -109,7 +121,7 @@ class CommentCest
         $I->seeResponseCodeIs(302);
 
         $comment = $dbLayer
-            ->select('nick', 'email', 'text')
+            ->select('nick', 'email', 'user_id', 'visitor_id', 'text')
             ->from(CommentSchema::TABLE_NAME)
             ->where('nick = :nick')->setParameter('nick', 'admin')
             ->execute()
@@ -118,6 +130,17 @@ class CommentCest
         $I->assertIsArray($comment);
         $I->assertSame('admin', $comment['nick']);
         $I->assertSame('', $comment['email']);
+
+        $userId = (int)$dbLayer->select('id')->from('users')->where("login = 'admin'")->execute()->result();
+        $I->assertSame($userId, (int)$comment['user_id']);
+        $I->assertSame($visitorId, $comment['visitor_id']);
+        $I->assertSame(1, (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from(VisitorIdentityManifest::USER_LINK_TABLE)
+            ->where('visitor_id = :visitor_id')->setParameter('visitor_id', $visitorId)
+            ->andWhere('user_id = :user_id')->setParameter('user_id', $userId)
+            ->execute()
+            ->result());
         $I->assertSame('Owner comment', CommentHtml::plainText((string)$comment['text']));
         $I->assertStringContainsString('<strong>Owner</strong>', (string)$comment['text']);
     }

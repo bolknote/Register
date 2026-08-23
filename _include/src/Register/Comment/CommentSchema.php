@@ -26,6 +26,7 @@ final class CommentSchema
                 ->addInteger('content_id', true)
                 ->addInteger('parent_id', true, true, null)
                 ->addInteger('user_id', true, true, null)
+                ->addString('visitor_id', 32, true, null)
             ;
             UserpicSchema::addCommentReferenceToDefinition($table);
             $table

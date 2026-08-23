@@ -15,6 +15,7 @@ use Register\Core\Controller\Comment\PendingEmailComment;
 use Register\Core\Controller\Comment\PendingEmailCommentServiceInterface;
 use Register\Core\Helper\StringHelper;
 use Register\Core\Model\UrlBuilder;
+use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,12 +34,14 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
         private UrlBuilder           $urlBuilder,
         private MagicLinkRateLimiter $rateLimiter,
         private TranslatorInterface  $translator,
+        private VisitorIdentityManager $visitorIdentityManager,
         CommentStrategyInterface ...$strategies,
     ) {
         $indexed = [];
         foreach ($strategies as $strategy) {
             $indexed[$strategy->getContentType()->value] = $strategy;
         }
+
         $this->strategies = $indexed;
     }
 
@@ -60,7 +63,7 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
                 'subscribed'          => $comment->subscribed,
                 'ip'                  => $comment->ip,
                 'moderation_required' => $comment->moderationRequired,
-            ]);
+            ], $comment->visitorId);
         } catch (MagicLinkRateLimitException $exception) {
             return new Response(
                 $this->translator->trans('Too many sign-in links. Try again later.'),
@@ -80,6 +83,7 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
         if (preg_match('/^[A-Za-z0-9_-]{40,100}$/D', $token) !== 1) {
             throw new \RuntimeException('The sign-in link is invalid or has expired.');
         }
+
         $row = $this->repository->consumeMagicLink($token);
         if ($row === null) {
             throw new \RuntimeException('The sign-in link is invalid, expired or has already been used.');
@@ -88,6 +92,13 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
         $email = (string)$row['email'];
         $name = (string)$row['display_name'];
         $userId = $this->repository->findOrCreateIdentity('email', mb_strtolower($email), $email, $name);
+        $visitorId = \is_string($row['visitor_id'] ?? null) && $row['visitor_id'] !== ''
+            ? $row['visitor_id']
+            : null;
+        if ($visitorId !== null) {
+            $this->visitorIdentityManager->linkStoredVisitor($visitorId, $userId);
+        }
+
         $commentId = null;
         $published = false;
         $contentType = ContentType::tryFrom((string)$row['content_type']);
@@ -102,6 +113,7 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
             if ($parentId !== null && !$strategy->isValidParent($targetId, $parentId)) {
                 $parentId = null;
             }
+
             $commentId = $strategy->save(
                 $targetId,
                 $name,
@@ -112,6 +124,7 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
                 (string)$row['ip'],
                 $parentId,
                 $userId,
+                $visitorId,
             );
             // A verified address bypasses ordinary guest premoderation. Content already passed the
             // same sanitizer, replay protection, rate limiter and spam rejection before the link was sent.
@@ -128,23 +141,26 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
         ];
     }
 
-    /** @param array<string, mixed>|null $pendingComment */
+    /** @param array{content_type?: string, content_id?: int|null, parent_id?: int|null, text?: string, show_email?: bool, subscribed?: bool, moderation_required?: bool, ip?: string}|null $pendingComment */
     private function request(
         Request $request,
         string $email,
         string $displayName,
         string $returnPath,
         ?array $pendingComment,
+        ?string $visitorId = null,
     ): void
     {
         if (!$this->settings->emailEnabled()) {
             throw new \RuntimeException('Email sign-in is disabled.');
         }
+
         $email = mb_strtolower(trim($email));
         $displayName = trim($displayName);
         if (!StringHelper::isValidEmail($email)) {
             throw new \InvalidArgumentException('Enter a valid email address.');
         }
+
         $this->rateLimiter->consume($request->getClientIp() ?? '', $email);
         if ($displayName === '') {
             $localPart = strstr($email, '@', true);
@@ -153,12 +169,14 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
 
         $token = rtrim(strtr(base64_encode(random_bytes(36)), '+/', '-_'), '=');
         $returnPath = PublicReturnPath::normalize($returnPath);
+        $visitorId ??= $this->visitorIdentityManager->recordInteraction($request);
         $this->repository->storeMagicLink(
             $token,
             $email,
             mb_substr($displayName, 0, 80),
             $returnPath,
             $pendingComment,
+            visitorId: $visitorId,
         );
         $url = html_entity_decode($this->urlBuilder->absLink('/auth/email/callback', [
             'token=' . rawurlencode($token),

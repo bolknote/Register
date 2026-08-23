@@ -17,6 +17,8 @@ final readonly class Comment
         public int       $id,
         public ContentId $contentId,
         public ?int      $parentId,
+        public ?int      $userId,
+        public ?string   $visitorId,
         public ?int      $userpicId,
         public int       $time,
         public int       $modifyTime,
@@ -37,6 +39,14 @@ final readonly class Comment
 
         if ($parentId !== null && $parentId <= 0) {
             throw new \InvalidArgumentException('A parent comment identifier must be a positive integer.');
+        }
+
+        if ($userId !== null && $userId <= 0) {
+            throw new \InvalidArgumentException('A user identifier must be a positive integer.');
+        }
+
+        if ($visitorId !== null && preg_match('/^[a-f0-9]{32}$/D', $visitorId) !== 1) {
+            throw new \InvalidArgumentException('A visitor identifier must contain 32 lowercase hexadecimal characters.');
         }
 
         if ($userpicId !== null && $userpicId <= 0) {

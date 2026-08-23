@@ -36,6 +36,7 @@ final readonly class CommentRepository
         ?int      $userId = null,
         ?int      $time = null,
         CommentMutationSource $source = CommentMutationSource::LOCAL,
+        ?string   $visitorId = null,
     ): int {
         if ($parentId !== null && !$this->isValidParent(
             $contentId,
@@ -54,6 +55,7 @@ final readonly class CommentRepository
                 'content_id'   => ':content_id',
                 'parent_id'    => ':parent_id',
                 'user_id'      => ':user_id',
+                'visitor_id'   => ':visitor_id',
                 'userpic_id'   => ':userpic_id',
                 'time'         => ':time',
                 'modify_time'  => '0',
@@ -73,6 +75,7 @@ final readonly class CommentRepository
                 'content_id'   => $contentId->value,
                 'parent_id'    => $parentId,
                 'user_id'      => $userId,
+                'visitor_id'   => $visitorId,
                 'userpic_id'   => $userpicId,
                 'time'         => $time ?? time(),
                 'ip'           => $ip,
@@ -453,6 +456,8 @@ final readonly class CommentRepository
             (int)$row['id'],
             new ContentId(ContentType::from((string)$row['content_type']), (int)$row['content_id']),
             $row['parent_id'] === null ? null : (int)$row['parent_id'],
+            $row['user_id'] === null ? null : (int)$row['user_id'],
+            $row['visitor_id'] === null ? null : (string)$row['visitor_id'],
             $row['userpic_id'] === null ? null : (int)$row['userpic_id'],
             (int)$row['time'],
             (int)$row['modify_time'],

@@ -96,6 +96,8 @@ class Integration extends AbstractBrowserModule
         $this->dropBaseModuleTables($adminDbLayer);
         $installer = new Installer($adminDbLayer);
         $installer->dropTables();
+
+        $adminDbLayer->dropTable('register_visitor');
         $installer->createTables();
 
         $installer->insertConfigData('Test site', 'admin@example.com', 'English');
@@ -316,8 +318,8 @@ class Integration extends AbstractBrowserModule
         $dbLayer->dropTable(\Register\Module\LinkHealth\Manifest::TARGET_TABLE);
         $dbLayer->dropTable(\Register\Module\Reactions\ReactionAggregateSchema::TABLE_NAME);
         $dbLayer->dropTable('register_reaction');
+        $dbLayer->dropTable('register_visitor_user');
         $dbLayer->dropTable('register_visitor_fingerprint');
-        $dbLayer->dropTable('register_visitor');
         $dbLayer->dropTable('register_analytics_visitor');
         $dbLayer->dropTable('register_analytics_daily');
     }

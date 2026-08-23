@@ -21,6 +21,8 @@ final class Manifest implements BaseModuleInstallerInterface
 
     public const string VISITOR_TABLE = 'register_visitor';
 
+    public const string USER_LINK_TABLE = 'register_visitor_user';
+
     /** Retained as an empty legacy table so generation-13 databases keep a compatible shape. */
     public const string FINGERPRINT_TABLE = 'register_visitor_fingerprint';
 
@@ -45,7 +47,7 @@ final class Manifest implements BaseModuleInstallerInterface
     #[\Override]
     public function getVersion(): string
     {
-        return '1.0dev';
+        return '1.1dev';
     }
 
     #[\Override]
@@ -80,6 +82,8 @@ final class Manifest implements BaseModuleInstallerInterface
                 )
             ;
         });
+
+        VisitorUserSchema::create($dbLayer);
 
         $dbLayer->insert('config')
             ->setValue('name', ':name')->setParameter('name', self::SECRET_CONFIG_KEY)

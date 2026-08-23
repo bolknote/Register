@@ -36,13 +36,13 @@ final class Manifest implements BaseModuleInstallerInterface
     #[\Override]
     public function getDescription(): string
     {
-        return 'Anonymous and imported aggregate emoji reactions for content and comments.';
+        return 'Browser-owned and imported aggregate emoji reactions for content and comments.';
     }
 
     #[\Override]
     public function getVersion(): string
     {
-        return '1.1dev';
+        return '1.2dev';
     }
 
     #[\Override]
@@ -52,12 +52,14 @@ final class Manifest implements BaseModuleInstallerInterface
             $table
                 ->addInteger('content_id', true)
                 ->addString('visitor_id', 32)
+                ->addInteger('user_id', true, true, null)
                 ->addString('reaction', 16)
                 ->addInteger('created_at', true)
                 ->addInteger('updated_at', true)
                 ->setPrimaryKey(['content_id', 'visitor_id'])
                 ->addIndex('content_reaction_idx', ['content_id', 'reaction'])
                 ->addIndex('visitor_idx', ['visitor_id'])
+                ->addIndex('user_content_idx', ['user_id', 'content_id'])
                 ->addForeignKey(
                     'fk_content',
                     ['content_id'],
@@ -72,6 +74,7 @@ final class Manifest implements BaseModuleInstallerInterface
                     ['visitor_id'],
                     'CASCADE',
                 )
+                ->addForeignKey('fk_user', ['user_id'], 'users', ['id'], 'SET NULL')
             ;
         });
 

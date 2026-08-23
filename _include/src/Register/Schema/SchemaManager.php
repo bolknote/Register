@@ -25,7 +25,7 @@ final readonly class SchemaManager
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_GENERATION';
 
-    public const int CURRENT_GENERATION = 17;
+    public const int CURRENT_GENERATION = 18;
 
     /** Oldest installed generation accepted by the release updater. */
     public const int MINIMUM_UPGRADE_GENERATION = 15;

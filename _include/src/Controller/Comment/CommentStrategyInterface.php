@@ -35,6 +35,7 @@ interface CommentStrategyInterface
         string  $ip,
         ?int    $parentId,
         ?int    $userId,
+        ?string $visitorId,
     ): int;
 
     public function notifySubscribers(int $commentId): void;

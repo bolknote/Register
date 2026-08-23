@@ -449,6 +449,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(CommentFormTokenManager::class),
                 $container->get(SpamRateLimiter::class),
                 $container->get(SpamAssessmentRepository::class),
+                $container->get(\Register\Module\VisitorIdentity\VisitorIdentityManager::class),
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $provider->getBoolProxy('REGISTER_PREMODERATION'),
                 $container->get(\Register\Core\Controller\Comment\PendingEmailCommentServiceInterface::class),

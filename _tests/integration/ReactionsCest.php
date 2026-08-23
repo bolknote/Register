@@ -16,6 +16,7 @@ use Register\Module\Reactions\ReactionAggregate;
 use Register\Module\Reactions\ReactionAggregateRepository;
 use Register\Module\Reactions\ReactionAggregateTargetType;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
+use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use Register\Core\Pdo\DbLayer;
 
 final class ReactionsCest
@@ -191,6 +192,56 @@ final class ReactionsCest
 
         $I->amOnPage('https://localhost/_reactions/post/999999');
         $I->seeResponseCodeIs(404);
+    }
+
+    public function attributesAnAuthenticatedReactionWithoutChangingItsBrowserOwnership(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var VisitorIdentityManager $identityManager */
+        $identityManager = $I->grabService(VisitorIdentityManager::class);
+        $contentId = $this->insertPost($dbLayer, 'authenticated-reaction-post');
+        $endpoint = 'https://localhost/_reactions/post/' . $contentId;
+
+        $I->sendJson('https://localhost/_visitor/resolve', [
+            'trackPage' => false,
+        ], headers: ['Origin' => 'https://localhost']);
+        $resolved = $I->grabJson();
+        $I->assertIsArray($resolved);
+        $visitorId = $identityManager->visitorIdFromToken((string)($resolved['token'] ?? ''));
+        $I->assertNotNull($visitorId);
+
+        $I->login('admin', 'admin');
+        $this->react($I, $endpoint, 'like');
+        $userId = (int)$dbLayer->select('id')->from('users')->where("login = 'admin'")->execute()->result();
+        $reaction = $dbLayer
+            ->select('visitor_id', 'user_id')
+            ->from(Manifest::TABLE_NAME)
+            ->where('content_id = :content_id')->setParameter('content_id', $contentId)
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $I->assertIsArray($reaction);
+        $I->assertSame($visitorId, $reaction['visitor_id']);
+        $I->assertSame($userId, (int)$reaction['user_id']);
+        $I->assertSame(1, (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from(VisitorIdentityManifest::USER_LINK_TABLE)
+            ->where('visitor_id = :visitor_id')->setParameter('visitor_id', $visitorId)
+            ->andWhere('user_id = :user_id')->setParameter('user_id', $userId)
+            ->execute()
+            ->result());
+
+        // Removing the browser-owned vote must not erase the durable account association.
+        $this->react($I, $endpoint, 'like');
+        $I->assertSame(0, (int)$dbLayer->select('COUNT(*)')->from(Manifest::TABLE_NAME)->execute()->result());
+        $I->assertSame(1, (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from(VisitorIdentityManifest::USER_LINK_TABLE)
+            ->where('visitor_id = :visitor_id')->setParameter('visitor_id', $visitorId)
+            ->andWhere('user_id = :user_id')->setParameter('user_id', $userId)
+            ->execute()
+            ->result());
     }
 
     public function ignoresLegacyBrowserFingerprintPayload(\IntegrationTester $I): void

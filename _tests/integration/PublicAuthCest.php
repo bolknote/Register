@@ -19,6 +19,8 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Pdo\DbLayer;
+use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
+use Register\Module\VisitorIdentity\VisitorIdentityManager;
 
 final class PublicAuthCest
 {
@@ -53,7 +55,20 @@ final class PublicAuthCest
 
     public function testPasswordSignInAndPublicLogoutUseTheSharedSession(\IntegrationTester $I): void
     {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var VisitorIdentityManager $identityManager */
+        $identityManager = $I->grabService(VisitorIdentityManager::class);
+        $I->sendJson('https://localhost/_visitor/resolve', [
+            'trackPage' => false,
+        ], headers: ['Origin' => 'https://localhost']);
+        $resolved = $I->grabJson();
+        $I->assertIsArray($resolved);
+        $visitorId = $identityManager->visitorIdFromToken((string)($resolved['token'] ?? ''));
+        $I->assertNotNull($visitorId);
+
         $I->amOnPage('https://localhost/');
+
         $token = (string)$I->grabValueFrom('.public-auth-password-form input[name="auth_token"]');
         $I->sendAjaxPostRequest('https://localhost/auth/password', [
             'login'       => 'admin',
@@ -66,6 +81,13 @@ final class PublicAuthCest
         $I->seeResponseCodeIs(200);
         $I->assertJsonSubResponseEquals(true, ['success']);
         $I->assertJsonSubResponseEquals('/', ['redirect']);
+        $I->assertSame(1, (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from(VisitorIdentityManifest::USER_LINK_TABLE)
+            ->where('visitor_id = :visitor_id')->setParameter('visitor_id', $visitorId)
+            ->andWhere('user_id = :user_id')->setParameter('user_id', $this->userId($dbLayer, 'admin'))
+            ->execute()
+            ->result());
         $I->amOnPage('https://localhost/');
         $I->seeElement('.public-auth-user-menu');
         $I->see('admin', '.public-auth-user-menu');
@@ -81,6 +103,58 @@ final class PublicAuthCest
         $I->amOnPage('https://localhost/');
         $I->seeElement('.public-auth-login-button');
         $I->dontSeeElement('.public-auth-user-menu');
+    }
+
+    public function testOneBrowserCanBeAssociatedWithSeveralAuthenticatedAccounts(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var VisitorIdentityManager $identityManager */
+        $identityManager = $I->grabService(VisitorIdentityManager::class);
+
+        $I->sendJson('https://localhost/_visitor/resolve', [
+            'trackPage' => false,
+        ], headers: ['Origin' => 'https://localhost']);
+        $resolved = $I->grabJson();
+        $I->assertIsArray($resolved);
+        $visitorId = $identityManager->visitorIdFromToken((string)($resolved['token'] ?? ''));
+        $I->assertNotNull($visitorId);
+
+        foreach (['admin', 'author'] as $login) {
+            $I->amOnPage('https://localhost/');
+            $token = (string)$I->grabValueFrom('.public-auth-password-form input[name="auth_token"]');
+            $I->sendAjaxPostRequest('https://localhost/auth/password', [
+                'login'       => $login,
+                'pass'        => $login,
+                'auth_token'  => $token,
+                'return_path' => '/',
+            ]);
+            $I->seeResponseCodeIs(200);
+
+            $I->amOnPage('https://localhost/');
+            $logoutToken = (string)$I->grabValueFrom('.public-auth-logout-form input[name="csrf_token"]');
+            $I->sendAjaxPostRequest('https://localhost/auth/logout', [
+                'csrf_token'  => $logoutToken,
+                'return_path' => '/',
+            ]);
+            $I->seeResponseCodeIs(200);
+        }
+
+        $links = $dbLayer
+            ->select('user_id')
+            ->from(VisitorIdentityManifest::USER_LINK_TABLE)
+            ->where('visitor_id = :visitor_id')->setParameter('visitor_id', $visitorId)
+            ->orderBy('user_id')
+            ->execute()
+            ->fetchAssocAll()
+        ;
+        $I->assertSame([
+            ['user_id' => $this->userId($dbLayer, 'author')],
+            ['user_id' => $this->userId($dbLayer, 'admin')],
+        ], array_map(
+            static fn(array $row): array => ['user_id' => (int)$row['user_id']],
+            $links,
+        ));
     }
 
     public function testPasswordSignInRejectsAnExpiredFormToken(\IntegrationTester $I): void
@@ -232,7 +306,17 @@ final class PublicAuthCest
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
+        /** @var VisitorIdentityManager $identityManager */
+        $identityManager = $I->grabService(VisitorIdentityManager::class);
         $articleId = $this->insertContent($dbLayer, 'email-comment-test');
+
+        $I->sendJson('https://localhost/_visitor/resolve', [
+            'trackPage' => false,
+        ], headers: ['Origin' => 'https://localhost']);
+        $resolved = $I->grabJson();
+        $I->assertIsArray($resolved);
+        $visitorId = $identityManager->visitorIdFromToken((string)($resolved['token'] ?? ''));
+        $I->assertNotNull($visitorId);
 
         $I->sendPost('https://localhost/email-comment-test', [
             'name'        => 'Verified reader',
@@ -250,11 +334,12 @@ final class PublicAuthCest
 
         $mails = $I->grabPublicAuthMails();
         $I->assertCount(1, $mails);
+        $I->resetTestCookie($identityManager->cookieName());
         $I->amOnPage($this->callbackUrl($mails[0]['message']));
         $I->seeResponseCodeIs(302);
 
         $comment = $dbLayer
-            ->select('id', 'content_id', 'user_id', 'shown', 'text')
+            ->select('id', 'content_id', 'user_id', 'visitor_id', 'shown', 'text')
             ->from(CommentSchema::TABLE_NAME)
             ->where("email = 'verified-reader@example.test'")
             ->execute()
@@ -262,8 +347,16 @@ final class PublicAuthCest
         $I->assertIsArray($comment);
         $I->assertSame($articleId, (int)$comment['content_id']);
         $I->assertGreaterThan(0, (int)$comment['user_id']);
+        $I->assertSame($visitorId, $comment['visitor_id']);
         $I->assertSame(1, (int)$comment['shown']);
         $I->assertStringContainsString('A comment waiting for its link.', (string)$comment['text']);
+        $I->assertSame(1, (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from(VisitorIdentityManifest::USER_LINK_TABLE)
+            ->where('visitor_id = :visitor_id')->setParameter('visitor_id', $visitorId)
+            ->andWhere('user_id = :user_id')->setParameter('user_id', (int)$comment['user_id'])
+            ->execute()
+            ->result());
         $I->seeLocationMatches('~^/email-comment-test#comment-' . (int)$comment['id'] . '$~');
     }
 
