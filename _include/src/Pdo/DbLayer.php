@@ -205,7 +205,11 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
         }
 
         // We remove the last two characters (a newline and a comma) and add on the ending
-        $query = substr($query, 0, -2) . "\n" . ') ENGINE = InnoDB CHARACTER SET utf8mb4';
+        // Keep dumps portable between supported MySQL and MariaDB versions. New MariaDB releases
+        // otherwise choose their `utf8mb4_uca1400_ai_ci` default for an explicit character set;
+        // MySQL cannot restore a dump containing that MariaDB-only collation.
+        $query = substr($query, 0, -2) . "\n"
+            . ') ENGINE = InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
 
         $this->query($query);
 

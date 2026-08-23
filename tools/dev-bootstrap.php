@@ -14,7 +14,9 @@ use Register\Core\Framework\Application;
 use Register\Core\Framework\Container;
 use Register\Core\Model\Installer;
 use Register\Core\Model\ExtensionCache;
+use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerSqlite;
+use Register\Core\Pdo\PDO as RegisterPdo;
 use Register\Core\Pdo\PdoSqliteFactory;
 use Register\Rose\Storage\Database\PdoStorage;
 
@@ -22,7 +24,6 @@ const REGISTER_DEV_REQUIRED_EXTENSIONS = [
     'dom',
     'gd',
     'mbstring',
-    'pdo_sqlite',
 ];
 
 const REGISTER_DEV_WELCOME = <<<'HTML'
@@ -36,6 +37,11 @@ HTML;
 
 $rootDir = dirname(__DIR__);
 require $rootDir . '/_vendor/autoload.php';
+
+// A full imported blog search rebuild loads the morphology dictionary and a large indexing batch.
+if (ini_set('memory_limit', '1024M') === false) {
+    throw new RuntimeException('The development bootstrap requires a PHP memory limit of at least 1 GB.');
+}
 
 if (PHP_VERSION_ID < 80300) {
     throw new RuntimeException(sprintf('Register requires PHP 8.3 or newer; %s is running.', PHP_VERSION));
@@ -61,7 +67,6 @@ if (filter_var($port, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max
 }
 
 $localDir    = $rootDir . '/.local';
-$database    = $localDir . '/register.sqlite';
 $baseUrl     = sprintf('http://%s:%s', $host, $port);
 $configFile  = $rootDir . '/config.local.php';
 $adminLogin  = getenv('REGISTER_DEV_ADMIN_LOGIN');
@@ -77,7 +82,7 @@ foreach ([$localDir => 0700, $rootDir . '/_cache/local' => 0700, $rootDir . '/_p
     chmod($directory, $mode);
 }
 
-$config = [
+$defaultConfig = [
     'database' => [
         'type'      => 'sqlite',
         'host'      => '',
@@ -120,13 +125,54 @@ $config = [
     ],
 ];
 
+$config = $defaultConfig;
+if (is_file($configFile)) {
+    $storedConfig = require $configFile;
+    if (!is_array($storedConfig)) {
+        throw new RuntimeException(sprintf('Local config "%s" must return an array.', $configFile));
+    }
+    $config = array_replace_recursive($defaultConfig, $storedConfig);
+}
+$config['http']['base_url'] = $baseUrl;
+
+$databaseConfig = $config['database'];
+$dbType = $databaseConfig['type'];
+if (!is_string($dbType) || !in_array($dbType, ['mysql', 'sqlite'], true)) {
+    throw new RuntimeException('Local development supports MySQL/MariaDB or SQLite.');
+}
+$pdoExtension = $dbType === 'mysql' ? 'pdo_mysql' : 'pdo_sqlite';
+if (!extension_loaded($pdoExtension)) {
+    throw new RuntimeException(sprintf(
+        'The configured local database requires the PHP extension "%s".',
+        $pdoExtension,
+    ));
+}
+
 $configContent = "<?php\n\ndeclare(strict_types = 1);\n\nreturn " . var_export($config, true) . ";\n";
 if (file_put_contents($configFile, $configContent, LOCK_EX) === false) {
     throw new RuntimeException(sprintf('Unable to write local config "%s".', $configFile));
 }
 
-$pdo     = PdoSqliteFactory::create($database, false);
-$dbLayer = new DbLayerSqlite($pdo);
+$database = $dbType === 'sqlite'
+    ? $rootDir . '/' . ltrim((string)$databaseConfig['name'], '/')
+    : null;
+$pdo = match ($dbType) {
+    'mysql' => new RegisterPdo(
+        sprintf(
+            'mysql:host=%s;dbname=%s;charset=utf8mb4',
+            (string)$databaseConfig['host'],
+            (string)$databaseConfig['name'],
+        ),
+        (string)$databaseConfig['user'],
+        (string)$databaseConfig['password'],
+        [\PDO::ATTR_EMULATE_PREPARES => false],
+    ),
+    'sqlite' => PdoSqliteFactory::create((string)$database, false),
+};
+$dbLayer = match ($dbType) {
+    'mysql'  => new DbLayer($pdo, (string)$databaseConfig['prefix']),
+    'sqlite' => new DbLayerSqlite($pdo, (string)$databaseConfig['prefix']),
+};
 $isNew   = !$dbLayer->tableExists('config');
 
 if (!$isNew) {
@@ -141,6 +187,14 @@ if (!$isNew) {
         && preg_match('/^(?:0|[1-9][0-9]*)$/D', $storedGeneration) === 1;
 
     if (!$validGeneration || (int)$storedGeneration !== SchemaManager::CURRENT_GENERATION) {
+        if ($dbType !== 'sqlite' || $database === null) {
+            throw new RuntimeException(sprintf(
+                'The configured local %s database has incompatible schema generation %s; migrate it explicitly.',
+                $dbType,
+                is_scalar($storedGeneration) ? (string)$storedGeneration : 'missing',
+            ));
+        }
+
         $backup = $database . '.incompatible-' . date('Ymd-His') . '.bak';
         unset($dbLayer, $pdo);
 
@@ -164,7 +218,12 @@ if (!$isNew) {
 }
 
 if ($isNew) {
-    $dbLayer->startTransaction();
+    // MySQL and MariaDB commit DDL implicitly, so their fresh installation cannot be wrapped in a
+    // transaction. SQLite keeps the previous all-or-nothing behavior.
+    $transactionalInstall = $dbType !== 'mysql';
+    if ($transactionalInstall) {
+        $dbLayer->startTransaction();
+    }
 
     try {
         $installer = new Installer($dbLayer);
@@ -191,7 +250,7 @@ if ($isNew) {
             'admin@example.test',
             'English',
         );
-        $moduleContainer = new Container(['db_prefix' => '']);
+        $moduleContainer = new Container(['db_prefix' => (string)$databaseConfig['prefix']]);
         $moduleContainer->set(\PDO::class, $pdo);
         $baseModuleRegistry = new BaseModuleRegistry();
         (new SchemaManager(
@@ -204,7 +263,9 @@ if ($isNew) {
         $now = time();
         $installer->insertMainPage('Register', $now);
         (new WelcomePostInstaller($dbLayer))->create('Welcome to Register', REGISTER_DEV_WELCOME, $adminUserId, $now);
-        $dbLayer->endTransaction();
+        if ($transactionalInstall) {
+            $dbLayer->endTransaction();
+        }
     } catch (Throwable $throwable) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();

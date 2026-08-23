@@ -13,6 +13,35 @@ use Register\Rose\Storage\Database\MysqlRepository;
 
 final class MysqlRepositoryTest extends Unit
 {
+    public function testCreatesPortableUtf8mb4Collations(): void
+    {
+        $charset = $this->createMock(\PDOStatement::class);
+        $charset->method('fetchColumn')->willReturn('utf8mb4');
+
+        $queries = [];
+        $pdo = $this->createMock(\PDO::class);
+        $pdo->method('query')->willReturn($charset);
+        $pdo->method('exec')->willReturnCallback(
+            static function (string $statement) use (&$queries): int {
+                $queries[] = $statement;
+
+                return 0;
+            },
+        );
+
+        (new MysqlRepository($pdo, 'prefix_', []))->erase();
+
+        $createQueries = array_values(array_filter(
+            $queries,
+            static fn(string $query): bool => str_starts_with($query, 'CREATE TABLE'),
+        ));
+        self::assertCount(5, $createQueries);
+        foreach (array_slice($createQueries, 0, 4) as $query) {
+            self::assertStringContainsString('COLLATE utf8mb4_unicode_ci', $query);
+        }
+        self::assertStringContainsString('COLLATE utf8mb4_bin', $createQueries[4]);
+    }
+
     public function testInsertWordsUsesPreparedStatements(): void
     {
         $capturedSql   = '';

@@ -326,6 +326,7 @@ LIMIT :limit";
 
     private function createTables(string $charset, int $keyLen): void
     {
+        $collation = $charset === 'utf8mb4' ? 'utf8mb4_unicode_ci' : 'utf8_unicode_ci';
         $this->pdo->exec('CREATE TABLE ' . $this->getTableName(self::TOC) . ' (
 			id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
 			external_id VARCHAR(255) NOT NULL,
@@ -339,7 +340,7 @@ LIMIT :limit";
 			hash VARCHAR(80) NOT NULL DEFAULT "",
 			PRIMARY KEY (`id`),
 			UNIQUE KEY (instance_id, external_id(' . $keyLen . '))
-		) ENGINE=InnoDB CHARACTER SET ' . $charset);
+		) ENGINE=InnoDB CHARACTER SET ' . $charset . ' COLLATE ' . $collation);
 
         try {
             $this->pdo->exec('CREATE TABLE ' . $this->getTableName(self::METADATA) . ' (
@@ -347,7 +348,7 @@ LIMIT :limit";
                 word_count INT(11) UNSIGNED NOT NULL,
                 images JSON NOT NULL,
                 PRIMARY KEY (toc_id)
-            ) ENGINE=InnoDB CHARACTER SET ' . $charset);
+            ) ENGINE=InnoDB CHARACTER SET ' . $charset . ' COLLATE ' . $collation);
         } catch (\PDOException) {
             // Fallback for old MariaDB < 10.2 with no JSON alias support
             $this->pdo->exec('CREATE TABLE ' . $this->getTableName(self::METADATA) . ' (
@@ -355,7 +356,7 @@ LIMIT :limit";
                 word_count INT(11) UNSIGNED NOT NULL,
                 images LONGTEXT NOT NULL,
                 PRIMARY KEY (toc_id)
-            ) ENGINE=InnoDB CHARACTER SET ' . $charset);
+            ) ENGINE=InnoDB CHARACTER SET ' . $charset . ' COLLATE ' . $collation);
         }
 
         $this->pdo->exec('CREATE TABLE ' . $this->getTableName(self::SNIPPET) . ' (
@@ -365,7 +366,8 @@ LIMIT :limit";
 			format_id INT(11) UNSIGNED NOT NULL,
 			snippet LONGTEXT NOT NULL,
 			PRIMARY KEY (toc_id, max_word_pos)
-		) ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 ENGINE=InnoDB CHARACTER SET ' . $charset);
+		) ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4 ENGINE=InnoDB CHARACTER SET ' . $charset
+            . ' COLLATE ' . $collation);
 
         $this->pdo->exec('CREATE TABLE ' . $this->getTableName(self::FULLTEXT_INDEX) . ' (
 			word_id INT(11) UNSIGNED NOT NULL,
@@ -373,7 +375,7 @@ LIMIT :limit";
 			positions LONGTEXT NOT NULL,
 			PRIMARY KEY (word_id, toc_id),
 			KEY (toc_id)
-		) ENGINE=InnoDB CHARACTER SET ' . $charset);
+		) ENGINE=InnoDB CHARACTER SET ' . $charset . ' COLLATE ' . $collation);
 
         $this->pdo->exec('CREATE TABLE ' . $this->getTableName(self::WORD) . ' (
 			id INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
