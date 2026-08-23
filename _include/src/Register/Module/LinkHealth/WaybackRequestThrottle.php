@@ -16,6 +16,10 @@ final readonly class WaybackRequestThrottle
 
     public const int INTERVAL_SECONDS = 15;
 
+    public const int ERROR_BACKOFF_SECONDS = 60;
+
+    public const int RATE_LIMIT_BACKOFF_SECONDS = 300;
+
     private RemoteRequestThrottle $throttle;
 
     public function __construct(\PDO $pdo, string $dbPrefix)
@@ -31,5 +35,15 @@ final readonly class WaybackRequestThrottle
     public function claim(int $now): ?int
     {
         return $this->throttle->claim(self::SERVICE, self::INTERVAL_SECONDS, $now);
+    }
+
+    public function backOff(int $now, bool $rateLimited): void
+    {
+        if ($now < 0) {
+            throw new \InvalidArgumentException('A Wayback backoff time cannot be negative.');
+        }
+
+        $delay = $rateLimited ? self::RATE_LIMIT_BACKOFF_SECONDS : self::ERROR_BACKOFF_SECONDS;
+        $this->throttle->deferUntil(self::SERVICE, $now + $delay);
     }
 }

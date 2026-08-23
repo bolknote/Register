@@ -18,10 +18,26 @@ final readonly class WaybackClient implements WaybackClientInterface
 
     private const int MAX_RESPONSE_BYTES = 65_536;
 
+    private const int CONNECT_TIMEOUT = 1;
+
+    private const int READ_TIMEOUT = 2;
+
+    private int $connectTimeout;
+
+    private int $readTimeout;
+
     public function __construct(
         private LinkHttpClientInterface $httpClient,
         private PublicAddressGuard      $addressGuard,
+        int                             $connectTimeout = self::CONNECT_TIMEOUT,
+        int                             $readTimeout = self::READ_TIMEOUT,
     ) {
+        if ($connectTimeout < 1 || $readTimeout < 1) {
+            throw new \InvalidArgumentException('Wayback request timeouts must be positive.');
+        }
+
+        $this->connectTimeout = $connectTimeout;
+        $this->readTimeout = $readTimeout;
     }
 
     #[\Override]
@@ -36,14 +52,14 @@ final readonly class WaybackClient implements WaybackClientInterface
             'timestamp' => gmdate('YmdHis', $referenceTime),
         ], '', '&', PHP_QUERY_RFC3986);
         $response = $this->httpClient->request('GET', $requestUrl, ['Accept' => 'application/json'], [
-            HttpClient::CONNECT_TIMEOUT    => 1,
-            HttpClient::READ_TIMEOUT       => 2,
+            HttpClient::CONNECT_TIMEOUT    => $this->connectTimeout,
+            HttpClient::READ_TIMEOUT       => $this->readTimeout,
             HttpClient::FOLLOW_REDIRECTS   => false,
             HttpClient::RESOLVE_IP         => $this->addressGuard->resolvePublicAddress(self::ENDPOINT),
             HttpClient::MAX_RESPONSE_BYTES => self::MAX_RESPONSE_BYTES,
         ]);
         if (!$response->isSuccessful() || !\is_string($response->content)) {
-            throw new \RuntimeException('The Wayback Availability API request failed with HTTP ' . $response->statusCode . '.');
+            throw new WaybackRequestException($response->statusCode);
         }
 
         try {

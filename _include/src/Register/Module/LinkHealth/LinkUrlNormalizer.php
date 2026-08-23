@@ -27,7 +27,7 @@ final readonly class LinkUrlNormalizer
 
     public function __construct(string $baseUrl, string $basePath)
     {
-        $parsed = parse_url($baseUrl);
+        $parsed = $this->parseUri($baseUrl);
         if (!\is_array($parsed) || !isset($parsed['scheme'], $parsed['host'])) {
             throw new \InvalidArgumentException('The canonical base URL must contain a scheme and host.');
         }
@@ -38,7 +38,7 @@ final readonly class LinkUrlNormalizer
         }
 
         $this->siteScheme = $scheme;
-        $this->siteHost   = $this->normalizeHost($parsed['host']);
+        $this->siteHost   = $this->normalizeHost(rawurldecode($parsed['host']));
         $this->sitePort   = $parsed['port'] ?? $this->defaultPort($scheme);
 
         $basePath = trim($basePath);
@@ -60,7 +60,8 @@ final readonly class LinkUrlNormalizer
             return null;
         }
 
-        $scheme = parse_url($href, PHP_URL_SCHEME);
+        $parsedHref = $this->parseUri($href);
+        $scheme = \is_array($parsedHref) ? ($parsedHref['scheme'] ?? null) : null;
         if (\is_string($scheme) && $scheme !== '') {
             if (!\in_array(strtolower($scheme), ['http', 'https'], true)) {
                 return null;
@@ -73,7 +74,7 @@ final readonly class LinkUrlNormalizer
             return $this->normalizeAbsolute($this->siteScheme . ':' . $href);
         }
 
-        $parsed = parse_url($href);
+        $parsed = $parsedHref;
         if (!\is_array($parsed)) {
             return null;
         }
@@ -139,7 +140,7 @@ final readonly class LinkUrlNormalizer
 
     private function normalizeAbsolute(string $url): ?NormalizedLink
     {
-        $parsed = parse_url($url);
+        $parsed = $this->parseUri($url);
         if (!\is_array($parsed) || !isset($parsed['scheme'], $parsed['host'])) {
             return null;
         }
@@ -149,7 +150,7 @@ final readonly class LinkUrlNormalizer
         }
 
         $scheme = strtolower($parsed['scheme']);
-        $host   = $this->normalizeHost($parsed['host']);
+        $host   = $this->normalizeHost(rawurldecode($parsed['host']));
         $port   = $parsed['port'] ?? $this->defaultPort($scheme);
         if ($host === '' || $port < 1 || $port > 65535) {
             return null;
@@ -220,6 +221,36 @@ final readonly class LinkUrlNormalizer
         $ascii   = idn_to_ascii($host, 0, $variant);
 
         return \is_string($ascii) ? strtolower($ascii) : $host;
+    }
+
+    /**
+     * PHP's parse_url() replaces some raw UTF-8 continuation bytes with underscores. Percent-encode
+     * every non-ASCII byte first, then decode only the hostname for IDNA handling; paths and queries
+     * remain canonical ASCII URLs suitable for every supported database.
+     *
+     * @return array{
+     *     scheme?: string,
+     *     host?: string,
+     *     port?: int,
+     *     user?: string,
+     *     pass?: string,
+     *     path?: string,
+     *     query?: string,
+     *     fragment?: string
+     * }|false
+     */
+    private function parseUri(string $uri): array|false
+    {
+        $ascii = preg_replace_callback(
+            '/[\x80-\xFF]/',
+            static fn(array $match): string => sprintf('%%%02X', ord($match[0])),
+            $uri,
+        );
+        if (!\is_string($ascii)) {
+            return false;
+        }
+
+        return parse_url($ascii);
     }
 
     private function origin(): string

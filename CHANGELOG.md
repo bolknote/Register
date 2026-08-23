@@ -22,6 +22,9 @@ in-place publishing and a release package designed for ordinary shared hosting.
   delivery and the authenticated user's unread-comment counter.
 - Link health rechecks `404`/`410` targets monthly, including confirmed broken links, so a restored
   page returns to healthy status without an administrator having to notice it first.
+- Link inventory recognizes the configured canonical host during local runs, preserves Unicode and
+  IDN links, and reuses completed Wayback results instead of repeating imported lookups. Wayback
+  jobs now back off together when the archive API is unavailable or rate-limited.
 - CI-gated edge builds and manually promoted release-candidate or stable archives.
 
 ### Deployment notes

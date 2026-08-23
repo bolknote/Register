@@ -41,6 +41,24 @@ final class WaybackRequestThrottleTest extends Unit
         $throttle->claim(-1);
     }
 
+    public function testExtendsGlobalBackoffWithoutShorteningIt(): void
+    {
+        $throttle = new WaybackRequestThrottle($this->pdo(), '');
+        $now = 1_800_000_000;
+
+        $throttle->backOff($now, true);
+        self::assertSame(
+            $now + WaybackRequestThrottle::RATE_LIMIT_BACKOFF_SECONDS,
+            $throttle->claim($now + WaybackRequestThrottle::INTERVAL_SECONDS),
+        );
+
+        $throttle->backOff($now, false);
+        self::assertSame(
+            $now + WaybackRequestThrottle::RATE_LIMIT_BACKOFF_SECONDS,
+            $throttle->claim($now + WaybackRequestThrottle::ERROR_BACKOFF_SECONDS),
+        );
+    }
+
     private function pdo(): \PDO
     {
         $pdo = new \PDO('sqlite::memory:');

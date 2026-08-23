@@ -71,7 +71,11 @@ final readonly class LinkArchiveQueueHandler implements QueueHandlerInterface
         if ($target->kind !== LinkKind::EXTERNAL
             || $target->healthStatus !== LinkHealthStatus::BROKEN
             || !$this->repository->hasUsages($targetId)
-            || (!$force && $target->archiveStatus === ArchiveStatus::AVAILABLE)
+            || (!$force && \in_array(
+                $target->archiveStatus,
+                [ArchiveStatus::AVAILABLE, ArchiveStatus::MISSING],
+                true,
+            ))
         ) {
             return;
         }
@@ -105,6 +109,10 @@ final readonly class LinkArchiveQueueHandler implements QueueHandlerInterface
                 $target->lastSuccessAt ?? $target->lastSeenAt,
             );
         } catch (\Throwable $throwable) {
+            $this->requestThrottle->backOff(
+                $now,
+                $throwable instanceof WaybackRequestException && $throwable->statusCode === 429,
+            );
             $this->repository->recordArchiveError($targetId, $now);
             throw $throwable;
         }

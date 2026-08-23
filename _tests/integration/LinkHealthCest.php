@@ -28,6 +28,7 @@ use Register\Module\LinkHealth\LinkProbeResult;
 use Register\Module\LinkHealth\LinkProbeState;
 use Register\Module\LinkHealth\LinkProbeStep;
 use Register\Module\LinkHealth\WaybackClientInterface;
+use Register\Module\LinkHealth\WaybackRequestException;
 use Register\Module\LinkHealth\WaybackRequestThrottle;
 use Register\Module\LinkHealth\LinkInventory;
 use Register\Module\LinkHealth\LinkInventoryQueueHandler;
@@ -368,6 +369,82 @@ final class LinkHealthCest
         $I->assertTrue(LinkQueue::isOperationToken($decodedPayload['token'] ?? null));
     }
 
+    public function reusesACompletedMissingArchiveLookup(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $postId  = $this->insertPost(
+            $dbLayer,
+            'historically-checked-missing-archive',
+            '<a href="https://broken.example/historical-missing">External</a>',
+        );
+        /** @var LinkInventory $inventory */
+        $inventory = $I->grabService(LinkInventory::class);
+        $inventory->synchronize(ContentId::post($postId), 1_800_000_000);
+
+        $targetId = $this->targetId($dbLayer, 'https://broken.example/historical-missing');
+        $dbLayer->update(Manifest::TARGET_TABLE)
+            ->set('health_status', "'suspect'")
+            ->set('failure_count', '1')
+            ->set('archive_status', "'missing'")
+            ->set('archive_checked_at', '1799990000')
+            ->where('id = :id')->setParameter('id', $targetId)
+            ->execute();
+
+        /** @var LinkHealthRepository $repository */
+        $repository = $I->grabService(LinkHealthRepository::class);
+        $target     = $repository->findTarget($targetId);
+        $I->assertNotNull($target);
+        /** @var LinkHealthPolicy $policy */
+        $policy   = $I->grabService(LinkHealthPolicy::class);
+        $probe    = new LinkProbeResult($target->url, 404);
+        $decision = $policy->decide($target, $probe, 1_800_086_400);
+        /** @var LinkHealthResultRecorder $recorder */
+        $recorder = $I->grabService(LinkHealthResultRecorder::class);
+        $recorder->recordProbe(str_repeat('d', 32), $target, $probe, $decision, 1_800_086_400);
+
+        $I->assertSame(
+            0,
+            (int)$dbLayer->select('COUNT(*)')->from('queue')
+                ->where('id = :id')->setParameter('id', LinkQueue::targetJobId($targetId))
+                ->andWhere('code = :code')->setParameter('code', LinkQueue::ARCHIVE_CODE)
+                ->execute()->result(),
+        );
+
+        $waybackClient = new CountingWaybackClient();
+        /** @var WaybackRequestThrottle $throttle */
+        $throttle = $I->grabService(WaybackRequestThrottle::class);
+        /** @var QueuePublisher $queuePublisher */
+        $queuePublisher = $I->grabService(QueuePublisher::class);
+        /** @var DynamicConfigProvider $configProvider */
+        $configProvider = $I->grabService(DynamicConfigProvider::class);
+        $handler = new LinkArchiveQueueHandler(
+            $repository,
+            $waybackClient,
+            $throttle,
+            $recorder,
+            $queuePublisher,
+            $configProvider->getBoolProxy(Manifest::AUTO_REPAIR_CONFIG_KEY),
+            static fn(): int => 1_800_086_400,
+        );
+
+        $handler->handle(
+            LinkQueue::targetJobId($targetId),
+            LinkQueue::ARCHIVE_CODE,
+            LinkQueue::archivePayload($targetId),
+            new QueueExecutionBudget(5.0),
+        );
+        $I->assertSame(0, $waybackClient->lookups);
+
+        $handler->handle(
+            LinkQueue::targetJobId($targetId),
+            LinkQueue::ARCHIVE_CODE,
+            LinkQueue::archivePayload($targetId, true),
+            new QueueExecutionBudget(5.0),
+        );
+        $I->assertSame(1, $waybackClient->lookups);
+    }
+
     public function rollsBackProbeWhenArchiveFollowUpCannotBeQueued(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -667,6 +744,70 @@ final class LinkHealthCest
         $I->assertSame(2, $waybackClient->lookups);
     }
 
+    public function backsOffEveryWaybackJobAfterRateLimiting(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $contentId = $this->insertPost(
+            $dbLayer,
+            'rate-limited-wayback-source',
+            '<a href="https://broken.example/rate-limited">Broken</a>',
+        );
+        /** @var LinkInventory $inventory */
+        $inventory = $I->grabService(LinkInventory::class);
+        $inventory->synchronize(ContentId::post($contentId), 1_800_000_000);
+        $targetId = $this->targetId($dbLayer, 'https://broken.example/rate-limited');
+        $this->markBroken($dbLayer, $targetId);
+        $dbLayer->update(Manifest::THROTTLE_TABLE)
+            ->set('next_request_at', '0')
+            ->where('service = :service')->setParameter('service', WaybackRequestThrottle::SERVICE)
+            ->execute();
+
+        $now = 1_800_000_000;
+        /** @var LinkHealthRepository $repository */
+        $repository = $I->grabService(LinkHealthRepository::class);
+        /** @var WaybackRequestThrottle $throttle */
+        $throttle = $I->grabService(WaybackRequestThrottle::class);
+        /** @var LinkHealthResultRecorder $recorder */
+        $recorder = $I->grabService(LinkHealthResultRecorder::class);
+        /** @var QueuePublisher $publisher */
+        $publisher = $I->grabService(QueuePublisher::class);
+        /** @var DynamicConfigProvider $configProvider */
+        $configProvider = $I->grabService(DynamicConfigProvider::class);
+        $handler = new LinkArchiveQueueHandler(
+            $repository,
+            new RateLimitedWaybackClient(),
+            $throttle,
+            $recorder,
+            $publisher,
+            $configProvider->getBoolProxy(Manifest::AUTO_REPAIR_CONFIG_KEY),
+            static fn(): int => $now,
+        );
+
+        try {
+            $handler->handle(
+                LinkQueue::targetJobId($targetId),
+                LinkQueue::ARCHIVE_CODE,
+                LinkQueue::archivePayload($targetId),
+                new QueueExecutionBudget(5.0),
+            );
+            $I->fail('A rate-limited archive lookup must fail.');
+        } catch (WaybackRequestException $exception) {
+            $I->assertSame(429, $exception->statusCode);
+        }
+
+        $I->assertSame(
+            $now + WaybackRequestThrottle::RATE_LIMIT_BACKOFF_SECONDS,
+            $throttle->claim($now + WaybackRequestThrottle::INTERVAL_SECONDS),
+        );
+        $I->assertSame(
+            'error',
+            $dbLayer->select('archive_status')->from(Manifest::TARGET_TABLE)
+                ->where('id = :id')->setParameter('id', $targetId)
+                ->execute()->result(),
+        );
+    }
+
     public function refusesToRepairARevisionChangedAfterInventory(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -964,6 +1105,16 @@ final class CountingWaybackClient implements WaybackClientInterface
     {
         ++$this->lookups;
         return ArchiveLookupResult::missing();
+    }
+}
+
+/** @internal */
+final class RateLimitedWaybackClient implements WaybackClientInterface
+{
+    #[\Override]
+    public function lookup(string $url, int $referenceTime): ArchiveLookupResult
+    {
+        throw new WaybackRequestException(429);
     }
 }
 

@@ -25,10 +25,22 @@ final readonly class SafeHttpProbe implements LinkProbeInterface
 
     private const int READ_TIMEOUT = 2;
 
+    private int $connectTimeout;
+
+    private int $readTimeout;
+
     public function __construct(
         private LinkHttpClientInterface $httpClient,
         private PublicAddressGuard      $addressGuard,
+        int                             $connectTimeout = self::CONNECT_TIMEOUT,
+        int                             $readTimeout = self::READ_TIMEOUT,
     ) {
+        if ($connectTimeout < 1 || $readTimeout < 1) {
+            throw new \InvalidArgumentException('Link-probe timeouts must be positive.');
+        }
+
+        $this->connectTimeout = $connectTimeout;
+        $this->readTimeout = $readTimeout;
     }
 
     #[\Override]
@@ -101,8 +113,8 @@ final readonly class SafeHttpProbe implements LinkProbeInterface
     private function request(string $method, string $url, string $resolvedIp, array $headers = []): \Register\Core\HttpClient\HttpResponse
     {
         return $this->httpClient->request($method, $url, $headers, [
-            HttpClient::CONNECT_TIMEOUT    => self::CONNECT_TIMEOUT,
-            HttpClient::READ_TIMEOUT       => self::READ_TIMEOUT,
+            HttpClient::CONNECT_TIMEOUT    => $this->connectTimeout,
+            HttpClient::READ_TIMEOUT       => $this->readTimeout,
             HttpClient::FOLLOW_REDIRECTS   => false,
             HttpClient::RESOLVE_IP         => $resolvedIp,
             HttpClient::MAX_RESPONSE_BYTES => self::MAX_RESPONSE_BYTES,

@@ -34,7 +34,14 @@ final readonly class LinkHealthResultRecorder
                 return;
             }
 
-            if ($decision->lookupArchive && $target->archiveStatus !== ArchiveStatus::AVAILABLE) {
+            // AVAILABLE and MISSING are both completed Wayback lookups. In particular, historical
+            // imports can seed either result before the current URL receives its confirming probe;
+            // do not repeat that already completed network work when the URL becomes broken.
+            if ($decision->lookupArchive && \in_array(
+                $target->archiveStatus,
+                [ArchiveStatus::UNCHECKED, ArchiveStatus::ERROR],
+                true,
+            )) {
                 $this->queuePublisher->publish(
                     LinkQueue::targetJobId($target->id),
                     LinkQueue::ARCHIVE_CODE,

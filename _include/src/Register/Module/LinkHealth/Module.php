@@ -64,7 +64,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         ));
         $container->set(LinkHealthPolicy::class, new LinkHealthPolicy());
         $container->set(LinkUrlNormalizer::class, static fn(Container $container): LinkUrlNormalizer => new LinkUrlNormalizer(
-            $container->getStringParameter('base_url'),
+            $container->getNullableStringParameter('canonical_url')
+                ?? $container->getStringParameter('base_url'),
             $container->getStringParameter('base_path'),
         ));
         $container->set(HtmlLinkRewriter::class, static fn(Container $container): HtmlLinkRewriter => new HtmlLinkRewriter(

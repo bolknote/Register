@@ -58,7 +58,7 @@ final class LinkHealthPolicyTest extends Unit
             new LinkProbeResult('https://example.test/', 404),
             $firstCheckedAt,
         );
-        $secondCheckedAt = $firstCheckedAt + LinkHealthPolicy::BROKEN_INTERVAL;
+        $secondCheckedAt = $firstCheckedAt + 86_400;
         $second = $policy->decide(
             $this->target(LinkHealthStatus::SUSPECT, $first->failureCount),
             new LinkProbeResult('https://example.test/', 404),
@@ -66,7 +66,7 @@ final class LinkHealthPolicyTest extends Unit
         );
 
         self::assertSame(LinkHealthStatus::SUSPECT, $first->status);
-        self::assertSame($firstCheckedAt + LinkHealthPolicy::BROKEN_INTERVAL, $first->nextCheckAt);
+        self::assertSame($firstCheckedAt + 86_400, $first->nextCheckAt);
         self::assertFalse($first->lookupArchive);
         self::assertSame(LinkHealthStatus::BROKEN, $second->status);
         self::assertSame($secondCheckedAt + LinkHealthPolicy::BROKEN_INTERVAL, $second->nextCheckAt);

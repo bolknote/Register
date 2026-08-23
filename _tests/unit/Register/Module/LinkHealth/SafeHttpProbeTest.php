@@ -81,6 +81,25 @@ final class SafeHttpProbeTest extends Unit
         self::assertSame(16_384, $client->calls[1]['options'][HttpClient::MAX_RESPONSE_BYTES]);
     }
 
+    public function testAllowsLongerTimeoutsForAnOfflineAudit(): void
+    {
+        $client = new RecordingLinkHttpClient([
+            new HttpResponse(['HTTP/1.1 200 OK'], 200, ''),
+        ]);
+        $probe = new SafeHttpProbe(
+            $client,
+            new PublicAddressGuard($this->resolver(['slow.example' => ['93.184.216.34']])),
+            5,
+            10,
+        );
+
+        $result = $probe->step(LinkProbeState::initial('https://slow.example/'))->result;
+
+        self::assertNotNull($result);
+        self::assertSame(5, $client->calls[0]['options'][HttpClient::CONNECT_TIMEOUT]);
+        self::assertSame(10, $client->calls[0]['options'][HttpClient::READ_TIMEOUT]);
+    }
+
     public function testBlocksPrivateAddressIntroducedByRedirect(): void
     {
         $client = new RecordingLinkHttpClient([

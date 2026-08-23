@@ -84,9 +84,7 @@ final class LinkHealthPolicy
         return new LinkHealthDecision(
             LinkHealthStatus::SUSPECT,
             $failures,
-            $now + ($hard
-                ? self::BROKEN_INTERVAL
-                : ($failures === 1 ? self::FIRST_RETRY_DELAY : self::LATER_RETRY_DELAY)),
+            $now + ($failures === 1 ? self::FIRST_RETRY_DELAY : self::LATER_RETRY_DELAY),
             $current->lastSuccessAt,
             false,
         );

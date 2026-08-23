@@ -67,6 +67,31 @@ final class WaybackClientTest extends Unit
         self::assertNull($result->url);
     }
 
+    public function testAllowsLongerTimeoutsForAnOfflineAudit(): void
+    {
+        $httpClient = new WaybackRecordingClient(new HttpResponse(
+            statusCode: 200,
+            content: '{"archived_snapshots":{}}',
+        ));
+
+        $this->client($httpClient, 5, 10)->lookup('https://old.example/', 1_700_000_000);
+
+        self::assertSame(5, $httpClient->options[HttpClient::CONNECT_TIMEOUT]);
+        self::assertSame(10, $httpClient->options[HttpClient::READ_TIMEOUT]);
+    }
+
+    public function testPreservesRateLimitStatusForGlobalBackoff(): void
+    {
+        $httpClient = new WaybackRecordingClient(new HttpResponse(statusCode: 429));
+
+        try {
+            $this->client($httpClient)->lookup('https://old.example/', 1_700_000_000);
+            self::fail('The rate-limited lookup must fail.');
+        } catch (\Register\Module\LinkHealth\WaybackRequestException $exception) {
+            self::assertSame(429, $exception->statusCode);
+        }
+    }
+
     public function testRejectsAReplayUrlOutsideTheWaybackHost(): void
     {
         $httpClient = new WaybackRecordingClient(new HttpResponse(
@@ -93,7 +118,11 @@ final class WaybackClientTest extends Unit
         $this->client($httpClient)->lookup('https://old.example/', 1_700_000_000);
     }
 
-    private function client(WaybackRecordingClient $httpClient): WaybackClient
+    private function client(
+        WaybackRecordingClient $httpClient,
+        int                    $connectTimeout = 1,
+        int                    $readTimeout = 2,
+    ): WaybackClient
     {
         $resolver = new class implements HostResolverInterface {
             /** @return list<string> */
@@ -104,7 +133,12 @@ final class WaybackClientTest extends Unit
             }
         };
 
-        return new WaybackClient($httpClient, new PublicAddressGuard($resolver));
+        return new WaybackClient(
+            $httpClient,
+            new PublicAddressGuard($resolver),
+            $connectTimeout,
+            $readTimeout,
+        );
     }
 }
 

@@ -56,6 +56,30 @@ final readonly class RemoteRequestThrottle
         throw new \RuntimeException('Unable to claim a remote-request throttle after repeated contention.');
     }
 
+    /** Moves the service slot forward without ever shortening an existing delay. */
+    public function deferUntil(string $service, int $until): void
+    {
+        if ($service === '' || \strlen($service) > 32 || $until < 0) {
+            throw new \InvalidArgumentException('Remote-request throttle deferral arguments are invalid.');
+        }
+
+        $this->ensureService($service);
+        $statement = $this->pdo->prepare(
+            'UPDATE ' . $this->table()
+            . ' SET next_request_at = CASE WHEN next_request_at < :compare_until'
+            . ' THEN :new_until ELSE next_request_at END WHERE service = :service'
+        );
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the remote-request throttle deferral.');
+        }
+
+        $statement->execute([
+            'compare_until' => $until,
+            'new_until'     => $until,
+            'service'       => $service,
+        ]);
+    }
+
     public function prune(string $servicePrefix, int $before): void
     {
         if ($servicePrefix === '' || \strlen($servicePrefix) > 32 || $before < 0) {

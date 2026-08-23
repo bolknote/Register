@@ -82,6 +82,24 @@ final class LinkUrlNormalizerTest extends Unit
         self::assertSame(LinkKind::ARCHIVE, $archive->kind);
     }
 
+    public function testPercentEncodesUnicodeWithoutCorruptingUtf8(): void
+    {
+        $external = $this->normalizer()->normalize(
+            'https://пример.рф/путь…/страница?слово=да',
+            '/current',
+        );
+
+        self::assertNotNull($external);
+        self::assertSame(LinkKind::EXTERNAL, $external->kind);
+        self::assertSame(
+            'https://xn--e1afmkfd.xn--p1ai/%D0%BF%D1%83%D1%82%D1%8C%E2%80%A6/'
+                . '%D1%81%D1%82%D1%80%D0%B0%D0%BD%D0%B8%D1%86%D0%B0?'
+                . '%D1%81%D0%BB%D0%BE%D0%B2%D0%BE=%D0%B4%D0%B0',
+            $external->url,
+        );
+        self::assertTrue(mb_check_encoding($external->url, 'UTF-8'));
+    }
+
     private function normalizer(): LinkUrlNormalizer
     {
         return new LinkUrlNormalizer('https://example.test', '');
