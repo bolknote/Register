@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Распознавание цифр с камеры — действующая реконструкция</title>
+<link rel="stylesheet" href="demo.css">
+<style>
+    .recognizer-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 1rem;
+    }
+
+    .recognizer-panel {
+        min-width: 0;
+    }
+
+    .recognizer-panel h2 {
+        margin: 0 0 .55rem;
+        font-size: 1rem;
+    }
+
+    .recognizer-panel canvas {
+        width: 100%;
+        border: .45rem solid #111;
+        border-radius: .85rem;
+        background: #111;
+    }
+
+    .recognizer-output {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: .35rem 1rem;
+        align-items: baseline;
+        margin: 1rem 0;
+        padding: 1rem;
+        border: .35rem solid #111;
+        border-radius: .85rem;
+        background: #fff;
+    }
+
+    .recognizer-output strong {
+        font-size: clamp(2.2rem, 8vw, 5rem);
+        line-height: 1;
+        letter-spacing: .08em;
+    }
+
+    .recognizer-output small {
+        grid-column: 1 / -1;
+        color: #555;
+    }
+
+    .file-button {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.65rem;
+        padding: .62rem .95rem;
+        overflow: hidden;
+        border: 1px solid #746f65;
+        border-radius: .65rem;
+        background: #fff;
+        cursor: pointer;
+        font-weight: 650;
+    }
+
+    .file-button input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    @media (max-width: 48rem) {
+        .recognizer-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+</head>
+<body>
+<main class="demo-shell">
+    <nav class="demo-nav" aria-label="Навигация">
+        <a href="/files/">← Архив программ и экспериментов</a>
+        <a href="/_pictures/bolknote/legacy-files/opera-cam-recog.html" download>Исходный HTML 2012 года</a>
+    </nav>
+    <article class="demo-card">
+        <header class="demo-header">
+            <h1>Распознавание цифр с камеры</h1>
+            <p>Эксперимент для Opera Labs снова работает: кадр переводится в чёрно-белый вид, цифры отделяются друг от друга и сравниваются с шаблонами прямо в браузере.</p>
+        </header>
+        <section class="demo-section">
+            <div class="demo-controls">
+                <button id="camera" type="button">Запустить камеру</button>
+                <button id="sample" type="button">Тест «2012»</button>
+                <label class="file-button">Открыть фотографию<input id="file" type="file" accept="image/*" capture="environment"></label>
+                <button id="stop" type="button" disabled>Остановить</button>
+            </div>
+            <p id="status" class="demo-status" role="status">Можно начать с тестовой карточки — доступ к камере для неё не нужен.</p>
+            <div class="recognizer-output" aria-live="polite">
+                <span>Результат</span>
+                <strong id="result">—</strong>
+                <small id="confidence">Цифры лучше всего распознаются на светлом однотонном фоне.</small>
+            </div>
+            <div class="recognizer-grid">
+                <section class="recognizer-panel">
+                    <h2>Исходный кадр</h2>
+                    <canvas id="frame" width="640" height="400"></canvas>
+                </section>
+                <section class="recognizer-panel">
+                    <h2>Порог и найденные знаки</h2>
+                    <canvas id="binary" width="640" height="400"></canvas>
+                </section>
+            </div>
+            <video id="video" muted playsinline hidden></video>
+        </section>
+        <section class="demo-section">
+            <p class="demo-note">Для камеры используется стандартный защищённый API <code>navigator.mediaDevices.getUserMedia</code>; видео никуда не отправляется. Держите строку тёмных цифр на светлом фоне внутри голубой рамки. Кнопка «Тест 2012» даёт воспроизводимый пример.</p>
+        </section>
+    </article>
+</main>
+<script>
+(() => {
+    'use strict';
+
+    const frame = document.getElementById('frame');
+    const binaryCanvas = document.getElementById('binary');
+    const frameContext = frame.getContext('2d', {willReadFrequently: true});
+    const binaryContext = binaryCanvas.getContext('2d');
+    const video = document.getElementById('video');
+    const cameraButton = document.getElementById('camera');
+    const sampleButton = document.getElementById('sample');
+    const fileInput = document.getElementById('file');
+    const stopButton = document.getElementById('stop');
+    const status = document.getElementById('status');
+    const result = document.getElementById('result');
+    const confidence = document.getElementById('confidence');
+    const templateCanvas = document.createElement('canvas');
+    templateCanvas.width = 100;
+    templateCanvas.height = 140;
+    const templateContext = templateCanvas.getContext('2d', {willReadFrequently: true});
+    const targetWidth = 28;
+    const targetHeight = 44;
+    const roi = {x: 64, y: 80, width: 512, height: 240};
+    let templates = null;
+    let mediaStream = null;
+    let animationFrame = 0;
+    let lastProcessedAt = 0;
+
+    const stopCamera = () => {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+            mediaStream = null;
+        }
+        video.srcObject = null;
+        stopButton.disabled = true;
+    };
+
+    const fitSource = source => {
+        const sourceWidth = source.videoWidth || source.naturalWidth || source.width;
+        const sourceHeight = source.videoHeight || source.naturalHeight || source.height;
+        const scale = Math.max(frame.width / sourceWidth, frame.height / sourceHeight);
+        const width = sourceWidth * scale;
+        const height = sourceHeight * scale;
+        frameContext.fillStyle = '#fff';
+        frameContext.fillRect(0, 0, frame.width, frame.height);
+        frameContext.drawImage(source, (frame.width - width) / 2, (frame.height - height) / 2, width, height);
+    };
+
+    const otsuThreshold = histogram => {
+        let total = 0;
+        let weighted = 0;
+        for (let value = 0; value < 256; value++) {
+            total += histogram[value];
+            weighted += value * histogram[value];
+        }
+
+        let backgroundWeight = 0;
+        let backgroundSum = 0;
+        let bestVariance = -1;
+        let threshold = 127;
+        for (let value = 0; value < 256; value++) {
+            backgroundWeight += histogram[value];
+            if (backgroundWeight === 0) continue;
+            const foregroundWeight = total - backgroundWeight;
+            if (foregroundWeight === 0) break;
+            backgroundSum += value * histogram[value];
+            const backgroundMean = backgroundSum / backgroundWeight;
+            const foregroundMean = (weighted - backgroundSum) / foregroundWeight;
+            const variance = backgroundWeight * foregroundWeight * (backgroundMean - foregroundMean) ** 2;
+            if (variance > bestVariance) {
+                bestVariance = variance;
+                threshold = value;
+            }
+        }
+        return Math.max(25, Math.min(235, threshold));
+    };
+
+    const boundsFor = (pixels, width, height) => {
+        let left = width;
+        let right = -1;
+        let top = height;
+        let bottom = -1;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (!pixels[y * width + x]) continue;
+                left = Math.min(left, x);
+                right = Math.max(right, x);
+                top = Math.min(top, y);
+                bottom = Math.max(bottom, y);
+            }
+        }
+        return right >= left && bottom >= top ? {left, right, top, bottom} : null;
+    };
+
+    const normalize = (pixels, width, height, bounds) => {
+        const output = new Uint8Array(targetWidth * targetHeight);
+        const sourceWidth = bounds.right - bounds.left + 1;
+        const sourceHeight = bounds.bottom - bounds.top + 1;
+        const scale = Math.min((targetWidth - 4) / sourceWidth, (targetHeight - 4) / sourceHeight);
+        const drawWidth = sourceWidth * scale;
+        const drawHeight = sourceHeight * scale;
+        const offsetX = (targetWidth - drawWidth) / 2;
+        const offsetY = (targetHeight - drawHeight) / 2;
+
+        for (let y = 0; y < targetHeight; y++) {
+            for (let x = 0; x < targetWidth; x++) {
+                const sourceX = Math.floor((x - offsetX) / scale) + bounds.left;
+                const sourceY = Math.floor((y - offsetY) / scale) + bounds.top;
+                if (sourceX >= bounds.left && sourceX <= bounds.right && sourceY >= bounds.top && sourceY <= bounds.bottom) {
+                    output[y * targetWidth + x] = pixels[sourceY * width + sourceX];
+                }
+            }
+        }
+        return output;
+    };
+
+    const createTemplates = () => {
+        const output = [];
+        for (let digit = 0; digit <= 9; digit++) {
+            templateContext.fillStyle = '#fff';
+            templateContext.fillRect(0, 0, templateCanvas.width, templateCanvas.height);
+            templateContext.fillStyle = '#000';
+            templateContext.font = '900 112px Arial, sans-serif';
+            templateContext.textAlign = 'center';
+            templateContext.textBaseline = 'middle';
+            templateContext.fillText(String(digit), 50, 72);
+            const image = templateContext.getImageData(0, 0, templateCanvas.width, templateCanvas.height);
+            const pixels = new Uint8Array(templateCanvas.width * templateCanvas.height);
+            for (let index = 0; index < pixels.length; index++) {
+                pixels[index] = image.data[index * 4] < 128 ? 1 : 0;
+            }
+            const bounds = boundsFor(pixels, templateCanvas.width, templateCanvas.height);
+            output.push(normalize(pixels, templateCanvas.width, templateCanvas.height, bounds));
+        }
+        return output;
+    };
+
+    const compare = (input, template) => {
+        let difference = 0;
+        for (let index = 0; index < input.length; index++) {
+            if (input[index] !== template[index]) difference++;
+        }
+        return 1 - difference / input.length;
+    };
+
+    const findSegments = (pixels, width, height) => {
+        const columns = new Uint16Array(width);
+        for (let x = 0; x < width; x++) {
+            for (let y = 0; y < height; y++) columns[x] += pixels[y * width + x];
+        }
+
+        const segments = [];
+        let start = -1;
+        let empty = 0;
+        for (let x = 0; x <= width; x++) {
+            const occupied = x < width && columns[x] >= 2;
+            if (occupied) {
+                if (start < 0) start = x;
+                empty = 0;
+            } else if (start >= 0) {
+                empty++;
+                if (empty > 2 || x === width) {
+                    const right = x - empty;
+                    if (right - start >= 2) segments.push({left: start, right});
+                    start = -1;
+                    empty = 0;
+                }
+            }
+        }
+
+        return segments.slice(0, 16).map(segment => {
+            let top = height;
+            let bottom = -1;
+            for (let x = segment.left; x <= segment.right; x++) {
+                for (let y = 0; y < height; y++) {
+                    if (!pixels[y * width + x]) continue;
+                    top = Math.min(top, y);
+                    bottom = Math.max(bottom, y);
+                }
+            }
+            return {...segment, top, bottom};
+        }).filter(segment => segment.bottom >= segment.top && segment.bottom - segment.top >= 8);
+    };
+
+    const recognize = () => {
+        if (!templates) templates = createTemplates();
+        const image = frameContext.getImageData(roi.x, roi.y, roi.width, roi.height);
+        const histogram = new Uint32Array(256);
+        const grays = new Uint8Array(roi.width * roi.height);
+        for (let index = 0; index < grays.length; index++) {
+            const sourceIndex = index * 4;
+            const gray = Math.round(
+                image.data[sourceIndex] * .2126 +
+                image.data[sourceIndex + 1] * .7152 +
+                image.data[sourceIndex + 2] * .0722
+            );
+            grays[index] = gray;
+            histogram[gray]++;
+        }
+
+        const threshold = otsuThreshold(histogram);
+        const pixels = new Uint8Array(grays.length);
+        let foreground = 0;
+        for (let index = 0; index < grays.length; index++) {
+            pixels[index] = grays[index] <= threshold ? 1 : 0;
+            foreground += pixels[index];
+        }
+        if (foreground > pixels.length * .55) {
+            for (let index = 0; index < pixels.length; index++) pixels[index] = pixels[index] ? 0 : 1;
+        }
+
+        binaryContext.fillStyle = '#d7d7d7';
+        binaryContext.fillRect(0, 0, binaryCanvas.width, binaryCanvas.height);
+        const binaryImage = binaryContext.createImageData(roi.width, roi.height);
+        for (let index = 0; index < pixels.length; index++) {
+            const color = pixels[index] ? 0 : 255;
+            binaryImage.data[index * 4] = color;
+            binaryImage.data[index * 4 + 1] = color;
+            binaryImage.data[index * 4 + 2] = color;
+            binaryImage.data[index * 4 + 3] = 255;
+        }
+        binaryContext.putImageData(binaryImage, roi.x, roi.y);
+
+        const segments = findSegments(pixels, roi.width, roi.height);
+        let text = '';
+        const scores = [];
+        binaryContext.lineWidth = 3;
+        binaryContext.strokeStyle = '#e83055';
+        binaryContext.font = '700 20px system-ui, sans-serif';
+        binaryContext.fillStyle = '#e83055';
+        for (const segment of segments) {
+            const normalized = normalize(pixels, roi.width, roi.height, segment);
+            let bestDigit = '?';
+            let bestScore = 0;
+            templates.forEach((template, digit) => {
+                const score = compare(normalized, template);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestDigit = String(digit);
+                }
+            });
+            text += bestScore >= .62 ? bestDigit : '?';
+            scores.push(bestScore);
+            binaryContext.strokeRect(
+                roi.x + segment.left - 2,
+                roi.y + segment.top - 2,
+                segment.right - segment.left + 5,
+                segment.bottom - segment.top + 5
+            );
+            binaryContext.fillText(
+                bestScore >= .62 ? bestDigit : '?',
+                roi.x + segment.left,
+                Math.max(20, roi.y + segment.top - 8)
+            );
+        }
+
+        result.textContent = text || '—';
+        const average = scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
+        confidence.textContent = scores.length
+            ? 'Найдено знаков: ' + scores.length + '. Среднее сходство с шаблоном: ' + Math.round(average * 100) + '%.'
+            : 'В голубой рамке не найдено строки тёмных цифр.';
+
+        frameContext.save();
+        frameContext.lineWidth = 4;
+        frameContext.strokeStyle = '#00a7df';
+        frameContext.setLineDash([12, 8]);
+        frameContext.strokeRect(roi.x, roi.y, roi.width, roi.height);
+        frameContext.restore();
+    };
+
+    const cameraLoop = now => {
+        if (!mediaStream) return;
+        fitSource(video);
+        if (now - lastProcessedAt >= 160) {
+            recognize();
+            lastProcessedAt = now;
+        }
+        animationFrame = requestAnimationFrame(cameraLoop);
+    };
+
+    cameraButton.addEventListener('click', async () => {
+        stopCamera();
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            status.textContent = 'Этот браузер не предоставляет доступ к камере. Можно открыть фотографию.';
+            return;
+        }
+        status.textContent = 'Запрашивается доступ к камере…';
+        try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: {facingMode: {ideal: 'environment'}, width: {ideal: 1280}},
+                audio: false
+            });
+            video.srcObject = mediaStream;
+            await video.play();
+            stopButton.disabled = false;
+            status.textContent = 'Камера работает. Поместите строку цифр в голубую рамку.';
+            animationFrame = requestAnimationFrame(cameraLoop);
+        } catch (error) {
+            stopCamera();
+            status.textContent = 'Камера не запущена: ' + error.message;
+        }
+    });
+
+    sampleButton.addEventListener('click', () => {
+        stopCamera();
+        frameContext.fillStyle = '#eee8d9';
+        frameContext.fillRect(0, 0, frame.width, frame.height);
+        frameContext.fillStyle = '#fff';
+        frameContext.fillRect(roi.x, roi.y, roi.width, roi.height);
+        frameContext.fillStyle = '#111';
+        frameContext.font = '900 174px Arial, sans-serif';
+        frameContext.textAlign = 'center';
+        frameContext.textBaseline = 'middle';
+        frameContext.fillText('2012', frame.width / 2, frame.height / 2 + 8);
+        recognize();
+        status.textContent = 'Обработана встроенная тестовая карточка.';
+    });
+
+    fileInput.addEventListener('change', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        stopCamera();
+        try {
+            const bitmap = await createImageBitmap(file);
+            fitSource(bitmap);
+            bitmap.close();
+            recognize();
+            status.textContent = 'Фотография обработана локально.';
+        } catch (error) {
+            status.textContent = 'Не удалось открыть фотографию: ' + error.message;
+        }
+    });
+
+    stopButton.addEventListener('click', () => {
+        stopCamera();
+        status.textContent = 'Камера остановлена.';
+    });
+
+    sampleButton.click();
+})();
+</script>
+</body>
+</html>

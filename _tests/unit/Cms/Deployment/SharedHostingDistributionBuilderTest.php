@@ -76,12 +76,40 @@ final class SharedHostingDistributionBuilderTest extends Unit
 
         self::assertFileExists($publicDir . '/index.php');
         self::assertFileExists($publicDir . '/service-worker.js');
+        $serviceWorker = file_get_contents($publicDir . '/service-worker.js');
+        self::assertIsString($serviceWorker);
+        self::assertStringContainsString("const CACHE_NAME = 'register-offline-v3';", $serviceWorker);
+        self::assertStringContainsString("new Request(request, {cache: 'no-cache'})", $serviceWorker);
         self::assertFileExists($publicDir . '/_admin/index.php');
         self::assertFileExists($publicDir . '/_admin/js/webauthn.js');
         self::assertFileExists($publicDir . '/_assets/register/syntax-highlighting/vendor/highlight.js/languages.json');
         self::assertFileExists($publicDir . '/_styles/register/site.css');
         self::assertFileExists($publicDir . '/_cache/.htaccess');
         self::assertFileExists($publicDir . '/_pictures/.htaccess');
+        self::assertFileExists($publicDir . '/files/ttt/index.html');
+        $ticTacToe = file_get_contents($publicDir . '/files/ttt/index.html');
+        self::assertIsString($ticTacToe);
+        self::assertStringContainsString('.table:target, .table:last-child', $ticTacToe);
+        self::assertStringContainsString('id="---------"', $ticTacToe);
+        self::assertFileExists($publicDir . '/files/acid0/index.html');
+        self::assertFileExists($publicDir . '/files/demo.css');
+        self::assertFileExists($publicDir . '/files/demo-assets/player-test.mp4');
+        self::assertFileExists($publicDir . '/files/ie-player.html');
+        self::assertFileExists($publicDir . '/files/opera-cam-recog.html');
+        self::assertFileExists($publicDir . '/files/opera-mystery/index.html');
+        self::assertFileExists($publicDir . '/files/opera-mystery/bolk.css');
+        self::assertFileExists($publicDir . '/files/olimp/index.html');
+        self::assertFileExists($publicDir . '/files/olimp/logo.jpg');
+        self::assertFileExists($publicDir . '/files/webkit-mjpeg.html');
+        self::assertFileExists($publicDir . '/files/dogfight/bg.jpg');
+        self::assertFileExists($publicDir . '/files/tank-1k-game/tank-game.js');
+        self::assertFileExists($publicDir . '/files/tank-1k-game-2/index.js');
+        self::assertFileExists($publicDir . '/files/exp-jscss/combined.css');
+        self::assertFileExists($publicDir . '/files/exp-jscss/combined.js');
+        self::assertFileExists($publicDir . '/files/places/index.html');
+        self::assertFileExists($publicDir . '/files/webkit-purecss-image.html');
+        self::assertFileDoesNotExist($publicDir . '/files/acid0/answer.php');
+        self::assertFileDoesNotExist($publicDir . '/files/dogfight/sc-game.php');
         self::assertFileDoesNotExist($publicDir . '/composer.lock');
         self::assertDirectoryDoesNotExist($publicDir . '/_include');
         self::assertDirectoryDoesNotExist($publicDir . '/_tests');
@@ -97,7 +125,7 @@ final class SharedHostingDistributionBuilderTest extends Unit
             $apachePolicy,
         );
         self::assertStringContainsString(
-            'Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"',
+            'Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=()"',
             $apachePolicy,
         );
 
@@ -125,6 +153,17 @@ final class SharedHostingDistributionBuilderTest extends Unit
         self::assertStringStartsWith("PK\x03\x04", $archiveContent);
         self::assertStringContainsString('public_html/index.php', $archiveContent);
         self::assertStringContainsString('public_html/service-worker.js', $archiveContent);
+        self::assertStringContainsString('public_html/files/ttt/index.html', $archiveContent);
+        self::assertStringContainsString('public_html/files/acid0/index.html', $archiveContent);
+        self::assertStringContainsString('public_html/files/demo-assets/player-test.mp4', $archiveContent);
+        self::assertStringContainsString('public_html/files/ie-player.html', $archiveContent);
+        self::assertStringContainsString('public_html/files/opera-cam-recog.html', $archiveContent);
+        self::assertStringContainsString('public_html/files/opera-mystery/bolk.css', $archiveContent);
+        self::assertStringContainsString('public_html/files/olimp/index.html', $archiveContent);
+        self::assertStringContainsString('public_html/files/webkit-mjpeg.html', $archiveContent);
+        self::assertStringContainsString('public_html/files/dogfight/index.html', $archiveContent);
+        self::assertStringContainsString('public_html/files/tank-1k-game-2/index.js', $archiveContent);
+        self::assertStringContainsString('public_html/files/places/index.html', $archiveContent);
         self::assertStringContainsString('register-app/_include/common.php', $archiveContent);
         self::assertStringContainsString('register-app/tools/decrypt-backup.php', $archiveContent);
         self::assertStringContainsString('register-app/tools/generate-backup-keypair.php', $archiveContent);

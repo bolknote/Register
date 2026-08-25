@@ -46,7 +46,18 @@ final readonly class BackgroundWorkRunner implements BackgroundWorkRunnerInterfa
             return 0;
         }
 
-        $budget       = new QueueExecutionBudget($maxSeconds);
+        $budget = new QueueExecutionBudget($maxSeconds);
+        $now = time();
+        try {
+            if (!$this->consumer->hasRunnableJob($now, $budget)
+                && !$this->maintenance->hasDueWork($now, $budget)
+            ) {
+                return 0;
+            }
+        } catch (QueueTimeBudgetExceeded) {
+            return 0;
+        }
+
         $leaseSeconds = max(
             self::MINIMUM_LEASE_SECONDS,
             (int)ceil($maxSeconds) + self::LEASE_GRACE_SECONDS,
@@ -60,8 +71,8 @@ final readonly class BackgroundWorkRunner implements BackgroundWorkRunnerInterfa
         try {
             try {
                 if ($budget->canStart(0.1)) {
-                    $this->maintenance->scheduleRequestWork(budget: $budget);
-                    $this->maintenance->runIfDue(budget: $budget);
+                    $this->maintenance->scheduleRequestWork($now, $budget);
+                    $this->maintenance->runIfDue($now, $budget);
                 }
             } catch (QueueTimeBudgetExceeded) {
                 // A custom sub-50ms handler may still fit the remaining slice.

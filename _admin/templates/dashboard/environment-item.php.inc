@@ -6,6 +6,7 @@
  * @var string $operatingSystem
  * @var string $phpVersion
  * @var string $serverLoad
+ * @var array{cpu:int, percent:string}|null $serverLoadContext
  */
 ?>
 <div class="stat-item environment-stat-item">
@@ -42,7 +43,15 @@
         </div>
         <div>
             <dt><?= $trans('Server load') ?></dt>
-            <dd class="technical-data"><?= htmlspecialchars($serverLoad, ENT_QUOTES, 'UTF-8') ?></dd>
+            <dd class="technical-data">
+                <?= htmlspecialchars($serverLoad, ENT_QUOTES, 'UTF-8') ?>
+                <?php if ($serverLoadContext !== null): ?>
+                    <small class="technical-data"><?= $trans('Shared host load context', [
+                        '{{ cpu }}' => $serverLoadContext['cpu'],
+                        '{{ percent }}' => $serverLoadContext['percent'],
+                    ]) ?></small>
+                <?php endif; ?>
+            </dd>
         </div>
     </dl>
 </div>

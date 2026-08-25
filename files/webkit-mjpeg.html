@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pseudo video tag — действующая реконструкция</title>
+<link rel="stylesheet" href="demo.css">
+<style>
+    .stream-player {
+        position: relative;
+        width: min(100%, 40rem);
+        aspect-ratio: 4 / 3;
+        overflow: hidden;
+        border: .45rem solid #27343b;
+        border-radius: 1rem;
+        background: #000;
+        box-shadow: 0 .8rem 2rem rgb(0 0 0 / 22%);
+    }
+
+    .stream-player canvas,
+    .stream-player img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .stream-player img[hidden],
+    .stream-player canvas[hidden] {
+        display: none;
+    }
+
+    .stream-toggle {
+        position: absolute;
+        right: .8rem;
+        bottom: .8rem;
+        z-index: 2;
+        width: 3rem;
+        min-width: 3rem;
+        height: 3rem;
+        padding: 0;
+        border-color: #ddd;
+        border-radius: 50%;
+        background: rgb(0 0 0 / 58%);
+        color: #fff;
+        font-size: 1.7rem;
+        animation: pulse 3s ease-in-out infinite;
+    }
+
+    .stream-url {
+        display: grid;
+        grid-template-columns: minmax(12rem, 1fr) auto;
+        gap: .65rem;
+        width: min(100%, 40rem);
+        margin-top: 1rem;
+    }
+
+    @keyframes pulse {
+        50% { opacity: .55; }
+    }
+
+    @media (max-width: 34rem) {
+        .stream-url {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+</head>
+<body>
+<main class="demo-shell">
+    <nav class="demo-nav" aria-label="Навигация">
+        <a href="/files/">← Архив программ и экспериментов</a>
+        <a href="/_pictures/bolknote/legacy-files/webkit-mjpeg.html" download>Исходный HTML</a>
+    </nav>
+    <article class="demo-card">
+        <header class="demo-header">
+            <h1>Pseudo video tag</h1>
+            <p>Опыт 2011 года с Motion JPEG внутри iframe. Кнопка снова включает и выключает изображение; для проверки без внешней камеры есть локальный тестовый поток.</p>
+        </header>
+        <section class="demo-section">
+            <div class="stream-player" aria-label="Проигрыватель видеопотока">
+                <canvas id="canvas" width="640" height="480"></canvas>
+                <img id="stream" alt="Внешний Motion JPEG поток" hidden>
+                <button id="toggle" class="stream-toggle" type="button" aria-label="Остановить поток">●</button>
+            </div>
+            <video id="source" src="demo-assets/player-test.mp4" muted loop playsinline hidden></video>
+            <form id="url-form" class="stream-url">
+                <label class="visually-hidden" for="url">HTTPS-адрес Motion JPEG</label>
+                <input id="url" type="url" inputmode="url" placeholder="https://camera.example/video.mjpg">
+                <button type="submit">Открыть MJPEG</button>
+            </form>
+            <div class="demo-controls" style="margin-top:.65rem">
+                <button id="test" type="button">Локальный тестовый поток</button>
+            </div>
+            <p id="status" class="demo-status" role="status">Работает локальный тестовый поток.</p>
+        </section>
+        <section class="demo-section">
+            <p class="demo-note">Камера <code>87.245.185.147:82</code>, использованная в оригинале, больше недоступна. Настоящий современный HTTPS-адрес MJPEG можно вставить в поле выше; без него страница воспроизводит локальный ролик кадр за кадром через Canvas.</p>
+        </section>
+    </article>
+</main>
+<script>
+(() => {
+    'use strict';
+
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+    const source = document.getElementById('source');
+    const stream = document.getElementById('stream');
+    const toggle = document.getElementById('toggle');
+    const form = document.getElementById('url-form');
+    const url = document.getElementById('url');
+    const test = document.getElementById('test');
+    const status = document.getElementById('status');
+    let running = true;
+    let mode = 'test';
+    let animationFrame = 0;
+
+    const drawPlaceholder = message => {
+        const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#0a1820');
+        gradient.addColorStop(1, '#1d485c');
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = '#fff';
+        context.textAlign = 'center';
+        context.font = '600 28px system-ui, sans-serif';
+        context.fillText(message, canvas.width / 2, canvas.height / 2);
+    };
+
+    const paint = () => {
+        if (!running || mode !== 'test') return;
+        if (source.readyState >= 2) {
+            context.drawImage(source, 0, 0, canvas.width, canvas.height);
+        } else {
+            drawPlaceholder('Загрузка тестового потока…');
+        }
+        animationFrame = requestAnimationFrame(paint);
+    };
+
+    const updateToggle = () => {
+        toggle.textContent = running ? '●' : '○';
+        toggle.setAttribute('aria-label', running ? 'Остановить поток' : 'Запустить поток');
+    };
+
+    const startTest = async () => {
+        mode = 'test';
+        running = true;
+        stream.hidden = true;
+        stream.removeAttribute('src');
+        canvas.hidden = false;
+        cancelAnimationFrame(animationFrame);
+        try {
+            await source.play();
+            status.textContent = 'Работает локальный тестовый поток.';
+        } catch (error) {
+            status.textContent = 'Нажмите круглую кнопку, чтобы запустить тестовый поток.';
+        }
+        paint();
+        updateToggle();
+    };
+
+    const startExternal = value => {
+        mode = 'external';
+        running = true;
+        source.pause();
+        cancelAnimationFrame(animationFrame);
+        canvas.hidden = true;
+        stream.hidden = false;
+        status.textContent = 'Подключение к внешнему потоку…';
+        stream.src = value;
+        updateToggle();
+    };
+
+    const stop = () => {
+        running = false;
+        source.pause();
+        cancelAnimationFrame(animationFrame);
+        if (mode === 'external') {
+            stream.removeAttribute('src');
+            stream.hidden = true;
+            canvas.hidden = false;
+        }
+        drawPlaceholder('Поток остановлен');
+        status.textContent = 'Поток остановлен.';
+        updateToggle();
+    };
+
+    toggle.addEventListener('click', () => {
+        if (running) {
+            stop();
+        } else if (mode === 'external' && url.value.trim()) {
+            startExternal(url.value.trim());
+        } else {
+            startTest();
+        }
+    });
+
+    test.addEventListener('click', startTest);
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        const value = url.value.trim();
+        if (!value) {
+            startTest();
+            return;
+        }
+        if (!value.startsWith('https://')) {
+            status.textContent = 'На HTTPS-странице браузер разрешит только HTTPS-поток.';
+            return;
+        }
+        startExternal(value);
+    });
+
+    stream.addEventListener('load', () => {
+        status.textContent = 'Внешний Motion JPEG поток подключён.';
+    });
+    stream.addEventListener('error', () => {
+        status.textContent = 'Поток не открылся. Проверьте адрес и доступ из браузера.';
+    });
+    source.addEventListener('loadeddata', startTest, {once: true});
+    drawPlaceholder('Загрузка тестового потока…');
+    source.load();
+})();
+</script>
+</body>
+</html>

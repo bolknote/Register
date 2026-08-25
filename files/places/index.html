@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Старая Письмянка</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background: #2f2f2f;
+            color: #eee;
+            font: 12px Arial, Helvetica, sans-serif;
+            margin: 0;
+        }
+        h1 {
+            font-size: 19px;
+            margin: 10px;
+        }
+        .mark {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            width: 100%;
+        }
+        .mark > div {
+            min-width: 0;
+            padding: 5px;
+        }
+        .mark > div:first-child {
+            text-align: right;
+        }
+        .mark span {
+            border-radius: 4px;
+            color: #131313;
+            display: inline-block;
+            font: 14px/1.7 Palatino, "Times New Roman", Times, serif;
+            letter-spacing: .1em;
+            margin: 5px;
+            padding: 3px 5px 1px;
+        }
+        .person span { background: #d8a903; }
+        .period span { background: #ccc; }
+        @media (max-width: 620px) {
+            .mark { grid-template-columns: 1fr; }
+            .mark > div:first-child { text-align: left; }
+            .period { padding-left: 28px; }
+        }
+    </style>
+</head>
+<body>
+<h1>Старая Письмянка</h1>
+<main id="timeline"></main>
+<script>
+(() => {
+    'use strict';
+
+    // This is the data from data/st-pismen.txt. As in the original PHP,
+    // the first source listed for a year wins (1811 is therefore Bashkortostan).
+    const sourceEntries = [
+        [[1795], 'Архив Башкортостана (Писмянская слобода)'],
+        [[1811, 1816], 'Архив Башкортостана (Писмянская Ясашная слобода)'],
+        [[1834, 1850, 1858], 'Самарский архив'],
+        [[1859], 'Архив мэрии Тольятти (Фонд 48, оп. 1, д.1)'],
+        [[1861, 1862, 1863, 1864, 1866, ...range(1871, 1916)], 'Нацархив Татарстана'],
+        [[1806, 1807, 1808, 1811, 1827, 1828, 1829, 1835, 1851, 1857], 'Архив Оренбургской области'],
+    ];
+    const people = [
+        [1778, 'Фёдор Меркулович Меркулов'],
+        [1805, 'Иван Фёдорович Меркулов'],
+        [1825, 'Гордей Иванович Меркулов'],
+        [1840, 'Феодор Емельянович Евдокимов'],
+        [1842, 'Феодор Иванович Старостин'],
+        [1844, 'Евдоким Гордеевич Меркулов'],
+        [1848, 'Пелагея Артемьевна Меркулова'],
+        [1870, 'Николай Феодорович Старостин'],
+        [1870, 'Василий Феодорович Евдокимов'],
+        [1872, 'Анастасия Евдокимовна Старостина (Меркулова)'],
+        [1872, 'Параскева Козьминична Евдокимова (Онуфриева)'],
+        [1904, 'Анна Васильевна Старостина (Евдокимова)'],
+        [1904, 'Феодор Николаевич Старостин'],
+    ];
+
+    function range(from, to) {
+        return Array.from({length: to - from + 1}, (_, index) => from + index);
+    }
+
+    const sources = new Map();
+    for (const [years, title] of sourceEntries) {
+        for (const year of years) {
+            if (!sources.has(year)) sources.set(year, title);
+        }
+    }
+
+    const peopleByYear = new Map();
+    for (const [year, name] of people) {
+        peopleByYear.set(year, [...(peopleByYear.get(year) || []), name]);
+    }
+
+    const allYears = [...sources.keys(), ...peopleByYear.keys()].sort((a, b) => a - b);
+    const lastYear = allYears.at(-1);
+    const timeline = document.querySelector('#timeline');
+
+    function addRow(person, personYear, mark, title) {
+        const row = document.createElement('div');
+        row.className = 'mark';
+
+        const personCell = document.createElement('div');
+        personCell.className = 'person';
+        if (person) {
+            personCell.append(document.createTextNode(person));
+            const year = document.createElement('span');
+            year.textContent = personYear;
+            personCell.append(year);
+        }
+
+        const periodCell = document.createElement('div');
+        periodCell.className = 'period';
+        if (mark !== '') {
+            const years = document.createElement('span');
+            years.textContent = mark;
+            periodCell.append(years, document.createTextNode(title));
+        }
+
+        row.append(personCell, periodCell);
+        timeline.append(row);
+    }
+
+    let year = allYears[0];
+    while (year <= lastYear && !sources.has(year)) {
+        for (const person of peopleByYear.get(year) || []) addRow(person, year, '', '');
+        year++;
+    }
+
+    let state = 'period';
+    while (year <= lastYear) {
+        const start = year;
+        const persons = [];
+
+        for (; year <= lastYear; year++) {
+            if (state === 'period') {
+                if (!sources.has(year)) {
+                    state = 'space';
+                    break;
+                }
+                if (sources.get(start) !== sources.get(year)) break;
+            } else if (sources.has(year)) {
+                state = 'period';
+                break;
+            }
+
+            for (const person of peopleByYear.get(year) || []) persons.push([year, person]);
+        }
+
+        const mark = start === year - 1 ? String(start) : `${start}…${year - 1}`;
+        const title = sources.get(start) || '';
+        const first = persons.shift();
+        addRow(first?.[1] || '', first?.[0] || '', mark, title);
+        for (const [personYear, person] of persons) addRow(person, personYear, '', '');
+    }
+})();
+</script>
+</body>
+</html>

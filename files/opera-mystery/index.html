@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Загадка для Opera — действующая реконструкция</title>
+<link rel="stylesheet" href="../demo.css">
+<style>
+    .mystery-layout {
+        display: grid;
+        grid-template-columns: minmax(18rem, 25rem) minmax(0, 1fr);
+        gap: clamp(1rem, 4vw, 2.5rem);
+        align-items: start;
+    }
+
+    .mystery-frame {
+        display: grid;
+        place-items: center;
+        min-height: 25rem;
+        padding: 1rem;
+        border: .45rem dashed #225599;
+        outline: .35rem dashed #225599;
+        outline-offset: .4rem;
+        background: #fff;
+    }
+
+    .mystery-frame canvas {
+        width: min(100%, 20rem);
+        height: auto;
+        image-rendering: pixelated;
+    }
+
+    .mystery-explanation h2 {
+        margin-top: 0;
+    }
+
+    @media (max-width: 48rem) {
+        .mystery-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+</head>
+<body>
+<main class="demo-shell">
+    <nav class="demo-nav" aria-label="Навигация">
+        <a href="/files/">← Архив программ и экспериментов</a>
+        <a href="/all/3846">Заметка с разгадкой</a>
+    </nav>
+    <article class="demo-card">
+        <header class="demo-header">
+            <h1>Загадка для Opera</h1>
+            <p>Один и тот же файл был одновременно таблицей стилей и картинкой XBM. Современные браузеры больше не повторяют ошибку Opera 12, поэтому реконструкция сама извлекает спрятанные байты и рисует результат.</p>
+        </header>
+        <section class="demo-section mystery-layout">
+            <div class="mystery-frame">
+                <canvas id="picture" width="80" height="80" aria-label="Картинка, извлечённая из исходного CSS"></canvas>
+            </div>
+            <div class="mystery-explanation">
+                <h2>Что происходит</h2>
+                <ol>
+                    <li>Страница загружает неизменённый <a href="bolk.css">bolk.css</a>.</li>
+                    <li>Скрипт находит внутри URL ровно 800 байт вида <code>0x5F</code>.</li>
+                    <li>Биты в порядке XBM превращаются в изображение 80×80.</li>
+                </ol>
+                <div class="demo-controls">
+                    <button id="invert" type="button">Инвертировать</button>
+                    <button id="reload" type="button">Декодировать заново</button>
+                </div>
+                <p id="status" class="demo-status" role="status">Загрузка исходного CSS…</p>
+                <details>
+                    <summary>Показать исходный CSS</summary>
+                    <pre id="source"></pre>
+                </details>
+            </div>
+        </section>
+        <section class="demo-section">
+            <p class="demo-note">Исторический трюк с HTTP-заголовком <code>Link</code> и терпимым XBM-декодером Presto невоспроизводим в нынешних браузерах буквально. Здесь сохранены исходные 800 байт и сам эффект — скрытая в CSS картинка снова видна и декодируется на лету.</p>
+        </section>
+    </article>
+</main>
+<script>
+(() => {
+    'use strict';
+
+    const canvas = document.getElementById('picture');
+    const context = canvas.getContext('2d');
+    const status = document.getElementById('status');
+    const source = document.getElementById('source');
+    const invert = document.getElementById('invert');
+    const reload = document.getElementById('reload');
+    let bytes = [];
+    let inverted = false;
+
+    const draw = () => {
+        if (bytes.length !== 800) return;
+        const image = context.createImageData(80, 80);
+        for (let y = 0; y < 80; y++) {
+            for (let x = 0; x < 80; x++) {
+                const byte = bytes[y * 10 + Math.floor(x / 8)];
+                const bit = (byte >> (x % 8)) & 1;
+                const black = inverted ? !bit : Boolean(bit);
+                const index = (y * 80 + x) * 4;
+                const color = black ? 15 : 255;
+                image.data[index] = color;
+                image.data[index + 1] = color;
+                image.data[index + 2] = color;
+                image.data[index + 3] = 255;
+            }
+        }
+        context.putImageData(image, 0, 0);
+        status.textContent = 'Декодировано 800 байт: изображение 80×80.';
+    };
+
+    const load = async () => {
+        status.textContent = 'Загрузка исходного CSS…';
+        try {
+            const response = await fetch('bolk.css', {cache: 'no-cache'});
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            const css = await response.text();
+            source.textContent = css;
+            bytes = [...css.matchAll(/0x([0-9a-f]{2})/gi)].map(match => Number.parseInt(match[1], 16));
+            if (bytes.length !== 800) throw new Error('ожидалось 800 байт, найдено ' + bytes.length);
+            draw();
+        } catch (error) {
+            status.textContent = 'Не удалось декодировать CSS: ' + error.message;
+        }
+    };
+
+    invert.addEventListener('click', () => {
+        inverted = !inverted;
+        draw();
+    });
+    reload.addEventListener('click', load);
+    load();
+})();
+</script>
+</body>
+</html>

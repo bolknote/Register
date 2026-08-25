@@ -20,6 +20,8 @@ final readonly class CommentImport
         public string    $text,
         public ?int      $parentId,
         public int       $createdAt,
+        public ?int      $userId = null,
+        public ?int      $modifiedAt = null,
     ) {
         if ($name === '' || mb_strlen($name) > 50) {
             throw new \InvalidArgumentException('An imported comment name must contain at most 50 characters.');
@@ -35,6 +37,14 @@ final readonly class CommentImport
 
         if ($createdAt < 0) {
             throw new \InvalidArgumentException('An imported comment timestamp cannot be negative.');
+        }
+
+        if ($userId !== null && $userId <= 0) {
+            throw new \InvalidArgumentException('An imported comment user identifier must be positive.');
+        }
+
+        if ($modifiedAt !== null && $modifiedAt < $createdAt) {
+            throw new \InvalidArgumentException('An imported comment modification time is invalid.');
         }
     }
 }

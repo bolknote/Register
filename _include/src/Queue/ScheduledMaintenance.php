@@ -55,6 +55,20 @@ final readonly class ScheduledMaintenance
         );
     }
 
+    /** Read-only preflight used to avoid contending on the global runner lease while idle. */
+    public function hasDueWork(?int $now = null, ?QueueExecutionBudget $budget = null): bool
+    {
+        $now ??= time();
+        $budget ??= new QueueExecutionBudget(30.0);
+        $budget->checkpoint(0.02);
+        if ($this->publicationScheduler->hasDue($now)) {
+            return true;
+        }
+
+        $budget->checkpoint(0.02);
+        return $this->lastMaintenance($now) <= $now - self::INTERVAL_SECONDS;
+    }
+
     public function runIfDue(?int $now = null, ?QueueExecutionBudget $budget = null): bool
     {
         $now ??= time();
@@ -73,8 +87,8 @@ final readonly class ScheduledMaintenance
             throw new \UnexpectedValueException('The maintenance schedule is missing from configuration.');
         }
 
-        $lastMaintenance = filter_var($lastValue, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
-        if ($lastMaintenance !== false && $lastMaintenance > $now - self::INTERVAL_SECONDS) {
+        $lastMaintenance = $this->parseLastMaintenance($lastValue);
+        if ($lastMaintenance > $now - self::INTERVAL_SECONDS) {
             return false;
         }
 
@@ -117,5 +131,35 @@ final readonly class ScheduledMaintenance
         ]);
 
         return true;
+    }
+
+    private function lastMaintenance(int $now): int
+    {
+        if ($now <= 0) {
+            throw new \InvalidArgumentException('The maintenance timestamp must be positive.');
+        }
+
+        $statement = $this->pdo->prepare(
+            'SELECT value FROM ' . $this->dbPrefix . 'config WHERE name = :name'
+        );
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the maintenance preflight query.');
+        }
+        $statement->execute(['name' => self::CONFIG_KEY]);
+        return $this->parseLastMaintenance($statement->fetchColumn());
+    }
+
+    private function parseLastMaintenance(mixed $value): int
+    {
+        if (!\is_string($value)) {
+            throw new \UnexpectedValueException('The maintenance schedule is missing from configuration.');
+        }
+
+        $lastMaintenance = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+        if ($lastMaintenance === false) {
+            throw new \UnexpectedValueException('The maintenance schedule is invalid.');
+        }
+
+        return $lastMaintenance;
     }
 }

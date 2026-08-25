@@ -3,7 +3,7 @@
 declare(strict_types = 1);
 
 /**
- * @var list<array{statement: string, time: float}> $saved_queries
+ * @var list<array{statement: string, template: string, time: float}> $saved_queries
  * @var callable $numberFormat
  */
 

@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace Register\Core\Queue;
 
 use Psr\Log\LoggerInterface;
+use Register\Core\Monitoring\RequestPerformanceMonitor;
+use Register\Core\Monitoring\RequestQueryProfiler;
 
 final class ShutdownWorkCoordinator
 {
@@ -42,6 +44,8 @@ final class ShutdownWorkCoordinator
         private readonly ShutdownRuntimeInterface $runtime,
         private readonly \Closure                $runnerFactory,
         private readonly float                   $requestStartedAt,
+        private readonly ?RequestPerformanceMonitor $performanceMonitor = null,
+        private readonly ?RequestQueryProfiler      $queryProfiler = null,
     ) {
     }
 
@@ -72,6 +76,9 @@ final class ShutdownWorkCoordinator
         if ($this->responseFinished) {
             return;
         }
+
+        $this->performanceMonitor?->record();
+        $this->queryProfiler?->record();
 
         $this->closeSession();
 

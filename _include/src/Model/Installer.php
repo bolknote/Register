@@ -21,6 +21,7 @@ use Register\Content\ContentType;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentViewSchema;
 use Register\Live\LiveUpdateSchema;
+use Register\Import\ExternalImportMapSchema;
 use Register\Url\ContentUrlAliasSchema;
 use Register\Schema\SchemaManager;
 use Register\Core\Security\WebAuthn\WebAuthnSchema;
@@ -92,6 +93,7 @@ readonly class Installer
         CommentSchema::create($this->dbLayer);
         PublicAuthSchema::create($this->dbLayer);
         LiveUpdateSchema::create($this->dbLayer);
+        ExternalImportMapSchema::create($this->dbLayer);
 
         $this->dbLayer->createTable('tags', function (SchemaBuilderInterface $table): void {
             $table
@@ -176,6 +178,7 @@ readonly class Installer
         ContentTagSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('tags');
         LiveUpdateSchema::drop($this->dbLayer);
+        ExternalImportMapSchema::drop($this->dbLayer);
         PublicAuthSchema::drop($this->dbLayer);
         CommentSchema::drop($this->dbLayer);
         ContentUrlAliasSchema::drop($this->dbLayer);

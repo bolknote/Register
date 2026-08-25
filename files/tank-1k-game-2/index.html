@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Tank game 1K by BOLK</title>
+		<meta charset="utf-8" />
+	</head>
+	<body>
+		<!--http://js1k.com/2010-xmas/shim.html-->
+		<canvas></canvas>
+		<script>
+			var c = document.getElementsByTagName('canvas')[0];
+			var b = document.body;
+			var a = c.getContext('2d');
+			/*
+			 * The 2010 JS1K entry created these aliases by enumerating CanvasRenderingContext2D.
+			 * Modern browsers keep the methods on a non-enumerable prototype, so the original
+			 * compression trick no longer creates them and the game stops before its first frame.
+			 */
+			a.t = a.createImageData.bind(a);
+			a.m = a.putImageData.bind(a);
+			a.R = a.fillRect.bind(a);
+			a.T = a.fillText.bind(a);
+		</script>
+		<script src="index.js"></script>
+	</body>
+</html>

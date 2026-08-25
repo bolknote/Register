@@ -57,6 +57,10 @@ final readonly class SharedHostingDistributionBuilder
         '_styles',
     ];
 
+    private const array OPTIONAL_PUBLIC_SOURCE_DIRECTORIES = [
+        'files',
+    ];
+
     private const array PUBLIC_EXTENSIONS = [
         'avif'        => true,
         'br'          => true,
@@ -113,6 +117,7 @@ final readonly class SharedHostingDistributionBuilder
         '_styles'           => true,
         '_vendor'           => true,
         'favicon.ico'       => true,
+        'files'             => true,
         'index.php'         => true,
         'robots.txt'        => true,
         'service-worker.js' => true,
@@ -327,6 +332,20 @@ final readonly class SharedHostingDistributionBuilder
                 fn(string $relativePath): bool => $this->isPublicAsset($directory, $relativePath),
             );
         }
+
+        foreach (self::OPTIONAL_PUBLIC_SOURCE_DIRECTORIES as $directory) {
+            if (!is_dir($this->sourceRoot . '/' . $directory)) {
+                continue;
+            }
+
+            $this->copyTree(
+                $this->sourceRoot . '/' . $directory,
+                $publicRoot . '/' . $directory,
+                0755,
+                0644,
+                fn(string $relativePath): bool => $this->isPublicAsset($directory, $relativePath),
+            );
+        }
     }
 
     private function writeEntrypoints(string $publicRoot): void
@@ -374,7 +393,7 @@ PHP;
         }
 
         return !\in_array($extension, ['htm', 'html'], true)
-            || \in_array($sourceDirectory, ['_assets', '_extensions'], true);
+            || \in_array($sourceDirectory, ['_assets', '_extensions', 'files'], true);
     }
 
     /** @param null|callable(string): bool $fileFilter */

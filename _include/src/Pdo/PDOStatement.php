@@ -71,7 +71,7 @@ class PDOStatement extends NativePdoStatement
 
         $start  = microtime(true);
         $result = parent::execute($params);
-        $this->pdo->addLog($statement, microtime(true) - $start);
+        $this->pdo->addLog($statement, microtime(true) - $start, $this->queryString);
         return $result;
     }
 

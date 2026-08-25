@@ -116,6 +116,45 @@ final class CommentPresentationTest extends Unit
         }
     }
 
+    public function testRegisteredAuthorEmailIsMatchedCaseInsensitively(): void
+    {
+        $pdo = new \PDO('sqlite::memory:');
+        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+        $dbLayer = new DbLayerSqlite($pdo, '');
+        $this->createTables($pdo);
+        $pdo->exec("INSERT INTO users (email) VALUES ('Author@Example.test')");
+        $pdo->exec("INSERT INTO comments (
+            id, content_type, content_id, parent_id, userpic_id, time, modify_time, nick, email,
+            good, text, shown, deleted
+        ) VALUES (43, 'post', 8, NULL, NULL, 1700000000, 0, 'Author', 'author@example.test', 0,
+            'An author reply.', 1, 0)");
+
+        $urlBuilder = new UrlBuilder('/register', '', '');
+        $viewer = new Viewer(
+            $this->translator(),
+            $urlBuilder,
+            dirname(__DIR__, 4) . '/',
+            $this->styleProxy(),
+            false,
+        );
+        $renderer = new ContentCommentRenderer(
+            $dbLayer,
+            new CommentThreadRenderer(
+                $viewer,
+                new CommentThreadBuilder(),
+                new CommentModerationTokenManager(new SpamIdentityHasher(str_repeat('s', 32))),
+                $urlBuilder,
+                '/pictures',
+            ),
+            new AuthProvider($dbLayer, 'test'),
+        );
+
+        $html = $renderer->render(ContentId::post(8), Request::create('/post/8'), '/post/8');
+        self::assertStringContainsString('class="comment-author-mark"', $html);
+        self::assertStringContainsString('class="comment-item depth-0 by-author', $html);
+    }
+
     private function createTables(\PDO $pdo): void
     {
         $pdo->exec('CREATE TABLE comments (

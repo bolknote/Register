@@ -17,7 +17,7 @@ final class LinkHealthAdminViewTest extends Unit
     public function testLongPaginationKeepsOnlyEdgesAndCurrentWindow(): void
     {
         $html = $this->renderView([
-            'trans'      => static fn(string $key, array $parameters = []): string => $key,
+            'trans'      => static fn(string $key, array $_parameters = []): string => $key,
             'summary'    => [
                 'total'           => 4_601,
                 'usages'          => 4_601,
@@ -41,6 +41,7 @@ final class LinkHealthAdminViewTest extends Unit
         foreach ([45, 46, 48, 49, 93] as $page) {
             self::assertStringContainsString('&amp;page=' . $page . '"', $html);
         }
+
         self::assertStringNotContainsString('&amp;page=44"', $html);
         self::assertStringNotContainsString('&amp;page=50"', $html);
         self::assertSame(2, substr_count($html, 'class="link-health-pagination-ellipsis"'));

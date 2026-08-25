@@ -12,6 +12,7 @@ if (!isset($this)) {
 /** @var callable $param */
 /** @var callable $styleColorScheme */
 /** @var callable $adminStyleVersion */
+/** @var callable $adminAssetVersion */
 /** @var string $menu */
 /** @var ?string $content */
 /** @var ?string $errorMessage */
@@ -29,7 +30,7 @@ if (!isset($this)) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/svg+xml" href="<?= $basePath ?>/_styles/register/favicon.svg">
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_assets/register/admin-yard/style.css">
-    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css">
+    <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css?v=<?= $adminAssetVersion('_admin/css/admin-override.css') ?>">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
     <link id="admin-theme-stylesheet" rel="stylesheet" href="<?= $basePath ?>/_admin/index.php?action=theme-stylesheet">
     <link rel="stylesheet" href="<?= $basePath ?>/_assets/register/local-time.css">
@@ -39,12 +40,12 @@ if (!isset($this)) {
 
     <script src="<?= $basePath ?>/_assets/register/local-time.js"></script>
     <script src="<?php echo $basePath; ?>/_assets/register/admin-yard/script.js"></script>
-    <script src="<?= $basePath ?>/_admin/js/lib.js"></script>
+    <script src="<?= $basePath ?>/_admin/js/lib.js?v=<?= $adminAssetVersion('_admin/js/lib.js') ?>"></script>
     <?php foreach ($extraScripts as $script): ?>
         <script src="<?= $script ?>"></script>
     <?php endforeach; ?>
 
-    <script src="<?php echo $basePath; ?>/_admin/lang/<?php echo $locale; ?>/ui.js"></script>
+    <script src="<?php echo $basePath; ?>/_admin/lang/<?php echo $locale; ?>/ui.js?v=<?= $adminAssetVersion('_admin/lang/' . $locale . '/ui.js') ?>"></script>
 </head>
 <body>
 <a class="admin-skip-link" href="#admin-content"><?= $trans('Skip to content') ?></a>

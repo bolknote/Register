@@ -29,6 +29,12 @@ final class QueueSchema
             ;
         });
 
+        self::ensureRunnerLease($dbLayer);
+    }
+
+    /** Restores the singleton row after a data migration deliberately clears stale leases. */
+    public static function ensureRunnerLease(DbLayer $dbLayer): void
+    {
         $dbLayer
             ->insert(self::LEASE_TABLE)
             ->setValue('name', ':name')->setParameter('name', self::RUNNER_LEASE)

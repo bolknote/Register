@@ -266,6 +266,8 @@ class AdminCest
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
 
         $I->seeElement('link[rel="stylesheet"][href^="/_admin/css/register.css?v="]');
+        $I->seeElement('link[rel="stylesheet"][href^="/_admin/css/admin-override.css?v="]');
+        $I->seeElement('script[src^="/_admin/js/lib.js?v="]');
         $I->seeElement('html[data-color-scheme="light dark"]');
         $I->seeElement('header.admin-shell');
         $I->seeElement('a.admin-brand[href="/"]');
@@ -315,8 +317,10 @@ class AdminCest
         $I->see('PHP', '.environment-stat-item dt');
         $I->see('Database', '.environment-stat-item');
         $I->see('Security monitoring', '.security-stat-item h3');
+        $I->see('Slow dynamic requests', '.performance-stat-item h3');
+        $I->see('SQL query profiler', '.query-profiler-stat-item h3');
         $I->dontSee('Database', '.stat-item > h3');
-        $I->assertCount(4, $I->grabMultiple('.stat-items > .stat-item'));
+        $I->assertGreaterThanOrEqual(6, \count($I->grabMultiple('.stat-items > .stat-item')));
         $I->dontSeeElement('.publication-stat-item');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Article&action=list');
@@ -386,6 +390,11 @@ class AdminCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Config&action=list');
         $I->dontSee('Output gzip compression');
+        $I->seeElement('link[rel="stylesheet"][href^="/_admin/css/config-ai-help.css?v="]');
+        $I->seeElement('script[src^="/_admin/js/config-secret.js?v="][defer]');
+        $I->seeElement('script[src^="/_admin/js/config-settings.js?v="][defer]');
+        $I->seeElement('script[src^="/_admin/js/config-ai-help.js?v="][defer]');
+        $I->seeElement('script[src^="/_admin/js/ajax.js?v="][defer]');
         $I->seeElement('section.config-page[aria-labelledby="settings-title"]');
         $I->see('AI assistant', '.config-section');
         $I->seeElement('nav.config-section-nav[aria-label="Settings sections"]');

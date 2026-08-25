@@ -7,6 +7,8 @@
 
 declare(strict_types = 1);
 
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueueSchema;
 use Register\Schema\SchemaManager;
 
 const REGISTER_SQLITE_MYSQL_SKIPPED_TABLES = [
@@ -380,6 +382,9 @@ try {
 } finally {
     $target->exec('SET FOREIGN_KEY_CHECKS = 1');
 }
+
+// A live lease must never be copied, but the target still requires its unlocked singleton row.
+QueueSchema::ensureRunnerLease(new DbLayer($target));
 
 $verifyCopiedTables();
 

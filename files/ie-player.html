@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IE Video Tag — действующая реконструкция</title>
+<link rel="stylesheet" href="demo.css">
+<style>
+    .legacy-player {
+        width: min(100%, 32rem);
+        padding: .75rem;
+        border: .35rem solid #203d50;
+        border-radius: 1rem;
+        background: #081821;
+        color: #fff;
+        box-shadow: inset 0 0 0 1px #6c8290, 0 .8rem 2rem rgb(0 0 0 / 24%);
+    }
+
+    .legacy-player video {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        border-radius: .45rem;
+        background: #000;
+    }
+
+    .player-controls {
+        display: grid;
+        grid-template-columns: auto minmax(5rem, 1fr) auto;
+        gap: .65rem;
+        align-items: center;
+        margin-top: .7rem;
+    }
+
+    .player-controls button {
+        min-width: 3rem;
+        border-color: #6c8290;
+        background: #1a3040;
+        color: #fff;
+    }
+
+    .player-controls input[type="range"] {
+        width: 100%;
+        accent-color: #fff;
+    }
+
+    .player-time {
+        min-width: 6.6rem;
+        text-align: right;
+        font: .78rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .volume-row {
+        display: flex;
+        gap: .65rem;
+        align-items: center;
+        margin-top: .55rem;
+    }
+
+    .volume-row input {
+        width: 9rem;
+        accent-color: #fff;
+    }
+
+    @media (max-width: 30rem) {
+        .player-controls {
+            grid-template-columns: auto 1fr;
+        }
+
+        .player-time {
+            grid-column: 1 / -1;
+            text-align: left;
+        }
+    }
+</style>
+</head>
+<body>
+<main class="demo-shell">
+    <nav class="demo-nav" aria-label="Навигация">
+        <a href="/files/">← Архив программ и экспериментов</a>
+        <a href="/_pictures/bolknote/legacy-files/ie-player.html" download>Исходный HTML 2008 года</a>
+    </nav>
+    <article class="demo-card">
+        <header class="demo-header">
+            <h1>IE Video Tag</h1>
+            <p>Видеоплеер на JavaScript и VML для Internet Explorer — теперь как действующая совместимая реконструкция на стандартном HTML Video.</p>
+        </header>
+        <section class="demo-section">
+            <div class="legacy-player" aria-label="Видеоплеер">
+                <video id="video" preload="metadata" playsinline>
+                    <source src="demo-assets/player-test.mp4" type="video/mp4">
+                    Ваш браузер не поддерживает HTML Video.
+                </video>
+                <div class="player-controls">
+                    <button id="play" type="button" aria-label="Воспроизвести">▶</button>
+                    <label class="visually-hidden" for="seek">Позиция воспроизведения</label>
+                    <input id="seek" type="range" min="0" max="1000" value="0" step="1">
+                    <output id="time" class="player-time" for="seek">00:00 / 00:00</output>
+                </div>
+                <div class="volume-row">
+                    <button id="mute" type="button" aria-label="Выключить звук">🔊</button>
+                    <label for="volume">Громкость</label>
+                    <input id="volume" type="range" min="0" max="1" value="0.35" step="0.05">
+                </div>
+            </div>
+            <p id="status" class="demo-status" role="status">Загружается локальный тестовый ролик…</p>
+        </section>
+        <section class="demo-section">
+            <p class="demo-note">Оригинальный ролик Гавайской подводной лаборатории по старому HTTP-адресу больше не существует. Чтобы плеер не превращался в макет, к реконструкции приложен короткий нейтральный тестовый ролик со звуком.</p>
+        </section>
+    </article>
+</main>
+<script>
+(() => {
+    'use strict';
+
+    const video = document.getElementById('video');
+    const play = document.getElementById('play');
+    const seek = document.getElementById('seek');
+    const time = document.getElementById('time');
+    const mute = document.getElementById('mute');
+    const volume = document.getElementById('volume');
+    const status = document.getElementById('status');
+
+    const formatTime = seconds => {
+        if (!Number.isFinite(seconds)) return '00:00';
+        const value = Math.max(0, Math.floor(seconds));
+        return String(Math.floor(value / 60)).padStart(2, '0') + ':' + String(value % 60).padStart(2, '0');
+    };
+
+    const update = () => {
+        const duration = Number.isFinite(video.duration) ? video.duration : 0;
+        seek.value = duration > 0 ? String(Math.round(video.currentTime / duration * 1000)) : '0';
+        time.value = formatTime(video.currentTime) + ' / ' + formatTime(duration);
+        play.textContent = video.paused ? '▶' : '❚❚';
+        play.setAttribute('aria-label', video.paused ? 'Воспроизвести' : 'Поставить на паузу');
+        mute.textContent = video.muted || video.volume === 0 ? '🔇' : '🔊';
+    };
+
+    video.volume = Number(volume.value);
+    video.addEventListener('loadedmetadata', () => {
+        status.textContent = 'Плеер готов.';
+        update();
+    });
+    video.addEventListener('timeupdate', update);
+    video.addEventListener('play', update);
+    video.addEventListener('pause', update);
+    video.addEventListener('ended', update);
+    video.addEventListener('error', () => {
+        status.textContent = 'Не удалось загрузить тестовый ролик.';
+    });
+
+    play.addEventListener('click', async () => {
+        if (video.paused) {
+            try {
+                await video.play();
+            } catch (error) {
+                status.textContent = 'Браузер не разрешил воспроизведение: ' + error.message;
+            }
+        } else {
+            video.pause();
+        }
+    });
+
+    seek.addEventListener('input', () => {
+        if (Number.isFinite(video.duration)) {
+            video.currentTime = Number(seek.value) / 1000 * video.duration;
+        }
+    });
+
+    volume.addEventListener('input', () => {
+        video.volume = Number(volume.value);
+        video.muted = false;
+        update();
+    });
+
+    mute.addEventListener('click', () => {
+        video.muted = !video.muted;
+        update();
+    });
+})();
+</script>
+</body>
+</html>

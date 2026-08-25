@@ -1,0 +1,205 @@
+:root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #ece9df;
+    color: #171714;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 20% 0, rgb(255 255 255 / 85%), transparent 34rem),
+        #ece9df;
+}
+
+a {
+    color: #075f86;
+}
+
+.demo-shell {
+    width: min(70rem, calc(100% - 2rem));
+    margin: 0 auto;
+    padding: 1rem 0 3rem;
+}
+
+.demo-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-size: .9rem;
+}
+
+.demo-nav a {
+    text-underline-offset: .18em;
+}
+
+.demo-card {
+    overflow: hidden;
+    border: 1px solid #b8b4aa;
+    border-radius: 1rem;
+    background: rgb(255 255 255 / 92%);
+    box-shadow: 0 .75rem 2.5rem rgb(37 35 28 / 12%);
+}
+
+.demo-header {
+    padding: clamp(1.1rem, 4vw, 2.4rem);
+    border-bottom: 1px solid #d5d1c7;
+}
+
+.demo-header h1 {
+    margin: 0 0 .5rem;
+    font-size: clamp(1.7rem, 5vw, 3rem);
+    line-height: 1.05;
+}
+
+.demo-header p,
+.demo-section p {
+    max-width: 54rem;
+    line-height: 1.55;
+}
+
+.demo-header p:last-child,
+.demo-section p:last-child {
+    margin-bottom: 0;
+}
+
+.demo-section {
+    padding: clamp(1.1rem, 4vw, 2.4rem);
+}
+
+.demo-section + .demo-section {
+    border-top: 1px solid #ddd9cf;
+}
+
+.demo-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem;
+    align-items: center;
+}
+
+button,
+input,
+select {
+    font: inherit;
+}
+
+button,
+.demo-button {
+    min-height: 2.65rem;
+    padding: .62rem .95rem;
+    border: 1px solid #746f65;
+    border-radius: .65rem;
+    background: #fff;
+    color: #171714;
+    cursor: pointer;
+    font-weight: 650;
+}
+
+button:hover,
+.demo-button:hover {
+    background: #f4f1e8;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+    outline: .2rem solid #0b8ec4;
+    outline-offset: .16rem;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+}
+
+input[type="text"],
+input[type="url"] {
+    min-height: 2.65rem;
+    padding: .55rem .7rem;
+    border: 1px solid #746f65;
+    border-radius: .55rem;
+    background: #fff;
+    color: #171714;
+}
+
+.demo-status {
+    min-height: 1.5em;
+    margin: .75rem 0 0;
+    color: #4c4942;
+    font-size: .92rem;
+}
+
+.demo-note {
+    padding: .9rem 1rem;
+    border-left: .3rem solid #d18a00;
+    border-radius: .25rem;
+    background: #fff4d2;
+    line-height: 1.5;
+}
+
+.demo-stage {
+    overflow: hidden;
+    border: 1px solid #777268;
+    border-radius: .7rem;
+    background: #111;
+}
+
+.demo-stage canvas,
+.demo-stage img,
+.demo-stage video,
+.demo-stage svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+details {
+    margin-top: 1rem;
+}
+
+summary {
+    cursor: pointer;
+    font-weight: 650;
+}
+
+pre {
+    overflow: auto;
+    max-height: 28rem;
+    padding: 1rem;
+    border-radius: .6rem;
+    background: #171714;
+    color: #eee;
+    font: .78rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (max-width: 36rem) {
+    .demo-shell {
+        width: min(100% - 1rem, 70rem);
+        padding-top: .5rem;
+    }
+
+    .demo-card {
+        border-radius: .7rem;
+    }
+}

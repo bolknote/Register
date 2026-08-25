@@ -53,13 +53,6 @@ final readonly class ContentCommentRenderer
 
     public function render(ContentId $contentId, Request $request, string $returnPath): string
     {
-        $authorComment = $this->dbLayer
-            ->select('COUNT(*)')
-            ->from('users AS u')
-            ->where('LOWER(u.email) = LOWER(c.email)')
-            ->andWhere("c.email <> ''")
-            ->getSql()
-        ;
         $moderatorLabel = $this->dbLayer
             ->select('sa.moderator_label')
             ->from('spam_assessments AS sa')
@@ -71,8 +64,7 @@ final readonly class ContentCommentRenderer
         ;
         $commentRows = $this->dbLayer
             ->select(
-                'c.id, c.parent_id, c.user_id, c.nick, c.time, c.modify_time, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
-                '(' . $authorComment . ') AS is_author',
+                'c.id, c.parent_id, c.user_id, c.nick, c.email, c.time, c.modify_time, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
                 '(' . $moderatorLabel . ') AS moderator_label',
             )
             ->from(CommentSchema::TABLE_NAME . ' AS c')
@@ -92,6 +84,7 @@ final readonly class ContentCommentRenderer
             $comments[] = $commentRow;
         }
 
+        $comments = $this->attachAuthorFlags($comments);
         $comments = $this->attachImportedReactionSummaries($comments);
         $comments = $this->attachPresentationEnrichments($comments);
 
@@ -109,6 +102,58 @@ final readonly class ContentCommentRenderer
                 ? new CommentModerationContext($moderator, $contentId->type, $returnPath)
                 : null,
         );
+    }
+
+    /**
+     * Resolve registered-author emails in bounded batches. The previous correlated subquery
+     * scanned the users table once for every comment; this performs at most one scan per batch.
+     *
+     * @param list<array<string, mixed>> $comments
+     * @return list<array<string, mixed>>
+     */
+    private function attachAuthorFlags(array $comments): array
+    {
+        $normalizedEmails = [];
+        foreach ($comments as $comment) {
+            $email = mb_strtolower((string)($comment['email'] ?? ''));
+            if ($email !== '') {
+                $normalizedEmails[$email] = $email;
+            }
+        }
+
+        $authorEmails = [];
+        foreach (array_chunk(array_values($normalizedEmails), 500) as $batchNumber => $emailBatch) {
+            $parameters = [];
+            $placeholders = [];
+            foreach ($emailBatch as $position => $email) {
+                $parameter = 'author_email_' . $batchNumber . '_' . $position;
+                $parameters[$parameter] = $email;
+                $placeholders[] = ':' . $parameter;
+            }
+
+            $rows = $this->dbLayer->select('email')
+                ->from('users')
+                ->where('LOWER(email) IN (' . implode(', ', $placeholders) . ')')
+                ->execute($parameters)
+                ->fetchAssocAll()
+            ;
+            foreach ($rows as $row) {
+                $email = mb_strtolower((string)($row['email'] ?? ''));
+                if ($email !== '') {
+                    $authorEmails[$email] = true;
+                }
+            }
+        }
+
+        $result = [];
+        foreach ($comments as $comment) {
+            $email = mb_strtolower((string)($comment['email'] ?? ''));
+            $comment['is_author'] = $email !== '' && isset($authorEmails[$email]);
+            unset($comment['email']);
+            $result[] = $comment;
+        }
+
+        return $result;
     }
 
     public function renderRegion(ContentId $contentId, Request $request, string $returnPath): string

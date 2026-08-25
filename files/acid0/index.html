@@ -1,0 +1,349 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="ru">
+<head>
+<meta http-equiv="Content-type" content="text/html;charset=utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=Edge"/>
+<title>ASIT — ACID0</title>
+<style type="text/css">
+#test {
+    visibility: hidden;
+    overflow: scroll;
+    height: 10px;
+    position: absolute;
+}
+
+#test1 {
+    width: 333px;
+}
+#test1_inner {
+    width: 3.33%;
+}
+
+#test2 {
+    font-size: 72px;
+}
+
+#test4 {
+  border-collapse: collapse;
+  border: 100px ridge lime;
+  width: 500px;
+}
+
+#test4 td {
+    border: 4px solid blue;
+}
+
+#test6 {
+    width: 100px;
+}
+
+#test6_inner {
+  height: 1px;
+  margin-left: 0;
+  width: 10px;
+}
+
+#test7 {
+    font-family: serif;
+}
+
+span#test7_inner2 {
+    font-family: a(b), sans-serif;
+}
+
+#test8 {
+    position: relative;
+}
+
+#test8 div {
+    position: absolute;
+    top: 0; bottom: 0;
+}
+
+#test8 > div {
+    left: 0; right: 0px;
+
+}
+
+#test8 > div > div {
+    width: 1em;
+    border: 1px solid red;
+}
+
+#test9 {
+    font-size: 10px;
+}
+
+span#test9_inner1 {
+    font: 100px inherit;
+}
+
+#test11 {
+    z-index: 99.9;
+}
+
+#test12 td {
+    padding: 0 50px;
+}
+
+#test13 {
+    background: #000;
+}
+
+#test13 p + p {
+    background: #fff;
+}
+
+#test13 p+p+p {
+    background: inherit;
+}
+
+#test16
+{
+    height: 400px;
+    position: absolute;
+    width: 600px;
+}
+
+#test16_parent
+{
+    height: 0px;
+    left: 50%; /* 50% x 600px == 300px */
+    position: absolute;
+    top: 25%; /* 25% x 400px == 100px */
+    width: 0px;
+}
+
+#test16_inner
+{
+    background-color: green;
+    color: white;
+    left: inherit;
+    top: inherit;
+    position: absolute;
+    height: 100px;
+    width: 100px;
+}
+
+
+body {
+    background: #ccc;
+    color: #000;
+    margin: 0; padding: 0;
+}
+
+h1 {
+    font: 30px Arial, sans-serif;
+    margin: 20px;
+    padding: 20px;
+    width: 300px;
+    background: #abc;
+    text-align: center;
+    position: relative;
+    left: 50%;
+    margin-left: -150px;
+}
+
+#content {
+    font-family: Arial, sans-serif;
+}
+
+#content p {
+    padding: 0 10px;
+}
+</style>
+</head>
+<body>
+<h1>ASIT <span id="result"></span></h1>
+<div id="content">
+<p>Производители современных браузеров так увлеклись гонкой за черновиками HTML5 и CSS3, что совсем забыли об исправлении ошибок в реализации
+уже принятых стандартов — HTML 4.01, CSS1, CSS2.1, Cookie и других.</p>
+<p>
+Перед вами пародия на тесты «ACID» 1, 2 и 3 — более актуальный «ASIT» («Ancient Standarts Implementation Test»), тест поддержки «античных» технологий браузерами. Его нарочито упрощённый вид, без скруглённых уголков
+и теней намекает.</p>
+</div>
+<div id="test">
+<div id="test1"><div id="test1_inner"></div></div>
+
+<div id="test2">
+    <span id="test2_inner1">&#822;m&#822;m&#822;m&#822;m&#822;m&#822;m</span>
+    <span id="test2_inner2">mmmmmmm</span>
+</div>
+
+<table cellspacing="0" cellpadding="16" rules="none" id="test3">
+  <col width="100" />
+  <col width="200" />
+  <col width="300" />
+  <tr>
+    <td>-</td>
+    <td>-</td>
+    <td>-</td>
+  </tr>
+</table>
+
+<table id="test4">
+  <tbody>
+    <tr>
+      <td>-</td>
+    </tr>
+  </tbody>
+</table>
+
+<table border="8" cellpadding="0" cellspacing="0" rules="none" id="test5">
+  <col width="192" />
+  <col width="92" />
+
+  <tr>
+  <td style="padding: 0px 13px;">-</td>
+
+  <td style="padding: 0px 13px;">-</td>
+  </tr>
+</table>
+
+<div id="test6"><hr id="test6_inner" /></div>
+
+<div id="test7">
+<span id="test7_inner1">mmmmmmmmmmmmmmmmm</span>
+<span id="test7_inner2">mmmmmmmmmmmmmmmmm</span>
+</div>
+
+<div id="test8">
+<div><div id="test8_inner"></div></div>-
+</div>
+
+<div id="test9">
+<span id="test9_inner1">m</span>
+<span id="test9_inner2">m</span>
+</div>
+
+<span id="test10"><!-- image --></span>
+
+<div id="test11"></div>
+
+
+<table border="10" cellpadding="0" cellspacing="0" id="test12">
+  <col width="190" />
+  <col width="190" />
+
+  <tr>
+    <td id="test12_inner1">-</td>
+
+    <td id="test12_inner2">-</td>
+  </tr>
+</table>
+
+<div id="test13"><p>1</p><p>2</p><p id="test13_inner">3</p></div>
+
+<div id="test14" lang="en-GB">
+    <p><q lang="ru" id="test14_inner1">test <q>test</q> test</q></p>
+    <p><q lang="fr" id="test14_inner2">test <q>test</q> test</q></p>
+    <p><q lang="el" id="test14_inner3">test <q>test</q> test</q></p>
+</div>
+
+<input type="hidden" name="test15" value="name" />
+<input type="hidden" id="test15" value="id" />
+
+<div id="test16">
+  <div id="test16_parent">
+    <div id="test16_inner"></div>
+  </div>
+</div>
+
+
+</div>
+<script type="text/javascript">
+(function () {
+    var failed = [], test_cnt = 0;
+
+    var $ = function (id) {
+        return document.getElementById(id);
+    }
+
+    var $$ = function(id, name) {
+        return $(id).currentStyle ?
+            $(id).currentStyle[name] :
+            document.defaultView.getComputedStyle($(id), null)[name];
+    }
+
+    var test = function (name, flag) {
+        if (!flag) {
+            failed.push(name);
+        }
+
+        test_cnt++;
+    }
+
+    test('CSS1: float percent', parseInt($$('test1_inner', 'width'), 10) == 11);
+    test('Unicode: strike support', $('test2_inner1').offsetWidth < $('test2_inner2').offsetWidth)
+    test(
+        'RegExp: split test',
+        ''.split(/.?/) == [] &&
+        '.'.split(/(.?)(.?)/) == ["", ".", "", ""] &&
+        'test'.split(/(t)(e)(s)(t)/) == ["", "t", "e", "s", "t", ""] &&
+        'tesst'.split(/(s)*/) == ["t", undefined, "e", "s", "t"]
+    );
+
+    test('HTML: table and col tag', parseInt($("test3").offsetWidth, 10) == 600);
+    test('CSS 2.1: table and border-collapse', parseInt($$('test4', 'width'), 10) == 400);
+    test('HTML/CSS: table width and "rules"', $('test5').offsetWidth == 292);
+    test('HTML: hr tag', $('test6_inner').offsetLeft == 0);
+    test('CSS 2.1: syntax 15.3', $('test7_inner1').offsetWidth == $('test7_inner2').offsetWidth);
+    test('CSS 2.1: nested absolute positioning', $$('test8_inner', 'height') == '18px');
+    test('CSS 2.1: Appendix C. Changes, C.3.1 Shorthand properties', $('test9_inner1').offsetWidth == $('test9_inner2').offsetWidth);
+
+    var i = document.createElement('img');
+    i.onerror = function() {
+        test('HTML: rendering ALT text for images', $('test10').offsetWidth < 100);
+        test('CSS2.1: non-integer z-index', $$('test11', 'zIndex') != 99);
+        test('HTML: column width must include padding applied on its cells', $('test12').offsetWidth == 400);
+
+        var ajax_passed = false, e;
+
+        try {
+            req = new XMLHttpRequest();
+            req.open('ConnecT', location.href, false);
+            req.send(null);
+        } catch (e) {
+            ajax_passed = true;
+        }
+
+        test('JavaScript: AJAX request method CONNECT security error', ajax_passed);
+
+        try {
+            ajax_passed = new Request(location.href, {method: 'Get.F'}).method == 'Get.F';
+        } catch (e) {}
+
+        test('JavaScript: AJAX request method case sensitive', ajax_passed);
+        test('JavaScript: string split by non-regexp', 'a111a'.split(/1/) === 'a111a'.split(1));
+
+        test('CSS2.1: "+" selector', !!$$('test13_inner', 'backgroundColor').replace(/\D/g, ''));
+
+        test(
+            'HTML: quotes',
+            $('test14_inner1').offsetWidth != $('test14_inner2').offsetWidth &&
+            $('test14_inner2').offsetWidth != $('test14_inner3').offsetWidth
+        );
+
+        test('RegExp: Unicode', !/фа/i.test('фы'));
+
+        test('DOM: getElementsByName must distinguish between id and name', document.getElementsByName('test15').length == 1);
+
+        test('CSS2.1: section 6.2.1', $('test16_inner').offsetLeft == 0);
+
+        $('result').innerHTML = (test_cnt - failed.length) + ' / ' + test_cnt;
+        //alert(failed);
+    }
+
+    i.setAttribute('width', 100);
+    i.setAttribute('title', '');
+    i.setAttribute('alt', '-');
+    i.setAttribute('src', 'non-existent-image.gif');
+
+    $('test10').appendChild(i);
+})()
+</script>
+
+</body>
+
+
+</html>

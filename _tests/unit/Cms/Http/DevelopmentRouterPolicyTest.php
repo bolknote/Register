@@ -46,6 +46,8 @@ final class DevelopmentRouterPolicyTest extends Unit
         self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_pictures/video.mov', 'mov'));
         self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_pictures/archive.zip', 'zip'));
         self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/_pictures/cursor.cur', 'cur'));
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/files/opera-cam-recog.html', 'html'));
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile('/files/demo-assets/player-test.mp4', 'mp4'));
         foreach (['bpg', 'emf', 'jpeg2000', 'jpegxr', 'mng', 'tiff', 'wbmp', 'wmf', 'xbm'] as $extension) {
             self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile(
                 '/_pictures/format-test.' . $extension,
@@ -55,6 +57,7 @@ final class DevelopmentRouterPolicyTest extends Unit
 
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_admin/templates/layout.php.inc', 'inc'));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_include/src/Register/ProductModule.php', 'php'));
+        self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/files/legacy-handler.php', 'php'));
     }
 
     public function testAllowsOnlyReviewedStaticFilesAtTheDocumentRoot(): void

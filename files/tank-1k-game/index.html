@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tank game 1K by BOLK</title>
+    <style>
+        :root { color-scheme: dark; }
+        body { background: #ddd; color: #111; font: 14px Arial, sans-serif; margin: 0; text-align: center; }
+        main { display: grid; min-height: 100vh; place-content: center; }
+        canvas { background: #fff; image-rendering: pixelated; }
+        p { margin: 12px 0 0; }
+    </style>
+</head>
+<body>
+<main>
+    <canvas width="255" height="255" aria-label="Игра в танки"></canvas>
+    <p>Стрелки — движение, пробел — выстрел.</p>
+</main>
+<script>
+var V = 3;
+var t = document.querySelector('canvas');
+var c = t.getContext('2d');
+var I;
+</script>
+<script src="tank-game.js"></script>
+</body>
+</html>

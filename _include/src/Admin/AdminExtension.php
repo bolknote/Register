@@ -49,6 +49,8 @@ use Register\Core\Admin\Dashboard\DashboardBlockProviderInterface;
 use Register\Core\Admin\Dashboard\DashboardConfigExtender;
 use Register\Core\Admin\Dashboard\DashboardDatabaseProvider;
 use Register\Core\Admin\Dashboard\DashboardEnvironmentProvider;
+use Register\Core\Admin\Dashboard\DashboardPerformanceProvider;
+use Register\Core\Admin\Dashboard\DashboardQueryProfilerProvider;
 use Register\Core\Admin\Dashboard\DashboardSecurityProvider;
 use Register\Core\Admin\Dashboard\DashboardStatProviderInterface;
 use Register\Core\Admin\Dashboard\SystemStatusProviderInterface;
@@ -57,6 +59,8 @@ use Register\Core\Admin\Controller\BulkListActionController;
 use Register\Core\Admin\Controller\SavedListViewController;
 use Register\Core\Admin\Event\RedirectFromPublicEvent;
 use Register\Core\Admin\Event\AdminAjaxControllerMapEvent;
+use Register\Core\Admin\Profiler\QueryProfilerController;
+use Register\Core\Admin\Profiler\QueryProfilerToken;
 use Register\Core\Admin\Picture\PictureStorageQuota;
 use Register\Core\Admin\Picture\PictureFileNameHelper;
 use Register\Core\Admin\Picture\MediaConfigExtender;
@@ -86,6 +90,11 @@ use Register\Core\Model\AuthManager;
 use Register\Comment\ContentCommentNotifier;
 use Register\Core\Model\ExtensionCache;
 use Register\Core\Model\PermissionChecker;
+use Register\Core\Monitoring\RequestPerformanceInspector;
+use Register\Core\Monitoring\QueryProfilerInspector;
+use Register\Core\Monitoring\QueryProfilerLog;
+use Register\Core\Monitoring\QueryProfilerState;
+use Register\Core\Monitoring\RequestQueryProfiler;
 use Register\Core\Model\TagsProvider;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Security\Audit\SecurityAuditLogger;
@@ -422,6 +431,31 @@ class AdminExtension implements ExtensionInterface
             $container->get(TemplateRenderer::class),
             $container->get(DashboardDatabaseProvider::class),
         ), [SystemStatusProviderInterface::class]);
+        $container->set(DashboardPerformanceProvider::class, fn(Container $container): DashboardPerformanceProvider => new DashboardPerformanceProvider(
+            $container->get(TemplateRenderer::class),
+            $container->get(RequestPerformanceInspector::class),
+        ), [SystemStatusProviderInterface::class]);
+        $container->set(QueryProfilerToken::class, fn(Container $container): QueryProfilerToken => new QueryProfilerToken(
+            $container->get(SettingStorageInterface::class),
+        ));
+        $container->set(QueryProfilerController::class, fn(Container $container): QueryProfilerController => new QueryProfilerController(
+            $container->get(QueryProfilerState::class),
+            $container->get(QueryProfilerLog::class),
+            $container->get(RequestQueryProfiler::class),
+            $container->get(QueryProfilerToken::class),
+            $container->get(PermissionChecker::class),
+            $container->get(AdminMutationGuard::class),
+            $container->get(\Register\Core\Model\UrlBuilder::class),
+            $container->get(Translator::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+        ));
+        $container->set(DashboardQueryProfilerProvider::class, fn(Container $container): DashboardQueryProfilerProvider => new DashboardQueryProfilerProvider(
+            $container->get(TemplateRenderer::class),
+            $container->get(QueryProfilerState::class),
+            $container->get(QueryProfilerInspector::class),
+            $container->get(QueryProfilerToken::class),
+            $container->get(PermissionChecker::class),
+        ), [SystemStatusProviderInterface::class]);
         $container->set(SecurityAlertDetector::class, static fn(Container $container): SecurityAlertDetector => new SecurityAlertDetector(
             $container->getStringParameter('log_dir') . 'security-events.jsonl',
             $container->getStringParameter('log_dir') . 'csp-violations.jsonl',
@@ -608,6 +642,9 @@ class AdminExtension implements ExtensionInterface
             $event->controllerMap['register_backup_download'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
                 ->get(BackupAdminController::class)
                 ->downloadLatest($request);
+            $event->controllerMap['register_query_profiler'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
+                ->get(QueryProfilerController::class)
+                ->mutate($request);
             $event->controllerMap['register_update_start'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
                 ->get(UpdateAdminController::class)
                 ->start($request);

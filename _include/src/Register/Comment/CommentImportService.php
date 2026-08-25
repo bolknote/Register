@@ -28,10 +28,17 @@ final readonly class CommentImportService
             $comment->text,
             '',
             $comment->parentId,
-            null,
+            $comment->userId,
             $comment->createdAt,
             CommentMutationSource::IMPORTED,
+            null,
+            $comment->modifiedAt,
         );
+    }
+
+    public function synchronize(int $commentId, CommentImport $comment): bool
+    {
+        return $this->commentRepository->synchronizeImported($commentId, $comment);
     }
 
     public function update(int $commentId, ContentId $contentId, string $text): bool

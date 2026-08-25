@@ -25,13 +25,45 @@ readonly class DashboardEnvironmentProvider implements SystemStatusProviderInter
     public function getHtml(): string
     {
         $serverLoad = $this->detectLoadAverages() ?? $this->translator->trans('N/A');
+        $processorCount = $this->detectProcessorCount();
+        $serverLoadContext = null;
+        if ($processorCount !== null
+            && preg_match('/^([0-9]+(?:\.[0-9]+)?)/D', $serverLoad, $matches) === 1
+        ) {
+            $serverLoadContext = [
+                'cpu' => $processorCount,
+                'percent' => number_format(100.0 * (float)$matches[1] / (float)$processorCount, 1, '.', ''),
+            ];
+        }
 
         return $this->templateRenderer->render('_admin/templates/dashboard/environment-item.php.inc', [
             'databaseInfo'   => $this->databaseProvider->getInfo(),
             'operatingSystem' => PHP_OS,
             'phpVersion'      => PHP_VERSION,
             'serverLoad'      => $serverLoad,
+            'serverLoadContext' => $serverLoadContext,
         ]);
+    }
+
+    private function detectProcessorCount(): ?int
+    {
+        if (is_readable('/proc/cpuinfo')) {
+            $cpuInfo = register_call_without_warnings(static fn(): string|false => file_get_contents('/proc/cpuinfo'));
+            if (\is_string($cpuInfo)) {
+                $count = preg_match_all('/^processor\s*:/m', $cpuInfo);
+                if (\is_int($count) && $count > 0) {
+                    return $count;
+                }
+            }
+        }
+
+        $command = PHP_OS_FAMILY === 'Windows' ? null : 'getconf _NPROCESSORS_ONLN';
+        $output = $command === null ? null : shell_exec($command);
+        if (\is_string($output) && preg_match('/^[1-9][0-9]*$/D', trim($output)) === 1) {
+            return (int)trim($output);
+        }
+
+        return null;
     }
 
     /**

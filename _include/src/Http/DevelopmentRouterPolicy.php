@@ -23,6 +23,7 @@ final class DevelopmentRouterPolicy
         '/_admin/',
         '/_assets/',
         '/_extensions/',
+        '/files/',
         '/_pictures/',
         '/_styles/',
     ];

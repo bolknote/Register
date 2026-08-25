@@ -20,7 +20,7 @@ use Register\Core\Framework\StatefulServiceInterface;
 
 class PDO extends NativePdo implements StatefulServiceInterface
 {
-    /** @var list<array{statement: string, time: float}> */
+    /** @var list<array{statement: string, template: string, time: float}> */
     protected array $log = [];
 
     /**
@@ -117,17 +117,18 @@ class PDO extends NativePdo implements StatefulServiceInterface
     /**
      * Add query to logged queries.
      */
-    public function addLog(string $statement, float $time): void
+    public function addLog(string $statement, float $time, ?string $template = null): void
     {
         $this->log[] = [
             'statement' => $statement,
+            'template'  => $template ?? $statement,
             'time'      => $time
         ];
     }
 
     /**
      * Return logged queries.
-     * @return list<array{statement: string, time: float}>
+     * @return list<array{statement: string, template: string, time: float}>
      */
     public function cleanLogs(): array
     {
@@ -137,9 +138,32 @@ class PDO extends NativePdo implements StatefulServiceInterface
         return $result;
     }
 
+    /** @return list<array{statement: string, template: string, time: float}> */
+    public function getQueryLog(): array
+    {
+        return $this->log;
+    }
+
     public function getQueryCount(): int
     {
         return \count($this->log);
+    }
+
+    /** @return array{count:int, total_seconds:float, slowest_seconds:float} */
+    public function getQueryMetrics(): array
+    {
+        $total = 0.0;
+        $slowest = 0.0;
+        foreach ($this->log as $entry) {
+            $total += $entry['time'];
+            $slowest = max($slowest, $entry['time']);
+        }
+
+        return [
+            'count' => \count($this->log),
+            'total_seconds' => $total,
+            'slowest_seconds' => $slowest,
+        ];
     }
 
     #[\Override]

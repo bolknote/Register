@@ -13,17 +13,33 @@
     background: var(--admin-secondary-background);
     color: var(--admin-secondary-text-color);
     font-size: 0.8rem;
+    font-weight: 600;
     line-height: 1.4;
 }
 
 .ai-availability-status[data-state="available"] {
     border-color: color-mix(in srgb, var(--admin-success-color) 55%, var(--admin-soft-border-color));
-    color: var(--admin-success-color);
+    background: color-mix(in srgb, var(--admin-success-color) 12%, var(--admin-surface-background));
+    color: var(--admin-text-color);
 }
 
 .ai-availability-status[data-state="unavailable"] {
-    border-color: color-mix(in srgb, var(--admin-error-color) 55%, var(--admin-soft-border-color));
-    color: var(--admin-error-color);
+    border-color: color-mix(in srgb, var(--admin-error-color) 65%, var(--admin-soft-border-color));
+    border-left-width: 0.3rem;
+    background: color-mix(in srgb, var(--admin-error-color) 12%, var(--admin-surface-background));
+    color: var(--admin-text-color);
+}
+
+.ai-availability-status[data-state="incomplete"] {
+    border-color: color-mix(in srgb, var(--admin-warning-color) 60%, var(--admin-soft-border-color));
+    background: color-mix(in srgb, var(--admin-warning-color) 10%, var(--admin-surface-background));
+    color: var(--admin-text-color);
+}
+
+.ai-availability-status[data-state="checking"] {
+    border-color: color-mix(in srgb, var(--admin-accent-color) 45%, var(--admin-soft-border-color));
+    background: color-mix(in srgb, var(--admin-accent-color) 8%, var(--admin-surface-background));
+    color: var(--admin-text-color);
 }
 
 .oauth-callback-list {

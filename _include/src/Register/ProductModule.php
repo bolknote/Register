@@ -56,6 +56,13 @@ use Register\Live\LiveFragmentRenderer;
 use Register\Live\LiveUpdateContext;
 use Register\Live\LiveUpdateController;
 use Register\Live\LiveUpdateRepository;
+use Register\Import\ExternalImportMapRepository;
+use Register\Import\Telegram\Admin\TelegramImportAdminConfigExtender;
+use Register\Import\Telegram\Admin\TelegramImportAdminController;
+use Register\Import\Telegram\Admin\TelegramImportAdminPage;
+use Register\Import\Telegram\Admin\TelegramImportToken;
+use Register\Import\Telegram\Admin\TelegramImportTranslationProvider;
+use Register\Import\Telegram\TelegramImportService;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Module\Blog\Model\PostFeedRenderer;
@@ -63,7 +70,9 @@ use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Offline\OfflineCachePolicy;
 use Register\Schema\CommentPrivacySchemaMigration;
 use Register\Schema\ContentMediaSchemaMigration;
+use Register\Schema\ExternalImportSchemaMigration;
 use Register\Schema\PublicAuthSchemaMigration;
+use Register\Schema\QueueLeaseSchemaMigration;
 use Register\Schema\SchemaManager;
 use Register\Schema\SchemaMigrationInterface;
 use Register\Schema\SchemaMigrator;
@@ -78,6 +87,12 @@ use Register\Url\ReservedRouteRegistry;
 use Register\Url\SlugGenerator;
 use Register\Url\UniqueSlugGenerator;
 use Register\Core\Asset\AssetPack;
+use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Core\Admin\Event\AdminAjaxControllerMapEvent;
+use Register\Core\Admin\TranslationProviderInterface;
+use Register\AdminYard\SettingStorage\SettingStorageInterface;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Translator;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
@@ -90,11 +105,13 @@ use Register\Core\Controller\Comment\PendingEmailCommentServiceInterface;
 use Register\Core\Mail\CommentMailer;
 use Register\Core\Model\ArticleProvider;
 use Register\Core\Model\AuthProvider;
+use Register\Core\Model\PermissionChecker;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Queue\QueueHandlerInterface;
 use Register\Core\Queue\QueuePublisher;
 use Register\Core\Security\Audit\SecurityAuditLogger;
+use Register\Core\Security\Http\AdminMutationGuard;
 use Register\Core\Template\HtmlTemplateProvider;
 use Register\Core\Template\Viewer;
 use Register\Core\Template\TemplateAssetEvent;
@@ -311,6 +328,49 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(CommentImportService::class, static fn(Container $container): CommentImportService => new CommentImportService(
             $container->get(CommentRepository::class),
         ));
+        $container->set(ExternalImportMapRepository::class, static fn(Container $container): ExternalImportMapRepository => new ExternalImportMapRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(TelegramImportService::class, static fn(Container $container): TelegramImportService => new TelegramImportService(
+            $container->get(DbLayer::class),
+            $container->get(\PDO::class),
+            $container->get(CommentImportService::class),
+            $container->get(CommentRepository::class),
+            $container->get(\Register\Module\Reactions\ReactionAggregateRepository::class),
+            $container->get(ExternalImportMapRepository::class),
+            $container->getStringParameter('base_url'),
+        ));
+        $container->set(
+            TelegramImportTranslationProvider::class,
+            new TelegramImportTranslationProvider(),
+            [TranslationProviderInterface::class],
+        );
+        $container->set(TelegramImportToken::class, static fn(Container $container): TelegramImportToken => new TelegramImportToken(
+            $container->get(SettingStorageInterface::class),
+        ));
+        $container->set(TelegramImportAdminPage::class, static fn(Container $container): TelegramImportAdminPage => new TelegramImportAdminPage(
+            $container->get(ExternalImportMapRepository::class),
+            $container->get(TelegramImportToken::class),
+            $container->get(TemplateRenderer::class),
+            $container->get(Translator::class),
+            $container->getStringParameter('base_path'),
+        ));
+        $container->set(
+            TelegramImportAdminConfigExtender::class,
+            static fn(Container $container): TelegramImportAdminConfigExtender => new TelegramImportAdminConfigExtender(
+                $container->get(PermissionChecker::class),
+                $container->get(TelegramImportAdminPage::class),
+            ),
+            [AdminConfigExtenderInterface::class],
+        );
+        $container->set(TelegramImportAdminController::class, static fn(Container $container): TelegramImportAdminController => new TelegramImportAdminController(
+            $container->get(PermissionChecker::class),
+            $container->get(TelegramImportToken::class),
+            $container->get(TelegramImportService::class),
+            $container->get(AdminMutationGuard::class),
+            $container->get(Translator::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+        ));
         $container->set(ContentCommentRenderer::class, static fn(Container $container): ContentCommentRenderer => new ContentCommentRenderer(
             $container->get(DbLayer::class),
             $container->get(\Register\Core\Model\Comment\CommentThreadRenderer::class),
@@ -414,6 +474,16 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             new CommentPrivacySchemaMigration(),
             [SchemaMigrationInterface::class],
         );
+        $container->set(
+            ExternalImportSchemaMigration::class,
+            new ExternalImportSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            QueueLeaseSchemaMigration::class,
+            new QueueLeaseSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(
             $container->get(DbLayer::class),
             $container->getByTag(SchemaMigrationInterface::class),
@@ -450,6 +520,17 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
     #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
+        $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event) use ($container): void {
+            $event->controllerMap['register_telegram_import'] = static function (
+                PermissionChecker $permissionChecker,
+                Request           $request,
+            ) use ($container): \Symfony\Component\HttpFoundation\JsonResponse {
+                unset($permissionChecker);
+
+                return $container->get(TelegramImportAdminController::class)->handle($request);
+            };
+        });
+
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
             $basePath = rtrim($container->getStringParameter('base_path'), '/');
             $publicRoot = $container->getStringParameter('public_root_dir');
@@ -476,6 +557,13 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
 
         $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, static function (TemplateEvent $event) use ($container): void {
             $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $publicRoot = $container->getStringParameter('public_root_dir');
+            $workerPath = '/service-worker.js';
+            $workerModifiedAt = \filemtime($publicRoot . ltrim($workerPath, '/'));
+            if ($workerModifiedAt === false) {
+                throw new \LogicException('Unable to read the modification time of the service worker.');
+            }
+            $workerUrl = $basePath . $workerPath . '?v=' . $workerModifiedAt;
             $request = $container->get(RequestStack::class)->getCurrentRequest();
             $allowsInitialSeed = $request instanceof Request && OfflineCachePolicy::allowsInitialSeed(
                 $request,
@@ -484,9 +572,9 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             /** @var TranslatorInterface $translator */
             $translator = $container->get('translator');
             $event->htmlTemplate->addMetaTag(sprintf(
-                '<meta name="register-offline" data-worker="%s/service-worker.js" data-scope="%s/"'
+                '<meta name="register-offline" data-worker="%s" data-scope="%s/"'
                     . ' data-seed="%s" data-warning="%s" data-syncing="%s" data-reload="%s">',
-                register_htmlencode($basePath),
+                register_htmlencode($workerUrl),
                 register_htmlencode($basePath),
                 $allowsInitialSeed ? '1' : '0',
                 register_htmlencode($translator->trans('Offline cache warning')),

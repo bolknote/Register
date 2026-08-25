@@ -145,6 +145,9 @@ window.PopupMessages = {
             eCross.setAttribute('class', 'cross');
             eCross.setAttribute('href', '#');
             eCross.setAttribute('tabindex', '0');
+            const closeLabel = document.getElementById('error-dialog-close')?.textContent.trim() || 'Close';
+            eCross.setAttribute('aria-label', closeLabel);
+            eCross.setAttribute('title', closeLabel);
             eCross.addEventListener('click', function (e) {
                 ePopup.remove();
                 e.preventDefault();
@@ -156,6 +159,8 @@ window.PopupMessages = {
 
             ePopup = document.createElement('div');
             ePopup.setAttribute('id', 'popup_message');
+            ePopup.setAttribute('role', 'alert');
+            ePopup.setAttribute('aria-live', 'assertive');
             ePopup.appendChild(eList);
             document.body.appendChild(ePopup);
         } else {
@@ -174,11 +179,23 @@ window.PopupMessages = {
                 });
                 return;
             }
+        } else {
+            eMessage = Array.from(eList.querySelectorAll('.message')).find(function (candidate) {
+                return candidate.dataset.message === String(sMessage);
+            });
+            if (eMessage) {
+                eMessage.classList.remove('is-repeated');
+                requestAnimationFrame(function () {
+                    eMessage.classList.add('is-repeated');
+                });
+                return;
+            }
         }
 
         eMessage = document.createElement('div');
         eMessage.setAttribute('class', 'message');
         eMessage.setAttribute('data-id', sId || '');
+        eMessage.dataset.message = String(sMessage);
         eList.appendChild(eMessage);
 
         if (iTime) {

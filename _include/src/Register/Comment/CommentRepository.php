@@ -36,6 +36,7 @@ final readonly class CommentRepository
         ?int      $time = null,
         CommentMutationSource $source = CommentMutationSource::LOCAL,
         ?string   $visitorId = null,
+        ?int      $modifyTime = null,
     ): int {
         if ($parentId !== null && !$this->isValidParent(
             $contentId,
@@ -57,7 +58,7 @@ final readonly class CommentRepository
                 'visitor_id'   => ':visitor_id',
                 'userpic_id'   => ':userpic_id',
                 'time'         => ':time',
-                'modify_time'  => '0',
+                'modify_time'  => ':modify_time',
                 'ip'           => ':ip',
                 'nick'         => ':nick',
                 'email'        => ':email',
@@ -76,6 +77,7 @@ final readonly class CommentRepository
                 'visitor_id'   => $visitorId,
                 'userpic_id'   => $userpicId,
                 'time'         => $time ?? time(),
+                'modify_time'  => $modifyTime ?? 0,
                 'ip'           => $ip,
                 'nick'         => $name,
                 'email'        => $email,
@@ -89,6 +91,49 @@ final readonly class CommentRepository
         $this->dispatch($commentId, $contentId, CommentChangeKind::CREATED, $source);
 
         return $commentId;
+    }
+
+    /** Reconciles mutable fields of a comment owned by an external integration. */
+    public function synchronizeImported(int $commentId, CommentImport $comment): bool
+    {
+        if ($commentId <= 0
+            || ($comment->parentId !== null && !$this->isValidParent($comment->contentId, $comment->parentId, true))
+        ) {
+            throw new \InvalidArgumentException('The imported comment parent is invalid.');
+        }
+
+        $current = $this->find($commentId);
+        if (!$current instanceof Comment || !$current->contentId->equals($comment->contentId)) {
+            throw new \DomainException('The imported comment does not belong to the requested content item.');
+        }
+
+        $updated = $this->dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('parent_id', ':parent_id')->setParameter('parent_id', $comment->parentId)
+            ->set('user_id', ':user_id')->setParameter('user_id', $comment->userId)
+            ->set('userpic_id', ':userpic_id')->setParameter('userpic_id', $this->latestUserpicId($comment->userId))
+            ->set('time', ':time')->setParameter('time', $comment->createdAt)
+            ->set('modify_time', ':modify_time')->setParameter('modify_time', $comment->modifiedAt ?? 0)
+            ->set('nick', ':nick')->setParameter('nick', $comment->name)
+            ->set('text', ':text')->setParameter('text', $comment->text)
+            ->where('id = :id')->setParameter('id', $commentId)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', $comment->contentId->type->value)
+            ->andWhere('content_id = :content_id')->setParameter('content_id', $comment->contentId->value)
+            ->andWhere('deleted = 0')
+            ->execute()
+            ->affectedRows() > 0
+        ;
+        if ($updated) {
+            $this->liveUpdateRepository->publishComments($comment->contentId);
+            $this->dispatch(
+                $commentId,
+                $comment->contentId,
+                CommentChangeKind::EDITED,
+                CommentMutationSource::IMPORTED,
+            );
+        }
+
+        return $updated;
     }
 
     private function latestUserpicId(?int $userId): ?int

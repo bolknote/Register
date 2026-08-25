@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 /** @var string $basePath */
 /** @var callable $trans */
+/** @var callable $adminAssetVersion */
 /** @var string $title */
 /** @var list<array<string, mixed>> $rows */
 
@@ -38,9 +39,9 @@ foreach ($rows as $row) {
 }
 
 ?>
-<link rel="stylesheet" href="<?= $escape($basePath) ?>/_admin/css/config-ai-help.css">
-<script src="<?= $escape($basePath) ?>/_admin/js/config-secret.js"></script>
-<script src="<?= $escape($basePath) ?>/_admin/js/config-settings.js"></script>
+<link rel="stylesheet" href="<?= $escape($basePath) ?>/_admin/css/config-ai-help.css?v=<?= $escape($adminAssetVersion('_admin/css/config-ai-help.css')) ?>">
+<script src="<?= $escape($basePath) ?>/_admin/js/config-secret.js?v=<?= $escape($adminAssetVersion('_admin/js/config-secret.js')) ?>" defer></script>
+<script src="<?= $escape($basePath) ?>/_admin/js/config-settings.js?v=<?= $escape($adminAssetVersion('_admin/js/config-settings.js')) ?>" defer></script>
 
 <section class="config-page" aria-labelledby="settings-title">
     <header class="config-header">
@@ -432,5 +433,5 @@ foreach ($rows as $row) {
         </footer>
     </div>
 </dialog>
-<script src="<?= $basePath ?>/_admin/js/config-ai-help.js"></script>
-<script src="js/ajax.js"></script>
+<script src="<?= $escape($basePath) ?>/_admin/js/config-ai-help.js?v=<?= $escape($adminAssetVersion('_admin/js/config-ai-help.js')) ?>" defer></script>
+<script src="<?= $escape($basePath) ?>/_admin/js/ajax.js?v=<?= $escape($adminAssetVersion('_admin/js/ajax.js')) ?>" defer></script>

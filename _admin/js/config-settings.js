@@ -69,7 +69,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const response = await fetch(aiAvailability.dataset.endpoint || '', {
                 method: 'POST',
                 body: data,
-                signal: availabilityRequest.signal
+                signal: availabilityRequest.signal,
+                registerHandleErrorsInline: true
             });
             const responseData = await response.json().catch(function () {
                 return {};

@@ -49,7 +49,19 @@ try {
         '/_styles/example/style.php'                      => 403,
         '/_include/secret.txt'                          => 403,
         '/service-worker.js'                           => 200,
+        '/files/'                                      => 200,
+        '/files/acid0/'                                => 200,
+        '/files/newnumber.htm'                         => 200,
+        '/files/opera-cam-recog.html'                  => 200,
+        '/files/demo-assets/player-test.mp4'           => 200,
+        '/files/iso-ir-111.py'                         => 200,
+        '/files/physical.php'                          => 403,
+        '/rss'                                         => 200,
+        '/feed.json'                                   => 200,
+        '/sitemap.xml'                                 => 200,
+        '/99.html'                                     => 200,
         '/private.js'                                  => 403,
+        '/nonexistent-private.sql'                     => 403,
         '/composer.lock'                                => 403,
         '/config.local.php'                             => 403,
         '/config.secrets.php'                           => 403,
@@ -70,7 +82,7 @@ try {
     $securityHeaders = [
         'x-content-type-options' => 'nosniff',
         'referrer-policy'        => 'strict-origin-when-cross-origin',
-        'permissions-policy'     => 'camera=(), microphone=(), geolocation=()',
+        'permissions-policy'     => 'camera=(self), microphone=(), geolocation=()',
     ];
     foreach (['/_pictures/photo.png', '/config.secrets.php'] as $path) {
         $response = requestResponse($port, $path);
@@ -167,6 +179,8 @@ function createFixtureTree(string $projectRoot, string $tempRoot, string $webRoo
         $webRoot . '/_styles/example',
         $webRoot . '/_assets/register/admin-yard',
         $webRoot . '/_vendor/example/package',
+        $webRoot . '/files/acid0',
+        $webRoot . '/files/demo-assets',
     ];
     foreach ($directories as $directory) {
         if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
@@ -203,6 +217,11 @@ function createFixtureTree(string $projectRoot, string $tempRoot, string $webRoo
         '/_styles/example/style.php'                      => '<?php echo "private style";',
         '/_include/secret.txt'                          => 'private source',
         '/service-worker.js'                           => "'use strict';",
+        '/files/acid0/index.html'                      => '<!doctype html><title>ASIT</title>',
+        '/files/newnumber.htm'                         => '<!doctype html><title>Phone converter</title>',
+        '/files/opera-cam-recog.html'                  => '<!doctype html><title>Camera demo</title>',
+        '/files/demo-assets/player-test.mp4'           => 'passive video fixture',
+        '/files/physical.php'                          => '<?php echo "must not execute";',
         '/private.js'                                  => 'private root script',
         '/composer.lock'                                => '{"packages":[]}',
         '/config.local.php'                             => '<?php return ["password" => "secret"];',
@@ -243,6 +262,7 @@ function createApacheConfig(string $apache, string $tempRoot, string $webRoot, s
         'unixd_module'       => 'mod_unixd.so',
         'authz_core_module'  => 'mod_authz_core.so',
         'headers_module'     => 'mod_headers.so',
+        'dir_module'         => 'mod_dir.so',
         'mime_module'        => 'mod_mime.so',
         'rewrite_module'     => 'mod_rewrite.so',
     ];
@@ -289,6 +309,7 @@ MaxSpareServers 1
 MaxRequestWorkers 1
 MaxConnectionsPerChild 0
 DocumentRoot "%s"
+DirectoryIndex index.html index.htm index.php
 <Directory "%s">
     AllowOverride All
     Options FollowSymLinks

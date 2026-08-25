@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Твой ник в 2012 году</title>
+<link rel="stylesheet" href="../demo.css">
+<style>
+    .olimp-layout {
+        display: grid;
+        grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr);
+        gap: clamp(1rem, 4vw, 2.5rem);
+        align-items: start;
+    }
+
+    .olimp-logo {
+        width: 100%;
+        height: auto;
+        border-radius: .8rem;
+        box-shadow: 0 .65rem 1.5rem rgb(0 0 0 / 15%);
+    }
+
+    .olimp-form {
+        display: grid;
+        grid-template-columns: minmax(8rem, 1fr) auto;
+        gap: .65rem;
+        max-width: 40rem;
+    }
+
+    .olimp-form input {
+        min-width: 0;
+        text-transform: uppercase;
+    }
+
+    .olimp-stage {
+        display: grid;
+        place-items: center;
+        min-height: 18rem;
+        margin-top: 1rem;
+        padding: clamp(.7rem, 3vw, 2rem);
+        overflow: auto;
+        border: .35rem solid #00a8df;
+        border-radius: 1rem;
+        background:
+            linear-gradient(135deg, rgb(255 255 255 / 94%), rgb(250 240 249 / 94%)),
+            #fff;
+    }
+
+    .olimp-stage svg {
+        width: min(100%, 56rem);
+        min-width: 24rem;
+        filter: drop-shadow(0 .55rem .65rem rgb(0 0 0 / 18%));
+    }
+
+    .olimp-actions {
+        margin-top: .8rem;
+    }
+
+    @media (max-width: 42rem) {
+        .olimp-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .olimp-logo {
+            width: min(11rem, 50%);
+        }
+
+        .olimp-form {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+</head>
+<body>
+<main class="demo-shell">
+    <nav class="demo-nav" aria-label="Навигация">
+        <a href="/files/">← Архив программ и экспериментов</a>
+    </nav>
+    <article class="demo-card">
+        <header class="demo-header">
+            <h1>Твой ник в 2012 году</h1>
+            <p>Введи ник и потрать на его прорисовку виртуальные 400 000 £.</p>
+        </header>
+        <section class="demo-section olimp-layout">
+            <img class="olimp-logo" src="logo.jpg" width="207" height="234" alt="Оригинальный логотип Олимпиады 2012">
+            <div>
+                <p>Старая серверная программа не сохранилась, поэтому это действующая клиентская реконструкция: она собирает угловатую цветную композицию в SVG и позволяет скачать результат.</p>
+                <form id="form" class="olimp-form">
+                    <label class="visually-hidden" for="nick">Ник</label>
+                    <input id="nick" name="nick" type="text" value="BOLK" maxlength="16" autocomplete="off" aria-describedby="hint">
+                    <button type="submit">Потратить 400 000 £</button>
+                </form>
+                <p id="hint" class="demo-status">До 16 букв, цифр, пробелов, дефисов и подчёркиваний.</p>
+            </div>
+        </section>
+        <section class="demo-section">
+            <div id="stage" class="olimp-stage" aria-live="polite"></div>
+            <div class="demo-controls olimp-actions">
+                <button id="download" type="button">Скачать SVG</button>
+                <button id="shuffle" type="button">Другой вариант</button>
+            </div>
+            <p id="status" class="demo-status" role="status"></p>
+        </section>
+        <section class="demo-section">
+            <p class="demo-note">Форма и логотип восстановлены по снимку страницы 2007 года. Исходный PHP-алгоритм и сохранённые результаты с никами в архиве отсутствуют, поэтому новый SVG-генератор честно обозначен как реконструкция, а не как точная копия.</p>
+            <p><small>Идея и дизайн шрифта — zhzhitel; программная реализация оригинала — BOLK; дизайн логотипа — Stephen Bayley.</small></p>
+        </section>
+    </article>
+</main>
+<script>
+(() => {
+    'use strict';
+
+    const namespace = 'http://www.w3.org/2000/svg';
+    const form = document.getElementById('form');
+    const nick = document.getElementById('nick');
+    const stage = document.getElementById('stage');
+    const download = document.getElementById('download');
+    const shuffle = document.getElementById('shuffle');
+    const status = document.getElementById('status');
+    const colors = ['#e823a5', '#00a8df', '#f4a400', '#55b948', '#7c4aa8'];
+    let variant = 0;
+    let currentSvg = null;
+
+    const hash = value => {
+        let output = 2166136261 ^ variant;
+        for (const char of value) {
+            output ^= char.codePointAt(0);
+            output = Math.imul(output, 16777619);
+        }
+        return output >>> 0;
+    };
+
+    const randomFactory = seed => () => {
+        seed += 0x6d2b79f5;
+        let value = seed;
+        value = Math.imul(value ^ value >>> 15, value | 1);
+        value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+        return ((value ^ value >>> 14) >>> 0) / 4294967296;
+    };
+
+    const element = (name, attributes = {}) => {
+        const node = document.createElementNS(namespace, name);
+        Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, String(value)));
+        return node;
+    };
+
+    const cleanNick = value => value
+        .normalize('NFC')
+        .replace(/[^\p{L}\p{N} _-]+/gu, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 16)
+        .toUpperCase();
+
+    const render = value => {
+        const text = cleanNick(value) || 'BOLK';
+        nick.value = text;
+        const random = randomFactory(hash(text));
+        const cellWidth = 118;
+        const width = Math.max(480, text.length * cellWidth + 80);
+        const height = 270;
+        const svg = element('svg', {
+            xmlns: namespace,
+            viewBox: `0 0 ${width} ${height}`,
+            role: 'img',
+            'aria-label': `Ник ${text} в стиле Олимпиады 2012`
+        });
+
+        const background = element('rect', {width, height, rx: 18, fill: '#fff'});
+        svg.appendChild(background);
+
+        [...text].forEach((char, index) => {
+            const centerX = 40 + index * cellWidth + cellWidth / 2;
+            const centerY = height / 2 + (random() - .5) * 22;
+            const angle = Math.round((random() - .5) * 24);
+            const color = colors[(index + Math.floor(random() * colors.length)) % colors.length];
+            if (char === ' ') return;
+            const group = element('g', {transform: `rotate(${angle} ${centerX} ${centerY})`});
+            const inset = 12 + random() * 10;
+            const points = [
+                [centerX - 52, centerY - 78 + inset],
+                [centerX + 36 + random() * 18, centerY - 74],
+                [centerX + 54, centerY - 14 + random() * 18],
+                [centerX + 34 - inset / 2, centerY + 76],
+                [centerX - 48, centerY + 60 - random() * 15],
+                [centerX - 58 + random() * 13, centerY - 10]
+            ].map(point => point.map(Math.round).join(',')).join(' ');
+            group.appendChild(element('polygon', {
+                points,
+                fill: color,
+                stroke: '#fff',
+                'stroke-width': 5,
+                'stroke-linejoin': 'round'
+            }));
+
+            const glyph = element('text', {
+                x: centerX,
+                y: centerY + 4,
+                fill: '#fff',
+                stroke: '#fff',
+                'stroke-width': 1.4,
+                'paint-order': 'stroke',
+                'font-family': 'Arial Black, Arial, sans-serif',
+                'font-size': 86,
+                'font-weight': 900,
+                'text-anchor': 'middle',
+                'dominant-baseline': 'middle',
+                transform: `skewX(${Math.round((random() - .5) * 18)})`
+            });
+            glyph.textContent = char;
+            group.appendChild(glyph);
+            svg.appendChild(group);
+        });
+
+        const caption = element('text', {
+            x: width - 22,
+            y: height - 16,
+            fill: '#333',
+            'font-family': 'Arial, sans-serif',
+            'font-size': 13,
+            'text-anchor': 'end'
+        });
+        caption.textContent = 'bolknote.ru · реконструкция';
+        svg.appendChild(caption);
+
+        stage.replaceChildren(svg);
+        currentSvg = svg;
+        status.textContent = `Готово: ${text}.`;
+        const pageUrl = new URL(window.location.href);
+        pageUrl.searchParams.set('nick', text);
+        history.replaceState(null, '', pageUrl);
+    };
+
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        variant = 0;
+        render(nick.value);
+    });
+
+    shuffle.addEventListener('click', () => {
+        variant++;
+        render(nick.value);
+    });
+
+    download.addEventListener('click', () => {
+        if (!currentSvg) return;
+        const serialized = new XMLSerializer().serializeToString(currentSvg);
+        const blob = new Blob([serialized], {type: 'image/svg+xml;charset=utf-8'});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'olimp-2012-' + (cleanNick(nick.value) || 'bolk').toLowerCase().replace(/\s+/g, '-') + '.svg';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 0);
+    });
+
+    const initial = new URL(window.location.href).searchParams.get('nick');
+    render(initial || nick.value);
+})();
+</script>
+</body>
+</html>

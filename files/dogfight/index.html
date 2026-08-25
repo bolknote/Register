@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Pure HTML air fight</title>
+    <style>
+        :root { color-scheme: dark; }
+        * { box-sizing: border-box; }
+        body { background: #000; color: #fff; font: 14px Tahoma, sans-serif; margin: 0; min-height: 100vh; }
+        main { display: grid; min-height: 100vh; place-content: center; text-align: center; }
+        .game { background: url('bg.jpg') center/cover; height: 271px; overflow: hidden; position: relative; width: 400px; }
+        .plane { color: navy; font-size: 44px; left: 0; line-height: 1; position: absolute; top: 1px; transform: rotate(8deg); }
+        .plane.hit { color: red; }
+        .bomb { background: #e00000; display: none; height: 20px; left: 195px; position: absolute; top: 241px; width: 10px; }
+        .score { background: rgb(0 0 0 / .45); left: 8px; padding: 3px 5px; position: absolute; top: 8px; }
+        button { background: transparent; border: 0; cursor: pointer; margin-top: 12px; padding: 0; }
+        button img { height: 40px; width: 40px; }
+        .hint { color: #aaa; margin: 8px 0 0; }
+        @media (max-width: 430px) { .game { width: min(400px, 94vw); } }
+    </style>
+</head>
+<body>
+<main>
+    <div class="game" aria-label="Самолёт летит над пальмами">
+        <span class="score">score: <b>00</b></span>
+        <span class="plane" aria-hidden="true">✈</span>
+        <span class="bomb" aria-hidden="true"></span>
+    </div>
+    <button type="button" aria-label="Сбросить бомбу"><img src="button.png" alt=""></button>
+    <p class="hint">Нажмите кнопку, когда самолёт окажется над бомбой.</p>
+</main>
+<audio preload="auto"><source src="fly.ogg" type="audio/ogg"><source src="fly.mp3" type="audio/mpeg"></audio>
+<script>
+(() => {
+    'use strict';
+    const game = document.querySelector('.game');
+    const plane = document.querySelector('.plane');
+    const bomb = document.querySelector('.bomb');
+    const scoreNode = document.querySelector('.score b');
+    const button = document.querySelector('button');
+    const sound = document.querySelector('audio');
+    let x = 0;
+    const y = 1;
+    let speed = 15;
+    let rising = false;
+    let bombY = 241;
+    let score = 0;
+    let pauseUntil = 0;
+    let lastTime = performance.now();
+
+    function newFlight() {
+        x = 0;
+        speed = Math.max(5, 15 + 10 * Math.sin(performance.now()));
+        plane.style.visibility = '';
+        plane.classList.remove('hit');
+    }
+
+    function frame(now) {
+        const elapsed = Math.min((now - lastTime) / 1000, .1);
+        lastTime = now;
+
+        if (now >= pauseUntil) {
+            if (plane.style.visibility === 'hidden') newFlight();
+            x += speed * elapsed;
+            if (x > 350) newFlight();
+        }
+        plane.style.left = `${x}px`;
+
+        if (rising) {
+            bombY -= 20 * elapsed;
+            bomb.style.top = `${bombY}px`;
+            const planeCenter = x + 24;
+            const bombCenter = 200;
+            if (bombY <= y + 38 && bombY >= y - 20 && Math.abs(planeCenter - bombCenter) <= 10) {
+                rising = false;
+                bomb.style.display = 'none';
+                plane.classList.add('hit');
+                score = Math.min(99, score + 1);
+                scoreNode.textContent = String(score).padStart(2, '0');
+                pauseUntil = now + 450 + Math.random() * 5000;
+                sound.currentTime = 0;
+                sound.play().catch(() => {});
+                window.setTimeout(() => {
+                    plane.style.visibility = 'hidden';
+                    plane.classList.remove('hit');
+                    x = 0;
+                }, 350);
+            } else if (bombY < -20) {
+                rising = false;
+                bomb.style.display = 'none';
+            }
+        }
+        requestAnimationFrame(frame);
+    }
+
+    button.addEventListener('click', () => {
+        if (rising) return;
+        rising = true;
+        bombY = 241;
+        bomb.style.top = `${bombY}px`;
+        bomb.style.display = 'block';
+    });
+    requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

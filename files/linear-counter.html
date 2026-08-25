@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Linear-counter JS demo — Евгений Степанищев</title>
+    <style>
+        :root { color-scheme: dark; }
+        * { box-sizing: border-box; }
+        body {
+            background: #123322;
+            color: #e0e0e0;
+            font: 14px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+            margin: 0;
+            min-height: 100vh;
+            padding: 18px;
+        }
+        h1 { font-size: 18px; margin: 0 0 12px; }
+        .numbers { display: flex; flex-wrap: wrap; gap: 4px 8px; min-height: 56px; }
+        .number { transition: opacity .12s, transform .12s; }
+        .number.used { opacity: .12; transform: translateY(8px); }
+        .cells { display: grid; gap: 5px; grid-template-columns: repeat(15, 22px); margin: 18px 0; }
+        .cell {
+            background: #344;
+            border: 1px solid #677;
+            color: white;
+            height: 22px;
+            line-height: 20px;
+            text-align: center;
+            transition: background .15s, color .15s, transform .15s;
+            width: 22px;
+        }
+        .cell.raised { background: #512; color: #ff8f8f; transform: scale(1.08); }
+        .calculation { min-height: 2em; }
+        .calculation strong { color: #ff7676; }
+        button { background: #e0e0e0; border: 0; color: #123322; cursor: pointer; font: inherit; padding: 7px 11px; }
+        @media (max-width: 430px) { .cells { grid-template-columns: repeat(10, 22px); } }
+    </style>
+</head>
+<body>
+    <h1>Линейный счётчик</h1>
+    <p>Пятьдесят случайных значений укладываются в 30-битный вектор; затем по числу поднятых битов оценивается количество уникальных значений.</p>
+    <div class="numbers" aria-label="Случайные значения"></div>
+    <div class="cells" aria-label="Битовый вектор"></div>
+    <p class="calculation" aria-live="polite"></p>
+    <button type="button">Запустить заново</button>
+<script>
+(() => {
+    'use strict';
+    const vectorSize = 30;
+    const sampleSize = 50;
+    const numbersBox = document.querySelector('.numbers');
+    const cellsBox = document.querySelector('.cells');
+    const calculation = document.querySelector('.calculation');
+    const restart = document.querySelector('button');
+    let run = 0;
+
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const estimate = (raised) => raised === vectorSize
+        ? null
+        : Math.round(vectorSize * Math.log(vectorSize / (vectorSize - raised)));
+
+    async function start() {
+        const currentRun = ++run;
+        const values = Array.from({length: sampleSize}, () => Math.floor(Math.random() * 1000));
+        const exact = new Set(values).size;
+        const bits = new Array(vectorSize).fill(0);
+        numbersBox.replaceChildren(...values.map((value) => {
+            const item = document.createElement('span');
+            item.className = 'number';
+            item.textContent = String(value).padStart(4, '0');
+            return item;
+        }));
+        cellsBox.replaceChildren(...bits.map((_, index) => {
+            const cell = document.createElement('span');
+            cell.className = 'cell';
+            cell.dataset.index = String(index);
+            cell.textContent = '0';
+            return cell;
+        }));
+        calculation.textContent = '';
+        restart.disabled = true;
+
+        for (let index = 0; index < values.length; index++) {
+            if (currentRun !== run) return;
+            const bit = values[index] % vectorSize;
+            bits[bit] = 1;
+            numbersBox.children[index].classList.add('used');
+            const cell = cellsBox.children[bit];
+            cell.textContent = '1';
+            cell.classList.add('raised');
+            calculation.textContent = `${String(values[index]).padStart(4, '0')} % ${vectorSize} = ${bit}-й бит`;
+            await delay(65);
+        }
+
+        const raised = bits.reduce((sum, bit) => sum + bit, 0);
+        const approximate = estimate(raised);
+        calculation.innerHTML = `${vectorSize} × log(${vectorSize} / (${vectorSize} − <strong>${raised}</strong>)) ≈ `
+            + `${approximate ?? 'N/A'} (точно: ${exact})`;
+        restart.disabled = false;
+    }
+
+    restart.addEventListener('click', start);
+    start();
+})();
+</script>
+</body>
+</html>

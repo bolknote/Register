@@ -63,6 +63,38 @@ final class QueueCest
         $lease->release();
     }
 
+    public function idleBackgroundRunnerDoesNotWriteRunnerLease(IntegrationTester $I): void
+    {
+        $pdo = $this->pdo($I);
+        $now = time();
+        $pdo->exec('DELETE FROM queue');
+        $pdo->exec("UPDATE content SET scheduled_at = 0 WHERE published = 0");
+        $statement = $pdo->prepare(
+            "UPDATE config SET value = :now WHERE name = 'REGISTER_LAST_MAINTENANCE'"
+        );
+        if (!$statement instanceof \PDOStatement) {
+            throw new \RuntimeException('Unable to prepare the maintenance timestamp update.');
+        }
+        $statement->execute(['now' => (string)$now]);
+        $pdo->exec(
+            "UPDATE " . QueueSchema::LEASE_TABLE . " SET owner = 'idle-sentinel', expires_at = 0 "
+            . "WHERE name = '" . QueueSchema::RUNNER_LEASE . "'"
+        );
+
+        /** @var BackgroundWorkRunner $runner */
+        $runner = $I->grabService(BackgroundWorkRunner::class);
+        $I->assertSame(0, $runner->run(5.0, 5));
+        $ownerStatement = $pdo->query(
+            "SELECT owner FROM " . QueueSchema::LEASE_TABLE . " WHERE name = '"
+            . QueueSchema::RUNNER_LEASE . "'"
+        );
+        if (!$ownerStatement instanceof \PDOStatement) {
+            throw new \RuntimeException('Unable to read the runner lease owner.');
+        }
+        $owner = $ownerStatement->fetchColumn();
+        $I->assertSame('idle-sentinel', $owner);
+    }
+
     public function maintenanceRunsAtMostOncePerInterval(IntegrationTester $I): void
     {
         $pdo = $this->pdo($I);

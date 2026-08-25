@@ -5,7 +5,9 @@ Options -Indexes
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
-    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    # Camera access stays same-origin and still requires the browser's normal
+    # user permission. Microphone and geolocation remain unavailable.
+    Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=()"
 </IfModule>
 
 <IfModule mod_rewrite.c>
@@ -21,6 +23,13 @@ RewriteRule ^_vendor/ - [F,L,NC]
 RewriteRule ^(?:composer\.(?:json|lock)|phpunit\.xml(?:\.dist)?|psalm\.xml|rector\.php|plan-security\.md)$ - [F,L,NC]
 RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L]
 
+# Logical archive pages may deliberately retain historical filename suffixes
+# such as `.py` or `.php`. Send non-physical `/files/...` paths to Register;
+# real executable files still reach the deny rule below.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^files/.+ index.php [L,NC]
+
 # PHP is executable only through the five reviewed front controllers. This
 # also prevents source disclosure of templates and direct execution of style
 # or extension implementation files.
@@ -31,8 +40,18 @@ RewriteRule ^(?!(?:index\.php|_admin/(?:ajax|index|install|pictman)\.php)$).+\.(
 # including PHP metadata and nested tool caches, remains unreachable.
 RewriteRule ^_cache/(?![A-Z0-9_-]+\.[0-9A-F]+\.(?:css|js)(?:\.gz)?$) - [F,L,NC]
 
+# These exact historical root URLs are handled by Register's configured
+# redirect map. Route them before the root-file allow-list rejects arbitrary
+# filenames with extensions.
+RewriteRule ^(?:99|eat|read)\.html$ index.php [L,NC]
+
+# `/files/` is the application-rendered archive index even when deployments
+# also contain a physical `files` directory with standalone historical pages.
+RewriteRule ^files/?$ index.php [L,NC]
+
 # Only the front controller, offline worker, and conventional site metadata are
 # public files at the repository root. This also protects SQLite databases with custom names.
+RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^(?!(?:index\.php|robots\.txt|favicon\.ico|site\.webmanifest|service-worker\.js)$)[^/]+$ - [F,L,NC]
 
 # Uncomment and properly set the RewriteBase if the rewrite rules are not working properly

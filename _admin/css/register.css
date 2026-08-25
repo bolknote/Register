@@ -1401,9 +1401,18 @@ button.list-action-link-delete:focus-visible {
 
 .admin-content .list-content .pagination {
     display: flex;
+    width: fit-content;
+    max-width: 100%;
     align-items: center;
-    gap: 0.2rem;
-    margin: 1rem 0 0;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin: 1rem auto 0;
+    padding: 0.25rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.45rem;
+    background: var(--admin-surface-background);
+    box-shadow: var(--admin-shadow);
 }
 
 .admin-content .list-content .pagination:has(> .pagination-current:only-child) {
@@ -1413,15 +1422,38 @@ button.list-action-link-delete:focus-visible {
 .admin-content .list-content .pagination-link,
 .admin-content .list-content .pagination-ellipsis,
 .admin-content .list-content .pagination-current {
-    min-width: 2.25rem;
-    min-height: 2.25rem;
-    padding: 0.35rem 0.55rem;
-    border-radius: 0.25rem;
+    display: inline-flex;
+    box-sizing: border-box;
+    min-width: 2.15rem;
+    min-height: 2.15rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.3rem;
+    color: var(--admin-secondary-text-color);
+    font-variant-numeric: tabular-nums;
     text-align: center;
+    text-decoration: none;
+}
+
+.admin-content .list-content .pagination-link:hover,
+.admin-content .list-content .pagination-link:focus-visible {
+    border-color: var(--admin-border-color);
+    background: var(--admin-secondary-background);
+    color: var(--admin-text-color);
+}
+
+.admin-content .list-content .pagination-ellipsis {
+    min-width: 1.4rem;
+    border-color: transparent;
+    color: var(--admin-quiet-color);
 }
 
 .admin-content .list-content .pagination-current {
-    background: var(--admin-secondary-background);
+    border-color: color-mix(in srgb, var(--admin-accent-color) 45%, var(--admin-border-color));
+    background: color-mix(in srgb, var(--admin-accent-color) 12%, var(--admin-surface-background));
+    color: var(--admin-text-color);
     backdrop-filter: none;
     font-weight: 700;
 }
@@ -1627,6 +1659,124 @@ button.list-action-link-delete:focus-visible {
 
 .backup-download {
     margin-top: -0.15rem;
+}
+
+.query-profiler-stat-item {
+    grid-column: 1 / -1;
+    scroll-margin-top: 1rem;
+}
+
+.query-profiler-active {
+    color: var(--admin-success-color);
+}
+
+.query-profiler-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.query-profiler-actions button {
+    margin: 0;
+}
+
+.query-profiler-summary {
+    font-variant-numeric: tabular-nums;
+    font-weight: 650;
+}
+
+.query-profiler-section {
+    min-width: 0;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--admin-soft-border-color);
+}
+
+.query-profiler-section h4 {
+    margin: 0 0 0.55rem;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.88rem;
+}
+
+.query-profiler-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.query-profiler-table {
+    width: 100%;
+    min-width: 46rem;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.query-profiler-table th,
+.query-profiler-table td {
+    padding: 0.42rem 0.55rem;
+    border-top: 1px solid var(--admin-soft-border-color);
+    text-align: right;
+    vertical-align: top;
+    white-space: nowrap;
+}
+
+.query-profiler-table th {
+    color: var(--admin-secondary-text-color);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.query-profiler-table :is(th, td):first-child,
+.query-profiler-sql-table :is(th, td):first-child,
+.query-profiler-request-table :is(th, td):last-child {
+    text-align: left;
+    white-space: normal;
+}
+
+.query-profiler-table code {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.query-profiler-sql-table :is(th, td):first-child {
+    width: 58%;
+}
+
+.query-profiler-recent {
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--admin-soft-border-color);
+}
+
+.query-profiler-recent > summary,
+.query-profiler-request > summary {
+    cursor: pointer;
+}
+
+.query-profiler-recent > summary {
+    font-weight: 650;
+}
+
+.query-profiler-request-list {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 0.7rem;
+}
+
+.query-profiler-request {
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.35rem;
+}
+
+.query-profiler-request > summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    justify-content: space-between;
+    font-variant-numeric: tabular-nums;
+}
+
+.query-profiler-request > .technical-data {
+    margin: 0.55rem 0;
 }
 
 .backup-schedule {

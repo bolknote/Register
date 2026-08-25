@@ -86,6 +86,13 @@ use Register\Core\Model\LoginRateLimiter;
 use Register\Core\Model\TagsProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Model\User\UserProvider;
+use Register\Core\Monitoring\RequestPerformanceInspector;
+use Register\Core\Monitoring\RequestPerformanceMonitor;
+use Register\Core\Monitoring\QueryProfilerInspector;
+use Register\Core\Monitoring\QueryProfilerLog;
+use Register\Core\Monitoring\QueryProfilerState;
+use Register\Core\Monitoring\RequestQueryProfiler;
+use Register\Core\Monitoring\SqlQueryTemplateSanitizer;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerPostgres;
 use Register\Core\Pdo\DbLayerSqlite;
@@ -179,6 +186,31 @@ class CmsExtension implements ExtensionInterface
             $container->getStringParameter('image_dir'),
         ), [QueueHandlerInterface::class]);
         $container->set(LoggerInterface::class, fn(Container $container): \Register\Core\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'app.log', 'app', LogLevel::INFO));
+        $container->set(RequestPerformanceMonitor::class, fn(Container $container): RequestPerformanceMonitor => new RequestPerformanceMonitor(
+            $container->get(\PDO::class),
+            $container->getStringParameter('log_dir') . 'performance.jsonl',
+            $container->getFloatParameter('boot_timestamp'),
+        ));
+        $container->set(RequestPerformanceInspector::class, fn(Container $container): RequestPerformanceInspector => new RequestPerformanceInspector(
+            $container->getStringParameter('log_dir') . 'performance.jsonl',
+        ));
+        $container->set(QueryProfilerState::class, fn(Container $container): QueryProfilerState => new QueryProfilerState(
+            $container->getStringParameter('log_dir') . 'query-profiler-state.json',
+        ));
+        $container->set(QueryProfilerLog::class, fn(Container $container): QueryProfilerLog => new QueryProfilerLog(
+            $container->getStringParameter('log_dir') . 'query-profiler.jsonl',
+        ));
+        $container->set(SqlQueryTemplateSanitizer::class, new SqlQueryTemplateSanitizer());
+        $container->set(QueryProfilerInspector::class, fn(Container $container): QueryProfilerInspector => new QueryProfilerInspector(
+            $container->get(QueryProfilerLog::class),
+        ));
+        $container->set(RequestQueryProfiler::class, fn(Container $container): RequestQueryProfiler => new RequestQueryProfiler(
+            $container->get(\PDO::class),
+            $container->get(QueryProfilerState::class),
+            $container->get(QueryProfilerLog::class),
+            $container->get(SqlQueryTemplateSanitizer::class),
+            $container->getFloatParameter('boot_timestamp'),
+        ), [StatefulServiceInterface::class]);
         $container->set('config_cache', fn(Container $container): \Symfony\Component\Cache\Adapter\FilesystemAdapter => new FilesystemAdapter('config', 0, $container->getStringParameter('cache_dir')));
 
         $container->set(DynamicSecretParameterRegistry::class, new DynamicSecretParameterRegistry([
@@ -272,6 +304,8 @@ class CmsExtension implements ExtensionInterface
             new NativeShutdownRuntime(),
             fn(): BackgroundWorkRunner => $container->get(BackgroundWorkRunner::class),
             $container->getFloatParameter('boot_timestamp'),
+            $container->get(RequestPerformanceMonitor::class),
+            $container->get(RequestQueryProfiler::class),
         ));
 
         $container->set(UrlBuilder::class, fn(Container $container): \Register\Core\Model\UrlBuilder => new UrlBuilder(
@@ -770,9 +804,13 @@ class CmsExtension implements ExtensionInterface
 
         $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, function (TemplateEvent $event) use ($container): void {
             $registerDebugOutput = '';
-            if ($container->getBoolParameter('show_queries')) {
+            $request = $container->get(RequestStack::class)->getCurrentRequest();
+            if ($container->getBoolParameter('show_queries')
+                && $request instanceof Request
+                && $container->get(AuthProvider::class)->isAuthenticatedAdministrator($request)
+            ) {
                 $pdo     = $container->getIfInstantiated(\PDO::class);
-                $pdoLogs = $pdo instanceof PDO ? $pdo->cleanLogs() : [];
+                $pdoLogs = $pdo instanceof PDO ? $pdo->getQueryLog() : [];
 
                 $viewer        = $container->get(Viewer::class);
                 $registerDebugOutput = $viewer->render('debug_queries', [

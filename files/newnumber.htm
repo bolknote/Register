@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Телефонное безобразие</title>
+    <style>
+        body, input, td { font: 12px Verdana, sans-serif; }
+        body { background: #eee; margin: 0; padding: 24px 12px; }
+        table { border: 10px dashed #ccc; max-width: 400px; width: 100%; }
+        input { border: 1px solid #000; font-size: 16px; width: 9em; }
+        a { color: #666; }
+    </style>
+</head>
+<body>
+<h2 style="text-align:center">Твой новый номер телефона</h2>
+<table cellpadding="4" cellspacing="0" align="center">
+    <tr><td>
+        Как известно, в ночь с 16 на 17 сентября Казань получит семизначную нумерацию телефонов.
+        Узнать, каким станет номер после 17 числа, можно, вписав его в расположенное ниже поле.
+        <form id="number-form">
+            <p>
+                <label for="old-number">Прежний номер:</label><br>
+                +7 (8432) <input id="old-number" type="text" inputmode="numeric" maxlength="7" autocomplete="off">
+            </p>
+            <p>
+                Новый номер:<br>
+                +7 (843) <b id="new-number">???????</b>
+            </p>
+        </form>
+        По материалам лжеюзера
+        <a href="https://www.livejournal.com/users/lazoukov/24511.html?view=16575#t16575">lazukov</a>
+    </td></tr>
+</table>
+<script>
+(() => {
+    'use strict';
+
+    const prefixes = new Map([
+        ['1[012]', 5], ['13[12]', 2], ['1[35789]', 5], ['14', 2],
+        ['16[01289]', 5], ['16[34567]', 2], ['2[0489]', 2], ['2[123567]', 5],
+        ['3[01245689]', 2], ['3[37]', 5], ['4[0678]', 2], ['4[1-5]', 5],
+        ['49[0145]', 2], ['49[236-9]', 5], ['5[0-389]', 2], ['5[4-7]', 5],
+        ['6', 2], ['7[01]', 5], ['7', 2], ['996[5-9]', 5], ['9', 2],
+    ]);
+    const input = document.querySelector('#old-number');
+    const output = document.querySelector('#new-number');
+
+    function convert(value) {
+        const number = value.replace(/\D/g, '').slice(0, 7);
+        input.value = number;
+        if (number.length < 6) {
+            return '???????';
+        }
+        for (const [pattern, prefix] of prefixes) {
+            if (new RegExp(`^${pattern}`).test(number)) {
+                return `${prefix}${number}`;
+            }
+        }
+        return '?';
+    }
+
+    document.querySelector('#number-form').addEventListener('submit', (event) => event.preventDefault());
+    input.addEventListener('input', () => { output.textContent = convert(input.value); });
+    input.focus();
+})();
+</script>
+</body>
+</html>

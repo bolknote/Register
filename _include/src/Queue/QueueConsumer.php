@@ -102,6 +102,14 @@ final readonly class QueueConsumer
         return true;
     }
 
+    /** Checks the due-job index without claiming or mutating queue state. */
+    public function hasRunnableJob(?int $now = null, ?QueueExecutionBudget $budget = null): bool
+    {
+        $now ??= time();
+        $budget ??= new QueueExecutionBudget(30.0);
+        return $budget->canStart() && $this->fetchRunnableJob($now, $budget) !== null;
+    }
+
     private function deferForBudget(
         string                  $id,
         string                  $code,

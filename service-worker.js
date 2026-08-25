@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'register-offline-v1';
+const CACHE_NAME = 'register-offline-v3';
 const OFFLINE_CACHE_HEADER = 'X-Register-Offline-Cache';
 const OFFLINE_CACHE_HEADER_VALUE = 'public';
 const OFFLINE_TIMING_NAME = 'register-offline';
@@ -94,7 +94,7 @@ async function navigationResponse(request) {
     let response;
 
     try {
-        response = await fetch(request);
+        response = await fetch(new Request(request, {cache: 'no-cache'}));
     } catch (_error) {
         const cached = await cache.match(request);
         if (cached) {
