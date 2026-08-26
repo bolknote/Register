@@ -35,6 +35,8 @@ try {
     $expectations = [
         '/_cache/register_styles.deadbeef.css'          => 200,
         '/_cache/register_scripts.deadbeef.js.gz'       => 200,
+        '/_cache/register_styles.deadbeef.css.br'       => 200,
+        '/_cache/register_styles.deadbeef.css.zst'      => 200,
         '/_cache/register_styles.deadbeef.css.meta.php' => 403,
         '/_cache/register_config.php'                   => 403,
         '/_cache/phpstan/deadbeef.css'                  => 403,
@@ -97,6 +99,37 @@ try {
                     $expectedValue,
                 ));
             }
+        }
+    }
+
+    $identityResponse = requestResponse($port, '/_cache/register_styles.deadbeef.css');
+    if (isset($identityResponse['headers']['content-encoding'])) {
+        throw new RuntimeException('Apache encoded an asset without Accept-Encoding.');
+    }
+
+    $encodedExpectations = [
+        'gzip'                   => 'gzip',
+        'zstd'                   => 'zstd',
+        'gzip, zstd'             => 'zstd',
+        'gzip, zstd, br'         => 'br',
+        'gzip, br;q=0, zstd;q=0' => 'gzip',
+    ];
+    foreach ($encodedExpectations as $acceptEncoding => $expectedEncoding) {
+        $response = requestResponse(
+            $port,
+            '/_cache/register_styles.deadbeef.css',
+            ['Accept-Encoding' => $acceptEncoding],
+        );
+        if (($response['headers']['content-encoding'] ?? []) !== [$expectedEncoding]) {
+            throw new RuntimeException(sprintf(
+                'Apache selected an invalid encoding for Accept-Encoding: %s.',
+                $acceptEncoding,
+            ));
+        }
+        if (!isset($response['headers']['vary'])
+            || !in_array('Accept-Encoding', $response['headers']['vary'], true)
+        ) {
+            throw new RuntimeException('Apache omitted Vary: Accept-Encoding for a precompressed asset.');
         }
     }
 
@@ -202,6 +235,9 @@ function createFixtureTree(string $projectRoot, string $tempRoot, string $webRoo
     $fixtures = [
         '/index.php'                                    => '<?php echo "front controller";',
         '/_cache/register_styles.deadbeef.css'          => 'body{color:#123}',
+        '/_cache/register_styles.deadbeef.css.br'       => 'brotli fixture',
+        '/_cache/register_styles.deadbeef.css.zst'      => 'zstd fixture',
+        '/_cache/register_styles.deadbeef.css.gz'       => 'gzip fixture',
         '/_cache/register_scripts.deadbeef.js.gz'       => 'compressed fixture',
         '/_cache/register_styles.deadbeef.css.meta.php' => '<?php return ["secret" => true];',
         '/_cache/register_config.php'                   => '<?php return ["secret" => true];',
@@ -445,17 +481,28 @@ function requestStatus(int $port, string $path): int
     return requestResponse($port, $path)['status'];
 }
 
-/** @return array{status: int, headers: array<string, list<string>>} */
-function requestResponse(int $port, string $path): array
+/**
+ * @param array<string, string> $requestHeaders
+ * @return array{status: int, headers: array<string, list<string>>}
+ */
+function requestResponse(int $port, string $path, array $requestHeaders = []): array
 {
     $socket = fsockopen('127.0.0.1', $port, $errorCode, $errorMessage, 2.0);
     if ($socket === false) {
         throw new RuntimeException(sprintf('Unable to connect to Apache: %s (%d).', $errorMessage, $errorCode));
     }
 
+    $rawHeaders = '';
+    foreach ($requestHeaders as $name => $value) {
+        if (preg_match('/^[A-Za-z0-9-]+$/D', $name) !== 1 || str_contains($value, "\r") || str_contains($value, "\n")) {
+            throw new RuntimeException('Invalid Apache test request header.');
+        }
+        $rawHeaders .= $name . ': ' . $value . "\r\n";
+    }
     fwrite($socket, sprintf(
-        "GET %s HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+        "GET %s HTTP/1.1\r\nHost: 127.0.0.1\r\n%sConnection: close\r\n\r\n",
         $path,
+        $rawHeaders,
     ));
     $statusLine = fgets($socket);
     if (!is_string($statusLine) || preg_match('#^HTTP/\d(?:\.\d)?\s+(\d{3})#', $statusLine, $matches) !== 1) {

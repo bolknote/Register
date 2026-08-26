@@ -11,6 +11,7 @@ declare(strict_types = 1);
  */
 
 use Register\Http\ContentSecurityPolicy;
+use Register\Http\ResponseCompressionCache;
 use Register\Http\ResponseCompressor;
 use Register\Http\TrustedScriptNonceInjector;
 use Register\Offline\OfflineCachePolicy;
@@ -97,7 +98,9 @@ if (
 if ($response->isInformational() || $response->isEmpty() || $response->getContent() === false || $response->getContent() === '') {
     $response->send(false);
 } else {
-    $compressor = ResponseCompressor::fromEnvironment();
+    $compressor = ResponseCompressor::fromEnvironment(
+        $app->container->get(ResponseCompressionCache::class),
+    );
     $compressor->compress($request, $response);
 
     if ($compressor->canSetContentLength()) {

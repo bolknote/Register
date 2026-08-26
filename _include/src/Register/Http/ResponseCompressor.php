@@ -15,30 +15,34 @@ use Symfony\Component\HttpFoundation\Response;
 
 final readonly class ResponseCompressor
 {
-    private const int BROTLI_LEVEL = 3;
-
-    private const int GZIP_LEVEL = 6;
-
     /**
      * @param \Closure(string): (string|false)|null $brotliCompressor
      * @param \Closure(string): (string|false)|null $gzipCompressor
+     * @param \Closure(string): (string|false)|null $zstdCompressor
      */
     public function __construct(
         private ?\Closure $brotliCompressor,
         private ?\Closure $gzipCompressor,
         private bool      $managedByPhp = false,
+        private ?\Closure $zstdCompressor = null,
+        private ?ResponseCompressionCache $compressionCache = null,
     ) {
     }
 
-    public static function fromEnvironment(): self
+    public static function fromEnvironment(?ResponseCompressionCache $compressionCache = null): self
     {
         if (self::phpManagesCompression()) {
             return new self(null, null, true);
         }
 
+        $codecs = CompressionCodecRegistry::fromEnvironment();
+
         return new self(
-            self::nativeCompressor('brotli_compress', self::BROTLI_LEVEL),
-            self::nativeCompressor('gzencode', self::GZIP_LEVEL),
+            $codecs->compressor(CompressionCodecRegistry::BROTLI),
+            $codecs->compressor(CompressionCodecRegistry::GZIP),
+            false,
+            $codecs->compressor(CompressionCodecRegistry::ZSTD),
+            $compressionCache,
         );
     }
 
@@ -60,13 +64,30 @@ final readonly class ResponseCompressor
             return false;
         }
 
-        $compressor = $encoding === 'br' ? $this->brotliCompressor : $this->gzipCompressor;
+        $compressor = match ($encoding) {
+            CompressionCodecRegistry::BROTLI => $this->brotliCompressor,
+            CompressionCodecRegistry::ZSTD   => $this->zstdCompressor,
+            CompressionCodecRegistry::GZIP   => $this->gzipCompressor,
+            default                          => null,
+        };
         if (!$compressor instanceof \Closure) {
             return false;
         }
 
-        $compressed = $compressor($content);
-        if (!\is_string($compressed)) {
+        $result = $this->compressionCache?->encode($response, $encoding, $content, $compressor);
+        if ($result === null) {
+            $compressed = $compressor($content);
+            if (!\is_string($compressed)) {
+                return false;
+            }
+        } else {
+            $compressed = $result['content'];
+            if ($result['cache_status'] !== null) {
+                $response->headers->set('X-Register-Compression-Cache', $result['cache_status']);
+            }
+        }
+
+        if ($compressed === '') {
             return false;
         }
 
@@ -86,7 +107,11 @@ final readonly class ResponseCompressor
         $accepted = AcceptHeader::fromString($acceptEncoding);
         $choices  = [];
 
-        foreach (['br' => $this->brotliCompressor, 'gzip' => $this->gzipCompressor] as $encoding => $compressor) {
+        foreach ([
+            CompressionCodecRegistry::BROTLI => $this->brotliCompressor,
+            CompressionCodecRegistry::ZSTD   => $this->zstdCompressor,
+            CompressionCodecRegistry::GZIP   => $this->gzipCompressor,
+        ] as $encoding => $compressor) {
             $quality = $accepted->get($encoding)?->getQuality() ?? 0.0;
             if ($compressor instanceof \Closure && $quality > 0.0) {
                 $choices[$encoding] = $quality;
@@ -104,7 +129,11 @@ final readonly class ResponseCompressor
 
     private function canCompress(Response $response): bool
     {
-        if (!$this->brotliCompressor instanceof \Closure && !$this->gzipCompressor instanceof \Closure) {
+        if (
+            !$this->brotliCompressor instanceof \Closure
+            && !$this->zstdCompressor instanceof \Closure
+            && !$this->gzipCompressor instanceof \Closure
+        ) {
             return false;
         }
 
@@ -132,25 +161,9 @@ final readonly class ResponseCompressor
             || preg_match('~^application/(?:[a-z0-9.+-]+\+)?(?:json|xml)$~D', $mediaType) === 1;
     }
 
-    /** @return (\Closure(string): (string|false))|null */
-    private static function nativeCompressor(string $functionName, int $level): ?\Closure
-    {
-        if (!\function_exists($functionName)) {
-            return null;
-        }
-
-        $compressor = \Closure::fromCallable($functionName);
-
-        return static function (string $content) use ($compressor, $level): string|false {
-            $compressed = $compressor($content, $level);
-
-            return \is_string($compressed) ? $compressed : false;
-        };
-    }
-
     private static function phpManagesCompression(): bool
     {
-        foreach (['zlib.output_compression', 'brotli.output_compression'] as $setting) {
+        foreach (['zlib.output_compression', 'brotli.output_compression', 'zstd.output_compression'] as $setting) {
             if (self::iniFlagEnabled(ini_get($setting))) {
                 return true;
             }
@@ -159,7 +172,12 @@ final readonly class ResponseCompressor
         $handlers = [...ob_list_handlers(), (string)ini_get('output_handler')];
         foreach ($handlers as $handler) {
             $handler = strtolower($handler);
-            if (str_contains($handler, 'brotli') || str_contains($handler, 'gzhandler') || str_contains($handler, 'zlib')) {
+            if (
+                str_contains($handler, 'brotli')
+                || str_contains($handler, 'gzhandler')
+                || str_contains($handler, 'zlib')
+                || str_contains($handler, 'zstd')
+            ) {
                 return true;
             }
         }

@@ -55,7 +55,10 @@
         "web-auth/webauthn-lib": "^5.3"
     },
     "suggest": {
-        "ext-intl": "Uses ICU for higher-quality URL transliteration when available."
+        "ext-brotli": "Enables Brotli compression for dynamic responses and generated assets.",
+        "ext-intl": "Uses ICU for higher-quality URL transliteration when available.",
+        "ext-zlib": "Enables portable gzip compression for dynamic responses and generated assets.",
+        "ext-zstd": "Enables Zstandard compression for dynamic responses and generated assets."
     },
     "autoload": {
         "psr-4": {

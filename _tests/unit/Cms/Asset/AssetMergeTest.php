@@ -16,6 +16,7 @@ use Register\Core\Asset\AssetMerge;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\HttpClient\HttpClientException;
 use Register\Core\HttpClient\HttpResponse;
+use Register\Http\CompressionCodecRegistry;
 
 final class AssetMergeTest extends Unit
 {
@@ -81,6 +82,38 @@ final class AssetMergeTest extends Unit
             self::assertIsInt($compressedPermissions);
             self::assertSame(0644, $compressedPermissions & 0777);
         }
+    }
+
+    public function testWritesEveryAvailableEncodedVariant(): void
+    {
+        $source = $this->cacheDir . 'source.js';
+        file_put_contents($source, 'window.answer = 42;');
+        $registry = new CompressionCodecRegistry([
+            CompressionCodecRegistry::BROTLI => static fn(string $content): string => 'br:' . $content,
+            CompressionCodecRegistry::ZSTD   => static fn(string $content): string => 'zstd:' . $content,
+            CompressionCodecRegistry::GZIP   => static fn(string $content): string => 'gzip:' . $content,
+        ]);
+        $merge = new AssetMerge(
+            new FailingHttpClient(),
+            new RecordingLogger(),
+            $this->cacheDir,
+            '/_cache/',
+            'encoded_scripts',
+            AssetMerge::TYPE_JS,
+            false,
+            $registry,
+        );
+        $merge->concat($source);
+        $merge->getMergedPaths();
+
+        $generatedFiles = glob($this->cacheDir . 'encoded_scripts.*.js');
+        self::assertIsArray($generatedFiles);
+        self::assertCount(1, $generatedFiles);
+        $content = file_get_contents($generatedFiles[0]);
+        self::assertIsString($content);
+        self::assertSame('br:' . $content, file_get_contents($generatedFiles[0] . '.br'));
+        self::assertSame('zstd:' . $content, file_get_contents($generatedFiles[0] . '.zst'));
+        self::assertSame('gzip:' . $content, file_get_contents($generatedFiles[0] . '.gz'));
     }
 
     private function removeDir(string $dir): void

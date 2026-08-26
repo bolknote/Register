@@ -42,7 +42,7 @@ provides these rules:
 - source, tests, tools, configuration, database, logs, private cache entries, and dependency
   metadata are denied;
 - the only public Composer files are AdminYard's exact `demo/style.css` and `demo/script.js` assets;
-- only generated top-level `_cache/<name>.<hex>.css|js[.gz]` bundles are public;
+- only generated top-level `_cache/<name>.<hex>.css|js[.br|.gz|.zst]` bundles are public;
 - upload directories disable CGI/PHP handlers and deny active document formats.
 - when `mod_headers` is available, `nosniff`, the referrer policy, and the camera/microphone/location
   restrictions apply to dynamic responses, static assets, uploads, and access-denied responses.
@@ -73,6 +73,22 @@ curl --fail-with-body --head https://example.com/_include/common.php
 If any command succeeds, stop the deployment and fix `AllowOverride`/`mod_rewrite`; do not continue
 installation with a publicly readable configuration boundary.
 
+Generated CSS/JavaScript bundles receive ready gzip sidecars whenever PHP has zlib. Brotli and Zstd
+sidecars are generated too when their PHP extensions are installed. On a host with shell access,
+the operator can prepare every available variant after warming the public pages without doing that
+work in an HTTP request:
+
+```bash
+php tools/precompress-assets.php
+```
+
+The command uses native PHP encoders first and then optional `brotli`, `zstd`, or `gzip` executables.
+Apache serves these files through the bundled `_cache/.htaccess` rules and falls back to the original
+asset when the browser or server lacks a codec. Dynamic responses independently negotiate the same
+codecs in PHP; deterministic page-cache responses reuse a content-addressed encoded representation.
+Changing a page changes that key immediately, while expired representations are collected by the
+normal cache backend.
+
 ## Nginx
 
 Nginx does not read `.htaccess`. Start from
@@ -91,7 +107,7 @@ Recommended modes are:
 | private cache metadata and encrypted backup archives | `0600` | contain private state even though backups are encrypted at rest |
 | `_cache/` | `0750` | writable private application state |
 | private backup directories | `0700` | encrypted archives and plaintext work files are accessible only to the PHP account |
-| generated `_cache/*.css`, `_cache/*.js`, public uploads and thumbnails | `0644` | web server must serve them as data |
+| generated `_cache/*.css`, `_cache/*.js`, their `.br`/`.gz`/`.zst` variants, public uploads and thumbnails | `0644` | web server must serve them as data |
 | `_pictures/` and its public subdirectories | `0755` | web server must traverse and read uploads |
 
 Do not use `0777`. Register sets safe modes after writing sensitive files, but ownership and parent

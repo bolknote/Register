@@ -5,7 +5,61 @@ Options -Indexes -ExecCGI
 RemoveHandler .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi .pl .py .sh .shtml
 RemoveType .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi .pl .py .sh .shtml
 
-<FilesMatch "(?i)^(?![a-z0-9_-]+\.[0-9a-f]+\.(?:css|js)(?:\.gz)?$)">
+<IfModule mod_rewrite.c>
+    <IfModule mod_headers.c>
+        RewriteEngine On
+
+        # Prefer ready sidecars and never start an encoder process in a web request.
+        # Explicit q=0 exclusions are respected; clients without a supported encoding
+        # continue to receive the original CSS/JavaScript file.
+        RewriteCond %{HTTP:Accept-Encoding} (^|,)[[:space:]]*br([[:space:]]*;[^,]*)?([[:space:]]*,|$) [NC]
+        RewriteCond %{HTTP:Accept-Encoding} !(^|,)[[:space:]]*br[[:space:]]*;[[:space:]]*q[[:space:]]*=[[:space:]]*0(\.0*)?([[:space:]]*,|$) [NC]
+        RewriteCond %{REQUEST_FILENAME}.br -f
+        RewriteRule ^(.+\.(?:css|js))$ $1.br [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
+
+        RewriteCond %{HTTP:Accept-Encoding} (^|,)[[:space:]]*zstd([[:space:]]*;[^,]*)?([[:space:]]*,|$) [NC]
+        RewriteCond %{HTTP:Accept-Encoding} !(^|,)[[:space:]]*zstd[[:space:]]*;[[:space:]]*q[[:space:]]*=[[:space:]]*0(\.0*)?([[:space:]]*,|$) [NC]
+        RewriteCond %{REQUEST_FILENAME}.zst -f
+        RewriteRule ^(.+\.(?:css|js))$ $1.zst [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
+
+        RewriteCond %{HTTP:Accept-Encoding} (^|,)[[:space:]]*gzip([[:space:]]*;[^,]*)?([[:space:]]*,|$) [NC]
+        RewriteCond %{HTTP:Accept-Encoding} !(^|,)[[:space:]]*gzip[[:space:]]*;[[:space:]]*q[[:space:]]*=[[:space:]]*0(\.0*)?([[:space:]]*,|$) [NC]
+        RewriteCond %{REQUEST_FILENAME}.gz -f
+        RewriteRule ^(.+\.(?:css|js))$ $1.gz [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
+    </IfModule>
+</IfModule>
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.br$">
+        Header set Content-Encoding "br"
+        Header merge Vary "Accept-Encoding"
+    </FilesMatch>
+    <FilesMatch "\.zst$">
+        Header set Content-Encoding "zstd"
+        Header merge Vary "Accept-Encoding"
+    </FilesMatch>
+    <FilesMatch "\.gz$">
+        Header set Content-Encoding "gzip"
+        Header merge Vary "Accept-Encoding"
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_env.c>
+    <FilesMatch "\.(?:br|gz|zst)$">
+        SetEnv no-gzip 1
+        SetEnv no-brotli 1
+        SetEnv no-zstd 1
+    </FilesMatch>
+</IfModule>
+
+<FilesMatch "\.css\.(?:br|gz|zst)$">
+    ForceType text/css
+</FilesMatch>
+<FilesMatch "\.js\.(?:br|gz|zst)$">
+    ForceType application/javascript
+</FilesMatch>
+
+<FilesMatch "(?i)^(?![a-z0-9_-]+\.[0-9a-f]+\.(?:css|js)(?:\.(?:br|gz|zst))?$)">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

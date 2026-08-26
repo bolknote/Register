@@ -19,6 +19,7 @@ use Register\Http\ContentSecurityPolicy;
 use Register\Http\CspViolationReportController;
 use Register\Http\CspViolationReporter;
 use Register\Http\InlineStyleAttributeStripper;
+use Register\Http\ResponseCompressionCache;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use Register\Core\Asset\AssetMergeFactory;
 use Register\Core\Comment\AkismetProxy;
@@ -212,6 +213,10 @@ class CmsExtension implements ExtensionInterface
             $container->getFloatParameter('boot_timestamp'),
         ), [StatefulServiceInterface::class]);
         $container->set('config_cache', fn(Container $container): \Symfony\Component\Cache\Adapter\FilesystemAdapter => new FilesystemAdapter('config', 0, $container->getStringParameter('cache_dir')));
+        $container->set(ResponseCompressionCache::class, fn(Container $container): ResponseCompressionCache => new ResponseCompressionCache(
+            new FilesystemAdapter('response_encoding', 3600, $container->getStringParameter('cache_dir')),
+            $container->getBoolParameter('disable_cache'),
+        ));
 
         $container->set(DynamicSecretParameterRegistry::class, new DynamicSecretParameterRegistry([
                 'REGISTER_AKISMET_KEY',

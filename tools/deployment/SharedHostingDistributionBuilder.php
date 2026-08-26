@@ -39,6 +39,7 @@ final readonly class SharedHostingDistributionBuilder
         'check-activitypub-interoperability.php',
         'decrypt-backup.php',
         'generate-backup-keypair.php',
+        'precompress-assets.php',
         'restore-activitypub-identity.php',
     ];
 

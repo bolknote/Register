@@ -77,6 +77,14 @@ final class DevelopmentRouterPolicyTest extends Unit
             '/_cache/register_scripts.2dae6f3b.js.gz',
             'gz',
         ));
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile(
+            '/_cache/register_scripts.2dae6f3b.js.br',
+            'br',
+        ));
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile(
+            '/_cache/register_styles.1a2d1713.css.zst',
+            'zst',
+        ));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile(
             '/_cache/register_styles.1a2d1713.css.meta.php',
             'php',

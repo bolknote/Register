@@ -47,6 +47,7 @@ use Register\AdminYard\TemplateRenderer;
 use Register\AdminYard\Translator;
 use Register\Core\Admin\Dashboard\DashboardBlockProviderInterface;
 use Register\Core\Admin\Dashboard\DashboardConfigExtender;
+use Register\Core\Admin\Dashboard\DashboardCompressionProvider;
 use Register\Core\Admin\Dashboard\DashboardDatabaseProvider;
 use Register\Core\Admin\Dashboard\DashboardEnvironmentProvider;
 use Register\Core\Admin\Dashboard\DashboardPerformanceProvider;
@@ -434,6 +435,11 @@ class AdminExtension implements ExtensionInterface
         $container->set(DashboardPerformanceProvider::class, fn(Container $container): DashboardPerformanceProvider => new DashboardPerformanceProvider(
             $container->get(TemplateRenderer::class),
             $container->get(RequestPerformanceInspector::class),
+        ), [SystemStatusProviderInterface::class]);
+        $container->set(DashboardCompressionProvider::class, fn(Container $container): DashboardCompressionProvider => new DashboardCompressionProvider(
+            $container->get(TemplateRenderer::class),
+            $container->getStringParameter('public_root_dir') . '_cache/',
+            !$container->getBoolParameter('disable_cache'),
         ), [SystemStatusProviderInterface::class]);
         $container->set(QueryProfilerToken::class, fn(Container $container): QueryProfilerToken => new QueryProfilerToken(
             $container->get(SettingStorageInterface::class),

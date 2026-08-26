@@ -14,6 +14,7 @@ use MatthiasMullie\Minify\JS;
 use MatthiasMullie\Minify\Minify;
 use Psr\Log\LoggerInterface;
 use Register\Core\HttpClient\HttpClient;
+use Register\Http\CompressionCodecRegistry;
 use Symfony\Component\Filesystem\Filesystem;
 
 class AssetMerge implements AssetMergeInterface
@@ -40,6 +41,8 @@ class AssetMerge implements AssetMergeInterface
 
     private ?Filesystem $filesystem = null;
 
+    private readonly CompressionCodecRegistry $compressionCodecs;
+
     public function __construct(
         private readonly HttpClient $httpClient,
         private readonly LoggerInterface $logger,
@@ -47,8 +50,10 @@ class AssetMerge implements AssetMergeInterface
         private readonly string     $publicCachePath,
         private readonly string     $cacheFilenamePrefix,
         private readonly string     $type,
-        private readonly bool       $devEnv
+        private readonly bool       $devEnv,
+        ?CompressionCodecRegistry   $compressionCodecs = null,
     ) {
+        $this->compressionCodecs = $compressionCodecs ?? CompressionCodecRegistry::fromEnvironment();
     }
 
     /**
@@ -129,15 +134,7 @@ class AssetMerge implements AssetMergeInterface
 
         $this->fileSystem()->dumpFile($this->getDumpFilename(), $content);
         $this->setFileMode($this->getDumpFilename(), 0644);
-        if (\function_exists('gzencode')) {
-            $compressedContent = gzencode($content, 6);
-            if ($compressedContent === false) {
-                throw new \RuntimeException('Unable to compress merged assets.');
-            }
-
-            $this->fileSystem()->dumpFile($this->getDumpFilename() . '.gz', $compressedContent);
-            $this->setFileMode($this->getDumpFilename() . '.gz', 0644);
-        }
+        $this->dumpEncodedVariants($content);
 
         $this->fileSystem()->remove($this->getDumpTempFilename());
         $this->mergedHash = md5($content);
@@ -271,6 +268,36 @@ class AssetMerge implements AssetMergeInterface
     {
         if (!chmod($filename, $mode)) {
             throw new \RuntimeException('Unable to set safe permissions on generated asset: ' . $filename);
+        }
+    }
+
+    private function dumpEncodedVariants(string $content): void
+    {
+        $suffixes = [
+            CompressionCodecRegistry::BROTLI => '.br',
+            CompressionCodecRegistry::ZSTD   => '.zst',
+            CompressionCodecRegistry::GZIP   => '.gz',
+        ];
+        $this->fileSystem()->remove(array_map(
+            fn(string $suffix): string => $this->getDumpFilename() . $suffix,
+            array_values($suffixes),
+        ));
+
+        foreach ($suffixes as $encoding => $suffix) {
+            $compressor = $this->compressionCodecs->compressor($encoding);
+            if (!$compressor instanceof \Closure) {
+                continue;
+            }
+
+            $compressedContent = $compressor($content);
+            if (!\is_string($compressedContent)) {
+                $this->logger->warning('Unable to compress generated asset.', ['encoding' => $encoding]);
+                continue;
+            }
+
+            $filename = $this->getDumpFilename() . $suffix;
+            $this->fileSystem()->dumpFile($filename, $compressedContent);
+            $this->setFileMode($filename, 0644);
         }
     }
 }

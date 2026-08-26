@@ -11,6 +11,8 @@ namespace unit\Register\Http;
 
 use Codeception\Test\Unit;
 use Register\Http\ResponseCompressor;
+use Register\Http\ResponseCompressionCache;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -46,7 +48,43 @@ final class ResponseCompressorTest extends Unit
         $response = $this->response();
 
         self::assertTrue($this->compressor()->compress($this->request('*;q=0.5, br;q=0'), $response));
-        self::assertSame('gzip', $response->headers->get('Content-Encoding'));
+        self::assertSame('zstd', $response->headers->get('Content-Encoding'));
+    }
+
+    public function testSupportsZstdAndHonorsItsQuality(): void
+    {
+        $response = $this->response();
+
+        self::assertTrue($this->compressor()->compress($this->request('br;q=0.2, zstd;q=1, gzip;q=0.8'), $response));
+        self::assertSame('zstd', $response->headers->get('Content-Encoding'));
+        self::assertSame('zstd:Compress me', $response->getContent());
+    }
+
+    public function testCachesEncodedDeterministicPageResponsesByContent(): void
+    {
+        $countingCompressor = new CountingCompressor();
+        $cache = new ResponseCompressionCache(new ArrayAdapter());
+        $compressor = new ResponseCompressor(
+            null,
+            $countingCompressor->compress(...),
+            false,
+            null,
+            $cache,
+        );
+
+        $first = $this->cachedResponse('Compress me');
+        self::assertTrue($compressor->compress($this->request('gzip'), $first));
+        self::assertSame('miss', $first->headers->get('X-Register-Compression-Cache'));
+
+        $second = $this->cachedResponse('Compress me');
+        self::assertTrue($compressor->compress($this->request('gzip'), $second));
+        self::assertSame('hit', $second->headers->get('X-Register-Compression-Cache'));
+        self::assertSame('gzip:Compress me', $second->getContent());
+
+        $changed = $this->cachedResponse('Changed');
+        self::assertTrue($compressor->compress($this->request('gzip'), $changed));
+        self::assertSame('miss', $changed->headers->get('X-Register-Compression-Cache'));
+        self::assertSame(2, $countingCompressor->calls);
     }
 
     public function testDoesNotTransformAnEncodedOrBinaryResponse(): void
@@ -80,6 +118,8 @@ final class ResponseCompressorTest extends Unit
         return new ResponseCompressor(
             static fn(string $content): string => 'brotli:' . $content,
             static fn(string $content): string => 'gzip:' . $content,
+            false,
+            static fn(string $content): string => 'zstd:' . $content,
         );
     }
 
@@ -91,5 +131,26 @@ final class ResponseCompressorTest extends Unit
     private function response(): Response
     {
         return new Response('Compress me', headers: ['Content-Type' => 'text/html; charset=UTF-8']);
+    }
+
+    private function cachedResponse(string $content): Response
+    {
+        return new Response($content, headers: [
+            'Content-Type'          => 'text/html; charset=UTF-8',
+            'ETag'                  => '"stable-etag"',
+            'X-Register-Page-Cache' => 'hit',
+        ]);
+    }
+}
+
+final class CountingCompressor
+{
+    public int $calls = 0;
+
+    public function compress(string $content): string
+    {
+        ++$this->calls;
+
+        return 'gzip:' . $content;
     }
 }

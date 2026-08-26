@@ -96,6 +96,26 @@ When Apache provides `mod_headers`, it must include `X-Content-Type-Options: nos
 `Permissions-Policy: camera=(), microphone=(), geolocation=()`. The application emits the same
 headers for dynamic pages, but only the web-server rule can cover static files and denied requests.
 
+## Response compression
+
+Register always works without optional compression modules. With PHP zlib it negotiates gzip for
+dynamic HTML and stores ready gzip representations of deterministic cached pages. PHP Brotli and
+Zstd extensions are detected automatically when available. Generated CSS/JavaScript bundles have
+sidecar files, and the packaged Apache rules select `.br`, `.zst`, or `.gz` only for clients that
+advertise the matching content encoding; otherwise Apache serves the original file.
+
+Shell access is not required. If it is available, warm the public site once and prepare any variants
+supported by installed command-line tools:
+
+```bash
+php tools/precompress-assets.php
+```
+
+This is a deployment or maintenance command, not a per-request worker. It may use the optional
+`brotli`, `zstd`, and `gzip` executables. The **System status → Response compression** block shows
+the encoders visible to web PHP, available offline precompression, ready sidecar counts, and whether
+the encoded page cache is enabled.
+
 ## Updating an existing site
 
 After the first updater-capable release has been installed, use **System → Software update** in the

@@ -314,6 +314,7 @@ class AdminCest
         $I->amOnPage('https://localhost/_admin/index.php?entity=SystemStatus');
         $I->see('System status', 'h1#system-status-title');
         $I->see('Environment', '.environment-stat-item h3');
+        $I->see('Response compression', '.compression-stat-item h3');
         $I->see('PHP', '.environment-stat-item dt');
         $I->see('Database', '.environment-stat-item');
         $I->see('Security monitoring', '.security-stat-item h3');
