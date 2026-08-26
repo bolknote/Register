@@ -409,6 +409,11 @@ class InstallCest
 
         $I->amOnPage('/index.php?/rss');
         $I->seeResponseCodeIsSuccessful();
+
+        $rssHeaders = $I->grabHeaders();
+        $I->assertSame(['application/rss+xml; charset=utf-8'], $rssHeaders['Content-Type'] ?? []);
+        $I->assertStringContainsString('public', $rssHeaders['Cache-Control'][0] ?? '');
+        $I->assertArrayNotHasKey('Pragma', $rssHeaders);
         $I->canSee('Register');
         $I->canSee('My blog');
         $I->canSee('New Blog Post Title');

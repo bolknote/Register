@@ -25,6 +25,8 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 readonly class RssController implements ControllerInterface
 {
+    private const int CACHE_TTL = 600;
+
     public function __construct(
         private RssStrategyInterface     $rssStrategy,
         private UrlBuilder               $urlBuilder,
@@ -41,19 +43,11 @@ readonly class RssController implements ControllerInterface
     {
         $this->eventDispatcher->dispatch(new RssHitEvent($request, $this->rssStrategy));
 
-        $modifiedSince   = $request->headers->get('If-Modified-Since');
-        $lastRequestTime = $modifiedSince !== null ? strtotime($modifiedSince) : 0;
-
         $maxContentTime = 0;
         $items          = '';
 
         foreach ($this->rssStrategy->getFeedItems() as $item) {
             $itemUpdatedAt = max($item->modifyTime, $item->time);
-            if ($itemUpdatedAt <= $lastRequestTime) {
-                // We have already sent this item in the previous response
-                continue;
-            }
-
             $maxContentTime = max($maxContentTime, $itemUpdatedAt);
 
             $webmaster = $this->webmaster->get();
@@ -62,13 +56,9 @@ readonly class RssController implements ControllerInterface
             }
 
             $this->eventDispatcher->dispatch(new FeedItemRenderEvent($item));
-            $item->text = $this->absoluteHtml($item->text);
+            $item->text = $this->feedCompatibleHtml($this->absoluteHtml($item->text));
 
             $items .= $this->viewer->render('rss_item', ['item' => $item]);
-        }
-
-        if ($items === '' && $lastRequestTime > 0) {
-            return new Response(null, Response::HTTP_NOT_MODIFIED);
         }
 
         $feedInfo = $this->rssStrategy->getFeedInfo();
@@ -90,10 +80,24 @@ readonly class RssController implements ControllerInterface
 
         $response = new Response($output);
         $response->headers->set('Content-Length', (string)\strlen($output));
-        $response->headers->set('Content-Type', 'text/xml; charset=utf-8');
-        $response->setLastModified(new \DateTimeImmutable('@' . $maxContentTime));
+        $response->headers->set('Content-Type', 'application/rss+xml; charset=utf-8');
+        $response->setPublic();
+        $response->setMaxAge(self::CACHE_TTL);
+        $response->setSharedMaxAge(self::CACHE_TTL);
+        if ($maxContentTime > 0) {
+            $response->setLastModified(new \DateTimeImmutable('@' . $maxContentTime));
+            $response->isNotModified($request);
+        }
 
         return $response;
+    }
+
+    /** Removes markup that commonly makes otherwise valid RSS fail in stricter readers. */
+    private function feedCompatibleHtml(string $html): string
+    {
+        $html = preg_replace('#<style\b[^>]*>.*?</style\s*>#is', '', $html) ?? $html;
+
+        return preg_replace('#</?nobr\b[^>]*>#i', '', $html) ?? $html;
     }
 
     private function absoluteHtml(string $html): string

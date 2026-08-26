@@ -22,6 +22,10 @@ final class ContentRssCest
         $I->amOnPage('/rss.xml?reader=legacy');
         $I->seeResponseCodeIs(Response::HTTP_MOVED_PERMANENTLY);
         $I->seeLocationIs('/rss?reader=legacy');
+
+        $I->amOnPage('/rss/?reader=trailing-slash');
+        $I->seeResponseCodeIs(Response::HTTP_MOVED_PERMANENTLY);
+        $I->seeLocationIs('/rss?reader=trailing-slash');
     }
 
     public function publishesOnlyTheTenNewestPostsAndRecordsTheBlogFeed(\IntegrationTester $I): void
@@ -32,11 +36,13 @@ final class ContentRssCest
             $this->insertContent(
                 $dbLayer,
                 ContentType::POST,
-                'RSS post ' . $number,
+                $number === 11 ? 'RSS & post 11' : 'RSS post ' . $number,
                 'rss-post-' . $number,
                 true,
                 1_700_000_000 + $number,
-                $number === 11 ? '<p>RSS post 11 body $$x^2$$</p>' : null,
+                $number === 11
+                    ? '<style>.feed-only { color: red; }</style><p>RSS post 11 body <nobr>$$x^2$$</nobr></p>'
+                    : null,
             );
         }
 
@@ -45,23 +51,51 @@ final class ContentRssCest
 
         $I->sendRequestWithHeaders('/rss', ['User-Agent' => 'Register RSS integration reader']);
         $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->seeHttpHeader('Content-Type', 'application/rss+xml; charset=utf-8');
+
+        $cacheControl = $I->grabHttpHeader('Cache-Control');
+        $I->assertNotNull($cacheControl);
+        $I->assertStringContainsString('public', $cacheControl);
+        $I->assertStringContainsString('max-age=600', $cacheControl);
 
         $xml = $I->grabResponse();
         $I->assertStringContainsString('<atom:link href="http://register.localhost/rss" rel="self"', $xml);
         $I->assertStringNotContainsString('/rss.xml', $xml);
-        $I->assertStringContainsString('RSS post 11', $xml);
+        $I->assertStringContainsString('<title>RSS &amp; post 11</title>', $xml);
+        $I->assertStringNotContainsString('&amp;amp;', $xml);
         $I->assertStringContainsString('/rss-post-11', $xml);
         $I->assertStringNotContainsString('RSS post 1</title>', $xml);
         $I->assertStringNotContainsString('RSS draft', $xml);
         $I->assertStringNotContainsString('RSS page', $xml);
         $I->assertStringContainsString('$$x^2$$', $xml);
         $I->assertStringNotContainsString('<img', $xml);
+        $I->assertStringNotContainsString('&lt;nobr', $xml);
+        $I->assertStringNotContainsString('&lt;style', $xml);
         $I->assertSame(10, substr_count($xml, '<item>'));
+
+        $document = new \DOMDocument();
+        $I->assertTrue($document->loadXML($xml));
 
         $lastModified = $I->grabHttpHeader('Last-Modified');
         $I->assertNotNull($lastModified);
         $I->sendRequestWithHeaders('/rss', ['If-Modified-Since' => $lastModified]);
         $I->seeResponseCodeIs(Response::HTTP_NOT_MODIFIED);
+
+        $this->insertContent(
+            $dbLayer,
+            ContentType::POST,
+            'RSS post 12',
+            'rss-post-12',
+            true,
+            1_700_000_012,
+        );
+        $I->sendRequestWithHeaders('/rss', ['If-Modified-Since' => $lastModified]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $updatedXml = $I->grabResponse();
+        $I->assertSame(10, substr_count($updatedXml, '<item>'));
+        $I->assertStringContainsString('RSS post 12', $updatedXml);
+        $I->assertStringContainsString('RSS &amp; post 11', $updatedXml);
 
         $channel = $dbLayer
             ->select('channel')

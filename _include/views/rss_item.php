@@ -8,7 +8,7 @@ declare(strict_types = 1);
 
 ?>
 			<item>
-				<title><?php echo register_htmlencode(register_htmlencode($item->title)); ?></title>
+				<title><?php echo register_htmlencode($item->title); ?></title>
 				<link><?php echo register_htmlencode($item->link); ?></link>
 				<description><?php echo register_htmlencode($item->text); ?></description>
 <?php if (!empty($item->author)) {?>

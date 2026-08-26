@@ -771,6 +771,12 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
+        $routes->add('blog_rss_trailing_slash', new Route(
+            '/rss/',
+            ['_controller' => LegacyRssRedirectController::class],
+            options: ['utf8' => true],
+            methods: ['GET'],
+        ), $priority);
         $routes->add('blog_json_feed', new Route(
             '/feed.json',
             ['_controller' => 'register_blog.json_feed_controller'],

@@ -69,9 +69,13 @@ if ($trustedInlineElementNum > 0) {
     $response->headers->remove('Last-Modified');
 }
 
-// Disable cache since all the pages are generated dynamically. We only use conditional GET.
-$response->headers->set('Pragma', 'no-cache');
-$response->setExpires(new DateTimeImmutable('-1 day'));
+// Dynamic pages use conditional GET only. Controllers for genuinely public resources
+// (for example RSS) can opt into an explicit cache lifetime.
+if (!$response->headers->hasCacheControlDirective('public')) {
+    $response->headers->set('Pragma', 'no-cache');
+    $response->setExpires(new DateTimeImmutable('-1 day'));
+}
+
 $response->isNotModified($request);
 
 $response->prepare($request);
