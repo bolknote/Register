@@ -441,17 +441,59 @@ final class PublicAuthCest
             parentId: $parentId,
         );
         $this->insertComment($dbLayer, $unrelatedId, 'Unrelated', 'unrelated@example.test');
+        $pendingComment = $this->insertComment(
+            $dbLayer,
+            $unrelatedId,
+            'Pending moderation',
+            'pending@example.test',
+            shown: false,
+            sent: false,
+        );
+        $this->insertComment(
+            $dbLayer,
+            $unrelatedId,
+            'Handled spam',
+            'spam@example.test',
+            shown: false,
+            sent: true,
+        );
+        $pendingState = $dbLayer
+            ->select('shown, sent, deleted')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $pendingComment)
+            ->execute()
+            ->fetchAssoc();
+        $I->assertSame(['shown' => 0, 'sent' => 0, 'deleted' => 0], $pendingState);
 
-        $I->assertSame(3, $notifications->countUnread($user));
+        $I->assertSame(4, $notifications->countUnread($user));
+        $I->assertSame(3, $notifications->countUnread(new AuthenticatedPublicUser(
+            $user->id,
+            $user->login,
+            $user->email,
+            $user->name,
+            false,
+            false,
+            false,
+            false,
+            false,
+            $user->sessionHash,
+        )));
         $I->assertSame($ownedComment, $notifications->firstUnread($user)?->commentId);
 
         $notifications->markContentRead($user, ContentId::page($ownedId));
-        $I->assertSame(2, $notifications->countUnread($user));
+        $I->assertSame(3, $notifications->countUnread($user));
         $I->assertSame($subscribedComment, $notifications->firstUnread($user)?->commentId);
 
         $notifications->markContentRead($user, ContentId::page($subscribedId));
-        $I->assertSame(1, $notifications->countUnread($user));
+        $I->assertSame(2, $notifications->countUnread($user));
         $I->assertSame($replyComment, $notifications->firstUnread($user)?->commentId);
+
+        $notifications->markContentRead($user, ContentId::page($replyId));
+        $I->assertSame(1, $notifications->countUnread($user));
+        $I->assertSame($pendingComment, $notifications->firstUnread($user)?->commentId);
+
+        $notifications->markContentRead($user, ContentId::page($unrelatedId));
+        $I->assertSame(0, $notifications->countUnread($user));
     }
 
     private function callbackUrl(string $message): string
@@ -519,6 +561,8 @@ final class PublicAuthCest
         ?int $userId = null,
         ?int $parentId = null,
         bool $subscribed = false,
+        bool $shown = true,
+        bool $sent = true,
     ): int {
         $dbLayer
             ->insert(CommentSchema::TABLE_NAME)
@@ -532,8 +576,8 @@ final class PublicAuthCest
             ->setValue('nick', ':nick')->setParameter('nick', $name)
             ->setValue('email', ':email')->setParameter('email', $email)
             ->setValue('subscribed', $subscribed ? '1' : '0')
-            ->setValue('shown', '1')
-            ->setValue('sent', '1')
+            ->setValue('shown', $shown ? '1' : '0')
+            ->setValue('sent', $sent ? '1' : '0')
             ->setValue('good', '0')
             ->setValue('text', "'<p>Visible comment</p>'")
             ->execute();

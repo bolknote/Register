@@ -26,7 +26,7 @@ $initials = $user instanceof \Register\Core\Model\AuthenticatedPublicUser
     </a>
 <?php else: ?>
     <?php if ($unread > 0): ?>
-    <a class="public-auth-unread" href="<?php echo register_htmlencode($unread_url); ?>" title="<?php echo register_htmlencode($trans('N unread comments', ['%count%' => $unread])); ?>" aria-label="<?php echo register_htmlencode($trans('N unread comments', ['%count%' => $unread])); ?>" data-register-native-navigation>
+    <a class="public-auth-unread" href="<?php echo register_htmlencode($unread_url); ?>" title="<?php echo register_htmlencode($trans('N unread comments', ['%count%' => $unread])); ?>" aria-label="<?php echo register_htmlencode($trans('N unread comments', ['%count%' => $unread])); ?>" data-unread-comments-count="<?php echo $unread; ?>" data-register-native-navigation>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.5 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h9.5a4 4 0 0 1 4 4Z"></path></svg>
         <span><?php echo $unread > 99 ? '99+' : $unread; ?></span>
     </a>

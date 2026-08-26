@@ -94,11 +94,13 @@ final readonly class CommentNotificationRepository
             . ' LEFT JOIN ' . $prefix . 'comments AS parent_comment ON parent_comment.id = c.parent_id'
             . ' LEFT JOIN ' . $prefix . 'comment_notification_reads AS nr'
             . ' ON nr.user_id = :read_user_id AND nr.comment_id = c.id'
-            . ' WHERE c.shown = 1 AND c.deleted = 0 AND c.id > nu.initial_comment_id'
+            . ' WHERE c.deleted = 0 AND c.id > nu.initial_comment_id'
             . ' AND nr.comment_id IS NULL'
             . ' AND (c.user_id IS NULL OR c.user_id <> :own_user_id)'
             . " AND (c.email = '' OR LOWER(c.email) <> LOWER(:own_email))"
             . ' AND ('
+            . " (c.shown = 0 AND c.sent = 0 AND :include_pending = '1')"
+            . ' OR (c.shown = 1 AND ('
             . ' content_item.author_id = :author_user_id'
             . ' OR parent_comment.user_id = :parent_user_id'
             . " OR (parent_comment.email <> '' AND LOWER(parent_comment.email) = LOWER(:parent_email))"
@@ -110,7 +112,7 @@ final readonly class CommentNotificationRepository
             . ' AND own_comment.deleted = 0'
             . ' AND own_comment.subscribed = 1'
             . ' AND (own_comment.user_id = :participant_user_id'
-            . " OR (own_comment.email <> '' AND LOWER(own_comment.email) = LOWER(:participant_email))))"
+            . " OR (own_comment.email <> '' AND LOWER(own_comment.email) = LOWER(:participant_email))))))"
             . ')';
         if ($first) {
             $sql .= ' ORDER BY c.id ASC LIMIT 1';
@@ -121,6 +123,7 @@ final readonly class CommentNotificationRepository
             'read_user_id'        => $user->id,
             'own_user_id'         => $user->id,
             'own_email'           => $user->email,
+            'include_pending'     => $user->canHideComments || $user->canEditComments ? 1 : 0,
             'author_user_id'      => $user->id,
             'parent_user_id'      => $user->id,
             'parent_email'        => $user->email,

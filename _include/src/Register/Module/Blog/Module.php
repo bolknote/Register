@@ -177,9 +177,6 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(PostFeedRenderer::class),
                 $provider->getStringProxy('REGISTER_SITE_NAME'),
                 $provider->getStringProxy(SiteHeaderRenderer::TAGLINE_CONFIG_KEY),
-                $container->get(AuthProvider::class),
-                $container->get(\Register\Comment\CommentRepository::class),
-                $container->get(LiveUpdateContext::class),
                 $container->get(\Register\Auth\PublicAuthRenderer::class),
             );
         });

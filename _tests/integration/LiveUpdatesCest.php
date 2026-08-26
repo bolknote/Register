@@ -9,10 +9,12 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Auth\CommentNotificationRepository;
 use Register\Comment\CommentRepository;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Live\LiveUpdateRepository;
 use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Response;
@@ -100,7 +102,7 @@ final class LiveUpdatesCest
         );
     }
 
-    public function updatesThePendingCommentSignalForAModerator(\IntegrationTester $I): void
+    public function putsPendingModerationIntoTheRegularUnreadCounter(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -108,20 +110,35 @@ final class LiveUpdatesCest
         $updates = $I->grabService(LiveUpdateRepository::class);
         /** @var CommentRepository $comments */
         $comments = $I->grabService(CommentRepository::class);
+        /** @var CommentNotificationRepository $notifications */
+        $notifications = $I->grabService(CommentNotificationRepository::class);
 
         $postId      = $this->insertPost($dbLayer);
         $contentId   = ContentId::post($postId);
-        $pendingBefore = $comments->countPending();
-
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/');
         $I->seeElement('.site-header-tools .post-create-start[data-editor-shortcut="create"]');
-        $I->seeElement('.site-header-tools[data-live-region="site-tools"]');
-        if ($pendingBefore === 0) {
-            $I->dontSeeElement('.site-header-new-comments');
-        } else {
-            $I->seeElement('.site-header-new-comments[data-pending-comments-count="' . $pendingBefore . '"]');
-        }
+        $I->dontSeeElement('.site-header-new-comments');
+        $I->seeElement('.public-auth-account[data-live-region="site-account"]');
+        $admin = $dbLayer
+            ->select('id, email, name')
+            ->from('users')
+            ->where("login = 'admin'")
+            ->execute()
+            ->fetchAssoc();
+        $I->assertIsArray($admin);
+        $unreadBefore = $notifications->countUnread(new AuthenticatedPublicUser(
+            (int)$admin['id'],
+            'admin',
+            (string)$admin['email'],
+            (string)$admin['name'],
+            true,
+            true,
+            true,
+            true,
+            true,
+            str_repeat('a', 64),
+        ));
 
         $cursor = $updates->currentCursor();
         $commentId = $comments->save(
@@ -136,37 +153,42 @@ final class LiveUpdatesCest
 
         $query = http_build_query([
             'cursor' => $cursor,
-            'region' => ['site-tools'],
+            'region' => ['site-account'],
         ]);
         $I->sendRequestWithMethod('GET', 'https://localhost/_live?' . $query);
         $I->seeResponseCodeIs(Response::HTTP_OK);
 
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
-        $I->assertArrayHasKey('site-tools', $payload['patches']);
-        $I->assertStringContainsString('data-live-region="site-tools"', $payload['patches']['site-tools']);
+        $I->assertArrayHasKey('site-account', $payload['patches']);
+        $I->assertStringContainsString('data-live-region="site-account"', $payload['patches']['site-account']);
         $I->assertStringContainsString(
-            'data-pending-comments-count="' . ($pendingBefore + 1) . '"',
-            $payload['patches']['site-tools'],
+            'data-unread-comments-count="' . ($unreadBefore + 1) . '"',
+            $payload['patches']['site-account'],
         );
-        $I->assertStringContainsString('entity=Comment', $payload['patches']['site-tools']);
+        $I->assertStringContainsString('href="/auth/unread"', $payload['patches']['site-account']);
+        $I->assertStringNotContainsString('entity=Comment', $payload['patches']['site-account']);
+
+        $I->sendRequestWithMethod('GET', 'https://localhost/auth/unread');
+        $I->seeResponseCodeIs(Response::HTTP_FOUND);
+        $I->assertSame('/live-post#comment-' . $commentId, $I->grabHttpHeader('Location'));
 
         $cursor = (int)$payload['cursor'];
-        $comments->publish($commentId, ContentType::POST);
+        $comments->markSpam($commentId, ContentType::POST);
         $query = http_build_query([
             'cursor' => $cursor,
-            'region' => ['site-tools'],
+            'region' => ['site-account'],
         ]);
         $I->sendRequestWithMethod('GET', 'https://localhost/_live?' . $query);
         $I->seeResponseCodeIs(Response::HTTP_OK);
 
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
-        $I->assertArrayHasKey('site-tools', $payload['patches']);
-        if ($pendingBefore === 0) {
-            $I->assertStringNotContainsString('site-header-new-comments', $payload['patches']['site-tools']);
+        $I->assertArrayHasKey('site-account', $payload['patches']);
+        if ($unreadBefore === 0) {
+            $I->assertStringNotContainsString('public-auth-unread', $payload['patches']['site-account']);
         } else {
             $I->assertStringContainsString(
-                'data-pending-comments-count="' . $pendingBefore . '"',
-                $payload['patches']['site-tools'],
+                'data-unread-comments-count="' . $unreadBefore . '"',
+                $payload['patches']['site-account'],
             );
         }
     }

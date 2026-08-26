@@ -9,13 +9,10 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Model;
 
-use Register\Comment\CommentRepository;
 use Register\Auth\PublicAuthRenderer;
-use Register\Live\LiveUpdateContext;
 use Register\Module\Blog\Inplace\PostInplaceControls;
 use Register\Module\Blog\Module as BlogModule;
 use Register\Core\Config\StringProxy;
-use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Template\Viewer;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,9 +29,6 @@ final readonly class SiteHeaderRenderer
         private PostFeedRenderer    $postFeedRenderer,
         private StringProxy         $siteName,
         private StringProxy         $tagline,
-        private AuthProvider        $authProvider,
-        private CommentRepository   $commentRepository,
-        private LiveUpdateContext   $liveUpdateContext,
         private PublicAuthRenderer  $publicAuthRenderer,
     ) {
     }
@@ -52,29 +46,15 @@ final readonly class SiteHeaderRenderer
         ], BlogModule::class);
     }
 
-    public function renderTools(Request $request, bool $asLiveRegionPatch = false): string
+    public function renderTools(Request $request): string
     {
         $canCreatePost = $this->inplaceControls->editorForCreate($request) !== null;
-        $canModerate   = $this->authProvider->getAuthenticatedCommentModerator($request) !== null;
-        $liveRegion    = $canModerate || $asLiveRegionPatch;
-        if (!$canCreatePost && !$liveRegion) {
+        if (!$canCreatePost) {
             return '';
         }
 
-        if ($canModerate && !$asLiveRegionPatch) {
-            $this->liveUpdateContext->subscribeSiteTools();
-        }
-
         return $this->viewer->render('site-header-tools', [
-            'can_create_post'       => $canCreatePost,
-            'pending_comments_num' => $canModerate ? $this->commentRepository->countPending() : 0,
-            'comments_url'         => $this->urlBuilder->rawLink('/_admin/index.php', [
-                'entity=Comment',
-                'action=list',
-                'status=0',
-                'apply_filter=0',
-            ]),
-            'live_region'           => $liveRegion ? 'site-tools' : null,
+            'can_create_post' => $canCreatePost,
         ], BlogModule::class);
     }
 }
