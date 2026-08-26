@@ -126,7 +126,7 @@ class BlogPaginationCest
 
         $I->amOnPage('https://localhost/');
         $I->seeResponseCodeIs(200);
-        $I->seeElement('.post-foot-meta > .post-foot-views + .post-foot-tags.post-tag-list[aria-label="Tags"]');
+        $I->seeElement('.post-foot-meta > .post-foot-tags.post-tag-list[aria-label="Tags"] + .post-foot-views');
         $I->seeElement('.post-foot-meta .post-tag-values .post-tag-link[href="/tags/first-tag/"]');
         $I->seeElement('.post-foot-meta .post-tag-values .post-tag-link[href="/tags/second-tag/"]');
         $I->dontSeeElement('.post-foot-tags-label');

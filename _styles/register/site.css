@@ -18,6 +18,13 @@
     --error-color: #a52e22;
     --star-color: #c58b00;
     --sunday-color: #b22b25;
+    --register-surface: var(--surface-background);
+    --register-field: var(--field-background);
+    --register-text: var(--text-color);
+    --register-minor: var(--minor-color);
+    --register-border: var(--border-color);
+    --register-accent: var(--accent-color);
+    --register-ui-font: var(--ui-font);
     --page-width: 1280px;
     --article-width: 1280px;
     --text-width: 1000px;
@@ -2650,9 +2657,11 @@ h2.preview,
 }
 
 .post-foot-views {
+    min-width: 3.5rem;
     min-height: 1.5rem;
     display: inline-flex;
     flex: 0 0 auto;
+    margin-inline-start: auto;
     align-items: center;
     gap: 0.28rem;
     color: var(--minor-color);
@@ -2669,8 +2678,13 @@ h2.preview,
     flex: 0 0 auto;
     background: currentColor;
     content: "";
+    transform: translateY(0.0625rem);
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 12s3.6-6 9.5-6 9.5 6 9.5 6-3.6 6-9.5 6-9.5-6-9.5-6Z' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='12' r='2.6' fill='none' stroke='black' stroke-width='1.75'/%3E%3C/svg%3E") center / contain no-repeat;
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 12s3.6-6 9.5-6 9.5 6 9.5 6-3.6 6-9.5 6-9.5-6-9.5-6Z' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='12' r='2.6' fill='none' stroke='black' stroke-width='1.75'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.post-foot-views-count {
+    transform: translateY(0.094rem);
 }
 
 .post-foot-meta > .post-foot-tags {
@@ -2689,6 +2703,17 @@ h2.preview,
     display: inline-flex;
     align-items: center;
     line-height: 1;
+}
+
+.post.foot > .register-reactions .register-reaction-like-icon {
+    transform: translateY(-0.125rem);
+}
+
+.post.foot > .register-reactions .register-reaction-count {
+    font-family: var(--ui-font);
+    font-size: 14px;
+    line-height: 1;
+    transform: translateY(0.094rem);
 }
 
 @media (max-width: 640px) {
@@ -2716,13 +2741,13 @@ h2.preview,
 }
 
 .post.foot > .register-reactions + .post-foot-comments > a::before {
-    width: 1.28rem;
-    height: 1.28rem;
+    width: 1.34rem;
+    height: 1.34rem;
     display: block;
     flex: 0 0 auto;
     background: currentColor;
     content: "";
-    transform: translateY(-1px);
+    transform: translateY(-0.015rem);
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20.5 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h9.5a4 4 0 0 1 4 4Z' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20.5 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h9.5a4 4 0 0 1 4 4Z' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
@@ -2733,7 +2758,7 @@ h2.preview,
     font-size: 14px;
     font-variant-numeric: tabular-nums;
     line-height: 1;
-    transform: translateY(.05rem);
+    transform: translateY(0.094rem);
 }
 
 .post.foot > .register-reactions + .post-foot-comments > a[data-comment-count="0"]::after {

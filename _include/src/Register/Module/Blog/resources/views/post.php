@@ -399,8 +399,8 @@ $tagNames    = array_values(array_map(
 
     echo $footer['comments'] ?? '';
     echo '<div class="post-foot-meta">'
-        . $footer['views']
         . ($footer['tags'] ?? '')
+        . $footer['views']
         . '</div>';
 ?>
 </div>
