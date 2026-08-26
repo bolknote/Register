@@ -1309,10 +1309,25 @@ button.list-action-link-delete:focus-visible {
     gap: 0.35rem 0.7rem;
 }
 
-.config-inline-form .input-wrapper,
-.config-inline-form :is(input:not([type="checkbox"]), select, textarea) {
+form.config-inline-form .input-wrapper,
+form.config-inline-form :is(input:not([type="checkbox"]), select, textarea) {
     width: 100%;
     min-width: 0;
+}
+
+form.config-inline-form .input-wrapper {
+    display: block;
+    height: auto;
+}
+
+form.config-inline-form :is(input:not([type="checkbox"]), select, textarea),
+form.config-inline-form :is(input:not([type="checkbox"]), select, textarea):not(:focus) {
+    --border-color: var(--admin-border-color);
+    --background-color: var(--admin-field-background);
+    position: static;
+    min-height: 2.35rem;
+    border: 1px solid var(--admin-border-color);
+    background: var(--admin-field-background);
 }
 
 .config-inline-form .validation-errors {

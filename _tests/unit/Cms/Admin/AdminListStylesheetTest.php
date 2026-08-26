@@ -36,4 +36,25 @@ final class AdminListStylesheetTest extends Unit
         self::assertStringContainsString('justify-content: center;', $matches['rules']);
         self::assertStringContainsString('flex-wrap: wrap;', $matches['rules']);
     }
+
+    public function testEmptyConfigInputsKeepAVisibleEditingSurface(): void
+    {
+        $register = file_get_contents(\dirname(__DIR__, 4) . '/_admin/css/register.css');
+
+        self::assertIsString($register);
+        self::assertSame(
+            1,
+            preg_match(
+                '/form\.config-inline-form :is\(input:not\(\[type="checkbox"\]\), select, textarea\),\s*'
+                . 'form\.config-inline-form :is\(input:not\(\[type="checkbox"\]\), select, textarea\):not\(:focus\)\s*'
+                . '\{(?<rules>[^}]*)}/s',
+                $register,
+                $matches,
+            ),
+        );
+        self::assertStringContainsString('position: static;', $matches['rules']);
+        self::assertStringContainsString('min-height: 2.35rem;', $matches['rules']);
+        self::assertStringContainsString('border: 1px solid var(--admin-border-color);', $matches['rules']);
+        self::assertStringContainsString('background: var(--admin-field-background);', $matches['rules']);
+    }
 }
