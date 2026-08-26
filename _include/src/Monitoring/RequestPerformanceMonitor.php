@@ -14,11 +14,11 @@ use Register\Core\Pdo\PDO;
 /** Records slow dynamic requests without storing query strings, clients or SQL text. */
 final readonly class RequestPerformanceMonitor
 {
-    private const float SLOW_REQUEST_SECONDS = 0.25;
+    public const float SLOW_REQUEST_MILLISECONDS = 1_000.0;
 
-    private const float SLOW_DATABASE_SECONDS = 0.10;
+    public const float SLOW_DATABASE_MILLISECONDS = 500.0;
 
-    private const float SLOWEST_QUERY_SECONDS = 0.05;
+    public const float SLOWEST_QUERY_MILLISECONDS = 250.0;
 
     private const int MAX_LOG_BYTES = 5_000_000;
 
@@ -38,10 +38,11 @@ final readonly class RequestPerformanceMonitor
             ? $this->pdo->getQueryMetrics()
             : ['count' => 0, 'total_seconds' => 0.0, 'slowest_seconds' => 0.0];
 
-        if ($duration < self::SLOW_REQUEST_SECONDS
-            && $metrics['total_seconds'] < self::SLOW_DATABASE_SECONDS
-            && $metrics['slowest_seconds'] < self::SLOWEST_QUERY_SECONDS
-        ) {
+        if (!self::exceedsThresholds(
+            $duration * 1000.0,
+            $metrics['total_seconds'] * 1000.0,
+            $metrics['slowest_seconds'] * 1000.0,
+        )) {
             return;
         }
 
@@ -75,6 +76,13 @@ final readonly class RequestPerformanceMonitor
         } catch (\Throwable) {
             // Performance telemetry must never affect a response.
         }
+    }
+
+    public static function exceedsThresholds(float $durationMs, float $databaseMs, float $slowestQueryMs): bool
+    {
+        return $durationMs >= self::SLOW_REQUEST_MILLISECONDS
+            || $databaseMs >= self::SLOW_DATABASE_MILLISECONDS
+            || $slowestQueryMs >= self::SLOWEST_QUERY_MILLISECONDS;
     }
 
     private function append(string $line): void

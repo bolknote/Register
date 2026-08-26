@@ -24,7 +24,7 @@ final readonly class DashboardPerformanceProvider implements SystemStatusProvide
     public function getHtml(): string
     {
         return $this->templateRenderer->render('_admin/templates/dashboard/performance-item.php.inc', [
-            'performance' => $this->performanceInspector->inspect(),
+            'performanceWindows' => $this->performanceInspector->inspectRecentAndDaily(),
         ]);
     }
 }

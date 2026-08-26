@@ -1620,6 +1620,25 @@ form.config-inline-form :is(input:not([type="checkbox"]), select, textarea):not(
     justify-content: space-between;
 }
 
+.performance-window-title {
+    margin: 0;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.88rem;
+}
+
+.performance-daily-history > summary {
+    cursor: pointer;
+    font-weight: 650;
+}
+
+.performance-daily-history[open] > summary {
+    margin-bottom: 0.65rem;
+}
+
+.performance-daily-history > :is(p, ul) {
+    margin-block: 0;
+}
+
 .publication-statistics strong {
     font-size: 1.05rem;
     font-weight: 650;

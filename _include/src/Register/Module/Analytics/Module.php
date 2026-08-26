@@ -19,6 +19,7 @@ use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Framework\RoutingModuleInterface;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
 use Register\Core\Template\TemplateEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -42,6 +43,9 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
             $container->get(DynamicConfigProvider::class)->getStringProxy(Manifest::SALT_CONFIG_KEY),
             $container->get(VisitorIdentityManager::class),
         ));
+        $container->set(AnalyticsMaintenanceTask::class, static fn(Container $container): AnalyticsMaintenanceTask => new AnalyticsMaintenanceTask(
+            $container->get(AnalyticsRepository::class),
+        ), [ScheduledMaintenanceTaskInterface::class]);
         $container->set(CounterImageController::class, static fn(Container $container): CounterImageController => new CounterImageController(
             $container->get(AnalyticsRepository::class),
             __DIR__ . '/resources/counter-pattern.png',

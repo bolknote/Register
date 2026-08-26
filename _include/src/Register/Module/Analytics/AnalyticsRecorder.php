@@ -14,18 +14,16 @@ use Register\Core\Config\StringProxy;
 use Register\Core\Controller\Rss\RssStrategyInterface;
 use Symfony\Component\HttpFoundation\Request;
 
-final class AnalyticsRecorder
+final readonly class AnalyticsRecorder
 {
     public const string BLOG_FEED_CHANNEL = 'feed:blog';
 
-    private ?string $fingerprintsPrunedForDay = null;
-
     public function __construct(
-        private readonly AnalyticsRepository $repository,
-        private readonly BotDetector          $botDetector,
-        private readonly RssReaderParser      $rssReaderParser,
-        private readonly StringProxy          $salt,
-        private readonly VisitorIdentityManager $visitorIdentityManager,
+        private AnalyticsRepository $repository,
+        private BotDetector          $botDetector,
+        private RssReaderParser      $rssReaderParser,
+        private StringProxy          $salt,
+        private VisitorIdentityManager $visitorIdentityManager,
     ) {
     }
 
@@ -37,7 +35,6 @@ final class AnalyticsRecorder
         }
 
         $day = date('Y-m-d');
-        $this->pruneFingerprints($day);
         $visitorId = $this->visitorIdentityManager->visitorIdFromRequest($request);
         if ($visitorId === null) {
             $this->repository->recordHit($day, AnalyticsRepository::PAGE_CHANNEL);
@@ -61,7 +58,6 @@ final class AnalyticsRecorder
         }
 
         $day = date('Y-m-d');
-        $this->pruneFingerprints($day);
         $this->repository->record(
             $day,
             AnalyticsRepository::PAGE_CHANNEL,
@@ -84,7 +80,6 @@ final class AnalyticsRecorder
             : 'reader:' . ($request->getClientIp() ?? 'unknown') . ':' . $userAgent;
         $readerCount = $aggregator !== null ? $aggregator[1] : 1;
 
-        $this->pruneFingerprints($day);
         $this->repository->record(
             $day,
             $this->feedChannel($rssStrategy),
@@ -118,15 +113,5 @@ final class AnalyticsRecorder
         $id = preg_replace('/[^a-z0-9_-]+/', '-', strtolower($rssStrategy->getId()));
 
         return 'feed:' . ($id === null || $id === '' ? 'other' : $id);
-    }
-
-    private function pruneFingerprints(string $day): void
-    {
-        if ($this->fingerprintsPrunedForDay === $day) {
-            return;
-        }
-
-        $this->repository->forgetVisitorFingerprintsBefore($day);
-        $this->fingerprintsPrunedForDay = $day;
     }
 }

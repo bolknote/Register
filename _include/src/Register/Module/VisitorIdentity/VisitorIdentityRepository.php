@@ -28,13 +28,17 @@ final readonly class VisitorIdentityRepository
 
     public function touchVisitor(string $visitorId, int $now): void
     {
-        $this->dbLayer->insert(Manifest::VISITOR_TABLE)
+        $inserted = $this->dbLayer->insert(Manifest::VISITOR_TABLE)
             ->setValue('visitor_id', ':visitor_id')->setParameter('visitor_id', $visitorId)
             ->setValue('created_at', ':created_at')->setParameter('created_at', $now)
             ->setValue('last_seen_at', ':last_seen_at')->setParameter('last_seen_at', $now)
             ->onConflictDoNothing('visitor_id')
             ->execute()
+            ->affectedRows() > 0
         ;
+        if ($inserted) {
+            return;
+        }
 
         $this->dbLayer->update(Manifest::VISITOR_TABLE)
             ->set('last_seen_at', ':last_seen_at')->setParameter('last_seen_at', $now)
@@ -47,14 +51,18 @@ final readonly class VisitorIdentityRepository
     {
         $this->touchVisitor($visitorId, $now);
 
-        $this->dbLayer->insert(Manifest::USER_LINK_TABLE)
+        $inserted = $this->dbLayer->insert(Manifest::USER_LINK_TABLE)
             ->setValue('visitor_id', ':visitor_id')->setParameter('visitor_id', $visitorId)
             ->setValue('user_id', ':user_id')->setParameter('user_id', $userId)
             ->setValue('first_seen_at', ':first_seen_at')->setParameter('first_seen_at', $now)
             ->setValue('last_seen_at', ':last_seen_at')->setParameter('last_seen_at', $now)
             ->onConflictDoNothing('visitor_id', 'user_id')
             ->execute()
+            ->affectedRows() > 0
         ;
+        if ($inserted) {
+            return;
+        }
 
         $this->dbLayer->update(Manifest::USER_LINK_TABLE)
             ->set('last_seen_at', ':last_seen_at')->setParameter('last_seen_at', $now)
