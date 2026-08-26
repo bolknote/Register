@@ -9,6 +9,7 @@
     }
 
     document.documentElement.classList.add('local-time-pending');
+    var initialObserver = null;
 
     function formatLongDateTime(date, locale) {
         var dateText = new Intl.DateTimeFormat(locale, {dateStyle: 'long'}).format(date);
@@ -75,6 +76,16 @@
         localizeTimes(document);
     }
 
+    function onInitialMutations(mutations) {
+        mutations.forEach(function (mutation) {
+            mutation.addedNodes.forEach(function (node) {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    localizeTimes(node);
+                }
+            });
+        });
+    }
+
     function localizeTimes(root) {
         root = root || document;
         if (root === document && document.readyState === 'loading') {
@@ -86,12 +97,20 @@
         }
         root.querySelectorAll('time[data-local-time]').forEach(localizeTime);
         if (root === document) {
+            if (initialObserver !== null) {
+                initialObserver.disconnect();
+                initialObserver = null;
+            }
             document.documentElement.classList.remove('local-time-pending');
             document.removeEventListener('readystatechange', onReadyStateChange);
         }
     }
 
     window.RegisterLocalTime = Object.freeze({enhance: localizeTimes});
+    if (document.readyState === 'loading' && typeof window.MutationObserver !== 'undefined') {
+        initialObserver = new MutationObserver(onInitialMutations);
+        initialObserver.observe(document.documentElement, {childList: true, subtree: true});
+    }
     document.addEventListener('readystatechange', onReadyStateChange);
     localizeTimes(document);
 }());
