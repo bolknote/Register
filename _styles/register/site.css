@@ -1332,7 +1332,9 @@ h2.preview,
 }
 
 .post-card.is-editing .post-foot-tags-label {
-    display: inline;
+    min-height: 2.3rem;
+    display: flex;
+    align-items: center;
 }
 
 .post-tag-values {
@@ -1348,27 +1350,50 @@ h2.preview,
     display: inline;
 }
 
+.post-card.is-editing > .post.foot {
+    align-items: flex-start;
+}
+
+.post-card.is-editing > .post.foot > .post-foot-meta {
+    width: 100%;
+    display: flex;
+    flex: 1 1 100%;
+    order: -1;
+    margin-inline-start: 0;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
 .post-card.is-editing > .post.foot > .post-foot-meta > .post-foot-tags {
+    width: 100%;
     max-width: 100%;
+    display: grid;
+    flex: 1 1 100%;
+    grid-template-columns: max-content minmax(0, 38rem);
+    align-items: start;
+    gap: 0.75rem;
+    transform: none;
+}
+
+.post-card.is-editing > .post.foot > .post-foot-meta > .post-foot-views {
+    display: none;
 }
 
 .post-card.is-editing .post-tag-values {
     position: relative;
-    display: inline-block;
-    width: 0;
-    height: 0;
-    margin-inline-start: 0.8rem;
-    vertical-align: baseline;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    margin: 0;
 }
 
 .post-tags-editor {
     display: block;
-    position: absolute;
+    position: relative;
     z-index: 4;
-    top: -1.55rem;
-    left: 0;
-    width: clamp(18rem, 38vw, 38rem);
-    max-width: calc(100vw - 12rem);
+    width: 100%;
+    max-width: none;
 }
 
 .post-tags-surface {
@@ -2036,25 +2061,13 @@ h2.preview,
 }
 
 @container post-editor (max-width: 42rem) {
-    .post-card.is-editing > .post.foot {
-        position: relative;
-    }
-
     .post-card.is-editing > .post.foot > .post-foot-meta > .post-foot-tags {
-        transform: none;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.35rem;
     }
 
-    .post-card.is-editing .post-tag-values {
-        position: static;
-    }
-
-    .post-tags-editor {
-        top: auto;
-        right: auto;
-        bottom: 0;
-        left: 0;
-        width: min(100%, calc(100vw - 1.5rem));
-        max-width: none;
+    .post-card.is-editing .post-foot-tags-label {
+        min-height: auto;
     }
 
     .post-card.is-editing .post-inplace-date-button {
