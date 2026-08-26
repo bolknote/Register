@@ -74,8 +74,8 @@ final class UpdateStorageTest extends Unit
         $state   = $storage->start('register-release.zip', 3);
         $id      = $state['id'] ?? null;
         self::assertIsString($id);
-        mkdir($storage->stageRoot($id) . '/app', 0700, true);
-        file_put_contents($storage->stageRoot($id) . '/app/partial.php', '<?php');
+        mkdir($storage->stageRoot($id) . '/root', 0700, true);
+        file_put_contents($storage->stageRoot($id) . '/root/partial.php', '<?php');
 
         $storage->resetStage($id);
 

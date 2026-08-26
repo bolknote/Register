@@ -20,12 +20,14 @@ final class UpdatePlannerTest extends Unit
 {
     private string $temporaryRoot = '';
 
+    private string $siteRoot = '';
+
     #[\Override]
     protected function _before(): void
     {
         $this->temporaryRoot = sys_get_temp_dir() . '/register_update_plan_' . bin2hex(random_bytes(6));
-        mkdir($this->temporaryRoot . '/app', 0700, true);
-        mkdir($this->temporaryRoot . '/public', 0700, true);
+        $this->siteRoot      = $this->temporaryRoot . '/site';
+        mkdir($this->siteRoot, 0700, true);
     }
 
     #[\Override]
@@ -37,62 +39,61 @@ final class UpdatePlannerTest extends Unit
     public function testPlansSwitchAndCanRestoreItFromRollbackJournal(): void
     {
         $oldFiles = [
-            $this->file('app', 'stable.txt', 'stable'),
-            $this->file('app', 'update.txt', 'old'),
-            $this->file('public', 'remove.css', 'remove'),
+            $this->file('stable.txt', 'stable'),
+            $this->file('update.txt', 'old'),
+            $this->file('remove.css', 'remove'),
         ];
         $newFiles = [
-            $this->file('app', 'stable.txt', 'stable'),
-            $this->file('app', 'update.txt', 'new'),
-            $this->file('public', 'add.css', 'add'),
+            $this->file('stable.txt', 'stable'),
+            $this->file('update.txt', 'new'),
+            $this->file('add.css', 'add'),
         ];
         $installed = $this->manifest(20, $oldFiles);
         $incoming  = $this->manifest(21, $newFiles);
-        $this->writeLive('app', 'stable.txt', 'stable');
-        $this->writeLive('app', 'update.txt', 'old');
-        $this->writeLive('public', 'remove.css', 'remove');
-        file_put_contents($this->temporaryRoot . '/app/register-release.json', $installed->toJson());
+        $this->writeLive('stable.txt', 'stable');
+        $this->writeLive('update.txt', 'old');
+        $this->writeLive('remove.css', 'remove');
+        file_put_contents($this->siteRoot . '/register-release.json', $installed->toJson());
 
-        $planner = new UpdatePlanner($this->temporaryRoot . '/app', $this->temporaryRoot . '/public');
+        $planner = new UpdatePlanner($this->siteRoot, $this->siteRoot);
         $plan    = $planner->plan($installed, $incoming, 15);
-        self::assertSame(['app:update.txt', 'public:add.css'], $plan->writes);
-        self::assertSame(['public:remove.css'], $plan->deletes);
-        self::assertSame(['app:stable.txt'], $plan->unchanged);
+        self::assertSame(['root:add.css', 'root:update.txt'], $plan->writes);
+        self::assertSame(['root:remove.css'], $plan->deletes);
+        self::assertSame(['root:stable.txt'], $plan->unchanged);
         self::assertSame([], $plan->conflicts);
 
         $stage = $this->temporaryRoot . '/stage';
-        mkdir($stage . '/app', 0700, true);
-        mkdir($stage . '/public', 0700, true);
-        file_put_contents($stage . '/app/update.txt', 'new');
-        file_put_contents($stage . '/public/add.css', 'add');
-        file_put_contents($stage . '/app/register-release.json', $incoming->toJson());
+        mkdir($stage . '/root', 0700, true);
+        file_put_contents($stage . '/root/update.txt', 'new');
+        file_put_contents($stage . '/root/add.css', 'add');
+        file_put_contents($stage . '/root/register-release.json', $incoming->toJson());
         $rollback = $this->temporaryRoot . '/rollback';
-        $applier  = new UpdateApplier($this->temporaryRoot . '/app', $this->temporaryRoot . '/public');
+        $applier  = new UpdateApplier($this->siteRoot, $this->siteRoot);
         $applier->apply($stage, $rollback, $installed, $incoming, $plan);
 
-        self::assertSame('new', file_get_contents($this->temporaryRoot . '/app/update.txt'));
-        self::assertSame('add', file_get_contents($this->temporaryRoot . '/public/add.css'));
-        self::assertFileDoesNotExist($this->temporaryRoot . '/public/remove.css');
+        self::assertSame('new', file_get_contents($this->siteRoot . '/update.txt'));
+        self::assertSame('add', file_get_contents($this->siteRoot . '/add.css'));
+        self::assertFileDoesNotExist($this->siteRoot . '/remove.css');
         self::assertSame($incoming->toArray(), ReleaseManifest::fromFile(
-            $this->temporaryRoot . '/app/register-release.json',
+            $this->siteRoot . '/register-release.json',
         )->toArray());
         self::assertFileExists($rollback . '/journal.json');
         $temporaryJournals = glob($rollback . '/.journal-*');
         self::assertIsArray($temporaryJournals);
         self::assertSame([], $temporaryJournals);
-        $interruptedCopy = $this->temporaryRoot . '/app/.register-update-' . str_repeat('a', 16);
-        $unrelatedDotfile = $this->temporaryRoot . '/app/.register-update-not-owned';
+        $interruptedCopy = $this->siteRoot . '/.register-update-' . str_repeat('a', 16);
+        $unrelatedDotfile = $this->siteRoot . '/.register-update-not-owned';
         file_put_contents($interruptedCopy, 'incomplete atomic copy');
         file_put_contents($unrelatedDotfile, 'unrelated');
 
         $applier->rollbackInterrupted($rollback);
         self::assertFileDoesNotExist($interruptedCopy);
         self::assertFileExists($unrelatedDotfile);
-        self::assertSame('old', file_get_contents($this->temporaryRoot . '/app/update.txt'));
-        self::assertFileDoesNotExist($this->temporaryRoot . '/public/add.css');
-        self::assertSame('remove', file_get_contents($this->temporaryRoot . '/public/remove.css'));
+        self::assertSame('old', file_get_contents($this->siteRoot . '/update.txt'));
+        self::assertFileDoesNotExist($this->siteRoot . '/add.css');
+        self::assertSame('remove', file_get_contents($this->siteRoot . '/remove.css'));
         self::assertSame($installed->toArray(), ReleaseManifest::fromFile(
-            $this->temporaryRoot . '/app/register-release.json',
+            $this->siteRoot . '/register-release.json',
         )->toArray());
 
         $applier->rollbackInterrupted($rollback);
@@ -104,33 +105,27 @@ final class UpdatePlannerTest extends Unit
 
     public function testReportsLocallyModifiedManagedFileAsConflict(): void
     {
-        $installed = $this->manifest(20, [$this->file('app', 'file.php', 'old')]);
-        $incoming  = $this->manifest(21, [$this->file('app', 'file.php', 'new')]);
-        $this->writeLive('app', 'file.php', 'local edit');
+        $installed = $this->manifest(20, [$this->file('file.php', 'old')]);
+        $incoming  = $this->manifest(21, [$this->file('file.php', 'new')]);
+        $this->writeLive('file.php', 'local edit');
 
-        $plan = (new UpdatePlanner(
-            $this->temporaryRoot . '/app',
-            $this->temporaryRoot . '/public',
-        ))->plan($installed, $incoming, 15);
+        $plan = (new UpdatePlanner($this->siteRoot, $this->siteRoot))->plan($installed, $incoming, 15);
 
         self::assertFalse($plan->canApply());
         self::assertCount(1, $plan->conflicts);
-        self::assertStringContainsString('app:file.php', $plan->conflicts[0]);
+        self::assertStringContainsString('root:file.php', $plan->conflicts[0]);
     }
 
     public function testRestoresMissingManagedFile(): void
     {
-        $file      = $this->file('app', 'file.php', 'release contents');
+        $file      = $this->file('file.php', 'release contents');
         $installed = $this->manifest(20, [$file]);
         $incoming  = $this->manifest(21, [$file]);
 
-        $plan = (new UpdatePlanner(
-            $this->temporaryRoot . '/app',
-            $this->temporaryRoot . '/public',
-        ))->plan($installed, $incoming, 15);
+        $plan = (new UpdatePlanner($this->siteRoot, $this->siteRoot))->plan($installed, $incoming, 15);
 
         self::assertTrue($plan->canApply());
-        self::assertSame(['app:file.php'], $plan->writes);
+        self::assertSame(['root:file.php'], $plan->writes);
         self::assertSame([], $plan->conflicts);
     }
 
@@ -140,25 +135,34 @@ final class UpdatePlannerTest extends Unit
             self::markTestSkipped('Windows does not expose portable Unix file modes.');
         }
 
-        $file      = $this->file('app', 'file.php', 'release contents');
+        $file      = $this->file('file.php', 'release contents');
         $installed = $this->manifest(20, [$file]);
         $incoming  = $this->manifest(21, [$file]);
-        $this->writeLive('app', 'file.php', 'release contents');
-        chmod($this->temporaryRoot . '/app/file.php', 0755);
+        $this->writeLive('file.php', 'release contents');
+        chmod($this->siteRoot . '/file.php', 0755);
 
-        $plan = (new UpdatePlanner(
-            $this->temporaryRoot . '/app',
-            $this->temporaryRoot . '/public',
-        ))->plan($installed, $incoming, 15);
+        $plan = (new UpdatePlanner($this->siteRoot, $this->siteRoot))->plan($installed, $incoming, 15);
 
         self::assertTrue($plan->canApply());
-        self::assertSame(['app:file.php'], $plan->writes);
+        self::assertSame(['root:file.php'], $plan->writes);
         self::assertSame([], $plan->unchanged);
     }
 
-    private function file(string $target, string $path, string $contents): ReleaseFile
+    public function testRejectsTheObsoleteSplitRootLayout(): void
     {
-        return new ReleaseFile($target, $path, \strlen($contents), hash('sha256', $contents));
+        $otherRoot = $this->temporaryRoot . '/public';
+        mkdir($otherRoot, 0700, true);
+        $installed = $this->manifest(20, [$this->file('file.php', 'old')]);
+        $incoming  = $this->manifest(21, [$this->file('file.php', 'new')]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('single-root shared-hosting layout');
+        (new UpdatePlanner($this->siteRoot, $otherRoot))->plan($installed, $incoming, 15);
+    }
+
+    private function file(string $path, string $contents): ReleaseFile
+    {
+        return new ReleaseFile(ReleaseFile::TARGET_ROOT, $path, \strlen($contents), hash('sha256', $contents));
     }
 
     /** @param list<ReleaseFile> $files */
@@ -179,8 +183,8 @@ final class UpdatePlannerTest extends Unit
         );
     }
 
-    private function writeLive(string $target, string $path, string $contents): void
+    private function writeLive(string $path, string $contents): void
     {
-        file_put_contents($this->temporaryRoot . '/' . $target . '/' . $path, $contents);
+        file_put_contents($this->siteRoot . '/' . $path, $contents);
     }
 }

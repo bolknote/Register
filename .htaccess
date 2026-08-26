@@ -16,8 +16,8 @@ Options +FollowSymlinks -MultiViews
 
 RewriteEngine On
 
-# The repository-root deployment layout is supported on shared hosting, but
-# implementation files and operator data must never be served over HTTP.
+# The single-root shared-hosting package contains the complete application,
+# but implementation files and operator data must never be served over HTTP.
 RewriteRule ^(?:_doc|_include|_tests|tools|\.codex|\.git|\.github|\.local)(?:/|$) - [F,L,NC]
 RewriteRule ^_vendor/ - [F,L,NC]
 RewriteRule ^(?:composer\.(?:json|lock)|phpunit\.xml(?:\.dist)?|psalm\.xml|rector\.php|plan-security\.md)$ - [F,L,NC]

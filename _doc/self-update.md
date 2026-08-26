@@ -11,21 +11,22 @@ formats:
 - `register-<UTC date-time>-<commit>.tar.bz2`;
 - `SHA256SUMS`, covering the three archive files.
 
-Each archive includes production Composer dependencies and
-`register-app/register-release.json`. A small, hashed `register-build.json` supplies the displayed
+Each archive contains one complete `public_html/` tree, including production Composer dependencies
+and `public_html/register-release.json`. A small, hashed `register-build.json` supplies the displayed
 version without parsing the nearly one-megabyte file list on every request. The release manifest
-identifies the release and database generation range, and records the size, mode, and SHA-256 digest
-of every managed application and public file.
+uses format 2, identifies the release and database generation range, and records the size, mode, and
+SHA-256 digest of every managed file below that one root.
 Apart from the manifest itself, every regular archive entry must appear in that file list; an extra
 or missing entry makes the archive invalid. The three archives are transport alternatives, not
 three separate releases.
 
 ## First installation and bootstrap
 
-The browser updater requires the split shared-hosting layout: `register-app` and the document root
-must be separate sibling directories. It also requires an installed `register-release.json`.
-Therefore, install the first updater-capable release manually using the staged switch described in
-the [shared-hosting runbook](shared-hosting.md). After that bootstrap, administrators with
+The browser updater requires the single-root shared-hosting layout: Register's application root and
+the web-server document root must be the same directory. It also requires a format-2 installed
+`register-release.json`. Therefore, install the first single-root updater-capable release manually
+using the staged switch described in the [shared-hosting runbook](shared-hosting.md). This is also the
+bootstrap path from the obsolete split-root manifest format. After that, administrators with
 user-management permission can use **System → Software update**.
 
 The update page detects the PHP extractors available on the server. Prefer the format marked
@@ -38,16 +39,16 @@ choice and `.tar.bz2` (Phar + Bzip2) as another equivalent option.
 2. The browser sends 1 MiB chunks, staying below ordinary shared-hosting upload-size limits even
    after multipart form overhead.
 3. Register reads the internal manifest, checks the release version and PHP/database requirements,
-   extracts into an installation-specific private sibling directory, and verifies every file hash.
+   extracts into protected `_cache/register-updates` storage, and verifies every file hash.
 4. Register compares the live site with the *installed* manifest. It refuses to overwrite an
    unmanaged collision or a managed file changed locally. Missing unmodified files are restored;
    obsolete unmodified files are removed.
 5. After the administrator confirms with the current password, Register creates its normal encrypted
    database-and-media backup.
 6. A maintenance marker stops new public requests with HTTP 503. A process lock waits for active
-   requests to finish. Every affected live file is copied into a private rollback journal, then
-   staged files are moved into place atomically where the filesystem permits it. A failure during
-   this phase restores the previous files and reopens the site.
+   requests to finish. Every affected live file is copied into a protected rollback journal under
+   the update workspace, then staged files are moved into place atomically where the filesystem
+   permits it. A failure during this phase restores the previous files and reopens the site.
 7. The browser sends a second request. It runs through the newly installed PHP code, applies any
    database migration chain, clears generated configuration/routes and public CSS/JS caches, and
    verifies all managed live files again. Only then is maintenance mode removed.

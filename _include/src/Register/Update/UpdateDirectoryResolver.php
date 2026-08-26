@@ -18,9 +18,6 @@ final class UpdateDirectoryResolver
             throw new \InvalidArgumentException('The Register application root cannot be empty.');
         }
 
-        $realRoot = realpath($applicationRoot);
-        $identity = str_replace('\\', '/', $realRoot === false ? $applicationRoot : $realRoot);
-
-        return dirname($applicationRoot) . '/register-updates-' . substr(hash('sha256', $identity), 0, 12);
+        return $applicationRoot . '/_cache/register-updates';
     }
 }

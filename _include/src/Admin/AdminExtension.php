@@ -520,7 +520,6 @@ class AdminExtension implements ExtensionInterface
             $container->get(MaintenanceMode::class),
             $container->get(\Psr\Log\LoggerInterface::class),
             $container->getStringParameter('root_dir'),
-            $container->getStringParameter('public_root_dir'),
         ));
         $container->set(UpdateToken::class, fn(Container $container): UpdateToken => new UpdateToken(
             $container->get(SettingStorageInterface::class),

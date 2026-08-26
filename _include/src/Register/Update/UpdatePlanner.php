@@ -87,8 +87,8 @@ final readonly class UpdatePlanner
     ): void {
         $applicationRoot = realpath($this->applicationRoot);
         $publicRoot      = realpath($this->publicRoot);
-        if ($applicationRoot === false || $publicRoot === false || $applicationRoot === $publicRoot) {
-            throw new \RuntimeException('Self-update requires the split shared-hosting layout.');
+        if ($applicationRoot === false || $publicRoot === false || $applicationRoot !== $publicRoot) {
+            throw new \RuntimeException('Self-update requires the single-root shared-hosting layout.');
         }
 
         if (!$incoming->isNewerThan($installed)) {
@@ -144,10 +144,6 @@ final readonly class UpdatePlanner
 
     private function livePath(ReleaseFile $file): string
     {
-        $root = $file->target === ReleaseFile::TARGET_APPLICATION
-            ? rtrim($this->applicationRoot, '/\\')
-            : rtrim($this->publicRoot, '/\\');
-
-        return $root . '/' . $file->path;
+        return rtrim($this->applicationRoot, '/\\') . '/' . $file->path;
     }
 }

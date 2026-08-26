@@ -30,7 +30,6 @@ final readonly class UpdateManager
         private MaintenanceMode       $maintenanceMode,
         private LoggerInterface       $logger,
         private string                $applicationRoot,
-        private string                $publicRoot,
     ) {
     }
 
@@ -106,7 +105,7 @@ final readonly class UpdateManager
                 throw new \RuntimeException('The installed release manifest is missing or invalid.');
             }
 
-            $incoming = ReleaseManifest::fromFile($this->storage->stageRoot($id) . '/app/register-release.json');
+            $incoming = ReleaseManifest::fromFile($this->storage->stageRoot($id) . '/root/register-release.json');
             if (($state['release_id'] ?? null) !== $incoming->releaseId) {
                 throw new \RuntimeException('The staged release does not match the update session.');
             }
@@ -222,7 +221,7 @@ final readonly class UpdateManager
                 throw new \RuntimeException('The release files have not been switched.');
             }
 
-            $incoming = ReleaseManifest::fromFile($this->storage->stageRoot($id) . '/app/register-release.json');
+            $incoming = ReleaseManifest::fromFile($this->storage->stageRoot($id) . '/root/register-release.json');
             $installed = $this->installedManifest();
             $installedReleaseId = $installed instanceof ReleaseManifest ? $installed->releaseId : null;
             if ($installedReleaseId !== $incoming->releaseId) {
@@ -316,10 +315,7 @@ final readonly class UpdateManager
     private function verifyInstalledFiles(ReleaseManifest $manifest): void
     {
         foreach ($manifest->files as $file) {
-            $root = $file->target === ReleaseFile::TARGET_APPLICATION
-                ? rtrim($this->applicationRoot, '/\\')
-                : rtrim($this->publicRoot, '/\\');
-            $filename = $root . '/' . $file->path;
+            $filename = rtrim($this->applicationRoot, '/\\') . '/' . $file->path;
             if (!is_file($filename) || is_link($filename) || filesize($filename) !== $file->size) {
                 throw new \RuntimeException('An installed release file is missing or changed: ' . $file->key());
             }

@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 /**
- * Builds a ready-to-upload shared-hosting package with a split document root.
+ * Builds a ready-to-upload single-root shared-hosting package.
  *
  * @copyright 2026 Evgeny Stepanischev
  * @license   https://opensource.org/license/mit MIT
@@ -52,7 +52,7 @@ $hash = null;
 
 try {
     $builder->buildDirectory($temporaryRoot, includeInstalledVendor: is_dir($projectRoot . '/_vendor'));
-    installProductionDependencies($temporaryRoot . '/' . SharedHostingDistributionBuilder::APPLICATION_DIRECTORY);
+    installProductionDependencies($temporaryRoot . '/' . SharedHostingDistributionBuilder::PUBLIC_DIRECTORY);
     $builder->validatePublicBoundary($temporaryRoot);
     $builder->createArchive($temporaryRoot, $temporaryArchive);
 

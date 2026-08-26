@@ -48,14 +48,13 @@ final readonly class UpdateAdminConfigExtender implements AdminConfigExtenderInt
         $formats    = $this->archiveCapabilities->formats();
         $applicationRoot = realpath($this->applicationRoot);
         $publicRoot = realpath($this->publicRoot);
-        $splitLayout = $applicationRoot !== false
+        $singleRootLayout = $applicationRoot !== false
             && $publicRoot !== false
-            && $applicationRoot !== $publicRoot;
+            && $applicationRoot === $publicRoot;
         $writableLayout = $applicationRoot !== false
             && $publicRoot !== false
-            && $applicationRoot !== $publicRoot
-            && is_writable($applicationRoot)
-            && is_writable($publicRoot);
+            && $applicationRoot === $publicRoot
+            && is_writable($applicationRoot);
         $updateDirectory = UpdateDirectoryResolver::resolve($this->applicationRoot);
         $storageWritable = is_dir($updateDirectory)
             ? !is_link($updateDirectory) && is_writable($updateDirectory)
@@ -66,11 +65,11 @@ final readonly class UpdateAdminConfigExtender implements AdminConfigExtenderInt
             'formats'         => $formats,
             'preferredFormat' => $this->archiveCapabilities->preferredFormat(),
             'available'       => $installed instanceof ReleaseManifest
-                && $splitLayout
+                && $singleRootLayout
                 && $writableLayout
                 && $storageWritable
                 && $this->archiveCapabilities->preferredFormat() !== null,
-            'splitLayout'     => $splitLayout,
+            'singleRootLayout' => $singleRootLayout,
             'writableLayout'  => $writableLayout,
             'storageWritable' => $storageWritable,
             'csrfToken'       => $this->updateToken->value(),

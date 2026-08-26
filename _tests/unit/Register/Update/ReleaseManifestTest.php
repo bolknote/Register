@@ -21,7 +21,7 @@ final class ReleaseManifestTest extends Unit
         $restored = ReleaseManifest::fromJson($manifest->toJson());
 
         self::assertSame($manifest->toArray(), $restored->toArray());
-        self::assertSame(hash('sha256', 'new contents'), $restored->filesByKey()['app:file.php']->sha256);
+        self::assertSame(hash('sha256', 'new contents'), $restored->filesByKey()['root:file.php']->sha256);
         self::assertSame(12, $restored->totalBytes());
     }
 
@@ -54,7 +54,7 @@ final class ReleaseManifestTest extends Unit
     public function testReleaseFileRejectsDirectoryTraversal(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        new ReleaseFile(ReleaseFile::TARGET_APPLICATION, '../config.php', 1, str_repeat('a', 64));
+        new ReleaseFile(ReleaseFile::TARGET_ROOT, '../config.php', 1, str_repeat('a', 64));
     }
 
     public function testManifestRejectsItsOwnReservedArchivePath(): void
@@ -73,7 +73,7 @@ final class ReleaseManifestTest extends Unit
             15,
             15,
             [new ReleaseFile(
-                ReleaseFile::TARGET_APPLICATION,
+                ReleaseFile::TARGET_ROOT,
                 'register-release.json',
                 1,
                 str_repeat('a', 64),
@@ -99,7 +99,7 @@ final class ReleaseManifestTest extends Unit
             15,
             15,
             [new ReleaseFile(
-                ReleaseFile::TARGET_APPLICATION,
+                ReleaseFile::TARGET_ROOT,
                 'file.php',
                 \strlen($contents),
                 hash('sha256', $contents),

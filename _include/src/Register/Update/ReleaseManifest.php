@@ -11,11 +11,11 @@ namespace Register\Update;
 
 final readonly class ReleaseManifest
 {
-    public const int FORMAT_VERSION = 1;
+    public const int FORMAT_VERSION = 2;
 
     public const string PRODUCT = 'register';
 
-    public const string ARCHIVE_PATH = 'register-app/register-release.json';
+    public const string ARCHIVE_PATH = 'public_html/register-release.json';
 
     public const int MAX_FILES = 20_000;
 

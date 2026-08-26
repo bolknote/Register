@@ -11,9 +11,7 @@ namespace Register\Update;
 
 final readonly class ReleaseFile
 {
-    public const string TARGET_APPLICATION = 'app';
-
-    public const string TARGET_PUBLIC = 'public';
+    public const string TARGET_ROOT = 'root';
 
     public function __construct(
         public string $target,
@@ -22,7 +20,7 @@ final readonly class ReleaseFile
         public string $sha256,
         public int    $mode = 0644,
     ) {
-        if (!\in_array($target, [self::TARGET_APPLICATION, self::TARGET_PUBLIC], true)) {
+        if ($target !== self::TARGET_ROOT) {
             throw new \InvalidArgumentException('A release file has an invalid target.');
         }
 
@@ -74,9 +72,7 @@ final readonly class ReleaseFile
 
     public function archivePath(): string
     {
-        $prefix = $this->target === self::TARGET_APPLICATION ? 'register-app/' : 'public_html/';
-
-        return $prefix . $this->path;
+        return 'public_html/' . $this->path;
     }
 
     public static function isSafeRelativePath(string $path): bool

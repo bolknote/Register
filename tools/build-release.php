@@ -84,12 +84,12 @@ try {
     $distributionBuilder = new SharedHostingDistributionBuilder($projectRoot);
     $distributionBuilder->buildDirectory($temporaryRoot, includeInstalledVendor: false);
     (new ProductionDependencyInstaller())->install(
-        $temporaryRoot . '/' . SharedHostingDistributionBuilder::APPLICATION_DIRECTORY,
+        $temporaryRoot . '/' . SharedHostingDistributionBuilder::PUBLIC_DIRECTORY,
     );
     $distributionBuilder->validatePublicBoundary($temporaryRoot);
 
     $buildInfo     = BuildInfo::toJson($releaseId, $version, $builtAt, $commit);
-    $buildInfoPath = $temporaryRoot . '/' . SharedHostingDistributionBuilder::APPLICATION_DIRECTORY
+    $buildInfoPath = $temporaryRoot . '/' . SharedHostingDistributionBuilder::PUBLIC_DIRECTORY
         . '/' . BuildInfo::FILENAME;
     if (file_put_contents($buildInfoPath, $buildInfo, LOCK_EX) !== \strlen($buildInfo)
         || !chmod($buildInfoPath, 0644)
@@ -114,6 +114,7 @@ try {
     if (file_put_contents($manifestPath, $manifest->toJson(), LOCK_EX) === false || !chmod($manifestPath, 0644)) {
         throw new RuntimeException('Unable to write the release manifest.');
     }
+    $distributionBuilder->validatePublicBoundary($temporaryRoot);
 
     $archiveBuilder = new ReleaseArchiveBuilder();
     $archiveBuilder->createZip($temporaryRoot, $outputs[0], $sourceEpoch);

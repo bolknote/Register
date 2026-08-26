@@ -38,7 +38,7 @@ final readonly class ReleaseArchiveExtractor
             throw new \RuntimeException('The update staging directory already exists.');
         }
 
-        if (!mkdir($stageRoot . '/app', 0700, true) || !mkdir($stageRoot . '/public', 0700, true)) {
+        if (!mkdir($stageRoot . '/root', 0700, true)) {
             throw new \RuntimeException('Unable to create the update staging directory.');
         }
 
@@ -50,7 +50,7 @@ final readonly class ReleaseArchiveExtractor
                 $this->extractPhar($archivePath, $stageRoot, $manifest);
             }
 
-            $manifestPath = $stageRoot . '/app/register-release.json';
+            $manifestPath = $stageRoot . '/root/register-release.json';
             $json = $manifest->toJson();
             if (file_put_contents($manifestPath, $json, LOCK_EX) !== \strlen($json)
                 || (DIRECTORY_SEPARATOR !== '\\' && !chmod($manifestPath, 0644))

@@ -13,11 +13,9 @@ use Register\Backup\PortableZipWriter;
 
 final readonly class SharedHostingDistributionBuilder
 {
-    public const string APPLICATION_DIRECTORY = 'register-app';
-
     public const string PUBLIC_DIRECTORY = 'public_html';
 
-    private const array APPLICATION_SOURCE_DIRECTORIES = [
+    private const array SOURCE_DIRECTORIES = [
         '_admin',
         '_assets',
         '_extensions',
@@ -26,14 +24,18 @@ final readonly class SharedHostingDistributionBuilder
         '_styles',
     ];
 
-    private const array APPLICATION_SOURCE_FILES = [
+    private const array OPTIONAL_SOURCE_DIRECTORIES = [
+        'files',
+    ];
+
+    private const array SOURCE_FILES = [
         'composer.json',
         'composer.lock',
         'index.php',
         'LICENSE.md',
     ];
 
-    private const array APPLICATION_TOOL_FILES = [
+    private const array TOOL_FILES = [
         'check-activitypub-interoperability.php',
         'decrypt-backup.php',
         'generate-backup-keypair.php',
@@ -50,78 +52,44 @@ final readonly class SharedHostingDistributionBuilder
         'shared-hosting.md',
     ];
 
-    private const array PUBLIC_SOURCE_DIRECTORIES = [
-        '_admin',
-        '_assets',
-        '_extensions',
-        '_styles',
+    private const array ROOT_ENTRIES = [
+        '.htaccess'             => true,
+        '_admin'                => true,
+        '_assets'               => true,
+        '_cache'                => true,
+        '_extensions'           => true,
+        '_include'              => true,
+        '_lang'                 => true,
+        '_pictures'             => true,
+        '_styles'               => true,
+        '_vendor'               => true,
+        'composer.json'         => true,
+        'composer.lock'         => true,
+        'favicon.ico'           => true,
+        'files'                 => true,
+        'index.php'             => true,
+        'LICENSE.md'            => true,
+        'register-build.json'   => true,
+        'register-release.json' => true,
+        'robots.txt'            => true,
+        'service-worker.js'     => true,
+        'site.webmanifest'      => true,
+        'tools'                 => true,
     ];
 
-    private const array OPTIONAL_PUBLIC_SOURCE_DIRECTORIES = [
-        'files',
+    private const array ENTRYPOINTS = [
+        'index.php',
+        '_admin/ajax.php',
+        '_admin/index.php',
+        '_admin/install.php',
+        '_admin/pictman.php',
     ];
 
-    private const array PUBLIC_EXTENSIONS = [
-        'avif'        => true,
-        'br'          => true,
-        'css'         => true,
-        'eot'         => true,
-        'flac'        => true,
-        'gif'         => true,
-        'gz'          => true,
-        'htm'         => true,
-        'html'        => true,
-        'ico'         => true,
-        'jpeg'        => true,
-        'jpg'         => true,
-        'js'          => true,
-        'json'        => true,
-        'm4a'         => true,
-        'mjs'         => true,
-        'mp3'         => true,
-        'mp4'         => true,
-        'ogg'         => true,
-        'otf'         => true,
-        'pdf'         => true,
-        'png'         => true,
-        'svg'         => true,
-        'svgz'        => true,
-        'ttf'         => true,
-        'wasm'        => true,
-        'wav'         => true,
-        'webm'        => true,
-        'webmanifest' => true,
-        'webp'        => true,
-        'woff'        => true,
-        'woff2'       => true,
-        'xml'         => true,
-        'xsl'         => true,
-        'xslt'        => true,
-    ];
-
-    private const array PUBLIC_ENTRYPOINTS = [
-        'index.php'          => 'index.php',
-        '_admin/ajax.php'    => '_admin/ajax.php',
-        '_admin/index.php'   => '_admin/index.php',
-        '_admin/install.php' => '_admin/install.php',
-        '_admin/pictman.php' => '_admin/pictman.php',
-    ];
-
-    private const array PUBLIC_ROOT_ENTRIES = [
-        '.htaccess'         => true,
-        '_admin'            => true,
-        '_assets'           => true,
-        '_cache'            => true,
-        '_extensions'       => true,
-        '_pictures'         => true,
-        '_styles'           => true,
-        '_vendor'           => true,
-        'favicon.ico'       => true,
-        'files'             => true,
-        'index.php'         => true,
-        'robots.txt'        => true,
-        'service-worker.js' => true,
-        'site.webmanifest'  => true,
+    private const array DATA_DIRECTORIES = [
+        '_assets'   => true,
+        '_cache'    => true,
+        '_pictures' => true,
+        'files'     => true,
     ];
 
     private const array ACTIVE_EXTENSIONS = [
@@ -167,41 +135,18 @@ final readonly class SharedHostingDistributionBuilder
 
         $this->createDirectory($destinationRoot, 0750);
         try {
-            $applicationRoot = $destinationRoot . '/' . self::APPLICATION_DIRECTORY;
-            $publicRoot      = $destinationRoot . '/' . self::PUBLIC_DIRECTORY;
-            $this->createDirectory($applicationRoot, 0750);
+            $publicRoot = $destinationRoot . '/' . self::PUBLIC_DIRECTORY;
             $this->createDirectory($publicRoot, 0755);
-
-            $this->copyApplicationSources($applicationRoot);
-            $this->createRuntimeDirectories($applicationRoot, $publicRoot);
+            $this->copySources($publicRoot);
+            $this->createRuntimeDirectories($publicRoot);
             if ($includeInstalledVendor && is_dir($this->sourceRoot . '/_vendor')) {
-                $this->copyTree($this->sourceRoot . '/_vendor', $applicationRoot . '/_vendor', 0755, 0644);
+                $this->copyTree($this->sourceRoot . '/_vendor', $publicRoot . '/_vendor', 0755, 0644);
             }
 
-            $this->copyPublicSources($publicRoot);
-            $this->writeEntrypoints($publicRoot);
             $this->copyExactFile($this->sourceRoot . '/.htaccess', $publicRoot . '/.htaccess', 0644);
             $this->copyExactFile($this->sourceRoot . '/service-worker.js', $publicRoot . '/service-worker.js', 0644);
             $this->copyOptionalRootMetadata($publicRoot);
-            $this->copyExactFile(
-                $this->sourceRoot . '/_doc/shared-hosting.md',
-                $destinationRoot . '/DEPLOYMENT.md',
-                0644,
-            );
-            foreach (self::DISTRIBUTION_DOCUMENTATION_FILES as $filename) {
-                $this->copyExactFile(
-                    $this->sourceRoot . '/_doc/' . $filename,
-                    $destinationRoot . '/' . $filename,
-                    0644,
-                );
-            }
-
-            $this->copyExactFile(
-                $this->sourceRoot . '/_doc/self-update.md',
-                $destinationRoot . '/UPDATES.md',
-                0644,
-            );
-
+            $this->copyDocumentation($destinationRoot);
             $this->validatePublicBoundary($destinationRoot);
         } catch (\Throwable $throwable) {
             $this->removeTree($destinationRoot);
@@ -257,118 +202,92 @@ final readonly class SharedHostingDistributionBuilder
                 continue;
             }
 
-            if (!isset(self::PUBLIC_ROOT_ENTRIES[$entry])) {
+            if (!isset(self::ROOT_ENTRIES[$entry])) {
                 throw new \RuntimeException('Unexpected public document-root entry: ' . $entry);
             }
         }
 
         $files = $this->regularFiles($publicRoot);
+        foreach (self::ENTRYPOINTS as $entrypoint) {
+            $source = $this->sourceRoot . '/' . $entrypoint;
+            $built  = $files[$entrypoint] ?? null;
+            if (!\is_string($built) || !$this->filesMatch($source, $built)) {
+                throw new \RuntimeException('A required application entrypoint is missing or changed: ' . $entrypoint);
+            }
+        }
+
+        $policy = $files['.htaccess'] ?? null;
+        if (!\is_string($policy) || !$this->filesMatch($this->sourceRoot . '/.htaccess', $policy)) {
+            throw new \RuntimeException('The shared-hosting Apache policy is missing or changed.');
+        }
+
         foreach (array_keys($files) as $relativePath) {
-            $extension = strtolower(pathinfo($relativePath, PATHINFO_EXTENSION));
-            if (isset(self::ACTIVE_EXTENSIONS[$extension]) && !isset(self::PUBLIC_ENTRYPOINTS[$relativePath])) {
-                throw new \RuntimeException('Unexpected active file below the document root: ' . $relativePath);
-            }
-        }
-
-        foreach (array_keys(self::PUBLIC_ENTRYPOINTS) as $entrypoint) {
-            if (!isset($files[$entrypoint])) {
-                throw new \RuntimeException('A required public entrypoint is missing: ' . $entrypoint);
+            $rootDirectory = strtok($relativePath, '/');
+            $extension     = strtolower(pathinfo($relativePath, PATHINFO_EXTENSION));
+            if (\is_string($rootDirectory)
+                && isset(self::DATA_DIRECTORIES[$rootDirectory], self::ACTIVE_EXTENSIONS[$extension])
+            ) {
+                throw new \RuntimeException('Unexpected active file in a public data directory: ' . $relativePath);
             }
         }
     }
 
-    private function copyApplicationSources(string $applicationRoot): void
+    private function copySources(string $publicRoot): void
     {
-        foreach (self::APPLICATION_SOURCE_DIRECTORIES as $directory) {
-            $this->copyTree(
-                $this->sourceRoot . '/' . $directory,
-                $applicationRoot . '/' . $directory,
-                0755,
-                0644,
-            );
+        foreach (self::SOURCE_DIRECTORIES as $directory) {
+            $this->copyTree($this->sourceRoot . '/' . $directory, $publicRoot . '/' . $directory, 0755, 0644);
         }
 
-        foreach (self::APPLICATION_SOURCE_FILES as $filename) {
+        foreach (self::OPTIONAL_SOURCE_DIRECTORIES as $directory) {
+            if (is_dir($this->sourceRoot . '/' . $directory)) {
+                $this->copyTree($this->sourceRoot . '/' . $directory, $publicRoot . '/' . $directory, 0755, 0644);
+            }
+        }
+
+        foreach (self::SOURCE_FILES as $filename) {
+            $this->copyExactFile($this->sourceRoot . '/' . $filename, $publicRoot . '/' . $filename, 0644);
+        }
+
+        foreach (self::TOOL_FILES as $filename) {
+            $this->copyExactFile($this->sourceRoot . '/tools/' . $filename, $publicRoot . '/tools/' . $filename, 0755);
+        }
+    }
+
+    private function createRuntimeDirectories(string $publicRoot): void
+    {
+        foreach (['_cache', '_pictures'] as $directory) {
+            $runtimeDirectory = $publicRoot . '/' . $directory;
+            $this->createDirectory($runtimeDirectory, 0755);
+            foreach (['.htaccess', 'index.html'] as $filename) {
+                $this->copyExactFile(
+                    $this->sourceRoot . '/' . $directory . '/' . $filename,
+                    $runtimeDirectory . '/' . $filename,
+                    0644,
+                );
+            }
+        }
+    }
+
+    private function copyDocumentation(string $destinationRoot): void
+    {
+        $this->copyExactFile(
+            $this->sourceRoot . '/_doc/shared-hosting.md',
+            $destinationRoot . '/DEPLOYMENT.md',
+            0644,
+        );
+        foreach (self::DISTRIBUTION_DOCUMENTATION_FILES as $filename) {
             $this->copyExactFile(
-                $this->sourceRoot . '/' . $filename,
-                $applicationRoot . '/' . $filename,
+                $this->sourceRoot . '/_doc/' . $filename,
+                $destinationRoot . '/' . $filename,
                 0644,
             );
         }
 
-        foreach (self::APPLICATION_TOOL_FILES as $filename) {
-            $this->copyExactFile(
-                $this->sourceRoot . '/tools/' . $filename,
-                $applicationRoot . '/tools/' . $filename,
-                0755,
-            );
-        }
-    }
-
-    private function createRuntimeDirectories(string $applicationRoot, string $publicRoot): void
-    {
-        $privateCache = $applicationRoot . '/_cache';
-        $publicCache  = $publicRoot . '/_cache';
-        $pictures     = $publicRoot . '/_pictures';
-        $this->createDirectory($privateCache, 0750);
-        $this->createDirectory($publicCache, 0755);
-        $this->createDirectory($pictures, 0755);
-
-        foreach (['.htaccess', 'index.html'] as $filename) {
-            $this->copyExactFile($this->sourceRoot . '/_cache/' . $filename, $privateCache . '/' . $filename, 0644);
-            $this->copyExactFile($this->sourceRoot . '/_cache/' . $filename, $publicCache . '/' . $filename, 0644);
-            $this->copyExactFile($this->sourceRoot . '/_pictures/' . $filename, $pictures . '/' . $filename, 0644);
-        }
-    }
-
-    private function copyPublicSources(string $publicRoot): void
-    {
-        foreach (self::PUBLIC_SOURCE_DIRECTORIES as $directory) {
-            $this->copyTree(
-                $this->sourceRoot . '/' . $directory,
-                $publicRoot . '/' . $directory,
-                0755,
-                0644,
-                fn(string $relativePath): bool => $this->isPublicAsset($directory, $relativePath),
-            );
-        }
-
-        foreach (self::OPTIONAL_PUBLIC_SOURCE_DIRECTORIES as $directory) {
-            if (!is_dir($this->sourceRoot . '/' . $directory)) {
-                continue;
-            }
-
-            $this->copyTree(
-                $this->sourceRoot . '/' . $directory,
-                $publicRoot . '/' . $directory,
-                0755,
-                0644,
-                fn(string $relativePath): bool => $this->isPublicAsset($directory, $relativePath),
-            );
-        }
-    }
-
-    private function writeEntrypoints(string $publicRoot): void
-    {
-        foreach (self::PUBLIC_ENTRYPOINTS as $publicPath => $applicationPath) {
-            $isAdmin = str_starts_with($publicPath, '_admin/');
-            $applicationRootExpression = $isAdmin ? 'dirname(__DIR__, 2)' : 'dirname(__DIR__)';
-            $publicRootExpression      = $isAdmin ? 'dirname(__DIR__)' : '__DIR__';
-            $content = <<<PHP
-<?php
-/**
- * Public shared-hosting entrypoint generated by Register's distribution builder.
- */
-
-declare(strict_types = 1);
-
-define('REGISTER_APP_ROOT', {$applicationRootExpression} . '/register-app');
-define('REGISTER_PUBLIC_ROOT', {$publicRootExpression});
-
-require constant('REGISTER_APP_ROOT') . '/{$applicationPath}';
-PHP;
-            $this->writeFile($publicRoot . '/' . $publicPath, $content . "\n", 0644);
-        }
+        $this->copyExactFile(
+            $this->sourceRoot . '/_doc/self-update.md',
+            $destinationRoot . '/UPDATES.md',
+            0644,
+        );
     }
 
     private function copyOptionalRootMetadata(string $publicRoot): void
@@ -381,29 +300,16 @@ PHP;
         }
     }
 
-    private function isPublicAsset(string $sourceDirectory, string $relativePath): bool
+    private function filesMatch(string $left, string $right): bool
     {
-        $extension = strtolower(pathinfo($relativePath, PATHINFO_EXTENSION));
-        if (!isset(self::PUBLIC_EXTENSIONS[$extension])) {
-            return false;
-        }
+        $leftHash  = hash_file('sha256', $left);
+        $rightHash = hash_file('sha256', $right);
 
-        if ($extension === 'json' && !\in_array($sourceDirectory, ['_assets', '_extensions'], true)) {
-            return false;
-        }
-
-        return !\in_array($extension, ['htm', 'html'], true)
-            || \in_array($sourceDirectory, ['_assets', '_extensions', 'files'], true);
+        return \is_string($leftHash) && \is_string($rightHash) && hash_equals($leftHash, $rightHash);
     }
 
-    /** @param null|callable(string): bool $fileFilter */
-    private function copyTree(
-        string $source,
-        string $destination,
-        int $directoryMode,
-        int $fileMode,
-        ?callable $fileFilter = null,
-    ): void {
+    private function copyTree(string $source, string $destination, int $directoryMode, int $fileMode): void
+    {
         if (!is_dir($source) || is_link($source)) {
             throw new \RuntimeException('A required source directory is missing or unsafe: ' . $source);
         }
@@ -430,18 +336,9 @@ PHP;
 
             if ($entry->isDir()) {
                 $this->createDirectory($targetPath, $directoryMode);
-                continue;
+            } elseif ($entry->isFile()) {
+                $this->copyExactFile($sourcePath, $targetPath, $fileMode);
             }
-
-            if (!$entry->isFile()) {
-                continue;
-            }
-
-            if ($fileFilter !== null && !\call_user_func($fileFilter, $relativePath)) {
-                continue;
-            }
-
-            $this->copyExactFile($sourcePath, $targetPath, $fileMode);
         }
     }
 
@@ -457,16 +354,6 @@ PHP;
         }
 
         $this->setMode($destination, $mode);
-    }
-
-    private function writeFile(string $filename, string $content, int $mode): void
-    {
-        $this->createDirectory(\dirname($filename), 0755);
-        if (file_put_contents($filename, $content, LOCK_EX) !== \strlen($content)) {
-            throw new \RuntimeException('Unable to write distribution file: ' . $filename);
-        }
-
-        $this->setMode($filename, $mode);
     }
 
     private function createDirectory(string $directory, int $mode): void
@@ -530,11 +417,9 @@ PHP;
                 continue;
             }
 
-            if ($entry->isDir() && !$entry->isLink()) {
-                rmdir($entry->getPathname());
-            } else {
-                unlink($entry->getPathname());
-            }
+            $entry->isDir() && !$entry->isLink()
+                ? rmdir($entry->getPathname())
+                : unlink($entry->getPathname());
         }
 
         rmdir($directory);

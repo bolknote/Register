@@ -20,10 +20,11 @@ local machine when the hosting account has no terminal.
 | Backup encryption key | `backups.encryption_key` in `config.php` | New archives use the new key; old archives still require the old key. |
 | Administrator session and CSRF tokens | Hashed session rows in `users_online`; raw token only in the browser cookie | Deleting the session row invalidates both the session and tokens derived from it. |
 
-The private dynamic-secret file is the path configured by `security.secret_file`. In the recommended
-split-root package it defaults to `register-app/config.secrets.php`. Repository-root installations
-normally use an installation-specific file beside the document root and use
-`config.secrets.php` inside the application only when that fallback passed the HTTP boundary probe.
+The private dynamic-secret file is the path configured by `security.secret_file`. Register first
+tries an installation-specific file beside the document root when the hosting account permits it.
+On ordinary shared hosting it uses `config.secrets.php` inside the single application/document root
+only after an HTTP boundary probe has proved that the supplied server policy prevents source
+download.
 The managed keys are `S2_AKISMET_KEY`, `REGISTER_AI_API_KEY`, `S2_ANTISPAM_SECRET`, and
 `REGISTER_VISITOR_SECRET`. The database and generated configuration cache contain only
 `$register-private-secret:v1$` for non-empty managed values.

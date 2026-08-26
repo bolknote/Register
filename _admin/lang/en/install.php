@@ -63,7 +63,7 @@ $lang_install = array(
 'Register already installed 3'	=>	'To connect this Register installation to the selected database, download config.php with the current parameters and place it alongside the other engine files.',
 'Invalid language'			=>	'The language pack you have chosen does not seem to exist or is corrupt. Please recheck and try again.',
 'Foreign request'			=>	'This installation request came from another site and was rejected. Reload the installer and try again.',
-'Secret file boundary failed' => 'Register cannot safely store API keys on this hosting account. Use the split-root shared-hosting package, make the directory above the document root writable by PHP, or enable and verify the supplied .htaccess rules before retrying.',
+'Secret file boundary failed' => 'Register cannot safely store API keys on this hosting account. Enable and verify the supplied .htaccess rules, or configure a private writable secret file path before retrying.',
 
 // Used in the install
 'Site name'					=>	'Register',

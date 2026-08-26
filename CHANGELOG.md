@@ -15,8 +15,9 @@ in-place publishing and a release package designed for ordinary shared hosting.
   reactions, rich comments, and accessible media players.
 - Public accounts through existing Register credentials, optional email links, VK ID, Mail.ru,
   Odnoklassniki, and Yandex, with relevant unread-comment counters.
-- Split-root shared-hosting archives, encrypted backups, a staged control-panel updater, and
-  explicit database migrations from schema generations 15 through 19 to generation 20.
+- Single-root shared-hosting archives that run entirely from `public_html`, encrypted backups, a
+  staged control-panel updater, and explicit database migrations from schema generations 15 through
+  19 to generation 20.
 - Comment email addresses are now unconditionally private. The obsolete public-email flags are
   removed during the generation-20 migration, and discussion subscriptions now control both email
   delivery and the authenticated user's unread-comment counter.
@@ -31,8 +32,9 @@ in-place publishing and a release package designed for ordinary shared hosting.
 
 ### Deployment notes
 
-- Install the first updater-capable build with the [staged deployment procedure](_doc/deployment.md).
-  Later compatible releases can be installed under **System → Software update**.
+- Install the first format-2 single-root updater build with the
+  [staged deployment procedure](_doc/deployment.md). Later compatible releases can be installed
+  under **System → Software update**.
 - Older databases below generation 15 are not modified automatically. Recreate the installation or
   import the data explicitly.
 - Email-link sign-in is disabled on new sites. Enable it only after confirming that production PHP

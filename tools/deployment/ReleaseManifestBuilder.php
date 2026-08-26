@@ -15,14 +15,11 @@ use Register\Update\ReleaseManifest;
 final readonly class ReleaseManifestBuilder
 {
     private const array EXCLUDED_PREFIXES = [
-        'register-app/_cache/',
         'public_html/_cache/',
         'public_html/_pictures/',
     ];
 
     private const array MANAGED_RUNTIME_BOUNDARIES = [
-        'register-app/_cache/.htaccess'    => true,
-        'register-app/_cache/index.html'   => true,
         'public_html/_cache/.htaccess'     => true,
         'public_html/_cache/index.html'    => true,
         'public_html/_pictures/.htaccess'  => true,
@@ -48,32 +45,28 @@ final readonly class ReleaseManifestBuilder
         }
 
         $files = [];
-        foreach ([
-            ReleaseFile::TARGET_APPLICATION => SharedHostingDistributionBuilder::APPLICATION_DIRECTORY,
-            ReleaseFile::TARGET_PUBLIC      => SharedHostingDistributionBuilder::PUBLIC_DIRECTORY,
-        ] as $target => $directory) {
-            $targetRoot = $resolvedRoot . '/' . $directory;
-            foreach ($this->regularFiles($targetRoot) as $relativePath => $filename) {
-                $archivePath = $directory . '/' . $relativePath;
-                if ($archivePath === ReleaseManifest::ARCHIVE_PATH || $this->isExcluded($archivePath)) {
-                    continue;
-                }
-
-                $size = filesize($filename);
-                $hash = hash_file('sha256', $filename);
-                $permissions = fileperms($filename);
-                if (!\is_int($size) || !\is_string($hash) || !\is_int($permissions)) {
-                    throw new \RuntimeException('Unable to inspect release file: ' . $archivePath);
-                }
-
-                $files[] = new ReleaseFile(
-                    $target,
-                    $relativePath,
-                    $size,
-                    $hash,
-                    ($permissions & 0111) !== 0 ? 0755 : 0644,
-                );
+        $directory  = SharedHostingDistributionBuilder::PUBLIC_DIRECTORY;
+        $targetRoot = $resolvedRoot . '/' . $directory;
+        foreach ($this->regularFiles($targetRoot) as $relativePath => $filename) {
+            $archivePath = $directory . '/' . $relativePath;
+            if ($archivePath === ReleaseManifest::ARCHIVE_PATH || $this->isExcluded($archivePath)) {
+                continue;
             }
+
+            $size        = filesize($filename);
+            $hash        = hash_file('sha256', $filename);
+            $permissions = fileperms($filename);
+            if (!\is_int($size) || !\is_string($hash) || !\is_int($permissions)) {
+                throw new \RuntimeException('Unable to inspect release file: ' . $archivePath);
+            }
+
+            $files[] = new ReleaseFile(
+                ReleaseFile::TARGET_ROOT,
+                $relativePath,
+                $size,
+                $hash,
+                ($permissions & 0111) !== 0 ? 0755 : 0644,
+            );
         }
 
         usort($files, static fn(ReleaseFile $left, ReleaseFile $right): int => $left->key() <=> $right->key());

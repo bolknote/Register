@@ -39,8 +39,8 @@ never starts a process or calls the potentially blocking libc resolver.
   representation of the same blog rather than a replacement publishing system.
 - **Private by default.** Core reader features are served locally, and analytics do not store raw IP
   addresses or User-Agent strings.
-- **Friendly to ordinary hosting.** A split-root archive is ready to upload without Composer on the
-  hosting account, and background work needs neither a daemon nor a cron entry.
+- **Friendly to ordinary hosting.** A single `public_html` archive is ready to upload without
+  Composer on the hosting account, and background work needs neither a daemon nor a cron entry.
 - **Extensible without hollowing out the core.** Product features are mandatory base modules;
   integrations and specialized behavior can be optional modules.
 
@@ -173,9 +173,9 @@ publishing model.
   Security Policy and browser security headers.
 - API keys and internal HMAC secrets are kept outside the database. Uploads have a total storage
   quota and may live on an isolated HTTPS media origin.
-- A reviewed split-root shared-hosting package keeps PHP source, dependencies, configuration,
-  database, private cache, and encrypted backups outside `public_html`; Composer and shell access are
-  not required on the hosting account.
+- A reviewed single-root shared-hosting package includes the complete engine and its dependencies in
+  `public_html`; a strict Apache allow-list prevents direct access to source, configuration, cache,
+  and operator data. Composer and shell access are not required on the hosting account.
 - CI-gated edge builds and explicitly promoted release candidates or stable releases in ZIP,
   tar.gz, and tar.bz2, plus a staged control-panel updater with per-file hashes, maintenance mode,
   backups, database migrations, and file rollback.
@@ -199,7 +199,7 @@ include:
 - the public reading design, redesigned administration, editorial workflow, local draft recovery,
   in-place post creation and editing, rich comments, image captions, AI-assisted proofreading, and
   the token-based tag editor;
-- scheduled publishing, the request-driven queue, authenticated encrypted backups, the split-root
+- scheduled publishing, the request-driven queue, authenticated encrypted backups, the single-root
   shared-hosting package, and automatic response compression;
 - privacy-conscious analytics, local anti-spam controls, anonymous visitor identity, emoji
   reactions, passkeys, security auditing, and deployment hardening;
@@ -241,7 +241,7 @@ SQLite backups require no external database utility. MySQL/MariaDB backups need 
 
 ### Shared hosting (recommended)
 
-Build the split-root archive on a trusted computer; Composer is not needed on the hosting account:
+Build the single-root archive on a trusted computer; Composer is not needed on the hosting account:
 
 ```bash
 git clone https://github.com/bolknote/Register.git register
@@ -250,18 +250,19 @@ composer install --no-interaction
 composer build:shared-hosting
 ```
 
-Upload both directories from `dist/register-shared-hosting.zip`: keep `register-app/` beside the
-hosting provider's `public_html`, `www`, or `htdocs`, and copy the packaged `public_html/` contents
-into that document root. Then open `/_admin/install.php` and follow the installer. The application,
-configuration, database, private cache, and encrypted backups stay outside the public directory.
+Upload the contents of `public_html/` from `dist/register-shared-hosting.zip` into the hosting
+provider's `public_html`, `www`, or `htdocs` document root. Then open `/_admin/install.php` and
+follow the installer. The package is intentionally self-contained and never requires PHP to include
+files from a sibling directory. Its supplied `.htaccess` is the security boundary and must be
+honored by Apache.
 
 See [Shared-hosting installation](_doc/shared-hosting.md) for permissions, safe updates, media-host
 isolation, and post-deployment boundary checks.
 
-### Repository-root installation
+### Installation from a source checkout
 
-When the hosting account cannot provide a private sibling directory, install production dependencies
-in the checkout. On Apache, the checked-in root `.htaccess` is the security boundary; Nginx must
+To deploy a source checkout instead of the ready-made package, install production dependencies in
+the checkout. On Apache, the checked-in root `.htaccess` is the security boundary; Nginx must
 reproduce its allow-list using the supplied example configuration:
 
 ```bash

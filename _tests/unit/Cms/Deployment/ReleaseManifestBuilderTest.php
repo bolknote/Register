@@ -25,7 +25,6 @@ final class ReleaseManifestBuilderTest extends Unit
     {
         $this->temporaryRoot = sys_get_temp_dir() . '/register_manifest_builder_' . bin2hex(random_bytes(6));
         foreach ([
-            'register-app/_cache',
             'public_html/_cache',
             'public_html/_pictures',
         ] as $directory) {
@@ -41,10 +40,7 @@ final class ReleaseManifestBuilderTest extends Unit
 
     public function testManagesBoundaryFilesAndExcludesRuntimeState(): void
     {
-        file_put_contents($this->temporaryRoot . '/register-app/file.php', '<?php');
-        file_put_contents($this->temporaryRoot . '/register-app/_cache/.htaccess', 'deny');
-        file_put_contents($this->temporaryRoot . '/register-app/_cache/index.html', '');
-        file_put_contents($this->temporaryRoot . '/register-app/_cache/site.sqlite', 'database');
+        file_put_contents($this->temporaryRoot . '/public_html/file.php', '<?php');
         file_put_contents($this->temporaryRoot . '/public_html/_cache/.htaccess', 'cache policy');
         file_put_contents($this->temporaryRoot . '/public_html/_cache/index.html', '');
         file_put_contents($this->temporaryRoot . '/public_html/_cache/generated.css', 'generated');
@@ -67,14 +63,12 @@ final class ReleaseManifestBuilderTest extends Unit
         );
         $files = $manifest->filesByKey();
 
-        self::assertArrayHasKey('app:_cache/.htaccess', $files);
-        self::assertArrayHasKey('app:_cache/index.html', $files);
-        self::assertArrayHasKey('public:_cache/.htaccess', $files);
-        self::assertArrayHasKey('public:_cache/index.html', $files);
-        self::assertArrayHasKey('public:_pictures/.htaccess', $files);
-        self::assertArrayHasKey('public:_pictures/index.html', $files);
-        self::assertArrayNotHasKey('app:_cache/site.sqlite', $files);
-        self::assertArrayNotHasKey('public:_cache/generated.css', $files);
-        self::assertArrayNotHasKey('public:_pictures/photo.jpg', $files);
+        self::assertArrayHasKey('root:file.php', $files);
+        self::assertArrayHasKey('root:_cache/.htaccess', $files);
+        self::assertArrayHasKey('root:_cache/index.html', $files);
+        self::assertArrayHasKey('root:_pictures/.htaccess', $files);
+        self::assertArrayHasKey('root:_pictures/index.html', $files);
+        self::assertArrayNotHasKey('root:_cache/generated.css', $files);
+        self::assertArrayNotHasKey('root:_pictures/photo.jpg', $files);
     }
 }

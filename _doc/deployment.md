@@ -1,12 +1,12 @@
 # Production deployment
 
-Register's recommended shared-hosting layout keeps the application above the document root. A
-repository-root deployment remains available when the hosting account cannot provide a private
-sibling directory. Apache is the primary shared-hosting target; Nginx is supported when the operator
-can edit the virtual-host configuration. In every layout the web server must expose only the reviewed
-PHP entrypoints and public static data.
+Register's supported shared-hosting layout is deliberately self-contained: the application,
+dependencies, entrypoints, and runtime directories all live in the hosting provider's document root.
+It does not require PHP to include files above `public_html`, `www`, or `htdocs`. Apache is the
+primary shared-hosting target; Nginx is supported when the operator can edit the virtual-host
+configuration. The web server must expose only the reviewed PHP entrypoints and public static data.
 
-## Recommended split-root package
+## Single-root package
 
 Build a ready-to-upload archive on a trusted development machine:
 
@@ -14,30 +14,29 @@ Build a ready-to-upload archive on a trusted development machine:
 composer build:shared-hosting
 ```
 
-The resulting `dist/register-shared-hosting.zip` contains a private `register-app/` directory and a
-minimal `public_html/`. The build installs the locked production dependencies without development
-packages, fails if an unexpected executable file reaches the document root, and prints a SHA-256
-checksum. Composer is not needed on the hosting account.
+The resulting `dist/register-shared-hosting.zip` contains one complete `public_html/` tree plus
+operator documentation. The build installs the locked production dependencies without development
+packages, verifies the exact front controllers and Apache policy, rejects active files in data
+directories, and prints a SHA-256 checksum. Composer is not needed on the hosting account.
 
-Place `register-app` beside the host's `public_html`, `www`, or `htdocs` directory. Public front
-controllers set the private application root explicitly; uploaded images and generated browser
-bundles are written below the actual document root. See
+Copy the contents of the packaged `public_html/` into the host's `public_html`, `www`, or `htdocs`
+directory. Do not create a `register-app` sibling and do not rewrite the front controllers. See
 [`shared-hosting.md`](shared-hosting.md) for installation, permission, boundary-verification, and
 safe-update instructions.
 
 Dynamic AI and Akismet API keys and the antispam/anonymous-visitor HMAC secrets are not stored in the
-database. In the split-root layout Register writes them to `register-app/config.secrets.php` with
-mode `0600`; generated caches and database backups contain only a marker. Preserve this file
-separately when moving or restoring a site. The file can be moved to another private path with
-`security.secret_file` in `config.php`; relative paths are resolved from the application root. See
-the [secret-rotation runbook](secret-rotation.md) before replacing any value.
+database. Register stores them in a mode-`0600` PHP file; on ordinary shared hosting the verified
+in-root fallback is `config.secrets.php`, which the supplied Apache policy denies. Generated caches
+and database backups contain only a marker. Preserve this file separately when moving or restoring
+a site. It can be moved to another private path with `security.secret_file` in `config.php` when the
+hosting account permits that path. Relative paths are resolved from the application root. See the
+[secret-rotation runbook](secret-rotation.md) before replacing any value.
 
 ## Apache shared hosting
 
-For a repository-root deployment, the checked-in [root `.htaccess`](../.htaccess) is part of the
-security boundary. It requires Apache 2.4 with `mod_rewrite`, `AllowOverride All`, and permission to
-use `Options`. The same file remains useful in split-root packages for routing and defense in depth.
-It provides these rules:
+The checked-in [root `.htaccess`](../.htaccess) is the security boundary for the single-root package.
+It requires Apache 2.4 with `mod_rewrite`, `AllowOverride All`, and permission to use `Options`. It
+provides these rules:
 
 - only `index.php` and the four `_admin/*.php` front controllers can execute directly;
 - source, tests, tools, configuration, database, logs, private cache entries, and dependency
@@ -48,7 +47,7 @@ It provides these rules:
 - when `mod_headers` is available, `nosniff`, the referrer policy, and the camera/microphone/location
   restrictions apply to dynamic responses, static assets, uploads, and access-denied responses.
 
-For this legacy layout, Register first tries a stable `register-secrets-<installation-id>.php` file
+Register first tries a stable `register-secrets-<installation-id>.php` file
 beside the document root. If PHP cannot write there, the installer falls back to
 `config.secrets.php` inside the application root only after a same-host, IP-pinned HTTP probe proves
 that the file's PHP source cannot be downloaded. The fallback file is mode `0600` and the supplied

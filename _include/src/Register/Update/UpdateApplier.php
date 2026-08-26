@@ -11,20 +11,20 @@ namespace Register\Update;
 
 final readonly class UpdateApplier
 {
-    private string $applicationRoot;
-
-    private string $publicRoot;
+    private string $root;
 
     public function __construct(string $applicationRoot, string $publicRoot)
     {
         $resolvedApplicationRoot = realpath($applicationRoot);
         $resolvedPublicRoot      = realpath($publicRoot);
-        if ($resolvedApplicationRoot === false || $resolvedPublicRoot === false) {
-            throw new \InvalidArgumentException('The update target roots must exist.');
+        if ($resolvedApplicationRoot === false
+            || $resolvedPublicRoot === false
+            || $resolvedApplicationRoot !== $resolvedPublicRoot
+        ) {
+            throw new \InvalidArgumentException('The update target must use one shared-hosting document root.');
         }
 
-        $this->applicationRoot = $resolvedApplicationRoot;
-        $this->publicRoot      = $resolvedPublicRoot;
+        $this->root = $resolvedApplicationRoot;
     }
 
     public function apply(
@@ -38,7 +38,7 @@ final readonly class UpdateApplier
             throw new \RuntimeException('An update with file conflicts cannot be applied.');
         }
 
-        if (!is_dir($stageRoot . '/app') || !is_dir($stageRoot . '/public')) {
+        if (!is_dir($stageRoot . '/root')) {
             throw new \RuntimeException('The staged release is incomplete.');
         }
 
@@ -72,7 +72,7 @@ final readonly class UpdateApplier
                     throw new \LogicException('The update write plan references an unknown file: ' . $key);
                 }
 
-                $source = $stageRoot . '/' . $file->target . '/' . $file->path;
+                $source = $stageRoot . '/root/' . $file->path;
                 $this->assertExpectedFile($source, $file);
                 $this->installFile($source, $this->destination($file), $file->mode);
             }
@@ -91,12 +91,12 @@ final readonly class UpdateApplier
                 $this->invalidateOpcode($destination);
             }
 
-            $manifestSource = $stageRoot . '/app/register-release.json';
+            $manifestSource = $stageRoot . '/root/register-release.json';
             if (!is_file($manifestSource) || is_link($manifestSource)) {
                 throw new \RuntimeException('The staged release manifest is missing.');
             }
 
-            $this->installFile($manifestSource, $this->applicationRoot . '/register-release.json', 0644);
+            $this->installFile($manifestSource, $this->root . '/register-release.json', 0644);
         } catch (\Throwable $throwable) {
             try {
                 $this->restoreEntries($rollbackRoot, $journal);
@@ -171,9 +171,9 @@ final readonly class UpdateApplier
     {
         return $this->backupPath(
             $rollbackRoot,
-            ReleaseFile::TARGET_APPLICATION,
+            ReleaseFile::TARGET_ROOT,
             'register-release.json',
-            $this->applicationRoot . '/register-release.json',
+            $this->root . '/register-release.json',
         );
     }
 
@@ -226,7 +226,7 @@ final readonly class UpdateApplier
                 || !\is_bool($entry['existed'] ?? null)
                 || !\is_int($entry['mode'] ?? null)
                 || !ReleaseFile::isSafeRelativePath($entry['path'])
-                || !\in_array($entry['target'], [ReleaseFile::TARGET_APPLICATION, ReleaseFile::TARGET_PUBLIC], true)
+                || $entry['target'] !== ReleaseFile::TARGET_ROOT
             ) {
                 throw new \RuntimeException('The update rollback journal contains an invalid entry.');
             }
@@ -327,7 +327,11 @@ final readonly class UpdateApplier
 
     private function root(string $target): string
     {
-        return $target === ReleaseFile::TARGET_APPLICATION ? $this->applicationRoot : $this->publicRoot;
+        if ($target !== ReleaseFile::TARGET_ROOT) {
+            throw new \LogicException('The update references an unsupported release target.');
+        }
+
+        return $this->root;
     }
 
     private function invalidateOpcode(string $filename): void

@@ -27,7 +27,6 @@ final class ReleaseArchiveExtractorTest extends Unit
     protected function _before(): void
     {
         $this->temporaryRoot = sys_get_temp_dir() . '/register_release_extract_' . bin2hex(random_bytes(6));
-        mkdir($this->temporaryRoot . '/distribution/register-app', 0700, true);
         mkdir($this->temporaryRoot . '/distribution/public_html', 0700, true);
     }
 
@@ -41,7 +40,7 @@ final class ReleaseArchiveExtractorTest extends Unit
     {
         $manifest = $this->writeDistribution();
         file_put_contents($this->temporaryRoot . '/distribution/DEPLOYMENT.md', 'not part of a self-update');
-        file_put_contents($this->temporaryRoot . '/distribution/register-app/unmanaged.txt', 'not managed');
+        file_put_contents($this->temporaryRoot . '/distribution/public_html/unmanaged.txt', 'not managed');
         $builder  = new ReleaseArchiveBuilder();
         $archives = [
             ['release.zip', ArchiveCapabilities::FORMAT_ZIP, $builder->createZip(...)],
@@ -64,8 +63,8 @@ final class ReleaseArchiveExtractorTest extends Unit
 
             $stage = $this->temporaryRoot . '/stage-' . $index++;
             $extractor->extract($archive, $stage, $readManifest);
-            self::assertSame('<?php echo "ok";', file_get_contents($stage . '/app/file.php'));
-            self::assertSame('body{}', file_get_contents($stage . '/public/site.css'));
+            self::assertSame('<?php echo "ok";', file_get_contents($stage . '/root/file.php'));
+            self::assertSame('body{}', file_get_contents($stage . '/root/site.css'));
         }
 
         self::assertGreaterThan(0, $index);
@@ -87,7 +86,7 @@ final class ReleaseArchiveExtractorTest extends Unit
 
         $zip = new \ZipArchive();
         self::assertTrue($zip->open($archive));
-        self::assertTrue($zip->addFromString('register-app/unlisted.php', '<?php'));
+        self::assertTrue($zip->addFromString('public_html/unlisted.php', '<?php'));
         self::assertTrue($zip->close());
 
         $this->expectException(\RuntimeException::class);
@@ -98,7 +97,7 @@ final class ReleaseArchiveExtractorTest extends Unit
     public function testBuilderRejectsAFileThatChangedAfterManifestCreation(): void
     {
         $this->writeDistribution();
-        file_put_contents($this->temporaryRoot . '/distribution/register-app/file.php', 'changed');
+        file_put_contents($this->temporaryRoot . '/distribution/public_html/file.php', 'changed');
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('differs from its manifest');
@@ -113,7 +112,7 @@ final class ReleaseArchiveExtractorTest extends Unit
     {
         $application = '<?php echo "ok";';
         $public      = 'body{}';
-        file_put_contents($this->temporaryRoot . '/distribution/register-app/file.php', $application);
+        file_put_contents($this->temporaryRoot . '/distribution/public_html/file.php', $application);
         file_put_contents($this->temporaryRoot . '/distribution/public_html/site.css', $public);
         $manifest = new ReleaseManifest(
             '20260822T000000Z-01234567',
@@ -127,8 +126,8 @@ final class ReleaseArchiveExtractorTest extends Unit
             15,
             15,
             [
-                new ReleaseFile('app', 'file.php', \strlen($application), hash('sha256', $application)),
-                new ReleaseFile('public', 'site.css', \strlen($public), hash('sha256', $public)),
+                new ReleaseFile('root', 'file.php', \strlen($application), hash('sha256', $application)),
+                new ReleaseFile('root', 'site.css', \strlen($public), hash('sha256', $public)),
             ],
         );
         file_put_contents(

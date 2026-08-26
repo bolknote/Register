@@ -8,7 +8,7 @@ declare(strict_types = 1);
 /** @var array<string, array{extension:string,available:bool,requirement:string}> $formats */
 /** @var ?string $preferredFormat */
 /** @var bool $available */
-/** @var bool $splitLayout */
+/** @var bool $singleRootLayout */
 /** @var bool $writableLayout */
 /** @var bool $storageWritable */
 /** @var string $csrfToken */
@@ -81,8 +81,8 @@ declare(strict_types = 1);
             <h2><?= $trans('Self-update is unavailable') ?></h2>
             <?php if (!$installed instanceof \Register\Update\ReleaseManifest): ?>
                 <p><?= $trans('First self-update release instruction') ?></p>
-            <?php elseif (!$splitLayout): ?>
-                <p><?= $trans('Split layout required') ?></p>
+            <?php elseif (!$singleRootLayout): ?>
+                <p><?= $trans('Single-root layout required') ?></p>
             <?php elseif (!$writableLayout): ?>
                 <p><?= $trans('Writable layout required') ?></p>
             <?php elseif (!$storageWritable): ?>
