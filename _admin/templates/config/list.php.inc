@@ -392,7 +392,7 @@ foreach ($rows as $row) {
                 <a class="ai-key-help-primary-link" href="https://aistudio.yandex.ru/" target="_blank" rel="noopener noreferrer">
                     <?= $escape($trans('Open AI Studio')) ?> <span aria-hidden="true">↗</span>
                 </a>
-                <a href="https://aistudio.yandex.ru/docs/ru/ai-studio/quickstart/" target="_blank" rel="noopener noreferrer">
+                <a href="https://aistudio.yandex.ru/docs/ru/ai-studio/operations/get-api-key.html" target="_blank" rel="noopener noreferrer">
                     <?= $escape($trans('Official instructions')) ?>
                 </a>
             </div>

@@ -431,6 +431,8 @@ class AdminCest
         $I->seeElement('[data-ai-key-help-panel="mistral"] a[href="https://console.mistral.ai/"]');
         $I->seeElement('[data-ai-key-help-panel="cloudflare"] a[href="https://developers.cloudflare.com/workers-ai/get-started/rest-api/"]');
         $I->seeElement('[data-ai-key-help-panel="yandex"] a[href="https://aistudio.yandex.ru/"]');
+        $I->seeElement('[data-ai-key-help-panel="yandex"] a[href="https://aistudio.yandex.ru/docs/ru/ai-studio/operations/get-api-key.html"]');
+        $I->see('resource-manager.admin', '[data-ai-key-help-panel="yandex"]');
         $I->seeElement('[data-ai-key-help-panel="gigachat"] a[href="https://developers.sber.ru/studio/"]');
         $I->seeElement('[data-ai-key-help-panel="gigachat"] a[href="https://developers.sber.ru/docs/ru/gigachat/certificates"]');
         $I->dontSee('REGISTER_LINK_INVENTORY_GENERATION');
