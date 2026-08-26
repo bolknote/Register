@@ -1332,9 +1332,7 @@ h2.preview,
 }
 
 .post-card.is-editing .post-foot-tags-label {
-    min-height: 2.3rem;
-    display: flex;
-    align-items: center;
+    display: none;
 }
 
 .post-tag-values {
@@ -1350,33 +1348,37 @@ h2.preview,
     display: inline;
 }
 
+.post-card.is-editing > .post.foot > :not(.post-foot-meta) {
+    display: none;
+}
+
 .post-card.is-editing > .post.foot {
-    align-items: flex-start;
+    position: relative;
+    min-height: 1.8rem;
 }
 
 .post-card.is-editing > .post.foot > .post-foot-meta {
+    position: absolute;
+    z-index: 4;
+    top: 0;
+    right: 0;
+    left: 0;
     width: 100%;
-    display: flex;
-    flex: 1 1 100%;
-    order: -1;
+    display: block;
     margin-inline-start: 0;
-    align-items: flex-start;
-    justify-content: flex-start;
+}
+
+.post-card.is-editing > .post.foot > .post-foot-meta > :not(.post-foot-tags) {
+    display: none;
 }
 
 .post-card.is-editing > .post.foot > .post-foot-meta > .post-foot-tags {
     width: 100%;
     max-width: 100%;
     display: grid;
-    flex: 1 1 100%;
-    grid-template-columns: max-content minmax(0, 38rem);
-    align-items: start;
-    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.3rem;
     transform: none;
-}
-
-.post-card.is-editing > .post.foot > .post-foot-meta > .post-foot-views {
-    display: none;
 }
 
 .post-card.is-editing .post-tag-values {
@@ -1399,11 +1401,14 @@ h2.preview,
 .post-tags-surface {
     display: flex;
     width: 100%;
-    min-height: 2.3rem;
-    padding: 0.24rem 0.38rem;
+    min-height: 2.15rem;
+    padding: 0.18rem 0.3rem;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 0.38rem;
+    align-content: center;
+    flex-wrap: nowrap;
+    gap: 0.3rem;
+    overflow-x: auto;
+    overflow-y: hidden;
     border: 1px solid var(--border-color);
     border-radius: 5px;
     background: color-mix(in srgb, var(--field-background) 82%, transparent);
@@ -1430,15 +1435,16 @@ h2.preview,
 }
 
 .post-tag-chip {
-    min-height: 1.75rem;
-    gap: 0.12rem;
-    padding: 0 0.08rem 0 0.5rem;
-    border: 1px solid color-mix(in srgb, var(--accent-color) 24%, var(--border-color));
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent-color) 8%, var(--surface-background));
-    color: color-mix(in srgb, var(--text-color) 78%, var(--minor-color));
+    flex: 0 0 auto;
+    min-height: 1.5rem;
+    gap: 0;
+    padding: 0.06rem 0.06rem 0.06rem 0.4rem;
+    border: 1px solid color-mix(in srgb, var(--minor-color) 22%, transparent);
+    border-radius: 0.32rem;
+    background: transparent;
+    color: var(--minor-color);
     font-size: 0.8125rem;
-    font-weight: 550;
+    font-weight: 520;
 }
 
 .post-tag-link,
@@ -1476,25 +1482,25 @@ h2.preview,
 .post-tag-chip .post-tag-chip-remove {
     position: relative;
     display: inline-grid;
-    width: 1.625rem;
-    min-width: 1.625rem;
-    height: 1.625rem;
-    min-height: 1.625rem;
+    width: 1.25rem;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    min-height: 1.25rem;
     padding: 0;
     border: 0;
-    border-radius: 50%;
+    border-radius: 0.22rem;
     place-items: center;
     background: transparent;
     box-shadow: none;
-    color: var(--minor-color);
-    font-size: 0.9rem;
+    color: var(--quiet-color);
+    font-size: 0.8rem;
     line-height: 1;
 }
 
 .post-tag-chip .post-tag-chip-remove:hover,
 .post-tag-chip .post-tag-chip-remove:focus-visible {
-    background: color-mix(in srgb, var(--accent-color) 20%, transparent);
-    color: var(--text-color);
+    background: color-mix(in srgb, var(--accent-color) 14%, transparent);
+    color: var(--link-hover-color);
 }
 
 @media (hover: none) {
@@ -1509,17 +1515,19 @@ h2.preview,
 .post-tags-surface .post-tags-text-input {
     width: auto;
     min-width: 8rem;
-    min-height: 1.8rem;
+    min-height: 1.5rem;
     margin: 0;
-    padding: 0.2rem 0.3rem;
-    flex: 1 1 10rem;
+    padding: 0.06rem 0.3rem;
+    flex: 1 0 10rem;
     border: 0;
     border-radius: 0;
     outline: 0;
     background: transparent;
     box-shadow: none;
     color: var(--text-color);
-    font-size: 0.95rem;
+    font-size: 0.8125rem;
+    font-weight: 520;
+    line-height: 1;
 }
 
 .post-tags-surface .post-tags-text-input:focus-visible {
@@ -2061,15 +2069,6 @@ h2.preview,
 }
 
 @container post-editor (max-width: 42rem) {
-    .post-card.is-editing > .post.foot > .post-foot-meta > .post-foot-tags {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 0.35rem;
-    }
-
-    .post-card.is-editing .post-foot-tags-label {
-        min-height: auto;
-    }
-
     .post-card.is-editing .post-inplace-date-button {
         top: 50%;
         right: 0.35rem;
