@@ -341,6 +341,7 @@ class Integration extends AbstractBrowserModule
             'log_dir'            => '_cache/test/',
             'image_dir'          => self::ROOT_DIR . $imgDir . '/', // filesystem
             'image_path'         => '/' . $imgDir, // web URL prefix
+            'content_image_directory' => '',
             'allowed_extensions' => \Register\Core\Config\StaticConfigLoader::DEFAULT_ALLOWED_EXTENSIONS,
             'upload_quota_bytes' => \Register\Core\Config\StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
             'disable_cache'      => false,

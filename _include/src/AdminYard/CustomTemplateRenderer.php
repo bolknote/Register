@@ -39,6 +39,7 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
         private readonly EventDispatcherInterface $eventDispatcher,
         private readonly string                   $basePath,
         private readonly string                   $rootDir,
+        private readonly string                   $contentImageDirectory = '',
     ) {
         parent::__construct($translator);
     }
@@ -62,6 +63,7 @@ class CustomTemplateRenderer extends TemplateRenderer implements StatefulService
         $adminStyleVersion = $this->adminStyleVersion(...);
         $adminAssetVersion = $this->adminAssetVersion(...);
         $basePath          = $this->basePath;
+        $contentImageDirectory = $this->contentImageDirectory;
         [$extraStyles, $extraScripts] = $this->getExtraAssets();
 
         // Template data must not be able to replace the selected file or renderer helpers.

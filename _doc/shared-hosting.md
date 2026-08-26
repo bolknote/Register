@@ -35,6 +35,11 @@ media origin in `public_html/config.php`. Copy the packaged `_pictures/.htaccess
 into that directory, and point only the media hostname at it. This keeps untrusted files outside the
 main document root and prevents Register's host-only cookies from accompanying media requests.
 
+Set `files.content_image_directory` when post images must retain an existing subdirectory below
+`files.image_dir`, for example `/bolknote/images`. Automatic editor optimization uses that
+server-controlled destination and the note-date naming policy described in
+[`image-optimization.md`](image-optimization.md).
+
 ## Fresh installation
 
 1. Build the archive on a trusted development machine:

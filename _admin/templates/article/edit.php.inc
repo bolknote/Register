@@ -10,8 +10,10 @@ declare(strict_types=1);
 /** @var callable $trans */
 /** @var callable $param */
 /** @var callable $isGranted */
+/** @var callable $adminAssetVersion */
 /** @var string $title */
 /** @var string $entityName */
+/** @var string $contentImageDirectory */
 /** @var array $header */
 /** @var array $hint */
 /** @var array $errorMessages */
@@ -94,6 +96,17 @@ $hasValue = static function (mixed $value): bool {
 $publicationState = $hasValue($formData['published'] ?? false)
     ? 'published'
     : ($hasValue($formData['scheduled_at'] ?? null) ? 'scheduled' : 'draft');
+$publicationDateValue = $publicationState === 'scheduled'
+    ? ($formData['scheduled_at'] ?? null)
+    : ($formData['published_at'] ?? null);
+$publicationDate = match (true) {
+    $publicationDateValue instanceof \DateTimeInterface => $publicationDateValue->format('Y-m-d'),
+    \is_int($publicationDateValue), \is_float($publicationDateValue),
+        \is_string($publicationDateValue) && ctype_digit($publicationDateValue) => date('Y-m-d', (int)$publicationDateValue),
+    \is_string($publicationDateValue)
+        && preg_match('/^(\d{4}-\d{2}-\d{2})/', $publicationDateValue, $publicationDateMatch) === 1 => $publicationDateMatch[1],
+    default => (new \DateTimeImmutable())->format('Y-m-d'),
+};
 $publicationSubmitLabel = $isNew
     ? match ($publicationState) {
         'scheduled' => $trans('Schedule'),
@@ -169,6 +182,10 @@ $editorConfig = [
     'sUrl'                   => $basePath . '/_admin/ajax.php?',
     'previewErrorStylesheet' => $basePath . '/_admin/css/editor-preview-error.css',
     'imageOverlayStylesheet' => $basePath . '/_admin/css/editor-image-overlay.css',
+    'images'         => [
+        'directory'       => $contentImageDirectory,
+        'publicationDate' => $publicationDate,
+    ],
     'datalists'     => $isPost ? [[
         'inputName' => 'series',
         'listId'    => 'post-labels-datalist',
@@ -585,4 +602,7 @@ $renderControl = static function (
     <button type="button" class="picture-dialog-close">&times;</button>
     <iframe src="" frameborder="0" id="picture_frame" name="picture_frame"></iframe>
 </dialog>
-<script type="module" src="<?php echo $basePath; ?>/_admin/js/editor/entry.js"></script>
+<script
+    type="module"
+    src="<?= $basePath ?>/_admin/js/editor/entry.js?v=<?= $adminAssetVersion('_admin/js/editor/entry.js') ?>"
+></script>

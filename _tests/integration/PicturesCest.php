@@ -382,6 +382,67 @@ class PicturesCest
     }
 
     /**
+     * @throws \JsonException
+     */
+    public function testReserveEditorImageUsesPublicationDateAndOneSharedOrdinalSequence(\IntegrationTester $I): void
+    {
+        $I->login('author', 'author');
+        $csrfToken = $this->getFolderCsrfToken($I, '');
+
+        $I->sendPost('https://localhost/_admin/ajax.php?action=reserve_editor_image', [
+            'publication_date' => '1991-01-30',
+            'extension'        => 'webp',
+            'retina'           => '1',
+            'dir'              => '/client-must-not-choose-this',
+            'csrf_token'       => $csrfToken,
+        ]);
+        $I->seeResponseCodeIs(200);
+
+        $first = $I->grabJson();
+        $I->assertSame('1991.01.30@2x.webp', $first['name'] ?? null);
+        $I->assertSame('', $first['dir'] ?? null);
+
+        $firstDir   = $first['dir'];
+        $firstName  = $first['name'];
+        $firstToken = (string)($first['token'] ?? '');
+
+        $tempFilename = $this->createTemporaryMedia('webp');
+        try {
+            $I->sendPost(
+                'https://localhost/_admin/ajax.php?action=upload',
+                [
+                    'dir'               => $firstDir,
+                    'token'             => $firstToken,
+                    'name'              => $firstName,
+                    'return_image_info' => '1',
+                    'csrf_token'        => $this->getFolderCsrfToken($I, $firstDir),
+                ],
+                ['pictures' => [
+                    new UploadedFile($tempFilename, $firstName, 'image/webp', null, true),
+                ]],
+            );
+            $I->seeResponseCodeIs(200);
+            $I->assertJsonSubResponseEquals(true, ['success']);
+            $I->assertJsonSubResponseContains('/1991.01.30@2x.webp', ['file_path']);
+        } finally {
+            if (is_file($tempFilename)) {
+                unlink($tempFilename);
+            }
+        }
+
+        $I->sendPost('https://localhost/_admin/ajax.php?action=reserve_editor_image', [
+            'publication_date' => '1991-01-30',
+            'extension'        => 'jpg',
+            'retina'           => '0',
+            'csrf_token'       => $csrfToken,
+        ]);
+        $I->seeResponseCodeIs(200);
+
+        $second = $I->grabJson();
+        $I->assertSame('1991.01.30.1.jpg', $second['name'] ?? null);
+    }
+
+    /**
      * @dataProvider reserveImageInvalidProvider
      * @throws \JsonException
      */

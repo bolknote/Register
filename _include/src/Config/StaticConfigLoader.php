@@ -110,6 +110,7 @@ final class StaticConfigLoader
                 'cache_dir'          => $normalizeDir($this->nullableString($files['cache_dir'] ?? null)),
                 'image_dir'          => $this->nullableString($files['image_dir'] ?? null, self::DEFAULT_IMAGE_DIR),
                 'image_url'          => $this->nullableString($files['image_url'] ?? null),
+                'content_image_directory' => $this->normalizeMediaSubdirectory($files['content_image_directory'] ?? ''),
                 'allowed_extensions' => $this->nullableString($files['allowed_extensions'] ?? null, self::DEFAULT_ALLOWED_EXTENSIONS),
                 'upload_quota_bytes' => $this->boundedInt(
                     $files['upload_quota_bytes'] ?? self::DEFAULT_UPLOAD_QUOTA_BYTES,
@@ -258,6 +259,7 @@ final class StaticConfigLoader
                         'cache_dir'          => \defined('REGISTER_CACHE_DIR') ? (string)REGISTER_CACHE_DIR : null,
                         'image_dir'          => \defined('REGISTER_IMG_DIR') ? (string)REGISTER_IMG_DIR : self::DEFAULT_IMAGE_DIR,
                         'image_url'          => null,
+                        'content_image_directory' => '',
                         'allowed_extensions' => \defined('REGISTER_ALLOWED_EXTENSIONS') ? (string)REGISTER_ALLOWED_EXTENSIONS : self::DEFAULT_ALLOWED_EXTENSIONS,
                         'upload_quota_bytes' => self::DEFAULT_UPLOAD_QUOTA_BYTES,
                         'log_dir'            => \defined('REGISTER_LOG_DIR') ? (string)REGISTER_LOG_DIR : null,
@@ -298,6 +300,28 @@ final class StaticConfigLoader
         }
 
         return $default;
+    }
+
+    private function normalizeMediaSubdirectory(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        if (!\is_string($value)) {
+            throw new \InvalidArgumentException('The content image directory must be a string.');
+        }
+
+        $path = '/' . trim(str_replace('\\', '/', $value), '/');
+        if (
+            str_contains($path, '..')
+            || preg_match('~[\x00-\x1f\x7f]~', $path) === 1
+            || preg_match('~^/(?:[\p{L}\p{N}._-]+/)*[\p{L}\p{N}._-]+$~uD', $path) !== 1
+        ) {
+            throw new \InvalidArgumentException('The content image directory is invalid.');
+        }
+
+        return $path;
     }
 
     private function boundedInt(mixed $value, int $default, int $minimum, int $maximum): int

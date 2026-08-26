@@ -140,4 +140,30 @@ final class StaticConfigLoaderTest extends Unit
         self::assertSame('/home/account/register-media', $config['files']['image_dir']);
         self::assertSame('https://media.example.test', $config['files']['image_url']);
     }
+
+    public function testNormalizesContentImageDirectory(): void
+    {
+        $method = new \ReflectionMethod(StaticConfigLoader::class, 'normalizeArrayConfig');
+        $loader = new StaticConfigLoader();
+
+        $defaultConfig = $method->invoke($loader, []);
+        self::assertIsArray($defaultConfig);
+        self::assertSame('', $defaultConfig['files']['content_image_directory']);
+
+        $configured = $method->invoke($loader, [
+            'files' => ['content_image_directory' => 'bolknote/images/'],
+        ]);
+        self::assertIsArray($configured);
+        self::assertSame('/bolknote/images', $configured['files']['content_image_directory']);
+    }
+
+    public function testRejectsUnsafeContentImageDirectory(): void
+    {
+        $method = new \ReflectionMethod(StaticConfigLoader::class, 'normalizeArrayConfig');
+        $this->expectException(\InvalidArgumentException::class);
+
+        $method->invoke(new StaticConfigLoader(), [
+            'files' => ['content_image_directory' => '../outside'],
+        ]);
+    }
 }

@@ -27,6 +27,23 @@ function fileToImage(file) {
     });
 }
 
+function getSrgbCanvasContext(canvas, readFrequently) {
+    var context = null;
+    try {
+        context = canvas.getContext('2d', {
+            colorSpace: 'srgb',
+            willReadFrequently: !!readFrequently
+        });
+    } catch (error) {
+        context = null;
+    }
+    context = context || canvas.getContext('2d', {willReadFrequently: !!readFrequently});
+    if (!context) {
+        throw new Error('Unable to create an sRGB canvas context.');
+    }
+    return context;
+}
+
 function imageToCanvas(img, options) {
     var opts = options || {};
     var canvas = document.createElement('canvas');
@@ -53,7 +70,7 @@ function imageToCanvas(img, options) {
     canvas.width = width;
     canvas.height = height;
 
-    var ctx = canvas.getContext('2d');
+    var ctx = getSrgbCanvasContext(canvas, false);
     if (opts.backgroundColor) {
         ctx.fillStyle = opts.backgroundColor;
         ctx.fillRect(0, 0, width, height);
@@ -87,15 +104,62 @@ function getImageDataFromImage(img, options) {
     var canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
-    var ctx = canvas.getContext('2d');
+    var ctx = getSrgbCanvasContext(canvas, true);
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, width, height);
-    return ctx.getImageData(0, 0, width, height);
+    try {
+        return ctx.getImageData(0, 0, width, height, {colorSpace: 'srgb'});
+    } catch (error) {
+        return ctx.getImageData(0, 0, width, height);
+    }
 }
 
-function toLumaRgba(data) {
+function imageDataToCanvas(imageData) {
+    var canvas = document.createElement('canvas');
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    getSrgbCanvasContext(canvas, false).putImageData(imageData, 0, 0);
+    return canvas;
+}
+
+function imageDataToBlob(imageData, type, quality) {
+    return canvasToBlob(imageDataToCanvas(imageData), type, quality);
+}
+
+function decodeImageToSrgb(file, limits) {
+    return fileToImage(file).then(function (img) {
+        var width = img.naturalWidth || img.width;
+        var height = img.naturalHeight || img.height;
+        if (
+            limits
+            && (
+                !Number.isInteger(width)
+                || !Number.isInteger(height)
+                || width <= 0
+                || height <= 0
+                || width > limits.maxDecodedEdge
+                || height > limits.maxDecodedEdge
+                || width * height > limits.maxDecodedPixels
+            )
+        ) {
+            throw new Error('The image dimensions are too large to optimize safely in the browser.');
+        }
+        return {
+            imageData: getImageDataFromImage(img, {width: width, height: height}),
+            width: width,
+            height: height
+        };
+    });
+}
+
+function toLumaRgba(data, background) {
+    var matte = typeof background === 'number' ? background : 255;
     var out = new Uint8ClampedArray(data.length);
     for (var i = 0; i < data.length; i += 4) {
-        var y = Math.round(0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]);
+        var alpha = data[i + 3] / 255;
+        var red = data[i] * alpha + matte * (1 - alpha);
+        var green = data[i + 1] * alpha + matte * (1 - alpha);
+        var blue = data[i + 2] * alpha + matte * (1 - alpha);
+        var y = Math.round(0.2126 * red + 0.7152 * green + 0.0722 * blue);
         out[i] = y;
         out[i + 1] = y;
         out[i + 2] = y;
@@ -114,11 +178,17 @@ function calculateSsim(referenceData, candidateData, width, height) {
         return 0;
     }
 
-    var refLuma = toLumaRgba(referenceData);
-    var candLuma = toLumaRgba(candidateData);
-    var refContainer = imageQ.utils.PointContainer.fromUint8Array(refLuma, width, height);
-    var candContainer = imageQ.utils.PointContainer.fromUint8Array(candLuma, width, height);
-    return imageQ.quality.ssim(refContainer, candContainer);
+    function score(background) {
+        var refLuma = toLumaRgba(referenceData, background);
+        var candLuma = toLumaRgba(candidateData, background);
+        var refContainer = imageQ.utils.PointContainer.fromUint8Array(refLuma, width, height);
+        var candContainer = imageQ.utils.PointContainer.fromUint8Array(candLuma, width, height);
+        return imageQ.quality.ssim(refContainer, candContainer);
+    }
+
+    // Comparing on black and white mattes measures both visible color and transparency while
+    // deliberately ignoring hidden RGB under fully transparent pixels (libwebp's `exact` case).
+    return Math.min(score(0), score(255));
 }
 
 function selectBestImageCandidate(hasAlpha, candidates, policy) {
@@ -375,7 +445,7 @@ function resizeImageFile(file, maxEdge, backgroundColor, options) {
                 canvas = document.createElement('canvas');
                 canvas.width = targetWidth;
                 canvas.height = targetHeight;
-                var ctx = canvas.getContext('2d');
+                var ctx = getSrgbCanvasContext(canvas, false);
                 if (backgroundColor) {
                     ctx.fillStyle = backgroundColor;
                     ctx.fillRect(0, 0, targetWidth, targetHeight);
@@ -417,7 +487,7 @@ function normalizeQuality(value, fallback) {
     return Math.max(0.1, Math.min(1, q));
 }
 
-function findJpegCandidateForSsim(file, analysisInfo, policy, backgroundColor, keepSmaller, progress) {
+function findJpegCandidateForSsim(file, analysisInfo, policy, backgroundColor, keepSmaller, progress, scoreCandidate) {
     if (!analysisInfo || !analysisInfo.data) {
         return Promise.resolve(null);
     }
@@ -435,7 +505,10 @@ function findJpegCandidateForSsim(file, analysisInfo, policy, backgroundColor, k
     function evaluate(q) {
         return compressToJpeg(file, q, backgroundColor, keepSmaller)
             .then(function (blob) {
-                return computeCandidateSsimScore(blob, analysisInfo, policy).then(function (score) {
+                var scorePromise = typeof scoreCandidate === 'function'
+                    ? scoreCandidate(blob)
+                    : computeCandidateSsimScore(blob, analysisInfo, policy);
+                return scorePromise.then(function (score) {
                     var candidate = {
                         blob: blob,
                         size: blob.size,
@@ -497,9 +570,13 @@ function findJpegCandidateForSsim(file, analysisInfo, policy, backgroundColor, k
 
 export {
     fileToImage,
+    getSrgbCanvasContext,
     imageToCanvas,
     canvasToBlob,
     getImageDataFromImage,
+    imageDataToCanvas,
+    imageDataToBlob,
+    decodeImageToSrgb,
     toLumaRgba,
     calculateSsim,
     selectBestImageCandidate,

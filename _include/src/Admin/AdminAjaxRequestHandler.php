@@ -582,6 +582,53 @@ class AdminAjaxRequestHandler
                 return new Json($files);
             },
 
+            'reserve_editor_image' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
+                if ($r->getRealMethod() !== 'POST') {
+                    return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
+                }
+
+                if (!$p->isGranted(P::PERMISSION_CREATE_ARTICLES)) {
+                    return new Json(['success' => false, 'message' => $t->trans('No permission')], Response::HTTP_FORBIDDEN);
+                }
+
+                if (!$r->request->has('publication_date') || !$r->request->has('extension')) {
+                    return new Json([
+                        'success' => false,
+                        'message' => 'Parameters "publication_date" and "extension" are required.',
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
+                $extension = mb_strtolower($r->request->getString('extension'));
+                if (!\in_array($extension, ['jpg', 'png', 'webp'], true)) {
+                    return new Json(['success' => false, 'message' => 'Unsupported editor image extension.'], Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
+                }
+
+                $path = $c->getStringParameter('content_image_directory');
+                $pictureManager = $c->get(PictureManager::class);
+                $pictureManager->assertFolderCsrfToken($path, (string)$r->request->get('csrf_token', ''));
+
+                try {
+                    $reserve = $c->get(PictureReserveManager::class)->reserveCanonicalImageFileName(
+                        $path,
+                        $r->request->getString('publication_date'),
+                        $extension,
+                        $r->request->getBoolean('retina'),
+                    );
+                } catch (\RuntimeException $runtimeException) {
+                    return new Json(['success' => false, 'message' => $runtimeException->getMessage()], self::httpStatus($runtimeException));
+                }
+
+                $filePath = $path . '/' . $reserve['name'];
+
+                return new Json([
+                    'success'   => true,
+                    'file_path' => $c->getStringParameter('image_path') . $filePath,
+                    'dir'       => $path,
+                    'name'      => $reserve['name'],
+                    'token'     => $reserve['token'],
+                ]);
+            },
+
             'reserve_image' => static function (P $p, R $r, C $c, T $t): \Symfony\Component\HttpFoundation\JsonResponse {
                 if ($r->getRealMethod() !== 'POST') {
                     return new Json(['success' => false, 'message' => 'Only POST requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);

@@ -48,6 +48,7 @@ final readonly class SharedHostingDistributionBuilder
         'activitypub-operations.md',
         'activitypub-protocol-profile.md',
         'backups.md',
+        'image-optimization.md',
         'secret-rotation.md',
         'self-update.md',
         'shared-hosting.md',

@@ -1,41 +1,32 @@
-/**
- * Image optimization overlay UI for editor preview in Register.
- *
- * @copyright 2026 Roman Parpalak
- * @license   https://opensource.org/license/mit MIT
- * @package   Register
- */
+/** Read-only progress overlay for automatic editor image optimization. */
 
 import {formatDimensions, humanFileSize, imageState} from './state.js';
 import {editorDeps} from '../deps.js';
+
+const candidateRows = [
+    ['original', 'orig'],
+    ['webp', 'webp'],
+    ['webpLossless', 'webp L'],
+    ['jpeg', 'jpg'],
+    ['png8', 'png8'],
+    ['png24', 'png']
+];
 
 function findPreviewImageForJob(job) {
     if (!job || !imageState.lastPreviewWrapper) {
         return null;
     }
     const images = imageState.lastPreviewWrapper.querySelectorAll('img');
-    for (let i = 0; i < images.length; i += 1) {
-        const img = images[i];
-        const key = img.getAttribute('data-pending-src') || img.getAttribute('src');
-        if (!key) {
-            continue;
-        }
-        if (job.src && key === job.src) {
-            return img;
-        }
-        if (job.blobUrl && key === job.blobUrl) {
-            return img;
+    for (let index = 0; index < images.length; index += 1) {
+        if (images[index].getAttribute('src') === job.src) {
+            return images[index];
         }
     }
     return null;
 }
 
 function findJobOverlayContainer(job) {
-    if (!job || !job.overlay || !job.overlay.overlay) {
-        return null;
-    }
-    const overlay = job.overlay.overlay;
-    return overlay.closest('.register-image-overlay-wrap');
+    return job?.overlay?.overlay?.closest('.register-image-overlay-wrap') || null;
 }
 
 function detachJobOverlay(job) {
@@ -48,16 +39,13 @@ function detachJobOverlay(job) {
         container.parentNode.insertBefore(img, container);
     }
     container.remove();
+    job.overlay = null;
 }
 
 function ensurePreviewOverlayStyles(doc) {
-    if (!doc || doc.getElementById(imageState.previewOverlayStylesId)) {
+    if (!doc || doc.getElementById(imageState.previewOverlayStylesId) || !editorDeps.imageOverlayStylesheet) {
         return;
     }
-    if (!editorDeps.imageOverlayStylesheet) {
-        return;
-    }
-
     const stylesheet = doc.createElement('link');
     stylesheet.id = imageState.previewOverlayStylesId;
     stylesheet.rel = 'stylesheet';
@@ -65,56 +53,41 @@ function ensurePreviewOverlayStyles(doc) {
     doc.head.appendChild(stylesheet);
 }
 
-function createOverlayLine(doc, className) {
-    const line = doc.createElement('div');
-    line.className = 'register-image-overlay-line ' + className;
-    line.textContent = '-';
-    return line;
+function line(doc, className) {
+    const element = doc.createElement('div');
+    element.className = 'register-image-overlay-line ' + className;
+    element.textContent = '–';
+    return element;
 }
 
-function createOverlayButton(doc, attributeName, value, label) {
-    const button = doc.createElement('button');
-    button.type = 'button';
-    button.setAttribute(attributeName, value);
-    button.textContent = label;
-    return button;
-}
-
-function createFormatRow(doc, format, label) {
-    const row = doc.createElement('label');
+function formatRow(doc, key, label) {
+    const row = doc.createElement('div');
     row.className = 'register-image-format';
-    row.setAttribute('data-format', format);
-
-    const input = doc.createElement('input');
-    input.type = 'checkbox';
-    input.setAttribute('data-format', format);
-
+    row.dataset.format = key;
     const name = doc.createElement('span');
     name.className = 'register-format-name';
     name.textContent = label;
-
     const size = doc.createElement('span');
     size.className = 'register-format-size';
-    size.textContent = '-';
-
+    size.textContent = '…';
     const info = doc.createElement('span');
     info.className = 'register-format-info';
-    row.append(input, name, size, info);
+    row.append(name, size, info);
     return row;
 }
 
 function renderImageOverlay(img, job, handlers) {
-    if (!img || !job || job.closed) {
+    if (!img || !job || job.overlayHidden) {
         return;
     }
-
     const doc = img.ownerDocument;
     ensurePreviewOverlayStyles(doc);
+
     let container = img.closest('.register-image-overlay-wrap');
-    if (!container || container.getAttribute('data-job-id') !== String(job.id)) {
+    if (!container || container.dataset.jobId !== String(job.id)) {
         container = doc.createElement('span');
         container.className = 'register-image-overlay-wrap';
-        container.setAttribute('data-job-id', String(job.id));
+        container.dataset.jobId = String(job.id);
         img.parentNode.insertBefore(container, img);
         container.appendChild(img);
     }
@@ -123,201 +96,101 @@ function renderImageOverlay(img, job, handlers) {
     if (!overlay) {
         overlay = doc.createElement('div');
         overlay.className = 'register-image-overlay';
-
-        const controls = doc.createElement('div');
-        controls.className = 'register-image-overlay-controls';
-        const modeGroup = doc.createElement('div');
-        modeGroup.className = 'register-image-overlay-group register-image-overlay-mode';
-        modeGroup.append(
-            createOverlayButton(doc, 'data-mode', '1x', '1x'),
-            createOverlayButton(doc, 'data-mode', '2x', '2x')
-        );
-        controls.appendChild(modeGroup);
-
         const formats = doc.createElement('div');
         formats.className = 'register-image-overlay-formats';
-        formats.append(
-            createFormatRow(doc, 'jpeg', 'jpg'),
-            createFormatRow(doc, 'png8', 'png8'),
-            createFormatRow(doc, 'png24', 'png24')
-        );
-
+        candidateRows.forEach(function ([key, label]) {
+            formats.appendChild(formatRow(doc, key, label));
+        });
         overlay.append(
-            createOverlayLine(doc, 'register-image-overlay-dims'),
-            createOverlayLine(doc, 'register-image-overlay-sizes'),
-            controls,
+            line(doc, 'register-image-overlay-status'),
+            line(doc, 'register-image-overlay-dims'),
+            line(doc, 'register-image-overlay-sizes'),
             formats
         );
-        container.appendChild(overlay);
 
         const closeButton = doc.createElement('button');
         closeButton.type = 'button';
         closeButton.className = 'register-image-overlay-close';
         closeButton.textContent = '×';
+        closeButton.hidden = true;
         closeButton.addEventListener('click', function () {
-            if (handlers && handlers.closeImageJob) {
-                handlers.closeImageJob(job);
-            }
+            handlers?.closeImageJob?.(job);
         });
         overlay.appendChild(closeButton);
-
-        overlay.querySelectorAll('button[data-mode]').forEach(function (button) {
-            button.addEventListener('click', function () {
-                const mode = button.getAttribute('data-mode');
-                if (mode && handlers && handlers.switchImageJobMode) {
-                    handlers.switchImageJobMode(job, mode);
-                }
-            });
-        });
-
-        overlay.querySelectorAll('input[type="checkbox"][data-format]').forEach(function (input) {
-            input.addEventListener('change', function () {
-                const format = input.getAttribute('data-format');
-                if (format && handlers && handlers.toggleImageJobFormat) {
-                    handlers.toggleImageJobFormat(job, format, input.checked);
-                }
-            });
-        });
-
-        const sizeGroup = doc.createElement('div');
-        sizeGroup.className = 'register-image-overlay-group register-image-overlay-size';
-        imageState.sizeOptions.forEach(function (sizeOption) {
-            const value = sizeOption === Infinity ? 'inf' : String(sizeOption);
-            const button = createOverlayButton(doc, 'data-size', value, sizeOption === Infinity ? '∞' : String(sizeOption));
-            button.addEventListener('click', function () {
-                const selectedValue = button.getAttribute('data-size');
-                if (selectedValue && handlers && handlers.switchImageJobSize) {
-                    handlers.switchImageJobSize(job, selectedValue);
-                }
-            });
-            sizeGroup.appendChild(button);
-        });
-        controls.appendChild(sizeGroup);
+        container.appendChild(overlay);
     }
 
+    const rows = {};
+    candidateRows.forEach(function ([key]) {
+        rows[key] = overlay.querySelector('[data-format="' + key + '"]');
+    });
     job.overlay = {
         overlay: overlay,
+        status: overlay.querySelector('.register-image-overlay-status'),
         dims: overlay.querySelector('.register-image-overlay-dims'),
         sizes: overlay.querySelector('.register-image-overlay-sizes'),
-        modeButtons: overlay.querySelectorAll('button[data-mode]'),
-        sizeButtons: overlay.querySelectorAll('button[data-size]'),
-        formatRows: {
-            jpeg: overlay.querySelector('.register-image-format[data-format="jpeg"]'),
-            png8: overlay.querySelector('.register-image-format[data-format="png8"]'),
-            png24: overlay.querySelector('.register-image-format[data-format="png24"]')
-        }
+        rows: rows,
+        close: overlay.querySelector('.register-image-overlay-close')
     };
-
     updateImageJobOverlay(job, handlers);
 }
 
+function candidateInfo(candidate) {
+    if (!candidate) {
+        return '';
+    }
+    const parts = [];
+    if (typeof candidate.quality === 'number') {
+        parts.push('q' + Math.round(candidate.quality));
+    }
+    if (typeof candidate.ssim === 'number' && isFinite(candidate.ssim)) {
+        parts.push('SSIM ' + candidate.ssim.toFixed(4));
+    }
+    return parts.join(' · ');
+}
+
 function updateImageJobOverlay(job, handlers) {
-    if (!job || job.closed) {
+    if (!job || job.overlayHidden) {
         return;
     }
-    if (!job.overlay || !job.overlay.overlay || !job.overlay.overlay.isConnected) {
+    if (!job.overlay?.overlay?.isConnected) {
         const img = findPreviewImageForJob(job);
         if (img) {
             renderImageOverlay(img, job, handlers);
         }
     }
-    if (!job.overlay || !job.overlay.overlay || !job.overlay.overlay.isConnected) {
+    if (!job.overlay?.overlay?.isConnected) {
         return;
     }
-    const state = job.modes[job.currentMode];
+
     const overlay = job.overlay;
-    const status = state && state.status ? state.status : 'idle';
-    overlay.overlay.setAttribute('data-status', status);
+    overlay.overlay.dataset.status = job.status || 'starting';
+    overlay.status.textContent = job.statusLabel || 'Оптимизация…';
 
-    let bestSize = null;
-    if (state) {
-        ['jpeg', 'png8', 'png24'].forEach(function (format) {
-            if (!state.formatEnabled[format]) {
-                return;
-            }
-            const candidate = state.candidates[format];
-            if (candidate && typeof candidate.size === 'number') {
-                if (bestSize === null || candidate.size < bestSize) {
-                    bestSize = candidate.size;
-                }
-            }
-        });
-    }
-
-    let dimText = '–';
-    if (job.original.width && job.original.height) {
-        dimText = formatDimensions(job.original.width, job.original.height);
-        if (state && state.sourceInfo && typeof state.sourceInfo.width === 'number') {
-            if (state.sourceInfo.resized || state.sourceInfo.cropped) {
-                dimText += ' → ' + formatDimensions(state.sourceInfo.width, state.sourceInfo.height);
-            }
-        }
-    }
-    overlay.dims.textContent = dimText;
-
-    let sizeText = humanFileSize(job.original.size);
-    if (bestSize !== null) {
-        sizeText += ' → ' + humanFileSize(bestSize);
+    if (job.original?.width && job.output?.width) {
+        overlay.dims.textContent = formatDimensions(job.original.width, job.original.height)
+            + (job.output.resized ? ' → ' + formatDimensions(job.output.width, job.output.height) : '')
+            + (job.retina ? ' · @2x' : ' · 1x');
     } else {
-        sizeText += ' → ?';
+        overlay.dims.textContent = 'Определяю размер…';
     }
-    overlay.sizes.textContent = sizeText;
 
-    overlay.modeButtons.forEach(function (button) {
-        const mode = button.getAttribute('data-mode');
-        if (mode === job.currentMode) {
-            button.classList.add('is-active');
-        } else {
-            button.classList.remove('is-active');
-        }
-    });
+    overlay.sizes.textContent = humanFileSize(job.original?.size);
+    if (job.selected?.size) {
+        overlay.sizes.textContent += ' → ' + humanFileSize(job.selected.size);
+    }
 
-    overlay.sizeButtons.forEach(function (button) {
-        const value = button.getAttribute('data-size');
-        const sizeValue = value === 'inf' ? Infinity : parseInt(value, 10);
-        if (state && state.sizeChoice === sizeValue) {
-            button.classList.add('is-active');
-        } else {
-            button.classList.remove('is-active');
-        }
+    candidateRows.forEach(function ([key]) {
+        const row = overlay.rows[key];
+        const candidate = job.candidates?.[key] || null;
+        row.hidden = candidate === false;
+        row.classList.toggle('is-best', !!candidate && job.selected === candidate);
+        row.querySelector('.register-format-size').textContent = candidate?.size
+            ? humanFileSize(candidate.size)
+            : (job.status === 'error' || job.status === 'done' ? '—' : '…');
+        row.querySelector('.register-format-info').textContent = candidateInfo(candidate);
     });
-
-    ['jpeg', 'png8', 'png24'].forEach(function (format) {
-        const row = overlay.formatRows[format];
-        if (!row || !state) {
-            return;
-        }
-        const input = row.querySelector('input');
-        const size = row.querySelector('.register-format-size');
-        const info = row.querySelector('.register-format-info');
-        if (input) {
-            input.checked = !!state.formatEnabled[format];
-        }
-        if (state.candidates[format] && typeof state.candidates[format].size === 'number') {
-            size.textContent = humanFileSize(state.candidates[format].size);
-        } else {
-            size.textContent = state.candidateReady[format] ? '-' : '...';
-        }
-        let infoText = '';
-        if (format === 'jpeg' && state.candidates.jpeg && typeof state.candidates.jpeg.quality === 'number') {
-            infoText = 'q ' + Math.round(state.candidates.jpeg.quality * 100) + '%';
-        } else if (format === 'png8' && state.candidates.png8 && typeof state.candidates.png8.colors === 'number') {
-            infoText = 'colors ' + state.candidates.png8.colors;
-        }
-        if (infoText && !state.candidateReady[format]) {
-            infoText += '...';
-        }
-        info.textContent = infoText;
-        if (state.selectedType === format) {
-            row.classList.add('is-best');
-        } else {
-            row.classList.remove('is-best');
-        }
-    });
+    overlay.close.hidden = job.status !== 'done' && job.status !== 'error';
 }
 
-export {
-    detachJobOverlay,
-    renderImageOverlay,
-    updateImageJobOverlay
-};
+export {renderImageOverlay, updateImageJobOverlay, detachJobOverlay};

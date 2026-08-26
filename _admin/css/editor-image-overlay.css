@@ -14,7 +14,7 @@
     position: absolute;
     top: 8px;
     left: 8px;
-    min-width: 210px;
+    min-width: 260px;
     max-width: 92%;
     padding: 8px 10px;
     border-radius: 10px;
@@ -30,6 +30,10 @@
 
 .register-image-overlay[data-status="uploading"] {
     background: rgb(32 24 12 / 0.9);
+}
+
+.register-image-overlay[data-status="error"] {
+    background: rgb(54 17 17 / 0.92);
 }
 
 .register-image-overlay-controls {
@@ -74,18 +78,14 @@
 
 .register-image-format {
     display: grid;
-    grid-template-columns: 16px 44px max-content 1fr;
+    grid-template-columns: 58px max-content 1fr;
     align-items: center;
     column-gap: 6px;
     font-size: 11px;
 }
 
-.register-image-format input {
-    margin: 0 2px 0 0;
-}
-
 .register-image-format .register-format-name {
-    width: 44px;
+    width: 58px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }

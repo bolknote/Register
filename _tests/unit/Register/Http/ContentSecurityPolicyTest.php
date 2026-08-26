@@ -305,8 +305,8 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertIsString($source);
         self::assertIsString($template);
         self::assertStringContainsString("stylesheet.rel = 'stylesheet';", $source);
-        self::assertStringContainsString('overlay.dims.textContent = dimText;', $source);
-        self::assertStringContainsString('function createFormatRow(', $source);
+        self::assertStringContainsString('overlay.dims.textContent = formatDimensions(', $source);
+        self::assertStringContainsString('function formatRow(', $source);
         self::assertStringNotContainsString("createElement('style')", $source);
         self::assertStringNotContainsString('.innerHTML', $source);
         self::assertStringContainsString("'imageOverlayStylesheet'", $template);

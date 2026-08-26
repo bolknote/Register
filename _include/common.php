@@ -115,6 +115,7 @@ function register_build_base_static_parameters(array $config): array
         'upload_quota_bytes' => $filesConfig['upload_quota_bytes'] ?? StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
         'image_dir'          => $mediaStorage['directory'], // no trailing '/' for Filesystem component
         'image_path'         => $mediaStorage['url'],
+        'content_image_directory' => $filesConfig['content_image_directory'] ?? '',
         'disable_cache'      => $disableCache,
         'log_dir'            => $logDir,
 

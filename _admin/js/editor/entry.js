@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     initHtmlEditors();
-    initImagePipeline();
+    initImagePipeline(form, config.images || {});
 
     if (form && config.ai) {
         initAiTools(form, {...config.ai, entityName: config.entityName});

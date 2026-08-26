@@ -25,7 +25,10 @@ final class CustomTemplateRendererSecurityTest extends Unit
 
         $safeTemplate = $tempDir . '/safe.php';
         $unsafeTemplate = $tempDir . '/unsafe.php';
-        self::assertNotFalse(file_put_contents($safeTemplate, '<?php echo $basePath . ":" . $trans("message");'));
+        self::assertNotFalse(file_put_contents(
+            $safeTemplate,
+            '<?php echo $basePath . ":" . $contentImageDirectory . ":" . $trans("message");',
+        ));
         self::assertNotFalse(file_put_contents($unsafeTemplate, '<?php echo "unsafe";'));
 
         try {
@@ -40,12 +43,14 @@ final class CustomTemplateRendererSecurityTest extends Unit
                 new EventDispatcher(),
                 '/configured',
                 $tempDir . '/',
+                '/configured-images',
             );
 
-            self::assertSame('/configured:MESSAGE', $renderer->render($safeTemplate, [
-                '_template_path' => $unsafeTemplate,
-                'basePath'       => '/attacker',
-                'trans'          => 'not-callable',
+            self::assertSame('/configured:/configured-images:MESSAGE', $renderer->render($safeTemplate, [
+                '_template_path'       => $unsafeTemplate,
+                'basePath'             => '/attacker',
+                'contentImageDirectory' => '/attacker-images',
+                'trans'                => 'not-callable',
             ]));
         } finally {
             @unlink($safeTemplate);

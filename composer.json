@@ -141,6 +141,7 @@
         "rector": "rector process --dry-run --config=tools/quality/rector.php",
         "test": [
             "@test:apache-security",
+            "@test:javascript",
             "@test:unit",
             "@test:integration",
             "@test:acceptance"
@@ -148,6 +149,7 @@
         "test:acceptance": "APP_DB_TYPE=sqlite XDEBUG_MODE=off ./bin/test-acceptance",
         "test:apache-security": "php tools/security/test-apache-policy.php",
         "test:integration": "APP_DB_TYPE=sqlite XDEBUG_MODE=off codecept run --config=_tests/codeception.yml integration --no-interaction",
+        "test:javascript": "node --test _tests/javascript/*.test.mjs",
         "test:unit": "XDEBUG_MODE=off codecept run --config=_tests/codeception.yml unit --no-interaction"
     }
 }
