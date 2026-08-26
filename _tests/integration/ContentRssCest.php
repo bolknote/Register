@@ -24,8 +24,8 @@ final class ContentRssCest
         $I->seeLocationIs('/rss?reader=legacy');
 
         $I->amOnPage('/rss/?reader=trailing-slash');
-        $I->seeResponseCodeIs(Response::HTTP_MOVED_PERMANENTLY);
-        $I->seeLocationIs('/rss?reader=trailing-slash');
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->seeHttpHeader('Content-Type', 'application/rss+xml; charset=utf-8');
     }
 
     public function publishesOnlyTheTenNewestPostsAndRecordsTheBlogFeed(\IntegrationTester $I): void

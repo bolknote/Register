@@ -773,7 +773,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         ), $priority);
         $routes->add('blog_rss_trailing_slash', new Route(
             '/rss/',
-            ['_controller' => LegacyRssRedirectController::class],
+            ['_controller' => RssController::class],
             options: ['utf8' => true],
             methods: ['GET'],
         ), $priority);
