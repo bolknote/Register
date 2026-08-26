@@ -13,6 +13,7 @@ use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Comment\CommentHtml;
+use Register\Core\Model\UserpicSchema;
 use Register\Core\Pdo\DbLayer;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
@@ -144,6 +145,51 @@ class CommentCest
             ->result());
         $I->assertSame('Owner comment', CommentHtml::plainText((string)$comment['text']));
         $I->assertStringContainsString('<strong>Owner</strong>', (string)$comment['text']);
+    }
+
+    public function testAuthenticatedCommentUsesTheNewestUserpicByCreationTime(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertArticle($dbLayer);
+
+        $userId = (int)$dbLayer
+            ->select('id')
+            ->from('users')
+            ->where("login = 'admin'")
+            ->execute()
+            ->result()
+        ;
+
+        $newestUserpicId = $this->insertUserpic($dbLayer, 'newest', 200);
+        $staleUserpicId  = $this->insertUserpic($dbLayer, 'stale', 100);
+        $I->assertGreaterThan($newestUserpicId, $staleUserpicId);
+
+        foreach ([$newestUserpicId, $staleUserpicId] as $userpicId) {
+            $dbLayer
+                ->insert(UserpicSchema::USER_LINK_TABLE_NAME)
+                ->setValue('user_id', ':user_id')->setParameter('user_id', $userId)
+                ->setValue('userpic_id', ':userpic_id')->setParameter('userpic_id', $userpicId)
+                ->execute()
+            ;
+        }
+
+        $I->login('admin', 'admin');
+        $I->sendPost('https://localhost/thread-test', [
+            'text' => 'Comment with the chronologically newest userpic',
+        ]);
+        $I->seeResponseCodeIs(302);
+
+        $savedUserpicId = (int)$dbLayer
+            ->select('userpic_id')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('user_id = :user_id')->setParameter('user_id', $userId)
+            ->orderBy('id DESC')
+            ->limit(1)
+            ->execute()
+            ->result()
+        ;
+        $I->assertSame($newestUserpicId, $savedUserpicId);
     }
 
     public function testSavesAndRendersAReplyAsARealBranch(\IntegrationTester $I): void
@@ -463,6 +509,26 @@ class CommentCest
             ->setValue('sent', '1')
             ->setValue('good', '0')
             ->setValue('text', ':text')->setParameter('text', $text)
+            ->execute()
+        ;
+
+        return (int)$dbLayer->insertId();
+    }
+
+    private function insertUserpic(DbLayer $dbLayer, string $name, int $createdTime): int
+    {
+        $hash = hash('sha256', $name);
+
+        $dbLayer
+            ->insert(UserpicSchema::TABLE_NAME)
+            ->setValue('storage_key', ':storage_key')->setParameter('storage_key', 'userpics/' . $hash . '.jpg')
+            ->setValue('content_hash', ':content_hash')->setParameter('content_hash', $hash)
+            ->setValue('mime_type', "'image/jpeg'")
+            ->setValue('width', '80')
+            ->setValue('height', '80')
+            ->setValue('byte_size', '1024')
+            ->setValue('source_url', ':source_url')->setParameter('source_url', 'https://example.test/' . $name . '.jpg')
+            ->setValue('created_time', ':created_time')->setParameter('created_time', $createdTime)
             ->execute()
         ;
 

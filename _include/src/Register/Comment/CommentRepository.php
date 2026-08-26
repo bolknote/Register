@@ -12,6 +12,7 @@ namespace Register\Comment;
 use Register\Content\ContentId;
 use Register\Content\ContentType;
 use Register\Live\LiveUpdateRepository;
+use Register\Core\Model\UserpicSchema;
 use Register\Core\Pdo\DbLayer;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
@@ -143,10 +144,11 @@ final readonly class CommentRepository
         }
 
         $row = $this->dbLayer
-            ->select('userpic_id')
-            ->from(\Register\Core\Model\UserpicSchema::USER_LINK_TABLE_NAME)
-            ->where('user_id = :user_id')->setParameter('user_id', $userId)
-            ->orderBy('userpic_id DESC')
+            ->select('uu.userpic_id')
+            ->from(UserpicSchema::USER_LINK_TABLE_NAME . ' AS uu')
+            ->innerJoin(UserpicSchema::TABLE_NAME . ' AS p', 'p.id = uu.userpic_id')
+            ->where('uu.user_id = :user_id')->setParameter('user_id', $userId)
+            ->orderBy('p.created_time DESC', 'uu.userpic_id DESC')
             ->limit(1)
             ->execute()
             ->fetchAssoc()
