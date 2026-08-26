@@ -56,8 +56,12 @@ final class QueueRunnerLease
         return true;
     }
 
-    public function release(): void
+    public function release(int $cooldownSeconds = 0): void
     {
+        if ($cooldownSeconds < 0) {
+            throw new \InvalidArgumentException('Queue runner cooldown must not be negative.');
+        }
+
         if ($this->owner === null) {
             return;
         }
@@ -65,9 +69,11 @@ final class QueueRunnerLease
         $owner       = $this->owner;
         $this->owner = null;
 
+        $now         = QueueDatabaseClock::timestampExpression($this->pdo);
         $statement   = $this->pdo->prepare(
             'UPDATE ' . $this->dbPrefix . QueueSchema::LEASE_TABLE
-            . ' SET owner = :empty_owner, expires_at = 0 WHERE name = :name AND owner = :owner'
+            . ' SET owner = :empty_owner, expires_at = ' . $now . ' + :cooldown_seconds'
+            . ' WHERE name = :name AND owner = :owner'
         );
         if ($statement === false) {
             throw new \RuntimeException('Unable to prepare the queue runner lease release query.');
@@ -75,6 +81,7 @@ final class QueueRunnerLease
 
         $statement->execute([
             'empty_owner' => '',
+            'cooldown_seconds' => $cooldownSeconds,
             'name'        => QueueSchema::RUNNER_LEASE,
             'owner'       => $owner,
         ]);

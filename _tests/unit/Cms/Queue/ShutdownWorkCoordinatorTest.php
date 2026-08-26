@@ -55,7 +55,7 @@ final class ShutdownWorkCoordinatorTest extends Unit
 
         $runtime->invokeShutdown();
 
-        self::assertSame([[3.5, 5]], $runner->calls);
+        self::assertSame([[3.5, 1, 30]], $runner->calls);
         self::assertSame(1, $runtime->finishCalls);
         self::assertSame(1, $runtime->apmCalls);
     }
@@ -69,7 +69,7 @@ final class ShutdownWorkCoordinatorTest extends Unit
 
         $runtime->invokeShutdown();
 
-        self::assertSame([[4.5, 5]], $runner->calls);
+        self::assertSame([[4.5, 1, 30]], $runner->calls);
     }
 
     public function testSkipsWorkAfterFatalErrorOrExhaustedRequestLimit(): void
@@ -147,13 +147,13 @@ final class ShutdownWorkCoordinatorTest extends Unit
 
 final class FakeBackgroundWorkRunner implements BackgroundWorkRunnerInterface
 {
-    /** @var list<array{float, int}> */
+    /** @var list<array{float, int, int}> */
     public array $calls = [];
 
     #[\Override]
-    public function run(float $maxSeconds = 5.0, int $maxJobs = 5): int
+    public function run(float $maxSeconds = 5.0, int $maxJobs = 5, int $cooldownSeconds = 0): int
     {
-        $this->calls[] = [$maxSeconds, $maxJobs];
+        $this->calls[] = [$maxSeconds, $maxJobs, $cooldownSeconds];
         return 0;
     }
 }

@@ -17,8 +17,10 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Core\Config\BoolProxy;
+use Register\Core\Config\IntProxy;
 use Register\Core\Config\StringProxy;
 use Register\Core\Framework\Exception\NotFoundException;
+use Register\Core\Helper\StringHelper;
 use Register\Core\Model\ArticleProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Pdo\DbLayer;
@@ -54,7 +56,8 @@ class TagPageController extends BlogController
         BoolProxy             $showComments,
         BoolProxy             $enabledComments,
         private readonly TagRepository $tagRepository,
-        private readonly BoolProxy $useHierarchy
+        private readonly BoolProxy $useHierarchy,
+        private readonly IntProxy $maxItems,
     ) {
         parent::__construct(
             $dbLayer,
@@ -113,6 +116,27 @@ class TagPageController extends BlogController
             static fn(ContentId $contentId): int => $contentId->value,
             $this->tagRepository->findPublishedContentIds($tagEntity->id, ContentType::POST),
         );
+        $paging = '';
+        $maxItems = max(0, $this->maxItems->get());
+        if ($maxItems > 0 && $postIds !== []) {
+            $totalPages = intdiv(\count($postIds) + $maxItems - 1, $maxItems);
+            $page = max(1, $request->query->getInt('p', 1));
+            if ($page > $totalPages) {
+                $page = 1;
+            }
+
+            $postIds = \array_slice($postIds, ($page - 1) * $maxItems, $maxItems);
+            $navigationLinks = [];
+            $paging = StringHelper::paging(
+                $page,
+                $totalPages,
+                $this->blogUrlBuilder->tagPagePattern($tagUrl),
+                $navigationLinks,
+            );
+            foreach ($navigationLinks as $rel => $href) {
+                $template->setLink($rel, $href);
+            }
+        }
         $output = $this->getPosts(
             static function (SelectBuilder $qb) use ($postIds): SelectBuilder {
                 if ($postIds === []) {
@@ -154,7 +178,7 @@ class TagPageController extends BlogController
                 '<link rel="alternate" type="application/feed+json" title="' . register_htmlencode($this->translator->trans('Tag JSON link title')) . '" href="' . register_htmlencode($this->blogUrlBuilder->tagJsonFeed($tagUrl)) . '" />',
             ])
             ->putInPlaceholder('title', $this->viewer->render('tag_title', ['title' => $tagName]))
-            ->putInPlaceholder('text', $tagDescription . $output)
+            ->putInPlaceholder('text', $tagDescription . $output . $paging)
         ;
 
         $template->setLink('up', $this->blogUrlBuilder->tags());

@@ -20,6 +20,11 @@ final class ShutdownWorkCoordinator
 
     private const float DETACHED_WORK_BUDGET_SECONDS = 5.0;
 
+    /** Web traffic may wake the queue, but must never turn every page view into a worker. */
+    private const int WEB_QUEUE_MAX_JOBS = 1;
+
+    private const int WEB_QUEUE_COOLDOWN_SECONDS = 30;
+
     private const array FATAL_ERROR_TYPES = [
         E_ERROR,
         E_PARSE,
@@ -115,7 +120,7 @@ final class ShutdownWorkCoordinator
             $requestedBudget = $detached
                 ? self::DETACHED_WORK_BUDGET_SECONDS
                 : self::ATTACHED_WORK_BUDGET_SECONDS;
-            $maxJobs         = 5;
+            $maxJobs         = self::WEB_QUEUE_MAX_JOBS;
             $safeBudget      = $this->runtime->remainingExecutionSeconds(
                 $this->requestStartedAt,
                 $requestedBudget,
@@ -125,7 +130,7 @@ final class ShutdownWorkCoordinator
                 return;
             }
 
-            ($this->runnerFactory)()->run($safeBudget, $maxJobs);
+            ($this->runnerFactory)()->run($safeBudget, $maxJobs, self::WEB_QUEUE_COOLDOWN_SECONDS);
         } catch (\Throwable $throwable) {
             try {
                 $this->logger->error('Shutdown background work failed.', ['exception' => $throwable]);

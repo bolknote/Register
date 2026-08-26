@@ -395,6 +395,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $container->get(\Register\Content\TagRepository::class),
                 $provider->getBoolProxy('REGISTER_USE_HIERARCHY'),
+                $provider->getIntProxy('REGISTER_MAX_ITEMS'),
             );
         });
         $container->set(FavoritePageController::class, static function (Container $container): \Register\Module\Blog\Controller\FavoritePageController {

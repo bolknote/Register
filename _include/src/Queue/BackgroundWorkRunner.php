@@ -31,7 +31,7 @@ final readonly class BackgroundWorkRunner implements BackgroundWorkRunnerInterfa
      * Runs a bounded slice and returns the number of attempted queue jobs.
      */
     #[\Override]
-    public function run(float $maxSeconds = 5.0, int $maxJobs = 5): int
+    public function run(float $maxSeconds = 5.0, int $maxJobs = 5, int $cooldownSeconds = 0): int
     {
         if (!is_finite($maxSeconds) || $maxSeconds <= 0.0) {
             throw new \InvalidArgumentException('Background work duration must be positive and finite.');
@@ -39,6 +39,10 @@ final readonly class BackgroundWorkRunner implements BackgroundWorkRunnerInterfa
 
         if ($maxJobs < 0) {
             throw new \InvalidArgumentException('Background queue job limit must not be negative.');
+        }
+
+        if ($cooldownSeconds < 0) {
+            throw new \InvalidArgumentException('Background queue cooldown must not be negative.');
         }
 
         if ($this->pdo->inTransaction()) {
@@ -93,7 +97,7 @@ final readonly class BackgroundWorkRunner implements BackgroundWorkRunnerInterfa
                 ++$jobs;
             }
         } finally {
-            $this->lease->release();
+            $this->lease->release($cooldownSeconds);
         }
 
         return $jobs;

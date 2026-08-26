@@ -12,5 +12,5 @@ namespace Register\Core\Queue;
 interface BackgroundWorkRunnerInterface
 {
     /** Returns the number of attempted queue jobs. */
-    public function run(float $maxSeconds = 5.0, int $maxJobs = 5): int;
+    public function run(float $maxSeconds = 5.0, int $maxJobs = 5, int $cooldownSeconds = 0): int;
 }

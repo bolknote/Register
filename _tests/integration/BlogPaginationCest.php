@@ -4,8 +4,10 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Content\TagRepository;
 use Register\Core\Pdo\DbLayer;
 
 class BlogPaginationCest
@@ -51,6 +53,37 @@ class BlogPaginationCest
         $I->dontSeeElement('.blog-pagination');
     }
 
+    public function testTagPageUsesTheGlobalPaginationLimit(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var TagRepository $tagRepository */
+        $tagRepository = $I->grabService(TagRepository::class);
+        $I->setConfigValue('REGISTER_MAX_ITEMS', '2');
+
+        $tagId = $this->insertTag($dbLayer, 'Paginated tag', 'paginated-tag');
+        foreach ([1, 2, 3] as $number) {
+            $postId = $this->insertPost($dbLayer, $number);
+            $tagRepository->replace(ContentId::post($postId), [$tagId]);
+        }
+
+        $I->amOnPage('https://localhost/tags/paginated-tag/');
+        $I->seeResponseCodeIs(200);
+        $I->see('Post 3');
+        $I->see('Post 2');
+        $I->dontSee('Post 1');
+        $I->seeElement('.paging [aria-current="page"]', ['innerText' => '1']);
+        $I->seeElement('.paging a[href="/tags/paginated-tag/?p=2"]');
+        $I->seeElement('link[rel="next"][href="/tags/paginated-tag/?p=2"]');
+
+        $I->amOnPage('https://localhost/tags/paginated-tag/?p=2');
+        $I->seeResponseCodeIs(200);
+        $I->see('Post 1');
+        $I->dontSee('Post 3');
+        $I->seeElement('.paging [aria-current="page"]', ['innerText' => '2']);
+        $I->seeElement('link[rel="prev"][href="/tags/paginated-tag/?p=1"]');
+    }
+
     public function testPostAuthorsAppearOnlyOnAMultiAuthorSite(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -75,7 +108,7 @@ class BlogPaginationCest
         $I->see($this->userName($dbLayer, $adminId), '.post.author');
     }
 
-    private function insertPost(DbLayer $dbLayer, int $number, ?int $authorId = null): void
+    private function insertPost(DbLayer $dbLayer, int $number, ?int $authorId = null): int
     {
         $dbLayer
             ->insert(ContentSchema::TABLE_NAME)
@@ -96,6 +129,24 @@ class BlogPaginationCest
             ->setValue('author_id', ':author_id')->setParameter('author_id', $authorId)
             ->execute()
         ;
+
+        return (int)$dbLayer->insertId();
+    }
+
+    private function insertTag(DbLayer $dbLayer, string $name, string $slug): int
+    {
+        $dbLayer->insert('tags')->values([
+            'name'        => ':name',
+            'description' => "''",
+            'modify_time' => ':modify_time',
+            'url'         => ':url',
+        ])->execute([
+            'name'        => $name,
+            'modify_time' => time(),
+            'url'         => $slug,
+        ]);
+
+        return (int)$dbLayer->insertId();
     }
 
     private function userId(DbLayer $dbLayer, string $login): int

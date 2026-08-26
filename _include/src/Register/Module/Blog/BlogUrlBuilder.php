@@ -83,6 +83,14 @@ class BlogUrlBuilder implements StatefulServiceInterface
         return $this->tags() . rawurlencode($tagUrl) . '/';
     }
 
+    /** Returns an HTML-safe sprintf pattern used by compact tag pagination. */
+    public function tagPagePattern(string $tagUrl): string
+    {
+        $url = str_replace('%', '%%', $this->tag($tagUrl));
+
+        return $url . (str_contains($url, '?') ? '&amp;' : '?') . 'p=%d';
+    }
+
     public function absTag(string $tagUrl): string
     {
         return $this->absMain() . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($tagUrl) . '/';

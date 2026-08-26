@@ -218,7 +218,14 @@ final class QueueCest
         $I->assertFalse((new QueueMonitor($pdo, ''))->status()['runner_active']);
         $I->assertTrue($second->acquire(30));
 
-        $second->release();
+        $second->release(30);
+        $I->assertFalse((new QueueMonitor($pdo, ''))->status()['runner_active']);
+        $I->assertFalse($first->acquire(30));
+
+        $pdo->exec(
+            "UPDATE " . QueueSchema::LEASE_TABLE . " SET expires_at = 0 WHERE name = '"
+            . QueueSchema::RUNNER_LEASE . "'"
+        );
 
         $pdo->exec(
             "UPDATE " . QueueSchema::LEASE_TABLE . " SET owner = 'dead-worker', expires_at = 0 WHERE name = '"

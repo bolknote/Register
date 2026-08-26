@@ -214,7 +214,7 @@ readonly class Installer
             'REGISTER_WEBMASTER_EMAIL'  => $email,
             'REGISTER_START_YEAR'       => date('Y'),
             'REGISTER_USE_HIERARCHY'    => '1',
-            'REGISTER_MAX_ITEMS'        => '0',
+            'REGISTER_MAX_ITEMS'        => '20',
             'REGISTER_FAVORITE_URL'     => 'favorite',
             'REGISTER_TAGS_URL'         => 'tags',
             'REGISTER_STYLE'            => 'register',
