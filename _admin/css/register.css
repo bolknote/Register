@@ -2284,17 +2284,17 @@ section.large-edit-form form {
 .editor-tag-chip {
     display: inline-flex;
     max-width: 100%;
-    min-height: 2rem;
+    min-height: 1.75rem;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.18rem 0.25rem 0.18rem 0.6rem;
-    border: 1px solid color-mix(in srgb, var(--admin-accent-color) 32%, var(--admin-border-color));
+    gap: 0.12rem;
+    padding: 0 0.08rem 0 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--admin-accent-color) 24%, var(--admin-border-color));
     border-radius: 999px;
-    background: color-mix(in srgb, var(--admin-accent-color) 11%, var(--admin-secondary-background));
-    color: var(--admin-text-color);
-    font-size: 0.82rem;
-    font-weight: 590;
-    line-height: 1.2;
+    background: color-mix(in srgb, var(--admin-accent-color) 8%, var(--admin-secondary-background));
+    color: color-mix(in srgb, var(--admin-text-color) 78%, var(--admin-secondary-text-color));
+    font-size: 0.8125rem;
+    font-weight: 550;
+    line-height: 1;
 }
 
 .editor-tag-chip-label {
@@ -2304,25 +2304,36 @@ section.large-edit-form form {
 }
 
 .editor-tag-chip .editor-tag-chip-remove {
+    position: relative;
     display: inline-grid;
-    width: 1.45rem;
-    min-width: 1.45rem;
-    height: 1.45rem;
-    min-height: 1.45rem;
+    width: 1.625rem;
+    min-width: 1.625rem;
+    height: 1.625rem;
+    min-height: 1.625rem;
     place-items: center;
     padding: 0;
     border: 0;
     border-radius: 50%;
     background: transparent;
     color: var(--admin-secondary-text-color);
-    font-size: 1rem;
+    font-size: 0.9rem;
     line-height: 1;
     cursor: pointer;
 }
 
-.editor-tag-chip .editor-tag-chip-remove:hover {
+.editor-tag-chip .editor-tag-chip-remove:hover,
+.editor-tag-chip .editor-tag-chip-remove:focus-visible {
     background: color-mix(in srgb, var(--admin-accent-color) 18%, transparent);
     color: var(--admin-text-color);
+}
+
+@media (hover: none) {
+    .editor-tag-chip .editor-tag-chip-remove::before {
+        position: absolute;
+        inset: -0.1875rem;
+        border-radius: 50%;
+        content: "";
+    }
 }
 
 .content-edit-content .article-form-control .editor-tags-surface input.editor-tags-text-input {
