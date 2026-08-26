@@ -79,10 +79,11 @@ the operator can prepare every available variant after warming the public pages 
 work in an HTTP request:
 
 ```bash
-php tools/precompress-assets.php
+php tools/precompress-assets.php --force
 ```
 
-The command uses native PHP encoders first and then optional `brotli`, `zstd`, or `gzip` executables.
+The command prefers quality-tuned `brotli`, `zstd`, or `gzip` executables and falls back to native
+PHP encoders. `--force` refreshes existing sidecars after an encoder or compression setting changes.
 Generated markup refers to an encoding-neutral `.asset` URL. Apache serves that URL through the
 bundled `_cache/.htaccess` rules and falls back to the original asset when the browser or server
 lacks a codec. The virtual suffix also prevents a shared-hosting nginx frontend from serving the

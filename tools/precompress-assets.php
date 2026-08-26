@@ -19,13 +19,21 @@ if (PHP_SAPI !== 'cli') {
 $projectRoot = dirname(__DIR__);
 require $projectRoot . '/_vendor/autoload.php';
 
-$arguments = $_SERVER['argv'] ?? [];
-if (\count($arguments) > 2) {
-    fwrite(STDERR, "Usage: php tools/precompress-assets.php [public-cache-directory]\n");
+$arguments = array_slice($_SERVER['argv'] ?? [], 1);
+$force = false;
+foreach ($arguments as $index => $argument) {
+    if ($argument === '--force') {
+        $force = true;
+        unset($arguments[$index]);
+    }
+}
+$arguments = array_values($arguments);
+if (\count($arguments) > 1) {
+    fwrite(STDERR, "Usage: php tools/precompress-assets.php [--force] [public-cache-directory]\n");
     exit(64);
 }
 
-$cacheDirectory = $arguments[1] ?? $projectRoot . '/_cache';
+$cacheDirectory = $arguments[0] ?? $projectRoot . '/_cache';
 $resolvedCacheDirectory = realpath($cacheDirectory);
 if ($resolvedCacheDirectory === false || !is_dir($resolvedCacheDirectory)) {
     fwrite(STDERR, "The public cache directory does not exist: {$cacheDirectory}\n");
@@ -34,20 +42,13 @@ if ($resolvedCacheDirectory === false || !is_dir($resolvedCacheDirectory)) {
 
 $registry = CompressionCodecRegistry::fromEnvironment();
 $encoders = [];
-foreach ($registry->encodings() as $encoding) {
-    $compressor = $registry->compressor($encoding);
-    if ($compressor instanceof Closure) {
-        $encoders[$encoding] = static fn(string $_filename, string $content): string|false => $compressor($content);
-    }
-}
-
 $commands = [
-    CompressionCodecRegistry::BROTLI => ['brotli', '--quality=3', '--stdout'],
-    CompressionCodecRegistry::ZSTD   => ['zstd', '--quiet', '-3', '--stdout'],
-    CompressionCodecRegistry::GZIP   => ['gzip', '-6', '--stdout'],
+    CompressionCodecRegistry::BROTLI => ['brotli', '--quality=11', '--stdout'],
+    CompressionCodecRegistry::ZSTD   => ['zstd', '--quiet', '-15', '--stdout'],
+    CompressionCodecRegistry::GZIP   => ['gzip', '-9', '--stdout'],
 ];
 foreach ($commands as $encoding => $command) {
-    if (isset($encoders[$encoding]) || !\function_exists('proc_open')) {
+    if (!\function_exists('proc_open')) {
         continue;
     }
 
@@ -60,6 +61,16 @@ foreach ($commands as $encoding => $command) {
     $encoders[$encoding] = static fn(string $filename, string $_content): string|false => runCompressionCommand(
         [...$command, $filename],
     );
+}
+foreach ($registry->encodings() as $encoding) {
+    if (isset($encoders[$encoding])) {
+        continue;
+    }
+
+    $compressor = $registry->compressor($encoding);
+    if ($compressor instanceof Closure) {
+        $encoders[$encoding] = static fn(string $_filename, string $content): string|false => $compressor($content);
+    }
 }
 
 $suffixes = [
@@ -91,7 +102,7 @@ foreach ($files as $file) {
 
         $target = $file->getPathname() . $suffix;
         $targetModifiedAt = is_file($target) ? filemtime($target) : false;
-        if (\is_int($targetModifiedAt) && $targetModifiedAt >= $file->getMTime()) {
+        if (!$force && \is_int($targetModifiedAt) && $targetModifiedAt >= $file->getMTime()) {
             continue;
         }
 

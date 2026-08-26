@@ -110,13 +110,14 @@ Shell access is not required. If it is available, warm the public site once and 
 supported by installed command-line tools:
 
 ```bash
-php tools/precompress-assets.php
+php tools/precompress-assets.php --force
 ```
 
 This is a deployment or maintenance command, not a per-request worker. It may use the optional
-`brotli`, `zstd`, and `gzip` executables. The **System status → Response compression** block shows
-the encoders visible to web PHP, available offline precompression, ready sidecar counts, and whether
-the encoded page cache is enabled.
+`brotli`, `zstd`, and `gzip` executables at quality-oriented levels, with native PHP codecs as a
+fallback. Omit `--force` to update only missing or stale variants. The **System status → Response
+compression** block shows the encoders visible to web PHP, available offline precompression, ready
+sidecar counts, and whether the encoded page cache is enabled.
 
 ## Updating an existing site
 
