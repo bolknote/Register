@@ -165,6 +165,10 @@ class TagPageController extends BlogController
             throw new NotFoundException();
         }
 
+        $postList = $output === ''
+            ? ''
+            : '<div class="tag-post-list">' . $output . $paging . '</div>';
+
         $template->addBreadCrumb($this->articleProvider->mainPageTitle(), $this->urlBuilder->link('/'));
 
         $template->addBreadCrumb($this->translator->trans('Tags'), $this->blogUrlBuilder->tags());
@@ -178,7 +182,7 @@ class TagPageController extends BlogController
                 '<link rel="alternate" type="application/feed+json" title="' . register_htmlencode($this->translator->trans('Tag JSON link title')) . '" href="' . register_htmlencode($this->blogUrlBuilder->tagJsonFeed($tagUrl)) . '" />',
             ])
             ->putInPlaceholder('title', $this->viewer->render('tag_title', ['title' => $tagName]))
-            ->putInPlaceholder('text', $tagDescription . $output . $paging)
+            ->putInPlaceholder('text', $tagDescription . $postList)
         ;
 
         $template->setLink('up', $this->blogUrlBuilder->tags());

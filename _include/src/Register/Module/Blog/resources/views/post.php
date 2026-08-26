@@ -363,7 +363,10 @@ $tagNames    = array_values(array_map(
 
     $viewCount = (int)($view_count ?? 0);
     $viewLabel = $trans('N Views', ['%count%' => $viewCount, '{{ count }}' => $viewCount]);
-    $footer['views'] = '<span class="post-foot-views" aria-label="' . register_htmlencode($viewLabel) . '">' . register_htmlencode($viewLabel) . '</span>';
+    $encodedViewLabel = register_htmlencode($viewLabel);
+    $footer['views'] = '<span class="post-foot-views" aria-label="' . $encodedViewLabel
+        . '" title="' . $encodedViewLabel . '"><span class="post-foot-views-count" aria-hidden="true">'
+        . $viewCount . '</span></span>';
 
 	if ($commented && $showComments) {
         if ($comment_num) {
@@ -394,7 +397,11 @@ $tagNames    = array_values(array_map(
             . implode('', $tagLinks) . '</span></span>';
     }
 
-	echo implode("\n", $footer);
+    echo $footer['comments'] ?? '';
+    echo '<div class="post-foot-meta">'
+        . $footer['views']
+        . ($footer['tags'] ?? '')
+        . '</div>';
 ?>
 </div>
 </article>

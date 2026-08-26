@@ -73,8 +73,9 @@ class BlogPaginationCest
         $I->see('Post 3');
         $I->see('Post 2');
         $I->dontSee('Post 1');
-        $I->seeElement('.paging [aria-current="page"]', ['innerText' => '1']);
-        $I->seeElement('.paging a[href="/tags/paginated-tag/?p=2"]');
+        $I->seeElement('#content > .tag-post-list > .post-card');
+        $I->seeElement('#content > .tag-post-list > .paging [aria-current="page"]', ['innerText' => '1']);
+        $I->seeElement('#content > .tag-post-list > .paging a[href="/tags/paginated-tag/?p=2"]');
         $I->seeElement('link[rel="next"][href="/tags/paginated-tag/?p=2"]');
 
         $I->amOnPage('https://localhost/tags/paginated-tag/?p=2');
@@ -125,9 +126,9 @@ class BlogPaginationCest
 
         $I->amOnPage('https://localhost/');
         $I->seeResponseCodeIs(200);
-        $I->seeElement('.post-foot-tags.post-tag-list[aria-label="Tags"]');
-        $I->seeElement('.post-tag-values .post-tag-link[href="/tags/first-tag/"]');
-        $I->seeElement('.post-tag-values .post-tag-link[href="/tags/second-tag/"]');
+        $I->seeElement('.post-foot-meta > .post-foot-views + .post-foot-tags.post-tag-list[aria-label="Tags"]');
+        $I->seeElement('.post-foot-meta .post-tag-values .post-tag-link[href="/tags/first-tag/"]');
+        $I->seeElement('.post-foot-meta .post-tag-values .post-tag-link[href="/tags/second-tag/"]');
         $I->dontSeeElement('.post-foot-tags-label');
         $I->assertStringNotContainsString('</a>, <a', $I->grabResponse());
     }

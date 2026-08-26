@@ -180,7 +180,8 @@ final class SocialFeedsAndRankingCest
 
         $popularHtml = $I->grabResponse();
         $I->assertLessThan(strpos($popularHtml, 'Hot post'), strpos($popularHtml, 'Old popular post'));
-        $I->see('12 views', '.post-foot-views');
+        $I->seeElement('.post-foot-meta > .post-foot-views[aria-label="12 views"]');
+        $I->see('12', '.post-foot-views-count');
 
         $I->amOnPage('/hot/');
         $I->seeResponseCodeIs(Response::HTTP_OK);

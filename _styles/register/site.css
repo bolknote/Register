@@ -381,8 +381,16 @@ hr {
     max-width: var(--text-width);
 }
 
+.tag-post-list {
+    --tag-post-list-inset: clamp(1rem, 3vw, 2.5rem);
+    width: min(calc(100% - var(--tag-post-list-inset)), var(--text-width));
+    min-width: 0;
+    margin-inline-start: var(--tag-post-list-inset);
+}
+
 #content > .post-card,
-#content > .live-post-feed > .post-card {
+#content > .live-post-feed > .post-card,
+#content > .tag-post-list > .post-card {
     position: relative;
     width: 100%;
     max-width: var(--text-width);
@@ -391,7 +399,8 @@ hr {
 
 /* Editor popovers may extend into the following post, so keep the active card above its siblings. */
 #content > .post-card.is-editing,
-#content > .live-post-feed > .post-card.is-editing {
+#content > .live-post-feed > .post-card.is-editing,
+#content > .tag-post-list > .post-card.is-editing {
     z-index: 5;
 }
 
@@ -1332,7 +1341,7 @@ h2.preview,
     display: inline;
 }
 
-.post-card.is-editing > .post.foot > .post-foot-tags {
+.post-card.is-editing > .post.foot > .post-foot-meta > .post-foot-tags {
     max-width: 100%;
 }
 
@@ -2024,7 +2033,7 @@ h2.preview,
         position: relative;
     }
 
-    .post-card.is-editing > .post.foot > .post-foot-tags {
+    .post-card.is-editing > .post.foot > .post-foot-meta > .post-foot-tags {
         transform: none;
     }
 
@@ -2624,14 +2633,54 @@ h2.preview,
 .post-card > .post.foot {
     display: flex;
     margin: 0.9rem 0 clamp(2rem, 4vw, 3rem);
-    align-items: baseline;
+    align-items: center;
     flex-wrap: wrap;
-    column-gap: clamp(2.5rem, 7vw, 6rem);
+    column-gap: clamp(0.75rem, 2vw, 1.25rem);
     row-gap: 0.65rem;
 }
 
-.post.foot:has(> .register-reactions) {
+.post-foot-meta {
+    min-width: 0;
+    display: inline-flex;
+    margin-inline-start: auto;
     align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+}
+
+.post-foot-views {
+    min-height: 1.5rem;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.28rem;
+    color: var(--minor-color);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.post-foot-views::before {
+    width: 1.28rem;
+    height: 1.28rem;
+    display: block;
+    flex: 0 0 auto;
+    background: currentColor;
+    content: "";
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 12s3.6-6 9.5-6 9.5 6 9.5 6-3.6 6-9.5 6-9.5-6-9.5-6Z' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='12' r='2.6' fill='none' stroke='black' stroke-width='1.75'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 12s3.6-6 9.5-6 9.5 6 9.5 6-3.6 6-9.5 6-9.5-6-9.5-6Z' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='12' cy='12' r='2.6' fill='none' stroke='black' stroke-width='1.75'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.post-foot-meta > .post-foot-tags {
+    min-width: 0;
+    min-height: 1.5rem;
+    line-height: 1.5rem;
+    transform: translateY(-0.05rem);
+}
+
+.post.foot:has(> .register-reactions) {
     column-gap: .45rem;
 }
 
@@ -2639,18 +2688,15 @@ h2.preview,
     min-height: 1.5rem;
     display: inline-flex;
     align-items: center;
-    margin-inline-end: 1rem;
     line-height: 1;
 }
 
-.post.foot:has(> .register-reactions) > .post-foot-tags {
-    min-height: 1.5rem;
-    line-height: 1.5rem;
-    transform: translateY(-0.05rem);
-}
-
-.post.foot:has(> .register-reactions) > .register-reactions + .post-foot-tags {
-    margin-inline-start: 1rem;
+@media (max-width: 640px) {
+    .post-foot-meta {
+        flex: 1 1 100%;
+        margin-inline-start: 0;
+        justify-content: flex-start;
+    }
 }
 
 .post.foot > .register-reactions + .post-foot-comments > a,
