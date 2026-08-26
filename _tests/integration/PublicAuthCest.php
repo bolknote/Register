@@ -51,6 +51,7 @@ final class PublicAuthCest
         $I->seeElement('#public-auth-dialog .public-auth-password-form');
         $I->seeElement('#public-auth-dialog [data-public-auth-mode-panel="password"][hidden]');
         $I->seeElement('#public-auth-dialog [data-public-auth-mode-open="password"]');
+        $I->dontSeeElement('#public-auth-dialog .public-auth-name-section');
         $I->dontSeeElement('#public-auth-dialog .public-auth-provider-vk');
         $I->dontSeeElement('#public-auth-dialog .public-auth-provider-yandex');
     }
@@ -63,6 +64,8 @@ final class PublicAuthCest
 
         $I->amOnPage('https://localhost/');
 
+        $I->seeElement('.public-auth-email-form + .public-auth-mode-switch');
+        $I->seeElement('.public-auth-mode-switch + .public-auth-divider + .public-auth-providers');
         $I->assertCount(4, $I->grabMultiple('#public-auth-dialog .public-auth-providers .public-auth-provider'));
         $I->seeElement('#public-auth-dialog .public-auth-provider-vk');
         $I->seeElement('#public-auth-dialog .public-auth-provider-yandex');

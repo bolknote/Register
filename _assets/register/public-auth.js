@@ -16,6 +16,19 @@
         status.classList.toggle('is-error', isError);
     };
 
+    const syncEmailSubmitState = (form, showError = false) => {
+        if (!(form instanceof HTMLFormElement) || form.classList.contains('is-busy')) return;
+        const input = form.querySelector('input[type="email"]');
+        const button = form.querySelector('button[type="submit"]');
+        if (!(input instanceof HTMLInputElement) || !(button instanceof HTMLButtonElement)) return;
+        const hasValue = input.value.trim() !== '';
+        const hasError = showError && hasValue && !input.validity.valid;
+        const error = form.querySelector('[data-public-auth-email-error]');
+        button.disabled = !hasValue;
+        input.setAttribute('aria-invalid', hasError ? 'true' : 'false');
+        if (error instanceof HTMLElement) error.hidden = !hasError;
+    };
+
     const setMode = (root, mode, focus = false) => {
         if (!(root instanceof HTMLElement)) return false;
         const panels = Array.from(root.querySelectorAll('[data-public-auth-mode-panel]'));
@@ -47,6 +60,7 @@
         authDialog.querySelectorAll('input[name="return_path"]').forEach((input) => {
             input.value = returnPath;
         });
+        syncEmailSubmitState(authDialog.querySelector('.public-auth-email-form'));
         showStatus(authDialog, '');
         const body = authDialog.querySelector('.public-auth-body');
         setMode(body, body?.dataset.publicAuthDefaultMode || 'methods');
@@ -108,9 +122,24 @@
                 submitButton.disabled = false;
                 submitButton.textContent = originalButtonLabel;
             }
+            syncEmailSubmitState(form);
             form.querySelector('input:not([type="hidden"])')?.focus();
         }
     };
+
+    document.querySelectorAll('.public-auth-email-form').forEach((form) => {
+        syncEmailSubmitState(form);
+        const input = form.querySelector('input[type="email"]');
+        input?.addEventListener('input', () => {
+            syncEmailSubmitState(form);
+        });
+        input?.addEventListener('blur', () => {
+            syncEmailSubmitState(form, true);
+        });
+        input?.addEventListener('invalid', () => {
+            syncEmailSubmitState(form, true);
+        });
+    });
 
     document.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : null;

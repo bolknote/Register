@@ -15,33 +15,7 @@ $hasMethodsPanel = $hasProviders || $email_enabled;
 
     <?php if ($hasMethodsPanel): ?>
     <section class="public-auth-mode-panel" data-public-auth-mode-panel="methods">
-        <?php if ($hasProviders): ?>
-        <div class="public-auth-providers" aria-label="<?php echo register_htmlencode($trans('Sign in with')); ?>">
-            <?php if ($vk_enabled): ?>
-            <a class="public-auth-provider public-auth-provider-vk" href="<?php echo register_htmlencode($vk_url); ?>" data-register-native-navigation>
-                <span class="public-auth-provider-logo" aria-hidden="true">VK</span><span><?php echo $trans('VK ID'); ?></span>
-            </a>
-            <?php endif; ?>
-            <?php if ($yandex_enabled): ?>
-            <a class="public-auth-provider public-auth-provider-yandex" href="<?php echo register_htmlencode($yandex_url); ?>" data-register-native-navigation>
-                <span class="public-auth-provider-logo" aria-hidden="true">Я</span><span><?php echo $trans('Yandex'); ?></span>
-            </a>
-            <?php endif; ?>
-            <?php if ($vk_enabled): ?>
-            <a class="public-auth-provider public-auth-provider-mail" href="<?php echo register_htmlencode($mail_url); ?>" data-register-native-navigation>
-                <span class="public-auth-provider-logo" aria-hidden="true">@</span><span>Mail.ru</span>
-            </a>
-            <a class="public-auth-provider public-auth-provider-ok" href="<?php echo register_htmlencode($ok_url); ?>" data-register-native-navigation>
-                <span class="public-auth-provider-logo" aria-hidden="true">OK</span><span><?php echo $trans('Odnoklassniki'); ?></span>
-            </a>
-            <?php endif; ?>
-        </div>
-        <?php endif; ?>
-
         <?php if ($email_enabled): ?>
-        <?php if ($hasProviders): ?>
-        <div class="public-auth-divider"><span><?php echo $trans('or'); ?></span></div>
-        <?php endif; ?>
         <form
             class="public-auth-form public-auth-email-form"
             method="post"
@@ -51,19 +25,13 @@ $hasMethodsPanel = $hasProviders || $email_enabled;
         >
             <div class="public-auth-email-action">
                 <label class="public-auth-field">
-                    <span><?php echo $trans('Your email'); ?></span>
-                    <input type="email" name="email" autocomplete="email" inputmode="email" required placeholder="name@example.ru">
+                    <span><?php echo $trans('Email address'); ?></span>
+                    <input type="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" required placeholder="name@example.ru" aria-invalid="false">
+                    <span class="public-auth-field-error" data-public-auth-email-error role="alert" hidden><?php echo $trans('Enter a valid email address'); ?></span>
                 </label>
                 <button class="public-auth-primary" type="submit"><?php echo $trans('Send sign-in link'); ?></button>
             </div>
             <p class="public-auth-email-hint"><?php echo $trans('No password: we will send a one-time link.'); ?></p>
-            <details class="public-auth-name-section">
-                <summary><?php echo $trans('Add your name'); ?></summary>
-                <label class="public-auth-field">
-                    <span><?php echo $trans('Your name'); ?></span>
-                    <input type="text" name="name" autocomplete="name" maxlength="80">
-                </label>
-            </details>
             <input type="hidden" name="auth_token" value="<?php echo register_htmlencode($form_token); ?>">
             <input type="hidden" name="return_path" value="<?php echo register_htmlencode($return_path); ?>">
         </form>
@@ -74,6 +42,28 @@ $hasMethodsPanel = $hasProviders || $email_enabled;
             <span><?php echo $trans('Site login and password'); ?></span>
             <svg class="public-auth-mode-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"></path></svg>
         </button>
+
+        <?php if ($hasProviders): ?>
+        <div class="public-auth-divider"><span><?php echo $trans('or sign in with'); ?></span></div>
+        <div class="public-auth-providers" aria-label="<?php echo register_htmlencode($trans('Sign in with')); ?>">
+            <?php if ($yandex_enabled): ?>
+            <a class="public-auth-provider public-auth-provider-yandex" href="<?php echo register_htmlencode($yandex_url); ?>" data-register-native-navigation>
+                <span class="public-auth-provider-logo" aria-hidden="true">Я</span><span><?php echo $trans('Yandex'); ?></span>
+            </a>
+            <?php endif; ?>
+            <?php if ($vk_enabled): ?>
+            <a class="public-auth-provider public-auth-provider-vk" href="<?php echo register_htmlencode($vk_url); ?>" data-register-native-navigation>
+                <span class="public-auth-provider-logo" aria-hidden="true">VK</span><span><?php echo $trans('VK ID'); ?></span>
+            </a>
+            <a class="public-auth-provider public-auth-provider-mail" href="<?php echo register_htmlencode($mail_url); ?>" data-register-native-navigation>
+                <span class="public-auth-provider-logo" aria-hidden="true">@</span><span>Mail.ru</span>
+            </a>
+            <a class="public-auth-provider public-auth-provider-ok" href="<?php echo register_htmlencode($ok_url); ?>" data-register-native-navigation>
+                <span class="public-auth-provider-logo" aria-hidden="true">OK</span><span><?php echo $trans('Odnoklassniki'); ?></span>
+            </a>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
     </section>
     <?php endif; ?>
 
