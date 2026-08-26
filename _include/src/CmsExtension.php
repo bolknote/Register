@@ -58,6 +58,7 @@ use Register\Core\Controller\PageCommon;
 use Register\Core\Controller\PageFavorite;
 use Register\Core\Controller\PageTag;
 use Register\Core\Controller\PageTags;
+use Register\Core\Controller\Rss\FeedSettings;
 use Register\Content\Controller\ContentSitemapController;
 use Register\Content\Controller\RobotsTxtController;
 use Register\Core\Framework\Container;
@@ -235,6 +236,9 @@ class CmsExtension implements ExtensionInterface
             $container->getBoolParameter('disable_cache'),
             $container->get(DynamicSecretStore::class),
         ), [StatefulServiceInterface::class]); // TODO not enough, parameters are set into many other services
+        $container->set(FeedSettings::class, fn(Container $container): FeedSettings => new FeedSettings(
+            $container->get(DynamicConfigProvider::class),
+        ));
 
         $container->set('translator', function (Container $container): \Register\Core\Translation\ExtensibleTranslator {
             $provider = $container->get(DynamicConfigProvider::class);

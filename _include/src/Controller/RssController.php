@@ -62,13 +62,21 @@ readonly class RssController implements ControllerInterface
         }
 
         $feedInfo = $this->rssStrategy->getFeedInfo();
-        $query = $request->getQueryString();
-        $selfLink = $this->urlBuilder->absLink(
-            $request->getPathInfo(),
-            $query === null || $query === '' ? [] : explode('&', $query),
-        );
-
         $this->eventDispatcher->dispatch(new FeedRenderEvent($feedInfo));
+
+        $selfLink = $feedInfo->rssLink;
+        if ($selfLink === '') {
+            $query = $request->getQueryString();
+            $canonicalPath = rtrim($request->getPathInfo(), '/');
+            if ($canonicalPath === '') {
+                $canonicalPath = '/';
+            }
+
+            $selfLink = $this->urlBuilder->rawAbsLink(
+                $canonicalPath,
+                $query === null || $query === '' ? [] : explode('&', $query),
+            );
+        }
 
         $output = $this->viewer->render(
             'rss',
@@ -84,10 +92,8 @@ readonly class RssController implements ControllerInterface
         $response->setPublic();
         $response->setMaxAge(self::CACHE_TTL);
         $response->setSharedMaxAge(self::CACHE_TTL);
-        if ($maxContentTime > 0) {
-            $response->setLastModified(new \DateTimeImmutable('@' . $maxContentTime));
-            $response->isNotModified($request);
-        }
+        $response->setEtag(hash('sha256', $output), true);
+        $response->isNotModified($request);
 
         return $response;
     }

@@ -14,6 +14,7 @@ use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Core\Controller\Rss\FeedDto;
 use Register\Core\Controller\Rss\FeedItemDto;
+use Register\Core\Controller\Rss\FeedSettings;
 use Register\Core\Controller\Rss\RssStrategyInterface;
 use Register\Core\Model\UrlBuilder;
 use Register\Module\Blog\Model\ContentFeedItemProvider;
@@ -26,8 +27,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /** Publishes the full-text result set selected by the current q parameter. */
 final readonly class SearchRssStrategy implements RssStrategyInterface
 {
-    private const int ITEM_LIMIT = 20;
-
     public function __construct(
         private RequestStack            $requestStack,
         private Finder                  $finder,
@@ -35,6 +34,7 @@ final readonly class SearchRssStrategy implements RssStrategyInterface
         private ContentFeedItemProvider $itemProvider,
         private UrlBuilder              $urlBuilder,
         private TranslatorInterface     $translator,
+        private FeedSettings            $feedSettings,
     ) {
     }
 
@@ -48,11 +48,15 @@ final readonly class SearchRssStrategy implements RssStrategyInterface
     public function getFeedInfo(): FeedDto
     {
         $query = $this->query();
+        $queryParams = $query === '' ? [] : ['q=' . rawurlencode($query)];
 
         return new FeedDto(
-            \sprintf($this->translator->trans('Search feed title'), $query),
-            \sprintf($this->translator->trans('Search feed description'), $query),
-            $this->urlBuilder->rawAbsLink('/search', $query === '' ? [] : ['q=' . rawurlencode($query)]),
+            title: \sprintf($this->translator->trans('Search feed title'), $query),
+            description: \sprintf($this->translator->trans('Search feed description'), $query),
+            link: $this->urlBuilder->rawAbsLink('/search', $queryParams),
+            language: $this->translator->trans('locale'),
+            rssLink: $this->urlBuilder->rawAbsLink('/search/rss', $queryParams),
+            jsonFeedLink: $this->urlBuilder->rawAbsLink('/search/feed.json', $queryParams),
         );
     }
 
@@ -65,7 +69,7 @@ final readonly class SearchRssStrategy implements RssStrategyInterface
             return [];
         }
 
-        $searchQuery = (new Query($query))->setLimit(self::ITEM_LIMIT);
+        $searchQuery = (new Query($query))->setLimit($this->feedSettings->itemLimit());
         try {
             $results = $this->finder->find($searchQuery);
         } catch (EmptyIndexException) {

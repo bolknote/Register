@@ -20,6 +20,7 @@ use Register\Content\ContentMediaSchema;
 use Register\Content\ContentType;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentViewSchema;
+use Register\Core\Controller\Rss\FeedSettings;
 use Register\Live\LiveUpdateSchema;
 use Register\Import\ExternalImportMapSchema;
 use Register\Url\ContentUrlAliasSchema;
@@ -215,6 +216,7 @@ readonly class Installer
             'REGISTER_START_YEAR'       => date('Y'),
             'REGISTER_USE_HIERARCHY'    => '1',
             'REGISTER_MAX_ITEMS'        => '20',
+            FeedSettings::ITEM_LIMIT_CONFIG_KEY => (string)FeedSettings::DEFAULT_ITEM_LIMIT,
             'REGISTER_FAVORITE_URL'     => 'favorite',
             'REGISTER_TAGS_URL'         => 'tags',
             'REGISTER_STYLE'            => 'register',

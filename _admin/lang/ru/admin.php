@@ -687,6 +687,7 @@ return [
     'REGISTER_TAGS_URL_help'         => 'Часть URL для страницы ключевых слов, например, «keywords».',
     'REGISTER_USE_HIERARCHY_help'    => 'Адреса страниц (URL) отражают древовидную структуру. Шаблон и «видимость» страниц на сайте наследуется от родительских страниц.',
     'REGISTER_MAX_ITEMS_help'        => 'Количество элементов на одной странице в разделах. 0 — выводить всё содержимое разделов на одной странице.',
+    'REGISTER_FEED_ITEMS_help'       => 'Количество последних материалов в RSS и JSON Feed. Допустимы значения от 1 до 100.',
     'REGISTER_START_YEAR_help'       => 'Выводится в копирайте.',
     'REGISTER_ADMIN_COLOR_help'      => 'Цвет фона в панели управления.',
     'REGISTER_ADMIN_NEW_POS_help'    => 'При создании новые страницы помещаются в древовидной структуре перед имеющимися, а не после них.',
@@ -726,6 +727,9 @@ return [
     'Navigation config' => 'Навигация',
     'REGISTER_USE_HIERARCHY'  => 'Иерархия страниц',
     'REGISTER_MAX_ITEMS'      => 'Предел элементов на странице',
+
+    'Syndication config' => 'Ленты',
+    'REGISTER_FEED_ITEMS' => 'Материалов в ленте',
 
     'REGISTER_START_YEAR' => 'Год запуска',
 

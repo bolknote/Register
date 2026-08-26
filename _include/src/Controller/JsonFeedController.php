@@ -23,6 +23,8 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 /** Renders any Register feed strategy as JSON Feed 1.1. */
 final readonly class JsonFeedController implements ControllerInterface
 {
+    private const int CACHE_TTL = 600;
+
     public function __construct(
         private RssStrategyInterface     $feedStrategy,
         private UrlBuilder               $urlBuilder,
@@ -39,11 +41,9 @@ final readonly class JsonFeedController implements ControllerInterface
 
         $feedInfo = $this->feedStrategy->getFeedInfo();
         $this->eventDispatcher->dispatch(new FeedRenderEvent($feedInfo));
-        $lastModified = 0;
         $items = [];
         foreach ($this->feedStrategy->getFeedItems() as $item) {
             $this->eventDispatcher->dispatch(new FeedItemRenderEvent($item));
-            $lastModified = max($lastModified, $item->time, $item->modifyTime);
             $content = $this->absoluteHtml($item->text);
             $entry = [
                 'id'             => $item->link,
@@ -74,15 +74,25 @@ final readonly class JsonFeedController implements ControllerInterface
             $items[] = $entry;
         }
 
-        $query = $request->getQueryString();
+        $feedUrl = $feedInfo->jsonFeedLink;
+        if ($feedUrl === '') {
+            $query = $request->getQueryString();
+            $canonicalPath = rtrim($request->getPathInfo(), '/');
+            if ($canonicalPath === '') {
+                $canonicalPath = '/';
+            }
+
+            $feedUrl = $this->urlBuilder->rawAbsLink(
+                $canonicalPath,
+                $query === null || $query === '' ? [] : [$query],
+            );
+        }
+
         $data = [
             'version'       => 'https://jsonfeed.org/version/1.1',
             'title'         => $feedInfo->title,
             'home_page_url' => $feedInfo->link,
-            'feed_url'      => $this->urlBuilder->rawAbsLink(
-                $request->getPathInfo(),
-                $query === null || $query === '' ? [] : [$query],
-            ),
+            'feed_url'      => $feedUrl,
             'description'   => $feedInfo->description,
             'items'         => $items,
         ];
@@ -94,12 +104,11 @@ final readonly class JsonFeedController implements ControllerInterface
         $response = new Response($output);
         $response->headers->set('Content-Type', 'application/feed+json; charset=utf-8');
         $response->headers->set('Content-Length', (string)\strlen($output));
-        if ($lastModified > 0) {
-            $response->setLastModified(new \DateTimeImmutable('@' . $lastModified));
-            if ($response->isNotModified($request)) {
-                return $response;
-            }
-        }
+        $response->setPublic();
+        $response->setMaxAge(self::CACHE_TTL);
+        $response->setSharedMaxAge(self::CACHE_TTL);
+        $response->setEtag(hash('sha256', $output), true);
+        $response->isNotModified($request);
 
         return $response;
     }

@@ -17,6 +17,7 @@ use Register\Content\TagRepository;
 use Register\Core\Config\StringProxy;
 use Register\Core\Controller\Rss\FeedDto;
 use Register\Core\Controller\Rss\FeedItemDto;
+use Register\Core\Controller\Rss\FeedSettings;
 use Register\Core\Controller\Rss\RssStrategyInterface;
 use Register\Core\Framework\Exception\NotFoundException;
 use Register\Module\Blog\BlogUrlBuilder;
@@ -26,8 +27,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /** Publishes the posts attached to the tag in the current request. */
 final readonly class TagRssStrategy implements RssStrategyInterface
 {
-    private const int ITEM_LIMIT = 20;
-
     public function __construct(
         private RequestStack            $requestStack,
         private TagRepository           $tagRepository,
@@ -36,6 +35,7 @@ final readonly class TagRssStrategy implements RssStrategyInterface
         private BlogUrlBuilder          $blogUrlBuilder,
         private TranslatorInterface     $translator,
         private StringProxy             $blogTitle,
+        private FeedSettings            $feedSettings,
     ) {
     }
 
@@ -55,7 +55,14 @@ final readonly class TagRssStrategy implements RssStrategyInterface
             $description = \sprintf($this->translator->trans('Tag feed description'), $tag->name);
         }
 
-        return new FeedDto($title, $description, $this->blogUrlBuilder->absTag($tag->slug));
+        return new FeedDto(
+            title: $title,
+            description: $description,
+            link: $this->blogUrlBuilder->absTag($tag->slug),
+            language: $this->translator->trans('locale'),
+            rssLink: $this->blogUrlBuilder->absTagRss($tag->slug),
+            jsonFeedLink: $this->blogUrlBuilder->absTagJsonFeed($tag->slug),
+        );
     }
 
     /** @return list<FeedItemDto> */
@@ -65,7 +72,7 @@ final readonly class TagRssStrategy implements RssStrategyInterface
         $ids = array_slice(
             $this->tagRepository->findPublishedContentIds($this->currentTag()->id, ContentType::POST),
             0,
-            self::ITEM_LIMIT,
+            $this->feedSettings->itemLimit(),
         );
         $items = [];
         foreach ($ids as $id) {

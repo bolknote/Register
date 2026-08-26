@@ -14,6 +14,9 @@ declare(strict_types = 1);
 <?php if (!empty($item->author)) {?>
 				<dc:creator><?php echo register_htmlencode($item->author); ?></dc:creator>
 <?php } ?>
+<?php foreach ($item->tags as $tag) { ?>
+				<category><?php echo register_htmlencode($tag); ?></category>
+<?php } ?>
 				<guid isPermaLink="true"><?php echo register_htmlencode($item->link); ?></guid>
 				<pubDate><?php echo gmdate('D, d M Y H:i:s', $item->time) . ' GMT'; ?></pubDate>
 				<comments><?php echo register_htmlencode($item->link) . '#comment'; ?></comments>

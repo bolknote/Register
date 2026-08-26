@@ -11,6 +11,7 @@ namespace Register\Schema;
 
 use Register\Ai\AiSettings;
 use Register\Auth\PublicAuthSettings;
+use Register\Core\Controller\Rss\FeedSettings;
 use Register\Module\BaseModuleInstaller;
 use Register\Core\Framework\Container;
 use Register\Core\Model\ExtensionCache;
@@ -33,6 +34,7 @@ final readonly class SchemaManager
     private const array CONFIG_DEFAULTS = [
         'REGISTER_SITE_TAGLINE' => '',
         'REGISTER_SOCIAL_IMAGE' => '',
+        FeedSettings::ITEM_LIMIT_CONFIG_KEY => FeedSettings::DEFAULT_ITEM_LIMIT,
         AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_DISABLED,
         AiSettings::API_KEY_CONFIG_KEY  => '',
         AiSettings::MODEL_CONFIG_KEY    => '',

@@ -18,6 +18,11 @@ final class BlogUrlBuilderTest extends Unit
 
         try {
             self::assertSame('/', $builder->main());
+            self::assertSame('/rss', $builder->rss());
+            self::assertSame('https://example.test/rss', $builder->absRss());
+            self::assertSame('https://example.test/feed.json', $builder->absJsonFeed());
+            self::assertSame('https://example.test/tags/web/rss', $builder->absTagRss('web'));
+            self::assertSame('https://example.test/tags/web/feed.json', $builder->absTagJsonFeed('web'));
             self::assertSame('/all/', $builder->all());
             self::assertSame('/archive/2023/', $builder->year(2023));
             self::assertSame('/archive/2023/08/', $builder->month(2023, 8));

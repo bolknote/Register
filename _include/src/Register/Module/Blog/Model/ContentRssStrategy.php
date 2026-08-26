@@ -15,6 +15,7 @@ use Register\Module\Blog\BlogUrlBuilder;
 use Register\Core\Config\StringProxy;
 use Register\Core\Controller\Rss\FeedDto;
 use Register\Core\Controller\Rss\FeedItemDto;
+use Register\Core\Controller\Rss\FeedSettings;
 use Register\Core\Controller\Rss\RssStrategyInterface;
 use Register\Core\Pdo\DbLayerException;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -22,14 +23,13 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /** Publishes Register's canonical post stream as its single RSS feed. */
 final readonly class ContentRssStrategy implements RssStrategyInterface
 {
-    private const int ITEM_LIMIT = 10;
-
     public function __construct(
         private ContentRepository   $contentRepository,
         private ContentFeedItemProvider $itemProvider,
         private BlogUrlBuilder      $blogUrlBuilder,
         private TranslatorInterface $translator,
         private StringProxy         $blogTitle,
+        private FeedSettings        $feedSettings,
     ) {
     }
 
@@ -45,9 +45,12 @@ final readonly class ContentRssStrategy implements RssStrategyInterface
         $blogTitle = $this->blogTitle->get();
 
         return new FeedDto(
-            $blogTitle,
-            \sprintf($this->translator->trans('RSS blog description'), $blogTitle),
-            $this->blogUrlBuilder->absMain(),
+            title: $blogTitle,
+            description: \sprintf($this->translator->trans('RSS blog description'), $blogTitle),
+            link: $this->blogUrlBuilder->absMain(),
+            language: $this->translator->trans('locale'),
+            rssLink: $this->blogUrlBuilder->absRss(),
+            jsonFeedLink: $this->blogUrlBuilder->absJsonFeed(),
         );
     }
 
@@ -59,7 +62,7 @@ final readonly class ContentRssStrategy implements RssStrategyInterface
     public function getFeedItems(): array
     {
         return $this->itemProvider->provide(
-            $this->contentRepository->recent(ContentType::POST, self::ITEM_LIMIT),
+            $this->contentRepository->recent(ContentType::POST, $this->feedSettings->itemLimit()),
         );
     }
 }

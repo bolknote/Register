@@ -15,6 +15,9 @@ class FeedDto
         public string $title,
         public string $description,
         public string $link, // Absolute URL
+        public string $language = 'en',
+        public string $rssLink = '',
+        public string $jsonFeedLink = '',
     ) {
     }
 }

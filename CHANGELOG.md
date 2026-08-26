@@ -13,6 +13,8 @@ in-place publishing and a release package designed for ordinary shared hosting.
   an opt-in AI pass; Settings automatically verifies the configured AI provider.
 - Partial page navigation, request-driven live updates, same-origin offline fallback, local search,
   reactions, rich comments, and accessible media players.
+- Full-text RSS and JSON feeds use canonical URLs, exact ETag validation, configurable item limits,
+  contextual tag/search feeds, and RSS category and language metadata.
 - Public accounts through existing Register credentials, optional email links, VK ID, Mail.ru,
   Odnoklassniki, and Yandex, with relevant unread-comment counters.
 - Single-root shared-hosting archives that run entirely from `public_html`, encrypted backups, a

@@ -18,6 +18,7 @@ use Register\Core\Asset\AssetPack;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Controller\JsonFeedController;
 use Register\Core\Controller\RssController;
+use Register\Core\Controller\Rss\FeedSettings;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
@@ -204,6 +205,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(\Register\Module\Blog\Model\ContentFeedItemProvider::class),
             $container->get(UrlBuilder::class),
             $container->get('register_search_translator'),
+            $container->get(FeedSettings::class),
         ));
         $container->set('register_search.rss_controller', static function (Container $container): RssController {
             $provider = $container->get(DynamicConfigProvider::class);

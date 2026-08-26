@@ -55,6 +55,8 @@ final class SocialFeedsAndRankingCest
         $I->amOnPage('/feed.json');
         $I->seeResponseCodeIs(Response::HTTP_OK);
         $I->assertStringStartsWith('application/feed+json', (string)$I->grabHttpHeader('Content-Type'));
+        $I->assertNotNull($I->grabHttpHeader('ETag'));
+        $I->assertStringContainsString('public', (string)$I->grabHttpHeader('Cache-Control'));
 
         $feed = $this->decodeFeed($I->grabResponse());
         $I->assertSame('https://jsonfeed.org/version/1.1', $feed['version']);
@@ -139,6 +141,10 @@ final class SocialFeedsAndRankingCest
                 '<atom:link href="http://register.localhost/search/rss?q=quasarfeedneedle" rel="self"',
                 $searchRss,
             );
+
+            $I->amOnPage('/search/rss?q=definitely-no-such-result');
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->assertStringNotContainsString('<lastBuildDate>', $I->grabResponse());
 
             $I->amOnPage('/search/feed.json?q=quasarfeedneedle');
             $I->seeResponseCodeIs(Response::HTTP_OK);

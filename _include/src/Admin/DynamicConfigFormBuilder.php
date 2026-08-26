@@ -23,6 +23,8 @@ use Register\AdminYard\TemplateRenderer;
 use Register\AdminYard\Validator\Length;
 use Register\AdminYard\Validator\Regex;
 use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Controller\Rss\FeedSettings;
+use Register\Core\Admin\Validator\IntegerRange;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Model\UrlBuilder;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -52,6 +54,9 @@ class DynamicConfigFormBuilder
         'REGISTER_START_YEAR'      => 'int',
         'REGISTER_LANGUAGE'        => 'language',
         'REGISTER_STYLE'           => 'style',
+
+        'Syndication config' => 'title',
+        FeedSettings::ITEM_LIMIT_CONFIG_KEY => 'feed_limit',
 
         'Comments config'     => 'title',
         'REGISTER_SHOW_COMMENTS'    => 'boolean',
@@ -283,6 +288,14 @@ class DynamicConfigFormBuilder
                 'value',
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                 control: 'int_input',
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
+            ),
+            'feed_limit' => new FieldConfig(
+                'value',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                control: 'int_input',
+                validators: [new IntegerRange(FeedSettings::MIN_ITEM_LIMIT, FeedSettings::MAX_ITEM_LIMIT)],
                 inlineEdit: $inlineEdit,
                 inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),

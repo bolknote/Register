@@ -422,13 +422,13 @@ class InstallCest
         $I->see('New blog post');
         $I->dontSee('New Page Title');
 
-        $lastModified = $I->grabHeaders()['Last-Modified'][0]
-            ?? throw new \RuntimeException('The blog RSS response has no Last-Modified header.');
-        $I->haveHttpHeader('If-Modified-Since', $lastModified);
+        $etag = $I->grabHeaders()['ETag'][0]
+            ?? throw new \RuntimeException('The blog RSS response has no ETag header.');
+        $I->haveHttpHeader('If-None-Match', $etag);
         $I->amOnPage('/index.php?/rss');
         $I->seeResponseCodeIs(304);
         $I->dontSee('New Blog Post Title');
-        $I->unsetHttpHeader('If-Modified-Since');
+        $I->unsetHttpHeader('If-None-Match');
 
         $I->amOnPage('/index.php?/sitemap.xml'); // Same as above
         $I->seeResponseCodeIsSuccessful();

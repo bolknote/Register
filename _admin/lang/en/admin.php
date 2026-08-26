@@ -687,6 +687,7 @@ return [
     'REGISTER_TAGS_URL_help'         => 'The slug for the tags page, e.g. “tags”.',
     'REGISTER_USE_HIERARCHY_help'    => 'Page URLs reflect the tree structure. Page template and visibility are inherited from parent sections.',
     'REGISTER_MAX_ITEMS_help'        => 'The number of items on the section page. 0 — do not break section content into pages.',
+    'REGISTER_FEED_ITEMS_help'       => 'The number of recent items in RSS and JSON Feed. Values from 1 to 100 are allowed.',
     'REGISTER_START_YEAR_help'       => 'Used in the copyright.',
     'REGISTER_ADMIN_COLOR_help'      => 'Background color of the control panel.',
     'REGISTER_ADMIN_NEW_POS_help'    => 'The created pages are placed before existing ones in the tree structure.',
@@ -726,6 +727,9 @@ return [
     'Navigation config' => 'Navigation',
     'REGISTER_USE_HIERARCHY'  => 'Page hierarchy',
     'REGISTER_MAX_ITEMS'      => 'Section paging',
+
+    'Syndication config' => 'Feeds',
+    'REGISTER_FEED_ITEMS' => 'Items per feed',
 
     'REGISTER_START_YEAR' => 'Start year',
 

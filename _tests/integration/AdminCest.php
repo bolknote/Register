@@ -400,10 +400,11 @@ class AdminCest
         $I->see('AI assistant', '.config-section');
         $I->seeElement('nav.config-section-nav[aria-label="Settings sections"]');
         $I->seeElement('[data-config-page-state][data-state="applied"]');
-        $I->assertCount(38, $I->grabMultiple('.config-setting label[for]'));
+        $I->assertCount(39, $I->grabMultiple('.config-setting label[for]'));
         $I->seeElement('[data-config-key="REGISTER_SITE_NAME"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_SITE_TAGLINE"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_SOCIAL_IMAGE"] input[name="value"]');
+        $I->seeElement('[data-config-key="REGISTER_FEED_ITEMS"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_AUTH_EMAIL_ENABLED"] input[type="checkbox"]');
         $I->seeElement('[data-config-key="REGISTER_AUTH_VK_CLIENT_ID"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_AUTH_YANDEX_CLIENT_ID"] input[name="value"]');

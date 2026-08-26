@@ -38,6 +38,7 @@ use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Controller\CommentController;
 use Register\Core\Controller\JsonFeedController;
 use Register\Core\Controller\RssController;
+use Register\Core\Controller\Rss\FeedSettings;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerAwareRoutingModuleInterface;
@@ -463,6 +464,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $container->get(FeedSettings::class),
             );
         });
         $container->set(ContentFeedItemProvider::class, static fn(Container $container): ContentFeedItemProvider => new ContentFeedItemProvider(
@@ -483,6 +485,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(BlogUrlBuilder::class),
                 $container->get('register_blog_translator'),
                 $provider->getStringProxy('REGISTER_BLOG_TITLE'),
+                $container->get(FeedSettings::class),
             );
         });
         $container->set(RssController::class, static function (Container $container): RssController {
