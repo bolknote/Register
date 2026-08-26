@@ -2695,7 +2695,11 @@ h2.preview,
 }
 
 .post.foot:has(> .register-reactions) {
-    column-gap: .45rem;
+    column-gap: 1rem;
+}
+
+.post.foot > .register-reactions .register-reaction-toolbar {
+    gap: .25rem;
 }
 
 .post.foot:has(> .register-reactions) > .post-foot-comments {
