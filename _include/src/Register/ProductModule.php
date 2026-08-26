@@ -561,6 +561,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             if ($workerModifiedAt === false) {
                 throw new \LogicException('Unable to read the modification time of the service worker.');
             }
+
             $workerUrl = $basePath . $workerPath . '?v=' . $workerModifiedAt;
             $request = $container->get(RequestStack::class)->getCurrentRequest();
             $allowsInitialSeed = $request instanceof Request && OfflineCachePolicy::allowsInitialSeed(

@@ -55,6 +55,7 @@ final readonly class ExternalImportMapRepository
                     $exception,
                 );
             }
+
             if (!\is_array($sourceData)) {
                 throw new \UnexpectedValueException('An external import mapping contains invalid provenance data.');
             }

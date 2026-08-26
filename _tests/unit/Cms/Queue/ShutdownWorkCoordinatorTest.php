@@ -72,6 +72,17 @@ final class ShutdownWorkCoordinatorTest extends Unit
         self::assertSame([[4.5, 1, 30]], $runner->calls);
     }
 
+    public function testUsesConfiguredWebQueueCooldown(): void
+    {
+        [$coordinator, $runtime, $runner] = $this->coordinator(webQueueCooldownSeconds: 0);
+        $coordinator->register();
+        $coordinator->finishResponse();
+
+        $runtime->invokeShutdown();
+
+        self::assertSame([[4.5, 1, 0]], $runner->calls);
+    }
+
     public function testSkipsWorkAfterFatalErrorOrExhaustedRequestLimit(): void
     {
         [$coordinator, $runtime, $runner] = $this->coordinator();
@@ -119,7 +130,7 @@ final class ShutdownWorkCoordinatorTest extends Unit
     }
 
     /** @return array{ShutdownWorkCoordinator, FakeShutdownRuntime, FakeBackgroundWorkRunner} */
-    private function coordinator(?\PDO $pdo = null): array
+    private function coordinator(?\PDO $pdo = null, int $webQueueCooldownSeconds = 30): array
     {
         $runtime = new FakeShutdownRuntime();
         $runner  = new FakeBackgroundWorkRunner();
@@ -131,6 +142,7 @@ final class ShutdownWorkCoordinatorTest extends Unit
                 $runtime,
                 static fn(): BackgroundWorkRunnerInterface => $runner,
                 1000.0,
+                webQueueCooldownSeconds: $webQueueCooldownSeconds,
             ),
             $runtime,
             $runner,

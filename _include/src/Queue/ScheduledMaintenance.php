@@ -145,6 +145,7 @@ final readonly class ScheduledMaintenance
         if ($statement === false) {
             throw new \RuntimeException('Unable to prepare the maintenance preflight query.');
         }
+
         $statement->execute(['name' => self::CONFIG_KEY]);
         return $this->parseLastMaintenance($statement->fetchColumn());
     }

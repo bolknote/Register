@@ -22,6 +22,7 @@ $options = getopt('', ['apply', 'export:', 'help', 'import:', 'source:', 'source
 if (!\is_array($options)) {
     throw new RuntimeException('Unable to parse command-line options.');
 }
+
 if (isset($options['help'])) {
     echo <<<'HELP'
 Exports completed external-link probes from a local conversion database and applies them to another
@@ -56,6 +57,7 @@ if (($exportPath === null) === ($importPath === null)) {
     fwrite(STDERR, "Choose exactly one of --export or --import. Use --help for examples.\n");
     exit(2);
 }
+
 $hasSourcePath = isset($options['source']);
 $hasSourceConfig = isset($options['source-config']);
 if (($exportPath === null && ($hasSourcePath || $hasSourceConfig)) || ($hasSourcePath && $hasSourceConfig)) {
@@ -69,6 +71,7 @@ $query = static function (\PDO $pdo, string $sql, array $params = []): \PDOState
     if (!$statement instanceof \PDOStatement) {
         throw new RuntimeException('Unable to prepare a link-health transfer query.');
     }
+
     $statement->execute($params);
 
     return $statement;
@@ -93,15 +96,18 @@ if ($exportPath !== null) {
         if (!is_file($sourceConfigPath) || !is_readable($sourceConfigPath)) {
             throw new RuntimeException('The source configuration is missing or unreadable: ' . $sourceConfigPath);
         }
+
         $sourceConfig = require $sourceConfigPath;
         $database = \is_array($sourceConfig) ? ($sourceConfig['database'] ?? null) : null;
         if (!\is_array($database)) {
             throw new UnexpectedValueException('The source database configuration is invalid.');
         }
+
         $sourcePrefix = (string)($database['prefix'] ?? '');
         if (preg_match('/^[a-z0-9_]*$/iD', $sourcePrefix) !== 1) {
             throw new UnexpectedValueException('The source database prefix is unsafe.');
         }
+
         $databaseType = (string)($database['type'] ?? '');
         $source = match ($databaseType) {
             'mysql' => new \PDO(
@@ -133,6 +139,7 @@ if ($exportPath !== null) {
             \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
         ]);
     }
+
     $sourceQueueTable = $sourcePrefix . 'queue';
     $sourceTargetTable = $sourcePrefix . 'register_link_target';
     $sourceCheckTable = $sourcePrefix . 'register_link_check';
@@ -179,9 +186,11 @@ if ($exportPath !== null) {
     if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
         throw new RuntimeException('Unable to create the snapshot directory.');
     }
+
     if (file_put_contents($exportPath, $json . "\n") === false) {
         throw new RuntimeException('Unable to write the link-health snapshot.');
     }
+
     chmod($exportPath, 0600);
 
     echo json_encode([
@@ -196,13 +205,16 @@ if ($exportPath !== null) {
 if ($importPath === null) {
     throw new LogicException('The import path was not selected.');
 }
+
 if (!is_file($importPath) || !is_readable($importPath)) {
     throw new RuntimeException('The link-health snapshot is missing or unreadable: ' . $importPath);
 }
+
 $contents = file_get_contents($importPath);
 if (!\is_string($contents)) {
     throw new RuntimeException('Unable to read the link-health snapshot.');
 }
+
 $snapshot = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
 if (!\is_array($snapshot)
     || ($snapshot['format'] ?? null) !== REGISTER_LINK_HEALTH_TRANSFER_FORMAT
@@ -218,10 +230,12 @@ $pdo = $app->container->get(\PDO::class);
 if (!$pdo instanceof \PDO) {
     throw new UnexpectedValueException('The application did not provide a PDO connection.');
 }
+
 $prefix = $app->container->getStringParameter('db_prefix');
 if (preg_match('/^[a-z0-9_]*$/iD', $prefix) !== 1) {
     throw new UnexpectedValueException('The destination database prefix is unsafe.');
 }
+
 $targetTable = $prefix . 'register_link_target';
 $checkTable = $prefix . 'register_link_check';
 $queueTable = $prefix . 'queue';
@@ -236,9 +250,11 @@ foreach ($snapshot['targets'] as $target) {
     ) {
         throw new UnexpectedValueException('The snapshot contains an invalid link target.');
     }
+
     if (isset($sourceTargets[$target['url_hash']])) {
         throw new UnexpectedValueException('The snapshot contains a duplicate link target.');
     }
+
     $sourceTargets[$target['url_hash']] = $target;
 }
 
@@ -250,6 +266,7 @@ $targetRows = $query(
 while (($row = $targetRows->fetch(\PDO::FETCH_ASSOC)) !== false) {
     $destinationTargets[(string)$row['url_hash']] = $row;
 }
+
 if (count($destinationTargets) !== count($sourceTargets)) {
     throw new RuntimeException(sprintf(
         'Destination link inventory has %d external targets; the snapshot has %d.',
@@ -267,6 +284,7 @@ foreach ($sourceTargets as $hash => $sourceTarget) {
     ) {
         throw new RuntimeException('Destination link inventory differs at URL hash ' . $hash . '.');
     }
+
     $targetIds[$hash] = (int)$destination['id'];
 }
 
@@ -280,6 +298,7 @@ foreach ($snapshot['checks'] as $check) {
     ) {
         throw new UnexpectedValueException('The snapshot contains an invalid link check.');
     }
+
     $sourceChecks[] = $check;
 }
 
@@ -299,6 +318,7 @@ if (!isset($options['apply'])) {
 if ($pdo->inTransaction()) {
     throw new LogicException('Link-health import requires its own transaction.');
 }
+
 $pdo->beginTransaction();
 try {
     $update = $pdo->prepare(
@@ -311,6 +331,7 @@ try {
     if (!$update instanceof \PDOStatement) {
         throw new RuntimeException('Unable to prepare the target update query.');
     }
+
     foreach ($sourceTargets as $hash => $target) {
         $update->execute([
             'health_status' => $target['health_status'],
@@ -340,6 +361,7 @@ try {
     if (!$insert instanceof \PDOStatement) {
         throw new RuntimeException('Unable to prepare the link-check insert query.');
     }
+
     foreach ($sourceChecks as $check) {
         $insert->execute([
             'target_id' => $targetIds[$check['target_hash']],
@@ -351,6 +373,7 @@ try {
             'error' => $check['error'],
         ]);
     }
+
     $report['replaced_checks'] = count($sourceChecks);
 
     $jobIds = array_map(static fn(int $id): string => 'target-' . $id, array_values($targetIds));
@@ -372,6 +395,7 @@ try {
     } catch (Throwable) {
         // Preserve the operation failure if commit already closed the transaction.
     }
+
     throw $throwable;
 }
 

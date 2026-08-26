@@ -120,6 +120,7 @@ final class LiveUpdatesCest
         $I->seeElement('.site-header-tools .post-create-start[data-editor-shortcut="create"]');
         $I->dontSeeElement('.site-header-new-comments');
         $I->seeElement('.public-auth-account[data-live-region="site-account"]');
+
         $admin = $dbLayer
             ->select('id, email, name')
             ->from('users')

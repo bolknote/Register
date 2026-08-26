@@ -70,8 +70,7 @@ final class RequestPerformanceMonitorTest extends Unit
             '{"at":"2026-08-25T20:02:00+00:00","path":"/admin","duration_ms":500,"db_ms":20}',
         ]) . "\n");
 
-        $now = strtotime('2026-08-25T21:00:00+00:00');
-        self::assertIsInt($now);
+        $now = (new \DateTimeImmutable('2026-08-25T21:00:00+00:00'))->getTimestamp();
         $result = (new RequestPerformanceInspector($this->logFile))->inspect($now);
 
         self::assertSame(3, $result['event_count']);

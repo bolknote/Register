@@ -817,6 +817,7 @@ final class LinkHealthCest
         /** @var LinkInventory $inventory */
         $inventory = $I->grabService(LinkInventory::class);
         $inventory->synchronize(ContentId::post($contentId), 1_800_000_000);
+
         $targetId = $this->targetId($dbLayer, 'https://broken.example/rate-limited');
         $this->markBroken($dbLayer, $targetId);
         $dbLayer->update(Manifest::THROTTLE_TABLE)

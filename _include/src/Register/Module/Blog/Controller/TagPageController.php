@@ -137,6 +137,7 @@ class TagPageController extends BlogController
                 $template->setLink($rel, $href);
             }
         }
+
         $output = $this->getPosts(
             static function (SelectBuilder $qb) use ($postIds): SelectBuilder {
                 if ($postIds === []) {

@@ -93,12 +93,14 @@ final readonly class RequestPerformanceMonitor
             if (!flock($handle, LOCK_EX)) {
                 return;
             }
+
             fseek($handle, 0, SEEK_END);
             $size = ftell($handle);
             if (\is_int($size) && $size >= self::MAX_LOG_BYTES) {
                 ftruncate($handle, 0);
                 rewind($handle);
             }
+
             fwrite($handle, $line);
             fflush($handle);
             flock($handle, LOCK_UN);

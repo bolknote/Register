@@ -45,6 +45,7 @@ final class HistoricalContentViewPlan
                     $contentId,
                 ));
             }
+
             self::assertDay($day, $contentId);
             if ($views <= 0) {
                 throw new \UnexpectedValueException(sprintf(

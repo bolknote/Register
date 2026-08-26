@@ -25,9 +25,11 @@ $options = getopt('', ['apply', 'config:', 'help', 'source:', 'verify']);
 if (!is_array($options)) {
     throw new RuntimeException('Unable to parse command-line options.');
 }
+
 if (isset($options['apply'], $options['verify'])) {
     throw new InvalidArgumentException('--apply and --verify are mutually exclusive.');
 }
+
 if (isset($options['help'])) {
     echo <<<'HELP'
 Copies a current Register SQLite database into an already initialized MySQL/MariaDB database.
@@ -49,7 +51,7 @@ HELP;
 
 /** Resolves a CLI path relative to the project root. */
 $path = static function (mixed $value, string $default) use ($rootDir): string {
-    $value = $value ?? $default;
+    $value ??= $default;
     if (!is_string($value) || $value === '') {
         throw new InvalidArgumentException('Migration paths must be non-empty strings.');
     }
@@ -62,6 +64,7 @@ $configPath = $path($options['config'] ?? null, 'config.local.php');
 if (!is_file($sourcePath) || !is_readable($sourcePath)) {
     throw new RuntimeException('The source SQLite database is missing or unreadable: ' . $sourcePath);
 }
+
 if (!is_file($configPath) || !is_readable($configPath)) {
     throw new RuntimeException('The target config is missing or unreadable: ' . $configPath);
 }
@@ -70,15 +73,18 @@ $config = require $configPath;
 if (!is_array($config) || !is_array($config['database'] ?? null)) {
     throw new UnexpectedValueException('The target config has no database settings.');
 }
+
 $database = $config['database'];
 if (($database['type'] ?? null) !== 'mysql') {
     throw new UnexpectedValueException('The migration target must use the mysql driver.');
 }
+
 foreach (['host', 'name', 'user', 'password'] as $key) {
     if (!is_string($database[$key] ?? null)) {
         throw new UnexpectedValueException('The target database setting is invalid: ' . $key . '.');
     }
 }
+
 if ($database['name'] === '') {
     throw new UnexpectedValueException('The target database name must not be empty.');
 }
@@ -108,7 +114,7 @@ $sqliteTables = static function (PDO $pdo): array {
         throw new RuntimeException('Unable to list source SQLite tables.');
     }
 
-    return array_map('strval', $statement->fetchAll(PDO::FETCH_COLUMN));
+    return array_map(strval(...), $statement->fetchAll(PDO::FETCH_COLUMN));
 };
 
 /** @return list<string> */
@@ -121,7 +127,7 @@ $mysqlTables = static function (PDO $pdo): array {
         throw new RuntimeException('Unable to list target MySQL tables.');
     }
 
-    return array_map('strval', $statement->fetchAll(PDO::FETCH_COLUMN));
+    return array_map(strval(...), $statement->fetchAll(PDO::FETCH_COLUMN));
 };
 
 $quoteSqliteIdentifier = static function (string $identifier): string {
@@ -200,6 +206,7 @@ $targetColumns = static function (PDO $pdo, string $table) use ($needsImportMap)
     if ($needsImportMap && $table === 'e2_import_map') {
         return ['entity_type', 'source_id', 'target_id', 'source_data'];
     }
+
     $statement = $pdo->prepare(
         'SELECT COLUMN_NAME FROM information_schema.COLUMNS '
         . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table ORDER BY ORDINAL_POSITION',
@@ -207,9 +214,10 @@ $targetColumns = static function (PDO $pdo, string $table) use ($needsImportMap)
     if (!$statement instanceof PDOStatement) {
         throw new RuntimeException('Unable to inspect target table ' . $table . '.');
     }
+
     $statement->execute(['table' => $table]);
 
-    return array_map('strval', $statement->fetchAll(PDO::FETCH_COLUMN));
+    return array_map(strval(...), $statement->fetchAll(PDO::FETCH_COLUMN));
 };
 
 $sourceCounts = [];
@@ -263,11 +271,14 @@ $tableDigest = static function (
                 $serialized .= 'N;';
                 continue;
             }
+
             $value = (string)$value;
             $serialized .= 'S' . strlen($value) . ':' . $value . ';';
         }
+
         $rowHashes[] = hash('sha256', $serialized, true);
     }
+
     sort($rowHashes, SORT_STRING);
 
     return hash('sha256', implode('', $rowHashes));
@@ -320,6 +331,7 @@ if (isset($options['verify'])) {
     echo sprintf("Verification completed: %d copied rows match SQLite exactly.\n", $plannedRows);
     exit(0);
 }
+
 if (!isset($options['apply'])) {
     echo "Dry run: no target data was changed. Pass --apply to replace the initialized target data.\n";
     exit(0);
@@ -337,6 +349,7 @@ if ($needsImportMap) {
         . ') ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci',
     );
 }
+
 if (in_array('e2_import_map', $targetTables, true)) {
     // Telegram message IDs exceed 32 bits and a few synthetic tag IDs are negative.
     $target->exec('ALTER TABLE e2_import_map MODIFY source_id BIGINT NOT NULL');
@@ -360,6 +373,7 @@ try {
         if (!$rows instanceof PDOStatement) {
             throw new RuntimeException('Unable to read source table ' . $table . '.');
         }
+
         $insert = $target->prepare(
             'INSERT INTO ' . $quoteMysqlIdentifier($table)
             . ' (' . $mysqlColumnList . ') VALUES (' . $placeholders . ')',
@@ -367,9 +381,11 @@ try {
         if (!$insert instanceof PDOStatement) {
             throw new RuntimeException('Unable to prepare target insert for table ' . $table . '.');
         }
+
         while (($row = $rows->fetch(PDO::FETCH_NUM)) !== false) {
             $insert->execute($row);
         }
+
         echo sprintf("Copied %-36s %d\n", $table, $sourceCounts[$table]);
     }
 
@@ -378,6 +394,7 @@ try {
     if ($target->inTransaction()) {
         $target->rollBack();
     }
+
     throw $throwable;
 } finally {
     $target->exec('SET FOREIGN_KEY_CHECKS = 1');

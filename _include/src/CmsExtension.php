@@ -306,6 +306,7 @@ class CmsExtension implements ExtensionInterface
             $container->getFloatParameter('boot_timestamp'),
             $container->get(RequestPerformanceMonitor::class),
             $container->get(RequestQueryProfiler::class),
+            webQueueCooldownSeconds: getenv('APP_ENV') === 'test' ? 0 : 30,
         ));
 
         $container->set(UrlBuilder::class, fn(Container $container): \Register\Core\Model\UrlBuilder => new UrlBuilder(

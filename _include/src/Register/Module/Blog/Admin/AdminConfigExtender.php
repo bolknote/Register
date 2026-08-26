@@ -102,20 +102,18 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         );
 
         $tagEntity = $adminConfig->findEntityByName('Tag');
-        $tagEntity
-            ?->addListener(
-                [EntityConfig::EVENT_AFTER_CREATE, EntityConfig::EVENT_AFTER_UPDATE],
-                function (AfterSaveEvent $_event): void {
-                    $this->pageCache->invalidateFirstPage();
-                },
-            )
-            ->addListener(
-                EntityConfig::EVENT_BEFORE_DELETE,
-                function (BeforeDeleteEvent $_event): void {
-                    $this->pageCache->invalidateFirstPage();
-                },
-            )
-        ;
+        $tagEntity?->addListener(
+            [EntityConfig::EVENT_AFTER_CREATE, EntityConfig::EVENT_AFTER_UPDATE],
+            function (AfterSaveEvent $_event): void {
+                $this->pageCache->invalidateFirstPage();
+            },
+        );
+        $tagEntity?->addListener(
+            EntityConfig::EVENT_BEFORE_DELETE,
+            function (BeforeDeleteEvent $_event): void {
+                $this->pageCache->invalidateFirstPage();
+            },
+        );
 
         $userEntity = $adminConfig->findEntityByName('User');
         $userEntity?->addListener(

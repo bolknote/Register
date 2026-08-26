@@ -132,8 +132,10 @@ if (is_file($configFile)) {
     if (!is_array($storedConfig)) {
         throw new RuntimeException(sprintf('Local config "%s" must return an array.', $configFile));
     }
+
     $config = array_replace_recursive($defaultConfig, $storedConfig);
 }
+
 $config['http']['base_url'] = $baseUrl;
 
 $databaseConfig = $config['database'];
@@ -141,6 +143,7 @@ $dbType = $databaseConfig['type'];
 if (!is_string($dbType) || !in_array($dbType, ['mysql', 'sqlite'], true)) {
     throw new RuntimeException('Local development supports MySQL/MariaDB or SQLite.');
 }
+
 $pdoExtension = $dbType === 'mysql' ? 'pdo_mysql' : 'pdo_sqlite';
 if (!extension_loaded($pdoExtension)) {
     throw new RuntimeException(sprintf(

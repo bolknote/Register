@@ -39,6 +39,7 @@ final class MysqlRepositoryTest extends Unit
         foreach (array_slice($createQueries, 0, 4) as $query) {
             self::assertStringContainsString('COLLATE utf8mb4_unicode_ci', $query);
         }
+
         self::assertStringContainsString('COLLATE utf8mb4_bin', $createQueries[4]);
     }
 

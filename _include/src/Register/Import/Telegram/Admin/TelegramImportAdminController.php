@@ -37,9 +37,11 @@ final readonly class TelegramImportAdminController
         if (!$this->mutationGuard->isPost($request)) {
             return $this->error('Only POST requests are allowed.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
+
         if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE)) {
             return $this->error('Permission denied.', Response::HTTP_FORBIDDEN);
         }
+
         if (!$this->mutationGuard->hasValidCsrfToken($request, $this->token->value())) {
             return $this->error('Invalid CSRF token.', Response::HTTP_FORBIDDEN);
         }
@@ -48,6 +50,7 @@ final readonly class TelegramImportAdminController
         if (!$file instanceof UploadedFile || !$file->isValid()) {
             return $this->error('Telegram JSON upload failed.', Response::HTTP_BAD_REQUEST);
         }
+
         $size = $file->getSize();
         if (!\is_int($size) || $size <= 0 || $size > TelegramDiscussionArchive::MAX_BYTES) {
             return $this->error('Telegram JSON is too large or empty.', Response::HTTP_BAD_REQUEST);

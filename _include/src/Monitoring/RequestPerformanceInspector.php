@@ -42,13 +42,16 @@ final readonly class RequestPerformanceInspector
             } catch (\JsonException) {
                 continue;
             }
+
             if (!\is_array($row) || !\is_string($row['at'] ?? null) || !\is_string($row['path'] ?? null)) {
                 continue;
             }
+
             $timestamp = strtotime($row['at']);
             if ($timestamp === false || $timestamp < $cutoff) {
                 continue;
             }
+
             $duration = $this->number($row['duration_ms'] ?? null);
             $database = $this->number($row['db_ms'] ?? null);
             if ($duration === null || $database === null) {

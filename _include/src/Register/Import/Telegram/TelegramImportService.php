@@ -68,7 +68,7 @@ final readonly class TelegramImportService
             [$siteHost],
         );
         $source = (array)$archive['source'];
-        $chatId = self::positiveInt($source['chat_id'] ?? null, 'chat ID');
+        $chatId = $this->positiveInt($source['chat_id'] ?? null, 'chat ID');
         $scope = (string)$chatId;
         $owner = $this->siteAuthor($siteAuthorUserId);
         $maps = $this->mapRepository->forScope(self::SOURCE, $scope, self::COMMENT_ENTITY);
@@ -76,6 +76,7 @@ final readonly class TelegramImportService
         foreach ($this->legacyCommentMaps($chatId) as $messageId => $legacyMap) {
             $maps[$messageId] ??= $legacyMap;
         }
+
         $reactionRows = $this->telegramReactions($chatId);
         $now = time();
         $changes = [
@@ -103,31 +104,31 @@ final readonly class TelegramImportService
                 if (!\is_array($thread)) {
                     throw new \UnexpectedValueException('A Telegram thread is malformed.');
                 }
-                $contentId = ContentId::post(self::positiveInt($thread['content_id'] ?? null, 'post ID'));
-                $rootMessageId = self::positiveInt($thread['root_message_id'] ?? null, 'root message ID');
-                $rootCreatedAt = self::positiveInt(
-                    $thread['root_date_unixtime'] ?? null,
-                    'root message timestamp',
-                );
+
+                $contentId = ContentId::post($this->positiveInt($thread['content_id'] ?? null, 'post ID'));
+                $rootMessageId = $this->positiveInt($thread['root_message_id'] ?? null, 'root message ID');
+                $rootCreatedAt = $this->positiveInt($thread['root_date_unixtime'] ?? null, 'root message timestamp');
                 $threadComments = $thread['comments'] ?? null;
                 if (!\is_array($threadComments) || !array_is_list($threadComments)) {
                     throw new \UnexpectedValueException('A Telegram thread has no valid comment list.');
                 }
+
                 $orderedComments = $this->orderComments($threadComments, $rootMessageId);
 
                 foreach ($orderedComments as $sourceComment) {
-                    $messageId = self::positiveInt($sourceComment['message_id'] ?? null, 'comment message ID');
+                    $messageId = $this->positiveInt($sourceComment['message_id'] ?? null, 'comment message ID');
                     $externalId = (string)$messageId;
                     $parentMessageId = $sourceComment['parent_message_id'] ?? null;
                     $parentId = null;
                     if ($parentMessageId !== null) {
-                        $parentExternalId = (string)self::positiveInt($parentMessageId, 'parent message ID');
+                        $parentExternalId = (string)$this->positiveInt($parentMessageId, 'parent message ID');
                         $parentMap = $maps[$parentExternalId] ?? null;
                         if (!\is_array($parentMap)) {
                             throw new \UnexpectedValueException(
                                 'Telegram comment ' . $messageId . ' has an unresolved parent.',
                             );
                         }
+
                         $parentId = (int)$parentMap['target_id'];
                     }
 
@@ -142,11 +143,9 @@ final readonly class TelegramImportService
                     if ($name === '') {
                         $name = 'Telegram user';
                     }
+
                     $name = mb_substr($name, 0, 50);
-                    $createdAt = self::positiveInt(
-                        $sourceComment['date_unixtime'] ?? null,
-                        'comment timestamp',
-                    );
+                    $createdAt = $this->positiveInt($sourceComment['date_unixtime'] ?? null, 'comment timestamp');
                     $modifiedAt = (int)($sourceComment['edited_unixtime'] ?? 0);
                     $modifiedAt = $modifiedAt > $createdAt ? $modifiedAt : null;
                     $media = \is_array($sourceComment['media'] ?? null) ? $sourceComment['media'] : [];
@@ -164,6 +163,7 @@ final readonly class TelegramImportService
                     if (preg_match('/^[a-f0-9]{64}$/D', $sourceHash) !== 1) {
                         $sourceHash = TelegramDiscussionArchive::commentHash($sourceComment);
                     }
+
                     $sourceData = $this->sourceData($source, $thread, $sourceComment);
                     $existingMap = $maps[$externalId] ?? null;
 
@@ -172,21 +172,29 @@ final readonly class TelegramImportService
                         if (!$this->commentImportService->publish($commentId, $contentId)) {
                             throw new \RuntimeException('A newly imported Telegram comment could not be published.');
                         }
+
                         ++$changes['comments_inserted'];
                         if ($media !== []) {
                             ++$changes['comments_media_placeholders'];
                         }
+
                         $createdMapAt = $now;
                     } else {
-                        $commentId = self::mappedCommentId($existingMap, $externalId);
+                        $commentId = $this->mappedCommentId($existingMap, $externalId);
                         $storedComment = $this->commentRepository->find($commentId);
-                        if (!$storedComment instanceof Comment || !$storedComment->contentId->equals($contentId)) {
+                        if (!$storedComment instanceof Comment) {
                             throw new \UnexpectedValueException(
                                 'Telegram comment ' . $messageId . ' is mapped to a different content item.',
                             );
                         }
 
-                        $previousModifiedAt = self::mappedModifiedAt($existingMap['source_data'] ?? []);
+                        if (!$storedComment->contentId->equals($contentId)) {
+                            throw new \UnexpectedValueException(
+                                'Telegram comment ' . $messageId . ' is mapped to a different content item.',
+                            );
+                        }
+
+                        $previousModifiedAt = $this->mappedModifiedAt($existingMap['source_data'] ?? []);
                         if ($modifiedAt !== null && $modifiedAt > $previousModifiedAt) {
                             if ($media === []) {
                                 $this->commentImportService->synchronize($commentId, $comment);
@@ -197,6 +205,7 @@ final readonly class TelegramImportService
                         } else {
                             ++$changes['comments_unchanged'];
                         }
+
                         $createdMapAt = (int)($existingMap['created_at'] ?? $now);
                     }
 
@@ -224,6 +233,7 @@ final readonly class TelegramImportService
                             }
                         }
                     }
+
                     $maps[$externalId] = [
                         'target_type' => 'comment',
                         'target_id'   => $commentId,
@@ -238,6 +248,7 @@ final readonly class TelegramImportService
                     if (!\is_array($commentReactions) || !array_is_list($commentReactions)) {
                         throw new \UnexpectedValueException('A Telegram comment has an invalid reaction list.');
                     }
+
                     $this->syncReactions(
                         ReactionAggregateTargetType::COMMENT,
                         $commentId,
@@ -255,6 +266,7 @@ final readonly class TelegramImportService
                 if (!\is_array($postReactions) || !array_is_list($postReactions)) {
                     throw new \UnexpectedValueException('A Telegram post has an invalid reaction list.');
                 }
+
                 $this->syncReactions(
                     ReactionAggregateTargetType::POST,
                     $contentId->value,
@@ -281,6 +293,7 @@ final readonly class TelegramImportService
             if ($startedTransaction && $this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
             }
+
             throw $throwable;
         }
 
@@ -312,6 +325,7 @@ final readonly class TelegramImportService
             if ($id <= 0 || $path === '' || isset($posts[$path])) {
                 throw new \UnexpectedValueException('Published post paths are missing or duplicated.');
             }
+
             $posts[$path] = ['content_id' => $id, 'canonical_path' => $path];
             $canonicalPaths[$id] = $path;
         }
@@ -346,11 +360,13 @@ final readonly class TelegramImportService
         } else {
             $query->where('edit_site = 1')->orderBy('id')->limit(1);
         }
+
         $row = $query->execute()->fetchAssoc();
         if ($row === false) {
             if ($requestedUserId !== null) {
                 throw new \InvalidArgumentException('The selected site-author user does not exist.');
             }
+
             return [];
         }
 
@@ -373,6 +389,7 @@ final readonly class TelegramImportService
         if (!$this->dbLayer->tableExists('e2_import_map') || $chatId >= 9_000_000_000) {
             return [];
         }
+
         $namespaceStart = $chatId * 1_000_000_000;
         $rows = $this->dbLayer
             ->select('source_id, target_id, source_data')
@@ -388,18 +405,22 @@ final readonly class TelegramImportService
             if ($sourceId <= $namespaceStart || $sourceId >= $namespaceStart + 1_000_000_000) {
                 continue;
             }
+
             $messageId = $sourceId - $namespaceStart;
             if ($messageId <= 0 || $messageId >= 1_000_000_000) {
                 continue;
             }
+
             try {
                 $sourceData = json_decode((string)$row['source_data'], true, 512, JSON_THROW_ON_ERROR);
             } catch (\JsonException) {
                 $sourceData = [];
             }
+
             if (!\is_array($sourceData)) {
                 $sourceData = [];
             }
+
             $legacyComment = \is_array($sourceData['TelegramComment'] ?? null)
                 ? $sourceData['TelegramComment']
                 : [];
@@ -432,16 +453,19 @@ final readonly class TelegramImportService
                     $names[] = $attachmentName !== '' ? $attachmentName : 'Telegram attachment';
                 }
             }
+
             $placeholder = 'Telegram attachment is not contained in the JSON: ' . implode(', ', $names) . '.';
             $html .= ($html === '' ? '' : '<br><br>')
                 . '<em>' . htmlspecialchars($placeholder, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</em>';
         }
+
         $stored = CommentHtml::sanitizeForStorage($html);
         if ($stored === '') {
             throw new \UnexpectedValueException(
                 'Telegram comment ' . (int)($sourceComment['message_id'] ?? 0) . ' is empty.',
             );
         }
+
         return $stored;
     }
 
@@ -466,20 +490,22 @@ final readonly class TelegramImportService
     }
 
     /** @param array<string, mixed> $mapping */
-    private static function mappedCommentId(array $mapping, string $externalId): int
+    private function mappedCommentId(array $mapping, string $externalId): int
     {
         $targetId = (int)($mapping['target_id'] ?? 0);
         if (($mapping['target_type'] ?? null) !== 'comment' || $targetId <= 0) {
             throw new \UnexpectedValueException('Telegram message ' . $externalId . ' has an invalid mapping.');
         }
+
         return $targetId;
     }
 
-    private static function mappedModifiedAt(mixed $sourceData): int
+    private function mappedModifiedAt(mixed $sourceData): int
     {
         if (!\is_array($sourceData)) {
             return 0;
         }
+
         $comment = $sourceData['telegram']['comment']
             ?? $sourceData['TelegramComment']
             ?? null;
@@ -494,12 +520,14 @@ final readonly class TelegramImportService
     {
         $pending = [];
         foreach ($comments as $comment) {
-            $id = self::positiveInt($comment['message_id'] ?? null, 'comment message ID');
+            $id = $this->positiveInt($comment['message_id'] ?? null, 'comment message ID');
             if (isset($pending[$id])) {
                 throw new \UnexpectedValueException('A Telegram thread contains duplicate comments.');
             }
+
             $pending[$id] = $comment;
         }
+
         ksort($pending);
 
         $ordered = [];
@@ -511,15 +539,18 @@ final readonly class TelegramImportService
                 if ($parent !== null && !isset($resolved[(int)$parent])) {
                     continue;
                 }
+
                 $ordered[] = $comment;
                 $resolved[$id] = true;
                 unset($pending[$id]);
                 $progress = true;
             }
+
             if (!$progress) {
                 throw new \UnexpectedValueException('A Telegram comment tree has missing or cyclic parents.');
             }
         }
+
         return $ordered;
     }
 
@@ -542,9 +573,11 @@ final readonly class TelegramImportService
             } catch (\JsonException) {
                 $sourceData = [];
             }
+
             $row['source_data'] = \is_array($sourceData) ? $sourceData : [];
             $result[$key] = $row;
         }
+
         return $result;
     }
 
@@ -567,11 +600,12 @@ final readonly class TelegramImportService
         $prefix = $chatId . ':' . $messageId . ':' . $kind . ':';
         $incomingKeys = [];
         foreach ($reactions as $index => $reaction) {
-            $count = self::positiveInt($reaction['count'] ?? null, 'reaction count');
+            $count = $this->positiveInt($reaction['count'] ?? null, 'reaction count');
             $emoji = (string)($reaction['emoji'] ?? '');
             if ($emoji === '') {
                 $emoji = '✦';
             }
+
             $sourceKey = $prefix . $index;
             $rowKey = $targetType->value . ':' . $targetId . ':' . $sourceKey;
             $incomingKeys[$rowKey] = true;
@@ -580,7 +614,7 @@ final readonly class TelegramImportService
                 $targetId,
                 self::SOURCE,
                 $sourceKey,
-                self::canonicalReaction($emoji),
+                $this->canonicalReaction($emoji),
                 $emoji,
                 $count,
                 $createdAt,
@@ -597,6 +631,7 @@ final readonly class TelegramImportService
                 ++$changes['reaction_groups_unchanged'];
                 continue;
             }
+
             $this->reactionRepository->store($aggregate);
             \is_array($stored)
                 ? ++$changes['reaction_groups_updated']
@@ -621,6 +656,7 @@ final readonly class TelegramImportService
             ) {
                 continue;
             }
+
             if ($this->reactionRepository->remove(
                 $targetType,
                 $targetId,
@@ -629,11 +665,12 @@ final readonly class TelegramImportService
             )) {
                 ++$changes['reaction_groups_removed'];
             }
+
             unset($storedRows[$rowKey]);
         }
     }
 
-    private static function canonicalReaction(string $emoji): string
+    private function canonicalReaction(string $emoji): string
     {
         return match ($emoji) {
             '👍' => 'like',
@@ -646,12 +683,13 @@ final readonly class TelegramImportService
         };
     }
 
-    private static function positiveInt(mixed $value, string $label): int
+    private function positiveInt(mixed $value, string $label): int
     {
         $value = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         if ($value === false) {
             throw new \UnexpectedValueException('Invalid Telegram ' . $label . '.');
         }
+
         return $value;
     }
 }

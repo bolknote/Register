@@ -104,7 +104,11 @@ final readonly class CommentRepository
         }
 
         $current = $this->find($commentId);
-        if (!$current instanceof Comment || !$current->contentId->equals($comment->contentId)) {
+        if (!$current instanceof Comment) {
+            throw new \DomainException('The imported comment does not belong to the requested content item.');
+        }
+
+        if (!$current->contentId->equals($comment->contentId)) {
             throw new \DomainException('The imported comment does not belong to the requested content item.');
         }
 

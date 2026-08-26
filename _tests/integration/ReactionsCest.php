@@ -228,6 +228,7 @@ final class ReactionsCest
             $secondId,
         ));
         $I->seeResponseCodeIs(200);
+
         $payload = $I->grabJson();
         $I->assertIsArray($payload);
         $I->assertSame('love', $payload['states']['post:' . $firstId]['selected']);

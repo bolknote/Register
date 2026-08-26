@@ -26,6 +26,7 @@ final class TelegramDiscussionArchive
         if (!\is_array($messages) || !array_is_list($messages)) {
             throw new \UnexpectedValueException('Telegram export has no message list.');
         }
+
         if (!\in_array((string)($export['type'] ?? ''), [
             'private_supergroup',
             'supergroup',
@@ -34,6 +35,7 @@ final class TelegramDiscussionArchive
         ], true)) {
             throw new \UnexpectedValueException('Telegram export is not a discussion group.');
         }
+
         if (\count($messages) > 250_000) {
             throw new \UnexpectedValueException('Telegram export contains too many messages.');
         }
@@ -42,12 +44,15 @@ final class TelegramDiscussionArchive
             if (!\is_array($message)) {
                 throw new \UnexpectedValueException('Telegram export contains a malformed message.');
             }
-            $id = self::positiveInt($message['id'] ?? null, 'message ID');
+
+            $id = $this->positiveInt($message['id'] ?? null, 'message ID');
             if (isset($this->messagesById[$id])) {
                 throw new \UnexpectedValueException('Telegram message identifiers are duplicated.');
             }
+
             $this->messagesById[$id] = $message;
         }
+
         ksort($this->messagesById);
     }
 
@@ -57,6 +62,7 @@ final class TelegramDiscussionArchive
         if (!\is_int($size) || $size <= 0 || $size > self::MAX_BYTES) {
             throw new \UnexpectedValueException('Telegram JSON must be a non-empty file smaller than 25 MB.');
         }
+
         $json = file_get_contents($path);
         if (!\is_string($json)) {
             throw new \RuntimeException('Unable to read the Telegram export.');
@@ -67,6 +73,7 @@ final class TelegramDiscussionArchive
         } catch (\JsonException $exception) {
             throw new \UnexpectedValueException('Telegram export is not valid JSON.', 0, $exception);
         }
+
         if (!\is_array($export)) {
             throw new \UnexpectedValueException('Telegram export root is not an object.');
         }
@@ -75,7 +82,7 @@ final class TelegramDiscussionArchive
     }
 
     /**
-     * @param callable(string): ?array{content_id: int, canonical_path: string} $postResolver
+     * @param callable(string):(array{content_id: int, canonical_path: string}|null) $postResolver
      * @param list<string> $siteHosts
      * @return array<string, mixed>
      */
@@ -91,11 +98,13 @@ final class TelegramDiscussionArchive
             if (!$this->isForwardedRoot($message)) {
                 continue;
             }
+
             $link = $this->firstLineSiteLink($message, $siteHosts);
             if ($link['url'] !== null) {
                 $sourceChannelIds[(string)$message['forwarded_from_id']] = true;
             }
         }
+
         if ($sourceChannelIds === []) {
             throw new \UnexpectedValueException(
                 'No forwarded channel posts with first-line links to this site were found.',
@@ -144,7 +153,7 @@ final class TelegramDiscussionArchive
             ];
         }
 
-        $chatId = self::positiveInt($this->export['id'] ?? null, 'chat ID');
+        $chatId = $this->positiveInt($this->export['id'] ?? null, 'chat ID');
         $siteAuthorIds = $sourceChannelIds;
         $siteAuthorIds['channel' . $chatId] = true;
         $rootResolutionCache = [];
@@ -172,11 +181,13 @@ final class TelegramDiscussionArchive
                 ];
                 continue;
             }
+
             if (!isset($acceptedRoots[$rootId])) {
                 ++$rejectedDescendants;
                 if (isset($excludedRoots[$rootId])) {
                     ++$excludedRoots[$rootId]['descendant_messages'];
                 }
+
                 continue;
             }
 
@@ -184,18 +195,20 @@ final class TelegramDiscussionArchive
             $parentCommentMessageId = $parentMessageId === $rootId ? null : $parentMessageId;
             $parentCommentMessageId === null ? ++$directComments : ++$nestedComments;
 
-            $createdAt = self::positiveInt($message['date_unixtime'] ?? null, 'message timestamp');
+            $createdAt = $this->positiveInt($message['date_unixtime'] ?? null, 'message timestamp');
             $modifiedAt = (int)($message['edited_unixtime'] ?? 0);
             if ($modifiedAt <= $createdAt) {
                 $modifiedAt = 0;
             } else {
                 ++$editedComments;
             }
+
             $authorId = trim((string)($message['from_id'] ?? ''));
             $authorName = trim((string)($message['from'] ?? ''));
             if ($authorName === '') {
                 $authorName = 'Telegram user';
             }
+
             $media = $this->normaliseMedia($message);
             $mediaReferences += \count($media);
             $comment = [
@@ -232,11 +245,13 @@ final class TelegramDiscussionArchive
             if (!\is_int($threadContentId) || !\is_array($threadReactions)) {
                 throw new \UnexpectedValueException('An extracted Telegram thread is malformed.');
             }
+
             $uniquePosts[$threadContentId] = true;
             foreach ($threadReactions as $reaction) {
                 ++$postReactionGroups;
                 $postReactionEvents += (int)$reaction['count'];
             }
+
             foreach ($thread['comments'] as $comment) {
                 foreach ($comment['reactions'] as $reaction) {
                     ++$commentReactionGroups;
@@ -305,10 +320,12 @@ final class TelegramDiscussionArchive
                 $result = ['root_id' => $currentId, 'reason' => 'resolved'];
                 break;
             }
+
             if (isset($seen[$currentId])) {
                 $result = ['root_id' => null, 'reason' => 'reply_cycle'];
                 break;
             }
+
             $seen[$currentId] = true;
             $trail[] = $currentId;
             $message = $this->messagesById[$currentId] ?? null;
@@ -316,11 +333,14 @@ final class TelegramDiscussionArchive
                 $result = ['root_id' => null, 'reason' => 'missing_reply_target'];
                 break;
             }
+
             if (!isset($message['reply_to_message_id'])) {
                 break;
             }
+
             $currentId = (int)$message['reply_to_message_id'];
         }
+
         foreach ($trail as $id) {
             $cache[$id] = $result;
         }
@@ -341,6 +361,7 @@ final class TelegramDiscussionArchive
             if (!\is_array($entity)) {
                 continue;
             }
+
             $text = (string)($entity['text'] ?? '');
             $type = (string)($entity['type'] ?? '');
             if ($type === 'link' || $type === 'text_link') {
@@ -350,6 +371,7 @@ final class TelegramDiscussionArchive
                     $candidates[$url] = true;
                 }
             }
+
             if (str_contains($text, "\n")) {
                 break;
             }
@@ -366,6 +388,7 @@ final class TelegramDiscussionArchive
                     ) {
                         $candidates[$segment['url']] = true;
                     }
+
                     if (str_contains($segment['text'], "\n")) {
                         break;
                     }
@@ -376,6 +399,7 @@ final class TelegramDiscussionArchive
         if ($candidates === []) {
             return ['url' => null, 'reason' => 'missing_first_line_site_link'];
         }
+
         if (\count($candidates) !== 1) {
             return ['url' => null, 'reason' => 'ambiguous_first_line_site_link'];
         }
@@ -389,14 +413,17 @@ final class TelegramDiscussionArchive
         if (\is_string($node)) {
             return [['text' => $node, 'url' => null]];
         }
+
         if (!\is_array($node)) {
             return [];
         }
+
         if (array_is_list($node)) {
             $segments = [];
             foreach ($node as $child) {
                 array_push($segments, ...self::richInlineSegments($child));
             }
+
             return $segments;
         }
 
@@ -404,9 +431,11 @@ final class TelegramDiscussionArchive
         if ($type === 'empty') {
             return [];
         }
+
         if ($type === 'plain') {
             return [['text' => (string)($node['text'] ?? ''), 'url' => null]];
         }
+
         if ($type === 'text_link' || $type === 'link') {
             $label = implode('', array_column(self::richInlineSegments($node['text'] ?? null), 'text'));
             $url = $type === 'text_link' ? (string)($node['href'] ?? '') : $label;
@@ -423,6 +452,7 @@ final class TelegramDiscussionArchive
         if (!\is_array($parts)) {
             return null;
         }
+
         $scheme = strtolower($parts['scheme'] ?? '');
         $host = strtolower(rtrim($parts['host'] ?? '', '.'));
         if (!\in_array($scheme, ['http', 'https'], true)
@@ -430,6 +460,7 @@ final class TelegramDiscussionArchive
         ) {
             return null;
         }
+
         $path = trim(rawurldecode($parts['path'] ?? ''), '/');
         return $path === '' ? null : $path;
     }
@@ -446,10 +477,12 @@ final class TelegramDiscussionArchive
             if ($host === '' || preg_match('/^[a-z0-9.-]+$/D', $host) !== 1) {
                 continue;
             }
+
             $result[$host] = true;
             $alternate = str_starts_with($host, 'www.') ? substr($host, 4) : 'www.' . $host;
             $result[$alternate] = true;
         }
+
         return array_keys($result);
     }
 
@@ -460,11 +493,13 @@ final class TelegramDiscussionArchive
         if (\is_string($text)) {
             return $text;
         }
+
         if (\is_array($text)) {
             $result = '';
             foreach ($text as $part) {
                 $result .= \is_string($part) ? $part : (string)($part['text'] ?? '');
             }
+
             return $result;
         }
 
@@ -477,7 +512,7 @@ final class TelegramDiscussionArchive
     {
         $entities = $message['text_entities'] ?? [];
         if (!\is_array($entities) || $entities === []) {
-            return self::textWithBreaks($this->plainText($message));
+            return $this->textWithBreaks($this->plainText($message));
         }
 
         $html = '';
@@ -485,9 +520,10 @@ final class TelegramDiscussionArchive
             if (!\is_array($entity)) {
                 continue;
             }
+
             $type = (string)($entity['type'] ?? 'plain');
             $text = (string)($entity['text'] ?? '');
-            $escaped = self::textWithBreaks($text);
+            $escaped = $this->textWithBreaks($text);
             $html .= match ($type) {
                 'bold' => '<strong>' . $escaped . '</strong>',
                 'italic' => '<em>' . $escaped . '</em>',
@@ -495,22 +531,23 @@ final class TelegramDiscussionArchive
                 'strikethrough' => '<s>' . $escaped . '</s>',
                 'spoiler' => '<span>' . $escaped . '</span>',
                 'code' => '<code>' . htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</code>',
-                'pre' => self::preHtml($text, (string)($entity['language'] ?? '')),
+                'pre' => $this->preHtml($text, (string)($entity['language'] ?? '')),
                 'blockquote' => '<blockquote>' . $escaped . '</blockquote>',
-                'link', 'text_link' => self::linkHtml((string)($entity['href'] ?? $text), $escaped),
+                'link', 'text_link' => $this->linkHtml((string)($entity['href'] ?? $text), $escaped),
                 default => $escaped,
             };
         }
+
         return $html;
     }
 
-    private static function textWithBreaks(string $text): string
+    private function textWithBreaks(string $text): string
     {
         $text = str_replace(["\r\n", "\r"], "\n", $text);
         return str_replace("\n", "<br>\n", htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
     }
 
-    private static function preHtml(string $text, string $language): string
+    private function preHtml(string $text, string $language): string
     {
         $class = preg_match('/^[a-z0-9_+.-]+$/Di', $language) === 1
             ? ' class="language-' . htmlspecialchars(strtolower($language), ENT_QUOTES, 'UTF-8') . '"'
@@ -520,11 +557,12 @@ final class TelegramDiscussionArchive
             . '</code></pre>';
     }
 
-    private static function linkHtml(string $url, string $labelHtml): string
+    private function linkHtml(string $url, string $labelHtml): string
     {
         if (!\in_array(strtolower((string)parse_url($url, PHP_URL_SCHEME)), ['http', 'https', 'mailto', 'tel'], true)) {
             return $labelHtml;
         }
+
         return '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
             . $labelHtml . '</a>';
     }
@@ -535,11 +573,13 @@ final class TelegramDiscussionArchive
         if (!\is_array($source)) {
             return [];
         }
+
         $result = [];
         foreach ($source as $reaction) {
             if (!\is_array($reaction) || (int)($reaction['count'] ?? 0) <= 0) {
                 continue;
             }
+
             $item = [
                 'type'   => (string)($reaction['type'] ?? ''),
                 'count'  => (int)$reaction['count'],
@@ -550,6 +590,7 @@ final class TelegramDiscussionArchive
             } elseif ($item['type'] === 'custom_emoji') {
                 $item['document_id'] = (string)($reaction['document_id'] ?? '');
             }
+
             foreach (($reaction['recent'] ?? []) as $recent) {
                 if (\is_array($recent)) {
                     $item['recent'][] = [
@@ -559,8 +600,10 @@ final class TelegramDiscussionArchive
                     ];
                 }
             }
+
             $result[] = $item;
         }
+
         return $result;
     }
 
@@ -576,6 +619,7 @@ final class TelegramDiscussionArchive
             if (!\is_string($path) || trim($path) === '') {
                 continue;
             }
+
             $result[] = [
                 'kind'      => $field,
                 'path'      => $path,
@@ -583,6 +627,7 @@ final class TelegramDiscussionArchive
                 'mime_type' => (string)($message['mime_type'] ?? ''),
             ];
         }
+
         return $result;
     }
 
@@ -605,12 +650,13 @@ final class TelegramDiscussionArchive
         ));
     }
 
-    private static function positiveInt(mixed $value, string $label): int
+    private function positiveInt(mixed $value, string $label): int
     {
         $value = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         if ($value === false) {
             throw new \UnexpectedValueException('Invalid Telegram ' . $label . '.');
         }
+
         return $value;
     }
 }
