@@ -33,12 +33,11 @@ if (!isset($this)) {
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css?v=<?= $adminAssetVersion('_admin/css/admin-override.css') ?>">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
     <link id="admin-theme-stylesheet" rel="stylesheet" href="<?= $basePath ?>/_admin/index.php?action=theme-stylesheet">
-    <link rel="stylesheet" href="<?= $basePath ?>/_assets/register/local-time.css">
     <?php foreach ($extraStyles as $style): ?>
         <link rel="stylesheet" href="<?= $style ?>">
     <?php endforeach; ?>
 
-    <script src="<?= $basePath ?>/_assets/register/local-time.js"></script>
+    <script src="<?= $basePath ?>/_assets/register/local-time.js" defer></script>
     <script src="<?php echo $basePath; ?>/_assets/register/admin-yard/script.js"></script>
     <script src="<?= $basePath ?>/_admin/js/lib.js?v=<?= $adminAssetVersion('_admin/js/lib.js') ?>"></script>
     <?php foreach ($extraScripts as $script): ?>

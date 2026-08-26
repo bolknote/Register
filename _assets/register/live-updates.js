@@ -72,6 +72,12 @@
         }));
     }
 
+    function localizeTimesBeforeInsertion(root) {
+        if (typeof window.RegisterLocalTime?.enhance === 'function') {
+            window.RegisterLocalTime.enhance(root);
+        }
+    }
+
     function applyPatch(name, html) {
         const current = findRegion(name);
         if (!current || isLocked(current)) {
@@ -85,6 +91,7 @@
             return false;
         }
 
+        localizeTimesBeforeInsertion(replacement);
         destroyWidgets(current);
         current.replaceWith(replacement);
         enhanceWidgets(replacement);

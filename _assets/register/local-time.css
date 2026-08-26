@@ -1,3 +1,0 @@
-html.local-time-pending time[data-local-time]:not([data-local-time-ready="1"]) {
-    visibility: hidden;
-}

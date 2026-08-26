@@ -61,7 +61,7 @@ final class AssetPackTest extends Unit
         self::assertSame(AssetPack::COLOR_SCHEME_LIGHT, $systemOne->getColorScheme());
     }
 
-    public function testBuiltInStylesLoadLocalTimeAssetsInTheDocumentHead(): void
+    public function testBuiltInStylesLoadLocalTimeScriptWithoutHidingServerFallback(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';
 
@@ -69,14 +69,26 @@ final class AssetPackTest extends Unit
             /** @var AssetPack $assetPack */
             $assetPack = require $rootDir . '_styles/' . $style . '/' . $style . '.php';
             $markup    = $assetPack->getStyles('/_styles/' . $style . '/', null);
-            $cssPath   = '/_styles/' . $style . '/../../_assets/register/local-time.css';
             $jsPath    = '/_styles/' . $style . '/../../_assets/register/local-time.js';
 
-            self::assertStringContainsString(
-                '<link rel="stylesheet" href="' . $cssPath . '">' . "\n"
-                . '<script src="' . $jsPath . '"></script>',
-                $markup,
-            );
+            self::assertStringNotContainsString('local-time.css', $markup);
+            self::assertStringContainsString('<script src="' . $jsPath . '" defer></script>', $markup);
+        }
+    }
+
+    public function testDynamicFragmentsLocalizeTimesBeforeTheyAreInserted(): void
+    {
+        $assetRoot = \dirname(__DIR__, 4) . '/_assets/register/';
+
+        foreach (['partial-navigation.js', 'live-updates.js'] as $filename) {
+            $script = file_get_contents($assetRoot . $filename);
+
+            self::assertIsString($script);
+            $localizePosition = strpos($script, 'localizeTimesBeforeInsertion(replacement);');
+            $replacePosition  = strpos($script, 'current.replaceWith(replacement);');
+            self::assertIsInt($localizePosition);
+            self::assertIsInt($replacePosition);
+            self::assertLessThan($replacePosition, $localizePosition);
         }
     }
 

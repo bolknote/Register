@@ -277,6 +277,12 @@
         dispatch('register:fragment-updated', root);
     }
 
+    function localizeTimesBeforeInsertion(root) {
+        if (typeof window.RegisterLocalTime?.enhance === 'function') {
+            window.RegisterLocalTime.enhance(root);
+        }
+    }
+
     async function swapPage(payload) {
         const current = document.querySelector('[data-register-page]');
         const replacement = parseReplacement(payload.fragment);
@@ -297,6 +303,7 @@
             document.title = payload.title;
             document.documentElement.lang = payload.lang;
             document.body.className = payload.bodyClass;
+            localizeTimesBeforeInsertion(replacement);
             current.replaceWith(replacement);
             activateMedia(replacement);
         };
