@@ -513,6 +513,28 @@ button.primary:hover {
     color: var(--admin-field-background);
 }
 
+.info-box {
+    margin: 1rem 0;
+    padding: 1rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.45rem;
+    background: var(--admin-surface-background);
+    color: var(--admin-secondary-text-color);
+    line-height: 1.5;
+}
+
+.info-box p {
+    margin: 0;
+}
+
+.info-box p + p {
+    margin-block-start: 0.75rem;
+}
+
+.info-box strong {
+    color: var(--admin-text-color);
+}
+
 .link-as-button.danger {
     border-color: color-mix(in srgb, var(--admin-error-color) 55%, var(--admin-border-color));
     color: var(--admin-error-color);
