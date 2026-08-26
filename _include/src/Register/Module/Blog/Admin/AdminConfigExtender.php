@@ -47,6 +47,7 @@ use Register\Core\Admin\AdminConfigProvider;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Model\TagsProvider;
 use Register\Module\Blog\Model\PostProvider;
+use Register\Module\Blog\Model\BlogPageCache;
 use Register\Core\Pdo\DbLayerException;
 
 readonly class AdminConfigExtender implements AdminConfigExtenderInterface
@@ -64,6 +65,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private ContentChangeDispatcher  $contentChangeDispatcher,
         private ContentPublicationScheduler $contentPublicationScheduler,
         private PublicationMetadataGenerator $publicationMetadataGenerator,
+        private BlogPageCache              $pageCache,
         private string                   $dbType,
         private string                   $dbPrefix
     ) {
@@ -75,6 +77,53 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         $postEntity    = new EntityConfig('BlogPost', $this->dbPrefix . ContentSchema::TABLE_NAME);
         $commentEntity = $adminConfig->findEntityByName('Comment')
             ?? throw new \LogicException('Comment admin entity is missing.');
+
+        $commentEntity
+            ->addListener(
+                [EntityConfig::EVENT_AFTER_PATCH, EntityConfig::EVENT_AFTER_UPDATE],
+                function (AfterSaveEvent $_event): void {
+                    $this->pageCache->invalidateFirstPage();
+                },
+            )
+            ->addListener(
+                EntityConfig::EVENT_BEFORE_DELETE,
+                function (BeforeDeleteEvent $_event): void {
+                    $this->pageCache->invalidateFirstPage();
+                },
+            )
+        ;
+
+        $configEntity = $adminConfig->findEntityByName('Config');
+        $configEntity?->addListener(
+            EntityConfig::EVENT_AFTER_PATCH,
+            function (AfterSaveEvent $_event): void {
+                $this->pageCache->invalidateAll();
+            },
+        );
+
+        $tagEntity = $adminConfig->findEntityByName('Tag');
+        $tagEntity
+            ?->addListener(
+                [EntityConfig::EVENT_AFTER_CREATE, EntityConfig::EVENT_AFTER_UPDATE],
+                function (AfterSaveEvent $_event): void {
+                    $this->pageCache->invalidateFirstPage();
+                },
+            )
+            ->addListener(
+                EntityConfig::EVENT_BEFORE_DELETE,
+                function (BeforeDeleteEvent $_event): void {
+                    $this->pageCache->invalidateFirstPage();
+                },
+            )
+        ;
+
+        $userEntity = $adminConfig->findEntityByName('User');
+        $userEntity?->addListener(
+            [EntityConfig::EVENT_AFTER_PATCH, EntityConfig::EVENT_AFTER_UPDATE],
+            function (AfterSaveEvent $_event): void {
+                $this->pageCache->invalidateFirstPage();
+            },
+        );
 
         $postEntity
             ->setLimit(50)

@@ -81,6 +81,10 @@ final class ReactionsCest
         $firstId = $this->insertPost($dbLayer, 'first-list-reaction-post');
         $secondId = $this->insertPost($dbLayer, 'second-list-reaction-post');
 
+        // Populate the deterministic post-feed cache before the dynamic reactions change.
+        $I->amOnPage('https://localhost/');
+        $I->seeResponseCodeIs(200);
+
         $I->sendJson('https://localhost/_visitor/resolve', [
             'trackPage' => false,
         ], headers: ['Origin' => 'https://localhost']);

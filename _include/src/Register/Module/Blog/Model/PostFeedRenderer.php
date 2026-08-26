@@ -28,6 +28,7 @@ final readonly class PostFeedRenderer
         private BoolProxy      $showComments,
         private BoolProxy      $enabledComments,
         private IntProxy       $itemsPerPage,
+        private BlogPageCache  $pageCache,
     ) {
     }
 
@@ -37,6 +38,18 @@ final readonly class PostFeedRenderer
             throw new \InvalidArgumentException('A post-feed offset cannot be negative.');
         }
 
+        if ($skip === 0
+            && $request->isMethod(Request::METHOD_GET)
+            && $this->inplaceControls->editorForCreate($request) === null
+        ) {
+            return $this->pageCache->firstPage(fn(): PostFeed => $this->renderFresh($skip, $request));
+        }
+
+        return $this->renderFresh($skip, $request);
+    }
+
+    private function renderFresh(int $skip, Request $request): PostFeed
+    {
         $configuredItemsPerPage = $this->itemsPerPage->get();
         $postsPerPage           = $configuredItemsPerPage > 0 ? $configuredItemsPerPage : 10;
         $posts                  = $this->postProvider->lastPostsArray($postsPerPage, $skip);

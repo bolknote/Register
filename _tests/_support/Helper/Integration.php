@@ -36,6 +36,7 @@ use Tests\Support\Helper\AbstractBrowserModule;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use Register\Core\Pdo\DbLayerException;
+use Register\Module\Blog\Model\BlogPageCache;
 
 // "Tests\Support\Helper\AbstractBrowserModule" is loaded in AdminYard via autoload-dev and is not available here
 require_once __DIR__ . '/../../../_tests/_support/Helper/AbstractBrowserModule.php';
@@ -294,6 +295,7 @@ class Integration extends AbstractBrowserModule
 
         $this->publicApplication->container->get(DynamicConfigProvider::class)->regenerate();
         $this->adminApplication->container->get(DynamicConfigProvider::class)->regenerate();
+        $this->publicApplication->container->get(BlogPageCache::class)->invalidateAll();
 
         $this->clearStatefulServices($this->publicApplication->container);
         $this->clearStatefulServices($this->adminApplication->container);

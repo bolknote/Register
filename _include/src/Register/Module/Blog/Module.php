@@ -10,8 +10,10 @@ declare(strict_types = 1);
 namespace Register\Module\Blog;
 
 use Psr\Log\LoggerInterface;
+use Register\Comment\CommentChangedEvent;
 use Register\Comment\ContentCommentRenderer;
 use Register\Comment\ContentCommentStrategy;
+use Register\Content\ContentChangedEvent;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentRepository;
 use Register\Content\ContentRenderedEvent;
@@ -68,6 +70,7 @@ use Register\Module\Blog\Controller\TagPageController;
 use Register\Module\Blog\Controller\TagsPageController;
 use Register\Module\Blog\Controller\YearPageController;
 use Register\Module\Blog\Model\BlogPlaceholderProvider;
+use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\ContentRssStrategy;
 use Register\Module\Blog\Model\ContentFeedItemProvider;
 use Register\Module\Blog\Model\PostProvider;
@@ -141,6 +144,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->getStringParameter('url_prefix'),
             );
         });
+        $container->set(BlogPageCache::class, static fn(Container $container): BlogPageCache => new BlogPageCache(
+            $container->get('config_cache'),
+            $container->getBoolParameter('disable_cache'),
+        ));
         $container->set(PostFeedRenderer::class, static function (Container $container): PostFeedRenderer {
             $provider = $container->get(DynamicConfigProvider::class);
 
@@ -152,6 +159,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $provider->getIntProxy('REGISTER_MAX_ITEMS'),
+                $container->get(BlogPageCache::class),
             );
         });
         $container->set(SiteHeaderRenderer::class, static function (Container $container): SiteHeaderRenderer {
@@ -356,6 +364,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $provider->getStringProxy('REGISTER_BLOG_TITLE'),
                 $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
+                $container->get(BlogPageCache::class),
             );
         });
         $container->set(TagsPageController::class, static function (Container $container): \Register\Module\Blog\Controller\TagsPageController {
@@ -552,6 +561,18 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
+        $eventDispatcher->addListener(ContentChangedEvent::class, static function (ContentChangedEvent $event) use ($container): void {
+            if ($event->contentId->type === \Register\Content\ContentType::POST) {
+                $container->get(BlogPageCache::class)->invalidateAll();
+            }
+        });
+
+        $eventDispatcher->addListener(CommentChangedEvent::class, static function (CommentChangedEvent $event) use ($container): void {
+            if ($event->contentId->type === \Register\Content\ContentType::POST) {
+                $container->get(BlogPageCache::class)->invalidateFirstPage();
+            }
+        });
+
         $eventDispatcher->addListener(ContentRenderedEvent::class, static function (ContentRenderedEvent $event) use ($container): void {
             $request = $container->get(RequestStack::class)->getCurrentRequest();
             $purpose = strtolower(trim(implode(' ', [

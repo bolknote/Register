@@ -32,6 +32,7 @@ use Register\Module\Blog\Admin\TranslationProvider;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentPublicationScheduler;
 use Register\Module\Blog\Model\PostProvider;
+use Register\Module\Blog\Model\BlogPageCache;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 final class AdminModule implements ContainerModuleInterface, ContainerAwareListenerModuleInterface
@@ -52,6 +53,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(ContentChangeDispatcher::class),
             $container->get(ContentPublicationScheduler::class),
             $container->get(\Register\Content\PublicationMetadataGenerator::class),
+            $container->get(BlogPageCache::class),
             $container->getStringParameter('db_type'),
             $container->getStringParameter('db_prefix'),
         ), [AdminConfigExtenderInterface::class]);

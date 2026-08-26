@@ -4,6 +4,8 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentChangeDispatcher;
+use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
@@ -58,6 +60,27 @@ final class BlogAllPostsCest
         $I->assertSame(0, (int)$configuredPrefix);
     }
 
+    public function testContentChangeInvalidatesTheCachedIndex(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertPost($dbLayer, 'Cached post', 'cached-post', 1_700_000_001, true);
+
+        $I->amOnPage('/all/');
+        $I->see('Cached post', '.blog-all-posts');
+
+        $newPostId = $this->insertPost($dbLayer, 'New post after cache', 'new-post-after-cache', 1_700_000_002, true);
+        $I->amOnPage('/all/');
+        $I->dontSee('New post after cache', '.blog-all-posts');
+
+        /** @var ContentChangeDispatcher $changeDispatcher */
+        $changeDispatcher = $I->grabService(ContentChangeDispatcher::class);
+        $changeDispatcher->dispatch(ContentId::post($newPostId));
+
+        $I->amOnPage('/all/');
+        $I->see('New post after cache', '.blog-all-posts');
+    }
+
     public function testMissingPostUsesAVisiblePageHeading(\IntegrationTester $I): void
     {
         $I->amOnPage('/missing-post-layout-test');
@@ -73,7 +96,7 @@ final class BlogAllPostsCest
         string $url,
         int $timestamp,
         bool $published,
-    ): void {
+    ): int {
         $dbLayer
             ->insert(ContentSchema::TABLE_NAME)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::POST->value)
@@ -93,5 +116,7 @@ final class BlogAllPostsCest
             ->setValue('author_id', 'NULL')
             ->execute()
         ;
+
+        return (int)$dbLayer->insertId();
     }
 }

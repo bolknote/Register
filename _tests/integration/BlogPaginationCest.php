@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Content\ContentId;
+use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
@@ -100,7 +101,10 @@ class BlogPaginationCest
         $I->amOnPage('https://localhost/post-1');
         $I->dontSeeElement('.post.author:not(:empty)');
 
-        $this->insertPost($dbLayer, 2, $adminId);
+        $secondPostId = $this->insertPost($dbLayer, 2, $adminId);
+        /** @var ContentChangeDispatcher $changeDispatcher */
+        $changeDispatcher = $I->grabService(ContentChangeDispatcher::class);
+        $changeDispatcher->dispatch(ContentId::post($secondPostId));
 
         $I->amOnPage('https://localhost/');
         $I->seeElement('.post.author:not(:empty)');
