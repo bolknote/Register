@@ -179,7 +179,7 @@ publishing model.
 - CI-gated edge builds and explicitly promoted release candidates or stable releases in ZIP,
   tar.gz, and tar.bz2, plus a staged control-panel updater with per-file hashes, maintenance mode,
   backups, database migrations, and file rollback.
-- Automatic Brotli or gzip response compression when the matching optional PHP extension is
+- Automatic Brotli, Zstd, or gzip response compression when the matching optional PHP extension is
   installed and the browser accepts it.
 - Privacy-conscious daily page-view and feed-reader statistics.
 - Queue inspection and deliberate retry tools for reviewed failed jobs.
@@ -226,7 +226,7 @@ Third-party components retain their own copyright notices and licenses.
   - PostgreSQL 14 or newer.
 - Optional PHP extensions:
   - Intl for higher-quality ICU URL transliteration;
-  - Brotli or zlib for automatic response compression;
+  - Brotli, Zstd, or zlib for automatic response compression;
   - cURL for HTTP integrations.
 
 ActivityPub signing uses the bundled phpseclib adapter and does not require the PHP OpenSSL
