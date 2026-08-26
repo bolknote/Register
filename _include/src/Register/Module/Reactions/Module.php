@@ -22,6 +22,7 @@ use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Framework\RoutingModuleInterface;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Pdo\DbLayer;
+use Register\Module\Blog\Model\BlogPageCache;
 use Register\Core\Template\TemplateAssetEvent;
 use Register\Core\Template\TemplateEvent;
 use Register\Core\Translation\ExtensibleTranslator;
@@ -49,6 +50,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         ));
         $container->set(ReactionAggregateRepository::class, static fn(Container $container): ReactionAggregateRepository => new ReactionAggregateRepository(
             $container->get(DbLayer::class),
+            $container->get(BlogPageCache::class),
         ));
         $container->set(ReactionRenderer::class, static fn(Container $container): ReactionRenderer => new ReactionRenderer(
             $container->get(ReactionRepository::class),
@@ -61,6 +63,12 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(VisitorIdentityManager::class),
             $container->get(JsonMutationGuard::class),
             $container->get(AuthProvider::class),
+            $container->get(BlogPageCache::class),
+        ));
+        $container->set(ReactionBatchController::class, static fn(Container $container): ReactionBatchController => new ReactionBatchController(
+            $container->get(DbLayer::class),
+            $container->get(ReactionRepository::class),
+            $container->get(VisitorIdentityManager::class),
         ));
     }
 
@@ -109,6 +117,11 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     #[\Override]
     public function registerRoutes(RouteCollection $routes): void
     {
+        $routes->add('register_reactions_batch', new Route(
+            '/_reactions',
+            ['_controller' => ReactionBatchController::class],
+            methods: ['GET'],
+        ));
         $routes->add('register_reactions', new Route(
             '/_reactions/{type}/{id}',
             ['_controller' => ReactionController::class],

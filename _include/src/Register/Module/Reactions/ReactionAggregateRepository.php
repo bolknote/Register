@@ -10,11 +10,15 @@ declare(strict_types = 1);
 namespace Register\Module\Reactions;
 
 use Register\Core\Pdo\DbLayer;
+use Register\Module\Blog\Model\BlogPageCache;
 
 /** Public write boundary for imported reactions; local visitor identities are never synthesized. */
 final readonly class ReactionAggregateRepository
 {
-    public function __construct(private DbLayer $dbLayer)
+    public function __construct(
+        private DbLayer        $dbLayer,
+        private ?BlogPageCache $pageCache = null,
+    )
     {
     }
 
@@ -35,6 +39,10 @@ final readonly class ReactionAggregateRepository
             )
             ->execute()
         ;
+
+        if ($aggregate->targetType === ReactionAggregateTargetType::POST) {
+            $this->pageCache?->invalidateFirstPage();
+        }
     }
 
     public function remove(
@@ -45,7 +53,7 @@ final readonly class ReactionAggregateRepository
     ): bool {
         $this->validateIdentity($targetId, $source, $sourceKey);
 
-        return $this->dbLayer->delete(ReactionAggregateSchema::TABLE_NAME)
+        $removed = $this->dbLayer->delete(ReactionAggregateSchema::TABLE_NAME)
             ->where('target_type = :target_type')->setParameter('target_type', $targetType->value)
             ->andWhere('target_id = :target_id')->setParameter('target_id', $targetId)
             ->andWhere('source = :source')->setParameter('source', $source)
@@ -53,6 +61,12 @@ final readonly class ReactionAggregateRepository
             ->execute()
             ->affectedRows() > 0
         ;
+
+        if ($removed && $targetType === ReactionAggregateTargetType::POST) {
+            $this->pageCache?->invalidateFirstPage();
+        }
+
+        return $removed;
     }
 
     private function validateIdentity(int $targetId, string $source, string $sourceKey): void

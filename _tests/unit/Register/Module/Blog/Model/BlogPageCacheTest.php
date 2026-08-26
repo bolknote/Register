@@ -14,6 +14,7 @@ use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\PostFeed;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\HttpFoundation\Response;
 
 final class BlogPageCacheTest extends TestCase
 {
@@ -48,6 +49,45 @@ final class BlogPageCacheTest extends TestCase
         $cache->invalidateAll();
         self::assertSame('feed-3', $cache->firstPage($firstFactory)->html);
         self::assertSame('index-2', $cache->allPosts($allFactory)->html);
+    }
+
+    public function testCompleteResponsesAreReusedAndInvalidatedWithTheirPage(): void
+    {
+        $cache = new BlogPageCache(new ArrayAdapter());
+        $firstBuilds = 0;
+        $allBuilds = 0;
+
+        $firstFactory = static function () use (&$firstBuilds): Response {
+            ++$firstBuilds;
+
+            return new Response('first-' . $firstBuilds, headers: ['ETag' => 'first-etag']);
+        };
+        $allFactory = static function () use (&$allBuilds): Response {
+            ++$allBuilds;
+
+            return new Response('all-' . $allBuilds);
+        };
+
+        $firstMiss = $cache->firstResponse('full_new_visitor', $firstFactory);
+        self::assertSame('first-1', $firstMiss->getContent());
+        self::assertSame('miss', $firstMiss->headers->get('X-Register-Page-Cache'));
+        self::assertSame('first-etag', $firstMiss->headers->get('ETag'));
+
+        $firstHit = $cache->firstResponse('full_new_visitor', $firstFactory);
+        self::assertSame('first-1', $firstHit->getContent());
+        self::assertSame('hit', $firstHit->headers->get('X-Register-Page-Cache'));
+        self::assertSame(1, $firstBuilds);
+
+        self::assertSame('all-1', $cache->allResponse('full_new_visitor', $allFactory)->getContent());
+        self::assertSame('all-1', $cache->allResponse('full_new_visitor', $allFactory)->getContent());
+        self::assertSame(1, $allBuilds);
+
+        $cache->invalidateFirstPage();
+        self::assertSame('first-2', $cache->firstResponse('full_new_visitor', $firstFactory)->getContent());
+        self::assertSame('all-1', $cache->allResponse('full_new_visitor', $allFactory)->getContent());
+
+        $cache->invalidateAll();
+        self::assertSame('all-2', $cache->allResponse('full_new_visitor', $allFactory)->getContent());
     }
 
     public function testDisabledCacheAlwaysBuildsFreshFragments(): void

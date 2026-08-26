@@ -71,6 +71,7 @@ use Register\Module\Blog\Controller\TagsPageController;
 use Register\Module\Blog\Controller\YearPageController;
 use Register\Module\Blog\Model\BlogPlaceholderProvider;
 use Register\Module\Blog\Model\BlogPageCache;
+use Register\Module\Blog\Model\BlogResponseCachePolicy;
 use Register\Module\Blog\Model\ContentRssStrategy;
 use Register\Module\Blog\Model\ContentFeedItemProvider;
 use Register\Module\Blog\Model\PostProvider;
@@ -147,6 +148,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $container->set(BlogPageCache::class, static fn(Container $container): BlogPageCache => new BlogPageCache(
             $container->get('config_cache'),
             $container->getBoolParameter('disable_cache'),
+        ), [StatefulServiceInterface::class]);
+        $container->set(BlogResponseCachePolicy::class, static fn(Container $container): BlogResponseCachePolicy => new BlogResponseCachePolicy(
+            $container->get(AuthProvider::class),
+            $container->get(\Register\Module\VisitorIdentity\VisitorIdentityManager::class),
         ));
         $container->set(PostFeedRenderer::class, static function (Container $container): PostFeedRenderer {
             $provider = $container->get(DynamicConfigProvider::class);
@@ -247,6 +252,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(Viewer::class),
                 $container->get(PostFeedRenderer::class),
                 $container->get(LiveUpdateContext::class),
+                $container->get(BlogPageCache::class),
+                $container->get(BlogResponseCachePolicy::class),
                 $provider->getStringProxy('REGISTER_BLOG_TITLE'),
                 $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
@@ -365,6 +372,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $container->get(BlogPageCache::class),
+                $container->get(BlogResponseCachePolicy::class),
             );
         });
         $container->set(TagsPageController::class, static function (Container $container): \Register\Module\Blog\Controller\TagsPageController {

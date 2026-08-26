@@ -24,6 +24,7 @@ use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Module as BlogModule;
 use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\BlogPageCache;
+use Register\Module\Blog\Model\BlogResponseCachePolicy;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Url\ContentUrlGenerator;
 use Register\Core\Pdo\DbLayerException;
@@ -50,6 +51,7 @@ final class AllPostsController extends BlogController
         BoolProxy            $showComments,
         BoolProxy            $enabledComments,
         private readonly BlogPageCache $pageCache,
+        private readonly BlogResponseCachePolicy $responseCachePolicy,
     ) {
         parent::__construct(
             $dbLayer,
@@ -66,6 +68,19 @@ final class AllPostsController extends BlogController
             $showComments,
             $enabledComments,
         );
+    }
+
+    #[\Override]
+    public function handle(Request $request): Response
+    {
+        $variant = $request->attributes->get('slash') === '/'
+            ? $this->responseCachePolicy->variant($request)
+            : null;
+        if ($variant !== null) {
+            return $this->pageCache->allResponse($variant, fn(): Response => parent::handle($request));
+        }
+
+        return parent::handle($request);
     }
 
     /**

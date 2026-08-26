@@ -14,6 +14,7 @@ use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Core\Model\AuthProvider;
+use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\VisitorIdentity\JsonMutationGuard;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Core\Framework\ControllerInterface;
@@ -31,6 +32,7 @@ final readonly class ReactionController implements ControllerInterface
         private VisitorIdentityManager $identityManager,
         private JsonMutationGuard      $mutationGuard,
         private AuthProvider            $authProvider,
+        private BlogPageCache           $pageCache,
     ) {
     }
 
@@ -94,12 +96,15 @@ final readonly class ReactionController implements ControllerInterface
         $userId = $this->authProvider->getAuthenticatedPublicUser($request)?->id;
         $this->identityManager->recordInteraction($request, $userId);
 
-        return $this->stateResponse($this->repository->toggle(
+        $state = $this->repository->toggle(
             $contentId->value,
             $visitorId,
             $reaction,
             $userId,
-        ));
+        );
+        $this->pageCache->invalidateFirstPage();
+
+        return $this->stateResponse($state);
     }
 
     private function stateResponse(ReactionState $state): JsonResponse

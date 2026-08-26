@@ -23,6 +23,8 @@ use Register\Core\Template\HtmlTemplateProvider;
 use Register\Core\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
+use Register\Module\Blog\Model\BlogPageCache;
+use Register\Module\Blog\Model\BlogResponseCachePolicy;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Url\ContentUrlGenerator;
@@ -47,6 +49,8 @@ class MainPageController extends BlogController
         Viewer               $viewer,
         private readonly PostFeedRenderer  $postFeedRenderer,
         private readonly LiveUpdateContext $liveUpdates,
+        private readonly BlogPageCache $pageCache,
+        private readonly BlogResponseCachePolicy $responseCachePolicy,
         StringProxy          $blogTitle,
         BoolProxy            $showComments,
         BoolProxy            $enabledComments,
@@ -71,8 +75,15 @@ class MainPageController extends BlogController
     #[\Override]
     public function handle(Request $request): Response
     {
-        $register_blog_skip      = (int)$request->attributes->get('page', 0);
+        $register_blog_skip = (int)$request->attributes->get('page', 0);
         $this->template_id = $register_blog_skip > 0 ? 'blog.php' : 'blog_main.php';
+
+        $variant = $register_blog_skip === 0 && $request->getPathInfo() === '/'
+            ? $this->responseCachePolicy->variant($request)
+            : null;
+        if ($variant !== null) {
+            return $this->pageCache->firstResponse($variant, fn(): Response => parent::handle($request));
+        }
 
         return parent::handle($request);
     }

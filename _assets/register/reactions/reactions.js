@@ -4,10 +4,28 @@
     const reactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
     const widgets = new WeakMap();
 
+    function batchTarget(endpoint) {
+        try {
+            const url = new URL(endpoint, document.baseURI);
+            const match = url.pathname.match(/^(.*\/_reactions)\/(page|post)\/([1-9][0-9]*)$/);
+            if (url.origin !== window.location.origin || match === null) {
+                return null;
+            }
+
+            return {
+                endpoint: match[1],
+                key: `${match[2]}:${match[3]}`,
+            };
+        } catch (_error) {
+            return null;
+        }
+    }
+
     class ReactionWidget {
         constructor(root) {
             this.root = root;
             this.endpoint = root.dataset.endpoint || '';
+            this.batchTarget = batchTarget(this.endpoint);
             this.toolbar = root.querySelector('.register-reaction-toolbar');
             this.primaryButton = root.querySelector('.register-reaction-primary');
             this.picker = root.querySelector('.register-reaction-picker');
@@ -39,7 +57,6 @@
 
             this.bind();
             this.render();
-            void this.hydrate();
         }
 
         bind() {
@@ -100,23 +117,6 @@
                     this.closeTimer = window.setTimeout(() => this.closePicker(false), 450);
                 });
                 this.root.addEventListener('pointerenter', () => window.clearTimeout(this.closeTimer));
-            }
-        }
-
-        async hydrate() {
-            const stateRevision = this.stateRevision;
-            try {
-                await this.identity().ensure();
-                const response = await fetch(this.endpoint, {
-                    credentials: 'same-origin',
-                    headers: {'Accept': 'application/json'},
-                });
-                const payload = await response.json();
-                if (response.ok && payload.success === true && stateRevision === this.stateRevision) {
-                    this.applyPayload(payload);
-                }
-            } catch (_error) {
-                // Server-rendered counts remain usable if hydration is unavailable.
             }
         }
 
@@ -357,10 +357,66 @@
     }
 
     function enhance(scope = document) {
+        const created = [];
         for (const root of rootsWithin(scope)) {
             if (!widgets.has(root)) {
-                widgets.set(root, new ReactionWidget(root));
+                const widget = new ReactionWidget(root);
+                widgets.set(root, widget);
+                created.push(widget);
             }
+        }
+        void hydrateMany(created);
+    }
+
+    async function hydrateMany(created) {
+        const batchable = created.filter((widget) => widget.batchTarget !== null);
+        if (batchable.length === 0) {
+            return;
+        }
+
+        try {
+            await batchable[0].identity().ensure();
+        } catch (_error) {
+            return;
+        }
+
+        const groups = new Map();
+        for (const widget of batchable) {
+            const endpoint = widget.batchTarget.endpoint;
+            if (!groups.has(endpoint)) {
+                groups.set(endpoint, []);
+            }
+            groups.get(endpoint).push(widget);
+        }
+
+        for (const [endpoint, group] of groups) {
+            for (let offset = 0; offset < group.length; offset += 100) {
+                void hydrateBatch(endpoint, group.slice(offset, offset + 100));
+            }
+        }
+    }
+
+    async function hydrateBatch(endpoint, group) {
+        const revisions = new Map(group.map((widget) => [widget, widget.stateRevision]));
+        const content = group.map((widget) => widget.batchTarget.key).join(',');
+        try {
+            const response = await fetch(`${endpoint}?content=${encodeURIComponent(content)}`, {
+                credentials: 'same-origin',
+                headers: {'Accept': 'application/json'},
+            });
+            const payload = await response.json();
+            if (!response.ok || payload.success !== true || typeof payload.states !== 'object') {
+                return;
+            }
+
+            for (const widget of group) {
+                const state = payload.states?.[widget.batchTarget.key];
+                if (state && revisions.get(widget) === widget.stateRevision) {
+                    widget.applyPayload(state);
+                }
+            }
+        } catch (_error) {
+            // Server-rendered counts remain usable if hydration is unavailable.
         }
     }
 

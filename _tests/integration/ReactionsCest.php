@@ -105,6 +105,37 @@ final class ReactionsCest
         $I->assertCount(2, $I->grabMultiple('.register-reaction-like-icon'));
         $I->dontSeeElement('.register-reaction-add');
         $I->dontSee('register_reactions:post', 'body');
+
+        // The known-visitor response variant is cached now; changing a reaction must evict it.
+        $this->react($I, 'https://localhost/_reactions/post/' . $firstId, 'love');
+        $I->amOnPage('https://localhost/');
+        $I->seeElement('[data-endpoint="/_reactions/post/' . $firstId . '"] [data-reaction="love"][data-count="0"]');
+    }
+
+    public function importedPostReactionInvalidatesTheCachedFirstPage(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var ReactionAggregateRepository $aggregateRepository */
+        $aggregateRepository = $I->grabService(ReactionAggregateRepository::class);
+        $contentId = $this->insertPost($dbLayer, 'aggregate-cache-invalidation-post');
+
+        $I->amOnPage('https://localhost/');
+        $I->seeElement('[data-endpoint="/_reactions/post/' . $contentId . '"] [data-reaction="love"][data-count="0"]');
+
+        $aggregateRepository->store(new ReactionAggregate(
+            ReactionAggregateTargetType::POST,
+            $contentId,
+            'test-archive',
+            'love-after-cache',
+            'love',
+            '❤️',
+            4,
+            time(),
+        ));
+
+        $I->amOnPage('https://localhost/');
+        $I->seeElement('[data-endpoint="/_reactions/post/' . $contentId . '"] [data-reaction="love"][data-count="4"]');
     }
 
     public function rendersAndTogglesFacebookStyleReactions(\IntegrationTester $I): void
@@ -176,6 +207,35 @@ final class ReactionsCest
         $I->assertNull($state['selected']);
         $I->assertSame(0, $state['total']);
         $I->assertSame(0, (int)$dbLayer->select('COUNT(*)')->from(Manifest::TABLE_NAME)->execute()->result());
+    }
+
+    public function hydratesAWholePageOfReactionsInOneBoundedRequest(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $firstId = $this->insertPost($dbLayer, 'first-batched-reaction-post');
+        $secondId = $this->insertPost($dbLayer, 'second-batched-reaction-post');
+
+        $I->sendJson('https://localhost/_visitor/resolve', [
+            'trackPage' => false,
+        ], headers: ['Origin' => 'https://localhost']);
+        $this->react($I, 'https://localhost/_reactions/post/' . $firstId, 'love');
+        $this->react($I, 'https://localhost/_reactions/post/' . $secondId, 'wow');
+
+        $I->amOnPage(sprintf(
+            'https://localhost/_reactions?content=post%%3A%d%%2Cpost%%3A%d',
+            $firstId,
+            $secondId,
+        ));
+        $I->seeResponseCodeIs(200);
+        $payload = $I->grabJson();
+        $I->assertIsArray($payload);
+        $I->assertSame('love', $payload['states']['post:' . $firstId]['selected']);
+        $I->assertSame('wow', $payload['states']['post:' . $secondId]['selected']);
+
+        /** @var \Register\Core\Pdo\PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        $I->assertLessThanOrEqual(5, \count($pdo->getQueryLog()));
     }
 
     public function rejectsCrossOriginMutationAndUnknownContent(\IntegrationTester $I): void
