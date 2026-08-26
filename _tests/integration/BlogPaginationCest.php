@@ -112,6 +112,26 @@ class BlogPaginationCest
         $I->see($this->userName($dbLayer, $adminId), '.post.author');
     }
 
+    public function testPostTagsRenderAsUnlabelledPills(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var TagRepository $tagRepository */
+        $tagRepository = $I->grabService(TagRepository::class);
+        $postId = $this->insertPost($dbLayer, 1);
+        $firstTagId = $this->insertTag($dbLayer, 'First tag', 'first-tag');
+        $secondTagId = $this->insertTag($dbLayer, 'Second tag', 'second-tag');
+        $tagRepository->replace(ContentId::post($postId), [$firstTagId, $secondTagId]);
+
+        $I->amOnPage('https://localhost/');
+        $I->seeResponseCodeIs(200);
+        $I->seeElement('.post-foot-tags.post-tag-list[aria-label="Tags"]');
+        $I->seeElement('.post-tag-values .post-tag-link[href="/tags/first-tag/"]');
+        $I->seeElement('.post-tag-values .post-tag-link[href="/tags/second-tag/"]');
+        $I->dontSeeElement('.post-foot-tags-label');
+        $I->assertStringNotContainsString('</a>, <a', $I->grabResponse());
+    }
+
     private function insertPost(DbLayer $dbLayer, int $number, ?int $authorId = null): int
     {
         $dbLayer

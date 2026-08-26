@@ -1763,11 +1763,9 @@
         dateInput.value = localDateTimeValue(payload.published_at);
 
         const tagFragment = document.createDocumentFragment();
-        payload.tags.forEach((tag, index) => {
-            if (index > 0) {
-                tagFragment.append(', ');
-            }
+        payload.tags.forEach((tag) => {
             const link = document.createElement('a');
+            link.className = 'post-tag-link';
             link.href = tag.url;
             link.textContent = tag.name;
             tagFragment.append(link);

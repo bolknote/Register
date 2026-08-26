@@ -19,7 +19,7 @@ declare(strict_types = 1);
 
 $tagLinks = [];
 foreach ($tags as $tag) {
-    $tagLinks[] = '<a href="' . register_htmlencode($tag['link']) . '">' . register_htmlencode($tag['title']) . '</a>';
+    $tagLinks[] = '<a class="post-tag-link" href="' . register_htmlencode($tag['link']) . '">' . register_htmlencode($tag['title']) . '</a>';
 }
 
 ?>
@@ -33,7 +33,7 @@ foreach ($tags as $tag) {
 <div class="preview meta">
     <span class="preview time"><time datetime="<?php echo gmdate(DATE_ATOM, (int)$create_time); ?>"<?php if (trim($display_date ?? '') === ''): ?> data-local-time="datetime" data-locale="<?php echo register_htmlencode($trans('locale')); ?>"<?php endif; ?>><?php echo register_htmlencode($time); ?></time></span>
 <?php if ($tagLinks !== []) { ?>
-    <span class="preview tags"><?php echo implode(', ', $tagLinks); ?></span>
+    <span class="preview tags post-tag-list" aria-label="<?php echo register_htmlencode($trans('Tags')); ?>"><span class="post-tag-values"><?php echo implode('', $tagLinks); ?></span></span>
 <?php } ?>
 </div>
 <div class="post body"><?php echo $text; ?></div>

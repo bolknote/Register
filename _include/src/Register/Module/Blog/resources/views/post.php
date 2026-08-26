@@ -378,16 +378,20 @@ $tagNames    = array_values(array_map(
     if ($tagNames !== [] || $inplaceData !== null) {
         $tagLinks = [];
         foreach (\is_array($tags ?? null) ? $tags : [] as $tag) {
-            $tagLinks[] = '<a href="' . register_htmlencode((string)($tag['link'] ?? '')) . '">' . register_htmlencode((string)($tag['title'] ?? '')) . '</a>';
+            $tagLinks[] = '<a class="post-tag-link" href="' . register_htmlencode((string)($tag['link'] ?? '')) . '">' . register_htmlencode((string)($tag['title'] ?? '')) . '</a>';
         }
 
         $emptyClass = $tagNames === [] ? ' is-empty' : '';
         $editAttributes = $inplaceData === null
             ? ''
             : ' data-post-inplace-tags-values data-placeholder="' . register_htmlencode($trans('Post tags placeholder')) . '"';
-        $footer['tags'] = '<span class="post-foot-tags' . $emptyClass . '"><span class="post-foot-tags-label">'
-            . register_htmlencode($trans('Tags')) . ':</span> <span class="post-tag-values"' . $editAttributes . '>'
-            . implode(', ', $tagLinks) . '</span></span>';
+        $tagLabel = register_htmlencode($trans('Tags'));
+        $visibleEditorLabel = $inplaceData === null
+            ? ''
+            : '<span class="post-foot-tags-label">' . $tagLabel . ':</span> ';
+        $footer['tags'] = '<span class="post-foot-tags post-tag-list' . $emptyClass . '" aria-label="' . $tagLabel . '">'
+            . $visibleEditorLabel . '<span class="post-tag-values"' . $editAttributes . '>'
+            . implode('', $tagLinks) . '</span></span>';
     }
 
 	echo implode("\n", $footer);
