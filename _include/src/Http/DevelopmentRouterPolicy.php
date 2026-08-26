@@ -50,7 +50,7 @@ final class DevelopmentRouterPolicy
     {
         if (str_starts_with($requestPath, '/_cache/')) {
             return preg_match(
-                '#^/_cache/[a-z0-9_-]+\.[0-9a-f]+\.(?:css|js)(?:\.(?:br|gz|zst))?$#Di',
+                '#^/_cache/[a-z0-9_-]+\.[0-9a-f]+\.(?:css|js)(?:\.asset|\.(?:br|gz|zst))?$#Di',
                 $requestPath,
             ) === 1;
         }
@@ -70,5 +70,18 @@ final class DevelopmentRouterPolicy
         }
 
         return false;
+    }
+
+    public static function negotiatedCacheAssetPath(string $requestPath): ?string
+    {
+        if (preg_match(
+            '#^(/_cache/[a-z0-9_-]+\.[0-9a-f]+\.(?:css|js))\.asset$#Di',
+            $requestPath,
+            $matches,
+        ) !== 1) {
+            return null;
+        }
+
+        return $matches[1];
     }
 }

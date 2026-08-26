@@ -38,7 +38,7 @@ RewriteRule ^(?!(?:index\.php|_admin/(?:ajax|index|install|pictman)\.php)$).+\.(
 # `_cache` contains private application state and one deliberately public
 # surface: generated top-level CSS/JavaScript bundles. Everything else,
 # including PHP metadata and nested tool caches, remains unreachable.
-RewriteRule ^_cache/(?![A-Z0-9_-]+\.[0-9A-F]+\.(?:css|js)(?:\.(?:br|gz|zst))?$) - [F,L,NC]
+RewriteRule ^_cache/(?![A-Z0-9_-]+\.[0-9A-F]+\.(?:css|js)(?:\.asset|\.(?:br|gz|zst))?$) - [F,L,NC]
 
 # These exact historical root URLs are handled by Register's configured
 # redirect map. Route them before the root-file allow-list rejects arbitrary

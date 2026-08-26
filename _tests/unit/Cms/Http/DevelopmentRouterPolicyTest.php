@@ -85,6 +85,10 @@ final class DevelopmentRouterPolicyTest extends Unit
             '/_cache/register_styles.1a2d1713.css.zst',
             'zst',
         ));
+        self::assertTrue(DevelopmentRouterPolicy::isAllowedStaticFile(
+            '/_cache/register_styles.1a2d1713.css.asset',
+            'asset',
+        ));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile(
             '/_cache/register_styles.1a2d1713.css.meta.php',
             'php',
@@ -92,6 +96,16 @@ final class DevelopmentRouterPolicyTest extends Unit
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_cache/register_config.php', 'php'));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_cache/phpstan/result.css', 'css'));
         self::assertFalse(DevelopmentRouterPolicy::isAllowedStaticFile('/_cache/arbitrary.css', 'css'));
+    }
+
+    public function testResolvesOnlyStrictNegotiatedCacheAssetUrls(): void
+    {
+        self::assertSame(
+            '/_cache/register_styles.1a2d1713.css',
+            DevelopmentRouterPolicy::negotiatedCacheAssetPath('/_cache/register_styles.1a2d1713.css.asset'),
+        );
+        self::assertNull(DevelopmentRouterPolicy::negotiatedCacheAssetPath('/_cache/arbitrary.css.asset'));
+        self::assertNull(DevelopmentRouterPolicy::negotiatedCacheAssetPath('/_cache/register_styles.1a2d1713.php.asset'));
     }
 
     public function testAllowsOnlyKnownPhpEndpoints(): void

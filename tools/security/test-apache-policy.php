@@ -34,6 +34,7 @@ try {
 
     $expectations = [
         '/_cache/register_styles.deadbeef.css'          => 200,
+        '/_cache/register_styles.deadbeef.css.asset'    => 200,
         '/_cache/register_scripts.deadbeef.js.gz'       => 200,
         '/_cache/register_styles.deadbeef.css.br'       => 200,
         '/_cache/register_styles.deadbeef.css.zst'      => 200,
@@ -102,7 +103,7 @@ try {
         }
     }
 
-    $identityResponse = requestResponse($port, '/_cache/register_styles.deadbeef.css');
+    $identityResponse = requestResponse($port, '/_cache/register_styles.deadbeef.css.asset');
     if (isset($identityResponse['headers']['content-encoding'])) {
         throw new RuntimeException('Apache encoded an asset without Accept-Encoding.');
     }
@@ -117,7 +118,7 @@ try {
     foreach ($encodedExpectations as $acceptEncoding => $expectedEncoding) {
         $response = requestResponse(
             $port,
-            '/_cache/register_styles.deadbeef.css',
+            '/_cache/register_styles.deadbeef.css.asset',
             ['Accept-Encoding' => $acceptEncoding],
         );
         if (($response['headers']['content-encoding'] ?? []) !== [$expectedEncoding]) {

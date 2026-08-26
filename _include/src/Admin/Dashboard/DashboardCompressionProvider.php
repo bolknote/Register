@@ -42,13 +42,15 @@ final readonly class DashboardCompressionProvider implements SystemStatusProvide
         ];
 
         $codecs = [];
+        $canRunCommands = \function_exists('proc_open');
         foreach ($labels as $encoding => $label) {
             $phpAvailable = $registry->supports($encoding);
             $codecs[] = [
                 'encoding'         => $encoding,
                 'label'            => $label,
                 'php_available'    => $phpAvailable,
-                'build_available'  => $phpAvailable || $this->findExecutable($commands[$encoding]) !== null,
+                'build_available'  => $phpAvailable
+                    || ($canRunCommands && $this->findExecutable($commands[$encoding]) !== null),
                 'sidecar_count'    => $this->countSidecars($suffixes[$encoding]),
             ];
         }

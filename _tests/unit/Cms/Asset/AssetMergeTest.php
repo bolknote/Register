@@ -54,6 +54,10 @@ final class AssetMergeTest extends Unit
         $paths = $merge->getMergedPaths();
 
         self::assertSame($externalUrl, $paths[0]);
+        self::assertMatchesRegularExpression(
+            '#^/_cache/test_scripts\.[0-9a-f]+\.js\.asset\?v=[0-9a-f]+$#D',
+            $paths[1],
+        );
         self::assertCount(1, $logger->records);
         self::assertSame(LogLevel::WARNING, $logger->records[0]['level']);
         self::assertSame('Failed to fetch external asset.', $logger->records[0]['message']);

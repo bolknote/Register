@@ -76,7 +76,7 @@ class AssetMerge implements AssetMergeInterface
         }
 
         $result   = $this->failedExternalFiles;
-        $result[] = \sprintf('%s%s?v=%s', $this->publicCachePath, $this->getFilename(), $this->mergedHash);
+        $result[] = \sprintf('%s%s.asset?v=%s', $this->publicCachePath, $this->getFilename(), $this->mergedHash);
         return $result;
     }
 

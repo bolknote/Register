@@ -42,7 +42,7 @@ provides these rules:
 - source, tests, tools, configuration, database, logs, private cache entries, and dependency
   metadata are denied;
 - the only public Composer files are AdminYard's exact `demo/style.css` and `demo/script.js` assets;
-- only generated top-level `_cache/<name>.<hex>.css|js[.br|.gz|.zst]` bundles are public;
+- only generated top-level `_cache/<name>.<hex>.css|js[.asset|.br|.gz|.zst]` bundles are public;
 - upload directories disable CGI/PHP handlers and deny active document formats.
 - when `mod_headers` is available, `nosniff`, the referrer policy, and the camera/microphone/location
   restrictions apply to dynamic responses, static assets, uploads, and access-denied responses.
@@ -83,11 +83,13 @@ php tools/precompress-assets.php
 ```
 
 The command uses native PHP encoders first and then optional `brotli`, `zstd`, or `gzip` executables.
-Apache serves these files through the bundled `_cache/.htaccess` rules and falls back to the original
-asset when the browser or server lacks a codec. Dynamic responses independently negotiate the same
-codecs in PHP; deterministic page-cache responses reuse a content-addressed encoded representation.
-Changing a page changes that key immediately, while expired representations are collected by the
-normal cache backend.
+Generated markup refers to an encoding-neutral `.asset` URL. Apache serves that URL through the
+bundled `_cache/.htaccess` rules and falls back to the original asset when the browser or server
+lacks a codec. The virtual suffix also prevents a shared-hosting nginx frontend from serving the
+physical CSS/JavaScript before Apache can negotiate its sidecar. Dynamic responses independently
+negotiate the same codecs in PHP; deterministic page-cache responses whose security processing
+keeps a stable ETag reuse a content-addressed encoded representation. Changing a page changes that
+key immediately, while expired representations are collected by the normal cache backend.
 
 ## Nginx
 

@@ -14,6 +14,39 @@ require_once $policyFile;
 
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 $requestPath = is_string($requestPath) ? rawurldecode($requestPath) : '/';
+$negotiatedAssetPath = DevelopmentRouterPolicy::negotiatedCacheAssetPath($requestPath);
+if ($negotiatedAssetPath !== null) {
+    $negotiatedFilePath = realpath($rootDir . $negotiatedAssetPath);
+    if ($negotiatedFilePath === false) {
+        http_response_code(404);
+        return true;
+    }
+
+    if (!is_file($negotiatedFilePath)
+        || !str_starts_with($negotiatedFilePath, $rootDir . DIRECTORY_SEPARATOR)
+    ) {
+        http_response_code(404);
+        return true;
+    }
+
+    $content = file_get_contents($negotiatedFilePath);
+    if (!\is_string($content)) {
+        http_response_code(500);
+        return true;
+    }
+
+    $extension = strtolower(pathinfo($negotiatedFilePath, PATHINFO_EXTENSION));
+    header('Content-Type: ' . ($extension === 'css' ? 'text/css' : 'application/javascript'));
+    header('Cache-Control: public, max-age=31536000, immutable');
+    header('Vary: Accept-Encoding');
+    header('Content-Length: ' . \strlen($content));
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
+        echo $content;
+    }
+
+    return true;
+}
+
 $filePath    = realpath($rootDir . $requestPath);
 
 if (

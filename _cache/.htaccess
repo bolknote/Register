@@ -15,32 +15,37 @@ RemoveType .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi
         RewriteCond %{HTTP:Accept-Encoding} (^|,)[[:space:]]*br([[:space:]]*;[^,]*)?([[:space:]]*,|$) [NC]
         RewriteCond %{HTTP:Accept-Encoding} !(^|,)[[:space:]]*br[[:space:]]*;[[:space:]]*q[[:space:]]*=[[:space:]]*0(\.0*)?([[:space:]]*,|$) [NC]
         RewriteCond %{REQUEST_FILENAME}.br -f
-        RewriteRule ^(.+\.(?:css|js))$ $1.br [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
+        RewriteRule ^(.+\.(?:css|js))(?:\.asset)?$ $1.br [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
 
         RewriteCond %{HTTP:Accept-Encoding} (^|,)[[:space:]]*zstd([[:space:]]*;[^,]*)?([[:space:]]*,|$) [NC]
         RewriteCond %{HTTP:Accept-Encoding} !(^|,)[[:space:]]*zstd[[:space:]]*;[[:space:]]*q[[:space:]]*=[[:space:]]*0(\.0*)?([[:space:]]*,|$) [NC]
         RewriteCond %{REQUEST_FILENAME}.zst -f
-        RewriteRule ^(.+\.(?:css|js))$ $1.zst [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
+        RewriteRule ^(.+\.(?:css|js))(?:\.asset)?$ $1.zst [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
 
         RewriteCond %{HTTP:Accept-Encoding} (^|,)[[:space:]]*gzip([[:space:]]*;[^,]*)?([[:space:]]*,|$) [NC]
         RewriteCond %{HTTP:Accept-Encoding} !(^|,)[[:space:]]*gzip[[:space:]]*;[[:space:]]*q[[:space:]]*=[[:space:]]*0(\.0*)?([[:space:]]*,|$) [NC]
         RewriteCond %{REQUEST_FILENAME}.gz -f
-        RewriteRule ^(.+\.(?:css|js))$ $1.gz [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
+        RewriteRule ^(.+\.(?:css|js))(?:\.asset)?$ $1.gz [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
     </IfModule>
+
+    # The virtual suffix keeps one cacheable URL for every encoding and also
+    # makes nginx-to-Apache shared-hosting stacks pass the request to Apache.
+    RewriteRule ^(.+\.(?:css|js))\.asset$ $1 [E=no-gzip:1,E=no-brotli:1,E=no-zstd:1,L]
 </IfModule>
 
 <IfModule mod_headers.c>
+    <FilesMatch "(?i)^[a-z0-9_-]+\.[0-9a-f]+\.(?:css|js)(?:\.asset|\.(?:br|gz|zst))?$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+        Header merge Vary "Accept-Encoding"
+    </FilesMatch>
     <FilesMatch "\.br$">
         Header set Content-Encoding "br"
-        Header merge Vary "Accept-Encoding"
     </FilesMatch>
     <FilesMatch "\.zst$">
         Header set Content-Encoding "zstd"
-        Header merge Vary "Accept-Encoding"
     </FilesMatch>
     <FilesMatch "\.gz$">
         Header set Content-Encoding "gzip"
-        Header merge Vary "Accept-Encoding"
     </FilesMatch>
 </IfModule>
 
@@ -59,7 +64,7 @@ RemoveType .php .php2 .php3 .php4 .php5 .php6 .php7 .php8 .pht .phtml .phar .cgi
     ForceType application/javascript
 </FilesMatch>
 
-<FilesMatch "(?i)^(?![a-z0-9_-]+\.[0-9a-f]+\.(?:css|js)(?:\.(?:br|gz|zst))?$)">
+<FilesMatch "(?i)^(?![a-z0-9_-]+\.[0-9a-f]+\.(?:css|js)(?:\.asset|\.(?:br|gz|zst))?$)">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

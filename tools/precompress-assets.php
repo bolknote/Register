@@ -47,7 +47,7 @@ $commands = [
     CompressionCodecRegistry::GZIP   => ['gzip', '-6', '--stdout'],
 ];
 foreach ($commands as $encoding => $command) {
-    if (isset($encoders[$encoding])) {
+    if (isset($encoders[$encoding]) || !\function_exists('proc_open')) {
         continue;
     }
 
@@ -136,6 +136,10 @@ function findCompressionExecutable(string $name): ?string
 /** @param list<string> $command */
 function runCompressionCommand(array $command): string|false
 {
+    if (!\function_exists('proc_open')) {
+        return false;
+    }
+
     $process = proc_open($command, [
         0 => ['file', PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null', 'r'],
         1 => ['pipe', 'w'],

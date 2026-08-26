@@ -99,10 +99,12 @@ headers for dynamic pages, but only the web-server rule can cover static files a
 ## Response compression
 
 Register always works without optional compression modules. With PHP zlib it negotiates gzip for
-dynamic HTML and stores ready gzip representations of deterministic cached pages. PHP Brotli and
-Zstd extensions are detected automatically when available. Generated CSS/JavaScript bundles have
-sidecar files, and the packaged Apache rules select `.br`, `.zst`, or `.gz` only for clients that
-advertise the matching content encoding; otherwise Apache serves the original file.
+dynamic HTML and can store ready gzip representations of deterministic cached pages whose final
+body retains a stable ETag. PHP Brotli and Zstd extensions are detected automatically when
+available. Generated CSS/JavaScript bundles use a virtual `.asset` URL; the packaged Apache rules
+select `.br`, `.zst`, or `.gz` only for clients that advertise the matching content encoding and
+otherwise serve the original file. Because `.asset` is not a physical static file, an nginx
+frontend on typical shared hosting passes the request to Apache instead of bypassing negotiation.
 
 Shell access is not required. If it is available, warm the public site once and prepare any variants
 supported by installed command-line tools:
