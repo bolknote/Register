@@ -8,6 +8,7 @@
         return;
     }
 
+    document.documentElement.classList.add('local-time-pending');
     var initialObserver = null;
 
     function formatLongDateTime(date, locale) {
@@ -100,6 +101,7 @@
                 initialObserver.disconnect();
                 initialObserver = null;
             }
+            document.documentElement.classList.remove('local-time-pending');
             document.removeEventListener('readystatechange', onReadyStateChange);
         }
     }

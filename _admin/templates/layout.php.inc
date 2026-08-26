@@ -32,12 +32,13 @@ if (!isset($this)) {
     <link rel="stylesheet" href="<?php echo $basePath; ?>/_assets/register/admin-yard/style.css">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/admin-override.css?v=<?= $adminAssetVersion('_admin/css/admin-override.css') ?>">
     <link rel="stylesheet" href="<?= $basePath ?>/_admin/css/register.css?v=<?= $adminStyleVersion() ?>">
+    <link rel="stylesheet" href="<?= $basePath ?>/_assets/register/local-time.css?v=<?= $adminAssetVersion('_assets/register/local-time.css') ?>">
     <link id="admin-theme-stylesheet" rel="stylesheet" href="<?= $basePath ?>/_admin/index.php?action=theme-stylesheet">
     <?php foreach ($extraStyles as $style): ?>
         <link rel="stylesheet" href="<?= $style ?>">
     <?php endforeach; ?>
 
-    <script src="<?= $basePath ?>/_assets/register/local-time.js" defer></script>
+    <script src="<?= $basePath ?>/_assets/register/local-time.js?v=<?= $adminAssetVersion('_assets/register/local-time.js') ?>"></script>
     <script src="<?php echo $basePath; ?>/_assets/register/admin-yard/script.js"></script>
     <script src="<?= $basePath ?>/_admin/js/lib.js?v=<?= $adminAssetVersion('_admin/js/lib.js') ?>"></script>
     <?php foreach ($extraScripts as $script): ?>

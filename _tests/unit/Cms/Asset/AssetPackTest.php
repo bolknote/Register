@@ -61,7 +61,7 @@ final class AssetPackTest extends Unit
         self::assertSame(AssetPack::COLOR_SCHEME_LIGHT, $systemOne->getColorScheme());
     }
 
-    public function testBuiltInStylesLoadLocalTimeScriptWithoutHidingServerFallback(): void
+    public function testBuiltInStylesLocalizeTimesBeforeRenderingTheBody(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';
 
@@ -69,10 +69,14 @@ final class AssetPackTest extends Unit
             /** @var AssetPack $assetPack */
             $assetPack = require $rootDir . '_styles/' . $style . '/' . $style . '.php';
             $markup    = $assetPack->getStyles('/_styles/' . $style . '/', null);
-            $jsPath    = '/_styles/' . $style . '/../../_assets/register/local-time.js';
+            $cssPath   = '/_styles/' . $style . '/../../_assets/register/local-time.css?v='
+                . (string)\filemtime($rootDir . '_assets/register/local-time.css');
+            $jsPath    = '/_styles/' . $style . '/../../_assets/register/local-time.js?v='
+                . (string)\filemtime($rootDir . '_assets/register/local-time.js');
 
-            self::assertStringNotContainsString('local-time.css', $markup);
-            self::assertStringContainsString('<script src="' . $jsPath . '" defer></script>', $markup);
+            self::assertStringContainsString('<link rel="stylesheet" href="' . $cssPath . '">', $markup);
+            self::assertStringContainsString('<script src="' . $jsPath . '"></script>', $markup);
+            self::assertStringNotContainsString('<script src="' . $jsPath . '" defer></script>', $markup);
         }
     }
 
