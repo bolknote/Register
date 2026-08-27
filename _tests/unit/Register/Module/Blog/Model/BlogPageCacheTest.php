@@ -250,6 +250,30 @@ final class BlogPageCacheTest extends TestCase
         self::assertSame('feed-3', $cache->firstPage($factory)->html);
     }
 
+    public function testRepeatedInvalidationDeletesIntermediateValuesWithinOneTransaction(): void
+    {
+        $pool = new ArrayAdapter();
+        $pdo = new PDO('sqlite::memory:');
+        $cache = new BlogPageCache($pool, false, null, $pdo);
+        $builds = 0;
+        $factory = static function () use (&$builds): PostFeed {
+            ++$builds;
+
+            return new PostFeed('feed-' . $builds, null, null);
+        };
+
+        self::assertSame('feed-1', $cache->firstPage($factory)->html);
+
+        $pdo->beginTransaction();
+        $cache->invalidateFirstPage();
+        self::assertSame('feed-2', $cache->firstPage($factory)->html);
+        $cache->invalidateFirstPage();
+        self::assertSame('feed-3', $cache->firstPage($factory)->html);
+        $pdo->commit();
+
+        self::assertSame('feed-4', $cache->firstPage($factory)->html);
+    }
+
     public function testRollbackDeletesAValueBuiltFromUncommittedRows(): void
     {
         $pool = new ArrayAdapter();

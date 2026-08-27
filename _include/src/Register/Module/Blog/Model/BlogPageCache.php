@@ -436,8 +436,12 @@ final class BlogPageCache implements StatefulServiceInterface
                 // before this transaction finishes. Rollback also removes anything
                 // the mutating connection could have rebuilt from uncommitted rows.
                 $this->pdo->afterRollbackOnce($callbackKey, $operation);
-                $operation();
             }
+
+            // Coalesce the completion callback, but not the immediate invalidation:
+            // the same transaction may mutate, render, and mutate the dependency
+            // again before it commits.
+            $operation();
 
             return;
         }
