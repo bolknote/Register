@@ -14,10 +14,12 @@ use Register\Http\LegacyContentStylesheetInjector;
 
 final class LegacyContentStylesheetInjectorTest extends Unit
 {
-    private string $rootDir;
+    private string $rootDir = '';
 
+    /** @psalm-suppress PropertyNotSetInConstructor Codeception initializes this property in _before(). */
     private LegacyContentStylesheetInjector $injector;
 
+    #[\Override]
     protected function _before(): void
     {
         $this->rootDir  = dirname(__DIR__, 4);
