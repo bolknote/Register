@@ -104,12 +104,10 @@ final class BlogPageCacheTest extends TestCase
 
     public function testClockDependentResponseChangesOnlyAtItsSemanticBoundary(): void
     {
-        $now = 1_000;
+        $clock = new BlogPageCacheTestClock(1_000);
         $cache = new BlogPageCache(
             new ArrayAdapter(),
-            clock: static function () use (&$now): int {
-                return $now;
-            },
+            clock: $clock(...),
         );
         $builds = 0;
         $factory = function () use ($cache, &$builds): Response {
@@ -120,9 +118,9 @@ final class BlogPageCacheTest extends TestCase
         };
 
         self::assertSame('semantic-1', $cache->firstResponse('full_bot', $factory)->getContent());
-        $now = 1_099;
+        $clock->now = 1_099;
         self::assertSame('semantic-1', $cache->firstResponse('full_bot', $factory)->getContent());
-        $now = 1_100;
+        $clock->now = 1_100;
         self::assertSame('semantic-2', $cache->firstResponse('full_bot', $factory)->getContent());
         self::assertSame(2, $builds);
     }
@@ -284,5 +282,17 @@ final class BlogPageCacheTest extends TestCase
         }
 
         return $result;
+    }
+}
+
+final class BlogPageCacheTestClock
+{
+    public function __construct(public int $now)
+    {
+    }
+
+    public function __invoke(): int
+    {
+        return $this->now;
     }
 }

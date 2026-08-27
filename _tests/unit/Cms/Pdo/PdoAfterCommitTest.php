@@ -14,60 +14,60 @@ use Register\Core\Pdo\PDO;
 
 final class PdoAfterCommitTest extends Unit
 {
-    /** @var list<string> */
-    private array $calls = [];
-
     public function testRunsCallbacksOnlyAfterCommit(): void
     {
         $pdo = new PDO('sqlite::memory:');
+        $calls = new PdoCallbackLog();
 
         $pdo->beginTransaction();
-        $pdo->afterCommit(function (): void {
-            $this->calls[] = 'committed';
+        $pdo->afterCommit(static function () use ($calls): void {
+            $calls->add('committed');
         });
 
-        self::assertSame([], $this->calls);
+        self::assertSame([], $calls->all());
         $pdo->commit();
-        self::assertSame(['committed'], $this->calls);
+        self::assertSame(['committed'], $calls->all());
     }
 
     public function testDropsCallbacksOnRollback(): void
     {
         $pdo = new PDO('sqlite::memory:');
+        $calls = new PdoCallbackLog();
 
         $pdo->beginTransaction();
-        $pdo->afterCommit(function (): void {
-            $this->calls[] = 'rolled back';
+        $pdo->afterCommit(static function () use ($calls): void {
+            $calls->add('rolled back');
         });
-        $pdo->afterRollbackOnce('cleanup', function (): void {
-            $this->calls[] = 'cleanup';
+        $pdo->afterRollbackOnce('cleanup', static function () use ($calls): void {
+            $calls->add('cleanup');
         });
         $pdo->rollBack();
 
-        self::assertSame(['cleanup'], $this->calls);
+        self::assertSame(['cleanup'], $calls->all());
     }
 
     public function testDropsOnlyCallbacksRegisteredInsideRolledBackSavepoint(): void
     {
         $pdo = new PDO('sqlite::memory:');
+        $calls = new PdoCallbackLog();
 
         $pdo->beginTransaction();
-        $pdo->afterCommit(function (): void {
-            $this->calls[] = 'outer';
+        $pdo->afterCommit(static function () use ($calls): void {
+            $calls->add('outer');
         });
         $pdo->exec('SAVEPOINT cache_test');
-        $pdo->afterCommit(function (): void {
-            $this->calls[] = 'inner';
+        $pdo->afterCommit(static function () use ($calls): void {
+            $calls->add('inner');
         });
-        $pdo->afterRollbackOnce('inner-cleanup', function (): void {
-            $this->calls[] = 'inner cleanup';
+        $pdo->afterRollbackOnce('inner-cleanup', static function () use ($calls): void {
+            $calls->add('inner cleanup');
         });
         $pdo->exec('ROLLBACK TO SAVEPOINT cache_test');
-        self::assertSame(['inner cleanup'], $this->calls);
+        self::assertSame(['inner cleanup'], $calls->all());
         $pdo->exec('RELEASE SAVEPOINT cache_test');
         $pdo->commit();
 
-        self::assertSame(['inner cleanup', 'outer'], $this->calls);
+        self::assertSame(['inner cleanup', 'outer'], $calls->all());
     }
 
     public function testRunsImmediatelyOutsideTransaction(): void
@@ -80,5 +80,27 @@ final class PdoAfterCommitTest extends Unit
         });
 
         self::assertTrue($called);
+    }
+}
+
+final class PdoCallbackLog
+{
+    /** @var \ArrayObject<int, string> */
+    private \ArrayObject $calls;
+
+    public function __construct()
+    {
+        $this->calls = new \ArrayObject();
+    }
+
+    public function add(string $call): void
+    {
+        $this->calls->append($call);
+    }
+
+    /** @return list<string> */
+    public function all(): array
+    {
+        return array_values($this->calls->getArrayCopy());
     }
 }
