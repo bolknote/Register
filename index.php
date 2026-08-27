@@ -116,4 +116,4 @@ if ($response->isInformational() || $response->isEmpty() || $response->getConten
     $response->send(false);
 }
 
-$shutdownCoordinator->finishResponse();
+$shutdownCoordinator->finishResponse($request, $response);

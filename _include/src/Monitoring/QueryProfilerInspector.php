@@ -20,6 +20,21 @@ final readonly class QueryProfilerInspector
      * @return array{
      *     request_count:int,
      *     query_count:int,
+     *     contexts:list<array{
+     *         client_group:string,
+     *         agent:string,
+     *         page_cache:string,
+     *         cookies:string,
+     *         purpose:string,
+     *         fetch_mode:string,
+     *         fetch_dest:string,
+     *         count:int,
+     *         query_count:int,
+     *         average_queries:float,
+     *         zero_query_percent:float,
+     *         total_ms:float,
+     *         db_ms:float
+     *     }>,
      *     paths:list<array{method:string,path:string,count:int,total_ms:float,average_ms:float,max_ms:float,db_ms:float}>,
      *     templates:list<array{template:string,count:int,total_ms:float,average_ms:float,max_ms:float,path_count:int}>,
      *     recent:list<array{
@@ -32,6 +47,15 @@ final readonly class QueryProfilerInspector
      *         query_count:int,
      *         truncated_queries:int,
      *         peak_memory_bytes:int,
+     *         request_context:array{
+     *             client_group:string,
+     *             agent:string,
+     *             page_cache:string,
+     *             cookies:string,
+     *             purpose:string,
+     *             fetch_mode:string,
+     *             fetch_dest:string
+     *         },
      *         queries:list<array{template:string,time_ms:float}>
      *     }>
      * }
@@ -44,6 +68,7 @@ final readonly class QueryProfilerInspector
 
         $requestCount = 0;
         $queryCount = 0;
+        $contexts = [];
         $paths = [];
         $templates = [];
         $recent = [];
@@ -74,6 +99,23 @@ final readonly class QueryProfilerInspector
                 ? $record['query_count']
                 : count($record['queries']);
             $queryCount += $recordQueryCount;
+            $requestContext = $this->requestContext($record['request_context'] ?? null);
+            $contextKey = implode("\0", array_values($requestContext));
+            $contextAggregate = $contexts[$contextKey] ?? [
+                ...$requestContext,
+                'count' => 0,
+                'query_count' => 0,
+                'zero_query_count' => 0,
+                'total_ms' => 0.0,
+                'db_ms' => 0.0,
+            ];
+            ++$contextAggregate['count'];
+            $contextAggregate['query_count'] += $recordQueryCount;
+            $contextAggregate['zero_query_count'] += (int)($recordQueryCount === 0);
+            $contextAggregate['total_ms'] += $duration;
+            $contextAggregate['db_ms'] += $database;
+            $contexts[$contextKey] = $contextAggregate;
+
             $method = mb_substr($record['method'], 0, 12);
             $path = mb_substr($record['path'], 0, 500);
             $pathKey = $method . "\0" . $path;
@@ -138,7 +180,28 @@ final readonly class QueryProfilerInspector
                 'query_count'       => $recordQueryCount,
                 'truncated_queries' => $truncatedQueries,
                 'peak_memory_bytes' => $peakMemory,
+                'request_context'   => $requestContext,
                 'queries'           => $safeQueries,
+            ];
+        }
+
+        usort($contexts, static fn(array $left, array $right): int => $right['total_ms'] <=> $left['total_ms']);
+        $contextReport = [];
+        foreach (array_slice($contexts, 0, 20) as $aggregate) {
+            $contextReport[] = [
+                'client_group'       => $aggregate['client_group'],
+                'agent'              => $aggregate['agent'],
+                'page_cache'         => $aggregate['page_cache'],
+                'cookies'            => $aggregate['cookies'],
+                'purpose'            => $aggregate['purpose'],
+                'fetch_mode'         => $aggregate['fetch_mode'],
+                'fetch_dest'         => $aggregate['fetch_dest'],
+                'count'              => $aggregate['count'],
+                'query_count'        => $aggregate['query_count'],
+                'average_queries'    => round($aggregate['query_count'] / (float)$aggregate['count'], 2),
+                'zero_query_percent' => round(100.0 * (float)$aggregate['zero_query_count'] / (float)$aggregate['count'], 1),
+                'total_ms'           => round($aggregate['total_ms'], 1),
+                'db_ms'              => round($aggregate['db_ms'], 1),
             ];
         }
 
@@ -168,6 +231,7 @@ final readonly class QueryProfilerInspector
         return [
             'request_count' => $requestCount,
             'query_count' => $queryCount,
+            'contexts' => $contextReport,
             'paths' => $pathReport,
             'templates' => $templateReport,
             'recent' => array_slice(array_reverse($recent), 0, $recentLimit),
@@ -177,5 +241,48 @@ final readonly class QueryProfilerInspector
     private function number(mixed $value): ?float
     {
         return \is_int($value) || \is_float($value) ? (float)$value : null;
+    }
+
+    /**
+     * @return array{
+     *     client_group:string,
+     *     agent:string,
+     *     page_cache:string,
+     *     cookies:string,
+     *     purpose:string,
+     *     fetch_mode:string,
+     *     fetch_dest:string
+     * }
+     */
+    private function requestContext(mixed $value): array
+    {
+        if (!\is_array($value)) {
+            return array_fill_keys([
+                'client_group',
+                'agent',
+                'page_cache',
+                'cookies',
+                'purpose',
+                'fetch_mode',
+                'fetch_dest',
+            ], 'unknown');
+        }
+
+        return [
+            'client_group' => $this->contextToken($value['client_group'] ?? null, 12),
+            'agent'        => $this->contextToken($value['agent'] ?? null, 24),
+            'page_cache'   => $this->contextToken($value['page_cache'] ?? null, 24),
+            'cookies'      => $this->contextToken($value['cookies'] ?? null, 24),
+            'purpose'      => $this->contextToken($value['purpose'] ?? null, 24),
+            'fetch_mode'   => $this->contextToken($value['fetch_mode'] ?? null, 24),
+            'fetch_dest'   => $this->contextToken($value['fetch_dest'] ?? null, 24),
+        ];
+    }
+
+    private function contextToken(mixed $value, int $maxLength): string
+    {
+        return \is_string($value) && preg_match('/^[a-z0-9_-]{1,' . $maxLength . '}$/D', $value) === 1
+            ? $value
+            : 'unknown';
     }
 }

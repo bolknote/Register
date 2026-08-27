@@ -62,15 +62,52 @@ final readonly class QueryProfilerState
             throw new \InvalidArgumentException('Query profiler time must not be negative.');
         }
 
-        $this->write($now + $durationSeconds);
+        $this->write($now + $durationSeconds, bin2hex(random_bytes(16)));
     }
 
     public function stop(): void
     {
-        $this->write(0);
+        $this->write(0, bin2hex(random_bytes(16)));
     }
 
-    private function write(int $expiresAt): void
+    /**
+     * Returns an unlinkable identifier which groups one client only inside the active profile session.
+     */
+    public function clientGroup(string $clientAddress, string $userAgent, ?int $now = null): ?string
+    {
+        $now ??= time();
+        if ($now < 0 || !is_file($this->stateFile) || is_link($this->stateFile)) {
+            return null;
+        }
+
+        $contents = file_get_contents($this->stateFile);
+        if (!\is_string($contents)) {
+            return null;
+        }
+
+        try {
+            $state = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
+
+        if (!\is_array($state)
+            || !\is_int($state['expires_at'] ?? null)
+            || $state['expires_at'] <= $now
+            || !\is_string($state['client_salt'] ?? null)
+            || preg_match('/^[a-f0-9]{32}$/D', $state['client_salt']) !== 1
+        ) {
+            return null;
+        }
+
+        return substr(hash_hmac(
+            'sha256',
+            $clientAddress . "\0" . $userAgent,
+            $state['client_salt'],
+        ), 0, 12);
+    }
+
+    private function write(int $expiresAt, string $clientSalt): void
     {
         $directory = dirname($this->stateFile);
         if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
@@ -82,8 +119,9 @@ final readonly class QueryProfilerState
         }
 
         $contents = json_encode([
-            'version' => 1,
+            'version' => 2,
             'expires_at' => $expiresAt,
+            'client_salt' => $clientSalt,
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n";
         if (file_put_contents($this->stateFile, $contents, LOCK_EX) === false || !chmod($this->stateFile, 0600)) {
             throw new \RuntimeException('Unable to write the query profiler state.');

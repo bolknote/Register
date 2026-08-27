@@ -12,6 +12,8 @@ namespace Register\Core\Queue;
 use Psr\Log\LoggerInterface;
 use Register\Core\Monitoring\RequestPerformanceMonitor;
 use Register\Core\Monitoring\RequestQueryProfiler;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 final class ShutdownWorkCoordinator
 {
@@ -80,14 +82,14 @@ final class ShutdownWorkCoordinator
     }
 
     /** Marks a sent response as detached from the PHP process whenever the SAPI supports it. */
-    public function finishResponse(): void
+    public function finishResponse(?Request $request = null, ?Response $response = null): void
     {
         if ($this->responseFinished) {
             return;
         }
 
         $this->performanceMonitor?->record();
-        $this->queryProfiler?->record();
+        $this->queryProfiler?->record(request: $request, response: $response);
 
         $this->closeSession();
 

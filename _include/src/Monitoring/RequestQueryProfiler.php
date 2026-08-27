@@ -11,6 +11,8 @@ namespace Register\Core\Monitoring;
 
 use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Pdo\PDO;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /** Captures every database query during a short, explicitly enabled administration session. */
 final class RequestQueryProfiler implements StatefulServiceInterface
@@ -34,7 +36,13 @@ final class RequestQueryProfiler implements StatefulServiceInterface
     }
 
     /** @param array<string, mixed>|null $server */
-    public function record(?array $server = null, ?int $statusCode = null, ?float $finishedAt = null): void
+    public function record(
+        ?array $server = null,
+        ?int $statusCode = null,
+        ?float $finishedAt = null,
+        ?Request $request = null,
+        ?Response $response = null,
+    ): void
     {
         $finishedAt ??= microtime(true);
         try {
@@ -66,9 +74,10 @@ final class RequestQueryProfiler implements StatefulServiceInterface
             }
 
             $metrics = $this->pdo->getQueryMetrics();
+            $requestContext = $this->requestContext($server, $request, $response, (int)$finishedAt);
 
             $this->log->append([
-                'version' => 1,
+                'version' => 2,
                 'at' => gmdate(DATE_ATOM, (int)$finishedAt),
                 'method' => $method,
                 'path' => mb_substr($path, 0, 500),
@@ -78,6 +87,7 @@ final class RequestQueryProfiler implements StatefulServiceInterface
                 'query_count' => $metrics['count'],
                 'truncated_queries' => max(0, $metrics['count'] - count($queries)),
                 'peak_memory_bytes' => memory_get_peak_usage(true),
+                'request_context' => $requestContext,
                 'queries' => $queries,
             ]);
         } catch (\Throwable) {
@@ -89,5 +99,102 @@ final class RequestQueryProfiler implements StatefulServiceInterface
     public function clearState(): void
     {
         $this->suppressed = false;
+    }
+
+    /**
+     * @param array<string, mixed> $server
+     * @return array{
+     *     client_group:string,
+     *     agent:string,
+     *     page_cache:string,
+     *     cookies:string,
+     *     purpose:string,
+     *     fetch_mode:string,
+     *     fetch_dest:string
+     * }
+     */
+    private function requestContext(
+        array $server,
+        ?Request $request,
+        ?Response $response,
+        int $finishedAt,
+    ): array {
+        $userAgent = $request instanceof Request ? $request->headers->get('User-Agent') : null;
+        if (!\is_string($userAgent)) {
+            $userAgent = \is_string($server['HTTP_USER_AGENT'] ?? null) ? $server['HTTP_USER_AGENT'] : '';
+        }
+
+        $clientAddress = $request instanceof Request ? $request->getClientIp() : null;
+        if (!\is_string($clientAddress)) {
+            $clientAddress = \is_string($server['REMOTE_ADDR'] ?? null) ? $server['REMOTE_ADDR'] : '';
+        }
+
+        $purpose = strtolower(trim(implode(' ', [
+            $this->header($request, $server, 'Purpose', 'HTTP_PURPOSE'),
+            $this->header($request, $server, 'Sec-Purpose', 'HTTP_SEC_PURPOSE'),
+        ])));
+        $cacheStatus = strtolower((string)($response instanceof Response
+            ? $response->headers->get('X-Register-Page-Cache', '')
+            : ''));
+        $hasRequestCookies = false;
+        if ($request instanceof Request) {
+            $hasRequestCookies = $request->cookies->count() > 0;
+        }
+
+        return [
+            'client_group' => $this->state->clientGroup($clientAddress, $userAgent, $finishedAt) ?? 'unknown',
+            'agent' => $this->agentFamily($userAgent),
+            'page_cache' => \in_array($cacheStatus, ['hit', 'miss'], true) ? $cacheStatus : 'none',
+            'cookies' => $hasRequestCookies
+                || (\is_string($server['HTTP_COOKIE'] ?? null) && trim($server['HTTP_COOKIE']) !== '')
+                ? 'present'
+                : 'none',
+            'purpose' => $purpose === '' ? 'none' : (str_contains($purpose, 'prefetch') ? 'prefetch' : 'other'),
+            'fetch_mode' => $this->boundedToken($this->header($request, $server, 'Sec-Fetch-Mode', 'HTTP_SEC_FETCH_MODE')),
+            'fetch_dest' => $this->boundedToken($this->header($request, $server, 'Sec-Fetch-Dest', 'HTTP_SEC_FETCH_DEST')),
+        ];
+    }
+
+    /** @param array<string, mixed> $server */
+    private function header(Request|null $request, array $server, string $header, string $serverKey): string
+    {
+        $value = $request instanceof Request ? $request->headers->get($header) : null;
+        if (\is_string($value)) {
+            return $value;
+        }
+
+        return \is_string($server[$serverKey] ?? null) ? $server[$serverKey] : '';
+    }
+
+    private function boundedToken(string $value): string
+    {
+        $value = strtolower(trim($value));
+        if ($value === '') {
+            return 'none';
+        }
+
+        return preg_match('/^[a-z0-9_-]{1,24}$/D', $value) === 1 ? $value : 'other';
+    }
+
+    private function agentFamily(string $userAgent): string
+    {
+        if ($userAgent === '') {
+            return 'none';
+        }
+
+        if (preg_match('/(?:bot|crawler|spider|slurp|archiver|headless|lighthouse)/i', $userAgent) === 1) {
+            return 'automated';
+        }
+
+        return match (true) {
+            str_contains($userAgent, 'OPR/') => 'opera',
+            str_contains($userAgent, 'Edg/') => 'edge',
+            str_contains($userAgent, 'Firefox/') => 'firefox',
+            str_contains($userAgent, 'Chrome/') || str_contains($userAgent, 'CriOS/') => 'chrome',
+            str_contains($userAgent, 'Safari/') => 'safari',
+            str_contains(strtolower($userAgent), 'curl/') => 'curl',
+            str_contains(strtolower($userAgent), 'wget/') => 'wget',
+            default => 'other',
+        };
     }
 }

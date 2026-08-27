@@ -16,6 +16,8 @@ use Register\Core\Monitoring\QueryProfilerState;
 use Register\Core\Monitoring\RequestQueryProfiler;
 use Register\Core\Monitoring\SqlQueryTemplateSanitizer;
 use Register\Core\Pdo\PDO;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 final class QueryProfilerTest extends Unit
 {
@@ -54,7 +56,13 @@ final class QueryProfilerTest extends Unit
 
         $state->start(60, 100);
         self::assertSame(['active' => true, 'expires_at' => 160], $state->status(159));
+        $clientGroup = $state->clientGroup('192.0.2.10', 'Mozilla/5.0', 159);
+        self::assertIsString($clientGroup);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{12}$/D', $clientGroup);
+        self::assertSame($clientGroup, $state->clientGroup('192.0.2.10', 'Mozilla/5.0', 159));
+        self::assertNotSame($clientGroup, $state->clientGroup('192.0.2.11', 'Mozilla/5.0', 159));
         self::assertFalse($state->isActive(160));
+        self::assertNull($state->clientGroup('192.0.2.10', 'Mozilla/5.0', 160));
         $permissions = fileperms($this->stateFile);
         self::assertIsInt($permissions);
         self::assertSame(0600, $permissions & 0777);
@@ -101,12 +109,22 @@ final class QueryProfilerTest extends Unit
             new SqlQueryTemplateSanitizer(),
             100.0,
         );
-        $profiler->record([
+        $server = [
             'REQUEST_METHOD' => 'GET',
             'REQUEST_URI' => '/search?q=hidden-url-value',
             'REMOTE_ADDR' => '192.0.2.10',
-            'HTTP_USER_AGENT' => 'hidden-user-agent',
-        ], 200, 100.25);
+            'HTTP_USER_AGENT' => 'Mozilla/5.0 Chrome/150.0 hidden-user-agent',
+            'HTTP_PURPOSE' => 'prefetch',
+            'HTTP_SEC_FETCH_MODE' => 'navigate',
+            'HTTP_SEC_FETCH_DEST' => 'document',
+        ];
+        $request = Request::create(
+            '/search?q=hidden-url-value',
+            cookies: ['private-cookie' => 'hidden-cookie-value'],
+            server: $server,
+        );
+        $response = new Response('', Response::HTTP_OK, ['X-Register-Page-Cache' => 'miss']);
+        $profiler->record($server, 200, 100.25, $request, $response);
 
         $contents = file_get_contents($this->logFile);
         self::assertIsString($contents);
@@ -115,6 +133,7 @@ final class QueryProfilerTest extends Unit
         self::assertStringNotContainsString('hidden-url-value', $contents);
         self::assertStringNotContainsString('192.0.2.10', $contents);
         self::assertStringNotContainsString('hidden-user-agent', $contents);
+        self::assertStringNotContainsString('hidden-cookie-value', $contents);
         $permissions = fileperms($this->logFile);
         self::assertIsInt($permissions);
         self::assertSame(0600, $permissions & 0777);
@@ -125,6 +144,13 @@ final class QueryProfilerTest extends Unit
         self::assertSame('GET', $report['paths'][0]['method']);
         self::assertSame('/search', $report['paths'][0]['path']);
         self::assertSame('/search', $report['recent'][0]['path']);
+        self::assertSame('chrome', $report['contexts'][0]['agent']);
+        self::assertSame('miss', $report['contexts'][0]['page_cache']);
+        self::assertSame('present', $report['contexts'][0]['cookies']);
+        self::assertSame('prefetch', $report['contexts'][0]['purpose']);
+        self::assertSame('navigate', $report['contexts'][0]['fetch_mode']);
+        self::assertSame('document', $report['contexts'][0]['fetch_dest']);
+        self::assertSame($report['contexts'][0]['client_group'], $report['recent'][0]['request_context']['client_group']);
         self::assertStringContainsString('SELECT :value AS private_value, ? AS fixed_value', $contents);
     }
 
