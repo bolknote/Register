@@ -43,6 +43,8 @@ use Register\Core\Comment\Antispam\SpamSignalPolicyRepository;
 use Register\Core\Comment\Antispam\SpamTextClassifier;
 use Register\Core\Comment\Antispam\SpamTextFeatureExtractor;
 use Register\Core\Comment\Antispam\SpamTextModelRepository;
+use Register\Core\Comment\CommentFormRenderer;
+use Register\Core\Comment\CommentFormResponseProcessor;
 use Register\Core\Comment\SpamDetectorInterface;
 use Register\Core\Comment\SpamDecisionProvider;
 use Register\Core\Comment\SpamDecisionProviderInterface;
@@ -66,6 +68,7 @@ use Register\Core\Framework\Container;
 use Register\Core\Framework\Event\NotFoundEvent;
 use Register\Core\Framework\Exception\ConfigurationException;
 use Register\Core\Framework\ExtensionInterface;
+use Register\Core\Framework\ResponseProcessorInterface;
 use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Http\RedirectDetector;
 use Register\Core\Http\TrustedProxyConfigurator;
@@ -449,6 +452,22 @@ class CmsExtension implements ExtensionInterface
             $container->getBoolParameter('disable_cache'),
         ));
 
+        $container->set(CommentFormRenderer::class, static fn(Container $container): CommentFormRenderer => new CommentFormRenderer(
+            $container->get(UrlBuilder::class),
+            $container->get('translator'),
+            $container->get(Viewer::class),
+            $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+            $container->get(CommentFormTokenManager::class),
+            $container->get(AuthProvider::class),
+        ));
+        $container->set(
+            CommentFormResponseProcessor::class,
+            static fn(Container $container): CommentFormResponseProcessor => new CommentFormResponseProcessor(
+                static fn(): CommentFormRenderer => $container->get(CommentFormRenderer::class),
+            ),
+            [ResponseProcessorInterface::class],
+        );
+
         $container->set(HtmlTemplateProvider::class, function (Container $container): \Register\Core\Template\HtmlTemplateProvider {
             $provider = $container->get(DynamicConfigProvider::class);
             return new HtmlTemplateProvider(
@@ -470,8 +489,7 @@ class CmsExtension implements ExtensionInterface
                 $container->getStringParameter('root_dir'),
                 $container->getStringParameter('base_path'),
                 $container->getNullableStringParameter('canonical_url'),
-                $container->get(CommentFormTokenManager::class),
-                $container->get(AuthProvider::class),
+                $container->get(CommentFormRenderer::class),
             );
         });
 

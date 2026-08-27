@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
+use Register\Core\Http\Cache\QueryParameterDependencies;
 use Register\Core\Config\BoolProxy;
 use Register\Core\Config\StringProxy;
 use Register\Core\Model\ArticleProvider;
@@ -74,7 +75,7 @@ final class AllPostsController extends BlogController
     public function handle(Request $request): Response
     {
         $variant = $request->attributes->get('slash') === '/'
-            ? $this->responseCachePolicy->variant($request)
+            ? $this->responseCachePolicy->variant($request, QueryParameterDependencies::none())
             : null;
         if ($variant !== null) {
             return $this->pageCache->allResponse($variant, fn(): Response => parent::handle($request));

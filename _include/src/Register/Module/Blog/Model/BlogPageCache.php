@@ -32,7 +32,7 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string CONTENT_RESPONSE_PATH_PREFIX = 'register_content_response_path_v1_';
 
-    private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v1_';
+    private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v2_';
 
     private const array RESPONSE_VARIANTS = [
         'full_bot',
@@ -49,7 +49,7 @@ final class BlogPageCache implements StatefulServiceInterface
     /** Content events invalidate this entry; the TTL is a fallback for out-of-band database changes. */
     private const int ALL_POSTS_TTL_SECONDS = 86400;
 
-    /** Content responses contain no visitor-bound form when they are shared with crawlers. */
+    /** Request-bound forms are hydrated after this shared content response leaves the cache. */
     private const int CONTENT_RESPONSE_TTL_SECONDS = 86400;
 
     private bool $firstPageInvalidated = false;
@@ -140,10 +140,10 @@ final class BlogPageCache implements StatefulServiceInterface
     /** @param callable(): Response $factory */
     public function allResponse(string $variant, callable $factory): Response
     {
-        // The response contains an hourly guest form token. The expensive archive fragment has its own daily TTL.
+        // Content events invalidate the deterministic archive response; the TTL covers out-of-band changes.
         $response = $this->response(
             self::ALL_RESPONSE_PREFIX . $this->validatedVariant($variant),
-            self::FIRST_PAGE_TTL_SECONDS,
+            self::ALL_POSTS_TTL_SECONDS,
             $factory,
         );
         $this->allPostsInvalidated = false;

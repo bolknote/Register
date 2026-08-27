@@ -9,13 +9,12 @@ declare(strict_types = 1);
 
 namespace Register\Core\Template;
 
-use Register\Core\Comment\Antispam\CommentFormTokenManager;
+use Register\Core\Comment\CommentFormRenderer;
+use Register\Core\Comment\DeferredCommentForm;
 use Register\Core\Config\BoolProxy;
 use Register\Core\Config\IntProxy;
 use Register\Core\Config\StringProxy;
 use Register\Core\Helper\StringHelper;
-use Register\Core\Model\AuthenticatedPublicUser;
-use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -62,8 +61,7 @@ class HtmlTemplate
         private readonly IntProxy                 $startYear,
         private readonly bool                     $debugView,
         private readonly ?string                  $canonicalUrlPrefix,
-        private readonly CommentFormTokenManager  $commentFormTokenManager,
-        private readonly AuthProvider             $authProvider,
+        private readonly CommentFormRenderer      $commentFormRenderer,
     ) {
     }
 
@@ -175,40 +173,26 @@ class HtmlTemplate
                 'id' => $this->page['id'],
             ];
 
-            if ($this->hasContent('comment_form') && \is_array($this->page['comment_form'])) {
-                $comment_array += $this->page['comment_form'];
+            $customCommentForm = $this->getFromPlaceholder('comment_form');
+            if (\is_array($customCommentForm)) {
+                $comment_array += $customCommentForm;
             }
 
-            if (!array_key_exists('parent_id', $comment_array)) {
-                $replyId = $antispamRequest->query->getInt('reply_to');
-                $comment_array += [
-                    'parent_id'    => $replyId > 0 ? $replyId : null,
-                    'reply_number' => max(0, $antispamRequest->query->getInt('reply_number')),
-                    'reply_name'   => mb_substr(trim($antispamRequest->query->getString('reply_name')), 0, 50),
-                ];
+            if (\is_array($customCommentForm)) {
+                // A validation error or preview contains request data and must be rendered immediately.
+                $session = $this->commentFormRenderer->createSession($antispamRequest);
+                $antispamVisitorCookie = $session->visitorCookie;
+                $replace['<!-- register_comment_form -->'] = $this->commentFormRenderer->render(
+                    $antispamRequest,
+                    $comment_array,
+                    $session,
+                );
+            } else {
+                // The request-bound form is hydrated after a cache hit, outside the shared page shell.
+                $replace['<!-- register_comment_form -->'] = DeferredCommentForm::placeholder(
+                    (string)$this->page['id'],
+                );
             }
-
-            $event = new TemplatePreCommentRenderEvent([$this->translator->trans('Comment syntax info')]);
-            $this->eventDispatcher->dispatch($event);
-
-            $antispamVisitorToken = $this->commentFormTokenManager->getOrCreateVisitorToken($antispamRequest);
-            $antispamVisitorCookie = $this->commentFormTokenManager->createVisitorCookie($antispamVisitorToken, $antispamRequest);
-            $authenticatedUser = $this->authProvider->getAuthenticatedPublicUser($antispamRequest);
-            $antispamToken = $this->commentFormTokenManager->issue(
-                $antispamRequest->getPathInfo(),
-                $antispamVisitorToken,
-            );
-            $replace['<!-- register_comment_form -->'] = $this->viewer->render('comment_form', [
-                ...$comment_array,
-                'authenticatedUser' => $authenticatedUser instanceof AuthenticatedPublicUser
-                    ? $authenticatedUser
-                    : null,
-                'syntaxHelpItems' => $event->syntaxHelpItems,
-                'action'          => $this->urlBuilder->link($antispamRequest->getPathInfo()),
-                'cancelReplyUrl'  => $this->urlBuilder->link($antispamRequest->getPathInfo()) . '#add-comment',
-                'antispamToken'   => $antispamToken,
-                'commentFieldNames' => $this->commentFormTokenManager->fieldNames($antispamToken),
-            ]);
         } else {
             $replace['<!-- register_comment_form -->'] = '';
         }

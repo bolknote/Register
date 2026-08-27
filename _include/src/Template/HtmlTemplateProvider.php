@@ -12,7 +12,7 @@ declare(strict_types = 1);
 
 namespace Register\Core\Template;
 
-use Register\Core\Comment\Antispam\CommentFormTokenManager;
+use Register\Core\Comment\CommentFormRenderer;
 use Register\Core\Config\BoolProxy;
 use Register\Core\Config\IntProxy;
 use Register\Core\Config\StringProxy;
@@ -20,7 +20,6 @@ use Register\Core\Asset\AssetMerge;
 use Register\Core\Asset\AssetMergeFactory;
 use Register\Core\Asset\AssetPack;
 use Register\Core\Model\UrlBuilder;
-use Register\Core\Model\AuthProvider;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -48,8 +47,7 @@ class HtmlTemplateProvider
         private readonly string                   $rootDir,
         private readonly string                   $basePath, // to be used in templates
         private readonly ?string                  $canonicalUrl,
-        private readonly CommentFormTokenManager  $commentFormTokenManager,
-        private readonly AuthProvider             $authProvider,
+        private readonly CommentFormRenderer      $commentFormRenderer,
     ) {
     }
 
@@ -77,8 +75,7 @@ class HtmlTemplateProvider
             $this->startYear,
             $this->debugView,
             $this->canonicalUrl,
-            $this->commentFormTokenManager,
-            $this->authProvider,
+            $this->commentFormRenderer,
         );
 
         $this->dispatcher->dispatch(new TemplateEvent($htmlTemplate), TemplateEvent::EVENT_CREATED);

@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
+use Register\Core\Http\Cache\QueryParameterDependencies;
 use Register\Live\LiveUpdateContext;
 use Register\Core\Config\BoolProxy;
 use Register\Core\Config\StringProxy;
@@ -79,7 +80,7 @@ class MainPageController extends BlogController
         $this->template_id = $register_blog_skip > 0 ? 'blog.php' : 'blog_main.php';
 
         $variant = $register_blog_skip === 0 && $request->getPathInfo() === '/'
-            ? $this->responseCachePolicy->variant($request)
+            ? $this->responseCachePolicy->variant($request, QueryParameterDependencies::none())
             : null;
         if ($variant !== null) {
             return $this->pageCache->firstResponse($variant, fn(): Response => parent::handle($request));

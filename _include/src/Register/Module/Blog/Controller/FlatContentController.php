@@ -5,6 +5,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Controller;
 
 use Register\Content\ContentId;
+use Register\Core\Http\Cache\QueryParameterDependencies;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\BlogResponseCachePolicy;
 use Register\Module\Blog\Model\PostProvider;
@@ -41,7 +42,11 @@ readonly class FlatContentController implements ControllerInterface
     #[\Override]
     public function handle(Request $request): Response
     {
-        $variant = $this->responseCachePolicy->variant($request);
+        // Page pagination changes the shell; reply and tracking parameters are hydrated or ignored.
+        $variant = $this->responseCachePolicy->variant(
+            $request,
+            QueryParameterDependencies::only('p'),
+        );
         if ($variant !== null) {
             $request->attributes->set(self::SHARED_RESPONSE_ATTRIBUTE, str_ends_with($variant, '_bot'));
 

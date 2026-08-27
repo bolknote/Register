@@ -104,8 +104,8 @@ class Application
      *
      * 1. Detects a controller based on the routes defined by the modules.
      * 2. Pushes the request onto the RequestStack if available.
-     * 3. Executes the controller and returns the response.
-     * 4. If the controller throws NotFoundException, it can be handled via NotFoundEvent.
+     * 3. Executes the controller and handles expected routing/configuration failures.
+     * 4. Applies request-bound response processors before closing the request context.
      */
     public function handle(Request $request): Response
     {
@@ -116,6 +116,20 @@ class Application
         $requestStack = $this->container->has(RequestStack::class) ? $this->container->get(RequestStack::class) : null;
         $requestStack?->push($request);
 
+        try {
+            $response = $this->createResponse($request);
+            foreach ($this->container->getByTag(ResponseProcessorInterface::class) as $processor) {
+                $response = $processor->process($request, $response);
+            }
+
+            return $response;
+        } finally {
+            $requestStack?->pop();
+        }
+    }
+
+    private function createResponse(Request $request): Response
+    {
         $controllerClass = null;
         $response        = null;
         try {
@@ -169,8 +183,6 @@ class Application
                 $e->title ?? 'An error was encountered',
                 $e->getMessage()
             );
-        } finally {
-            $requestStack?->pop();
         }
 
         return $response;

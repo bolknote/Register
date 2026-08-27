@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Model;
 
+use Register\Core\Http\Cache\QueryParameterDependencies;
 use Register\Core\Model\AuthProvider;
 use Register\Module\Analytics\BotDetector;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
@@ -26,7 +27,7 @@ final readonly class BlogResponseCachePolicy
     ) {
     }
 
-    public function variant(Request $request): ?string
+    public function variant(Request $request, QueryParameterDependencies $queryDependencies): ?string
     {
         if (!$request->isMethod(Request::METHOD_GET)) {
             $this->decision($request, 'method');
@@ -54,19 +55,17 @@ final readonly class BlogResponseCachePolicy
         }
 
         $representation = $navigation === 'partial' ? 'partial' : 'full';
-        $nonInteractive = $this->nonInteractiveReason($request);
-        if ($nonInteractive !== null) {
-            // The shared representation omits the query-dependent reply form, so cache-busting
-            // parameters cannot change its content and must not force a database rebuild.
-            $this->decision($request, $nonInteractive);
-
-            return $representation . '_bot';
-        }
-
-        if ($request->query->count() !== 0) {
+        if ($queryDependencies->affectResponse($request)) {
             $this->decision($request, 'query');
 
             return null;
+        }
+
+        $nonInteractive = $this->nonInteractiveReason($request);
+        if ($nonInteractive !== null) {
+            $this->decision($request, $nonInteractive);
+
+            return $representation . '_bot';
         }
 
         $visitor = $this->visitorIdentityManager->visitorIdFromRequest($request) === null

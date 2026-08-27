@@ -17,6 +17,7 @@ use Register\Content\ContentType;
 use Register\Content\ContentViewRepository;
 use Register\Content\TagRepository;
 use Register\Core\Pdo\DbLayer;
+use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Search\Service\SearchDocumentFactory;
 use Register\Rose\Indexer;
 use Symfony\Component\HttpFoundation\Response;
@@ -88,6 +89,10 @@ final class SocialFeedsAndRankingCest
             ->set('social_image', "''")
             ->where('id = :id')->setParameter('id', $postId)
             ->execute();
+        /** @var BlogPageCache $pageCache */
+        $pageCache = $I->grabService(BlogPageCache::class);
+        $pageCache->invalidateContent(ContentId::post($postId));
+
         $I->amOnPage('/json-feed-constellation?source=social');
         $I->seeElement('meta[property="og:image"][content="http://register.localhost/media/body-card.jpg"]');
         $I->seeElement('meta[property="og:url"][content="http://register.localhost/json-feed-constellation"]');
@@ -96,6 +101,7 @@ final class SocialFeedsAndRankingCest
             ->set('body', "'<p>Body without an image.</p>'")
             ->where('id = :id')->setParameter('id', $postId)
             ->execute();
+        $pageCache->invalidateContent(ContentId::post($postId));
         $I->setConfigValue('REGISTER_SOCIAL_IMAGE', '/media/site-card.jpg');
         $I->amOnPage('/json-feed-constellation');
         $I->seeElement('meta[property="og:image"][content="http://register.localhost/media/site-card.jpg"]');
