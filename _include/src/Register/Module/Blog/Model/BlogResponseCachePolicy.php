@@ -33,11 +33,6 @@ final readonly class BlogResponseCachePolicy
 
             return null;
         }
-        if ($request->query->count() !== 0) {
-            $this->decision($request, 'query');
-
-            return null;
-        }
         if ($request->headers->has('Authorization')) {
             $this->decision($request, 'authorization');
 
@@ -59,9 +54,16 @@ final readonly class BlogResponseCachePolicy
         $representation = $navigation === 'partial' ? 'partial' : 'full';
         $nonInteractive = $this->nonInteractiveReason($request);
         if ($nonInteractive !== null) {
+            // The shared representation omits the query-dependent reply form, so cache-busting
+            // parameters cannot change its content and must not force a database rebuild.
             $this->decision($request, $nonInteractive);
 
             return $representation . '_bot';
+        }
+        if ($request->query->count() !== 0) {
+            $this->decision($request, 'query');
+
+            return null;
         }
 
         $visitor = $this->visitorIdentityManager->visitorIdFromRequest($request) === null
