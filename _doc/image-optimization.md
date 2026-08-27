@@ -68,6 +68,14 @@ the identity transform.
 
 Animated PNG and animated WebP are rejected rather than silently flattened to the first frame.
 
+## Loading behavior
+
+Opening the public editor, changing text, and uploading audio do not download the image optimizer.
+The editor uses a computed dynamic import only after it has accepted an image for optimization. The
+optimizer then starts each codec worker on demand: resize Wasm only when dimensions must change,
+libwebp while comparing a WebP candidate, and OxiPNG while optimizing a PNG candidate. A failed
+module download is not cached for the rest of the page session, so the next image can retry it.
+
 ## Reproducible codecs and checks
 
 The checked-in WebAssembly binaries are pinned and licensed in [`assets.md`](assets.md). Rebuild or

@@ -87,6 +87,8 @@ final class PostInplaceCest
         $I->seeElement('.post-discard-changes-template [data-discard-changes-action="continue"]');
         $I->dontSeeElement('.post-editor-context-menu-template [data-context-ai-action]');
         $I->seeElement('script[src^="/_assets/register/post-inplace.js?v="]');
+        $I->dontSeeElement('script[src*="image-optimizer"]');
+        $I->dontSeeElement('link[href*="image-optimizer"]');
 
         $selector = '.post-card[data-post-id="' . $ownId . '"] > .post-inplace-edit-form';
         $token    = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');

@@ -334,7 +334,12 @@
     }
 
     function loadImageOptimizer() {
-        imageOptimizerPromise ||= import(imageOptimizerUrl);
+        // This computed dynamic import is the loading boundary for every image codec and Wasm module.
+        // Opening the editor and uploading audio must not fetch any part of the image optimizer.
+        imageOptimizerPromise ||= import(imageOptimizerUrl).catch((error) => {
+            imageOptimizerPromise = null;
+            throw error;
+        });
         return imageOptimizerPromise;
     }
 
