@@ -68,45 +68,43 @@ final readonly class ReactionRepository
             }
         }
 
-        if ($this->dbLayer->tableExists(ReactionAggregateSchema::TABLE_NAME)) {
-            $rows = $this->dbLayer->select(
-                'target_id',
-                'reaction',
-                'emoji',
-                'SUM(reaction_count) AS reaction_count',
-            )
-                ->from(ReactionAggregateSchema::TABLE_NAME)
-                ->where("target_type = 'post'")
-                ->andWhere('target_id IN (' . implode(', ', $placeholders) . ')')
-                ->groupBy('target_id', 'reaction', 'emoji')
-                ->execute($parameters)
-                ->fetchAssocAll()
-            ;
-            foreach ($rows as $row) {
-                $rowContentId = (int)$row['target_id'];
-                if (!isset($counts[$rowContentId])) {
-                    continue;
-                }
-
-                $count = (int)$row['reaction_count'];
-                $reaction = ReactionType::tryFrom((string)$row['reaction']);
-                if ($reaction instanceof ReactionType) {
-                    $counts[$rowContentId][$reaction->value] += $count;
-                    continue;
-                }
-
-                $emoji = trim((string)$row['emoji']);
-                if ($emoji !== '' && $count > 0) {
-                    $extraCounts[$rowContentId][$emoji] = ($extraCounts[$rowContentId][$emoji] ?? 0) + $count;
-                }
+        $rows = $this->dbLayer->select(
+            'target_id',
+            'reaction',
+            'emoji',
+            'SUM(reaction_count) AS reaction_count',
+        )
+            ->from(ReactionAggregateSchema::TABLE_NAME)
+            ->where("target_type = 'post'")
+            ->andWhere('target_id IN (' . implode(', ', $placeholders) . ')')
+            ->groupBy('target_id', 'reaction', 'emoji')
+            ->execute($parameters)
+            ->fetchAssocAll()
+        ;
+        foreach ($rows as $row) {
+            $rowContentId = (int)$row['target_id'];
+            if (!isset($counts[$rowContentId])) {
+                continue;
             }
 
-            foreach ($extraCounts as &$extras) {
-                arsort($extras, SORT_NUMERIC);
+            $count = (int)$row['reaction_count'];
+            $reaction = ReactionType::tryFrom((string)$row['reaction']);
+            if ($reaction instanceof ReactionType) {
+                $counts[$rowContentId][$reaction->value] += $count;
+                continue;
             }
 
-            unset($extras);
+            $emoji = trim((string)$row['emoji']);
+            if ($emoji !== '' && $count > 0) {
+                $extraCounts[$rowContentId][$emoji] = ($extraCounts[$rowContentId][$emoji] ?? 0) + $count;
+            }
         }
+
+        foreach ($extraCounts as &$extras) {
+            arsort($extras, SORT_NUMERIC);
+        }
+
+        unset($extras);
 
         $selected = array_fill_keys(array_keys($normalizedIds), null);
         if ($visitorId !== null) {

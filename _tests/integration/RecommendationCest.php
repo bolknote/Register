@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace integration;
 
 use Psr\Cache\CacheItemPoolInterface;
+use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueueExecutionBudget;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Rose\Entity\ExternalId;
 use Register\Rose\Entity\Indexable;
@@ -43,9 +45,35 @@ final class RecommendationCest
 
         /** @var RecommendationProvider $provider */
         $provider = $I->grabService(RecommendationProvider::class);
+        $externalId = new ExternalId('post:10');
         [$recommendations, $log, $rawRecommendations] = $provider->getRecommendations(
             '/source',
-            new ExternalId('post:10'),
+            $externalId,
+        );
+
+        $I->assertSame([], $recommendations);
+        $I->assertSame([], $log);
+        $I->assertSame([], $rawRecommendations);
+
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $queued = $dbLayer->select('COUNT(*)')->from('queue')
+            ->where('id = :id')->setParameter('id', $externalId->toString())
+            ->andWhere('code = :code')->setParameter('code', RecommendationProvider::RECOMMENDATIONS_QUEUE)
+            ->execute()
+            ->result()
+        ;
+        $I->assertSame(1, (int)$queued);
+
+        $provider->handle(
+            $externalId->toString(),
+            RecommendationProvider::RECOMMENDATIONS_QUEUE,
+            [],
+            new QueueExecutionBudget(5.0),
+        );
+        [$recommendations, $log, $rawRecommendations] = $provider->getRecommendations(
+            '/source',
+            $externalId,
         );
 
         $I->assertNotEmpty($log);

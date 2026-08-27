@@ -181,6 +181,12 @@ final class CommentPresentationTest extends Unit
             comment_id INTEGER NOT NULL,
             moderator_label TEXT
         )');
+        $pdo->exec('CREATE TABLE register_reaction_aggregate (
+            target_type TEXT NOT NULL,
+            target_id INTEGER NOT NULL,
+            emoji TEXT NOT NULL,
+            reaction_count INTEGER NOT NULL
+        )');
     }
 
     private function translator(): TranslatorInterface

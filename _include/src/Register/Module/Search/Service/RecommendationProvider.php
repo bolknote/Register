@@ -24,6 +24,8 @@ use Register\Core\Pdo\DbLayerException;
 
 readonly class RecommendationProvider implements QueueHandlerInterface
 {
+    private const int COLD_CACHE_RETRY_SECONDS = 60;
+
     public const string INVALIDATED_AT = 'invalidatedAt';
 
     public const string RECOMMENDATIONS_QUEUE = 'recommendations';
@@ -63,15 +65,20 @@ readonly class RecommendationProvider implements QueueHandlerInterface
             return [[], [], []];
         }
 
-        [$recommendations, $generatedAt] = $this->cache->get(
+        $cached = $this->cache->get(
             $this->getCacheKey($externalId),
-            fn(ItemInterface $_item): array => $this->getValueForCache($externalId)
+            fn(ItemInterface $item): array => $this->scheduleColdCacheFill($item, $externalId),
         );
+        [$recommendations, $generatedAt] = $cached;
 
         $cacheInvalidatedAt = $this->cache->get(self::INVALIDATED_AT, fn(ItemInterface $_item): int => time());
         if ($cacheInvalidatedAt > $generatedAt + 1) {
             // +1 to protect from rebuilding
             $this->queuePublisher->publish($externalId->toString(), self::RECOMMENDATIONS_QUEUE);
+        }
+
+        if ($recommendations === []) {
+            return [[], [], []];
         }
 
         return array_merge($this->processRecommendations($page, $recommendations), [$recommendations]);
@@ -141,6 +148,22 @@ readonly class RecommendationProvider implements QueueHandlerInterface
     private function getCacheKey(ExternalId $externalId): string
     {
         return self::CACHE_KEY_PREFIX . hash('sha256', $externalId->toString());
+    }
+
+    /** @return array{array<mixed>, int} */
+    private function scheduleColdCacheFill(ItemInterface $item, ExternalId $externalId): array
+    {
+        // A crawler can discover thousands of old pages at once. Computing a
+        // cold recommendation set in every page request amplifies that crawl
+        // into an expensive SQL burst. Queue the cold fill and render the page
+        // without recommendations until the bounded background runner fills it.
+        $this->queuePublisher->publishIfAbsent(
+            $externalId->toString(),
+            self::RECOMMENDATIONS_QUEUE,
+        );
+        $item->expiresAfter(self::COLD_CACHE_RETRY_SECONDS);
+
+        return [[], time()];
     }
 
     /**

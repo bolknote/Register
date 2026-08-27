@@ -26,6 +26,17 @@ final class AnalyticsCest
         $I->seeResponseCodeIs(200);
         $I->seeElement('meta[name="register-analytics-page"]');
 
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $unresolvedSummary = $dbLayer->select('hits, unique_count')
+            ->from('register_analytics_daily')
+            ->where('day = :day')->setParameter('day', date('Y-m-d'))
+            ->andWhere('channel = :channel')->setParameter('channel', AnalyticsRepository::PAGE_CHANNEL)
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $I->assertFalse($unresolvedSummary, 'An unresolved HTML fetch must not write analytics.');
+
         $I->sendJson('https://localhost/_visitor/resolve', [
             'trackPage' => true,
         ], headers: [
@@ -60,8 +71,6 @@ final class AnalyticsCest
 
         $I->sendRequestWithHeaders('https://localhost/', $headers);
 
-        /** @var DbLayer $dbLayer */
-        $dbLayer = $I->grabService(DbLayer::class);
         $summary = $dbLayer->select('hits, unique_count')
             ->from('register_analytics_daily')
             ->where('day = :day')->setParameter('day', date('Y-m-d'))

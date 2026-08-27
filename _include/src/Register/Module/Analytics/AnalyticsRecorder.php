@@ -37,8 +37,9 @@ final readonly class AnalyticsRecorder
         $day = date('Y-m-d');
         $visitorId = $this->visitorIdentityManager->visitorIdFromRequest($request);
         if ($visitorId === null) {
-            $this->repository->recordHit($day, AnalyticsRepository::PAGE_CHANNEL);
-
+            // Count the page only after the browser resolves its signed visitor identity.
+            // Plain HTML fetchers never perform that step and must not turn one shared
+            // daily aggregate row into a database lock hotspot.
             return true;
         }
 
@@ -62,7 +63,7 @@ final readonly class AnalyticsRecorder
             $day,
             AnalyticsRepository::PAGE_CHANNEL,
             $this->visitorFingerprint($day, $visitorId),
-            hitWeight: 0,
+            hitWeight: 1,
         );
     }
 

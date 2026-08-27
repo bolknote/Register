@@ -171,7 +171,7 @@ final readonly class ContentCommentRenderer
      */
     private function attachImportedReactionSummaries(array $comments): array
     {
-        if ($comments === [] || !$this->dbLayer->tableExists(ReactionAggregateSchema::TABLE_NAME)) {
+        if ($comments === []) {
             return $comments;
         }
 
