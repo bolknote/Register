@@ -11,7 +11,6 @@ namespace integration;
 
 use Psr\Cache\CacheItemPoolInterface;
 use Register\Core\Pdo\DbLayer;
-use Register\Core\Queue\QueueExecutionBudget;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Rose\Entity\ExternalId;
 use Register\Rose\Entity\Indexable;
@@ -49,6 +48,7 @@ final class RecommendationCest
         [$recommendations, $log, $rawRecommendations] = $provider->getRecommendations(
             '/source',
             $externalId,
+            false,
         );
 
         $I->assertSame([], $recommendations);
@@ -63,17 +63,12 @@ final class RecommendationCest
             ->execute()
             ->result()
         ;
-        $I->assertSame(1, (int)$queued);
+        $I->assertSame(0, (int)$queued);
 
-        $provider->handle(
-            $externalId->toString(),
-            RecommendationProvider::RECOMMENDATIONS_QUEUE,
-            [],
-            new QueueExecutionBudget(5.0),
-        );
         [$recommendations, $log, $rawRecommendations] = $provider->getRecommendations(
             '/source',
             $externalId,
+            true,
         );
 
         $I->assertNotEmpty($log);

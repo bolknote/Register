@@ -36,6 +36,7 @@ use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Inplace\PostInplaceControls;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SearchDocumentFactory;
+use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Url\ContentUrlGenerator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -55,6 +56,7 @@ class PostPageController extends BlogController
         ContentUrlGenerator                      $contentUrlGenerator,
         UrlBuilder                               $urlBuilder,
         private readonly ?RecommendationProvider $recommendationProvider,
+        private readonly VisitorIdentityManager  $visitorIdentityManager,
         TranslatorInterface                      $translator,
         HtmlTemplateProvider                     $templateProvider,
         Viewer                                   $viewer,
@@ -281,6 +283,7 @@ class PostPageController extends BlogController
             [$recommendations, $log, $rawRecommendations] = $this->recommendationProvider->getRecommendations(
                 $request_uri,
                 new ExternalId(SearchDocumentFactory::externalId(ContentId::post((int)$post_id))),
+                $this->visitorIdentityManager->visitorIdFromRequest($request) !== null,
             );
             $template->putInPlaceholder('recommendations', $this->viewer->render('recommendations', [
                 'raw'     => $rawRecommendations,

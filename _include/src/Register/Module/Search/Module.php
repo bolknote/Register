@@ -64,6 +64,7 @@ use Register\Module\Search\Service\SearchIndexMaintenance;
 use Register\Module\Search\Service\SearchIndexRepairer;
 use Register\Module\Search\Service\SimilarWordsDetector;
 use Register\Module\Search\Service\SearchRssStrategy;
+use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -299,10 +300,13 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             if ($event->template->hasPlaceholder('<!-- register_recommendations -->')) {
                 $recommendationProvider = $container->get(RecommendationProvider::class);
                 $requestStack = $container->get(RequestStack::class);
-                $request_uri  = $requestStack->getCurrentRequest()?->getPathInfo() ?? '/';
+                $request = $requestStack->getCurrentRequest();
+                $request_uri = $request?->getPathInfo() ?? '/';
                 [$recommendations, $log, $rawRecommendations] = $recommendationProvider->getRecommendations(
                     $request_uri,
                     new ExternalId(SearchDocumentFactory::externalId(ContentId::page($event->articleId))),
+                    $request !== null
+                        && $container->get(VisitorIdentityManager::class)->visitorIdFromRequest($request) !== null,
                 );
 
                 $viewer = $container->get(Viewer::class);

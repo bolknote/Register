@@ -24,7 +24,7 @@ use Register\Core\Pdo\DbLayerException;
 
 readonly class RecommendationProvider implements QueueHandlerInterface
 {
-    private const int COLD_CACHE_RETRY_SECONDS = 60;
+    private const int COLD_CACHE_PLACEHOLDER_SECONDS = 3600;
 
     public const string INVALIDATED_AT = 'invalidatedAt';
 
@@ -59,20 +59,26 @@ readonly class RecommendationProvider implements QueueHandlerInterface
      * @throws DbLayerException
      * @return array<mixed>
      */
-    public function getRecommendations(string $page, ExternalId $externalId): array
+    public function getRecommendations(string $page, ExternalId $externalId, bool $buildColdCache = true): array
     {
         if ($this->recommendationsLimit->get() <= 0) {
             return [[], [], []];
         }
 
-        $cached = $this->cache->get(
-            $this->getCacheKey($externalId),
-            fn(ItemInterface $item): array => $this->scheduleColdCacheFill($item, $externalId),
-        );
+        $cacheKey = $this->getCacheKey($externalId);
+        $cached = $this->cache->get($cacheKey, fn(ItemInterface $item): array => $buildColdCache
+            ? $this->getValueForCache($externalId)
+            : $this->getColdCachePlaceholder($item));
+
+        if (($cached[2] ?? false) === true && $buildColdCache) {
+            $this->cache->delete($cacheKey);
+            $cached = $this->cache->get($cacheKey, fn(ItemInterface $_item): array => $this->getValueForCache($externalId));
+        }
+
         [$recommendations, $generatedAt] = $cached;
 
         $cacheInvalidatedAt = $this->cache->get(self::INVALIDATED_AT, fn(ItemInterface $_item): int => time());
-        if ($cacheInvalidatedAt > $generatedAt + 1) {
+        if ($buildColdCache && $cacheInvalidatedAt > $generatedAt + 1) {
             // +1 to protect from rebuilding
             $this->queuePublisher->publish($externalId->toString(), self::RECOMMENDATIONS_QUEUE);
         }
@@ -150,20 +156,16 @@ readonly class RecommendationProvider implements QueueHandlerInterface
         return self::CACHE_KEY_PREFIX . hash('sha256', $externalId->toString());
     }
 
-    /** @return array{array<mixed>, int} */
-    private function scheduleColdCacheFill(ItemInterface $item, ExternalId $externalId): array
+    /** @return array{array<mixed>, int, true} */
+    private function getColdCachePlaceholder(ItemInterface $item): array
     {
         // A crawler can discover thousands of old pages at once. Computing a
-        // cold recommendation set in every page request amplifies that crawl
-        // into an expensive SQL burst. Queue the cold fill and render the page
-        // without recommendations until the bounded background runner fills it.
-        $this->queuePublisher->publishIfAbsent(
-            $externalId->toString(),
-            self::RECOMMENDATIONS_QUEUE,
-        );
-        $item->expiresAfter(self::COLD_CACHE_RETRY_SECONDS);
+        // cold recommendation set or even inserting one queue row per page
+        // amplifies that crawl into an expensive SQL burst. A verified browser
+        // replaces this local placeholder with a fully populated cache entry.
+        $item->expiresAfter(self::COLD_CACHE_PLACEHOLDER_SECONDS);
 
-        return [[], time()];
+        return [[], time(), true];
     }
 
     /**
