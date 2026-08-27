@@ -759,7 +759,9 @@
     }
 
     .public-auth-user-menu > summary {
-        padding: 0.25rem;
+        width: 2.1rem;
+        justify-content: center;
+        padding: 0;
     }
 
     .public-auth-dialog-header,

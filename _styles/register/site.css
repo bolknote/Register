@@ -2338,6 +2338,22 @@ h2.preview,
     }
 }
 
+@media (max-width: 760px) {
+    .site-header-tools {
+        top: calc(-2.4rem + 0.2rem);
+        width: 2.1rem;
+    }
+
+    .site-header-tools .post-create-start {
+        width: 2.1rem;
+        min-height: 2.1rem;
+    }
+
+    .site-header-shell:has(> .site-header-tools) .site-title {
+        text-indent: 0;
+    }
+}
+
 @media (hover: none) {
     .post-inplace-tools {
         opacity: 1;

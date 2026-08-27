@@ -119,20 +119,35 @@ final class AssetPackTest extends Unit
         }
     }
 
-    public function testMobileCreateControlIndentsOnlyTheFirstSiteTitleLine(): void
+    public function testMobileHeaderControlsShareTheTopRailSymmetrically(): void
     {
-        $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');
+        $rootDir = \dirname(__DIR__, 4) . '/';
+        $site = file_get_contents($rootDir . '_styles/register/site.css');
+        $publicAuth = file_get_contents($rootDir . '_assets/register/public-auth.css');
 
         self::assertIsString($site);
         self::assertMatchesRegularExpression(
-            '/@media \(max-width: 880px\).*?'
-                . '\.site-header-shell:has\(> \.site-header-tools\) \.site-title\s*'
-                . '\{[^}]*text-indent:\s*2\.5rem;/s',
+            '/@media \(max-width: 760px\).*?\.site-header-tools\s*'
+                . '\{[^}]*top:\s*calc\(-2\.4rem \+ 0\.2rem\);[^}]*width:\s*2\.1rem;/s',
             $site,
         );
-        self::assertStringNotContainsString(
-            '.site-header-shell:has(> .site-header-tools) > .site-header-copy',
+        self::assertMatchesRegularExpression(
+            '/@media \(max-width: 760px\).*?\.site-header-tools \.post-create-start\s*'
+                . '\{[^}]*width:\s*2\.1rem;[^}]*min-height:\s*2\.1rem;/s',
             $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/@media \(max-width: 760px\).*?'
+                . '\.site-header-shell:has\(> \.site-header-tools\) \.site-title\s*'
+                . '\{[^}]*text-indent:\s*0;/s',
+            $site,
+        );
+
+        self::assertIsString($publicAuth);
+        self::assertMatchesRegularExpression(
+            '/@media \(max-width: 760px\).*?\.public-auth-user-menu > summary\s*'
+                . '\{[^}]*width:\s*2\.1rem;[^}]*justify-content:\s*center;[^}]*padding:\s*0;/s',
+            $publicAuth,
         );
     }
 
