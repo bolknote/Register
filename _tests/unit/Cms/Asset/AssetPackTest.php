@@ -136,6 +136,28 @@ final class AssetPackTest extends Unit
         );
     }
 
+    public function testPostEditorShowsTheCaretBeforeALeadingBlockWithoutChangingContent(): void
+    {
+        $rootDir = \dirname(__DIR__, 4) . '/';
+        $site = file_get_contents($rootDir . '_styles/register/site.css');
+        $script = file_get_contents($rootDir . '_assets/register/post-inplace.js');
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/\.post\.body\[data-post-inplace-body\]\.has-leading-boundary-caret::before\s*'
+                . '\{[^}]*position:\s*absolute;[^}]*background:\s*var\(--accent-color\);/s',
+            $site,
+        );
+
+        self::assertIsString($script);
+        self::assertStringContainsString(
+            'range.startContainer === active && range.startOffset === 0',
+            $script,
+        );
+        self::assertStringContainsString("document.addEventListener('selectionchange', syncBoundaryCaret", $script);
+        self::assertStringNotContainsString('\\u200b', strtolower($script));
+    }
+
     public function testCommentConfirmationUsesTheCommentContentColumn(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';

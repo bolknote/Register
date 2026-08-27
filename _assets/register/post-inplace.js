@@ -4,6 +4,7 @@
     const editorStates = new WeakMap();
     const tagSuggestionRequests = new Map();
     let tagEditorSequence = 0;
+    let boundaryCaretBody = null;
     const browserPreviewMaxDimension = 1600;
     const browserPreviewQuality = 0.86;
     const imageExtensions = new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp']);
@@ -269,6 +270,33 @@
         range.collapse(!atEnd);
         selection.removeAllRanges();
         selection.addRange(range);
+        syncBoundaryCaret();
+    }
+
+    function syncBoundaryCaret() {
+        const selection = window.getSelection();
+        const active = document.activeElement;
+        let nextBody = null;
+
+        if (
+            active instanceof HTMLElement
+            && active.matches('.post-card.is-editing > .post.body[data-post-inplace-body]')
+            && active.hasChildNodes()
+            && selection
+            && selection.rangeCount === 1
+        ) {
+            const range = selection.getRangeAt(0);
+            if (range.collapsed && range.startContainer === active && range.startOffset === 0) {
+                nextBody = active;
+            }
+        }
+
+        if (boundaryCaretBody === nextBody) {
+            return;
+        }
+        boundaryCaretBody?.classList.remove('has-leading-boundary-caret');
+        nextBody?.classList.add('has-leading-boundary-caret');
+        boundaryCaretBody = nextBody;
     }
 
     function prepareEditableMedia(root) {
@@ -429,6 +457,10 @@
         state.mediaControllers.forEach((controller) => controller.abort());
         state.mediaControllers.clear();
         state.body.classList.remove('is-media-dragover');
+        state.body.classList.remove('has-leading-boundary-caret');
+        if (boundaryCaretBody === state.body) {
+            boundaryCaretBody = null;
+        }
         state.dateInput.hidden = true;
         state.dateButton.hidden = true;
         unsetEditable(state.title);
@@ -2035,6 +2067,7 @@
         }
         selection.removeAllRanges();
         selection.addRange(range);
+        syncBoundaryCaret();
         return true;
     }
 
@@ -3377,7 +3410,12 @@
         }
         clearError(card.querySelector(':scope > .post-inplace-edit-form'));
         clearStatus(card);
+        syncBoundaryCaret();
     }, false);
+
+    document.addEventListener('selectionchange', syncBoundaryCaret, false);
+    document.addEventListener('focusin', syncBoundaryCaret, false);
+    document.addEventListener('focusout', () => window.setTimeout(syncBoundaryCaret, 0), false);
 
     window.addEventListener('resize', () => {
         document.querySelectorAll('.post-card.is-editing').forEach((card) => {
