@@ -94,6 +94,7 @@ final class AntispamCest
 
         $I->amOnPage('http://register.localhost/form-test');
         $I->assertNotSame($etag, $I->grabHttpHeader('ETag'), 'A fresh one-time form token must invalidate the old ETag.');
+
         $secondTextField = (string)$I->grabAttributeFrom('#comment-text', 'name');
         $I->assertNotSame($firstTextField, $secondTextField);
 
@@ -122,6 +123,7 @@ final class AntispamCest
             $I->assertMatchesRegularExpression('#^cf_[0-9a-f]{24}$#', $fieldName);
             $I->assertNotSame($canonicalName, $fieldName);
         }
+
         $I->assertNotSame(
             $fieldNames,
             $manager->fieldNames($manager->issue('/article', $visitorToken, 1_000)),

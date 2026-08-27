@@ -226,6 +226,7 @@ class Integration extends AbstractBrowserModule
         if (!$mutateCommentFields) {
             $request->attributes->set('_integration_preserve_comment_fields', true);
         }
+
         $manager = $this->publicApplication->container->get(CommentFormTokenManager::class);
         $cookie  = $manager->createVisitorCookie($visitorToken, $request);
         $cookieJar = $this->cookieJar ?? throw new \LogicException('The test cookie jar is not initialized.');

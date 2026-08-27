@@ -127,6 +127,7 @@ final class LiveUpdatesCest
         $I->seeElement('.site-header-tools .post-create-start[data-editor-shortcut="create"]');
         $I->dontSeeElement('.site-header-new-comments');
         $I->seeElement('.public-auth-account[data-live-region="site-account"]');
+
         $liveRegions = json_decode(
             html_entity_decode((string)$I->grabAttributeFrom(
                 'meta[name="register-live-updates"]',
