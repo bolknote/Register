@@ -11,6 +11,8 @@ namespace Register\Content;
 
 use Register\Comment\CommentSchema;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerPostgres;
+use Register\Core\Pdo\DbLayerSqlite;
 
 /** Writes daily aggregates and builds popular/hot post rankings without storing visitor data. */
 final readonly class ContentViewRepository
@@ -22,49 +24,33 @@ final readonly class ContentViewRepository
     public function record(ContentId $contentId, ?string $day = null): void
     {
         $day ??= gmdate('Y-m-d');
+        $table = $this->dbLayer->getPrefix() . ContentViewSchema::TABLE_NAME;
         $parameters = [
             'content_type' => $contentId->type->value,
             'content_id'   => $contentId->value,
             'day'          => $day,
         ];
+        $sql = match (true) {
+            $this->dbLayer instanceof DbLayerPostgres => <<<SQL
+                INSERT INTO $table (content_type, content_id, day, views)
+                VALUES (:content_type, :content_id, :day, 1)
+                ON CONFLICT (content_type, content_id, day) DO UPDATE SET
+                    views = $table.views + 1
+                SQL,
+            $this->dbLayer instanceof DbLayerSqlite => <<<SQL
+                INSERT INTO $table (content_type, content_id, day, views)
+                VALUES (:content_type, :content_id, :day, 1)
+                ON CONFLICT (content_type, content_id, day) DO UPDATE SET
+                    views = views + 1
+                SQL,
+            default => <<<SQL
+                INSERT INTO $table (content_type, content_id, day, views)
+                VALUES (:content_type, :content_id, :day, 1)
+                ON DUPLICATE KEY UPDATE views = views + 1
+                SQL,
+        };
 
-        $updated = $this->dbLayer
-            ->update(ContentViewSchema::TABLE_NAME)
-            ->set('views', 'views + 1')
-            ->where('content_type = :content_type')
-            ->andWhere('content_id = :content_id')
-            ->andWhere('day = :day')
-            ->execute($parameters)
-            ->affectedRows()
-        ;
-        if ($updated > 0) {
-            return;
-        }
-
-        $inserted = $this->dbLayer
-            ->insert(ContentViewSchema::TABLE_NAME)
-            ->values([
-                'content_type' => ':content_type',
-                'content_id'   => ':content_id',
-                'day'          => ':day',
-                'views'        => '1',
-            ])
-            ->onConflictDoNothing('content_type', 'content_id', 'day')
-            ->execute($parameters)
-            ->affectedRows()
-        ;
-
-        // A concurrent request may have inserted the row after our first UPDATE.
-        if ($inserted === 0) {
-            $this->dbLayer
-                ->update(ContentViewSchema::TABLE_NAME)
-                ->set('views', 'views + 1')
-                ->where('content_type = :content_type')
-                ->andWhere('content_id = :content_id')
-                ->andWhere('day = :day')
-                ->execute($parameters)
-            ;
-        }
+        $this->dbLayer->query($sql, $parameters);
     }
 
     public function total(ContentId $contentId): int

@@ -11,6 +11,15 @@ namespace Register\Update;
 
 final readonly class GeneratedAssetCacheCleaner
 {
+    /** Runtime evidence and expensive content-derived caches survive code switches. */
+    private const array PRESERVED_ENTRIES = [
+        '.htaccess',
+        'index.html',
+        'recommendations',
+        'picture_reserve',
+        'query-profiler-state.json',
+    ];
+
     private string $cacheDirectory;
 
     public function __construct(string $publicRoot)
@@ -30,7 +39,7 @@ final readonly class GeneratedAssetCacheCleaner
         }
 
         foreach ($entries as $entry) {
-            if (\in_array($entry, ['.', '..', '.htaccess', 'index.html'], true)) {
+            if ($this->isPreservedEntry($entry)) {
                 continue;
             }
 
@@ -41,6 +50,20 @@ final readonly class GeneratedAssetCacheCleaner
                 throw new \RuntimeException('Unable to remove a stale generated asset: ' . $entry);
             }
         }
+    }
+
+    private function isPreservedEntry(string $entry): bool
+    {
+        if (\in_array($entry, ['.', '..', ...self::PRESERVED_ENTRIES], true)) {
+            return true;
+        }
+
+        // Monitoring, security and diagnostic logs are operational data, not
+        // generated assets. Deployments must not erase the evidence needed to
+        // investigate the load that prompted the deployment.
+        return str_ends_with($entry, '.log')
+            || str_ends_with($entry, '.jsonl')
+            || str_ends_with($entry, '.lock');
     }
 
     private function removeTree(string $directory): void

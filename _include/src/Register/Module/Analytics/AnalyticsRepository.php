@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace Register\Module\Analytics;
 
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\DbLayerPostgres;
+use Register\Core\Pdo\DbLayerSqlite;
 
 final readonly class AnalyticsRepository
 {
@@ -62,22 +64,37 @@ final readonly class AnalyticsRepository
 
     private function incrementDaily(string $day, string $channel, int $hits, int $uniqueCount): void
     {
-        $this->dbLayer->insert('register_analytics_daily')
-            ->setValue('day', ':day')->setParameter('day', $day)
-            ->setValue('channel', ':channel')->setParameter('channel', $channel)
-            ->setValue('hits', '0')
-            ->setValue('unique_count', '0')
-            ->onConflictDoNothing('day', 'channel')
-            ->execute()
-        ;
+        $table = $this->dbLayer->getPrefix() . 'register_analytics_daily';
+        $sql = match (true) {
+            $this->dbLayer instanceof DbLayerPostgres => <<<SQL
+                INSERT INTO $table (day, channel, hits, unique_count)
+                VALUES (:day, :channel, :hits, :unique_count)
+                ON CONFLICT (day, channel) DO UPDATE SET
+                    hits = $table.hits + EXCLUDED.hits,
+                    unique_count = $table.unique_count + EXCLUDED.unique_count
+                SQL,
+            $this->dbLayer instanceof DbLayerSqlite => <<<SQL
+                INSERT INTO $table (day, channel, hits, unique_count)
+                VALUES (:day, :channel, :hits, :unique_count)
+                ON CONFLICT (day, channel) DO UPDATE SET
+                    hits = hits + excluded.hits,
+                    unique_count = unique_count + excluded.unique_count
+                SQL,
+            default => <<<SQL
+                INSERT INTO $table (day, channel, hits, unique_count)
+                VALUES (:day, :channel, :hits, :unique_count)
+                ON DUPLICATE KEY UPDATE
+                    hits = hits + VALUES(hits),
+                    unique_count = unique_count + VALUES(unique_count)
+                SQL,
+        };
 
-        $this->dbLayer->update('register_analytics_daily')
-            ->set('hits', 'hits + :hits')->setParameter('hits', $hits)
-            ->set('unique_count', 'unique_count + :unique_count')->setParameter('unique_count', $uniqueCount)
-            ->where('day = :day')->setParameter('day', $day)
-            ->andWhere('channel = :channel')->setParameter('channel', $channel)
-            ->execute()
-        ;
+        $this->dbLayer->query($sql, [
+            'day'          => $day,
+            'channel'      => $channel,
+            'hits'         => $hits,
+            'unique_count' => $uniqueCount,
+        ]);
     }
 
     private function validateCoordinates(string $day, string $channel): void

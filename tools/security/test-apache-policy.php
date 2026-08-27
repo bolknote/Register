@@ -62,6 +62,7 @@ try {
         '/rss'                                         => 200,
         '/feed.json'                                   => 200,
         '/sitemap.xml'                                 => 200,
+        '/auth/oauth/yandex'                           => 405,
         '/99.html'                                     => 200,
         '/private.js'                                  => 403,
         '/nonexistent-private.sql'                     => 403,

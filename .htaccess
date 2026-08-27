@@ -16,6 +16,12 @@ Options +FollowSymlinks -MultiViews
 
 RewriteEngine On
 
+# OAuth initiation changes server state and is deliberately POST-only. Reject
+# stale crawler links before PHP starts; the application repeats this check on
+# servers that do not use Apache rewrite rules.
+RewriteCond %{REQUEST_METHOD} =GET
+RewriteRule ^auth/oauth/(?:vk|mail_ru|ok_ru|yandex)/?$ - [R=405,L,NC]
+
 # The single-root shared-hosting package contains the complete application,
 # but implementation files and operator data must never be served over HTTP.
 RewriteRule ^(?:_doc|_include|_tests|tools|\.codex|\.git|\.github|\.local)(?:/|$) - [F,L,NC]
