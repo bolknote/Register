@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace unit\Register\Module\Blog\Model;
 
 use PHPUnit\Framework\TestCase;
+use Register\Content\ContentId;
 use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\PostFeed;
@@ -108,6 +109,39 @@ final class BlogPageCacheTest extends TestCase
 
         $cache->invalidateAll();
         self::assertTrue($cache->multiplePublishedAuthors($factory));
+    }
+
+    public function testContentResponsesUsePathMappingsForTargetedAndGlobalInvalidation(): void
+    {
+        $cache = new BlogPageCache(new ArrayAdapter());
+        $firstBuilds = 0;
+        $secondBuilds = 0;
+        $firstFactory = static function () use (&$firstBuilds): Response {
+            ++$firstBuilds;
+
+            return new Response('first-content-' . $firstBuilds);
+        };
+        $secondFactory = static function () use (&$secondBuilds): Response {
+            ++$secondBuilds;
+
+            return new Response('second-content-' . $secondBuilds);
+        };
+
+        self::assertSame('first-content-1', $cache->contentResponse('full_bot', '/one', $firstFactory)->getContent());
+        $cache->rememberContentPath(ContentId::post(1), '/one');
+        self::assertSame('first-content-1', $cache->contentResponse('full_bot', '/one', $firstFactory)->getContent());
+
+        self::assertSame('second-content-1', $cache->contentResponse('full_bot', '/two', $secondFactory)->getContent());
+        $cache->rememberContentPath(ContentId::post(2), '/two');
+        self::assertSame('second-content-1', $cache->contentResponse('full_bot', '/two', $secondFactory)->getContent());
+
+        $cache->invalidateContent(ContentId::post(1));
+        self::assertSame('first-content-2', $cache->contentResponse('full_bot', '/one', $firstFactory)->getContent());
+        self::assertSame('second-content-1', $cache->contentResponse('full_bot', '/two', $secondFactory)->getContent());
+
+        $cache->invalidateContentResponses();
+        self::assertSame('first-content-3', $cache->contentResponse('full_bot', '/one', $firstFactory)->getContent());
+        self::assertSame('second-content-2', $cache->contentResponse('full_bot', '/two', $secondFactory)->getContent());
     }
 
     public function testDisabledCacheAlwaysBuildsFreshFragments(): void

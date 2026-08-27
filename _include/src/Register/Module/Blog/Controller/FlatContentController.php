@@ -4,6 +4,9 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
+use Register\Content\ContentId;
+use Register\Module\Blog\Model\BlogPageCache;
+use Register\Module\Blog\Model\BlogResponseCachePolicy;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Url\ContentUrlAliasController;
 use Register\Core\Controller\PageCommon;
@@ -19,6 +22,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 readonly class FlatContentController implements ControllerInterface
 {
+    public const string CONTENT_ID_ATTRIBUTE = '_register_blog_content_id';
+
     public function __construct(
         private ArticleProvider    $articleProvider,
         private PageCommon         $pageController,
@@ -26,14 +31,37 @@ readonly class FlatContentController implements ControllerInterface
         private ContentUrlAliasController $aliasController,
         private PostProvider       $postProvider,
         private UrlBuilder         $urlBuilder,
+        private BlogPageCache      $pageCache,
+        private BlogResponseCachePolicy $responseCachePolicy,
     ) {
     }
 
     #[\Override]
     public function handle(Request $request): Response
     {
-        if ($this->articleProvider->articleFromPath($request->getPathInfo(), true) !== null) {
-            return $this->pageController->handle($request);
+        $variant = $this->responseCachePolicy->variant($request);
+        if ($variant !== null) {
+            return $this->pageCache->contentResponse(
+                $variant,
+                $request->getPathInfo(),
+                fn(): Response => $this->resolve($request, true),
+            );
+        }
+
+        return $this->resolve($request, false);
+    }
+
+    private function resolve(Request $request, bool $rememberContent): Response
+    {
+        $article = $this->articleProvider->articleFromPath($request->getPathInfo(), true);
+        if ($article !== null) {
+            $response = $this->pageController->handle($request);
+            $articleId = (int)($article['id'] ?? 0);
+            if ($rememberContent && $articleId > 0 && $response->getStatusCode() === Response::HTTP_OK) {
+                $this->pageCache->rememberContentPath(ContentId::page($articleId), $request->getPathInfo());
+            }
+
+            return $response;
         }
 
         $redirect = $this->aliasController->redirect($request);
@@ -53,6 +81,12 @@ readonly class FlatContentController implements ControllerInterface
             return new RedirectResponse($target, Response::HTTP_MOVED_PERMANENTLY);
         }
 
-        return $this->postController->handle($request);
+        $response = $this->postController->handle($request);
+        $contentId = $request->attributes->get(self::CONTENT_ID_ATTRIBUTE);
+        if ($rememberContent && $contentId instanceof ContentId && $response->getStatusCode() === Response::HTTP_OK) {
+            $this->pageCache->rememberContentPath($contentId, $request->getPathInfo());
+        }
+
+        return $response;
     }
 }

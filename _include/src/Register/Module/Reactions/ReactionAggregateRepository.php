@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Reactions;
 
+use Register\Content\ContentId;
 use Register\Core\Pdo\DbLayer;
 use Register\Module\Blog\Model\BlogPageCache;
 
@@ -40,9 +41,7 @@ final readonly class ReactionAggregateRepository
             ->execute()
         ;
 
-        if ($aggregate->targetType === ReactionAggregateTargetType::POST) {
-            $this->pageCache?->invalidateFirstPage();
-        }
+        $this->invalidateCache($aggregate->targetType, $aggregate->targetId);
     }
 
     public function remove(
@@ -62,8 +61,8 @@ final readonly class ReactionAggregateRepository
             ->affectedRows() > 0
         ;
 
-        if ($removed && $targetType === ReactionAggregateTargetType::POST) {
-            $this->pageCache?->invalidateFirstPage();
+        if ($removed) {
+            $this->invalidateCache($targetType, $targetId);
         }
 
         return $removed;
@@ -77,6 +76,22 @@ final readonly class ReactionAggregateRepository
             || \strlen($sourceKey) > 128
         ) {
             throw new \InvalidArgumentException('An imported reaction identity is invalid.');
+        }
+    }
+
+    private function invalidateCache(ReactionAggregateTargetType $targetType, int $targetId): void
+    {
+        if (!$this->pageCache instanceof BlogPageCache) {
+            return;
+        }
+
+        if ($targetType === ReactionAggregateTargetType::POST) {
+            $this->pageCache->invalidateFirstPage();
+            $this->pageCache->invalidateContent(ContentId::post($targetId));
+        } elseif ($targetType === ReactionAggregateTargetType::PAGE) {
+            $this->pageCache->invalidateContent(ContentId::page($targetId));
+        } elseif ($targetType === ReactionAggregateTargetType::COMMENT) {
+            $this->pageCache->invalidateContentResponses();
         }
     }
 }

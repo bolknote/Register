@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Model;
 
 use Register\Core\Model\AuthProvider;
+use Register\Module\Analytics\BotDetector;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -19,6 +20,7 @@ final readonly class BlogResponseCachePolicy
     public function __construct(
         private AuthProvider           $authProvider,
         private VisitorIdentityManager $visitorIdentityManager,
+        private BotDetector            $botDetector,
     ) {
     }
 
@@ -38,6 +40,10 @@ final readonly class BlogResponseCachePolicy
         }
 
         $representation = $navigation === 'partial' ? 'partial' : 'full';
+        if ($this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '')) {
+            return $representation . '_bot';
+        }
+
         $visitor = $this->visitorIdentityManager->visitorIdFromRequest($request) === null
             ? 'new_visitor'
             : 'known_visitor';

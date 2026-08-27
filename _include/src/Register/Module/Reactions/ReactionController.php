@@ -103,6 +103,7 @@ final readonly class ReactionController implements ControllerInterface
             $userId,
         );
         $this->pageCache->invalidateFirstPage();
+        $this->pageCache->invalidateContent($contentId);
 
         return $this->stateResponse($state);
     }

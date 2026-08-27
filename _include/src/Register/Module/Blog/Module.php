@@ -80,6 +80,7 @@ use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Module\Blog\Model\TagRssStrategy;
 use Register\Module\Blog\Service\TagsSearchProvider;
+use Register\Module\Analytics\BotDetector;
 use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SimilarWordsDetector;
@@ -153,6 +154,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $container->set(BlogResponseCachePolicy::class, static fn(Container $container): BlogResponseCachePolicy => new BlogResponseCachePolicy(
             $container->get(AuthProvider::class),
             $container->get(\Register\Module\VisitorIdentity\VisitorIdentityManager::class),
+            $container->get(BotDetector::class),
         ));
         $container->set(PostFeedRenderer::class, static function (Container $container): PostFeedRenderer {
             $provider = $container->get(DynamicConfigProvider::class);
@@ -325,6 +327,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(UrlBuilder::class),
                 $container->getIfDefined(RecommendationProvider::class),
                 $container->get(\Register\Module\VisitorIdentity\VisitorIdentityManager::class),
+                $container->get(BotDetector::class),
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
@@ -345,6 +348,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(ContentUrlAliasController::class),
             $container->get(PostProvider::class),
             $container->get(UrlBuilder::class),
+            $container->get(BlogPageCache::class),
+            $container->get(BlogResponseCachePolicy::class),
         ));
         $container->set(ContentUrlAliasController::class, static fn(Container $container): ContentUrlAliasController => new ContentUrlAliasController(
             $container->get(ContentUrlAliasRepository::class),
@@ -572,15 +577,21 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(ContentChangedEvent::class, static function (ContentChangedEvent $event) use ($container): void {
+            $pageCache = $container->get(BlogPageCache::class);
             if ($event->contentId->type === \Register\Content\ContentType::POST) {
-                $container->get(BlogPageCache::class)->invalidateAll();
+                $pageCache->invalidateAll();
             }
+
+            $pageCache->invalidateContent($event->contentId);
         });
 
         $eventDispatcher->addListener(CommentChangedEvent::class, static function (CommentChangedEvent $event) use ($container): void {
+            $pageCache = $container->get(BlogPageCache::class);
             if ($event->contentId->type === \Register\Content\ContentType::POST) {
-                $container->get(BlogPageCache::class)->invalidateFirstPage();
+                $pageCache->invalidateFirstPage();
             }
+
+            $pageCache->invalidateContent($event->contentId);
         });
 
         $eventDispatcher->addListener(ContentRenderedEvent::class, static function (ContentRenderedEvent $event) use ($container): void {

@@ -304,7 +304,9 @@ class Integration extends AbstractBrowserModule
 
         $this->publicApplication->container->get(DynamicConfigProvider::class)->regenerate();
         $this->adminApplication->container->get(DynamicConfigProvider::class)->regenerate();
-        $this->publicApplication->container->get(BlogPageCache::class)->invalidateAll();
+        $blogPageCache = $this->publicApplication->container->get(BlogPageCache::class);
+        $blogPageCache->invalidateAll();
+        $blogPageCache->invalidateContentResponses();
 
         $this->clearStatefulServices($this->publicApplication->container);
         $this->clearStatefulServices($this->adminApplication->container);

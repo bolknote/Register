@@ -54,6 +54,31 @@ final class BlogPageResponseCacheCest
         $I->assertSame([], $pdo->getQueryLog());
     }
 
+    public function servesRepeatedCrawlerContentWithoutDatabaseQueries(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertPost($dbLayer, 'Cached crawler post', 'cached-crawler-post');
+
+        $headers = ['User-Agent' => 'Mozilla/5.0 (compatible; YandexBot/3.0)'];
+        $I->sendRequestWithHeaders('/cached-crawler-post', $headers);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
+        $I->see('Cached crawler post');
+        $I->dontSeeElement('#add-comment');
+
+        $I->sendRequestWithHeaders('/cached-crawler-post', $headers);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+        $I->see('Cached crawler post');
+
+        /** @var PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        $I->assertSame([], $pdo->getQueryLog());
+
+        $I->sendRequestWithHeaders('/cached-crawler-post', ['User-Agent' => 'Mozilla/5.0 integration browser']);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
+        $I->seeElement('#add-comment');
+    }
+
     private function insertPost(DbLayer $dbLayer, string $title, string $slug): void
     {
         $dbLayer
