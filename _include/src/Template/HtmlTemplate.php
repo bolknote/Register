@@ -194,6 +194,10 @@ class HtmlTemplate
             $antispamVisitorToken = $this->commentFormTokenManager->getOrCreateVisitorToken($antispamRequest);
             $antispamVisitorCookie = $this->commentFormTokenManager->createVisitorCookie($antispamVisitorToken, $antispamRequest);
             $authenticatedUser = $this->authProvider->getAuthenticatedPublicUser($antispamRequest);
+            $antispamToken = $this->commentFormTokenManager->issue(
+                $antispamRequest->getPathInfo(),
+                $antispamVisitorToken,
+            );
             $replace['<!-- register_comment_form -->'] = $this->viewer->render('comment_form', [
                 ...$comment_array,
                 'authenticatedUser' => $authenticatedUser instanceof AuthenticatedPublicUser
@@ -202,10 +206,8 @@ class HtmlTemplate
                 'syntaxHelpItems' => $event->syntaxHelpItems,
                 'action'          => $this->urlBuilder->link($antispamRequest->getPathInfo()),
                 'cancelReplyUrl'  => $this->urlBuilder->link($antispamRequest->getPathInfo()) . '#add-comment',
-                'antispamToken'   => $this->commentFormTokenManager->issue(
-                    $antispamRequest->getPathInfo(),
-                    $antispamVisitorToken,
-                ),
+                'antispamToken'   => $antispamToken,
+                'commentFieldNames' => $this->commentFormTokenManager->fieldNames($antispamToken),
             ]);
         } else {
             $replace['<!-- register_comment_form -->'] = '';

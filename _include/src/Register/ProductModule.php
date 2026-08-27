@@ -600,7 +600,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
                 $cursor,
                 register_htmlencode(json_encode($regions, JSON_THROW_ON_ERROR)),
             ));
-        });
+        }, -100);
     }
 
     #[\Override]

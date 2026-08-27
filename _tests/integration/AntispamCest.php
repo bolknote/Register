@@ -75,9 +75,15 @@ final class AntispamCest
 
         $response = $I->grabResponse();
         $etag = $I->grabHttpHeader('ETag');
+        $firstTextField = (string)$I->grabAttributeFrom('#comment-text', 'name');
+        $firstTrapField = (string)$I->grabAttributeFrom('.comment-form-trap', 'name');
         $I->assertStringContainsString('name="antispam_token"', $response);
-        $I->assertStringContainsString('name="homepage"', $response);
-        $I->seeElement('.visually-hidden input[name="homepage"]');
+        $I->assertMatchesRegularExpression('#^cf_[0-9a-f]{24}$#', $firstTextField);
+        $I->assertMatchesRegularExpression('#^cf_[0-9a-f]{24}$#', $firstTrapField);
+        $I->assertNotSame($firstTextField, $firstTrapField);
+        $I->assertNotSame('text', $firstTextField);
+        $I->assertNotSame('homepage', $firstTrapField);
+        $I->seeElement('.visually-hidden .comment-form-trap');
         $I->assertStringNotContainsString('name="question"', $response);
         $I->assertStringNotContainsString('name="key"', $response);
 
@@ -88,6 +94,15 @@ final class AntispamCest
 
         $I->amOnPage('http://register.localhost/form-test');
         $I->assertNotSame($etag, $I->grabHttpHeader('ETag'), 'A fresh one-time form token must invalidate the old ETag.');
+        $secondTextField = (string)$I->grabAttributeFrom('#comment-text', 'name');
+        $I->assertNotSame($firstTextField, $secondTextField);
+
+        $postData = $I->grabFormValues('#comment-form');
+        $postData[$secondTextField] = 'A human-readable mutable form still works';
+        $postData[(string)$I->grabAttributeFrom('#comment-name', 'name')] = 'Reader';
+        $postData[(string)$I->grabAttributeFrom('#comment-email', 'name')] = 'reader@example.test';
+        $I->sendPost('http://register.localhost/form-test', $postData);
+        $I->seeResponseCodeIs(302);
     }
 
     public function testFormTokenValidationAndReplayProtection(\IntegrationTester $I): void
@@ -99,6 +114,18 @@ final class AntispamCest
         $visitorCookie = $manager->createVisitorCookie($visitorToken, $request);
         $request->cookies->set($visitorCookie->getName(), $visitorToken);
         $token        = $manager->issue('/article', $visitorToken, 1_000);
+
+        $fieldNames = $manager->fieldNames($token);
+        $I->assertCount(11, $fieldNames);
+        $I->assertCount(11, array_unique($fieldNames));
+        foreach ($fieldNames as $canonicalName => $fieldName) {
+            $I->assertMatchesRegularExpression('#^cf_[0-9a-f]{24}$#', $fieldName);
+            $I->assertNotSame($canonicalName, $fieldName);
+        }
+        $I->assertNotSame(
+            $fieldNames,
+            $manager->fieldNames($manager->issue('/article', $visitorToken, 1_000)),
+        );
 
         $preview = $manager->validateAndMaybeConsume($token, $request, false, 1_005);
         $I->assertTrue($preview->valid);
@@ -140,6 +167,25 @@ final class AntispamCest
         $I->sendPost('http://register.localhost/', [...$data, 'homepage' => 'https://spam.example']);
         $I->seeResponseCodeIs(200);
         $I->see('Your comment cannot be saved because it contains spam');
+        $I->assertSame($before, $this->commentCount($I));
+    }
+
+    public function testCanonicalCommentFieldsAreRejected(\IntegrationTester $I): void
+    {
+        /** @var CommentFormTokenManager $manager */
+        $manager      = $I->grabService(CommentFormTokenManager::class);
+        $request      = Request::create('http://register.localhost/');
+        $visitorToken = $manager->getOrCreateVisitorToken($request);
+        $token        = $manager->issue('/', $visitorToken, time() - 5);
+        $before       = $this->commentCount($I);
+
+        $I->sendPostWithAntispamVisitor('http://register.localhost/', [
+            ...$this->commentData('A bot used the old predictable field names'),
+            'antispam_token' => $token,
+        ], $visitorToken, false);
+
+        $I->seeResponseCodeIs(200);
+        $I->see('The comment form is invalid or has expired');
         $I->assertSame($before, $this->commentCount($I));
     }
 

@@ -43,7 +43,7 @@
     }
 
     function initCommentStorage() {
-        var form = document.forms.post_comment;
+        var form = document.getElementById('comment-form');
         activeCommentStorageForm = form || null;
         if (!form) {
             return;
@@ -52,11 +52,10 @@
             return;
         }
 
-        var fields = form.elements;
-        var textField = fields.text;
-        var nameField = fields.name;
-        var emailField = fields.email;
-        var idField = fields.id;
+        var textField = form.querySelector('.comment-editor-source');
+        var nameField = form.querySelector('#comment-name');
+        var emailField = form.querySelector('#comment-email');
+        var idField = form.querySelector('.comment-form-id');
 
         if (!textField || !idField) {
             return;
@@ -153,15 +152,15 @@
     function initCommentReplies(root) {
         root = root || document;
         var block = document.querySelector('.comment-form-block');
-        var form = document.forms.post_comment;
+        var form = document.getElementById('comment-form');
         if (!block || !form) {
             return;
         }
 
-        var parentField = form.elements.parent_id;
-        var numberField = form.elements.reply_number;
-        var nameField = form.elements.reply_name;
-        var textField = form.elements.text;
+        var parentField = form.querySelector('.comment-parent-id');
+        var numberField = form.querySelector('.comment-reply-number');
+        var nameField = form.querySelector('.comment-reply-name');
+        var textField = form.querySelector('.comment-editor-source');
         var context = block.querySelector('.comment-reply-context');
         var contextTarget = block.querySelector('.comment-reply-target');
         var cancelButton = block.querySelector('.comment-reply-cancel');

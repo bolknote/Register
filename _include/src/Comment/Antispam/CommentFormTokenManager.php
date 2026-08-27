@@ -18,6 +18,21 @@ final readonly class CommentFormTokenManager
 {
     public const int FORM_TOKEN_TTL = 12 * 60 * 60;
 
+    /** @var list<string> */
+    private const array MUTABLE_FIELDS = [
+        'email',
+        'email_login',
+        'homepage',
+        'id',
+        'name',
+        'parent_id',
+        'preview',
+        'reply_name',
+        'reply_number',
+        'subscribed',
+        'text',
+    ];
+
     private const int FUTURE_LEEWAY = 60;
 
     private const int VISITOR_COOKIE_TTL = 30 * 24 * 60 * 60;
@@ -78,6 +93,27 @@ final readonly class CommentFormTokenManager
         ], JSON_THROW_ON_ERROR));
 
         return $payload . '.' . $this->hasher->sign('comment-form', $payload);
+    }
+
+    /**
+     * Returns a token-bound name for every meaningful comment form field.
+     * A fresh form token therefore produces a fresh form shape without making
+     * JavaScript a requirement for posting a comment.
+     *
+     * @return array<string, string>
+     */
+    public function fieldNames(string $token): array
+    {
+        $fieldNames = [];
+        foreach (self::MUTABLE_FIELDS as $field) {
+            $fieldNames[$field] = 'cf_' . substr(
+                $this->hasher->sign('comment-form-field:' . $field, $token),
+                0,
+                24,
+            );
+        }
+
+        return $fieldNames;
     }
 
     /**

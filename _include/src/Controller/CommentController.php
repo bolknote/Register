@@ -80,8 +80,9 @@ readonly class CommentController implements ControllerInterface
     public function handle(Request $request): Response
     {
         $authenticatedUser = $this->authProvider->getAuthenticatedPublicUser($request);
-        $subscribed       = $request->request->get('subscribed', false) !== false;
-        $id               = $request->request->getString('id', '');
+        $formFieldError    = $this->restoreMutableFormFields($request);
+        $subscribed        = $request->request->get('subscribed', false) !== false;
+        $id                = $request->request->getString('id', '');
         if (preg_match('#^[0-9a-f]{32}$#', $id) !== 1) {
             $id = '';
         }
@@ -111,6 +112,14 @@ readonly class CommentController implements ControllerInterface
         $retryAfter = 0;
         $forceModeration = false;
         $formValidation = null;
+
+        if ($formFieldError !== null) {
+            $errors[] = $this->translator->trans('form_expired');
+            $this->logger->notice('Comment form field validation failed.', [
+                'path'   => $path,
+                'reason' => $formFieldError,
+            ]);
+        }
 
         if (!$this->commentsEnabled->get()) {
             $errors[] = $this->translator->trans('disabled');
@@ -469,6 +478,31 @@ readonly class CommentController implements ControllerInterface
                 return CommentFormTokenValidation::invalid('unavailable');
             }
         }
+    }
+
+    private function restoreMutableFormFields(Request $request): ?string
+    {
+        $submitted = $request->request->all();
+        $token     = $submitted['antispam_token'] ?? null;
+        if (!\is_string($token) || $token === '') {
+            $request->request->set('antispam_token', '');
+
+            return 'token_missing';
+        }
+
+        $canonicalFieldFound = false;
+        foreach ($this->commentFormTokenManager->fieldNames($token) as $canonicalName => $submittedName) {
+            if (array_key_exists($canonicalName, $submitted)) {
+                $canonicalFieldFound = true;
+            }
+
+            if (array_key_exists($submittedName, $submitted)) {
+                $request->request->set($canonicalName, $submitted[$submittedName]);
+                $request->request->remove($submittedName);
+            }
+        }
+
+        return $canonicalFieldFound ? 'canonical_field' : null;
     }
 
     private function requireTarget(?TargetDto $target): TargetDto

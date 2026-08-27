@@ -8,6 +8,7 @@ declare(strict_types = 1);
 /** @var string[] $syntaxHelpItems */
 /** @var callable $trans */
 /** @var string $antispamToken */
+/** @var array<string, string> $commentFieldNames */
 /** @var string|null $name */
 /** @var string|null $email */
 /** @var bool|null $subscribed */
@@ -25,6 +26,14 @@ $parent_id    = isset($parent_id) && $parent_id > 0 ? $parent_id : null;
 $reply_number = isset($reply_number) && $reply_number > 0 ? $reply_number : 0;
 $reply_name   ??= '';
 $authenticatedUser ??= null;
+
+$fieldName = static function (string $field) use ($commentFieldNames): string {
+    if (!isset($commentFieldNames[$field])) {
+        throw new \LogicException('A mutable comment field name is missing for "' . $field . '".');
+    }
+
+    return register_htmlencode($commentFieldNames[$field]);
+};
 
 $commentReturnPath = parse_url(html_entity_decode($action), PHP_URL_PATH);
 if (!\is_string($commentReturnPath) || $commentReturnPath === '') {
@@ -65,6 +74,7 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
             <label id="comment-text-label" for="comment-text"><?php echo $trans('Your comment'); ?></label>
             <?php
             $editorId    = 'comment-text';
+            $editorName  = $commentFieldNames['text'];
             $editorValue = $text;
             $editorRows  = 9;
             require __DIR__ . '/comment_editor.php';
@@ -72,24 +82,24 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
         </div>
         <?php if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser): ?>
         <div class="comment-authenticated-identity" hidden>
-            <input type="hidden" name="name" value="<?php echo register_htmlencode($name); ?>">
-            <input type="hidden" name="email" value="<?php echo register_htmlencode($email); ?>">
+            <input type="hidden" name="<?php echo $fieldName('name'); ?>" value="<?php echo register_htmlencode($name); ?>">
+            <input type="hidden" name="<?php echo $fieldName('email'); ?>" value="<?php echo register_htmlencode($email); ?>">
         </div>
         <?php else: ?>
         <div class="comment-identity" data-comment-guest-identity>
             <p class="input name">
                 <label for="comment-name"><?php echo $trans('Your name'); ?></label>
-                <input id="comment-name" type="text" name="name" value="<?php echo register_htmlencode($name); ?>" maxlength="50" size="40" autocomplete="name" />
+                <input id="comment-name" type="text" name="<?php echo $fieldName('name'); ?>" value="<?php echo register_htmlencode($name); ?>" maxlength="50" size="40" autocomplete="name" />
             </p>
             <p class="input email">
                 <label for="comment-email"><?php echo $trans('Your email'); ?></label>
-                <input id="comment-email" type="email" name="email" value="<?php echo register_htmlencode($email); ?>" maxlength="80" size="40" autocomplete="email" />
+                <input id="comment-email" type="email" name="<?php echo $fieldName('email'); ?>" value="<?php echo register_htmlencode($email); ?>" maxlength="80" size="40" autocomplete="email" />
                 <small><?php echo $trans('Email privacy note'); ?></small>
             </p>
         </div>
         <?php endif; ?>
         <div class="comment-options">
-            <label for="subscribed" title="<?php echo $trans('Subscribe label title'); ?>"><input type="checkbox" id="subscribed" name="subscribed" <?php if ($subscribed) echo 'checked="checked" '; ?>/><?php echo $trans('Subscribe label'); ?></label>
+            <label for="subscribed" title="<?php echo $trans('Subscribe label title'); ?>"><input type="checkbox" id="subscribed" name="<?php echo $fieldName('subscribed'); ?>" <?php if ($subscribed) echo 'checked="checked" '; ?>/><?php echo $trans('Subscribe label'); ?></label>
         </div>
         <details class="comment-formatting">
             <summary><?php echo $trans('Formatting help'); ?></summary>
@@ -97,17 +107,17 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
         </details>
         <p class="visually-hidden" aria-hidden="true">
             <label>Homepage
-                <input type="text" name="homepage" value="" tabindex="-1" autocomplete="off" /></label>
+                <input class="comment-form-trap" type="text" name="<?php echo $fieldName('homepage'); ?>" value="" tabindex="-1" autocomplete="off" /></label>
         </p>
-        <input type="hidden" name="id" value="<?php echo register_htmlencode($id); ?>" />
+        <input class="comment-form-id" type="hidden" name="<?php echo $fieldName('id'); ?>" value="<?php echo register_htmlencode($id); ?>" />
         <input type="hidden" name="antispam_token" value="<?php echo register_htmlencode($antispamToken); ?>" />
-        <input type="hidden" name="parent_id" value="<?php echo $parent_id ?? ''; ?>" />
-        <input type="hidden" name="reply_number" value="<?php echo $reply_number; ?>" />
-        <input type="hidden" name="reply_name" value="<?php echo register_htmlencode($reply_name); ?>" />
+        <input class="comment-parent-id" type="hidden" name="<?php echo $fieldName('parent_id'); ?>" value="<?php echo $parent_id ?? ''; ?>" />
+        <input class="comment-reply-number" type="hidden" name="<?php echo $fieldName('reply_number'); ?>" value="<?php echo $reply_number; ?>" />
+        <input class="comment-reply-name" type="hidden" name="<?php echo $fieldName('reply_name'); ?>" value="<?php echo register_htmlencode($reply_name); ?>" />
         <p class="input buttons">
             <input class="comment-submit" type="submit" name="submit" value="<?php echo $trans('Submit'); ?>" />
             <?php if (!$authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser): ?>
-            <button class="comment-email-submit" type="submit" name="email_login" value="1"><?php echo $trans('Sign in by email and publish'); ?></button>
+            <button class="comment-email-submit" type="submit" name="<?php echo $fieldName('email_login'); ?>" value="1"><?php echo $trans('Sign in by email and publish'); ?></button>
             <?php endif; ?>
         </p>
     </form>

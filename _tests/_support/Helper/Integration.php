@@ -215,9 +215,17 @@ class Integration extends AbstractBrowserModule
     }
 
     /** @param array<string, mixed> $postData */
-    public function sendPostWithAntispamVisitor(string $url, array $postData, string $visitorToken): void
+    public function sendPostWithAntispamVisitor(
+        string $url,
+        array  $postData,
+        string $visitorToken,
+        bool   $mutateCommentFields = true,
+    ): void
     {
         $request = Request::create($url, Request::METHOD_POST, $postData);
+        if (!$mutateCommentFields) {
+            $request->attributes->set('_integration_preserve_comment_fields', true);
+        }
         $manager = $this->publicApplication->container->get(CommentFormTokenManager::class);
         $cookie  = $manager->createVisitorCookie($visitorToken, $request);
         $cookieJar = $this->cookieJar ?? throw new \LogicException('The test cookie jar is not initialized.');
@@ -409,7 +417,35 @@ class Integration extends AbstractBrowserModule
             $request->cookies->set($visitorCookie->getName(), $visitorToken);
         }
 
+        if ($this->isSyntheticCommentPost($request)) {
+            $token = $request->request->get('antispam_token');
+            if (\is_string($token)) {
+                $tokenManager = $this->publicApplication->container->get(CommentFormTokenManager::class);
+                $submitted    = $request->request->all();
+                foreach ($tokenManager->fieldNames($token) as $canonicalName => $submittedName) {
+                    if (array_key_exists($canonicalName, $submitted)) {
+                        $request->request->set($submittedName, $submitted[$canonicalName]);
+                        $request->request->remove($canonicalName);
+                    }
+                }
+            }
+        }
+
         return $this->publicApplication->handle($request);
+    }
+
+    private function isSyntheticCommentPost(Request $request): bool
+    {
+        if ($request->attributes->getBoolean('_integration_preserve_comment_fields')) {
+            return false;
+        }
+
+        $path = $request->getPathInfo();
+
+        return $request->isMethod(Request::METHOD_POST)
+            && $request->request->has('text')
+            && !str_starts_with($path, '/_')
+            && $path !== '/comment-moderate';
     }
 
     private function createUsers(): void

@@ -127,6 +127,16 @@ final class LiveUpdatesCest
         $I->seeElement('.site-header-tools .post-create-start[data-editor-shortcut="create"]');
         $I->dontSeeElement('.site-header-new-comments');
         $I->seeElement('.public-auth-account[data-live-region="site-account"]');
+        $liveRegions = json_decode(
+            html_entity_decode((string)$I->grabAttributeFrom(
+                'meta[name="register-live-updates"]',
+                'data-regions',
+            )),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+        $I->assertIsArray($liveRegions);
+        $I->assertContains('site-account', $liveRegions);
 
         $admin = $dbLayer
             ->select('id, email, name')
@@ -181,7 +191,7 @@ final class LiveUpdatesCest
         $I->assertSame('/live-post#comment-' . $commentId, $I->grabHttpHeader('Location'));
 
         $cursor = (int)$payload['cursor'];
-        $comments->markSpam($commentId, ContentType::POST);
+        $comments->tombstone($commentId, ContentType::POST);
         $query = http_build_query([
             'cursor' => $cursor,
             'region' => ['site-account'],

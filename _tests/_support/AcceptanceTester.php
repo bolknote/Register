@@ -84,8 +84,8 @@ class AcceptanceTester extends Actor
         $name = 'Roman 🌞';
         $I->fillField('#comment-name', $name);
         $I->fillField('#comment-email', 'roman@example.com');
-        $I->checkOption('subscribed');
-        $I->fillField('#comment-form textarea[name=text]', $text);
+        $I->checkOption('#subscribed');
+        $I->fillField('#comment-text', $text);
         $I->click('submit');
 
         $I->seeResponseCodeIs(200);
@@ -111,7 +111,7 @@ class AcceptanceTester extends Actor
             $I->fillField('#comment-email', $email);
         }
 
-        $I->fillField('#comment-form textarea[name=text]', $text);
+        $I->fillField('#comment-text', $text);
         $I->click('submit');
     }
 

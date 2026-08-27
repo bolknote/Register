@@ -112,7 +112,7 @@ class CommentCest
         $I->see('Commenting as', '.comment-public-auth');
         $I->see('admin', '.comment-public-auth');
         $I->dontSeeElement('#comment-form [data-comment-guest-identity]');
-        $I->seeElement('#comment-form .comment-options input[name="subscribed"]');
+        $I->seeElement('#comment-form .comment-options #subscribed');
         $I->dontSeeElement('#comment-form input[name="show_email"]');
         $I->dontSeeElement('#comment-form .comment-preview');
 

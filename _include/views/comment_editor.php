@@ -4,10 +4,12 @@ declare(strict_types = 1);
 
 /** @var callable $trans */
 /** @var string $editorId */
+/** @var string|null $editorName */
 /** @var string $editorValue */
 /** @var int|null $editorRows */
 
 $editorRows ??= 9;
+$editorName ??= 'text';
 $editorHtml = \Register\Core\Comment\CommentHtml::editorHtml($editorValue, $trans('Wrote'));
 
 ?>
@@ -53,7 +55,7 @@ $editorHtml = \Register\Core\Comment\CommentHtml::editorHtml($editorValue, $tran
         id="<?php echo register_htmlencode($editorId); ?>"
         cols="50"
         rows="<?php echo $editorRows; ?>"
-        name="text"
+        name="<?php echo register_htmlencode($editorName); ?>"
         maxlength="65535"
     ><?php echo register_htmlencode($editorHtml); ?></textarea>
 </div>
