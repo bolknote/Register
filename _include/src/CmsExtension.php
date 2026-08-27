@@ -230,7 +230,7 @@ class CmsExtension implements ExtensionInterface
                 $container->getStringParameter('version'),
             ));
         $container->set(ResponseCompressionCache::class, fn(Container $container): ResponseCompressionCache => new ResponseCompressionCache(
-            new FilesystemAdapter('response_encoding', 3600, $container->getStringParameter('cache_dir')),
+            new FilesystemAdapter('response_encoding', 0, $container->getStringParameter('cache_dir')),
             $container->getBoolParameter('disable_cache'),
         ));
 

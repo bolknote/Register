@@ -14,7 +14,6 @@ use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use Register\Content\ContentViewRepository;
 use Register\Content\TagRepository;
 use Register\Url\ContentUrlGenerator;
 use Register\Core\Pdo\DbLayer;
@@ -31,7 +30,6 @@ readonly class PostProvider
         private BlogUrlBuilder  $blogUrlBuilder,
         private ContentUrlGenerator $contentUrlGenerator,
         private Viewer          $viewer,
-        private ContentViewRepository $contentViewRepository,
         private BlogPageCache    $pageCache,
     ) {
     }
@@ -180,7 +178,6 @@ readonly class PostProvider
         $seeAlso = [];
         $tags = [];
         $this->postsLinks($ids, $mergeLabels, $seeAlso, $tags);
-        $viewCounts = $this->viewCounts($ids);
 
         foreach ($posts as $postId => &$post) {
             $posts[$postId]['see_also'] = [];
@@ -194,7 +191,6 @@ readonly class PostProvider
             }
 
             $post['tags'] = $tags[$postId] ?? [];
-            $post['view_count'] = $viewCounts[(int)$postId] ?? 0;
             if (!isset($post['author'])) {
                 $post['author'] = '';
             }
@@ -206,31 +202,6 @@ readonly class PostProvider
         }
 
         return $posts;
-    }
-
-    /**
-     * @param list<int|string> $postIds
-     * @return array<int, int>
-     */
-    public function viewCounts(array $postIds): array
-    {
-        $contentIds = array_map(
-            static fn(int|string $id): ContentId => ContentId::post((int)$id),
-            $postIds,
-        );
-        $totals = $this->contentViewRepository->totals($contentIds);
-
-        $result = [];
-        foreach ($contentIds as $contentId) {
-            $result[$contentId->value] = $totals[(string)$contentId] ?? 0;
-        }
-
-        return $result;
-    }
-
-    public function viewCount(int $postId): int
-    {
-        return $this->contentViewRepository->total(ContentId::post($postId));
     }
 
     public function randomPublishedPostUrl(): ?string

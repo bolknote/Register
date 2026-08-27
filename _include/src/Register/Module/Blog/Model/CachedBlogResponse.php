@@ -19,10 +19,16 @@ final readonly class CachedBlogResponse
         private string $content,
         private int    $status,
         private array  $headers,
+        private ?string $dependencyVersion,
+        private ?int    $validUntil,
     ) {
     }
 
-    public static function fromResponse(Response $response): ?self
+    public static function fromResponse(
+        Response $response,
+        ?string $dependencyVersion = null,
+        ?int $validUntil = null,
+    ): ?self
     {
         $content = $response->getContent();
         if (!\is_string($content)
@@ -32,7 +38,23 @@ final readonly class CachedBlogResponse
             return null;
         }
 
-        return new self($content, $response->getStatusCode(), $response->headers->all());
+        return new self(
+            $content,
+            $response->getStatusCode(),
+            $response->headers->all(),
+            $dependencyVersion,
+            $validUntil,
+        );
+    }
+
+    public function matchesDependencyVersion(?string $dependencyVersion): bool
+    {
+        return $this->dependencyVersion === $dependencyVersion;
+    }
+
+    public function isFreshAt(int $timestamp): bool
+    {
+        return $this->validUntil === null || $timestamp < $this->validUntil;
     }
 
     public function toResponse(): Response

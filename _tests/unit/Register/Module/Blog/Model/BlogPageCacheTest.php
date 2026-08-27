@@ -11,6 +11,7 @@ namespace unit\Register\Module\Blog\Model;
 
 use PHPUnit\Framework\TestCase;
 use Register\Content\ContentId;
+use Register\Core\Pdo\PDO;
 use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\PostFeed;
@@ -25,6 +26,7 @@ final class BlogPageCacheTest extends TestCase
         $cache = new BlogPageCache(new ArrayAdapter());
         $firstPageBuilds = 0;
         $allPostsBuilds  = 0;
+        $navigationBuilds = 0;
 
         $firstFactory = static function () use (&$firstPageBuilds): PostFeed {
             ++$firstPageBuilds;
@@ -36,11 +38,18 @@ final class BlogPageCacheTest extends TestCase
 
             return new AllPostsPage('All ' . $allPostsBuilds, 'index-' . $allPostsBuilds);
         };
+        $navigationFactory = static function () use (&$navigationBuilds): array {
+            ++$navigationBuilds;
+
+            return ['build' => $navigationBuilds];
+        };
 
         self::assertSame('feed-1', $cache->firstPage($firstFactory)->html);
         self::assertSame('feed-1', $cache->firstPage($firstFactory)->html);
         self::assertSame('index-1', $cache->allPosts($allFactory)->html);
         self::assertSame('index-1', $cache->allPosts($allFactory)->html);
+        self::assertSame(['build' => 1], $cache->navigation($navigationFactory));
+        self::assertSame(['build' => 1], $cache->navigation($navigationFactory));
         self::assertSame(1, $firstPageBuilds);
         self::assertSame(1, $allPostsBuilds);
 
@@ -51,6 +60,7 @@ final class BlogPageCacheTest extends TestCase
         $cache->invalidateAll();
         self::assertSame('feed-3', $cache->firstPage($firstFactory)->html);
         self::assertSame('index-2', $cache->allPosts($allFactory)->html);
+        self::assertSame(['build' => 2], $cache->navigation($navigationFactory));
     }
 
     public function testCompleteResponsesAreReusedAndInvalidatedWithTheirPage(): void
@@ -92,6 +102,31 @@ final class BlogPageCacheTest extends TestCase
         self::assertSame('all-2', $cache->allResponse('full_new_visitor', $allFactory)->getContent());
     }
 
+    public function testClockDependentResponseChangesOnlyAtItsSemanticBoundary(): void
+    {
+        $now = 1_000;
+        $cache = new BlogPageCache(
+            new ArrayAdapter(),
+            clock: static function () use (&$now): int {
+                return $now;
+            },
+        );
+        $builds = 0;
+        $factory = function () use ($cache, &$builds): Response {
+            ++$builds;
+            $cache->invalidateCurrentResponseAt(1_100);
+
+            return new Response('semantic-' . $builds);
+        };
+
+        self::assertSame('semantic-1', $cache->firstResponse('full_bot', $factory)->getContent());
+        $now = 1_099;
+        self::assertSame('semantic-1', $cache->firstResponse('full_bot', $factory)->getContent());
+        $now = 1_100;
+        self::assertSame('semantic-2', $cache->firstResponse('full_bot', $factory)->getContent());
+        self::assertSame(2, $builds);
+    }
+
     public function testPublishedAuthorMultiplicityIsReusedUntilContentInvalidation(): void
     {
         $cache = new BlogPageCache(new ArrayAdapter());
@@ -114,7 +149,8 @@ final class BlogPageCacheTest extends TestCase
 
     public function testContentResponsesUsePathMappingsForTargetedAndGlobalInvalidation(): void
     {
-        $cache = new BlogPageCache(new ArrayAdapter());
+        $pool = new ArrayAdapter();
+        $cache = new BlogPageCache($pool);
         $firstBuilds = 0;
         $secondBuilds = 0;
         $firstFactory = static function () use (&$firstBuilds): Response {
@@ -135,6 +171,7 @@ final class BlogPageCacheTest extends TestCase
         self::assertSame('second-content-1', $cache->contentResponse('full_bot', '/two', $secondFactory)->getContent());
         $cache->rememberContentPath(ContentId::post(2), '/two');
         self::assertSame('second-content-1', $cache->contentResponse('full_bot', '/two', $secondFactory)->getContent());
+        self::assertCount(2, $this->contentResponseKeys($pool));
 
         $cache->invalidateContent(ContentId::post(1));
         self::assertSame('first-content-2', $cache->contentResponse('full_bot', '/one', $firstFactory)->getContent());
@@ -143,6 +180,7 @@ final class BlogPageCacheTest extends TestCase
         $cache->invalidateContentResponses();
         self::assertSame('first-content-3', $cache->contentResponse('full_bot', '/one', $firstFactory)->getContent());
         self::assertSame('second-content-2', $cache->contentResponse('full_bot', '/two', $secondFactory)->getContent());
+        self::assertCount(2, $this->contentResponseKeys($pool));
     }
 
     public function testDisabledCacheAlwaysBuildsFreshFragments(): void
@@ -190,5 +228,61 @@ final class BlogPageCacheTest extends TestCase
         $cache->invalidateContentResponses();
         self::assertFalse($memory->hasItem('register_content_response_generation_v1'));
         self::assertFalse($filesystem->hasItem('register_content_response_generation_v1'));
+    }
+
+    public function testCommitDeletesAStaleValueRepopulatedDuringTheTransaction(): void
+    {
+        $pool = new ArrayAdapter();
+        $pdo = new PDO('sqlite::memory:');
+        $cache = new BlogPageCache($pool, false, null, $pdo);
+        $builds = 0;
+        $factory = static function () use (&$builds): PostFeed {
+            ++$builds;
+
+            return new PostFeed('feed-' . $builds, null, null);
+        };
+
+        self::assertSame('feed-1', $cache->firstPage($factory)->html);
+
+        $pdo->beginTransaction();
+        $cache->invalidateFirstPage();
+        self::assertSame('feed-2', $cache->firstPage($factory)->html);
+        $pdo->commit();
+
+        self::assertSame('feed-3', $cache->firstPage($factory)->html);
+    }
+
+    public function testRollbackDeletesAValueBuiltFromUncommittedRows(): void
+    {
+        $pool = new ArrayAdapter();
+        $pdo = new PDO('sqlite::memory:');
+        $cache = new BlogPageCache($pool, false, null, $pdo);
+        $builds = 0;
+        $factory = static function () use (&$builds): PostFeed {
+            ++$builds;
+
+            return new PostFeed('feed-' . $builds, null, null);
+        };
+
+        self::assertSame('feed-1', $cache->firstPage($factory)->html);
+        $pdo->beginTransaction();
+        $cache->invalidateFirstPage();
+        self::assertSame('feed-2', $cache->firstPage($factory)->html);
+        $pdo->rollBack();
+
+        self::assertSame('feed-3', $cache->firstPage($factory)->html);
+    }
+
+    /** @return list<string> */
+    private function contentResponseKeys(ArrayAdapter $pool): array
+    {
+        $result = [];
+        foreach (array_keys($pool->getValues()) as $key) {
+            if (\is_string($key) && str_starts_with($key, 'register_content_response_v2_')) {
+                $result[] = $key;
+            }
+        }
+
+        return $result;
     }
 }

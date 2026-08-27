@@ -43,6 +43,7 @@ use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerAwareRoutingModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
+use Register\Core\Framework\ResponseProcessorInterface;
 use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Http\Cache\PageCachePools;
 use Register\Core\Mail\CommentMailer;
@@ -53,6 +54,7 @@ use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Model\User\UserProvider;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\PDO as TrackedPDO;
 use Register\Core\Template\HtmlTemplateProvider;
 use Register\Core\Template\TemplateAssetEvent;
 use Register\Core\Template\TemplateEvent;
@@ -75,6 +77,7 @@ use Register\Module\Blog\Model\BlogPlaceholderProvider;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\BlogResponseCachePolicy;
 use Register\Module\Blog\Model\ContentRssStrategy;
+use Register\Module\Blog\Model\ContentViewResponseProcessor;
 use Register\Module\Blog\Model\ContentFeedItemProvider;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Model\PostFeedRenderer;
@@ -130,11 +133,11 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(ContentUrlGenerator::class),
                 $container->get('register_blog_translator'),
                 $provider->getIntProxy('REGISTER_START_YEAR'),
+                $container->get(BlogPageCache::class),
             );
         });
         $container->set(BlogPlaceholderProvider::class, static function (Container $container): \Register\Module\Blog\Model\BlogPlaceholderProvider {
             $provider = $container->get(DynamicConfigProvider::class);
-            $pageCachePools = $container->get(PageCachePools::class);
             return new BlogPlaceholderProvider(
                 $container->get(DbLayer::class),
                 $container->get(\Register\Content\TagRepository::class),
@@ -143,7 +146,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('register_blog_translator'),
                 $container->get(Viewer::class),
                 $container->get(RequestStack::class),
-                $pageCachePools->hot,
+                $container->get(BlogPageCache::class),
                 $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
                 $provider->getIntProxy('REGISTER_MAX_ITEMS'),
                 $container->getStringParameter('url_prefix'),
@@ -151,11 +154,16 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         });
         $container->set(BlogPageCache::class, static function (Container $container): BlogPageCache {
             $pageCachePools = $container->get(PageCachePools::class);
+            $pdo = $container->get(\PDO::class);
+            if (!$pdo instanceof TrackedPDO) {
+                throw new \LogicException('The page cache requires Register\'s transaction-aware PDO service.');
+            }
 
             return new BlogPageCache(
                 $pageCachePools->persistent,
                 $container->getBoolParameter('disable_cache'),
                 $pageCachePools->hot,
+                $pdo,
             );
         }, [StatefulServiceInterface::class]);
         $container->set(BlogResponseCachePolicy::class, static fn(Container $container): BlogResponseCachePolicy => new BlogResponseCachePolicy(
@@ -163,6 +171,11 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(\Register\Module\VisitorIdentity\VisitorIdentityManager::class),
             $container->get(BotDetector::class),
         ));
+        $container->set(ContentViewResponseProcessor::class, static fn(Container $container): ContentViewResponseProcessor => new ContentViewResponseProcessor(
+            $container->get(ContentViewRepository::class),
+            $container->get(BotDetector::class),
+            $container->get('register_blog_translator'),
+        ), [ResponseProcessorInterface::class]);
         $container->set(PostFeedRenderer::class, static function (Container $container): PostFeedRenderer {
             $provider = $container->get(DynamicConfigProvider::class);
 
@@ -568,7 +581,6 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(BlogUrlBuilder::class),
             $container->get(ContentUrlGenerator::class),
             $container->get(Viewer::class),
-            $container->get(ContentViewRepository::class),
             $container->get(BlogPageCache::class),
         ));
 
@@ -584,20 +596,17 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     {
         $eventDispatcher->addListener(ContentChangedEvent::class, static function (ContentChangedEvent $event) use ($container): void {
             $pageCache = $container->get(BlogPageCache::class);
-            if ($event->contentId->type === \Register\Content\ContentType::POST) {
-                $pageCache->invalidateAll();
-            }
-
             $pageCache->invalidateContent($event->contentId);
+            // Navigation, sidebars, recommendations and cross-links can expose one
+            // content change on every cached page, not only on the changed URL.
+            $pageCache->invalidateAll();
         });
 
         $eventDispatcher->addListener(CommentChangedEvent::class, static function (CommentChangedEvent $event) use ($container): void {
             $pageCache = $container->get(BlogPageCache::class);
-            if ($event->contentId->type === \Register\Content\ContentType::POST) {
-                $pageCache->invalidateFirstPage();
-            }
-
             $pageCache->invalidateContent($event->contentId);
+            // Recent-comment and discussion blocks are shared site-wide.
+            $pageCache->invalidateAll();
         });
 
         $eventDispatcher->addListener(ContentRenderedEvent::class, static function (ContentRenderedEvent $event) use ($container): void {
@@ -608,6 +617,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             ])));
             if (!$request instanceof \Symfony\Component\HttpFoundation\Request
                 || !$request->isMethod('GET')
+                || $request->attributes->getBoolean(\Register\Module\Blog\Controller\FlatContentController::DEFER_VIEW_RECORDING_ATTRIBUTE)
                 || str_contains($purpose, 'prefetch')
                 || $container->get(\Register\Module\Analytics\BotDetector::class)->isBot($request->headers->get('User-Agent', '') ?? '')
             ) {

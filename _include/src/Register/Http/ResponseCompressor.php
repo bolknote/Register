@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Http;
 
+use Register\Core\Http\Cache\PageCacheHeaders;
 use Symfony\Component\HttpFoundation\AcceptHeader;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -48,6 +49,16 @@ final readonly class ResponseCompressor
 
     public function compress(Request $request, Response $response): bool
     {
+        try {
+            return $this->compressResponse($request, $response);
+        } finally {
+            // The stable identity selects a bounded encoded-body slot but is not public metadata.
+            $response->headers->remove(PageCacheHeaders::IDENTITY);
+        }
+    }
+
+    private function compressResponse(Request $request, Response $response): bool
+    {
         if ($this->managedByPhp || !$this->canCompress($response)) {
             return false;
         }
@@ -83,7 +94,7 @@ final readonly class ResponseCompressor
         } else {
             $compressed = $result['content'];
             if ($result['cache_status'] !== null) {
-                $response->headers->set('X-Register-Compression-Cache', $result['cache_status']);
+                $response->headers->set(PageCacheHeaders::COMPRESSION_STATUS, $result['cache_status']);
             }
         }
 

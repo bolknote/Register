@@ -3,6 +3,8 @@
 declare(strict_types = 1);
 
 use Register\Http\TrustedScriptNonceInjector;
+use Register\Content\ContentId;
+use Register\Module\Blog\Model\DeferredViewCount;
 
 /** @var callable $trans */
 /** @var $author string */
@@ -20,7 +22,7 @@ use Register\Http\TrustedScriptNonceInjector;
 /** @var string $favoritePostsUrl */
 /** @var bool $showComments */
 /** @var bool $enabledComments */
-/** @var array{action_url: string, admin_edit_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: bool}|null $inplace */
+/** @var array{action_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: bool}|null $inplace */
 
 $heading     = empty($title_link) ? 'h1' : 'h2';
 $inplaceData = isset($inplace) && \is_array($inplace) ? $inplace : null;
@@ -52,6 +54,7 @@ $tagNames    = array_values(array_map(
     data-remove-tag-label="<?php echo register_htmlencode($trans('Remove post tag')); ?>"
     data-invalid-tags="<?php echo register_htmlencode($trans('Invalid post tags')); ?>"
     data-link-prompt="<?php echo register_htmlencode($trans('Link address')); ?>"
+    data-media-optimizing="<?php echo register_htmlencode($trans('Post media optimizing')); ?>"
     data-media-uploading="<?php echo register_htmlencode($trans('Post media uploading')); ?>"
     data-media-upload-failed="<?php echo register_htmlencode($trans('Post media upload failed')); ?>"
     data-media-unsupported="<?php echo register_htmlencode($trans('Unsupported dropped media')); ?>"
@@ -257,32 +260,6 @@ $tagNames    = array_values(array_map(
         </div>
     </div>
 </template>
-<template class="post-media-conflict-template">
-    <div class="post-media-conflict-backdrop">
-        <section class="post-media-conflict-dialog" role="dialog" aria-modal="true" aria-labelledby="post-media-conflict-title-<?php echo $postId; ?>" tabindex="-1">
-            <header>
-                <span><?php echo $trans('Editor'); ?></span>
-                <h2 id="post-media-conflict-title-<?php echo $postId; ?>"><?php echo $trans('Image with this name exists'); ?></h2>
-                <p><?php echo $trans('Choose how to save duplicate image'); ?></p>
-            </header>
-            <div class="post-media-conflict-previews">
-                <figure>
-                    <div class="post-media-conflict-image"><img data-media-conflict-existing alt=""></div>
-                    <figcaption><?php echo $trans('Existing image'); ?></figcaption>
-                </figure>
-                <figure>
-                    <div class="post-media-conflict-image"><img data-media-conflict-incoming alt=""></div>
-                    <figcaption><?php echo $trans('New image'); ?></figcaption>
-                </figure>
-            </div>
-            <div class="post-media-conflict-actions">
-                <button type="button" data-media-conflict-action="cancel"><?php echo $trans('Cancel'); ?></button>
-                <button type="button" data-media-conflict-action="keep"><?php echo $trans('Keep both images'); ?></button>
-                <button type="button" class="is-primary" data-media-conflict-action="overwrite"><?php echo $trans('Replace existing image'); ?></button>
-            </div>
-        </section>
-    </div>
-</template>
 <template class="post-discard-changes-template">
     <div class="post-media-conflict-backdrop post-discard-changes-backdrop">
         <section class="post-media-conflict-dialog post-discard-changes-dialog" role="dialog" aria-modal="true" aria-labelledby="post-discard-changes-title-<?php echo $postId; ?>" tabindex="-1">
@@ -326,12 +303,12 @@ $tagNames    = array_values(array_map(
 </div>
 <?php if ($inplaceData !== null): ?>
 <nav class="post-inplace-tools" aria-label="<?php echo $trans('Post tools'); ?>">
-    <a class="post-inplace-button post-edit-start" href="<?php echo register_htmlencode($inplaceData['admin_edit_url']); ?>" title="<?php echo $trans('Edit post inplace'); ?>" aria-label="<?php echo $trans('Edit post inplace'); ?>"<?php echo $isCreating ? ' hidden' : ''; ?>>
+    <button class="post-inplace-button post-edit-start" type="button" title="<?php echo $trans('Edit post inplace'); ?>" aria-label="<?php echo $trans('Edit post inplace'); ?>"<?php echo $isCreating ? ' hidden' : ''; ?>>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M5.2 18.8 6.4 14.4 16.6 4.2a2.1 2.1 0 0 1 3 3L9.4 17.4l-4.2 1.4Z" />
             <path d="m14.7 6.1 3.2 3.2M6.4 14.4l3 3" />
         </svg>
-    </a>
+    </button>
     <button class="post-inplace-button post-delete-start" type="button" title="<?php echo $trans('Delete post inplace'); ?>" aria-label="<?php echo $trans('Delete post inplace'); ?>"<?php echo $isCreating ? ' hidden' : ''; ?>>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M7.2 8.2 8 19.3h8l.8-11.1M5.2 6.2h13.6M9 6.2V4.5h6v1.7M10.2 10.3v6.4M13.8 10.3v6.4" />
@@ -361,12 +338,16 @@ $tagNames    = array_values(array_map(
 <?php
 	$footer = [];
 
-    $viewCount = (int)($view_count ?? 0);
-    $viewLabel = $trans('N Views', ['%count%' => $viewCount, '{{ count }}' => $viewCount]);
-    $encodedViewLabel = register_htmlencode($viewLabel);
-    $footer['views'] = '<span class="post-foot-views" aria-label="' . $encodedViewLabel
-        . '" title="' . $encodedViewLabel . '"><span class="post-foot-views-count" aria-hidden="true">'
-        . $viewCount . '</span></span>';
+    if ($postId > 0) {
+        $footer['views'] = DeferredViewCount::placeholder(ContentId::post($postId));
+    } else {
+        $viewCount = (int)($view_count ?? 0);
+        $viewLabel = $trans('N Views', ['%count%' => $viewCount, '{{ count }}' => $viewCount]);
+        $encodedViewLabel = register_htmlencode($viewLabel);
+        $footer['views'] = '<span class="post-foot-views" aria-label="' . $encodedViewLabel
+            . '" title="' . $encodedViewLabel . '"><span class="post-foot-views-count" aria-hidden="true">'
+            . $viewCount . '</span></span>';
+    }
 
 	if ($commented && $showComments) {
         if ($comment_num) {

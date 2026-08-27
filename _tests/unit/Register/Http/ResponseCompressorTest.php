@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace unit\Register\Http;
 
 use Codeception\Test\Unit;
+use Register\Core\Http\Cache\PageCacheHeaders;
 use Register\Http\ResponseCompressor;
 use Register\Http\ResponseCompressionCache;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -63,7 +64,8 @@ final class ResponseCompressorTest extends Unit
     public function testCachesEncodedDeterministicPageResponsesByContent(): void
     {
         $countingCompressor = new CountingCompressor();
-        $cache = new ResponseCompressionCache(new ArrayAdapter());
+        $pool = new ArrayAdapter();
+        $cache = new ResponseCompressionCache($pool);
         $compressor = new ResponseCompressor(
             null,
             $countingCompressor->compress(...),
@@ -75,6 +77,7 @@ final class ResponseCompressorTest extends Unit
         $first = $this->cachedResponse('Compress me');
         self::assertTrue($compressor->compress($this->request('gzip'), $first));
         self::assertSame('miss', $first->headers->get('X-Register-Compression-Cache'));
+        self::assertFalse($first->headers->has(PageCacheHeaders::IDENTITY));
 
         $second = $this->cachedResponse('Compress me');
         self::assertTrue($compressor->compress($this->request('gzip'), $second));
@@ -85,6 +88,7 @@ final class ResponseCompressorTest extends Unit
         self::assertTrue($compressor->compress($this->request('gzip'), $changed));
         self::assertSame('miss', $changed->headers->get('X-Register-Compression-Cache'));
         self::assertSame(2, $countingCompressor->calls);
+        self::assertCount(1, $pool->getValues());
     }
 
     public function testDoesNotTransformAnEncodedOrBinaryResponse(): void
@@ -139,6 +143,7 @@ final class ResponseCompressorTest extends Unit
             'Content-Type'          => 'text/html; charset=UTF-8',
             'ETag'                  => '"stable-etag"',
             'X-Register-Page-Cache' => 'hit',
+            PageCacheHeaders::IDENTITY => str_repeat('a', 64),
         ]);
     }
 }

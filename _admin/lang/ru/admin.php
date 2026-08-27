@@ -560,6 +560,8 @@ return [
     'Compression server note'               => 'Готовые варианты CSS/JavaScript отдаются, если веб-сервер поддерживает встроенные правила. Для недоступных кодеков используется gzip или исходный ответ.',
     'Page cache'                             => 'Кэш страниц',
     'Page cache state'                       => 'Состояние',
+    'Page cache invalidation'                => 'Инвалидация',
+    'Event-driven page cache invalidation'   => 'По изменениям данных, без фиксированного срока жизни',
     'Page cache enabled'                     => 'Включён',
     'Page cache disabled'                    => 'Выключен',
     'Persistent page cache'                  => 'Постоянный уровень',

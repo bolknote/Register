@@ -124,6 +124,25 @@ fallback. Omit `--force` to update only missing or stale variants. The **System 
 compression** block shows the encoders visible to web PHP, available offline precompression, ready
 sidecar counts, and whether the encoded page cache is enabled.
 
+## Page-cache consistency
+
+Public page representations do not have an arbitrary lifetime. They remain cached until an
+application write changes one of their dependencies. Content, comments, tags, users, navigation
+configuration, and reactions invalidate the affected stable cache slots; broad dependencies such
+as sidebars rotate a shared dependency version. The few clock-dependent fragments carry their exact
+semantic boundary (for example, the instant a calendar changes month), rather than a periodic TTL.
+Cache keys stay stable, so invalidation replaces an old value instead of leaving expired generations
+on disk.
+
+Invalidation is coordinated with database transactions. An affected slot is removed when the write
+starts and again after `COMMIT`; `ROLLBACK` also removes any representation that the writing request
+could have built from uncommitted rows. This closes the race in which another PHP worker could
+otherwise repopulate an indefinitely cached value from the old committed snapshot.
+
+Request-dependent reply forms and exact view totals are hydrated after the shared page shell is
+selected. Consequently query parameters that do not affect a route do not create extra cache
+copies, while a cached material still records a real human view and displays the current counter.
+
 ## Updating an existing site
 
 After the first updater-capable release has been installed, use **System → Software update** in the

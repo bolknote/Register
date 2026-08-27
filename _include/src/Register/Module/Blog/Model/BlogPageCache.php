@@ -11,6 +11,8 @@ namespace Register\Module\Blog\Model;
 
 use Register\Content\ContentId;
 use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Http\Cache\PageCacheHeaders;
+use Register\Core\Pdo\PDO;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
@@ -23,6 +25,8 @@ final class BlogPageCache implements StatefulServiceInterface
     private const string ALL_POSTS_KEY = 'register_blog_all_posts_v1';
 
     private const string MULTIPLE_PUBLISHED_AUTHORS_KEY = 'register_blog_multiple_published_authors_v1';
+
+    private const string NAVIGATION_KEY = 'register_blog_navigation_v2';
 
     private const string FIRST_RESPONSE_PREFIX = 'register_blog_first_response_v2_';
 
@@ -43,34 +47,24 @@ final class BlogPageCache implements StatefulServiceInterface
         'partial_known_visitor',
     ];
 
-    /** View counters may change without a content event, so keep their maximum staleness bounded. */
-    private const int FIRST_PAGE_TTL_SECONDS = 300;
-
-    /** Content events invalidate this entry; the TTL is a fallback for out-of-band database changes. */
-    private const int ALL_POSTS_TTL_SECONDS = 86400;
-
-    /** Request-bound forms are hydrated after this shared content response leaves the cache. */
-    private const int CONTENT_RESPONSE_TTL_SECONDS = 86400;
-
-    private bool $firstPageInvalidated = false;
-
-    private bool $allPostsInvalidated = false;
-
-    private bool $publishedAuthorsInvalidated = false;
-
-    private bool $contentResponsesInvalidated = false;
-
-    /** @var array<string, true> */
-    private array $invalidatedContent = [];
-
     private readonly CacheInterface $hotCache;
+
+    /** @var \Closure(): int */
+    private readonly \Closure $clock;
+
+    private bool $buildingResponse = false;
+
+    private ?int $currentResponseInvalidationAt = null;
 
     public function __construct(
         private readonly CacheInterface $cache,
         private readonly bool           $disabled = false,
         ?CacheInterface                  $hotCache = null,
+        private readonly ?PDO            $pdo = null,
+        ?\Closure                        $clock = null,
     ) {
         $this->hotCache = $hotCache ?? $cache;
+        $this->clock = $clock ?? static fn(): int => time();
     }
 
     /** @param callable(): PostFeed $factory */
@@ -80,14 +74,11 @@ final class BlogPageCache implements StatefulServiceInterface
             return $factory();
         }
 
-        $feed = $this->hotCache->get(self::FIRST_PAGE_KEY, static function (ItemInterface $item) use ($factory): PostFeed {
-            $item->expiresAfter(self::FIRST_PAGE_TTL_SECONDS);
-
-            return $factory();
-        }, 0.0);
-        $this->firstPageInvalidated = false;
-
-        return $feed;
+        return $this->hotCache->get(
+            self::FIRST_PAGE_KEY,
+            static fn(ItemInterface $_item): PostFeed => $factory(),
+            0.0,
+        );
     }
 
     /** @param callable(): AllPostsPage $factory */
@@ -97,14 +88,11 @@ final class BlogPageCache implements StatefulServiceInterface
             return $factory();
         }
 
-        $page = $this->hotCache->get(self::ALL_POSTS_KEY, static function (ItemInterface $item) use ($factory): AllPostsPage {
-            $item->expiresAfter(self::ALL_POSTS_TTL_SECONDS);
-
-            return $factory();
-        }, 0.0);
-        $this->allPostsInvalidated = false;
-
-        return $page;
+        return $this->hotCache->get(
+            self::ALL_POSTS_KEY,
+            static fn(ItemInterface $_item): AllPostsPage => $factory(),
+            0.0,
+        );
     }
 
     /** @param callable(): bool $factory */
@@ -114,47 +102,48 @@ final class BlogPageCache implements StatefulServiceInterface
             return $factory();
         }
 
-        $multiple = $this->hotCache->get(
+        return $this->hotCache->get(
             self::MULTIPLE_PUBLISHED_AUTHORS_KEY,
-            static function (ItemInterface $item) use ($factory): bool {
-                $item->expiresAfter(self::ALL_POSTS_TTL_SECONDS);
-
-                return $factory();
-            },
+            static fn(ItemInterface $_item): bool => $factory(),
             0.0,
         );
-        $this->publishedAuthorsInvalidated = false;
+    }
 
-        return $multiple;
+    /**
+     * @param callable(): array<mixed> $factory
+     * @return array<mixed>
+     */
+    public function navigation(callable $factory): array
+    {
+        if ($this->disabled) {
+            return $factory();
+        }
+
+        return $this->hotCache->get(
+            self::NAVIGATION_KEY,
+            static fn(ItemInterface $_item): array => $factory(),
+            0.0,
+        );
     }
 
     /** @param callable(): Response $factory */
     public function firstResponse(string $variant, callable $factory): Response
     {
-        $response = $this->response(
+        return $this->response(
             $this->hotCache,
             self::FIRST_RESPONSE_PREFIX . $this->validatedVariant($variant),
-            self::FIRST_PAGE_TTL_SECONDS,
             $factory,
         );
-        $this->firstPageInvalidated = false;
-
-        return $response;
     }
 
     /** @param callable(): Response $factory */
     public function allResponse(string $variant, callable $factory): Response
     {
-        // Content events invalidate the deterministic archive response; the TTL covers out-of-band changes.
-        $response = $this->response(
+        return $this->response(
             $this->hotCache,
             self::ALL_RESPONSE_PREFIX . $this->validatedVariant($variant),
-            self::ALL_POSTS_TTL_SECONDS,
             $factory,
         );
-        $this->allPostsInvalidated = false;
-
-        return $response;
     }
 
     /** @param callable(): Response $factory */
@@ -165,8 +154,8 @@ final class BlogPageCache implements StatefulServiceInterface
         return $this->response(
             $this->cache,
             $this->contentResponsePrefix($path) . $this->validatedVariant($variant),
-            self::CONTENT_RESPONSE_TTL_SECONDS,
             $factory,
+            $this->contentResponseGeneration(),
         );
     }
 
@@ -190,124 +179,158 @@ final class BlogPageCache implements StatefulServiceInterface
         $paths[] = $path;
         $paths = array_slice($paths, -4);
         $this->cache->delete($mappingKey);
-        $this->cache->get($mappingKey, static function (ItemInterface $item) use ($paths): array {
-            $item->expiresAfter(self::CONTENT_RESPONSE_TTL_SECONDS);
-
-            return $paths;
-        }, 0.0);
+        $this->cache->get(
+            $mappingKey,
+            static fn(ItemInterface $_item): array => $paths,
+            0.0,
+        );
     }
 
     public function invalidateContent(ContentId $contentId): void
     {
-        if ($this->disabled || isset($this->invalidatedContent[(string)$contentId])) {
+        if ($this->disabled) {
             return;
         }
 
-        $mappingKey = $this->contentPathKey($contentId);
-        $paths = $this->cache->get(
-            $mappingKey,
-            $this->missingContentPaths(...),
-            0.0,
-        );
-        foreach ($paths as $path) {
-            $this->deleteResponses(
-                $this->cache,
-                $this->contentResponsePrefix($this->normalizedContentPath($path)),
+        $this->afterCommitOnce('content:' . (string)$contentId, function () use ($contentId): void {
+            $mappingKey = $this->contentPathKey($contentId);
+            $paths = $this->cache->get(
+                $mappingKey,
+                $this->missingContentPaths(...),
+                0.0,
             );
-        }
+            foreach ($paths as $path) {
+                $this->deleteResponses(
+                    $this->cache,
+                    $this->contentResponsePrefix($this->normalizedContentPath($path)),
+                );
+            }
 
-        $this->cache->delete($mappingKey);
-        $this->invalidatedContent[(string)$contentId] = true;
+            $this->cache->delete($mappingKey);
+        });
     }
 
     public function invalidateContentResponses(): void
     {
-        if ($this->disabled || $this->contentResponsesInvalidated) {
+        if ($this->disabled) {
             return;
         }
 
-        $this->hotCache->delete(self::CONTENT_RESPONSE_GENERATION_KEY);
-        $this->contentResponsesInvalidated = true;
-        $this->invalidatedContent = [];
+        $this->afterCommitOnce(
+            'content-responses',
+            function (): void {
+                $this->hotCache->delete(self::CONTENT_RESPONSE_GENERATION_KEY);
+            },
+        );
     }
 
     public function invalidateFirstPage(): void
     {
-        if ($this->disabled || $this->firstPageInvalidated) {
+        if ($this->disabled) {
             return;
         }
 
-        $this->hotCache->delete(self::FIRST_PAGE_KEY);
-        $this->deleteResponses($this->hotCache, self::FIRST_RESPONSE_PREFIX);
-        $this->firstPageInvalidated = true;
+        $this->afterCommitOnce('first-page', function (): void {
+            $this->hotCache->delete(self::FIRST_PAGE_KEY);
+            $this->deleteResponses($this->hotCache, self::FIRST_RESPONSE_PREFIX);
+        });
     }
 
     public function invalidateAll(): void
     {
-        if ($this->disabled || (
-            $this->firstPageInvalidated
-            && $this->allPostsInvalidated
-            && $this->publishedAuthorsInvalidated
-        )) {
+        if ($this->disabled) {
             return;
         }
 
-        if (!$this->firstPageInvalidated) {
-            $this->hotCache->delete(self::FIRST_PAGE_KEY);
-            $this->deleteResponses($this->hotCache, self::FIRST_RESPONSE_PREFIX);
-            $this->firstPageInvalidated = true;
-        }
-
-        if (!$this->allPostsInvalidated) {
+        $this->invalidateFirstPage();
+        $this->afterCommitOnce('all-posts', function (): void {
             $this->hotCache->delete(self::ALL_POSTS_KEY);
             $this->deleteResponses($this->hotCache, self::ALL_RESPONSE_PREFIX);
-            $this->allPostsInvalidated = true;
+        });
+        $this->afterCommitOnce('published-authors', function (): void {
+            $this->hotCache->delete(self::MULTIPLE_PUBLISHED_AUTHORS_KEY);
+        });
+        $this->afterCommitOnce('navigation', function (): void {
+            $this->hotCache->delete(self::NAVIGATION_KEY);
+        });
+        $this->invalidateContentResponses();
+    }
+
+    /**
+     * Marks the exact instant when a clock-dependent fragment changes meaning.
+     * This is a semantic dependency boundary, not a cache lifetime.
+     */
+    public function invalidateCurrentResponseAt(int $timestamp): void
+    {
+        if (!$this->buildingResponse || $timestamp < 1) {
+            return;
         }
 
-        if (!$this->publishedAuthorsInvalidated) {
-            $this->hotCache->delete(self::MULTIPLE_PUBLISHED_AUTHORS_KEY);
-            $this->publishedAuthorsInvalidated = true;
-        }
+        $this->currentResponseInvalidationAt = $this->currentResponseInvalidationAt === null
+            ? $timestamp
+            : min($this->currentResponseInvalidationAt, $timestamp);
     }
 
     #[\Override]
     public function clearState(): void
     {
-        $this->firstPageInvalidated = false;
-        $this->allPostsInvalidated  = false;
-        $this->publishedAuthorsInvalidated = false;
-        $this->contentResponsesInvalidated = false;
-        $this->invalidatedContent = [];
+        // Transaction-level coalescing is owned by PDO and is reset on commit or rollback.
+        $this->buildingResponse = false;
+        $this->currentResponseInvalidationAt = null;
     }
 
     /** @param callable(): Response $factory */
-    private function response(CacheInterface $cache, string $key, int $ttl, callable $factory): Response
+    private function response(
+        CacheInterface $cache,
+        string $key,
+        callable $factory,
+        ?string $dependencyVersion = null,
+    ): Response
     {
         if ($this->disabled) {
             return $factory();
         }
 
         $miss = false;
-        $value = $cache->get(
-            $key,
-            static function (ItemInterface $item, bool &$save) use ($factory, $ttl, &$miss): CachedBlogResponse|Response {
-                $miss = true;
-                $item->expiresAfter($ttl);
+        $factory = function (ItemInterface $_item, bool &$save) use (
+            $factory,
+            $dependencyVersion,
+            &$miss,
+        ): CachedBlogResponse|Response {
+            $miss = true;
+            $this->buildingResponse = true;
+            $this->currentResponseInvalidationAt = null;
+            try {
                 $response = $factory();
-                $cached = CachedBlogResponse::fromResponse($response);
-                if (!$cached instanceof CachedBlogResponse) {
-                    $save = false;
+                $validUntil = $this->currentResponseInvalidationAt;
+            } finally {
+                $this->buildingResponse = false;
+                $this->currentResponseInvalidationAt = null;
+            }
 
-                    return $response;
-                }
+            $cached = CachedBlogResponse::fromResponse($response, $dependencyVersion, $validUntil);
+            if (!$cached instanceof CachedBlogResponse) {
+                $save = false;
 
-                return $cached;
-            },
-            0.0,
-        );
+                return $response;
+            }
+
+            return $cached;
+        };
+        $value = $cache->get($key, $factory, 0.0);
+        if ($value instanceof CachedBlogResponse && (
+            !$value->matchesDependencyVersion($dependencyVersion)
+            || !$value->isFreshAt(($this->clock)())
+        )) {
+            // Keep one stable slot per route. A dependency event changes the
+            // version stored inside that slot, so stale generations cannot pile up.
+            $cache->delete($key);
+            $value = $cache->get($key, $factory, 0.0);
+        }
 
         $response = $value instanceof CachedBlogResponse ? $value->toResponse() : $value;
-        $response->headers->set('X-Register-Page-Cache', $miss ? 'miss' : 'hit');
+        $response->headers->set(PageCacheHeaders::STATUS, $miss ? 'miss' : 'hit');
+        $response->headers->set(PageCacheHeaders::IDENTITY, hash('sha256', $key));
 
         return $response;
     }
@@ -329,8 +352,6 @@ final class BlogPageCache implements StatefulServiceInterface
     private function contentResponsePrefix(string $path): string
     {
         return self::CONTENT_RESPONSE_PREFIX
-            . $this->contentResponseGeneration()
-            . '_'
             . hash('sha256', $path)
             . '_';
     }
@@ -339,11 +360,7 @@ final class BlogPageCache implements StatefulServiceInterface
     {
         $generation = $this->hotCache->get(
             self::CONTENT_RESPONSE_GENERATION_KEY,
-            static function (ItemInterface $item): string {
-                $item->expiresAfter(self::ALL_POSTS_TTL_SECONDS);
-
-                return bin2hex(random_bytes(8));
-            },
+            static fn(ItemInterface $_item): string => bin2hex(random_bytes(8)),
             0.0,
         );
         if (preg_match('/^[a-f0-9]{16}$/D', $generation) !== 1) {
@@ -382,5 +399,25 @@ final class BlogPageCache implements StatefulServiceInterface
         foreach (self::RESPONSE_VARIANTS as $variant) {
             $cache->delete($prefix . $variant);
         }
+    }
+
+    /** @param \Closure(): mixed $operation */
+    private function afterCommitOnce(string $key, \Closure $operation): void
+    {
+        if ($this->pdo instanceof PDO && $this->pdo->inTransaction()) {
+            $callbackKey = 'blog-page-cache:' . $key;
+            if ($this->pdo->afterCommitOnce($callbackKey, $operation)) {
+                // Delete once now and once after completion. The second delete closes
+                // the race where another connection repopulates old committed data
+                // before this transaction finishes. Rollback also removes anything
+                // the mutating connection could have rebuilt from uncommitted rows.
+                $this->pdo->afterRollbackOnce($callbackKey, $operation);
+                $operation();
+            }
+
+            return;
+        }
+
+        $operation();
     }
 }

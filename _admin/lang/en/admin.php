@@ -560,6 +560,8 @@ return [
     'Compression server note'               => 'Ready CSS/JavaScript variants are served when the web server supports the bundled rules. Unsupported codecs fall back to gzip or the original response.',
     'Page cache'                             => 'Page cache',
     'Page cache state'                       => 'State',
+    'Page cache invalidation'                => 'Invalidation',
+    'Event-driven page cache invalidation'   => 'Driven by data changes, with no fixed lifetime',
     'Page cache enabled'                     => 'Enabled',
     'Page cache disabled'                    => 'Disabled',
     'Persistent page cache'                  => 'Persistent tier',

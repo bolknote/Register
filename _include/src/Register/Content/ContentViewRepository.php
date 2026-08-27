@@ -9,15 +9,29 @@ declare(strict_types = 1);
 
 namespace Register\Content;
 
+use Psr\Cache\CacheItemPoolInterface;
 use Register\Comment\CommentSchema;
+use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerPostgres;
 use Register\Core\Pdo\DbLayerSqlite;
+use Register\Core\Pdo\PDO;
 
 /** Writes daily aggregates and builds popular/hot post rankings without storing visitor data. */
-final readonly class ContentViewRepository
+final class ContentViewRepository implements StatefulServiceInterface
 {
-    public function __construct(private DbLayer $dbLayer)
+    private const string TOTAL_CACHE_PREFIX = 'content_view_total_v2_';
+
+    private const string TOTAL_VERSION_PREFIX = 'content_view_total_version_v1_';
+
+    /** @var array<string, true> */
+    private array $pendingTotalInvalidations = [];
+
+    public function __construct(
+        private readonly DbLayer                 $dbLayer,
+        private readonly ?CacheItemPoolInterface $totalCache = null,
+        private readonly ?PDO                    $pdo = null,
+    )
     {
     }
 
@@ -51,18 +65,32 @@ final readonly class ContentViewRepository
         };
 
         $this->dbLayer->query($sql, $parameters);
+        if ($this->totalCache instanceof CacheItemPoolInterface) {
+            $totalCache = $this->totalCache;
+            $cacheKey = $this->totalCacheKey($contentId);
+            $versionKey = $this->totalVersionKey($contentId);
+            if ($this->pdo instanceof PDO && $this->pdo->inTransaction()) {
+                // Keep the old committed value visible to concurrent readers. This
+                // request bypasses it below; COMMIT removes it for future requests.
+                $this->pendingTotalInvalidations[$cacheKey] = true;
+                $this->pdo->afterCommitOnce('content-view-total:' . (string)$contentId, function () use ($totalCache, $cacheKey, $versionKey): void {
+                    $totalCache->deleteItem($cacheKey);
+                    $totalCache->deleteItem($versionKey);
+                    unset($this->pendingTotalInvalidations[$cacheKey]);
+                });
+                $this->pdo->afterRollbackOnce('content-view-total:' . (string)$contentId, function () use ($cacheKey): void {
+                    unset($this->pendingTotalInvalidations[$cacheKey]);
+                });
+            } else {
+                $totalCache->deleteItem($cacheKey);
+                $totalCache->deleteItem($versionKey);
+            }
+        }
     }
 
     public function total(ContentId $contentId): int
     {
-        return (int)$this->dbLayer
-            ->select('COALESCE(SUM(views), 0)')
-            ->from(ContentViewSchema::TABLE_NAME)
-            ->where('content_type = :content_type')->setParameter('content_type', $contentId->type->value)
-            ->andWhere('content_id = :content_id')->setParameter('content_id', $contentId->value)
-            ->execute()
-            ->result()
-        ;
+        return $this->totals([$contentId])[(string)$contentId];
     }
 
     /**
@@ -70,6 +98,93 @@ final readonly class ContentViewRepository
      * @return array<string, int>
      */
     public function totals(array $contentIds): array
+    {
+        $result = [];
+        foreach ($contentIds as $contentId) {
+            $result[(string)$contentId] = 0;
+        }
+        if ($result === []) {
+            return [];
+        }
+
+        if (!$this->totalCache instanceof CacheItemPoolInterface) {
+            return $this->databaseTotals($contentIds);
+        }
+
+        $contentByCacheKey = [];
+        foreach ($contentIds as $requestedContentId) {
+            $contentByCacheKey[$this->totalCacheKey($requestedContentId)] = $requestedContentId;
+        }
+
+        $versions = [];
+        foreach ($contentByCacheKey as $cacheKey => $cachedContentId) {
+            $versions[$cacheKey] = $this->totalVersion($cachedContentId);
+        }
+
+        $missing = [];
+        $items = [];
+        foreach ($this->totalCache->getItems(array_keys($contentByCacheKey)) as $cacheKey => $item) {
+            $items[$cacheKey] = $item;
+        }
+        foreach ($contentByCacheKey as $cacheKey => $cachedContentId) {
+            $item = $items[$cacheKey] ?? null;
+            $cached = $item?->isHit() === true ? $item->get() : null;
+            $value = \is_array($cached)
+                && ($cached['version'] ?? null) === $versions[$cacheKey]
+                && \is_int($cached['value'] ?? null)
+                && $cached['value'] >= 0
+                ? $cached['value']
+                : null;
+            if (!isset($this->pendingTotalInvalidations[$cacheKey]) && $value !== null) {
+                $result[(string)$cachedContentId] = $value;
+                continue;
+            }
+
+            $missing[] = $cachedContentId;
+        }
+
+        if ($missing === []) {
+            return $result;
+        }
+
+        $loaded = $this->databaseTotals($missing);
+        foreach ($missing as $missingContentId) {
+            $value = $loaded[(string)$missingContentId];
+            $result[(string)$missingContentId] = $value;
+            if (isset($this->pendingTotalInvalidations[$this->totalCacheKey($missingContentId)])) {
+                continue;
+            }
+
+            $cacheKey = $this->totalCacheKey($missingContentId);
+            $version = $versions[$cacheKey];
+            if ($this->totalVersion($missingContentId) !== $version) {
+                // A concurrent view changed this total after our SELECT. Its
+                // invalidation version wins; never overwrite it with this snapshot.
+                continue;
+            }
+
+            $item = $items[$cacheKey] ?? $this->totalCache->getItem($cacheKey);
+            $item->set(['version' => $version, 'value' => $value]);
+            $this->totalCache->saveDeferred($item);
+        }
+        $this->totalCache->commit();
+
+        return $result;
+    }
+
+    #[\Override]
+    public function clearState(): void
+    {
+        if (!$this->pdo instanceof PDO || !$this->pdo->inTransaction()) {
+            $this->pendingTotalInvalidations = [];
+        }
+    }
+
+    /**
+     * @param list<ContentId> $contentIds
+     * @return array<string, int>
+     */
+    private function databaseTotals(array $contentIds): array
     {
         $result = [];
         $idsByType = [];
@@ -102,6 +217,35 @@ final readonly class ContentViewRepository
         }
 
         return $result;
+    }
+
+    private function totalCacheKey(ContentId $contentId): string
+    {
+        return self::TOTAL_CACHE_PREFIX . hash('sha256', (string)$contentId);
+    }
+
+    private function totalVersionKey(ContentId $contentId): string
+    {
+        return self::TOTAL_VERSION_PREFIX . hash('sha256', (string)$contentId);
+    }
+
+    private function totalVersion(ContentId $contentId): string
+    {
+        if (!$this->totalCache instanceof CacheItemPoolInterface) {
+            throw new \LogicException('A content-view cache version requires a cache pool.');
+        }
+
+        $item = $this->totalCache->getItem($this->totalVersionKey($contentId));
+        $value = $item->isHit() ? $item->get() : null;
+        if (\is_string($value) && preg_match('/^[a-f0-9]{16}$/D', $value) === 1) {
+            return $value;
+        }
+
+        $value = bin2hex(random_bytes(8));
+        $item->set($value);
+        $this->totalCache->save($item);
+
+        return $value;
     }
 
     /** @return list<int> */

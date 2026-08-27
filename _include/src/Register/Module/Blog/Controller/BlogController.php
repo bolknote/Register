@@ -162,7 +162,6 @@ abstract class BlogController implements ControllerInterface
         $see_also = [];
         $tags = [];
         $this->postProvider->postsLinks($ids, $merge_labels, $see_also, $tags);
-        $viewCounts = $this->postProvider->viewCounts($ids);
 
         array_multisort($sort_array, $idOrder !== null || $sortAsc ? SORT_ASC : SORT_DESC, $ids);
 
@@ -177,7 +176,6 @@ abstract class BlogController implements ControllerInterface
             $post['title_link'] = $link;
             $post['time']       = $this->postProvider->displayDate((int)$post['create_time'], (string)$post['display_date']);
             $post['tags']       = $tags[$id] ?? [];
-            $post['view_count'] = $viewCounts[(int)$id] ?? 0;
 
             $post['see_also'] = [];
             if (isset($labels[$id]) && (string)$labels[$id] !== '' && isset($see_also[$labels[$id]])) {

@@ -21,6 +21,10 @@
             <dd><?= $trans($enabled ? 'Page cache enabled' : 'Page cache disabled') ?></dd>
         </div>
         <div>
+            <dt><?= $trans('Page cache invalidation') ?></dt>
+            <dd><?= $trans('Event-driven page cache invalidation') ?></dd>
+        </div>
+        <div>
             <dt><?= $trans('Persistent page cache') ?></dt>
             <dd>
                 <?= $trans('Filesystem page cache') ?>

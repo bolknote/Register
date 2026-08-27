@@ -252,7 +252,6 @@ class PostPageController extends BlogController
         }
 
         $row['time']             = $this->postProvider->displayDate((int)$row['create_time'], (string)$row['display_date']);
-        $row['view_count']       = $this->postProvider->viewCount((int)$post_id);
         $row['commented']        = 0; // for template
         $row['tags']             = $tags;
         $row['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();

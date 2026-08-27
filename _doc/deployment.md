@@ -89,8 +89,9 @@ bundled `_cache/.htaccess` rules and falls back to the original asset when the b
 lacks a codec. The virtual suffix also prevents a shared-hosting nginx frontend from serving the
 physical CSS/JavaScript before Apache can negotiate its sidecar. Dynamic responses independently
 negotiate the same codecs in PHP; deterministic page-cache responses whose security processing
-keeps a stable ETag reuse a content-addressed encoded representation. Changing a page changes that
-key immediately, while expired representations are collected by the normal cache backend.
+keeps a stable ETag reuse an encoded representation. Each page variant and encoding owns one stable
+slot: unchanged output is reused indefinitely, while changed output replaces that slot immediately
+instead of waiting for a timer or accumulating obsolete encoded copies.
 
 ## Nginx
 

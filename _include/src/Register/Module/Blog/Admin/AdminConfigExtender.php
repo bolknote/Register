@@ -82,15 +82,13 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ->addListener(
                 [EntityConfig::EVENT_AFTER_PATCH, EntityConfig::EVENT_AFTER_UPDATE],
                 function (AfterSaveEvent $_event): void {
-                    $this->pageCache->invalidateFirstPage();
-                    $this->pageCache->invalidateContentResponses();
+                    $this->pageCache->invalidateAll();
                 },
             )
             ->addListener(
                 EntityConfig::EVENT_BEFORE_DELETE,
                 function (BeforeDeleteEvent $_event): void {
-                    $this->pageCache->invalidateFirstPage();
-                    $this->pageCache->invalidateContentResponses();
+                    $this->pageCache->invalidateAll();
                 },
             )
         ;
@@ -100,7 +98,6 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             EntityConfig::EVENT_AFTER_PATCH,
             function (AfterSaveEvent $_event): void {
                 $this->pageCache->invalidateAll();
-                $this->pageCache->invalidateContentResponses();
             },
         );
 
@@ -108,15 +105,13 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         $tagEntity?->addListener(
             [EntityConfig::EVENT_AFTER_CREATE, EntityConfig::EVENT_AFTER_UPDATE],
             function (AfterSaveEvent $_event): void {
-                $this->pageCache->invalidateFirstPage();
-                $this->pageCache->invalidateContentResponses();
+                $this->pageCache->invalidateAll();
             },
         );
         $tagEntity?->addListener(
             EntityConfig::EVENT_BEFORE_DELETE,
             function (BeforeDeleteEvent $_event): void {
-                $this->pageCache->invalidateFirstPage();
-                $this->pageCache->invalidateContentResponses();
+                $this->pageCache->invalidateAll();
             },
         );
 
@@ -124,8 +119,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         $userEntity?->addListener(
             [EntityConfig::EVENT_AFTER_PATCH, EntityConfig::EVENT_AFTER_UPDATE],
             function (AfterSaveEvent $_event): void {
-                $this->pageCache->invalidateFirstPage();
-                $this->pageCache->invalidateContentResponses();
+                $this->pageCache->invalidateAll();
             },
         );
 

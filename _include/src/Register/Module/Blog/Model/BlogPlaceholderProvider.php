@@ -25,16 +25,12 @@ use Register\Core\Pdo\DbLayer;
 use Register\Core\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Contracts\Cache\CacheInterface;
-use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Psr\Cache\InvalidArgumentException;
 use Register\Core\Pdo\DbLayerException;
 
 readonly class BlogPlaceholderProvider
 {
-    private const string CACHE_KEY_NAVIGATION = 'register_blog_navigation';
-
     public function __construct(
         private DbLayer             $dbLayer,
         private TagRepository       $tagRepository,
@@ -43,7 +39,7 @@ readonly class BlogPlaceholderProvider
         private TranslatorInterface $translator,
         private Viewer              $viewer,
         private RequestStack        $requestStack,
-        private CacheInterface      $cache,
+        private BlogPageCache       $pageCache,
         private BoolProxy           $showComments,
         private IntProxy            $maxItems,
         private string              $urlPrefix,
@@ -62,9 +58,7 @@ readonly class BlogPlaceholderProvider
             && \is_string($navigationItem['link'])
             && $navigationItem['link'] === $request_uri);
 
-        $result = $this->cache->get(self::CACHE_KEY_NAVIGATION, function (ItemInterface $item): array {
-            $item->expiresAfter(900);
-
+        $result = $this->pageCache->navigation(function (): array {
             $blogNavigation = ['title' => $this->translator->trans('Navigation')];
 
             // Last posts on the blog main page
@@ -218,7 +212,7 @@ readonly class BlogPlaceholderProvider
         }
 
         $rawQuery = $this->dbLayer
-            ->select('c.content_id AS post_id, COUNT(c.content_id) AS comment_num, MAX(c.id) AS max_id')
+            ->select('c.content_id AS post_id, COUNT(c.content_id) AS comment_num, MAX(c.id) AS max_id, MIN(c.time) AS min_time')
             ->from(CommentSchema::TABLE_NAME . ' AS c')
             ->where('c.content_type = :content_type')
             ->andWhere('c.shown = 1')
@@ -229,7 +223,7 @@ readonly class BlogPlaceholderProvider
         ;
 
         $result = $this->dbLayer
-            ->select('p.published_at AS create_time, p.slug AS url, p.title, c1.comment_num AS comment_num, c2.nick, c2.time')
+            ->select('p.published_at AS create_time, p.slug AS url, p.title, c1.comment_num AS comment_num, c1.min_time, c2.nick, c2.time')
             ->from(ContentSchema::TABLE_NAME . ' AS p, (' . $rawQuery . ') AS c1')
             ->innerJoin(CommentSchema::TABLE_NAME . ' AS c2', 'c2.id = c1.max_id')
             ->where('c1.post_id = p.id')
@@ -245,6 +239,7 @@ readonly class BlogPlaceholderProvider
 
         $output      = [];
         $request_uri = $this->urlPrefix . ($this->requestStack->getCurrentRequest()?->getPathInfo() ?? '');
+        $invalidateAt = null;
         while ($row = $result->fetchAssoc()) {
             $cur_url  = $this->contentUrlGenerator->post((string)$row['url']);
             $output[] = [
@@ -253,9 +248,31 @@ readonly class BlogPlaceholderProvider
                 'hint'       => $row['nick'] . ' (' . $this->viewer->dateAndTime($row['time']) . ')',
                 'is_current' => $request_uri === $cur_url,
             ];
+            $boundary = $this->discussionInvalidationAt((int)$row['min_time']);
+            $invalidateAt = $invalidateAt === null ? $boundary : min($invalidateAt, $boundary);
+        }
+        if ($invalidateAt !== null) {
+            $this->pageCache->invalidateCurrentResponseAt($invalidateAt);
         }
 
         return $output;
+    }
+
+    private function discussionInvalidationAt(int $oldestCommentTime): int
+    {
+        $zone = new \DateTimeZone(date_default_timezone_get());
+        $boundary = (new \DateTimeImmutable('now', $zone))->modify('tomorrow')->setTime(0, 0);
+        for ($day = 0; $day < 40; ++$day) {
+            $timestamp = $boundary->getTimestamp();
+            $cutoff = strtotime('-1 month midnight', $timestamp);
+            if ($cutoff >= $oldestCommentTime) {
+                return $timestamp;
+            }
+
+            $boundary = $boundary->modify('+1 day');
+        }
+
+        throw new \LogicException('Unable to calculate the recent-discussion cache boundary.');
     }
 
     /**

@@ -8,6 +8,7 @@ use Register\Content\ContentId;
 use Register\Core\Http\Cache\QueryParameterDependencies;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\BlogResponseCachePolicy;
+use Register\Module\Blog\Model\ContentViewResponseProcessor;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Url\ContentUrlAliasController;
 use Register\Core\Controller\PageCommon;
@@ -27,6 +28,8 @@ readonly class FlatContentController implements ControllerInterface
 
     public const string SHARED_RESPONSE_ATTRIBUTE = '_register_blog_shared_response';
 
+    public const string DEFER_VIEW_RECORDING_ATTRIBUTE = '_register_blog_defer_view_recording';
+
     public function __construct(
         private ArticleProvider    $articleProvider,
         private PageCommon         $pageController,
@@ -42,6 +45,10 @@ readonly class FlatContentController implements ControllerInterface
     #[\Override]
     public function handle(Request $request): Response
     {
+        // Cached responses bypass ContentRenderedEvent. The response processor records
+        // the primary item for both hits and misses after the shared snapshot is selected.
+        $request->attributes->set(self::DEFER_VIEW_RECORDING_ATTRIBUTE, true);
+
         // Page pagination changes the shell; reply and tracking parameters are hydrated or ignored.
         $variant = $this->responseCachePolicy->variant(
             $request,
@@ -66,8 +73,12 @@ readonly class FlatContentController implements ControllerInterface
         if ($article !== null) {
             $response = $this->pageController->handle($request);
             $articleId = (int)($article['id'] ?? 0);
-            if ($rememberContent && $articleId > 0 && $response->getStatusCode() === Response::HTTP_OK) {
-                $this->pageCache->rememberContentPath(ContentId::page($articleId), $request->getPathInfo());
+            if ($articleId > 0 && $response->getStatusCode() === Response::HTTP_OK) {
+                $contentId = ContentId::page($articleId);
+                $response->headers->set(ContentViewResponseProcessor::CONTENT_ID_HEADER, (string)$contentId);
+                if ($rememberContent) {
+                    $this->pageCache->rememberContentPath($contentId, $request->getPathInfo());
+                }
             }
 
             return $response;
@@ -92,8 +103,11 @@ readonly class FlatContentController implements ControllerInterface
 
         $response = $this->postController->handle($request);
         $contentId = $request->attributes->get(self::CONTENT_ID_ATTRIBUTE);
-        if ($rememberContent && $contentId instanceof ContentId && $response->getStatusCode() === Response::HTTP_OK) {
-            $this->pageCache->rememberContentPath($contentId, $request->getPathInfo());
+        if ($contentId instanceof ContentId && $response->getStatusCode() === Response::HTTP_OK) {
+            $response->headers->set(ContentViewResponseProcessor::CONTENT_ID_HEADER, (string)$contentId);
+            if ($rememberContent) {
+                $this->pageCache->rememberContentPath($contentId, $request->getPathInfo());
+            }
         }
 
         return $response;

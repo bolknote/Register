@@ -108,6 +108,7 @@ use Register\Core\Model\AuthProvider;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\PDO as TrackedPDO;
 use Register\Core\Queue\QueueHandlerInterface;
 use Register\Core\Queue\QueuePublisher;
 use Register\Core\Security\Audit\SecurityAuditLogger;
@@ -140,9 +141,18 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(AiSettings::class, static fn(Container $container): AiSettings => new AiSettings(
             $container->get(DynamicConfigProvider::class),
         ));
-        $container->set(ContentViewRepository::class, static fn(Container $container): ContentViewRepository => new ContentViewRepository(
-            $container->get(DbLayer::class),
-        ));
+        $container->set(ContentViewRepository::class, static function (Container $container): ContentViewRepository {
+            $pdo = $container->get(\PDO::class);
+            if (!$pdo instanceof TrackedPDO) {
+                throw new \LogicException('Content view caching requires Register\'s transaction-aware PDO service.');
+            }
+
+            return new ContentViewRepository(
+                $container->get(DbLayer::class),
+                new FilesystemAdapter('content_view_totals', 0, $container->getStringParameter('cache_dir')),
+                $pdo,
+            );
+        }, [StatefulServiceInterface::class]);
         $container->set(PublicAuthSettings::class, static fn(Container $container): PublicAuthSettings => new PublicAuthSettings(
             $container->get(DynamicConfigProvider::class),
         ));

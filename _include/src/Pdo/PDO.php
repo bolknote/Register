@@ -23,6 +23,17 @@ class PDO extends NativePdo implements StatefulServiceInterface
     /** @var list<array{statement: string, template: string, time: float}> */
     protected array $log = [];
 
+    /** @var array<string, callable(): void> */
+    private array $afterCommitCallbacks = [];
+
+    /** @var array<string, callable(): void> */
+    private array $afterRollbackCallbacks = [];
+
+    /** @var list<array{name: string, commit_keys: list<string>, rollback_keys: list<string>}> */
+    private array $savepointCallbacks = [];
+
+    private int $afterCommitSequence = 0;
+
     /**
      * {@inheritdoc}
      * @param array<mixed>|null $options
@@ -47,7 +58,114 @@ class PDO extends NativePdo implements StatefulServiceInterface
     #[\Override]
     public function beginTransaction(): bool
     {
-        return parent::beginTransaction();
+        $started = parent::beginTransaction();
+        if ($started) {
+            $this->afterCommitCallbacks = [];
+            $this->afterRollbackCallbacks = [];
+            $this->savepointCallbacks = [];
+            $this->afterCommitSequence = 0;
+        }
+
+        return $started;
+    }
+
+    /**
+     * Runs a side effect only after the surrounding database transaction is durable.
+     *
+     * Cache invalidation is the primary consumer: deleting a cache entry before COMMIT
+     * lets a concurrent request repopulate it from the old database snapshot.
+     *
+     * @param callable(): void $callback
+     */
+    public function afterCommit(callable $callback): void
+    {
+        if (!$this->inTransaction()) {
+            $callback();
+
+            return;
+        }
+
+        $this->afterCommitCallbacks['callback_' . ++$this->afterCommitSequence] = $callback;
+    }
+
+    /**
+     * Coalesces repeated work in one transaction, for example a bulk import
+     * invalidating the same page-cache dependency thousands of times.
+     *
+     * @param callable(): void $callback
+     */
+    public function afterCommitOnce(string $key, callable $callback): bool
+    {
+        if ($key === '') {
+            throw new \InvalidArgumentException('An after-commit callback key cannot be empty.');
+        }
+
+        if (!$this->inTransaction()) {
+            $callback();
+
+            return true;
+        }
+
+        $callbackKey = 'once_' . hash('sha256', $key);
+        if (isset($this->afterCommitCallbacks[$callbackKey])) {
+            return false;
+        }
+
+        $this->afterCommitCallbacks[$callbackKey] = $callback;
+
+        return true;
+    }
+
+    /** @param callable(): void $callback */
+    public function afterRollbackOnce(string $key, callable $callback): void
+    {
+        if ($key === '') {
+            throw new \InvalidArgumentException('An after-rollback callback key cannot be empty.');
+        }
+
+        if (!$this->inTransaction()) {
+            return;
+        }
+
+        $this->afterRollbackCallbacks['once_' . hash('sha256', $key)] ??= $callback;
+    }
+
+    #[\Override]
+    public function commit(): bool
+    {
+        $committed = parent::commit();
+        if (!$committed) {
+            return false;
+        }
+
+        $callbacks = $this->afterCommitCallbacks;
+        $this->afterCommitCallbacks = [];
+        $this->afterRollbackCallbacks = [];
+        $this->savepointCallbacks = [];
+        $this->afterCommitSequence = 0;
+
+        $this->runCallbacks($callbacks);
+
+        return true;
+    }
+
+    #[\Override]
+    public function rollBack(): bool
+    {
+        $rolledBack = false;
+        try {
+            $rolledBack = parent::rollBack();
+        } finally {
+            $callbacks = $rolledBack ? $this->afterRollbackCallbacks : [];
+            $this->afterCommitCallbacks = [];
+            $this->afterRollbackCallbacks = [];
+            $this->savepointCallbacks = [];
+            $this->afterCommitSequence = 0;
+        }
+
+        $this->runCallbacks($callbacks);
+
+        return $rolledBack;
     }
 
     /**
@@ -92,6 +210,10 @@ class PDO extends NativePdo implements StatefulServiceInterface
         $start  = microtime(true);
         $result = parent::exec($statement);
         $this->addLog($statement, microtime(true) - $start);
+        if ($result !== false) {
+            $this->trackSavepointStatement($statement);
+        }
+
         return $result;
     }
 
@@ -171,6 +293,80 @@ class PDO extends NativePdo implements StatefulServiceInterface
     public function clearState(): void
     {
         $this->log = [];
+        if (!$this->inTransaction()) {
+            $this->afterCommitCallbacks = [];
+            $this->afterRollbackCallbacks = [];
+            $this->savepointCallbacks = [];
+            $this->afterCommitSequence = 0;
+        }
+    }
+
+    private function trackSavepointStatement(string $statement): void
+    {
+        if (preg_match('/^\s*SAVEPOINT\s+([A-Za-z0-9_]+)\s*;?\s*$/iD', $statement, $matches) === 1) {
+            $this->savepointCallbacks[] = [
+                'name' => strtolower($matches[1]),
+                'commit_keys' => array_keys($this->afterCommitCallbacks),
+                'rollback_keys' => array_keys($this->afterRollbackCallbacks),
+            ];
+
+            return;
+        }
+
+        if (preg_match('/^\s*ROLLBACK\s+TO(?:\s+SAVEPOINT)?\s+([A-Za-z0-9_]+)\s*;?\s*$/iD', $statement, $matches) === 1) {
+            $index = $this->savepointIndex($matches[1]);
+            if ($index === null) {
+                return;
+            }
+
+            $this->afterCommitCallbacks = array_intersect_key(
+                $this->afterCommitCallbacks,
+                array_fill_keys($this->savepointCallbacks[$index]['commit_keys'], true),
+            );
+            $rollbackKeys = array_fill_keys($this->savepointCallbacks[$index]['rollback_keys'], true);
+            $rolledBackCallbacks = array_diff_key($this->afterRollbackCallbacks, $rollbackKeys);
+            $this->afterRollbackCallbacks = array_intersect_key($this->afterRollbackCallbacks, $rollbackKeys);
+            $this->savepointCallbacks = \array_slice($this->savepointCallbacks, 0, $index + 1);
+            $this->runCallbacks($rolledBackCallbacks);
+
+            return;
+        }
+
+        if (preg_match('/^\s*RELEASE\s+SAVEPOINT\s+([A-Za-z0-9_]+)\s*;?\s*$/iD', $statement, $matches) === 1) {
+            $index = $this->savepointIndex($matches[1]);
+            if ($index !== null) {
+                \array_splice($this->savepointCallbacks, $index, 1);
+            }
+        }
+    }
+
+    private function savepointIndex(string $name): ?int
+    {
+        $name = strtolower($name);
+        for ($index = \count($this->savepointCallbacks) - 1; $index >= 0; --$index) {
+            if ($this->savepointCallbacks[$index]['name'] === $name) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param array<string, callable(): void> $callbacks */
+    private function runCallbacks(array $callbacks): void
+    {
+        $firstFailure = null;
+        foreach ($callbacks as $callback) {
+            try {
+                $callback();
+            } catch (\Throwable $throwable) {
+                $firstFailure ??= $throwable;
+            }
+        }
+
+        if ($firstFailure instanceof \Throwable) {
+            throw $firstFailure;
+        }
     }
 
 }

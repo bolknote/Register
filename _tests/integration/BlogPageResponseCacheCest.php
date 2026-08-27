@@ -112,6 +112,7 @@ final class BlogPageResponseCacheCest
         $I->sendRequestWithHeaders('/cached-browser-post', $headers);
         $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
         $I->seeElement('#comment-form');
+        $I->see('1', '.post-foot-views-count');
 
         $firstTextField = (string)$I->grabAttributeFrom('#comment-text', 'name');
         $I->assertStringNotContainsString('register-deferred-comment-form', $I->grabResponse());
@@ -122,15 +123,21 @@ final class BlogPageResponseCacheCest
         );
         $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
         $I->seeElement('#comment-form');
+        $I->see('2', '.post-foot-views-count');
         $I->assertSame('20583', $I->grabAttributeFrom('.comment-parent-id', 'value'));
         $I->assertSame('19', $I->grabAttributeFrom('.comment-reply-number', 'value'));
         $I->assertSame('vrann.livejournal.com', $I->grabAttributeFrom('.comment-reply-name', 'value'));
         $I->assertNotSame($firstTextField, (string)$I->grabAttributeFrom('#comment-text', 'name'));
         $I->assertStringNotContainsString('register-deferred-comment-form', $I->grabResponse());
+        $I->assertStringNotContainsString('register-deferred-view-count', $I->grabResponse());
 
         /** @var PDO $pdo */
         $pdo = $I->grabService(\PDO::class);
-        $I->assertSame([], $pdo->getQueryLog());
+        $queryLog = $pdo->getQueryLog();
+        $I->assertNotSame([], $queryLog);
+        foreach ($queryLog as $query) {
+            $I->assertStringContainsString('content_views_daily', $query['template']);
+        }
     }
 
     public function hydratesAValidReplyFormInCachedPartialNavigation(\IntegrationTester $I): void

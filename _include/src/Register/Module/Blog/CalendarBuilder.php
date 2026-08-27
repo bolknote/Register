@@ -14,6 +14,7 @@ use Register\Content\ContentType;
 use Register\Url\ContentUrlGenerator;
 use Register\Core\Config\IntProxy;
 use Register\Core\Pdo\DbLayer;
+use Register\Module\Blog\Model\BlogPageCache;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 readonly class CalendarBuilder
@@ -24,6 +25,7 @@ readonly class CalendarBuilder
         private ContentUrlGenerator $contentUrlGenerator,
         private TranslatorInterface $translator,
         private IntProxy            $startYear,
+        private ?BlogPageCache      $pageCache = null,
     ) {
     }
 
@@ -35,6 +37,8 @@ readonly class CalendarBuilder
      */
     public function calendar(?int $year = null, ?int $month = null, ?int $day = 0, string $url = '', ?array $dayUrls = null): string
     {
+        $usesCurrentPeriod = $year === null || $month === null;
+        $now = time();
         if ($year === null) {
             $year = (int)date('Y');
         }
@@ -45,6 +49,16 @@ readonly class CalendarBuilder
 
         $startTime = $this->makeTimestamp($month, 1, $year);
         $endTime   = $this->makeTimestamp($month + 1, 1, $year);
+        if ($usesCurrentPeriod) {
+            // The default calendar switches to a different month exactly here.
+            $this->pageCache?->invalidateCurrentResponseAt($endTime);
+        } elseif ($day === null && $startTime >= $now) {
+            // A future year-calendar month becomes linkable just after it starts.
+            $this->pageCache?->invalidateCurrentResponseAt($startTime + 1);
+        } elseif ($day !== null && $endTime >= $now) {
+            // The next-month arrow becomes linkable just after this month ends.
+            $this->pageCache?->invalidateCurrentResponseAt($endTime + 1);
+        }
 
         // Dealing with week days
         $currentColumnIndex = (int)date('w', $startTime);
