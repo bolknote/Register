@@ -190,6 +190,7 @@ final class QueueCest
             'form_nonces',
             SpamMaintenanceQueueHandler::CODE,
             ['scheduled_at' => $now],
+            $now,
         );
 
         $I->assertTrue($consumer->runQueue($now));
