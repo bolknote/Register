@@ -40,9 +40,10 @@ final readonly class CommentThreadRenderer
             }
         }
 
-        $audienceComments = $moderation instanceof CommentModerationContext
-            ? $normalizedComments
-            : $this->publicComments($normalizedComments);
+        $audienceComments = $this->audienceComments(
+            $normalizedComments,
+            $moderation instanceof CommentModerationContext,
+        );
         $tree = $this->threadBuilder->build($audienceComments);
         if ($tree === []) {
             return '';
@@ -85,13 +86,14 @@ final readonly class CommentThreadRenderer
     }
 
     /**
-     * Hidden leaf comments disappear for visitors. A hidden comment with visible descendants is
-     * kept as an anonymous tombstone so the shape and meaning of the discussion stay intact.
+     * Spam never belongs in the public thread, including a moderator's view. Hidden comments stay
+     * available to moderators. Any unavailable comment with visible descendants is kept as an
+     * anonymous tombstone so the shape and meaning of the discussion stay intact.
      *
      * @param list<array<string, mixed>> $comments
      * @return list<array<string, mixed>>
      */
-    private function publicComments(array $comments): array
+    private function audienceComments(array $comments, bool $includeHidden): array
     {
         $commentsById = [];
         $positions    = [];
@@ -105,7 +107,9 @@ final readonly class CommentThreadRenderer
 
         $publicIds = [];
         foreach ($commentsById as $id => $comment) {
-            if (in_array($comment['moderation_state'], ['visible', 'deleted'], true)) {
+            if (in_array($comment['moderation_state'], ['visible', 'deleted'], true)
+                || ($includeHidden && $comment['moderation_state'] === 'hidden')
+            ) {
                 $publicIds[$id] = true;
             }
         }

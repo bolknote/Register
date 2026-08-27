@@ -12,6 +12,7 @@ namespace integration;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Core\Comment\Antispam\SpamFeedbackService;
 use Register\Core\Comment\CommentHtml;
 use Register\Core\Model\UserpicSchema;
 use Register\Core\Pdo\DbLayer;
@@ -293,7 +294,7 @@ class CommentCest
         $I->assertSame($countBefore, (int)$dbLayer->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->execute()->result());
     }
 
-    public function testModeratorCanEditAndHideSpamWithoutBreakingTheThread(\IntegrationTester $I): void
+    public function testModeratorCanEditAndRemoveSpamWithoutBreakingTheThread(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer  = $I->grabService(DbLayer::class);
@@ -341,24 +342,16 @@ class CommentCest
         $I->seeResponseCodeIs(303);
 
         $I->amOnPage('https://localhost/thread-test');
-        $I->seeElement('[data-comment-id="' . $parentId . '"].is-spam');
-        $I->see('Edited suspicious text');
-        $I->seeElement('[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="ham"]');
-        $I->dontSeeElement('[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="spam"]');
+        $I->dontSeeElement('[data-comment-id="' . $parentId . '"].is-spam');
+        $I->dontSee('Edited suspicious text');
+        $I->dontSee('Suspicious author');
+        $I->seeElement('[data-comment-id="' . $parentId . '"].is-deleted > .comment-tombstone');
+        $I->seeElement('[data-comment-id="' . $parentId . '"] .comment-children [data-comment-id="' . $childId . '"]');
+        $I->see('Visible answer');
 
-        $hamToken = (string)$I->grabAttributeFrom(
-            '[data-comment-id="' . $parentId . '"] > .comment-moderation [data-moderation-action="ham"] input[name="moderation_token"]',
-            'value',
-        );
-        $I->sendPost('https://localhost/comment-moderate', [
-            'moderation_action' => 'ham',
-            'target_type'       => ContentType::PAGE->value,
-            'comment_id'        => (string)$parentId,
-            'comment_anchor'    => '1',
-            'moderation_token'  => $hamToken,
-            'return_to'         => '/thread-test',
-        ]);
-        $I->seeResponseCodeIs(303);
+        /** @var SpamFeedbackService $spamFeedbackService */
+        $spamFeedbackService = $I->grabService(SpamFeedbackService::class);
+        $I->assertTrue($spamFeedbackService->markHam($parentId, ContentType::PAGE));
 
         $I->amOnPage('https://localhost/thread-test');
         $I->dontSeeElement('[data-comment-id="' . $parentId . '"].is-spam');
@@ -387,6 +380,44 @@ class CommentCest
         $I->seeElement('[data-comment-id="' . $parentId . '"].is-deleted > .comment-tombstone');
         $I->seeElement('[data-comment-id="' . $parentId . '"] .comment-children [data-comment-id="' . $childId . '"]');
         $I->see('Visible answer');
+    }
+
+    public function testMarkedSpamDisappearsFromModeratorThread(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer   = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+        $commentId = $this->insertComment(
+            $dbLayer,
+            $articleId,
+            'Spam author',
+            'spam-leaf@example.test',
+            text: 'Standalone spam must disappear',
+        );
+        $selector = '[data-comment-id="' . $commentId . '"]';
+
+        $I->login('moderator', 'moderator');
+        $I->amOnPage('https://localhost/thread-test');
+        $I->seeElement($selector);
+
+        $spamToken = (string)$I->grabAttributeFrom(
+            $selector . ' > .comment-moderation [data-moderation-action="spam"] input[name="moderation_token"]',
+            'value',
+        );
+        $I->sendPost('https://localhost/comment-moderate', [
+            'moderation_action' => 'spam',
+            'target_type'       => ContentType::PAGE->value,
+            'comment_id'        => (string)$commentId,
+            'comment_anchor'    => '1',
+            'moderation_token'  => $spamToken,
+            'return_to'         => '/thread-test',
+        ]);
+        $I->seeResponseCodeIs(303);
+
+        $I->amOnPage('https://localhost/thread-test');
+        $I->dontSeeElement($selector);
+        $I->dontSee('Standalone spam must disappear');
+        $I->dontSee('Spam author');
     }
 
     public function testModeratorCanHideAndShowACommentFromThePublicThread(\IntegrationTester $I): void

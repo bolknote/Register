@@ -119,6 +119,55 @@ final class AssetPackTest extends Unit
         }
     }
 
+    public function testMobileCreateControlIndentsOnlyTheFirstSiteTitleLine(): void
+    {
+        $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/@media \(max-width: 880px\).*?'
+                . '\.site-header-shell:has\(> \.site-header-tools\) \.site-title\s*'
+                . '\{[^}]*text-indent:\s*2\.5rem;/s',
+            $site,
+        );
+        self::assertStringNotContainsString(
+            '.site-header-shell:has(> .site-header-tools) > .site-header-copy',
+            $site,
+        );
+    }
+
+    public function testCommentConfirmationUsesTheCommentContentColumn(): void
+    {
+        $rootDir = \dirname(__DIR__, 4) . '/';
+        $site = file_get_contents($rootDir . '_styles/register/site.css');
+        $script = file_get_contents($rootDir . '_styles/register/script.js');
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/\.has-userpic\s*>\s*\.comment-action-confirmation\s*'
+                . '\{[^}]*grid-row:\s*2;[^}]*justify-self:\s*start;/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.comment-action-confirmation\s*'
+                . '\{[^}]*position:\s*relative;[^}]*max-width:\s*min\(34rem,\s*100%\);/s',
+            $site,
+        );
+        self::assertStringNotContainsString('left: calc(100% + 0.5rem)', $site);
+
+        self::assertIsString($script);
+        self::assertStringContainsString(
+            'item.insertBefore(confirmationElement, commentBody);',
+            $script,
+        );
+        self::assertStringNotContainsString(
+            'form.appendChild(confirmationElement);',
+            $script,
+        );
+        self::assertStringContainsString("payload.action === 'spam'", $script);
+        self::assertStringContainsString('removeCommentFromThread(item);', $script);
+    }
+
     public function testSystemOneThemeUsesGlobalGrayscaleAndMacOsArtwork(): void
     {
         $themeDir = \dirname(__DIR__, 4) . '/_styles/system-1/';

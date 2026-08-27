@@ -2295,8 +2295,8 @@ h2.preview,
         width: 2.5rem;
     }
 
-    .site-header-shell:has(> .site-header-tools) > .site-header-copy {
-        padding-left: 2.5rem;
+    .site-header-shell:has(> .site-header-tools) .site-title {
+        text-indent: 2.5rem;
     }
 
     .post-inplace-tools {
@@ -2784,7 +2784,8 @@ h2.comment {
 .has-userpic > .comment-body,
 .has-userpic > .comment-actions,
 .has-userpic > .comment-form-block,
-.has-userpic > .comment-edit-form {
+.has-userpic > .comment-edit-form,
+.has-userpic > .comment-action-confirmation {
     min-width: 0;
     grid-column: 2;
 }
@@ -2812,6 +2813,28 @@ h2.comment {
 .has-userpic > .comment-children {
     grid-column: 1 / -1;
     grid-row: 5;
+}
+
+.has-userpic > .comment-action-confirmation {
+    grid-row: 2;
+    justify-self: start;
+}
+
+.has-userpic.is-confirming > .comment-body {
+    grid-row: 3;
+}
+
+.has-userpic.is-confirming > .comment-actions {
+    grid-row: 4;
+}
+
+.has-userpic.is-confirming > .comment-form-block,
+.has-userpic.is-confirming > .comment-edit-form {
+    grid-row: 5;
+}
+
+.has-userpic.is-confirming > .comment-children {
+    grid-row: 6;
 }
 
 .comment-item:target > .comment-meta,
@@ -2995,15 +3018,13 @@ h2.comment {
 }
 
 .comment-action-confirmation {
-    position: absolute;
+    position: relative;
     z-index: 4;
-    top: 0;
-    right: auto;
-    left: calc(100% + 0.5rem);
     display: flex;
     width: max-content;
-    max-width: min(34rem, calc(100vw - 4rem));
+    max-width: min(34rem, 100%);
     min-height: 2.75rem;
+    margin: 0.55rem 0 0;
     padding: 0.35rem 0.4rem 0.35rem 0.8rem;
     flex-wrap: wrap;
     align-items: center;

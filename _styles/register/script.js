@@ -271,6 +271,7 @@
 
             return new Promise(function (resolve) {
                 var item = form.closest('.comment-item');
+                var commentBody = item && item.querySelector(':scope > .comment-body');
                 var sourceButton = form.querySelector('button[type="submit"]');
                 var confirmationElement = confirmationTemplate.content.firstElementChild.cloneNode(true);
                 var question = confirmationElement.querySelector('.comment-action-question');
@@ -319,7 +320,11 @@
 
                 item.classList.add('is-confirming');
                 form.classList.add('is-confirming-source');
-                form.appendChild(confirmationElement);
+                if (commentBody) {
+                    item.insertBefore(confirmationElement, commentBody);
+                } else {
+                    item.appendChild(confirmationElement);
+                }
                 confirmButton.focus();
             });
         }
@@ -345,6 +350,22 @@
                 actions.insertAdjacentElement('afterend', error);
             } else {
                 item.appendChild(error);
+            }
+        }
+
+        function removeCommentFromThread(item) {
+            var section = item.closest('.comments-section');
+            var countElement = section && section.querySelector('.comment-count');
+            var removedCount = item.querySelectorAll('.comment-item').length + 1;
+
+            item.remove();
+            if (!countElement) {
+                return;
+            }
+
+            var currentCount = Number.parseInt(countElement.textContent || '', 10);
+            if (Number.isSafeInteger(currentCount)) {
+                countElement.textContent = String(Math.max(0, currentCount - removedCount));
             }
         }
 
@@ -377,9 +398,20 @@
 
                         return payload;
                     });
-                }).then(function () {
+                }).then(function (payload) {
+                    var item = form.closest('.comment-item');
+                    var isSpamAction = payload.action === 'spam';
+                    var activeElement = document.activeElement;
+                    if (activeElement && form.contains(activeElement) && typeof activeElement.blur === 'function') {
+                        activeElement.blur();
+                    }
+
+                    if (isSpamAction && item) {
+                        removeCommentFromThread(item);
+                    }
+
                     var anchorField = form.elements.comment_anchor;
-                    if (anchorField && anchorField.value) {
+                    if (!isSpamAction && anchorField && anchorField.value) {
                         try {
                             window.history.replaceState(window.history.state, '', '#' + anchorField.value);
                         } catch (error) {
@@ -387,13 +419,8 @@
                         }
                     }
                     if (document.querySelector('meta[name="register-live-updates"]')) {
-                        var item = form.closest('.comment-item');
-                        if (item) {
+                        if (item && !isSpamAction) {
                             item.classList.remove('is-editing');
-                        }
-                        var activeElement = document.activeElement;
-                        if (activeElement && form.contains(activeElement) && typeof activeElement.blur === 'function') {
-                            activeElement.blur();
                         }
                         document.dispatchEvent(new CustomEvent('register:live-refresh'));
                     } else {
