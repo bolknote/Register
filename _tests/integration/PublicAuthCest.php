@@ -71,6 +71,8 @@ final class PublicAuthCest
         $I->seeElement('#public-auth-dialog .public-auth-provider-yandex');
         $I->seeElement('#public-auth-dialog .public-auth-provider-mail');
         $I->seeElement('#public-auth-dialog .public-auth-provider-ok');
+        $I->assertCount(4, $I->grabMultiple('#public-auth-dialog form.public-auth-provider-form[method="post"]'));
+        $I->seeElement('#public-auth-dialog .public-auth-provider-yandex[type="submit"]');
         $I->dontSeeElement('#public-auth-dialog .public-auth-more-providers');
     }
 
@@ -289,9 +291,21 @@ final class PublicAuthCest
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
+        /** @var PublicAuthFormToken $formToken */
+        $formToken = $I->grabService(PublicAuthFormToken::class);
         $I->setConfigValue(PublicAuthSettings::VK_CLIENT_ID_CONFIG_KEY, 'vk-test-client');
 
         $I->amOnPage('https://localhost/auth/oauth/vk?return=%2F%2Fforeign.example%2Fpath');
+        $I->seeResponseCodeIs(405);
+        $I->assertSame(0, (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from(PublicAuthSchema::FLOWS_TABLE)
+            ->execute()
+            ->result());
+
+        $I->sendPost('https://localhost/auth/oauth/vk?return=%2F%2Fforeign.example%2Fpath', [
+            'auth_token' => $formToken->issue(),
+        ]);
         $I->seeResponseCodeIs(302);
 
         $location = (string)$I->grabHttpHeader('Location');

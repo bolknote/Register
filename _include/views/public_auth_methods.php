@@ -47,20 +47,32 @@ $hasMethodsPanel = $hasProviders || $email_enabled;
         <div class="public-auth-divider"><span><?php echo $trans('or sign in with'); ?></span></div>
         <div class="public-auth-providers" aria-label="<?php echo register_htmlencode($trans('Sign in with')); ?>">
             <?php if ($yandex_enabled): ?>
-            <a class="public-auth-provider public-auth-provider-yandex" href="<?php echo register_htmlencode($yandex_url); ?>" data-register-native-navigation>
-                <span class="public-auth-provider-logo" aria-hidden="true">Я</span><span><?php echo $trans('Yandex'); ?></span>
-            </a>
+            <form class="public-auth-provider-form" method="post" action="<?php echo register_htmlencode($yandex_url); ?>">
+                <input type="hidden" name="auth_token" value="<?php echo register_htmlencode($form_token); ?>">
+                <button class="public-auth-provider public-auth-provider-yandex" type="submit">
+                    <span class="public-auth-provider-logo" aria-hidden="true">Я</span><span><?php echo $trans('Yandex'); ?></span>
+                </button>
+            </form>
             <?php endif; ?>
             <?php if ($vk_enabled): ?>
-            <a class="public-auth-provider public-auth-provider-vk" href="<?php echo register_htmlencode($vk_url); ?>" data-register-native-navigation>
-                <span class="public-auth-provider-logo" aria-hidden="true">VK</span><span><?php echo $trans('VK ID'); ?></span>
-            </a>
-            <a class="public-auth-provider public-auth-provider-mail" href="<?php echo register_htmlencode($mail_url); ?>" data-register-native-navigation>
-                <span class="public-auth-provider-logo" aria-hidden="true">@</span><span>Mail.ru</span>
-            </a>
-            <a class="public-auth-provider public-auth-provider-ok" href="<?php echo register_htmlencode($ok_url); ?>" data-register-native-navigation>
-                <span class="public-auth-provider-logo" aria-hidden="true">OK</span><span><?php echo $trans('Odnoklassniki'); ?></span>
-            </a>
+            <form class="public-auth-provider-form" method="post" action="<?php echo register_htmlencode($vk_url); ?>">
+                <input type="hidden" name="auth_token" value="<?php echo register_htmlencode($form_token); ?>">
+                <button class="public-auth-provider public-auth-provider-vk" type="submit">
+                    <span class="public-auth-provider-logo" aria-hidden="true">VK</span><span><?php echo $trans('VK ID'); ?></span>
+                </button>
+            </form>
+            <form class="public-auth-provider-form" method="post" action="<?php echo register_htmlencode($mail_url); ?>">
+                <input type="hidden" name="auth_token" value="<?php echo register_htmlencode($form_token); ?>">
+                <button class="public-auth-provider public-auth-provider-mail" type="submit">
+                    <span class="public-auth-provider-logo" aria-hidden="true">@</span><span>Mail.ru</span>
+                </button>
+            </form>
+            <form class="public-auth-provider-form" method="post" action="<?php echo register_htmlencode($ok_url); ?>">
+                <input type="hidden" name="auth_token" value="<?php echo register_htmlencode($form_token); ?>">
+                <button class="public-auth-provider public-auth-provider-ok" type="submit">
+                    <span class="public-auth-provider-logo" aria-hidden="true">OK</span><span><?php echo $trans('Odnoklassniki'); ?></span>
+                </button>
+            </form>
             <?php endif; ?>
         </div>
         <?php endif; ?>

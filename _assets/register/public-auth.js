@@ -42,7 +42,7 @@
         showStatus(root, '');
         if (focus) {
             requestAnimationFrame(() => {
-                selected.querySelector('a.public-auth-provider, input:not([type="hidden"]), button[type="submit"]')?.focus();
+                selected.querySelector('.public-auth-provider, input:not([type="hidden"]), button[type="submit"]')?.focus();
             });
         }
 
@@ -66,7 +66,7 @@
         setMode(body, body?.dataset.publicAuthDefaultMode || 'methods');
         if (!authDialog.open) authDialog.showModal();
         requestAnimationFrame(() => {
-            authDialog.querySelector('a.public-auth-provider, input:not([type="hidden"])')?.focus();
+            authDialog.querySelector('.public-auth-provider, input:not([type="hidden"])')?.focus();
         });
         return true;
     };

@@ -177,8 +177,13 @@ final readonly class PublicAuthController implements ControllerInterface
         return $this->redirectWithCookies($session, $returnPath);
     }
 
-    private function oauthStart(Request $request): \Symfony\Component\HttpFoundation\RedirectResponse
+    private function oauthStart(Request $request): Response
     {
+        if (!$request->isMethod(Request::METHOD_POST)) {
+            return new Response('OAuth start requires POST.', Response::HTTP_METHOD_NOT_ALLOWED, ['Allow' => Request::METHOD_POST]);
+        }
+
+        $this->requirePostToken($request);
         $provider = $request->attributes->getString('provider');
         $returnPath = PublicReturnPath::normalize($request->query->getString('return'));
 

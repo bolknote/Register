@@ -642,7 +642,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $routes->add('register_public_auth_oauth_start', new Route(
             '/auth/oauth/{provider<vk|mail_ru|ok_ru|yandex>}',
             ['_controller' => PublicAuthController::class, 'auth_action' => 'oauth_start'],
-            methods: ['GET'],
+            methods: ['GET', 'POST'],
         ), $authPriority);
         $routes->add('register_public_auth_oauth_callback', new Route(
             '/auth/oauth/{provider<vk|mail_ru|ok_ru|yandex>}/callback',
