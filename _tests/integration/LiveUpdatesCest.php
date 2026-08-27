@@ -11,6 +11,7 @@ namespace integration;
 
 use Register\Auth\CommentNotificationRepository;
 use Register\Comment\CommentRepository;
+use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
@@ -113,6 +114,12 @@ final class LiveUpdatesCest
         /** @var CommentNotificationRepository $notifications */
         $notifications = $I->grabService(CommentNotificationRepository::class);
 
+        $dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('sent', '1')
+            ->where('shown = 0 AND sent = 0')
+            ->execute()
+        ;
         $postId      = $this->insertPost($dbLayer);
         $contentId   = ContentId::post($postId);
         $I->login('admin', 'admin');

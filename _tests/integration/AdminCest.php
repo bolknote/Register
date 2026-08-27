@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Ai\AiSettings;
+use Register\Comment\CommentRepository;
+use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Admin\AdminAjaxRequestHandler;
@@ -1148,6 +1150,62 @@ class AdminCest
         $I->seeElement('nav.moderation-tabs a[aria-current="page"][href="?entity=Comment&action=list"]');
         $I->dontSeeElement('nav.moderation-tabs a[href*="entity=Spam"]');
         $I->dontSeeElement('nav.moderation-subtabs');
+    }
+
+    public function testPendingCommentsStayAboveNewerHandledComments(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var CommentRepository $comments */
+        $comments = $I->grabAdminService(CommentRepository::class);
+
+        $content = $dbLayer
+            ->select('id, content_type')
+            ->from(ContentSchema::TABLE_NAME)
+            ->orderBy('id')
+            ->limit(1)
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $I->assertIsArray($content);
+        $contentType = ContentType::from((string)$content['content_type']);
+        $contentId = new ContentId($contentType, (int)$content['id']);
+        $pendingTime = time() + 3600;
+
+        $comments->save(
+            $contentId,
+            'Pending must be first',
+            'pending-first@example.test',
+            false,
+            'This comment requires a moderation decision.',
+            '127.0.0.1',
+            null,
+            time: $pendingTime,
+        );
+        $newerHandled = $comments->save(
+            $contentId,
+            'Newer handled comment',
+            'newer-handled@example.test',
+            false,
+            'This newer comment has already been published.',
+            '127.0.0.1',
+            null,
+            time: $pendingTime + 1,
+        );
+        $comments->publish($newerHandled, $contentType);
+
+        $I->login('admin', 'admin');
+        $I->amOnPage(
+            'https://localhost/_admin/index.php?entity=Comment&action=list'
+            . '&apply_filter=0&sort_field=time&sort_direction=desc',
+        );
+
+        $I->seeResponseCodeIs(200);
+        $I->see(
+            'Pending must be first',
+            'table.list-table tbody tr:first-child td.field-Comment-nick',
+        );
+        $I->dontSee('Newer handled comment', 'table.list-table tbody tr:first-child');
     }
 
     public function testEmptyAntispamReportExplainsConfiguredModelAndLiveLog(\IntegrationTester $I): void

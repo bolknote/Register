@@ -16,6 +16,7 @@ use Register\AdminYard\Config\FieldConfig;
 use Register\AdminYard\Controller\EntityController;
 use Register\AdminYard\Controller\InvalidRequestException;
 use Register\AdminYard\Database\DatabaseHelper;
+use Register\AdminYard\Database\LogicalExpression;
 use Register\AdminYard\Database\PdoDataProvider;
 use Register\AdminYard\Database\SafeDataProviderException;
 use Register\AdminYard\Form\FormFactory;
@@ -55,6 +56,54 @@ class CommentController extends EntityController
             $templateRenderer,
             $formFactory,
             $settingStorage,
+        );
+    }
+
+    /**
+     * Keep comments awaiting a moderation decision above every ordinary list sort.
+     *
+     * @param LogicalExpression[] $filterConditions
+     * @return array<int, array<string, mixed>>
+     */
+    #[\Override]
+    protected function getEntityList(
+        array   $filterConditions,
+        int     $page,
+        ?string $sortField,
+        ?string $sortDirection,
+    ): array {
+        $sortField = $this->entityConfig->modifySortableField($sortField);
+        if ($sortField === null) {
+            $sortField     = 'time';
+            $sortDirection = 'desc';
+        } else {
+            $sortDirection = $sortDirection === 'desc' ? 'desc' : 'asc';
+        }
+
+        $labels = DatabaseHelper::getSqlExpressionsForAssociations(
+            $this->entityConfig,
+            FieldConfig::ACTION_LIST,
+        );
+        $labels['write_access_control'] = $this->entityConfig->getWriteAccessControl()
+            ?? LogicalExpression::true();
+
+        $limit = $this->entityConfig->getLimit();
+        $offset = $limit === null || $page < 1 ? 0 : ($page - 1) * $limit;
+        $pendingFirstOrder = 'CASE WHEN entity.shown = 0 AND entity.sent = 0 THEN 0 ELSE 1 END ASC, '
+            . $sortField . ' ' . $sortDirection . ', entity.id';
+
+        return $this->dataProvider->getEntityList(
+            $this->entityConfig->getTableName(),
+            $this->entityConfig->getFieldDataTypes(FieldConfig::ACTION_LIST, true),
+            $labels,
+            array_merge(
+                DatabaseHelper::getReadAccessControlConditions($this->entityConfig),
+                $filterConditions,
+            ),
+            $pendingFirstOrder,
+            'desc',
+            $limit,
+            $offset,
         );
     }
 

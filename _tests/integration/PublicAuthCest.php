@@ -408,6 +408,7 @@ final class PublicAuthCest
             true,
             str_repeat('a', 64),
         );
+        $this->markExistingPendingCommentsHandled($dbLayer);
         $authRepository->ensureNotificationBaseline($userId);
 
         $ownedId = $this->insertContent($dbLayer, 'owned-notifications', $userId);
@@ -478,22 +479,108 @@ final class PublicAuthCest
             false,
             $user->sessionHash,
         )));
-        $I->assertSame($ownedComment, $notifications->firstUnread($user)?->commentId);
-
-        $notifications->markContentRead($user, ContentId::page($ownedId));
-        $I->assertSame(3, $notifications->countUnread($user));
-        $I->assertSame($subscribedComment, $notifications->firstUnread($user)?->commentId);
-
-        $notifications->markContentRead($user, ContentId::page($subscribedId));
-        $I->assertSame(2, $notifications->countUnread($user));
-        $I->assertSame($replyComment, $notifications->firstUnread($user)?->commentId);
-
-        $notifications->markContentRead($user, ContentId::page($replyId));
-        $I->assertSame(1, $notifications->countUnread($user));
         $I->assertSame($pendingComment, $notifications->firstUnread($user)?->commentId);
 
         $notifications->markContentRead($user, ContentId::page($unrelatedId));
+        $I->assertSame(4, $notifications->countUnread($user));
+        $I->assertSame($pendingComment, $notifications->firstUnread($user)?->commentId);
+
+        $dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('sent', '1')
+            ->where('id = :id')->setParameter('id', $pendingComment)
+            ->execute()
+        ;
+        $I->assertSame(3, $notifications->countUnread($user));
+        $I->assertSame($ownedComment, $notifications->firstUnread($user)->commentId);
+
+        $notifications->markContentRead($user, ContentId::page($ownedId));
+        $I->assertSame(2, $notifications->countUnread($user));
+        $I->assertSame($subscribedComment, $notifications->firstUnread($user)?->commentId);
+
+        $notifications->markContentRead($user, ContentId::page($subscribedId));
+        $I->assertSame(1, $notifications->countUnread($user));
+        $I->assertSame($replyComment, $notifications->firstUnread($user)?->commentId);
+
+        $notifications->markContentRead($user, ContentId::page($replyId));
         $I->assertSame(0, $notifications->countUnread($user));
+    }
+
+    public function testPendingModerationPredatingNotificationBaselineStillRequiresAction(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var PublicAuthRepository $authRepository */
+        $authRepository = $I->grabService(PublicAuthRepository::class);
+        /** @var CommentNotificationRepository $notifications */
+        $notifications = $I->grabService(CommentNotificationRepository::class);
+
+        $userId = $this->userId($dbLayer, 'admin');
+        $user = new AuthenticatedPublicUser(
+            $userId,
+            'admin',
+            'admin@example.com',
+            'Admin',
+            true,
+            true,
+            true,
+            true,
+            true,
+            str_repeat('a', 64),
+        );
+        $this->markExistingPendingCommentsHandled($dbLayer);
+        $contentId = $this->insertContent($dbLayer, 'pending-before-notifications');
+        $pendingComment = $this->insertComment(
+            $dbLayer,
+            $contentId,
+            'Pending before baseline',
+            'pending-before@example.test',
+            shown: false,
+            sent: false,
+        );
+
+        $authRepository->ensureNotificationBaseline($userId);
+        $dbLayer
+            ->update(PublicAuthSchema::NOTIFICATION_USERS_TABLE)
+            ->set('initial_comment_id', ':comment_id')->setParameter('comment_id', $pendingComment)
+            ->where('user_id = :user_id')->setParameter('user_id', $userId)
+            ->execute()
+        ;
+
+        $I->assertSame(1, $notifications->countUnread($user));
+        $I->assertSame($pendingComment, $notifications->firstUnread($user)?->commentId);
+
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/');
+        $I->seeElement('.public-auth-unread[data-unread-comments-count="1"][href="/auth/unread"]');
+        $I->sendRequestWithMethod('GET', 'https://localhost/auth/unread');
+        $I->seeResponseCodeIs(302);
+        $I->assertSame(
+            '/pending-before-notifications#comment-' . $pendingComment,
+            $I->grabHttpHeader('Location'),
+        );
+
+        $notifications->markContentRead($user, ContentId::page($contentId));
+        $I->assertSame(1, $notifications->countUnread($user));
+        $I->assertSame($pendingComment, $notifications->firstUnread($user)?->commentId);
+
+        $dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('sent', '1')
+            ->where('id = :id')->setParameter('id', $pendingComment)
+            ->execute()
+        ;
+        $I->assertSame(0, $notifications->countUnread($user));
+    }
+
+    private function markExistingPendingCommentsHandled(DbLayer $dbLayer): void
+    {
+        $dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('sent', '1')
+            ->where('shown = 0 AND sent = 0')
+            ->execute()
+        ;
     }
 
     private function callbackUrl(string $message): string
