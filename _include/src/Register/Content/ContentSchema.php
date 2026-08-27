@@ -62,6 +62,7 @@ final class ContentSchema
                 ->addIndex('type_slug_idx', ['content_type', 'slug'])
                 ->addIndex('type_parent_sort_idx', ['content_type', 'parent_id', 'sort_order', 'published'])
                 ->addIndex('type_publication_idx', ['content_type', 'published', 'published_at'])
+                ->addIndex('type_publication_author_idx', ['content_type', 'published', 'author_id'])
                 ->addIndex('scheduled_publication_idx', ['published', 'scheduled_at'])
                 ->addIndex('type_featured_idx', ['content_type', 'featured', 'published_at'])
                 ->addIndex('type_series_idx', ['content_type', 'series'])

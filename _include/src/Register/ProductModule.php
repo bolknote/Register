@@ -68,6 +68,7 @@ use Register\Module\BaseModuleRegistry;
 use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Offline\OfflineCachePolicy;
 use Register\Schema\CommentPrivacySchemaMigration;
+use Register\Schema\ContentAuthorIndexSchemaMigration;
 use Register\Schema\ContentMediaSchemaMigration;
 use Register\Schema\ExternalImportSchemaMigration;
 use Register\Schema\PublicAuthSchemaMigration;
@@ -480,6 +481,11 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(
             QueueLeaseSchemaMigration::class,
             new QueueLeaseSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            ContentAuthorIndexSchemaMigration::class,
+            new ContentAuthorIndexSchemaMigration(),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

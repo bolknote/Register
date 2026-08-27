@@ -37,6 +37,11 @@ class DbLayerSqlite extends DbLayer
     #[\Override]
     public function tableExists(string $tableName): bool
     {
+        $cached = $this->cachedTableExists($tableName);
+        if ($cached !== null) {
+            return $cached;
+        }
+
         $result = $this->query('SELECT 1 FROM sqlite_master WHERE name = :name AND type = :type', [
             'name' => $this->prefix . $tableName,
             'type' => 'table'
@@ -44,7 +49,7 @@ class DbLayerSqlite extends DbLayer
         $return = (bool)$result->result();
         $result->freeResult();
 
-        return $return;
+        return $this->rememberTableExists($tableName, $return);
     }
 
     /**
@@ -100,6 +105,7 @@ class DbLayerSqlite extends DbLayer
     #[\Override]
     public function createTable(string $tableName, callable $tableDefinition): void
     {
+        $this->forgetTableExists($tableName);
         if ($this->tableExists($tableName)) {
             return;
         }
@@ -144,6 +150,7 @@ class DbLayerSqlite extends DbLayer
 
         $result = $this->query($query);
         $result->freeResult();
+        $this->rememberTableExists($tableName, true);
 
         // Add indexes
         foreach ($schemaBuilder->indexes as $indexName => $indexFields) {

@@ -35,10 +35,16 @@ class DbLayerPostgres extends DbLayer
     #[\Override]
     public function tableExists(string $tableName): bool
     {
+        $cached = $this->cachedTableExists($tableName);
+        if ($cached !== null) {
+            return $cached;
+        }
+
         $result = $this->query('SELECT 1 FROM pg_class WHERE relname = :name', [
             'name' => $this->prefix . $tableName
         ]);
-        return \count($result->fetchAssocAll()) > 0;
+
+        return $this->rememberTableExists($tableName, \count($result->fetchAssocAll()) > 0);
     }
 
     /**
@@ -73,6 +79,7 @@ class DbLayerPostgres extends DbLayer
     #[\Override]
     public function createTable(string $tableName, callable $tableDefinition): void
     {
+        $this->forgetTableExists($tableName);
         if ($this->tableExists($tableName)) {
             return;
         }
@@ -120,6 +127,7 @@ class DbLayerPostgres extends DbLayer
 
         $result = $this->query($query);
         $result->freeResult();
+        $this->rememberTableExists($tableName, true);
 
         // Add indexes
         foreach ($schemaBuilder->indexes as $indexName => $indexFields) {

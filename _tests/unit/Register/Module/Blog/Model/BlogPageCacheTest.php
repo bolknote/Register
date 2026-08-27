@@ -90,6 +90,26 @@ final class BlogPageCacheTest extends TestCase
         self::assertSame('all-2', $cache->allResponse('full_new_visitor', $allFactory)->getContent());
     }
 
+    public function testPublishedAuthorMultiplicityIsReusedUntilContentInvalidation(): void
+    {
+        $cache = new BlogPageCache(new ArrayAdapter());
+        $lookups = 0;
+        $factory = static function () use (&$lookups): bool {
+            ++$lookups;
+
+            return $lookups > 1;
+        };
+
+        self::assertFalse($cache->multiplePublishedAuthors($factory));
+        self::assertFalse($cache->multiplePublishedAuthors($factory));
+
+        $cache->invalidateFirstPage();
+        self::assertFalse($cache->multiplePublishedAuthors($factory));
+
+        $cache->invalidateAll();
+        self::assertTrue($cache->multiplePublishedAuthors($factory));
+    }
+
     public function testDisabledCacheAlwaysBuildsFreshFragments(): void
     {
         $cache  = new BlogPageCache(new ArrayAdapter(), true);

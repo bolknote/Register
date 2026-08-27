@@ -21,6 +21,8 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string ALL_POSTS_KEY = 'register_blog_all_posts_v1';
 
+    private const string MULTIPLE_PUBLISHED_AUTHORS_KEY = 'register_blog_multiple_published_authors_v1';
+
     private const string FIRST_RESPONSE_PREFIX = 'register_blog_first_response_v2_';
 
     private const string ALL_RESPONSE_PREFIX = 'register_blog_all_response_v2_';
@@ -41,6 +43,8 @@ final class BlogPageCache implements StatefulServiceInterface
     private bool $firstPageInvalidated = false;
 
     private bool $allPostsInvalidated = false;
+
+    private bool $publishedAuthorsInvalidated = false;
 
     public function __construct(
         private readonly CacheInterface $cache,
@@ -80,6 +84,27 @@ final class BlogPageCache implements StatefulServiceInterface
         $this->allPostsInvalidated = false;
 
         return $page;
+    }
+
+    /** @param callable(): bool $factory */
+    public function multiplePublishedAuthors(callable $factory): bool
+    {
+        if ($this->disabled) {
+            return $factory();
+        }
+
+        $multiple = $this->cache->get(
+            self::MULTIPLE_PUBLISHED_AUTHORS_KEY,
+            static function (ItemInterface $item) use ($factory): bool {
+                $item->expiresAfter(self::ALL_POSTS_TTL_SECONDS);
+
+                return $factory();
+            },
+            0.0,
+        );
+        $this->publishedAuthorsInvalidated = false;
+
+        return $multiple;
     }
 
     /** @param callable(): Response $factory */
@@ -122,7 +147,11 @@ final class BlogPageCache implements StatefulServiceInterface
 
     public function invalidateAll(): void
     {
-        if ($this->disabled || ($this->firstPageInvalidated && $this->allPostsInvalidated)) {
+        if ($this->disabled || (
+            $this->firstPageInvalidated
+            && $this->allPostsInvalidated
+            && $this->publishedAuthorsInvalidated
+        )) {
             return;
         }
 
@@ -137,6 +166,11 @@ final class BlogPageCache implements StatefulServiceInterface
             $this->deleteResponses(self::ALL_RESPONSE_PREFIX);
             $this->allPostsInvalidated = true;
         }
+
+        if (!$this->publishedAuthorsInvalidated) {
+            $this->cache->delete(self::MULTIPLE_PUBLISHED_AUTHORS_KEY);
+            $this->publishedAuthorsInvalidated = true;
+        }
     }
 
     #[\Override]
@@ -144,6 +178,7 @@ final class BlogPageCache implements StatefulServiceInterface
     {
         $this->firstPageInvalidated = false;
         $this->allPostsInvalidated  = false;
+        $this->publishedAuthorsInvalidated = false;
     }
 
     /** @param callable(): Response $factory */

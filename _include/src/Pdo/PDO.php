@@ -129,6 +129,7 @@ class PDO extends NativePdo implements StatefulServiceInterface
     /**
      * Return logged queries.
      * @return list<array{statement: string, template: string, time: float}>
+     * @phpstan-impure
      */
     public function cleanLogs(): array
     {

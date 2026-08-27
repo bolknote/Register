@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 namespace Register\Core\Pdo;
 
+use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Pdo\QueryBuilder\DeleteBuilder;
 use Register\Core\Pdo\QueryBuilder\DeleteCommonCompiler;
 use Register\Core\Pdo\QueryBuilder\InsertBuilder;
@@ -24,9 +25,12 @@ use Register\Core\Pdo\QueryBuilder\UpdateCommonCompiler;
 use Register\Core\Pdo\QueryBuilder\UpsertBuilder;
 use Register\Core\Pdo\QueryBuilder\UpsertMysqlCompiler;
 
-class DbLayer implements QueryBuilder\QueryExecutorInterface
+class DbLayer implements QueryBuilder\QueryExecutorInterface, StatefulServiceInterface
 {
     protected int $transactionLevel = 0;
+
+    /** @var array<string, bool> */
+    private array $tableExistenceCache = [];
 
     public function __construct(
         protected \PDO   $pdo,
@@ -37,6 +41,12 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
     public function getPrefix(): string
     {
         return $this->prefix;
+    }
+
+    #[\Override]
+    public function clearState(): void
+    {
+        $this->tableExistenceCache = [];
     }
 
     public function startTransaction(): void
@@ -122,9 +132,15 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
      */
     public function tableExists(string $tableName): bool
     {
+        $cached = $this->cachedTableExists($tableName);
+        if ($cached !== null) {
+            return $cached;
+        }
+
         $sql    = 'SHOW TABLES LIKE ' . $this->pdo->quote($this->prefix . $tableName);
         $result = $this->query($sql);
-        return \count($result->fetchAssocAll()) > 0;
+
+        return $this->rememberTableExists($tableName, \count($result->fetchAssocAll()) > 0);
     }
 
     /**
@@ -160,6 +176,7 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
      */
     public function createTable(string $tableName, callable $tableDefinition): void
     {
+        $this->forgetTableExists($tableName);
         if ($this->tableExists($tableName)) {
             return;
         }
@@ -212,6 +229,7 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
             . ') ENGINE = InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci';
 
         $this->query($query);
+        $this->rememberTableExists($tableName, true);
 
         // Add foreign keys
         foreach ($schemaBuilder->foreignKeys as $keyName => $foreignKey) {
@@ -232,11 +250,32 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface
      */
     public function dropTable(string $tableName): void
     {
+        $this->forgetTableExists($tableName);
         if (!$this->tableExists($tableName)) {
             return;
         }
 
         $this->query('DROP TABLE ' . $this->prefix . $tableName);
+        $this->rememberTableExists($tableName, false);
+    }
+
+    protected function cachedTableExists(string $tableName): ?bool
+    {
+        $qualifiedName = $this->prefix . $tableName;
+
+        return $this->tableExistenceCache[$qualifiedName] ?? null;
+    }
+
+    protected function rememberTableExists(string $tableName, bool $exists): bool
+    {
+        $this->tableExistenceCache[$this->prefix . $tableName] = $exists;
+
+        return $exists;
+    }
+
+    protected function forgetTableExists(string $tableName): void
+    {
+        unset($this->tableExistenceCache[$this->prefix . $tableName]);
     }
 
 

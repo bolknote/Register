@@ -32,6 +32,7 @@ readonly class PostProvider
         private ContentUrlGenerator $contentUrlGenerator,
         private Viewer          $viewer,
         private ContentViewRepository $contentViewRepository,
+        private BlogPageCache    $pageCache,
     ) {
     }
 
@@ -53,13 +54,21 @@ readonly class PostProvider
     /** @throws DbLayerException */
     public function hasMultiplePublishedAuthors(): bool
     {
-        return (int)$this->dbLayer
-            ->select('COUNT(DISTINCT author_id)')
-            ->from(ContentSchema::TABLE_NAME)
-            ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
-            ->andWhere('published = 1')
-            ->execute()
-            ->result() > 1;
+        return $this->pageCache->multiplePublishedAuthors(function (): bool {
+            $authorIds = $this->dbLayer
+                ->select('author_id')
+                ->from(ContentSchema::TABLE_NAME)
+                ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+                ->andWhere('published = 1')
+                ->andWhere('author_id IS NOT NULL')
+                ->groupBy('author_id')
+                ->limit(2)
+                ->execute()
+                ->fetchColumn()
+            ;
+
+            return \count($authorIds) > 1;
+        });
     }
 
     /** @throws DbLayerException */

@@ -557,6 +557,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(ContentUrlGenerator::class),
             $container->get(Viewer::class),
             $container->get(ContentViewRepository::class),
+            $container->get(BlogPageCache::class),
         ));
 
         $container->set(TagsSearchProvider::class, static fn(Container $container): \Register\Module\Blog\Service\TagsSearchProvider => new TagsSearchProvider(

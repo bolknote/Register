@@ -95,6 +95,7 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'body'));
         $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'type_parent_sort_idx'));
         $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'type_publication_idx'));
+        $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'type_publication_author_idx'));
         $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'scheduled_at'));
         $I->assertTrue($dbLayer->fieldExists(ContentSchema::TABLE_NAME, 'social_image'));
         $I->assertTrue($dbLayer->indexExists(ContentSchema::TABLE_NAME, 'scheduled_publication_idx'));

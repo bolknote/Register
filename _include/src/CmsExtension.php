@@ -149,7 +149,7 @@ class CmsExtension implements ExtensionInterface
                 'pgsql' => new DbLayerPostgres($container->get(\PDO::class), $db_prefix),
                 default => throw new \RuntimeException(\sprintf('Unsupported db_type="%s"', $db_type)),
             };
-        });
+        }, [StatefulServiceInterface::class]);
         $container->set(\PDO::class, function (Container $container): \Register\Core\Pdo\PDO {
             $container->getStringParameter('db_prefix');
             $db_type     = $container->getStringParameter('db_type');
