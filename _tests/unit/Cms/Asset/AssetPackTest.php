@@ -173,6 +173,26 @@ final class AssetPackTest extends Unit
         self::assertStringNotContainsString('\\u200b', strtolower($script));
     }
 
+    public function testPublishedPostDoesNotRenderTheEditableTailAfterItsLastMediaBlock(): void
+    {
+        $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/\.post-card:not\(\.is-editing\)\s*>\s*\.post\.body\s*>\s*'
+                . ':where\(p:empty, p:has\(> br:only-child\)\):last-child[^\{]*\{[^}]*display:\s*none;/s',
+            $site,
+        );
+        self::assertStringContainsString(
+            '#content .post-card:not(.is-editing) > .post.body > .post-media-picture:where(',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.post-media-picture:where\([^\{]+\)\s*\{[^}]*margin-bottom:\s*1\.35em;/s',
+            $site,
+        );
+    }
+
     public function testPostEditorHighlightsAiChangesWithoutPersistingTheMarks(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';

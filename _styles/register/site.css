@@ -507,6 +507,21 @@ hr {
     white-space: pre-wrap;
 }
 
+/* Contenteditable keeps an empty tail so the caret can sit after the last media block.
+ * It is useful in edit mode, but must not turn into a blank paragraph in the published card. */
+.post-card:not(.is-editing) > .post.body > :where(p:empty, p:has(> br:only-child)):last-child,
+.post-card:not(.is-editing) > .post.body > br:has(+ :where(p:empty, p:has(> br:only-child)):last-child) {
+    display: none;
+}
+
+#content .post-card:not(.is-editing) > .post.body > .post-media-picture:where(
+    :last-child,
+    :has(+ :where(p:empty, p:has(> br:only-child)):last-child),
+    :has(+ br + :where(p:empty, p:has(> br:only-child)):last-child)
+) {
+    margin-bottom: 1.35em;
+}
+
 #content .post-caption.is-editing-inline-caption {
     box-sizing: border-box;
     width: 100%;
