@@ -652,8 +652,9 @@
 }
 
 .comment-stable-anchor {
-    position: relative;
+    position: absolute;
     top: -1rem;
+    left: 0;
     display: block;
     width: 0;
     height: 0;

@@ -833,7 +833,9 @@ h2.comment {
 }
 
 .comment-item:target > .comment-meta,
-.comment-item:target > .comment-tombstone {
+.comment-stable-anchor:target ~ .comment-meta,
+.comment-item:target > .comment-tombstone,
+.comment-stable-anchor:target ~ .comment-tombstone {
     background: var(--highlight-color);
     box-shadow: 0 0 0 4px var(--pixel-moon);
 }

@@ -2815,7 +2815,9 @@ h2.comment {
 }
 
 .comment-item:target > .comment-meta,
-.comment-item:target > .comment-tombstone {
+.comment-stable-anchor:target ~ .comment-meta,
+.comment-item:target > .comment-tombstone,
+.comment-stable-anchor:target ~ .comment-tombstone {
     width: fit-content;
     max-width: 100%;
     background: color-mix(in srgb, var(--highlight-color) 45%, transparent);

@@ -96,6 +96,29 @@ final class AssetPackTest extends Unit
         }
     }
 
+    public function testStableCommentAnchorStartsAtTheTopOfAGridComment(): void
+    {
+        $rootDir = \dirname(__DIR__, 4) . '/';
+        $publicAuth = file_get_contents($rootDir . '_assets/register/public-auth.css');
+        $site = file_get_contents($rootDir . '_styles/register/site.css');
+
+        self::assertIsString($publicAuth);
+        self::assertMatchesRegularExpression(
+            '/\.comment-stable-anchor\s*\{[^}]*position:\s*absolute;[^}]*top:\s*-1rem;[^}]*left:\s*0;/s',
+            $publicAuth,
+        );
+        self::assertIsString($site);
+        self::assertStringContainsString('.comment-stable-anchor:target ~ .comment-meta', $site);
+        self::assertStringContainsString('.comment-stable-anchor:target ~ .comment-tombstone', $site);
+
+        foreach (['oldschool', 'pixel-forest'] as $style) {
+            $css = file_get_contents($rootDir . '_styles/' . $style . '/' . $style . '.css');
+
+            self::assertIsString($css);
+            self::assertStringContainsString('.comment-stable-anchor:target ~ .comment-meta', $css);
+        }
+    }
+
     public function testSystemOneThemeUsesGlobalGrayscaleAndMacOsArtwork(): void
     {
         $themeDir = \dirname(__DIR__, 4) . '/_styles/system-1/';

@@ -382,7 +382,8 @@ h2.comment .comment-count {
     text-decoration: underline;
 }
 
-.comment-item:target > .comment-meta {
+.comment-item:target > .comment-meta,
+.comment-stable-anchor:target ~ .comment-meta {
     width: auto;
     max-width: none;
     background: var(--oldschool-comment-meta);
