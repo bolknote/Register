@@ -75,6 +75,12 @@ jobs:
             sleep 15
           done
 
+          current_main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$TARGET_SHA" != "$current_main_sha" ]]; then
+            echo "Skipping obsolete edge build ${TARGET_SHA}; main is now ${current_main_sha}."
+            exit 0
+          fi
+
           commit_date="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}" --jq '.commit.committer.date')"
           release_stamp="$(date --utc --date="$commit_date" '+%Y%m%dT%H%M%SZ')"
           release_tag="edge-${release_stamp}-${TARGET_SHA:0:8}"
@@ -89,6 +95,9 @@ jobs:
   release:
     needs: gate
     if: needs.gate.outputs.ready == 'true'
+    concurrency:
+      group: github-release-publish
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -134,15 +143,23 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub prerelease
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ needs.gate.outputs.target_sha }}
           RELEASE_TAG: ${{ steps.build.outputs.tag }}
           RELEASE_VERSION: ${{ steps.build.outputs.version }}
         run: |
+          current_main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$TARGET_SHA" != "$current_main_sha" ]]; then
+            echo "Skipping obsolete edge build ${TARGET_SHA}; main is now ${current_main_sha}."
+            exit 0
+          fi
+
           if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' >/tmp/register-release-draft 2>/dev/null; then
             if [[ "$(</tmp/register-release-draft)" != 'true' ]]; then
               echo "Release $RELEASE_TAG is already published."
+              echo 'published=true' >> "$GITHUB_OUTPUT"
               exit 0
             fi
           else
@@ -157,3 +174,25 @@ jobs:
 
           gh release upload "$RELEASE_TAG" dist/release/* --clobber
           gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          echo 'published=true' >> "$GITHUB_OUTPUT"
+
+      - name: Delete superseded GitHub releases
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP_RELEASE_TAG: ${{ steps.build.outputs.tag }}
+        run: |
+          releases="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100")"
+          keep_id="$(jq -r --arg tag "$KEEP_RELEASE_TAG" \
+            '[.[][] | select(.tag_name == $tag)][0].id // empty' <<< "$releases")"
+          if [[ ! "$keep_id" =~ ^[0-9]+$ ]]; then
+            echo "::error::Unable to resolve published release $KEEP_RELEASE_TAG."
+            exit 1
+          fi
+
+          mapfile -t release_ids < <(jq -r --argjson keep_id "$keep_id" \
+            '.[][] | select(.id != $keep_id) | .id' <<< "$releases")
+          for release_id in "${release_ids[@]}"; do
+            echo "Deleting superseded GitHub release ${release_id}."
+            gh api --method DELETE --silent "repos/${GITHUB_REPOSITORY}/releases/${release_id}"
+          done

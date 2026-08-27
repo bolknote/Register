@@ -90,6 +90,9 @@ jobs:
 
   publish:
     needs: verify
+    concurrency:
+      group: github-release-publish
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -150,3 +153,23 @@ jobs:
           # Passing assets to create keeps the release in GitHub's internal draft until every
           # archive has uploaded successfully, so a network failure cannot publish an empty release.
           gh release create "${release_args[@]}" dist/release/*
+
+      - name: Delete superseded GitHub releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP_RELEASE_TAG: v${{ inputs.version }}
+        run: |
+          releases="$(gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/releases?per_page=100")"
+          keep_id="$(jq -r --arg tag "$KEEP_RELEASE_TAG" \
+            '[.[][] | select(.tag_name == $tag)][0].id // empty' <<< "$releases")"
+          if [[ ! "$keep_id" =~ ^[0-9]+$ ]]; then
+            echo "::error::Unable to resolve published release $KEEP_RELEASE_TAG."
+            exit 1
+          fi
+
+          mapfile -t release_ids < <(jq -r --argjson keep_id "$keep_id" \
+            '.[][] | select(.id != $keep_id) | .id' <<< "$releases")
+          for release_id in "${release_ids[@]}"; do
+            echo "Deleting superseded GitHub release ${release_id}."
+            gh api --method DELETE --silent "repos/${GITHUB_REPOSITORY}/releases/${release_id}"
+          done
