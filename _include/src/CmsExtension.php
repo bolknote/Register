@@ -19,6 +19,7 @@ use Register\Http\ContentSecurityPolicy;
 use Register\Http\CspViolationReportController;
 use Register\Http\CspViolationReporter;
 use Register\Http\InlineStyleAttributeStripper;
+use Register\Http\LegacyContentStylesheetInjector;
 use Register\Http\ResponseCompressionCache;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use Register\Core\Asset\AssetMergeFactory;
@@ -350,6 +351,10 @@ class CmsExtension implements ExtensionInterface
             $container->get(CspViolationReporter::class),
         ));
         $container->set(InlineStyleAttributeStripper::class, static fn(): InlineStyleAttributeStripper => new InlineStyleAttributeStripper());
+        $container->set(LegacyContentStylesheetInjector::class, static fn(Container $container): LegacyContentStylesheetInjector => new LegacyContentStylesheetInjector(
+            $container->getStringParameter('public_root_dir'),
+            $container->getStringParameter('base_path'),
+        ));
         $container->set(\Register\Comment\CommentSubscriptionService::class, static fn(Container $container): \Register\Comment\CommentSubscriptionService => new \Register\Comment\CommentSubscriptionService(
             $container->get(\Register\Comment\CommentRepository::class),
             $container->get(SpamIdentityHasher::class),
@@ -860,6 +865,14 @@ class CmsExtension implements ExtensionInterface
 
             $event->replace('<!-- register_querytime -->', $content);
         }, -256);
+
+        $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, static function (TemplateFinalReplaceEvent $event) use ($container): void {
+            $styleName = $container->get(DynamicConfigProvider::class)->getStringProxy('REGISTER_STYLE')->get();
+            $template = $container->get(LegacyContentStylesheetInjector::class)->inject($event->template, $styleName);
+            if ($template !== $event->template) {
+                $event->setTemplate($template);
+            }
+        }, -384);
 
         $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, static function (TemplateFinalReplaceEvent $event) use ($container): void {
             $event->setTemplate($container->get(InlineStyleAttributeStripper::class)->strip($event->template));

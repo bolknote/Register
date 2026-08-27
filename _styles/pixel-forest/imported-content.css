@@ -1,0 +1,14 @@
+/* Theme overrides for imported historical markup. */
+
+.lj-cut > summary {
+    border: 2px solid var(--pixel-frame-light);
+    background: var(--pixel-panel-light);
+    color: var(--pixel-leaf-bright);
+    box-shadow: 3px 3px 0 var(--pixel-shadow);
+}
+
+.lj-cut > summary::before {
+    width: 0.6em;
+    height: 0.6em;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 100%, 50% 50%, 0 50%);
+}

@@ -1,0 +1,16 @@
+/* Theme overrides for imported historical markup. */
+
+.lj-cut > summary {
+    border: 2px solid var(--system-black);
+    border-radius: 0;
+    background: var(--system-paper);
+    box-shadow: 3px 3px 0 var(--system-black);
+    color: var(--system-black);
+    font-family: var(--ui-font);
+}
+
+.lj-cut > summary:hover,
+.lj-cut > summary:focus-visible {
+    background: var(--system-black);
+    color: var(--system-paper);
+}
