@@ -16,6 +16,20 @@ foreach ([
     require_once $projectRoot . '/tools/deployment/' . $deploymentFile;
 }
 
+$optionalExtensionShadowDependencies = [
+    'ext-bz2',
+    'ext-ctype',
+    'ext-curl',
+    'ext-intl',
+    'ext-mbstring',
+    'ext-zend-opcache',
+    'ext-zip',
+    'ext-zlib',
+];
+if (extension_loaded('apcu')) {
+    $optionalExtensionShadowDependencies[] = 'ext-apcu';
+}
+
 return $config
     ->addPathToScan($projectRoot . '/_admin', isDev: false)
     ->addPathToScan($projectRoot . '/_include/common.php', isDev: false)
@@ -28,16 +42,7 @@ return $config
     ->addPathToExclude($projectRoot . '/tools/quality/stubs')
     // Native mbstring/ctype are covered by direct polyfills; the other extensions are optional and guarded.
     // The release workflow explicitly installs Bzip2 and Zip before invoking the archive builder.
-    ->ignoreErrorsOnExtensions([
-        'ext-bz2',
-        'ext-ctype',
-        'ext-curl',
-        'ext-intl',
-        'ext-mbstring',
-        'ext-zend-opcache',
-        'ext-zip',
-        'ext-zlib',
-    ], [ErrorType::SHADOW_DEPENDENCY])
+    ->ignoreErrorsOnExtensions($optionalExtensionShadowDependencies, [ErrorType::SHADOW_DEPENDENCY])
     ->ignoreErrorsOnPackages([
         'symfony/expression-language',
         'symfony/polyfill-ctype',
