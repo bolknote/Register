@@ -121,10 +121,7 @@ final class BlogPageCache implements StatefulServiceInterface
         );
     }
 
-    /**
-     * @param callable $factory
-     * @return array<mixed>
-     */
+    /** @return array<mixed> */
     public function navigation(callable $factory): array
     {
         if ($this->disabled) {
