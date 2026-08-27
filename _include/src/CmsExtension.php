@@ -72,6 +72,8 @@ use Register\Core\Framework\ResponseProcessorInterface;
 use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Http\RedirectDetector;
 use Register\Core\Http\TrustedProxyConfigurator;
+use Register\Core\Http\Cache\PageCachePoolFactory;
+use Register\Core\Http\Cache\PageCachePools;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\HttpClient\Remote\HostResolverInterface;
 use Register\Core\HttpClient\Remote\NativeHostResolver;
@@ -217,7 +219,16 @@ class CmsExtension implements ExtensionInterface
             $container->get(SqlQueryTemplateSanitizer::class),
             $container->getFloatParameter('boot_timestamp'),
         ), [StatefulServiceInterface::class]);
-        $container->set('config_cache', fn(Container $container): \Symfony\Component\Cache\Adapter\FilesystemAdapter => new FilesystemAdapter('config', 0, $container->getStringParameter('cache_dir')));
+        $container->set(PageCachePoolFactory::class, fn(Container $container): PageCachePoolFactory => new PageCachePoolFactory(
+            $container->get(LoggerInterface::class),
+        ));
+        $container->set(PageCachePools::class, fn(Container $container): PageCachePools => $container
+            ->get(PageCachePoolFactory::class)
+            ->create(
+                $container->getStringParameter('cache_dir'),
+                $container->getStringParameter('root_dir'),
+                $container->getStringParameter('version'),
+            ));
         $container->set(ResponseCompressionCache::class, fn(Container $container): ResponseCompressionCache => new ResponseCompressionCache(
             new FilesystemAdapter('response_encoding', 3600, $container->getStringParameter('cache_dir')),
             $container->getBoolParameter('disable_cache'),

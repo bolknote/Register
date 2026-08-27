@@ -63,10 +63,14 @@ final class BlogPageCache implements StatefulServiceInterface
     /** @var array<string, true> */
     private array $invalidatedContent = [];
 
+    private readonly CacheInterface $hotCache;
+
     public function __construct(
         private readonly CacheInterface $cache,
         private readonly bool           $disabled = false,
+        ?CacheInterface                  $hotCache = null,
     ) {
+        $this->hotCache = $hotCache ?? $cache;
     }
 
     /** @param callable(): PostFeed $factory */
@@ -76,7 +80,7 @@ final class BlogPageCache implements StatefulServiceInterface
             return $factory();
         }
 
-        $feed = $this->cache->get(self::FIRST_PAGE_KEY, static function (ItemInterface $item) use ($factory): PostFeed {
+        $feed = $this->hotCache->get(self::FIRST_PAGE_KEY, static function (ItemInterface $item) use ($factory): PostFeed {
             $item->expiresAfter(self::FIRST_PAGE_TTL_SECONDS);
 
             return $factory();
@@ -93,7 +97,7 @@ final class BlogPageCache implements StatefulServiceInterface
             return $factory();
         }
 
-        $page = $this->cache->get(self::ALL_POSTS_KEY, static function (ItemInterface $item) use ($factory): AllPostsPage {
+        $page = $this->hotCache->get(self::ALL_POSTS_KEY, static function (ItemInterface $item) use ($factory): AllPostsPage {
             $item->expiresAfter(self::ALL_POSTS_TTL_SECONDS);
 
             return $factory();
@@ -110,7 +114,7 @@ final class BlogPageCache implements StatefulServiceInterface
             return $factory();
         }
 
-        $multiple = $this->cache->get(
+        $multiple = $this->hotCache->get(
             self::MULTIPLE_PUBLISHED_AUTHORS_KEY,
             static function (ItemInterface $item) use ($factory): bool {
                 $item->expiresAfter(self::ALL_POSTS_TTL_SECONDS);
@@ -128,6 +132,7 @@ final class BlogPageCache implements StatefulServiceInterface
     public function firstResponse(string $variant, callable $factory): Response
     {
         $response = $this->response(
+            $this->hotCache,
             self::FIRST_RESPONSE_PREFIX . $this->validatedVariant($variant),
             self::FIRST_PAGE_TTL_SECONDS,
             $factory,
@@ -142,6 +147,7 @@ final class BlogPageCache implements StatefulServiceInterface
     {
         // Content events invalidate the deterministic archive response; the TTL covers out-of-band changes.
         $response = $this->response(
+            $this->hotCache,
             self::ALL_RESPONSE_PREFIX . $this->validatedVariant($variant),
             self::ALL_POSTS_TTL_SECONDS,
             $factory,
@@ -157,6 +163,7 @@ final class BlogPageCache implements StatefulServiceInterface
         $path = $this->normalizedContentPath($path);
 
         return $this->response(
+            $this->cache,
             $this->contentResponsePrefix($path) . $this->validatedVariant($variant),
             self::CONTENT_RESPONSE_TTL_SECONDS,
             $factory,
@@ -203,7 +210,10 @@ final class BlogPageCache implements StatefulServiceInterface
             0.0,
         );
         foreach ($paths as $path) {
-            $this->deleteResponses($this->contentResponsePrefix($this->normalizedContentPath($path)));
+            $this->deleteResponses(
+                $this->cache,
+                $this->contentResponsePrefix($this->normalizedContentPath($path)),
+            );
         }
 
         $this->cache->delete($mappingKey);
@@ -216,7 +226,7 @@ final class BlogPageCache implements StatefulServiceInterface
             return;
         }
 
-        $this->cache->delete(self::CONTENT_RESPONSE_GENERATION_KEY);
+        $this->hotCache->delete(self::CONTENT_RESPONSE_GENERATION_KEY);
         $this->contentResponsesInvalidated = true;
         $this->invalidatedContent = [];
     }
@@ -227,8 +237,8 @@ final class BlogPageCache implements StatefulServiceInterface
             return;
         }
 
-        $this->cache->delete(self::FIRST_PAGE_KEY);
-        $this->deleteResponses(self::FIRST_RESPONSE_PREFIX);
+        $this->hotCache->delete(self::FIRST_PAGE_KEY);
+        $this->deleteResponses($this->hotCache, self::FIRST_RESPONSE_PREFIX);
         $this->firstPageInvalidated = true;
     }
 
@@ -243,19 +253,19 @@ final class BlogPageCache implements StatefulServiceInterface
         }
 
         if (!$this->firstPageInvalidated) {
-            $this->cache->delete(self::FIRST_PAGE_KEY);
-            $this->deleteResponses(self::FIRST_RESPONSE_PREFIX);
+            $this->hotCache->delete(self::FIRST_PAGE_KEY);
+            $this->deleteResponses($this->hotCache, self::FIRST_RESPONSE_PREFIX);
             $this->firstPageInvalidated = true;
         }
 
         if (!$this->allPostsInvalidated) {
-            $this->cache->delete(self::ALL_POSTS_KEY);
-            $this->deleteResponses(self::ALL_RESPONSE_PREFIX);
+            $this->hotCache->delete(self::ALL_POSTS_KEY);
+            $this->deleteResponses($this->hotCache, self::ALL_RESPONSE_PREFIX);
             $this->allPostsInvalidated = true;
         }
 
         if (!$this->publishedAuthorsInvalidated) {
-            $this->cache->delete(self::MULTIPLE_PUBLISHED_AUTHORS_KEY);
+            $this->hotCache->delete(self::MULTIPLE_PUBLISHED_AUTHORS_KEY);
             $this->publishedAuthorsInvalidated = true;
         }
     }
@@ -271,14 +281,14 @@ final class BlogPageCache implements StatefulServiceInterface
     }
 
     /** @param callable(): Response $factory */
-    private function response(string $key, int $ttl, callable $factory): Response
+    private function response(CacheInterface $cache, string $key, int $ttl, callable $factory): Response
     {
         if ($this->disabled) {
             return $factory();
         }
 
         $miss = false;
-        $value = $this->cache->get(
+        $value = $cache->get(
             $key,
             static function (ItemInterface $item, bool &$save) use ($factory, $ttl, &$miss): CachedBlogResponse|Response {
                 $miss = true;
@@ -327,7 +337,7 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private function contentResponseGeneration(): string
     {
-        $generation = $this->cache->get(
+        $generation = $this->hotCache->get(
             self::CONTENT_RESPONSE_GENERATION_KEY,
             static function (ItemInterface $item): string {
                 $item->expiresAfter(self::ALL_POSTS_TTL_SECONDS);
@@ -367,10 +377,10 @@ final class BlogPageCache implements StatefulServiceInterface
         return [];
     }
 
-    private function deleteResponses(string $prefix): void
+    private function deleteResponses(CacheInterface $cache, string $prefix): void
     {
         foreach (self::RESPONSE_VARIANTS as $variant) {
-            $this->cache->delete($prefix . $variant);
+            $cache->delete($prefix . $variant);
         }
     }
 }

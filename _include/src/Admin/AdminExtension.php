@@ -51,6 +51,7 @@ use Register\Core\Admin\Dashboard\DashboardCompressionProvider;
 use Register\Core\Admin\Dashboard\DashboardDatabaseProvider;
 use Register\Core\Admin\Dashboard\DashboardEnvironmentProvider;
 use Register\Core\Admin\Dashboard\DashboardPerformanceProvider;
+use Register\Core\Admin\Dashboard\DashboardPageCacheProvider;
 use Register\Core\Admin\Dashboard\DashboardQueryProfilerProvider;
 use Register\Core\Admin\Dashboard\DashboardSecurityProvider;
 use Register\Core\Admin\Dashboard\DashboardStatProviderInterface;
@@ -85,6 +86,7 @@ use Register\Core\Extensions\ExtensionManagerAdapter;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ExtensionInterface;
 use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Http\Cache\PageCachePools;
 use Register\Core\Model\ArticleManager;
 use Register\Core\Model\ArticleProvider;
 use Register\Core\Model\AuthManager;
@@ -440,6 +442,11 @@ class AdminExtension implements ExtensionInterface
         $container->set(DashboardCompressionProvider::class, fn(Container $container): DashboardCompressionProvider => new DashboardCompressionProvider(
             $container->get(TemplateRenderer::class),
             $container->getStringParameter('public_root_dir') . '_cache/',
+            !$container->getBoolParameter('disable_cache'),
+        ), [SystemStatusProviderInterface::class]);
+        $container->set(DashboardPageCacheProvider::class, fn(Container $container): DashboardPageCacheProvider => new DashboardPageCacheProvider(
+            $container->get(TemplateRenderer::class),
+            $container->get(PageCachePools::class),
             !$container->getBoolParameter('disable_cache'),
         ), [SystemStatusProviderInterface::class]);
         $container->set(QueryProfilerToken::class, fn(Container $container): QueryProfilerToken => new QueryProfilerToken(

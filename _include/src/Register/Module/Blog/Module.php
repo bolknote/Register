@@ -44,6 +44,7 @@ use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerAwareRoutingModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Http\Cache\PageCachePools;
 use Register\Core\Mail\CommentMailer;
 use Register\Core\Model\Article\ArticleRenderedEvent;
 use Register\Core\Model\ArticleProvider;
@@ -133,6 +134,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         });
         $container->set(BlogPlaceholderProvider::class, static function (Container $container): \Register\Module\Blog\Model\BlogPlaceholderProvider {
             $provider = $container->get(DynamicConfigProvider::class);
+            $pageCachePools = $container->get(PageCachePools::class);
             return new BlogPlaceholderProvider(
                 $container->get(DbLayer::class),
                 $container->get(\Register\Content\TagRepository::class),
@@ -141,16 +143,21 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get('register_blog_translator'),
                 $container->get(Viewer::class),
                 $container->get(RequestStack::class),
-                $container->get('config_cache'),
+                $pageCachePools->hot,
                 $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
                 $provider->getIntProxy('REGISTER_MAX_ITEMS'),
                 $container->getStringParameter('url_prefix'),
             );
         });
-        $container->set(BlogPageCache::class, static fn(Container $container): BlogPageCache => new BlogPageCache(
-            $container->get('config_cache'),
-            $container->getBoolParameter('disable_cache'),
-        ), [StatefulServiceInterface::class]);
+        $container->set(BlogPageCache::class, static function (Container $container): BlogPageCache {
+            $pageCachePools = $container->get(PageCachePools::class);
+
+            return new BlogPageCache(
+                $pageCachePools->persistent,
+                $container->getBoolParameter('disable_cache'),
+                $pageCachePools->hot,
+            );
+        }, [StatefulServiceInterface::class]);
         $container->set(BlogResponseCachePolicy::class, static fn(Container $container): BlogResponseCachePolicy => new BlogResponseCachePolicy(
             $container->get(AuthProvider::class),
             $container->get(\Register\Module\VisitorIdentity\VisitorIdentityManager::class),

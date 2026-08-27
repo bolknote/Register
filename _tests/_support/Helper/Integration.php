@@ -509,6 +509,7 @@ class Integration extends AbstractBrowserModule
     private function clearConfigCache(): void
     {
         register_call_without_warnings(static fn(): bool => self::deleteRecursive(self::ROOT_DIR . '_cache/test/config/'));
+        register_call_without_warnings(static fn(): bool => self::deleteRecursive(self::ROOT_DIR . '_cache/test/pages/'));
         register_call_without_warnings(static fn(): bool => unlink(self::ROOT_DIR . '_cache/test/register_config.php'));
     }
 

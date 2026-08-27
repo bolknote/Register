@@ -317,6 +317,8 @@ class AdminCest
         $I->see('System status', 'h1#system-status-title');
         $I->see('Environment', '.environment-stat-item h3');
         $I->see('Response compression', '.compression-stat-item h3');
+        $I->see('Page cache', '.page-cache-stat-item h3');
+        $I->see('Filesystem only', '.page-cache-stat-item');
         $I->see('PHP', '.environment-stat-item dt');
         $I->see('Database', '.environment-stat-item');
         $I->see('Security monitoring', '.security-stat-item h3');

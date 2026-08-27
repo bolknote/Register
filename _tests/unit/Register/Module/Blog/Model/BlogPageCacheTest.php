@@ -15,6 +15,7 @@ use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\PostFeed;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Adapter\ChainAdapter;
 use Symfony\Component\HttpFoundation\Response;
 
 final class BlogPageCacheTest extends TestCase
@@ -157,5 +158,37 @@ final class BlogPageCacheTest extends TestCase
         self::assertSame('feed-1', $cache->firstPage($factory)->html);
         self::assertSame('feed-2', $cache->firstPage($factory)->html);
         self::assertSame(2, $builds);
+    }
+
+    public function testOnlyBoundedHotEntriesReachTheMemoryTier(): void
+    {
+        $memory = new ArrayAdapter();
+        $filesystem = new ArrayAdapter();
+        $hot = new ChainAdapter([$memory, $filesystem]);
+        $cache = new BlogPageCache($filesystem, false, $hot);
+
+        $cache->firstPage(static fn(): PostFeed => new PostFeed('hot feed', null, null));
+        self::assertTrue($memory->hasItem('register_blog_first_page_v1'));
+        self::assertTrue($filesystem->hasItem('register_blog_first_page_v1'));
+
+        $cache->contentResponse(
+            'full_bot',
+            '/cold-content',
+            static fn(): Response => new Response('cold response'),
+        );
+        $memoryKeys = array_keys($memory->getValues());
+        self::assertContains('register_content_response_generation_v1', $memoryKeys);
+        self::assertSame([], array_values(array_filter(
+            $memoryKeys,
+            static fn(string $key): bool => str_starts_with($key, 'register_content_response_v2_'),
+        )));
+
+        $cache->invalidateFirstPage();
+        self::assertFalse($memory->hasItem('register_blog_first_page_v1'));
+        self::assertFalse($filesystem->hasItem('register_blog_first_page_v1'));
+
+        $cache->invalidateContentResponses();
+        self::assertFalse($memory->hasItem('register_content_response_generation_v1'));
+        self::assertFalse($filesystem->hasItem('register_content_response_generation_v1'));
     }
 }
