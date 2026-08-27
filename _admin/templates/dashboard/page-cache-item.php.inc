@@ -5,7 +5,12 @@
  * @var bool $enabled
  * @var string $filesystemDirectory
  * @var bool $sharedMemoryEnabled
- * @var array{total:int, available:int, entries:int}|null $sharedMemoryInfo
+ * @var array{
+ *     total:int,
+ *     available:int,
+ *     entries:int,
+ *     application:array{bytes:int, entries:int}|null
+ * }|null $sharedMemoryInfo
  */
 ?>
 <div class="stat-item page-cache-stat-item">
@@ -33,6 +38,12 @@
                         '{{ available }}' => $friendlyFilesize($sharedMemoryInfo['available']),
                         '{{ entries }}'   => $sharedMemoryInfo['entries'],
                     ]) ?></small>
+                    <?php if ($sharedMemoryInfo['application'] !== null): ?>
+                        <small class="technical-data"><?= $trans('APCu application usage', [
+                            '{{ used }}'    => $friendlyFilesize($sharedMemoryInfo['application']['bytes']),
+                            '{{ entries }}' => $sharedMemoryInfo['application']['entries'],
+                        ]) ?></small>
+                    <?php endif; ?>
                 <?php endif; ?>
             </dd>
         </div>

@@ -32,7 +32,14 @@ final readonly class DashboardPageCacheProvider implements SystemStatusProviderI
         ]);
     }
 
-    /** @return array{total:int, available:int, entries:int}|null */
+    /**
+     * @return array{
+     *     total:int,
+     *     available:int,
+     *     entries:int,
+     *     application:array{bytes:int, entries:int}|null
+     * }|null
+     */
     private function sharedMemoryInfo(): ?array
     {
         if (!$this->pools->sharedMemoryEnabled
@@ -66,6 +73,41 @@ final readonly class DashboardPageCacheProvider implements SystemStatusProviderI
             'total'     => max(0, $segments * $segmentBytes),
             'available' => max(0, (int)$available),
             'entries'   => max(0, $entries),
+            'application' => $this->applicationSharedMemoryInfo(),
         ];
+    }
+
+    /** @return array{bytes:int, entries:int}|null */
+    private function applicationSharedMemoryInfo(): ?array
+    {
+        $iteratorClass = 'APCUIterator';
+        if ($this->pools->sharedMemoryNamespace === null || !class_exists($iteratorClass, false)) {
+            return null;
+        }
+
+        $bytes = 0;
+        $entries = 0;
+        $pattern = '/^' . preg_quote($this->pools->sharedMemoryNamespace . ':', '/') . '/';
+
+        try {
+            $iterator = (new \ReflectionClass($iteratorClass))->newInstance($pattern);
+            foreach ($iterator as $entry) {
+                if (!\is_array($entry)) {
+                    continue;
+                }
+
+                $memorySize = $entry['mem_size'] ?? null;
+                if (!\is_int($memorySize) && !\is_float($memorySize)) {
+                    continue;
+                }
+
+                $bytes += max(0, (int)$memorySize);
+                ++$entries;
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return ['bytes' => $bytes, 'entries' => $entries];
     }
 }

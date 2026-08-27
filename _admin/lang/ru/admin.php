@@ -568,6 +568,7 @@ return [
     'APCu page cache enabled'                => 'APCu с файловым резервом',
     'APCu page cache unavailable'            => 'Только файловый кэш — APCu недоступен',
     'APCu memory usage'                      => 'Общий сегмент PHP-FPM: занято {{ used }} из {{ total }}, свободно {{ available }}, записей {{ entries }}',
+    'APCu application usage'                 => 'Горячий уровень Register: {{ used }}, записей {{ entries }}',
     'Page cache tier note'                   => 'APCu хранит только главную, /all/, навигацию и служебные маркеры. Отдельные материалы остаются в файловом кэше и не заполняют общую память.',
     'SQL query profiler'                    => 'Профайлер SQL-запросов',
     'Query profiler inactive'               => 'Профайлер выключен. Запустите короткий сбор данных и откройте интересующие страницы сайта.',

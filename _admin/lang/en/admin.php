@@ -568,6 +568,7 @@ return [
     'APCu page cache enabled'                => 'APCu with filesystem fallback',
     'APCu page cache unavailable'            => 'Filesystem only — APCu is unavailable',
     'APCu memory usage'                      => 'Shared PHP-FPM segment: {{ used }} used of {{ total }}, {{ available }} available, {{ entries }} entries',
+    'APCu application usage'                 => 'Register hot tier: {{ used }}, {{ entries }} entries',
     'Page cache tier note'                   => 'APCu holds only the front page, /all/, navigation and small generation markers. Individual content stays in the filesystem cache and cannot fill shared memory.',
     'SQL query profiler'                    => 'SQL query profiler',
     'Query profiler inactive'               => 'The profiler is off. Start a short capture and open the site pages you want to inspect.',
