@@ -244,7 +244,13 @@ final class PostInplaceCest
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
-        $postId  = $this->insertPost($dbLayer, 'media-post', $this->userId($dbLayer, 'author'));
+        $publishedAt = (new \DateTimeImmutable('1991-01-30 12:00:00'))->getTimestamp();
+        $postId  = $this->insertPost(
+            $dbLayer,
+            'media-post',
+            $this->userId($dbLayer, 'author'),
+            $publishedAt,
+        );
 
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/media-post');
@@ -255,45 +261,46 @@ final class PostInplaceCest
         $png = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
         $wav = $this->temporaryFile($this->wavContents());
         $txt = $this->temporaryFile('Not media.');
-        $browserOnlyImageContents = hex2bin(
+        $avif = $this->temporaryFile((string)hex2bin(
             '0000001c667479706176696600000000617669666d6966316d696132',
-        );
-        $I->assertIsString($browserOnlyImageContents);
-        $browserOnlyImage = $this->temporaryFile($browserOnlyImageContents);
-        $browserPreview = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
+        ));
         $storedFiles = [];
 
         try {
             $I->sendPost(
                 'https://localhost/_inplace/post/' . $postId,
-                ['inplace_action' => 'media', 'inplace_token' => $token],
-                ['media' => new UploadedFile($png, 'dropped.png', 'image/png', null, true)],
+                [
+                    'inplace_action'      => 'media',
+                    'inplace_token'       => $token,
+                    'published_at'        => (string)$publishedAt,
+                    'media_retina'        => '0',
+                    'media_width'         => '1',
+                    'media_height'        => '1',
+                    'media_display_width' => '1',
+                    'media_display_height' => '1',
+                ],
+                ['media' => new UploadedFile($png, 'optimized.png', 'image/png', null, true)],
             );
             $I->seeResponseCodeIs(Response::HTTP_OK);
             $imagePayload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
             $I->assertTrue($imagePayload['success']);
             $I->assertSame('media', $imagePayload['action']);
             $I->assertSame('image', $imagePayload['kind']);
-            $I->assertSame('dropped.png', $imagePayload['name']);
+            $I->assertSame('1991.01.30.png', $imagePayload['name']);
             $I->assertSame(1, $imagePayload['width']);
             $I->assertSame(1, $imagePayload['height']);
-            $I->assertMatchesRegularExpression(
-                '~^/_tests/_output/images/[0-9]{4}/[0-9]{2}/[a-f0-9]{32}\.png$~D',
-                $imagePayload['url'],
-            );
+            $I->assertFalse($imagePayload['retina']);
+            $I->assertSame('/_tests/_output/images/1991.01.30.png', $imagePayload['url']);
             $storedFiles[] = $this->storedMediaPath($imagePayload['url']);
-            $staleImageFile = $storedFiles[array_key_last($storedFiles)];
-            $I->assertFileExists($staleImageFile);
-            $dbLayer
-                ->update(ContentMediaSchema::FILE_TABLE)
-                ->set('created_at', '1')
-                ->where('id = :id')->setParameter('id', (int)$imagePayload['media_id'])
-                ->execute()
-            ;
+            $I->assertFileExists($storedFiles[array_key_last($storedFiles)]);
 
             $I->sendPost(
                 'https://localhost/_inplace/post/' . $postId,
-                ['inplace_action' => 'media', 'inplace_token' => $token],
+                [
+                    'inplace_action' => 'media',
+                    'inplace_token'  => $token,
+                    'published_at'   => (string)$publishedAt,
+                ],
                 ['media' => new UploadedFile($wav, 'dropped.wav', 'audio/wav', null, true)],
             );
             $I->seeResponseCodeIs(Response::HTTP_OK);
@@ -301,73 +308,35 @@ final class PostInplaceCest
             $I->assertTrue($audioPayload['success']);
             $I->assertSame('media', $audioPayload['action']);
             $I->assertSame('audio', $audioPayload['kind']);
-            $I->assertSame('dropped.wav', $audioPayload['name']);
-            $I->assertMatchesRegularExpression(
-                '~^/_tests/_output/images/[0-9]{4}/[0-9]{2}/[a-f0-9]{32}\.wav$~D',
-                $audioPayload['url'],
-            );
+            $I->assertSame('1991.01.30.1.wav', $audioPayload['name']);
+            $I->assertSame('/_tests/_output/images/1991.01.30.1.wav', $audioPayload['url']);
             $storedFiles[] = $this->storedMediaPath($audioPayload['url']);
             $I->assertFileExists($storedFiles[array_key_last($storedFiles)]);
-            $I->assertFileDoesNotExist($staleImageFile);
-            $I->assertSame(0, (int)$dbLayer
-                ->select('COUNT(*)')
-                ->from(ContentMediaSchema::FILE_TABLE)
-                ->where('storage_path = :storage_path')->setParameter(
-                    'storage_path',
-                    substr((string)$imagePayload['url'], strlen('/_tests/_output/images')),
-                )
-                ->execute()
-                ->result());
 
             $I->sendPost(
                 'https://localhost/_inplace/post/' . $postId,
                 [
                     'inplace_action' => 'media',
                     'inplace_token'  => $token,
-                    'media_width'    => '640',
-                    'media_height'   => '640',
+                    'published_at'   => (string)$publishedAt,
                 ],
-                [
-                    'media' => new UploadedFile(
-                        $browserOnlyImage,
-                        'browser-decoded.avif',
-                        'image/avif',
-                        null,
-                        true,
-                    ),
-                    'media_preview' => new UploadedFile(
-                        $browserPreview,
-                        'browser-preview.png',
-                        'image/png',
-                        null,
-                        true,
-                    ),
-                ],
+                ['media' => new UploadedFile($avif, 'browser-source.avif', 'image/avif', null, true)],
             );
-            $I->seeResponseCodeIs(Response::HTTP_OK);
-            $browserDecodedPayload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
-            $I->assertSame(640, $browserDecodedPayload['width']);
-            $I->assertSame(640, $browserDecodedPayload['height']);
-            $browserDecodedFile = $this->storedMediaPath($browserDecodedPayload['url']);
-            $storedFiles[] = $browserDecodedFile;
-            $I->assertFileExists($browserDecodedFile);
-            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
-                'inplace_action' => 'media_release',
-                'inplace_token'  => $token,
-                'media_ids'      => (string)$browserDecodedPayload['media_id'],
-            ]);
-            $I->seeResponseCodeIs(Response::HTTP_OK);
-            $I->assertFileDoesNotExist($browserDecodedFile);
+            $I->seeResponseCodeIs(Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
 
             $I->sendPost(
                 'https://localhost/_inplace/post/' . $postId,
-                ['inplace_action' => 'media', 'inplace_token' => $token],
+                [
+                    'inplace_action' => 'media',
+                    'inplace_token'  => $token,
+                    'published_at'   => (string)$publishedAt,
+                ],
                 ['media' => new UploadedFile($txt, 'dropped.txt', 'text/plain', null, true)],
             );
             $I->seeResponseCodeIs(Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
             $I->assertStringContainsString('Only image and audio files', $I->grabResponse());
         } finally {
-            foreach ([$png, $wav, $txt, $browserOnlyImage, $browserPreview, ...$storedFiles] as $filename) {
+            foreach ([$png, $wav, $txt, $avif, ...$storedFiles] as $filename) {
                 if (is_file($filename)) {
                     unlink($filename);
                 }
@@ -462,13 +431,111 @@ final class PostInplaceCest
             ->result());
     }
 
-    public function tracksDuplicateImagesAndDeletesThemAfterRemoval(\IntegrationTester $I): void
+    public function renamesPendingImageAndAudioWhenTheNoteDateChanges(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $originalDate = (new \DateTimeImmutable('1991-01-30 12:00:00'))->getTimestamp();
+        $updatedDate  = (new \DateTimeImmutable('2040-05-06 12:00:00'))->getTimestamp();
+        $postId = $this->insertPost(
+            $dbLayer,
+            'redated-media-post',
+            $this->userId($dbLayer, 'author'),
+            $originalDate,
+        );
+
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/redated-media-post');
+
+        $selector = '.post-card[data-post-id="' . $postId . '"] > .post-inplace-edit-form';
+        $token = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
+        $png = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
+        $wav = $this->temporaryFile($this->wavContents());
+        $storedFiles = [];
+
+        try {
+            $I->sendPost(
+                'https://localhost/_inplace/post/' . $postId,
+                [
+                    'inplace_action'       => 'media',
+                    'inplace_token'        => $token,
+                    'published_at'         => (string)$originalDate,
+                    'media_retina'         => '0',
+                    'media_width'          => '1',
+                    'media_height'         => '1',
+                    'media_display_width'  => '1',
+                    'media_display_height' => '1',
+                ],
+                ['media' => new UploadedFile($png, 'optimized.png', 'image/png', null, true)],
+            );
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $image = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $oldImageFile = $this->storedMediaPath((string)$image['url']);
+            $storedFiles[] = $oldImageFile;
+
+            $I->sendPost(
+                'https://localhost/_inplace/post/' . $postId,
+                [
+                    'inplace_action' => 'media',
+                    'inplace_token'  => $token,
+                    'published_at'   => (string)$originalDate,
+                ],
+                ['media' => new UploadedFile($wav, 'recording.wav', 'audio/wav', null, true)],
+            );
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $audio = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $oldAudioFile = $this->storedMediaPath((string)$audio['url']);
+            $storedFiles[] = $oldAudioFile;
+
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action' => 'media_redate',
+                'inplace_token'  => $token,
+                'published_at'   => (string)$updatedDate,
+                'media_ids'      => $image['media_id'] . ',' . $audio['media_id'],
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $I->assertSame('media_redate', $payload['action']);
+            $I->assertSame(
+                ['2040.05.06.png', '2040.05.06.1.wav'],
+                array_column($payload['media'], 'name'),
+            );
+            $I->assertFileDoesNotExist($oldImageFile);
+            $I->assertFileDoesNotExist($oldAudioFile);
+
+            foreach ($payload['media'] as $media) {
+                $storedFiles[] = $this->storedMediaPath((string)$media['url']);
+                $I->assertFileExists($storedFiles[array_key_last($storedFiles)]);
+            }
+
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action' => 'media_release',
+                'inplace_token'  => $token,
+                'media_ids'      => $image['media_id'] . ',' . $audio['media_id'],
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+        } finally {
+            foreach ([$png, $wav, ...$storedFiles] as $filename) {
+                if (is_file($filename)) {
+                    unlink($filename);
+                }
+            }
+        }
+    }
+
+    public function tracksCanonicallyNamedImagesAndDeletesThemAfterRemoval(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
         /** @var PostMediaRepository $mediaRegistry */
         $mediaRegistry = $I->grabService(PostMediaRepository::class);
-        $postId  = $this->insertPost($dbLayer, 'tracked-media-post', $this->userId($dbLayer, 'author'));
+        $publishedAt = (new \DateTimeImmutable('1991-01-30 12:00:00'))->getTimestamp();
+        $postId = $this->insertPost(
+            $dbLayer,
+            'tracked-media-post',
+            $this->userId($dbLayer, 'author'),
+            $publishedAt,
+        );
 
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/tracked-media-post');
@@ -477,20 +544,43 @@ final class PostInplaceCest
         $token = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
         $temporaryFiles = [];
         $storedFiles = [];
-
-        try {
-            $discardedTemporary = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
-            $temporaryFiles[] = $discardedTemporary;
+        $upload = function () use (
+            $I,
+            $postId,
+            $token,
+            $publishedAt,
+            &$temporaryFiles,
+            &$storedFiles,
+        ): array {
+            $temporary = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
+            $temporaryFiles[] = $temporary;
             $I->sendPost(
                 'https://localhost/_inplace/post/' . $postId,
-                ['inplace_action' => 'media', 'inplace_token' => $token],
-                ['media' => new UploadedFile($discardedTemporary, 'discarded.png', 'image/png', null, true)],
+                [
+                    'inplace_action'       => 'media',
+                    'inplace_token'        => $token,
+                    'published_at'         => (string)$publishedAt,
+                    'media_retina'         => '0',
+                    'media_width'          => '1',
+                    'media_height'         => '1',
+                    'media_display_width'  => '1',
+                    'media_display_height' => '1',
+                ],
+                ['media' => new UploadedFile($temporary, 'optimized.png', 'image/png', null, true)],
             );
+            $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            if (isset($payload['url']) && \is_string($payload['url'])) {
+                $storedFiles[] = $this->storedMediaPath($payload['url']);
+            }
+
+            return $payload;
+        };
+
+        try {
+            $discarded = $upload();
             $I->seeResponseCodeIs(Response::HTTP_OK);
-            $discarded = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
             $discardedId = (int)$discarded['media_id'];
             $discardedFile = $this->storedMediaPath($discarded['url']);
-            $storedFiles[] = $discardedFile;
             $I->assertFileExists($discardedFile);
 
             $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
@@ -506,57 +596,15 @@ final class PostInplaceCest
             $unchanged = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
             $I->assertSame(2, $unchanged['revision']);
             $I->assertFileDoesNotExist($discardedFile);
-            $I->assertSame(0, (int)$dbLayer
-                ->select('COUNT(*)')
-                ->from(ContentMediaSchema::FILE_TABLE)
-                ->where('id = :id')->setParameter('id', $discardedId)
-                ->execute()
-                ->result());
-
-            $upload = function () use ($I, $postId, $token, &$temporaryFiles, &$storedFiles): array {
-                $temporary = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
-                $temporaryFiles[] = $temporary;
-                $I->sendPost(
-                    'https://localhost/_inplace/post/' . $postId,
-                    ['inplace_action' => 'media', 'inplace_token' => $token],
-                    ['media' => new UploadedFile($temporary, 'duplicate.png', 'image/png', null, true)],
-                );
-                $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
-                if (isset($payload['url']) && \is_string($payload['url'])) {
-                    $storedFiles[] = $this->storedMediaPath($payload['url']);
-                } elseif (isset($payload['incoming']['url']) && \is_string($payload['incoming']['url'])) {
-                    $storedFiles[] = $this->storedMediaPath($payload['incoming']['url']);
-                }
-
-                return $payload;
-            };
 
             $first = $upload();
             $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->assertSame('1991.01.30.png', $first['name']);
             $firstId = (int)$first['media_id'];
             $firstFile = $this->storedMediaPath($first['url']);
             $I->assertFileExists($firstFile);
-            $I->assertSame(0, (int)$dbLayer
-                ->select('usage_count')
-                ->from(ContentMediaSchema::FILE_TABLE)
-                ->where('id = :id')->setParameter('id', $firstId)
-                ->execute()
-                ->result());
 
-            $normalizedName = (string)$dbLayer
-                ->select('normalized_name')
-                ->from(ContentMediaSchema::FILE_TABLE)
-                ->where('id = :id')->setParameter('id', $firstId)
-                ->execute()
-                ->result()
-            ;
             $otherEditorId = $this->userId($dbLayer, 'power_guest');
-            $I->assertNull($mediaRegistry->findImageWithName(
-                $normalizedName,
-                0,
-                $otherEditorId,
-                false,
-            ));
             $otherPostId = $this->insertPost($dbLayer, 'other-editor-media-post', $otherEditorId);
             $mediaRegistry->syncPost(
                 $otherPostId,
@@ -588,71 +636,20 @@ final class PostInplaceCest
                 ->where('id = :id')->setParameter('id', $firstId)
                 ->execute()
                 ->result());
-            $I->assertSame(1, (int)$dbLayer
-                ->select('COUNT(*)')
-                ->from(ContentMediaSchema::USAGE_TABLE)
-                ->where('post_id = :post_id')->setParameter('post_id', $postId)
-                ->andWhere('media_id = :media_id')->setParameter('media_id', $firstId)
-                ->execute()
-                ->result());
 
-            $duplicate = $upload();
-            $I->seeResponseCodeIs(Response::HTTP_CONFLICT);
-            $I->assertSame('media_conflict', $duplicate['action']);
-            $I->assertSame($firstId, $duplicate['existing']['media_id']);
-            $I->assertTrue($duplicate['can_overwrite']);
-            $candidateId = (int)$duplicate['incoming']['media_id'];
-            $candidateFile = $this->storedMediaPath($duplicate['incoming']['url']);
-            $I->assertFileExists($candidateFile);
-
-            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
-                'inplace_action' => 'media_conflict',
-                'inplace_token'  => $token,
-                'media_id'       => (string)$candidateId,
-                'existing_id'    => (string)$firstId,
-                'conflict_action' => 'keep',
-            ]);
+            $second = $upload();
             $I->seeResponseCodeIs(Response::HTTP_OK);
-            $kept = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
-            $I->assertSame($candidateId, $kept['media_id']);
+            $I->assertSame('1991.01.30.1.png', $second['name']);
+            $secondId = (int)$second['media_id'];
+            $secondFile = $this->storedMediaPath($second['url']);
+            $I->assertFileExists($secondFile);
             $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
                 'inplace_action' => 'media_release',
                 'inplace_token'  => $token,
-                'media_ids'      => (string)$candidateId,
+                'media_ids'      => (string)$secondId,
             ]);
             $I->seeResponseCodeIs(Response::HTTP_OK);
-            $I->assertFileDoesNotExist($candidateFile);
-
-            $cancelled = $upload();
-            $I->seeResponseCodeIs(Response::HTTP_CONFLICT);
-            $cancelledId = (int)$cancelled['incoming']['media_id'];
-            $cancelledFile = $this->storedMediaPath($cancelled['incoming']['url']);
-            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
-                'inplace_action' => 'media_conflict',
-                'inplace_token'  => $token,
-                'media_id'       => (string)$cancelledId,
-                'existing_id'    => (string)$firstId,
-                'conflict_action' => 'cancel',
-            ]);
-            $I->seeResponseCodeIs(Response::HTTP_OK);
-            $I->assertFileDoesNotExist($cancelledFile);
-
-            $replacement = $upload();
-            $I->seeResponseCodeIs(Response::HTTP_CONFLICT);
-            $replacementId = (int)$replacement['incoming']['media_id'];
-            $replacementFile = $this->storedMediaPath($replacement['incoming']['url']);
-            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
-                'inplace_action' => 'media_conflict',
-                'inplace_token'  => $token,
-                'media_id'       => (string)$replacementId,
-                'existing_id'    => (string)$firstId,
-                'conflict_action' => 'overwrite',
-            ]);
-            $I->seeResponseCodeIs(Response::HTTP_OK);
-            $replaced = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
-            $I->assertSame($firstId, $replaced['media_id']);
-            $I->assertFileExists($firstFile);
-            $I->assertFileDoesNotExist($replacementFile);
+            $I->assertFileDoesNotExist($secondFile);
 
             $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
                 'inplace_action' => 'edit',
@@ -751,9 +748,9 @@ final class PostInplaceCest
         $I->assertGreaterThan($cursor, $updates->currentCursor());
     }
 
-    private function insertPost(DbLayer $dbLayer, string $slug, int $authorId): int
+    private function insertPost(DbLayer $dbLayer, string $slug, int $authorId, ?int $publishedAt = null): int
     {
-        $timestamp = time();
+        $timestamp = $publishedAt ?? time();
         $dbLayer
             ->insert(ContentSchema::TABLE_NAME)
             ->values([

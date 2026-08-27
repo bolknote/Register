@@ -75,84 +75,6 @@ class PictureReserveManager
         throw new \RuntimeException('Unable to reserve file name.', Response::HTTP_SERVICE_UNAVAILABLE);
     }
 
-    /**
-     * Reserves the next historical content-image name for one publication date.
-     *
-     * The unnumbered slot is zero; subsequent slots are .1, .2, and so on. A slot is shared by
-     * every supported extension and density suffix, so concurrent encoders cannot create both
-     * YYYY.MM.DD.webp and YYYY.MM.DD@2x.jpg for the same ordinal.
-     *
-     * @throws \JsonException
-     * @throws \RuntimeException
-     * @return array<string, string>
-     */
-    public function reserveCanonicalImageFileName(
-        string $path,
-        string $publicationDate,
-        string $extension,
-        bool   $retina,
-    ): array {
-        if (
-            preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $publicationDate, $dateParts) !== 1
-            || !checkdate((int)$dateParts[2], (int)$dateParts[3], (int)$dateParts[1])
-        ) {
-            throw new \RuntimeException('Invalid publication date.', Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-
-        $extension = mb_strtolower(ltrim($extension, '.'));
-        $probeName = 'image.' . $extension;
-        $this->fileNameHelper->assertAllowedExtension($probeName);
-
-        $this->ensureDirExists($this->imageDir . $path);
-        $reserveDir = $this->getReservePathDir($path);
-        $this->ensureDirExists($reserveDir);
-        if (!is_writable($reserveDir)) {
-            throw new \RuntimeException('Reserve directory is not writable.', Response::HTTP_SERVICE_UNAVAILABLE);
-        }
-
-        $lockPath = $reserveDir . '/.canonical-image-name.lock';
-        $lock = register_call_without_warnings(static fn() => fopen($lockPath, 'c+b'));
-        if ($lock === false) {
-            throw new \RuntimeException('Unable to lock canonical image names.', Response::HTTP_SERVICE_UNAVAILABLE);
-        }
-
-        register_call_without_warnings(static fn(): bool => chmod($lockPath, 0600));
-
-        try {
-            if (!flock($lock, LOCK_EX)) {
-                throw new \RuntimeException('Unable to lock canonical image names.', Response::HTTP_SERVICE_UNAVAILABLE);
-            }
-
-            $this->cleanupExpiredReserves($path);
-            $date = str_replace('-', '.', $publicationDate);
-            $usedIndexes = $this->canonicalImageIndexes($path, $date);
-            $token = RandomHelper::getRandomHexString32();
-
-            for ($index = 0; $index < 1000; ++$index) {
-                if (isset($usedIndexes[$index])) {
-                    continue;
-                }
-
-                $candidate = $date
-                    . ($index === 0 ? '' : '.' . $index)
-                    . ($retina ? '@2x' : '')
-                    . '.' . $extension;
-                $reserveFile = $this->getReserveFilePath($path, $candidate);
-                if ($this->tryCreateReserve($reserveFile, $token, $path, $candidate)) {
-                    return [
-                        'name'  => $candidate,
-                        'token' => $token,
-                    ];
-                }
-            }
-        } finally {
-            register_call_without_warnings(static fn(): bool => flock($lock, LOCK_UN));
-            fclose($lock);
-        }
-
-        throw new \RuntimeException('Unable to reserve canonical image name.', Response::HTTP_SERVICE_UNAVAILABLE);
-    }
-
     public function validateReserveToken(string $path, string $filename, string $token): bool
     {
         $reserveFile = $this->getReserveFilePath($path, $filename);
@@ -233,43 +155,6 @@ class PictureReserveManager
         $safePath    = ltrim($path, '/');
 
         return $reserveRoot . ($safePath !== '' ? '/' . $safePath : '');
-    }
-
-    /** @return array<int, true> */
-    private function canonicalImageIndexes(string $path, string $date): array
-    {
-        $pattern = '/^' . preg_quote($date, '/') . '(?:\.(?<number>\d+))?(?:@2x)?\.[a-z0-9]+$/Di';
-        $used = [];
-
-        foreach ([$this->imageDir . $path, $this->getReservePathDir($path)] as $directory) {
-            if (!is_dir($directory)) {
-                continue;
-            }
-
-            foreach (new \DirectoryIterator($directory) as $item) {
-                if (!$item->isFile()) {
-                    continue;
-                }
-
-                $filename = $item->getFilename();
-                if ($directory === $this->getReservePathDir($path)) {
-                    if (!str_ends_with($filename, '.json')) {
-                        continue;
-                    }
-
-                    $filename = substr($filename, 0, -5);
-                }
-
-                if (preg_match($pattern, $filename, $match) !== 1) {
-                    continue;
-                }
-
-                $number = ($match['number'] ?? '') === '' ? 0 : (int)$match['number'];
-                $used[$number] = true;
-            }
-        }
-
-        return $used;
     }
 
     private function tryCreateReserve(string $reserveFile, string $token, string $path, string $name): bool

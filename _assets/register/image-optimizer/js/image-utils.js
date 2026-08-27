@@ -1,5 +1,5 @@
 /**
- * Image analysis and compression helpers for the editor image pipeline in Register.
+ * Image analysis and compression helpers for the public post image optimizer.
  *
  * @copyright 2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT

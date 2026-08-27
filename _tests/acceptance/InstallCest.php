@@ -453,50 +453,53 @@ class InstallCest
         $I->amOnPage('/tags/blog tag');
         $I->seeResponseCodeIsClientError();
 
-        $I->amOnPage('/_admin/index.php?entity=BlogPost&action=new');
-        $I->submitForm('.edit-content > form', [
-            'title' => 'Привет, мир!',
-            'body'  => '<p>Start text</p>',
+        $I->amOnPage('/');
+
+        $formSelector = '.site-header-shell .post-create-template .post-inplace-edit-form';
+        $token = (string)$I->grabAttributeFrom($formSelector . ' input[name="inplace_token"]', 'value');
+        $publishedAt = strtotime('2023-08-12T11:32');
+        $I->sendAjaxPostRequest('/_inplace/post/new', [
+            'inplace_action' => 'create',
+            'inplace_token'  => $token,
+            'revision'       => '0',
+            'title'          => 'new-post1',
+            'body'           => '<p>Start text</p>',
+            'tags'           => '',
+            'published_at'   => (string)$publishedAt,
         ]);
         $I->seeResponseCodeIsSuccessful();
 
-        $postId           = $I->grabFromCurrentUrl('~id=(\d+)~');
-        $this->blogPostId = (int)$postId;
-        $csrfToken        = $I->grabValueFrom('input[name=__csrf_token]');
-        $I->assertSame('privet-mir', $I->grabValueFrom('input[name=slug]'));
+        $created = json_decode($I->grabPageSource(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertSame('create', $created['action'] ?? null);
+        $I->assertSame(self::URL_PREFIX . '/new-post1', $created['url'] ?? null);
 
-        $dataProvider = (static fn(string $csrfToken): array => [
-            '__csrf_token' => $csrfToken,
-            'title'        => 'New Blog Post Title',
-            'tags'         => 'tag1, blog tag',
-            'published_at' => '2023-08-12T11:32',
-            'date_label'   => '',
-            'updated_at'   => '2023-08-12T12:15',
-            'body'         => '<p>New blog post</p>',
-            'author_id'    => '1',
-            'series'       => '',
-            'revision'     => '1',
-            'slug'         => 'new-post1',
+        $postId = (int)($created['id'] ?? 0);
+        $I->assertGreaterThan(0, $postId);
+        $this->blogPostId = $postId;
 
-            'comments_enabled' => '1',
-            'published'        => '1',
+        $I->sendAjaxPostRequest('/_inplace/post/' . $postId, [
+            'inplace_action' => 'edit',
+            'inplace_token'  => $created['token'],
+            'revision'       => '1',
+            'title'          => 'New Blog Post Title',
+            'tags'           => 'tag1, blog tag',
+            'published_at'   => (string)$publishedAt,
+            'body'           => '<p>New blog post</p>',
         ]);
-        $I->sendAjaxPostRequest('/_admin/index.php?entity=BlogPost&action=edit&id=333', $dataProvider($csrfToken));
-        $this->assertJsonResponseContains($I, ['errors', 0], 'Unable to confirm security token.');
-
-        $I->sendAjaxPostRequest('/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId, $dataProvider($csrfToken));
         $I->seeResponseCodeIsSuccessful();
         $I->see('"success":true');
-        $I->see('"urlStatus":"ok"');
-        $I->see('"urlTitle":""');
-        $I->see('"revision":"2"');
+        $I->see('"revision":2');
 
+        $I->amOnPage('/_admin/index.php?entity=BlogPost&action=new');
+        $I->seeResponseCodeIs(403);
+        $I->dontSeeElement('form[name="article-form"]');
         $I->amOnPage('/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId);
-
-        $postText = $I->grabValueFrom('textarea[name=body]');
-        $I->assertStringContainsString('New blog post', $postText);
+        $I->seeResponseCodeIs(403);
+        $I->dontSeeElement('form[name="article-form"]');
 
         $I->amOnPage('/_admin/index.php?entity=BlogPost&action=list');
+        $I->dontSeeElement('a.entity-action-new');
+        $I->dontSeeElement('a.list-action-link-edit');
         $I->canSee('2023-08-12');
         $I->see('New Blog Post Title');
 
@@ -554,7 +557,6 @@ class InstallCest
         $I->amOnPage('/index.php?/sitemap-1.xml');
         $I->seeResponseCodeIsSuccessful();
         $I->see('/new-post1');
-        $I->see(gmdate('c', strtotime('2023-08-12 12:15')));
     }
 
     private function testSearchModule(AcceptanceTester $I): void

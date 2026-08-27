@@ -14,7 +14,7 @@ readonly work_dir
 readonly archive_path="${work_dir}/libwebp.tar.gz"
 readonly source_dir="${work_dir}/libwebp-${libwebp_version}"
 readonly build_dir="${work_dir}/build"
-readonly output_js="${project_dir}/_admin/lib/register-webp.js"
+readonly output_js="${project_dir}/_assets/register/image-optimizer/lib/register-webp.js"
 
 cleanup() {
     rm -rf "${work_dir}"
@@ -87,9 +87,9 @@ awk '
             print lines[line]
         }
     }
-' "${source_dir}/COPYING" > "${project_dir}/_admin/lib/register-webp.LICENSE"
+' "${source_dir}/COPYING" > "${project_dir}/_assets/register/image-optimizer/lib/register-webp.LICENSE"
 chmod 0644 \
     "${output_js}" \
     "${output_js%.js}.wasm" \
-    "${project_dir}/_admin/lib/register-webp.LICENSE"
+    "${project_dir}/_assets/register/image-optimizer/lib/register-webp.LICENSE"
 shasum -a 256 "${output_js}" "${output_js%.js}.wasm"

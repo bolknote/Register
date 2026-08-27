@@ -51,7 +51,7 @@ final readonly class PostInplaceController implements ControllerInterface
     private const string SAVEPOINT = 'register_post_inplace';
 
     /** @var list<string> */
-    private const array IMAGE_EXTENSIONS = ['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp'];
+    private const array IMAGE_EXTENSIONS = ['jpeg', 'jpg', 'png', 'webp'];
 
     /** @var list<string> */
     private const array AUDIO_EXTENSIONS = ['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm'];
@@ -122,11 +122,11 @@ final readonly class PostInplaceController implements ControllerInterface
 
         $action = $request->request->getString('inplace_action');
         if ($action === 'media') {
-            return $this->uploadMedia($request, $editor);
+            return $this->uploadMedia($request, $editor, (int)$post['published_at']);
         }
 
-        if ($action === 'media_conflict') {
-            return $this->resolveMediaConflict($request, $editor);
+        if ($action === 'media_redate') {
+            return $this->redateMedia($request, $editor, (int)$post['published_at']);
         }
 
         if ($action === 'media_release') {
@@ -161,8 +161,8 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         return match ($request->request->getString('inplace_action')) {
-            'media'         => $this->uploadMedia($request, $editor),
-            'media_conflict' => $this->resolveMediaConflict($request, $editor),
+            'media'         => $this->uploadMedia($request, $editor, time()),
+            'media_redate'  => $this->redateMedia($request, $editor, time()),
             'media_release' => $this->releaseMedia($request, $editor),
             'ai'            => $this->generateWithAi($request, ''),
             'create'        => $this->create($request, $editor),
@@ -170,7 +170,11 @@ final readonly class PostInplaceController implements ControllerInterface
         };
     }
 
-    private function uploadMedia(Request $request, AuthenticatedPublicUser $editor): Response
+    private function uploadMedia(
+        Request                 $request,
+        AuthenticatedPublicUser $editor,
+        int                     $fallbackPublishedAt,
+    ): Response
     {
         $file = $request->files->get('media');
         if (!$file instanceof UploadedFile) {
@@ -192,32 +196,20 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Unsupported post media', Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
         }
 
+        $publishedAt = $this->publishedAt($request, $fallbackPublishedAt);
+        if ($publishedAt === null) {
+            return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $this->purgeMedia(
             $this->mediaRepository->stalePendingUploads(time() - self::STALE_PENDING_MEDIA_AGE),
             false,
         );
 
-        $path         = '/' . date('Y/m');
-        $originalName = basename(str_replace('\\', '/', $file->getClientOriginalName()));
-        $mimeType     = $this->mediaStorage->detectMimeType($file);
-        /** @var array{0: int, 1: int}|null $browserPreviewInfo */
-        $browserPreviewInfo = null;
-        $browserPreview = $request->files->get('media_preview');
-        if ($kind === 'image' && $browserPreview instanceof UploadedFile) {
-            try {
-                $browserPreviewInfo = $this->mediaStorage->validateBrowserPreview($browserPreview);
-            } catch (\RuntimeException $runtimeException) {
-                return $this->error(
-                    $request,
-                    $runtimeException->getMessage(),
-                    $this->uploadErrorStatus($runtimeException),
-                    false,
-                );
-            }
-        }
-
+        $mimeType = $this->mediaStorage->detectMimeType($file);
+        $retina   = $kind === 'image' && $request->request->getBoolean('media_retina');
         try {
-            $storedFile = $this->mediaStorage->store($file, $path, $browserPreviewInfo !== null);
+            $storedFile = $this->mediaStorage->storeCanonical($file, $publishedAt, $retina);
         } catch (\RuntimeException $runtimeException) {
             return $this->error(
                 $request,
@@ -228,14 +220,18 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $imageInfo = $kind === 'image' ? $this->mediaStorage->getImageInfo($storedFile) : [];
-        if ($kind === 'image' && $imageInfo === [] && $browserPreviewInfo !== null) {
-            $imageInfo = $this->browserImageInfo($request, $browserPreviewInfo);
+        if ($kind === 'image' && !$this->optimizedImageMatchesRequest($request, $mimeType, $imageInfo, $retina)) {
+            $this->mediaStorage->delete($storedFile);
+
+            return $this->error($request, 'Invalid optimized post image', Response::HTTP_UNPROCESSABLE_ENTITY, false);
         }
+
+        $storedName = basename($storedFile);
 
         try {
             $mediaId = $this->mediaRepository->register([
-                'original_name'   => $originalName,
-                'normalized_name' => $this->mediaStorage->normalizeName($originalName),
+                'original_name'   => $storedName,
+                'normalized_name' => $storedName,
                 'storage_path'    => $storedFile,
                 'mime_type'       => $mimeType,
                 'kind'            => $kind,
@@ -254,84 +250,72 @@ final readonly class PostInplaceController implements ControllerInterface
             throw new \LogicException('The uploaded media registry row was not created.');
         }
 
-        if ($kind === 'image') {
-            $existing = $this->mediaRepository->findImageWithName(
-                (string)$media['normalized_name'],
-                $mediaId,
-                $editor->id,
-                $editor->canEditSite,
-            );
-            if ($existing !== null) {
-                return $this->json([
-                    'success'       => false,
-                    'action'        => 'media_conflict',
-                    'incoming'      => $this->mediaPayload($media),
-                    'existing'      => $this->mediaPayload($existing),
-                    'can_overwrite' => $this->canOverwrite($editor, $existing),
-                ], Response::HTTP_CONFLICT);
-            }
-        }
-
         return $this->json($this->mediaPayload($media));
     }
 
-    private function resolveMediaConflict(Request $request, AuthenticatedPublicUser $editor): Response
+    private function redateMedia(
+        Request                 $request,
+        AuthenticatedPublicUser $editor,
+        int                     $fallbackPublishedAt,
+    ): Response
     {
-        $candidateId = $request->request->getInt('media_id');
-        $existingId  = $request->request->getInt('existing_id');
-        $decision    = $request->request->getString('conflict_action');
-        $candidate   = $this->mediaRepository->find($candidateId);
-        $existing    = $this->mediaRepository->find($existingId);
-        if (
-            $candidate === null
-            || (int)$candidate['uploaded_by'] !== $editor->id
-            || !(bool)$candidate['pending']
-            || (int)$candidate['usage_count'] !== 0
-            || (string)$candidate['kind'] !== 'image'
-            || !\in_array($decision, ['cancel', 'keep', 'overwrite'], true)
-        ) {
-            return $this->error($request, 'Invalid post mutation request', Response::HTTP_UNPROCESSABLE_ENTITY);
+        $publishedAt = $this->publishedAt($request, $fallbackPublishedAt);
+        if ($publishedAt === null) {
+            return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        if ($decision === 'cancel') {
-            $this->purgeMedia([$candidate], true);
-
-            return $this->json(['success' => true, 'action' => 'media_cancelled']);
-        }
-
-        if ($decision === 'keep') {
-            return $this->json($this->mediaPayload($candidate));
-        }
-
-        if (
-            $existing === null
-            || (string)$existing['kind'] !== 'image'
-            || (string)$existing['normalized_name'] !== (string)$candidate['normalized_name']
-            || !$this->canOverwrite($editor, $existing)
-        ) {
-            return $this->error($request, 'Post editing forbidden', Response::HTTP_FORBIDDEN);
-        }
-
-        $this->mediaStorage->replace(
-            (string)$existing['storage_path'],
-            (string)$candidate['storage_path'],
+        $uploads = $this->mediaRepository->releasableUploads(
+            $this->mediaIds($request->request->getString('media_ids')),
+            $editor->id,
         );
-        $this->mediaRepository->replaceMetadata((int)$existing['id'], [
-            'original_name'   => (string)$candidate['original_name'],
-            'normalized_name' => (string)$candidate['normalized_name'],
-            'mime_type'       => (string)$candidate['mime_type'],
-            'byte_size'       => (int)$candidate['byte_size'],
-            'width'           => $candidate['width'] === null ? null : (int)$candidate['width'],
-            'height'          => $candidate['height'] === null ? null : (int)$candidate['height'],
-        ]);
-        $this->mediaRepository->deleteUnused($candidateId);
+        $moves = [];
+        $payload = [];
+        try {
+            $updated = $this->transactional(function () use ($uploads, $publishedAt, &$moves, &$payload): bool {
+                foreach ($uploads as $media) {
+                    $move = $this->mediaStorage->redateCanonical((string)$media['storage_path'], $publishedAt);
+                    $moves[] = $move;
+                    if ($move['from'] !== $move['to']) {
+                        $name = basename($move['to']);
+                        $this->mediaRepository->relocate((int)$media['id'], $move['to'], $name);
+                    }
 
-        $replaced = $this->mediaRepository->find($existingId);
-        if ($replaced === null) {
-            throw new \LogicException('The replaced media registry row disappeared.');
+                    $current = $this->mediaRepository->find((int)$media['id']);
+                    if ($current === null) {
+                        throw new \LogicException('The renamed media registry row disappeared.');
+                    }
+
+                    $payload[] = $this->mediaPayload($current);
+                }
+
+                return true;
+            });
+        } catch (\Throwable $throwable) {
+            foreach (array_reverse($moves) as $move) {
+                $this->mediaStorage->rollbackRedate($move);
+            }
+
+            if ($throwable instanceof \RuntimeException) {
+                return $this->error(
+                    $request,
+                    $throwable->getMessage(),
+                    $this->uploadErrorStatus($throwable),
+                    false,
+                );
+            }
+
+            throw $throwable;
         }
 
-        return $this->json($this->mediaPayload($replaced));
+        if (!$updated) {
+            foreach (array_reverse($moves) as $move) {
+                $this->mediaStorage->rollbackRedate($move);
+            }
+
+            return $this->error($request, 'Post media rename failed', Response::HTTP_CONFLICT);
+        }
+
+        return $this->json(['success' => true, 'action' => 'media_redate', 'media' => $payload]);
     }
 
     private function releaseMedia(Request $request, AuthenticatedPublicUser $editor): JsonResponse
@@ -407,26 +391,42 @@ final readonly class PostInplaceController implements ControllerInterface
             : Response::HTTP_UNPROCESSABLE_ENTITY;
     }
 
-    /**
-     * @param array{0: int, 1: int} $previewInfo
-     *
-     * @return array{0: int, 1: int}|array{}
-     */
-    private function browserImageInfo(Request $request, array $previewInfo): array
+    /** @param array<mixed> $imageInfo */
+    private function optimizedImageMatchesRequest(
+        Request $request,
+        string  $mimeType,
+        array   $imageInfo,
+        bool    $retina,
+    ): bool
     {
-        $width  = $request->request->getInt('media_width');
-        $height = $request->request->getInt('media_height');
-        if ($width <= 0 || $height <= 0 || $width > 100000 || $height > 100000) {
-            return [];
+        $width         = $request->request->getInt('media_width');
+        $height        = $request->request->getInt('media_height');
+        $displayWidth  = $request->request->getInt('media_display_width');
+        $displayHeight = $request->request->getInt('media_display_height');
+        $actualWidth   = isset($imageInfo[0]) ? (int)$imageInfo[0] : 0;
+        $actualHeight  = isset($imageInfo[1]) ? (int)$imageInfo[1] : 0;
+        $actualMime    = isset($imageInfo['mime']) ? mb_strtolower((string)$imageInfo['mime']) : '';
+        if (
+            !\in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp'], true)
+            || $actualMime !== $mimeType
+            || $width !== $actualWidth
+            || $height !== $actualHeight
+            || $width <= 0
+            || $height <= 0
+            || $width > 32767
+            || $height > 32767
+            || $width * $height > 20_000_000
+        ) {
+            return false;
         }
 
-        $sourceRatio  = (float)$width / (float)$height;
-        $previewRatio = (float)$previewInfo[0] / (float)$previewInfo[1];
-        if (abs($sourceRatio - $previewRatio) > max($sourceRatio, $previewRatio) * 0.02) {
-            return [];
+        if ($retina) {
+            return $width === 2000
+                && $displayWidth === 1000
+                && $displayHeight === max(1, (int)floor($height / 2));
         }
 
-        return [$width, $height];
+        return $width < 2000 && $displayWidth === $width && $displayHeight === $height;
     }
 
     /** @param array<string, mixed> $post */
@@ -694,7 +694,6 @@ final readonly class PostInplaceController implements ControllerInterface
             'id'             => $postId,
             'url'            => $url,
             'action_url'     => $controls['action_url'],
-            'admin_edit_url' => $controls['admin_edit_url'],
             'token'          => $controls['token'],
             'title'          => $title,
             'revision'       => 1,
@@ -867,6 +866,10 @@ final readonly class PostInplaceController implements ControllerInterface
     private function mediaPayload(array $media): array
     {
         $url = $this->mediaRepository->url((string)$media['storage_path']);
+        $pixelWidth  = $media['width'] === null ? null : (int)$media['width'];
+        $pixelHeight = $media['height'] === null ? null : (int)$media['height'];
+        $retina = (string)$media['kind'] === 'image'
+            && preg_match('/@2x\.[a-z0-9]+$/D', (string)$media['storage_path']) === 1;
 
         return [
             'success'     => true,
@@ -876,16 +879,12 @@ final readonly class PostInplaceController implements ControllerInterface
             'url'         => $url,
             'preview_url' => $url . '?editor-media=' . (int)$media['created_at'],
             'name'        => (string)$media['original_name'],
-            'width'       => $media['width'] === null ? null : (int)$media['width'],
-            'height'      => $media['height'] === null ? null : (int)$media['height'],
+            'width'       => $retina && $pixelWidth !== null ? max(1, (int)floor($pixelWidth / 2)) : $pixelWidth,
+            'height'      => $retina && $pixelHeight !== null ? max(1, (int)floor($pixelHeight / 2)) : $pixelHeight,
+            'pixel_width' => $pixelWidth,
+            'pixel_height' => $pixelHeight,
+            'retina'      => $retina,
         ];
-    }
-
-    /** @param array<string, mixed> $media */
-    private function canOverwrite(AuthenticatedPublicUser $editor, array $media): bool
-    {
-        return $editor->canEditSite
-            || ($media['uploaded_by'] !== null && (int)$media['uploaded_by'] === $editor->id);
     }
 
     /** @param array<int, array<string, mixed>> $media */

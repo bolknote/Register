@@ -1,6 +1,7 @@
 # Automatic editor image optimization
 
-The post editor turns every pasted or dropped JPEG, PNG, or WebP image into one final public file.
+The public inline editor turns every pasted or dropped still image that the browser can decode into
+one final JPEG, PNG, or WebP file.
 It does not create a separate `1x` file, a `srcset`, or an unused alternative format.
 
 ## Storage and historical names
@@ -13,13 +14,12 @@ Set the destination relative to `_pictures/` in the deployment configuration:
 ],
 ```
 
-An empty value keeps editor images directly in `_pictures/`. The browser cannot override this
-directory: the server chooses it, validates the folder token, and atomically reserves the name.
+An empty value keeps post media directly in `_pictures/`. The browser cannot override this
+directory or filename: the public upload controller chooses both under an exclusive allocation lock.
 
-The date always comes from the note. A scheduled note uses `scheduled_at`; every other note uses
-`published_at`, with the server-provided date as the fallback for a new draft. The current value is
-read when optimization starts, so changing a past or future publication date before dropping the
-image changes its file name.
+The date always comes from the current publication-date field of the note, including a past or future
+date. If that field changes after an upload but before saving, pending media are renamed before the
+HTML is serialized.
 
 Names retain the historical sequence:
 
@@ -29,8 +29,9 @@ yyyy.mm.dd.1.ext
 yyyy.mm.dd.2@2x.ext
 ```
 
-The unnumbered slot is first. Numeric slots are shared across JPEG, PNG, WebP, and `@2x`, including
-parallel uploads, so two images for one note cannot receive colliding names.
+The unnumbered slot is first. Numeric slots are shared across all images and audio files regardless
+of extension; only Retina images receive `@2x`. Thus `yyyy.mm.dd.webp` is followed by
+`yyyy.mm.dd.1.mp3`, never by a hash or a second unnumbered filename.
 
 ## Dimensions and Retina behavior
 

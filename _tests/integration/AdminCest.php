@@ -456,26 +456,22 @@ class AdminCest
     public function testNavigationRemainsCoherentForIndependentPermissions(\IntegrationTester $I): void
     {
         $roles = [
-            'guest'           => ['Pages', false, false],
-            'power_guest'     => ['Overview', false, true],
-            'moderator'       => ['Pages', false, false],
-            'power_moderator' => ['Pages', false, false],
-            'author'          => ['Pages', true, false],
-            'editor'          => ['Pages', false, false],
+            'guest'           => ['Pages', false],
+            'power_guest'     => ['Overview', true],
+            'moderator'       => ['Pages', false],
+            'power_moderator' => ['Pages', false],
+            'author'          => ['Pages', false],
+            'editor'          => ['Pages', false],
         ];
 
-        foreach ($roles as $role => [$heading, $canCreate, $canSeeSettings]) {
+        foreach ($roles as $role => [$heading, $canSeeSettings]) {
             $I->login($role, $role);
             $I->amOnPage('https://localhost/_admin/index.php');
 
             $I->see($heading, 'h1');
             $I->seeElement('details[data-menu-group="Materials"]');
             $I->seeElement('details[data-menu-group="Moderation"]');
-            if ($canCreate) {
-                $I->seeElement('li[data-menu-key="NewPost"]');
-            } else {
-                $I->dontSeeElement('li[data-menu-key="NewPost"]');
-            }
+            $I->dontSeeElement('li[data-menu-key="NewPost"]');
 
             if ($canSeeSettings) {
                 $I->seeElement('details[data-menu-group="System"]');
@@ -487,7 +483,7 @@ class AdminCest
         }
     }
 
-    public function testEditorCanEditExistingContentWithoutReceivingAuthorTools(\IntegrationTester $I): void
+    public function testPostListHasNoAdminEditorActions(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabAdminService(DbLayer::class);
@@ -513,7 +509,7 @@ class AdminCest
         $I->dontSeeElement('li[data-menu-key="NewPost"]');
         $I->dontSeeElement('a.entity-action-new');
         $I->see('Editor role post');
-        $I->seeElement('a.list-action-link-edit');
+        $I->dontSeeElement('a.list-action-link-edit');
         $I->seeElement('button.list-action-link-delete[data-admin-delete]');
         $I->seeElement('[data-bulk-action] option[value="publish"]');
         $I->seeElement('[data-bulk-action] option[value="unpublish"]');
@@ -720,122 +716,47 @@ class AdminCest
         }
     }
 
-    public function testNewPostUsesEditorialEditor(\IntegrationTester $I): void
+    public function testPostAdminCreateAndEditAreDisabled(\IntegrationTester $I): void
     {
-        $I->login('admin', 'admin');
-        $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=new');
-
-        $I->see('New post', 'h1');
-        $I->seeElement('section.post-edit-content.is-new');
-        $I->seeElement('form[name="article-form"][action="?entity=BlogPost&action=new"]');
-        $I->seeElement('script[type="module"][src^="/_admin/js/editor/entry.js?v="]');
-        $I->seeElement('.editor-main-column > .editor-title-block');
-        $I->seeElement('.editor-main-column > .content-editor-ai-tools');
-        $I->seeElement('.editor-main-column > .editor-body-block');
-        $I->seeElement('.html-toolbar button[data-editor-action="undo"]');
-        $I->seeElement('.html-toolbar button[data-editor-action="redo"]');
-        $I->seeElement('.html-toolbar[role="toolbar"][aria-label="Text"]');
-        $I->seeElement('.html-toolbar button[data-editor-action="undo"][aria-label="Undo"]');
-        $I->dontSeeElement('.html-toolbar button[tabindex="-1"]');
-        $I->dontSeeElement('#ai-result-panel');
-        $I->seeElement('.editor-title-block input[name="title"][placeholder="Title"]');
-        $I->dontSeeElement('.editor-title-block label[for="id-title"]');
-        $I->seeElement('.editor-main-column > .editor-tags-block:last-child');
-        $I->seeElement('.editor-tags-block input[name="tags"][placeholder="Tags"]');
-        $I->seeElement('input[name="meta_description"]');
-        $I->seeElement('input[name="excerpt"]');
-        $I->seeElement('input[name="social_image"]');
-        $I->seeElement('[data-social-preview]');
-        $I->seeElement('label[for="id-body"]');
-        $I->dontSeeElement('.editor-tags-block details');
-        $I->assertStringContainsString(
-            'register_tag_suggestions',
-            $I->grabResponse(),
-        );
-        $I->seeElement('aside.editor-sidebar-column > .editor-publication-card');
-        $I->seeElement('a.main-menu-link[aria-current="page"][href="?entity=BlogPost&action=new"]');
-        $I->dontSeeElement('a.main-menu-link[aria-current="page"][href="?entity=BlogPost&action=list"]');
-        $I->see('Create draft', '.article-form-buttons button[type="submit"]');
-        $I->see('Preview and publishing become available after the draft is created.', '.content-editor-note');
-
-        $I->submitForm('form[name="article-form"]', [
-            'title'      => 'Editorial editor draft',
-            'tags'       => 'register, admin',
-            'date_label' => '',
-            'body'       => '<p>Created through the shared editor.</p>',
-            'meta_description' => 'Editorial social description',
-            'social_image' => '/_pictures/editorial-social-card.jpg',
-        ]);
-
-        $I->seeResponseCodeIs(302);
-
-        $location = $I->grabHttpHeader('Location');
-        $I->assertNotNull($location);
-        $I->assertStringContainsString('?entity=BlogPost&action=edit&id=', $location);
-        $I->amOnPage('https://localhost/_admin/index.php' . $location);
-        $I->assertSame('Editorial editor draft', $I->grabValueFrom('input[name="title"]'));
-        $I->assertSame('register, admin', $I->grabValueFrom('input[name="tags"]'));
-        $I->assertSame('Editorial social description', $I->grabValueFrom('input[name="meta_description"]'));
-        $I->assertSame('Created through the shared editor.', $I->grabValueFrom('input[name="excerpt"]'));
-        $I->assertSame('/_pictures/editorial-social-card.jpg', $I->grabValueFrom('input[name="social_image"]'));
-        $I->seeElement('section.post-edit-content.is-edit');
-    }
-
-    public function testScheduledPostUsesOneExplicitPublicationState(
-        \IntegrationTester $I,
-    ): void {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabAdminService(DbLayer::class);
-        $scheduledAt = time() + 3600;
+        $now = time();
         $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
             'content_type' => ':content_type',
             'slug_scope'   => "'root'",
-            'slug'         => ':slug',
-            'title'        => ':title',
+            'slug'         => "'admin-list-only-post'",
+            'title'        => "'Admin list-only post'",
             'excerpt'      => "''",
-            'body'         => "'<p>Scheduled publication state</p>'",
+            'body'         => "'<p>Admin list-only post</p>'",
             'created_at'   => ':created_at',
-            'published_at' => '0',
-            'scheduled_at' => ':scheduled_at',
+            'published_at' => ':published_at',
             'updated_at'   => ':updated_at',
-            'published'    => '0',
+            'published'    => '1',
         ])->execute([
             'content_type' => ContentType::POST->value,
-            'slug'         => 'admin-scheduled-state',
-            'title'        => 'Admin scheduled state',
-            'created_at'   => $scheduledAt - 300,
-            'scheduled_at' => $scheduledAt,
-            'updated_at'   => $scheduledAt - 300,
+            'created_at'   => $now,
+            'published_at' => $now,
+            'updated_at'   => $now,
         ]);
         $postId = (int)$dbLayer->insertId();
+        $I->assertGreaterThan(0, $postId);
 
         $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
+        $I->seeResponseCodeIs(200);
+        $I->dontSeeElement('li[data-menu-key="NewPost"]');
+        $I->dontSeeElement('a.entity-action-new');
+        $I->dontSeeElement('a.list-action-link-edit');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=new');
+        $I->seeResponseCodeIs(403);
+        $I->dontSeeElement('form[name="article-form"]');
+        $I->dontSeeElement('script[type="module"][src^="/_admin/js/editor/entry.js?v="]');
+
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId);
-
-        $I->seeElement('fieldset[data-publication-state][data-state="scheduled"]');
-        $I->assertCount(3, $I->grabMultiple('input[data-publication-state-input]'));
-        $I->seeElement('input[data-publication-state-input][value="scheduled"][checked]');
-        $I->seeElement('[data-publication-native-control][hidden] input[name="published"]:not([checked])');
-        $I->seeElement('[data-publication-scheduled]:not([hidden]) input[name="scheduled_at"]');
-        $I->seeElement('[data-publication-published-at][hidden]');
-
-        $I->submitForm('form[name="article-form"]', [
-            '_publication_state' => 'published',
-            'published'          => true,
-            'scheduled_at'       => '',
-        ]);
-        $I->seeResponseCodeIs(302);
-
-        $savedState = $dbLayer
-            ->select('published, scheduled_at')
-            ->from(ContentSchema::TABLE_NAME)
-            ->where('id = :id')->setParameter('id', $postId)
-            ->execute()
-            ->fetchAssoc()
-        ;
-        $I->assertIsArray($savedState);
-        $I->assertSame(1, (int)$savedState['published']);
-        $I->assertSame(0, (int)$savedState['scheduled_at']);
+        $I->seeResponseCodeIs(403);
+        $I->dontSeeElement('form[name="article-form"]');
+        $I->dontSeeElement('section.post-edit-content');
     }
 
     public function testEditingUserKeepsBlankPasswordAndUpdatesRoles(\IntegrationTester $I): void

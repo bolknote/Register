@@ -270,7 +270,7 @@ and implementation scope; it is not an approved roadmap.
 The main implementation anchors used during review are:
 
 - editor persistence and preview: [`_admin/js/editor/form.js`](../_admin/js/editor/form.js);
-- editor image pipeline: [`_admin/js/editor/images/pipeline.js`](../_admin/js/editor/images/pipeline.js);
+- public inline-editor image pipeline: [`_assets/register/image-optimizer/js/optimizer.js`](../_assets/register/image-optimizer/js/optimizer.js);
 - default upload formats: [`_include/src/Config/StaticConfigLoader.php`](../_include/src/Config/StaticConfigLoader.php);
 - content, comment, tag, session, and user schema: [`_include/src/Model/Installer.php`](../_include/src/Model/Installer.php);
 - comment subscriptions: [`_include/src/Model/CommentNotifier.php`](../_include/src/Model/CommentNotifier.php);

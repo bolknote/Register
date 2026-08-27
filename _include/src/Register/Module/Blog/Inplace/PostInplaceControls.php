@@ -27,7 +27,7 @@ final readonly class PostInplaceControls
     }
 
     /**
-     * @return array{action_url: string, admin_edit_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: false}|null
+     * @return array{action_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: false}|null
      */
     public function forPost(Request $request, int $postId, ?int $authorId, int $revision): ?array
     {
@@ -38,11 +38,6 @@ final readonly class PostInplaceControls
 
         return [
             'action_url'    => $this->urlBuilder->rawLink('/_inplace/post/' . $postId),
-            'admin_edit_url' => $this->urlBuilder->rawLink('/_admin/index.php', [
-                'entity=BlogPost',
-                'action=edit',
-                'id=' . $postId,
-            ]),
             'tag_suggestions_url' => $this->urlBuilder->rawLink('/_inplace/tags'),
             'token'         => $this->tokenManager->issue($editor, $postId),
             'revision'      => $revision,
@@ -52,7 +47,7 @@ final readonly class PostInplaceControls
         ];
     }
 
-    /** @return array{action_url: string, admin_edit_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: true, editor_name: string}|null */
+    /** @return array{action_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: true, editor_name: string}|null */
     public function forCreate(Request $request): ?array
     {
         $editor = $this->editorForCreate($request);
@@ -62,10 +57,6 @@ final readonly class PostInplaceControls
 
         return [
             'action_url'     => $this->urlBuilder->rawLink('/_inplace/post/new'),
-            'admin_edit_url' => $this->urlBuilder->rawLink('/_admin/index.php', [
-                'entity=BlogPost',
-                'action=create',
-            ]),
             'tag_suggestions_url' => $this->urlBuilder->rawLink('/_inplace/tags'),
             'token'          => $this->tokenManager->issueForCreate($editor),
             'revision'       => 0,

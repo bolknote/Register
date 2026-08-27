@@ -72,50 +72,13 @@ final readonly class PostMediaRepository
         return $row === false ? null : $row;
     }
 
-    /** @return array<string, mixed>|null */
-    public function findImageWithName(
-        string $normalizedName,
-        int    $exceptId,
-        int    $editorId,
-        bool   $canEditSite,
-    ): ?array
-    {
-        $query = $this->dbLayer
-            ->select('*')
-            ->from(ContentMediaSchema::FILE_TABLE)
-            ->where('normalized_name = :normalized_name')->setParameter('normalized_name', $normalizedName)
-            ->andWhere("kind = 'image'")
-            ->andWhere('id <> :except_id')->setParameter('except_id', $exceptId)
-        ;
-        if (!$canEditSite) {
-            // An unfinished upload is private to its uploader until a post starts using it.
-            $query
-                ->andWhere('(pending = 0 OR uploaded_by = :editor_id)')
-                ->setParameter('editor_id', $editorId)
-            ;
-        }
-
-        $row = $query->orderBy('pending ASC, id DESC')
-            ->limit(1)
-            ->execute()
-            ->fetchAssoc()
-        ;
-
-        return $row === false ? null : $row;
-    }
-
-    /** @param array{original_name: string, normalized_name: string, mime_type: string, byte_size: int, width: int|null, height: int|null} $media */
-    public function replaceMetadata(int $mediaId, array $media): void
+    public function relocate(int $mediaId, string $storagePath, string $canonicalName): void
     {
         $this->dbLayer
             ->update(ContentMediaSchema::FILE_TABLE)
-            ->set('original_name', ':original_name')->setParameter('original_name', $media['original_name'])
-            ->set('normalized_name', ':normalized_name')->setParameter('normalized_name', $media['normalized_name'])
-            ->set('mime_type', ':mime_type')->setParameter('mime_type', $media['mime_type'])
-            ->set('byte_size', ':byte_size')->setParameter('byte_size', $media['byte_size'])
-            ->set('width', ':width')->setParameter('width', $media['width'])
-            ->set('height', ':height')->setParameter('height', $media['height'])
-            ->set('created_at', ':created_at')->setParameter('created_at', time())
+            ->set('storage_path', ':storage_path')->setParameter('storage_path', $storagePath)
+            ->set('original_name', ':canonical_name')->setParameter('canonical_name', $canonicalName)
+            ->set('normalized_name', ':canonical_name')
             ->where('id = :id')->setParameter('id', $mediaId)
             ->execute()
         ;

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 const source = await readFile(
-    new URL('../../_admin/js/editor/images/source-candidate.js', import.meta.url),
+    new URL('../../_assets/register/image-optimizer/js/source-candidate.js', import.meta.url),
     'utf8'
 );
 const {sanitizeJpeg, sanitizePng, sanitizeWebp} = await import(

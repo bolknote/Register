@@ -35,6 +35,7 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertSame('strict-origin-when-cross-origin', $response->headers->get('Referrer-Policy'));
         self::assertSame('camera=(), microphone=(), geolocation=()', $response->headers->get('Permissions-Policy'));
         self::assertStringContainsString("script-src 'self'", ContentSecurityPolicy::POLICY);
+        self::assertStringContainsString("'wasm-unsafe-eval'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("script-src-attr 'none'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("base-uri 'none'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("object-src 'none'", ContentSecurityPolicy::POLICY);
@@ -74,14 +75,14 @@ final class ContentSecurityPolicyTest extends Unit
 
         $enforced = $response->headers->get(ContentSecurityPolicy::HEADER_NAME);
         self::assertNotNull($enforced);
-        self::assertStringContainsString("script-src 'self' 'nonce-" . $nonce . "';", $enforced);
+        self::assertStringContainsString("script-src 'self' 'wasm-unsafe-eval' 'nonce-" . $nonce . "';", $enforced);
         self::assertStringContainsString("style-src 'self' 'nonce-" . $nonce . "';", $enforced);
         self::assertStringContainsString("script-src-attr 'none';", $enforced);
         self::assertStringNotContainsString("'unsafe-inline'", $enforced);
 
         $reportOnly = $response->headers->get(ContentSecurityPolicy::REPORT_ONLY_HEADER_NAME);
         self::assertNotNull($reportOnly);
-        self::assertStringContainsString("script-src 'self' 'nonce-" . $nonce . "';", $reportOnly);
+        self::assertStringContainsString("script-src 'self' 'wasm-unsafe-eval' 'nonce-" . $nonce . "';", $reportOnly);
     }
 
     public function testRejectsUnsafeScriptNonce(): void
@@ -204,8 +205,6 @@ final class ContentSecurityPolicyTest extends Unit
             $root . '/_admin/js/editor/dialogs.js',
             $root . '/_admin/js/editor/form.js',
             $root . '/_admin/js/editor/preview.js',
-            $root . '/_admin/js/editor/images/overlay.js',
-            $root . '/_admin/js/editor/images/pipeline.js',
             $root . '/_admin/js/autocomplete.js',
             $root . '/_admin/js/config-secret.js',
             $root . '/_assets/register/audio-player/player.js',
@@ -294,23 +293,6 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertStringNotContainsString("doc.write('<div", $source);
         self::assertStringContainsString("'previewErrorStylesheet'", $template);
         self::assertFileExists($root . '/_admin/css/editor-preview-error.css');
-    }
-
-    public function testEditorImageOverlayUsesDomNodesAndAnExternalStylesheet(): void
-    {
-        $root = dirname(__DIR__, 4);
-        $source = file_get_contents($root . '/_admin/js/editor/images/overlay.js');
-        $template = file_get_contents($root . '/_admin/templates/article/edit.php.inc');
-
-        self::assertIsString($source);
-        self::assertIsString($template);
-        self::assertStringContainsString("stylesheet.rel = 'stylesheet';", $source);
-        self::assertStringContainsString('overlay.dims.textContent = formatDimensions(', $source);
-        self::assertStringContainsString('function formatRow(', $source);
-        self::assertStringNotContainsString("createElement('style')", $source);
-        self::assertStringNotContainsString('.innerHTML', $source);
-        self::assertStringContainsString("'imageOverlayStylesheet'", $template);
-        self::assertFileExists($root . '/_admin/css/editor-image-overlay.css');
     }
 
     public function testAdminRuntimeHasNoUnusedInlineStyleGenerators(): void

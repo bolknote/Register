@@ -1,24 +1,17 @@
-import test, {afterEach} from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 const policySource = await readFile(
-    new URL('../../_admin/js/editor/images/state.js', import.meta.url),
+    new URL('../../_assets/register/image-optimizer/js/policy.js', import.meta.url),
     'utf8'
 );
 const {
     chooseBestCandidate,
-    effectivePublicationDate,
     extensionForCandidate,
-    imageState,
     planImageDimensions,
     webpEncodeOptions
 } = await import('data:text/javascript;base64,' + Buffer.from(policySource).toString('base64'));
-
-afterEach(function () {
-    imageState.editorForm = null;
-    imageState.defaultPublicationDate = '';
-});
 
 test('2000px source becomes the only Retina output without upscaling', function () {
     assert.deepEqual(planImageDimensions(3000, 2001), {
@@ -59,21 +52,6 @@ test('unsafe decoded and output dimensions are rejected', function () {
         () => planImageDimensions(2000, 11000),
         /too large to process safely/
     );
-});
-
-test('publication date comes from the active note field', function () {
-    imageState.defaultPublicationDate = '2026-08-26';
-    imageState.editorForm = {
-        querySelector: function () {
-            return {value: 'scheduled'};
-        },
-        elements: {
-            namedItem: function (name) {
-                return {value: name === 'scheduled_at' ? '1991-01-30T12:45' : '2040-12-01T00:00'};
-            }
-        }
-    };
-    assert.equal(effectivePublicationDate(), '1991-01-30');
 });
 
 test('smallest candidate wins while JPEG still respects its quality gate', function () {
@@ -129,4 +107,20 @@ test('WebP keeps sharp YUV but does not confuse exact with gamma correction', fu
         exact: false
     });
     assert.equal(webpEncodeOptions(82, false, 4).method, 4);
+});
+
+test('OxiPNG worker loads its Wasm binary from the public optimizer library', async function () {
+    const [workerSource, loaderSource] = await Promise.all([
+        readFile(
+            new URL('../../_assets/register/image-optimizer/js/oxipng-worker.js', import.meta.url),
+            'utf8'
+        ),
+        readFile(
+            new URL('../../_assets/register/image-optimizer/lib/oxipng.js', import.meta.url),
+            'utf8'
+        )
+    ]);
+
+    assert.match(workerSource, /new URL\('\.\.\/lib\/oxipng_bg\.wasm'/);
+    assert.match(loaderSource, /self\.oxipngWasmUrl/);
 });

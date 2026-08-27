@@ -1,4 +1,4 @@
-/** Linear-sRGB Lanczos3 resize worker for the editor image pipeline. */
+/** Linear-sRGB Lanczos3 resize worker for the public post image optimizer. */
 
 import initResize, {resize as resizePixels} from '../lib/register-resize.js';
 

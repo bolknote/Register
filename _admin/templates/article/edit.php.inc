@@ -5,7 +5,6 @@ declare(strict_types=1);
 /** @var string $basePath */
 /** @var array $tagsList */
 /** @var array $templateList */
-/** @var array $labelList */
 /** @var ?array $statusData Info about URL status */
 /** @var callable $trans */
 /** @var callable $param */
@@ -13,7 +12,6 @@ declare(strict_types=1);
 /** @var callable $adminAssetVersion */
 /** @var string $title */
 /** @var string $entityName */
-/** @var string $contentImageDirectory */
 /** @var array $header */
 /** @var array $hint */
 /** @var array $errorMessages */
@@ -27,7 +25,6 @@ $primaryKey   = $primaryKey ?? [];
 $csrfToken    = $csrfToken ?? null;
 $tagsList     = $tagsList ?? [];
 $templateList = $templateList ?? [];
-$labelList    = $labelList ?? [];
 $statusData   = $statusData ?? null;
 $commentsNum  = $commentsNum ?? 0;
 $isNew        = $primaryKey === [];
@@ -39,15 +36,13 @@ $formQueryParams = http_build_query(array_merge([
 
 $errorMessages = array_merge($errorMessages, $form->getGlobalFormErrors());
 
-$isPost = match ($entityName) {
-    'BlogPost' => true,
-    'Article' => false,
-    default => throw new \LogicException('The content editor supports posts and pages only.'),
-};
-$contentType = $isPost ? 'post' : 'page';
+if ($entityName !== 'Article') {
+    throw new \LogicException('The admin content editor supports pages only.');
+}
+$contentType = 'page';
 $visibleControls = $form->getVisibleControls();
 
-if (!$isPost && $param('REGISTER_ADMIN_CUT')) {
+if ($param('REGISTER_ADMIN_CUT')) {
     unset($visibleControls['excerpt']);
 }
 
@@ -96,17 +91,6 @@ $hasValue = static function (mixed $value): bool {
 $publicationState = $hasValue($formData['published'] ?? false)
     ? 'published'
     : ($hasValue($formData['scheduled_at'] ?? null) ? 'scheduled' : 'draft');
-$publicationDateValue = $publicationState === 'scheduled'
-    ? ($formData['scheduled_at'] ?? null)
-    : ($formData['published_at'] ?? null);
-$publicationDate = match (true) {
-    $publicationDateValue instanceof \DateTimeInterface => $publicationDateValue->format('Y-m-d'),
-    \is_int($publicationDateValue), \is_float($publicationDateValue),
-        \is_string($publicationDateValue) && ctype_digit($publicationDateValue) => date('Y-m-d', (int)$publicationDateValue),
-    \is_string($publicationDateValue)
-        && preg_match('/^(\d{4}-\d{2}-\d{2})/', $publicationDateValue, $publicationDateMatch) === 1 => $publicationDateMatch[1],
-    default => (new \DateTimeImmutable())->format('Y-m-d'),
-};
 $publicationSubmitLabel = $isNew
     ? match ($publicationState) {
         'scheduled' => $trans('Schedule'),
@@ -168,7 +152,7 @@ $editorConfig = [
     'entityName'    => $entityName,
     'textareaName'  => 'body',
     'slugFieldName' => 'slug',
-    'templateId'    => $isPost ? 'blog.php' : null,
+    'templateId'    => null,
     'templateScope' => $contentType,
     'statusData'    => $statusData,
     'tags'          => [
@@ -181,15 +165,7 @@ $editorConfig = [
     ],
     'sUrl'                   => $basePath . '/_admin/ajax.php?',
     'previewErrorStylesheet' => $basePath . '/_admin/css/editor-preview-error.css',
-    'imageOverlayStylesheet' => $basePath . '/_admin/css/editor-image-overlay.css',
-    'images'         => [
-        'directory'       => $contentImageDirectory,
-        'publicationDate' => $publicationDate,
-    ],
-    'datalists'     => $isPost ? [[
-        'inputName' => 'series',
-        'listId'    => 'post-labels-datalist',
-    ]] : [[
+    'datalists'     => [[
         'inputName'   => 'template',
         'listId'      => 'article-templates-datalist',
         'placeholder' => $trans('inherited'),
@@ -342,9 +318,7 @@ $renderControl = static function (
 <script src="<?php echo $basePath; ?>/_admin/lib/codemirror/searchcursor.js"></script>
 <script src="<?php echo $basePath; ?>/_admin/lib/morphdom-umd.min.js"></script>
 
-<script src="<?php echo $basePath; ?>/_admin/lib/image-q.min.js"></script>
-
-<section class="edit-content large-edit-form content-edit-content <?= $isPost ? 'post' : 'article' ?>-edit-content <?= $isNew ? 'is-new' : 'is-edit' ?>"
+<section class="edit-content large-edit-form content-edit-content article-edit-content <?= $isNew ? 'is-new' : 'is-edit' ?>"
          data-editor-config="<?= $editorConfigJson ?>">
     <header class="content-editor-header">
         <h1><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
@@ -579,23 +553,13 @@ $renderControl = static function (
                 <?php endif; ?>
             </aside>
         </div>
-        <?php if ($isPost): ?>
-            <datalist id="post-labels-datalist">
-                <?php foreach ($labelList as $labelItem): ?>
-                    <option value="<?= htmlspecialchars($labelItem, ENT_QUOTES, 'UTF-8') ?>">
-                        <?= htmlspecialchars($labelItem, ENT_QUOTES, 'UTF-8') ?>
-                    </option>
-                <?php endforeach; ?>
-            </datalist>
-        <?php else: ?>
-            <datalist id="article-templates-datalist">
-                <?php foreach ($templateList as $templateItem): ?>
-                    <option value="<?= htmlspecialchars($templateItem, ENT_QUOTES, 'UTF-8') ?>">
-                        <?= htmlspecialchars($templateItem, ENT_QUOTES, 'UTF-8') ?>
-                    </option>
-                <?php endforeach; ?>
-            </datalist>
-        <?php endif; ?>
+        <datalist id="article-templates-datalist">
+            <?php foreach ($templateList as $templateItem): ?>
+                <option value="<?= htmlspecialchars($templateItem, ENT_QUOTES, 'UTF-8') ?>">
+                    <?= htmlspecialchars($templateItem, ENT_QUOTES, 'UTF-8') ?>
+                </option>
+            <?php endforeach; ?>
+        </datalist>
     </form>
 </section>
 <dialog id="picture_dialog">

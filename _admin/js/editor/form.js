@@ -11,7 +11,6 @@ import {hex_md5} from './hash.js';
 import {Preview, initPreviewSync} from './preview.js';
 import {register_codemirror} from './codemirror.js';
 import {escapeHtml, sanitizeUrlForAttribute} from './utils/escape.js';
-import {waitForPendingImages} from './images/pipeline.js';
 
 export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaName, sTemplateId, sSlugFieldName = 'url', sTemplateScope = '') {
     const sLowerEntityName = sEntityName.toLowerCase();
@@ -59,18 +58,6 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
 
         if (!eForm.checkValidity()) {
             eForm.reportValidity();
-            return;
-        }
-
-        try {
-            await waitForPendingImages();
-        } catch (error) {
-            editorDeps.PopupMessages.show(
-                error && error.message ? error.message : 'Image optimization failed.',
-                null,
-                null,
-                sLowerEntityName + '-save'
-            );
             return;
         }
 

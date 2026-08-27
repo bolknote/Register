@@ -199,7 +199,7 @@ final readonly class AiEditorController
     private function csrfToken(Request $request): string
     {
         $entityName = $request->request->getString('entity_name');
-        if (!\in_array($entityName, ['Article', 'BlogPost'], true)) {
+        if ($entityName !== 'Article') {
             return '';
         }
 

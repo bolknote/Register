@@ -65,7 +65,6 @@ readonly class CustomMenuGenerator extends MenuGenerator
         $currentAction = $request instanceof \Symfony\Component\HttpFoundation\Request
             ? $request->query->getString('action')
             : '';
-        $newPostActive = $currentEntity === 'BlogPost' && $currentAction === FieldConfig::ACTION_NEW;
         $links = $this->config->getPriorities();
         asort($links);
 
@@ -84,7 +83,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
                 'key'     => $name,
                 'name'    => $entity->getPluralName(),
                 'url'     => $baseUrl . '?entity=' . urlencode($name) . '&action=list',
-                'active'  => $currentEntity === $name && ($name !== 'BlogPost' || !$newPostActive),
+                'active'  => $currentEntity === $name,
                 'signals' => $signals[$name] ?? [],
             ];
         }
@@ -100,18 +99,6 @@ readonly class CustomMenuGenerator extends MenuGenerator
         }
 
         $navigationItems = [];
-        $postEntity   = $this->config->findEntityByName('BlogPost');
-        if ($postEntity?->isAllowedAction(FieldConfig::ACTION_NEW) === true) {
-            $navigationItems[] = [
-                'kind'    => 'link',
-                'key'     => 'NewPost',
-                'name'    => 'New post',
-                'url'     => $baseUrl . '?entity=BlogPost&action=new',
-                'active'  => $newPostActive,
-                'signals' => [],
-            ];
-        }
-
         $dashboardLink = $links['Dashboard'] ?? null;
         if (\is_array($dashboardLink)) {
             $navigationItems[] = ['kind' => 'link', ...$dashboardLink];

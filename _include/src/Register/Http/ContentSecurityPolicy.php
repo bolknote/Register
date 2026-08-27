@@ -31,7 +31,7 @@ final class ContentSecurityPolicy
         . "img-src 'self' data: blob: http: https:; "
         . "media-src 'self' blob: http: https:; "
         . "object-src 'none'; "
-        . "script-src 'self'; "
+        . "script-src 'self' 'wasm-unsafe-eval'; "
         . "script-src-attr 'none'; "
         . "style-src 'self'; "
         . "style-src-attr 'none'; "
@@ -41,7 +41,7 @@ final class ContentSecurityPolicy
         . "img-src 'self' data: blob: https:; "
         . "media-src 'self' blob: https:; "
         . "object-src 'none'; "
-        . "script-src 'self'; "
+        . "script-src 'self' 'wasm-unsafe-eval'; "
         . "script-src-attr 'none'; "
         . "style-src 'self'; "
         . "style-src-attr 'none'; "
@@ -160,9 +160,9 @@ final class ContentSecurityPolicy
         }
 
         return str_replace(
-            ["script-src 'self';", "style-src 'self';"],
+            ["script-src 'self' 'wasm-unsafe-eval';", "style-src 'self';"],
             [
-                "script-src 'self' 'nonce-" . $scriptNonce . "';",
+                "script-src 'self' 'wasm-unsafe-eval' 'nonce-" . $scriptNonce . "';",
                 "style-src 'self' 'nonce-" . $scriptNonce . "';",
             ],
             $policy,

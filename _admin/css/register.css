@@ -294,17 +294,6 @@ h3 {
     color: var(--admin-text-color);
 }
 
-.admin-shell li[data-menu-key="NewPost"] > .main-menu-link {
-    color: var(--admin-accent-color);
-    font-weight: 680;
-}
-
-.admin-shell li[data-menu-key="NewPost"] > .main-menu-link::before {
-    content: "+";
-    font-size: 1.1em;
-    font-weight: 750;
-}
-
 .main-menu-group {
     position: relative;
     height: 100%;

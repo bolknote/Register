@@ -6,6 +6,7 @@
     var moduleReady = false;
 
     try {
+        self.oxipngWasmUrl = new URL('../lib/oxipng_bg.wasm', self.location.href).toString();
         importScripts('../lib/oxipng.js');
     } catch (e) {
         postMessage({'type': 'init-error', 'message': e && e.message ? e.message : 'Failed to load oxipng.js'});

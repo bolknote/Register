@@ -25,11 +25,11 @@ if [[ "$(shasum -a 256 "${archive_path}" | awk '{print $1}')" != "${package_sha2
 fi
 tar -xzf "${archive_path}" -C "${work_dir}"
 
-cp "${work_dir}/package/lib/resize/pkg/squoosh_resize.js" "${project_dir}/_admin/lib/register-resize.js"
-cp "${work_dir}/package/lib/resize/pkg/squoosh_resize_bg.wasm" "${project_dir}/_admin/lib/register-resize.wasm"
-cp "${work_dir}/package/LICENSE" "${project_dir}/_admin/lib/register-resize.LICENSE"
-cp "${work_dir}/package/lib/resize/LICENSE.codec.md" "${project_dir}/_admin/lib/register-resize-codec.LICENSE"
+cp "${work_dir}/package/lib/resize/pkg/squoosh_resize.js" "${project_dir}/_assets/register/image-optimizer/lib/register-resize.js"
+cp "${work_dir}/package/lib/resize/pkg/squoosh_resize_bg.wasm" "${project_dir}/_assets/register/image-optimizer/lib/register-resize.wasm"
+cp "${work_dir}/package/LICENSE" "${project_dir}/_assets/register/image-optimizer/lib/register-resize.LICENSE"
+cp "${work_dir}/package/lib/resize/LICENSE.codec.md" "${project_dir}/_assets/register/image-optimizer/lib/register-resize-codec.LICENSE"
 
 shasum -a 256 \
-    "${project_dir}/_admin/lib/register-resize.js" \
-    "${project_dir}/_admin/lib/register-resize.wasm"
+    "${project_dir}/_assets/register/image-optimizer/lib/register-resize.js" \
+    "${project_dir}/_assets/register/image-optimizer/lib/register-resize.wasm"

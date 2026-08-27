@@ -225,6 +225,8 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             ),
             $container->get('register_blog_translator'),
             $container->getStringParameter('image_dir'),
+            $container->getStringParameter('content_image_directory'),
+            $container->getStringParameter('cache_dir'),
         ));
         $container->set(PostMediaRepository::class, static fn(Container $container): PostMediaRepository => new PostMediaRepository(
             $container->get(DbLayer::class),

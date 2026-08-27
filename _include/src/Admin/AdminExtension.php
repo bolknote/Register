@@ -166,7 +166,6 @@ class AdminExtension implements ExtensionInterface
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
             $container->getStringParameter('base_path'),
             $container->getStringParameter('root_dir'),
-            $container->getStringParameter('content_image_directory'),
         ), [StatefulServiceInterface::class]);
 
         $container->set(SettingStorageInterface::class, fn(Container $container): \Register\Core\AdminYard\UserSettingStorage => new UserSettingStorage(

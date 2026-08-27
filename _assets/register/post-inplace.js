@@ -5,8 +5,16 @@
     const tagSuggestionRequests = new Map();
     let tagEditorSequence = 0;
     let boundaryCaretBody = null;
-    const browserPreviewMaxDimension = 1600;
-    const browserPreviewQuality = 0.86;
+    const imageOptimizerUrl = (() => {
+        const source = new URL(document.currentScript?.src || window.location.href, window.location.href);
+        const target = new URL('image-optimizer/js/optimizer.js', source);
+        const version = source.searchParams.get('v');
+        if (version !== null) {
+            target.searchParams.set('v', version);
+        }
+        return target.toString();
+    })();
+    let imageOptimizerPromise = null;
     const imageExtensions = new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp']);
     const audioExtensions = new Set(['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm']);
     const aiCorrectionTokenPattern = /<[^>]*>|[\p{L}\p{N}_]+|\s+|[^\p{L}\p{N}_\s<>]+|[<>]/gu;
@@ -317,6 +325,17 @@
         }
         state.time.dateTime = date.toISOString();
         state.time.textContent = dateTimeText(date, state.time.dataset.locale || document.documentElement.lang);
+    }
+
+    function editorPublishedAt(state) {
+        return state.dateDirty
+            ? Math.floor(new Date(state.dateInput.value).getTime() / 1000)
+            : state.originalPublishedAt;
+    }
+
+    function loadImageOptimizer() {
+        imageOptimizerPromise ||= import(imageOptimizerUrl);
+        return imageOptimizerPromise;
     }
 
     function releasePendingMedia(state) {
@@ -925,9 +944,7 @@
         state.titleField.value = title;
         state.bodyField.value = state.bodyDirty ? editableBodyHtml(state) : state.originalBody;
 
-        const publishedAt = state.dateDirty
-            ? Math.floor(new Date(state.dateInput.value).getTime() / 1000)
-            : state.originalPublishedAt;
+        const publishedAt = editorPublishedAt(state);
         if (!Number.isInteger(publishedAt) || publishedAt < 1 || publishedAt > 4102444799) {
             showError(state.form, state.card.dataset.invalidContent || state.card.dataset.editError || 'Invalid post content.');
             state.dateInput.focus();
@@ -1390,122 +1407,6 @@
         return bodyRange(state, range);
     }
 
-    function abortedUploadError() {
-        return new DOMException('The upload was cancelled.', 'AbortError');
-    }
-
-    function imageElementFromFile(file, signal) {
-        return new Promise((resolve, reject) => {
-            const url = URL.createObjectURL(file);
-            const image = new Image();
-            let settled = false;
-            const cleanup = () => {
-                signal.removeEventListener('abort', abort);
-                image.onload = null;
-                image.onerror = null;
-            };
-            const fail = (error) => {
-                if (settled) {
-                    return;
-                }
-                settled = true;
-                cleanup();
-                URL.revokeObjectURL(url);
-                reject(error);
-            };
-            const abort = () => fail(abortedUploadError());
-            image.onload = () => {
-                if (settled) {
-                    return;
-                }
-                settled = true;
-                cleanup();
-                resolve({
-                    source: image,
-                    width: image.naturalWidth,
-                    height: image.naturalHeight,
-                    release: () => URL.revokeObjectURL(url),
-                });
-            };
-            image.onerror = () => fail(new Error('The browser cannot decode the image.'));
-            signal.addEventListener('abort', abort, {once: true});
-            image.decoding = 'async';
-            image.src = url;
-        });
-    }
-
-    async function decodedImageFromFile(file, signal) {
-        if (typeof window.createImageBitmap === 'function') {
-            try {
-                const bitmap = await window.createImageBitmap(file, {imageOrientation: 'from-image'});
-                if (signal.aborted) {
-                    bitmap.close();
-                    throw abortedUploadError();
-                }
-                return {
-                    source: bitmap,
-                    width: bitmap.width,
-                    height: bitmap.height,
-                    release: () => bitmap.close(),
-                };
-            } catch (error) {
-                if (signal.aborted) {
-                    throw abortedUploadError();
-                }
-            }
-        }
-
-        return imageElementFromFile(file, signal);
-    }
-
-    function canvasToJpeg(canvas) {
-        return new Promise((resolve, reject) => {
-            canvas.toBlob((blob) => {
-                if (blob instanceof Blob && blob.size > 0) {
-                    resolve(blob);
-                    return;
-                }
-                reject(new Error('The browser cannot create an image preview.'));
-            }, 'image/jpeg', browserPreviewQuality);
-        });
-    }
-
-    async function prepareBrowserImagePreview(file, signal) {
-        const decoded = await decodedImageFromFile(file, signal);
-        try {
-            if (decoded.width <= 0 || decoded.height <= 0) {
-                throw new Error('The browser returned invalid image dimensions.');
-            }
-
-            const scale = Math.min(
-                1,
-                browserPreviewMaxDimension / Math.max(decoded.width, decoded.height),
-            );
-            const canvas = document.createElement('canvas');
-            canvas.width = Math.max(1, Math.round(decoded.width * scale));
-            canvas.height = Math.max(1, Math.round(decoded.height * scale));
-            const context = canvas.getContext('2d', {alpha: false});
-            if (context === null) {
-                throw new Error('The browser cannot prepare an image preview.');
-            }
-            context.fillStyle = '#fff';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
-            const blob = await canvasToJpeg(canvas);
-            if (signal.aborted) {
-                throw abortedUploadError();
-            }
-
-            return {
-                blob,
-                width: decoded.width,
-                height: decoded.height,
-            };
-        } finally {
-            decoded.release();
-        }
-    }
-
     function createMediaElement(state, payload, file) {
         if (payload.kind === 'image') {
             const image = document.createElement('img');
@@ -1658,134 +1559,50 @@
         });
     }
 
-    function resolveMediaConflict(state, conflict, controller, incomingPreviewUrl = '') {
-        const template = state.card.querySelector(':scope > .post-media-conflict-template');
-        const fragment = template instanceof HTMLTemplateElement ? template.content.cloneNode(true) : null;
-        const backdrop = fragment?.querySelector('.post-media-conflict-backdrop');
-        const dialog = fragment?.querySelector('.post-media-conflict-dialog');
-        const existingImage = fragment?.querySelector('[data-media-conflict-existing]');
-        const incomingImage = fragment?.querySelector('[data-media-conflict-incoming]');
-        const overwrite = fragment?.querySelector('[data-media-conflict-action="overwrite"]');
-        if (
-            !(backdrop instanceof HTMLElement)
-            || !(dialog instanceof HTMLElement)
-            || !(existingImage instanceof HTMLImageElement)
-            || !(incomingImage instanceof HTMLImageElement)
-            || !(overwrite instanceof HTMLButtonElement)
-        ) {
-            return Promise.reject(new Error(state.card.dataset.mediaUploadFailed || 'Unable to upload the image.'));
-        }
-
-        existingImage.src = conflict.existing.preview_url || conflict.existing.url;
-        existingImage.alt = conflict.existing.name || '';
-        incomingImage.src = incomingPreviewUrl || conflict.incoming.preview_url || conflict.incoming.url;
-        incomingImage.alt = conflict.incoming.name || '';
-        overwrite.hidden = conflict.can_overwrite !== true;
-        document.body.append(backdrop);
-
-        return new Promise((resolve, reject) => {
-            let settled = false;
-            let choosing = false;
-            const cleanup = () => {
-                document.removeEventListener('keydown', handleKeyDown, true);
-                backdrop.remove();
-            };
-            const finish = (value, error = null) => {
-                if (settled) {
-                    return;
-                }
-                settled = true;
-                cleanup();
-                if (error) {
-                    reject(error);
-                } else {
-                    resolve(value);
-                }
-            };
-            const choose = async (decision) => {
-                if (choosing || settled) {
-                    return;
-                }
-                choosing = true;
-                dialog.querySelectorAll('button').forEach((button) => {
-                    button.disabled = true;
-                });
-                dialog.setAttribute('aria-busy', 'true');
-                const token = state.form.elements.namedItem('inplace_token');
-                const data = new FormData();
-                data.set('inplace_action', 'media_conflict');
-                data.set('inplace_token', token instanceof HTMLInputElement ? token.value : '');
-                data.set('media_id', String(conflict.incoming.media_id));
-                data.set('existing_id', String(conflict.existing.media_id));
-                data.set('conflict_action', decision);
-                try {
-                    const response = await window.fetch(state.form.action, {
-                        method: 'POST',
-                        body: data,
-                        credentials: 'same-origin',
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                        signal: controller.signal,
-                    });
-                    const payload = await response.json().catch(() => null);
-                    if (!response.ok || !payload || payload.success !== true) {
-                        throw new Error(payload?.message || state.card.dataset.mediaUploadFailed || 'Unable to upload the image.');
-                    }
-                    finish(payload.action === 'media_cancelled' ? null : payload);
-                } catch (error) {
-                    finish(null, error);
-                }
-            };
-            const handleKeyDown = (event) => {
-                if (event.key === 'Escape') {
-                    event.preventDefault();
-                    choose('cancel');
-                }
-            };
-            backdrop.addEventListener('click', (event) => {
-                const button = event.target instanceof Element
-                    ? event.target.closest('[data-media-conflict-action]')
-                    : null;
-                if (button instanceof HTMLButtonElement) {
-                    choose(button.dataset.mediaConflictAction || 'cancel');
-                }
-            });
-            controller.signal.addEventListener('abort', () => {
-                finish(null, new DOMException('The upload was cancelled.', 'AbortError'));
-            }, {once: true});
-            document.addEventListener('keydown', handleKeyDown, true);
-            dialog.focus();
-        });
-    }
-
     function startMediaUpload(state, file, kind, placeholder) {
         const token = state.form.elements.namedItem('inplace_token');
         const controller = new AbortController();
         const formData = new FormData();
         formData.append('inplace_action', 'media');
         formData.append('inplace_token', token instanceof HTMLInputElement ? token.value : '');
-        formData.append('media', file, file.name);
         state.mediaControllers.add(controller);
 
         const upload = (async () => {
-            let browserPreview = null;
-            let browserPreviewUrl = '';
             try {
+                let uploadFile = file;
+                let uploadName = file.name;
                 if (kind === 'image') {
-                    try {
-                        browserPreview = await prepareBrowserImagePreview(file, controller.signal);
-                        formData.append('media_preview', browserPreview.blob, 'browser-preview.jpg');
-                        formData.append('media_width', String(browserPreview.width));
-                        formData.append('media_height', String(browserPreview.height));
-                        browserPreviewUrl = URL.createObjectURL(browserPreview.blob);
-                    } catch (error) {
-                        if (error instanceof DOMException && error.name === 'AbortError') {
-                            throw error;
-                        }
-                    }
+                    const optimizingMessage = mediaMessage(
+                        state.card.dataset.mediaOptimizing || 'Optimizing “%s”…',
+                        file.name,
+                    );
+                    placeholder.textContent = optimizingMessage;
+                    placeholder.setAttribute('aria-label', optimizingMessage);
+                    const optimizer = await loadImageOptimizer();
+                    const optimized = await optimizer.optimizeImage(file, {
+                        signal: controller.signal,
+                    });
+                    uploadFile = optimized.blob;
+                    uploadName = `image${optimized.retina ? '@2x' : ''}.${optimized.extension}`;
+                    formData.append('media_retina', optimized.retina ? '1' : '0');
+                    formData.append('media_width', String(optimized.width));
+                    formData.append('media_height', String(optimized.height));
+                    formData.append('media_display_width', String(optimized.displayWidth));
+                    formData.append('media_display_height', String(optimized.displayHeight));
                 }
+
+                const publishedAt = editorPublishedAt(state);
+                if (!Number.isInteger(publishedAt) || publishedAt < 1 || publishedAt > 4102444799) {
+                    throw new Error(state.card.dataset.invalidContent || 'Invalid post content.');
+                }
+                const uploadingMessage = mediaMessage(
+                    state.card.dataset.mediaUploading || 'Uploading “%s”…',
+                    file.name,
+                );
+                placeholder.textContent = uploadingMessage;
+                placeholder.setAttribute('aria-label', uploadingMessage);
+                formData.append('published_at', String(publishedAt));
+                formData.append('media', uploadFile, uploadName);
 
                 const response = await window.fetch(state.form.action, {
                     method: 'POST',
@@ -1797,26 +1614,9 @@
                     },
                     signal: controller.signal,
                 });
-                let payload = await response.json().catch(() => null);
-                let accepted = response.ok;
+                const payload = await response.json().catch(() => null);
                 if (
-                    response.status === 409
-                    && payload?.action === 'media_conflict'
-                    && payload.incoming?.media_id
-                    && payload.existing?.media_id
-                ) {
-                    state.uploadedMediaIds.add(Number(payload.incoming.media_id));
-                    const candidateId = Number(payload.incoming.media_id);
-                    payload = await resolveMediaConflict(state, payload, controller, browserPreviewUrl);
-                    state.uploadedMediaIds.delete(candidateId);
-                    if (payload === null) {
-                        placeholder.remove();
-                        return;
-                    }
-                    accepted = true;
-                }
-                if (
-                    !accepted
+                    !response.ok
                     || !payload
                     || payload.success !== true
                     || payload.action !== 'media'
@@ -1833,15 +1633,6 @@
                 }
                 if (editorStates.get(state.card) !== state || !placeholder.isConnected) {
                     return;
-                }
-
-                if (kind === 'image' && browserPreview !== null) {
-                    if (!Number.isInteger(payload.width) || payload.width <= 0) {
-                        payload.width = browserPreview.width;
-                    }
-                    if (!Number.isInteger(payload.height) || payload.height <= 0) {
-                        payload.height = browserPreview.height;
-                    }
                 }
 
                 const media = createMediaElement(state, payload, file);
@@ -1864,15 +1655,59 @@
                         : mediaMessage(state.card.dataset.mediaUploadFailed || 'Unable to upload “%s”.', file.name),
                 );
             } finally {
-                if (browserPreviewUrl !== '') {
-                    URL.revokeObjectURL(browserPreviewUrl);
-                }
                 state.mediaControllers.delete(controller);
             }
         })();
 
         state.mediaUploads.add(upload);
         upload.finally(() => state.mediaUploads.delete(upload));
+    }
+
+    async function redatePendingMedia(state) {
+        if (state.uploadedMediaIds.size === 0) {
+            return;
+        }
+
+        const publishedAt = editorPublishedAt(state);
+        if (!Number.isInteger(publishedAt) || publishedAt < 1 || publishedAt > 4102444799) {
+            throw new Error(state.card.dataset.invalidContent || 'Invalid post content.');
+        }
+        const token = state.form.elements.namedItem('inplace_token');
+        const data = new FormData();
+        data.set('inplace_action', 'media_redate');
+        data.set('inplace_token', token instanceof HTMLInputElement ? token.value : '');
+        data.set('media_ids', Array.from(state.uploadedMediaIds).join(','));
+        data.set('published_at', String(publishedAt));
+        const response = await window.fetch(state.form.action, {
+            method: 'POST',
+            body: data,
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || payload?.success !== true || !Array.isArray(payload.media)) {
+            throw new Error(payload?.message || state.card.dataset.mediaUploadFailed || 'Unable to name the image.');
+        }
+
+        const mediaById = new Map(payload.media.map((media) => [Number(media.media_id), media]));
+        state.body.querySelectorAll('[data-post-media-id][src]').forEach((element) => {
+            const media = mediaById.get(Number(element.dataset.postMediaId));
+            if (!media || typeof media.url !== 'string' || media.url === '') {
+                return;
+            }
+
+            element.setAttribute('src', media.url);
+            if (
+                element instanceof HTMLAudioElement
+                && typeof media.name === 'string'
+                && media.name !== ''
+            ) {
+                element.dataset.title = media.name;
+            }
+        });
     }
 
     function insertMediaFiles(state, files, initialRange) {
@@ -2043,7 +1878,6 @@
             || payload.id <= 0
             || typeof payload.url !== 'string'
             || typeof payload.action_url !== 'string'
-            || typeof payload.admin_edit_url !== 'string'
             || typeof payload.token !== 'string'
         ) {
             throw new Error(card.dataset.applyError || 'Unable to apply the created post.');
@@ -2073,11 +1907,6 @@
                 deleteToken.defaultValue = payload.token;
             }
         }
-        const editLink = card.querySelector(':scope > .post-inplace-tools .post-edit-start');
-        if (editLink instanceof HTMLAnchorElement) {
-            editLink.href = payload.admin_edit_url;
-        }
-
         updateEditedCard(card, form, payload);
         const titleLink = card.querySelector(':scope > .post.head > a');
         if (titleLink instanceof HTMLAnchorElement) {
@@ -2157,6 +1986,7 @@
                 if (state.mediaUploads.size > 0) {
                     await Promise.all(Array.from(state.mediaUploads));
                 }
+                await redatePendingMedia(state);
                 if (editorStates.get(card) !== state || !syncEditor(state)) {
                     return;
                 }

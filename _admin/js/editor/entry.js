@@ -9,7 +9,6 @@
 import {initArticleEditForm} from './form.js';
 import {initHtmlTextarea, initHtmlToolbar} from './shortcuts.js';
 import {initTagsInput} from './tags.js';
-import {initImagePipeline} from './images/pipeline.js';
 import {ClosePictureDialog, ReturnAudio, ReturnImage} from './dialogs.js';
 import {setEditorDeps} from './deps.js';
 import {initAiTools} from './ai.js';
@@ -36,7 +35,6 @@ setEditorDeps({
     sUrl: config.sUrl || window.sUrl || null,
     pictureManagerUrl: config.pictureManagerUrl || null,
     previewErrorStylesheet: config.previewErrorStylesheet || null,
-    imageOverlayStylesheet: config.imageOverlayStylesheet || null,
     morphdom: window.morphdom || null,
     DisplayError: window.DisplayError || null
 });
@@ -82,8 +80,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     initHtmlEditors();
-    initImagePipeline(form, config.images || {});
-
     if (form && config.ai) {
         initAiTools(form, {...config.ai, entityName: config.entityName});
         initImageAlt(form, {

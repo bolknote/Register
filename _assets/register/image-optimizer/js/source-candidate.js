@@ -286,7 +286,7 @@ async function createSanitizedSourceCandidate(file) {
             extension = 'webp';
             break;
         default:
-            throw new Error('Unsupported image format.');
+            return null;
     }
 
     return blob ? {

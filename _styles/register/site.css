@@ -2154,44 +2154,6 @@ h2.preview,
     line-height: 1.45;
 }
 
-.post-media-conflict-previews {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-    padding: 1.25rem 1.4rem;
-}
-
-.post-media-conflict-previews figure {
-    min-width: 0;
-    margin: 0;
-}
-
-.post-media-conflict-image {
-    display: grid;
-    height: clamp(12rem, 42vh, 25rem);
-    overflow: hidden;
-    place-items: center;
-    border-radius: 8px;
-    background:
-        linear-gradient(45deg, color-mix(in srgb, var(--border-color) 55%, transparent) 25%, transparent 25%) 0 0 / 1rem 1rem,
-        linear-gradient(-45deg, color-mix(in srgb, var(--border-color) 55%, transparent) 25%, transparent 25%) 0 0 / 1rem 1rem,
-        linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--border-color) 55%, transparent) 75%) 0 0 / 1rem 1rem,
-        linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--border-color) 55%, transparent) 75%) 0 0 / 1rem 1rem;
-}
-
-.post-media-conflict-image img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-.post-media-conflict-previews figcaption {
-    margin-top: 0.45rem;
-    color: var(--minor-color);
-    font-size: 0.8rem;
-}
-
 .post-media-conflict-actions {
     display: flex;
     padding: 0 1.4rem 1.35rem;
@@ -2234,16 +2196,6 @@ h2.preview,
 
 .post-discard-changes-actions button.is-danger {
     color: var(--accent-color);
-}
-
-@media (max-width: 640px) {
-    .post-media-conflict-previews {
-        grid-template-columns: 1fr;
-    }
-
-    .post-media-conflict-image {
-        height: min(28vh, 14rem);
-    }
 }
 
 .post-inplace-actions {

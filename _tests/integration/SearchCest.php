@@ -1,7 +1,7 @@
 <?php
 /**
- * @copyright 2024 Roman Parpalak
- * @license   http://opensource.org/licenses/MIT MIT
+ * @copyright 2024-2026 Roman Parpalak
+ * @license   https://opensource.org/license/mit MIT
  * @package   Register
  */
 
@@ -9,13 +9,15 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Content\ContentSchema;
-use Register\Module\Search\Service\ContentIndexer;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Queue\QueueConsumer;
+use Register\Module\Search\Service\ContentIndexer;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @group search
@@ -27,69 +29,61 @@ class SearchCest
         $I->login('admin', 'admin');
 
         /**
-         * 1. Create a blog post
+         * 1. Create and edit a blog post through the public inline editor.
          */
-        $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=new');
-        $I->seeResponseCodeIs(200);
-        $I->submitForm('form[name="article-form"]', [
-            'title' => 'Привет, мир!',
-            'body'  => '<p>Start text</p>',
+        $I->amOnPage('https://localhost/');
+
+        $formSelector = '.site-header-shell .post-create-template .post-inplace-edit-form';
+        $token = (string)$I->grabAttributeFrom($formSelector . ' input[name="inplace_token"]', 'value');
+        $publishedAt = strtotime('2023-08-12T11:32');
+
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+            'inplace_action' => 'create',
+            'inplace_token'  => $token,
+            'revision'       => '0',
+            'title'          => 'new-post1',
+            'body'           => '<p>Start text</p>',
+            'tags'           => '',
+            'published_at'   => (string)$publishedAt,
         ]);
-        $I->seeResponseCodeIs(302);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
 
-        $url = $I->grabLocation();
-        if (preg_match('~id=(\d+)~', $url, $matches) !== 1) {
-            throw new \RuntimeException('The created post redirect does not contain an identifier.');
-        }
+        $created = $I->grabJson();
+        $I->assertIsArray($created);
+        $I->assertSame('/new-post1', $created['url']);
 
-        $postId = $matches[1];
+        $postId = (int)$created['id'];
 
-        $I->followRedirect();
-        $userId    = $I->grabAttributeFrom('[data-user-id]', 'data-user-id');
-        $csrfToken = $I->grabValueFrom('input[name=__csrf_token]');
-        if ($userId === null) {
-            throw new \RuntimeException('The blog post form does not expose a user identifier.');
-        }
-
-        $I->assertSame('privet-mir', $I->grabValueFrom('input[name=slug]'));
-        $I->assertSame('', $I->grabValueFrom('input[name=date_label]'));
-
-        $dataProvider = (static fn(
-            string $csrfToken,
-            string $userId,
-            string $revision = '1',
-            string $body = '<p>New blog post with some text</p>',
-            bool $published = true,
-        ): array => [
-            '__csrf_token' => $csrfToken,
-            'title'        => 'New Blog Post Title',
-            'tags'         => 'tag1, blog tag, міръ, отрок',
-            'published_at' => '2023-08-12T11:32',
-            'date_label'   => 'лето 1977 года',
-            'updated_at'   => '2023-08-12T12:15',
-            'body'         => $body,
-            'author_id'    => $userId,
-            'series'       => '',
-            'revision'     => $revision,
-            'slug'         => 'new-post1',
-
-            'comments_enabled' => '1',
-            ...$published ? ['published' => '1'] : [],
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+            'inplace_action' => 'edit',
+            'inplace_token'  => $created['token'],
+            'revision'       => '1',
+            'title'          => 'New Blog Post Title',
+            'tags'           => 'tag1, blog tag, міръ, отрок',
+            'published_at'   => (string)$publishedAt,
+            'body'           => '<p>New blog post with some text</p>',
         ]);
-        // Secondary check beyond the search, but let it be
-        $I->sendAjaxPostRequest('https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . ((int)$postId + 1111), $dataProvider($csrfToken, $userId));
-        $I->assertJsonSubResponseContains('Unable to confirm security token.', ['errors', 0]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
 
-        $I->sendAjaxPostRequest('https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId, $dataProvider($csrfToken, $userId));
-        $I->seeResponseCodeIs(200);
-        $I->see('"success":true');
-        $I->see('"urlStatus":"ok"');
-        $I->see('"urlTitle":""');
-        $I->see('"revision":"2"');
+        $edited = $I->grabJson();
+        $I->assertIsArray($edited);
+        $I->assertSame('edit', $edited['action']);
+        $I->assertSame(2, $edited['revision']);
+
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $dbLayer->update(ContentSchema::TABLE_NAME)
+            ->set('date_label', ':date_label')->setParameter('date_label', 'лето 1977 года')
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute()
+        ;
+        /** @var ContentChangeDispatcher $changeDispatcher */
+        $changeDispatcher = $I->grabService(ContentChangeDispatcher::class);
+        $changeDispatcher->dispatch(ContentId::post($postId));
 
         /** @var ContentRepository $contentRepository */
         $contentRepository = $I->grabService(ContentRepository::class);
-        $post              = $contentRepository->find(ContentId::post((int)$postId));
+        $post              = $contentRepository->find(ContentId::post($postId));
         $mainPage          = $contentRepository->find(ContentId::page(1));
         if (!$post instanceof ContentItem || !$mainPage instanceof ContentItem) {
             throw new \RuntimeException('The unified content repository did not expose the created post and main page.');
@@ -97,39 +91,26 @@ class SearchCest
 
         $I->assertSame('New Blog Post Title', $post->title);
         $I->assertSame('/new-post1', $post->path);
-        $I->assertSame(strtotime('2023-08-12T11:32'), $post->publishedAt);
+        $I->assertSame($publishedAt, $post->publishedAt);
         $I->assertSame('Main page', $mainPage->title);
         $I->assertSame('/', $mainPage->path);
 
-        $I->amOnPage('https://localhost/privet-mir');
-        $I->seeResponseCodeIs(301);
-        $I->seeLocationIs('/new-post1');
-
-        /** @var DbLayer $dbLayer */
-        $dbLayer = $I->grabService(DbLayer::class);
-        $queued  = $dbLayer
+        $queued = $dbLayer
             ->select('COUNT(*)')
             ->from('queue')
-            ->where('id = :id')->setParameter('id', (string)ContentId::post((int)$postId))
+            ->where('id = :id')->setParameter('id', (string)ContentId::post($postId))
             ->andWhere('code = :code')->setParameter('code', ContentIndexer::QUEUE_CODE)
             ->execute()
             ->result()
         ;
         $I->assertSame(1, (int)$queued);
 
-        // Reopen the edit form in the admin panel
-        $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId);
-
-        $postText = $I->grabValueFrom('textarea[name=body]');
-        $I->assertStringContainsString('New blog post', $postText);
-        $I->assertSame('лето 1977 года', $I->grabValueFrom('input[name=date_label]'));
-
-        // Reopen the list in the admin panel
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
         $I->canSee('2023-08-12');
         $I->see('New Blog Post Title');
+        $I->dontSeeElement('a.entity-action-new');
+        $I->dontSeeElement('a.list-action-link-edit');
 
-        // Open a public page
         $I->amOnPage('https://localhost/new-post1');
         $I->see('New Blog Post Title');
         $I->see('New blog post');
@@ -140,7 +121,6 @@ class SearchCest
             $I->grabResponse(),
         );
 
-        // The internal timestamp still determines the archive location.
         $I->amOnPage('https://localhost/archive/2023/08/12/');
         $I->see('New Blog Post Title');
         $I->see('лето 1977 года');
@@ -151,20 +131,17 @@ class SearchCest
             ->where('id = :id')->setParameter('id', $postId)
             ->execute()
         ;
+        $changeDispatcher->dispatch(ContentId::post($postId));
         $I->amOnPage('https://localhost/new-post1');
         $I->see('August 12, 2023');
         $I->dontSee('лето 1977 года');
 
-
         /**
-         * 2. Search
+         * 2. Search.
          */
         $I->seeElement('.register_search_form .register-search-autocomplete > #register_search_input');
-        $I->submitForm('form.register_search_form', [
-            'q' => 'some text',
-        ]);
+        $I->submitForm('form.register_search_form', ['q' => 'some text']);
 
-        // Indexing is not done yet
         $I->see('No results found for your query.');
 
         $quickSearchUrl = $I->grabAttributeFrom('#register_search_input_ext', 'data-register-search-url');
@@ -172,7 +149,6 @@ class SearchCest
         $I->assertStringContainsString('title=', $quickSearchUrl);
         $I->seeElement('.search-form .register-search-autocomplete > #register_search_input_ext');
 
-        // Run indexing
         /** @var QueueConsumer $consumer */
         $consumer = $I->grabService(QueueConsumer::class);
         $I->assertTrue($consumer->runQueue());
@@ -183,42 +159,53 @@ class SearchCest
         $I->seeElement('.search-results > article.search-result .search-result-title');
         $I->dontSeeElement('.paging');
 
-        // $I->canWriteComment();
-
         $I->amOnPage('https://localhost/?search=1&q=another+tag');
         $I->see('<a href="/tags/blog%20tag/">blog tag</a>');
 
-        // Historical and modern tag spellings are matched symmetrically.
         $I->amOnPage('https://localhost/?search=1&q=' . rawurlencode('мир'));
         $I->see('міръ');
         $I->amOnPage('https://localhost/?search=1&q=' . rawurlencode('ѿрокъ'));
         $I->see('отрок');
 
         /**
-         * 3. Automatic lifecycle updates
+         * 3. Automatic lifecycle updates through the list-only post administration.
          */
-        $I->sendAjaxPostRequest(
-            'https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId,
-            $dataProvider($csrfToken, $userId, '2', published: false),
-        );
-        $I->seeResponseCodeIs(200);
-        $I->see('"revision":"3"');
+        $bulkAction = function (string $action) use ($I, $postId): void {
+            $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
+            $csrfToken = $I->grabAttributeFrom('[data-bulk-list]', 'data-csrf-token');
+            $I->assertNotNull($csrfToken);
+            $items = json_encode([[
+                'primary_key' => ['id' => $postId],
+                'csrf_token'  => '',
+            ]], JSON_THROW_ON_ERROR);
+            $I->sendPost('https://localhost/_admin/ajax.php?action=register_bulk_list_action', [
+                'entity'      => 'BlogPost',
+                'bulk_action' => $action,
+                'csrf_token'  => $csrfToken,
+                'items'       => $items,
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->assertJsonSubResponseEquals(1, ['updated']);
+        };
+
+        $bulkAction('unpublish');
         while ($consumer->runQueue());
 
         $I->amOnPage('https://localhost/?search=1&q=some+text');
         $I->see('No results found for your query.');
 
-        $I->sendAjaxPostRequest(
-            'https://localhost/_admin/index.php?entity=BlogPost&action=edit&id=' . $postId,
-            $dataProvider(
-                $csrfToken,
-                $userId,
-                '3',
-                '<p>Replacement searchable text</p>',
-            ),
-        );
-        $I->seeResponseCodeIs(200);
-        $I->see('"revision":"4"');
+        $bulkAction('publish');
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+            'inplace_action' => 'edit',
+            'inplace_token'  => $created['token'],
+            'revision'       => '2',
+            'title'          => 'New Blog Post Title',
+            'tags'           => 'tag1, blog tag, міръ, отрок',
+            'published_at'   => (string)$publishedAt,
+            'body'           => '<p>Replacement searchable text</p>',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->assertSame(3, $I->grabJson()['revision'] ?? null);
         while ($consumer->runQueue());
 
         $I->amOnPage('https://localhost/?search=1&q=replacement+searchable');
@@ -238,13 +225,12 @@ class SearchCest
             'https://localhost/_admin/index.php' . $deleteUrl,
             ['csrf_token' => $deleteToken],
         );
-        $I->seeResponseCodeIs(200);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
         $I->see('"success":true');
         while ($consumer->runQueue());
 
         $I->amOnPage('https://localhost/?search=1&q=replacement+searchable');
         $I->see('No results found for your query.');
-        $I->assertNull($contentRepository->find(ContentId::post((int)$postId)));
-
+        $I->assertNull($contentRepository->find(ContentId::post($postId)));
     }
 }

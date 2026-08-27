@@ -47,6 +47,9 @@
     }
 
     function getWasmUrl() {
+        if (typeof self.oxipngWasmUrl === 'string' && self.oxipngWasmUrl !== '') {
+            return self.oxipngWasmUrl;
+        }
         var baseUrl = self.location.href;
         return baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1) + 'oxipng_bg.wasm';
     }

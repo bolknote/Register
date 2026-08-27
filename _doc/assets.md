@@ -25,11 +25,11 @@ Current product assets:
 - `_assets/register/audio-player` contains an original native-audio implementation whose compact
   visual presentation is inspired by Jouele. No Jouele JavaScript, CSS, or artwork is bundled. The
   original authors' complete MIT notice and source link are recorded beside the player.
-- `_admin/lib/register-webp.js` and `register-webp.wasm` are a reproducible Emscripten build of
+- `_assets/register/image-optimizer/lib/register-webp.js` and `register-webp.wasm` are a reproducible Emscripten build of
   libwebp 1.6.0 from the official WebM release archive. The pinned source checksum, build flags,
   thin MIT-licensed wrapper, and rebuild command live under `tools/image/`; libwebp's BSD license is
-  bundled as `_admin/lib/register-webp.LICENSE`.
-- `_admin/lib/register-resize.js` and `register-resize.wasm` are the resize codec from
+  bundled as `_assets/register/image-optimizer/lib/register-webp.LICENSE`.
+- `_assets/register/image-optimizer/lib/register-resize.js` and `register-resize.wasm` are the resize codec from
   `@jsquash/resize` 2.1.1, pinned by its npm archive SHA-256. The editor uses its Lanczos3,
   premultiplied-alpha, linear-sRGB path; the Apache 2.0 package license and underlying MIT codec
   license are bundled beside the files, and `tools/image/update-resize-wasm.sh` reproduces them.

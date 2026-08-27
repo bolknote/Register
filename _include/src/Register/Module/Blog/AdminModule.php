@@ -19,19 +19,11 @@ use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Model\PermissionChecker;
-use Register\Core\Model\TagsProvider;
-use Register\Core\Pdo\DbLayer;
-use Register\Url\ContentSlugService;
-use Register\Url\ContentUrlGenerator;
-use Register\Url\ContentUrlAliasRepository;
-use Register\Content\Admin\ContentRevisionService;
 use Register\Module\Blog\Admin\AdminConfigExtender;
 use Register\Module\Blog\Admin\DynamicConfigFormExtender;
 use Register\Module\Blog\Admin\PathToAdminEntityConverter;
 use Register\Module\Blog\Admin\TranslationProvider;
 use Register\Content\ContentChangeDispatcher;
-use Register\Content\ContentPublicationScheduler;
-use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Model\BlogPageCache;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -43,16 +35,8 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
         $container->set(AdminConfigExtender::class, fn(Container $container): \Register\Module\Blog\Admin\AdminConfigExtender => new AdminConfigExtender(
             $container->get(PermissionChecker::class),
             $container->get(Translator::class),
-            $container->get(TagsProvider::class),
             $container->get(\Register\Content\TagRepository::class),
-            $container->get(PostProvider::class),
-            $container->get(ContentUrlGenerator::class),
-            $container->get(ContentRevisionService::class),
-            $container->get(ContentSlugService::class),
-            $container->get(ContentUrlAliasRepository::class),
             $container->get(ContentChangeDispatcher::class),
-            $container->get(ContentPublicationScheduler::class),
-            $container->get(\Register\Content\PublicationMetadataGenerator::class),
             $container->get(BlogPageCache::class),
             $container->getStringParameter('db_type'),
             $container->getStringParameter('db_prefix'),
@@ -62,9 +46,7 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
 
         $container->set(TranslationProvider::class, new TranslationProvider(), [TranslationProviderInterface::class]);
 
-        $container->set(PathToAdminEntityConverter::class, fn(Container $container): \Register\Module\Blog\Admin\PathToAdminEntityConverter => new PathToAdminEntityConverter(
-            $container->get(DbLayer::class),
-        ));
+        $container->set(PathToAdminEntityConverter::class, new PathToAdminEntityConverter());
     }
 
     #[\Override]

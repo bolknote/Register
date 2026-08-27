@@ -1,4 +1,4 @@
-/** Visible-pixel SSIM worker for editor image candidates. */
+/** Visible-pixel SSIM worker for public post image candidates. */
 
 self.window = self;
 
