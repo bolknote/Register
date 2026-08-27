@@ -356,8 +356,12 @@ final class BlogPageCache implements StatefulServiceInterface
     }
 
     /** @return list<string> */
-    private function missingContentPaths(ItemInterface $_item, bool &$save): array
+    private function missingContentPaths(ItemInterface $item, bool &$save): array
     {
+        if ($item->isHit()) {
+            throw new \LogicException('A missing content-path callback unexpectedly received a cache hit.');
+        }
+
         $save = false;
 
         return [];

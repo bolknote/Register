@@ -24,6 +24,8 @@ readonly class FlatContentController implements ControllerInterface
 {
     public const string CONTENT_ID_ATTRIBUTE = '_register_blog_content_id';
 
+    public const string SHARED_RESPONSE_ATTRIBUTE = '_register_blog_shared_response';
+
     public function __construct(
         private ArticleProvider    $articleProvider,
         private PageCommon         $pageController,
@@ -41,6 +43,8 @@ readonly class FlatContentController implements ControllerInterface
     {
         $variant = $this->responseCachePolicy->variant($request);
         if ($variant !== null) {
+            $request->attributes->set(self::SHARED_RESPONSE_ATTRIBUTE, str_ends_with($variant, '_bot'));
+
             return $this->pageCache->contentResponse(
                 $variant,
                 $request->getPathInfo(),

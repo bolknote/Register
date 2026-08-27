@@ -34,7 +34,6 @@ use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Inplace\PostInplaceControls;
-use Register\Module\Analytics\BotDetector;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SearchDocumentFactory;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
@@ -58,7 +57,6 @@ class PostPageController extends BlogController
         UrlBuilder                               $urlBuilder,
         private readonly ?RecommendationProvider $recommendationProvider,
         private readonly VisitorIdentityManager  $visitorIdentityManager,
-        private readonly BotDetector              $botDetector,
         TranslatorInterface                      $translator,
         HtmlTemplateProvider                     $templateProvider,
         Viewer                                   $viewer,
@@ -243,8 +241,8 @@ class PostPageController extends BlogController
 
         $contentId = ContentId::post((int)$post_id);
         $request->attributes->set(FlatContentController::CONTENT_ID_ATTRIBUTE, $contentId);
-        $isBot = $this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '');
-        $template->putInPlaceholder('commented', $isBot ? 0 : $row['commented']);
+        $isSharedResponse = $request->attributes->getBoolean(FlatContentController::SHARED_RESPONSE_ATTRIBUTE);
+        $template->putInPlaceholder('commented', $isSharedResponse ? 0 : $row['commented']);
         if ((bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- register_comments -->')) {
             $this->liveUpdates->subscribeComments($contentId);
             $template->putInPlaceholder(

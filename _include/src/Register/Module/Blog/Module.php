@@ -327,7 +327,6 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(UrlBuilder::class),
                 $container->getIfDefined(RecommendationProvider::class),
                 $container->get(\Register\Module\VisitorIdentity\VisitorIdentityManager::class),
-                $container->get(BotDetector::class),
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),

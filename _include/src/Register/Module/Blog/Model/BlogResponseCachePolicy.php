@@ -40,7 +40,7 @@ final readonly class BlogResponseCachePolicy
         }
 
         $representation = $navigation === 'partial' ? 'partial' : 'full';
-        if ($this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '')) {
+        if ($this->isNonInteractive($request)) {
             return $representation . '_bot';
         }
 
@@ -49,5 +49,20 @@ final readonly class BlogResponseCachePolicy
             : 'known_visitor';
 
         return $representation . '_' . $visitor;
+    }
+
+    /** Browser preloads must not mint a visitor-bound comment form which will never be used. */
+    private function isNonInteractive(Request $request): bool
+    {
+        if ($this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '')) {
+            return true;
+        }
+
+        $purpose = strtolower(trim(implode(' ', [
+            $request->headers->get('Purpose', '') ?? '',
+            $request->headers->get('Sec-Purpose', '') ?? '',
+        ])));
+
+        return str_contains($purpose, 'prefetch');
     }
 }

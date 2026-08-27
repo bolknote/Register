@@ -79,6 +79,29 @@ final class BlogPageResponseCacheCest
         $I->seeElement('#add-comment');
     }
 
+    public function servesRepeatedBrowserPrefetchWithoutDatabaseQueries(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertPost($dbLayer, 'Cached prefetched post', 'cached-prefetched-post');
+
+        $headers = [
+            'User-Agent' => 'Mozilla/5.0 integration browser',
+            'Purpose' => 'prefetch',
+        ];
+        $I->sendRequestWithHeaders('/cached-prefetched-post', $headers);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
+        $I->see('Cached prefetched post');
+        $I->dontSeeElement('#add-comment');
+
+        $I->sendRequestWithHeaders('/cached-prefetched-post', $headers);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+
+        /** @var PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        $I->assertSame([], $pdo->getQueryLog());
+    }
+
     private function insertPost(DbLayer $dbLayer, string $title, string $slug): void
     {
         $dbLayer
