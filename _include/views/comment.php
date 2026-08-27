@@ -71,6 +71,39 @@ $sourceLabel     = $presentation_source_label ?? '';
                     </svg>
                 </button>
             <?php endif; ?>
+            <?php if (!empty($moderationData['can_hide'])): ?>
+                <form class="comment-moderation-action" method="post" action="<?php echo register_htmlencode((string)$moderationData['action_url']); ?>" data-moderation-action="hide">
+                    <input type="hidden" name="moderation_action" value="hide">
+                    <input type="hidden" name="target_type" value="<?php echo register_htmlencode((string)$moderationData['target']); ?>">
+                    <input type="hidden" name="comment_id" value="<?php echo $id; ?>">
+                    <input type="hidden" name="comment_anchor" value="<?php echo $i; ?>">
+                    <input type="hidden" name="moderation_token" value="<?php echo register_htmlencode((string)$moderationData['token']); ?>">
+                    <input type="hidden" name="return_to" value="<?php echo register_htmlencode((string)$moderationData['return_to']); ?>">
+                    <button class="comment-moderation-button" type="submit" title="<?php echo $trans('Hide comment'); ?>" aria-label="<?php echo $trans('Hide comment'); ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M3 12s3.3-5 9-5 9 5 9 5-3.3 5-9 5-9-5-9-5Z" />
+                            <circle cx="12" cy="12" r="2.3" />
+                            <path d="m4 4 16 16" />
+                        </svg>
+                    </button>
+                </form>
+            <?php endif; ?>
+            <?php if (!empty($moderationData['can_show'])): ?>
+                <form class="comment-moderation-action" method="post" action="<?php echo register_htmlencode((string)$moderationData['action_url']); ?>" data-moderation-action="show">
+                    <input type="hidden" name="moderation_action" value="show">
+                    <input type="hidden" name="target_type" value="<?php echo register_htmlencode((string)$moderationData['target']); ?>">
+                    <input type="hidden" name="comment_id" value="<?php echo $id; ?>">
+                    <input type="hidden" name="comment_anchor" value="<?php echo $i; ?>">
+                    <input type="hidden" name="moderation_token" value="<?php echo register_htmlencode((string)$moderationData['token']); ?>">
+                    <input type="hidden" name="return_to" value="<?php echo register_htmlencode((string)$moderationData['return_to']); ?>">
+                    <button class="comment-moderation-button" type="submit" title="<?php echo $trans('Show comment'); ?>" aria-label="<?php echo $trans('Show comment'); ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M3 12s3.3-5 9-5 9 5 9 5-3.3 5-9 5-9-5-9-5Z" />
+                            <circle cx="12" cy="12" r="2.3" />
+                        </svg>
+                    </button>
+                </form>
+            <?php endif; ?>
             <?php if (!empty($moderationData['can_delete'])): ?>
                 <form class="comment-moderation-action" method="post" action="<?php echo register_htmlencode((string)$moderationData['action_url']); ?>" data-moderation-action="delete" data-confirm="<?php echo $trans('Confirm comment deletion'); ?>">
                     <input type="hidden" name="moderation_action" value="delete">

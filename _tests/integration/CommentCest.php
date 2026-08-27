@@ -389,6 +389,70 @@ class CommentCest
         $I->see('Visible answer');
     }
 
+    public function testModeratorCanHideAndShowACommentFromThePublicThread(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer   = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+        $commentId = $this->insertComment(
+            $dbLayer,
+            $articleId,
+            'Visibility author',
+            'visibility@example.test',
+            text: 'Visibility can be moderated in place',
+        );
+        $selector = '[data-comment-id="' . $commentId . '"]';
+
+        $I->login('moderator', 'moderator');
+        $I->amOnPage('https://localhost/thread-test');
+        $I->seeElement($selector . ' > .comment-moderation [data-moderation-action="hide"]');
+        $I->dontSeeElement($selector . ' > .comment-moderation [data-moderation-action="show"]');
+
+        $hideToken = (string)$I->grabAttributeFrom(
+            $selector . ' > .comment-moderation [data-moderation-action="hide"] input[name="moderation_token"]',
+            'value',
+        );
+        $I->sendPost('https://localhost/comment-moderate', [
+            'moderation_action' => 'hide',
+            'target_type'       => ContentType::PAGE->value,
+            'comment_id'        => (string)$commentId,
+            'comment_anchor'    => '1',
+            'moderation_token'  => $hideToken,
+            'return_to'         => '/thread-test',
+        ]);
+        $I->seeResponseCodeIs(303);
+        $I->assertSame(['shown' => 0, 'sent' => 1], $this->commentVisibility($dbLayer, $commentId));
+
+        $I->amOnPage('https://localhost/thread-test');
+        $I->seeElement($selector . '.is-hidden');
+        $I->seeElement($selector . ' > .comment-moderation [data-moderation-action="show"]');
+        $I->dontSeeElement($selector . ' > .comment-moderation [data-moderation-action="hide"]');
+
+        $showToken = (string)$I->grabAttributeFrom(
+            $selector . ' > .comment-moderation [data-moderation-action="show"] input[name="moderation_token"]',
+            'value',
+        );
+        $I->sendPost('https://localhost/comment-moderate', [
+            'moderation_action' => 'show',
+            'target_type'       => ContentType::PAGE->value,
+            'comment_id'        => (string)$commentId,
+            'comment_anchor'    => '1',
+            'moderation_token'  => $showToken,
+            'return_to'         => '/thread-test',
+        ]);
+        $I->seeResponseCodeIs(303);
+        $I->assertSame(['shown' => 1, 'sent' => 1], $this->commentVisibility($dbLayer, $commentId));
+
+        $I->amOnPage('https://localhost/thread-test');
+        $I->dontSeeElement($selector . '.is-hidden');
+        $I->seeElement($selector . ' > .comment-moderation [data-moderation-action="hide"]');
+        $I->dontSeeElement($selector . ' > .comment-moderation [data-moderation-action="show"]');
+
+        $I->logout();
+        $I->amOnPage('https://localhost/thread-test');
+        $I->see('Visibility can be moderated in place');
+    }
+
     public function testDeletedCommentBecomesATombstoneAndKeepsItsReplies(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -446,6 +510,8 @@ class CommentCest
         $I->login('power_moderator', 'power_moderator');
         $I->amOnPage('https://localhost/thread-test');
         $I->seeElement($selector . ' .comment-edit-start');
+        $I->dontSeeElement($selector . ' [data-moderation-action="hide"]');
+        $I->dontSeeElement($selector . ' [data-moderation-action="show"]');
         $I->dontSeeElement($selector . ' [data-moderation-action="delete"]');
         $I->dontSeeElement($selector . ' [data-moderation-action="spam"]');
 
@@ -453,9 +519,28 @@ class CommentCest
         $I->login('moderator', 'moderator');
         $I->amOnPage('https://localhost/thread-test');
         $I->dontSeeElement($selector . ' .comment-edit-start');
+        $I->seeElement($selector . ' [data-moderation-action="hide"]');
+        $I->dontSeeElement($selector . ' [data-moderation-action="show"]');
         $I->seeElement($selector . ' [data-moderation-action="delete"]');
         $I->seeElement($selector . ' [data-moderation-action="spam"]');
         $I->dontSeeElement($selector . ' [data-moderation-action="ham"]');
+    }
+
+    /** @return array{shown: int, sent: int} */
+    private function commentVisibility(DbLayer $dbLayer, int $commentId): array
+    {
+        $row = $dbLayer
+            ->select('shown', 'sent')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $commentId)
+            ->execute()
+            ->fetchAssoc()
+        ;
+        if (!is_array($row)) {
+            throw new \RuntimeException('The moderated comment disappeared.');
+        }
+
+        return ['shown' => (int)$row['shown'], 'sent' => (int)$row['sent']];
     }
 
     private function insertArticle(DbLayer $dbLayer): int

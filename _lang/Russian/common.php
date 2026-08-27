@@ -61,6 +61,8 @@ return [
     'Cancel reply'           => 'Отменить',
     'Comment moderation'     => 'Управление комментарием',
     'Edit comment'           => 'Редактировать комментарий',
+    'Hide comment'           => 'Скрыть комментарий',
+    'Show comment'           => 'Раскрыть комментарий',
     'Delete comment'         => 'Удалить комментарий',
     'Mark comment as spam'   => 'Пометить как спам',
     'Mark comment as not spam' => 'Не спам',

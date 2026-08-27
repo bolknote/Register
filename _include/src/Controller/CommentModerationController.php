@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Core\Controller;
 
 use Register\Comment\CommentRepository;
+use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentType;
 use Register\Core\Comment\CommentHtml;
 use Register\Core\Comment\Antispam\SpamFeedbackService;
@@ -33,6 +34,7 @@ final readonly class CommentModerationController implements ControllerInterface
         private AuthProvider                  $authProvider,
         private CommentModerationTokenManager $tokenManager,
         private SpamFeedbackService           $spamFeedbackService,
+        private ContentCommentNotifier        $commentNotifier,
         private UrlBuilder                    $urlBuilder,
         private TranslatorInterface           $translator,
     ) {
@@ -51,7 +53,7 @@ final readonly class CommentModerationController implements ControllerInterface
         $action     = $request->request->getString('moderation_action');
         $token      = $request->request->getString('moderation_token');
 
-        if ($contentType === null || $commentId <= 0 || !in_array($action, ['edit', 'delete', 'spam', 'ham'], true)) {
+        if ($contentType === null || $commentId <= 0 || !in_array($action, ['edit', 'hide', 'show', 'delete', 'spam', 'ham'], true)) {
             return $this->error($request, $this->translator->trans('Invalid comment moderation request'), Response::HTTP_BAD_REQUEST);
         }
 
@@ -79,12 +81,27 @@ final readonly class CommentModerationController implements ControllerInterface
             }
 
             $comment = $this->commentRepository->findOfType($commentId, $contentType);
-            if (!$comment instanceof \Register\Comment\Comment || ($comment->deleted && in_array($action, ['spam', 'ham'], true))) {
+            if (!$comment instanceof \Register\Comment\Comment) {
+                return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
+            }
+
+            if ($comment->deleted) {
                 return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
             }
 
             if ($action === 'delete') {
                 $this->commentRepository->tombstone($commentId, $contentType);
+            } elseif ($action === 'hide') {
+                if (!$comment->shown || !$this->commentRepository->hide($commentId, $contentType)) {
+                    return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
+                }
+            } elseif ($action === 'show') {
+                if ($comment->shown || $this->spamFeedbackService->isMarkedSpam($commentId, $contentType)) {
+                    return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
+                }
+
+                $this->commentNotifier->notify($commentId, $contentType);
+                $this->commentRepository->publish($commentId, $contentType);
             } elseif ($action === 'spam' && !$this->spamFeedbackService->markSpam($commentId, $contentType)) {
                 return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
             } elseif ($action === 'ham' && !$this->markHam($commentId, $contentType)) {

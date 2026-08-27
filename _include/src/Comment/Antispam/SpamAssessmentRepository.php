@@ -131,6 +131,28 @@ final readonly class SpamAssessmentRepository
     /**
      * @throws DbLayerException
      */
+    public function latestModeratorLabel(int $commentId, ContentType $contentType): ?string
+    {
+        $row = $this->dbLayer
+            ->select('moderator_label')
+            ->from('spam_assessments')
+            ->where('target_type = :target_type')->setParameter('target_type', $contentType->value)
+            ->andWhere('comment_id = :comment_id')->setParameter('comment_id', $commentId)
+            ->orderBy('id DESC')
+            ->limit(1)
+            ->execute()
+            ->fetchAssoc()
+        ;
+        if ($row === false || !\is_string($row['moderator_label']) || $row['moderator_label'] === '') {
+            return null;
+        }
+
+        return $row['moderator_label'];
+    }
+
+    /**
+     * @throws DbLayerException
+     */
     public function deleteUnattachedOlderThan(int $timestamp, ?int $limit = null): int
     {
         $delete = $this->dbLayer

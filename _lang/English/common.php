@@ -61,6 +61,8 @@ return [
     'Cancel reply'           => 'Cancel',
     'Comment moderation'     => 'Comment moderation',
     'Edit comment'           => 'Edit comment',
+    'Hide comment'           => 'Hide comment',
+    'Show comment'           => 'Show comment',
     'Delete comment'         => 'Delete comment',
     'Mark comment as spam'   => 'Mark as spam',
     'Mark comment as not spam' => 'Not spam',

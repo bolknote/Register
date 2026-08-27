@@ -2967,13 +2967,17 @@ h2.comment {
 
 .comment-moderation-action[data-moderation-action="delete"] .comment-moderation-button:hover,
 .comment-moderation-action[data-moderation-action="delete"] .comment-moderation-button:focus-visible,
+.comment-moderation-action[data-moderation-action="hide"] .comment-moderation-button:hover,
+.comment-moderation-action[data-moderation-action="hide"] .comment-moderation-button:focus-visible,
 .comment-moderation-action[data-moderation-action="spam"] .comment-moderation-button:hover,
 .comment-moderation-action[data-moderation-action="spam"] .comment-moderation-button:focus-visible {
     color: var(--error-color);
 }
 
 .comment-moderation-action[data-moderation-action="ham"] .comment-moderation-button:hover,
-.comment-moderation-action[data-moderation-action="ham"] .comment-moderation-button:focus-visible {
+.comment-moderation-action[data-moderation-action="ham"] .comment-moderation-button:focus-visible,
+.comment-moderation-action[data-moderation-action="show"] .comment-moderation-button:hover,
+.comment-moderation-action[data-moderation-action="show"] .comment-moderation-button:focus-visible {
     color: var(--success-color);
 }
 

@@ -642,6 +642,7 @@ class CmsExtension implements ExtensionInterface
             $container->get(AuthProvider::class),
             $container->get(CommentModerationTokenManager::class),
             $container->get(SpamFeedbackService::class),
+            $container->get(ContentCommentNotifier::class),
             $container->get(UrlBuilder::class),
             $container->get('comments_translator'),
         ));

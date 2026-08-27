@@ -338,6 +338,31 @@ final readonly class CommentRepository
         ;
     }
 
+    public function hide(
+        int                   $commentId,
+        ContentType           $contentType,
+        CommentMutationSource $source = CommentMutationSource::LOCAL,
+    ): bool {
+        $comment = $this->findOfType($commentId, $contentType);
+        $updated = $this->dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('shown', '0')
+            ->set('sent', '1')
+            ->where('id = :id')->setParameter('id', $commentId)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
+            ->andWhere('shown = 1')
+            ->andWhere('deleted = 0')
+            ->execute()
+            ->affectedRows() > 0
+        ;
+        if ($updated && $comment instanceof Comment) {
+            $this->liveUpdateRepository->publishComments($comment->contentId);
+            $this->dispatch($commentId, $comment->contentId, CommentChangeKind::HIDDEN, $source);
+        }
+
+        return $updated;
+    }
+
     public function markSpam(int $commentId, ContentType $contentType): void
     {
         $comment = $this->findOfType($commentId, $contentType);

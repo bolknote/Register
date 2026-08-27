@@ -50,6 +50,13 @@ final readonly class SpamFeedbackService
         return $this->mark($commentId, SpamReputationRepository::LABEL_SPAM, $expectedContentType);
     }
 
+    /** @throws DbLayerException */
+    public function isMarkedSpam(int $commentId, ContentType $contentType): bool
+    {
+        return $this->assessmentRepository->latestModeratorLabel($commentId, $contentType)
+            === SpamReputationRepository::LABEL_SPAM;
+    }
+
     /**
      * @throws DbLayerException
      * @throws \JsonException
