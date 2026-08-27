@@ -123,8 +123,6 @@ final class BlogPageCache implements StatefulServiceInterface
 
     /**
      * @param callable $factory
-     * @psalm-param callable(): array<mixed> $factory
-     * @phpstan-param callable(): array<mixed> $factory
      * @return array<mixed>
      */
     public function navigation(callable $factory): array
