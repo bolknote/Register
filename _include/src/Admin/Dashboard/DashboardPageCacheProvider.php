@@ -80,8 +80,8 @@ final readonly class DashboardPageCacheProvider implements SystemStatusProviderI
     /** @return array{bytes:int, entries:int}|null */
     private function applicationSharedMemoryInfo(): ?array
     {
-        $iteratorClass = 'APCUIterator';
-        if ($this->pools->sharedMemoryNamespace === null || !class_exists($iteratorClass, false)) {
+        $iteratorClass = $this->apcuIteratorClass();
+        if ($this->pools->sharedMemoryNamespace === null || $iteratorClass === null) {
             return null;
         }
 
@@ -91,6 +91,10 @@ final readonly class DashboardPageCacheProvider implements SystemStatusProviderI
 
         try {
             $iterator = (new \ReflectionClass($iteratorClass))->newInstance($pattern);
+            if (!$iterator instanceof \Traversable) {
+                return null;
+            }
+
             foreach ($iterator as $entry) {
                 if (!\is_array($entry)) {
                     continue;
@@ -109,5 +113,17 @@ final readonly class DashboardPageCacheProvider implements SystemStatusProviderI
         }
 
         return ['bytes' => $bytes, 'entries' => $entries];
+    }
+
+    /** @return class-string|null */
+    private function apcuIteratorClass(): ?string
+    {
+        foreach (get_declared_classes() as $class) {
+            if (strcasecmp($class, 'APCUIterator') === 0) {
+                return $class;
+            }
+        }
+
+        return null;
     }
 }
