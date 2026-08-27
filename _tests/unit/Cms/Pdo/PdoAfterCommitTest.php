@@ -101,6 +101,11 @@ final readonly class PdoCallbackLog
     /** @return list<string> */
     public function all(): array
     {
-        return array_values($this->calls->getArrayCopy());
+        $result = [];
+        foreach ($this->calls as $call) {
+            $result[] = $call;
+        }
+
+        return $result;
     }
 }
