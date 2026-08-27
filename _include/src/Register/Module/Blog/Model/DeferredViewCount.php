@@ -21,6 +21,7 @@ final class DeferredViewCount
 
     private function __construct()
     {
+        throw new \LogicException('Static deferred-counter helper cannot be instantiated.');
     }
 
     public static function placeholder(ContentId $contentId): string

@@ -76,7 +76,11 @@ final class BlogPageCache implements StatefulServiceInterface
 
         return $this->hotCache->get(
             self::FIRST_PAGE_KEY,
-            static fn(ItemInterface $_item): PostFeed => $factory(),
+            static function (ItemInterface $item) use ($factory): PostFeed {
+                $item->expiresAfter(null);
+
+                return $factory();
+            },
             0.0,
         );
     }
@@ -90,7 +94,11 @@ final class BlogPageCache implements StatefulServiceInterface
 
         return $this->hotCache->get(
             self::ALL_POSTS_KEY,
-            static fn(ItemInterface $_item): AllPostsPage => $factory(),
+            static function (ItemInterface $item) use ($factory): AllPostsPage {
+                $item->expiresAfter(null);
+
+                return $factory();
+            },
             0.0,
         );
     }
@@ -104,13 +112,19 @@ final class BlogPageCache implements StatefulServiceInterface
 
         return $this->hotCache->get(
             self::MULTIPLE_PUBLISHED_AUTHORS_KEY,
-            static fn(ItemInterface $_item): bool => $factory(),
+            static function (ItemInterface $item) use ($factory): bool {
+                $item->expiresAfter(null);
+
+                return $factory();
+            },
             0.0,
         );
     }
 
     /**
-     * @param callable(): array<mixed> $factory
+     * @param callable $factory
+     * @psalm-param callable(): array<mixed> $factory
+     * @phpstan-param callable(): array<mixed> $factory
      * @return array<mixed>
      */
     public function navigation(callable $factory): array
@@ -121,7 +135,11 @@ final class BlogPageCache implements StatefulServiceInterface
 
         return $this->hotCache->get(
             self::NAVIGATION_KEY,
-            static fn(ItemInterface $_item): array => $factory(),
+            static function (ItemInterface $item) use ($factory): array {
+                $item->expiresAfter(null);
+
+                return $factory();
+            },
             0.0,
         );
     }
@@ -181,7 +199,11 @@ final class BlogPageCache implements StatefulServiceInterface
         $this->cache->delete($mappingKey);
         $this->cache->get(
             $mappingKey,
-            static fn(ItemInterface $_item): array => $paths,
+            static function (ItemInterface $item) use ($paths): array {
+                $item->expiresAfter(null);
+
+                return $paths;
+            },
             0.0,
         );
     }
@@ -360,7 +382,11 @@ final class BlogPageCache implements StatefulServiceInterface
     {
         $generation = $this->hotCache->get(
             self::CONTENT_RESPONSE_GENERATION_KEY,
-            static fn(ItemInterface $_item): string => bin2hex(random_bytes(8)),
+            static function (ItemInterface $item): string {
+                $item->expiresAfter(null);
+
+                return bin2hex(random_bytes(8));
+            },
             0.0,
         );
         if (preg_match('/^[a-f0-9]{16}$/D', $generation) !== 1) {

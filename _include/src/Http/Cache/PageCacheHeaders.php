@@ -21,5 +21,6 @@ final class PageCacheHeaders
 
     private function __construct()
     {
+        throw new \LogicException('Static cache-header container cannot be instantiated.');
     }
 }
