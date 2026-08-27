@@ -144,7 +144,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         $container->set(ContentViewRepository::class, static function (Container $container): ContentViewRepository {
             $pdo = $container->get(\PDO::class);
             if (!$pdo instanceof TrackedPDO) {
-                throw new \LogicException('Content view caching requires Register\'s transaction-aware PDO service.');
+                throw new \LogicException("Content view caching requires Register's transaction-aware PDO service.");
             }
 
             return new ContentViewRepository(

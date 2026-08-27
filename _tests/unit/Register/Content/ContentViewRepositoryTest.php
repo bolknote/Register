@@ -37,6 +37,7 @@ final class ContentViewRepositoryTest extends Unit
         // Simulate an older worker completing its SELECT and cache write late.
         $stale = $cache->getItem($totalKey);
         $stale->set(['version' => $oldVersion, 'value' => 1]);
+
         $cache->save($stale);
         $pdo->cleanLogs();
 

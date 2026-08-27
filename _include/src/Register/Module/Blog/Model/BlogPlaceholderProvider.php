@@ -251,6 +251,7 @@ readonly class BlogPlaceholderProvider
             $boundary = $this->discussionInvalidationAt((int)$row['min_time']);
             $invalidateAt = $invalidateAt === null ? $boundary : min($invalidateAt, $boundary);
         }
+
         if ($invalidateAt !== null) {
             $this->pageCache->invalidateCurrentResponseAt($invalidateAt);
         }

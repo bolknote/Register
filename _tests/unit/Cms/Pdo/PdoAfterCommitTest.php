@@ -83,7 +83,7 @@ final class PdoAfterCommitTest extends Unit
     }
 }
 
-final class PdoCallbackLog
+final readonly class PdoCallbackLog
 {
     /** @var \ArrayObject<int, string> */
     private \ArrayObject $calls;

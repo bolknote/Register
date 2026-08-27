@@ -103,6 +103,7 @@ final class ContentViewRepository implements StatefulServiceInterface
         foreach ($contentIds as $contentId) {
             $result[(string)$contentId] = 0;
         }
+
         if ($result === []) {
             return [];
         }
@@ -126,6 +127,7 @@ final class ContentViewRepository implements StatefulServiceInterface
         foreach ($this->totalCache->getItems(array_keys($contentByCacheKey)) as $cacheKey => $item) {
             $items[$cacheKey] = $item;
         }
+
         foreach ($contentByCacheKey as $cacheKey => $cachedContentId) {
             $item = $items[$cacheKey] ?? null;
             $cached = $item?->isHit() === true ? $item->get() : null;
@@ -167,6 +169,7 @@ final class ContentViewRepository implements StatefulServiceInterface
             $item->set(['version' => $version, 'value' => $value]);
             $this->totalCache->saveDeferred($item);
         }
+
         $this->totalCache->commit();
 
         return $result;

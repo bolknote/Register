@@ -64,7 +64,7 @@ final class BlogPageCache implements StatefulServiceInterface
         ?\Closure                        $clock = null,
     ) {
         $this->hotCache = $hotCache ?? $cache;
-        $this->clock = $clock ?? static fn(): int => time();
+        $this->clock = $clock ?? time(...);
     }
 
     /** @param callable(): PostFeed $factory */

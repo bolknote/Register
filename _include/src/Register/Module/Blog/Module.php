@@ -156,7 +156,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $pageCachePools = $container->get(PageCachePools::class);
             $pdo = $container->get(\PDO::class);
             if (!$pdo instanceof TrackedPDO) {
-                throw new \LogicException('The page cache requires Register\'s transaction-aware PDO service.');
+                throw new \LogicException("The page cache requires Register's transaction-aware PDO service.");
             }
 
             return new BlogPageCache(
