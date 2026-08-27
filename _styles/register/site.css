@@ -2882,13 +2882,13 @@ h2.comment {
 .comment-moderation {
     position: absolute;
     z-index: 2;
-    top: 0;
+    top: -0.4rem;
     bottom: 0;
     right: auto;
     left: calc(-1 * (var(--content-tools-gutter) + var(--comment-depth-offset)));
     display: flex;
     width: calc(var(--content-tools-gutter) + var(--comment-depth-offset));
-    padding-top: 1.8rem;
+    padding-top: 0;
     padding-left: calc((var(--content-tools-gutter) - 2.15rem) / 2);
     flex-direction: column;
     align-items: flex-start;

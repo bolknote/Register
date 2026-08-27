@@ -47,6 +47,21 @@ HTML);
         );
     }
 
+    public function testTrailingBreaksAreRemovedFromNewAndExistingRichComments(): void
+    {
+        $html = 'Что-то не так с рсс<br>https://example.com/rss<br><br><br>';
+        $expected = 'Что-то не так с рсс<br>https://example.com/rss';
+
+        self::assertSame(
+            '<!--register-comment-html:v1-->' . $expected,
+            CommentHtml::sanitizeForStorage($html),
+        );
+        self::assertSame(
+            $expected,
+            CommentHtml::render('<!--register-comment-html:v1-->' . $html, 'wrote:'),
+        );
+    }
+
     public function testFormulaSourceSurvivesParsingExactly(): void
     {
         $formula = <<<'TEXT'

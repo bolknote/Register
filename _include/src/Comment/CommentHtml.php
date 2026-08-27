@@ -175,7 +175,9 @@ final class CommentHtml
             $html .= self::sanitizeNode($child, $allowManagedCommentMedia);
         }
 
-        return trim($html);
+        $html = trim($html);
+
+        return preg_replace('/(?:<br>\s*)+\z/u', '', $html) ?? $html;
     }
 
     private static function sanitizeNode(\DOMNode $node, bool $allowManagedCommentMedia): string
