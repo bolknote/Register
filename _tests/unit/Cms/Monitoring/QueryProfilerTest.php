@@ -123,6 +123,7 @@ final class QueryProfilerTest extends Unit
             cookies: ['private-cookie' => 'hidden-cookie-value'],
             server: $server,
         );
+        $request->attributes->set('_register_page_cache_policy', 'query');
         $response = new Response('', Response::HTTP_OK, ['X-Register-Page-Cache' => 'miss']);
         $profiler->record($server, 200, 100.25, $request, $response);
 
@@ -146,6 +147,8 @@ final class QueryProfilerTest extends Unit
         self::assertSame('/search', $report['recent'][0]['path']);
         self::assertSame('chrome', $report['contexts'][0]['agent']);
         self::assertSame('miss', $report['contexts'][0]['page_cache']);
+        self::assertSame('query', $report['contexts'][0]['cache_policy']);
+        self::assertSame('present', $report['contexts'][0]['query']);
         self::assertSame('present', $report['contexts'][0]['cookies']);
         self::assertSame('prefetch', $report['contexts'][0]['purpose']);
         self::assertSame('navigate', $report['contexts'][0]['fetch_mode']);

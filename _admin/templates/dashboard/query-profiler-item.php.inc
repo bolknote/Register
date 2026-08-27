@@ -12,6 +12,8 @@
  *         client_group:string,
  *         agent:string,
  *         page_cache:string,
+ *         cache_policy:string,
+ *         query:string,
  *         cookies:string,
  *         purpose:string,
  *         fetch_mode:string,
@@ -39,6 +41,8 @@
  *             client_group:string,
  *             agent:string,
  *             page_cache:string,
+ *             cache_policy:string,
+ *             query:string,
  *             cookies:string,
  *             purpose:string,
  *             fetch_mode:string,
@@ -104,9 +108,11 @@
                         <tr>
                             <td><code><?= register_htmlencode($context['client_group']) ?></code></td>
                             <td><code><?= register_htmlencode(sprintf(
-                                'agent=%s cache=%s cookies=%s purpose=%s fetch=%s/%s',
+                                'agent=%s cache=%s policy=%s query=%s cookies=%s purpose=%s fetch=%s/%s',
                                 $context['agent'],
                                 $context['page_cache'],
+                                $context['cache_policy'],
+                                $context['query'],
                                 $context['cookies'],
                                 $context['purpose'],
                                 $context['fetch_mode'],
@@ -200,10 +206,12 @@
                             · <?= $trans('Database time') ?> <?= number_format($request['db_ms'], 3, '.', '') ?> ms
                             · <?= $friendlyFilesize($request['peak_memory_bytes']) ?>
                             · <code><?= register_htmlencode(sprintf(
-                                'client=%s agent=%s cache=%s cookies=%s purpose=%s fetch=%s/%s',
+                                'client=%s agent=%s cache=%s policy=%s query=%s cookies=%s purpose=%s fetch=%s/%s',
                                 $request['request_context']['client_group'],
                                 $request['request_context']['agent'],
                                 $request['request_context']['page_cache'],
+                                $request['request_context']['cache_policy'],
+                                $request['request_context']['query'],
                                 $request['request_context']['cookies'],
                                 $request['request_context']['purpose'],
                                 $request['request_context']['fetch_mode'],

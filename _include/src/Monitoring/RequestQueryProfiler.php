@@ -107,6 +107,8 @@ final class RequestQueryProfiler implements StatefulServiceInterface
      *     client_group:string,
      *     agent:string,
      *     page_cache:string,
+     *     cache_policy:string,
+     *     query:string,
      *     cookies:string,
      *     purpose:string,
      *     fetch_mode:string,
@@ -140,11 +142,20 @@ final class RequestQueryProfiler implements StatefulServiceInterface
         if ($request instanceof Request) {
             $hasRequestCookies = $request->cookies->count() > 0;
         }
+        $requestUri = \is_string($server['REQUEST_URI'] ?? null) ? $server['REQUEST_URI'] : '';
+        $hasQuery = $request instanceof Request
+            ? $request->query->count() > 0
+            : \is_string(parse_url($requestUri, PHP_URL_QUERY));
+        $cachePolicy = $request instanceof Request
+            ? $request->attributes->getString('_register_page_cache_policy')
+            : '';
 
         return [
             'client_group' => $this->state->clientGroup($clientAddress, $userAgent, $finishedAt) ?? 'unknown',
             'agent' => $this->agentFamily($userAgent),
             'page_cache' => \in_array($cacheStatus, ['hit', 'miss'], true) ? $cacheStatus : 'none',
+            'cache_policy' => $this->boundedToken($cachePolicy),
+            'query' => $hasQuery ? 'present' : 'none',
             'cookies' => $hasRequestCookies
                 || (\is_string($server['HTTP_COOKIE'] ?? null) && trim($server['HTTP_COOKIE']) !== '')
                 ? 'present'
