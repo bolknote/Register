@@ -33,11 +33,13 @@ final readonly class BlogResponseCachePolicy
 
             return null;
         }
+
         if ($request->headers->has('Authorization')) {
             $this->decision($request, 'authorization');
 
             return null;
         }
+
         if ($this->authProvider->hasAuthenticatedPublicSession($request)) {
             $this->decision($request, 'authenticated');
 
@@ -60,6 +62,7 @@ final readonly class BlogResponseCachePolicy
 
             return $representation . '_bot';
         }
+
         if ($request->query->count() !== 0) {
             $this->decision($request, 'query');
 

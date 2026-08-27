@@ -124,6 +124,7 @@ final class QueryProfilerTest extends Unit
             server: $server,
         );
         $request->attributes->set('_register_page_cache_policy', 'query');
+
         $response = new Response('', Response::HTTP_OK, ['X-Register-Page-Cache' => 'miss']);
         $profiler->record($server, 200, 100.25, $request, $response);
 

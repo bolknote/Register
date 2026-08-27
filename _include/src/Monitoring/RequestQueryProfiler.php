@@ -142,6 +142,7 @@ final class RequestQueryProfiler implements StatefulServiceInterface
         if ($request instanceof Request) {
             $hasRequestCookies = $request->cookies->count() > 0;
         }
+
         $requestUri = \is_string($server['REQUEST_URI'] ?? null) ? $server['REQUEST_URI'] : '';
         $hasQuery = $request instanceof Request
             ? $request->query->count() > 0
