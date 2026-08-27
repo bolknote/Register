@@ -9,6 +9,8 @@
     const browserPreviewQuality = 0.86;
     const imageExtensions = new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp']);
     const audioExtensions = new Set(['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm']);
+    const aiCorrectionTokenPattern = /<[^>]*>|[\p{L}\p{N}_]+|\s+|[^\p{L}\p{N}_\s<>]+|[<>]/gu;
+    const aiCorrectionMaxLookAhead = 24;
     const editorPlatform = (() => {
         const platform = String(navigator.userAgentData?.platform || navigator.platform || '').toLowerCase();
         if (/mac|iphone|ipad|ipod/u.test(platform)) {
@@ -85,6 +87,104 @@
             }
             element.setAttribute('aria-keyshortcuts', ariaLabel);
         });
+    }
+
+    // Keep this comparison aligned with the admin editor's text/corrections.js.
+    function tokenizeAiCorrection(text) {
+        const result = [];
+        let match;
+        aiCorrectionTokenPattern.lastIndex = 0;
+        while ((match = aiCorrectionTokenPattern.exec(text)) !== null) {
+            result.push({
+                text: match[0],
+                start: match.index,
+                end: match.index + match[0].length,
+            });
+        }
+        return result;
+    }
+
+    function findAiCorrectionAnchor(before, after, beforeIndex, afterIndex) {
+        let best = null;
+        const beforeLimit = Math.min(before.length, beforeIndex + aiCorrectionMaxLookAhead + 1);
+        const afterLimit = Math.min(after.length, afterIndex + aiCorrectionMaxLookAhead + 1);
+
+        for (let i = beforeIndex; i < beforeLimit; i++) {
+            for (let j = afterIndex; j < afterLimit; j++) {
+                if (before[i].text !== after[j].text) {
+                    continue;
+                }
+
+                const distance = i - beforeIndex + j - afterIndex;
+                if (best === null || distance < best.distance) {
+                    best = {beforeIndex: i, afterIndex: j, distance};
+                }
+            }
+        }
+
+        return best;
+    }
+
+    function addAiCorrectionRange(ranges, text, start, end) {
+        while (start < end && /\s/u.test(text[start])) {
+            start++;
+        }
+        while (end > start && /\s/u.test(text[end - 1])) {
+            end--;
+        }
+        if (start === end) {
+            return;
+        }
+
+        const previous = ranges[ranges.length - 1];
+        if (previous && previous.end === start) {
+            previous.end = end;
+            return;
+        }
+        ranges.push({start, end});
+    }
+
+    function findAiCorrectionRanges(source, corrected) {
+        if (source === corrected) {
+            return [];
+        }
+
+        const before = tokenizeAiCorrection(source);
+        const after = tokenizeAiCorrection(corrected);
+        const ranges = [];
+        let beforeIndex = 0;
+        let afterIndex = 0;
+
+        while (beforeIndex < before.length && afterIndex < after.length) {
+            if (before[beforeIndex].text === after[afterIndex].text) {
+                beforeIndex++;
+                afterIndex++;
+                continue;
+            }
+
+            const anchor = findAiCorrectionAnchor(before, after, beforeIndex, afterIndex);
+            if (anchor === null) {
+                addAiCorrectionRange(ranges, corrected, after[afterIndex].start, corrected.length);
+                return ranges;
+            }
+
+            if (anchor.afterIndex > afterIndex) {
+                addAiCorrectionRange(
+                    ranges,
+                    corrected,
+                    after[afterIndex].start,
+                    after[anchor.afterIndex - 1].end,
+                );
+            }
+            beforeIndex = anchor.beforeIndex;
+            afterIndex = anchor.afterIndex;
+        }
+
+        if (afterIndex < after.length) {
+            addAiCorrectionRange(ranges, corrected, after[afterIndex].start, corrected.length);
+        }
+
+        return ranges;
     }
 
     function cardFor(element) {
@@ -305,8 +405,84 @@
         });
     }
 
+    function clearAiChangeMarks(root) {
+        root.querySelectorAll('.post-editor-ai-change').forEach((mark) => {
+            mark.replaceWith(...mark.childNodes);
+        });
+    }
+
+    function textFromHtml(html) {
+        const template = document.createElement('template');
+        template.innerHTML = html;
+        return template.content.textContent || '';
+    }
+
+    function textSegments(roots) {
+        const segments = [];
+        let offset = 0;
+
+        roots.forEach((root) => {
+            const nodes = [];
+            if (root instanceof Text) {
+                nodes.push(root);
+            } else {
+                const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+                let node;
+                while ((node = walker.nextNode()) !== null) {
+                    nodes.push(node);
+                }
+            }
+
+            nodes.forEach((node) => {
+                const start = offset;
+                offset += node.data.length;
+                segments.push({node, start, end: offset});
+            });
+        });
+
+        return segments;
+    }
+
+    function markAiChanges(roots, sourceText) {
+        const segments = textSegments(roots);
+        const correctedText = segments.map((segment) => segment.node.data).join('');
+        const ranges = findAiCorrectionRanges(sourceText, correctedText);
+        const portions = [];
+
+        ranges.forEach((range) => {
+            segments.forEach((segment) => {
+                const start = Math.max(range.start, segment.start);
+                const end = Math.min(range.end, segment.end);
+                if (start < end) {
+                    portions.push({
+                        node: segment.node,
+                        start: start - segment.start,
+                        end: end - segment.start,
+                        documentOffset: start,
+                    });
+                }
+            });
+        });
+
+        portions.sort((left, right) => right.documentOffset - left.documentOffset);
+        portions.forEach((portion) => {
+            let changedText = portion.node;
+            if (portion.end < changedText.data.length) {
+                changedText.splitText(portion.end);
+            }
+            if (portion.start > 0) {
+                changedText = changedText.splitText(portion.start);
+            }
+            const mark = document.createElement('span');
+            mark.className = 'post-editor-ai-change';
+            changedText.replaceWith(mark);
+            mark.append(changedText);
+        });
+    }
+
     function editableBodyHtml(state) {
         const clone = state.body.cloneNode(true);
+        clearAiChangeMarks(clone);
         clone.querySelectorAll('[data-register-audio-native]').forEach((audio) => {
             audio.removeAttribute('data-register-audio-native');
         });
@@ -458,6 +634,7 @@
         state.mediaControllers.clear();
         state.body.classList.remove('is-media-dragover');
         state.body.classList.remove('has-leading-boundary-caret');
+        clearAiChangeMarks(state.body);
         if (boundaryCaretBody === state.body) {
             boundaryCaretBody = null;
         }
@@ -2180,6 +2357,7 @@
     }
 
     function markBodyChanged(state) {
+        clearAiChangeMarks(state.body);
         state.bodyDirty = true;
         clearError(state.form);
         clearStatus(state.card);
@@ -2650,6 +2828,7 @@
     function htmlForRange(range) {
         const container = document.createElement('div');
         container.append(range.cloneContents());
+        clearAiChangeMarks(container);
         container.querySelectorAll('[data-register-audio-native]').forEach((audio) => {
             audio.removeAttribute('data-register-audio-native');
         });
@@ -2660,9 +2839,10 @@
 
     function replaceRangeHtml(state, range, html) {
         if (!rangeIsInside(state.body, range)) {
-            return false;
+            return null;
         }
         const fragment = range.createContextualFragment(html);
+        const insertedNodes = Array.from(fragment.childNodes);
         const lastNode = fragment.lastChild;
         range.deleteContents();
         range.insertNode(fragment);
@@ -2674,7 +2854,7 @@
         }
         prepareEditableMedia(state.body);
         markBodyChanged(state);
-        return true;
+        return insertedNodes;
     }
 
     async function runContextAi(state, action) {
@@ -2686,6 +2866,7 @@
         const usesSelection = context.selected && !['tags', 'title'].includes(action);
         const sourceRange = usesSelection ? context.range.cloneRange() : null;
         const source = sourceRange ? htmlForRange(sourceRange) : editableBodyHtml(state);
+        const sourceText = textFromHtml(source);
         const wholeSource = editableBodyHtml(state);
         closeContextMenu(state, false);
         if (source.trim() === '') {
@@ -2768,13 +2949,16 @@
                 state.tagsDirty = true;
                 state.tagEditor.focus();
             } else if (sourceRange) {
-                if (!replaceRangeHtml(state, sourceRange, payload.result)) {
+                const insertedNodes = replaceRangeHtml(state, sourceRange, payload.result);
+                if (insertedNodes === null) {
                     throw new Error(state.card.dataset.aiSourceChanged || 'The source text has changed.');
                 }
+                markAiChanges(insertedNodes, sourceText);
             } else {
                 state.body.innerHTML = payload.result;
                 prepareEditableMedia(state.body);
                 markBodyChanged(state);
+                markAiChanges(Array.from(state.body.childNodes), sourceText);
                 focusEdge(state.body, false);
             }
 
@@ -3403,6 +3587,7 @@
         }
         if (state.body.contains(event.target)) {
             state.bodyDirty = true;
+            clearAiChangeMarks(state.body);
         }
         if (event.target === state.dateInput) {
             state.dateDirty = true;

@@ -995,6 +995,14 @@ h2.preview,
     animation: post-editor-boundary-caret-blink 1s steps(1, end) infinite;
 }
 
+.post-card.is-editing > .post.body .post-editor-ai-change {
+    background-image: linear-gradient(var(--accent-color), var(--accent-color));
+    background-position: 0 calc(100% - 0.08em);
+    background-repeat: no-repeat;
+    background-size: 100% var(--link-underline-thickness);
+    font-weight: 700;
+}
+
 @keyframes post-editor-boundary-caret-blink {
     50% {
         opacity: 0;

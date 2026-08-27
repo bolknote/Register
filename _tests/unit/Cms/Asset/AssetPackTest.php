@@ -158,6 +158,28 @@ final class AssetPackTest extends Unit
         self::assertStringNotContainsString('\\u200b', strtolower($script));
     }
 
+    public function testPostEditorHighlightsAiChangesWithoutPersistingTheMarks(): void
+    {
+        $rootDir = \dirname(__DIR__, 4) . '/';
+        $site = file_get_contents($rootDir . '_styles/register/site.css');
+        $script = file_get_contents($rootDir . '_assets/register/post-inplace.js');
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/\.post-editor-ai-change\s*\{[^}]*background-image:[^}]*font-weight:\s*700;/s',
+            $site,
+        );
+
+        self::assertIsString($script);
+        self::assertStringContainsString('findAiCorrectionRanges(sourceText, correctedText)', $script);
+        self::assertStringContainsString("mark.className = 'post-editor-ai-change';", $script);
+        self::assertStringContainsString('clearAiChangeMarks(clone);', $script);
+        self::assertStringContainsString('clearAiChangeMarks(container);', $script);
+        self::assertStringContainsString('clearAiChangeMarks(state.body);', $script);
+        self::assertStringContainsString('markAiChanges(insertedNodes, sourceText);', $script);
+        self::assertStringContainsString('markAiChanges(Array.from(state.body.childNodes), sourceText);', $script);
+    }
+
     public function testCommentConfirmationUsesTheCommentContentColumn(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';
