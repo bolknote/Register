@@ -15,7 +15,7 @@ namespace Register\Module\Blog\Controller;
 use Register\Core\Http\Cache\QueryParameterDependencies;
 use Register\Core\Config\BoolProxy;
 use Register\Core\Config\StringProxy;
-use Register\Core\Model\ArticleProvider;
+use Register\Model\ArticleProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Template\HtmlTemplateProvider;

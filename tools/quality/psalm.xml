@@ -94,7 +94,7 @@
         </UnnecessaryVarAnnotation>
         <ForbiddenCode>
             <errorLevel type="info">
-                <file name="_include/src/Admin/Dashboard/DashboardEnvironmentProvider.php" />
+                <file name="_include/src/Register/Admin/Dashboard/DashboardEnvironmentProvider.php" />
             </errorLevel>
         </ForbiddenCode>
         <!-- Psalm's PDO stub is generic while PHP's and PHPStan's native

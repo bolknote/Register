@@ -4,9 +4,9 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Controller;
 
-use Register\Core\Controller\CommentController;
+use Register\Controller\CommentController;
 use Register\Core\Framework\ControllerInterface;
-use Register\Core\Model\ArticleProvider;
+use Register\Model\ArticleProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

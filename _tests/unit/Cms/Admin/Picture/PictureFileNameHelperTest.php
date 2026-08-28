@@ -11,7 +11,7 @@ namespace unit\Cms\Admin\Picture;
 
 use Codeception\Test\Unit;
 use Register\AdminYard\Translator;
-use Register\Core\Admin\Picture\PictureFileNameHelper;
+use Register\Admin\Picture\PictureFileNameHelper;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 

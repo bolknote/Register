@@ -11,7 +11,7 @@ namespace integration;
 
 use Codeception\Example;
 use FilesystemIterator;
-use Register\Core\Admin\Picture\PictureManager;
+use Register\Admin\Picture\PictureManager;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**

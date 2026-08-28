@@ -11,7 +11,7 @@ namespace acceptance;
 
 use AcceptanceTester;
 use Codeception\Example;
-use Register\Http\ContentSecurityPolicy;
+use Register\Core\Http\ContentSecurityPolicy;
 use Register\Core\Mail\MailSettings;
 
 /**

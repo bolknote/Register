@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register;
 
 use Register\Module\BaseModuleRegistry;
-use Register\Core\Admin\AdminExtension;
+use Register\Admin\AdminExtension;
 use Register\Core\CmsExtension;
 use Register\Core\Framework\Application;
 

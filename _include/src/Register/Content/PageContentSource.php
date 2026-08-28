@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Content;
 
 use Register\Url\ContentUrlGenerator;
-use Register\Core\Model\ArticleProvider;
+use Register\Model\ArticleProvider;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerException;
 

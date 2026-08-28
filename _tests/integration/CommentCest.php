@@ -14,7 +14,7 @@ use Register\Comment\CommentChangeKind;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use Register\Core\Comment\Antispam\SpamFeedbackService;
+use Register\Comment\Antispam\SpamFeedbackService;
 use Register\Core\Comment\CommentHtml;
 use Register\Core\Model\UserpicSchema;
 use Register\Core\Pdo\DbLayer;

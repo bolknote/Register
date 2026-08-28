@@ -19,7 +19,7 @@ final readonly class LocalSpamDetector implements SpamDetectorInterface
 {
     public function __construct(
         private SpamRiskScorer           $scorer,
-        private SpamAssessmentRepository $assessmentRepository,
+        private SpamAssessmentStoreInterface $assessmentRepository,
         private SpamIdentityHasher       $hasher,
         private SpamFeatureExtractor     $featureExtractor,
         private LoggerInterface          $logger,

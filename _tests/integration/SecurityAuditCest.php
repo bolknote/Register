@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
-use Register\Core\Admin\AdminRequestHandler;
+use Register\Admin\AdminRequestHandler;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Security\WebAuthn\RecoveryCodeRepository;
 use Symfony\Component\HttpFoundation\Request;

@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Admin;
 
 use Codeception\Test\Unit;
-use Register\Core\Admin\AdminThemeStylesheet;
+use Register\Admin\AdminThemeStylesheet;
 use Register\Core\Config\DynamicConfigProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

@@ -13,7 +13,7 @@ use Codeception\Test\Unit;
 use Register\Backup\PortableZipWriter;
 use Register\Url\ContentUrlAliasRepository;
 use Register\AdminYard\Translator;
-use Register\Core\Admin\Picture\PictureFileNameHelper;
+use Register\Admin\Picture\PictureFileNameHelper;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\HttpClient\HttpClientException;
 

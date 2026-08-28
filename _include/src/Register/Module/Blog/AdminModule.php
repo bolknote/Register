@@ -10,10 +10,10 @@ declare(strict_types = 1);
 namespace Register\Module\Blog;
 
 use Register\AdminYard\Translator;
-use Register\Core\Admin\AdminConfigExtenderInterface;
-use Register\Core\Admin\DynamicConfigFormExtenderInterface;
-use Register\Core\Admin\Event\RedirectFromPublicEvent;
-use Register\Core\Admin\TranslationProviderInterface;
+use Register\Admin\AdminConfigExtenderInterface;
+use Register\Admin\DynamicConfigFormExtenderInterface;
+use Register\Admin\Event\RedirectFromPublicEvent;
+use Register\Admin\TranslationProviderInterface;
 use Register\Core\AdminYard\CustomTemplateRendererEvent;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;

@@ -11,7 +11,7 @@ namespace unit\Cms\Admin;
 
 use Codeception\Test\Unit;
 use Register\AdminYard\Config\FieldConfig;
-use Register\Core\Admin\DynamicConfigFormBuilder;
+use Register\Admin\DynamicConfigFormBuilder;
 use Register\Core\Model\PermissionChecker;
 use Symfony\Contracts\Translation\TranslatorInterface;
 

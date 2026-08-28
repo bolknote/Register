@@ -30,7 +30,7 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
-use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Admin\AdminConfigExtenderInterface;
 use Register\Core\Model\PermissionChecker;
 use Register\Module\Blog\Model\BlogPageCache;
 

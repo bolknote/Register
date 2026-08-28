@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Register\Http;
 
 use Codeception\Test\Unit;
-use Register\Http\InlineStyleAttributeStripper;
+use Register\Core\Http\InlineStyleAttributeStripper;
 
 final class InlineStyleAttributeStripperTest extends Unit
 {

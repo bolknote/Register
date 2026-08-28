@@ -11,7 +11,7 @@ namespace unit\Register\Comment;
 
 use Codeception\Test\Unit;
 use Register\Content\ContentType;
-use Register\Core\Controller\CommentController;
+use Register\Controller\CommentController;
 
 final class ContentCommentStrategyTest extends Unit
 {

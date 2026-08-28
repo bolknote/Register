@@ -30,7 +30,7 @@ final readonly class SpamMaintenance
     public function __construct(
         private DbLayer                  $dbLayer,
         private SpamRateLimiter          $rateLimiter,
-        private SpamAssessmentRepository $assessmentRepository,
+        private SpamAssessmentStoreInterface $assessmentRepository,
         private SpamReputationRepository $reputationRepository,
         private LoggerInterface          $logger,
     ) {

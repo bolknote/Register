@@ -14,7 +14,7 @@ use MatthiasMullie\Minify\JS;
 use MatthiasMullie\Minify\Minify;
 use Psr\Log\LoggerInterface;
 use Register\Core\HttpClient\HttpClient;
-use Register\Http\CompressionCodecRegistry;
+use Register\Core\Http\CompressionCodecRegistry;
 use Symfony\Component\Filesystem\Filesystem;
 
 class AssetMerge implements AssetMergeInterface

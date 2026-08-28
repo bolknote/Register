@@ -89,6 +89,7 @@
         "codeception/module-asserts": "^3.0.0",
         "codeception/module-phpbrowser": "^4.1",
         "codeception/stub": "^4.3",
+        "ext-tokenizer": "*",
         "phan/phan": "^6.0.7",
         "php-parallel-lint/php-parallel-lint": "^1.4",
         "phpcompatibility/php-compatibility": "^10.0@alpha",

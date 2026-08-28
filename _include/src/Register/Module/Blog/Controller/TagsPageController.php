@@ -26,7 +26,7 @@ class TagsPageController extends BlogController
         \Register\Core\Pdo\DbLayer $dbLayer,
         \Register\Module\Blog\CalendarBuilder $calendarBuilder,
         \Register\Module\Blog\BlogUrlBuilder $blogUrlBuilder,
-        \Register\Core\Model\ArticleProvider $articleProvider,
+        \Register\Model\ArticleProvider $articleProvider,
         \Register\Module\Blog\Model\PostProvider $postProvider,
         ContentUrlGenerator $contentUrlGenerator,
         \Register\Core\Model\UrlBuilder $urlBuilder,

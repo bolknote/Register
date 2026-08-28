@@ -47,7 +47,7 @@ use Register\Core\Queue\QueueHandlerRegistry;
 use Register\Core\Queue\QueuePublisher;
 use Register\Core\Queue\QueueRunnerLease;
 use Register\Core\Queue\QueueSchema;
-use Register\Core\Queue\ScheduledMaintenance;
+use Register\Maintenance\ScheduledMaintenance;
 
 final class LinkHealthCest
 {

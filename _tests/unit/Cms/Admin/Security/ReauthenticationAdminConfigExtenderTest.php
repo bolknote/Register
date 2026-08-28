@@ -19,7 +19,7 @@ use Register\AdminYard\Database\PdoDataProvider;
 use Register\AdminYard\Database\TypeTransformer;
 use Register\AdminYard\Event\BeforeSaveEvent;
 use Register\AdminYard\Translator;
-use Register\Core\Admin\Security\ReauthenticationAdminConfigExtender;
+use Register\Admin\Security\ReauthenticationAdminConfigExtender;
 use Register\Core\Model\AuthManager;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;

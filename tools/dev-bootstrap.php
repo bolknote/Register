@@ -12,7 +12,7 @@ use Register\Module\Search\SearchIndexRebuilder;
 use Register\Core\Config\StaticConfigLoader;
 use Register\Core\Framework\Application;
 use Register\Core\Framework\Container;
-use Register\Core\Model\Installer;
+use Register\Model\Installer;
 use Register\Core\Model\ExtensionCache;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerSqlite;

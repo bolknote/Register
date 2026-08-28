@@ -20,7 +20,7 @@ use Register\Core\Config\StringProxy;
 use Register\Core\Framework\ControllerInterface;
 use Register\Core\Helper\StringHelper;
 use Register\Core\Image\ThumbnailGenerator;
-use Register\Core\Model\ArticleProvider;
+use Register\Model\ArticleProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Template\HtmlTemplateProvider;
 use Register\Core\Template\Viewer;

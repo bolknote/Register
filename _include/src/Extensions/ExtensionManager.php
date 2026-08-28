@@ -9,7 +9,6 @@ declare(strict_types = 1);
 
 namespace Register\Core\Extensions;
 
-use Register\Module\BaseModuleRegistry;
 use Register\AdminYard\Translator;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Framework\Container;
@@ -26,7 +25,7 @@ readonly class ExtensionManager
         private Translator            $translator,
         private Container             $container, // Note: do not use here as a service locator
         private string                $rootDir,
-        private BaseModuleRegistry     $baseModuleRegistry,
+        private BaseModuleCatalogInterface $baseModuleRegistry,
     ) {
     }
 

@@ -22,7 +22,7 @@ final readonly class BackgroundWorkRunner implements BackgroundWorkRunnerInterfa
         private \PDO                $pdo,
         private QueueRunnerLease    $lease,
         private QueueConsumer       $consumer,
-        private ScheduledMaintenance $maintenance,
+        private ScheduledWorkCoordinatorInterface $maintenance,
         private LoggerInterface     $logger,
     ) {
     }

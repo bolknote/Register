@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Admin;
 
 use Codeception\Test\Unit;
-use Register\Core\Admin\ResourceProvider;
+use Register\Admin\ResourceProvider;
 
 final class ResourceProviderTest extends Unit
 {

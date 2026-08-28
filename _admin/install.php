@@ -14,7 +14,7 @@ declare(strict_types = 1);
 use Psr\Log\LogLevel;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
-use Register\Http\ContentSecurityPolicy;
+use Register\Core\Http\ContentSecurityPolicy;
 use Register\Installation\WelcomePostInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
@@ -23,7 +23,7 @@ use Register\Update\BuildInfo;
 use Register\Update\MaintenanceMode;
 use Register\Update\RuntimeLock;
 use Register\Module\Search\SearchIndexRebuilder;
-use Register\Core\Admin\AdminExtension;
+use Register\Admin\AdminExtension;
 use Register\Core\CmsExtension;
 use Register\Core\Config\StaticConfigLoader;
 use Register\Core\Config\SecretConfigPathResolver;
@@ -537,7 +537,7 @@ $emptyApp->addExtension(new InstallExtension());
 $emptyApp->boot(installApplicationParameters());
 
 
-$resourceProvider = $emptyApp->container->get(\Register\Core\Admin\ResourceProvider::class);
+$resourceProvider = $emptyApp->container->get(\Register\Admin\ResourceProvider::class);
 $languages        = $resourceProvider->readLanguages();
 
 function installPostString(string $name): string
@@ -1070,7 +1070,7 @@ if ($db_type !== 'mysql') {
     $register_db->startTransaction();
 }
 
-$installer = new \Register\Core\Model\Installer($register_db);
+$installer = new \Register\Model\Installer($register_db);
 $installer->createTables();
 
 $now = time();

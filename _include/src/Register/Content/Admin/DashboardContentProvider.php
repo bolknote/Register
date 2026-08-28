@@ -13,7 +13,7 @@ use Register\Comment\CommentRepository;
 use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentType;
 use Register\AdminYard\TemplateRenderer;
-use Register\Core\Admin\Dashboard\DashboardStatProviderInterface;
+use Register\Admin\Dashboard\DashboardStatProviderInterface;
 use Register\Core\Pdo\DbLayerException;
 
 /** Renders one dashboard summary for all publishable content. */

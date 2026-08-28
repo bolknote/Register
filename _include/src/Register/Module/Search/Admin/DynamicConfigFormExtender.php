@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Admin;
 
-use Register\Core\Admin\DynamicConfigFormExtenderInterface;
+use Register\Admin\DynamicConfigFormExtenderInterface;
 
 class DynamicConfigFormExtender implements DynamicConfigFormExtenderInterface
 {

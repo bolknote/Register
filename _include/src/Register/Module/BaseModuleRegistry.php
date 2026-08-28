@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module;
 
+use Register\Core\Extensions\BaseModuleCatalogInterface;
 use Register\Core\Framework\ModuleInterface;
 
 /**
@@ -17,7 +18,7 @@ use Register\Core\Framework\ModuleInterface;
  * Keeping the list here makes the product contract independent from extension database rows while
  * the remaining Register-era code moves into Register namespaces.
  */
-final class BaseModuleRegistry
+final class BaseModuleRegistry implements BaseModuleCatalogInterface
 {
     public const string BLOG       = 'register_blog';
 
@@ -102,17 +103,20 @@ final class BaseModuleRegistry
     ];
 
     /** @return list<string> */
+    #[\Override]
     public function ids(): array
     {
         return array_keys(self::MODULES);
     }
 
+    #[\Override]
     public function contains(string $id): bool
     {
         return isset(self::MODULES[$id]);
     }
 
     /** @return class-string<BaseModuleManifestInterface> */
+    #[\Override]
     public function manifestClass(string $id): string
     {
         return $this->module($id)['manifest'];

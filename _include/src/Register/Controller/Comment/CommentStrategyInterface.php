@@ -1,0 +1,49 @@
+<?php
+/**
+ * @copyright 2024 Roman Parpalak
+ * @license   https://opensource.org/license/mit MIT
+ * @package   Register
+ */
+
+declare(strict_types = 1);
+
+namespace Register\Controller\Comment;
+
+use Register\Content\ContentType;
+use Symfony\Component\HttpFoundation\Request;
+
+interface CommentStrategyInterface
+{
+    public function getContentType(): ContentType;
+
+    /**
+     * @return TargetDto|null Info about the entity to be commented
+     */
+    public function getTargetByRequest(Request $request): ?TargetDto;
+
+    public function getTargetById(int $targetId): ?TargetDto;
+
+    public function isValidParent(int $targetId, int $parentId): bool;
+
+    public function save(
+        int     $targetId,
+        string  $name,
+        string  $email,
+        bool    $subscribed,
+        string  $text,
+        string  $ip,
+        ?int    $parentId,
+        ?int    $userId,
+        ?string $visitorId,
+    ): int;
+
+    public function notifySubscribers(int $commentId): void;
+
+    public function getHashForPublishedComment(int $targetId): ?string;
+
+    public function getRecentComment(string $hash, string $ip): ?CommentDto;
+
+    public function publishComment(int $commentId): void;
+
+    public function unsubscribe(int $targetId, string $email, string $code): bool;
+}

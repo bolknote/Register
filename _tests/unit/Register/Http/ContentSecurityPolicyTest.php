@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Register\Http;
 
 use Codeception\Test\Unit;
-use Register\Http\ContentSecurityPolicy;
+use Register\Core\Http\ContentSecurityPolicy;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ContentSecurityPolicyTest extends Unit

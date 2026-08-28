@@ -12,7 +12,7 @@ namespace Register\Backup\Admin;
 use Register\Backup\BackupManager;
 use Register\Backup\BackupScheduler;
 use Register\AdminYard\TemplateRenderer;
-use Register\Core\Admin\Dashboard\SystemStatusProviderInterface;
+use Register\Admin\Dashboard\SystemStatusProviderInterface;
 use Register\Core\Model\PermissionChecker;
 
 final readonly class DashboardBackupProvider implements SystemStatusProviderInterface

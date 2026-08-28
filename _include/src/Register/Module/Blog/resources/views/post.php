@@ -2,7 +2,7 @@
 
 declare(strict_types = 1);
 
-use Register\Http\TrustedScriptNonceInjector;
+use Register\Core\Http\TrustedScriptNonceInjector;
 use Register\Content\ContentId;
 use Register\Module\Blog\Model\DeferredViewCount;
 

@@ -64,6 +64,15 @@ final class DynamicSecretParameterRegistry
         $this->register($this->extensionPrivate, $parameterName);
     }
 
+    public function registerManaged(string $parameterName): void
+    {
+        if (isset($this->hydrateOnly[$parameterName]) || isset($this->extensionPrivate[$parameterName])) {
+            throw new \InvalidArgumentException('A managed secret cannot use another registration mode.');
+        }
+
+        $this->register($this->managed, $parameterName);
+    }
+
     /** @return list<string> */
     public function managedNames(): array
     {

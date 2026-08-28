@@ -14,7 +14,7 @@ use Register\Content\ContentId;
 use Register\AdminYard\Config\AdminConfig;
 use Register\AdminYard\Config\EntityConfig;
 use Register\AdminYard\Event\BeforeDeleteEvent;
-use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Admin\AdminConfigExtenderInterface;
 use Register\Core\Model\PermissionChecker;
 
 final readonly class AdminConfigExtender implements AdminConfigExtenderInterface

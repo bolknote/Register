@@ -25,8 +25,8 @@ External-link DNS uses non-blocking datagrams to the system resolvers from `/etc
 never starts a process or calls the potentially blocking libc resolver.
 
 > **Development status:** Register is preparing its first 2.0 release. Fresh installations use
-> schema generation 20, and the staged updater can migrate an installed Register database from
-> generations 15 through 19. Older S2/Register databases require an explicit import or a fresh
+> schema generation 23, and the staged updater can migrate an installed Register database from
+> generations 15 through 22. Older S2/Register databases require an explicit import or a fresh
 > installation; Register never silently recreates them.
 
 ## Why Register
@@ -324,12 +324,12 @@ There is intentionally no command that blindly drains or retries the entire queu
 
 ## Architecture and modules
 
-Register is built on S2:
+Register retains a reusable foundation inherited from S2:
 
-- `S2\Cms` provides reusable HTTP, dependency injection, events, database access, queues, caching,
-  and administration infrastructure.
+- `Register\Core` provides reusable HTTP, dependency injection, events, database access, queues, and
+  caching infrastructure.
 - `Register` owns posts, pages, comments, tags, search, editorial workflows, analytics, presentation,
-  and product policy.
+  administration, and product policy.
 
 Base modules are part of every installation and cannot be disabled. Optional modules live under
 `_extensions/` and may add services, listeners, routes, administration pages, translations,

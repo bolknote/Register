@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Register\Http;
 
 use Codeception\Test\Unit;
-use Register\Http\LegacyContentStylesheetInjector;
+use Register\Core\Http\LegacyContentStylesheetInjector;
 
 final class LegacyContentStylesheetInjectorTest extends Unit
 {

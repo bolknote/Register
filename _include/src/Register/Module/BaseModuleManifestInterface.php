@@ -9,14 +9,9 @@ declare(strict_types = 1);
 
 namespace Register\Module;
 
+use Register\Core\Extensions\BaseModuleManifestInterface as CoreBaseModuleManifestInterface;
+
 /** Describes a mandatory module that forms the Register product. */
-interface BaseModuleManifestInterface
+interface BaseModuleManifestInterface extends CoreBaseModuleManifestInterface
 {
-    public function getTitle(): string;
-
-    public function getAuthor(): string;
-
-    public function getDescription(): string;
-
-    public function getVersion(): string;
 }

@@ -12,8 +12,8 @@ namespace Register\Module\Analytics;
 
 use Register\Module\Analytics\Admin\DashboardAnalyticsProvider;
 use Register\AdminYard\TemplateRenderer;
-use Register\Core\Admin\Dashboard\DashboardBlockProviderInterface;
-use Register\Core\Admin\Event\AdminAjaxControllerMapEvent;
+use Register\Admin\Dashboard\DashboardBlockProviderInterface;
+use Register\Admin\Event\AdminAjaxControllerMapEvent;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;

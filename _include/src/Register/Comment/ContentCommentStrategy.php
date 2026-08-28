@@ -11,10 +11,10 @@ namespace Register\Comment;
 
 use Register\Content\ContentId;
 use Register\Content\ContentType;
-use Register\Core\Controller\Comment\CommentDto;
-use Register\Core\Controller\Comment\CommentStrategyInterface;
-use Register\Core\Controller\Comment\TargetDto;
-use Register\Core\Controller\CommentController;
+use Register\Controller\Comment\CommentDto;
+use Register\Controller\Comment\CommentStrategyInterface;
+use Register\Controller\Comment\TargetDto;
+use Register\Controller\CommentController;
 use Register\Core\Pdo\DbLayerException;
 use Symfony\Component\HttpFoundation\Request;
 

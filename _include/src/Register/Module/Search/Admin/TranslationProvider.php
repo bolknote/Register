@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Admin;
 
-use Register\Core\Admin\TranslationProviderInterface;
+use Register\Admin\TranslationProviderInterface;
 
 class TranslationProvider implements TranslationProviderInterface
 {

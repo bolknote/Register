@@ -31,8 +31,9 @@ Both tiers may register dependency-injection services, event listeners, routes, 
 extensions, templates, translations, and assets through a small shared runtime contract. Only
 optional modules participate in the administrator-controlled lifecycle.
 
-Product code moves to the `Register` namespace. The `S2\Cms` namespace remains for framework code
-that is reusable without Register's blog domain.
+Product code lives in the `Register` namespace. Reusable framework code lives in `Register\Core`,
+the active successor to the inherited S2 namespace, and must remain usable without Register's blog
+domain.
 
 ## Consequences
 
@@ -44,9 +45,11 @@ that is reusable without Register's blog domain.
 - Product storage has one current schema generation; optional modules retain independent migrations
   and compatibility metadata.
 - The current implementation stores that integer in `REGISTER_SCHEMA_GENERATION`. Fresh installs
-  use generation 20, and releases carry explicit one-generation migrations for supported installed
-  generations 15 through 19. Older data remains an explicit import operation.
+  use generation 23, and releases carry explicit one-generation migrations for supported installed
+  generations 15 through 22. Older data remains an explicit import operation.
 - Optional modules integrate through public Register contracts and events rather than querying base
   module tables directly.
 - Base-module code and resources live in `Register\*` namespaces; `_extensions` is reserved for the
   optional lifecycle.
+- A token-based architecture test rejects both imported and fully qualified product references from
+  `Register\Core`; cross-boundary calls require a Core-owned contract.

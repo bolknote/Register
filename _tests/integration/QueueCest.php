@@ -31,7 +31,7 @@ use Register\Core\Queue\QueueRecovery;
 use Register\Core\Queue\QueueRunnerLease;
 use Register\Core\Queue\QueueSchema;
 use Register\Core\Queue\QueueTimeBudgetExceeded;
-use Register\Core\Queue\ScheduledMaintenance;
+use Register\Maintenance\ScheduledMaintenance;
 
 /** @group queue */
 final class QueueCest

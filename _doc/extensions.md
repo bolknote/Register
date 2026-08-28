@@ -16,8 +16,8 @@ optional-module directory. Their status is defined by
 [`BaseModuleRegistry`](../_include/src/Register/Module/BaseModuleRegistry.php).
 
 Their schemas are installed with Register's single `REGISTER_SCHEMA_GENERATION` marker. The current
-release installs generation 20 and carries an explicit migration chain from generations 15 through
-19. Earlier S2/Register schemas require a separate importer or a clean installation.
+release installs generation 23 and carries an explicit migration chain from generations 15 through
+22. Earlier S2/Register schemas require a separate importer or a clean installation.
 Base manifest versions are not consulted after a database has entered that generation, and their
 `uninstall()` methods cannot remove product data.
 
@@ -38,8 +38,8 @@ in a later migration. The current names remain the supported API until that migr
 
 ## Manifest
 
-`Manifest.php` defines `s2_extensions\{module_id}\Manifest` implementing
-`S2\Cms\Extensions\ManifestInterface`. It provides the title, author, description, semantic version,
+`Manifest.php` defines `Register\Extension\{module_id}\Manifest` implementing
+`Register\Core\Extensions\ManifestInterface`. It provides the title, author, description, semantic version,
 dependencies, and migration callbacks.
 
 Installation and upgrades must be idempotent. A disabled optional module keeps its schema and data.

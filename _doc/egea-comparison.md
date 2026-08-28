@@ -205,7 +205,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | MySQL/MariaDB, PostgreSQL, and SQLite | Available | All three database families are supported. |
 | Table prefixes and multiple installations per database | Available | Supported. |
 | Production database settings from environment variables | Missing | Production configuration is file-based. |
-| Upgrade an existing Register database | Partial | The staged updater migrates supported installed generations 15 through 19 to generation 20. Older S2/Register data still needs an explicit importer or a clean installation. |
+| Upgrade an existing Register database | Partial | The staged updater migrates supported installed generations 15 through 22 to generation 23. Older S2/Register data still needs an explicit importer or a clean installation. |
 | Import an existing Aegea database | Missing | No importer. |
 | Semi-automatic code and database update | Available | The control-panel updater verifies a release archive, backs up the installation, stages and switches files, applies the registered database migration chain, and rolls files back on failure. |
 | Automatic database backup | Available | A durable request-driven queue job creates a private daily authenticated encrypted database-and-media archive and prunes it to configured retention; the CLI drain covers hosts without response detachment. |
@@ -272,12 +272,12 @@ The main implementation anchors used during review are:
 - editor persistence and preview: [`_admin/js/editor/form.js`](../_admin/js/editor/form.js);
 - public inline-editor image pipeline: [`_assets/register/image-optimizer/js/optimizer.js`](../_assets/register/image-optimizer/js/optimizer.js);
 - default upload formats: [`_include/src/Config/StaticConfigLoader.php`](../_include/src/Config/StaticConfigLoader.php);
-- content, comment, tag, session, and user schema: [`_include/src/Model/Installer.php`](../_include/src/Model/Installer.php);
+- content, comment, tag, session, and user schema: [`Register\Model\Installer`](../_include/src/Register/Model/Installer.php);
 - comment subscriptions: [`_include/src/Model/CommentNotifier.php`](../_include/src/Model/CommentNotifier.php);
 - authentication and sessions: [`_include/src/Model/AuthManager.php`](../_include/src/Model/AuthManager.php);
-- login rate limiting: [`S2\Cms\Model\LoginRateLimiter`](../_include/src/Model/LoginRateLimiter.php);
+- login rate limiting: [`Register\Core\Model\LoginRateLimiter`](../_include/src/Model/LoginRateLimiter.php);
 - scheduled publication: [`Register\Content\ContentPublicationScheduler`](../_include/src/Register/Content/ContentPublicationScheduler.php);
-- threaded comments: [`S2\Cms\Model\Comment\CommentThreadBuilder`](../_include/src/Model/Comment/CommentThreadBuilder.php);
+- threaded comments: [`Register\Core\Model\Comment\CommentThreadBuilder`](../_include/src/Model/Comment/CommentThreadBuilder.php);
 - typography: [`Register\Module\Typography\Typograph`](../_include/src/Register/Module/Typography/Typograph.php);
 - formula rendering: [`Register\Module\Math\Module`](../_include/src/Register/Module/Math/Module.php);
 - search and indexing: [`Register\Module\Search\Module`](../_include/src/Register/Module/Search/Module.php);

@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Import\Telegram\Admin;
 
 use Register\AdminYard\Config\AdminConfig;
-use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Admin\AdminConfigExtenderInterface;
 use Register\Core\Model\PermissionChecker;
 
 final readonly class TelegramImportAdminConfigExtender implements AdminConfigExtenderInterface

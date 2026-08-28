@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Register\Http;
 
 use Codeception\Test\Unit;
-use Register\Http\TrustedScriptNonceInjector;
+use Register\Core\Http\TrustedScriptNonceInjector;
 use Symfony\Component\HttpFoundation\Response;
 
 final class TrustedScriptNonceInjectorTest extends Unit

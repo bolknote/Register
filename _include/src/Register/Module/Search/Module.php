@@ -27,7 +27,7 @@ use Register\Core\Image\ThumbnailGenerateEvent;
 use Register\Core\Image\ThumbnailGenerator;
 use Register\Core\Logger\Logger;
 use Register\Core\Model\Article\ArticleRenderedEvent;
-use Register\Core\Model\ArticleProvider;
+use Register\Model\ArticleProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Queue\QueueHandlerInterface;
 use Register\Core\Queue\QueuePublisher;

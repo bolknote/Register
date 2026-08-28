@@ -9,8 +9,8 @@ declare(strict_types = 1);
 
 namespace Register\Module\Blog\Inplace;
 
-use Register\Core\Admin\Picture\PictureFileNameHelper;
-use Register\Core\Admin\Picture\PictureStorageQuota;
+use Register\Admin\Picture\PictureFileNameHelper;
+use Register\Admin\Picture\PictureStorageQuota;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\Translation\TranslatorInterface;

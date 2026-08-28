@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Register\Http;
 
 use Codeception\Test\Unit;
-use Register\Http\CspViolationReporter;
+use Register\Core\Http\CspViolationReporter;
 use Register\Core\Comment\Antispam\SpamIdentityHasher;
 use Symfony\Component\HttpFoundation\Request;
 

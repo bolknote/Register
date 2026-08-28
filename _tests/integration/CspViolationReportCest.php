@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
-use Register\Http\ContentSecurityPolicy;
+use Register\Core\Http\ContentSecurityPolicy;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

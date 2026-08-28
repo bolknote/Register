@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\VisitorIdentity;
 
 use Register\Module\VisitorIdentity\Admin\DynamicConfigFormExtender;
-use Register\Core\Admin\DynamicConfigFormExtenderInterface;
+use Register\Admin\DynamicConfigFormExtenderInterface;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerModuleInterface;
 

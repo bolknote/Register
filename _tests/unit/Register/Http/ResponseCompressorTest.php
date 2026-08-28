@@ -11,8 +11,8 @@ namespace unit\Register\Http;
 
 use Codeception\Test\Unit;
 use Register\Core\Http\Cache\PageCacheHeaders;
-use Register\Http\ResponseCompressor;
-use Register\Http\ResponseCompressionCache;
+use Register\Core\Http\ResponseCompressor;
+use Register\Core\Http\ResponseCompressionCache;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

@@ -12,7 +12,7 @@ namespace integration;
 use Register\Content\ContentSchema;
 use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentType;
-use Register\Core\Model\ArticleProvider;
+use Register\Model\ArticleProvider;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerException;
 

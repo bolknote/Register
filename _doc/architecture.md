@@ -1,13 +1,13 @@
 # Register architecture overview
 
-Register is a blog engine built on S2. S2 provides reusable application infrastructure; Register
-provides the publishing domain and product experience. The boundary is intentional:
+Register is a blog engine whose reusable foundation originated in S2. The active namespace boundary
+is intentional:
 
-- `S2\Cms` contains HTTP, dependency injection, events, database access, queues, caching, and reusable
-  administration infrastructure.
+- `Register\Core` contains HTTP, dependency injection, events, database access, queues, caching, and
+  reusable infrastructure.
 - `Register` contains posts, pages, comments, tags, anonymous identity, reactions, search,
   typography, analytics, formula rendering, code highlighting, editorial workflows, public
-  presentation, and product policy.
+  presentation, administration, and product policy.
 
 See [ADR 0001](decisions/0001-register-module-tiers.md) for the module-tier decision.
 
@@ -20,12 +20,13 @@ transitional alias for inherited modules.
 
 The boot sequence is:
 
-1. Register the reusable S2 infrastructure module and Register-owned product services.
-2. Register the mandatory Register base modules in deterministic order.
-3. In control-panel requests, register the base administration module and administration portions of
-   the base modules.
-4. Discover and register enabled optional modules.
-5. Build the container, event dispatcher, and route collection.
+1. Register `CmsExtension`, which owns reusable Core infrastructure.
+2. Register `ProductModule`, whose focused runtime modules own product services and public routes.
+3. In control-panel requests, register the product-owned `Register\Admin\AdminExtension`.
+4. Register mandatory application modules, followed by their administration modules when applicable,
+   in deterministic order.
+5. Discover and register enabled optional modules.
+6. Build the container, event dispatcher, and route collection.
 
 The mandatory list is defined in
 [`BaseModuleRegistry`](../_include/src/Register/Module/BaseModuleRegistry.php), not in the database.
@@ -47,11 +48,17 @@ Base modules form every Register installation and cannot be disabled or uninstal
 - Admin.
 
 All feature modules live under `Register\Module`; `_extensions` is reserved for optional modules.
-Some inherited page and administration infrastructure still lives in `S2\Cms` and moves only when a
-Register-owned replacement exists. All base schemas use the integer `REGISTER_SCHEMA_GENERATION`
-marker managed by [`SchemaManager`](../_include/src/Register/Schema/SchemaManager.php). A fresh
-installation creates generation 20. The registered migration chain accepts installed generations 15
-through 19; older S2/Register data requires an explicit importer or a clean database.
+Product models, controllers, administration code, and product composition live below
+`_include/src/Register` in the `Register` namespace. Core code may not reference that namespace;
+[`CoreProductBoundaryTest`](../_tests/unit/Register/Architecture/CoreProductBoundaryTest.php) checks
+both imported and fully qualified PHP names. Cross-boundary collaboration uses narrow Core contracts,
+including the base-module catalog, dynamic-secret contributors, spam-assessment storage, and scheduled
+work coordination.
+
+All base schemas use the integer `REGISTER_SCHEMA_GENERATION` marker managed by
+[`SchemaManager`](../_include/src/Register/Schema/SchemaManager.php). A fresh installation creates
+generation 23. The registered migration chain accepts installed generations 15 through 22; older
+S2/Register data requires an explicit importer or a clean database.
 Manifest versions are transitional metadata and are not product schema state.
 
 The Visitor Identity module signs a random anonymous identifier and mirrors it into a cookie,
@@ -122,6 +129,11 @@ republish the same generation-aware trigger. Antispam maintenance is seeded hour
 operation is a separate retryable queue job, deletes at most 100 records per attempt, and schedules
 another small batch when work remains.
 
+The shutdown runner depends only on Core's `ScheduledWorkCoordinatorInterface`; product scheduling is
+implemented by `Register\Maintenance\ScheduledMaintenance`. This keeps the established lease,
+generation, retry, and bounded-shutdown behavior unchanged while preventing Core from constructing
+product maintenance directly.
+
 Automatic full backups use the same queue but advertise a four-second start reserve, so short
 foreground-only slices skip them without blocking lighter work. Backup creation has an additional
 non-blocking filesystem lock, retries after termination, and removes only strictly named abandoned
@@ -150,6 +162,20 @@ Register has two configuration layers:
 
 Product-facing settings will gradually move from inherited `S2_*` names to typed Register settings.
 The inherited names are implementation details rather than a compatibility requirement.
+
+## Persistence and schema ownership
+
+`Register\Core\Pdo` owns driver-neutral query builders, schema primitives, transaction-aware PDO,
+and the MySQL/MariaDB, PostgreSQL, and SQLite dialect adapters. It contains no product table names or
+product namespace references. Product repositories depend inward on these primitives.
+
+Product schema ownership stays under `Register\Schema` and `Register\Runtime\SchemaModule`:
+migrations are explicit tagged services, `SchemaMigrator` advances one registered generation at a
+time, and `SchemaManager` owns the product generation marker and defaults. Clean installation is
+owned by `Register\Model\Installer`. This direction is already clean, so another persistence facade
+would add indirection without removing a dependency; a new abstraction is warranted only when a
+second persistence implementation or a concrete product-to-driver leak appears. Dedicated CI
+workflows exercise SQLite, MySQL/MariaDB, and PostgreSQL profiles.
 
 ## Controllers and presentation
 

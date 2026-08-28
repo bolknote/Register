@@ -10,9 +10,9 @@ declare(strict_types = 1);
 namespace Register\Auth;
 
 use Register\Content\ContentType;
-use Register\Core\Controller\Comment\CommentStrategyInterface;
-use Register\Core\Controller\Comment\PendingEmailComment;
-use Register\Core\Controller\Comment\PendingEmailCommentServiceInterface;
+use Register\Controller\Comment\CommentStrategyInterface;
+use Register\Controller\Comment\PendingEmailComment;
+use Register\Controller\Comment\PendingEmailCommentServiceInterface;
 use Register\Core\Helper\StringHelper;
 use Register\Core\Model\UrlBuilder;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;

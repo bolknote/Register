@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\LinkHealth\Admin;
 
-use Register\Core\Admin\TranslationProviderInterface;
+use Register\Admin\TranslationProviderInterface;
 
 final class TranslationProvider implements TranslationProviderInterface
 {

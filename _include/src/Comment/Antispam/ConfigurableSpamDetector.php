@@ -27,7 +27,7 @@ final readonly class ConfigurableSpamDetector implements SpamDetectorInterface
     public function __construct(
         private LocalSpamDetector        $localDetector,
         private AkismetProxy             $akismetProxy,
-        private SpamAssessmentRepository $assessmentRepository,
+        private SpamAssessmentStoreInterface $assessmentRepository,
         private StringProxy              $mode,
         private LoggerInterface          $logger,
     ) {

@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace unit\Cms\Admin;
 
 use Codeception\Test\Unit;
-use Register\Core\Admin\AdminExtension;
+use Register\Admin\AdminExtension;
 use Register\Core\AdminYard\CustomTemplateRendererEvent;
 use Register\Core\AdminYard\Form\CustomAutocomplete;
 use Register\Core\Framework\Container;

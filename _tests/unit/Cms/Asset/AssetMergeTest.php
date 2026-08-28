@@ -16,7 +16,7 @@ use Register\Core\Asset\AssetMerge;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\HttpClient\HttpClientException;
 use Register\Core\HttpClient\HttpResponse;
-use Register\Http\CompressionCodecRegistry;
+use Register\Core\Http\CompressionCodecRegistry;
 
 final class AssetMergeTest extends Unit
 {

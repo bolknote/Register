@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Core\Security\Monitoring;
 
-use Register\Http\CspViolationReporter;
+use Register\Core\Http\CspViolationReporter;
 use Symfony\Component\HttpFoundation\Response;
 
 /** Builds a small recent-event summary without loading complete log files into memory. */

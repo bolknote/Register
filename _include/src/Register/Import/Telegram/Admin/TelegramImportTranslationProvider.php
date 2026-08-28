@@ -9,7 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Import\Telegram\Admin;
 
-use Register\Core\Admin\TranslationProviderInterface;
+use Register\Admin\TranslationProviderInterface;
 
 final class TelegramImportTranslationProvider implements TranslationProviderInterface
 {

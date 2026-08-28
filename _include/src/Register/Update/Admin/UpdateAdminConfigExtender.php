@@ -16,7 +16,7 @@ use Register\Update\UpdateManager;
 use Register\Update\UpdateStorage;
 use Register\AdminYard\Config\AdminConfig;
 use Register\AdminYard\TemplateRenderer;
-use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Admin\AdminConfigExtenderInterface;
 use Register\Core\Model\PermissionChecker;
 
 final readonly class UpdateAdminConfigExtender implements AdminConfigExtenderInterface

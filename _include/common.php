@@ -12,7 +12,7 @@ declare(strict_types = 1);
 
 use Psr\Log\LoggerInterface;
 use Register\Backup\BackupDirectoryResolver;
-use Register\Http\ContentSecurityPolicy;
+use Register\Core\Http\ContentSecurityPolicy;
 use Register\Module\BaseModuleRegistry;
 use Register\RegisterKernel;
 use Register\Schema\SchemaManager;

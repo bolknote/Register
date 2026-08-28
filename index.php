@@ -10,10 +10,10 @@ declare(strict_types = 1);
  * @package   Register
  */
 
-use Register\Http\ContentSecurityPolicy;
-use Register\Http\ResponseCompressionCache;
-use Register\Http\ResponseCompressor;
-use Register\Http\TrustedScriptNonceInjector;
+use Register\Core\Http\ContentSecurityPolicy;
+use Register\Core\Http\ResponseCompressionCache;
+use Register\Core\Http\ResponseCompressor;
+use Register\Core\Http\TrustedScriptNonceInjector;
 use Register\Offline\OfflineCachePolicy;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Queue\ShutdownWorkCoordinator;

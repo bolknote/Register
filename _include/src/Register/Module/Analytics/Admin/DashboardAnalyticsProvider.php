@@ -12,7 +12,7 @@ namespace Register\Module\Analytics\Admin;
 
 use Register\Module\VisitorIdentity\VisitorIdentityRepository;
 use Register\AdminYard\TemplateRenderer;
-use Register\Core\Admin\Dashboard\DashboardBlockProviderInterface;
+use Register\Admin\Dashboard\DashboardBlockProviderInterface;
 
 final readonly class DashboardAnalyticsProvider implements DashboardBlockProviderInterface
 {

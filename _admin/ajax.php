@@ -9,8 +9,8 @@
 
 declare(strict_types = 1);
 
-use Register\Http\ContentSecurityPolicy;
-use Register\Core\Admin\AdminAjaxRequestHandler;
+use Register\Core\Http\ContentSecurityPolicy;
+use Register\Admin\AdminAjaxRequestHandler;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Queue\ShutdownWorkCoordinator;
 use Register\Core\Security\Monitoring\SecurityTelemetryRecorder;

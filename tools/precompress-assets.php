@@ -10,7 +10,7 @@
 
 declare(strict_types = 1);
 
-use Register\Http\CompressionCodecRegistry;
+use Register\Core\Http\CompressionCodecRegistry;
 
 if (PHP_SAPI !== 'cli') {
     throw new RuntimeException('Asset precompression can only be run from the command line.');

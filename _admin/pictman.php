@@ -12,7 +12,7 @@ declare(strict_types = 1);
  * @package   Register
  */
 
-use Register\Http\ContentSecurityPolicy;
+use Register\Core\Http\ContentSecurityPolicy;
 use Register\AdminYard\TemplateRenderer;
 use Register\Core\Model\AuthManager;
 use Register\Core\Model\UrlBuilder;

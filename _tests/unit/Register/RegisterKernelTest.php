@@ -10,6 +10,11 @@ declare(strict_types = 1);
 namespace unit\Register;
 
 use Codeception\Test\Unit;
+use Register\Ai\AiSettings;
+use Register\Auth\PublicAuthController;
+use Register\Backup\BackupManager;
+use Register\Comment\CommentRepository;
+use Register\Content\ContentRepository;
 use Register\Module\AudioPlayer\Module as AudioPlayerModule;
 use Register\Module\Analytics\AdminModule as AnalyticsAdminModule;
 use Register\Module\Analytics\Module as AnalyticsModule;
@@ -29,12 +34,18 @@ use Register\Module\VisitorIdentity\AdminModule as VisitorIdentityAdminModule;
 use Register\Module\VisitorIdentity\Module as VisitorIdentityModule;
 use Register\ProductModule;
 use Register\RegisterKernel;
+use Register\Schema\SchemaManager;
+use Register\Core\Queue\ScheduledWorkCoordinatorInterface;
+use Register\Url\ContentSlugService;
 use Register\Url\SlugGenerator;
 use Register\Url\UniqueSlugGenerator;
-use Register\Core\Admin\AdminExtension;
+use Register\Admin\AdminExtension;
 use Register\Core\CmsExtension;
+use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Framework\Application;
+use Register\Core\Framework\Container;
 use Register\Core\Framework\ModuleInterface;
+use Symfony\Component\Routing\RouteCollection;
 
 final class RegisterKernelTest extends Unit
 {
@@ -99,6 +110,68 @@ final class RegisterKernelTest extends Unit
             'new-post',
             $container->get(UniqueSlugGenerator::class)->generate('New post', static fn(string $_slug): bool => true),
         );
+    }
+
+    public function testProductModuleKeepsItsCompositionContracts(): void
+    {
+        $container = new \Register\Core\Framework\Container([]);
+        (new ProductModule(new BaseModuleRegistry()))->buildContainer($container);
+
+        foreach ([
+            BaseModuleRegistry::class,
+            AiSettings::class,
+            BackupManager::class,
+            ContentRepository::class,
+            CommentRepository::class,
+            PublicAuthController::class,
+            SchemaManager::class,
+            ContentSlugService::class,
+            ScheduledWorkCoordinatorInterface::class,
+        ] as $serviceId) {
+            self::assertTrue($container->has($serviceId), sprintf('Missing product service "%s".', $serviceId));
+        }
+    }
+
+    public function testProductModuleKeepsPublicServiceRouteOrder(): void
+    {
+        $routes    = new RouteCollection();
+        $container = new Container([]);
+        $container->set(DynamicConfigProvider::class, new class extends DynamicConfigProvider {
+            #[\Override]
+            public function get(string $paramName): mixed
+            {
+                return match ($paramName) {
+                    'REGISTER_FAVORITE_URL' => 'favorite',
+                    'REGISTER_TAGS_URL' => 'tags',
+                    default => throw new \LogicException('Unexpected test parameter: ' . $paramName),
+                };
+            }
+        });
+        (new ProductModule(new BaseModuleRegistry()))->registerRoutes($routes, $container);
+
+        self::assertSame([
+            'register_public_auth',
+            'register_public_auth_password',
+            'register_public_auth_logout',
+            'register_public_auth_email',
+            'register_public_auth_email_callback',
+            'register_public_auth_check_email',
+            'register_public_auth_oauth_start',
+            'register_public_auth_oauth_callback',
+            'register_public_auth_unread',
+            'sitemap',
+            'sitemap_part',
+            'robots',
+            'favorite',
+            'tags',
+            'tag',
+            'comment_sent',
+            'comment_unsubscribe',
+            'comment_moderate',
+            'register_live_updates',
+            'common',
+            'comment',
+        ], array_keys($routes->all()));
     }
 }
 

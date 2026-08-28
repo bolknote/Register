@@ -19,7 +19,7 @@ use Register\AdminYard\Event\AfterSaveEvent;
 use Register\AdminYard\Event\BeforeSaveEvent;
 use Register\AdminYard\Translator;
 use Register\AdminYard\Validator\Length;
-use Register\Core\Admin\AdminConfigExtenderInterface;
+use Register\Admin\AdminConfigExtenderInterface;
 use Register\Extension\activitypub\Infrastructure\ActivityPubSchema;
 
 final readonly class AdminConfigExtender implements AdminConfigExtenderInterface

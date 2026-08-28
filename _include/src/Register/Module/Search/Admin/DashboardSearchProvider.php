@@ -10,7 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Search\Admin;
 
 use Register\AdminYard\TemplateRenderer;
-use Register\Core\Admin\Dashboard\SystemStatusProviderInterface;
+use Register\Admin\Dashboard\SystemStatusProviderInterface;
 use Register\Rose\Storage\Database\PdoStorage;
 
 readonly class DashboardSearchProvider implements SystemStatusProviderInterface

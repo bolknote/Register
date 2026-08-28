@@ -16,7 +16,7 @@ use Register\AdminYard\Config\FieldConfig;
 use Register\AdminYard\Form\FormParams;
 use Register\AdminYard\SettingStorage\SettingStorageInterface;
 use Register\AdminYard\Translator;
-use Register\Core\Admin\AdminConfigProvider;
+use Register\Admin\AdminConfigProvider;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Security\Http\AdminMutationGuard;
 use Symfony\Component\HttpFoundation\JsonResponse;

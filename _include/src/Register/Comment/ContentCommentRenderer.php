@@ -13,9 +13,9 @@ use Register\Auth\CommentNotificationRepository;
 use Register\Content\ContentId;
 use Register\Module\Reactions\ReactionAggregateSchema;
 use Register\Core\Model\AuthProvider;
-use Register\Core\Model\Comment\CommentModerationContext;
+use Register\Model\Comment\CommentModerationContext;
 use Register\Core\Model\Comment\CommentModerator;
-use Register\Core\Model\Comment\CommentThreadRenderer;
+use Register\Model\Comment\CommentThreadRenderer;
 use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\Request;
 
