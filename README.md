@@ -159,8 +159,11 @@ publishing model.
 - SQLite 3.37+, MySQL 8.0+/MariaDB 10.5+, and PostgreSQL 14+.
 - A durable, leased, at-least-once queue advanced in a bounded shutdown phase after successful HTTP
   requests. It handles scheduled publication, search maintenance, link checking, thumbnails,
-  anti-spam cleanup, ActivityPub delivery and inbox work, and backups without a separate worker
-  process.
+  anti-spam cleanup, comment email, ActivityPub delivery and inbox work, and backups without a
+  separate worker process.
+- Provider-neutral outgoing mail through authenticated SMTP or PHP `mail()`, with independent
+  From/envelope/Reply-To identities, optional DKIM signing, durable comment delivery, bounded
+  privacy-minimized metrics, DNS visibility, and an end-to-end operator test.
 - Automatic inventory of local and external links, bounded SSRF-safe background checks, monthly
   rechecks of `404`/`410` targets, visible history, deliberate rechecks, Wayback discovery, and
   revision-safe replacement of confirmed broken links. Local references also protect targets from
@@ -347,6 +350,7 @@ identity requires a separate explicit activation lifecycle.
 - [Backups and restore](_doc/backups.md)
 - [Secret rotation and incident recovery](_doc/secret-rotation.md)
 - [Comments](_doc/comments.md)
+- [Outgoing mail](_doc/email.md)
 - [Anonymous identity and reactions](_doc/anonymous-identity-and-reactions.md)
 - [Audio player](_doc/audio-player.md)
 - [Code highlighting](_doc/code-highlighting.md)

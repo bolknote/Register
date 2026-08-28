@@ -32,6 +32,9 @@ use Register\Backup\BackupQueueHandler;
 use Register\Backup\BackupScheduler;
 use Register\Backup\DatabaseSnapshotter;
 use Register\Comment\CommentRepository;
+use Register\Comment\CommentMailDelivery;
+use Register\Comment\CommentMailPublisher;
+use Register\Comment\CommentMailQueueHandler;
 use Register\Comment\CommentImportService;
 use Register\Comment\CommentPresentationEnricherInterface;
 use Register\Comment\ContentCommentNotifier;
@@ -103,6 +106,8 @@ use Register\Core\HttpClient\HttpClient;
 use Register\Core\Controller\Comment\CommentStrategyInterface;
 use Register\Core\Controller\Comment\PendingEmailCommentServiceInterface;
 use Register\Core\Mail\CommentMailer;
+use Register\Core\Mail\ApplicationMailerInterface;
+use Register\Core\Mail\MailSettings;
 use Register\Core\Model\ArticleProvider;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Model\PermissionChecker;
@@ -155,6 +160,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
         }, [StatefulServiceInterface::class]);
         $container->set(PublicAuthSettings::class, static fn(Container $container): PublicAuthSettings => new PublicAuthSettings(
             $container->get(DynamicConfigProvider::class),
+            $container->get(MailSettings::class),
         ));
         $container->set(PublicAuthFormToken::class, static function (Container $container): PublicAuthFormToken {
             $provider = $container->get(DynamicConfigProvider::class);
@@ -326,8 +332,7 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             return new PublicAuthMailer(
                 $container->get('translator'),
                 $provider->getStringProxy('REGISTER_SITE_NAME'),
-                $provider->getStringProxy('REGISTER_WEBMASTER'),
-                $provider->getStringProxy('REGISTER_WEBMASTER_EMAIL'),
+                $container->get(ApplicationMailerInterface::class),
             );
         });
         $container->set(MagicLinkRateLimiter::class, static fn(Container $container): MagicLinkRateLimiter => new MagicLinkRateLimiter(
@@ -403,12 +408,26 @@ readonly class ProductModule implements ContainerModuleInterface, ContainerAware
             $container->get(DbLayer::class),
             $container->get(ArticleProvider::class),
         ));
-        $container->set(ContentCommentNotifier::class, static fn(Container $container): ContentCommentNotifier => new ContentCommentNotifier(
+        $container->set(CommentMailDelivery::class, static fn(Container $container): CommentMailDelivery => new CommentMailDelivery(
             $container->get(CommentRepository::class),
             $container->get(\Register\Comment\CommentSubscriptionService::class),
             $container->get(ContentRepository::class),
             $container->get(ContentUrlGenerator::class),
+            $container->get(\Register\Core\Model\User\UserProvider::class),
             $container->get(CommentMailer::class),
+        ));
+        $container->set(CommentMailPublisher::class, static fn(Container $container): CommentMailPublisher => new CommentMailPublisher(
+            $container->get(QueuePublisher::class),
+            $container->get(CommentMailDelivery::class),
+        ));
+        $container->set(CommentMailQueueHandler::class, static fn(Container $container): CommentMailQueueHandler => new CommentMailQueueHandler(
+            $container->get(CommentMailDelivery::class),
+        ), [QueueHandlerInterface::class]);
+        $container->set(ContentCommentNotifier::class, static fn(Container $container): ContentCommentNotifier => new ContentCommentNotifier(
+            $container->get(CommentRepository::class),
+            $container->get(\Register\Comment\CommentSubscriptionService::class),
+            $container->get(ContentRepository::class),
+            $container->get(CommentMailPublisher::class),
         ));
         $container->set(ContentCommentStrategy::PAGE_SERVICE_ID, static fn(Container $container): ContentCommentStrategy => new ContentCommentStrategy(
             ContentType::PAGE,

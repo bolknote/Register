@@ -81,7 +81,13 @@ use Register\Core\HttpClient\Remote\PublicAddressGuard;
 use Register\Core\HttpClient\Remote\SafeRemoteHttpClient;
 use Register\Core\Image\ThumbnailGenerator;
 use Register\Core\Logger\Logger;
+use Register\Core\Mail\ApplicationMailer;
+use Register\Core\Mail\ApplicationMailerInterface;
 use Register\Core\Mail\CommentMailer;
+use Register\Core\Mail\MailDeliveryInspector;
+use Register\Core\Mail\MailDeliveryLog;
+use Register\Core\Mail\MailSettings;
+use Register\Core\Mail\MailTransportFactory;
 use Register\Core\Model\ArticleProvider;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Model\Comment\CommentModerationTokenManager;
@@ -234,13 +240,18 @@ class CmsExtension implements ExtensionInterface
             $container->getBoolParameter('disable_cache'),
         ));
 
-        $container->set(DynamicSecretParameterRegistry::class, new DynamicSecretParameterRegistry([
+        $secretParameterRegistry = new DynamicSecretParameterRegistry([
                 'REGISTER_AKISMET_KEY',
                 'REGISTER_ANTISPAM_SECRET',
                 AiSettings::API_KEY_CONFIG_KEY,
                 \Register\Auth\PublicAuthSettings::YANDEX_CLIENT_SECRET_CONFIG_KEY,
+                MailSettings::SMTP_PASSWORD_CONFIG_KEY,
+                MailSettings::DKIM_PRIVATE_KEY_CONFIG_KEY,
                 VisitorIdentityManifest::SECRET_CONFIG_KEY,
-        ]));
+        ]);
+        $secretParameterRegistry->registerExtensionPrivate(MailDeliveryLog::HASH_SECRET_KEY);
+
+        $container->set(DynamicSecretParameterRegistry::class, $secretParameterRegistry);
         $container->set(DynamicSecretStore::class, fn(Container $container): \Register\Core\Config\DynamicSecretStore => new DynamicSecretStore(
             $container->getStringParameter('secret_config_file'),
             $container->get(DynamicSecretParameterRegistry::class),
@@ -254,6 +265,30 @@ class CmsExtension implements ExtensionInterface
         $container->set(FeedSettings::class, fn(Container $container): FeedSettings => new FeedSettings(
             $container->get(DynamicConfigProvider::class),
         ));
+        $container->set(MailSettings::class, fn(Container $container): MailSettings => new MailSettings(
+            $container->get(DynamicConfigProvider::class),
+        ));
+        $container->set(MailDeliveryLog::class, fn(Container $container): MailDeliveryLog => new MailDeliveryLog(
+            $container->getStringParameter('log_dir') . 'mail-delivery.jsonl',
+            $container->get(DynamicSecretStore::class)->getOrCreateExtensionPrivate(MailDeliveryLog::HASH_SECRET_KEY),
+        ));
+        $container->set(MailDeliveryInspector::class, fn(Container $container): MailDeliveryInspector => new MailDeliveryInspector(
+            $container->get(MailDeliveryLog::class),
+        ));
+        $container->set(MailTransportFactory::class, fn(Container $container): MailTransportFactory => new MailTransportFactory(
+            $container->get(MailSettings::class),
+            $container->get(LoggerInterface::class),
+        ));
+        $container->set(ApplicationMailer::class, fn(Container $container): ApplicationMailer => new ApplicationMailer(
+            $container->get(MailSettings::class),
+            $container->get(MailTransportFactory::class),
+            $container->get(MailDeliveryLog::class),
+            $container->get(LoggerInterface::class),
+        ));
+        $container->set(
+            ApplicationMailerInterface::class,
+            fn(Container $container): ApplicationMailerInterface => $container->get(ApplicationMailer::class),
+        );
 
         $container->set('translator', function (Container $container): \Register\Core\Translation\ExtensibleTranslator {
             $provider = $container->get(DynamicConfigProvider::class);
@@ -648,14 +683,10 @@ class CmsExtension implements ExtensionInterface
             );
         });
 
-        $container->set(CommentMailer::class, function (Container $container): \Register\Core\Mail\CommentMailer {
-            $provider = $container->get(DynamicConfigProvider::class);
-            return new CommentMailer(
-                $container->get('comments_translator'),
-                $provider->getStringProxy('REGISTER_WEBMASTER'),
-                $provider->getStringProxy('REGISTER_WEBMASTER_EMAIL'),
-            );
-        });
+        $container->set(CommentMailer::class, fn(Container $container): \Register\Core\Mail\CommentMailer => new CommentMailer(
+            $container->get('comments_translator'),
+            $container->get(ApplicationMailerInterface::class),
+        ));
 
         $container->set(SpamFeedbackService::class, fn(Container $container): \Register\Core\Comment\Antispam\SpamFeedbackService => new SpamFeedbackService(
             $container->get(\Register\Comment\CommentRepository::class),
@@ -744,7 +775,7 @@ class CmsExtension implements ExtensionInterface
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
                 $container->get(LoggerInterface::class),
-                $container->get(CommentMailer::class),
+                $container->get(\Register\Comment\CommentMailPublisher::class),
                 $container->get(SpamDecisionProviderInterface::class),
                 $container->get(CommentFormTokenManager::class),
                 $container->get(SpamRateLimiter::class),
@@ -762,7 +793,7 @@ class CmsExtension implements ExtensionInterface
             $container->get('comments_translator'),
             $container->get(UrlBuilder::class),
             $container->get(HtmlTemplateProvider::class),
-            $container->get(CommentMailer::class),
+            $container->get(\Register\Comment\CommentMailPublisher::class),
             ...$container->getByTag(CommentStrategyInterface::class)
         ), ['dynamic_config_dependent']);
 
@@ -967,7 +998,7 @@ class CmsExtension implements ExtensionInterface
         $routes->add('comment_unsubscribe', new Route(
             '/comment_unsubscribe',
             ['_controller' => CommentUnsubscribeController::class],
-            methods: ['GET']
+            methods: ['GET', 'POST']
         ));
         $routes->add('comment_moderate', new Route(
             '/comment-moderate',

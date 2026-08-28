@@ -11,6 +11,7 @@ namespace Register\Module\Blog;
 
 use Psr\Log\LoggerInterface;
 use Register\Comment\CommentChangedEvent;
+use Register\Comment\CommentMailPublisher;
 use Register\Comment\ContentCommentRenderer;
 use Register\Comment\ContentCommentStrategy;
 use Register\Content\ContentChangedEvent;
@@ -46,7 +47,6 @@ use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Framework\ResponseProcessorInterface;
 use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Http\Cache\PageCachePools;
-use Register\Core\Mail\CommentMailer;
 use Register\Core\Model\Article\ArticleRenderedEvent;
 use Register\Core\Model\ArticleProvider;
 use Register\Core\Model\FavoriteArticleProvider;
@@ -559,7 +559,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),
                 $container->get(LoggerInterface::class),
-                $container->get(CommentMailer::class),
+                $container->get(CommentMailPublisher::class),
                 $container->get(SpamDecisionProviderInterface::class),
                 $container->get(CommentFormTokenManager::class),
                 $container->get(SpamRateLimiter::class),

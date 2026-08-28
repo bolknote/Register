@@ -215,7 +215,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Modern PHP support | Available | Register requires PHP 8.3 and is checked for PHP 8.3–8.5 compatibility. |
 | Sitemap | Available | `/robots.txt` advertises a standards-compliant sitemap index containing published canonical pages and posts, split into bounded XML files. |
 | Merge and minify CSS/JavaScript | Available | Registered assets can be merged, minified, hashed, and compressed. |
-| Configurable mail sender | Available | Uses the configured webmaster email. |
+| Configurable mail sender | Available | Provider-neutral SMTP or PHP `mail()`, separate From/envelope/Reply-To identities, optional DKIM, queued comment delivery, and privacy-minimized diagnostics. |
 | Known-vulnerability monitor in the application | Missing | Dependency scanning is available in development/CI, not as an admin feature. |
 | True 404 response at the requested URL | Available | No redirect is required. |
 | Upload-directory quota | Available | The total stored size is enforced under a filesystem lock and configured with `files.upload_quota_bytes`. |

@@ -169,6 +169,31 @@ class AcceptanceTester extends Actor
         }
     }
 
+    /** Lets ordinary web requests drain enough due background jobs for a negative assertion. */
+    public function drainQueue(int $requests = 20): void
+    {
+        for ($attempt = 0; $attempt < $requests; ++$attempt) {
+            $this->amOnPage('/index.php?/robots.txt');
+        }
+    }
+
+    /**
+     * @return string[]
+     */
+    public function waitForEmails(int $expectedCount, int $requests = 20): array
+    {
+        for ($attempt = 0; $attempt < $requests; ++$attempt) {
+            $emails = $this->getEmails();
+            if (\count($emails) >= $expectedCount) {
+                return $emails;
+            }
+
+            $this->amOnPage('/index.php?/robots.txt');
+        }
+
+        return $this->getEmails();
+    }
+
     /**
      * @return string[]
      */

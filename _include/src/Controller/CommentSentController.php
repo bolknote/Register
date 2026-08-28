@@ -10,9 +10,8 @@ declare(strict_types = 1);
 namespace Register\Core\Controller;
 
 use Register\Core\Controller\Comment\CommentStrategyInterface;
-use Register\Core\Comment\CommentHtml;
+use Register\Comment\CommentMailPublisher;
 use Register\Core\Framework\ControllerInterface;
-use Register\Core\Mail\CommentMailer;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Model\User\UserProvider;
@@ -40,7 +39,7 @@ readonly class CommentSentController implements ControllerInterface
         private TranslatorInterface   $translator,
         private UrlBuilder            $urlBuilder,
         private HtmlTemplateProvider  $templateProvider,
-        private CommentMailer         $commentMailer,
+        private CommentMailPublisher  $commentMailPublisher,
         CommentStrategyInterface      ...$strategies
     ) {
         $this->commentStrategies = $strategies;
@@ -72,28 +71,19 @@ readonly class CommentSentController implements ControllerInterface
             }
 
             $moderators = $this->userProvider->getModerators([$comment->email]);
-            if (\count($moderators) > 0) {
-                /**
-                 * The comment was sent with a moderator email but the moderator is not logged in.
-                 * We assume that this comment has been written by somebody else.
-                 * So we have to notify this moderator.
-                 */
-                $link    = $this->urlBuilder->absLink($targetPath);
-                $message = CommentHtml::plainText($comment->text);
-                $target  = $commentStrategy->getTargetById($comment->targetId);
-                foreach ($moderators as $moderator) {
-                    $this->commentMailer->mailToModerator(
-                        $moderator->login,
-                        $moderator->email,
-                        $message,
-                            $target->title ?? 'unknown item',
-                        $link,
-                        $comment->name,
-                        $comment->email,
-                        false,
-                        'unknown'
-                    );
-                }
+            /**
+             * The comment was sent with a moderator email but the moderator is not logged in.
+             * We assume that this comment has been written by somebody else.
+             * So we have to notify this moderator.
+             */
+            foreach ($moderators as $moderator) {
+                $this->commentMailPublisher->moderator(
+                    $comment->id,
+                    $commentStrategy->getContentType(),
+                    $moderator->email,
+                    false,
+                    'unknown',
+                );
             }
 
             break;

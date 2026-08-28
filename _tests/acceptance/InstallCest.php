@@ -12,6 +12,7 @@ namespace acceptance;
 use AcceptanceTester;
 use Codeception\Example;
 use Register\Http\ContentSecurityPolicy;
+use Register\Core\Mail\MailSettings;
 
 /**
  * @group install
@@ -650,6 +651,10 @@ class InstallCest
         $I->changeSetting('REGISTER_PREMODERATION', true);
         $I->changeSetting('REGISTER_WEBMASTER_EMAIL', 'webmaster@example.com');
         $I->changeSetting('REGISTER_WEBMASTER', 'Webmaster Name');
+        $I->changeSetting(MailSettings::FROM_EMAIL_CONFIG_KEY, 'webmaster@example.com');
+        $I->changeSetting(MailSettings::ENVELOPE_EMAIL_CONFIG_KEY, 'webmaster@example.com');
+        $I->changeSetting(MailSettings::REPLY_TO_CONFIG_KEY, 'webmaster@example.com');
+        $I->changeSetting(MailSettings::FROM_NAME_CONFIG_KEY, 'Webmaster Name');
 
         // Set moderator email
         $I->amOnPage('/_admin/index.php?entity=User&action=list');
@@ -710,6 +715,83 @@ class InstallCest
         $I->assertStringContainsString($needle, $response);
     }
 
+    /**
+     * @param string[] $bodyFragments
+     */
+    private function assertCapturedEmail(
+        AcceptanceTester $I,
+        string           $rawMessage,
+        string           $recipient,
+        string           $subjectPrefix,
+        string           $replyTo,
+        array            $bodyFragments,
+        ?string          $unsubscribePrefix = null,
+    ): ?string {
+        if ($subjectPrefix === '') {
+            throw new \InvalidArgumentException('A captured mail subject prefix cannot be empty.');
+        }
+
+        $to = $this->capturedHeader($rawMessage, 'To');
+        $from = $this->capturedHeader($rawMessage, 'From');
+        $subject = $this->capturedHeader($rawMessage, 'Subject');
+        $replyToHeader = $this->capturedHeader($rawMessage, 'Reply-To');
+        $contentType = $this->capturedHeader($rawMessage, 'Content-Type');
+
+        $I->assertNotNull($to);
+        $I->assertStringContainsString($recipient, $to);
+        $I->assertSame('Webmaster Name <webmaster@example.com>', $from);
+        $I->assertNotNull($subject);
+        $I->assertStringStartsWith($subjectPrefix, $subject);
+        $I->assertStringContainsString('#comment-', $subject);
+        $I->assertNotNull($replyToHeader);
+        $I->assertStringContainsString($replyTo, $replyToHeader);
+        $I->assertSame('Register Mailer', $this->capturedHeader($rawMessage, 'X-Mailer'));
+        $I->assertSame('auto-generated', $this->capturedHeader($rawMessage, 'Auto-Submitted'));
+        $I->assertNotNull($contentType);
+        $I->assertStringStartsWith('multipart/alternative;', $contentType);
+        $I->assertStringContainsString('Content-Type: text/plain; charset=utf-8', $rawMessage);
+        $I->assertStringContainsString('Content-Type: text/html; charset=utf-8', $rawMessage);
+
+        $decoded = quoted_printable_decode($rawMessage);
+        foreach ($bodyFragments as $fragment) {
+            $I->assertStringContainsString($fragment, $decoded);
+        }
+
+        $unsubscribe = $this->capturedHeader($rawMessage, 'List-Unsubscribe');
+        if ($unsubscribePrefix === null) {
+            $I->assertNull($unsubscribe);
+            return null;
+        }
+
+        $I->assertNotNull($unsubscribe);
+        $I->assertStringStartsWith('<' . $unsubscribePrefix, $unsubscribe);
+        $I->assertStringEndsWith('>', $unsubscribe);
+        $I->assertSame(
+            'List-Unsubscribe=One-Click',
+            $this->capturedHeader($rawMessage, 'List-Unsubscribe-Post'),
+        );
+
+        return substr($unsubscribe, 1, -1);
+    }
+
+    private function capturedHeader(string $rawMessage, string $name): ?string
+    {
+        $separator = strpos($rawMessage, "\r\n\r\n");
+        if ($separator === false) {
+            return null;
+        }
+
+        $headerBlock = substr($rawMessage, 0, $separator);
+        $unfolded = preg_replace("/\r\n[ \t]+/", ' ', $headerBlock);
+        if (!\is_string($unfolded)
+            || preg_match('/^' . preg_quote($name, '/') . ':[ \t]*(.*)$/mi', $unfolded, $matches) !== 1
+        ) {
+            return null;
+        }
+
+        return trim($matches[1]);
+    }
+
     private function testComments(
         AcceptanceTester $I,
         string           $publicUrl,
@@ -742,42 +824,26 @@ class InstallCest
         $I->see($pageText);
         $I->canWriteComment(true);
 
-        $emails = $I->getEmails();
+        $emails = $I->waitForEmails(1);
         $I->assertCount(1, $emails);
 
-        // Two asserts to skip variable "Date" header
-        $I->assertStringContainsString('To: admin@example.com' . "\r\n" .
-            'Subject: =?UTF-8?B?' . base64_encode('Comment to http://localhost:8881/index.php?' . $publicUrl) . '?=' . "\r\n" .
-            'From: =?UTF-8?B?V2VibWFzdGVyIE5hbWU=?= <webmaster@example.com>' . "\r\n" .
-            'Sender: =?UTF-8?B?Um9tYW4g8J+Mng==?= <roman@example.com>' . "\r\n" .
-            'Date: ', $emails[0]);
-
-        $I->assertStringContainsString(' +0000' . "\r\n" .
-            'MIME-Version: 1.0' . "\r\n" .
-            'Content-transfer-encoding: 8bit' . "\r\n" .
-            'Content-type: text/plain; charset=utf-8' . "\r\n" .
-            'X-Mailer: Register Mailer' . "\r\n" .
-            'Reply-To: =?UTF-8?B?Um9tYW4g8J+Mng==?= <roman@example.com>' . "\r\n" .
-            '' . "\r\n" .
-            'Hello, admin.' . "\r\n" .
-            '' . "\r\n" .
-            'You have received this e-mail, because you are the moderator.' . "\r\n" .
-            'A new comment on' . "\r\n" .
-            '“' . $pageTitle . '”,' . "\r\n" .
-            'has been received. You can find it here:' . "\r\n" .
-            'http://localhost:8881/index.php?' . $publicUrl . "\r\n" .
-            '' . "\r\n" .
-            'Roman 🌞 is the comment author.' . "\r\n" .
-            '' . "\r\n" .
-            '----------------------------------------------------------------------' . "\r\n" .
-            'This is my first comment! 👪🐶' . "\r\n" .
-            '----------------------------------------------------------------------' . "\r\n" .
-            '' . "\r\n" .
-            'Hidden: the comment failed the check (report=ham). Publish it if it is appropriate.' . "\r\n" .
-            '' . "\r\n" .
-            'This e-mail has been sent automatically. If you reply, the author' . "\r\n" .
-            'of the comment will receive your answer.' . "\r\n" .
-            '', $emails[0]);
+        $this->assertCapturedEmail(
+            $I,
+            $emails[0],
+            'admin@example.com',
+            'Comment to http://localhost:8881/index.php?' . $publicUrl,
+            'roman@example.com',
+            [
+                'Hello, admin.',
+                'You have received this e-mail, because you are the moderator.',
+                '“' . $pageTitle . '”,',
+                'http://localhost:8881/index.php?' . $publicUrl . '#comment-',
+                'Roman 🌞 is the comment author.',
+                'This is my first comment! 👪🐶',
+                'Hidden: the comment failed the check (report=ham).',
+                'of the comment will receive your answer.',
+            ],
+        );
 
         $I->setCookie($this->getCookieName() . '_c', $commentCookie);
 
@@ -796,40 +862,26 @@ class InstallCest
         $I->see('This is a comment from a moderator.');
 
         // Email to subscribed user
-        $emails = $I->getEmails();
+        $emails = $I->waitForEmails(1);
         $I->assertCount(1, $emails);
-        $I->assertStringContainsString('To: roman@example.com' . "\r\n" .
-            'Subject: =?UTF-8?B?' . base64_encode('Comment to http://localhost:8881/index.php?' . $publicUrl) . '?=' . "\r\n" .
-            'From: =?UTF-8?B?' . base64_encode('Webmaster Name') . '?= <webmaster@example.com>' . "\r\n" .
-            'Date: ', $emails[0]);
-        $I->assertStringContainsString(' +0000' . "\r\n" .
-            'MIME-Version: 1.0' . "\r\n" .
-            'Content-transfer-encoding: 8bit' . "\r\n" .
-            'Content-type: text/plain; charset=utf-8' . "\r\n" .
-            'X-Mailer: Register Mailer' . "\r\n" .
-            'List-Unsubscribe: <http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code='
-            , $emails[0]);
-        $I->assertStringContainsString(
-            'Reply-To: =?UTF-8?B?' . base64_encode('Webmaster Name') . '?= <webmaster@example.com>' . "\r\n" .
-            '' . "\r\n" .
-            'Hello, Roman 🌞.' . "\r\n" .
-            '' . "\r\n" .
-            'You have received this e-mail because you subscribed to comments on the content' . "\r\n" .
-            '“' . $pageTitle . '”,' . "\r\n" .
-            'located at the address:' . "\r\n" .
-            'http://localhost:8881/index.php?' . $publicUrl . "\r\n" .
-            '' . "\r\n" .
-            'The author of the new comment is admin.' . "\r\n" .
-            '' . "\r\n" .
-            '----------------------------------------------------------------------' . "\r\n" .
-            'This is a comment from a moderator.' . "\r\n" .
-            '----------------------------------------------------------------------' . "\r\n" .
-            '' . "\r\n" .
-            'This e-mail has been sent automatically. If you reply, the author' . "\r\n" .
-            'of the site will receive your answer. To unsubscribe, follow the link' . "\r\n" .
-            '' . "\r\n" .
-            'http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code='
-            , $emails[0]);
+        $this->assertCapturedEmail(
+            $I,
+            $emails[0],
+            'roman@example.com',
+            'Comment to http://localhost:8881/index.php?' . $publicUrl,
+            'webmaster@example.com',
+            [
+                'Hello, Roman 🌞.',
+                'You have received this e-mail because you subscribed to comments on the content',
+                '“' . $pageTitle . '”,',
+                'http://localhost:8881/index.php?' . $publicUrl . '#comment-',
+                'The author of the new comment is admin.',
+                'This is a comment from a moderator.',
+                'of the site will receive your answer. To unsubscribe, follow the link',
+                'http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code=',
+            ],
+            'http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code=',
+        );
 
         /**
          * Testing that a comment with known email <admin@example.com> is not published when pre-moderation is enabled
@@ -846,40 +898,25 @@ class InstallCest
         $I->dontSee('Moderator2', '.comment-name');
         $I->dontSee('This is a comment from a moderator2.');
 
-        $emails = $I->getEmails();
+        $emails = $I->waitForEmails(1);
         $I->assertCount(1, $emails);
-        $I->assertStringContainsString('To: admin@example.com' . "\r\n" .
-            'Subject: =?UTF-8?B?' . base64_encode('Comment to http://localhost:8881/index.php?' . $publicUrl) . '?=' . "\r\n" .
-            'From: =?UTF-8?B?V2VibWFzdGVyIE5hbWU=?= <webmaster@example.com>' . "\r\n" .
-            'Sender: =?UTF-8?B?TW9kZXJhdG9yMg==?= <admin@example.com>' . "\r\n" .
-            'Date: ', $emails[0]);
-
-        $I->assertStringContainsString(' +0000' . "\r\n" .
-            'MIME-Version: 1.0' . "\r\n" .
-            'Content-transfer-encoding: 8bit' . "\r\n" .
-            'Content-type: text/plain; charset=utf-8' . "\r\n" .
-            'X-Mailer: Register Mailer' . "\r\n" .
-            'Reply-To: =?UTF-8?B?TW9kZXJhdG9yMg==?= <admin@example.com>' . "\r\n" .
-            '' . "\r\n" .
-            'Hello, admin.' . "\r\n" .
-            '' . "\r\n" .
-            'You have received this e-mail, because you are the moderator.' . "\r\n" .
-            'A new comment on' . "\r\n" .
-            '“' . $pageTitle . '”,' . "\r\n" .
-            'has been received. You can find it here:' . "\r\n" .
-            'http://localhost:8881/index.php?' . $publicUrl . "\r\n" .
-            '' . "\r\n" .
-            'Moderator2 is the comment author.' . "\r\n" .
-            '' . "\r\n" .
-            '----------------------------------------------------------------------' . "\r\n" .
-            'This is a comment from a moderator2.' . "\r\n" .
-            '----------------------------------------------------------------------' . "\r\n" .
-            '' . "\r\n" .
-            'Hidden: the comment failed the check (report=unknown). Publish it if it is appropriate.' . "\r\n" .
-            '' . "\r\n" .
-            'This e-mail has been sent automatically. If you reply, the author' . "\r\n" .
-            'of the comment will receive your answer.' . "\r\n" .
-            '', $emails[0]);
+        $this->assertCapturedEmail(
+            $I,
+            $emails[0],
+            'admin@example.com',
+            'Comment to http://localhost:8881/index.php?' . $publicUrl,
+            'admin@example.com',
+            [
+                'Hello, admin.',
+                'You have received this e-mail, because you are the moderator.',
+                '“' . $pageTitle . '”,',
+                'http://localhost:8881/index.php?' . $publicUrl . '#comment-',
+                'Moderator2 is the comment author.',
+                'This is a comment from a moderator2.',
+                'Hidden: the comment failed the check (report=unknown).',
+                'of the comment will receive your answer.',
+            ],
+        );
 
 
         /**
@@ -895,37 +932,29 @@ class InstallCest
             'shown' => 'on',
         ]);
 
-        $emails = $I->getEmails();
+        $emails = $I->waitForEmails(1);
         $I->assertCount(1, $emails);
-        $I->assertStringContainsString('To: roman@example.com' . "\r\n" .
-            'Subject: =?UTF-8?B?' . base64_encode('Comment to http://localhost:8881/index.php?' . $publicUrl) . '?=' . "\r\n" .
-            'From: =?UTF-8?B?' . base64_encode('Webmaster Name') . '?= <webmaster@example.com>' . "\r\n" .
-            'Date: ', $emails[0]);
-        $I->assertStringContainsString(
-            'Hello, Roman 🌞.' . "\r\n" .
-            '' . "\r\n" .
-            'You have received this e-mail because you subscribed to comments on the content' . "\r\n" .
-            '“' . $pageTitle . '”,' . "\r\n" .
-            'located at the address:' . "\r\n" .
-            'http://localhost:8881/index.php?' . $publicUrl . "\r\n" .
-            '' . "\r\n" .
-            'The author of the new comment is Moderator2.' . "\r\n" .
-            '' . "\r\n" .
-            '----------------------------------------------------------------------' . "\r\n" .
-            'This is a comment from a moderator2.' . "\r\n" .
-            '----------------------------------------------------------------------' . "\r\n" .
-            '' . "\r\n" .
-            'This e-mail has been sent automatically. If you reply, the author' . "\r\n" .
-            'of the site will receive your answer. To unsubscribe, follow the link' . "\r\n" .
-            '' . "\r\n" .
-            'http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code='
-            , $emails[0]);
-
-        if (preg_match('#List-Unsubscribe: <([^<]+)>#', $emails[0], $matches) !== 1) {
+        $unsubscribeLink = $this->assertCapturedEmail(
+            $I,
+            $emails[0],
+            'roman@example.com',
+            'Comment to http://localhost:8881/index.php?' . $publicUrl,
+            'webmaster@example.com',
+            [
+                'Hello, Roman 🌞.',
+                'You have received this e-mail because you subscribed to comments on the content',
+                '“' . $pageTitle . '”,',
+                'http://localhost:8881/index.php?' . $publicUrl . '#comment-',
+                'The author of the new comment is Moderator2.',
+                'This is a comment from a moderator2.',
+                'of the site will receive your answer. To unsubscribe, follow the link',
+                'http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code=',
+            ],
+            'http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code=',
+        );
+        if ($unsubscribeLink === null) {
             throw new \RuntimeException('The subscription email does not contain an unsubscribe link.');
         }
-
-        $unsubscribeLink = $matches[1];
 
         $I->amOnPage($publicUrl);
         $I->see('Moderator2', '.comment-name');
@@ -953,12 +982,16 @@ class InstallCest
         $I->amOnPage($publicUrl);
         $I->see('Moderator2', '.comment-name');
         $I->see('This is a comment from a moderator2.');
+        $I->drainQueue();
         $I->assertCount(0, $I->getEmails());
 
         /**
          * Test unsubscribing
-         */
-        $I->amOnPage($unsubscribeLink);
+        */
+        $I->sendAjaxPostRequest($unsubscribeLink, ['List-Unsubscribe' => 'invalid']);
+        $I->seeResponseCodeIs(400);
+
+        $I->sendAjaxPostRequest($unsubscribeLink, ['List-Unsubscribe' => 'One-Click']);
         $I->seeResponseCodeIs(200);
         $I->see('You have been successfully unsubscribed from mailing comments.');
 
@@ -975,6 +1008,7 @@ class InstallCest
         $I->sendComment('Moderator3', 'admin@example.com', 'This is a comment from a moderator3.');
         $I->see('admin', '.comment-name');
         $I->see('This is a comment from a moderator3.');
+        $I->drainQueue();
         $I->assertCount(0, $I->getEmails());
 
         /**

@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Auth;
 
 use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Mail\MailSettings;
 
 /** Runtime configuration for public sign-in methods. */
 final readonly class PublicAuthSettings
@@ -22,13 +23,16 @@ final readonly class PublicAuthSettings
 
     public const string YANDEX_CLIENT_SECRET_CONFIG_KEY = 'REGISTER_AUTH_YANDEX_CLIENT_SECRET';
 
-    public function __construct(private DynamicConfigProvider $configProvider)
-    {
+    public function __construct(
+        private DynamicConfigProvider $configProvider,
+        private MailSettings           $mailSettings,
+    ) {
     }
 
     public function emailEnabled(): bool
     {
-        return $this->configProvider->getBoolProxy(self::EMAIL_ENABLED_CONFIG_KEY)->get();
+        return $this->configProvider->getBoolProxy(self::EMAIL_ENABLED_CONFIG_KEY)->get()
+            && $this->mailSettings->ready();
     }
 
     public function vkClientId(): string

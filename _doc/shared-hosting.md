@@ -124,6 +124,19 @@ fallback. Omit `--force` to update only missing or stale variants. The **System 
 compression** block shows the encoders visible to web PHP, available offline precompression, ready
 sidecar counts, and whether the encoded page cache is enabled.
 
+## Outgoing mail
+
+Register needs no mail daemon of its own. It can use authenticated SMTP with STARTTLS or implicit
+TLS, or fall back to the hosting provider's PHP `mail()` facility. SMTP credentials and optional
+application DKIM keys use the protected dynamic secret file. Comment notifications run through the
+durable request-driven queue, while sign-in links report transport acceptance immediately.
+
+Configure and test the transport under **Settings → Outgoing mail** and **System status → Outgoing
+mail** before enabling sign-in by email. Use a sender in the site's domain and verify the received
+message's SPF, DKIM, and DMARC results. A successful `mail()` or SMTP call is not proof that the
+message reached Inbox. See the complete [outgoing-mail runbook](email.md), including the optional
+bounded cron command for sites with little traffic.
+
 ## Page-cache consistency
 
 Public page representations do not have an arbitrary lifetime. They remain cached until an

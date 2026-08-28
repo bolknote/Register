@@ -12,6 +12,7 @@ namespace Register\Schema;
 use Register\Ai\AiSettings;
 use Register\Auth\PublicAuthSettings;
 use Register\Core\Controller\Rss\FeedSettings;
+use Register\Core\Mail\MailSettings;
 use Register\Module\BaseModuleInstaller;
 use Register\Core\Framework\Container;
 use Register\Core\Model\ExtensionCache;
@@ -47,6 +48,21 @@ final readonly class SchemaManager
         PublicAuthSettings::VK_CLIENT_ID_CONFIG_KEY => '',
         PublicAuthSettings::YANDEX_CLIENT_ID_CONFIG_KEY => '',
         PublicAuthSettings::YANDEX_CLIENT_SECRET_CONFIG_KEY => '',
+        MailSettings::TRANSPORT_CONFIG_KEY => MailSettings::TRANSPORT_AUTO,
+        MailSettings::FROM_NAME_CONFIG_KEY => '',
+        MailSettings::FROM_EMAIL_CONFIG_KEY => '',
+        MailSettings::ENVELOPE_EMAIL_CONFIG_KEY => '',
+        MailSettings::REPLY_TO_CONFIG_KEY => '',
+        MailSettings::SMTP_HOST_CONFIG_KEY => '',
+        MailSettings::SMTP_PORT_CONFIG_KEY => '587',
+        MailSettings::SMTP_ENCRYPTION_CONFIG_KEY => MailSettings::ENCRYPTION_STARTTLS,
+        MailSettings::SMTP_USERNAME_CONFIG_KEY => '',
+        MailSettings::SMTP_PASSWORD_CONFIG_KEY => '',
+        MailSettings::TIMEOUT_CONFIG_KEY => '8',
+        MailSettings::PHP_ENVELOPE_CONFIG_KEY => '1',
+        MailSettings::DKIM_SELECTOR_CONFIG_KEY => '',
+        MailSettings::DKIM_DOMAIN_CONFIG_KEY => '',
+        MailSettings::DKIM_PRIVATE_KEY_CONFIG_KEY => '',
     ];
 
     public function __construct(
@@ -142,17 +158,20 @@ final readonly class SchemaManager
     /** Adds newly introduced optional settings without changing the schema generation. */
     private function ensureConfigDefaults(): bool
     {
-        $existingNames = array_flip($this->dbLayer
-            ->select('name')
+        /** @var array<string, string> $existing */
+        $existing = $this->dbLayer
+            ->select('name, value')
             ->from('config')
             ->execute()
-            ->fetchColumn());
+            ->fetchKeyPair();
         $changed = false;
 
         foreach (self::CONFIG_DEFAULTS as $name => $value) {
-            if (isset($existingNames[$name])) {
+            if (array_key_exists($name, $existing)) {
                 continue;
             }
+
+            $value = $this->upgradeDefault($name, $value, $existing);
 
             $this->dbLayer
                 ->insert('config')
@@ -164,6 +183,27 @@ final readonly class SchemaManager
         }
 
         return $changed;
+    }
+
+    /**
+     * Preserve the sender identity used by releases predating the dedicated mailer settings.
+     * Fresh installations already provide every mail setting through Installer.
+     *
+     * @param array<string, string> $existing
+     */
+    private function upgradeDefault(string $name, int|string $default, array $existing): int|string
+    {
+        $legacyName = trim($existing['REGISTER_WEBMASTER'] ?? '');
+
+        return match ($name) {
+            MailSettings::FROM_NAME_CONFIG_KEY => $legacyName !== ''
+                ? $legacyName
+                : trim($existing['REGISTER_SITE_NAME'] ?? ''),
+            MailSettings::FROM_EMAIL_CONFIG_KEY,
+            MailSettings::ENVELOPE_EMAIL_CONFIG_KEY,
+            MailSettings::REPLY_TO_CONFIG_KEY => trim($existing['REGISTER_WEBMASTER_EMAIL'] ?? ''),
+            default => $default,
+        };
     }
 
     public function currentGeneration(): int

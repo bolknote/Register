@@ -91,6 +91,12 @@ final readonly class QueueConsumer
             }
 
             $this->deferForBudget($jobId, $jobCode, $generation, $now, $exception);
+        } catch (QueuePermanentFailure $throwable) {
+            if (!$hadTransaction && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            $this->scheduleRetry($jobId, $jobCode, $generation, self::MAX_ATTEMPTS - 1, $now, $throwable);
         } catch (\Throwable $throwable) {
             if (!$hadTransaction && $this->pdo->inTransaction()) {
                 $this->pdo->rollBack();

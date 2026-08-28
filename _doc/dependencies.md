@@ -1,9 +1,13 @@
 # Dependency maintenance
 
-Last reviewed: 2026-08-14.
+Last reviewed: 2026-08-28.
 
 `composer audit --locked` reports no known security advisories. Production dependencies are current.
 The remaining Composer warnings are limited to development tools:
+
+Symfony Mailer and Mime are direct production dependencies. They provide provider-neutral SMTP,
+standards-compliant MIME generation, and optional DKIM signing; Register retains its small custom
+transport only for the shared-hosting PHP `mail()` fallback.
 
 | Package | Status | Decision |
 | --- | --- | --- |

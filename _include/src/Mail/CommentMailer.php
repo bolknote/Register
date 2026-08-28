@@ -1,6 +1,6 @@
 <?php
 /**
- * @copyright 2009-2025 Roman Parpalak
+ * @copyright 2009-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
  * @package   Register
  */
@@ -9,15 +9,14 @@ declare(strict_types = 1);
 
 namespace Register\Core\Mail;
 
-use Register\Core\Config\StringProxy;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+/** Builds comment messages while the application mailer owns transport and sender identity. */
 readonly class CommentMailer
 {
     public function __construct(
-        private TranslatorInterface $translator,
-        private StringProxy         $webmasterName,
-        private StringProxy         $webmasterEmail,
+        private TranslatorInterface        $translator,
+        private ApplicationMailerInterface $mailer,
     ) {
     }
 
@@ -28,36 +27,26 @@ readonly class CommentMailer
         string $title,
         string $url,
         string $authorName,
-        string $unsubscribeLink
+        string $unsubscribeLink,
     ): bool {
         $messageTemplate = $this->translator->trans('Email pattern');
-        $message         = str_replace(
+        $message = str_replace(
             ['<name>', '<author>', '<title>', '<url>', '<text>', '<unsubscribe>'],
             [$subscriberName, $authorName, $title, $url, $text, $unsubscribeLink],
-            $messageTemplate
+            $messageTemplate,
         );
 
-        // Make sure all linebreaks are CRLF in message (and strip out any NULL bytes)
-        $message = str_replace(["\n", "\0"], ["\r\n", ''], $message);
+        $this->mailer->send(new MailMessage(
+            type: 'comment_subscriber',
+            recipientEmail: $subscriberEmail,
+            recipientName: $subscriberName,
+            subject: \sprintf($this->translator->trans('Email subject'), $url),
+            textBody: $message,
+            htmlBody: $this->plainTextHtml($message),
+            unsubscribeUrl: $unsubscribeLink,
+        ));
 
-        $subject = \sprintf($this->translator->trans('Email subject'), $url);
-        $subject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
-
-        // Our email
-        $from = $this->getWebmasterNameAndEmail();
-
-        $headers = [
-            'From'                      => $from,
-            'Date'                      => gmdate('r'),
-            'MIME-Version'              => '1.0',
-            'Content-transfer-encoding' => '8bit',
-            'Content-type'              => 'text/plain; charset=utf-8',
-            'X-Mailer'                  => 'Register Mailer',
-            'List-Unsubscribe'          => '<' . $unsubscribeLink . '>',
-            'Reply-To'                  => $from
-        ];
-
-        return $this->sendMail($subscriberEmail, $subject, $message, $headers);
+        return true;
     }
 
     public function mailToModerator(
@@ -68,88 +57,42 @@ readonly class CommentMailer
         string $url,
         string $authorName,
         string $authorEmail,
-        bool $isPublished,
+        bool   $isPublished,
         string $spamReportStatus,
     ): bool {
         $messageTemplate = $this->translator->trans('Email moderator pattern');
-        $message         = str_replace(
+        $message = str_replace(
             ['<name>', '<author>', '<title>', '<url>', '<text>', '<status>'],
-            [$moderatorName, $authorName, $title, $url, $text, \sprintf(
-                $this->translator->trans($isPublished ? 'Comment check passed' : 'Comment check failed'), $spamReportStatus
-            )],
-            $messageTemplate
+            [
+                $moderatorName,
+                $authorName,
+                $title,
+                $url,
+                $text,
+                \sprintf(
+                    $this->translator->trans($isPublished ? 'Comment check passed' : 'Comment check failed'),
+                    $spamReportStatus,
+                ),
+            ],
+            $messageTemplate,
         );
 
-        // Make sure all linebreaks are CRLF in message (and strip out any NULL bytes)
-        $message = str_replace(["\n", "\0"], ["\r\n", ''], $message);
+        $this->mailer->send(new MailMessage(
+            type: 'comment_moderator',
+            recipientEmail: $moderatorEmail,
+            recipientName: $moderatorName,
+            subject: \sprintf($this->translator->trans('Email subject'), $url),
+            textBody: $message,
+            htmlBody: $this->plainTextHtml($message),
+            replyToEmail: $authorEmail,
+            replyToName: $authorName,
+        ));
 
-        $subject = \sprintf($this->translator->trans('Email subject'), $url);
-        $subject = "=?UTF-8?B?" . base64_encode($subject) . "?=";
-
-        // Our email
-        $webmaster = $this->getWebmasterNameAndEmail();
-
-        // Author email
-        $author = "=?UTF-8?B?" . base64_encode($authorName) . "?=" . ' <' . $authorEmail . '>';
-
-        $headers = [
-            'From'                      => $webmaster, // One cannot use the real author email in "From:" header due to DMARC. Use our one.
-            'Sender'                    => $author, // Let's use the real author email at least here.
-            'Date'                      => gmdate('r'),
-            'MIME-Version'              => '1.0',
-            'Content-transfer-encoding' => '8bit',
-            'Content-type'              => 'text/plain; charset=utf-8',
-            'X-Mailer'                  => 'Register Mailer',
-            'Reply-To'                  => $author
-        ];
-
-        return $this->sendMail($moderatorEmail, $subject, $message, $headers);
+        return true;
     }
 
-    /**
-     * @param array<string, string> $headers
-     */
-    private function sendMail(string $email, string $subject, string $message, array $headers): bool
+    private function plainTextHtml(string $message): string
     {
-        $headersFormatted = $this->formatHeaders($headers);
-
-        if (!\defined('PHP_VERSION_ID') || PHP_VERSION_ID < 80000) {
-            // Old hack for PHP < 8.0
-            // Change the linebreaks used in the headers according to OS
-            $os = strtoupper(substr(PHP_OS, 0, 3));
-            if ($os === 'MAC') {
-                $headersFormatted = str_replace("\r\n", "\r", $headersFormatted);
-            } elseif ($os !== 'WIN') {
-                $headersFormatted = str_replace("\r\n", "\n", $headersFormatted);
-            }
-        }
-
-        return mail($email, $subject, $message, $headersFormatted);
-    }
-
-    /**
-     * @param array<string, string> $headers
-     */
-    private function formatHeaders(array $headers): string
-    {
-        $formatted = '';
-        foreach ($headers as $key => $value) {
-            $formatted .= $key . ': ' . $value . "\r\n";
-        }
-
-        return $formatted;
-    }
-
-    private function getWebmasterNameAndEmail(): string
-    {
-        $configuredEmail = $this->webmasterEmail->get();
-        $email = $configuredEmail !== '' ? $configuredEmail : 'example@example.com';
-        $name  = $this->webmasterName->get();
-
-        if ($name !== '') {
-            return "=?UTF-8?B?" . base64_encode($name) . "?=" . ' <' . $email . '>';
-        }
-
-        return $email;
+        return '<div>' . nl2br(htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8')) . '</div>';
     }
 }

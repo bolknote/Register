@@ -24,13 +24,18 @@ directory. Do not create a `register-app` sibling and do not rewrite the front c
 [`shared-hosting.md`](shared-hosting.md) for installation, permission, boundary-verification, and
 safe-update instructions.
 
-Dynamic AI and Akismet API keys and the antispam/anonymous-visitor HMAC secrets are not stored in the
-database. Register stores them in a mode-`0600` PHP file; on ordinary shared hosting the verified
+Dynamic AI and Akismet API keys, SMTP credentials, optional DKIM private keys, and the
+antispam/anonymous-visitor HMAC secrets are not stored in the database. Register stores them in a
+mode-`0600` PHP file; on ordinary shared hosting the verified
 in-root fallback is `config.secrets.php`, which the supplied Apache policy denies. Generated caches
 and database backups contain only a marker. Preserve this file separately when moving or restoring
 a site. It can be moved to another private path with `security.secret_file` in `config.php` when the
 hosting account permits that path. Relative paths are resolved from the application root. See the
 [secret-rotation runbook](secret-rotation.md) before replacing any value.
+
+Configure and verify outgoing mail only after this secret boundary passes. Register supports
+provider-neutral authenticated SMTP and the local PHP `mail()` fallback; see the
+[outgoing-mail runbook](email.md) for identity alignment, queueing, metrics, and end-to-end checks.
 
 ## Apache shared hosting
 

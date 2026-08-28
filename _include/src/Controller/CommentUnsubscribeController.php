@@ -1,6 +1,6 @@
 <?php
 /**
- * @copyright 2007-2024 Roman Parpalak
+ * @copyright 2007-2026 Roman Parpalak
  * @license   https://opensource.org/license/mit MIT
  * @package   Register
  */
@@ -34,6 +34,13 @@ readonly class CommentUnsubscribeController implements ControllerInterface
     #[\Override]
     public function handle(Request $request): Response
     {
+        if (
+            $request->isMethod('POST')
+            && $request->request->getString('List-Unsubscribe') !== 'One-Click'
+        ) {
+            return $this->privateResponse(new Response('', Response::HTTP_BAD_REQUEST));
+        }
+
         $id   = $request->query->get('id');
         $mail = $request->query->get('mail');
         $code = $request->query->get('code');
@@ -66,6 +73,7 @@ readonly class CommentUnsubscribeController implements ControllerInterface
     private function privateResponse(Response $response): Response
     {
         $response->headers->set('Cache-Control', 'no-store, private');
+        $response->headers->set('X-Robots-Tag', 'noindex, nofollow');
 
         return $response;
     }

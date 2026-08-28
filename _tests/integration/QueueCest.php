@@ -25,6 +25,7 @@ use Register\Core\Queue\QueueExecutionBudget;
 use Register\Core\Queue\QueueHandlerInterface;
 use Register\Core\Queue\QueueHandlerRegistry;
 use Register\Core\Queue\QueueMonitor;
+use Register\Core\Queue\QueuePermanentFailure;
 use Register\Core\Queue\QueuePublisher;
 use Register\Core\Queue\QueueRecovery;
 use Register\Core\Queue\QueueRunnerLease;
@@ -385,6 +386,20 @@ final class QueueCest
         $I->assertSame(1, $status['delayed']);
         $I->assertSame(1, $status['failed']);
         $I->assertSame(40, $status['oldest_ready_age']);
+        $I->assertSame(
+            [
+                'total' => 3,
+                'ready' => 1,
+                'delayed' => 1,
+                'failed' => 1,
+                'oldest_ready_age' => 40,
+            ],
+            $monitor->statusForCodes(['test', 'test'], $now),
+        );
+        $I->assertSame(
+            ['total' => 0, 'ready' => 0, 'delayed' => 0, 'failed' => 0, 'oldest_ready_age' => null],
+            $monitor->statusForCodes(['missing'], $now),
+        );
 
         $recovery = new QueueRecovery($pdo, '');
         $I->assertTrue($recovery->retryFailed('failed', 'test', $now + 1));
@@ -478,6 +493,27 @@ final class QueueCest
         $row = $this->job($pdo, 'poison', 'test');
         $I->assertNotNull($row['failed_at']);
         $I->assertStringContainsString('Expected failure', (string)$row['last_error']);
+        $I->assertFalse($consumer->runQueue($now + 10_000));
+    }
+
+    public function permanentFailureMovesJobDirectlyToFailedState(IntegrationTester $I): void
+    {
+        $pdo = $this->pdo($I);
+        $publisher = new QueuePublisher($pdo, '');
+        $handler = new QueueTestHandler();
+        $handler->callback = static function (): never {
+            throw new QueuePermanentFailure('Expected permanent failure');
+        };
+        $consumer = $this->consumer($pdo, $handler);
+        $publisher->publish('permanent', 'test');
+        $now = time();
+
+        $I->assertTrue($consumer->runQueue($now));
+        $row = $this->job($pdo, 'permanent', 'test');
+        $I->assertSame(QueueConsumer::MAX_ATTEMPTS, (int)$row['attempts']);
+        $I->assertSame($now, (int)$row['failed_at']);
+        $I->assertSame($now, (int)$row['available_at']);
+        $I->assertStringContainsString('Expected permanent failure', (string)$row['last_error']);
         $I->assertFalse($consumer->runQueue($now + 10_000));
     }
 

@@ -21,6 +21,7 @@ use Register\Content\ContentType;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentViewSchema;
 use Register\Core\Controller\Rss\FeedSettings;
+use Register\Core\Mail\MailSettings;
 use Register\Live\LiveUpdateSchema;
 use Register\Import\ExternalImportMapSchema;
 use Register\Url\ContentUrlAliasSchema;
@@ -213,6 +214,21 @@ readonly class Installer
             'REGISTER_SOCIAL_IMAGE'     => '',
             'REGISTER_WEBMASTER'        => '',
             'REGISTER_WEBMASTER_EMAIL'  => $email,
+            MailSettings::TRANSPORT_CONFIG_KEY => MailSettings::TRANSPORT_AUTO,
+            MailSettings::FROM_NAME_CONFIG_KEY => $siteName,
+            MailSettings::FROM_EMAIL_CONFIG_KEY => $email,
+            MailSettings::ENVELOPE_EMAIL_CONFIG_KEY => $email,
+            MailSettings::REPLY_TO_CONFIG_KEY => $email,
+            MailSettings::SMTP_HOST_CONFIG_KEY => '',
+            MailSettings::SMTP_PORT_CONFIG_KEY => '587',
+            MailSettings::SMTP_ENCRYPTION_CONFIG_KEY => MailSettings::ENCRYPTION_STARTTLS,
+            MailSettings::SMTP_USERNAME_CONFIG_KEY => '',
+            MailSettings::SMTP_PASSWORD_CONFIG_KEY => '',
+            MailSettings::TIMEOUT_CONFIG_KEY => '8',
+            MailSettings::PHP_ENVELOPE_CONFIG_KEY => '1',
+            MailSettings::DKIM_SELECTOR_CONFIG_KEY => '',
+            MailSettings::DKIM_DOMAIN_CONFIG_KEY => '',
+            MailSettings::DKIM_PRIVATE_KEY_CONFIG_KEY => '',
             'REGISTER_START_YEAR'       => date('Y'),
             'REGISTER_USE_HIERARCHY'    => '1',
             'REGISTER_MAX_ITEMS'        => '20',

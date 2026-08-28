@@ -13,9 +13,6 @@ use Register\Content\ContentId;
 use Register\Content\ContentItem;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
-use Register\Url\ContentUrlGenerator;
-use Register\Core\Comment\CommentHtml;
-use Register\Core\Mail\CommentMailer;
 use Register\Core\Pdo\DbLayerException;
 
 /** Sends notifications and manages subscriptions for every Register content type. */
@@ -25,8 +22,7 @@ final readonly class ContentCommentNotifier
         private CommentRepository          $commentRepository,
         private CommentSubscriptionService $subscriptionService,
         private ContentRepository           $contentRepository,
-        private ContentUrlGenerator         $contentUrlGenerator,
-        private CommentMailer               $commentMailer,
+        private CommentMailPublisher        $mailPublisher,
     ) {
     }
 
@@ -41,8 +37,8 @@ final readonly class ContentCommentNotifier
             return;
         }
 
-        // Visibility and delivery are independent states. Moderation publishes first so readers
-        // can immediately reply, then performs the potentially slow mail delivery.
+        // Visibility and delivery are independent states. We durably enqueue recipients first;
+        // the caller can then publish without waiting for any external mail server.
         if ($comment->sent) {
             return;
         }
@@ -56,24 +52,11 @@ final readonly class ContentCommentNotifier
             return;
         }
 
-        $message = CommentHtml::plainText($comment->text);
-        $link    = $this->contentUrlGenerator->absolutePath($content->path);
-
         foreach ($this->subscriptionService->receivers($comment->contentId, $comment->email) as $receiver) {
-            $unsubscribeLink = $this->contentUrlGenerator->rawAbsolutePath('/comment_unsubscribe', [
-                'mail=' . urlencode($receiver->email),
-                'id=' . $comment->contentId->value,
-                'code=' . $receiver->unsubscribeToken,
-            ]);
-
-            $this->commentMailer->mailToSubscriber(
-                $receiver->name,
+            $this->mailPublisher->subscriber(
+                $comment->id,
+                $comment->contentId->type,
                 $receiver->email,
-                $message,
-                $content->title,
-                $link,
-                $comment->name,
-                $unsubscribeLink,
             );
         }
 

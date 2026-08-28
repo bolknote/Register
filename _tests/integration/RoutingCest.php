@@ -26,6 +26,7 @@ class RoutingCest
         $I->assertNotNull($allow, 'Allow header must be present on a 405 response');
         $I->assertStringContainsString('GET', $allow);
         $I->assertStringContainsString('POST', $allow);
+        $I->assertStringContainsString('POST', $allow);
     }
 
     public function methodNotAllowedReturns405ForPutOnGetOnlyRoute(IntegrationTester $I): void

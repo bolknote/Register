@@ -29,9 +29,11 @@ enabled, the guest may prepare the comment while requesting a one-time link. The
 sanitizer, replay protection, rate limiting, and spam checks run before the message is queued, and
 the pending comment is published only after the link is opened successfully.
 
-Email-link sign-in is disabled on new sites. Enable it under **Settings → Public sign-in** only after
-verifying that PHP `mail()` from the production host reaches the intended mailbox. VK ID and Yandex
-buttons likewise remain hidden until their application credentials are configured.
+Email-link sign-in is disabled on new sites. Configure a provider-neutral SMTP or PHP `mail()`
+transport under **Settings → Outgoing mail**, verify an end-to-end control message, and only then
+enable it under **Settings → Public sign-in**. VK ID and Yandex buttons likewise remain hidden until
+their application credentials are configured. See [Outgoing mail](email.md) for shared-hosting
+setup, sender authentication, queueing, and diagnostics.
 
 ## Submission and moderation
 

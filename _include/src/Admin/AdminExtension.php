@@ -50,6 +50,7 @@ use Register\Core\Admin\Dashboard\DashboardConfigExtender;
 use Register\Core\Admin\Dashboard\DashboardCompressionProvider;
 use Register\Core\Admin\Dashboard\DashboardDatabaseProvider;
 use Register\Core\Admin\Dashboard\DashboardEnvironmentProvider;
+use Register\Core\Admin\Dashboard\DashboardMailProvider;
 use Register\Core\Admin\Dashboard\DashboardPerformanceProvider;
 use Register\Core\Admin\Dashboard\DashboardPageCacheProvider;
 use Register\Core\Admin\Dashboard\DashboardQueryProfilerProvider;
@@ -61,6 +62,8 @@ use Register\Core\Admin\Controller\BulkListActionController;
 use Register\Core\Admin\Controller\SavedListViewController;
 use Register\Core\Admin\Event\RedirectFromPublicEvent;
 use Register\Core\Admin\Event\AdminAjaxControllerMapEvent;
+use Register\Core\Admin\Mail\MailTestController;
+use Register\Core\Admin\Mail\MailTestToken;
 use Register\Core\Admin\Profiler\QueryProfilerController;
 use Register\Core\Admin\Profiler\QueryProfilerToken;
 use Register\Core\Admin\Picture\PictureStorageQuota;
@@ -87,6 +90,10 @@ use Register\Core\Framework\Container;
 use Register\Core\Framework\ExtensionInterface;
 use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Http\Cache\PageCachePools;
+use Register\Core\Mail\ApplicationMailerInterface;
+use Register\Core\Mail\MailDeliveryInspector;
+use Register\Core\Mail\MailDnsInspector;
+use Register\Core\Mail\MailSettings;
 use Register\Core\Model\ArticleManager;
 use Register\Core\Model\ArticleProvider;
 use Register\Core\Model\AuthManager;
@@ -448,6 +455,33 @@ class AdminExtension implements ExtensionInterface
             $container->get(PageCachePools::class),
             !$container->getBoolParameter('disable_cache'),
         ), [SystemStatusProviderInterface::class]);
+        $container->set(MailDnsInspector::class, static fn(Container $container): MailDnsInspector => new MailDnsInspector(
+            $container->get(MailSettings::class),
+        ));
+        $container->set(MailTestToken::class, fn(Container $container): MailTestToken => new MailTestToken(
+            $container->get(SettingStorageInterface::class),
+        ));
+        $container->set(MailTestController::class, fn(Container $container): MailTestController => new MailTestController(
+            $container->get(ApplicationMailerInterface::class),
+            $container->get(MailSettings::class),
+            $container->get(MailTestToken::class),
+            $container->get(PermissionChecker::class),
+            $container->get(AdminMutationGuard::class),
+            $container->get(\Register\Core\Model\UrlBuilder::class),
+            $container->get(Translator::class),
+            $container->get(\Psr\Log\LoggerInterface::class),
+        ));
+        $container->set(DashboardMailProvider::class, fn(Container $container): DashboardMailProvider => new DashboardMailProvider(
+            $container->get(TemplateRenderer::class),
+            $container->get(MailSettings::class),
+            $container->get(MailDeliveryInspector::class),
+            $container->get(MailDnsInspector::class),
+            $container->get(\Register\Core\Queue\QueueMonitor::class),
+            $container->get(MailTestToken::class),
+            $container->get(PermissionChecker::class),
+            $container->get(DynamicConfigProvider::class)->getStringProxy('REGISTER_WEBMASTER_EMAIL'),
+            $container->get(RequestStack::class),
+        ), [SystemStatusProviderInterface::class]);
         $container->set(QueryProfilerToken::class, fn(Container $container): QueryProfilerToken => new QueryProfilerToken(
             $container->get(SettingStorageInterface::class),
         ));
@@ -657,6 +691,9 @@ class AdminExtension implements ExtensionInterface
             $event->controllerMap['register_query_profiler'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
                 ->get(QueryProfilerController::class)
                 ->mutate($request);
+            $event->controllerMap['register_mail_test'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
+                ->get(MailTestController::class)
+                ->send($request);
             $event->controllerMap['register_update_start'] = static fn(PermissionChecker $_permissionChecker, Request $request): \Symfony\Component\HttpFoundation\Response => $container
                 ->get(UpdateAdminController::class)
                 ->start($request);

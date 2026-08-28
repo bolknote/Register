@@ -19,14 +19,19 @@ use Register\Core\Comment\Antispam\CommentFormTokenManager;
 use Register\Core\Comment\SpamDetectorComment;
 use Register\Core\Comment\SpamDetectorInterface;
 use Register\Core\Comment\SpamDetectorReport;
-use Register\Core\Config\StringProxy;
 use Register\Core\Config\DynamicConfigProvider;
+use Register\Core\Mail\ApplicationMailerInterface;
+use Register\Core\Mail\MailDelivery;
+use Register\Core\Mail\MailMessage;
 use Register\Core\Framework\Application;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Model\Installer;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueuePublisher;
+use Register\Comment\CommentMailDelivery;
+use Register\Comment\CommentMailPublisher;
 use Register\Rose\Storage\Database\PdoStorage;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -553,19 +558,21 @@ class Integration extends AbstractBrowserModule
             return;
         }
 
-        $decorator = function (Container $container, callable $factory): \Helper\IntegrationCommentMailer {
-            /** @var DynamicConfigProvider $provider */
-            $provider = $container->get(DynamicConfigProvider::class);
-
-            return new IntegrationCommentMailer(
-                $container->get('comments_translator'),
-                $provider->getStringProxy('REGISTER_WEBMASTER'),
-                $provider->getStringProxy('REGISTER_WEBMASTER_EMAIL'),
-                $this
-            );
-        };
+        $decorator = (fn(Container $container, callable $factory): \Helper\IntegrationCommentMailer => new IntegrationCommentMailer(
+            $container->get('comments_translator'),
+            $container->get(ApplicationMailerInterface::class),
+            $this,
+        ));
 
         $this->publicApplication->container->decorate(\Register\Core\Mail\CommentMailer::class, $decorator);
+        $this->publicApplication->container->decorate(
+            CommentMailPublisher::class,
+            static fn(Container $container, callable $_factory): CommentMailPublisher => new CommentMailPublisher(
+                $container->get(QueuePublisher::class),
+                $container->get(CommentMailDelivery::class),
+                asynchronous: false,
+            ),
+        );
         $this->commentMailerDecorated = true;
     }
 
@@ -575,24 +582,31 @@ class Integration extends AbstractBrowserModule
             return;
         }
 
-        $decorator = function (Container $container, callable $factory): \Register\Auth\PublicAuthMailer {
-            /** @var DynamicConfigProvider $provider */
-            $provider = $container->get(DynamicConfigProvider::class);
+        $decorator = function (Container $container, callable $factory): ApplicationMailerInterface {
+            unset($container, $factory);
 
-            return new \Register\Auth\PublicAuthMailer(
-                $container->get('translator'),
-                $provider->getStringProxy('REGISTER_SITE_NAME'),
-                $provider->getStringProxy('REGISTER_WEBMASTER'),
-                $provider->getStringProxy('REGISTER_WEBMASTER_EMAIL'),
-                function (string $to, string $subject, string $message, string $headers): bool {
-                    $this->recordPublicAuthMail($to, $subject, $message, $headers);
+            return new readonly class($this) implements ApplicationMailerInterface {
+                public function __construct(private Integration $helper)
+                {
+                }
 
-                    return true;
-                },
-            );
+                public function send(MailMessage $message): MailDelivery
+                {
+                    if (\in_array($message->type, ['auth_magic_link', 'comment_verification'], true)) {
+                        $this->helper->recordPublicAuthMail(
+                            $message->recipientEmail,
+                            $message->subject,
+                            $message->textBody,
+                            '',
+                        );
+                    }
+
+                    return new MailDelivery('test', 'test-message@example.test', 0.0);
+                }
+            };
         };
 
-        $this->publicApplication->container->decorate(\Register\Auth\PublicAuthMailer::class, $decorator);
+        $this->publicApplication->container->decorate(ApplicationMailerInterface::class, $decorator);
         $this->publicAuthMailerDecorated = true;
     }
 }
@@ -601,11 +615,10 @@ readonly class IntegrationCommentMailer extends \Register\Core\Mail\CommentMaile
 {
     public function __construct(
         \Symfony\Contracts\Translation\TranslatorInterface $translator,
-        StringProxy                                        $webmasterName,
-        StringProxy                                        $webmasterEmail,
-        private Integration                                $helper
+        ApplicationMailerInterface                          $mailer,
+        private Integration                                 $helper,
     ) {
-        parent::__construct($translator, $webmasterName, $webmasterEmail);
+        parent::__construct($translator, $mailer);
     }
 
     public function mailToModerator(

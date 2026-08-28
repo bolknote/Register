@@ -24,6 +24,7 @@ use Register\AdminYard\Validator\Length;
 use Register\AdminYard\Validator\Regex;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Controller\Rss\FeedSettings;
+use Register\Core\Mail\MailSettings;
 use Register\Core\Admin\Validator\IntegerRange;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Model\UrlBuilder;
@@ -54,6 +55,23 @@ class DynamicConfigFormBuilder
         'REGISTER_START_YEAR'      => 'int',
         'REGISTER_LANGUAGE'        => 'language',
         'REGISTER_STYLE'           => 'style',
+
+        'Mail config'                         => 'title',
+        MailSettings::TRANSPORT_CONFIG_KEY    => 'mail_transport',
+        MailSettings::FROM_NAME_CONFIG_KEY    => 'string',
+        MailSettings::FROM_EMAIL_CONFIG_KEY   => 'email',
+        MailSettings::ENVELOPE_EMAIL_CONFIG_KEY => 'optional_email',
+        MailSettings::REPLY_TO_CONFIG_KEY     => 'optional_email',
+        MailSettings::SMTP_HOST_CONFIG_KEY    => 'string',
+        MailSettings::SMTP_PORT_CONFIG_KEY    => 'smtp_port',
+        MailSettings::SMTP_ENCRYPTION_CONFIG_KEY => 'mail_encryption',
+        MailSettings::SMTP_USERNAME_CONFIG_KEY => 'string',
+        MailSettings::SMTP_PASSWORD_CONFIG_KEY => 'secret',
+        MailSettings::TIMEOUT_CONFIG_KEY      => 'mail_timeout',
+        MailSettings::PHP_ENVELOPE_CONFIG_KEY => 'boolean',
+        MailSettings::DKIM_SELECTOR_CONFIG_KEY => 'string',
+        MailSettings::DKIM_DOMAIN_CONFIG_KEY  => 'string',
+        MailSettings::DKIM_PRIVATE_KEY_CONFIG_KEY => 'secret',
 
         'Syndication config' => 'title',
         FeedSettings::ITEM_LIMIT_CONFIG_KEY => 'feed_limit',
@@ -276,10 +294,25 @@ class DynamicConfigFormBuilder
                 validators: [
                     (static function (): \Register\AdminYard\Validator\Regex {
                         $validator          = new Regex('/^(([^<>()[\]\\.,;:\s@"\']+(\.[^<>()[\]\\.,;:\s@"\']+)*)|("[^"\']+"))@((\[\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])|(([a-zA-Z\d\-]+\.)+[a-zA-Z]{2,}))$/');
-                        $validator->message = 'Invalid webmaster email';
+                        $validator->message = 'Invalid email address';
                         return $validator;
                     })(),
-                    new Length(max: 80),
+                    new Length(max: 254),
+                ],
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
+            ),
+            'optional_email' => new FieldConfig(
+                'value',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING),
+                control: 'input',
+                validators: [
+                    (static function (): \Register\AdminYard\Validator\Regex {
+                        $validator = new Regex('/^(?:|(([^<>()[\]\\.,;:\s@"\']+(\.[^<>()[\]\\.,;:\s@"\']+)*)|("[^"\']+"))@((\[\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])|(([a-zA-Z\d\-]+\.)+[a-zA-Z]{2,})))$/');
+                        $validator->message = 'Invalid email address';
+                        return $validator;
+                    })(),
+                    new Length(max: 254),
                 ],
                 inlineEdit: $inlineEdit,
                 inlineFormTemplate: '_admin/templates/config/inline.php.inc',
@@ -296,6 +329,22 @@ class DynamicConfigFormBuilder
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                 control: 'int_input',
                 validators: [new IntegerRange(FeedSettings::MIN_ITEM_LIMIT, FeedSettings::MAX_ITEM_LIMIT)],
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
+            ),
+            'smtp_port' => new FieldConfig(
+                'value',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                control: 'int_input',
+                validators: [new IntegerRange(1, 65535)],
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
+            ),
+            'mail_timeout' => new FieldConfig(
+                'value',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                control: 'int_input',
+                validators: [new IntegerRange(1, 30)],
                 inlineEdit: $inlineEdit,
                 inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
@@ -362,6 +411,31 @@ class DynamicConfigFormBuilder
                 ],
                 inlineEdit: $inlineEdit,
                 inlineFormTemplate: '_admin/templates/config/ai-provider-inline.php.inc',
+            ),
+            'mail_transport' => new FieldConfig(
+                'value',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING),
+                control: 'select',
+                options: [
+                    MailSettings::TRANSPORT_AUTO => $this->translator->trans('Mail transport auto'),
+                    MailSettings::TRANSPORT_SMTP => 'SMTP',
+                    MailSettings::TRANSPORT_PHP_MAIL => 'PHP mail()',
+                    MailSettings::TRANSPORT_DISABLED => $this->translator->trans('Mail disabled'),
+                ],
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
+            ),
+            'mail_encryption' => new FieldConfig(
+                'value',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_STRING),
+                control: 'select',
+                options: [
+                    MailSettings::ENCRYPTION_STARTTLS => 'STARTTLS',
+                    MailSettings::ENCRYPTION_TLS => 'TLS (SMTPS)',
+                    MailSettings::ENCRYPTION_NONE => $this->translator->trans('No encryption'),
+                ],
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),
             'secret' => new FieldConfig(
                 'value',
@@ -485,6 +559,19 @@ class DynamicConfigFormBuilder
             'REGISTER_AKISMET_KEY' => [
                 'key'    => 'REGISTER_ANTISPAM_MODE',
                 'values' => ['shadow', 'akismet'],
+            ],
+            MailSettings::SMTP_HOST_CONFIG_KEY,
+            MailSettings::SMTP_PORT_CONFIG_KEY,
+            MailSettings::SMTP_ENCRYPTION_CONFIG_KEY,
+            MailSettings::SMTP_USERNAME_CONFIG_KEY,
+            MailSettings::SMTP_PASSWORD_CONFIG_KEY,
+            MailSettings::TIMEOUT_CONFIG_KEY => [
+                'key'    => MailSettings::TRANSPORT_CONFIG_KEY,
+                'values' => [MailSettings::TRANSPORT_AUTO, MailSettings::TRANSPORT_SMTP],
+            ],
+            MailSettings::PHP_ENVELOPE_CONFIG_KEY => [
+                'key'    => MailSettings::TRANSPORT_CONFIG_KEY,
+                'values' => [MailSettings::TRANSPORT_AUTO, MailSettings::TRANSPORT_PHP_MAIL],
             ],
             default => null,
         };

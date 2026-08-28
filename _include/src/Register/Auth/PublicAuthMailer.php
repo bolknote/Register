@@ -10,31 +10,24 @@ declare(strict_types = 1);
 namespace Register\Auth;
 
 use Register\Core\Config\StringProxy;
+use Register\Core\Mail\ApplicationMailerInterface;
+use Register\Core\Mail\MailMessage;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /** Sends a short, single-purpose sign-in link without placing the token in logs. */
 final readonly class PublicAuthMailer
 {
-    /** @var \Closure(string, string, string, string): bool */
-    private \Closure $sender;
-
-    /** @param (callable(string, string, string, string): bool)|null $sender */
     public function __construct(
-        private TranslatorInterface $translator,
-        private StringProxy         $siteName,
-        private StringProxy         $webmasterName,
-        private StringProxy         $webmasterEmail,
-        ?callable                            $sender = null,
+        private TranslatorInterface        $translator,
+        private StringProxy                $siteName,
+        private ApplicationMailerInterface $mailer,
     ) {
-        $this->sender = $sender !== null
-            ? $sender(...)
-            : mail(...);
     }
 
     public function sendMagicLink(string $email, string $url, bool $publishesComment): bool
     {
         $siteName = trim($this->siteName->get());
-        $subjectText = $this->translator->trans($publishesComment
+        $subject = $this->translator->trans($publishesComment
             ? 'Confirm comment by email subject'
             : 'Sign in by email subject', ['%site%' => $siteName]);
         $message = $this->translator->trans($publishesComment
@@ -43,27 +36,29 @@ final readonly class PublicAuthMailer
                 '%site%' => $siteName,
                 '%url%'  => $url,
             ]);
-        $message = str_replace(["\r\n", "\r", "\0"], ["\n", "\n", ''], $message);
 
-        $subject = '=?UTF-8?B?' . base64_encode($subjectText) . '?=';
-        $fromEmail = trim($this->webmasterEmail->get());
-        if ($fromEmail === '') {
-            $fromEmail = 'noreply@localhost';
-        }
+        $this->mailer->send(new MailMessage(
+            type: $publishesComment ? 'comment_verification' : 'auth_magic_link',
+            recipientEmail: $email,
+            recipientName: '',
+            subject: $subject,
+            textBody: $message,
+            htmlBody: $this->htmlBody($message, $url),
+        ));
 
-        $fromName = trim($this->webmasterName->get());
-        $from = $fromName === ''
-            ? $fromEmail
-            : '=?UTF-8?B?' . base64_encode($fromName) . '?= <' . $fromEmail . '>';
-        $headers = implode("\r\n", [
-            'From: ' . $from,
-            'Date: ' . gmdate('r'),
-            'MIME-Version: 1.0',
-            'Content-transfer-encoding: 8bit',
-            'Content-type: text/plain; charset=utf-8',
-            'X-Mailer: Register Mailer',
-        ]);
+        return true;
+    }
 
-        return ($this->sender)($email, $subject, $message, $headers);
+    private function htmlBody(string $message, string $url): string
+    {
+        $escapedMessage = htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+        $escapedUrl = htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+        $linkedMessage = str_replace(
+            $escapedUrl,
+            '<a href="' . $escapedUrl . '">' . $escapedUrl . '</a>',
+            $escapedMessage,
+        );
+
+        return '<div>' . nl2br($linkedMessage) . '</div>';
     }
 }

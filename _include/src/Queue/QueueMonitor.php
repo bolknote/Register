@@ -84,6 +84,62 @@ final readonly class QueueMonitor
         ];
     }
 
+    /**
+     * @param list<string> $codes
+     * @return array{total:int,ready:int,delayed:int,failed:int,oldest_ready_age:int|null}
+     */
+    public function statusForCodes(array $codes, ?int $now = null): array
+    {
+        if ($codes === []) {
+            return ['total' => 0, 'ready' => 0, 'delayed' => 0, 'failed' => 0, 'oldest_ready_age' => null];
+        }
+
+        $now ??= time();
+        $parameters = [
+            'ready_now'   => $now,
+            'delayed_now' => $now,
+            'oldest_now'  => $now,
+        ];
+        $placeholders = [];
+        foreach (array_values(array_unique($codes)) as $index => $code) {
+            if ($code === '') {
+                throw new \InvalidArgumentException('A queue monitor code cannot be empty.');
+            }
+
+            $key = 'code_' . $index;
+            $placeholders[] = ':' . $key;
+            $parameters[$key] = $code;
+        }
+
+        $statement = $this->pdo->prepare(
+            'SELECT COUNT(*) AS queue_total, '
+            . 'COALESCE(SUM(CASE WHEN failed_at IS NULL AND available_at <= :ready_now THEN 1 ELSE 0 END), 0) AS queue_ready, '
+            . 'COALESCE(SUM(CASE WHEN failed_at IS NULL AND available_at > :delayed_now THEN 1 ELSE 0 END), 0) AS queue_delayed, '
+            . 'COALESCE(SUM(CASE WHEN failed_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS queue_failed, '
+            . 'MIN(CASE WHEN failed_at IS NULL AND available_at <= :oldest_now THEN created_at ELSE NULL END) AS oldest_ready_at '
+            . 'FROM ' . $this->dbPrefix . 'queue WHERE code IN (' . implode(', ', $placeholders) . ')'
+        );
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the filtered queue status query.');
+        }
+
+        $statement->execute($parameters);
+        $row = $statement->fetch(\PDO::FETCH_ASSOC);
+        if (!\is_array($row)) {
+            throw new \RuntimeException('Unable to fetch filtered queue status.');
+        }
+
+        $oldestReadyAt = $this->nullableIntegerField($row, 'oldest_ready_at');
+
+        return [
+            'total'            => $this->integerField($row, 'queue_total'),
+            'ready'            => $this->integerField($row, 'queue_ready'),
+            'delayed'          => $this->integerField($row, 'queue_delayed'),
+            'failed'           => $this->integerField($row, 'queue_failed'),
+            'oldest_ready_age' => $oldestReadyAt === null ? null : max(0, $now - $oldestReadyAt),
+        ];
+    }
+
     /** @param array<string, mixed> $row */
     private function integerField(array $row, string $field): int
     {

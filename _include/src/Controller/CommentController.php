@@ -26,7 +26,7 @@ use Register\Core\Controller\Comment\PendingEmailCommentServiceInterface;
 use Register\Core\Framework\ControllerInterface;
 use Register\Core\Helper\StringHelper;
 use Register\Core\Comment\CommentHtml;
-use Register\Core\Mail\CommentMailer;
+use Register\Comment\CommentMailPublisher;
 use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
@@ -53,7 +53,7 @@ readonly class CommentController implements ControllerInterface
         private HtmlTemplateProvider          $templateProvider,
         private Viewer                        $viewer,
         private LoggerInterface               $logger,
-        private CommentMailer                 $commentMailer,
+        private CommentMailPublisher          $commentMailPublisher,
         private SpamDecisionProviderInterface $spamDecisionProvider,
         private CommentFormTokenManager        $commentFormTokenManager,
         private SpamRateLimiter                $spamRateLimiter,
@@ -314,8 +314,6 @@ readonly class CommentController implements ControllerInterface
             return $response;
         }
 
-        $link = $this->urlBuilder->absLink($path);
-
         $target = $this->requireTarget($target);
         $visitorId = $this->visitorIdentityManager->recordInteraction(
             $request,
@@ -400,8 +398,6 @@ readonly class CommentController implements ControllerInterface
             }
         }
 
-        $message = CommentHtml::plainText($text);
-
         /**
          * Sending the comment to moderators.
          * We DO NOT SEND the comment to a moderator if his email is used and he is online.
@@ -412,16 +408,12 @@ readonly class CommentController implements ControllerInterface
          * @see \Register\Core\Model\AuthManager::createCommentCookie
          */
         foreach ($this->userProvider->getModerators([], $moderationRequired && $isOnline ? [$email] : []) as $moderator) {
-            $this->commentMailer->mailToModerator(
-                $moderator->login,
+            $this->commentMailPublisher->moderator(
+                $commentId,
+                $this->commentStrategy->getContentType(),
                 $moderator->email,
-                $message,
-                $target->title,
-                $link,
-                $name,
-                $email,
                 !$moderationRequired,
-                $spamDecision->getStatus()
+                $spamDecision->getStatus(),
             );
         }
 
