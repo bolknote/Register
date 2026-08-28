@@ -27,7 +27,7 @@ final readonly class PostInplaceControls
     }
 
     /**
-     * @return array{action_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: false}|null
+     * @return array{action_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, ai_alt_enabled: bool, create: false}|null
      */
     public function forPost(Request $request, int $postId, ?int $authorId, int $revision): ?array
     {
@@ -43,11 +43,12 @@ final readonly class PostInplaceControls
             'revision'      => $revision,
             'return_to'     => $request->getPathInfo(),
             'ai_enabled'    => $this->aiSettings->isConfigured(),
+            'ai_alt_enabled' => $this->aiSettings->autoAltAvailable(),
             'create'        => false,
         ];
     }
 
-    /** @return array{action_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: true, editor_name: string}|null */
+    /** @return array{action_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, ai_alt_enabled: bool, create: true, editor_name: string}|null */
     public function forCreate(Request $request): ?array
     {
         $editor = $this->editorForCreate($request);
@@ -62,6 +63,7 @@ final readonly class PostInplaceControls
             'revision'       => 0,
             'return_to'      => $request->getPathInfo(),
             'ai_enabled'     => $this->aiSettings->isConfigured(),
+            'ai_alt_enabled' => $this->aiSettings->autoAltAvailable(),
             'create'         => true,
             'editor_name'    => $editor->displayName(),
         ];

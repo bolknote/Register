@@ -11,6 +11,7 @@ namespace Register\Module\Blog\Inplace;
 
 use Register\Ai\AiClient;
 use Register\Ai\AiException;
+use Register\Ai\AiImageInput;
 use Register\Ai\AiSettings;
 use Register\Comment\CommentRepository;
 use Register\Content\Admin\ContentRevisionService;
@@ -43,6 +44,12 @@ final readonly class PostInplaceController implements ControllerInterface
     private const int MAX_BODY_BYTES = 16 * 1024 * 1024;
 
     private const int MAX_AI_TEXT_LENGTH = 60000;
+
+    private const int MAX_AI_IMAGE_BYTES = 10 * 1024 * 1024;
+
+    private const int MAX_AI_IMAGE_EDGE = 2048;
+
+    private const int MAX_AI_IMAGE_PIXELS = 4_000_000;
 
     private const int MAX_TAGS = 100;
 
@@ -137,6 +144,10 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->generateWithAi($request, (string)$post['title']);
         }
 
+        if ($action === 'ai_alt') {
+            return $this->generateImageAlt($request, (string)$post['title']);
+        }
+
         $revision = $this->revision($request);
         if ($revision === null || !\in_array($action, ['edit', 'delete'], true)) {
             return $this->error($request, 'Invalid post mutation request', Response::HTTP_BAD_REQUEST);
@@ -165,6 +176,7 @@ final readonly class PostInplaceController implements ControllerInterface
             'media_redate'  => $this->redateMedia($request, $editor, time()),
             'media_release' => $this->releaseMedia($request, $editor),
             'ai'            => $this->generateWithAi($request, ''),
+            'ai_alt'        => $this->generateImageAlt($request, ''),
             'create'        => $this->create($request, $editor),
             default         => $this->error($request, 'Invalid post mutation request', Response::HTTP_BAD_REQUEST),
         };
@@ -361,6 +373,79 @@ final readonly class PostInplaceController implements ControllerInterface
             'action'    => 'ai',
             'ai_action' => $action,
             'result'    => $result,
+        ]);
+    }
+
+    private function generateImageAlt(Request $request, string $storedTitle): Response
+    {
+        if (!$this->aiSettings->autoAltAvailable()) {
+            return $this->error($request, 'AI image input unavailable', Response::HTTP_CONFLICT);
+        }
+
+        $title = trim($request->request->getString('title'));
+        $text  = trim($request->request->getString('text'));
+        $image = $request->files->get('image_alt_source');
+        if (!$image instanceof UploadedFile || mb_strlen($text) > self::MAX_AI_TEXT_LENGTH) {
+            return $this->error($request, 'Invalid AI request', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $size = $image->getSize();
+        if (
+            $image->getError() !== UPLOAD_ERR_OK
+            || !$image->isValid()
+            || !\is_int($size)
+            || $size <= 0
+            || $size > self::MAX_AI_IMAGE_BYTES
+        ) {
+            return $this->error($request, 'Invalid AI image', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $mimeType = $this->mediaStorage->detectMimeType($image);
+        } catch (\RuntimeException) {
+            return $this->error($request, 'Invalid AI image', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $imageInfo = \function_exists('getimagesize')
+            ? register_call_without_warnings(static fn(): array|false => getimagesize($image->getPathname()))
+            : false;
+        if ($imageInfo === false) {
+            return $this->error($request, 'Invalid AI image', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $width  = $imageInfo[0];
+        $height = $imageInfo[1];
+        if (
+            !\in_array($mimeType, ['image/jpeg', 'image/png'], true)
+            || mb_strtolower($imageInfo['mime']) !== $mimeType
+            || $width <= 0
+            || $height <= 0
+            || $width > self::MAX_AI_IMAGE_EDGE
+            || $height > self::MAX_AI_IMAGE_EDGE
+            || $width * $height > self::MAX_AI_IMAGE_PIXELS
+        ) {
+            return $this->error($request, 'Invalid AI image', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $data = register_call_without_warnings(static fn(): string|false => file_get_contents($image->getPathname()));
+        if (!\is_string($data) || $data === '') {
+            return $this->error($request, 'Invalid AI image', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $result = $this->aiClient->generateImageAlt(
+                mb_substr($title !== '' ? $title : $storedTitle, 0, 500),
+                $text,
+                new AiImageInput($mimeType, $data),
+            );
+        } catch (AiException) {
+            return $this->error($request, 'AI request failed', Response::HTTP_BAD_GATEWAY);
+        }
+
+        return $this->json([
+            'success' => true,
+            'action'  => 'ai_alt',
+            'result'  => $result,
         ]);
     }
 

@@ -15,6 +15,10 @@
         return target.toString();
     })();
     let imageOptimizerPromise = null;
+    const aiImagePreviewMaxDimension = 1600;
+    const aiImagePreviewPreferPngBytes = 1.5 * 1024 * 1024;
+    const aiImagePreviewMaxPngBytes = 9 * 1024 * 1024;
+    const aiImagePreviewJpegQuality = 0.9;
     const imageExtensions = new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp']);
     const audioExtensions = new Set(['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm']);
     const aiCorrectionTokenPattern = /<[^>]*>|[\p{L}\p{N}_]+|\s+|[^\p{L}\p{N}_\s<>]+|[<>]/gu;
@@ -343,6 +347,190 @@
         return imageOptimizerPromise;
     }
 
+    function aiAltAbortError() {
+        return new DOMException('Alt text generation was cancelled.', 'AbortError');
+    }
+
+    function throwIfAiAltAborted(signal) {
+        if (signal.aborted) {
+            throw aiAltAbortError();
+        }
+    }
+
+    function loadAiAltImage(source, signal) {
+        if (source instanceof HTMLImageElement && source.complete && source.naturalWidth > 0) {
+            return Promise.resolve({image: source, release: () => {}});
+        }
+
+        if (source instanceof HTMLImageElement) {
+            return new Promise((resolve, reject) => {
+                const image = new Image();
+                let settled = false;
+                const cleanup = () => {
+                    signal.removeEventListener('abort', abort);
+                    image.onload = null;
+                    image.onerror = null;
+                };
+                const fail = (error) => {
+                    if (!settled) {
+                        settled = true;
+                        cleanup();
+                        reject(error);
+                    }
+                };
+                const abort = () => fail(aiAltAbortError());
+                image.onload = () => {
+                    if (!settled) {
+                        settled = true;
+                        cleanup();
+                        resolve({image, release: () => {}});
+                    }
+                };
+                image.onerror = () => fail(new Error('The image cannot be decoded for alt text.'));
+                signal.addEventListener('abort', abort, {once: true});
+                image.decoding = 'async';
+                image.src = source.currentSrc || source.src;
+            });
+        }
+
+        if (!(source instanceof Blob)) {
+            return Promise.reject(new Error('The image source for alt text is unavailable.'));
+        }
+
+        return new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(source);
+            const image = new Image();
+            let settled = false;
+            const cleanup = () => {
+                signal.removeEventListener('abort', abort);
+                image.onload = null;
+                image.onerror = null;
+            };
+            const fail = (error) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                cleanup();
+                URL.revokeObjectURL(url);
+                reject(error);
+            };
+            const abort = () => fail(aiAltAbortError());
+            image.onload = () => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                cleanup();
+                resolve({
+                    image,
+                    release: () => URL.revokeObjectURL(url),
+                });
+            };
+            image.onerror = () => fail(new Error('The image cannot be decoded for alt text.'));
+            signal.addEventListener('abort', abort, {once: true});
+            image.decoding = 'async';
+            image.src = url;
+        });
+    }
+
+    function aiAltCanvasBlob(canvas, type, quality, signal) {
+        return new Promise((resolve, reject) => {
+            throwIfAiAltAborted(signal);
+            let settled = false;
+            const abort = () => {
+                if (!settled) {
+                    settled = true;
+                    reject(aiAltAbortError());
+                }
+            };
+            signal.addEventListener('abort', abort, {once: true});
+            try {
+                canvas.toBlob((blob) => {
+                    signal.removeEventListener('abort', abort);
+                    if (settled) {
+                        return;
+                    }
+                    settled = true;
+                    if (blob instanceof Blob && blob.size > 0) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error('The browser cannot prepare the image for alt text.'));
+                    }
+                }, type, quality);
+            } catch (error) {
+                signal.removeEventListener('abort', abort);
+                settled = true;
+                reject(error);
+            }
+        });
+    }
+
+    function aiAltCanvasContext(canvas) {
+        let context = null;
+        try {
+            context = canvas.getContext('2d', {colorSpace: 'srgb'});
+        } catch (_error) {
+            context = null;
+        }
+        return context || canvas.getContext('2d');
+    }
+
+    async function prepareAiAltPreview(source, signal) {
+        const decoded = await loadAiAltImage(source, signal);
+        try {
+            throwIfAiAltAborted(signal);
+            const sourceWidth = decoded.image.naturalWidth || decoded.image.width;
+            const sourceHeight = decoded.image.naturalHeight || decoded.image.height;
+            if (sourceWidth <= 0 || sourceHeight <= 0) {
+                throw new Error('The image has invalid dimensions.');
+            }
+
+            const scale = Math.min(1, aiImagePreviewMaxDimension / Math.max(sourceWidth, sourceHeight));
+            const width = Math.max(1, Math.round(sourceWidth * scale));
+            const height = Math.max(1, Math.round(sourceHeight * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const context = aiAltCanvasContext(canvas);
+            if (context === null) {
+                throw new Error('The browser cannot prepare the image for alt text.');
+            }
+            context.drawImage(decoded.image, 0, 0, width, height);
+
+            const png = await aiAltCanvasBlob(canvas, 'image/png', undefined, signal);
+            if (png.size <= aiImagePreviewPreferPngBytes) {
+                return {blob: png, extension: 'png'};
+            }
+
+            const jpegCanvas = document.createElement('canvas');
+            jpegCanvas.width = width;
+            jpegCanvas.height = height;
+            const jpegContext = aiAltCanvasContext(jpegCanvas);
+            if (jpegContext === null) {
+                if (png.size <= aiImagePreviewMaxPngBytes) {
+                    return {blob: png, extension: 'png'};
+                }
+                throw new Error('The browser cannot prepare the image for alt text.');
+            }
+            jpegContext.fillStyle = '#fff';
+            jpegContext.fillRect(0, 0, width, height);
+            jpegContext.drawImage(decoded.image, 0, 0, width, height);
+            const jpeg = await aiAltCanvasBlob(
+                jpegCanvas,
+                'image/jpeg',
+                aiImagePreviewJpegQuality,
+                signal,
+            );
+            if (png.size <= aiImagePreviewMaxPngBytes && png.size <= jpeg.size * 1.25) {
+                return {blob: png, extension: 'png'};
+            }
+            return {blob: jpeg, extension: 'jpg'};
+        } finally {
+            decoded.release();
+        }
+    }
+
     function releasePendingMedia(state) {
         if (state.uploadedMediaIds.size === 0) {
             return;
@@ -654,6 +842,8 @@
         state.mediaCaptionEditors.clear();
         state.aiController?.abort();
         state.aiController = null;
+        state.aiAltControllers.forEach((controller) => controller.abort());
+        state.aiAltControllers.clear();
         state.mediaControllers.forEach((controller) => controller.abort());
         state.mediaControllers.clear();
         state.body.classList.remove('is-media-dragover');
@@ -827,6 +1017,12 @@
             contextMenu: null,
             imageCaptionEditor: null,
             aiController: null,
+            aiAltControllers: new Set(),
+            aiAltTasks: new Set(),
+            aiAltImages: new WeakMap(),
+            aiAltFailures: new WeakSet(),
+            aiAltTail: Promise.resolve(),
+            aiAltPending: 0,
             discardConfirmation: null,
             submitting: false,
             titleLink,
@@ -858,6 +1054,11 @@
         toggleEditingTools(card, true);
         document.execCommand('defaultParagraphSeparator', false, 'p');
         focusEdge(elements.title, true);
+        queueMicrotask(() => {
+            if (editorStates.get(card) === state) {
+                generateMissingImageAlts(state);
+            }
+        });
 
         return true;
     }
@@ -1434,7 +1635,7 @@
             caption.className = 'post-caption';
             picture.append(image, caption);
             beginInlineMediaCaption(state, caption);
-            return {element: picture, caption};
+            return {element: picture, caption, image};
         }
 
         const audio = document.createElement('audio');
@@ -1447,7 +1648,7 @@
         audio.dataset.title = typeof payload.name === 'string' && payload.name !== ''
             ? payload.name
             : file.name;
-        return {element: audio, caption: null};
+        return {element: audio, caption: null, image: null};
     }
 
     function inlineMediaCaptionText(caption) {
@@ -1645,6 +1846,9 @@
                 placeholder.replaceWith(media.element);
                 state.bodyDirty = true;
                 clearStatus(state.card);
+                if (media.image instanceof HTMLImageElement) {
+                    queueImageAlt(state, media.image, uploadFile);
+                }
                 if (media.caption instanceof HTMLElement) {
                     focusInlineMediaCaption(state, media.caption);
                 }
@@ -1991,6 +2195,9 @@
                 if (state.mediaUploads.size > 0) {
                     await Promise.all(Array.from(state.mediaUploads));
                 }
+                if (state.aiAltTasks.size > 0) {
+                    await Promise.all(Array.from(state.aiAltTasks));
+                }
                 await redatePendingMedia(state);
                 if (editorStates.get(card) !== state || !syncEditor(state)) {
                     return;
@@ -2106,6 +2313,7 @@
             range: context.range.cloneRange(),
             selected: context.selected,
             targetLink: context.targetLink,
+            targetImage: context.targetImage,
         };
         closeContextMenu(state, false);
         return snapshot;
@@ -2196,6 +2404,199 @@
         state.bodyDirty = true;
         clearError(state.form);
         clearStatus(state.card);
+    }
+
+    function imageNeedsGeneratedAlt(image) {
+        return !image.hasAttribute('alt') || (image.getAttribute('alt') || '').trim() === '';
+    }
+
+    function aiAltEnabled(state) {
+        return state.card.dataset.aiAltEnabled === '1';
+    }
+
+    function aiAltContext(state) {
+        return textFromHtml(editableBodyHtml(state))
+            .replace(/\s+/gu, ' ')
+            .trim()
+            .slice(0, 50000);
+    }
+
+    function hasFailedMissingImageAlt(state) {
+        return Array.from(state.body.querySelectorAll('img')).some((image) => (
+            imageNeedsGeneratedAlt(image) && state.aiAltFailures.has(image)
+        ));
+    }
+
+    function updateAiAltStatus(state, applied = false) {
+        if (editorStates.get(state.card) !== state) {
+            return;
+        }
+        if (state.aiAltPending > 0) {
+            showEditorStatus(
+                state,
+                state.card.dataset.aiAltWorking || 'AI is creating alt text…',
+            );
+            return;
+        }
+        if (hasFailedMissingImageAlt(state)) {
+            showEditorStatus(
+                state,
+                state.card.dataset.aiAltFailed || 'Unable to create alt text. Add it manually or try again.',
+                true,
+            );
+            return;
+        }
+        if (applied) {
+            showEditorStatus(
+                state,
+                state.card.dataset.aiAltApplied || 'AI added alt text.',
+            );
+        }
+    }
+
+    function cancelImageAlt(state, image) {
+        const record = state.aiAltImages.get(image);
+        if (record) {
+            record.cancelled = true;
+            record.controller?.abort();
+        }
+        state.aiAltFailures.delete(image);
+    }
+
+    async function requestImageAlt(state, image, source, record) {
+        if (
+            record.cancelled
+            || editorStates.get(state.card) !== state
+            || !state.body.contains(image)
+        ) {
+            return 'cancelled';
+        }
+
+        const controller = new AbortController();
+        record.controller = controller;
+        record.status = 'generating';
+        state.aiAltControllers.add(controller);
+        const expectedAlt = image.getAttribute('alt') || '';
+        const expectedSrc = image.getAttribute('src') || '';
+        try {
+            const preview = await prepareAiAltPreview(source || image, controller.signal);
+            throwIfAiAltAborted(controller.signal);
+
+            const token = state.form.elements.namedItem('inplace_token');
+            const data = new FormData();
+            data.set('inplace_action', 'ai_alt');
+            data.set('inplace_token', token instanceof HTMLInputElement ? token.value : '');
+            data.set('title', state.title.textContent || '');
+            data.set('text', aiAltContext(state));
+            data.set(
+                'image_alt_source',
+                preview.blob,
+                `image-alt.${preview.extension}`,
+            );
+
+            const response = await window.fetch(state.form.action, {
+                method: 'POST',
+                body: data,
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                signal: controller.signal,
+            });
+            const payload = await response.json().catch(() => null);
+            if (
+                !response.ok
+                || !payload
+                || payload.success !== true
+                || payload.action !== 'ai_alt'
+                || typeof payload.result !== 'string'
+                || payload.result.trim() === ''
+            ) {
+                throw new Error(payload?.message || state.card.dataset.aiAltFailed || 'Unable to create alt text.');
+            }
+
+            if (
+                record.cancelled
+                || editorStates.get(state.card) !== state
+                || !state.body.contains(image)
+                || image.getAttribute('src') !== expectedSrc
+                || (image.getAttribute('alt') || '') !== expectedAlt
+            ) {
+                return 'cancelled';
+            }
+
+            image.setAttribute('alt', payload.result.trim());
+            state.aiAltFailures.delete(image);
+            markBodyChanged(state);
+            return 'applied';
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                return 'cancelled';
+            }
+            state.aiAltFailures.add(image);
+            return 'failed';
+        } finally {
+            state.aiAltControllers.delete(controller);
+            record.controller = null;
+        }
+    }
+
+    function queueImageAlt(state, image, source = null, force = false) {
+        if (
+            !aiAltEnabled(state)
+            || !(image instanceof HTMLImageElement)
+            || !state.body.contains(image)
+            || (!force && !imageNeedsGeneratedAlt(image))
+        ) {
+            return Promise.resolve('skipped');
+        }
+
+        const current = state.aiAltImages.get(image);
+        if (current && !force && !current.cancelled) {
+            return current.promise;
+        }
+        if (current) {
+            current.cancelled = true;
+            current.controller?.abort();
+        }
+
+        const record = {
+            status: 'queued',
+            cancelled: false,
+            controller: null,
+            promise: null,
+        };
+        ++state.aiAltPending;
+        updateAiAltStatus(state);
+        const task = state.aiAltTail
+            .catch(() => 'cancelled')
+            .then(() => requestImageAlt(state, image, source, record));
+        record.promise = task;
+        state.aiAltImages.set(image, record);
+        state.aiAltTasks.add(task);
+        state.aiAltTail = task;
+        task.then((outcome) => {
+            --state.aiAltPending;
+            if (state.aiAltImages.get(image) === record) {
+                state.aiAltImages.delete(image);
+            }
+            updateAiAltStatus(state, outcome === 'applied');
+        }).finally(() => {
+            state.aiAltTasks.delete(task);
+        });
+        return task;
+    }
+
+    function generateMissingImageAlts(state) {
+        if (!aiAltEnabled(state)) {
+            return;
+        }
+        state.body.querySelectorAll('img').forEach((image) => {
+            if (imageNeedsGeneratedAlt(image)) {
+                queueImageAlt(state, image);
+            }
+        });
     }
 
     function imageTargetLink(state, image) {
@@ -2799,6 +3200,7 @@
 
             clearError(state.form);
             showEditorStatus(state, state.card.dataset.aiApplied || 'AI changes applied.');
+            generateMissingImageAlts(state);
         } catch (error) {
             if (!(error instanceof DOMException && error.name === 'AbortError')) {
                 showEditorStatus(
@@ -2873,6 +3275,13 @@
         }
         if (action === 'edit-image-caption') {
             editImageCaption(state);
+            return;
+        }
+        if (action === 'generate-image-alt') {
+            const context = detachContextMenu(state);
+            if (context?.targetImage instanceof HTMLImageElement) {
+                queueImageAlt(state, context.targetImage, null, true);
+            }
         }
     }
 
@@ -2957,6 +3366,7 @@
         const imageAltInput = menu.querySelector('[data-context-image-alt-input]');
         const imageLinkButton = imagePanel?.querySelector('[data-context-action="open-link"]');
         const imageCaptionButton = imagePanel?.querySelector('[data-context-action="edit-image-caption"]');
+        const imageAiAltButton = imagePanel?.querySelector('[data-context-action="generate-image-alt"]');
         if (
             !(main instanceof HTMLElement)
             || !(linkPanel instanceof HTMLElement)
@@ -2982,6 +3392,12 @@
             imageLinkButton.classList.toggle('is-active', targetImageLink !== null);
             imageLinkButton.setAttribute('aria-pressed', String(targetImageLink !== null));
             imageCaptionButton.classList.toggle('is-active', imageCaptionText(state, targetImage).trim() !== '');
+            if (imageAiAltButton instanceof HTMLButtonElement) {
+                const aiAltState = state.aiAltImages.get(targetImage);
+                imageAiAltButton.disabled = Boolean(
+                    aiAltState && !aiAltState.cancelled,
+                );
+            }
         }
         state.contextMenu = {
             anchor,
@@ -2995,6 +3411,7 @@
             imageAltInput,
             imageLinkButton,
             imageCaptionButton,
+            imageAiAltButton,
             range,
             selected,
             targetImage,
@@ -3005,6 +3422,7 @@
 
         if (targetImage) {
             imageAltInput.addEventListener('input', () => {
+                cancelImageAlt(state, targetImage);
                 targetImage.setAttribute('alt', imageAltInput.value);
                 markBodyChanged(state);
             });

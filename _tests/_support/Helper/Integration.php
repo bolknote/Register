@@ -161,6 +161,19 @@ class Integration extends AbstractBrowserModule
         return $this->publicApplication->container->get($serviceName);
     }
 
+    /** @param list<string> $dependentServiceNames */
+    public function replaceService(string $serviceName, object $service, array $dependentServiceNames = []): void
+    {
+        $this->publicApplication->container->decorate(
+            $serviceName,
+            static fn(Container $_container, callable $_factory): object => $service,
+        );
+        $this->publicApplication->container->clear($serviceName);
+        foreach ($dependentServiceNames as $dependentServiceName) {
+            $this->publicApplication->container->clear($dependentServiceName);
+        }
+    }
+
     public function grabHttpHeader(string $name): ?string
     {
         return $this->response?->headers->get($name);

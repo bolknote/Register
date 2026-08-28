@@ -64,3 +64,23 @@ test('the optimizer import remains inside the image-only upload branch', functio
     assert.match(uploadSource, /if \(kind === 'image'\)[\s\S]*await loadImageOptimizer\(\)/u);
     assert.doesNotMatch(editorSource, /new Worker\s*\(/u);
 });
+
+test('automatic alt generation covers existing and newly uploaded images', function () {
+    const editStart = editorSource.indexOf('function beginEdit');
+    const editEnd = editorSource.indexOf('\n    function beginCreate', editStart);
+    const editSource = editorSource.slice(editStart, editEnd);
+    const uploadStart = editorSource.indexOf('function startMediaUpload');
+    const uploadEnd = editorSource.indexOf('\n    async function redatePendingMedia', uploadStart);
+    const uploadSource = editorSource.slice(uploadStart, uploadEnd);
+    const submitStart = editorSource.indexOf('async function submit');
+    const submitEnd = editorSource.indexOf('\n    function handleSubmit', submitStart);
+    const submitSource = editorSource.slice(submitStart, submitEnd);
+
+    assert.match(editSource, /generateMissingImageAlts\(state\)/u);
+    assert.match(uploadSource, /queueImageAlt\(state, media\.image, uploadFile\)/u);
+    assert.match(submitSource, /await Promise\.all\(Array\.from\(state\.aiAltTasks\)\)/u);
+    assert.match(editorSource, /data\.set\('inplace_action', 'ai_alt'\)/u);
+    assert.match(editorSource, /\(!force && !imageNeedsGeneratedAlt\(image\)\)/u);
+    assert.match(editorSource, /targetImage: context\.targetImage/u);
+    assert.doesNotMatch(editSource, /loadImageOptimizer\(\)/u);
+});

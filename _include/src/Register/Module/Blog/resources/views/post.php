@@ -22,7 +22,7 @@ use Register\Module\Blog\Model\DeferredViewCount;
 /** @var string $favoritePostsUrl */
 /** @var bool $showComments */
 /** @var bool $enabledComments */
-/** @var array{action_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, create: bool}|null $inplace */
+/** @var array{action_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, ai_alt_enabled: bool, create: bool}|null $inplace */
 
 $heading     = empty($title_link) ? 'h1' : 'h2';
 $inplaceData = isset($inplace) && \is_array($inplace) ? $inplace : null;
@@ -65,6 +65,10 @@ $tagNames    = array_values(array_map(
     data-ai-source-changed="<?php echo register_htmlencode($trans('AI source changed')); ?>"
     data-ai-applied="<?php echo register_htmlencode($trans('AI changes applied')); ?>"
     data-ai-proofread-clean="<?php echo register_htmlencode($trans('AI proofreading clean')); ?>"
+    data-ai-alt-enabled="<?php echo $inplaceData['ai_alt_enabled'] ? '1' : '0'; ?>"
+    data-ai-alt-working="<?php echo register_htmlencode($trans('AI image alt working')); ?>"
+    data-ai-alt-applied="<?php echo register_htmlencode($trans('AI image alt applied')); ?>"
+    data-ai-alt-failed="<?php echo register_htmlencode($trans('AI image alt failed')); ?>"
     data-invalid-link="<?php echo register_htmlencode($trans('Invalid link address')); ?>"
     data-discard-changes-warning="<?php echo register_htmlencode($trans('Discard post changes warning')); ?>"
     data-title-placeholder="<?php echo register_htmlencode($trans('New post title')); ?>"
@@ -228,6 +232,12 @@ $tagNames    = array_values(array_map(
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 15h10M7 11h7" /></svg>
                     <span class="visually-hidden"><?php echo $trans('Image caption'); ?></span>
                 </button>
+<?php if ($inplaceData['ai_alt_enabled']): ?>
+                <button type="button" data-context-action="generate-image-alt" title="<?php echo register_htmlencode($trans('Generate image alt with AI')); ?>" aria-label="<?php echo register_htmlencode($trans('Generate image alt with AI')); ?>">
+                    <span aria-hidden="true">✦</span>
+                    <span class="visually-hidden"><?php echo $trans('Generate image alt with AI'); ?></span>
+                </button>
+<?php endif; ?>
             </div>
             <label class="post-editor-image-alt">
                 <span><?php echo $trans('Alternative text'); ?></span>

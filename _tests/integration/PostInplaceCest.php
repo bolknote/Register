@@ -9,6 +9,9 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Psr\Cache\CacheItemPoolInterface;
+use Register\Ai\AiClient;
+use Register\Ai\AiSettings;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
@@ -17,10 +20,13 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
+use Register\Core\HttpClient\HttpClient;
+use Register\Core\HttpClient\HttpResponse;
+use Register\Core\Pdo\DbLayer;
 use Register\Live\LiveUpdateRepository;
+use Register\Module\Blog\Inplace\PostInplaceController;
 use Register\Module\Blog\Inplace\PostMediaRepository;
 use Register\Module\LinkHealth\Manifest;
-use Register\Core\Pdo\DbLayer;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -127,6 +133,111 @@ final class PostInplaceCest
         $tags = $payload['tags'] ?? null;
         $I->assertIsArray($tags);
         $I->assertContains('Inplace tag', $tags);
+    }
+
+    public function exposesAutomaticImageAltOnlyWhenACompatibleAiIsConfigured(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $postId = $this->insertPost($dbLayer, 'automatic-image-alt', $this->userId($dbLayer, 'author'));
+        $I->setConfigValue(AiSettings::PROVIDER_CONFIG_KEY, AiSettings::PROVIDER_GEMINI);
+        $I->setConfigValue(AiSettings::API_KEY_CONFIG_KEY, 'test-gemini-key');
+        $I->setConfigValue(AiSettings::MODEL_CONFIG_KEY, 'gemini-3.5-flash-lite');
+        $I->setConfigValue(AiSettings::AUTO_ALT_CONFIG_KEY, '1');
+
+        $httpClient = $I->grabService(HttpClient::class);
+        $settings = $I->grabService(AiSettings::class);
+        $tokenCache = $I->grabService('ai_token_cache');
+        $I->assertInstanceOf(HttpClient::class, $httpClient);
+        $I->assertInstanceOf(AiSettings::class, $settings);
+        $I->assertInstanceOf(CacheItemPoolInterface::class, $tokenCache);
+
+        $aiRequests = [];
+        $originalAiClient = $I->grabService(AiClient::class);
+        $I->assertInstanceOf(AiClient::class, $originalAiClient);
+        $I->replaceService(AiClient::class, new AiClient(
+            $httpClient,
+            $settings,
+            $tokenCache,
+            static function (
+                string $method,
+                string $url,
+                array $headers,
+                ?string $body,
+                array $options,
+            ) use (&$aiRequests): HttpResponse {
+                $aiRequests[] = ['method' => $method, 'url' => $url, 'headers' => $headers, 'body' => $body, 'options' => $options];
+
+                return new HttpResponse(
+                    statusCode: Response::HTTP_OK,
+                    content: '{"candidates":[{"content":{"parts":[{"text":"Скриншот заголовков HTTP-запроса"}]}}]}',
+                );
+            },
+        ), [PostInplaceController::class]);
+        try {
+            $I->login('author', 'author');
+            $I->amOnPage('https://localhost/automatic-image-alt');
+            $card = '.post-card[data-post-id="' . $postId . '"]';
+            $I->seeElement($card . '[data-ai-alt-enabled="1"]');
+            $I->seeElement($card . ' [data-context-action="generate-image-alt"]');
+
+            $form = $card . ' > .post-inplace-edit-form';
+            $token = (string)$I->grabAttributeFrom($form . ' input[name="inplace_token"]', 'value');
+            $imageData = base64_decode(self::ONE_PIXEL_PNG, true);
+            $I->assertIsString($imageData);
+            $validImage = $this->temporaryFile($imageData);
+            try {
+                $I->sendPost(
+                    'https://localhost/_inplace/post/' . $postId,
+                    [
+                        'inplace_action' => 'ai_alt',
+                        'inplace_token'  => $token,
+                        'title'          => 'Automatic image alt',
+                        'text'           => 'Post context.',
+                    ],
+                    ['image_alt_source' => new UploadedFile($validImage, 'image-alt.png', 'image/png', null, true)],
+                );
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $I->assertSame([
+                    'success' => true,
+                    'action' => 'ai_alt',
+                    'result' => 'Скриншот заголовков HTTP-запроса',
+                ], $I->grabJson());
+                $I->assertCount(1, $aiRequests);
+                $I->assertStringContainsString(base64_encode($imageData), (string)$aiRequests[0]['body']);
+            } finally {
+                if (is_file($validImage)) {
+                    unlink($validImage);
+                }
+            }
+
+            $invalidImage = $this->temporaryFile('Not an image.');
+            try {
+                $I->sendPost(
+                    'https://localhost/_inplace/post/' . $postId,
+                    [
+                        'inplace_action' => 'ai_alt',
+                        'inplace_token'  => $token,
+                        'title'          => 'Automatic image alt',
+                        'text'           => 'Post context.',
+                    ],
+                    ['image_alt_source' => new UploadedFile($invalidImage, 'image-alt.png', 'image/png', null, true)],
+                );
+                $I->seeResponseCodeIs(Response::HTTP_UNPROCESSABLE_ENTITY);
+                $I->assertStringContainsString('image preview for AI is invalid', $I->grabResponse());
+            } finally {
+                if (is_file($invalidImage)) {
+                    unlink($invalidImage);
+                }
+            }
+
+            $I->setConfigValue(AiSettings::AUTO_ALT_CONFIG_KEY, '0');
+            $I->amOnPage('https://localhost/automatic-image-alt');
+            $I->seeElement($card . '[data-ai-alt-enabled="0"]');
+            $I->dontSeeElement($card . ' [data-context-action="generate-image-alt"]');
+        } finally {
+            $I->replaceService(AiClient::class, $originalAiClient, [PostInplaceController::class]);
+        }
     }
 
     public function editsAPostAndRejectsAStaleRevision(\IntegrationTester $I): void
