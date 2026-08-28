@@ -128,7 +128,8 @@ final class AssetPackTest extends Unit
         self::assertIsString($site);
         self::assertMatchesRegularExpression(
             '/@media \(max-width: 760px\).*?\.site-header-tools\s*'
-                . '\{[^}]*top:\s*calc\(-2\.4rem \+ 0\.2rem\);[^}]*width:\s*2\.1rem;/s',
+                . '\{[^}]*top:\s*calc\(-2\.4rem \+ 0\.2rem\);[^}]*left:\s*-0\.4rem;'
+                . '[^}]*width:\s*2\.1rem;/s',
             $site,
         );
         self::assertMatchesRegularExpression(

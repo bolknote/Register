@@ -2308,6 +2308,7 @@ h2.preview,
 @media (max-width: 760px) {
     .site-header-tools {
         top: calc(-2.4rem + 0.2rem);
+        left: -0.4rem;
         width: 2.1rem;
     }
 
