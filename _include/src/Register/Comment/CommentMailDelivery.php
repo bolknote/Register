@@ -50,7 +50,7 @@ final readonly class CommentMailDelivery
         }
 
         $receiver = null;
-        foreach ($this->subscriptionService->receivers($comment->contentId, $comment->email) as $candidate) {
+        foreach ($this->subscriptionService->receivers($comment) as $candidate) {
             if (strcasecmp($candidate->email, $recipientEmail) === 0) {
                 $receiver = $candidate;
                 break;
@@ -58,6 +58,18 @@ final readonly class CommentMailDelivery
         }
 
         if ($receiver === null) {
+            return;
+        }
+
+        if ($receiver->unsubscribeToken === null) {
+            $this->commentMailer->mailToReplyRecipient(
+                $receiver->name,
+                $receiver->email,
+                CommentHtml::plainText($comment->text),
+                $content->title,
+                $this->contentUrlGenerator->absolutePath($content->path) . '#comment-' . $comment->id,
+                $comment->name,
+            );
             return;
         }
 

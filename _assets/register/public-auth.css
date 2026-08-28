@@ -708,23 +708,6 @@
     cursor: pointer;
 }
 
-.comment-email-submit {
-    min-height: 2.75rem;
-    margin-left: 0.65rem;
-    padding: 0.55rem 0.85rem;
-    border: 1px solid color-mix(in srgb, var(--accent-color) 42%, var(--border-color));
-    border-radius: 0.7rem;
-    background: transparent;
-    color: var(--accent-color);
-    font: 700 0.86rem/1.2 var(--ui-font);
-    cursor: pointer;
-}
-
-.comment-email-submit:hover,
-.comment-email-submit:focus-visible {
-    background: color-mix(in srgb, var(--accent-color) 10%, transparent);
-}
-
 @media (max-width: 760px) {
     .public-auth-header {
         top: calc(-2.4rem + 0.2rem);
@@ -779,10 +762,6 @@
         flex-direction: column;
     }
 
-    .comment-email-submit {
-        display: block;
-        margin: 0.55rem 0 0;
-    }
 }
 
 @media (max-width: 420px) {

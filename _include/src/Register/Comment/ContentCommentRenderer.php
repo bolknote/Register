@@ -62,10 +62,20 @@ final readonly class ContentCommentRenderer
             ->limit(1)
             ->getSql()
         ;
+        $spamStatus = $this->dbLayer
+            ->select('sa.status')
+            ->from('spam_assessments AS sa')
+            ->where('sa.target_type = c.content_type')
+            ->andWhere('sa.comment_id = c.id')
+            ->orderBy('sa.id DESC')
+            ->limit(1)
+            ->getSql()
+        ;
         $commentRows = $this->dbLayer
             ->select(
                 'c.id, c.parent_id, c.user_id, c.nick, c.email, c.time, c.modify_time, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
                 '(' . $moderatorLabel . ') AS moderator_label',
+                '(' . $spamStatus . ') AS spam_status',
             )
             ->from(CommentSchema::TABLE_NAME . ' AS c')
             ->leftJoin('userpics AS p', 'p.id = c.userpic_id')

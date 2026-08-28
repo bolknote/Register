@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace integration;
 
 use Psr\Log\LoggerInterface;
+use Register\Auth\PublicAuthRepository;
+use Register\Auth\PublicAuthSettings;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
@@ -45,6 +47,12 @@ use Symfony\Component\HttpFoundation\Request;
  */
 final class AntispamCest
 {
+    public function _before(\IntegrationTester $I): void
+    {
+        $I->setConfigValue(PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY, '1');
+        $I->resetTestCookie('register_cookie_904732485_c');
+    }
+
     public function testCommentFormRendersServerProtection(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -117,8 +125,8 @@ final class AntispamCest
         $token        = $manager->issue('/article', $visitorToken, 1_000);
 
         $fieldNames = $manager->fieldNames($token);
-        $I->assertCount(11, $fieldNames);
-        $I->assertCount(11, array_unique($fieldNames));
+        $I->assertCount(10, $fieldNames);
+        $I->assertCount(10, array_unique($fieldNames));
         foreach ($fieldNames as $canonicalName => $fieldName) {
             $I->assertMatchesRegularExpression('#^cf_[0-9a-f]{24}$#', $fieldName);
             $I->assertNotSame($canonicalName, $fieldName);
@@ -203,6 +211,12 @@ final class AntispamCest
 
         $I->sendPostWithAntispamVisitor('http://register.localhost/', $data, $visitorToken);
         $I->seeResponseCodeIs(302);
+        $I->assertSame($before, $this->commentCount($I));
+
+        $authMails = $I->grabPublicAuthMails();
+        $I->assertCount(1, $authMails);
+        $I->amOnPage($this->callbackUrl($authMails[0]['message']));
+        $I->seeResponseCodeIs(302);
         $I->assertSame($before + 1, $this->commentCount($I));
 
         $I->sendPostWithAntispamVisitor('http://register.localhost/', $data, $visitorToken);
@@ -218,16 +232,18 @@ final class AntispamCest
         $request      = Request::create('http://register.localhost/');
         $visitorToken = $manager->getOrCreateVisitorToken($request);
 
-        for ($i = 1; $i <= 4; ++$i) {
+        for ($i = 1; $i <= 5; ++$i) {
             $I->sendPostWithAntispamVisitor('http://register.localhost/', [
                 ...$this->commentData('Rate test message ' . $i),
+                'email'          => 'rate-' . $i . '@example.test',
                 'antispam_token' => $manager->issue('/', $visitorToken, time() - 5),
             ], $visitorToken);
             $I->seeResponseCodeIs(302);
         }
 
         $I->sendPostWithAntispamVisitor('http://register.localhost/', [
-            ...$this->commentData('Rate test message 5'),
+            ...$this->commentData('Rate test message 6'),
+            'email'          => 'rate-6@example.test',
             'antispam_token' => $manager->issue('/', $visitorToken, time() - 5),
         ], $visitorToken);
         $I->seeResponseCodeIs(429);
@@ -348,19 +364,27 @@ final class AntispamCest
     ): void {
         /** @var LocalSpamDetector $detector */
         $detector = $I->grabService(LocalSpamDetector::class);
-        $report = $detector->getReport(new SpamDetectorComment(
-            'a potom udivlyayutsya poc',
-            'a-new-random-address@example.test',
-            'hemu k gadalkam idut',
-            'Mozilla/5.0',
-            'https://register.localhost/article',
-            'https://register.localhost/',
-            10,
-        ), '203.0.113.144');
+        $examples = [
+            ['a potom udivlyayutsya poc', 'hemu k gadalkam idut'],
+            ['vertep o', 'n takoi'],
+            ['tem zhe', 'chto tolstoi'],
+        ];
 
-        $I->assertSame(SpamDetectorReport::STATUS_SPAM, $report->status);
-        $I->assertSame(40, $report->getScore());
-        $I->assertSame(40, $report->getReasons()['sentence_like_latin_transliteration']);
+        foreach ($examples as $index => [$name, $text]) {
+            $report = $detector->getReport(new SpamDetectorComment(
+                $name,
+                'a-new-random-address-' . $index . '@example.test',
+                $text,
+                'Mozilla/5.0',
+                'https://register.localhost/article',
+                'https://register.localhost/',
+                10,
+            ), '203.0.113.' . (144 + $index));
+
+            $I->assertSame(SpamDetectorReport::STATUS_SPAM, $report->status);
+            $I->assertSame(40, $report->getScore());
+            $I->assertSame(40, $report->getReasons()['sentence_like_latin_transliteration']);
+        }
     }
 
     public function testDisablingConfirmedDuplicateRemovesItsHardBlock(\IntegrationTester $I): void
@@ -584,10 +608,19 @@ final class AntispamCest
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
+        /** @var PublicAuthRepository $authRepository */
+        $authRepository = $I->grabService(PublicAuthRepository::class);
+        $subscriberUserId = $authRepository->findOrCreateIdentity(
+            'email',
+            'subscriber@example.test',
+            'subscriber@example.test',
+            'Subscriber',
+        );
         $dbLayer
             ->insert(CommentSchema::TABLE_NAME)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->setValue('content_id', '1')
+            ->setValue('user_id', ':user_id')->setParameter('user_id', $subscriberUserId)
             ->setValue('time', ':time')->setParameter('time', time() - 60)
             ->setValue('ip', "'198.51.100.20'")
             ->setValue('nick', "'Subscriber'")
@@ -640,6 +673,13 @@ final class AntispamCest
         $reputation = $this->reputation($dbLayer, $textHash);
         $I->assertSame(0, (int)$reputation['ham_count']);
         $I->assertSame(1, (int)$reputation['spam_count']);
+        $I->assertSame(0, (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from('spam_reputation')
+            ->where("key_type = 'email'")
+            ->andWhere('key_hash = :key_hash')->setParameter('key_hash', $hasher->email('reader@example.test'))
+            ->execute()
+            ->result());
 
         $I->assertTrue($feedback->markHam($commentId, ContentType::PAGE));
 
@@ -746,10 +786,19 @@ final class AntispamCest
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
+        /** @var PublicAuthRepository $authRepository */
+        $authRepository = $I->grabService(PublicAuthRepository::class);
+        $subscriberUserId = $authRepository->findOrCreateIdentity(
+            'email',
+            'subscriber-2@example.test',
+            'subscriber-2@example.test',
+            'Subscriber',
+        );
         $dbLayer
             ->insert(CommentSchema::TABLE_NAME)
             ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->setValue('content_id', '1')
+            ->setValue('user_id', ':user_id')->setParameter('user_id', $subscriberUserId)
             ->setValue('time', ':time')->setParameter('time', time() - 60)
             ->setValue('ip', "'198.51.100.21'")
             ->setValue('nick', "'Subscriber'")
@@ -981,6 +1030,15 @@ final class AntispamCest
             ->where('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
             ->execute()
             ->result();
+    }
+
+    private function callbackUrl(string $message): string
+    {
+        if (preg_match('~https?://[^\s]+/auth/email/callback\?token=[A-Za-z0-9_-]+~', $message, $matches) !== 1) {
+            throw new \RuntimeException('The test email contains no callback URL.');
+        }
+
+        return $matches[0];
     }
 
     private function rowCount(DbLayer $dbLayer, string $table): int

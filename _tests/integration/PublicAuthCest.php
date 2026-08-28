@@ -15,10 +15,12 @@ use Register\Auth\PublicAuthRepository;
 use Register\Auth\PublicAuthSchema;
 use Register\Auth\PublicAuthSettings;
 use Register\Comment\CommentSchema;
+use Register\Comment\Antispam\SpamFeedbackService;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Model\AuthenticatedPublicUser;
+use Register\Core\Comment\SpamDetectorReport;
 use Register\Core\Pdo\DbLayer;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
@@ -182,6 +184,7 @@ final class PublicAuthCest
 
     public function testPasswordSignInRejectsAnExpiredFormToken(\IntegrationTester $I): void
     {
+        $I->resetTestCookie('register_cookie_904732485_c');
         $I->sendAjaxPostRequest('https://localhost/auth/password', [
             'login'       => 'admin',
             'pass'        => 'admin',
@@ -350,6 +353,11 @@ final class PublicAuthCest
         $identityManager = $I->grabService(VisitorIdentityManager::class);
         $articleId = $this->insertContent($dbLayer, 'email-comment-test');
 
+        $I->amOnPage('https://localhost/email-comment-test');
+        $I->see('Your comment will appear only after you confirm your email.', '.comment-public-auth');
+        $I->seeElement('#comment-form .comment-submit[value="Send confirmation link"]');
+        $I->dontSeeElement('#comment-form .comment-email-submit');
+
         $I->sendJson('https://localhost/_visitor/resolve', [
             'trackPage' => false,
         ], headers: ['Origin' => 'https://localhost']);
@@ -362,7 +370,6 @@ final class PublicAuthCest
             'name'        => 'Verified reader',
             'email'       => 'verified-reader@example.test',
             'text'        => '<p>A comment waiting for its link.</p>',
-            'email_login' => '1',
         ]);
         $I->seeResponseCodeIs(302);
         $I->assertSame(0, (int)$dbLayer
@@ -398,6 +405,106 @@ final class PublicAuthCest
             ->execute()
             ->result());
         $I->seeLocationMatches('~^/email-comment-test#comment-' . (int)$comment['id'] . '$~');
+    }
+
+    public function testVerifiedSpamStaysHiddenAndUnsentUntilItIsApproved(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var PublicAuthRepository $authRepository */
+        $authRepository = $I->grabService(PublicAuthRepository::class);
+        $articleId = $this->insertContent($dbLayer, 'verified-spam-test');
+        $subscriberUserId = $authRepository->findOrCreateIdentity(
+            'email',
+            'subscriber@example.test',
+            'subscriber@example.test',
+            'Subscribed reader',
+        );
+        $this->insertComment(
+            $dbLayer,
+            $articleId,
+            'Subscribed reader',
+            'subscriber@example.test',
+            $subscriberUserId,
+            subscribed: true,
+        );
+        $this->insertComment(
+            $dbLayer,
+            $articleId,
+            'Legacy unverified subscriber',
+            'unverified-subscriber@example.test',
+            subscribed: true,
+        );
+        $replyUserId = $authRepository->findOrCreateIdentity(
+            'email',
+            'reply-recipient@example.test',
+            'reply-recipient@example.test',
+            'Reply recipient',
+        );
+        $parentId = $this->insertComment(
+            $dbLayer,
+            $articleId,
+            'Reply recipient',
+            'reply-recipient@example.test',
+            $replyUserId,
+        );
+        $I->setSpamResponses([SpamDetectorReport::STATUS_SPAM]);
+
+        $I->sendPost('https://localhost/verified-spam-test', [
+            'name'      => 'Suspicious reader',
+            'email'     => 'suspicious-reader@example.test',
+            'text'      => '<p>A suspicious pending comment.</p>',
+            'parent_id' => (string)$parentId,
+        ]);
+        $I->seeResponseCodeIs(302);
+        $I->assertSame(0, (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where("email = 'suspicious-reader@example.test'")
+            ->execute()
+            ->result());
+        $I->assertCount(0, $I->grabSubscriberMails());
+        $I->assertCount(0, $I->grabModeratorMails());
+
+        $authMails = $I->grabPublicAuthMails();
+        $I->assertCount(1, $authMails);
+        $I->amOnPage($this->callbackUrl($authMails[0]['message']));
+        $I->seeResponseCodeIs(302);
+
+        $comment = $dbLayer
+            ->select('id', 'shown', 'sent')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where("email = 'suspicious-reader@example.test'")
+            ->execute()
+            ->fetchAssoc();
+        $I->assertIsArray($comment);
+        $I->assertSame(0, (int)$comment['shown']);
+        $I->assertSame(0, (int)$comment['sent']);
+        $I->assertCount(0, $I->grabSubscriberMails());
+
+        $moderatorMails = $I->grabModeratorMails();
+        $I->assertNotEmpty($moderatorMails);
+        foreach ($moderatorMails as $moderatorMail) {
+            $I->assertSame(SpamDetectorReport::STATUS_SPAM, $moderatorMail['spamReportStatus']);
+            $I->assertFalse($moderatorMail['isPublished']);
+        }
+
+        /** @var SpamFeedbackService $feedback */
+        $feedback = $I->grabService(SpamFeedbackService::class);
+        $I->assertTrue($feedback->markHam((int)$comment['id'], ContentType::PAGE));
+        $I->assertSame(['shown' => 1, 'sent' => 1], $dbLayer
+            ->select('shown', 'sent')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', (int)$comment['id'])
+            ->execute()
+            ->fetchAssoc());
+        $subscriberMails = $I->grabSubscriberMails();
+        $I->assertCount(2, $subscriberMails);
+        $mailsByEmail = array_column($subscriberMails, null, 'subscriberEmail');
+        $I->assertArrayHasKey('subscriber@example.test', $mailsByEmail);
+        $I->assertArrayHasKey('reply-recipient@example.test', $mailsByEmail);
+        $I->assertArrayNotHasKey('unverified-subscriber@example.test', $mailsByEmail);
+        $I->assertNull($mailsByEmail['reply-recipient@example.test']['unsubscribeLink']);
     }
 
     public function testRelevantUnreadCommentsAreCountedAndMarkedPerContent(\IntegrationTester $I): void

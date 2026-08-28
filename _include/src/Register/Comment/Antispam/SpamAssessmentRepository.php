@@ -13,6 +13,7 @@ use Register\Comment\CommentSchema;
 use Register\Content\ContentType;
 use Register\Core\Comment\Antispam\SpamAssessment;
 use Register\Core\Comment\Antispam\SpamAssessmentStoreInterface;
+use Register\Core\Comment\Antispam\SpamReputationRepository;
 use Register\Core\Comment\Antispam\SpamRiskScorer;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerException;
@@ -153,6 +154,31 @@ final readonly class SpamAssessmentRepository implements SpamAssessmentStoreInte
         }
 
         return $row['moderator_label'];
+    }
+
+    /** Whether the latest assessment is effectively spam after moderator overrides. */
+    public function isSpam(int $commentId, ContentType $contentType): bool
+    {
+        $row = $this->dbLayer
+            ->select('status', 'moderator_label')
+            ->from('spam_assessments')
+            ->where('target_type = :target_type')->setParameter('target_type', $contentType->value)
+            ->andWhere('comment_id = :comment_id')->setParameter('comment_id', $commentId)
+            ->orderBy('id DESC')
+            ->limit(1)
+            ->execute()
+            ->fetchAssoc()
+        ;
+        if ($row === false) {
+            return false;
+        }
+
+        $moderatorLabel = $row['moderator_label'] ?? null;
+        if (\is_string($moderatorLabel) && $moderatorLabel !== '') {
+            return $moderatorLabel === SpamReputationRepository::LABEL_SPAM;
+        }
+
+        return in_array($row['status'] ?? null, ['spam', 'blatant'], true);
     }
 
     /**

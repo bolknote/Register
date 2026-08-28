@@ -24,6 +24,8 @@ final readonly class PendingEmailComment
         public ?int        $parentId,
         public string      $returnPath,
         public bool        $moderationRequired,
+        public ?int        $spamAssessmentId,
+        public string      $spamStatus,
         public ?string     $visitorId,
     ) {
     }

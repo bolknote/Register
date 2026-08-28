@@ -14,7 +14,7 @@ final readonly class CommentSubscriber
     public function __construct(
         public string $name,
         public string $email,
-        public string $unsubscribeToken,
+        public ?string $unsubscribeToken,
     ) {
     }
 }

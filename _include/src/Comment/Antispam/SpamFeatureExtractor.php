@@ -53,7 +53,9 @@ final class SpamFeatureExtractor
         'sebe' => true,
         'sebya' => true,
         'tak' => true,
+        'takoi' => true,
         'tebe' => true,
+        'tem' => true,
         'tolko' => true,
         'ty' => true,
         'uzhe' => true,
@@ -63,6 +65,7 @@ final class SpamFeatureExtractor
         'vsyo' => true,
         'ya' => true,
         'zhe' => true,
+        'vertep' => true,
     ];
 
     /** @var array<string, true> */
@@ -95,6 +98,7 @@ final class SpamFeatureExtractor
         'seych',
         'skolko',
         'udivlya',
+        'vertep',
         'zaby',
     ];
 
@@ -225,7 +229,7 @@ final class SpamFeatureExtractor
                 }
             }
 
-            if (preg_match('#(?:skiy|ckiy|tsya|sya|nyy|nyi|aya|yaya|ogo|omu|ymi|ami|akh|yah|uyu)$#', $word) === 1) {
+            if (preg_match('#(?:skiy|ckiy|tsya|sya|nyy|nyi|aya|yaya|ogo|omu|ymi|ami|akh|yah|uyu|oi)$#', $word) === 1) {
                 $score += 3;
             }
 

@@ -57,8 +57,7 @@ final readonly class SpamFeedbackService
     /** @throws DbLayerException */
     public function isMarkedSpam(int $commentId, ContentType $contentType): bool
     {
-        return $this->assessmentRepository->latestModeratorLabel($commentId, $contentType)
-            === SpamReputationRepository::LABEL_SPAM;
+        return $this->assessmentRepository->isSpam($commentId, $contentType);
     }
 
     /**
@@ -93,12 +92,19 @@ final readonly class SpamFeedbackService
         );
 
         $previousLabel = $this->assessmentRepository->labelComment($commentId, $label, $assessment, $contentType);
-        $this->reputationRepository->replaceLabel([
+        $reputationKeys = [
             'text'   => [$assessment->textHash],
-            'email'  => [$assessment->emailHash],
             'ip'     => [$assessment->ipHash],
             'domain' => $assessment->domainHashes,
-        ], $previousLabel, $label);
+        ];
+        // A legacy guest could write any address without proving that it belonged to them.
+        // Keep such garbage out of identity reputation; only authenticated/verified identities
+        // may teach the filter anything about an email address.
+        if ($comment->userId !== null) {
+            $reputationKeys['email'] = [$assessment->emailHash];
+        }
+
+        $this->reputationRepository->replaceLabel($reputationKeys, $previousLabel, $label);
 
         if ($label === SpamReputationRepository::LABEL_HAM) {
             if (!$comment->shown && $comment->sent) {
@@ -107,7 +113,7 @@ final readonly class SpamFeedbackService
 
             $this->commentRepository->publish($commentId, $contentType);
 
-            if (!$comment->shown) {
+            if (!$comment->shown || !$comment->sent) {
                 $this->commentNotifier->notify($commentId, $contentType);
             }
         } else {

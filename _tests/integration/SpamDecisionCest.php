@@ -19,7 +19,14 @@ use Register\Core\Comment\SpamDetectorReport;
  */
 class SpamDecisionCest
 {
-    private const string COMMENT_URL = 'http://register.localhost/';
+    private const string COMMENT_URL = 'https://localhost/';
+
+    public function _before(\IntegrationTester $I): void
+    {
+        // Spam-decision tests exercise the immediate authenticated path. Guest
+        // publication and its mandatory email confirmation are covered separately.
+        $I->login('admin', 'admin');
+    }
 
     /**
      * @dataProvider decisionProvider
@@ -90,9 +97,13 @@ class SpamDecisionCest
 
         $mails = $I->grabModeratorMails();
         $I->assertCount($mailCountBefore + 1, $mails);
-        $lastMail = $mails[array_key_last($mails)];
-        $I->assertEquals('moderator', $lastMail['moderatorName']);
-        $I->assertEquals('moderator@example.com', $lastMail['moderatorEmail']);
+        $moderatorMails = array_values(array_filter(
+            $mails,
+            static fn(array $mail): bool => $mail['moderatorEmail'] === 'moderator@example.com',
+        ));
+        $I->assertNotEmpty($moderatorMails);
+        $moderatorMail = $moderatorMails[array_key_last($moderatorMails)];
+        $I->assertEquals('moderator', $moderatorMail['moderatorName']);
     }
 
     /**

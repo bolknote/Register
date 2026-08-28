@@ -98,21 +98,27 @@ final readonly class CommentModerationController implements ControllerInterface
                     return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
                 }
             } elseif ($action === 'show') {
-                if ($comment->shown || $this->spamFeedbackService->isMarkedSpam($commentId, $contentType)) {
+                if ($comment->shown) {
                     return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
                 }
 
-                $this->commentRepository->publish($commentId, $contentType);
-                try {
-                    $this->commentNotifier->notify($commentId, $contentType);
-                } catch (\Throwable $throwable) {
-                    // Publication is the moderation result; a mail failure must not roll it back
-                    // or leave the browser believing that the comment is still hidden.
-                    $this->logger->error('Unable to notify subscribers about a published comment.', [
-                        'comment_id'   => $commentId,
-                        'content_type' => $contentType->value,
-                        'exception'    => $throwable,
-                    ]);
+                if ($this->spamFeedbackService->isMarkedSpam($commentId, $contentType)) {
+                    if (!$this->markHam($commentId, $contentType)) {
+                        return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
+                    }
+                } else {
+                    $this->commentRepository->publish($commentId, $contentType);
+                    try {
+                        $this->commentNotifier->notify($commentId, $contentType);
+                    } catch (\Throwable $throwable) {
+                        // Publication is the moderation result; a mail failure must not roll it back
+                        // or leave the browser believing that the comment is still hidden.
+                        $this->logger->error('Unable to notify subscribers about a published comment.', [
+                            'comment_id'   => $commentId,
+                            'content_type' => $contentType->value,
+                            'exception'    => $throwable,
+                        ]);
+                    }
                 }
             } elseif ($action === 'spam' && !$this->spamFeedbackService->markSpam($commentId, $contentType)) {
                 return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);

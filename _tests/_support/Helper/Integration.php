@@ -670,4 +670,26 @@ readonly class IntegrationCommentMailer extends \Register\Core\Mail\CommentMaile
 
         return true;
     }
+
+    public function mailToReplyRecipient(
+        string $recipientName,
+        string $recipientEmail,
+        string $text,
+        string $title,
+        string $url,
+        string $authorName,
+    ): bool {
+        $this->helper->recordSubscriberMail([
+            'subscriberName'  => $recipientName,
+            'subscriberEmail' => $recipientEmail,
+            'text'            => $text,
+            'title'           => $title,
+            'url'             => $url,
+            'authorName'      => $authorName,
+            'unsubscribeLink' => null,
+            'directReply'     => true,
+        ]);
+
+        return true;
+    }
 }

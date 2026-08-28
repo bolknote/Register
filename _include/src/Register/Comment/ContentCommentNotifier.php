@@ -37,9 +37,9 @@ final readonly class ContentCommentNotifier
             return;
         }
 
-        // Visibility and delivery are independent states. We durably enqueue recipients first;
-        // the caller can then publish without waiting for any external mail server.
-        if ($comment->sent) {
+        // Only a visible, still-live comment may enqueue mail. Hidden moderation items keep
+        // sent=0 so an explicit approval can publish them and trigger this method exactly once.
+        if ($comment->sent || !$comment->shown || $comment->deleted) {
             return;
         }
 
@@ -52,7 +52,7 @@ final readonly class ContentCommentNotifier
             return;
         }
 
-        foreach ($this->subscriptionService->receivers($comment->contentId, $comment->email) as $receiver) {
+        foreach ($this->subscriptionService->receivers($comment) as $receiver) {
             $this->mailPublisher->subscriber(
                 $comment->id,
                 $comment->contentId->type,

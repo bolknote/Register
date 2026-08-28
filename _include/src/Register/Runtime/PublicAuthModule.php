@@ -109,6 +109,10 @@ final readonly class PublicAuthModule implements ContainerModuleInterface
             $container->get(MagicLinkRateLimiter::class),
             $container->get('translator'),
             $container->get(VisitorIdentityManager::class),
+            $container->get(\Register\Comment\Antispam\SpamAssessmentRepository::class),
+            $container->get(\Register\Comment\CommentMailPublisher::class),
+            $container->get(\Register\Core\Model\User\UserProvider::class),
+            $container->get(AuthProvider::class),
             ...$container->getByTag(CommentStrategyInterface::class),
         ), [PendingEmailCommentServiceInterface::class]);
         $container->set(

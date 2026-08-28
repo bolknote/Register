@@ -11,7 +11,7 @@ namespace Register\Admin;
 
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSchema;
-use Register\Comment\ContentCommentNotifier;
+use Register\Comment\Antispam\SpamFeedbackService;
 use Register\Content\ContentId;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentPublicationScheduler;
@@ -97,8 +97,8 @@ class AdminConfigProvider implements StatefulServiceInterface
         private readonly ContentUrlGenerator      $contentUrlGenerator,
         private readonly TagsProvider             $tagsProvider,
         private readonly TagRepository             $tagRepository,
-        private readonly ContentCommentNotifier   $commentNotifier,
         private readonly CommentRepository         $commentRepository,
+        private readonly SpamFeedbackService       $spamFeedbackService,
         private readonly LiveUpdateRepository      $liveUpdateRepository,
         private readonly ExtensionCache           $extensionCache,
         private readonly ContentChangeDispatcher  $contentChangeDispatcher,
@@ -340,11 +340,9 @@ class AdminConfigProvider implements StatefulServiceInterface
                 ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_COMMENTS) ? [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_DELETE] : [],
             ])
             ->setListActionsTemplate('_admin/templates/comment/list-actions.php.inc')
-            ->addListener(EntityConfig::EVENT_BEFORE_PATCH, function (BeforeSaveEvent $event): void {
-                if (isset($event->data['shown'])) {
-                    $this->commentNotifier->notify(
-                        $this->requirePrimaryKey($event->primaryKey)->getIntId(),
-                    );
+            ->addListener(EntityConfig::EVENT_BEFORE_PATCH, static function (BeforeSaveEvent $event): void {
+                if (($event->data['shown'] ?? false) === true) {
+                    $event->context['publish_comment'] = true;
                 }
             })
             ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, static function (BeforeSaveEvent $event): void {
@@ -353,9 +351,12 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->addListener(
                 [EntityConfig::EVENT_AFTER_PATCH, EntityConfig::EVENT_AFTER_UPDATE],
                 function (AfterSaveEvent $event): void {
-                    $comment = $this->commentRepository->find(
-                        $this->requirePrimaryKey($event->primaryKey)->getIntId(),
-                    );
+                    $commentId = $this->requirePrimaryKey($event->primaryKey)->getIntId();
+                    if (($event->context['publish_comment'] ?? false) === true) {
+                        $this->spamFeedbackService->markHam($commentId);
+                    }
+
+                    $comment = $this->commentRepository->find($commentId);
                     if ($comment instanceof \Register\Comment\Comment) {
                         $this->liveUpdateRepository->publishComments($comment->contentId);
                     }

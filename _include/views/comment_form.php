@@ -65,7 +65,7 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
             <button type="submit"><?php echo $trans('Sign out'); ?></button>
         </form>
     <?php else: ?>
-        <span class="comment-public-auth-copy"><?php echo $trans('Comment as guest or sign in to keep track of replies.'); ?></span>
+        <span class="comment-public-auth-copy"><?php echo $trans('Confirm your email before the comment is published.'); ?></span>
         <a class="public-auth-open comment-public-auth-login" href="<?php echo register_htmlencode($authLoginUrl); ?>" data-public-auth-open><?php echo $trans('Sign in'); ?></a>
     <?php endif; ?>
     </div>
@@ -115,10 +115,7 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
         <input class="comment-reply-number" type="hidden" name="<?php echo $fieldName('reply_number'); ?>" value="<?php echo $reply_number; ?>" />
         <input class="comment-reply-name" type="hidden" name="<?php echo $fieldName('reply_name'); ?>" value="<?php echo register_htmlencode($reply_name); ?>" />
         <p class="input buttons">
-            <input class="comment-submit" type="submit" name="submit" value="<?php echo $trans('Submit'); ?>" />
-            <?php if (!$authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser): ?>
-            <button class="comment-email-submit" type="submit" name="<?php echo $fieldName('email_login'); ?>" value="1"><?php echo $trans('Sign in by email and publish'); ?></button>
-            <?php endif; ?>
+            <input class="comment-submit" type="submit" name="submit" value="<?php echo $trans($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser ? 'Submit' : 'Send confirmation link'); ?>" />
         </p>
     </form>
     <a class="comment-form-origin" href="<?php echo register_htmlencode($cancelReplyUrl); ?>" hidden></a>

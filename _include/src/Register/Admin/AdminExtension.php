@@ -97,7 +97,6 @@ use Register\Core\Mail\MailSettings;
 use Register\Model\ArticleManager;
 use Register\Model\ArticleProvider;
 use Register\Core\Model\AuthManager;
-use Register\Comment\ContentCommentNotifier;
 use Register\Core\Model\ExtensionCache;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Monitoring\RequestPerformanceInspector;
@@ -245,8 +244,8 @@ class AdminExtension implements ExtensionInterface
                 $container->get(\Register\Url\ContentUrlGenerator::class),
                 $container->get(TagsProvider::class),
                 $container->get(\Register\Content\TagRepository::class),
-                $container->get(ContentCommentNotifier::class),
                 $container->get(CommentRepository::class),
+                $container->get(SpamFeedbackService::class),
                 $container->get(\Register\Live\LiveUpdateRepository::class),
                 $container->get(ExtensionCache::class),
                 $container->get(ContentChangeDispatcher::class),

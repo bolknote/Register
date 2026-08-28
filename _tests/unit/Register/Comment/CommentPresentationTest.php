@@ -179,6 +179,7 @@ final class CommentPresentationTest extends Unit
             id INTEGER PRIMARY KEY,
             target_type TEXT NOT NULL,
             comment_id INTEGER NOT NULL,
+            status TEXT NOT NULL,
             moderator_label TEXT
         )');
         $pdo->exec('CREATE TABLE register_reaction_aggregate (

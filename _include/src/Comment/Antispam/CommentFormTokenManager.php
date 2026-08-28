@@ -21,7 +21,6 @@ final readonly class CommentFormTokenManager
     /** @var list<string> */
     private const array MUTABLE_FIELDS = [
         'email',
-        'email_login',
         'homepage',
         'id',
         'name',

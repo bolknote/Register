@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Auth\PublicAuthSettings;
+use Register\Auth\PublicAuthRepository;
 use Register\Comment\CommentChangedEvent;
 use Register\Comment\CommentChangeKind;
 use Register\Comment\CommentSchema;
@@ -24,6 +26,11 @@ use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 class CommentCest
 {
+    public function _before(\IntegrationTester $I): void
+    {
+        $I->setConfigValue(PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY, '1');
+    }
+
     public function testPreviewAcceptsAnEmptyParentId(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -62,6 +69,14 @@ class CommentCest
             'parent_id' => '',
         ]);
 
+        $I->seeResponseCodeIs(302);
+        $I->assertSame(0, (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('nick = :nick')->setParameter('nick', 'Top-level author')
+            ->execute()
+            ->result());
+        $I->amOnPage($this->callbackUrl($I->grabPublicAuthMails()[0]['message']));
         $I->seeResponseCodeIs(302);
 
         $comment = $dbLayer
@@ -211,6 +226,14 @@ class CommentCest
             'reply_number' => '1',
             'reply_name'   => 'Parent',
         ]);
+        $I->seeResponseCodeIs(302);
+        $I->assertSame(0, (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('nick = :nick')->setParameter('nick', 'Reply author')
+            ->execute()
+            ->result());
+        $I->amOnPage($this->callbackUrl($I->grabPublicAuthMails()[0]['message']));
         $I->seeResponseCodeIs(302);
 
         $reply = $dbLayer
@@ -501,6 +524,14 @@ class CommentCest
             'subscriber@example.test',
             text: 'Subscribed root comment',
         );
+        /** @var PublicAuthRepository $authRepository */
+        $authRepository = $I->grabService(PublicAuthRepository::class);
+        $subscriberUserId = $authRepository->findOrCreateIdentity(
+            'email',
+            'subscriber@example.test',
+            'subscriber@example.test',
+            'Subscribed reader',
+        );
         $commentId = $this->insertComment(
             $dbLayer,
             $articleId,
@@ -511,6 +542,7 @@ class CommentCest
         $dbLayer
             ->update(CommentSchema::TABLE_NAME)
             ->set('subscribed', '1')
+            ->set('user_id', ':user_id')->setParameter('user_id', $subscriberUserId)
             ->where('id = :id')->setParameter('id', $subscriberId)
             ->execute()
         ;
@@ -668,6 +700,15 @@ class CommentCest
         }
 
         return ['shown' => (int)$row['shown'], 'sent' => (int)$row['sent']];
+    }
+
+    private function callbackUrl(string $message): string
+    {
+        if (preg_match('~https?://[^\s]+/auth/email/callback\?token=[A-Za-z0-9_-]+~', $message, $matches) !== 1) {
+            throw new \RuntimeException('The test email contains no callback URL.');
+        }
+
+        return $matches[0];
     }
 
     private function insertArticle(DbLayer $dbLayer): int

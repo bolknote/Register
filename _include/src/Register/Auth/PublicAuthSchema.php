@@ -75,6 +75,8 @@ final class PublicAuthSchema
                 ->addString('visitor_id', 32, true, null)
                 ->addBoolean('subscribed')
                 ->addBoolean('moderation_required')
+                ->addInteger('spam_assessment_id', true, true, null)
+                ->addString('spam_status', 16)
                 ->addString('ip', 39)
                 ->addInteger('created_at', true)
                 ->addInteger('expires_at', true)
@@ -85,6 +87,7 @@ final class PublicAuthSchema
             ;
         });
         self::ensureMagicLinkModerationRequirement($dbLayer);
+        self::ensurePendingCommentSpamAssessment($dbLayer);
 
         $dbLayer->createTable(self::NOTIFICATION_USERS_TABLE, static function (SchemaBuilderInterface $table): void {
             $table
@@ -164,6 +167,29 @@ final class PublicAuthSchema
             null,
             false,
             false,
+        );
+    }
+
+    /** Persists the pre-verification spam verdict until the pending comment is created. */
+    public static function ensurePendingCommentSpamAssessment(DbLayer $dbLayer): void
+    {
+        $dbLayer->addField(
+            self::MAGIC_LINKS_TABLE,
+            'spam_assessment_id',
+            SchemaBuilderInterface::TYPE_UNSIGNED_INTEGER,
+            null,
+            true,
+            null,
+            'moderation_required',
+        );
+        $dbLayer->addField(
+            self::MAGIC_LINKS_TABLE,
+            'spam_status',
+            SchemaBuilderInterface::TYPE_STRING,
+            16,
+            false,
+            '',
+            'spam_assessment_id',
         );
     }
 }

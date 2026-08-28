@@ -329,9 +329,7 @@ readonly class CommentController implements ControllerInterface
 
         $moderationRequired = $forceModeration || $spamDecision->shouldModerate($this->premoderationEnabled->get());
 
-        if (!$authenticatedUser instanceof AuthenticatedPublicUser
-            && $request->request->getBoolean('email_login')
-        ) {
+        if (!$authenticatedUser instanceof AuthenticatedPublicUser) {
             if (!$this->pendingEmailCommentService instanceof PendingEmailCommentServiceInterface) {
                 return new Response(
                     $this->translator->trans('Email sign-in is unavailable'),
@@ -353,6 +351,8 @@ readonly class CommentController implements ControllerInterface
                         $parentId,
                         $path,
                         $moderationRequired,
+                        $spamDecision->getReport()->getAssessmentId(),
+                        $spamDecision->getStatus(),
                         $visitorId,
                     ),
                 );
@@ -378,7 +378,7 @@ readonly class CommentController implements ControllerInterface
             $text,
             (string)$request->getClientIp(),
             $parentId,
-            $authenticatedUser?->id,
+            $authenticatedUser->id,
             $visitorId,
         );
         $assessmentId = $spamDecision->getReport()->getAssessmentId();
@@ -419,8 +419,8 @@ readonly class CommentController implements ControllerInterface
 
         if (!$moderationRequired) {
             // Sending the comment to subscribers
-            $this->commentStrategy->notifySubscribers($commentId);
             $this->commentStrategy->publishComment($commentId);
+            $this->commentStrategy->notifySubscribers($commentId);
             $hash = $this->commentStrategy->getHashForPublishedComment($target->id);
             // Redirect to the last comment
             $redirectLink = $this->urlBuilder->link($path) . ($hash !== null ? '#' . $hash : '');

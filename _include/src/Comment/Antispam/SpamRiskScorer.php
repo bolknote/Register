@@ -14,7 +14,7 @@ use Register\Core\Pdo\DbLayerException;
 
 final readonly class SpamRiskScorer
 {
-    public const string VERSION = 'rules-6';
+    public const string VERSION = 'rules-7';
 
     public function __construct(
         private SpamIdentityHasher       $hasher,

@@ -54,6 +54,14 @@ final class SpamFeatureExtractorTest extends Unit
             'a potom udivlyayutsya poc',
             'hemu k gadalkam idut',
         ));
+        self::assertTrue($extractor->hasSentenceLikeLatinTransliteration(
+            'vertep o',
+            'n takoi',
+        ));
+        self::assertTrue($extractor->hasSentenceLikeLatinTransliteration(
+            'tem zhe',
+            'chto tolstoi',
+        ));
     }
 
     /** @dataProvider ordinaryLatinCommentsProvider */

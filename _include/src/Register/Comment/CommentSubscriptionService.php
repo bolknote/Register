@@ -21,15 +21,36 @@ final readonly class CommentSubscriptionService
     }
 
     /** @return list<CommentSubscriber> */
-    public function receivers(ContentId $contentId, string $authorEmail): array
+    public function receivers(Comment $comment): array
     {
         $byEmail = [];
-        foreach ($this->commentRepository->findSubscribers($contentId, $authorEmail, false) as $comment) {
-            $byEmail[$comment->email] = new CommentSubscriber(
-                $comment->name,
-                $comment->email,
-                $this->token($comment),
+        foreach ($this->commentRepository->findSubscribers($comment->contentId, $comment->email, false) as $subscriber) {
+            $byEmail[mb_strtolower($subscriber->email)] = new CommentSubscriber(
+                $subscriber->name,
+                $subscriber->email,
+                $this->token($subscriber),
             );
+        }
+
+        if ($comment->parentId !== null) {
+            $parent = $this->commentRepository->find($comment->parentId);
+            if ($parent instanceof Comment) {
+                $parentEmail = $parent->email;
+                $emailKey = mb_strtolower($parentEmail);
+                if ($parent->userId !== null
+                    && $parent->shown
+                    && !$parent->deleted
+                    && $parentEmail !== ''
+                    && strcasecmp($parentEmail, $comment->email) !== 0
+                    && !isset($byEmail[$emailKey])
+                ) {
+                    $byEmail[$emailKey] = new CommentSubscriber(
+                        $parent->name,
+                        $parentEmail,
+                        null,
+                    );
+                }
+            }
         }
 
         return array_values($byEmail);

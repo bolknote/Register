@@ -41,6 +41,18 @@ This e-mail has been sent automatically. If you reply, the author
 of the site will receive your answer. To unsubscribe, follow the link
 
 <unsubscribe>',
+	'Email reply pattern'      =>
+		'Hello, <name>.
+
+<author> replied to your comment on
+“<title>”. You can find the reply here:
+<url>
+
+----------------------------------------------------------------------
+<text>
+----------------------------------------------------------------------
+
+This e-mail has been sent automatically.',
 	'Email moderator pattern'  =>
 		'Hello, <name>.
 
@@ -75,8 +87,8 @@ of the comment will receive your answer.',
 	'disabled'                 => 'Sorry, but&nbsp;you cannot send comments&nbsp;to this site at&nbsp;this moment. Try it later.',
 	'no_item'                  => 'The destination page cannot be detected due to an error. Go to the page you have commented and try again (you can copy and paste the comment text).',
 	'invalid_parent'           => 'The comment you replied to is no longer available. Choose another comment or post a new top-level comment.',
-	'Sign in by email and publish' => 'Sign in by email and publish',
-	'Comment as guest or sign in to keep track of replies.' => 'Comment as a guest or sign in to keep track of replies.',
+	'Confirm your email before the comment is published.' => 'Your comment will appear only after you confirm your email.',
+	'Send confirmation link' => 'Send confirmation link',
 	'Email sign-in is unavailable' => 'Email sign-in is currently unavailable.',
 	'Unable to send sign-in link' => 'Unable to send a sign-in link. Please try again later.',
 

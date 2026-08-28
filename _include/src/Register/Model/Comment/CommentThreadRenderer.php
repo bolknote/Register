@@ -174,7 +174,10 @@ final readonly class CommentThreadRenderer
             return 'deleted';
         }
 
-        if (($comment['moderator_label'] ?? null) === 'spam') {
+        $moderatorLabel = $comment['moderator_label'] ?? null;
+        if ($moderatorLabel === 'spam'
+            || ($moderatorLabel === null && in_array($comment['spam_status'] ?? null, ['spam', 'blatant'], true))
+        ) {
             return 'spam';
         }
 
@@ -200,10 +203,10 @@ final readonly class CommentThreadRenderer
             'return_to'  => $context->returnPath,
             'can_edit'   => $context->moderator->canEdit,
             'can_hide'   => $context->moderator->canHide && $comment['moderation_state'] === 'visible',
-            'can_show'   => $context->moderator->canHide && $comment['moderation_state'] === 'hidden',
+            'can_show'   => $context->moderator->canHide && in_array($comment['moderation_state'], ['hidden', 'spam'], true),
             'can_delete' => $context->moderator->canHide,
             'can_spam'   => $context->moderator->canHide && $comment['moderation_state'] !== 'spam',
-            'can_ham'    => $context->moderator->canHide && $comment['moderation_state'] === 'spam',
+            'can_ham'    => false,
         ];
     }
 

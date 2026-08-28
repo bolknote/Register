@@ -14,6 +14,7 @@ use Register\Module\BaseModuleRegistry;
 use Register\Schema\CommentPrivacySchemaMigration;
 use Register\Schema\ContentAuthorIndexSchemaMigration;
 use Register\Schema\ContentMediaSchemaMigration;
+use Register\Schema\PendingCommentSpamSchemaMigration;
 use Register\Schema\ExternalImportSchemaMigration;
 use Register\Schema\PublicAuthSchemaMigration;
 use Register\Schema\QueueLeaseSchemaMigration;
@@ -75,6 +76,11 @@ final readonly class SchemaModule implements ContainerModuleInterface
         $container->set(
             ContentAuthorIndexSchemaMigration::class,
             new ContentAuthorIndexSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            PendingCommentSpamSchemaMigration::class,
+            new PendingCommentSpamSchemaMigration(),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

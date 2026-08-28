@@ -49,6 +49,33 @@ readonly class CommentMailer
         return true;
     }
 
+    public function mailToReplyRecipient(
+        string $recipientName,
+        string $recipientEmail,
+        string $text,
+        string $title,
+        string $url,
+        string $authorName,
+    ): bool {
+        $messageTemplate = $this->translator->trans('Email reply pattern');
+        $message = str_replace(
+            ['<name>', '<author>', '<title>', '<url>', '<text>'],
+            [$recipientName, $authorName, $title, $url, $text],
+            $messageTemplate,
+        );
+
+        $this->mailer->send(new MailMessage(
+            type: 'comment_reply',
+            recipientEmail: $recipientEmail,
+            recipientName: $recipientName,
+            subject: \sprintf($this->translator->trans('Email subject'), $url),
+            textBody: $message,
+            htmlBody: $this->plainTextHtml($message),
+        ));
+
+        return true;
+    }
+
     public function mailToModerator(
         string $moderatorName,
         string $moderatorEmail,

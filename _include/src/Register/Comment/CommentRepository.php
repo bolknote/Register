@@ -283,6 +283,7 @@ final readonly class CommentRepository
             ->andWhere('content_id = :content_id')->setParameter('content_id', $contentId->value)
             ->andWhere('subscribed = 1')
             ->andWhere('shown = 1')
+            ->andWhere('user_id IS NOT NULL')
             ->andWhere("email <> ''")
             ->andWhere($sameEmail ? 'email = :email' : 'email <> :email')->setParameter('email', $email)
             ->orderBy('time', 'id')

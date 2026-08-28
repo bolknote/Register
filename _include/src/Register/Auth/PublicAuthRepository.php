@@ -199,7 +199,7 @@ final readonly class PublicAuthRepository
     }
 
     /**
-     * @param array{content_type?: string, content_id?: int|null, parent_id?: int|null, text?: string, subscribed?: bool, moderation_required?: bool, ip?: string}|null $pendingComment
+     * @param array{content_type?: string, content_id?: int|null, parent_id?: int|null, text?: string, subscribed?: bool, moderation_required?: bool, spam_assessment_id?: int|null, spam_status?: string, ip?: string}|null $pendingComment
      */
     public function storeMagicLink(
         string $token,
@@ -226,6 +226,8 @@ final readonly class PublicAuthRepository
                 'visitor_id'   => ':visitor_id',
                 'subscribed'   => ':subscribed',
                 'moderation_required' => ':moderation_required',
+                'spam_assessment_id' => ':spam_assessment_id',
+                'spam_status'  => ':spam_status',
                 'ip'           => ':ip',
                 'created_at'   => ':created_at',
                 'expires_at'   => ':expires_at',
@@ -243,6 +245,8 @@ final readonly class PublicAuthRepository
                 'visitor_id'   => $visitorId,
                 'subscribed'   => (int)($pendingComment['subscribed'] ?? false),
                 'moderation_required' => (int)($pendingComment['moderation_required'] ?? false),
+                'spam_assessment_id' => $pendingComment['spam_assessment_id'] ?? null,
+                'spam_status'  => mb_substr($pendingComment['spam_status'] ?? '', 0, 16),
                 'ip'           => mb_substr($pendingComment['ip'] ?? '', 0, 39),
                 'created_at'   => $now,
                 'expires_at'   => $now + max(60, $lifetime),
