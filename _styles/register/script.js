@@ -216,6 +216,11 @@
             }
             link.dataset.commentReplyBound = '1';
             link.addEventListener('click', function (event) {
+                if (link.hidden || link.closest('[aria-busy="true"]')) {
+                    event.preventDefault();
+                    return;
+                }
+
                 event.preventDefault();
                 setReply(link, true);
             }, false);
@@ -241,8 +246,14 @@
 
         if (parentField.value) {
             var activeReply = document.querySelector('.comment-reply[data-reply-comment="' + parentField.value + '"]');
-            if (activeReply) {
+            if (activeReply && !activeReply.hidden) {
                 setReply(activeReply, false);
+            } else if (activeReply) {
+                parentField.value = '';
+                numberField.value = '0';
+                nameField.value = '';
+                context.hidden = true;
+                restoreOrigin();
             }
         }
     }
@@ -375,9 +386,13 @@
                 }
 
                 var buttons = form.querySelectorAll('button');
+                var item = form.closest('.comment-item');
                 buttons.forEach(function (button) {
                     button.disabled = true;
                 });
+                if (item) {
+                    item.setAttribute('aria-busy', 'true');
+                }
 
                 window.fetch(form.action, {
                     method: 'POST',
@@ -398,7 +413,6 @@
                         return payload;
                     });
                 }).then(function (payload) {
-                    var item = form.closest('.comment-item');
                     var isSpamAction = payload.action === 'spam';
                     var activeElement = document.activeElement;
                     if (activeElement && form.contains(activeElement) && typeof activeElement.blur === 'function') {
@@ -407,6 +421,29 @@
 
                     if (isSpamAction && item) {
                         removeCommentFromThread(item);
+                    }
+
+                    if (item && (payload.action === 'show' || payload.action === 'hide')) {
+                        var reply = item.querySelector(':scope > .comment-actions .comment-reply');
+                        var isVisible = payload.action === 'show';
+                        item.classList.toggle('is-hidden', !isVisible);
+                        item.dataset.moderationState = isVisible ? 'visible' : 'hidden';
+                        if (reply) {
+                            reply.hidden = !isVisible;
+                            reply.toggleAttribute('aria-disabled', !isVisible);
+                            if (isVisible) {
+                                reply.removeAttribute('tabindex');
+                            } else {
+                                reply.setAttribute('tabindex', '-1');
+                            }
+                        }
+                        if (isVisible) {
+                            item.querySelector(':scope > .comment-meta .comment-state-mark')?.remove();
+                        }
+                    }
+
+                    if (item) {
+                        item.removeAttribute('aria-busy');
                     }
 
                     var anchorField = form.elements.comment_anchor;
@@ -429,6 +466,9 @@
                     buttons.forEach(function (button) {
                         button.disabled = false;
                     });
+                    if (item) {
+                        item.removeAttribute('aria-busy');
+                    }
                     showError(form, error.message);
                 });
             });

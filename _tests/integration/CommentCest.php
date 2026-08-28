@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Comment\CommentChangedEvent;
+use Register\Comment\CommentChangeKind;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
@@ -18,6 +20,7 @@ use Register\Core\Model\UserpicSchema;
 use Register\Core\Pdo\DbLayer;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 class CommentCest
 {
@@ -458,6 +461,7 @@ class CommentCest
         $I->seeElement($selector . '.is-hidden');
         $I->seeElement($selector . ' > .comment-moderation [data-moderation-action="show"]');
         $I->dontSeeElement($selector . ' > .comment-moderation [data-moderation-action="hide"]');
+        $I->seeElement($selector . ' > .comment-actions .comment-reply[hidden][aria-disabled="true"]');
 
         $showToken = (string)$I->grabAttributeFrom(
             $selector . ' > .comment-moderation [data-moderation-action="show"] input[name="moderation_token"]',
@@ -478,10 +482,102 @@ class CommentCest
         $I->dontSeeElement($selector . '.is-hidden');
         $I->seeElement($selector . ' > .comment-moderation [data-moderation-action="hide"]');
         $I->dontSeeElement($selector . ' > .comment-moderation [data-moderation-action="show"]');
+        $I->seeElement($selector . ' > .comment-actions .comment-reply:not([hidden])');
 
         $I->logout();
         $I->amOnPage('https://localhost/thread-test');
         $I->see('Visibility can be moderated in place');
+    }
+
+    public function testShowingACommentPublishesBeforeSubscriberNotificationAndAllowsReplies(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer   = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+        $subscriberId = $this->insertComment(
+            $dbLayer,
+            $articleId,
+            'Subscribed reader',
+            'subscriber@example.test',
+            text: 'Subscribed root comment',
+        );
+        $commentId = $this->insertComment(
+            $dbLayer,
+            $articleId,
+            'Pending author',
+            'pending@example.test',
+            text: 'Pending comment to reveal',
+        );
+        $dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('subscribed', '1')
+            ->where('id = :id')->setParameter('id', $subscriberId)
+            ->execute()
+        ;
+        $dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('shown', '0')
+            ->set('sent', '0')
+            ->where('id = :id')->setParameter('id', $commentId)
+            ->execute()
+        ;
+
+        $I->login('moderator', 'moderator');
+        $I->amOnPage('https://localhost/thread-test');
+
+        $selector = '[data-comment-id="' . $commentId . '"]';
+        $showToken = (string)$I->grabAttributeFrom(
+            $selector . ' > .comment-moderation [data-moderation-action="show"] input[name="moderation_token"]',
+            'value',
+        );
+
+        $subscriberMailCountAtPublication = null;
+        /** @var \Symfony\Component\EventDispatcher\EventDispatcherInterface $eventDispatcher */
+        $eventDispatcher = $I->grabService(EventDispatcherInterface::class);
+        $eventDispatcher->addListener(
+            CommentChangedEvent::class,
+            static function (CommentChangedEvent $event) use (
+                $I,
+                $commentId,
+                &$subscriberMailCountAtPublication,
+            ): void {
+                if ($event->commentId === $commentId && $event->kind === CommentChangeKind::PUBLISHED) {
+                    $subscriberMailCountAtPublication = count($I->grabSubscriberMails());
+                }
+            },
+        );
+
+        $I->sendPost('https://localhost/comment-moderate', [
+            'moderation_action' => 'show',
+            'target_type'       => ContentType::PAGE->value,
+            'comment_id'        => (string)$commentId,
+            'comment_anchor'    => '2',
+            'moderation_token'  => $showToken,
+            'return_to'         => '/thread-test',
+        ]);
+
+        $I->seeResponseCodeIs(303);
+        $I->assertSame(0, $subscriberMailCountAtPublication);
+        $I->assertCount(1, $I->grabSubscriberMails());
+        $I->assertSame(['shown' => 1, 'sent' => 1], $this->commentVisibility($dbLayer, $commentId));
+
+        $I->sendPost('https://localhost/thread-test', [
+            'name'      => 'Moderator reply',
+            'email'     => 'moderator@example.test',
+            'text'      => 'Reply immediately after publication',
+            'parent_id' => (string)$commentId,
+        ]);
+
+        $I->seeResponseCodeIs(302);
+        $I->assertSame(
+            1,
+            (int)$dbLayer
+                ->select('COUNT(*)')
+                ->from(CommentSchema::TABLE_NAME)
+                ->where('parent_id = :parent_id')->setParameter('parent_id', $commentId)
+                ->execute()
+                ->result(),
+        );
     }
 
     public function testDeletedCommentBecomesATombstoneAndKeepsItsReplies(\IntegrationTester $I): void

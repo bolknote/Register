@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Core\Controller;
 
+use Psr\Log\LoggerInterface;
 use Register\Comment\CommentRepository;
 use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentType;
@@ -35,6 +36,7 @@ final readonly class CommentModerationController implements ControllerInterface
         private CommentModerationTokenManager $tokenManager,
         private SpamFeedbackService           $spamFeedbackService,
         private ContentCommentNotifier        $commentNotifier,
+        private LoggerInterface                $logger,
         private UrlBuilder                    $urlBuilder,
         private TranslatorInterface           $translator,
     ) {
@@ -100,8 +102,18 @@ final readonly class CommentModerationController implements ControllerInterface
                     return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
                 }
 
-                $this->commentNotifier->notify($commentId, $contentType);
                 $this->commentRepository->publish($commentId, $contentType);
+                try {
+                    $this->commentNotifier->notify($commentId, $contentType);
+                } catch (\Throwable $throwable) {
+                    // Publication is the moderation result; a mail failure must not roll it back
+                    // or leave the browser believing that the comment is still hidden.
+                    $this->logger->error('Unable to notify subscribers about a published comment.', [
+                        'comment_id'   => $commentId,
+                        'content_type' => $contentType->value,
+                        'exception'    => $throwable,
+                    ]);
+                }
             } elseif ($action === 'spam' && !$this->spamFeedbackService->markSpam($commentId, $contentType)) {
                 return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
             } elseif ($action === 'ham' && !$this->markHam($commentId, $contentType)) {

@@ -3253,6 +3253,10 @@ h2.comment {
     color: var(--accent-color);
 }
 
+.comment-reply[hidden] {
+    display: none;
+}
+
 .comment-source::before {
     margin-right: 0.25em;
     content: "↗";

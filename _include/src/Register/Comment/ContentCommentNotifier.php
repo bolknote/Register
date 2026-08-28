@@ -41,7 +41,9 @@ final readonly class ContentCommentNotifier
             return;
         }
 
-        if ($comment->shown || $comment->sent) {
+        // Visibility and delivery are independent states. Moderation publishes first so readers
+        // can immediately reply, then performs the potentially slow mail delivery.
+        if ($comment->sent) {
             return;
         }
 

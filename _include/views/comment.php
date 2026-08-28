@@ -195,7 +195,7 @@ $sourceLabel     = $presentation_source_label ?? '';
             <a class="comment-reply" href="?<?php echo register_htmlencode($replyQuery); ?>#add-comment"
                data-reply-comment="<?php echo $id; ?>"
                data-reply-number="<?php echo $i; ?>"
-               data-reply-name="<?php echo $encodedNick; ?>"><?php echo $trans('Reply'); ?></a>
+               data-reply-name="<?php echo $encodedNick; ?>"<?php if ($moderationState !== 'visible'): ?> hidden aria-disabled="true" tabindex="-1"<?php endif; ?>><?php echo $trans('Reply'); ?></a>
             <?php if ($sourceUrl !== null && $sourceLabel !== ''): ?>
                 <a class="comment-source" href="<?php echo register_htmlencode($sourceUrl); ?>" rel="nofollow ugc noopener noreferrer" referrerpolicy="no-referrer"><?php echo register_htmlencode($sourceLabel); ?></a>
             <?php endif; ?>

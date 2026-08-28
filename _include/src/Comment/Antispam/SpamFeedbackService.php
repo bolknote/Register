@@ -101,11 +101,11 @@ final readonly class SpamFeedbackService
                 $this->commentRepository->setSent($commentId, $contentType, false);
             }
 
+            $this->commentRepository->publish($commentId, $contentType);
+
             if (!$comment->shown) {
                 $this->commentNotifier->notify($commentId, $contentType);
             }
-
-            $this->commentRepository->publish($commentId, $contentType);
         } else {
             $this->commentRepository->markSpam($commentId, $contentType);
         }
