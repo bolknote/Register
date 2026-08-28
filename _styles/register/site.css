@@ -996,7 +996,14 @@ h2.preview,
     text-wrap: stable;
 }
 
-.post-card.is-editing > .post.body[data-post-inplace-body].has-leading-boundary-caret::before {
+.post-card.is-editing > .post.body[data-post-inplace-body]
+    :where(.post-picture, .post-media-picture, figure).has-leading-boundary-caret {
+    position: relative;
+}
+
+.post-card.is-editing > .post.body[data-post-inplace-body].has-leading-boundary-caret::before,
+.post-card.is-editing > .post.body[data-post-inplace-body]
+    :where(.post-picture, .post-media-picture, figure).has-leading-boundary-caret::before {
     position: absolute;
     z-index: 2;
     top: 0.08em;

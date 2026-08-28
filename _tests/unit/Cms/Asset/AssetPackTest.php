@@ -160,7 +160,10 @@ final class AssetPackTest extends Unit
 
         self::assertIsString($site);
         self::assertMatchesRegularExpression(
-            '/\.post\.body\[data-post-inplace-body\]\.has-leading-boundary-caret::before\s*'
+            '/\.post\.body\[data-post-inplace-body\]\.has-leading-boundary-caret::before\s*,\s*'
+                . '\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*'
+                . ':where\(\.post-picture, \.post-media-picture, figure\)'
+                . '\.has-leading-boundary-caret::before\s*'
                 . '\{[^}]*position:\s*absolute;[^}]*background:\s*var\(--accent-color\);/s',
             $site,
         );
@@ -170,6 +173,12 @@ final class AssetPackTest extends Unit
             'range.startContainer === active && range.startOffset === 0',
             $script,
         );
+        self::assertStringContainsString(
+            "boundary.matches('.post-picture, .post-media-picture, figure')",
+            $script,
+        );
+        self::assertStringContainsString('node instanceof HTMLBRElement', $script);
+        self::assertStringContainsString("boundary.querySelector('img, video, audio')", $script);
         self::assertStringContainsString("document.addEventListener('selectionchange', syncBoundaryCaret", $script);
         self::assertStringNotContainsString('\\u200b', strtolower($script));
     }

@@ -4,7 +4,7 @@
     const editorStates = new WeakMap();
     const tagSuggestionRequests = new Map();
     let tagEditorSequence = 0;
-    let boundaryCaretBody = null;
+    let boundaryCaretElement = null;
     const imageOptimizerUrl = (() => {
         const source = new URL(document.currentScript?.src || window.location.href, window.location.href);
         const target = new URL('image-optimizer/js/optimizer.js', source);
@@ -588,7 +588,7 @@
     function syncBoundaryCaret() {
         const selection = window.getSelection();
         const active = document.activeElement;
-        let nextBody = null;
+        let nextElement = null;
 
         if (
             active instanceof HTMLElement
@@ -598,17 +598,35 @@
             && selection.rangeCount === 1
         ) {
             const range = selection.getRangeAt(0);
-            if (range.collapsed && range.startContainer === active && range.startOffset === 0) {
-                nextBody = active;
+            if (range.collapsed) {
+                if (range.startContainer === active && range.startOffset === 0) {
+                    nextElement = active;
+                } else if (range.startContainer instanceof HTMLElement) {
+                    const boundary = range.startContainer;
+                    const emptyPrefix = Array.from(boundary.childNodes)
+                        .slice(0, range.startOffset)
+                        .every((node) => (
+                            node instanceof HTMLBRElement
+                            || (node.nodeType === Node.TEXT_NODE && String(node.textContent || '').trim() === '')
+                        ));
+                    if (
+                        emptyPrefix
+                        && boundary.matches('.post-picture, .post-media-picture, figure')
+                        && active.contains(boundary)
+                        && boundary.querySelector('img, video, audio')
+                    ) {
+                        nextElement = boundary;
+                    }
+                }
             }
         }
 
-        if (boundaryCaretBody === nextBody) {
+        if (boundaryCaretElement === nextElement) {
             return;
         }
-        boundaryCaretBody?.classList.remove('has-leading-boundary-caret');
-        nextBody?.classList.add('has-leading-boundary-caret');
-        boundaryCaretBody = nextBody;
+        boundaryCaretElement?.classList.remove('has-leading-boundary-caret');
+        nextElement?.classList.add('has-leading-boundary-caret');
+        boundaryCaretElement = nextElement;
     }
 
     function prepareEditableMedia(root) {
@@ -849,8 +867,12 @@
         state.body.classList.remove('is-media-dragover');
         state.body.classList.remove('has-leading-boundary-caret');
         clearAiChangeMarks(state.body);
-        if (boundaryCaretBody === state.body) {
-            boundaryCaretBody = null;
+        if (
+            boundaryCaretElement === state.body
+            || (boundaryCaretElement instanceof Node && state.body.contains(boundaryCaretElement))
+        ) {
+            boundaryCaretElement.classList.remove('has-leading-boundary-caret');
+            boundaryCaretElement = null;
         }
         state.dateInput.hidden = true;
         state.dateButton.hidden = true;
