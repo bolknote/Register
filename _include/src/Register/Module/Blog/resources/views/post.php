@@ -362,7 +362,7 @@ $tagNames    = array_values(array_map(
 	if ($commented && $showComments) {
         if ($comment_num) {
             $commentLabel = $trans('N Comments', ['%count%' => $comment_num, '{{ count }}' => $comment_num]);
-            $footer['comments'] = '<span class="post-foot-comments"><a href="' . $link . '#comment" data-comment-count="' . $comment_num . '" aria-label="' . register_htmlencode($commentLabel) . '">' . $commentLabel . '</a></span>';
+            $footer['comments'] = '<span class="post-foot-comments"><a href="' . $link . '#comments-title" data-comment-count="' . $comment_num . '" aria-label="' . register_htmlencode($commentLabel) . '">' . $commentLabel . '</a></span>';
         } else {
             $commentLabel = $enabledComments ? $trans('Post comment') : '';
             $footer['comments'] = '<span class="post-foot-comments"><a href="' . $link . '#add-comment" data-comment-count="0"' . ($commentLabel !== '' ? ' aria-label="' . register_htmlencode($commentLabel) . '"' : '') . '>' . $commentLabel . '</a></span>';

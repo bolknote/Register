@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Comment\CommentSchema;
 use Register\Content\ContentId;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentSchema;
@@ -133,6 +134,21 @@ class BlogPaginationCest
         $I->assertStringNotContainsString('</a>, <a', $I->grabResponse());
     }
 
+    public function testCommentCountLinksToTheCommentsHeading(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $postId  = $this->insertPost($dbLayer, 1);
+        $this->insertComment($dbLayer, $postId);
+
+        $I->amOnPage('https://localhost/');
+        $I->seeResponseCodeIs(200);
+        $I->seeElement('.post-foot-comments a[href="/post-1#comments-title"][data-comment-count="1"]');
+
+        $I->amOnPage('https://localhost/post-1');
+        $I->seeElement('#comments-title');
+    }
+
     private function insertPost(DbLayer $dbLayer, int $number, ?int $authorId = null): int
     {
         $dbLayer
@@ -172,6 +188,24 @@ class BlogPaginationCest
         ]);
 
         return (int)$dbLayer->insertId();
+    }
+
+    private function insertComment(DbLayer $dbLayer, int $postId): void
+    {
+        $dbLayer->insert(CommentSchema::TABLE_NAME)->values([
+            'content_type' => ':content_type',
+            'content_id'   => ':content_id',
+            'time'         => ':time',
+            'ip'           => "'127.0.0.1'",
+            'nick'         => "'Reader'",
+            'email'        => "'reader@example.test'",
+            'shown'        => '1',
+            'text'         => "'Comment'",
+        ])->execute([
+            'content_type' => ContentType::POST->value,
+            'content_id'   => $postId,
+            'time'         => time(),
+        ]);
     }
 
     private function userId(DbLayer $dbLayer, string $login): int
