@@ -29,6 +29,7 @@ $inplaceData = isset($inplace) && \is_array($inplace) ? $inplace : null;
 $isCreating  = $inplaceData !== null && ($inplaceData['create'] ?? false) === true;
 $postId      = (int)$id;
 $editFormId  = 'post-inplace-edit-' . $postId;
+$toolsMenuId = 'post-tools-menu-' . $postId;
 $tagNames    = array_values(array_map(
     static fn(array $tag): string => (string)($tag['title'] ?? ''),
     \is_array($tags ?? null) ? $tags : [],
@@ -313,17 +314,28 @@ $tagNames    = array_values(array_map(
 </div>
 <?php if ($inplaceData !== null): ?>
 <nav class="post-inplace-tools" aria-label="<?php echo $trans('Post tools'); ?>">
+    <button class="post-inplace-button post-tools-menu-toggle" type="button" title="<?php echo register_htmlencode($trans('Post tools')); ?>" aria-label="<?php echo register_htmlencode($trans('Post tools')); ?>" aria-controls="<?php echo $toolsMenuId; ?>" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="6" cy="12" r="1.5" />
+            <circle cx="12" cy="12" r="1.5" />
+            <circle cx="18" cy="12" r="1.5" />
+        </svg>
+    </button>
+    <div class="post-tools-overflow" id="<?php echo $toolsMenuId; ?>">
     <button class="post-inplace-button post-edit-start" type="button" title="<?php echo $trans('Edit post inplace'); ?>" aria-label="<?php echo $trans('Edit post inplace'); ?>"<?php echo $isCreating ? ' hidden' : ''; ?>>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M5.2 18.8 6.4 14.4 16.6 4.2a2.1 2.1 0 0 1 3 3L9.4 17.4l-4.2 1.4Z" />
             <path d="m14.7 6.1 3.2 3.2M6.4 14.4l3 3" />
         </svg>
+        <span class="post-inplace-button-label"><?php echo $trans('Edit post inplace'); ?></span>
     </button>
     <button class="post-inplace-button post-delete-start" type="button" title="<?php echo $trans('Delete post inplace'); ?>" aria-label="<?php echo $trans('Delete post inplace'); ?>"<?php echo $isCreating ? ' hidden' : ''; ?>>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M7.2 8.2 8 19.3h8l.8-11.1M5.2 6.2h13.6M9 6.2V4.5h6v1.7M10.2 10.3v6.4M13.8 10.3v6.4" />
         </svg>
+        <span class="post-inplace-button-label"><?php echo $trans('Delete post inplace'); ?></span>
     </button>
+    </div>
     <button class="post-inplace-button post-edit-save" type="button" title="<?php echo $trans('Save post changes'); ?>" aria-label="<?php echo $trans('Save post changes'); ?>" data-editor-shortcut="save" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="m5 12.2 4.2 4.2L19 6.8" />

@@ -61,6 +61,9 @@ final class PostInplaceCest
         $I->dontSeeElement('.site-header-inplace-form');
         $I->dontSeeElement('[data-site-header-title]');
         $I->seeElement('.post-card[data-post-id="' . $ownId . '"] > .post-inplace-tools');
+        $I->seeElement('.post-inplace-tools .post-tools-menu-toggle[aria-expanded="false"]');
+        $I->seeElement('.post-inplace-tools .post-tools-overflow .post-edit-start');
+        $I->seeElement('.post-inplace-tools .post-tools-overflow .post-delete-start');
         $I->seeElement('.post-inplace-tools .post-edit-save[hidden]');
         $I->seeElement('.post-inplace-tools .post-edit-cancel[hidden]');
         $I->seeElement('.post-inplace-edit-form[hidden] input[type="hidden"][name="title"]');

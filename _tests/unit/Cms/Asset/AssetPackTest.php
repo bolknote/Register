@@ -152,6 +152,45 @@ final class AssetPackTest extends Unit
         );
     }
 
+    public function testMobilePostToolsUseAnOverflowMenuWithoutNarrowingThePost(): void
+    {
+        $rootDir = \dirname(__DIR__, 4) . '/';
+        $site = file_get_contents($rootDir . '_styles/register/site.css');
+        $script = file_get_contents($rootDir . '_assets/register/post-inplace.js');
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/@media \(max-width: 760px\).*?\.post-card\.is-manageable\s*>\s*\.post\.body\s*'
+                . '\{[^}]*padding-left:\s*0;/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/@media \(max-width: 760px\).*?\.post-inplace-button\.post-tools-menu-toggle\s*'
+                . '\{[^}]*display:\s*grid;/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.post-inplace-tools\.is-menu-open\s*>\s*\.post-tools-overflow\s*'
+                . '\{[^}]*display:\s*flex;/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.post-card\.is-editing\s*>\s*\.post\.time\s*>\s*\.post-inplace-date-button\s*'
+                . '\{[^}]*position:\s*static;[^}]*transform:\s*none;/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/@media \(hover: none\) and \(min-width: 761px\)\s*'
+                . '\{\s*\.post-inplace-tools\s*\{[^}]*transform:\s*none;/s',
+            $site,
+        );
+
+        self::assertIsString($script);
+        self::assertStringContainsString('function closePostToolsMenu(', $script);
+        self::assertStringContainsString("target?.closest('.post-tools-menu-toggle')", $script);
+        self::assertStringContainsString("toolsToggle.setAttribute('aria-expanded', String(opening))", $script);
+    }
+
     public function testPostEditorShowsTheCaretBeforeALeadingBlockWithoutChangingContent(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';

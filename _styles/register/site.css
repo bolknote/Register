@@ -808,6 +808,23 @@ h2.preview,
     transition: opacity 100ms ease, transform 100ms ease;
 }
 
+.post-inplace-button.post-tools-menu-toggle {
+    display: none;
+}
+
+.post-tools-menu-toggle svg {
+    fill: currentColor;
+    stroke: none;
+}
+
+.post-tools-overflow {
+    display: contents;
+}
+
+.post-inplace-button-label {
+    display: none;
+}
+
 .post-card:hover > .post-inplace-tools,
 .post-card:focus-within > .post-inplace-tools,
 .post-card.is-editing > .post-inplace-tools {
@@ -2327,12 +2344,125 @@ h2.preview,
     .site-header-shell:has(> .site-header-tools) .site-title {
         text-indent: 0;
     }
+
+    .post-card.is-manageable > .post.body {
+        padding-left: 0;
+    }
+
+    .post-card.is-manageable > .post.time {
+        box-sizing: border-box;
+        width: 100%;
+        padding-right: 3rem;
+    }
+
+    .post-card.is-editing > .post.time {
+        display: flex;
+        padding-right: 5.75rem;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .post-card.is-editing > .post.time > .post-inplace-date-button {
+        position: static;
+        top: auto;
+        right: auto;
+        left: auto;
+        flex: 0 0 1.5rem;
+        transform: none;
+    }
+
+    .post-inplace-tools,
+    .post-card:hover > .post-inplace-tools,
+    .post-card:focus-within > .post-inplace-tools,
+    .post-card.is-editing > .post-inplace-tools {
+        right: 0;
+        left: auto;
+        width: auto;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.1rem;
+        opacity: 1;
+        transform: translateY(calc(-100% - 0.9rem));
+    }
+
+    .post-inplace-button {
+        width: 2.75rem;
+        min-height: 2.75rem;
+    }
+
+    .post-inplace-button.post-tools-menu-toggle {
+        display: grid;
+    }
+
+    .post-card:is(.is-editing, .is-creating) > .post-inplace-tools > .post-tools-menu-toggle {
+        display: none;
+    }
+
+    .post-card.is-editing > .post-inplace-tools > .post-edit-cancel {
+        order: 1;
+    }
+
+    .post-card.is-editing > .post-inplace-tools > .post-edit-save {
+        order: 2;
+    }
+
+    .post-tools-overflow {
+        position: absolute;
+        z-index: 10;
+        top: calc(100% + 0.35rem);
+        right: 0;
+        display: none;
+        width: max-content;
+        min-width: min(13rem, calc(100vw - 2 * var(--page-margin)));
+        padding: 0.3rem;
+        border: 1px solid color-mix(in srgb, var(--minor-color) 32%, transparent);
+        border-radius: 4px;
+        flex-direction: column;
+        background: var(--surface-background);
+        box-shadow: 0 0.6rem 1.8rem color-mix(in srgb, #000 22%, transparent);
+    }
+
+    .post-inplace-tools.is-menu-open > .post-tools-overflow {
+        display: flex;
+    }
+
+    .post-tools-overflow > .post-inplace-button {
+        display: flex;
+        width: 100%;
+        min-height: 2.75rem;
+        padding: 0 0.75rem;
+        justify-content: flex-start;
+        gap: 0.65rem;
+        border-radius: 3px;
+        font-size: 0.9rem;
+        text-align: left;
+    }
+
+    .post-tools-overflow > .post-inplace-button[hidden] {
+        display: none;
+    }
+
+    .post-tools-overflow > .post-inplace-button:hover,
+    .post-tools-overflow > .post-inplace-button:focus-visible {
+        background: color-mix(in srgb, var(--minor-color) 12%, transparent);
+        transform: none;
+    }
+
+    .post-inplace-button-label {
+        display: inline;
+        white-space: nowrap;
+    }
 }
 
 @media (hover: none) {
     .post-inplace-tools {
         opacity: 1;
         pointer-events: auto;
+    }
+}
+
+@media (hover: none) and (min-width: 761px) {
+    .post-inplace-tools {
         transform: none;
     }
 }

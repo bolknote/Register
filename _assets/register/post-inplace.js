@@ -290,11 +290,45 @@
         status.classList.toggle('is-error', error);
     }
 
+    function closePostToolsMenu(tools, restoreFocus = false) {
+        if (!(tools instanceof HTMLElement)) {
+            return;
+        }
+        const wasOpen = tools.classList.contains('is-menu-open');
+        const toggle = tools.querySelector('.post-tools-menu-toggle');
+        tools.classList.remove('is-menu-open');
+        toggle?.setAttribute('aria-expanded', 'false');
+        if (wasOpen && restoreFocus && toggle instanceof HTMLElement) {
+            toggle.focus();
+        }
+    }
+
+    function closeOtherPostToolsMenus(activeTools = null) {
+        document.querySelectorAll('.post-inplace-tools.is-menu-open').forEach((tools) => {
+            if (tools !== activeTools) {
+                closePostToolsMenu(tools, false);
+            }
+        });
+    }
+
+    function postToolsFocusTarget(card, fallbackSelector) {
+        if (!(card instanceof HTMLElement)) {
+            return null;
+        }
+        const toggle = card.querySelector(':scope > .post-inplace-tools .post-tools-menu-toggle');
+        if (toggle instanceof HTMLElement && toggle.getClientRects().length > 0) {
+            return toggle;
+        }
+        const fallback = card.querySelector(':scope > .post-inplace-tools ' + fallbackSelector);
+        return fallback instanceof HTMLElement ? fallback : null;
+    }
+
     function toggleEditingTools(card, editing) {
         const tools = card.querySelector(':scope > .post-inplace-tools');
         if (!tools) {
             return;
         }
+        closePostToolsMenu(tools, false);
         tools.querySelector('.post-edit-start')?.toggleAttribute('hidden', editing);
         tools.querySelector('.post-delete-start')?.toggleAttribute('hidden', editing);
         tools.querySelector('.post-edit-save')?.toggleAttribute('hidden', !editing);
@@ -966,7 +1000,7 @@
         }
 
         if (restoreFocus) {
-            card.querySelector(':scope > .post-inplace-tools .post-edit-start')?.focus();
+            postToolsFocusTarget(card, '.post-edit-start')?.focus();
         }
     }
 
@@ -979,7 +1013,7 @@
         card.classList.remove('is-confirming');
         clearError(confirmation);
         if (restoreFocus) {
-            card.querySelector(':scope > .post-inplace-tools .post-delete-start')?.focus();
+            postToolsFocusTarget(card, '.post-delete-start')?.focus();
         }
         unlock();
     }
@@ -1146,6 +1180,7 @@
 
         closeOtherCards(card);
         closeEditor(card, false);
+        closePostToolsMenu(card.querySelector(':scope > .post-inplace-tools'), false);
         card.classList.add('is-confirming');
         confirmation.hidden = false;
         clearError(confirmation);
@@ -2100,7 +2135,7 @@
         }
         unlock();
         refresh();
-        card.querySelector(':scope > .post-inplace-tools .post-edit-start')?.focus();
+        postToolsFocusTarget(card, '.post-edit-start')?.focus();
     }
 
     function updateCreatedCard(card, form, payload) {
@@ -2150,8 +2185,8 @@
         destroyWidgets(card);
         const feed = card.closest('.live-post-feed');
         if (feed) {
-            const focusTarget = card.nextElementSibling?.querySelector?.('.post-edit-start')
-                || card.previousElementSibling?.querySelector?.('.post-edit-start')
+            const focusTarget = postToolsFocusTarget(card.nextElementSibling, '.post-edit-start')
+                || postToolsFocusTarget(card.previousElementSibling, '.post-edit-start')
                 || feed;
             card.remove();
             refresh();
@@ -3714,6 +3749,23 @@
     document.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : null;
         const card = cardFor(target);
+        const toolsToggle = target?.closest('.post-tools-menu-toggle');
+        if (toolsToggle) {
+            const tools = toolsToggle.closest('.post-inplace-tools');
+            if (tools instanceof HTMLElement) {
+                const opening = !tools.classList.contains('is-menu-open');
+                closeOtherPostToolsMenus(tools);
+                tools.classList.toggle('is-menu-open', opening);
+                toolsToggle.setAttribute('aria-expanded', String(opening));
+                event.preventDefault();
+            }
+            return;
+        }
+        document.querySelectorAll('.post-inplace-tools.is-menu-open').forEach((tools) => {
+            if (!(target instanceof Node) || !tools.contains(target)) {
+                closePostToolsMenu(tools, false);
+            }
+        });
         document.querySelectorAll('.post-card.is-editing').forEach((editingCard) => {
             const editingState = editorStates.get(editingCard);
             if (editingState?.contextMenu && !editingState.contextMenu.menu.contains(target)) {
@@ -3800,6 +3852,14 @@
     }, false);
 
     document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            const tools = document.querySelector('.post-inplace-tools.is-menu-open');
+            if (tools instanceof HTMLElement) {
+                event.preventDefault();
+                closePostToolsMenu(tools, true);
+                return;
+            }
+        }
         const createModifier = editorPlatform === 'macos'
             ? event.metaKey && !event.ctrlKey
             : event.ctrlKey && !event.metaKey;
@@ -3874,6 +3934,13 @@
     }, false);
 
     document.addEventListener('selectionchange', syncBoundaryCaret, false);
+    document.addEventListener('focusin', (event) => {
+        document.querySelectorAll('.post-inplace-tools.is-menu-open').forEach((tools) => {
+            if (!(event.target instanceof Node) || !tools.contains(event.target)) {
+                closePostToolsMenu(tools, false);
+            }
+        });
+    }, false);
     document.addEventListener('focusin', syncBoundaryCaret, false);
     document.addEventListener('focusout', () => window.setTimeout(syncBoundaryCaret, 0), false);
 
