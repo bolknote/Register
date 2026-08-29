@@ -191,6 +191,30 @@ final class AssetPackTest extends Unit
         self::assertStringContainsString("toolsToggle.setAttribute('aria-expanded', String(opening))", $script);
     }
 
+    public function testTagPostListUsesTheSameLeftEdgeAsThePageContent(): void
+    {
+        $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/\.tag-post-list\s*\{[^}]*width:\s*100%;[^}]*margin-inline-start:\s*0;/s',
+            $site,
+        );
+        self::assertStringNotContainsString('--tag-post-list-inset', $site);
+    }
+
+    public function testTagPageCreationPrependsTheDraftToItsPostList(): void
+    {
+        $script = file_get_contents(\dirname(__DIR__, 4) . '/_assets/register/post-inplace.js');
+
+        self::assertIsString($script);
+        self::assertMatchesRegularExpression(
+            "/document\.querySelector\('\.live-post-feed'\)\s*"
+                . "\|\|\s*document\.querySelector\('\.tag-post-list'\)/s",
+            $script,
+        );
+    }
+
     public function testPostEditorShowsTheCaretBeforeALeadingBlockWithoutChangingContent(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';

@@ -20,6 +20,8 @@ use Symfony\Component\HttpFoundation\Request;
 /** Produces the pageable post region shared by full pages and live responses. */
 final readonly class PostFeedRenderer
 {
+    public const string CREATE_TAGS_ATTRIBUTE = '_register_blog_create_tags';
+
     public function __construct(
         private PostProvider   $postProvider,
         private BlogUrlBuilder $blogUrlBuilder,
@@ -93,6 +95,11 @@ final readonly class PostFeedRenderer
             return null;
         }
 
+        $createTags = $request->attributes->get(self::CREATE_TAGS_ATTRIBUTE, []);
+        if (!\is_array($createTags)) {
+            $createTags = [];
+        }
+
         return $this->renderPost([
             'id'           => 0,
             'author_id'    => null,
@@ -106,7 +113,7 @@ final readonly class PostFeedRenderer
             'display_date' => '',
             'time'         => '',
             'text'         => '<p><br></p>',
-            'tags'         => [],
+            'tags'         => $createTags,
             'link'         => '#',
             'commented'    => false,
             'comment_num'  => 0,

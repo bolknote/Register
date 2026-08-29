@@ -422,6 +422,7 @@ final class ServiceModule implements ContainerModuleInterface
                 $container->get(\Register\Content\TagRepository::class),
                 $provider->getBoolProxy('REGISTER_USE_HIERARCHY'),
                 $provider->getIntProxy('REGISTER_MAX_ITEMS'),
+                $container->get(PostInplaceControls::class),
             );
         });
         $container->set(FavoritePageController::class, static function (Container $container): \Register\Module\Blog\Controller\FavoritePageController {

@@ -87,6 +87,57 @@ class BlogPaginationCest
         $I->seeElement('link[rel="prev"][href="/tags/paginated-tag/?p=1"]');
     }
 
+    public function testAuthorizedAuthorCanEditPostFromTagPage(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var TagRepository $tagRepository */
+        $tagRepository = $I->grabService(TagRepository::class);
+        $authorId = $this->userId($dbLayer, 'author');
+        $postId   = $this->insertPost($dbLayer, 1, $authorId);
+        $tagId    = $this->insertTag($dbLayer, 'Editable tag', 'editable-tag');
+        $tagRepository->replace(ContentId::post($postId), [$tagId]);
+
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/tags/editable-tag/');
+        $I->seeResponseCodeIs(200);
+        $I->seeElement('.site-header-tools .post-create-start[data-editor-shortcut="create"]');
+        $createForm = '.site-header-shell .post-create-template .post-inplace-edit-form';
+        $createTags = (string)$I->grabAttributeFrom($createForm . ' input[name="tags"]', 'value');
+        $I->assertSame(
+            'Editable tag',
+            $createTags,
+        );
+        $I->seeElement(
+            '.site-header-shell .post-create-template .post-tag-link[href="/tags/editable-tag/"]',
+            ['innerText' => 'Editable tag'],
+        );
+        $I->seeElement(
+            '.tag-post-list > .post-card.is-manageable[data-post-id="' . $postId . '"] > .post-inplace-tools',
+        );
+        $I->seeElement(
+            '.tag-post-list > .post-card[data-post-id="' . $postId . '"] '
+                . '> .post-inplace-edit-form[action="/_inplace/post/' . $postId . '"]',
+        );
+
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+            'inplace_action' => 'create',
+            'inplace_token'  => (string)$I->grabAttributeFrom(
+                $createForm . ' input[name="inplace_token"]',
+                'value',
+            ),
+            'revision'       => '0',
+            'title'          => 'Created from a tag page',
+            'body'           => '<p>Created with the current tag.</p>',
+            'tags'           => $createTags,
+            'published_at'   => (string)time(),
+        ]);
+        $I->seeResponseCodeIs(200);
+        $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertSame('Editable tag', $payload['tags'][0]['name'] ?? null);
+        $I->assertSame('/tags/editable-tag/', $payload['tags'][0]['url'] ?? null);
+    }
+
     public function testPostAuthorsAppearOnlyOnAMultiAuthorSite(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

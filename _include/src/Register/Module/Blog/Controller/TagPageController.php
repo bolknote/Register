@@ -30,6 +30,8 @@ use Register\Core\Template\HtmlTemplateProvider;
 use Register\Core\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
+use Register\Module\Blog\Inplace\PostInplaceControls;
+use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Url\ContentUrlGenerator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -58,6 +60,7 @@ class TagPageController extends BlogController
         private readonly TagRepository $tagRepository,
         private readonly BoolProxy $useHierarchy,
         private readonly IntProxy $maxItems,
+        private readonly PostInplaceControls $inplaceControls,
     ) {
         parent::__construct(
             $dbLayer,
@@ -102,6 +105,11 @@ class TagPageController extends BlogController
         if ($params['slash'] !== '/') {
             return new RedirectResponse($this->blogUrlBuilder->tag($tagUrl), Response::HTTP_MOVED_PERMANENTLY);
         }
+
+        $request->attributes->set(PostFeedRenderer::CREATE_TAGS_ATTRIBUTE, [[
+            'title' => $tagName,
+            'link'  => $this->blogUrlBuilder->tag($tagUrl),
+        ]]);
 
         $art_links = $this->articles_by_tag($tagEntity->id);
         if (\count($art_links) > 0) {
@@ -160,6 +168,16 @@ class TagPageController extends BlogController
                 return $qb;
             },
             false,
+            postDecorator: function (array $post) use ($request): array {
+                $post['inplace'] = $this->inplaceControls->forPost(
+                    $request,
+                    (int)$post['id'],
+                    $post['author_id'] === null ? null : (int)$post['author_id'],
+                    (int)$post['revision'],
+                );
+
+                return $post;
+            },
         );
 
         if ($output === '' && $art_links === []) {

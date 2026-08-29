@@ -1139,7 +1139,9 @@
         if (!(card instanceof HTMLElement) || !(edit instanceof HTMLElement)) {
             return false;
         }
-        const host = document.querySelector('.live-post-feed') || document.querySelector('#content');
+        const host = document.querySelector('.live-post-feed')
+            || document.querySelector('.tag-post-list')
+            || document.querySelector('#content');
         if (!(host instanceof HTMLElement)) {
             return false;
         }

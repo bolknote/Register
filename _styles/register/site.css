@@ -385,10 +385,9 @@ hr {
 }
 
 .tag-post-list {
-    --tag-post-list-inset: clamp(1rem, 3vw, 2.5rem);
-    width: min(calc(100% - var(--tag-post-list-inset)), var(--text-width));
+    width: 100%;
     min-width: 0;
-    margin-inline-start: var(--tag-post-list-inset);
+    margin-inline-start: 0;
 }
 
 #content > .post-card,

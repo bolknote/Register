@@ -97,6 +97,7 @@ abstract class BlogController implements ControllerInterface
 
     /**
      * @param list<int>|null $idOrder
+     * @param null|callable(array<string, mixed>): array<string, mixed> $postDecorator
      * @throws DbLayerException
      */
     public function getPosts(
@@ -104,6 +105,7 @@ abstract class BlogController implements ControllerInterface
         bool $sortAsc = true,
         string $sortField = 'create_time',
         ?array $idOrder = null,
+        ?callable $postDecorator = null,
     ): string
     {
         // Obtaining posts
@@ -111,6 +113,7 @@ abstract class BlogController implements ControllerInterface
             ->select(
                 'p.published_at AS create_time', 'p.date_label AS display_date', 'p.title', 'p.body AS text',
                 'p.slug AS url', 'p.id', 'p.comments_enabled AS commented', 'p.featured AS favorite',
+                'p.author_id', 'p.revision',
                 '(' . $this->dbLayer
                     ->select('count(*)')
                     ->from(CommentSchema::TABLE_NAME . ' AS c')
@@ -192,6 +195,9 @@ abstract class BlogController implements ControllerInterface
             $post['enabledComments']  = $enabledComments;
             if (!$showAuthors) {
                 $post['author'] = '';
+            }
+            if ($postDecorator !== null) {
+                $post = $postDecorator($post);
             }
 
             $output .= $this->viewer->render('post', $post, BlogModule::class);
