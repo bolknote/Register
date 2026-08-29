@@ -97,7 +97,7 @@ abstract class BlogController implements ControllerInterface
 
     /**
      * @param list<int>|null $idOrder
-     * @param null|callable(array<string, mixed>): array<string, mixed> $postDecorator
+     * @param (callable(array<string, mixed>): array<string, mixed>)|null $postDecorator
      * @throws DbLayerException
      */
     public function getPosts(
@@ -196,6 +196,7 @@ abstract class BlogController implements ControllerInterface
             if (!$showAuthors) {
                 $post['author'] = '';
             }
+
             if ($postDecorator !== null) {
                 $post = $postDecorator($post);
             }

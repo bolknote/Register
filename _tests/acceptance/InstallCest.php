@@ -11,6 +11,7 @@ namespace acceptance;
 
 use AcceptanceTester;
 use Codeception\Example;
+use Register\Auth\PublicAuthSettings;
 use Register\Core\Http\ContentSecurityPolicy;
 use Register\Core\Mail\MailSettings;
 
@@ -99,6 +100,7 @@ class InstallCest
         $I->seeElement('script[src$="/_assets/register/syntax-highlighting/loader.js"]');
         $I->seeElement('script[src$="/_assets/register/audio-player/loader.js"]');
         $I->dontSeeElement('a.visual-login');
+        $I->dontSeeElement('.public-auth-email-form');
         $this->assertCsp($I);
         $I->dontSeeElement('script:not([src])');
         $I->dontSeeElement('[onclick], [onload], [onsubmit], [onchange]');
@@ -107,11 +109,11 @@ class InstallCest
         $I->see('small, fast engine');
         $I->amOnPage('/section1/page1');
         $I->see('Register was installed successfully.');
-        $I->canWriteComment();
 
         $this->testHierarchyRedirects($I);
         $this->testAdminLogin($I);
         $this->testBaseModules($I);
+        $this->testEmailVerifiedGuestComment($I);
         $this->testAdminEditAndTagsAdded($I);
         $this->testTagsPage($I);
         $this->testFavoritePage($I);
@@ -186,6 +188,28 @@ class InstallCest
 
         $I->amOnPage('/---');
         $I->see('admin', 'details[data-menu-group="Account"] .main-menu-group-label');
+    }
+
+    private function testEmailVerifiedGuestComment(AcceptanceTester $I): void
+    {
+        $I->changeSetting(MailSettings::FROM_EMAIL_CONFIG_KEY, 'webmaster@example.com');
+        $I->changeSetting(MailSettings::ENVELOPE_EMAIL_CONFIG_KEY, 'webmaster@example.com');
+        $I->changeSetting(MailSettings::REPLY_TO_CONFIG_KEY, 'webmaster@example.com');
+        $I->changeSetting(MailSettings::FROM_NAME_CONFIG_KEY, 'Webmaster Name');
+        $I->changeSetting(PublicAuthSettings::EMAIL_ENABLED_CONFIG_KEY, true);
+
+        $I->setCookie($this->getCookieName() . '_c', 'wrong_value');
+        $I->amOnPage('/section1/page1');
+        $I->seeElement('.public-auth-email-form');
+        $I->canWriteComment();
+        $this->restoreAdminSession($I);
+    }
+
+    private function restoreAdminSession(AcceptanceTester $I): void
+    {
+        $I->resetCookie($this->getCookieName(), ['path' => '/_admin/']);
+        $I->resetCookie($this->getCookieName() . '_c', ['path' => '/']);
+        $I->login('admin', 'register-test-password');
     }
 
     private function testBaseModules(AcceptanceTester $I): void
@@ -511,15 +535,16 @@ class InstallCest
             $I->see('August 12, 2023');
         }
 
-        $commentCookie = $I->grabCookie($this->getCookieName() . '_c');
-        $I->assertIsString($commentCookie);
         $I->setCookie($this->getCookieName() . '_c', 'wrong_value');
         $I->amOnPage('/new-post1');
         $I->see('New Blog Post Title');
         $I->see('New blog post');
         $I->see('August 12, 2023');
-        $I->canWriteComment(text: 'This is my first blog comment! 👪🐶');
-        $I->setCookie($this->getCookieName() . '_c', $commentCookie);
+        $I->canWriteComment(
+            text: 'This is my first blog comment! 👪🐶',
+            email: 'roman-blog@example.com',
+        );
+        $this->restoreAdminSession($I);
 
         $I->amOnPage('/2023/08/12/new-post1');
         $I->seeResponseCodeIsClientError();
@@ -651,10 +676,6 @@ class InstallCest
         $I->changeSetting('REGISTER_PREMODERATION', true);
         $I->changeSetting('REGISTER_WEBMASTER_EMAIL', 'webmaster@example.com');
         $I->changeSetting('REGISTER_WEBMASTER', 'Webmaster Name');
-        $I->changeSetting(MailSettings::FROM_EMAIL_CONFIG_KEY, 'webmaster@example.com');
-        $I->changeSetting(MailSettings::ENVELOPE_EMAIL_CONFIG_KEY, 'webmaster@example.com');
-        $I->changeSetting(MailSettings::REPLY_TO_CONFIG_KEY, 'webmaster@example.com');
-        $I->changeSetting(MailSettings::FROM_NAME_CONFIG_KEY, 'Webmaster Name');
 
         // Set moderator email
         $I->amOnPage('/_admin/index.php?entity=User&action=list');
@@ -676,8 +697,24 @@ class InstallCest
             $I->seeResponseCodeIsSuccessful();
         }
 
-        $this->testComments($I, '/section1/new-page1', 'New Page Title', 'Some new page text', 3, 'page');
-        $this->testComments($I, '/new-post1', 'New Blog Post Title', 'New blog post', $this->blogPostId, 'post');
+        $this->testComments(
+            $I,
+            '/section1/new-page1',
+            'New Page Title',
+            'Some new page text',
+            3,
+            'page',
+            'roman@example.com',
+        );
+        $this->testComments(
+            $I,
+            '/new-post1',
+            'New Blog Post Title',
+            'New blog post',
+            $this->blogPostId,
+            'post',
+            'roman-blog@example.com',
+        );
     }
 
     private function testETag(AcceptanceTester $I): void
@@ -799,12 +836,13 @@ class InstallCest
         string           $pageText,
         int              $targetId,
         string           $contentType,
+        string           $guestEmail,
     ): void {
+        $guestCommentText = 'This is my pending ' . $contentType . ' comment! 👪🐶';
+
         /**
          * Empty form validation and rich editor for a guest.
          */
-        $commentCookie = $I->grabCookie($this->getCookieName() . '_c');
-        $I->assertIsString($commentCookie);
         $I->setCookie($this->getCookieName() . '_c', 'wrong_value');
         $I->amOnPage($publicUrl);
         $I->seeElement('#comment-form [data-comment-editor]');
@@ -817,12 +855,12 @@ class InstallCest
         $I->see('You have forgotten to enter your name.');
 
         /**
-         * Testing that a comment with unknown email <roman@example.com> is not published when pre-moderation is enabled
+         * Testing that a comment with an unknown email is not published when pre-moderation is enabled.
          */
         $I->clearEmails();
         $I->amOnPage($publicUrl);
         $I->see($pageText);
-        $I->canWriteComment(true);
+        $I->canWriteComment(true, $guestCommentText, $guestEmail);
 
         $emails = $I->waitForEmails(1);
         $I->assertCount(1, $emails);
@@ -832,20 +870,20 @@ class InstallCest
             $emails[0],
             'admin@example.com',
             'Comment to http://localhost:8881/index.php?' . $publicUrl,
-            'roman@example.com',
+            $guestEmail,
             [
                 'Hello, admin.',
                 'You have received this e-mail, because you are the moderator.',
                 '“' . $pageTitle . '”,',
                 'http://localhost:8881/index.php?' . $publicUrl . '#comment-',
                 'Roman 🌞 is the comment author.',
-                'This is my first comment! 👪🐶',
+                $guestCommentText,
                 'Hidden: the comment failed the check (report=ham).',
                 'of the comment will receive your answer.',
             ],
         );
 
-        $I->setCookie($this->getCookieName() . '_c', $commentCookie);
+        $this->restoreAdminSession($I);
 
         /**
          * Testing that a comment with known email <admin@example.com> is published when pre-moderation is enabled
@@ -867,7 +905,7 @@ class InstallCest
         $this->assertCapturedEmail(
             $I,
             $emails[0],
-            'roman@example.com',
+            $guestEmail,
             'Comment to http://localhost:8881/index.php?' . $publicUrl,
             'webmaster@example.com',
             [
@@ -878,9 +916,9 @@ class InstallCest
                 'The author of the new comment is admin.',
                 'This is a comment from a moderator.',
                 'of the site will receive your answer. To unsubscribe, follow the link',
-                'http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code=',
+                'http://localhost:8881/index.php?/comment_unsubscribe&mail=' . rawurlencode($guestEmail) . '&id=' . $targetId . '&code=',
             ],
-            'http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code=',
+            'http://localhost:8881/index.php?/comment_unsubscribe&mail=' . rawurlencode($guestEmail) . '&id=' . $targetId . '&code=',
         );
 
         /**
@@ -892,11 +930,13 @@ class InstallCest
         $I->clearEmails();
         $I->amOnPage($publicUrl);
         $I->see($pageText);
-        $I->sendComment('Moderator2', 'admin@example.com', 'This is a comment from a moderator2.');
-        $I->seeResponseCodeIs(200);
-        $I->see('Your comment has been successfully sent. It will be published after the verification.');
-        $I->dontSee('Moderator2', '.comment-name');
-        $I->dontSee('This is a comment from a moderator2.');
+        $I->canWriteComment(
+            true,
+            'This is a comment from a moderator2.',
+            'admin@example.com',
+            'Moderator2',
+            false,
+        );
 
         $emails = $I->waitForEmails(1);
         $I->assertCount(1, $emails);
@@ -913,10 +953,12 @@ class InstallCest
                 'http://localhost:8881/index.php?' . $publicUrl . '#comment-',
                 'Moderator2 is the comment author.',
                 'This is a comment from a moderator2.',
-                'Hidden: the comment failed the check (report=unknown).',
+                'Hidden: the comment failed the check (report=ham).',
                 'of the comment will receive your answer.',
             ],
         );
+
+        $this->restoreAdminSession($I);
 
 
         /**
@@ -937,7 +979,7 @@ class InstallCest
         $unsubscribeLink = $this->assertCapturedEmail(
             $I,
             $emails[0],
-            'roman@example.com',
+            $guestEmail,
             'Comment to http://localhost:8881/index.php?' . $publicUrl,
             'webmaster@example.com',
             [
@@ -948,9 +990,9 @@ class InstallCest
                 'The author of the new comment is Moderator2.',
                 'This is a comment from a moderator2.',
                 'of the site will receive your answer. To unsubscribe, follow the link',
-                'http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code=',
+                'http://localhost:8881/index.php?/comment_unsubscribe&mail=' . rawurlencode($guestEmail) . '&id=' . $targetId . '&code=',
             ],
-            'http://localhost:8881/index.php?/comment_unsubscribe&mail=roman%40example.com&id=' . $targetId . '&code=',
+            'http://localhost:8881/index.php?/comment_unsubscribe&mail=' . rawurlencode($guestEmail) . '&id=' . $targetId . '&code=',
         );
         if ($unsubscribeLink === null) {
             throw new \RuntimeException('The subscription email does not contain an unsubscribe link.');
@@ -968,8 +1010,13 @@ class InstallCest
         $I->uncheckOption($moderator2PatchForm . ' input[name="shown"]');
         $I->submitForm($moderator2PatchForm, []);
         $I->amOnPage($publicUrl);
+        $I->seeElement('[data-comment-id="' . $moderator2CommentId . '"][data-moderation-state="hidden"]');
+
+        $I->setCookie($this->getCookieName() . '_c', 'wrong_value');
+        $I->amOnPage($publicUrl);
         $I->dontSee('Moderator2', '.comment-name');
         $I->dontSee('This is a comment from a moderator2.');
+        $this->restoreAdminSession($I);
 
         /**
          * Test no emails on republication
@@ -1004,7 +1051,8 @@ class InstallCest
          */
         $I->clearEmails();
         $I->amOnPage($publicUrl);
-        $I->setCookie($this->getCookieName() . '_c', $commentCookie);
+        $this->restoreAdminSession($I);
+        $I->amOnPage($publicUrl);
         $I->sendComment('Moderator3', 'admin@example.com', 'This is a comment from a moderator3.');
         $I->see('admin', '.comment-name');
         $I->see('This is a comment from a moderator3.');

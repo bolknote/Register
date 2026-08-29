@@ -105,8 +105,8 @@ readonly class CommentSentController implements ControllerInterface
         Comment\CommentDto       $comment,
         string                    $targetPath
     ): RedirectResponse {
-        $commentStrategy->notifySubscribers($comment->id);
         $commentStrategy->publishComment($comment->id);
+        $commentStrategy->notifySubscribers($comment->id);
 
         $hash = $commentStrategy->getHashForPublishedComment($comment->targetId);
 

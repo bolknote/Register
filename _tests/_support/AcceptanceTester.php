@@ -77,24 +77,59 @@ class AcceptanceTester extends Actor
     public function canWriteComment(
         bool $premoderation = false,
         string $text = 'This is my first comment! 👪🐶',
+        string $email = 'roman@example.com',
+        string $name = 'Roman 🌞',
+        bool $subscribed = true,
     ): void
     {
         $I = $this;
 
-        $name = 'Roman 🌞';
+        $I->clearEmails();
         $I->fillField('#comment-name', $name);
-        $I->fillField('#comment-email', 'roman@example.com');
-        $I->checkOption('#subscribed');
+        $I->fillField('#comment-email', $email);
+        if ($subscribed) {
+            $I->checkOption('#subscribed');
+        }
+
         $I->fillField('#comment-text', $text);
         $I->click('submit');
 
         $I->seeResponseCodeIs(200);
+        $I->see('Check your email');
+
+        $emails = $I->waitForEmails(1);
+        $I->assertCount(1, $emails);
+        $callbackUrl = $this->emailCallbackUrl($emails[0]);
+
+        // Leave only notifications emitted while the verified comment is created.
+        $I->clearEmails();
+        $I->amOnPage($callbackUrl);
+        $I->seeResponseCodeIs(200);
+
         if ($premoderation) {
-            $I->see('Your comment has been successfully sent. It will be published after the verification.');
+            $I->dontSee($text);
         } else {
             $I->see($name, '.comment-name');
             $I->see($text);
         }
+    }
+
+    private function emailCallbackUrl(string $rawMessage): string
+    {
+        $decoded = html_entity_decode(
+            quoted_printable_decode($rawMessage),
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8',
+        );
+        if (preg_match(
+            '~https?://[^\s<>"\']*/auth/email/callback(?:\?|&)token=[A-Za-z0-9_-]{40,100}~',
+            $decoded,
+            $matches,
+        ) !== 1) {
+            throw new RuntimeException('The captured email contains no comment verification callback URL.');
+        }
+
+        return $matches[0];
     }
 
     public function sendComment(string $name, string $email, string $text): void

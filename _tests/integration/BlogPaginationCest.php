@@ -102,6 +102,7 @@ class BlogPaginationCest
         $I->amOnPage('https://localhost/tags/editable-tag/');
         $I->seeResponseCodeIs(200);
         $I->seeElement('.site-header-tools .post-create-start[data-editor-shortcut="create"]');
+
         $createForm = '.site-header-shell .post-create-template .post-inplace-edit-form';
         $createTags = (string)$I->grabAttributeFrom($createForm . ' input[name="tags"]', 'value');
         $I->assertSame(
@@ -133,6 +134,7 @@ class BlogPaginationCest
             'published_at'   => (string)time(),
         ]);
         $I->seeResponseCodeIs(200);
+
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertSame('Editable tag', $payload['tags'][0]['name'] ?? null);
         $I->assertSame('/tags/editable-tag/', $payload['tags'][0]['url'] ?? null);

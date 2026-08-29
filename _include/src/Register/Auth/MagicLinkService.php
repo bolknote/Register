@@ -16,7 +16,6 @@ use Register\Controller\Comment\CommentStrategyInterface;
 use Register\Controller\Comment\PendingEmailComment;
 use Register\Controller\Comment\PendingEmailCommentServiceInterface;
 use Register\Core\Helper\StringHelper;
-use Register\Core\Model\AuthProvider;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Model\User\UserProvider;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
@@ -42,7 +41,6 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
         private SpamAssessmentRepository $spamAssessmentRepository,
         private CommentMailPublisher $commentMailPublisher,
         private UserProvider         $userProvider,
-        private AuthProvider         $authProvider,
         CommentStrategyInterface ...$strategies,
     ) {
         $indexed = [];
@@ -147,10 +145,10 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
             }
 
             $spamStatus = mb_substr((string)($row['spam_status'] ?? ''), 0, 80);
-            foreach ($this->userProvider->getModerators(
-                [],
-                $moderationRequired && $this->authProvider->isOnline($email) ? [$email] : [],
-            ) as $moderator) {
+            // Email identities are deliberately kept separate from privileged local accounts,
+            // even when both use the same address. A verified public identity therefore cannot
+            // suppress moderation mail for a local moderator with that address.
+            foreach ($this->userProvider->getModerators() as $moderator) {
                 $this->commentMailPublisher->moderator(
                     $commentId,
                     $contentType,

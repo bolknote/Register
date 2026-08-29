@@ -14,6 +14,8 @@ use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Mail\MailDelivery;
 use Register\Core\Mail\MailDeliveryInspector;
 use Register\Core\Mail\MailDeliveryLog;
+use Register\Core\Mail\DnsTxtLookupInterface;
+use Register\Core\Mail\MailDnsInspector;
 use Register\Core\Mail\MailMessage;
 use Register\Core\Mail\MailSettings;
 use Register\Core\Mail\PhpMailTransport;
@@ -88,6 +90,64 @@ final class MailSystemTest extends Unit
 
         self::assertTrue($settings->dkimEnabled());
         self::assertSame($privateKey, $settings->dkimPrivateKey());
+    }
+
+    public function testDnsInspectionUsesOneBoundedBatchAndPreservesUnknownResults(): void
+    {
+        $lookup = new class implements DnsTxtLookupInterface {
+            /** @var list<string> */
+            public array $requestedNames = [];
+
+            #[\Override]
+            public function lookup(array $names): array
+            {
+                $this->requestedNames = $names;
+
+                return [
+                    'example.test' => ['v=spf1 -all'],
+                    '_dmarc.example.test' => ['V=DMARC1; p=reject'],
+                    'mail._domainkey.example.test' => null,
+                ];
+            }
+        };
+        $settings = $this->settings([
+            MailSettings::DKIM_SELECTOR_CONFIG_KEY => 'mail',
+            MailSettings::DKIM_DOMAIN_CONFIG_KEY => 'example.test',
+        ]);
+
+        self::assertSame([
+            'available' => true,
+            'domain' => 'example.test',
+            'spf' => true,
+            'dmarc' => true,
+            'dkim' => null,
+            'dkim_name' => 'mail._domainkey.example.test',
+        ], (new MailDnsInspector($settings, $lookup))->inspect());
+        self::assertSame([
+            'example.test',
+            '_dmarc.example.test',
+            'mail._domainkey.example.test',
+        ], $lookup->requestedNames);
+    }
+
+    public function testDnsInspectionFailsOpenWhenBoundedLookupIsUnavailable(): void
+    {
+        $lookup = new class implements DnsTxtLookupInterface {
+            #[\Override]
+            public function lookup(array $names): null
+            {
+                return null;
+            }
+        };
+
+        self::assertSame([
+            'available' => false,
+            'domain' => 'example.test',
+            'spf' => null,
+            'dmarc' => null,
+            'dkim' => null,
+            'dkim_name' => null,
+        ], (new MailDnsInspector($this->settings(), $lookup))->inspect());
     }
 
     public function testPhpMailTransportSeparatesEnvelopeHeadersAndMessageBody(): void
