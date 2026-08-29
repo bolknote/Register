@@ -10,7 +10,6 @@ declare(strict_types = 1);
 namespace Register\Module\Search\Layout;
 
 use Psr\Log\LoggerInterface;
-use Psr\Log\LogLevel;
 
 class LayoutMatcher
 {
@@ -300,7 +299,11 @@ class LayoutMatcher
 
             $log[] = $formattedTime . " match" . ($hasUnusedImages ? ' (not all images used!)' : '') . " &nbsp; $templateName";
 
-            $this->logger->log($hasUnusedImages ? LogLevel::WARNING : LogLevel::INFO, \sprintf('Recommendations for page "%s" completed.', $page), [
+            // Unused candidates are an ordinary consequence of fitting variable
+            // content into a fixed layout. Keep the detail available to a debug
+            // logger, but do not turn every cold page render into an operational
+            // warning and a synchronous filesystem write.
+            $this->logger->info(\sprintf('Recommendations for page "%s" completed.', $page), [
                 'time'                                          => $formattedTime,
                 'templateName'                                  => $templateName,
                 'tplid ' . str_replace(' ', '_', $templateName) => $page,

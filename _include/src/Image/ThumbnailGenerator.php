@@ -197,10 +197,39 @@ class ThumbnailGenerator implements QueueHandlerInterface
             return $this->cacheUrlPrefix . $this->getCachedFilename($hash);
         }
 
+        // Do not create a durable poison job for formats that GD cannot decode.
+        // QueuePublisher deliberately revives failed jobs when they are published
+        // again, so an SVG shown on a popular page would otherwise fail five times,
+        // be revived by the next render, and repeat forever.
+        if (!$this->canGenerateThumbnail($src)) {
+            return $src;
+        }
+
         // No cache. Add a job to queue and fallback to original image
         $this->publisher->publish($hash, self::QUEUE_CODE, $args);
 
         return $src;
+    }
+
+    private function canGenerateThumbnail(string $src): bool
+    {
+        $path = parse_url($src, PHP_URL_PATH);
+        if (!\is_string($path)) {
+            return false;
+        }
+
+        $typeFlag = match (strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
+            'gif'         => IMG_GIF,
+            'jpg', 'jpeg' => IMG_JPG,
+            'png'         => IMG_PNG,
+            'wbmp'        => IMG_WBMP,
+            'webp'        => IMG_WEBP,
+            'avif'        => IMG_AVIF,
+            'bmp'         => IMG_BMP,
+            default       => null,
+        };
+
+        return $typeFlag !== null && (imagetypes() & $typeFlag) !== 0;
     }
 
     private function makeThumbnail(

@@ -99,6 +99,19 @@ SQL);
         ], $payloads);
     }
 
+    public function testDoesNotQueueUnsupportedSvgThumbnails(): void
+    {
+        $html = $this->generator()->getThumbnailHtml('/pictures/userinfo.svg', '32', '32', 16, 16);
+
+        self::assertSame(
+            '<img src="/pictures/userinfo.svg" width="16" height="16" alt="" loading="lazy" decoding="async">',
+            $html,
+        );
+        $countStatement = $this->pdo()->query('SELECT COUNT(*) FROM queue');
+        self::assertNotFalse($countStatement);
+        self::assertSame(0, (int)$countStatement->fetchColumn());
+    }
+
     private function generator(): ThumbnailGenerator
     {
         return new ThumbnailGenerator(
