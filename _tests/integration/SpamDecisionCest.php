@@ -63,6 +63,11 @@ class SpamDecisionCest
         $this->assertLastComment($I, shown: $example['expectShown'], totalStart: $startCount);
 
         $mails = $I->grabModeratorMails();
+        $I->assertNotContains(
+            'admin@example.com',
+            array_column($mails, 'moderatorEmail'),
+            'An authenticated moderator must not receive a moderator copy of their own comment.',
+        );
         if ($example['expectMail'] === true) {
             $I->assertNotEmpty($mails);
             $I->assertEquals($example['mailStatus'], $mails[0]['spamReportStatus']);

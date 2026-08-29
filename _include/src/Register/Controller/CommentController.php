@@ -324,9 +324,6 @@ readonly class CommentController implements ControllerInterface
          * Everything is ok, save and send the comment
          */
 
-        // Detect if there is a user logged in
-        $isOnline = $this->authProvider->isOnline($email);
-
         $moderationRequired = $forceModeration || $spamDecision->shouldModerate($this->premoderationEnabled->get());
 
         if (!$authenticatedUser instanceof AuthenticatedPublicUser) {
@@ -400,14 +397,10 @@ readonly class CommentController implements ControllerInterface
 
         /**
          * Sending the comment to moderators.
-         * We DO NOT SEND the comment to a moderator if his email is used and he is online.
-         * We'll do it later if required in CommentSentController.
-         * It cannot be done right now due to a special cookie is available in CommentSentController only.
-         *
-         * @see CommentSentController
-         * @see \Register\Core\Model\AuthManager::createCommentCookie
+         * An authenticated moderator must never receive a moderator copy of their own comment.
+         * Other moderators still receive the notification.
          */
-        foreach ($this->userProvider->getModerators([], $moderationRequired && $isOnline ? [$email] : []) as $moderator) {
+        foreach ($this->userProvider->getModerators([], [$authenticatedUser->email]) as $moderator) {
             $this->commentMailPublisher->moderator(
                 $commentId,
                 $this->commentStrategy->getContentType(),
