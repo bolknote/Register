@@ -162,43 +162,44 @@ readonly class BlogPlaceholderProvider
             return [];
         }
 
-        $raw_query1 = $this->dbLayer
-            ->select('count(*) + 1')
-            ->from(CommentSchema::TABLE_NAME . ' AS c1')
-            ->where('c1.shown = 1')
-            ->andWhere('c1.content_type = c.content_type')
-            ->andWhere('c1.content_id = c.content_id')
-            ->andWhere('c1.time < c.time')
-            ->getSql()
-        ;
+        $items = $this->pageCache->recentComments(function (): BlogSidebarFeed {
+            $commentNumberSql = $this->dbLayer
+                ->select('count(*) + 1')
+                ->from(CommentSchema::TABLE_NAME . ' AS c1')
+                ->where('c1.shown = 1')
+                ->andWhere('c1.content_type = c.content_type')
+                ->andWhere('c1.content_id = c.content_id')
+                ->andWhere('c1.time < c.time')
+                ->getSql()
+            ;
 
-        $result = $this->dbLayer
-            ->select('time, p.slug AS url, title, nick, p.published_at AS create_time, (' . $raw_query1 . ') AS count')
-            ->from(CommentSchema::TABLE_NAME . ' AS c')
-            ->innerJoin(ContentSchema::TABLE_NAME . ' AS p', 'c.content_id = p.id')
-            ->where('p.comments_enabled = 1')
-            ->andWhere('p.published = 1')
-            ->andWhere('p.content_type = :post_content_type')->setParameter('post_content_type', ContentType::POST->value)
-            ->andWhere('c.content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
-            ->andWhere('c.shown = 1')
-            ->orderBy('time DESC')
-            ->limit(5)
-            ->execute()
-        ;
+            $result = $this->dbLayer
+                ->select('time, p.slug AS url, title, nick, p.published_at AS create_time, (' . $commentNumberSql . ') AS count')
+                ->from(CommentSchema::TABLE_NAME . ' AS c')
+                ->innerJoin(ContentSchema::TABLE_NAME . ' AS p', 'c.content_id = p.id')
+                ->where('p.comments_enabled = 1')
+                ->andWhere('p.published = 1')
+                ->andWhere('p.content_type = :post_content_type')->setParameter('post_content_type', ContentType::POST->value)
+                ->andWhere('c.content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+                ->andWhere('c.shown = 1')
+                ->orderBy('time DESC')
+                ->limit(5)
+                ->execute()
+            ;
 
-        $output      = [];
-        $request_uri = $this->urlPrefix . ($this->requestStack->getCurrentRequest()?->getPathInfo() ?? '');
-        while ($row = $result->fetchAssoc()) {
-            $cur_url  = $this->contentUrlGenerator->post((string)$row['url']);
-            $output[] = [
-                'title'      => $row['title'],
-                'link'       => $cur_url . '#' . $row['count'],
-                'author'     => $row['nick'],
-                'is_current' => $request_uri === $cur_url,
-            ];
-        }
+            $output = [];
+            while ($row = $result->fetchAssoc()) {
+                $output[] = [
+                    'title'  => $row['title'],
+                    'link'   => $this->contentUrlGenerator->post((string)$row['url']) . '#' . $row['count'],
+                    'author' => $row['nick'],
+                ];
+            }
 
-        return $output;
+            return new BlogSidebarFeed($output);
+        });
+
+        return $this->markCurrent($items);
     }
 
     /**
@@ -211,52 +212,67 @@ readonly class BlogPlaceholderProvider
             return [];
         }
 
-        $rawQuery = $this->dbLayer
-            ->select('c.content_id AS post_id, COUNT(c.content_id) AS comment_num, MAX(c.id) AS max_id, MIN(c.time) AS min_time')
-            ->from(CommentSchema::TABLE_NAME . ' AS c')
-            ->where('c.content_type = :content_type')
-            ->andWhere('c.shown = 1')
-            ->andWhere('c.time > :time')
-            ->groupBy('c.content_id')
-            ->orderBy('comment_num DESC')
-            ->getSql()
-        ;
+        $items = $this->pageCache->recentDiscussions(function (): BlogSidebarFeed {
+            $rawQuery = $this->dbLayer
+                ->select('c.content_id AS post_id, COUNT(c.content_id) AS comment_num, MAX(c.id) AS max_id, MIN(c.time) AS min_time')
+                ->from(CommentSchema::TABLE_NAME . ' AS c')
+                ->where('c.content_type = :content_type')
+                ->andWhere('c.shown = 1')
+                ->andWhere('c.time > :time')
+                ->groupBy('c.content_id')
+                ->orderBy('comment_num DESC')
+                ->getSql()
+            ;
 
-        $result = $this->dbLayer
-            ->select('p.published_at AS create_time, p.slug AS url, p.title, c1.comment_num AS comment_num, c1.min_time, c2.nick, c2.time')
-            ->from(ContentSchema::TABLE_NAME . ' AS p, (' . $rawQuery . ') AS c1')
-            ->innerJoin(CommentSchema::TABLE_NAME . ' AS c2', 'c2.id = c1.max_id')
-            ->where('c1.post_id = p.id')
-            ->andWhere('p.content_type = :post_content_type')
-            ->andWhere('p.comments_enabled = 1')
-            ->andWhere('p.published = 1')
-            ->setParameter('content_type', ContentType::POST->value)
-            ->setParameter('post_content_type', ContentType::POST->value)
-            ->setParameter('time', strtotime('-1 month midnight'))
-            ->limit(10)
-            ->execute()
-        ;
+            $result = $this->dbLayer
+                ->select('p.published_at AS create_time, p.slug AS url, p.title, c1.comment_num AS comment_num, c1.min_time, c2.nick, c2.time')
+                ->from(ContentSchema::TABLE_NAME . ' AS p, (' . $rawQuery . ') AS c1')
+                ->innerJoin(CommentSchema::TABLE_NAME . ' AS c2', 'c2.id = c1.max_id')
+                ->where('c1.post_id = p.id')
+                ->andWhere('p.content_type = :post_content_type')
+                ->andWhere('p.comments_enabled = 1')
+                ->andWhere('p.published = 1')
+                ->setParameter('content_type', ContentType::POST->value)
+                ->setParameter('post_content_type', ContentType::POST->value)
+                ->setParameter('time', strtotime('-1 month midnight'))
+                ->limit(10)
+                ->execute()
+            ;
 
-        $output      = [];
-        $request_uri = $this->urlPrefix . ($this->requestStack->getCurrentRequest()?->getPathInfo() ?? '');
-        $invalidateAt = null;
-        while ($row = $result->fetchAssoc()) {
-            $cur_url  = $this->contentUrlGenerator->post((string)$row['url']);
-            $output[] = [
-                'title'      => $row['title'],
-                'link'       => $cur_url,
-                'hint'       => $row['nick'] . ' (' . $this->viewer->dateAndTime($row['time']) . ')',
-                'is_current' => $request_uri === $cur_url,
-            ];
-            $boundary = $this->discussionInvalidationAt((int)$row['min_time']);
-            $invalidateAt = $invalidateAt === null ? $boundary : min($invalidateAt, $boundary);
+            $output = [];
+            $invalidateAt = null;
+            while ($row = $result->fetchAssoc()) {
+                $output[] = [
+                    'title' => $row['title'],
+                    'link'  => $this->contentUrlGenerator->post((string)$row['url']),
+                    'hint'  => $row['nick'] . ' (' . $this->viewer->dateAndTime($row['time']) . ')',
+                ];
+                $boundary = $this->discussionInvalidationAt((int)$row['min_time']);
+                $invalidateAt = $invalidateAt === null ? $boundary : min($invalidateAt, $boundary);
+            }
+
+            return new BlogSidebarFeed($output, $invalidateAt);
+        });
+
+        return $this->markCurrent($items);
+    }
+
+    /**
+     * @param list<array<mixed>> $items
+     * @return list<array<mixed>>
+     */
+    private function markCurrent(array $items): array
+    {
+        $requestUri = $this->urlPrefix . ($this->requestStack->getCurrentRequest()?->getPathInfo() ?? '');
+        foreach ($items as &$item) {
+            $link = $item['link'] ?? null;
+            $item['is_current'] = \is_string($link)
+                && explode('#', $link, 2)[0] === $requestUri;
         }
 
-        if ($invalidateAt !== null) {
-            $this->pageCache->invalidateCurrentResponseAt($invalidateAt);
-        }
+        unset($item);
 
-        return $output;
+        return $items;
     }
 
     private function discussionInvalidationAt(int $oldestCommentTime): int

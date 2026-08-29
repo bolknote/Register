@@ -9,6 +9,8 @@ declare(strict_types = 1);
 
 namespace integration;
 
+use Register\Comment\CommentRepository;
+use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
@@ -167,7 +169,57 @@ final class BlogPageResponseCacheCest
         $I->assertStringNotContainsString('register-deferred-comment-form', $fragment);
     }
 
-    private function insertPost(DbLayer $dbLayer, string $title, string $slug): void
+    public function updatesCommentSidebarsWithoutCoolingAnUnrelatedCachedPage(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var CommentRepository $comments */
+        $comments = $I->grabService(CommentRepository::class);
+        $postId = $this->insertPost($dbLayer, 'Sidebar target post', 'sidebar-target-post');
+        $this->insertSidebarPage($dbLayer);
+
+        $firstCommentId = $comments->save(
+            ContentId::post($postId),
+            'First sidebar author',
+            '',
+            false,
+            'First sidebar comment',
+            '',
+            null,
+        );
+        $comments->publish($firstCommentId, ContentType::POST);
+
+        $headers = ['User-Agent' => 'Mozilla/5.0 (compatible; YandexBot/3.0)'];
+        $I->sendRequestWithHeaders('/sidebar-cache-page', $headers);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
+        $I->see('First sidebar author');
+        $I->assertStringNotContainsString('register-deferred-blog-sidebar', $I->grabResponse());
+
+        $I->sendRequestWithHeaders('/sidebar-cache-page', $headers);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+        $I->see('First sidebar author');
+        /** @var PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        $I->assertSame([], $pdo->getQueryLog());
+
+        $secondCommentId = $comments->save(
+            ContentId::post($postId),
+            'Second sidebar author',
+            '',
+            false,
+            'Second sidebar comment',
+            '',
+            null,
+        );
+        $comments->publish($secondCommentId, ContentType::POST);
+
+        $I->sendRequestWithHeaders('/sidebar-cache-page', $headers);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+        $I->see('Second sidebar author');
+        $I->assertStringNotContainsString('register-deferred-blog-sidebar', $I->grabResponse());
+    }
+
+    private function insertPost(DbLayer $dbLayer, string $title, string $slug): int
     {
         $dbLayer
             ->insert(ContentSchema::TABLE_NAME)
@@ -188,5 +240,33 @@ final class BlogPageResponseCacheCest
             ->setValue('author_id', 'NULL')
             ->execute()
         ;
+
+        return (int)$dbLayer->insertId();
+    }
+
+    private function insertSidebarPage(DbLayer $dbLayer): int
+    {
+        $dbLayer
+            ->insert(ContentSchema::TABLE_NAME)
+            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
+            ->setValue('parent_id', '1')
+            ->setValue('slug_scope', "'root'")
+            ->setValue('created_at', '1700000001')
+            ->setValue('published_at', '1700000001')
+            ->setValue('updated_at', '1700000001')
+            ->setValue('revision', '1')
+            ->setValue('title', "'Sidebar cache page'")
+            ->setValue('excerpt', "''")
+            ->setValue('body', "'<p>Sidebar cache body</p>'")
+            ->setValue('published', '1')
+            ->setValue('featured', '0')
+            ->setValue('comments_enabled', '0')
+            ->setValue('sort_order', '0')
+            ->setValue('slug', "'sidebar-cache-page'")
+            ->setValue('template', "'mainpage.php'")
+            ->execute()
+        ;
+
+        return (int)$dbLayer->insertId();
     }
 }

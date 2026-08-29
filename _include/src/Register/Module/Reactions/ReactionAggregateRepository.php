@@ -23,7 +23,11 @@ final readonly class ReactionAggregateRepository
     {
     }
 
-    public function store(ReactionAggregate $aggregate): void
+    public function store(
+        ReactionAggregate $aggregate,
+        ?ContentId         $contentId = null,
+        bool               $deferUntilCommit = false,
+    ): void
     {
         $this->dbLayer->upsert(ReactionAggregateSchema::TABLE_NAME)
             ->setKey('target_type', ':target_type')->setParameter('target_type', $aggregate->targetType->value)
@@ -41,7 +45,12 @@ final readonly class ReactionAggregateRepository
             ->execute()
         ;
 
-        $this->invalidateCache($aggregate->targetType, $aggregate->targetId);
+        $this->invalidateCache(
+            $aggregate->targetType,
+            $aggregate->targetId,
+            $contentId,
+            $deferUntilCommit,
+        );
     }
 
     public function remove(
@@ -49,6 +58,8 @@ final readonly class ReactionAggregateRepository
         int                         $targetId,
         string                      $source,
         string                      $sourceKey,
+        ?ContentId                  $contentId = null,
+        bool                        $deferUntilCommit = false,
     ): bool {
         $this->validateIdentity($targetId, $source, $sourceKey);
 
@@ -62,7 +73,7 @@ final readonly class ReactionAggregateRepository
         ;
 
         if ($removed) {
-            $this->invalidateCache($targetType, $targetId);
+            $this->invalidateCache($targetType, $targetId, $contentId, $deferUntilCommit);
         }
 
         return $removed;
@@ -79,19 +90,30 @@ final readonly class ReactionAggregateRepository
         }
     }
 
-    private function invalidateCache(ReactionAggregateTargetType $targetType, int $targetId): void
+    private function invalidateCache(
+        ReactionAggregateTargetType $targetType,
+        int                         $targetId,
+        ?ContentId                  $contentId,
+        bool                        $deferUntilCommit,
+    ): void
     {
         if (!$this->pageCache instanceof BlogPageCache) {
             return;
         }
 
         if ($targetType === ReactionAggregateTargetType::POST) {
-            $this->pageCache->invalidateFirstPage();
-            $this->pageCache->invalidateContent(ContentId::post($targetId));
+            $this->pageCache->invalidateFirstPage($deferUntilCommit);
+            $this->pageCache->invalidateContent(ContentId::post($targetId), $deferUntilCommit);
         } elseif ($targetType === ReactionAggregateTargetType::PAGE) {
-            $this->pageCache->invalidateContent(ContentId::page($targetId));
+            $this->pageCache->invalidateContent(ContentId::page($targetId), $deferUntilCommit);
         } elseif ($targetType === ReactionAggregateTargetType::COMMENT) {
-            $this->pageCache->invalidateContentResponses();
+            if ($contentId instanceof ContentId) {
+                $this->pageCache->invalidateContent($contentId, $deferUntilCommit);
+            } else {
+                // Callers that cannot identify the owning content retain the safe
+                // fallback. Bulk import supplies it and therefore stays targeted.
+                $this->pageCache->invalidateContentResponses($deferUntilCommit);
+            }
         }
     }
 }

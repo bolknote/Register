@@ -67,6 +67,7 @@ use Register\Module\Blog\Controller\YearPageController;
 use Register\Module\Blog\Model\BlogPlaceholderProvider;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\BlogResponseCachePolicy;
+use Register\Module\Blog\Model\BlogSidebarResponseProcessor;
 use Register\Module\Blog\Model\ContentRssStrategy;
 use Register\Module\Blog\Model\ContentViewResponseProcessor;
 use Register\Module\Blog\Model\ContentFeedItemProvider;
@@ -158,6 +159,11 @@ final class ServiceModule implements ContainerModuleInterface
         $container->set(ContentViewResponseProcessor::class, static fn(Container $container): ContentViewResponseProcessor => new ContentViewResponseProcessor(
             $container->get(ContentViewRepository::class),
             $container->get(BotDetector::class),
+            $container->get('register_blog_translator'),
+        ), [ResponseProcessorInterface::class]);
+        $container->set(BlogSidebarResponseProcessor::class, static fn(Container $container): BlogSidebarResponseProcessor => new BlogSidebarResponseProcessor(
+            $container->get(BlogPlaceholderProvider::class),
+            $container->get(Viewer::class),
             $container->get('register_blog_translator'),
         ), [ResponseProcessorInterface::class]);
         $container->set(PostFeedRenderer::class, static function (Container $container): PostFeedRenderer {

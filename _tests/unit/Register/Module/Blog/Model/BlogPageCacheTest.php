@@ -14,6 +14,7 @@ use Register\Content\ContentId;
 use Register\Core\Pdo\PDO;
 use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\BlogPageCache;
+use Register\Module\Blog\Model\BlogSidebarFeed;
 use Register\Module\Blog\Model\PostFeed;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\Adapter\ChainAdapter;
@@ -61,6 +62,138 @@ final class BlogPageCacheTest extends TestCase
         self::assertSame('feed-3', $cache->firstPage($firstFactory)->html);
         self::assertSame('index-2', $cache->allPosts($allFactory)->html);
         self::assertSame(['build' => 2], $cache->navigation($navigationFactory));
+    }
+
+    public function testCommentSidebarFragmentsHaveIndependentEventAndClockInvalidation(): void
+    {
+        $clock = new BlogPageCacheTestClock(1_000);
+        $cache = new BlogPageCache(new ArrayAdapter(), clock: $clock(...));
+        $commentBuilds = 0;
+        $discussionBuilds = 0;
+        $comments = static function () use (&$commentBuilds): BlogSidebarFeed {
+            ++$commentBuilds;
+
+            return new BlogSidebarFeed([['build' => $commentBuilds]]);
+        };
+        $discussions = static function () use (&$discussionBuilds): BlogSidebarFeed {
+            ++$discussionBuilds;
+
+            return new BlogSidebarFeed(
+                [['build' => $discussionBuilds]],
+                1_000 + $discussionBuilds * 100,
+            );
+        };
+
+        self::assertSame([['build' => 1]], $cache->recentComments($comments));
+        self::assertSame([['build' => 1]], $cache->recentComments($comments));
+        self::assertSame([['build' => 1]], $cache->recentDiscussions($discussions));
+
+        $clock->now = 1_099;
+        self::assertSame([['build' => 1]], $cache->recentDiscussions($discussions));
+        $clock->now = 1_100;
+        self::assertSame([['build' => 2]], $cache->recentDiscussions($discussions));
+        self::assertSame([['build' => 1]], $cache->recentComments($comments));
+
+        $cache->invalidateCommentFragments();
+        self::assertSame([['build' => 2]], $cache->recentComments($comments));
+        self::assertSame([['build' => 3]], $cache->recentDiscussions($discussions));
+    }
+
+    public function testCommentChangeInvalidatesOnlyTheAffectedPostAndCommentDependencies(): void
+    {
+        $pool = new ArrayAdapter();
+        $cache = new BlogPageCache($pool);
+        $firstBuilds = 0;
+        $allBuilds = 0;
+        $firstContentBuilds = 0;
+        $secondContentBuilds = 0;
+        $sidebarBuilds = 0;
+
+        $firstPage = static function () use (&$firstBuilds): PostFeed {
+            return new PostFeed('first-' . ++$firstBuilds, null, null);
+        };
+        $allPosts = static function () use (&$allBuilds): AllPostsPage {
+            return new AllPostsPage('all', 'all-' . ++$allBuilds);
+        };
+        $firstContent = static function () use (&$firstContentBuilds): Response {
+            return new Response('content-one-' . ++$firstContentBuilds);
+        };
+        $secondContent = static function () use (&$secondContentBuilds): Response {
+            return new Response('content-two-' . ++$secondContentBuilds);
+        };
+        $sidebar = static function () use (&$sidebarBuilds): BlogSidebarFeed {
+            return new BlogSidebarFeed([['build' => ++$sidebarBuilds]]);
+        };
+
+        self::assertSame('first-1', $cache->firstPage($firstPage)->html);
+        self::assertSame('all-1', $cache->allPosts($allPosts)->html);
+        self::assertSame('content-one-1', $cache->contentResponse('full_bot', '/one', $firstContent)->getContent());
+        $cache->rememberContentPath(ContentId::post(1), '/one');
+        self::assertSame('content-two-1', $cache->contentResponse('full_bot', '/two', $secondContent)->getContent());
+        $cache->rememberContentPath(ContentId::post(2), '/two');
+        self::assertSame([['build' => 1]], $cache->recentComments($sidebar));
+
+        $cache->invalidateCommentChange(ContentId::post(1));
+
+        self::assertSame('first-2', $cache->firstPage($firstPage)->html);
+        self::assertSame('all-1', $cache->allPosts($allPosts)->html);
+        self::assertSame('content-one-2', $cache->contentResponse('full_bot', '/one', $firstContent)->getContent());
+        self::assertSame('content-two-1', $cache->contentResponse('full_bot', '/two', $secondContent)->getContent());
+        self::assertSame([['build' => 2]], $cache->recentComments($sidebar));
+    }
+
+    public function testImportedCommentInvalidationIsCoalescedUntilCommit(): void
+    {
+        $pool = new ArrayAdapter();
+        $pdo = new PDO('sqlite::memory:');
+        $cache = new BlogPageCache($pool, pdo: $pdo);
+        $firstBuilds = 0;
+        $sidebarBuilds = 0;
+        $firstPage = static function () use (&$firstBuilds): PostFeed {
+            return new PostFeed('first-' . ++$firstBuilds, null, null);
+        };
+        $sidebar = static function () use (&$sidebarBuilds): BlogSidebarFeed {
+            return new BlogSidebarFeed([['build' => ++$sidebarBuilds]]);
+        };
+
+        self::assertSame('first-1', $cache->firstPage($firstPage)->html);
+        self::assertSame([['build' => 1]], $cache->recentComments($sidebar));
+
+        $pdo->beginTransaction();
+        $cache->invalidateCommentChange(ContentId::post(1), deferUntilCommit: true);
+        $cache->invalidateCommentChange(ContentId::post(1), deferUntilCommit: true);
+        self::assertSame('first-1', $cache->firstPage($firstPage)->html);
+        self::assertSame([['build' => 1]], $cache->recentComments($sidebar));
+        $pdo->commit();
+
+        self::assertSame('first-2', $cache->firstPage($firstPage)->html);
+        self::assertSame([['build' => 2]], $cache->recentComments($sidebar));
+    }
+
+    public function testRolledBackImportLeavesCommentCachesWarm(): void
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $cache = new BlogPageCache(new ArrayAdapter(), pdo: $pdo);
+        $firstBuilds = 0;
+        $sidebarBuilds = 0;
+        $firstPage = static function () use (&$firstBuilds): PostFeed {
+            return new PostFeed('first-' . ++$firstBuilds, null, null);
+        };
+        $sidebar = static function () use (&$sidebarBuilds): BlogSidebarFeed {
+            return new BlogSidebarFeed([['build' => ++$sidebarBuilds]]);
+        };
+
+        self::assertSame('first-1', $cache->firstPage($firstPage)->html);
+        self::assertSame([['build' => 1]], $cache->recentComments($sidebar));
+
+        $pdo->beginTransaction();
+        $cache->invalidateCommentChange(ContentId::post(1), deferUntilCommit: true);
+        $pdo->rollBack();
+
+        self::assertSame('first-1', $cache->firstPage($firstPage)->html);
+        self::assertSame([['build' => 1]], $cache->recentComments($sidebar));
+        self::assertSame(1, $firstBuilds);
+        self::assertSame(1, $sidebarBuilds);
     }
 
     public function testCompleteResponsesAreReusedAndInvalidatedWithTheirPage(): void

@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog;
 
 use Register\Comment\CommentChangedEvent;
+use Register\Comment\CommentMutationSource;
 use Register\Content\ContentChangedEvent;
 use Register\Content\ContentRenderedEvent;
 use Register\Content\ContentViewRepository;
@@ -17,6 +18,7 @@ use Register\Module\Analytics\BotDetector;
 use Register\Module\Blog\Controller\FlatContentController;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\BlogPlaceholderProvider;
+use Register\Module\Blog\Model\DeferredBlogSidebar;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Module\Blog\Service\TagsSearchProvider;
@@ -48,9 +50,10 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
 
         $eventDispatcher->addListener(CommentChangedEvent::class, static function (CommentChangedEvent $event) use ($container): void {
             $pageCache = $container->get(BlogPageCache::class);
-            $pageCache->invalidateContent($event->contentId);
-            // Recent-comment and discussion blocks are shared site-wide.
-            $pageCache->invalidateAll();
+            $pageCache->invalidateCommentChange(
+                $event->contentId,
+                deferUntilCommit: $event->source === CommentMutationSource::IMPORTED,
+            );
         });
 
         $eventDispatcher->addListener(ContentRenderedEvent::class, static function (ContentRenderedEvent $event) use ($container): void {
@@ -106,24 +109,17 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
             $viewer     = $container->get(Viewer::class);
 
             if (isset($blogPlaceholders['register_blog_last_comments'])) {
-                $placeholderProvider = $container->get(BlogPlaceholderProvider::class);
-                $recentComments      = $placeholderProvider->getRecentComments();
-
-                $template->registerPlaceholder('<!-- register_blog_last_comments -->', $recentComments === [] ? '' : $viewer->render('menu_comments', [
-                    'title' => $translator->trans('Last blog comments'),
-                    'menu'  => $recentComments,
-                ]));
+                $template->registerPlaceholder(
+                    '<!-- register_blog_last_comments -->',
+                    DeferredBlogSidebar::placeholder(DeferredBlogSidebar::RECENT_COMMENTS),
+                );
             }
 
             if (isset($blogPlaceholders['register_blog_last_discussions'])) {
-                $placeholderProvider = $container->get(BlogPlaceholderProvider::class);
-                $lastDiscussions     = $placeholderProvider->getRecentDiscussions();
-
-                $template->registerPlaceholder('<!-- register_blog_last_discussions -->', $lastDiscussions === [] ? '' : $viewer->render('menu_block', [
-                    'title' => $translator->trans('Last blog discussions'),
-                    'menu'  => $lastDiscussions,
-                    'class' => 'register_blog_last_discussions',
-                ]));
+                $template->registerPlaceholder(
+                    '<!-- register_blog_last_discussions -->',
+                    DeferredBlogSidebar::placeholder(DeferredBlogSidebar::RECENT_DISCUSSIONS),
+                );
             }
 
             if (isset($blogPlaceholders['register_blog_last_post'])) {

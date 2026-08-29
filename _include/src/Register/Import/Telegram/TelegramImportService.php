@@ -252,6 +252,7 @@ final readonly class TelegramImportService
                     $this->syncReactions(
                         ReactionAggregateTargetType::COMMENT,
                         $commentId,
+                        $contentId,
                         $chatId,
                         $messageId,
                         'comment',
@@ -270,6 +271,7 @@ final readonly class TelegramImportService
                 $this->syncReactions(
                     ReactionAggregateTargetType::POST,
                     $contentId->value,
+                    $contentId,
                     $chatId,
                     $rootMessageId,
                     'post',
@@ -589,6 +591,7 @@ final readonly class TelegramImportService
     private function syncReactions(
         ReactionAggregateTargetType $targetType,
         int                         $targetId,
+        ContentId                   $contentId,
         int                         $chatId,
         int                         $messageId,
         string                      $kind,
@@ -632,7 +635,7 @@ final readonly class TelegramImportService
                 continue;
             }
 
-            $this->reactionRepository->store($aggregate);
+            $this->reactionRepository->store($aggregate, $contentId, deferUntilCommit: true);
             \is_array($stored)
                 ? ++$changes['reaction_groups_updated']
                 : ++$changes['reaction_groups_inserted'];
@@ -662,6 +665,8 @@ final readonly class TelegramImportService
                 $targetId,
                 self::SOURCE,
                 (string)$stored['source_key'],
+                $contentId,
+                deferUntilCommit: true,
             )) {
                 ++$changes['reaction_groups_removed'];
             }

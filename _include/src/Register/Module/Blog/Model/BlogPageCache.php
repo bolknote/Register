@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Model;
 
 use Register\Content\ContentId;
+use Register\Content\ContentType;
 use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Http\Cache\PageCacheHeaders;
 use Register\Core\Pdo\PDO;
@@ -27,6 +28,10 @@ final class BlogPageCache implements StatefulServiceInterface
     private const string MULTIPLE_PUBLISHED_AUTHORS_KEY = 'register_blog_multiple_published_authors_v1';
 
     private const string NAVIGATION_KEY = 'register_blog_navigation_v2';
+
+    private const string RECENT_COMMENTS_KEY = 'register_blog_recent_comments_v1';
+
+    private const string RECENT_DISCUSSIONS_KEY = 'register_blog_recent_discussions_v1';
 
     private const string FIRST_RESPONSE_PREFIX = 'register_blog_first_response_v2_';
 
@@ -139,6 +144,24 @@ final class BlogPageCache implements StatefulServiceInterface
         );
     }
 
+    /**
+     * @param callable(): BlogSidebarFeed $factory
+     * @return list<array<mixed>>
+     */
+    public function recentComments(callable $factory): array
+    {
+        return $this->sidebarFeed(self::RECENT_COMMENTS_KEY, $factory)->items;
+    }
+
+    /**
+     * @param callable(): BlogSidebarFeed $factory
+     * @return list<array<mixed>>
+     */
+    public function recentDiscussions(callable $factory): array
+    {
+        return $this->sidebarFeed(self::RECENT_DISCUSSIONS_KEY, $factory)->items;
+    }
+
     /** @param callable(): Response $factory */
     public function firstResponse(string $variant, callable $factory): Response
     {
@@ -203,13 +226,13 @@ final class BlogPageCache implements StatefulServiceInterface
         );
     }
 
-    public function invalidateContent(ContentId $contentId): void
+    public function invalidateContent(ContentId $contentId, bool $deferUntilCommit = false): void
     {
         if ($this->disabled) {
             return;
         }
 
-        $this->afterCommitOnce('content:' . (string)$contentId, function () use ($contentId): void {
+        $this->invalidateOnce('content:' . (string)$contentId, function () use ($contentId): void {
             $mappingKey = $this->contentPathKey($contentId);
             $paths = $this->cache->get(
                 $mappingKey,
@@ -224,53 +247,80 @@ final class BlogPageCache implements StatefulServiceInterface
             }
 
             $this->cache->delete($mappingKey);
-        });
+        }, $deferUntilCommit);
     }
 
-    public function invalidateContentResponses(): void
+    public function invalidateContentResponses(bool $deferUntilCommit = false): void
     {
         if ($this->disabled) {
             return;
         }
 
-        $this->afterCommitOnce(
+        $this->invalidateOnce(
             'content-responses',
             function (): void {
                 $this->hotCache->delete(self::CONTENT_RESPONSE_GENERATION_KEY);
             },
+            $deferUntilCommit,
         );
     }
 
-    public function invalidateFirstPage(): void
+    public function invalidateFirstPage(bool $deferUntilCommit = false): void
     {
         if ($this->disabled) {
             return;
         }
 
-        $this->afterCommitOnce('first-page', function (): void {
+        $this->invalidateOnce('first-page', function (): void {
             $this->hotCache->delete(self::FIRST_PAGE_KEY);
             $this->deleteResponses($this->hotCache, self::FIRST_RESPONSE_PREFIX);
-        });
+        }, $deferUntilCommit);
     }
 
-    public function invalidateAll(): void
+    public function invalidateCommentFragments(bool $deferUntilCommit = false): void
     {
         if ($this->disabled) {
             return;
         }
 
-        $this->invalidateFirstPage();
-        $this->afterCommitOnce('all-posts', function (): void {
+        $this->invalidateOnce('comment-fragments', function (): void {
+            $this->hotCache->delete(self::RECENT_COMMENTS_KEY);
+            $this->hotCache->delete(self::RECENT_DISCUSSIONS_KEY);
+        }, $deferUntilCommit);
+    }
+
+    public function invalidateCommentChange(ContentId $contentId, bool $deferUntilCommit = false): void
+    {
+        $this->invalidateContent($contentId, $deferUntilCommit);
+        if ($contentId->type !== ContentType::POST) {
+            return;
+        }
+
+        // The first feed contains comment counters. Site-wide comment menus are
+        // hydrated independently after a complete page-cache hit.
+        $this->invalidateFirstPage($deferUntilCommit);
+        $this->invalidateCommentFragments($deferUntilCommit);
+    }
+
+    public function invalidateAll(bool $deferUntilCommit = false): void
+    {
+        if ($this->disabled) {
+            return;
+        }
+
+        $this->invalidateFirstPage($deferUntilCommit);
+        $this->invalidateOnce('all-posts', function (): void {
             $this->hotCache->delete(self::ALL_POSTS_KEY);
             $this->deleteResponses($this->hotCache, self::ALL_RESPONSE_PREFIX);
-        });
-        $this->afterCommitOnce('published-authors', function (): void {
+        }, $deferUntilCommit);
+        $this->invalidateOnce('published-authors', function (): void {
             $this->hotCache->delete(self::MULTIPLE_PUBLISHED_AUTHORS_KEY);
-        });
-        $this->afterCommitOnce('navigation', function (): void {
+        }, $deferUntilCommit);
+        $this->invalidateOnce('navigation', function (): void {
             $this->hotCache->delete(self::NAVIGATION_KEY);
-        });
-        $this->invalidateContentResponses();
+        }, $deferUntilCommit);
+        $this->invalidateCommentFragments($deferUntilCommit);
+        $this->invalidateContentResponses($deferUntilCommit);
     }
 
     /**
@@ -361,6 +411,26 @@ final class BlogPageCache implements StatefulServiceInterface
         return $variant;
     }
 
+    /** @param callable(): BlogSidebarFeed $factory */
+    private function sidebarFeed(string $key, callable $factory): BlogSidebarFeed
+    {
+        if ($this->disabled) {
+            return $factory();
+        }
+
+        $build = static function (ItemInterface $_item) use ($factory): BlogSidebarFeed {
+            return $factory();
+        };
+        $feed = $this->hotCache->get($key, $build, 0.0);
+
+        if (!$feed->isFreshAt(($this->clock)())) {
+            $this->hotCache->delete($key);
+            $feed = $this->hotCache->get($key, $build, 0.0);
+        }
+
+        return $feed;
+    }
+
     private function contentPathKey(ContentId $contentId): string
     {
         return self::CONTENT_RESPONSE_PATH_PREFIX . hash('sha256', (string)$contentId);
@@ -420,6 +490,30 @@ final class BlogPageCache implements StatefulServiceInterface
         foreach (self::RESPONSE_VARIANTS as $variant) {
             $cache->delete($prefix . $variant);
         }
+    }
+
+    /** @param \Closure(): mixed $operation */
+    private function invalidateOnce(string $key, \Closure $operation, bool $deferUntilCommit): void
+    {
+        if ($deferUntilCommit) {
+            $this->afterCommitOnlyOnce($key, $operation);
+
+            return;
+        }
+
+        $this->afterCommitOnce($key, $operation);
+    }
+
+    /** @param \Closure(): mixed $operation */
+    private function afterCommitOnlyOnce(string $key, \Closure $operation): void
+    {
+        if ($this->pdo instanceof PDO && $this->pdo->inTransaction()) {
+            $this->pdo->afterCommitOnce('blog-page-cache:' . $key, $operation);
+
+            return;
+        }
+
+        $operation();
     }
 
     /** @param \Closure(): mixed $operation */
