@@ -28,6 +28,7 @@ final readonly class BlogSidebarResponseProcessor implements ResponseProcessorIn
     ) {
     }
 
+    /** @suppress PhanUnusedPublicFinalMethodParameter Required by the response-processor contract. */
     #[\Override]
     public function process(Request $request, Response $response): Response
     {

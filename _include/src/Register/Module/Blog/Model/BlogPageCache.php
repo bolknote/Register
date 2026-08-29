@@ -418,9 +418,7 @@ final class BlogPageCache implements StatefulServiceInterface
             return $factory();
         }
 
-        $build = static function (ItemInterface $_item) use ($factory): BlogSidebarFeed {
-            return $factory();
-        };
+        $build = (static fn(ItemInterface $_item): BlogSidebarFeed => $factory());
         $feed = $this->hotCache->get($key, $build, 0.0);
 
         if (!$feed->isFreshAt(($this->clock)())) {
