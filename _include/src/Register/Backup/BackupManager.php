@@ -16,7 +16,11 @@ final readonly class BackupManager
 {
     public const int AUTOMATIC_INTERVAL_SECONDS = 24 * 60 * 60;
 
-    private const string FILE_PATTERN = '/^register-backup-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}\.zip(?:\.enc)?$/D';
+    private const string FULL_FILE_PATTERN = '/^register-backup-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}\.zip(?:\.enc)?$/D';
+
+    private const string UPDATE_FILE_PATTERN = '/^register-update-backup-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}\.zip\.enc$/D';
+
+    private const string UPDATE_DIRECTORY = 'updates';
 
     /** @var list<BackupContributorInterface> */
     private array $contributors;
@@ -41,9 +45,34 @@ final readonly class BackupManager
 
     public function createNow(?int $now = null): BackupFile
     {
-        $result = $this->withLock(fn(): BackupFile => $this->createLocked($now ?? time()));
+        $result = $this->withLock(fn(): BackupFile => $this->createLocked(
+            $now ?? time(),
+            true,
+            $this->backupDirectory,
+            'register-backup-',
+        ));
         if (!$result instanceof BackupFile) {
             throw new \LogicException('A forced backup did not produce an archive.');
+        }
+
+        return $result;
+    }
+
+    /** Creates the private database snapshot needed by the self-updater without copying immutable media. */
+    public function createForUpdate(?int $now = null): BackupFile
+    {
+        $result = $this->withLock(function () use ($now): BackupFile {
+            $directory = $this->updateDirectory();
+            $this->ensurePrivateDirectory($directory);
+            return $this->createLocked(
+                $now ?? time(),
+                false,
+                $directory,
+                'register-update-backup-',
+            );
+        });
+        if (!$result instanceof BackupFile) {
+            throw new \LogicException('An update backup did not produce an archive.');
         }
 
         return $result;
@@ -60,7 +89,7 @@ final readonly class BackupManager
                     return null;
                 }
 
-                return $this->createLocked($now);
+                return $this->createLocked($now, true, $this->backupDirectory, 'register-backup-');
             });
         } catch (\Throwable $throwable) {
             $this->securityAuditLogger->backupOperation(
@@ -146,7 +175,12 @@ final readonly class BackupManager
         }
     }
 
-    private function createLocked(int $now): BackupFile
+    private function createLocked(
+        int    $now,
+        bool   $includeMedia,
+        string $finalDirectory,
+        string $filenamePrefix,
+    ): BackupFile
     {
         $token       = bin2hex(random_bytes(8));
         $snapshot    = null;
@@ -166,9 +200,11 @@ final readonly class BackupManager
 
             $mediaFiles = 0;
             $mediaBytes = 0;
-            foreach ($this->mediaFiles() as $mediaFile) {
-                $mediaBytes += $writer->addFile($mediaFile['archive'], $mediaFile['path'], $now);
-                ++$mediaFiles;
+            if ($includeMedia) {
+                foreach ($this->mediaFiles() as $mediaFile) {
+                    $mediaBytes += $writer->addFile($mediaFile['archive'], $mediaFile['path'], $now);
+                    ++$mediaFiles;
+                }
             }
 
             $supplementalEntries = [];
@@ -203,6 +239,7 @@ final readonly class BackupManager
                     'sha256' => $databaseHash,
                 ],
                 'media' => [
+                    'included'  => $includeMedia,
                     'directory' => 'media/',
                     'files'     => $mediaFiles,
                     'bytes'     => $mediaBytes,
@@ -210,15 +247,15 @@ final readonly class BackupManager
                 'supplemental' => $supplementalEntries,
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
             $writer->addString('manifest.json', $manifest . "\n", $now);
-            $writer->addString('RESTORE.txt', $this->restoreInstructions($snapshot), $now);
+            $writer->addString('RESTORE.txt', $this->restoreInstructions($snapshot, $includeMedia), $now);
             $writer->close();
             $this->backupEncryptor->encryptFile($archivePath, $encryptedPath);
             if (!register_call_without_warnings(static fn(): bool => unlink($archivePath))) {
                 throw new \RuntimeException('Unable to remove the plaintext backup work file.');
             }
 
-            $name = 'register-backup-' . gmdate('Ymd-His', $now) . '-' . substr($token, 0, 8) . '.zip.enc';
-            $finalPath = $this->backupDirectory . '/' . $name;
+            $name = $filenamePrefix . gmdate('Ymd-His', $now) . '-' . substr($token, 0, 8) . '.zip.enc';
+            $finalPath = $finalDirectory . '/' . $name;
             if (!touch($encryptedPath, $now) || !rename($encryptedPath, $finalPath)) {
                 throw new \RuntimeException('Unable to publish the completed backup archive.');
             }
@@ -231,11 +268,17 @@ final readonly class BackupManager
             }
 
             $backup = new BackupFile($finalPath, $name, $now, $size);
-            $this->prune($backup);
+            if ($includeMedia) {
+                $this->prune($backup, $this->backups());
+            } else {
+                $this->prune($backup, $this->updateBackups());
+            }
+
             $this->logger->info('Register backup created.', [
                 'file'        => $name,
                 'bytes'       => $size,
                 'media_files' => $mediaFiles,
+                'scope'       => $includeMedia ? 'full' : 'update-database',
             ]);
 
             return $backup;
@@ -293,7 +336,7 @@ final readonly class BackupManager
         return $files;
     }
 
-    private function restoreInstructions(DatabaseSnapshot $snapshot): string
+    private function restoreInstructions(DatabaseSnapshot $snapshot, bool $includeMedia): string
     {
         $databaseInstruction = match ($snapshot->driver) {
             'sqlite' => 'With Register stopped, replace the configured SQLite database with database.sqlite.',
@@ -302,6 +345,10 @@ final readonly class BackupManager
             default  => throw new \LogicException('Unsupported database snapshot driver.'),
         };
 
+        $mediaInstruction = $includeMedia
+            ? "Copy the contents of media/ into Register's configured media directory."
+            : 'This pre-update snapshot does not contain media; keep the existing media directory unchanged.';
+
         return <<<TEXT
 Register backup
 ===============
@@ -309,7 +356,7 @@ Register backup
 1. This ZIP was stored inside an authenticated encrypted .enc envelope.
 2. Stop writes to Register before restoring.
 3. {$databaseInstruction}
-4. Copy the contents of media/ into Register's configured media directory.
+4. {$mediaInstruction}
 5. Clear Register's cache and resume normal request-driven queue processing.
 
 config.php and config.secrets.php are intentionally not included. Preserve them separately: they
@@ -318,9 +365,9 @@ See the Register backup documentation for database-specific commands and verific
 TEXT;
     }
 
-    private function prune(BackupFile $createdBackup): void
+    /** @param list<BackupFile> $backups */
+    private function prune(BackupFile $createdBackup, array $backups): void
     {
-        $backups = $this->backups();
         while (\count($backups) > $this->retention) {
             $candidateIndex = null;
             foreach ($backups as $index => $backup) {
@@ -365,11 +412,26 @@ TEXT;
     /** @return list<BackupFile> */
     private function backups(): array
     {
-        if (!is_dir($this->backupDirectory) || is_link($this->backupDirectory)) {
+        return $this->backupFiles($this->backupDirectory, self::FULL_FILE_PATTERN);
+    }
+
+    /** @return list<BackupFile> */
+    private function updateBackups(): array
+    {
+        return $this->backupFiles($this->updateDirectory(), self::UPDATE_FILE_PATTERN);
+    }
+
+    /**
+     * @param non-empty-string $pattern
+     * @return list<BackupFile>
+     */
+    private function backupFiles(string $directory, string $pattern): array
+    {
+        if (!is_dir($directory) || is_link($directory)) {
             return [];
         }
 
-        $paths = glob($this->backupDirectory . '/register-backup-*.zip*', GLOB_NOSORT);
+        $paths = glob($directory . '/*.zip*', GLOB_NOSORT);
         if ($paths === false) {
             return [];
         }
@@ -377,7 +439,7 @@ TEXT;
         $backups = [];
         foreach ($paths as $path) {
             $name = basename($path);
-            if (preg_match(self::FILE_PATTERN, $name) !== 1 || !is_file($path) || is_link($path)) {
+            if (preg_match($pattern, $name) !== 1 || !is_file($path) || is_link($path)) {
                 continue;
             }
 
@@ -397,29 +459,39 @@ TEXT;
 
     private function ensureDirectory(): void
     {
-        if (is_link($this->backupDirectory)
-            || (file_exists($this->backupDirectory) && !is_dir($this->backupDirectory))
+        $this->ensurePrivateDirectory($this->backupDirectory);
+    }
+
+    private function ensurePrivateDirectory(string $directory): void
+    {
+        if (is_link($directory)
+            || (file_exists($directory) && !is_dir($directory))
         ) {
             throw new \RuntimeException('The private backup directory must be a real directory.');
         }
 
-        if (!is_dir($this->backupDirectory) && !mkdir($this->backupDirectory, 0700, true) && !is_dir($this->backupDirectory)) {
+        if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
             throw new \RuntimeException('Unable to create the private backup directory.');
         }
 
         if (DIRECTORY_SEPARATOR !== '\\') {
-            $directoryStat = lstat($this->backupDirectory);
+            $directoryStat = lstat($directory);
             if ($directoryStat === false || ($directoryStat['mode'] & 0170000) !== 0040000) {
                 throw new \RuntimeException('The private backup directory must not be a symbolic link.');
             }
 
-            if (($directoryStat['mode'] & 0777) !== 0700 && !chmod($this->backupDirectory, 0700)) {
+            if (($directoryStat['mode'] & 0777) !== 0700 && !chmod($directory, 0700)) {
                 throw new \RuntimeException('Unable to secure the private backup directory.');
             }
         }
 
-        if (!is_writable($this->backupDirectory)) {
+        if (!is_writable($directory)) {
             throw new \RuntimeException('The backup directory is not writable.');
         }
+    }
+
+    private function updateDirectory(): string
+    {
+        return rtrim($this->backupDirectory, '/\\') . '/' . self::UPDATE_DIRECTORY;
     }
 }

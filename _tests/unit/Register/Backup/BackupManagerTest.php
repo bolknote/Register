@@ -73,6 +73,7 @@ final class BackupManagerTest extends Unit
             self::assertIsString($manifest);
             self::assertStringContainsString('"format": "register-backup"', $manifest);
             self::assertStringContainsString('"driver": "sqlite"', $manifest);
+            self::assertStringContainsString('"included": true', $manifest);
 
             $database = $zipClass->getMethod('getFromName')->invoke($zip, 'database.sqlite');
             self::assertIsString($database);
@@ -88,6 +89,52 @@ final class BackupManagerTest extends Unit
 
             self::assertSame('Saved note', $statement->fetchColumn());
         }
+    }
+
+    public function testUpdateSnapshotExcludesMediaWithoutReplacingLatestFullBackup(): void
+    {
+        [$manager, $directory, $encryptor] = $this->manager(retention: 2);
+        $fullBackup = $manager->createNow(1_700_000_000);
+        $snapshot = $manager->createForUpdate(now: 1_700_000_001);
+
+        self::assertMatchesRegularExpression(
+            '/^register-update-backup-[0-9]{8}-[0-9]{6}-[a-f0-9]{8}\.zip\.enc$/D',
+            $snapshot->name,
+        );
+        self::assertSame($directory . '/backups/updates/' . $snapshot->name, $snapshot->path);
+        self::assertSame($fullBackup->path, $manager->latest()?->path);
+
+        $decryptedPath = $directory . '/update-snapshot.zip';
+        $encryptor->decryptFile($snapshot->path, $decryptedPath);
+        $rawArchive = file_get_contents($decryptedPath);
+        self::assertIsString($rawArchive);
+        self::assertStringContainsString('database.sqlite', $rawArchive);
+        self::assertStringContainsString('"included": false', $rawArchive);
+        self::assertStringContainsString('keep the existing media directory unchanged', $rawArchive);
+        self::assertStringNotContainsString('media/nested/photo.webp', $rawArchive);
+        self::assertStringNotContainsString('image bytes', $rawArchive);
+
+        $snapshots = glob($directory . '/backups/updates/register-update-backup-*.zip.enc');
+        self::assertIsArray($snapshots);
+        self::assertCount(1, $snapshots);
+    }
+
+    public function testUpdateSnapshotRetentionIsIndependentFromFullBackupRetention(): void
+    {
+        [$manager, $directory] = $this->manager(retention: 2);
+        $fullBackup = $manager->createNow(1_700_000_000);
+        $first = $manager->createForUpdate(now: 1_700_000_001);
+        $second = $manager->createForUpdate(now: 1_700_000_002);
+        $third = $manager->createForUpdate(now: 1_700_000_003);
+
+        self::assertFileExists($fullBackup->path);
+        self::assertFileDoesNotExist($first->path);
+        self::assertFileExists($second->path);
+        self::assertFileExists($third->path);
+        $snapshots = glob($directory . '/backups/updates/register-update-backup-*.zip.enc');
+        self::assertIsArray($snapshots);
+        self::assertCount(2, $snapshots);
+        self::assertSame($fullBackup->path, $manager->latest()?->path);
     }
 
     public function testAutomaticScheduleAndRetentionKeepOnlyRecentArchives(): void

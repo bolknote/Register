@@ -120,37 +120,39 @@ final readonly class UpdateManager
                 return $this->storage->publicState($state);
             }
 
-            $state['status'] = 'backing_up';
-            unset($state['message']);
-            $this->storage->save($id, $state);
-            try {
-                $backup = $this->backupManager->createNow();
-                $state['backup'] = $backup->name;
-                $this->storage->save($id, $state);
-            } catch (\Throwable $throwable) {
-                $state['status']  = 'ready';
-                $state['message'] = 'The pre-update backup failed: ' . $throwable->getMessage();
-                $this->storage->save($id, $state);
-                throw $throwable;
-            }
-
             $enteredMaintenance = false;
             $filesSwitched      = false;
+            $phase              = 'runtime_lock';
             try {
                 $this->maintenanceMode->enter($incoming->releaseId, $id);
                 $enteredMaintenance = true;
-                $runtimeLock = RuntimeLock::acquireExclusive($this->applicationRoot);
-                $state['status'] = 'applying_files';
-                $this->storage->save($id, $state);
-                $this->applier->apply(
-                    $this->storage->stageRoot($id),
-                    $this->storage->rollbackRoot($id),
-                    $installed,
-                    $incoming,
-                    $plan,
-                );
-                $filesSwitched = true;
-                $runtimeLock->release();
+                $exclusiveRuntimeLock = RuntimeLock::acquireExclusive($this->applicationRoot);
+                try {
+                    // No request can mutate the database between this snapshot and
+                    // the file switch. A runtime-lock timeout therefore creates no
+                    // expensive, immediately obsolete backup.
+                    $phase = 'backup';
+                    $state['status'] = 'backing_up';
+                    unset($state['message']);
+                    $this->storage->save($id, $state);
+                    $backup = $this->backupManager->createForUpdate();
+                    $state['backup'] = $backup->name;
+                    $this->storage->save($id, $state);
+
+                    $phase = 'file_switch';
+                    $state['status'] = 'applying_files';
+                    $this->storage->save($id, $state);
+                    $this->applier->apply(
+                        $this->storage->stageRoot($id),
+                        $this->storage->rollbackRoot($id),
+                        $installed,
+                        $incoming,
+                        $plan,
+                    );
+                    $filesSwitched = true;
+                } finally {
+                    $exclusiveRuntimeLock->release();
+                }
 
                 $state['status'] = 'files_switched';
                 $state['plan']   = $plan->toArray();
@@ -193,7 +195,11 @@ final readonly class UpdateManager
                 $state['message'] = $rollbackPending
                     ? 'The file switch and its automatic rollback failed; retry recovery while maintenance remains active: '
                         . $throwable->getMessage()
-                    : 'The file switch failed and was rolled back: ' . $throwable->getMessage();
+                    : match ($phase) {
+                        'runtime_lock' => 'The update could not stop active requests: ' . $throwable->getMessage(),
+                        'backup'       => 'The pre-update backup failed: ' . $throwable->getMessage(),
+                        default        => 'The file switch failed and was rolled back: ' . $throwable->getMessage(),
+                    };
                 $this->storage->save($id, $state);
                 throw $throwable;
             }

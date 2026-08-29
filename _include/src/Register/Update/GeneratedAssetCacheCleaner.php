@@ -15,6 +15,7 @@ final readonly class GeneratedAssetCacheCleaner
     private const array PRESERVED_ENTRIES = [
         '.htaccess',
         'index.html',
+        'response_encoding',
         'recommendations',
         'picture_reserve',
         'query-profiler-state.json',
@@ -56,6 +57,13 @@ final readonly class GeneratedAssetCacheCleaner
     private function isPreservedEntry(string $entry): bool
     {
         if (\in_array($entry, ['.', '..', ...self::PRESERVED_ENTRIES], true)) {
+            return true;
+        }
+
+        // A release does not invalidate page data by itself. The page-cache ABI
+        // selects a new generation only for an incompatible representation, and
+        // hourly bounded maintenance removes old generations gradually.
+        if (preg_match('/^pages(?:_v[1-9][0-9]*)?$/D', $entry) === 1) {
             return true;
         }
 

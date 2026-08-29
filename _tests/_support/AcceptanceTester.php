@@ -71,6 +71,24 @@ class AcceptanceTester extends Actor
         $security['secret_file'] = '_tests/_output/config.acceptance.secrets.php';
         $config['security']      = $security;
 
+        // The acceptance application must never traverse a developer's real media or backup directories.
+        // Keeping both stores inside the disposable test output also makes the background backup deterministic.
+        $files = $config['files'] ?? [];
+        if (!\is_array($files)) {
+            throw new \RuntimeException('Unable to read file storage configuration from config.test.php');
+        }
+
+        $files['image_dir'] = '_tests/_output/media';
+        $config['files']    = $files;
+
+        $backups = $config['backups'] ?? [];
+        if (!\is_array($backups)) {
+            throw new \RuntimeException('Unable to read backup configuration from config.test.php');
+        }
+
+        $backups['directory'] = '_tests/_output/backups';
+        $config['backups']    = $backups;
+
         file_put_contents($configFileName, '<?php return ' . \var_export($config, true) . ';');
     }
 

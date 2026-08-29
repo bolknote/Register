@@ -54,6 +54,7 @@ use Register\Core\Framework\ResponseProcessorInterface;
 use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Http\RedirectDetector;
 use Register\Core\Http\TrustedProxyConfigurator;
+use Register\Core\Http\Cache\PageCacheGarbageCollector;
 use Register\Core\Http\Cache\PageCachePoolFactory;
 use Register\Core\Http\Cache\PageCachePools;
 use Register\Core\HttpClient\HttpClient;
@@ -98,6 +99,7 @@ use Register\Core\Queue\QueueRecovery;
 use Register\Core\Queue\QueueRunnerLease;
 use Register\Core\Queue\NativeShutdownRuntime;
 use Register\Core\Queue\ScheduledWorkCoordinatorInterface;
+use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
 use Register\Core\Queue\ShutdownWorkCoordinator;
 use Register\Core\Security\Audit\SecurityAuditLogger;
 use Register\Core\Security\Monitoring\SecurityTelemetryRecorder;
@@ -208,8 +210,11 @@ class CmsExtension implements ExtensionInterface
             ->create(
                 $container->getStringParameter('cache_dir'),
                 $container->getStringParameter('root_dir'),
-                $container->getStringParameter('version'),
-        ));
+            ));
+        $container->set(PageCacheGarbageCollector::class, fn(Container $container): PageCacheGarbageCollector => new PageCacheGarbageCollector(
+            $container->getStringParameter('cache_dir'),
+            PageCachePoolFactory::filesystemNamespace(),
+        ), [ScheduledMaintenanceTaskInterface::class]);
         $container->set(ResponseCompressionCache::class, fn(Container $container): ResponseCompressionCache => new ResponseCompressionCache(
             new FilesystemAdapter('response_encoding', 0, $container->getStringParameter('cache_dir')),
             $container->getBoolParameter('disable_cache'),

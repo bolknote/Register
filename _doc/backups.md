@@ -9,6 +9,16 @@ standard ZIP archive containing:
 - `manifest.json` with sizes, hashes, the database driver, and the Register version;
 - `RESTORE.txt` with a short recovery checklist.
 
+The browser self-updater additionally creates a smaller
+`updates/register-update-backup-*.zip.enc` pre-update snapshot in the same private backup
+directory. It contains the database and bounded supplemental recovery material, but deliberately
+does not duplicate media: releases do not manage uploaded media, while changed application files
+have a separate rollback journal. It is created only after active requests stop, so a failed attempt
+cannot leave a snapshot that silently predates later writes.
+Update snapshots and full backups each retain up to the configured `retention` count; update
+snapshots do not replace the latest full archive shown on the System status page and do not postpone
+the next scheduled full backup.
+
 Deployment configuration is deliberately excluded because it contains database and application
 credentials. By default it also contains the symmetric backup recovery key. That key is never
 stored in the database, generated cache, backup directory, or encrypted archive. Default encryption
@@ -151,7 +161,9 @@ created archive is encrypted.
 3. For SQLite, replace the configured database file with `database.sqlite`. For MySQL/MariaDB,
    import `database.sql` into an empty configured database with `mysql`. For PostgreSQL, import it
    with `psql`.
-4. Copy the contents of `media/` into the configured media directory.
+4. For a full `register-backup-*` archive, copy the contents of `media/` into the configured media
+   directory. A `register-update-backup-*` archive has `media.included` set to `false`; preserve the
+   existing media directory instead.
 5. Restore deployment configuration separately, clear Register's cache, then resume normal
    request-driven queue processing.
 

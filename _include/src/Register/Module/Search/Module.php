@@ -228,7 +228,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(DynamicConfigProvider::class)->getStringProxy('REGISTER_WEBMASTER'),
         ));
 
-        $container->set('recommendations_logger', fn(Container $container): \Register\Core\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'recommendations.log', 'recommendations', LogLevel::INFO));
+        $container->set('recommendations_logger', fn(Container $container): \Register\Core\Logger\Logger => new Logger($container->getStringParameter('log_dir') . 'recommendations.log', 'recommendations', LogLevel::WARNING));
         $container->set('recommendations_cache', fn(Container $container): \Symfony\Component\Cache\Adapter\FilesystemAdapter => new FilesystemAdapter('recommendations', 0, $container->getStringParameter('cache_dir')));
         $container->set(RecommendationFinder::class, static fn(Container $container): RecommendationFinder => new RecommendationFinder(
             $container->get(PdoStorage::class),

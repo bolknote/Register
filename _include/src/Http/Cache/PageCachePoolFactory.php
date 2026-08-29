@@ -17,6 +17,12 @@ use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 /** Builds a portable filesystem page cache with an optional APCu tier for bounded hot data. */
 final readonly class PageCachePoolFactory
 {
+    /**
+     * Bump only when cached PHP values or anonymous HTML representations become incompatible.
+     * Ordinary releases and render-neutral code changes must keep the existing cache warm.
+     */
+    public const int CACHE_ABI = 1;
+
     private const string FILESYSTEM_NAMESPACE = 'pages';
 
     private const string SHARED_MEMORY_NAMESPACE_PREFIX = 'register_pages_';
@@ -25,11 +31,12 @@ final readonly class PageCachePoolFactory
     {
     }
 
-    public function create(string $cacheDirectory, string $applicationRoot, string $version): PageCachePools
+    public function create(string $cacheDirectory, string $applicationRoot): PageCachePools
     {
         $cacheDirectory = rtrim($cacheDirectory, '/\\') . DIRECTORY_SEPARATOR;
-        $filesystem = new FilesystemAdapter(self::FILESYSTEM_NAMESPACE, 0, $cacheDirectory);
-        $filesystemDirectory = $cacheDirectory . self::FILESYSTEM_NAMESPACE;
+        $filesystemNamespace = self::filesystemNamespace();
+        $filesystem = new FilesystemAdapter($filesystemNamespace, 0, $cacheDirectory);
+        $filesystemDirectory = $cacheDirectory . $filesystemNamespace;
 
         if (!$this->apcuAvailable()) {
             return new PageCachePools($filesystem, $filesystem, $filesystemDirectory, false, null);
@@ -39,7 +46,7 @@ final readonly class PageCachePoolFactory
         $root = $root === false ? rtrim($applicationRoot, '/\\') : $root;
 
         $namespace = self::SHARED_MEMORY_NAMESPACE_PREFIX . substr(hash('sha256', $root), 0, 16);
-        $versionKey = 'v' . substr(hash('sha256', $version), 0, 16);
+        $versionKey = 'abi' . self::CACHE_ABI;
 
         try {
             // APCUIterator is required by apcuAvailable(), so changing this version
@@ -55,6 +62,22 @@ final readonly class PageCachePoolFactory
         }
 
         return new PageCachePools($filesystem, $hot, $filesystemDirectory, true, $namespace);
+    }
+
+    public static function filesystemNamespace(): string
+    {
+        return self::namespaceForAbi(self::CACHE_ABI);
+    }
+
+    public static function namespaceForAbi(int $abi): string
+    {
+        if ($abi < 1) {
+            throw new \InvalidArgumentException('The page-cache ABI must be positive.');
+        }
+
+        return $abi === 1
+            ? self::FILESYSTEM_NAMESPACE
+            : self::FILESYSTEM_NAMESPACE . '_v' . $abi;
     }
 
     private function apcuAvailable(): bool

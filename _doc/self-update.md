@@ -43,8 +43,11 @@ choice and `.tar.bz2` (Phar + Bzip2) as another equivalent option.
 4. Register compares the live site with the *installed* manifest. It refuses to overwrite an
    unmanaged collision or a managed file changed locally. Missing unmodified files are restored;
    obsolete unmodified files are removed.
-5. After the administrator confirms with the current password, Register creates its normal encrypted
-   database-and-media backup.
+5. After the administrator confirms with the current password, Register creates a private encrypted
+   database snapshot under the backup directory. Media are not copied: the release manifest never
+   manages uploads, and the file rollback journal covers every code file changed by the update.
+   Register first stops active requests, so the snapshot is exactly the database state immediately
+   before the file switch. A runtime-lock timeout creates no backup; a later retry starts afresh.
 6. A maintenance marker stops new public requests with HTTP 503. A process lock waits for active
    requests to finish. Every affected live file is copied into a protected rollback journal under
    the update workspace, then staged files are moved into place atomically where the filesystem
@@ -60,9 +63,18 @@ session expires, and the pre-update encrypted backup is retained for manual reco
 restore the recorded backup when retrying cannot fix the cause.
 
 After a successful finalization, the uploaded archive, staging tree, and file rollback journal are
-removed; the normal encrypted backup and a small update status record remain. Abandoned uploads and
+removed; the encrypted pre-update database snapshot and a small update status record remain. These
+snapshots live in the private backup directory's `updates/` subdirectory and follow the configured
+backup retention independently from full backups. Abandoned uploads and
 non-critical prepared sessions are removed after seven days. Recovery data for a file switch or
 failed migration has no automatic expiry.
+
+Finalization preserves deterministic page responses and their prepared gzip, Brotli, and Zstandard
+representations. Data mutations already invalidate the affected cache keys transactionally. A code
+release selects a new page-cache generation only when `PageCachePoolFactory::CACHE_ABI` is bumped
+because cached PHP values or anonymous HTML became incompatible. Hourly maintenance removes at most
+128 entries from obsolete generations per pass, avoiding a post-deploy I/O and crawler rewarming
+spike.
 
 ## Managed and preserved files
 

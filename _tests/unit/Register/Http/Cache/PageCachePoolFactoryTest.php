@@ -35,7 +35,6 @@ final class PageCachePoolFactoryTest extends TestCase
         $pools = (new PageCachePoolFactory())->create(
             $this->temporaryDirectory,
             dirname(__DIR__, 5),
-            '2.0-test',
         );
 
         self::assertFalse($pools->sharedMemoryEnabled);
@@ -54,5 +53,12 @@ final class PageCachePoolFactoryTest extends TestCase
         ));
         self::assertDirectoryExists($this->temporaryDirectory . '/pages');
         self::assertDirectoryDoesNotExist($this->temporaryDirectory . '/config');
+    }
+
+    public function testKeepsTheOriginalFilesystemNamespaceForTheFirstCacheAbi(): void
+    {
+        self::assertSame('pages', PageCachePoolFactory::filesystemNamespace());
+        self::assertSame('pages', PageCachePoolFactory::namespaceForAbi(1));
+        self::assertSame('pages_v2', PageCachePoolFactory::namespaceForAbi(2));
     }
 }
