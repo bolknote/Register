@@ -24,6 +24,7 @@ final class GeneratedAssetCacheCleanerTest extends Unit
         mkdir($this->temporaryRoot . '/_cache/nested', 0700, true);
         mkdir($this->temporaryRoot . '/_cache/pages', 0700, true);
         mkdir($this->temporaryRoot . '/_cache/recommendations', 0700, true);
+        mkdir($this->temporaryRoot . '/_cache/register-updates/session', 0700, true);
     }
 
     #[\Override]
@@ -41,6 +42,7 @@ final class GeneratedAssetCacheCleanerTest extends Unit
         file_put_contents($this->temporaryRoot . '/_cache/nested/site.js', 'old');
         file_put_contents($this->temporaryRoot . '/_cache/pages/item', 'rendered page');
         file_put_contents($this->temporaryRoot . '/_cache/recommendations/item', 'expensive result');
+        file_put_contents($this->temporaryRoot . '/_cache/register-updates/session/state.json', '{"status":"migrating"}');
         file_put_contents($this->temporaryRoot . '/_cache/performance.jsonl', '{"duration_ms":1200}');
         file_put_contents($this->temporaryRoot . '/_cache/query-profiler.jsonl', '{"query_count":1}');
         file_put_contents($this->temporaryRoot . '/_cache/query-profiler-state.json', '{"expires_at":1}');
@@ -56,6 +58,7 @@ final class GeneratedAssetCacheCleanerTest extends Unit
         self::assertDirectoryDoesNotExist($this->temporaryRoot . '/_cache/nested');
         self::assertDirectoryDoesNotExist($this->temporaryRoot . '/_cache/pages');
         self::assertFileExists($this->temporaryRoot . '/_cache/recommendations/item');
+        self::assertFileExists($this->temporaryRoot . '/_cache/register-updates/session/state.json');
         self::assertFileExists($this->temporaryRoot . '/_cache/performance.jsonl');
         self::assertFileExists($this->temporaryRoot . '/_cache/query-profiler.jsonl');
         self::assertFileExists($this->temporaryRoot . '/_cache/query-profiler-state.json');

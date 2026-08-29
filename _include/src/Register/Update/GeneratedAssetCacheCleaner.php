@@ -18,6 +18,7 @@ final readonly class GeneratedAssetCacheCleaner
         'recommendations',
         'picture_reserve',
         'query-profiler-state.json',
+        'register-updates',
     ];
 
     private string $cacheDirectory;
