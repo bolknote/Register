@@ -104,9 +104,7 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
                 return;
             }
 
-            /** @var TranslatorInterface $translator */
-            $translator = $container->get('register_blog_translator');
-            $viewer     = $container->get(Viewer::class);
+            $viewer = $container->get(Viewer::class);
 
             if (isset($blogPlaceholders['register_blog_last_comments'])) {
                 $template->registerPlaceholder(
