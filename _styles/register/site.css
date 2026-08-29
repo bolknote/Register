@@ -1013,13 +1013,13 @@ h2.preview,
 }
 
 .post-card.is-editing > .post.body[data-post-inplace-body]
-    :where(.post-picture, .post-media-picture, figure).has-leading-boundary-caret {
+    :where(.post-picture, .post-media-picture, figure).has-leading-boundary-caret:has(img, video, audio) {
     position: relative;
 }
 
 .post-card.is-editing > .post.body[data-post-inplace-body].has-leading-boundary-caret::before,
 .post-card.is-editing > .post.body[data-post-inplace-body]
-    :where(.post-picture, .post-media-picture, figure).has-leading-boundary-caret::before {
+    :where(.post-picture, .post-media-picture, figure).has-leading-boundary-caret:has(img, video, audio)::before {
     position: absolute;
     z-index: 2;
     top: 0.08em;
@@ -1525,6 +1525,10 @@ h2.preview,
 }
 
 .post-editor-format-row {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.post-editor-format-row:has(> [data-context-action="inline-code"][hidden]) {
     grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
@@ -1554,6 +1558,13 @@ h2.preview,
     stroke-linejoin: round;
     stroke-width: 1.8;
     vector-effect: non-scaling-stroke;
+}
+
+.post-editor-inline-code-glyph {
+    font-family: "Fira Code", Consolas, Menlo, "Courier New", monospace;
+    font-size: 0.88rem;
+    font-weight: 650;
+    letter-spacing: -0.04em;
 }
 
 .post-editor-entity-grid {

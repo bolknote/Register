@@ -82,6 +82,7 @@ final class PostInplaceCest
         $I->seeElement('.post-editor-context-menu-template [data-context-image-only]');
         $I->seeElement('.post-editor-context-menu-template [data-context-action="media"]');
         $I->seeElement('.post-editor-context-menu-template [data-context-action="open-link"]');
+        $I->seeElement('.post-editor-context-menu-template [data-context-action="inline-code"]');
         $I->seeElement('.post-editor-context-menu-template .post-editor-image-panel[hidden]');
         $I->seeElement('.post-editor-context-menu-template [data-context-image-alt-input]');
         $I->seeElement('.post-editor-image-panel [data-context-action="open-link"]');
@@ -262,7 +263,7 @@ final class PostInplaceCest
         $token    = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
         $I->assertSame('Inplace tag', $I->grabAttributeFrom($selector . ' input[name="tags"]', 'value'));
         $cursor   = $updates->currentCursor();
-        $editedBody = '<p>Updated <strong>without a reload</strong>.</p>'
+        $editedBody = '<p>Updated <strong>without a reload</strong> and <tt>a - b...</tt>.</p>'
             . '<div class="post-picture post-media-picture">'
             . '<span class="post-media-overlay" data-post-media-overlay="" role="figure">'
             . '<a class="post-media-image-link" href="/full-size"><img src="/photo.jpg" alt="A useful alt"></a>'
@@ -289,6 +290,7 @@ final class PostInplaceCest
         $I->assertSame(2, $payload['revision']);
         $I->assertStringContainsString('data-post-inplace-body', $payload['body_html']);
         $I->assertStringContainsString('<strong>without a reload</strong>', $payload['body_html']);
+        $I->assertStringContainsString('<tt>a - b...</tt>', $payload['body_html']);
         $I->assertStringContainsString('post-media-overlay-caption', $payload['body_html']);
         $I->assertStringContainsString('alt="A useful alt"', $payload['body_html']);
         $I->assertStringContainsString('data-caption-font="serif"', $payload['body_html']);

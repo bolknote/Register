@@ -33,7 +33,7 @@ final class Typograph
         $i               = 0;
 
         // Extract sensitive data
-        $contents = preg_replace_callback('#<(script|style|textarea|pre|code|kbd|title|nobr).*?</\\1>|\\$\\$[^<]*?\\$\\$#s', static function (array $matches) use (&$savedSubstrings, &$i): string {
+        $contents = preg_replace_callback('#<(script|style|textarea|pre|code|tt|kbd|title|nobr).*?</\\1>|\\$\\$[^<]*?\\$\\$#s', static function (array $matches) use (&$savedSubstrings, &$i): string {
             $savedSubstrings[$i] = $matches[0];
             return '<¬' . ($i++) . '¬>';
         }, $contents) ?? throw new \RuntimeException('Unable to protect typography-sensitive markup.');

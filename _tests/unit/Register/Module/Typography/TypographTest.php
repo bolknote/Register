@@ -85,6 +85,10 @@ final class TypographTest extends Unit
         yield ['(c) 2024 - someone.', '© 2024&nbsp;— someone.'];
         yield ['<p>$$5+6z=A(6+z)\iff(6-A)z=6A-5\implies z={6A-5\over 6-A}.$$</p>', '<p>$$5+6z=A(6+z)\iff(6-A)z=6A-5\implies z={6A-5\over 6-A}.$$</p>'];
         // No replacement in LaTeX
+        yield 'inline code is typography-safe' => [
+            '<tt>printf("a - b...");</tt>',
+            '<tt>printf("a - b...");</tt>',
+        ];
         yield ['<p class="header">Some text.</p><p class="subheader">Another-text</p>', '<p class="header">Some text.</p><p class="subheader"><nobr>Another-text</nobr></p>'];
         yield ['SOCKS5-прокси', '<nobr>SOCKS5-прокси</nobr>'];
         yield ['<a href="/some/url.html">"CSS-стилей"</a>', '«<a href="/some/url.html"><nobr>CSS-стилей</nobr></a>»'];

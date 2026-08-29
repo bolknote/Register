@@ -161,6 +161,7 @@ return [
     'Bold' => 'Bold',
     'Italic' => 'Italic',
     'Strike' => 'Strikethrough',
+    'Inline code' => 'Inline code',
     'Header 2' => 'Heading 2',
     'Header 3' => 'Heading 3',
     'Header 4' => 'Heading 4',

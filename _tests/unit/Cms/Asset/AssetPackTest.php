@@ -226,8 +226,9 @@ final class AssetPackTest extends Unit
             '/\.post\.body\[data-post-inplace-body\]\.has-leading-boundary-caret::before\s*,\s*'
                 . '\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*'
                 . ':where\(\.post-picture, \.post-media-picture, figure\)'
-                . '\.has-leading-boundary-caret::before\s*'
-                . '\{[^}]*position:\s*absolute;[^}]*background:\s*var\(--accent-color\);/s',
+                . '\.has-leading-boundary-caret:has\(img, video, audio\)::before\s*'
+                . '\{[^}]*position:\s*absolute;[^}]*left:\s*-2px;'
+                . '[^}]*background:\s*var\(--accent-color\);/s',
             $site,
         );
 
@@ -242,6 +243,17 @@ final class AssetPackTest extends Unit
         );
         self::assertStringContainsString('node instanceof HTMLBRElement', $script);
         self::assertStringContainsString("boundary.querySelector('img, video, audio')", $script);
+        self::assertStringContainsString(
+            "document.querySelectorAll('.has-leading-boundary-caret').forEach",
+            $script,
+        );
+        self::assertStringContainsString("nextElement?.classList.add('has-leading-boundary-caret')", $script);
+        self::assertStringContainsString('range.setStartBefore(boundary)', $script);
+        self::assertStringContainsString(
+            "document.addEventListener('beforeinput', moveInsertionBeforeMediaBoundary",
+            $script,
+        );
+        self::assertStringNotContainsString('boundaryCaretElement === nextElement', $script);
         self::assertStringContainsString("document.addEventListener('selectionchange', syncBoundaryCaret", $script);
         self::assertStringNotContainsString('\\u200b', strtolower($script));
     }
@@ -286,6 +298,33 @@ final class AssetPackTest extends Unit
         self::assertStringContainsString('clearAiChangeMarks(state.body);', $script);
         self::assertStringContainsString('markAiChanges(insertedNodes, sourceText);', $script);
         self::assertStringContainsString('markAiChanges(Array.from(state.body.childNodes), sourceText);', $script);
+    }
+
+    public function testPostEditorOffersInlineCodeSeparatelyFromBlockCode(): void
+    {
+        $rootDir = \dirname(__DIR__, 4) . '/';
+        $template = file_get_contents(
+            $rootDir . '_include/src/Register/Module/Blog/resources/views/post.php',
+        );
+        $site = file_get_contents($rootDir . '_styles/register/site.css');
+        $script = file_get_contents($rootDir . '_assets/register/post-inplace.js');
+
+        self::assertIsString($template);
+        self::assertStringContainsString('data-context-action="inline-code"', $template);
+        self::assertStringContainsString('post-editor-inline-code-glyph', $template);
+        self::assertStringContainsString('data-context-action="code"', $template);
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/\.post-editor-format-row\s*\{[^}]*grid-template-columns:\s*repeat\(6,/s',
+            $site,
+        );
+        self::assertStringContainsString('.post-editor-inline-code-glyph', $site);
+
+        self::assertIsString($script);
+        self::assertStringContainsString("document.createElement('tt')", $script);
+        self::assertStringContainsString("if (action === 'inline-code')", $script);
+        self::assertStringContainsString("'code': ['formatBlock', 'pre']", $script);
     }
 
     public function testCommentConfirmationUsesTheCommentContentColumn(): void

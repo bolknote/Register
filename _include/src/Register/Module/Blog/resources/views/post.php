@@ -160,6 +160,7 @@ $tagNames    = array_values(array_map(
                     <button type="button" data-context-action="bold" title="<?php echo register_htmlencode($trans('Bold')); ?>" aria-label="<?php echo register_htmlencode($trans('Bold')); ?>"><strong>B</strong></button>
                     <button type="button" data-context-action="italic" title="<?php echo register_htmlencode($trans('Italic')); ?>" aria-label="<?php echo register_htmlencode($trans('Italic')); ?>"><em>I</em></button>
                     <button type="button" data-context-action="strike" title="<?php echo register_htmlencode($trans('Strike')); ?>" aria-label="<?php echo register_htmlencode($trans('Strike')); ?>"><s>S</s></button>
+                    <button type="button" data-context-action="inline-code" data-context-selection-only title="<?php echo register_htmlencode($trans('Inline code')); ?>" aria-label="<?php echo register_htmlencode($trans('Inline code')); ?>"><span class="post-editor-inline-code-glyph" aria-hidden="true">tt</span></button>
                     <button type="button" data-context-action="open-link" title="<?php echo register_htmlencode($trans('Link')); ?>" aria-label="<?php echo register_htmlencode($trans('Link')); ?>">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 14.5 14.5 9.5M7.4 16.6l-1.2 1.2a3.1 3.1 0 0 1-4.4-4.4l3.4-3.4a3.1 3.1 0 0 1 4.4 0M16.6 7.4l1.2-1.2a3.1 3.1 0 0 1 4.4 4.4L18.8 14a3.1 3.1 0 0 1-4.4 0" /></svg>
                     </button>

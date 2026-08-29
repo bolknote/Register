@@ -4,7 +4,7 @@
     const editorStates = new WeakMap();
     const tagSuggestionRequests = new Map();
     let tagEditorSequence = 0;
-    let boundaryCaretElement = null;
+    let inlineCodeBoundarySequence = 0;
     const imageOptimizerUrl = (() => {
         const source = new URL(document.currentScript?.src || window.location.href, window.location.href);
         const target = new URL('image-optimizer/js/optimizer.js', source);
@@ -619,6 +619,30 @@
         syncBoundaryCaret();
     }
 
+    function clearBoundaryCaret(element) {
+        element.classList.remove('has-leading-boundary-caret');
+    }
+
+    function mediaBoundaryAtRange(body, range) {
+        if (!range.collapsed || !(range.startContainer instanceof HTMLElement)) {
+            return null;
+        }
+
+        const boundary = range.startContainer;
+        const emptyPrefix = Array.from(boundary.childNodes)
+            .slice(0, range.startOffset)
+            .every((node) => (
+                node instanceof HTMLBRElement
+                || (node.nodeType === Node.TEXT_NODE && String(node.textContent || '').trim() === '')
+            ));
+        return emptyPrefix
+            && boundary.matches('.post-picture, .post-media-picture, figure')
+            && body.contains(boundary)
+            && boundary.querySelector('img, video, audio')
+            ? boundary
+            : null;
+    }
+
     function syncBoundaryCaret() {
         const selection = window.getSelection();
         const active = document.activeElement;
@@ -635,32 +659,47 @@
             if (range.collapsed) {
                 if (range.startContainer === active && range.startOffset === 0) {
                     nextElement = active;
-                } else if (range.startContainer instanceof HTMLElement) {
-                    const boundary = range.startContainer;
-                    const emptyPrefix = Array.from(boundary.childNodes)
-                        .slice(0, range.startOffset)
-                        .every((node) => (
-                            node instanceof HTMLBRElement
-                            || (node.nodeType === Node.TEXT_NODE && String(node.textContent || '').trim() === '')
-                        ));
-                    if (
-                        emptyPrefix
-                        && boundary.matches('.post-picture, .post-media-picture, figure')
-                        && active.contains(boundary)
-                        && boundary.querySelector('img, video, audio')
-                    ) {
-                        nextElement = boundary;
-                    }
+                } else {
+                    nextElement = mediaBoundaryAtRange(active, range);
                 }
             }
         }
 
-        if (boundaryCaretElement === nextElement) {
+        document.querySelectorAll('.has-leading-boundary-caret').forEach((element) => {
+            if (element instanceof HTMLElement && element !== nextElement) {
+                clearBoundaryCaret(element);
+            }
+        });
+        nextElement?.classList.add('has-leading-boundary-caret');
+    }
+
+    function moveInsertionBeforeMediaBoundary(event) {
+        if (!event.inputType.startsWith('insert')) {
             return;
         }
-        boundaryCaretElement?.classList.remove('has-leading-boundary-caret');
-        nextElement?.classList.add('has-leading-boundary-caret');
-        boundaryCaretElement = nextElement;
+
+        const body = event.target;
+        const selection = window.getSelection();
+        if (
+            !(body instanceof HTMLElement)
+            || !body.matches('.post-card.is-editing > .post.body[data-post-inplace-body]')
+            || !selection
+            || selection.rangeCount !== 1
+        ) {
+            return;
+        }
+
+        const boundary = mediaBoundaryAtRange(body, selection.getRangeAt(0));
+        if (!boundary) {
+            return;
+        }
+
+        document.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
+        const range = document.createRange();
+        range.setStartBefore(boundary);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
     }
 
     function prepareEditableMedia(root) {
@@ -746,6 +785,7 @@
 
     function editableBodyHtml(state) {
         const clone = state.body.cloneNode(true);
+        clone.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
         clearAiChangeMarks(clone);
         clone.querySelectorAll('[data-register-audio-native]').forEach((audio) => {
             audio.removeAttribute('data-register-audio-native');
@@ -899,15 +939,9 @@
         state.mediaControllers.forEach((controller) => controller.abort());
         state.mediaControllers.clear();
         state.body.classList.remove('is-media-dragover');
-        state.body.classList.remove('has-leading-boundary-caret');
+        clearBoundaryCaret(state.body);
+        state.body.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
         clearAiChangeMarks(state.body);
-        if (
-            boundaryCaretElement === state.body
-            || (boundaryCaretElement instanceof Node && state.body.contains(boundaryCaretElement))
-        ) {
-            boundaryCaretElement.classList.remove('has-leading-boundary-caret');
-            boundaryCaretElement = null;
-        }
         state.dateInput.hidden = true;
         state.dateButton.hidden = true;
         unsetEditable(state.title);
@@ -3113,6 +3147,211 @@
         runFormattingCommand(state, command, value);
     }
 
+    function textPortionsInRange(root, range) {
+        const portions = [];
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode()) !== null) {
+            if (!range.intersectsNode(node)) {
+                continue;
+            }
+            const start = node === range.startContainer ? range.startOffset : 0;
+            const end = node === range.endContainer ? range.endOffset : node.data.length;
+            if (start < end) {
+                portions.push({node, start, end});
+            }
+        }
+        return portions;
+    }
+
+    function inlineCodeAncestors(root, node) {
+        const result = [];
+        let element = node.parentElement;
+        while (element && element !== root) {
+            if (element instanceof HTMLElement && element.tagName === 'TT') {
+                result.push(element);
+            }
+            element = element.parentElement;
+        }
+        return result;
+    }
+
+    function addInlineCode(state, portions) {
+        const selectedPortions = new Array(portions.length);
+        for (let index = portions.length - 1; index >= 0; index--) {
+            const portion = portions[index];
+            if (inlineCodeAncestors(state.body, portion.node).length > 0) {
+                selectedPortions[index] = portion;
+                continue;
+            }
+
+            let selectedText = portion.node;
+            if (portion.end < selectedText.data.length) {
+                selectedText.splitText(portion.end);
+            }
+            if (portion.start > 0) {
+                selectedText = selectedText.splitText(portion.start);
+            }
+            const inlineCode = document.createElement('tt');
+            selectedText.replaceWith(inlineCode);
+            inlineCode.append(selectedText);
+            selectedPortions[index] = {
+                node: selectedText,
+                start: 0,
+                end: selectedText.data.length,
+            };
+        }
+
+        markBodyChanged(state);
+        const selectedRange = document.createRange();
+        const first = selectedPortions[0];
+        const last = selectedPortions[selectedPortions.length - 1];
+        selectedRange.setStart(first.node, first.start);
+        selectedRange.setEnd(last.node, last.end);
+        selectRange(state, selectedRange);
+    }
+
+    function inlineCodeBoundary(state, token, edge) {
+        return state.body.querySelector(
+            `[data-post-inline-code-boundary="${token}-${edge}"]`,
+        );
+    }
+
+    function inlineFragmentHasContent(fragment) {
+        return fragment.textContent !== ''
+            || fragment.querySelector('br, img, audio, video, svg, math') !== null;
+    }
+
+    function splitInlineCodeAtSelection(state, inlineCode, token) {
+        const startMarker = inlineCodeBoundary(state, token, 'start');
+        const endMarker = inlineCodeBoundary(state, token, 'end');
+        if (!startMarker || !endMarker || !inlineCode.isConnected) {
+            return;
+        }
+
+        const selectionRange = document.createRange();
+        selectionRange.setStartAfter(startMarker);
+        selectionRange.setEndBefore(endMarker);
+        if (!selectionRange.intersectsNode(inlineCode)) {
+            return;
+        }
+
+        const startInside = inlineCode.contains(startMarker);
+        const endInside = inlineCode.contains(endMarker);
+        const replacement = document.createDocumentFragment();
+
+        if (startInside) {
+            const beforeRange = document.createRange();
+            beforeRange.setStart(inlineCode, 0);
+            beforeRange.setEndBefore(startMarker);
+            const before = beforeRange.cloneContents();
+            if (inlineFragmentHasContent(before)) {
+                const beforeCode = inlineCode.cloneNode(false);
+                beforeCode.append(before);
+                replacement.append(beforeCode);
+            }
+        }
+
+        const selectedCodeRange = document.createRange();
+        selectedCodeRange.selectNodeContents(inlineCode);
+        if (startInside) {
+            selectedCodeRange.setStartBefore(startMarker);
+        }
+        if (endInside) {
+            selectedCodeRange.setEndAfter(endMarker);
+        }
+        replacement.append(selectedCodeRange.cloneContents());
+
+        if (endInside) {
+            const afterRange = document.createRange();
+            afterRange.setStartAfter(endMarker);
+            afterRange.setEnd(inlineCode, inlineCode.childNodes.length);
+            const after = afterRange.cloneContents();
+            if (inlineFragmentHasContent(after)) {
+                const afterCode = inlineCode.cloneNode(false);
+                afterCode.append(after);
+                replacement.append(afterCode);
+            }
+        }
+
+        inlineCode.replaceWith(replacement);
+    }
+
+    function removeInlineCode(state, range, inlineCodes) {
+        const token = String(++inlineCodeBoundarySequence);
+        const startMarker = document.createElement('span');
+        const endMarker = document.createElement('span');
+        startMarker.dataset.postInlineCodeBoundary = `${token}-start`;
+        endMarker.dataset.postInlineCodeBoundary = `${token}-end`;
+
+        const startRange = range.cloneRange();
+        const endRange = range.cloneRange();
+        startRange.collapse(true);
+        endRange.collapse(false);
+        endRange.insertNode(endMarker);
+        startRange.insertNode(startMarker);
+
+        const elementDepth = (element) => {
+            let depth = 0;
+            for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+                depth++;
+            }
+            return depth;
+        };
+        inlineCodes.sort((left, right) => elementDepth(right) - elementDepth(left));
+
+        try {
+            inlineCodes.forEach((inlineCode) => {
+                splitInlineCodeAtSelection(state, inlineCode, token);
+            });
+
+            const currentStart = inlineCodeBoundary(state, token, 'start');
+            const currentEnd = inlineCodeBoundary(state, token, 'end');
+            if (!currentStart || !currentEnd) {
+                return;
+            }
+            const selectedRange = document.createRange();
+            selectedRange.setStartAfter(currentStart);
+            selectedRange.setEndBefore(currentEnd);
+            currentStart.remove();
+            currentEnd.remove();
+            markBodyChanged(state);
+            selectRange(state, selectedRange);
+        } finally {
+            state.body.querySelectorAll(
+                `[data-post-inline-code-boundary^="${token}-"]`,
+            ).forEach((marker) => marker.remove());
+        }
+    }
+
+    function contextInlineCode(state) {
+        const context = detachContextMenu(state);
+        if (
+            !context
+            || context.range.collapsed
+            || !selectRange(state, context.range)
+        ) {
+            return;
+        }
+
+        const portions = textPortionsInRange(state.body, context.range);
+        if (portions.length === 0) {
+            return;
+        }
+        const ancestors = portions.map((portion) => (
+            inlineCodeAncestors(state.body, portion.node)
+        ));
+        if (ancestors.every((items) => items.length > 0)) {
+            removeInlineCode(
+                state,
+                context.range,
+                Array.from(new Set(ancestors.flat())),
+            );
+            return;
+        }
+        addInlineCode(state, portions);
+    }
+
     function selectWholeBody(state) {
         closeContextMenu(state, false);
         const range = document.createRange();
@@ -3299,6 +3538,10 @@
         };
         if (formats[action]) {
             contextFormat(state, ...formats[action]);
+            return;
+        }
+        if (action === 'inline-code') {
+            contextInlineCode(state);
             return;
         }
         if (action === 'copy') {
@@ -3913,6 +4156,8 @@
         document.execCommand('insertText', false, text);
     }, false);
 
+    document.addEventListener('beforeinput', moveInsertionBeforeMediaBoundary, false);
+
     document.addEventListener('input', (event) => {
         const card = cardFor(event.target);
         const state = card ? editorStates.get(card) : null;
@@ -3953,6 +4198,7 @@
                 closeContextMenu(state, false);
             }
         });
+        syncBoundaryCaret();
     }, false);
 
     window.addEventListener('pagehide', (event) => {
