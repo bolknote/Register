@@ -209,6 +209,10 @@ final class PostInplaceCest
                 ], $I->grabJson());
                 $I->assertCount(1, $aiRequests);
                 $I->assertStringContainsString(base64_encode($imageData), (string)$aiRequests[0]['body']);
+                $I->assertStringContainsString(
+                    'Write the answer in English.',
+                    (string)$aiRequests[0]['body'],
+                );
             } finally {
                 if (is_file($validImage)) {
                     unlink($validImage);

@@ -1101,6 +1101,7 @@
             creating: card.hasAttribute('data-post-creating'),
             mediaUploads: new Set(),
             mediaControllers: new Set(),
+            imageUploadTail: Promise.resolve(),
             uploadedMediaIds: new Set(),
             mediaCaptionEditors: new Map(),
             mediaCaptionBodyContentEditable: null,
@@ -1677,6 +1678,111 @@
         return String(template || '').replace('%s', fileName);
     }
 
+    function createMediaUploadPending(state, file, kind) {
+        if (kind !== 'image') {
+            const element = document.createElement('span');
+            const message = mediaMessage(
+                state.card.dataset.mediaUploading || 'Uploading “%s”…',
+                file.name,
+            );
+            element.className = 'post-media-upload';
+            element.contentEditable = 'false';
+            element.dataset.mediaKind = kind;
+            element.setAttribute('role', 'status');
+            element.setAttribute('aria-label', message);
+            element.textContent = message;
+            return {
+                element,
+                image: null,
+                progress: null,
+                progressMessage: null,
+                previewUrl: null,
+            };
+        }
+
+        const previewUrl = URL.createObjectURL(file);
+        const image = document.createElement('img');
+        image.className = 'post-media-image';
+        image.setAttribute('src', previewUrl);
+        image.setAttribute('alt', '');
+        image.setAttribute('decoding', 'async');
+
+        const progressMessage = document.createElement('span');
+        progressMessage.className = 'post-media-processing-message';
+        const progress = document.createElement('span');
+        progress.className = 'post-media-processing-progress';
+        progress.setAttribute('role', 'status');
+        progress.setAttribute('aria-live', 'polite');
+        progress.append(progressMessage);
+
+        const element = document.createElement('div');
+        element.className = 'post-picture post-media-picture is-processing';
+        element.contentEditable = 'false';
+        element.dataset.mediaKind = kind;
+        element.append(image, progress);
+
+        const pending = {
+            element,
+            image,
+            progress,
+            progressMessage,
+            previewUrl,
+        };
+        updateMediaUploadPending(
+            pending,
+            mediaMessage(state.card.dataset.mediaQueued || 'Queued: “%s”', file.name),
+            'queued',
+        );
+        return pending;
+    }
+
+    function updateMediaUploadPending(pending, message, stage) {
+        pending.element.dataset.mediaStage = stage;
+        if (pending.progress instanceof HTMLElement && pending.progressMessage instanceof HTMLElement) {
+            pending.progressMessage.textContent = message;
+            pending.progress.setAttribute('aria-label', message);
+            return;
+        }
+        pending.element.textContent = message;
+        pending.element.setAttribute('aria-label', message);
+    }
+
+    function releaseMediaUploadPreview(pending) {
+        if (typeof pending.previewUrl !== 'string' || pending.previewUrl === '') {
+            return;
+        }
+        URL.revokeObjectURL(pending.previewUrl);
+        pending.previewUrl = null;
+    }
+
+    async function revealProcessedImage(pending) {
+        if (pending.progress instanceof HTMLElement) {
+            pending.progress.classList.add('is-finishing');
+            const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+            await new Promise((resolve) => window.setTimeout(resolve, reduceMotion ? 0 : 180));
+            pending.progress.remove();
+        }
+        pending.element.classList.remove('is-processing');
+        pending.element.removeAttribute('contenteditable');
+        pending.element.removeAttribute('data-media-kind');
+        pending.element.removeAttribute('data-media-stage');
+    }
+
+    function applyImageMediaPayload(pending, payload) {
+        const image = pending.image;
+        if (!(image instanceof HTMLImageElement)) {
+            throw new Error('The image preview is unavailable.');
+        }
+        image.dataset.postMediaId = String(payload.media_id);
+        if (Number.isInteger(payload.width) && payload.width > 0) {
+            image.setAttribute('width', String(payload.width));
+        }
+        if (Number.isInteger(payload.height) && payload.height > 0) {
+            image.setAttribute('height', String(payload.height));
+        }
+        return image;
+    }
+
     function bodyRange(state, candidate = null) {
         if (candidate instanceof Range && state.body.contains(candidate.commonAncestorContainer)) {
             const range = candidate.cloneRange();
@@ -1706,31 +1812,7 @@
         return bodyRange(state, range);
     }
 
-    function createMediaElement(state, payload, file) {
-        if (payload.kind === 'image') {
-            const image = document.createElement('img');
-            image.className = 'post-media-image';
-            image.setAttribute('src', payload.url);
-            image.setAttribute('alt', '');
-            image.setAttribute('loading', 'lazy');
-            image.setAttribute('decoding', 'async');
-            image.dataset.postMediaId = String(payload.media_id);
-            if (Number.isInteger(payload.width) && payload.width > 0) {
-                image.setAttribute('width', String(payload.width));
-            }
-            if (Number.isInteger(payload.height) && payload.height > 0) {
-                image.setAttribute('height', String(payload.height));
-            }
-
-            const picture = document.createElement('div');
-            picture.className = 'post-picture post-media-picture';
-            const caption = document.createElement('div');
-            caption.className = 'post-caption';
-            picture.append(image, caption);
-            beginInlineMediaCaption(state, caption);
-            return {element: picture, caption, image};
-        }
-
+    function createAudioMediaElement(payload, file) {
         const audio = document.createElement('audio');
         audio.className = 'post-media-audio';
         audio.setAttribute('src', payload.url);
@@ -1741,7 +1823,7 @@
         audio.dataset.title = typeof payload.name === 'string' && payload.name !== ''
             ? payload.name
             : file.name;
-        return {element: audio, caption: null, image: null};
+        return audio;
     }
 
     function inlineMediaCaptionText(caption) {
@@ -1858,7 +1940,7 @@
         });
     }
 
-    function startMediaUpload(state, file, kind, placeholder) {
+    function startMediaUpload(state, file, kind, pending) {
         const token = state.form.elements.namedItem('inplace_token');
         const controller = new AbortController();
         const formData = new FormData();
@@ -1866,8 +1948,11 @@
         formData.append('inplace_token', token instanceof HTMLInputElement ? token.value : '');
         state.mediaControllers.add(controller);
 
-        const upload = (async () => {
+        const run = async () => {
             try {
+                if (controller.signal.aborted) {
+                    throw new DOMException('Media upload was cancelled.', 'AbortError');
+                }
                 let uploadFile = file;
                 let uploadName = file.name;
                 if (kind === 'image') {
@@ -1875,8 +1960,7 @@
                         state.card.dataset.mediaOptimizing || 'Optimizing “%s”…',
                         file.name,
                     );
-                    placeholder.textContent = optimizingMessage;
-                    placeholder.setAttribute('aria-label', optimizingMessage);
+                    updateMediaUploadPending(pending, optimizingMessage, 'optimizing');
                     const optimizer = await loadImageOptimizer();
                     const optimized = await optimizer.optimizeImage(file, {
                         signal: controller.signal,
@@ -1898,8 +1982,7 @@
                     state.card.dataset.mediaUploading || 'Uploading “%s”…',
                     file.name,
                 );
-                placeholder.textContent = uploadingMessage;
-                placeholder.setAttribute('aria-label', uploadingMessage);
+                updateMediaUploadPending(pending, uploadingMessage, 'uploading');
                 formData.append('published_at', String(publishedAt));
                 formData.append('media', uploadFile, uploadName);
 
@@ -1930,23 +2013,46 @@
                         || mediaMessage(state.card.dataset.mediaUploadFailed || 'Unable to upload “%s”.', file.name),
                     );
                 }
-                if (editorStates.get(state.card) !== state || !placeholder.isConnected) {
+                if (editorStates.get(state.card) !== state || !pending.element.isConnected) {
+                    releaseMediaUploadPreview(pending);
                     return;
                 }
 
-                const media = createMediaElement(state, payload, file);
                 state.uploadedMediaIds.add(payload.media_id);
-                placeholder.replaceWith(media.element);
                 state.bodyDirty = true;
                 clearStatus(state.card);
-                if (media.image instanceof HTMLImageElement) {
-                    queueImageAlt(state, media.image, uploadFile);
-                }
-                if (media.caption instanceof HTMLElement) {
-                    focusInlineMediaCaption(state, media.caption);
+
+                if (kind === 'image') {
+                    const image = applyImageMediaPayload(pending, payload);
+                    if (aiAltEnabled(state)) {
+                        updateMediaUploadPending(
+                            pending,
+                            state.card.dataset.aiAltWorking || 'AI is creating alt text…',
+                            'alt',
+                        );
+                        await queueImageAlt(state, image, uploadFile);
+                    }
+                    if (editorStates.get(state.card) !== state || !pending.element.isConnected) {
+                        releaseMediaUploadPreview(pending);
+                        return;
+                    }
+                    image.setAttribute('src', payload.url);
+                    image.setAttribute('loading', 'lazy');
+                    releaseMediaUploadPreview(pending);
+                    await revealProcessedImage(pending);
+
+                    const caption = document.createElement('div');
+                    caption.className = 'post-caption';
+                    pending.element.append(caption);
+                    beginInlineMediaCaption(state, caption);
+                    focusInlineMediaCaption(state, caption);
+                } else {
+                    const audio = createAudioMediaElement(payload, file);
+                    pending.element.replaceWith(audio);
                 }
             } catch (error) {
-                placeholder.remove();
+                releaseMediaUploadPreview(pending);
+                pending.element.remove();
                 if (error instanceof DOMException && error.name === 'AbortError') {
                     return;
                 }
@@ -1959,7 +2065,14 @@
             } finally {
                 state.mediaControllers.delete(controller);
             }
-        })();
+        };
+
+        const upload = kind === 'image'
+            ? state.imageUploadTail.catch(() => {}).then(run)
+            : run();
+        if (kind === 'image') {
+            state.imageUploadTail = upload;
+        }
 
         state.mediaUploads.add(upload);
         upload.finally(() => state.mediaUploads.delete(upload));
@@ -2025,21 +2138,11 @@
                 return;
             }
 
-            const placeholder = document.createElement('span');
-            const message = mediaMessage(
-                state.card.dataset.mediaUploading || 'Uploading “%s”…',
-                file.name,
-            );
-            placeholder.className = 'post-media-upload';
-            placeholder.contentEditable = 'false';
-            placeholder.dataset.mediaKind = kind;
-            placeholder.setAttribute('role', 'status');
-            placeholder.setAttribute('aria-label', message);
-            placeholder.textContent = message;
-            range.insertNode(placeholder);
-            range.setStartAfter(placeholder);
+            const pending = createMediaUploadPending(state, file, kind);
+            range.insertNode(pending.element);
+            range.setStartAfter(pending.element);
             range.collapse(true);
-            startMediaUpload(state, file, kind, placeholder);
+            startMediaUpload(state, file, kind, pending);
         });
 
         if (unsupported.length > 0) {

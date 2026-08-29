@@ -12,6 +12,7 @@ namespace Register\Ai\Admin;
 use Register\Ai\AiClient;
 use Register\Ai\AiException;
 use Register\Ai\AiSettings;
+use Register\Ai\ImageAltPolicy;
 use Register\AdminYard\Config\FieldConfig;
 use Register\AdminYard\Form\FormParams;
 use Register\AdminYard\SettingStorage\SettingStorageInterface;
@@ -101,6 +102,7 @@ final readonly class AiEditorController
                     mb_substr($title, 0, 500),
                     $text,
                     $this->imageLoader->load($source),
+                    ImageAltPolicy::outputLanguageForLocale($this->translator->getLocale()),
                 ),
                 'target'    => 'image_alt',
                 'image_src' => $source,

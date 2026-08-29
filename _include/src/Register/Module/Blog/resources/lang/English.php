@@ -86,6 +86,7 @@ return [
     'Invalid post tags' => 'Enter no more than 100 tags using letters, numbers, spaces, underscores, hyphens, periods, and exclamation marks.',
     'Post media file missing' => 'No media file was provided.',
     'Unsupported post media' => 'Only image and audio files can be uploaded.',
+    'Post media queued' => 'Queued: “%s”',
     'Post media optimizing' => 'Optimizing “%s”…',
     'Post media uploading' => 'Uploading “%s”…',
     'Post media upload failed' => 'Unable to upload “%s”.',

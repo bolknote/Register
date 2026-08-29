@@ -13,6 +13,7 @@ use Register\Ai\AiClient;
 use Register\Ai\AiException;
 use Register\Ai\AiImageInput;
 use Register\Ai\AiSettings;
+use Register\Ai\ImageAltPolicy;
 use Register\Comment\CommentRepository;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\ContentChangeDispatcher;
@@ -437,6 +438,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 mb_substr($title !== '' ? $title : $storedTitle, 0, 500),
                 $text,
                 new AiImageInput($mimeType, $data),
+                ImageAltPolicy::outputLanguageForLocale($this->translator->getLocale()),
             );
         } catch (AiException) {
             return $this->error($request, 'AI request failed', Response::HTTP_BAD_GATEWAY);

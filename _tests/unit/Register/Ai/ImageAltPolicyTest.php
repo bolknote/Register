@@ -14,6 +14,14 @@ use Register\Ai\ImageAltPolicy;
 
 final class ImageAltPolicyTest extends TestCase
 {
+    public function testOutputLanguageFollowsTheInterfaceLocale(): void
+    {
+        self::assertSame('Russian', ImageAltPolicy::outputLanguageForLocale('ru'));
+        self::assertSame('Russian', ImageAltPolicy::outputLanguageForLocale('ru_RU'));
+        self::assertSame('English', ImageAltPolicy::outputLanguageForLocale('en'));
+        self::assertSame('English', ImageAltPolicy::outputLanguageForLocale('en_US'));
+    }
+
     public function testPromptDistinguishesScenesFromTextHeavyImages(): void
     {
         $prompt = ImageAltPolicy::buildPrompt('Заголовок', '<p>Контекст</p>', 'Russian');

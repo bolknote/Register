@@ -1880,6 +1880,67 @@ h2.preview,
     animation: post-media-upload-spin 700ms linear infinite;
 }
 
+#content .post-media-picture.is-processing {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    background: var(--surface-background);
+}
+
+#content .post-media-picture.is-processing > .post-media-image {
+    margin: 0;
+    user-select: none;
+}
+
+.post-media-processing-progress {
+    position: absolute;
+    z-index: 3;
+    inset: 0;
+    display: flex;
+    box-sizing: border-box;
+    padding: clamp(1rem, 5%, 2.5rem);
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    background: rgb(0 0 0 / 58%);
+    color: #fff;
+    font-family: var(--ui-font);
+    font-size: clamp(0.82rem, 0.76rem + 0.25vw, 0.98rem);
+    font-weight: 680;
+    line-height: 1.35;
+    text-align: center;
+    text-shadow: 0 1px 0 rgb(0 0 0 / 55%);
+    transition: opacity 180ms ease;
+    pointer-events: none;
+}
+
+.post-media-processing-progress::before {
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
+    border: 2px solid rgb(255 255 255 / 36%);
+    border-top-color: #fff;
+    border-radius: 50%;
+    content: "";
+    animation: post-media-upload-spin 700ms linear infinite;
+}
+
+.post-media-processing-message {
+    max-width: min(32rem, calc(100% - 2rem));
+}
+
+.post-media-picture[data-media-stage="queued"] > .post-media-processing-progress {
+    background: rgb(0 0 0 / 52%);
+}
+
+.post-media-picture[data-media-stage="alt"] > .post-media-processing-progress {
+    background: rgb(0 0 0 / 64%);
+}
+
+.post-media-processing-progress.is-finishing {
+    opacity: 0;
+}
+
 #content .post-media-image {
     display: block;
     width: auto;
@@ -2129,8 +2190,13 @@ h2.preview,
 
 @media (prefers-reduced-motion: reduce) {
     .post-media-upload::before,
+    .post-media-processing-progress::before,
     .post-card.is-ai-working > .post-inplace-status.is-editor-toast::before {
         animation: none;
+    }
+
+    .post-media-processing-progress {
+        transition: none;
     }
 }
 

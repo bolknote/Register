@@ -145,7 +145,12 @@ final readonly class AiClient
     }
 
     /** @throws AiException */
-    public function generateImageAlt(string $title, string $text, AiImageInput $image): string
+    public function generateImageAlt(
+        string       $title,
+        string       $text,
+        AiImageInput $image,
+        ?string      $outputLanguage = null,
+    ): string
     {
         if (!$this->settings->autoAltAvailable()) {
             throw new AiException('Automatic alt text is unavailable for the selected AI model.');
@@ -155,7 +160,7 @@ final readonly class AiClient
             throw new AiException('The selected AI provider does not support this image format.');
         }
 
-        $prompt = ImageAltPolicy::buildPrompt($title, $text);
+        $prompt = ImageAltPolicy::buildPrompt($title, $text, $outputLanguage);
         try {
             $result = match ($this->settings->provider()) {
                 AiSettings::PROVIDER_GEMINI => $this->generateImageAltWithGemini($prompt, $image),

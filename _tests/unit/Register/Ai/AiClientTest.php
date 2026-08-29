@@ -74,7 +74,12 @@ final class AiClientTest extends TestCase
 
         self::assertSame(
             'Рыжий кот спит на синем кресле',
-            $client->generateImageAlt('Дом', '<p>Выходной.</p>', new AiImageInput('image/png', 'png-bytes')),
+            $client->generateImageAlt(
+                'Дом',
+                '<p>Выходной.</p>',
+                new AiImageInput('image/png', 'png-bytes'),
+                'Russian',
+            ),
         );
         self::assertCount(1, $calls);
         self::assertStringContainsString('/gemini-3.5-flash-lite:generateContent', $calls[0]['url']);
@@ -83,6 +88,7 @@ final class AiClientTest extends TestCase
         self::assertStringContainsString('photograph or illustration with a scene', $prompt);
         self::assertStringContainsString('document, screenshot, interface, diagram, chart, or meme', $prompt);
         self::assertStringContainsString('main readable text or data', $prompt);
+        self::assertStringContainsString('Write the answer in Russian.', $prompt);
         self::assertSame('image/png', $body['contents'][0]['parts'][1]['inline_data']['mime_type']);
         self::assertSame(base64_encode('png-bytes'), $body['contents'][0]['parts'][1]['inline_data']['data']);
         self::assertSame(256, $body['generationConfig']['maxOutputTokens']);

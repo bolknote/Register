@@ -77,10 +77,38 @@ test('automatic alt generation covers existing and newly uploaded images', funct
     const submitSource = editorSource.slice(submitStart, submitEnd);
 
     assert.match(editSource, /generateMissingImageAlts\(state\)/u);
-    assert.match(uploadSource, /queueImageAlt\(state, media\.image, uploadFile\)/u);
+    assert.match(uploadSource, /await queueImageAlt\(state, image, uploadFile\)/u);
     assert.match(submitSource, /await Promise\.all\(Array\.from\(state\.aiAltTasks\)\)/u);
     assert.match(editorSource, /data\.set\('inplace_action', 'ai_alt'\)/u);
     assert.match(editorSource, /\(!force && !imageNeedsGeneratedAlt\(image\)\)/u);
     assert.match(editorSource, /targetImage: context\.targetImage/u);
     assert.doesNotMatch(editSource, /loadImageOptimizer\(\)/u);
+});
+
+test('dropped images render immediately and the complete processing flow is queued', function () {
+    const pendingStart = editorSource.indexOf('function createMediaUploadPending');
+    const pendingEnd = editorSource.indexOf('\n    function bodyRange', pendingStart);
+    const pendingSource = editorSource.slice(pendingStart, pendingEnd);
+    const uploadStart = editorSource.indexOf('function startMediaUpload');
+    const uploadEnd = editorSource.indexOf('\n    async function redatePendingMedia', uploadStart);
+    const uploadSource = editorSource.slice(uploadStart, uploadEnd);
+    const insertStart = editorSource.indexOf('function insertMediaFiles');
+    const insertEnd = editorSource.indexOf('\n    function transferHasFiles', insertStart);
+    const insertSource = editorSource.slice(insertStart, insertEnd);
+
+    assert.match(pendingSource, /const previewUrl = URL\.createObjectURL\(file\)/u);
+    assert.match(pendingSource, /image\.setAttribute\('src', previewUrl\)/u);
+    assert.match(pendingSource, /className = 'post-picture post-media-picture is-processing'/u);
+    assert.match(pendingSource, /className = 'post-media-processing-progress'/u);
+    assert.match(insertSource, /range\.insertNode\(pending\.element\)/u);
+    assert.match(insertSource, /startMediaUpload\(state, file, kind, pending\)/u);
+
+    const optimizing = uploadSource.indexOf("updateMediaUploadPending(pending, optimizingMessage, 'optimizing')");
+    const uploading = uploadSource.indexOf("updateMediaUploadPending(pending, uploadingMessage, 'uploading')");
+    const alt = uploadSource.indexOf("state.card.dataset.aiAltWorking || 'AI is creating alt text…'");
+    const queued = uploadSource.indexOf('state.imageUploadTail.catch(() => {}).then(run)');
+    assert.ok(optimizing >= 0 && uploading > optimizing && alt > uploading);
+    assert.ok(queued > alt);
+    assert.match(uploadSource, /await queueImageAlt\(state, image, uploadFile\)/u);
+    assert.match(uploadSource, /await revealProcessedImage\(pending\)/u);
 });

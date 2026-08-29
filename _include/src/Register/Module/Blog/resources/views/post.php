@@ -55,6 +55,7 @@ $tagNames    = array_values(array_map(
     data-remove-tag-label="<?php echo register_htmlencode($trans('Remove post tag')); ?>"
     data-invalid-tags="<?php echo register_htmlencode($trans('Invalid post tags')); ?>"
     data-link-prompt="<?php echo register_htmlencode($trans('Link address')); ?>"
+    data-media-queued="<?php echo register_htmlencode($trans('Post media queued')); ?>"
     data-media-optimizing="<?php echo register_htmlencode($trans('Post media optimizing')); ?>"
     data-media-uploading="<?php echo register_htmlencode($trans('Post media uploading')); ?>"
     data-media-upload-failed="<?php echo register_htmlencode($trans('Post media upload failed')); ?>"

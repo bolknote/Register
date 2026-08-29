@@ -86,6 +86,7 @@ return [
     'Invalid post tags' => 'Введите не больше 100 тегов: разрешены буквы, цифры, пробелы, подчёркивания, дефисы, точки и восклицательные знаки.',
     'Post media file missing' => 'Файл для загрузки не передан.',
     'Unsupported post media' => 'Можно загружать только изображения и аудиофайлы.',
+    'Post media queued' => 'В очереди: «%s»',
     'Post media optimizing' => 'Оптимизирую «%s»…',
     'Post media uploading' => 'Загружаю «%s»…',
     'Post media upload failed' => 'Не удалось загрузить «%s».',

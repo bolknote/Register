@@ -278,6 +278,28 @@ final class AssetPackTest extends Unit
         );
     }
 
+    public function testImageProcessingProgressIsRenderedOverTheImmediatePreview(): void
+    {
+        $rootDir = \dirname(__DIR__, 4) . '/';
+        $site = file_get_contents($rootDir . '_styles/register/site.css');
+        $script = file_get_contents($rootDir . '_assets/register/post-inplace.js');
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/\.post-media-processing-progress\s*\{[^}]*position:\s*absolute;'
+                . '[^}]*inset:\s*0;[^}]*background:\s*rgb\(0 0 0 \/ 58%\);/s',
+            $site,
+        );
+        self::assertStringContainsString('.post-media-processing-progress.is-finishing', $site);
+
+        self::assertIsString($script);
+        self::assertStringContainsString('URL.createObjectURL(file)', $script);
+        self::assertStringContainsString("state.imageUploadTail.catch(() => {}).then(run)", $script);
+        self::assertStringContainsString("updateMediaUploadPending(pending, optimizingMessage, 'optimizing')", $script);
+        self::assertStringContainsString("updateMediaUploadPending(pending, uploadingMessage, 'uploading')", $script);
+        self::assertStringContainsString("await queueImageAlt(state, image, uploadFile)", $script);
+    }
+
     public function testPostEditorHighlightsAiChangesWithoutPersistingTheMarks(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';

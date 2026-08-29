@@ -15,6 +15,13 @@ final class ImageAltPolicy
 
     public const int MAX_LENGTH = 180;
 
+    public static function outputLanguageForLocale(string $locale): string
+    {
+        $locale = mb_strtolower(str_replace('_', '-', trim($locale)));
+
+        return $locale === 'ru' || str_starts_with($locale, 'ru-') ? 'Russian' : 'English';
+    }
+
     public static function buildPrompt(
         string $title,
         string $text,
