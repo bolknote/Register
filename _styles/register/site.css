@@ -3982,27 +3982,6 @@ ul.back_forward .empty {
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m8.5 12.5 5.6-5.6a3.2 3.2 0 0 1 4.5 4.5l-7.1 7.1a5 5 0 0 1-7.1-7.1l7.2-7.2'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
-.comment-media-missing-detail {
-    padding-left: .42rem;
-    border-left: 1px solid color-mix(in srgb, currentColor 25%, transparent);
-    color: var(--quiet-color);
-    font-size: .88em;
-}
-
-@media (max-width: 560px) {
-    .comment-media-missing {
-        align-items: flex-start;
-        flex-wrap: wrap;
-    }
-
-    .comment-media-missing-detail {
-        width: 100%;
-        margin-left: 1.47em;
-        padding: .2rem 0 0;
-        border: 0;
-    }
-}
-
 @media (prefers-contrast: more) {
     :root {
         --minor-color: color-mix(in srgb, var(--text-color) 82%, var(--page-background));

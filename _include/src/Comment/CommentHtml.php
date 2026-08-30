@@ -386,13 +386,6 @@ final class CommentHtml
             . '<span class="comment-media-missing-label">'
             . self::encodeAttribute($label)
             . '</span>';
-        $detail = trim($labels['admin_detail'] ?? '');
-        if ($detail !== '') {
-            $html .= '<span class="comment-media-missing-detail">'
-                . self::encodeAttribute($detail)
-                . '</span>';
-        }
-
         return $html . '</span>';
     }
 

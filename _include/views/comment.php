@@ -188,9 +188,6 @@ $sourceLabel     = $presentation_source_label ?? '';
             'video' => $trans('Telegram video unavailable'),
             'audio' => $trans('Telegram audio unavailable'),
             'multiple' => $trans('Telegram attachments unavailable'),
-            'admin_detail' => $moderationData !== null && !empty($moderationData['can_edit'])
-                ? $trans('Telegram attachment unavailable admin detail')
-                : '',
         ]);
         ?>
         <?php if ($reactionSummary !== []): ?>

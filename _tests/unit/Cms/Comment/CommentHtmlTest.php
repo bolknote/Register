@@ -177,11 +177,31 @@ TEXT;
             'attachment' => 'Вложение из Telegram недоступно',
             'photo' => 'Изображение из Telegram недоступно',
             'multiple' => 'Вложения из Telegram недоступны (%count%)',
-            'admin_detail' => 'Повторите импорт ZIP-архива с медиа.',
         ]);
         self::assertStringContainsString('Изображение из Telegram недоступно', $rendered);
-        self::assertStringContainsString('Повторите импорт ZIP-архива с медиа.', $rendered);
         self::assertStringNotContainsString('Telegram attachment unavailable', $rendered);
+    }
+
+    public function testUnavailableAttachmentLabelsBelongToPublicLanguagePacks(): void
+    {
+        $root = dirname(__DIR__, 4);
+        $english = require $root . '/_lang/English/common.php';
+        $russian = require $root . '/_lang/Russian/common.php';
+
+        self::assertSame(
+            'Telegram attachment unavailable',
+            $english['Telegram attachment unavailable'] ?? null,
+        );
+        self::assertSame(
+            'Вложение из Telegram недоступно',
+            $russian['Telegram attachment unavailable'] ?? null,
+        );
+        self::assertSame(
+            'Изображение из Telegram недоступно',
+            $russian['Telegram image unavailable'] ?? null,
+        );
+        self::assertArrayNotHasKey('Telegram attachment unavailable admin detail', $english);
+        self::assertArrayNotHasKey('Telegram attachment unavailable admin detail', $russian);
     }
 
     public function testOrdinaryCommentCannotForgeUnavailableAttachmentComponent(): void

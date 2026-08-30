@@ -19,13 +19,6 @@ return [
 
 	'Comment preview'          => 'Предварительный просмотр комментария',
 	'Comment preview info'     => 'Ваш комментарий еще не сохранен! После редактирования не&nbsp;забудьте нажать на&nbsp;кнопку «Отправить».',
-	'Telegram attachment unavailable' => 'Вложение из Telegram недоступно',
-	'Telegram image unavailable' => 'Изображение из Telegram недоступно',
-	'Telegram video unavailable' => 'Видео из Telegram недоступно',
-	'Telegram audio unavailable' => 'Аудио из Telegram недоступно',
-	'Telegram attachments unavailable' => 'Вложения из Telegram недоступны (%count%)',
-	'Telegram attachment unavailable admin detail' => 'Файл не вошёл в экспорт. Повторите импорт ZIP-архива с медиа.',
-
     'Comment check passed'     => 'Опубликован: комментарий прошёл проверку (report=%s). Скройте его, если он неуместен.',
     'Comment check failed'     => 'Скрыт: комментарий не прошёл проверку (report=%s). Опубликуйте его, если он уместен.',
 
