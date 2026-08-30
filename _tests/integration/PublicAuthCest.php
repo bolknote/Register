@@ -345,7 +345,7 @@ final class PublicAuthCest
             ->result());
     }
 
-    public function testGuestCommentIsPublishedOnlyAfterEmailVerification(\IntegrationTester $I): void
+    public function testGuestFirstCommentIsVerifiedButHeldUntilModeration(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -354,7 +354,7 @@ final class PublicAuthCest
         $articleId = $this->insertContent($dbLayer, 'email-comment-test');
 
         $I->amOnPage('https://localhost/email-comment-test');
-        $I->see('Your comment will appear only after you confirm your email.', '.comment-public-auth');
+        $I->see('After you confirm your email, your first comment will be reviewed before publication.', '.comment-public-auth');
         $I->seeElement('#comment-form .comment-submit[value="Send confirmation link"]');
         $I->dontSeeElement('#comment-form .comment-email-submit');
 
@@ -395,7 +395,7 @@ final class PublicAuthCest
         $I->assertSame($articleId, (int)$comment['content_id']);
         $I->assertGreaterThan(0, (int)$comment['user_id']);
         $I->assertSame($visitorId, $comment['visitor_id']);
-        $I->assertSame(1, (int)$comment['shown']);
+        $I->assertSame(0, (int)$comment['shown']);
         $I->assertStringContainsString('A comment waiting for its link.', (string)$comment['text']);
         $I->assertSame(1, (int)$dbLayer
             ->select('COUNT(*)')
@@ -404,7 +404,31 @@ final class PublicAuthCest
             ->andWhere('user_id = :user_id')->setParameter('user_id', (int)$comment['user_id'])
             ->execute()
             ->result());
-        $I->seeLocationMatches('~^/email-comment-test#comment-' . (int)$comment['id'] . '$~');
+        $I->seeLocationIs('/email-comment-test');
+
+        /** @var SpamFeedbackService $feedback */
+        $feedback = $I->grabService(SpamFeedbackService::class);
+        $I->assertTrue($feedback->markHam((int)$comment['id'], ContentType::PAGE));
+        $I->assertSame(1, (int)$dbLayer
+            ->select('shown')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', (int)$comment['id'])
+            ->execute()
+            ->result());
+
+        // The approved first comment establishes publication history for this
+        // external identity. Its next clean comment can be published normally.
+        $I->amOnPage('http://register.localhost/email-comment-test');
+        $I->sendPost('http://register.localhost/email-comment-test', [
+            'text' => '<p>A second, established-reader comment.</p>',
+        ]);
+        $I->seeResponseCodeIs(302);
+        $I->assertSame(1, (int)$dbLayer
+            ->select('shown')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where("text LIKE '%established-reader comment%'")
+            ->execute()
+            ->result());
     }
 
     public function testVerifiedSpamStaysHiddenAndUnsentUntilItIsApproved(\IntegrationTester $I): void

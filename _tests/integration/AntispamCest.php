@@ -368,6 +368,7 @@ final class AntispamCest
             ['a potom udivlyayutsya poc', 'hemu k gadalkam idut'],
             ['vertep o', 'n takoi'],
             ['tem zhe', 'chto tolstoi'],
+            ['apos theory', 'vipexoder ne pinyat'],
         ];
 
         foreach ($examples as $index => [$name, $text]) {
@@ -430,7 +431,7 @@ final class AntispamCest
     public function testTrainedTextModelContributesAReusableLocalSignal(\IntegrationTester $I): void
     {
         $name = 'Campaign account';
-        $text = 'A learned campaign phrase';
+        $text = 'A learned campaign phrase https://campaign.example/offer';
         $salt = '00112233445566778899aabbccddeeff';
         /** @var SpamTextFeatureExtractor $extractor */
         $extractor = $I->grabService(SpamTextFeatureExtractor::class);
@@ -464,6 +465,7 @@ final class AntispamCest
         ), '203.0.113.142');
 
         $I->assertSame(45, $assessment->reasons['trained_text_model']);
+        $I->assertSame('trained_text_model', array_key_first($assessment->reasons));
         $I->assertGreaterThanOrEqual(45, $assessment->score);
 
         $repository->clear();

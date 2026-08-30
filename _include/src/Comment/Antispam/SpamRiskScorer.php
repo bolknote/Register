@@ -14,7 +14,7 @@ use Register\Core\Pdo\DbLayerException;
 
 final readonly class SpamRiskScorer
 {
-    public const string VERSION = 'rules-7';
+    public const string VERSION = 'rules-8';
 
     public function __construct(
         private SpamIdentityHasher       $hasher,
@@ -41,6 +41,12 @@ final readonly class SpamRiskScorer
         $score     = 0;
         $reasons   = [];
         $hardBlock = false;
+
+        // The installation-local trained classifier is the primary content filter. Deterministic
+        // rules below are a second pass for signals that a compact text model cannot represent.
+        if ($this->textClassifier?->matches($comment->name, $comment->text) === true) {
+            $this->addPolicy($score, $reasons, $weights, 'trained_text_model');
+        }
 
         $linkCount = $this->featureExtractor->linkCount($comment->text);
         if ($linkCount > 0) {
@@ -75,10 +81,6 @@ final readonly class SpamRiskScorer
 
         if ($this->featureExtractor->hasSentenceLikeLatinTransliteration($comment->name, $comment->text)) {
             $this->addPolicy($score, $reasons, $weights, 'sentence_like_latin_transliteration');
-        }
-
-        if ($this->textClassifier?->matches($comment->name, $comment->text) === true) {
-            $this->addPolicy($score, $reasons, $weights, 'trained_text_model');
         }
 
         if ($comment->userAgent === null || trim($comment->userAgent) === '') {

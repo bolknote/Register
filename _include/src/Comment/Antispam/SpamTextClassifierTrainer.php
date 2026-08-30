@@ -12,11 +12,18 @@ namespace Register\Core\Comment\Antispam;
 /** Builds a compact, installation-local hashed text model from moderator labels. */
 final readonly class SpamTextClassifierTrainer
 {
-    private const int MAX_POSITIVE_WEIGHTS = 1_600;
+    private const int MAX_POSITIVE_WEIGHTS = 2_000;
+
+    private const int MAX_NEGATIVE_WEIGHTS = 1_000;
+
+    private const int MIN_ABSOLUTE_WEIGHT = 100;
+
+    private const int MIN_CLASS_OCCURRENCES = 2;
 
     private const int HOLDOUT_DIVISOR = 5;
 
-    private const int FALSE_POSITIVE_BUDGET_DIVISOR = 5_000;
+    /** Calibrate at no more than 0.1% candidate false positives in the training ham corpus. */
+    private const int FALSE_POSITIVE_BUDGET_DIVISOR = 1_000;
 
     public function __construct(private SpamTextFeatureExtractor $featureExtractor)
     {
@@ -49,10 +56,10 @@ final readonly class SpamTextClassifierTrainer
 
         $trainingSpamScores = $this->scores($classifier, $model, $trainingSpam);
         $trainingHamScores = $this->scores($classifier, $model, $trainingHam);
-        // A historical corpus is available during import, so the production threshold can be
-        // chosen conservatively against every visible comment instead of accepting known errors.
-        $falsePositiveBudget = intdiv(count($ham), self::FALSE_POSITIVE_BUDGET_DIVISOR);
-        $threshold = $this->threshold($this->scores($classifier, $model, $ham), $falsePositiveBudget);
+        // Calibration must not inspect the holdout. The previous near-zero budget, chosen against
+        // the complete corpus, hid the model's poor recall and made its holdout non-independent.
+        $falsePositiveBudget = intdiv(count($trainingHam), self::FALSE_POSITIVE_BUDGET_DIVISOR);
+        $threshold = $this->threshold($trainingHamScores, $falsePositiveBudget);
 
         $metrics = [
             'training_spam'           => count($trainingSpam),
@@ -83,6 +90,14 @@ final readonly class SpamTextClassifierTrainer
                     'format_version' => SpamTextModel::FORMAT_VERSION,
                     'trained_at'     => gmdate(DATE_ATOM, $model->trainedAt),
                     'feature_weights'=> count($model->weights),
+                    'positive_feature_weights' => count(array_filter(
+                        $model->weights,
+                        static fn(int $weight): bool => $weight > 0,
+                    )),
+                    'negative_feature_weights' => count(array_filter(
+                        $model->weights,
+                        static fn(int $weight): bool => $weight < 0,
+                    )),
                     'threshold'      => $model->threshold,
                 ],
                 'corpus' => [
@@ -135,16 +150,17 @@ final readonly class SpamTextClassifierTrainer
         $hamCounts = [];
         foreach ($ham as $example) {
             foreach ($this->featureExtractor->features($example['name'], $example['text']) as $feature) {
-                if (isset($spamCounts[$feature])) {
-                    $hamCounts[$feature] = ($hamCounts[$feature] ?? 0) + 1;
-                }
+                $hamCounts[$feature] = ($hamCounts[$feature] ?? 0) + 1;
             }
         }
 
         $positive = [];
+        $negative = [];
         $spamTotal = count($spam);
         $hamTotal = count($ham);
-        foreach ($spamCounts as $feature => $spamCount) {
+        $features = array_fill_keys([...array_keys($spamCounts), ...array_keys($hamCounts)], true);
+        foreach ($features as $feature => $_) {
+            $spamCount = $spamCounts[$feature] ?? 0;
             $hamCount = $hamCounts[$feature] ?? 0;
             if ($spamCount + $hamCount < 2) {
                 continue;
@@ -155,24 +171,26 @@ final readonly class SpamTextClassifierTrainer
             $enrichment = $spamRate / $hamRate;
             $weight = (int)round(100.0 * log($enrichment));
             $weight = max(-1_200, min(1_200, $weight));
-            if ($weight === 0) {
-                continue;
-            }
-
-            $rank = (float)abs($weight) * log((float)(2 + ($weight > 0 ? $spamCount : $hamCount)));
-            if ($weight >= 300 && $spamCount >= 2) {
+            $classCount = $weight > 0 ? $spamCount : $hamCount;
+            $rank = (float)abs($weight) * log((float)(2 + $classCount));
+            if ($weight >= self::MIN_ABSOLUTE_WEIGHT && $spamCount >= self::MIN_CLASS_OCCURRENCES) {
                 $positive[$feature] = ['weight' => $weight, 'rank' => $rank];
+            } elseif ($weight <= -self::MIN_ABSOLUTE_WEIGHT && $hamCount >= self::MIN_CLASS_OCCURRENCES) {
+                $negative[$feature] = ['weight' => $weight, 'rank' => $rank];
             }
         }
 
         uasort($positive, static fn(array $left, array $right): int => $right['rank'] <=> $left['rank']);
+        uasort($negative, static fn(array $left, array $right): int => $right['rank'] <=> $left['rank']);
+        $selected = array_slice($positive, 0, self::MAX_POSITIVE_WEIGHTS, true)
+            + array_slice($negative, 0, self::MAX_NEGATIVE_WEIGHTS, true);
         $weights = [];
         $key = hex2bin($salt);
         if (!\is_string($key)) {
             throw new \InvalidArgumentException('The spam text-model salt cannot be decoded.');
         }
 
-        foreach (array_slice($positive, 0, self::MAX_POSITIVE_WEIGHTS, true) as $feature => $data) {
+        foreach ($selected as $feature => $data) {
             $hash = rtrim(strtr(base64_encode(sodium_crypto_shorthash($feature, $key)), '+/', '-_'), '=');
             $weights[$hash] = $data['weight'];
         }
@@ -223,7 +241,7 @@ final readonly class SpamTextClassifierTrainer
             ++$threshold;
         }
 
-        return $threshold;
+        return max(1, $threshold);
     }
 
     /** @param list<int> $scores */

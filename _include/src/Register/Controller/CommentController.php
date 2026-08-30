@@ -15,6 +15,7 @@ use Register\Core\Config\BoolProxy;
 use Register\Core\Comment\Antispam\CommentFormTokenManager;
 use Register\Core\Comment\Antispam\CommentFormTokenValidation;
 use Register\Comment\Antispam\SpamAssessmentRepository;
+use Register\Comment\CommentPublicationTrustPolicy;
 use Register\Core\Comment\Antispam\SpamRateLimiter;
 use Register\Core\Comment\SpamDetectorComment;
 use Register\Core\Comment\SpamDecision;
@@ -58,6 +59,7 @@ readonly class CommentController implements ControllerInterface
         private CommentFormTokenManager        $commentFormTokenManager,
         private SpamRateLimiter                $spamRateLimiter,
         private SpamAssessmentRepository       $spamAssessmentRepository,
+        private CommentPublicationTrustPolicy  $publicationTrustPolicy,
         private VisitorIdentityManager          $visitorIdentityManager,
         private BoolProxy                     $commentsEnabled,
         private BoolProxy                     $premoderationEnabled,
@@ -179,7 +181,7 @@ readonly class CommentController implements ControllerInterface
                     'time'           => time(),
                     'good'           => false,
                     'is_author'      => $authenticatedUser instanceof AuthenticatedPublicUser
-                        || $this->authProvider->isOnline($email),
+                        && $authenticatedUser->canCreateArticles,
                     'id'             => 0,
                     'i'              => 0,
                     'depth'          => 0,
@@ -325,6 +327,10 @@ readonly class CommentController implements ControllerInterface
          */
 
         $moderationRequired = $forceModeration || $spamDecision->shouldModerate($this->premoderationEnabled->get());
+        if ($authenticatedUser instanceof AuthenticatedPublicUser) {
+            $moderationRequired = $moderationRequired
+                || $this->publicationTrustPolicy->requiresModeration($authenticatedUser->id);
+        }
 
         if (!$authenticatedUser instanceof AuthenticatedPublicUser) {
             if (!$this->pendingEmailCommentService instanceof PendingEmailCommentServiceInterface) {

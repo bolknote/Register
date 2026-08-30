@@ -16,6 +16,7 @@ use Register\Comment\Antispam\SpamFeedbackService;
 use Register\Comment\CommentMailDelivery;
 use Register\Comment\CommentMailPublisher;
 use Register\Comment\CommentMailQueueHandler;
+use Register\Comment\CommentPublicationTrustPolicy;
 use Register\Comment\CommentPresentationEnricherInterface;
 use Register\Comment\CommentRepository;
 use Register\Comment\CommentSubscriptionService;
@@ -75,6 +76,9 @@ final readonly class CommentModule implements ContainerModuleInterface
             $container->get(DbLayer::class),
             $container->get(LiveUpdateRepository::class),
             $container->get(EventDispatcherInterface::class),
+        ));
+        $container->set(CommentPublicationTrustPolicy::class, static fn(Container $container): CommentPublicationTrustPolicy => new CommentPublicationTrustPolicy(
+            $container->get(DbLayer::class),
         ));
         $container->set(CommentSubscriptionService::class, static fn(Container $container): CommentSubscriptionService => new CommentSubscriptionService(
             $container->get(CommentRepository::class),
@@ -169,6 +173,7 @@ final readonly class CommentModule implements ContainerModuleInterface
                 $container->get(CommentFormTokenManager::class),
                 $container->get(SpamRateLimiter::class),
                 $container->get(SpamAssessmentRepository::class),
+                $container->get(CommentPublicationTrustPolicy::class),
                 $container->get(VisitorIdentityManager::class),
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
                 $provider->getBoolProxy('REGISTER_PREMODERATION'),

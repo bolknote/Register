@@ -116,19 +116,26 @@ final class CommentPresentationTest extends Unit
         }
     }
 
-    public function testRegisteredAuthorEmailIsMatchedCaseInsensitively(): void
+    public function testAuthorBadgeRequiresTheAuthenticatedUserIdAndArticlePermission(): void
     {
         $pdo = new \PDO('sqlite::memory:');
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
 
         $dbLayer = new DbLayerSqlite($pdo, '');
         $this->createTables($pdo);
-        $pdo->exec("INSERT INTO users (email) VALUES ('Author@Example.test')");
+        $pdo->exec("INSERT INTO users (id, email, create_articles) VALUES
+            (10, 'Author@Example.test', 1),
+            (11, 'reader@example.test', 0)");
         $pdo->exec("INSERT INTO comments (
             id, content_type, content_id, parent_id, userpic_id, time, modify_time, nick, email,
-            good, text, shown, deleted
-        ) VALUES (43, 'post', 8, NULL, NULL, 1700000000, 0, 'Author', 'author@example.test', 0,
-            'An author reply.', 1, 0)");
+            user_id, good, text, shown, deleted
+        ) VALUES
+            (43, 'post', 8, NULL, NULL, 1700000000, 0, 'Author', 'different@example.test',
+                10, 0, 'An authenticated author reply.', 1, 0),
+            (44, 'post', 8, NULL, NULL, 1700000001, 0, 'Verified reader', 'Author@Example.test',
+                11, 0, 'A public identity using an author email.', 1, 0),
+            (45, 'post', 8, NULL, NULL, 1700000002, 0, 'Legacy guest', 'Author@Example.test',
+                NULL, 0, 'An unauthenticated email match.', 1, 0)");
 
         $urlBuilder = new UrlBuilder('/register', '', '');
         $viewer = new Viewer(
@@ -151,8 +158,11 @@ final class CommentPresentationTest extends Unit
         );
 
         $html = $renderer->render(ContentId::post(8), Request::create('/post/8'), '/post/8');
-        self::assertStringContainsString('class="comment-author-mark"', $html);
-        self::assertStringContainsString('class="comment-item depth-0 by-author', $html);
+        self::assertSame(1, substr_count($html, 'class="comment-author-mark"'));
+        self::assertSame(1, substr_count($html, 'class="comment-item depth-0 by-author'));
+        self::assertStringContainsString('An authenticated author reply.', $html);
+        self::assertStringContainsString('A public identity using an author email.', $html);
+        self::assertStringContainsString('An unauthenticated email match.', $html);
     }
 
     private function createTables(\PDO $pdo): void
@@ -173,7 +183,11 @@ final class CommentPresentationTest extends Unit
             shown INTEGER NOT NULL,
             deleted INTEGER NOT NULL
         )');
-        $pdo->exec('CREATE TABLE users (email TEXT NOT NULL)');
+        $pdo->exec('CREATE TABLE users (
+            id INTEGER PRIMARY KEY,
+            email TEXT NOT NULL,
+            create_articles INTEGER NOT NULL DEFAULT 0
+        )');
         $pdo->exec('CREATE TABLE userpics (id INTEGER PRIMARY KEY, storage_key TEXT NOT NULL)');
         $pdo->exec('CREATE TABLE spam_assessments (
             id INTEGER PRIMARY KEY,

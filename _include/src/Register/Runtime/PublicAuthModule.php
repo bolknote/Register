@@ -112,6 +112,7 @@ final readonly class PublicAuthModule implements ContainerModuleInterface
             $container->get(\Register\Comment\Antispam\SpamAssessmentRepository::class),
             $container->get(\Register\Comment\CommentMailPublisher::class),
             $container->get(\Register\Core\Model\User\UserProvider::class),
+            $container->get(\Register\Comment\CommentPublicationTrustPolicy::class),
             ...$container->getByTag(CommentStrategyInterface::class),
         ), [PendingEmailCommentServiceInterface::class]);
         $container->set(

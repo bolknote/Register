@@ -73,7 +73,7 @@ final readonly class ContentCommentRenderer
         ;
         $commentRows = $this->dbLayer
             ->select(
-                'c.id, c.parent_id, c.user_id, c.nick, c.email, c.time, c.modify_time, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
+                'c.id, c.parent_id, c.user_id, c.nick, c.time, c.modify_time, c.good, c.text, c.shown, c.deleted, p.storage_key AS userpic_storage_key',
                 '(' . $moderatorLabel . ') AS moderator_label',
                 '(' . $spamStatus . ') AS spam_status',
             )
@@ -115,51 +115,52 @@ final readonly class ContentCommentRenderer
     }
 
     /**
-     * Resolve registered-author emails in bounded batches. The previous correlated subquery
-     * scanned the users table once for every comment; this performs at most one scan per batch.
+     * Resolve actual author accounts in bounded batches. An email address is not an
+     * authorization credential: public identities also live in users, but have no
+     * article-author permission and must never receive the author badge.
      *
      * @param list<array<string, mixed>> $comments
      * @return list<array<string, mixed>>
      */
     private function attachAuthorFlags(array $comments): array
     {
-        $normalizedEmails = [];
+        $userIds = [];
         foreach ($comments as $comment) {
-            $email = mb_strtolower((string)($comment['email'] ?? ''));
-            if ($email !== '') {
-                $normalizedEmails[$email] = $email;
+            $userId = (int)($comment['user_id'] ?? 0);
+            if ($userId > 0) {
+                $userIds[$userId] = $userId;
             }
         }
 
-        $authorEmails = [];
-        foreach (array_chunk(array_values($normalizedEmails), 500) as $batchNumber => $emailBatch) {
+        $authorUserIds = [];
+        foreach (array_chunk(array_values($userIds), 500) as $batchNumber => $userIdBatch) {
             $parameters = [];
             $placeholders = [];
-            foreach ($emailBatch as $position => $email) {
-                $parameter = 'author_email_' . $batchNumber . '_' . $position;
-                $parameters[$parameter] = $email;
+            foreach ($userIdBatch as $position => $userId) {
+                $parameter = 'author_user_' . $batchNumber . '_' . $position;
+                $parameters[$parameter] = $userId;
                 $placeholders[] = ':' . $parameter;
             }
 
-            $rows = $this->dbLayer->select('email')
+            $rows = $this->dbLayer->select('id')
                 ->from('users')
-                ->where('LOWER(email) IN (' . implode(', ', $placeholders) . ')')
+                ->where('id IN (' . implode(', ', $placeholders) . ')')
+                ->andWhere('create_articles = 1')
                 ->execute($parameters)
                 ->fetchAssocAll()
             ;
             foreach ($rows as $row) {
-                $email = mb_strtolower((string)($row['email'] ?? ''));
-                if ($email !== '') {
-                    $authorEmails[$email] = true;
+                $userId = (int)($row['id'] ?? 0);
+                if ($userId > 0) {
+                    $authorUserIds[$userId] = true;
                 }
             }
         }
 
         $result = [];
         foreach ($comments as $comment) {
-            $email = mb_strtolower((string)($comment['email'] ?? ''));
-            $comment['is_author'] = $email !== '' && isset($authorEmails[$email]);
-            unset($comment['email']);
+            $userId = (int)($comment['user_id'] ?? 0);
+            $comment['is_author'] = $userId > 0 && isset($authorUserIds[$userId]);
             $result[] = $comment;
         }
 

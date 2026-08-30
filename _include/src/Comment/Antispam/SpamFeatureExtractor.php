@@ -11,7 +11,7 @@ namespace Register\Core\Comment\Antispam;
 
 final class SpamFeatureExtractor
 {
-    public const int SENTENCE_LIKE_LATIN_TRANSLITERATION_THRESHOLD = 53;
+    public const int SENTENCE_LIKE_LATIN_TRANSLITERATION_THRESHOLD = 47;
 
     /** @var array<string, true> */
     private const array STRONG_TRANSLITERATED_RUSSIAN_WORDS = [
@@ -42,6 +42,7 @@ final class SpamFeatureExtractor
         'kuda' => true,
         'luchshe' => true,
         'mne' => true,
+        'ne' => true,
         'mozhno' => true,
         'nado' => true,
         'ona' => true,
@@ -229,7 +230,7 @@ final class SpamFeatureExtractor
                 }
             }
 
-            if (preg_match('#(?:skiy|ckiy|tsya|sya|nyy|nyi|aya|yaya|ogo|omu|ymi|ami|akh|yah|uyu|oi)$#', $word) === 1) {
+            if (preg_match('#(?:skiy|ckiy|tsya|sya|nyy|nyi|aya|yaya|ogo|omu|ymi|ami|akh|yah|uyu|yat|oi)$#', $word) === 1) {
                 $score += 3;
             }
 

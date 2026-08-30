@@ -43,6 +43,10 @@ final class SpamTextClassifierTest extends Unit
         self::assertStringNotContainsString('casino', strtolower($serialized));
         self::assertStringNotContainsString('typography', strtolower($serialized));
         self::assertSame($serialized, SpamTextModel::fromJson($serialized)->toJson());
+        self::assertNotEmpty(array_filter(
+            $model->weights,
+            static fn(int $weight): bool => $weight < 0,
+        ));
         self::assertGreaterThan(0, $model->metrics['holdout_true_positive']);
         self::assertSame(0, $model->metrics['holdout_false_positive']);
 

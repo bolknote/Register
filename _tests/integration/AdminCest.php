@@ -1142,7 +1142,7 @@ class AdminCest
         $I->seeResponseCodeIs(200);
         $I->see('Antispam model');
         $I->see('The filter is configured');
-        $I->see('rules-7');
+        $I->see('rules-8');
         $I->see('22 of 22');
         $I->see('No new checks yet');
         $I->see('Imported comments are not added to the live antispam log.');
@@ -1176,7 +1176,7 @@ class AdminCest
         $I->see('Antispam report');
         $I->seeElement('nav.moderation-tabs a[aria-current="page"][href="?entity=SpamAssessment&action=list"]');
         $I->see('Antispam model');
-        $I->see('rules-7');
+        $I->see('rules-8');
         $I->see('Local filter quality');
         $I->see('Shadow comparison');
         $I->see('False positive');

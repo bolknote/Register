@@ -11,6 +11,7 @@ namespace Register\Auth;
 
 use Register\Comment\Antispam\SpamAssessmentRepository;
 use Register\Comment\CommentMailPublisher;
+use Register\Comment\CommentPublicationTrustPolicy;
 use Register\Content\ContentType;
 use Register\Controller\Comment\CommentStrategyInterface;
 use Register\Controller\Comment\PendingEmailComment;
@@ -41,6 +42,7 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
         private SpamAssessmentRepository $spamAssessmentRepository,
         private CommentMailPublisher $commentMailPublisher,
         private UserProvider         $userProvider,
+        private CommentPublicationTrustPolicy $publicationTrustPolicy,
         CommentStrategyInterface ...$strategies,
     ) {
         $indexed = [];
@@ -137,7 +139,8 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
                 $this->spamAssessmentRepository->attachComment($assessmentId, $contentType, $commentId);
             }
 
-            $moderationRequired = (bool)($row['moderation_required'] ?? false);
+            $moderationRequired = (bool)($row['moderation_required'] ?? false)
+                || $this->publicationTrustPolicy->requiresModeration($userId);
             if (!$moderationRequired) {
                 $strategy->publishComment($commentId);
                 $strategy->notifySubscribers($commentId);
