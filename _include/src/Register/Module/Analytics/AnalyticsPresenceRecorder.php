@@ -70,10 +70,12 @@ final readonly class AnalyticsPresenceRecorder
         if (!\is_string($value) || $value === '' || \strlen($value) > 4096) {
             return null;
         }
+
         $parsed = parse_url($value);
         if ($parsed === false || !isset($parsed['path'])) {
             return null;
         }
+
         $path = '/' . ltrim($parsed['path'], '/');
         $path = preg_replace('~/+~', '/', $path) ?? $path;
         return \strlen($path) <= 1024 ? $path : null;
@@ -84,6 +86,7 @@ final readonly class AnalyticsPresenceRecorder
         if (!\is_string($value)) {
             return '';
         }
+
         $value = preg_replace('/[\x00-\x1F\x7F]+/u', ' ', trim($value)) ?? '';
         return \strlen($value) <= $maximumBytes
             ? $value

@@ -177,11 +177,14 @@ class AdminModule implements ContainerModuleInterface, ContainerAwareListenerMod
                     if (preg_match('/^[=+\-@]/D', $value) === 1) {
                         $value = "'" . $value;
                     }
+
                     $values[] = $value;
                 }
+
                 fputcsv($stream, $values, ',', '"', '');
             }
         }
+
         rewind($stream);
         $contents = stream_get_contents($stream);
         fclose($stream);
@@ -204,9 +207,11 @@ class AdminModule implements ContainerModuleInterface, ContainerAwareListenerMod
         if ($value === null) {
             return '';
         }
+
         if (\is_bool($value)) {
             return $value ? '1' : '0';
         }
+
         if (\is_scalar($value)) {
             return (string)$value;
         }

@@ -119,6 +119,7 @@ final class AnalyticsReportRepositoryTest extends Unit
 
         $presence->touch(str_repeat('a', 64), str_repeat('c', 64), '/post', 'Post', $time + 40);
         $presence->touch(str_repeat('b', 64), str_repeat('c', 64), '/post', 'Post', $time + 41);
+
         $realtime = $repository->realtime($time + 42);
         self::assertSame(1, $realtime['active_visitors']);
         self::assertSame(2, $realtime['active_sessions']);

@@ -95,7 +95,7 @@ final class AnalyticsPresenceStore
         $minimumSeenAt = $now - $maximumAge;
         $entries = [];
         if ($this->apcuAvailable()) {
-            for ($shard = 0; $shard < self::SHARDS; $shard++) {
+            for ($shard = 0; $shard < self::SHARDS; ++$shard) {
                 $stored = apcu_fetch($this->apcuKey($shard));
                 if (\is_array($stored)) {
                     $entries += $this->validEntries($stored, $minimumSeenAt);
@@ -103,7 +103,7 @@ final class AnalyticsPresenceStore
             }
         } else {
             try {
-                for ($shard = 0; $shard < self::SHARDS; $shard++) {
+                for ($shard = 0; $shard < self::SHARDS; ++$shard) {
                     $entries += $this->readFilesystem($shard, $minimumSeenAt);
                 }
             } catch (\Throwable) {
@@ -172,6 +172,7 @@ final class AnalyticsPresenceStore
             if ($contents === false) {
                 throw new \RuntimeException('Unable to read an analytics presence shard.');
             }
+
             $entries = \strlen($contents) <= self::MAX_FILE_BYTES
                 ? $this->decodeEntries($contents, $now - self::ENTRY_TTL)
                 : [];
@@ -202,10 +203,12 @@ final class AnalyticsPresenceStore
             if (!flock($handle, LOCK_SH | LOCK_NB)) {
                 return [];
             }
+
             $contents = stream_get_contents($handle, self::MAX_FILE_BYTES + 1);
             if ($contents === false || \strlen($contents) > self::MAX_FILE_BYTES) {
                 return [];
             }
+
             return $this->decodeEntries($contents, $minimumSeenAt);
         } finally {
             register_call_without_warnings(static fn(): bool => flock($handle, LOCK_UN));
@@ -221,7 +224,7 @@ final class AnalyticsPresenceStore
         $this->localEntries = $this->validEntries($this->localEntries, $now - self::ENTRY_TTL);
         $this->localEntries[$pageViewKey] = $entry;
         while (\count($this->localEntries) > self::MAX_ENTRIES_PER_SHARD) {
-            self::removeOldestEntry($this->localEntries);
+            $this->removeOldestEntry($this->localEntries);
         }
     }
 
@@ -235,7 +238,7 @@ final class AnalyticsPresenceStore
             static fn(array $left, array $right): int => $left['seen_at'] <=> $right['seen_at'],
         );
         while (\count($entries) > self::MAX_ENTRIES_PER_SHARD) {
-            self::removeOldestEntry($entries);
+            $this->removeOldestEntry($entries);
         }
     }
 
@@ -253,19 +256,23 @@ final class AnalyticsPresenceStore
             if (\strlen($contents) <= self::MAX_FILE_BYTES) {
                 break;
             }
-            self::removeOldestEntry($entries);
+
+            $this->removeOldestEntry($entries);
         } while ($entries !== []);
 
         if (!ftruncate($handle, 0) || !rewind($handle)) {
             throw new \RuntimeException('Unable to prepare an analytics presence shard.');
         }
+
         while ($contents !== '') {
             $written = fwrite($handle, $contents);
             if ($written === false || $written === 0) {
                 throw new \RuntimeException('Unable to write an analytics presence shard.');
             }
+
             $contents = substr($contents, $written);
         }
+
         if (!fflush($handle)) {
             throw new \RuntimeException('Unable to flush an analytics presence shard.');
         }
@@ -274,11 +281,12 @@ final class AnalyticsPresenceStore
     /**
      * @param array<string, array{visitor_key: string, path: string, title: string, seen_at: int}> $entries
      */
-    private static function removeOldestEntry(array &$entries): void
+    private function removeOldestEntry(array &$entries): void
     {
         if ($entries === []) {
             return;
         }
+
         unset($entries[array_key_first($entries)]);
     }
 
@@ -294,6 +302,7 @@ final class AnalyticsPresenceStore
         } catch (\JsonException) {
             return [];
         }
+
         return \is_array($decoded) ? $this->validEntries($decoded, $minimumSeenAt) : [];
     }
 
@@ -321,6 +330,7 @@ final class AnalyticsPresenceStore
             ) {
                 continue;
             }
+
             $valid[$pageViewKey] = [
                 'visitor_key' => $entry['visitor_key'],
                 'path'        => $entry['path'],
@@ -328,6 +338,7 @@ final class AnalyticsPresenceStore
                 'seen_at'     => $entry['seen_at'],
             ];
         }
+
         return $valid;
     }
 
@@ -339,6 +350,7 @@ final class AnalyticsPresenceStore
         ) {
             throw new \RuntimeException('Unable to create the analytics presence directory.');
         }
+
         register_call_without_warnings(fn(): bool => chmod($this->fallbackDirectory, 0700));
     }
 

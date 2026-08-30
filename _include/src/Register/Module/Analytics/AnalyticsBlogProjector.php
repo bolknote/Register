@@ -165,6 +165,7 @@ final class AnalyticsBlogProjector
             foreach ($conditions as $condition) {
                 $update->andWhere($condition);
             }
+
             $crossed = $update->execute()
                 ->affectedRows() > 0;
             if ($crossed) {
@@ -214,7 +215,20 @@ final class AnalyticsBlogProjector
             return [];
         }
 
-        return \is_array($properties) && !array_is_list($properties) ? $properties : [];
+        if (!\is_array($properties) || array_is_list($properties)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($properties as $key => $value) {
+            if (\is_string($key)
+                && ($value === null || \is_bool($value) || \is_float($value) || \is_int($value) || \is_string($value))
+            ) {
+                $result[$key] = $value;
+            }
+        }
+
+        return $result;
     }
 
     private function dimensionKey(string $kind, string $label, int $seenAt): ?string
@@ -241,6 +255,7 @@ final class AnalyticsBlogProjector
                 $this->rememberDimension($identity, null);
                 return null;
             }
+
             ++$this->dimensionCounts[$kind];
         }
 
@@ -372,6 +387,7 @@ final class AnalyticsBlogProjector
                 $this->rememberGoal($name, null);
                 return null;
             }
+
             ++$this->goalCount;
         }
 
@@ -423,6 +439,7 @@ final class AnalyticsBlogProjector
             if ($value === null) {
                 continue;
             }
+
             $delta[$metric . '_sum']   = $value;
             $delta[$metric . '_count'] = 1;
             $grade = match ($metric) {
@@ -438,15 +455,17 @@ final class AnalyticsBlogProjector
             $insert = $this->dbLayer->insert(AnalyticsSchema::PERFORMANCE_DAY_TABLE)
                 ->setValue('bucket', ':bucket')->setParameter('bucket', $day)
                 ->setValue('page_key', ':page_key')->setParameter('page_key', $pageKey);
-            foreach ($delta as $field => $_value) {
+            foreach (array_keys($delta) as $field) {
                 $insert->setValue($field, ':' . $field)->setParameter($field, 0);
             }
+
             $insert->onConflictDoNothing('bucket', 'page_key')->execute();
 
             $update = $this->dbLayer->update(AnalyticsSchema::PERFORMANCE_DAY_TABLE);
             foreach ($delta as $field => $value) {
                 $update->set($field, $field . ' + :' . $field)->setParameter($field, $value);
             }
+
             $update
                 ->where('bucket = :bucket')->setParameter('bucket', $day)
                 ->andWhere('page_key = :page_key')->setParameter('page_key', $pageKey)

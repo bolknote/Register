@@ -255,10 +255,10 @@ final readonly class AnalyticsIngestor
     }
 
     /**
+     * @param list<array{string, string}> $contextDimensions
      * @param array<string, array<string, int|string|bool>|null> $sessions
      * @param array<string, array{table: string, bucket: string, dimension: string, dimension_key: string, views: int, sessions: int, unique_count: int, bounces: int, engaged_seconds: int}> $rollups
      * @param array<string, int> $legacyHits
-     * @param list<array{string, string}> $contextDimensions
      */
     private function applyPageView(
         AnalyticsEvent $event,
@@ -324,9 +324,9 @@ final readonly class AnalyticsIngestor
     }
 
     /**
+     * @param list<array{string, string}> $contextDimensions
      * @param array<string, array<string, int|string|bool>|null> $sessions
      * @param array<string, array{table: string, bucket: string, dimension: string, dimension_key: string, views: int, sessions: int, unique_count: int, bounces: int, engaged_seconds: int}> $rollups
-     * @param list<array{string, string}> $contextDimensions
      */
     private function applyEngagement(
         AnalyticsEvent $event,

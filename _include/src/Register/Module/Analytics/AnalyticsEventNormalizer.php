@@ -243,6 +243,7 @@ final readonly class AnalyticsEventNormalizer
                 return 'search';
             }
         }
+
         if (preg_match('/(?:^|\.)google\.[a-z0-9.-]+$/D', $referrerHost) === 1
             || preg_match('/(?:^|\.)yandex\.[a-z0-9.-]+$/D', $referrerHost) === 1
             || preg_match('/(?:^|\.)search\.yahoo\.[a-z0-9.-]+$/D', $referrerHost) === 1

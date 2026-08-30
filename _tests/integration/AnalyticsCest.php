@@ -97,6 +97,7 @@ final class AnalyticsCest
         // A warmed page-cache response still contains the browser collector and is counted by it.
         $I->sendRequestWithHeaders('https://localhost/', $headers);
         $I->seeElement('meta[name="register-analytics"]');
+
         $pageViewId = $this->sendPageView($I, '/', $sessionId, headers: $headers);
         $this->drainAnalytics($I);
 
@@ -185,6 +186,7 @@ final class AnalyticsCest
         $I->assertSame(2, $pages['data'][0]['views']);
 
         $I->amOnPage('https://localhost/_admin/ajax.php?action=register_analytics_report&report=dashboard&from=' . $today . '&to=' . $today);
+
         $dashboard = $I->grabJson();
         $I->assertIsArray($dashboard);
         $I->assertTrue($dashboard['success']);

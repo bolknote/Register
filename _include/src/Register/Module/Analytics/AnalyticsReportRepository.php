@@ -284,6 +284,7 @@ final readonly class AnalyticsReportRepository
                     ->execute()
                     ->fetchAssoc();
                 $row = $row === false ? [] : $row;
+
                 $views           = (int)($row['views'] ?? 0);
                 $sessions        = (int)($row['sessions'] ?? 0);
                 $uniqueCount     = (int)($row['unique_count'] ?? 0);
@@ -348,6 +349,7 @@ final readonly class AnalyticsReportRepository
         ], true)) {
             throw new \InvalidArgumentException('Unknown analytics dimension.');
         }
+
         $this->validateRange($fromDay, $toDay, $limit);
 
         /** @var list<array{label: string, views: int, sessions: int, unique_count: int, engaged_seconds: int, average_engagement: float}> */
@@ -515,6 +517,7 @@ final readonly class AnalyticsReportRepository
                     if ($count < 1) {
                         continue;
                     }
+
                     $good    = (int)$row[$key . '_good'];
                     $needs   = (int)$row[$key . '_needs'];
                     $grade   = $good / $count >= 0.75
@@ -532,6 +535,7 @@ final readonly class AnalyticsReportRepository
                         'grade'     => $grade,
                     ];
                 }
+
                 return $result;
             },
         );
@@ -543,6 +547,7 @@ final readonly class AnalyticsReportRepository
         if ($now <= 0) {
             throw new \InvalidArgumentException('Invalid realtime analytics timestamp.');
         }
+
         /** @var array{active_visitors: int, active_sessions: int, views_30m: int, updated_at: int, pages: list<array{path: string, title: string, sessions: int}>} */
         return $this->cache->remember('realtime-' . intdiv($now, 15), self::LIVE_CACHE_TTL, function () use ($now): array {
             $viewsSince  = $now - 30 * 60;
@@ -565,10 +570,11 @@ final readonly class AnalyticsReportRepository
                     'title'    => $entry['title'],
                     'sessions' => 0,
                 ];
-                $pageGroups[$pageKey]['sessions']++;
+                ++$pageGroups[$pageKey]['sessions'];
                 if ($entry['title'] !== '') {
                     $pageGroups[$pageKey]['title'] = $entry['title'];
                 }
+
                 $updatedAt = max($updatedAt, $entry['seen_at']);
             }
 
@@ -667,6 +673,7 @@ final readonly class AnalyticsReportRepository
         foreach ($rows as $row) {
             $totals[(string)$row['name']] = (int)$row['events'];
         }
+
         return $totals;
     }
 
@@ -686,6 +693,7 @@ final readonly class AnalyticsReportRepository
         if ($previous === 0.0) {
             return $current === 0.0 ? 0.0 : null;
         }
+
         return round(100.0 * ($current - $previous) / abs($previous), 1);
     }
 
