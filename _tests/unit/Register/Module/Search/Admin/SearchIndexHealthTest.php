@@ -114,6 +114,7 @@ final class SearchIndexHealthTest extends Unit
         self::assertSame(0, $status->currentDocuments);
     }
 
+    /** @psalm-suppress UnusedVariable Variables are consumed by the included dashboard view. */
     public function testRepairDashboardShowsActualProgressSeparatelyFromCoverage(): void
     {
         $health = new SearchIndexHealthStatus(true, 7807, 7807, 304, 51, 7503, true, false);
