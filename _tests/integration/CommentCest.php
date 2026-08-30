@@ -237,7 +237,7 @@ class CommentCest
         $I->seeResponseCodeIs(302);
 
         $reply = $dbLayer
-            ->select('id', 'parent_id', 'text')
+            ->select('id', 'parent_id', 'text', 'shown')
             ->from(CommentSchema::TABLE_NAME)
             ->where('nick = :nick')->setParameter('nick', 'Reply author')
             ->execute()
@@ -246,6 +246,11 @@ class CommentCest
         $I->assertIsArray($reply);
         $I->assertSame($parentId, (int)$reply['parent_id']);
         $I->assertSame('A nested reply', CommentHtml::plainText((string)$reply['text']));
+        $I->assertSame(0, (int)$reply['shown']);
+
+        /** @var SpamFeedbackService $feedback */
+        $feedback = $I->grabService(SpamFeedbackService::class);
+        $I->assertTrue($feedback->markHam((int)$reply['id'], ContentType::PAGE));
 
         $I->amOnPage('https://localhost/thread-test');
         $I->seeElement(
