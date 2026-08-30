@@ -15,6 +15,7 @@ final readonly class SearchIndexHealthStatus
         public bool $available,
         public int  $expectedDocuments,
         public int  $indexedDocuments,
+        public int  $currentDocuments,
         public int  $pendingUpdates,
         public int  $mismatchedDocuments,
         public bool $repairPending,

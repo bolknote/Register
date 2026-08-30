@@ -6,6 +6,11 @@
 /** @var string $basePath */
 /** @var string $csrfToken */
 /** @var \Register\Module\Search\Admin\SearchIndexHealthStatus $health */
+$currentDocuments = min($health->expectedDocuments, $health->currentDocuments);
+$remainingDocuments = max(0, $health->expectedDocuments - $currentDocuments);
+$progressPercent = $health->expectedDocuments > 0
+    ? min(100, (int)round(100 * $currentDocuments / $health->expectedDocuments))
+    : 100;
 ?>
 <div class="stat-item search-stat-item"
      data-register-search
@@ -17,7 +22,7 @@
     <h3><?= $trans('Search index') ?></h3>
     <p class="stat-status">
     <?php if ($health->repairPending): ?>
-        <?= $trans('Search repairing') ?>
+        <?= $trans('Search repairing', ['{{ percent }}' => $progressPercent]) ?>
     <?php elseif ($health->repairRequired): ?>
         <span class="icon icon-warning"></span> <?= $trans('Search repair required') ?>
     <?php elseif ($health->isUpdating()): ?>
@@ -26,7 +31,28 @@
         <?= $trans('Search current') ?>
     <?php endif; ?>
     </p>
+    <?php if ($health->repairPending): ?>
+        <progress class="search-index-progress"
+                  max="<?= max(1, $health->expectedDocuments) ?>"
+                  value="<?= $health->expectedDocuments > 0 ? $currentDocuments : 1 ?>"
+                  aria-label="<?= register_htmlencode($trans('Search repair progress', [
+                      '{{ current }}' => $currentDocuments,
+                      '{{ expected }}' => $health->expectedDocuments,
+                      '{{ remaining }}' => $remainingDocuments,
+                  ])) ?>"><?= $progressPercent ?>%</progress>
+        <p class="technical-data search-index-progress-label"><?= $trans('Search repair progress', [
+            '{{ current }}' => $currentDocuments,
+            '{{ expected }}' => $health->expectedDocuments,
+            '{{ remaining }}' => $remainingDocuments,
+        ]) ?></p>
+    <?php endif; ?>
     <ul class="stat-summary-list">
+        <?php if ($health->currentDocuments !== $health->expectedDocuments): ?>
+            <li><?= $trans('Current index documents', [
+                '{{ current }}' => $currentDocuments,
+                '{{ expected }}' => $health->expectedDocuments,
+            ]) ?></li>
+        <?php endif; ?>
         <li><?= $trans('Indexed documents', [
             '{{ indexed }}' => $health->indexedDocuments,
             '{{ expected }}' => $health->expectedDocuments,

@@ -40,6 +40,7 @@ final readonly class SearchIndexHealth
             }
 
             $expected          = [];
+            $currentDocuments  = 0;
             $mismatched        = 0;
             $uncoveredExpected = 0;
 
@@ -48,6 +49,7 @@ final readonly class SearchIndexHealth
                 $expected[$externalId] = true;
                 $tocEntry              = $indexed[$externalId] ?? null;
                 if ($tocEntry instanceof TocEntry && $this->matches($indexable, $tocEntry)) {
+                    ++$currentDocuments;
                     continue;
                 }
 
@@ -68,13 +70,14 @@ final readonly class SearchIndexHealth
                 true,
                 $expectedDocuments,
                 \count($indexed),
+                $currentDocuments,
                 $pendingUpdates,
                 $mismatched + \count($extraDocuments),
                 $repairActive,
                 $repairRequired,
             );
         } catch (\Throwable) {
-            return new SearchIndexHealthStatus(false, 0, 0, 0, 0, false, true);
+            return new SearchIndexHealthStatus(false, 0, 0, 0, 0, 0, false, true);
         }
     }
 

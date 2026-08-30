@@ -1715,6 +1715,36 @@ form.config-inline-form :is(input:not([type="checkbox"]), select, textarea):not(
     padding-top: 0.25rem;
 }
 
+.search-index-progress {
+    display: block;
+    width: 100%;
+    height: 0.55rem;
+    overflow: hidden;
+    border: 0;
+    border-radius: 999px;
+    accent-color: var(--admin-accent-color);
+    background: var(--admin-soft-border-color);
+}
+
+.search-index-progress::-webkit-progress-bar {
+    border-radius: inherit;
+    background: var(--admin-soft-border-color);
+}
+
+.search-index-progress::-webkit-progress-value {
+    border-radius: inherit;
+    background: var(--admin-accent-color);
+}
+
+.search-index-progress::-moz-progress-bar {
+    border-radius: inherit;
+    background: var(--admin-accent-color);
+}
+
+.stat-item > .search-index-progress-label {
+    margin-top: -0.35rem;
+}
+
 .backup-actions {
     display: flex;
     align-items: flex-end;

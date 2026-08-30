@@ -11,6 +11,8 @@ namespace unit\Register\Module\Search\Admin;
 
 use Codeception\Test\Unit;
 use Register\Module\Search\Admin\SearchIndexHealth;
+use Register\Module\Search\Admin\SearchIndexHealthStatus;
+use Register\Module\Search\Admin\TranslationProvider;
 use Register\Module\Search\Service\BulkIndexingProviderInterface;
 use Register\Module\Search\Service\ContentIndexer;
 use Register\Module\Search\Service\SearchIndexRepairer;
@@ -36,6 +38,7 @@ final class SearchIndexHealthTest extends Unit
         self::assertTrue($status->isCurrent());
         self::assertSame(2, $status->expectedDocuments);
         self::assertSame(2, $status->indexedDocuments);
+        self::assertSame(2, $status->currentDocuments);
         self::assertSame(0, $status->mismatchedDocuments);
 
         $changedPost = (new Indexable('post:2', 'Post', 'Changed body'))->setUrl('/post');
@@ -49,6 +52,7 @@ final class SearchIndexHealthTest extends Unit
         self::assertTrue($updating->isUpdating());
         self::assertFalse($updating->repairRequired);
         self::assertSame(1, $updating->pendingUpdates);
+        self::assertSame(1, $updating->currentDocuments);
         self::assertSame(1, $updating->mismatchedDocuments);
     }
 
@@ -107,6 +111,34 @@ final class SearchIndexHealthTest extends Unit
         self::assertTrue($status->repairPending);
         self::assertTrue($status->isUpdating());
         self::assertFalse($status->repairRequired);
+        self::assertSame(0, $status->currentDocuments);
+    }
+
+    public function testRepairDashboardShowsActualProgressSeparatelyFromCoverage(): void
+    {
+        $health = new SearchIndexHealthStatus(true, 7807, 7807, 304, 51, 7503, true, false);
+        $translations = (new TranslationProvider())->getTranslations('Russian', 'ru');
+        $trans = static function (string $key, array $parameters = []) use ($translations): string {
+            $text = (string)($translations[$key] ?? $key);
+
+            return strtr($text, array_map(static fn(mixed $value): string => (string)$value, $parameters));
+        };
+        $friendlyFilesize = static fn(int $bytes): string => $bytes . ' Б';
+        $rows = 1_309_481;
+        $bytes = 95_556_812;
+        $basePath = '';
+        $csrfToken = 'test-token';
+
+        ob_start();
+        require dirname(__DIR__, 6) . '/_include/src/Register/Module/Search/resources/views/dashboard/search-item.php.inc';
+        $html = (string)ob_get_clean();
+
+        self::assertStringContainsString('Индекс перестраивается — 4%.', $html);
+        self::assertStringContainsString('max="7807"', $html);
+        self::assertStringContainsString('value="304"', $html);
+        self::assertStringContainsString('Актуальны 304 из 7807; осталось 7503.', $html);
+        self::assertStringContainsString('Актуальный формат: 304 из 7807', $html);
+        self::assertStringContainsString('Присутствуют в индексе: 7807 из 7807', $html);
     }
 
     /** @return array{\PDO, PdoStorage, Indexer} */
