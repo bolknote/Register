@@ -87,9 +87,11 @@ final readonly class CommentThreadRenderer
     }
 
     /**
-     * Spam never belongs in the public thread, including a moderator's view. Hidden comments stay
-     * available to moderators. Any unavailable comment with visible descendants is kept as an
-     * anonymous tombstone so the shape and meaning of the discussion stay intact.
+     * Spam explicitly confirmed by a moderator never belongs in the public thread, including a
+     * moderator's view. An automatic spam verdict only puts the comment into ordinary moderation:
+     * it stays available to moderators until they decide whether it is spam. Any unavailable
+     * comment with visible descendants is kept as an anonymous tombstone so the shape and meaning
+     * of the discussion stay intact.
      *
      * @param list<array<string, mixed>> $comments
      * @return list<array<string, mixed>>
@@ -174,10 +176,7 @@ final readonly class CommentThreadRenderer
             return 'deleted';
         }
 
-        $moderatorLabel = $comment['moderator_label'] ?? null;
-        if ($moderatorLabel === 'spam'
-            || ($moderatorLabel === null && in_array($comment['spam_status'] ?? null, ['spam', 'blatant'], true))
-        ) {
+        if (($comment['moderator_label'] ?? null) === 'spam') {
             return 'spam';
         }
 

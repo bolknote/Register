@@ -11,12 +11,14 @@ namespace integration;
 
 use Register\Auth\PublicAuthSettings;
 use Register\Auth\PublicAuthRepository;
+use Register\Comment\Antispam\SpamAssessmentRepository;
 use Register\Comment\CommentChangedEvent;
 use Register\Comment\CommentChangeKind;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Comment\Antispam\SpamFeedbackService;
+use Register\Core\Comment\Antispam\SpamAssessment;
 use Register\Core\Comment\CommentHtml;
 use Register\Core\Model\UserpicSchema;
 use Register\Core\Pdo\DbLayer;
@@ -449,6 +451,56 @@ class CommentCest
         $I->dontSeeElement($selector);
         $I->dontSee('Standalone spam must disappear');
         $I->dontSee('Spam author');
+    }
+
+    public function testAutomaticallyFlaggedPendingSpamRemainsVisibleToModeratorForDecision(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer   = $I->grabService(DbLayer::class);
+        $articleId = $this->insertArticle($dbLayer);
+        $commentId = $this->insertComment(
+            $dbLayer,
+            $articleId,
+            'Suspicious author',
+            'automatic-spam@example.test',
+            text: 'Automatic spam verdict still needs a human decision',
+        );
+        $dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('shown', '0')
+            ->set('sent', '0')
+            ->where('id = :id')->setParameter('id', $commentId)
+            ->execute()
+        ;
+
+        /** @var SpamAssessmentRepository $assessmentRepository */
+        $assessmentRepository = $I->grabService(SpamAssessmentRepository::class);
+        $assessmentRepository->save(
+            new SpamAssessment(
+                80,
+                ['automatic_signal' => 80],
+                str_repeat('t', 64),
+                str_repeat('e', 64),
+                str_repeat('i', 64),
+                [],
+            ),
+            'spam',
+            'local',
+            ContentType::PAGE,
+            $commentId,
+        );
+
+        $selector = '[data-comment-id="' . $commentId . '"]';
+        $I->amOnPage('https://localhost/thread-test');
+        $I->dontSee('Automatic spam verdict still needs a human decision');
+
+        $I->login('moderator', 'moderator');
+        $I->amOnPage('https://localhost/thread-test#comment-' . $commentId);
+        $I->seeElement($selector . '.is-hidden');
+        $I->seeElement('#comment-' . $commentId);
+        $I->see('Automatic spam verdict still needs a human decision');
+        $I->seeElement($selector . ' > .comment-moderation [data-moderation-action="show"]');
+        $I->seeElement($selector . ' > .comment-moderation [data-moderation-action="spam"]');
     }
 
     public function testModeratorCanHideAndShowACommentFromThePublicThread(\IntegrationTester $I): void
