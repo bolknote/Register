@@ -61,6 +61,7 @@ final readonly class AnalyticsWebVitalsDistribution
         } catch (\JsonException) {
             return [];
         }
+
         if (!\is_array($properties) || array_is_list($properties)) {
             return [];
         }

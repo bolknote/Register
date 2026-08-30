@@ -525,6 +525,7 @@ final readonly class AnalyticsReportRepository
                         if ($bucket['value'] <= $definition['good']) {
                             $good += $bucket['count'];
                         }
+
                         if ($percentile === null && $cumulative >= $rank) {
                             $percentile = $bucket['value'];
                         }
@@ -533,6 +534,7 @@ final readonly class AnalyticsReportRepository
                     if ($percentile === null) {
                         continue;
                     }
+
                     $grade   = $count < self::WEB_VITALS_MIN_SAMPLES
                         ? 'insufficient'
                         : AnalyticsWebVitalsDistribution::grade($key, $percentile);
