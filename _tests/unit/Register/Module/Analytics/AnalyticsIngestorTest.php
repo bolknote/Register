@@ -15,7 +15,9 @@ use Register\Core\Pdo\SchemaBuilderInterface;
 use Register\Module\Analytics\AnalyticsEvent;
 use Register\Module\Analytics\AnalyticsIngestor;
 use Register\Module\Analytics\AnalyticsRepository;
+use Register\Module\Analytics\AnalyticsReportCache;
 use Register\Module\Analytics\AnalyticsSchema;
+use Symfony\Component\Cache\Adapter\NullAdapter;
 
 final class AnalyticsIngestorTest extends Unit
 {
@@ -25,7 +27,12 @@ final class AnalyticsIngestorTest extends Unit
         $dbLayer = new DbLayerSqlite($pdo);
         $this->createLegacyStorage($dbLayer);
         AnalyticsSchema::createEventStorage($dbLayer);
-        $ingestor = new AnalyticsIngestor($pdo, $dbLayer, new AnalyticsRepository($dbLayer));
+        $ingestor = new AnalyticsIngestor(
+            $pdo,
+            $dbLayer,
+            new AnalyticsRepository($dbLayer),
+            new AnalyticsReportCache(new NullAdapter()),
+        );
         $time     = (new \DateTimeImmutable('2026-08-30T12:15:00+00:00'))->getTimestamp();
         $first    = $this->pageView(str_repeat('1', 32), str_repeat('a', 64), str_repeat('b', 64), '/first', $time);
         $second   = $this->pageView(str_repeat('2', 32), str_repeat('a', 64), str_repeat('c', 64), '/second', $time + 60);
@@ -72,7 +79,12 @@ final class AnalyticsIngestorTest extends Unit
         $dbLayer = new DbLayerSqlite($pdo);
         $this->createLegacyStorage($dbLayer);
         AnalyticsSchema::createEventStorage($dbLayer);
-        $ingestor = new AnalyticsIngestor($pdo, $dbLayer, new AnalyticsRepository($dbLayer));
+        $ingestor = new AnalyticsIngestor(
+            $pdo,
+            $dbLayer,
+            new AnalyticsRepository($dbLayer),
+            new AnalyticsReportCache(new NullAdapter()),
+        );
         $time     = (new \DateTimeImmutable('2026-08-30T12:15:00+00:00'))->getTimestamp();
         $view     = $this->pageView(str_repeat('3', 32), str_repeat('d', 64), str_repeat('e', 64), '/engaged', $time);
         $engaged  = new AnalyticsEvent(

@@ -12,6 +12,7 @@ namespace Register\Module\Analytics;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerPostgres;
 use Register\Core\Pdo\DbLayerSqlite;
+use Register\Core\Pdo\PDO as RegisterPdo;
 
 /** Converts an idempotent event batch into sessions, dimensions, and compact report rollups. */
 final readonly class AnalyticsIngestor
@@ -30,6 +31,7 @@ final readonly class AnalyticsIngestor
         private \PDO               $pdo,
         private DbLayer            $dbLayer,
         private AnalyticsRepository $legacyRepository,
+        private AnalyticsReportCache $reportCache,
     ) {
     }
 
@@ -110,8 +112,14 @@ final readonly class AnalyticsIngestor
                 );
             }
 
+            $this->invalidateReportCache($inserted);
             if ($ownsTransaction) {
                 $this->pdo->commit();
+                if (!$this->pdo instanceof RegisterPdo && $inserted > 0) {
+                    // Native PDO has no after-commit callback support. Runtime connections use
+                    // RegisterPdo, but unit embedders still receive the same post-COMMIT guarantee.
+                    $this->reportCache->clear();
+                }
             }
         } catch (\Throwable $throwable) {
             if ($ownsTransaction && $this->pdo->inTransaction()) {
@@ -121,6 +129,26 @@ final readonly class AnalyticsIngestor
         }
 
         return $inserted;
+    }
+
+    private function invalidateReportCache(int $inserted): void
+    {
+        if ($inserted < 1) {
+            return;
+        }
+
+        $clear = $this->reportCache->clear(...);
+        if ($this->pdo instanceof RegisterPdo && $this->pdo->inTransaction()) {
+            $callbackKey = 'analytics-report-cache';
+            if ($this->pdo->afterCommitOnce($callbackKey, $clear)) {
+                // Remove the old value now and again when the transaction finishes. The
+                // completion invalidation closes the race where another worker rebuilds
+                // reports from the old committed snapshot before this COMMIT.
+                $this->pdo->afterRollbackOnce($callbackKey, $clear);
+            }
+        }
+
+        $clear();
     }
 
     public function purge(int $eventBefore, int $sessionBefore, string $uniqueBeforeDay): void

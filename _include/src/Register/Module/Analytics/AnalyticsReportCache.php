@@ -9,13 +9,14 @@ declare(strict_types = 1);
 
 namespace Register\Module\Analytics;
 
+use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 
 /** Small typed facade around the APCu-to-filesystem report cache. */
 final readonly class AnalyticsReportCache
 {
-    public function __construct(private CacheInterface $cache)
+    public function __construct(private AdapterInterface&CacheInterface $cache)
     {
     }
 
@@ -29,5 +30,10 @@ final readonly class AnalyticsReportCache
             $item->expiresAfter($ttl);
             return $loader();
         });
+    }
+
+    public function clear(): void
+    {
+        $this->cache->clear();
     }
 }

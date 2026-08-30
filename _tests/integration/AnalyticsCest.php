@@ -11,6 +11,7 @@ namespace integration;
 
 use Register\Module\Analytics\AnalyticsRepository;
 use Register\Module\Analytics\AnalyticsMaintenanceTask;
+use Register\Module\Analytics\AnalyticsReportRepository;
 use Register\Module\Analytics\AnalyticsSchema;
 use Register\Module\Analytics\AnalyticsSpool;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
@@ -48,6 +49,12 @@ final class AnalyticsCest
             ->fetchAssoc()
         ;
         $I->assertFalse($unresolvedSummary, 'An unresolved HTML fetch must not write analytics.');
+
+        // A dashboard request may cache an empty report before the first event arrives.
+        // Ingestion must invalidate that result immediately instead of relying on a TTL.
+        /** @var AnalyticsReportRepository $reportRepository */
+        $reportRepository = $I->grabService(AnalyticsReportRepository::class);
+        $I->assertSame([], $reportRepository->dailyOverview());
 
         $I->sendJson('https://localhost/_visitor/resolve', [
             'trackPage' => false,

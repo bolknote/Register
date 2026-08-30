@@ -60,6 +60,7 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
             $container->get(\PDO::class),
             $container->get(DbLayer::class),
             $container->get(AnalyticsRepository::class),
+            $container->get(AnalyticsReportCache::class),
         ));
         $container->set(AnalyticsReportCacheFactory::class, static fn(Container $container): AnalyticsReportCacheFactory => new AnalyticsReportCacheFactory(
             $container->get(LoggerInterface::class),
