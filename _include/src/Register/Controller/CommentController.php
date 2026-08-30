@@ -81,10 +81,11 @@ readonly class CommentController implements ControllerInterface
     #[\Override]
     public function handle(Request $request): Response
     {
-        $authenticatedUser = $this->authProvider->getAuthenticatedPublicUser($request);
-        $formFieldError    = $this->restoreMutableFormFields($request);
-        $subscribed        = $request->request->get('subscribed', false) !== false;
-        $id                = $request->request->getString('id', '');
+        $authenticatedUser     = $this->authProvider->getAuthenticatedPublicUser($request);
+        $isAuthenticatedAuthor = false;
+        $formFieldError        = $this->restoreMutableFormFields($request);
+        $subscribed            = $request->request->get('subscribed', false) !== false;
+        $id                    = $request->request->getString('id', '');
         if (preg_match('#^[0-9a-f]{32}$#', $id) !== 1) {
             $id = '';
         }
@@ -139,6 +140,7 @@ readonly class CommentController implements ControllerInterface
         }
 
         if ($authenticatedUser instanceof AuthenticatedPublicUser) {
+            $isAuthenticatedAuthor = $authenticatedUser->canCreateArticles;
             $email = $authenticatedUser->email;
             $name  = $authenticatedUser->commentName();
         } else {
@@ -180,8 +182,7 @@ readonly class CommentController implements ControllerInterface
                     'nick'           => $name,
                     'time'           => time(),
                     'good'           => false,
-                    'is_author'      => $authenticatedUser instanceof AuthenticatedPublicUser
-                        && $authenticatedUser->canCreateArticles,
+                    'is_author'      => $isAuthenticatedAuthor,
                     'id'             => 0,
                     'i'              => 0,
                     'depth'          => 0,
