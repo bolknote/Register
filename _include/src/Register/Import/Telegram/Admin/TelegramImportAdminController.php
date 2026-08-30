@@ -13,7 +13,7 @@ use Psr\Log\LoggerInterface;
 use Register\AdminYard\Translator;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Security\Http\AdminMutationGuard;
-use Register\Import\Telegram\TelegramDiscussionArchive;
+use Register\Import\Telegram\TelegramExportPackage;
 use Register\Import\Telegram\TelegramImportService;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -46,20 +46,22 @@ final readonly class TelegramImportAdminController
             return $this->error('Invalid CSRF token.', Response::HTTP_FORBIDDEN);
         }
 
-        $file = $request->files->get('telegram_json');
+        $file = $request->files->get('telegram_export') ?? $request->files->get('telegram_json');
         if (!$file instanceof UploadedFile || !$file->isValid()) {
-            return $this->error('Telegram JSON upload failed.', Response::HTTP_BAD_REQUEST);
+            return $this->error('Telegram export upload failed.', Response::HTTP_BAD_REQUEST);
         }
 
         $size = $file->getSize();
-        if (!\is_int($size) || $size <= 0 || $size > TelegramDiscussionArchive::MAX_BYTES) {
-            return $this->error('Telegram JSON is too large or empty.', Response::HTTP_BAD_REQUEST);
+        if (!\is_int($size) || $size <= 0 || $size > TelegramExportPackage::MAX_PACKAGE_BYTES) {
+            return $this->error('Telegram export is too large or empty.', Response::HTTP_BAD_REQUEST);
         }
 
         try {
             $report = $this->importService->importFile(
                 $file->getPathname(),
                 $this->permissionChecker->getUserId(),
+                false,
+                $file->getClientOriginalName(),
             );
         } catch (\InvalidArgumentException|\UnexpectedValueException|\DomainException $exception) {
             return $this->error($exception->getMessage(), Response::HTTP_BAD_REQUEST, false);

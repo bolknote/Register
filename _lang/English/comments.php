@@ -19,6 +19,12 @@ return [
 
 	'Comment preview'          => 'Comment preview',
 	'Comment preview info'     => 'Your comment has not been saved yet! Do not forget to press the “Submit” button after editing.',
+	'Telegram attachment unavailable' => 'Telegram attachment unavailable',
+	'Telegram image unavailable' => 'Telegram image unavailable',
+	'Telegram video unavailable' => 'Telegram video unavailable',
+	'Telegram audio unavailable' => 'Telegram audio unavailable',
+	'Telegram attachments unavailable' => 'Telegram attachments unavailable (%count%)',
+	'Telegram attachment unavailable admin detail' => 'The file was not included in the export. Import a ZIP archive with media.',
 
     'Comment check passed'     => 'Published: the comment passed the check (report=%s). Hide it if it is not appropriate.',
     'Comment check failed'     => 'Hidden: the comment failed the check (report=%s). Publish it if it is appropriate.',

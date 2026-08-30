@@ -24,8 +24,8 @@ $html = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES,
         <input type="hidden" name="csrf_token" value="<?= $html($csrfToken) ?>">
         <p>
             <label>
-                <strong><?= $trans('Telegram JSON file') ?></strong><br>
-                <input type="file" name="telegram_json" accept=".json,application/json" required>
+                <strong><?= $trans('Telegram export file') ?></strong><br>
+                <input type="file" name="telegram_export" accept=".json,.zip,application/json,application/zip" required>
             </label>
         </p>
         <p><button type="submit" class="primary"><?= $trans('Telegram import submit') ?></button></p>

@@ -10,7 +10,13 @@ declare(strict_types = 1);
 
 $editorRows ??= 9;
 $editorName ??= 'text';
-$editorHtml = \Register\Core\Comment\CommentHtml::editorHtml($editorValue, $trans('Wrote'));
+$editorHtml = \Register\Core\Comment\CommentHtml::editorHtml($editorValue, $trans('Wrote'), [
+    'attachment' => $trans('Telegram attachment unavailable'),
+    'photo' => $trans('Telegram image unavailable'),
+    'video' => $trans('Telegram video unavailable'),
+    'audio' => $trans('Telegram audio unavailable'),
+    'multiple' => $trans('Telegram attachments unavailable'),
+]);
 
 ?>
 <div class="comment-editor" data-comment-editor>

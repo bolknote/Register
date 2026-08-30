@@ -69,7 +69,7 @@ final readonly class CommentModerationController implements ControllerInterface
             }
 
             $submittedText = trim($request->request->getString('text'));
-            $text = CommentHtml::sanitizeForStorage($submittedText);
+            $text = CommentHtml::sanitizeImportedForStorage($submittedText);
             if ($text === '' || strlen($submittedText) > self::MAX_COMMENT_BYTES || strlen($text) > self::MAX_COMMENT_BYTES) {
                 return $this->error($request, $this->translator->trans('Invalid edited comment'), Response::HTTP_UNPROCESSABLE_ENTITY);
             }

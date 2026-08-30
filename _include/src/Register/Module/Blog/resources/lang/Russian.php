@@ -56,8 +56,8 @@ return [
 
     'Delete warning' => 'Удалить пост «%s» и все комментарии к нему?',
     'Post tools' => 'Инструменты поста',
-    'Edit post inplace' => 'Редактировать пост здесь',
-    'Delete post inplace' => 'Удалить пост здесь',
+    'Edit post inplace' => 'Редактировать пост',
+    'Delete post inplace' => 'Удалить пост',
     'Post title' => 'Заголовок',
     'Post text' => 'Текст поста',
     'Post tags' => 'Теги',

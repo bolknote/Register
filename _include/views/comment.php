@@ -181,7 +181,18 @@ $sourceLabel     = $presentation_source_label ?? '';
         <?php if ($show_addressee && $parent !== null && $parent['nick'] !== ''): ?>
             <a class="comment-addressee" href="#<?php echo $parent['i']; ?>"><?php echo register_htmlencode($parent['nick']); ?>,</a>
         <?php endif; ?>
-        <?php echo \Register\Core\Comment\CommentHtml::render($text, $trans('Wrote')); ?>
+        <?php
+        echo \Register\Core\Comment\CommentHtml::render($text, $trans('Wrote'), [
+            'attachment' => $trans('Telegram attachment unavailable'),
+            'photo' => $trans('Telegram image unavailable'),
+            'video' => $trans('Telegram video unavailable'),
+            'audio' => $trans('Telegram audio unavailable'),
+            'multiple' => $trans('Telegram attachments unavailable'),
+            'admin_detail' => $moderationData !== null && !empty($moderationData['can_edit'])
+                ? $trans('Telegram attachment unavailable admin detail')
+                : '',
+        ]);
+        ?>
         <?php if ($reactionSummary !== []): ?>
         <div class="comment-reaction-summary" aria-label="<?php echo $trans('Reactions'); ?>">
             <?php foreach ($reactionSummary as $reactionEmoji => $reactionCount): ?>

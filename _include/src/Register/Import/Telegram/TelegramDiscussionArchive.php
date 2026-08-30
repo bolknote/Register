@@ -68,6 +68,15 @@ final class TelegramDiscussionArchive
             throw new \RuntimeException('Unable to read the Telegram export.');
         }
 
+        return self::fromJson($json);
+    }
+
+    public static function fromJson(string $json): self
+    {
+        if ($json === '' || \strlen($json) > self::MAX_BYTES) {
+            throw new \UnexpectedValueException('Telegram JSON must be a non-empty file smaller than 25 MB.');
+        }
+
         try {
             $export = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {

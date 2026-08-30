@@ -56,8 +56,8 @@ return [
 
     'Delete warning' => 'Do you want to delete the post “%s” and all its comments?',
     'Post tools' => 'Post tools',
-    'Edit post inplace' => 'Edit this post here',
-    'Delete post inplace' => 'Delete this post here',
+    'Edit post inplace' => 'Edit post',
+    'Delete post inplace' => 'Delete post',
     'Post title' => 'Title',
     'Post text' => 'Post text',
     'Post tags' => 'Tags',

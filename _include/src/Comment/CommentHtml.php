@@ -103,6 +103,15 @@ final class CommentHtml
     }
 
     /**
+     * Sanitizes trusted importer output, including media copied into Register's managed directory
+     * and semantic placeholders for attachments that were absent from the source archive.
+     */
+    public static function sanitizeImportedForStorage(string $input): string
+    {
+        return self::sanitizeForStorageWithPolicy($input, true);
+    }
+
+    /**
      * Converts the old plain-text/BBCode representation into canonical HTML storage.
      *
      * Managed comment attachments are the only media accepted here. Their paths were generated
@@ -134,18 +143,32 @@ final class CommentHtml
         return self::STORAGE_PREFIX . $html;
     }
 
-    public static function render(string $stored, string $wroteText): string
+    /** @param array<string, string> $telegramAttachmentLabels */
+    public static function render(
+        string $stored,
+        string $wroteText,
+        array $telegramAttachmentLabels = [],
+    ): string
     {
         if (!str_starts_with($stored, self::STORAGE_PREFIX)) {
             return StringHelper::bbcodeToHtml(register_htmlencode($stored), $wroteText);
         }
 
-        return self::sanitizeFragment(substr($stored, \strlen(self::STORAGE_PREFIX)), true);
+        return self::sanitizeFragment(
+            substr($stored, \strlen(self::STORAGE_PREFIX)),
+            true,
+            $telegramAttachmentLabels,
+        );
     }
 
-    public static function editorHtml(string $stored, string $wroteText): string
+    /** @param array<string, string> $telegramAttachmentLabels */
+    public static function editorHtml(
+        string $stored,
+        string $wroteText,
+        array $telegramAttachmentLabels = [],
+    ): string
     {
-        return self::render($stored, $wroteText);
+        return self::render($stored, $wroteText, $telegramAttachmentLabels);
     }
 
     public static function plainText(string $stored, bool $includeLinkTargets = true): string
@@ -163,7 +186,12 @@ final class CommentHtml
         return self::plainTextFromHtml($html, $includeLinkTargets);
     }
 
-    private static function sanitizeFragment(string $input, bool $allowManagedCommentMedia = false): string
+    /** @param array<string, string> $telegramAttachmentLabels */
+    private static function sanitizeFragment(
+        string $input,
+        bool $allowManagedCommentMedia = false,
+        array $telegramAttachmentLabels = [],
+    ): string
     {
         $body = self::parseFragment($input);
         if (!$body instanceof \DOMElement) {
@@ -172,15 +200,27 @@ final class CommentHtml
 
         $html = '';
         foreach ($body->childNodes as $child) {
-            $html .= self::sanitizeNode($child, $allowManagedCommentMedia);
+            $html .= self::sanitizeNode($child, $allowManagedCommentMedia, $telegramAttachmentLabels);
         }
 
         $html = trim($html);
+        if ($telegramAttachmentLabels !== []) {
+            $html = preg_replace(
+                '~(?:<br>\s*){1,2}(?=<span class="comment-media-missing")~u',
+                '',
+                $html,
+            ) ?? $html;
+        }
 
         return preg_replace('/(?:<br>\s*)+\z/u', '', $html) ?? $html;
     }
 
-    private static function sanitizeNode(\DOMNode $node, bool $allowManagedCommentMedia): string
+    /** @param array<string, string> $telegramAttachmentLabels */
+    private static function sanitizeNode(
+        \DOMNode $node,
+        bool $allowManagedCommentMedia,
+        array $telegramAttachmentLabels,
+    ): string
     {
         if ($node instanceof \DOMText) {
             return htmlspecialchars(
@@ -195,6 +235,45 @@ final class CommentHtml
         }
 
         $sourceTag = mb_strtolower($node->tagName);
+        if (
+            $allowManagedCommentMedia
+            && $sourceTag === 'span'
+            && self::hasClass($node, 'comment-media-missing')
+        ) {
+            $kind = self::telegramAttachmentKind($node->getAttribute('data-kind'));
+            $count = self::telegramAttachmentCount($node->getAttribute('data-count'));
+            if ($telegramAttachmentLabels !== []) {
+                return self::telegramAttachmentPlaceholderHtml(
+                    $kind,
+                    $count,
+                    $telegramAttachmentLabels,
+                );
+            }
+
+            $children = '';
+            foreach ($node->childNodes as $child) {
+                $children .= self::sanitizeNode($child, $allowManagedCommentMedia, []);
+            }
+            if (trim(strip_tags($children)) === '') {
+                $children = 'Telegram attachment unavailable';
+            }
+
+            return '<span class="comment-media-missing" data-kind="' . $kind
+                . '" data-count="' . $count . '">' . $children . '</span>';
+        }
+
+        if (
+            $sourceTag === 'em'
+            && $telegramAttachmentLabels !== []
+            && self::isLegacyTelegramAttachmentPlaceholder($node->textContent)
+        ) {
+            return self::telegramAttachmentPlaceholderHtml(
+                'attachment',
+                1,
+                $telegramAttachmentLabels,
+            );
+        }
+
         if (in_array($sourceTag, ['img', 'video', 'audio'], true)) {
             if (!$allowManagedCommentMedia) {
                 return '';
@@ -219,7 +298,7 @@ final class CommentHtml
 
         $children = '';
         foreach ($node->childNodes as $child) {
-            $children .= self::sanitizeNode($child, $allowManagedCommentMedia);
+            $children .= self::sanitizeNode($child, $allowManagedCommentMedia, $telegramAttachmentLabels);
         }
 
         if (
@@ -268,6 +347,52 @@ final class CommentHtml
         $classes = preg_split('/\s+/u', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY);
 
         return is_array($classes) && in_array($expected, $classes, true);
+    }
+
+    private static function telegramAttachmentKind(string $kind): string
+    {
+        $kind = mb_strtolower(trim($kind));
+
+        return in_array($kind, ['photo', 'video', 'audio', 'attachment'], true)
+            ? $kind
+            : 'attachment';
+    }
+
+    private static function telegramAttachmentCount(string $count): int
+    {
+        return preg_match('/^[1-9][0-9]{0,2}$/D', $count) === 1 ? (int)$count : 1;
+    }
+
+    private static function isLegacyTelegramAttachmentPlaceholder(string $text): bool
+    {
+        return str_starts_with(
+            trim($text),
+            'Telegram attachment is not contained in the JSON:',
+        );
+    }
+
+    /** @param array<string, string> $labels */
+    private static function telegramAttachmentPlaceholderHtml(string $kind, int $count, array $labels): string
+    {
+        $labelKey = $count > 1 ? 'multiple' : $kind;
+        $label = trim($labels[$labelKey] ?? $labels['attachment'] ?? 'Telegram attachment unavailable');
+        if ($count > 1) {
+            $label = str_replace('%count%', (string)$count, $label);
+        }
+
+        $html = '<span class="comment-media-missing" data-kind="' . $kind
+            . '" data-count="' . $count . '" role="note">'
+            . '<span class="comment-media-missing-label">'
+            . self::encodeAttribute($label)
+            . '</span>';
+        $detail = trim($labels['admin_detail'] ?? '');
+        if ($detail !== '') {
+            $html .= '<span class="comment-media-missing-detail">'
+                . self::encodeAttribute($detail)
+                . '</span>';
+        }
+
+        return $html . '</span>';
     }
 
     private static function hasManagedCommentMediaChild(\DOMElement $node): bool

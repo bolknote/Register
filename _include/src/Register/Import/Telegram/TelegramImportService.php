@@ -39,6 +39,7 @@ final readonly class TelegramImportService
         private CommentRepository           $commentRepository,
         private ReactionAggregateRepository $reactionRepository,
         private ExternalImportMapRepository $mapRepository,
+        private TelegramManagedMediaStorage $mediaStorage,
         private string                      $baseUrl,
     ) {
     }
@@ -52,7 +53,12 @@ final readonly class TelegramImportService
      *     excluded_roots: list<array<string, mixed>>
      * }
      */
-    public function importFile(string $path, ?int $siteAuthorUserId = null, bool $dryRun = false): array
+    public function importFile(
+        string $path,
+        ?int $siteAuthorUserId = null,
+        bool $dryRun = false,
+        string $clientOriginalName = '',
+    ): array
     {
         $siteHost = strtolower((string)parse_url($this->baseUrl, PHP_URL_HOST));
         if ($siteHost === '') {
@@ -60,7 +66,8 @@ final readonly class TelegramImportService
         }
 
         $postIndex = $this->postIndex();
-        $archive = TelegramDiscussionArchive::fromFile($path)->extract(
+        $package = TelegramExportPackage::fromFile($path, $clientOriginalName);
+        $archive = $package->discussionArchive()->extract(
             static function (string $path) use ($postIndex): ?array {
                 $post = $postIndex[$path] ?? null;
                 return \is_array($post) ? $post : null;
@@ -80,20 +87,23 @@ final readonly class TelegramImportService
         $reactionRows = $this->telegramReactions($chatId);
         $now = time();
         $changes = [
-            'comments_inserted'             => 0,
-            'comments_updated'              => 0,
-            'comments_unchanged'            => 0,
-            'comments_media_placeholders'   => 0,
-            'comments_media_updates_skipped' => 0,
-            'legacy_mappings_backfilled'    => 0,
-            'provenance_updated'            => 0,
-            'reaction_groups_inserted'      => 0,
-            'reaction_groups_updated'       => 0,
-            'reaction_groups_unchanged'     => 0,
-            'reaction_groups_removed'       => 0,
+            'comments_inserted'              => 0,
+            'comments_updated'               => 0,
+            'comments_unchanged'             => 0,
+            'comments_media_available'       => 0,
+            'comments_media_unavailable'     => 0,
+            'comments_media_repaired'        => 0,
+            'comments_local_edits_preserved' => 0,
+            'legacy_mappings_backfilled'     => 0,
+            'provenance_updated'             => 0,
+            'reaction_groups_inserted'       => 0,
+            'reaction_groups_updated'        => 0,
+            'reaction_groups_unchanged'      => 0,
+            'reaction_groups_removed'        => 0,
         ];
 
         $startedTransaction = false;
+        $createdMediaFiles = [];
         try {
             if (!$this->pdo->inTransaction()) {
                 $this->pdo->beginTransaction();
@@ -149,7 +159,28 @@ final readonly class TelegramImportService
                     $modifiedAt = (int)($sourceComment['edited_unixtime'] ?? 0);
                     $modifiedAt = $modifiedAt > $createdAt ? $modifiedAt : null;
                     $media = \is_array($sourceComment['media'] ?? null) ? $sourceComment['media'] : [];
-                    $text = $this->commentText($sourceComment, $media !== []);
+                    $mediaResult = $this->commentText(
+                        $sourceComment,
+                        $package,
+                        $chatId,
+                        $messageId,
+                        $dryRun,
+                    );
+                    $text = $mediaResult['text'];
+                    foreach ($mediaResult['created_files'] as $createdMediaFile) {
+                        $createdMediaFiles[] = $createdMediaFile;
+                    }
+                    $availableMedia = 0;
+                    $unavailableMedia = 0;
+                    foreach ($mediaResult['state'] as $mediaState) {
+                        if ($mediaState['status'] === 'available') {
+                            ++$availableMedia;
+                        } else {
+                            ++$unavailableMedia;
+                        }
+                    }
+                    $changes['comments_media_available'] += $availableMedia;
+                    $changes['comments_media_unavailable'] += $unavailableMedia;
                     $comment = new CommentImport(
                         $contentId,
                         $name,
@@ -164,7 +195,13 @@ final readonly class TelegramImportService
                         $sourceHash = TelegramDiscussionArchive::commentHash($sourceComment);
                     }
 
-                    $sourceData = $this->sourceData($source, $thread, $sourceComment);
+                    $sourceData = $this->sourceData(
+                        $source,
+                        $thread,
+                        $sourceComment,
+                        $text,
+                        $mediaResult['state'],
+                    );
                     $existingMap = $maps[$externalId] ?? null;
 
                     if (!\is_array($existingMap)) {
@@ -174,10 +211,6 @@ final readonly class TelegramImportService
                         }
 
                         ++$changes['comments_inserted'];
-                        if ($media !== []) {
-                            ++$changes['comments_media_placeholders'];
-                        }
-
                         $createdMapAt = $now;
                     } else {
                         $commentId = $this->mappedCommentId($existingMap, $externalId);
@@ -194,14 +227,42 @@ final readonly class TelegramImportService
                             );
                         }
 
-                        $previousModifiedAt = $this->mappedModifiedAt($existingMap['source_data'] ?? []);
-                        if ($modifiedAt !== null && $modifiedAt > $previousModifiedAt) {
-                            if ($media === []) {
-                                $this->commentImportService->synchronize($commentId, $comment);
+                        $previousSourceData = $existingMap['source_data'] ?? [];
+                        $previousModifiedAt = $this->mappedModifiedAt($previousSourceData);
+                        $previousRenderedHash = $this->mappedString(
+                            $previousSourceData,
+                            'rendered_text_sha256',
+                        );
+                        $previousMediaHash = $this->mappedString(
+                            $previousSourceData,
+                            'media_state_sha256',
+                        );
+                        $currentMediaHash = $this->mediaStateHash($mediaResult['state']);
+                        $storedTextHash = hash('sha256', $storedComment->text);
+                        $hasLocalEdit = $previousRenderedHash !== null
+                            && !hash_equals($previousRenderedHash, $storedTextHash);
+                        $hasSourceChange = (string)($existingMap['source_hash'] ?? '') !== $sourceHash;
+                        $hasMediaChange = $previousMediaHash !== null
+                            && !hash_equals($previousMediaHash, $currentMediaHash);
+                        $repairsLegacyPlaceholder = $this->hasLegacyMediaPlaceholder($storedComment->text);
+                        $needsSynchronization = ($modifiedAt !== null && $modifiedAt > $previousModifiedAt)
+                            || $hasSourceChange
+                            || $hasMediaChange
+                            || $repairsLegacyPlaceholder;
+
+                        if ($needsSynchronization && !$hasLocalEdit) {
+                            if ($this->commentImportService->synchronize($commentId, $comment)) {
                                 ++$changes['comments_updated'];
+                                if ($media !== [] && ($hasMediaChange || $repairsLegacyPlaceholder)) {
+                                    ++$changes['comments_media_repaired'];
+                                }
                             } else {
-                                ++$changes['comments_media_updates_skipped'];
+                                ++$changes['comments_unchanged'];
                             }
+                        } elseif ($hasLocalEdit && $needsSynchronization) {
+                            ++$changes['comments_local_edits_preserved'];
+                            ++$changes['comments_unchanged'];
+                            $this->discardCreatedMedia($mediaResult['created_files'], $createdMediaFiles);
                         } else {
                             ++$changes['comments_unchanged'];
                         }
@@ -211,7 +272,8 @@ final readonly class TelegramImportService
 
                     $shouldStoreMap = !isset($genericMapIds[$externalId])
                         || !\is_array($existingMap)
-                        || (string)($existingMap['source_hash'] ?? '') !== $sourceHash;
+                        || (string)($existingMap['source_hash'] ?? '') !== $sourceHash
+                        || ($existingMap['source_data'] ?? null) !== $sourceData;
                     if ($shouldStoreMap) {
                         $this->mapRepository->store(
                             self::SOURCE,
@@ -285,6 +347,7 @@ final readonly class TelegramImportService
             if ($startedTransaction) {
                 if ($dryRun) {
                     $this->pdo->rollBack();
+                    $this->removeMediaFiles($createdMediaFiles);
                 } else {
                     $this->pdo->commit();
                 }
@@ -295,6 +358,7 @@ final readonly class TelegramImportService
             if ($startedTransaction && $this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
             }
+            $this->removeMediaFiles($createdMediaFiles);
 
             throw $throwable;
         }
@@ -443,41 +507,148 @@ final readonly class TelegramImportService
         return $result;
     }
 
-    /** @param array<string, mixed> $sourceComment */
-    private function commentText(array $sourceComment, bool $hasMedia): string
-    {
+    /**
+     * @param array<string, mixed> $sourceComment
+     * @return array{
+     *     text: string,
+     *     state: list<array{status: 'available'|'unavailable', kind: string, source_sha256: string}>,
+     *     created_files: list<string>
+     * }
+     */
+    private function commentText(
+        array                 $sourceComment,
+        TelegramExportPackage $package,
+        int                   $chatId,
+        int                   $messageId,
+        bool                  $dryRun,
+    ): array {
         $html = (string)($sourceComment['html'] ?? '');
-        if ($hasMedia) {
-            $names = [];
-            foreach ((array)$sourceComment['media'] as $media) {
-                if (\is_array($media)) {
-                    $attachmentName = trim((string)($media['file_name'] ?? ''));
-                    $names[] = $attachmentName !== '' ? $attachmentName : 'Telegram attachment';
-                }
+        $state = [];
+        $createdFiles = [];
+        $unavailableKinds = [];
+        foreach ((array)($sourceComment['media'] ?? []) as $position => $media) {
+            if (!\is_array($media)) {
+                continue;
             }
 
-            $placeholder = 'Telegram attachment is not contained in the JSON: ' . implode(', ', $names) . '.';
-            $html .= ($html === '' ? '' : '<br><br>')
-                . '<em>' . htmlspecialchars($placeholder, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</em>';
+            $relativePath = trim((string)($media['path'] ?? ''));
+            $sourceSha256 = hash('sha256', $relativePath);
+            $storedMedia = $this->mediaStorage->import(
+                $package,
+                $relativePath,
+                $chatId,
+                $messageId,
+                (int)$position + 1,
+                $dryRun,
+            );
+            if ($storedMedia === null) {
+                $kind = $this->missingMediaKind($media);
+                $unavailableKinds[] = $kind;
+                $state[] = [
+                    'status'        => 'unavailable',
+                    'kind'          => $kind,
+                    'source_sha256' => $sourceSha256,
+                ];
+                continue;
+            }
+
+            $html .= $this->mediaHtml($storedMedia, $media);
+            $state[] = [
+                'status'        => 'available',
+                'kind'          => $storedMedia['kind'],
+                'source_sha256' => $sourceSha256 . ':' . $storedMedia['sha256'],
+            ];
+            if ($storedMedia['created_file'] !== null) {
+                $createdFiles[] = $storedMedia['created_file'];
+            }
         }
 
-        $stored = CommentHtml::sanitizeForStorage($html);
+        if ($unavailableKinds !== []) {
+            $kind = \count($unavailableKinds) === 1 ? $unavailableKinds[0] : 'attachment';
+            $html .= '<span class="comment-media-missing" data-kind="' . $kind
+                . '" data-count="' . \count($unavailableKinds)
+                . '">Telegram attachment unavailable</span>';
+        }
+
+        $stored = CommentHtml::sanitizeImportedForStorage($html);
         if ($stored === '') {
             throw new \UnexpectedValueException(
                 'Telegram comment ' . (int)($sourceComment['message_id'] ?? 0) . ' is empty.',
             );
         }
 
-        return $stored;
+        return [
+            'text'          => $stored,
+            'state'         => $state,
+            'created_files' => $createdFiles,
+        ];
+    }
+
+    /**
+     * @param array{url: string, kind: string, mime_type: string, sha256: string, created_file: ?string} $storedMedia
+     * @param array<string, mixed> $sourceMedia
+     */
+    private function mediaHtml(array $storedMedia, array $sourceMedia): string
+    {
+        $url = htmlspecialchars($storedMedia['url'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        return match ($storedMedia['kind']) {
+            'image' => '<figure class="comment-media"><img src="' . $url
+                . '" alt="" loading="lazy" decoding="async"></figure>',
+            'video' => '<figure class="comment-media"><video src="' . $url
+                . '" controls preload="metadata"></video></figure>',
+            'audio' => '<span class="comment-media"><audio src="' . $url
+                . '" controls preload="metadata"></audio></span>',
+            default => '<a class="comment-media-file" href="' . $url . '">'
+                . htmlspecialchars(
+                    $this->mediaFileName($sourceMedia),
+                    ENT_QUOTES | ENT_SUBSTITUTE,
+                    'UTF-8',
+                )
+                . '</a>',
+        };
+    }
+
+    /** @param array<string, mixed> $media */
+    private function missingMediaKind(array $media): string
+    {
+        if (($media['kind'] ?? null) === 'photo') {
+            return 'photo';
+        }
+
+        $mimeType = mb_strtolower(trim((string)($media['mime_type'] ?? '')));
+        if (str_starts_with($mimeType, 'video/')) {
+            return 'video';
+        }
+        if (str_starts_with($mimeType, 'audio/')) {
+            return 'audio';
+        }
+
+        return 'attachment';
+    }
+
+    /** @param array<string, mixed> $media */
+    private function mediaFileName(array $media): string
+    {
+        $name = basename(trim((string)($media['file_name'] ?? '')));
+
+        return $name !== '' && $name !== '.' ? $name : 'Telegram attachment';
     }
 
     /**
      * @param array<string, mixed> $source
      * @param array<string, mixed> $thread
      * @param array<string, mixed> $comment
+     * @param list<array{status: 'available'|'unavailable', kind: string, source_sha256: string}> $mediaState
      * @return array<string, mixed>
      */
-    private function sourceData(array $source, array $thread, array $comment): array
+    private function sourceData(
+        array $source,
+        array $thread,
+        array $comment,
+        string $renderedText,
+        array $mediaState,
+    ): array
     {
         return [
             'telegram' => [
@@ -487,6 +658,8 @@ final readonly class TelegramImportService
                 'message_id'      => (int)$comment['message_id'],
                 'post_url'        => (string)($thread['post_url'] ?? ''),
                 'comment'         => $comment,
+                'rendered_text_sha256' => hash('sha256', $renderedText),
+                'media_state_sha256' => $this->mediaStateHash($mediaState),
             ],
         ];
     }
@@ -512,6 +685,61 @@ final readonly class TelegramImportService
             ?? $sourceData['TelegramComment']
             ?? null;
         return \is_array($comment) ? (int)($comment['edited_unixtime'] ?? 0) : 0;
+    }
+
+    private function mappedString(mixed $sourceData, string $key): ?string
+    {
+        if (!\is_array($sourceData) || !\is_array($sourceData['telegram'] ?? null)) {
+            return null;
+        }
+
+        $value = $sourceData['telegram'][$key] ?? null;
+
+        return \is_string($value) && preg_match('/^[a-f0-9]{64}$/D', $value) === 1
+            ? $value
+            : null;
+    }
+
+    /** @param list<array{status: 'available'|'unavailable', kind: string, source_sha256: string}> $state */
+    private function mediaStateHash(array $state): string
+    {
+        return hash('sha256', json_encode(
+            $state,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        ));
+    }
+
+    private function hasLegacyMediaPlaceholder(string $storedText): bool
+    {
+        return str_contains($storedText, 'Telegram attachment is not contained in the JSON:');
+    }
+
+    /**
+     * @param list<string> $files
+     * @param list<string> $allCreatedFiles
+     */
+    private function discardCreatedMedia(array $files, array &$allCreatedFiles): void
+    {
+        $this->removeMediaFiles($files);
+        if ($files === []) {
+            return;
+        }
+
+        $discarded = array_fill_keys($files, true);
+        $allCreatedFiles = array_values(array_filter(
+            $allCreatedFiles,
+            static fn(string $file): bool => !isset($discarded[$file]),
+        ));
+    }
+
+    /** @param list<string> $files */
+    private function removeMediaFiles(array $files): void
+    {
+        foreach (array_unique($files) as $file) {
+            if (is_file($file) && !is_link($file)) {
+                register_call_without_warnings(static fn(): bool => unlink($file));
+            }
+        }
     }
 
     /**

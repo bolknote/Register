@@ -19,6 +19,7 @@ use Register\Import\Telegram\Admin\TelegramImportAdminPage;
 use Register\Import\Telegram\Admin\TelegramImportToken;
 use Register\Import\Telegram\Admin\TelegramImportTranslationProvider;
 use Register\Import\Telegram\TelegramImportService;
+use Register\Import\Telegram\TelegramManagedMediaStorage;
 use Register\Module\Reactions\ReactionAggregateRepository;
 use Register\AdminYard\SettingStorage\SettingStorageInterface;
 use Register\AdminYard\TemplateRenderer;
@@ -42,6 +43,9 @@ final readonly class ImportModule implements ContainerModuleInterface
         $container->set(ExternalImportMapRepository::class, static fn(Container $container): ExternalImportMapRepository => new ExternalImportMapRepository(
             $container->get(DbLayer::class),
         ));
+        $container->set(TelegramManagedMediaStorage::class, static fn(Container $container): TelegramManagedMediaStorage => new TelegramManagedMediaStorage(
+            $container->getStringParameter('public_root_dir'),
+        ));
         $container->set(TelegramImportService::class, static fn(Container $container): TelegramImportService => new TelegramImportService(
             $container->get(DbLayer::class),
             $container->get(\PDO::class),
@@ -49,6 +53,7 @@ final readonly class ImportModule implements ContainerModuleInterface
             $container->get(CommentRepository::class),
             $container->get(ReactionAggregateRepository::class),
             $container->get(ExternalImportMapRepository::class),
+            $container->get(TelegramManagedMediaStorage::class),
             $container->getStringParameter('base_url'),
         ));
         $container->set(

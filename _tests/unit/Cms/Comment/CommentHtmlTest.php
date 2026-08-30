@@ -161,4 +161,51 @@ TEXT;
             ),
         );
     }
+
+    public function testImportedUnavailableAttachmentKeepsSemanticMarkerAndUsesRenderLocale(): void
+    {
+        $stored = CommentHtml::sanitizeImportedForStorage(
+            '<span class="comment-media-missing" data-kind="photo" data-count="1">'
+                . 'Telegram attachment unavailable</span>',
+        );
+
+        self::assertStringContainsString('class="comment-media-missing"', $stored);
+        self::assertStringContainsString('data-kind="photo"', $stored);
+        self::assertSame('Telegram attachment unavailable', CommentHtml::plainText($stored));
+
+        $rendered = CommentHtml::render($stored, 'написал:', [
+            'attachment' => 'Вложение из Telegram недоступно',
+            'photo' => 'Изображение из Telegram недоступно',
+            'multiple' => 'Вложения из Telegram недоступны (%count%)',
+            'admin_detail' => 'Повторите импорт ZIP-архива с медиа.',
+        ]);
+        self::assertStringContainsString('Изображение из Telegram недоступно', $rendered);
+        self::assertStringContainsString('Повторите импорт ZIP-архива с медиа.', $rendered);
+        self::assertStringNotContainsString('Telegram attachment unavailable', $rendered);
+    }
+
+    public function testOrdinaryCommentCannotForgeUnavailableAttachmentComponent(): void
+    {
+        $stored = CommentHtml::sanitizeForStorage(
+            '<span class="comment-media-missing" data-kind="photo">Visible text</span>',
+        );
+
+        self::assertStringNotContainsString('comment-media-missing', $stored);
+        self::assertSame('Visible text', CommentHtml::plainText($stored));
+    }
+
+    public function testLegacyTelegramMediaErrorRendersAsLocalizedAttachmentState(): void
+    {
+        $stored = CommentHtml::sanitizeForStorage(
+            '<p>Подпись</p><br><br><em>Telegram attachment is not contained in the JSON: '
+                . '(File not included. Change data exporting settings to download.).</em>',
+        );
+        $rendered = CommentHtml::render($stored, 'написал:', [
+            'attachment' => 'Вложение из Telegram недоступно',
+        ]);
+
+        self::assertStringContainsString('<p>Подпись</p><span class="comment-media-missing"', $rendered);
+        self::assertStringContainsString('Вложение из Telegram недоступно', $rendered);
+        self::assertStringNotContainsString('File not included', $rendered);
+    }
 }
