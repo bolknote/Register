@@ -16,6 +16,8 @@ use Register\Core\Pdo\SchemaBuilderInterface;
 
 class Manifest implements BaseModuleInstallerInterface
 {
+    public const string VERSION = '4.1';
+
     public const string SALT_CONFIG_KEY = 'REGISTER_ANALYTICS_SALT';
 
     #[\Override]
@@ -39,7 +41,7 @@ class Manifest implements BaseModuleInstallerInterface
     #[\Override]
     public function getVersion(): string
     {
-        return '4.0';
+        return self::VERSION;
     }
 
     #[\Override]

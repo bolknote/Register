@@ -164,9 +164,14 @@ final class AnalyticsCest
         $I->assertSame(2, $pages['data'][0]['views']);
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Statistics');
-        $I->see('Unique visitors', '.analytics-summary');
+        $I->see('Total unique visitors', '.analytics-summary');
         $I->see('1', '.analytics-summary-value');
         $I->see('Sessions today', '.analytics-summary-list');
+        $I->seeElement('.analytics-range-selector [data-analytics-range-days="30"][aria-pressed="true"]');
+        $I->seeElement('[data-analytics-panel="pages"][hidden]');
+        $I->seeElement('[data-analytics-panel="sessions"][hidden]');
+        $I->seeElement('.analytics-ranking-grid[hidden]');
+        $I->seeElement('script[src*="analytics/charts.js?v=4.1"]');
     }
 
     public function ignoresBrowserPrivacySignalsAndRejectsPublicAnalyticsData(\IntegrationTester $I): void
