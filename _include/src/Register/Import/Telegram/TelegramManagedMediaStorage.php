@@ -77,6 +77,7 @@ final readonly class TelegramManagedMediaStorage
                 if ($chunk === false) {
                     throw new \RuntimeException('Unable to read Telegram media.');
                 }
+
                 if ($chunk === '') {
                     continue;
                 }
@@ -89,6 +90,7 @@ final readonly class TelegramManagedMediaStorage
                 if (\strlen($prefix) < 16_384) {
                     $prefix .= substr($chunk, 0, 16_384 - \strlen($prefix));
                 }
+
                 hash_update($hash, $chunk);
 
                 if (\is_resource($output)) {
@@ -99,22 +101,26 @@ final readonly class TelegramManagedMediaStorage
             if (\is_resource($output)) {
                 fclose($output);
             }
+
             fclose($input);
             if ($temporaryFile !== null && is_file($temporaryFile)) {
                 register_call_without_warnings(static fn(): bool => unlink($temporaryFile));
             }
+
             throw $throwable;
         }
 
         if (\is_resource($output)) {
             fclose($output);
         }
+
         fclose($input);
 
         if ($bytes !== $expectedSize) {
             if ($temporaryFile !== null && is_file($temporaryFile)) {
                 register_call_without_warnings(static fn(): bool => unlink($temporaryFile));
             }
+
             throw new \UnexpectedValueException('Telegram media size does not match the ZIP directory.');
         }
 
@@ -135,6 +141,7 @@ final readonly class TelegramManagedMediaStorage
                 'created_file' => null,
             ];
         }
+
         $createdFile = $this->publishStagedMedia($temporaryFile, $storagePath);
 
         return [
@@ -160,6 +167,7 @@ final readonly class TelegramManagedMediaStorage
             if ($written === false || $written === 0) {
                 throw new \RuntimeException('Unable to write Telegram media.');
             }
+
             $offset += $written;
         }
     }
@@ -181,6 +189,7 @@ final readonly class TelegramManagedMediaStorage
             if (!is_dir($current) && !mkdir($current, 0755) && !is_dir($current)) {
                 throw new \RuntimeException('Unable to create the Telegram media directory.');
             }
+
             if (is_link($current)) {
                 throw new \RuntimeException('The Telegram media directory must not be a symbolic link.');
             }
@@ -203,6 +212,7 @@ final readonly class TelegramManagedMediaStorage
             register_call_without_warnings(static fn(): bool => unlink($temporaryFile));
             throw new \RuntimeException('Unable to publish Telegram media.');
         }
+
         if (!register_call_without_warnings(static fn(): bool => chmod($storagePath, 0644))) {
             register_call_without_warnings(static fn(): bool => unlink($storagePath));
             throw new \RuntimeException('Unable to protect Telegram media.');

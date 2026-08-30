@@ -254,6 +254,7 @@ final class CommentHtml
             foreach ($node->childNodes as $child) {
                 $children .= self::sanitizeNode($child, $allowManagedCommentMedia, []);
             }
+
             if (trim(strip_tags($children)) === '') {
                 $children = 'Telegram attachment unavailable';
             }

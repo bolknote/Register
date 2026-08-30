@@ -170,6 +170,7 @@ final readonly class TelegramImportService
                     foreach ($mediaResult['created_files'] as $createdMediaFile) {
                         $createdMediaFiles[] = $createdMediaFile;
                     }
+
                     $availableMedia = 0;
                     $unavailableMedia = 0;
                     foreach ($mediaResult['state'] as $mediaState) {
@@ -179,6 +180,7 @@ final readonly class TelegramImportService
                             ++$unavailableMedia;
                         }
                     }
+
                     $changes['comments_media_available'] += $availableMedia;
                     $changes['comments_media_unavailable'] += $unavailableMedia;
                     $comment = new CommentImport(
@@ -358,6 +360,7 @@ final readonly class TelegramImportService
             if ($startedTransaction && $this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
             }
+
             $this->removeMediaFiles($createdMediaFiles);
 
             throw $throwable;
@@ -620,6 +623,7 @@ final readonly class TelegramImportService
         if (str_starts_with($mimeType, 'video/')) {
             return 'video';
         }
+
         if (str_starts_with($mimeType, 'audio/')) {
             return 'audio';
         }

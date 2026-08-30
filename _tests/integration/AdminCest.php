@@ -429,6 +429,7 @@ class AdminCest
         $I->see('Control panel', 'table.list-table td');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=User&action=list');
+
         $editUserHref = $I->grabAttributeFrom('a.list-action-link-edit', 'href');
         $I->assertNotNull($editUserHref);
         $I->amOnPage('https://localhost/_admin/index.php' . $editUserHref);

@@ -55,7 +55,7 @@ final readonly class AnalyticsEvent
         public int    $scrollDepth,
         public string $propertiesJson,
     ) {
-        self::assertValid($this);
+        $this->assertValid($this);
     }
 
     /** @return array<string, int|string> */
@@ -143,14 +143,14 @@ final readonly class AnalyticsEvent
         );
     }
 
-    private static function assertValid(self $event): void
+    private function assertValid(self $event): void
     {
-        self::assertDigest($event->id, 32, 'event identifier');
-        self::assertDigest($event->visitorKey, 64, 'visitor key');
-        self::assertDigest($event->sessionKey, 64, 'session key');
-        self::assertDigest($event->pageViewId, 32, 'page-view identifier');
-        self::assertDigest($event->pageKey, 64, 'page key');
-        self::assertDigest($event->sourceKey, 64, 'source key');
+        $this->assertDigest($event->id, 32, 'event identifier');
+        $this->assertDigest($event->visitorKey, 64, 'visitor key');
+        $this->assertDigest($event->sessionKey, 64, 'session key');
+        $this->assertDigest($event->pageViewId, 32, 'page-view identifier');
+        $this->assertDigest($event->pageKey, 64, 'page key');
+        $this->assertDigest($event->sourceKey, 64, 'source key');
 
         if (!\in_array($event->type, self::TYPES, true)) {
             throw new \InvalidArgumentException('Unsupported analytics event type.');
@@ -202,12 +202,13 @@ final readonly class AnalyticsEvent
         } catch (\JsonException $exception) {
             throw new \InvalidArgumentException('Analytics properties must be valid JSON.', 0, $exception);
         }
+
         if (!\is_array($properties)) {
             throw new \InvalidArgumentException('Analytics properties must be a JSON object.');
         }
     }
 
-    private static function assertDigest(string $value, int $length, string $label): void
+    private function assertDigest(string $value, int $length, string $label): void
     {
         if (preg_match('/^[a-f0-9]{' . $length . '}$/D', $value) !== 1) {
             throw new \InvalidArgumentException('Invalid analytics ' . $label . '.');

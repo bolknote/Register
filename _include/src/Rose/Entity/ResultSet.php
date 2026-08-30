@@ -113,10 +113,7 @@ class ResultSet
             $this->positions[$serializedExtId][$word] = $positions;
         } else {
             $this->data[$serializedExtId][$word]      += $weight;
-            $this->positions[$serializedExtId][$word] = self::mergePositions(
-                $this->positions[$serializedExtId][$word],
-                $positions,
-            );
+            $this->positions[$serializedExtId][$word] = $this->mergePositions($this->positions[$serializedExtId][$word], $positions);
         }
 
         if ($positions === []) {
@@ -140,10 +137,7 @@ class ResultSet
 
         $this->exactMatches[$serializedExtId][$word] = true;
         $this->data[$serializedExtId]['*exact_' . $word] = 0.0;
-        $this->positions[$serializedExtId][$word] = self::mergePositions(
-            $this->positions[$serializedExtId][$word] ?? [],
-            $positions,
-        );
+        $this->positions[$serializedExtId][$word] = $this->mergePositions($this->positions[$serializedExtId][$word] ?? [], $positions);
 
         $this->trace->addExactMatch($word, $serializedExtId);
     }
@@ -398,7 +392,7 @@ class ResultSet
      * @param list<int> $right
      * @return list<int>
      */
-    private static function mergePositions(array $left, array $right): array
+    private function mergePositions(array $left, array $right): array
     {
         $positions = array_values(array_unique(array_merge($left, $right)));
         sort($positions);

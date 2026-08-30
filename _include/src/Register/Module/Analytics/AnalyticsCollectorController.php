@@ -70,6 +70,7 @@ final readonly class AnalyticsCollectorController implements ControllerInterface
         } catch (\JsonException) {
             return $this->jsonError('Malformed JSON.', Response::HTTP_BAD_REQUEST);
         }
+
         if (!\is_array($payload) || ($payload['v'] ?? null) !== 1) {
             return $this->jsonError('Unsupported analytics payload.', Response::HTTP_BAD_REQUEST);
         }
@@ -90,6 +91,7 @@ final readonly class AnalyticsCollectorController implements ControllerInterface
                 if (!\is_array($rawEvent)) {
                     throw new \InvalidArgumentException('Each analytics event must be an object.');
                 }
+
                 $events[] = $this->normalizer->normalize($rawEvent, $request, $visitorId, $receivedAt);
             }
         } catch (\InvalidArgumentException $exception) {

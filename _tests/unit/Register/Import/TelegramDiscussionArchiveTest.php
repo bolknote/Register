@@ -163,6 +163,7 @@ final class TelegramDiscussionArchiveTest extends Unit
             if ($createdFile !== null) {
                 unlink($createdFile);
             }
+
             foreach (['123/2', '123', ''] as $suffix) {
                 $directory = $publicRoot . '_pictures/bolknote/comments/telegram'
                     . ($suffix === '' ? '' : '/' . $suffix);
@@ -170,6 +171,7 @@ final class TelegramDiscussionArchiveTest extends Unit
                     rmdir($directory);
                 }
             }
+
             rmdir($publicRoot . '_pictures/bolknote/comments');
             rmdir($publicRoot . '_pictures/bolknote');
             rmdir($publicRoot . '_pictures');

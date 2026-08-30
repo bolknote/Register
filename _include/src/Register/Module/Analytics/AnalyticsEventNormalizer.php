@@ -250,6 +250,7 @@ final readonly class AnalyticsEventNormalizer
             if ($value === []) {
                 return '{}';
             }
+
             throw new \InvalidArgumentException('Analytics properties must be a small JSON object.');
         }
 
@@ -264,6 +265,7 @@ final readonly class AnalyticsEventNormalizer
             } elseif (!\is_int($property) && !\is_float($property) && !\is_bool($property) && $property !== null) {
                 throw new \InvalidArgumentException('Analytics properties must contain scalar values.');
             }
+
             $properties[$name] = $property;
         }
 

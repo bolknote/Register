@@ -36,6 +36,7 @@ final class TelegramImportCest
         $zipPath = tempnam(sys_get_temp_dir(), 'register-telegram-zip-');
         $I->assertIsString($jsonPath);
         $I->assertIsString($zipPath);
+
         $storedFile = null;
         try {
             $missingExport = $this->export(
@@ -89,12 +90,14 @@ final class TelegramImportCest
             if (preg_match('~src="(/_pictures/bolknote/comments/telegram/[^"]+)"~', $comments[0]->text, $matches) !== 1) {
                 throw new \RuntimeException('The imported comment has no managed media URL.');
             }
+
             $storedFile = rtrim($publicRoot, '/') . $matches[1];
             $I->assertFileExists($storedFile);
         } finally {
             if ($storedFile !== null && is_file($storedFile)) {
                 unlink($storedFile);
             }
+
             foreach (['123/2', '123', ''] as $suffix) {
                 $directory = $publicRoot . '_pictures/bolknote/comments/telegram'
                     . ($suffix === '' ? '' : '/' . $suffix);
@@ -102,6 +105,7 @@ final class TelegramImportCest
                     rmdir($directory);
                 }
             }
+
             foreach ([
                 $publicRoot . '_pictures/bolknote/comments',
                 $publicRoot . '_pictures/bolknote',
@@ -112,9 +116,11 @@ final class TelegramImportCest
                     rmdir($directory);
                 }
             }
+
             if (is_file($jsonPath)) {
                 unlink($jsonPath);
             }
+
             if (is_file($zipPath)) {
                 unlink($zipPath);
             }

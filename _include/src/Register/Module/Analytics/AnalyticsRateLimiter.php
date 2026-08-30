@@ -67,6 +67,7 @@ final class AnalyticsRateLimiter
         if (\count($this->localCounters) > 256) {
             array_shift($this->localCounters);
         }
+
         return $count <= self::EVENTS_PER_MINUTE;
     }
 
@@ -103,6 +104,7 @@ final class AnalyticsRateLimiter
             if (!chmod($path, 0600)) {
                 throw new \RuntimeException('Unable to protect the analytics rate-limit shard.');
             }
+
             if (!flock($handle, LOCK_EX)) {
                 throw new \RuntimeException('Unable to lock the analytics rate-limit shard.');
             }
@@ -112,6 +114,7 @@ final class AnalyticsRateLimiter
             if ($contents === false) {
                 throw new \RuntimeException('Unable to read the analytics rate-limit shard.');
             }
+
             if (\strlen($contents) > self::MAX_FILE_BYTES) {
                 return false;
             }
@@ -146,6 +149,7 @@ final class AnalyticsRateLimiter
         } catch (\JsonException) {
             return [];
         }
+
         if (!\is_array($decoded)) {
             return [];
         }
@@ -160,6 +164,7 @@ final class AnalyticsRateLimiter
                 $counters[$identity] = min(self::EVENTS_PER_MINUTE + 1, $count);
             }
         }
+
         return $counters;
     }
 
@@ -179,8 +184,10 @@ final class AnalyticsRateLimiter
             if ($written === false || $written === 0) {
                 throw new \RuntimeException('Unable to update the analytics rate-limit shard.');
             }
+
             $contents = substr($contents, $written);
         }
+
         if (!fflush($handle)) {
             throw new \RuntimeException('Unable to flush the analytics rate-limit shard.');
         }
@@ -194,6 +201,7 @@ final class AnalyticsRateLimiter
         ) {
             throw new \RuntimeException('Unable to create the analytics rate-limit directory.');
         }
+
         if (!chmod($directory, 0700)) {
             throw new \RuntimeException('Unable to protect the analytics rate-limit directory.');
         }
@@ -209,6 +217,7 @@ final class AnalyticsRateLimiter
         if ($files === false) {
             return;
         }
+
         foreach ($files as $file) {
             if (preg_match('/^rate-([0-9]{10})-[0-9]{2}\.json$/D', basename($file), $match) === 1
                 && (int)$match[1] < $minute - 2

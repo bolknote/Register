@@ -43,6 +43,7 @@ final readonly class AnalyticsReportCacheFactory
 
         $root = realpath($applicationRoot);
         $root = $root === false ? rtrim($applicationRoot, '/\\') : $root;
+
         $namespace = self::APCU_NAMESPACE_PREFIX . substr(hash('sha256', $root), 0, 16);
         try {
             return new AnalyticsReportCache(new ChainAdapter([

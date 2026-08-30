@@ -349,6 +349,7 @@ final class ModuleManagerCest
                 ->execute()
             ;
         }
+
         $I->setConfigValue(SchemaManager::CONFIG_KEY, '25');
 
         $I->assertTrue($schemaManager->ensureCurrent());
@@ -369,6 +370,7 @@ final class ModuleManagerCest
         /** @var SessionAudienceSchemaMigration $migration */
         $migration = $I->grabAdminService(SessionAudienceSchemaMigration::class);
         $migration->migrate($dbLayer);
+
         $I->assertSame(SessionAudience::PUBLIC->value, $dbLayer
             ->select('audience')
             ->from('users_online')

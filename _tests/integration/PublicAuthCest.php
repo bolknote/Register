@@ -222,6 +222,7 @@ final class PublicAuthCest
         $I->resetTestCookie('register_cookie_904732485_c');
 
         $I->amOnPage('https://localhost/');
+
         $token = (string)$I->grabValueFrom('.public-auth-email-form input[name="auth_token"]');
         $I->sendAjaxPostRequest('https://localhost/auth/email', [
             'email'       => 'admin@example.com',

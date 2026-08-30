@@ -77,6 +77,7 @@ class AdminModule implements ContainerModuleInterface, ContainerAwareListenerMod
                 if (!$permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
                     return new JsonResponse(['success' => false, 'message' => 'Permission denied.'], Response::HTTP_FORBIDDEN);
                 }
+
                 if (!$request->isMethod(Request::METHOD_GET)) {
                     return new JsonResponse(['success' => false, 'message' => 'Only GET requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
                 }

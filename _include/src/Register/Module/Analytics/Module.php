@@ -118,10 +118,6 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
                 '<!-- register_counter_img -->',
                 '<img class="register-analytics-counter" src="' . $basePath . '/_analytics/counter.png" width="88" height="31" alt="Page views" />',
             );
-
-            if ($event->htmlTemplate->isNotFound()) {
-                return;
-            }
         });
 
         $eventDispatcher->addListener(RssHitEvent::class, static function (RssHitEvent $event) use ($container): void {

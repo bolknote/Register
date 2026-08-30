@@ -146,6 +146,7 @@ final class AnalyticsCest
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/_admin/ajax.php?action=register_analytics_report&report=daily');
         $I->seeResponseCodeIs(200);
+
         $report = $I->grabJson();
         $I->assertIsArray($report);
         $I->assertTrue($report['success']);
@@ -156,6 +157,7 @@ final class AnalyticsCest
         $today = date('Y-m-d');
         $I->amOnPage('https://localhost/_admin/ajax.php?action=register_analytics_report&report=pages&from=' . $today . '&to=' . $today);
         $I->seeResponseCodeIs(200);
+
         $pages = $I->grabJson();
         $I->assertIsArray($pages);
         $I->assertSame('/', $pages['data'][0]['path']);

@@ -44,6 +44,7 @@ final readonly class AnalyticsIngestor
         if ($events === []) {
             return 0;
         }
+
         $ownsTransaction = !$this->pdo->inTransaction();
 
         usort($events, static fn(AnalyticsEvent $first, AnalyticsEvent $second): int => [
@@ -71,17 +72,20 @@ final readonly class AnalyticsIngestor
         if ($ownsTransaction) {
             $this->pdo->beginTransaction();
         }
+
         try {
             foreach ($events as $event) {
                 if (!$this->insertEvent($event)) {
                     continue;
                 }
+
                 ++$inserted;
 
                 if (!isset($pages[$event->pageKey])) {
                     $this->touchPage($event);
                     $pages[$event->pageKey] = true;
                 }
+
                 if (!isset($sources[$event->sourceKey])) {
                     $this->touchSource($event);
                     $sources[$event->sourceKey] = true;
@@ -99,9 +103,11 @@ final readonly class AnalyticsIngestor
                     $this->persistSession($session);
                 }
             }
+
             foreach ($rollups as $rollup) {
                 $this->applyRollup($rollup);
             }
+
             foreach ($legacyHits as $coordinate => $hits) {
                 [$day, $visitorKey] = explode("\0", $coordinate, 2);
                 $this->legacyRepository->record(
@@ -125,6 +131,7 @@ final readonly class AnalyticsIngestor
             if ($ownsTransaction && $this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
             }
+
             throw $throwable;
         }
 
@@ -306,6 +313,7 @@ final readonly class AnalyticsIngestor
                 $this->addTimedDelta($rollups, (int)$session['started_at'], $dimension, $dimensionKey, bounces: -1);
             }
         }
+
         $sessions[$event->sessionKey] = $session;
 
         if ($event->engagementSeconds > 0) {
@@ -472,6 +480,7 @@ final readonly class AnalyticsIngestor
             $this->decrementBounces($rollup, -$rollup['bounces']);
             $rollup['bounces'] = 0;
         }
+
         if ($rollup['views'] === 0
             && $rollup['sessions'] === 0
             && $rollup['unique_count'] === 0

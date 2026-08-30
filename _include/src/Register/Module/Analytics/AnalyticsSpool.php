@@ -95,6 +95,7 @@ final readonly class AnalyticsSpool
                 if (!flock($lock, LOCK_EX)) {
                     throw new AnalyticsSpoolException('Unable to lock an analytics spool shard.');
                 }
+
                 if ($this->activeIsDue($shard, $now) && $this->rotateUnderLock($shard, $now)) {
                     ++$sealed;
                 }
@@ -146,11 +147,13 @@ final readonly class AnalyticsSpool
                     if (!\is_array($data)) {
                         throw new \UnexpectedValueException('Analytics spool line must contain an object.');
                     }
+
                     $events[] = AnalyticsEvent::fromArray($data);
                 } catch (\JsonException | \InvalidArgumentException | \UnexpectedValueException) {
                     ++$invalid;
                 }
             }
+
             if (!feof($handle)) {
                 throw new AnalyticsSpoolException('Unable to read an analytics spool segment.');
             }
@@ -190,6 +193,7 @@ final readonly class AnalyticsSpool
                 if ($currentBytes === false) {
                     throw new AnalyticsSpoolException('Unable to inspect an analytics spool shard.');
                 }
+
                 if ($currentBytes > 0 && $currentBytes + \strlen($line) > $this->segmentBytes) {
                     $this->rotateUnderLock($shard, $now);
                     $currentBytes = 0;
@@ -198,6 +202,7 @@ final readonly class AnalyticsSpool
                 if ($currentBytes === 0) {
                     $this->createOpenedMarker($shard, $now);
                 }
+
                 $this->appendLine($active, $line);
             }
         } finally {
@@ -221,8 +226,10 @@ final readonly class AnalyticsSpool
                 if ($written === false || $written === 0) {
                     throw new AnalyticsSpoolException('Unable to append an analytics spool record.');
                 }
+
                 $remaining = substr($remaining, $written);
             }
+
             if (!fflush($handle)) {
                 throw new AnalyticsSpoolException('Unable to flush an analytics spool record.');
             }
@@ -243,6 +250,7 @@ final readonly class AnalyticsSpool
         if ($size === false || $size === 0) {
             return false;
         }
+
         if ($size >= $this->segmentBytes) {
             return true;
         }
@@ -272,6 +280,7 @@ final readonly class AnalyticsSpool
         if (!rename($active, $sealed)) {
             throw new AnalyticsSpoolException('Unable to seal an analytics spool segment.');
         }
+
         $this->protectFile($sealed);
         $this->removeOpenedMarker($shard);
         return true;
@@ -285,12 +294,14 @@ final readonly class AnalyticsSpool
         if ($handle === false) {
             throw new AnalyticsSpoolException('Unable to open an analytics spool lock.');
         }
+
         try {
             $this->protectFile($path);
         } catch (\Throwable $exception) {
             fclose($handle);
             throw $exception;
         }
+
         return $handle;
     }
 
@@ -304,6 +315,7 @@ final readonly class AnalyticsSpool
         if (!touch($path, $now)) {
             throw new AnalyticsSpoolException('Unable to create an analytics spool age marker.');
         }
+
         $this->protectFile($path);
     }
 
@@ -312,9 +324,11 @@ final readonly class AnalyticsSpool
         if (!is_dir($this->directory) && !mkdir($this->directory, 0700, true) && !is_dir($this->directory)) {
             throw new AnalyticsSpoolException('Unable to create the analytics spool directory.');
         }
+
         if (!chmod($this->directory, 0700)) {
             throw new AnalyticsSpoolException('Unable to protect the analytics spool directory.');
         }
+
         if (!is_writable($this->directory)) {
             throw new AnalyticsSpoolException('The analytics spool directory is not writable.');
         }
