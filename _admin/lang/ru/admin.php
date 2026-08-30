@@ -153,6 +153,9 @@ return [
 
     // Session tab
     'Session'                    => 'Сеанс',
+    'Session type'               => 'Тип сеанса',
+    'Administrative session'    => 'Панель управления',
+    'Public session'             => 'Обычный сайт',
     'Other sessions'             => 'Вы зашли в панель управления в нескольких браузерах. Посмотрите ваши сеансы и удалите ненужные.',
     'Last action time'           => 'Время последнего действия',
     'Browser'                    => 'Браузер',

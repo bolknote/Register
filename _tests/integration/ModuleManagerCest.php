@@ -11,6 +11,7 @@ namespace integration;
 
 use Register\Ai\AiSettings;
 use Register\Auth\PublicAuthSchema;
+use Register\Auth\PublicAuthRepository;
 use Register\Comment\CommentSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentMediaSchema;
@@ -24,9 +25,12 @@ use Register\Url\ContentUrlAliasSchema;
 use Register\Core\Extensions\ExtensionManager;
 use Register\Core\Extensions\ManifestInterface;
 use Register\Core\Model\ExtensionCache;
+use Register\Core\Model\AuthTokenHasher;
+use Register\Core\Model\SessionAudience;
 use Register\Core\Model\UserpicSchema;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\SchemaBuilderInterface;
+use Register\Schema\SessionAudienceSchemaMigration;
 
 final class ModuleManagerCest
 {
@@ -140,6 +144,7 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->foreignKeyExists(PublicAuthSchema::MAGIC_LINKS_TABLE, 'fk_visitor'));
         $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::NOTIFICATION_USERS_TABLE));
         $I->assertTrue($dbLayer->tableExists(PublicAuthSchema::NOTIFICATION_READS_TABLE));
+        $I->assertTrue($dbLayer->fieldExists('users_online', 'audience'));
         foreach (self::OBSOLETE_PRODUCT_TABLES as $obsoleteTable) {
             $I->assertFalse(
                 $dbLayer->tableExists($obsoleteTable),
@@ -304,6 +309,72 @@ final class ModuleManagerCest
         $I->assertFalse($dbLayer->fieldExists(PublicAuthSchema::MAGIC_LINKS_TABLE, 'show_email'));
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'email'));
         $I->assertTrue($dbLayer->fieldExists(CommentSchema::TABLE_NAME, 'subscribed'));
+    }
+
+    public function generationTwentyFiveSeparatesPublicAndAdministrativeSessions(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var SchemaManager $schemaManager */
+        $schemaManager = $I->grabAdminService(SchemaManager::class);
+        /** @var PublicAuthRepository $publicAuthRepository */
+        $publicAuthRepository = $I->grabService(PublicAuthRepository::class);
+
+        $externalUserId = $publicAuthRepository->findOrCreateIdentity(
+            'email',
+            'schema-migration@example.test',
+            'schema-migration@example.test',
+            'Migrated reader',
+        );
+        $externalLogin = (string)$dbLayer
+            ->select('login')
+            ->from('users')
+            ->where('id = :id')->setParameter('id', $externalUserId)
+            ->execute()
+            ->result()
+        ;
+
+        $dbLayer->dropField('users_online', 'audience');
+        foreach (['admin', $externalLogin] as $index => $login) {
+            $dbLayer
+                ->insert('users_online')
+                ->setValue('login', ':login')->setParameter('login', $login)
+                ->setValue('challenge', ':challenge')
+                ->setParameter('challenge', AuthTokenHasher::session('migration-session-' . $index))
+                ->setValue('time', ':time')->setParameter('time', time())
+                ->setValue('ua', ':ua')->setParameter('ua', 'Schema migration test')
+                ->setValue('ip', ':ip')->setParameter('ip', '192.0.2.' . ($index + 1))
+                ->setValue('comment_cookie', ':comment_cookie')
+                ->setParameter('comment_cookie', AuthTokenHasher::comment('migration-comment-' . $index))
+                ->execute()
+            ;
+        }
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, '25');
+
+        $I->assertTrue($schemaManager->ensureCurrent());
+        $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
+        $I->assertSame(SessionAudience::ADMIN->value, $dbLayer
+            ->select('audience')
+            ->from('users_online')
+            ->where("login = 'admin'")
+            ->execute()
+            ->result());
+        $I->assertSame(SessionAudience::PUBLIC->value, $dbLayer
+            ->select('audience')
+            ->from('users_online')
+            ->where('login = :login')->setParameter('login', $externalLogin)
+            ->execute()
+            ->result());
+
+        /** @var SessionAudienceSchemaMigration $migration */
+        $migration = $I->grabAdminService(SessionAudienceSchemaMigration::class);
+        $migration->migrate($dbLayer);
+        $I->assertSame(SessionAudience::PUBLIC->value, $dbLayer
+            ->select('audience')
+            ->from('users_online')
+            ->where('login = :login')->setParameter('login', $externalLogin)
+            ->execute()
+            ->result());
     }
 
     public function releaseMigrationPreservesExistingSettings(\IntegrationTester $I): void

@@ -22,6 +22,7 @@ use Register\Schema\QueueLeaseSchemaMigration;
 use Register\Schema\SchemaManager;
 use Register\Schema\SchemaMigrationInterface;
 use Register\Schema\SchemaMigrator;
+use Register\Schema\SessionAudienceSchemaMigration;
 use Register\Schema\SocialEngagementSchemaMigration;
 use Register\Schema\VisitorUserSchemaMigration;
 use Register\Core\Framework\Container;
@@ -87,6 +88,11 @@ final readonly class SchemaModule implements ContainerModuleInterface
         $container->set(
             AnalyticsEventSchemaMigration::class,
             new AnalyticsEventSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            SessionAudienceSchemaMigration::class,
+            new SessionAudienceSchemaMigration(),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

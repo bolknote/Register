@@ -153,6 +153,9 @@ return [
 
     // Session tab
     'Session'                    => 'Session',
+    'Session type'               => 'Session type',
+    'Administrative session'    => 'Control panel',
+    'Public session'             => 'Public site',
     'Other sessions'             => 'You have logged in from different browsers. Check your sessions and delete unnecessary ones.',
     'Last action time'           => 'Last action time',
     'Browser'                    => 'Browser',

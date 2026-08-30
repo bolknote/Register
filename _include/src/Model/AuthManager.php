@@ -40,6 +40,8 @@ readonly class AuthManager
 
     private const string SESSION_STATUS_OK       = 'Ok';
 
+    private const string SESSION_STATUS_FORBIDDEN = 'Forbidden';
+
     public function __construct(
         private DbLayer           $dbLayer,
         private PermissionChecker $permissionChecker,
@@ -123,12 +125,16 @@ readonly class AuthManager
 
         $sessionId = $request->cookies->get($this->cookieName, '');
         if ($sessionId === '') {
-            return new Response($this->templateRenderer->render('_admin/templates/access-denied.php.inc'));
+            return $this->createAccessDeniedResponse($request);
         }
 
         $status = $this->checkAndUpdateCurrentUserSession($request, $sessionId);
+        if ($status === self::SESSION_STATUS_FORBIDDEN) {
+            return $this->createAudienceDeniedResponse($request);
+        }
+
         if ($status !== self::SESSION_STATUS_OK || !$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW)) {
-            return new Response($this->templateRenderer->render('_admin/templates/access-denied.php.inc'));
+            return $this->createAccessDeniedResponse($request);
         }
 
         return null;
@@ -184,6 +190,10 @@ readonly class AuthManager
             ->innerJoin('users_online AS u2', 'u1.login = u2.login')
             ->where('u1.challenge = :challenge')
             ->setParameter('challenge', $this->getCurrentSessionStorageKey())
+            ->andWhere('u1.audience = :current_audience')
+            ->setParameter('current_audience', SessionAudience::ADMIN->value)
+            ->andWhere('u2.audience = :peer_audience')
+            ->setParameter('peer_audience', SessionAudience::ADMIN->value)
             ->execute()
         ;
 
@@ -287,6 +297,7 @@ readonly class AuthManager
             ->from('users_online')
             ->where('challenge = :challenge')->setParameter('challenge', AuthTokenHasher::session($sessionId))
             ->andWhere('comment_cookie = :comment_cookie')->setParameter('comment_cookie', AuthTokenHasher::comment($commentCookie))
+            ->andWhere('audience = :audience')->setParameter('audience', SessionAudience::ADMIN->value)
             ->execute()
             ->result()
         ;
@@ -323,10 +334,14 @@ readonly class AuthManager
 
         if ($status === self::SESSION_STATUS_OK) {
             if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW)) {
-                return new Response($this->templateRenderer->render('_admin/templates/access-denied.php.inc'));
+                return $this->createAccessDeniedResponse($request);
             }
 
             return null;
+        }
+
+        if ($status === self::SESSION_STATUS_FORBIDDEN) {
+            return $this->createAudienceDeniedResponse($request);
         }
 
         // Some error detected
@@ -556,6 +571,7 @@ readonly class AuthManager
             ->setValue('login', ':login')->setParameter('login', $login)
             ->setValue('challenge', ':challenge')->setParameter('challenge', AuthTokenHasher::session($sessionId))
             ->setValue('time', ':time')->setParameter('time', $time)
+            ->setValue('audience', ':audience')->setParameter('audience', SessionAudience::ADMIN->value)
             ->setValue('ua', ':ua')->setParameter('ua', $request->headers->get('User-Agent'))
             ->setValue('ip', ':ip')->setParameter('ip', $request->getClientIp())
             ->setValue('comment_cookie', ':comment_cookie')->setParameter('comment_cookie', AuthTokenHasher::comment($commentCookie))
@@ -592,6 +608,29 @@ readonly class AuthManager
         return $this->createLoginFormResponse();
     }
 
+    private function createAccessDeniedResponse(Request $request): Response
+    {
+        if ($request->isXmlHttpRequest() || $request->attributes->get(self::FORCE_AJAX_RESPONSE) === true) {
+            return new JsonResponse([
+                'success' => false,
+                'message' => $this->translator->trans('No permission'),
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        return new Response(
+            $this->templateRenderer->render('_admin/templates/access-denied.php.inc'),
+            Response::HTTP_FORBIDDEN,
+        );
+    }
+
+    private function createAudienceDeniedResponse(Request $request): Response
+    {
+        $response = $this->createAccessDeniedResponse($request);
+        $response->headers->setCookie($this->createAdminCookie('', $this->shouldUseSecureCookies($request)));
+
+        return $response;
+    }
+
     private function createAjaxErrorLoginPasswordResponse(): JsonResponse
     {
         return new JsonResponse([
@@ -625,9 +664,11 @@ readonly class AuthManager
      */
     private function checkAndUpdateCurrentUserSession(Request $request, string $sessionId): string
     {
+        $this->permissionChecker->clearState();
+
         // Check if the session still exists.
         $result = $this->dbLayer
-            ->select('login, time')
+            ->select('login, time, audience')
             ->from('users_online')
             ->where('challenge = :challenge')->setParameter('challenge', AuthTokenHasher::session($sessionId))
             ->execute()
@@ -641,9 +682,10 @@ readonly class AuthManager
             return self::SESSION_STATUS_LOST;
         }
 
-        [$loginValue, $timeValue] = $row;
-        $login = (string)$loginValue;
-        $time  = (int)$timeValue;
+        [$loginValue, $timeValue, $audienceValue] = $row;
+        $login    = (string)$loginValue;
+        $time     = (int)$timeValue;
+        $audience = (string)$audienceValue;
 
         $now = time();
 
@@ -653,6 +695,10 @@ readonly class AuthManager
         $idleTimeout      = $persistent ? self::PERSISTENT_SESSION_IDLE_TIMEOUT : self::TEMPORARY_SESSION_IDLE_TIMEOUT;
         if ($issuedAt === null || $now >= $issuedAt + $absoluteLifetime || $now >= $time + $idleTimeout) {
             return self::SESSION_STATUS_LOST;
+        }
+
+        if ($audience !== SessionAudience::ADMIN->value) {
+            return self::SESSION_STATUS_FORBIDDEN;
         }
 
         // Ok, we keep it fresh every 5 seconds.

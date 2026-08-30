@@ -20,6 +20,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Model\AuthenticatedPublicUser;
+use Register\Core\Model\SessionAudience;
 use Register\Core\Comment\SpamDetectorReport;
 use Register\Core\Pdo\DbLayer;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
@@ -106,6 +107,13 @@ final class PublicAuthCest
         $I->seeResponseCodeIs(200);
         $I->assertJsonSubResponseEquals(true, ['success']);
         $I->assertJsonSubResponseEquals('/', ['redirect']);
+        $I->assertNotNull($I->grabTestCookie('register_cookie_904732485', '/_admin/'));
+        $I->assertSame(SessionAudience::ADMIN->value, $dbLayer
+            ->select('audience')
+            ->from('users_online')
+            ->where("login = 'admin'")
+            ->execute()
+            ->result());
         $I->assertSame(1, (int)$dbLayer
             ->select('COUNT(*)')
             ->from(VisitorIdentityManifest::USER_LINK_TABLE)
@@ -203,6 +211,16 @@ final class PublicAuthCest
         $dbLayer = $I->grabService(DbLayer::class);
         $adminId = $this->userId($dbLayer, 'admin');
 
+        // A public sign-in must also remove a stale control-panel cookie from
+        // the same browser instead of silently leaving two identities active.
+        $I->amOnPage('https://register.localhost/_admin/index.php');
+        $I->sendPost('https://register.localhost/_admin/index.php?action=login', [
+            'login' => 'admin',
+            'pass'  => 'admin',
+        ]);
+        $I->assertNotNull($I->grabTestCookie('register_cookie_904732485', '/_admin/'));
+        $I->resetTestCookie('register_cookie_904732485_c');
+
         $I->amOnPage('https://localhost/');
         $token = (string)$I->grabValueFrom('.public-auth-email-form input[name="auth_token"]');
         $I->sendAjaxPostRequest('https://localhost/auth/email', [
@@ -229,9 +247,12 @@ final class PublicAuthCest
         $I->seeResponseCodeIs(302);
         $I->followRedirect();
         $I->see('Email participant', '.public-auth-user-menu');
+        $I->dontSeeElement('.public-auth-menu-item[href*="/_admin/index.php"]');
+        $I->assertNotNull($I->grabTestCookie('register_cookie_904732485_c'));
+        $I->assertNull($I->grabTestCookie('register_cookie_904732485', '/_admin/'));
 
         $identity = $dbLayer
-            ->select('i.user_id', 'u.edit_users', 'u.create_articles')
+            ->select('i.user_id', 'u.login', 'u.edit_users', 'u.create_articles')
             ->from(PublicAuthSchema::IDENTITIES_TABLE . ' AS i')
             ->innerJoin('users AS u', 'u.id = i.user_id')
             ->where("i.provider = 'email'")
@@ -242,6 +263,12 @@ final class PublicAuthCest
         $I->assertNotSame($adminId, (int)$identity['user_id']);
         $I->assertSame(0, (int)$identity['edit_users']);
         $I->assertSame(0, (int)$identity['create_articles']);
+        $I->assertSame(SessionAudience::PUBLIC->value, $dbLayer
+            ->select('audience')
+            ->from('users_online')
+            ->where('login = :login')->setParameter('login', (string)$identity['login'])
+            ->execute()
+            ->result());
 
         $I->amOnPage($callbackUrl);
         $I->seeResponseCodeIs(502);

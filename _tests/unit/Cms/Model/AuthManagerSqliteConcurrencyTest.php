@@ -58,7 +58,8 @@ final class AuthManagerSqliteConcurrencyTest extends Unit
         );
         $primaryPdo->exec(
             'CREATE TABLE users_online ('
-            . 'challenge TEXT PRIMARY KEY, time INTEGER NOT NULL, login TEXT, ip TEXT, ua TEXT, comment_cookie TEXT NOT NULL)'
+            . "challenge TEXT PRIMARY KEY, time INTEGER NOT NULL, login TEXT, audience TEXT NOT NULL DEFAULT 'admin', "
+            . 'ip TEXT, ua TEXT, comment_cookie TEXT NOT NULL)'
         );
         $primaryPdo->exec('CREATE TABLE contention (value INTEGER NOT NULL)');
         $primaryPdo->exec("INSERT INTO contention (value) VALUES (0)");
@@ -133,7 +134,7 @@ final class ConcurrentWriteDbLayerSqlite extends DbLayerSqlite
     public function query(string $sql, array $params = [], array $types = []): QueryResult
     {
         $result = parent::query($sql, $params, $types);
-        if (!$this->competingWriteTriggered && str_starts_with($sql, 'SELECT login, time FROM users_online')) {
+        if (!$this->competingWriteTriggered && str_starts_with($sql, 'SELECT login, time, audience FROM users_online')) {
             $this->competingWriteTriggered = true;
             $this->competingPdo->exec('UPDATE contention SET value = value + 1');
         }

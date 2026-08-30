@@ -60,6 +60,7 @@ use Register\Core\Model\ExtensionCache;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Model\PasswordHasher;
 use Register\Core\Model\PasswordPolicy;
+use Register\Core\Model\SessionAudience;
 use Register\Model\TagsProvider;
 use Register\Core\Pdo\DbLayerException;
 use Register\Core\Security\Audit\SecurityAuditLogger;
@@ -1202,6 +1203,17 @@ class AdminConfigProvider implements StatefulServiceInterface
                     name: 'login',
                     label: $this->translator->trans('Login'),
                     sortable: true,
+                ))
+                ->addField(new FieldConfig(
+                    name: 'audience',
+                    label: $this->translator->trans('Session type'),
+                    control: 'select',
+                    options: [
+                        SessionAudience::ADMIN->value => $this->translator->trans('Administrative session'),
+                        SessionAudience::PUBLIC->value => $this->translator->trans('Public session'),
+                    ],
+                    sortable: true,
+                    useOnActions: [FieldConfig::ACTION_LIST],
                 ))
                 ->addField(new FieldConfig(
                     name: 'ip',

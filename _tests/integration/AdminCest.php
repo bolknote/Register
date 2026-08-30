@@ -24,6 +24,7 @@ use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Model\AuthTokenHasher;
 use Register\Core\Model\AuthManager;
 use Register\Core\Model\LoginRateLimiter;
+use Register\Core\Model\SessionAudience;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Security\WebAuthn\RecoveryCodeRepository;
 use Register\Core\Security\WebAuthn\WebAuthnChallengeRepository;
@@ -47,6 +48,67 @@ class AdminCest
 
         $I->login('admin', 'admin');
         $I->seeResponseCodeIs(200);
+    }
+
+    public function testPublicSessionCannotEnterAnyAdministrativeEntrypoint(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var AdminRequestHandler $mainHandler */
+        $mainHandler = $I->grabAdminService(AdminRequestHandler::class);
+        /** @var AdminAjaxRequestHandler $ajaxHandler */
+        $ajaxHandler = $I->grabAdminService(AdminAjaxRequestHandler::class);
+        /** @var AuthManager $authManager */
+        $authManager = $I->grabAdminService(AuthManager::class);
+
+        // Use the fully privileged admin account deliberately: the audience boundary,
+        // not the current permission columns, must reject this session.
+        $sessionId = 'p' . sprintf('%08x', time()) . str_repeat('a', 64);
+        $dbLayer
+            ->insert('users_online')
+            ->setValue('login', ':login')->setParameter('login', 'admin')
+            ->setValue('challenge', ':challenge')->setParameter('challenge', AuthTokenHasher::session($sessionId))
+            ->setValue('time', ':time')->setParameter('time', time())
+            ->setValue('audience', ':audience')->setParameter('audience', SessionAudience::PUBLIC->value)
+            ->setValue('ua', ':ua')->setParameter('ua', 'Public session regression test')
+            ->setValue('ip', ':ip')->setParameter('ip', '192.0.2.10')
+            ->setValue('comment_cookie', ':comment_cookie')
+            ->setParameter('comment_cookie', AuthTokenHasher::comment(str_repeat('b', 64)))
+            ->execute()
+        ;
+        $cookies = ['register_cookie_904732485' => $sessionId];
+
+        $mainResponse = $mainHandler->handle(Request::create(
+            'https://localhost/_admin/index.php',
+            cookies: $cookies,
+        ));
+        $I->assertSame(403, $mainResponse->getStatusCode());
+        $I->assertStringContainsString('Access denied', (string)$mainResponse->getContent());
+        $I->assertCount(1, $mainResponse->headers->getCookies());
+        $I->assertSame('/_admin/', $mainResponse->headers->getCookies()[0]->getPath());
+
+        $ajaxResponse = $ajaxHandler->handle(Request::create(
+            'https://localhost/_admin/ajax.php?action=load_tree&id=0',
+            cookies: $cookies,
+        ));
+        $I->assertSame(403, $ajaxResponse->getStatusCode());
+        $I->assertSame(
+            ['success' => false, 'message' => 'You do not have enough permissions to perform this action.'],
+            json_decode((string)$ajaxResponse->getContent(), true, flags: JSON_THROW_ON_ERROR),
+        );
+
+        $pictureManagerResponse = $authManager->checkAuthenticatedUser(Request::create(
+            'https://localhost/_admin/pictman.php',
+            cookies: $cookies,
+        ));
+        $I->assertNotNull($pictureManagerResponse);
+        $I->assertSame(403, $pictureManagerResponse->getStatusCode());
+        $I->assertSame(1, (int)$dbLayer
+            ->select('COUNT(*)')
+            ->from('users_online')
+            ->where('challenge = :challenge')->setParameter('challenge', AuthTokenHasher::session($sessionId))
+            ->execute()
+            ->result());
     }
 
     public function testAdminMutationsRejectForeignOrigins(\IntegrationTester $I): void
@@ -362,6 +424,11 @@ class AdminCest
         $I->seeElement('button[data-admin-confirm-cancel][value="cancel"]');
         $I->seeElement('button.danger[data-admin-confirm-submit][value="confirm"]');
 
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Session&action=list');
+        $I->see('Session type', 'table.list-table th');
+        $I->see('Control panel', 'table.list-table td');
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=User&action=list');
         $editUserHref = $I->grabAttributeFrom('a.list-action-link-edit', 'href');
         $I->assertNotNull($editUserHref);
         $I->amOnPage('https://localhost/_admin/index.php' . $editUserHref);

@@ -12,6 +12,7 @@ namespace Register\Auth;
 use Register\Core\Model\AuthTokenHasher;
 use Register\Core\Model\LoginRateLimiter;
 use Register\Core\Model\PasswordHasher;
+use Register\Core\Model\SessionAudience;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Security\Audit\SecurityAuditLogger;
 use Register\Core\Security\Http\AdminMutationGuard;
@@ -20,7 +21,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-/** Creates and revokes the shared public/admin session without loading the admin application. */
+/** Creates and revokes public sessions without loading the admin application. */
 final readonly class PublicSessionManager
 {
     private const int PERSISTENT_SESSION_LIFETIME = 30 * 86400;
@@ -92,6 +93,7 @@ final readonly class PublicSessionManager
             $login,
             !$request->request->getBoolean('remember_me'),
             SecurityAuditLogger::AUTH_PASSWORD,
+            $user['view'] ? SessionAudience::ADMIN : SessionAudience::PUBLIC,
         );
     }
 
@@ -116,7 +118,14 @@ final readonly class PublicSessionManager
 
         $this->loginRateLimiter->clear($request->getClientIp() ?? '', $login);
 
-        return $this->createSession($request, $userId, $login, !$remember, $authMethod);
+        return $this->createSession(
+            $request,
+            $userId,
+            $login,
+            !$remember,
+            $authMethod,
+            SessionAudience::PUBLIC,
+        );
     }
 
     public function logoutCsrfTokenMatches(Request $request, string $candidate): bool
@@ -151,18 +160,22 @@ final readonly class PublicSessionManager
         return $response;
     }
 
-    /** @return array{id: int, password: string}|null */
+    /** @return array{id: int, password: string, view: bool}|null */
     private function userCredentials(string $login): ?array
     {
         $row = $this->dbLayer
-            ->select('id', 'password')
+            ->select('id', 'password', 'view')
             ->from('users')
             ->where('login = :login')->setParameter('login', $login)
             ->execute()
             ->fetchAssoc()
         ;
 
-        return $row === false ? null : ['id' => (int)$row['id'], 'password' => (string)$row['password']];
+        return $row === false ? null : [
+            'id'       => (int)$row['id'],
+            'password' => (string)$row['password'],
+            'view'     => (bool)$row['view'],
+        ];
     }
 
     private function createSession(
@@ -171,6 +184,7 @@ final readonly class PublicSessionManager
         string $login,
         bool $temporary,
         string $authMethod,
+        SessionAudience $audience,
     ): JsonResponse {
         $time = time();
         $sessionId = ($temporary ? 't' : 'p') . sprintf('%08x', $time) . bin2hex(random_bytes(32));
@@ -180,6 +194,7 @@ final readonly class PublicSessionManager
             ->setValue('login', ':login')->setParameter('login', $login)
             ->setValue('challenge', ':challenge')->setParameter('challenge', AuthTokenHasher::session($sessionId))
             ->setValue('time', ':time')->setParameter('time', $time)
+            ->setValue('audience', ':audience')->setParameter('audience', $audience->value)
             ->setValue('ua', ':ua')->setParameter('ua', $request->headers->get('User-Agent'))
             ->setValue('ip', ':ip')->setParameter('ip', $request->getClientIp())
             ->setValue('comment_cookie', ':comment_cookie')->setParameter('comment_cookie', AuthTokenHasher::comment($commentCookie))
@@ -189,7 +204,11 @@ final readonly class PublicSessionManager
         $response = new JsonResponse(['success' => true]);
         $secure = $this->shouldUseSecureCookies($request);
         $expiresAt = $temporary ? 0 : $time + self::PERSISTENT_SESSION_LIFETIME;
-        $response->headers->setCookie($this->adminCookie($sessionId, $secure, $expiresAt));
+        $response->headers->setCookie($this->adminCookie(
+            $audience === SessionAudience::ADMIN ? $sessionId : '',
+            $secure,
+            $expiresAt,
+        ));
         $response->headers->setCookie($this->publicCookie($commentCookie, $secure, $expiresAt));
 
         $this->securityAuditLogger->authentication(

@@ -22,6 +22,7 @@ use Register\Content\ContentTagSchema;
 use Register\Content\ContentViewSchema;
 use Register\Core\Controller\Rss\FeedSettings;
 use Register\Core\Mail\MailSettings;
+use Register\Core\Model\SessionAudience;
 use Register\Core\Model\UserpicSchema;
 use Register\Live\LiveUpdateSchema;
 use Register\Import\ExternalImportMapSchema;
@@ -116,6 +117,7 @@ readonly class Installer
             $table->addString('challenge', 32)
                 ->addInteger('time', true)
                 ->addString('login', 191, true, null)
+                ->addString('audience', 12, default: SessionAudience::ADMIN->value)
                 ->addString('ip', 39)
                 ->addString('ua', 200)
                 ->addString('comment_cookie', 32)
