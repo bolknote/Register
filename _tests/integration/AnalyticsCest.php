@@ -11,6 +11,7 @@ namespace integration;
 
 use Register\Module\Analytics\AnalyticsRepository;
 use Register\Module\Analytics\AnalyticsMaintenanceTask;
+use Register\Module\Analytics\AnalyticsPresenceStore;
 use Register\Module\Analytics\AnalyticsReportRepository;
 use Register\Module\Analytics\AnalyticsSchema;
 use Register\Module\Analytics\AnalyticsSpool;
@@ -38,6 +39,7 @@ final class AnalyticsCest
         $I->sendRequestWithHeaders('https://localhost/', $headers);
         $I->seeResponseCodeIs(200);
         $I->seeElement('meta[name="register-analytics"]');
+        $I->seeElement('script[src*="analytics/collector.js?v=5.0"]');
 
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -95,8 +97,27 @@ final class AnalyticsCest
         // A warmed page-cache response still contains the browser collector and is counted by it.
         $I->sendRequestWithHeaders('https://localhost/', $headers);
         $I->seeElement('meta[name="register-analytics"]');
-        $this->sendPageView($I, '/', $sessionId, headers: $headers);
+        $pageViewId = $this->sendPageView($I, '/', $sessionId, headers: $headers);
         $this->drainAnalytics($I);
+
+        $liveQuery = http_build_query([
+            'cursor'                => '0',
+            'region'                => ['site-account'],
+            'analytics_pageview_id' => $pageViewId,
+            'analytics_session_id'  => $sessionId,
+            'analytics_path'        => '/',
+            'analytics_title'       => 'Register',
+        ]);
+        $I->sendRequestWithHeaders('https://localhost/_live?' . $liveQuery, $headers);
+        $I->seeResponseCodeIs(200);
+        /** @var AnalyticsPresenceStore $presenceStore */
+        $presenceStore = $I->grabService(AnalyticsPresenceStore::class);
+        $presence = $presenceStore->snapshot(time());
+        $matchingPresence = array_values(array_filter(
+            $presence,
+            static fn(array $entry): bool => $entry['path'] === '/' && $entry['title'] === 'Register',
+        ));
+        $I->assertNotSame([], $matchingPresence);
 
         $summary = $dbLayer->select('hits, unique_count')
             ->from('register_analytics_daily')
@@ -163,15 +184,30 @@ final class AnalyticsCest
         $I->assertSame('/', $pages['data'][0]['path']);
         $I->assertSame(2, $pages['data'][0]['views']);
 
+        $I->amOnPage('https://localhost/_admin/ajax.php?action=register_analytics_report&report=dashboard&from=' . $today . '&to=' . $today);
+        $dashboard = $I->grabJson();
+        $I->assertIsArray($dashboard);
+        $I->assertTrue($dashboard['success']);
+        $I->assertSame(2, $dashboard['data']['summary']['views']);
+        $I->assertArrayHasKey('technology', $dashboard['data']);
+        $I->assertArrayHasKey('realtime', $dashboard['data']);
+
+        $I->amOnPage('https://localhost/_admin/ajax.php?action=register_analytics_report&report=pages&format=csv&from=' . $today . '&to=' . $today);
+        $I->seeResponseCodeIs(200);
+        $I->seeHttpHeader('Content-Type', 'text/csv; charset=UTF-8');
+        $I->seeHttpHeader('Content-Disposition', 'attachment; filename="register-analytics-pages-' . $today . '-' . $today . '.csv"');
+
         $I->amOnPage('https://localhost/_admin/index.php?entity=Statistics');
-        $I->see('Total unique visitors', '.analytics-summary');
+        $I->see('Blog analytics', '.register-analytics h2');
+        $I->see('Unique visitors', '.analytics-summary');
         $I->see('1', '.analytics-summary-value');
-        $I->see('Sessions today', '.analytics-summary-list');
+        $I->see('Sessions', '.analytics-summary-list');
+        $I->seeElement('[data-analytics-realtime-visitors]');
         $I->seeElement('.analytics-range-selector [data-analytics-range-days="30"][aria-pressed="true"]');
         $I->seeElement('[data-analytics-panel="pages"][hidden]');
         $I->seeElement('[data-analytics-panel="sessions"][hidden]');
         $I->seeElement('.analytics-ranking-grid[hidden]');
-        $I->seeElement('script[src*="analytics/charts.js?v=4.1"]');
+        $I->seeElement('script[src*="analytics/charts.js?v=5.0"]');
     }
 
     public function ignoresBrowserPrivacySignalsAndRejectsPublicAnalyticsData(\IntegrationTester $I): void
@@ -237,7 +273,8 @@ final class AnalyticsCest
         string $path,
         string $sessionId,
         array $headers,
-    ): void {
+    ): string {
+        $pageViewId = bin2hex(random_bytes(16));
         $I->sendJson('https://localhost/_analytics/collect', [
             'v'      => 1,
             'events' => [[
@@ -245,7 +282,7 @@ final class AnalyticsCest
                 'type'        => 'pageview',
                 'occurred_at' => time() * 1000,
                 'session_id'  => $sessionId,
-                'pageview_id' => bin2hex(random_bytes(16)),
+                'pageview_id' => $pageViewId,
                 'path'        => $path,
                 'title'       => 'Register',
                 'referrer'    => '',
@@ -253,6 +290,7 @@ final class AnalyticsCest
             ]],
         ], headers: ['Origin' => 'https://localhost'] + $headers);
         $I->seeResponseCodeIs(204);
+        return $pageViewId;
     }
 
     private function drainAnalytics(\IntegrationTester $I): void

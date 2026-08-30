@@ -24,6 +24,7 @@ use Register\Core\Pdo\DbLayer;
 use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
 use Register\Core\Template\TemplateEvent;
 use Register\Core\Template\TemplateAssetEvent;
+use Register\Live\LiveUpdatePolledEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
@@ -56,11 +57,25 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
             $container->getStringParameter('cache_dir') . 'analytics-spool',
             minimumSegmentAge: getenv('APP_ENV') === 'test' ? 0 : 10,
         ));
+        $container->set(AnalyticsPresenceStore::class, static fn(Container $container): AnalyticsPresenceStore => new AnalyticsPresenceStore(
+            $container->getStringParameter('cache_dir') . 'analytics-presence',
+            substr(hash('sha256', $container->getStringParameter('root_dir')), 0, 16),
+        ));
+        $container->set(AnalyticsPresenceRecorder::class, static fn(Container $container): AnalyticsPresenceRecorder => new AnalyticsPresenceRecorder(
+            $container->get(AnalyticsPresenceStore::class),
+            $container->get(VisitorIdentityManager::class),
+            $container->get(BotDetector::class),
+            $container->get(DynamicConfigProvider::class)->getStringProxy(Manifest::SALT_CONFIG_KEY),
+        ));
         $container->set(AnalyticsIngestor::class, static fn(Container $container): AnalyticsIngestor => new AnalyticsIngestor(
             $container->get(\PDO::class),
             $container->get(DbLayer::class),
             $container->get(AnalyticsRepository::class),
             $container->get(AnalyticsReportCache::class),
+            $container->get(AnalyticsBlogProjector::class),
+        ));
+        $container->set(AnalyticsBlogProjector::class, static fn(Container $container): AnalyticsBlogProjector => new AnalyticsBlogProjector(
+            $container->get(DbLayer::class),
         ));
         $container->set(AnalyticsReportCacheFactory::class, static fn(Container $container): AnalyticsReportCacheFactory => new AnalyticsReportCacheFactory(
             $container->get(LoggerInterface::class),
@@ -75,6 +90,7 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
         $container->set(AnalyticsReportRepository::class, static fn(Container $container): AnalyticsReportRepository => new AnalyticsReportRepository(
             $container->get(DbLayer::class),
             $container->get(AnalyticsReportCache::class),
+            $container->get(AnalyticsPresenceStore::class),
         ));
         $container->set(AnalyticsCollectorController::class, static fn(Container $container): AnalyticsCollectorController => new AnalyticsCollectorController(
             $container->get(VisitorIdentityManager::class),
@@ -108,7 +124,10 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
                     '<meta name="register-analytics" data-collect-url="%s">',
                     register_htmlencode($basePath . '/_analytics/collect'),
                 ))
-                ->addJs($basePath . '/_assets/register/analytics/collector.js', [AssetPack::OPTION_DEFER])
+                ->addJs(
+                    $basePath . '/_assets/register/analytics/collector.js?v=' . rawurlencode(Manifest::VERSION),
+                    [AssetPack::OPTION_DEFER],
+                )
             ;
         });
 
@@ -122,6 +141,10 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
 
         $eventDispatcher->addListener(RssHitEvent::class, static function (RssHitEvent $event) use ($container): void {
             $container->get(AnalyticsRecorder::class)->recordFeedRead($event->request, $event->rssStrategy);
+        });
+
+        $eventDispatcher->addListener(LiveUpdatePolledEvent::class, static function (LiveUpdatePolledEvent $event) use ($container): void {
+            $container->get(AnalyticsPresenceRecorder::class)->record($event);
         });
     }
 

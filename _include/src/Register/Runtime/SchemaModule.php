@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Runtime;
 
 use Register\Schema\AnalyticsEventSchemaMigration;
+use Register\Schema\AnalyticsBlogSchemaMigration;
 use Register\Module\BaseModuleInstaller;
 use Register\Module\BaseModuleRegistry;
 use Register\Schema\CommentPrivacySchemaMigration;
@@ -93,6 +94,11 @@ final readonly class SchemaModule implements ContainerModuleInterface
         $container->set(
             SessionAudienceSchemaMigration::class,
             new SessionAudienceSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            AnalyticsBlogSchemaMigration::class,
+            new AnalyticsBlogSchemaMigration(),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

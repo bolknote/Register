@@ -32,6 +32,7 @@ final readonly class AnalyticsIngestor
         private DbLayer            $dbLayer,
         private AnalyticsRepository $legacyRepository,
         private AnalyticsReportCache $reportCache,
+        private AnalyticsBlogProjector $blogProjector,
     ) {
     }
 
@@ -80,6 +81,16 @@ final readonly class AnalyticsIngestor
                 }
 
                 ++$inserted;
+                if ($event->type === AnalyticsEvent::TYPE_PAGE_VIEW
+                    && !$this->blogProjector->recordPageView($event)
+                ) {
+                    // A transport retry may have a fresh event ID but still represent the same view.
+                    $this->dbLayer->delete(AnalyticsSchema::EVENT_TABLE)
+                        ->where('event_id = :event_id')->setParameter('event_id', $event->id)
+                        ->execute();
+                    --$inserted;
+                    continue;
+                }
 
                 if (!isset($pages[$event->pageKey])) {
                     $this->touchPage($event);
@@ -92,9 +103,14 @@ final readonly class AnalyticsIngestor
                 }
 
                 if ($event->type === AnalyticsEvent::TYPE_PAGE_VIEW) {
-                    $this->applyPageView($event, $sessions, $rollups, $legacyHits);
+                    $contextDimensions = $this->blogProjector->dimensions($event);
+                    $this->applyPageView($event, $contextDimensions, $sessions, $rollups, $legacyHits);
                 } elseif ($event->type === AnalyticsEvent::TYPE_ENGAGEMENT) {
-                    $this->applyEngagement($event, $sessions, $rollups);
+                    $contextDimensions = $this->blogProjector->dimensions($event);
+                    $this->blogProjector->recordEngagement($event);
+                    $this->applyEngagement($event, $contextDimensions, $sessions, $rollups);
+                } elseif ($event->type === AnalyticsEvent::TYPE_CUSTOM) {
+                    $this->blogProjector->recordCustomEvent($event);
                 }
             }
 
@@ -173,6 +189,7 @@ final readonly class AnalyticsIngestor
         $this->dbLayer->delete(AnalyticsSchema::UNIQUE_DAY_TABLE)
             ->where('day < :day')->setParameter('day', $uniqueBeforeDay)
             ->execute();
+        $this->blogProjector->purge($eventBefore, date('Y-m-d', $sessionBefore));
     }
 
     private function insertEvent(AnalyticsEvent $event): bool
@@ -241,8 +258,15 @@ final readonly class AnalyticsIngestor
      * @param array<string, array<string, int|string|bool>|null> $sessions
      * @param array<string, array{table: string, bucket: string, dimension: string, dimension_key: string, views: int, sessions: int, unique_count: int, bounces: int, engaged_seconds: int}> $rollups
      * @param array<string, int> $legacyHits
+     * @param list<array{string, string}> $contextDimensions
      */
-    private function applyPageView(AnalyticsEvent $event, array &$sessions, array &$rollups, array &$legacyHits): void
+    private function applyPageView(
+        AnalyticsEvent $event,
+        array $contextDimensions,
+        array &$sessions,
+        array &$rollups,
+        array &$legacyHits,
+    ): void
     {
         $session = $this->session($event->sessionKey, $sessions);
         if ($session === null) {
@@ -274,9 +298,15 @@ final readonly class AnalyticsIngestor
         $session['last_page_key']    = $event->pageKey;
         $sessions[$event->sessionKey] = $session;
 
-        foreach ($this->eventDimensions($event) as [$dimension, $dimensionKey]) {
+        $day = date('Y-m-d', $event->occurredAt);
+        foreach ($contextDimensions as [$dimension, $dimensionKey]) {
+            if ($this->rememberUnique($day, 's_' . $dimension, $dimensionKey, $event->sessionKey)) {
+                $this->addTimedDelta($rollups, $event->occurredAt, $dimension, $dimensionKey, sessions: 1);
+            }
+        }
+
+        foreach ($this->eventDimensions($event, $contextDimensions) as [$dimension, $dimensionKey]) {
             $this->addTimedDelta($rollups, $event->occurredAt, $dimension, $dimensionKey, views: 1);
-            $day = date('Y-m-d', $event->occurredAt);
             if ($this->rememberUnique($day, $dimension, $dimensionKey, $event->visitorKey)) {
                 $this->addDelta(
                     $rollups,
@@ -296,8 +326,14 @@ final readonly class AnalyticsIngestor
     /**
      * @param array<string, array<string, int|string|bool>|null> $sessions
      * @param array<string, array{table: string, bucket: string, dimension: string, dimension_key: string, views: int, sessions: int, unique_count: int, bounces: int, engaged_seconds: int}> $rollups
+     * @param list<array{string, string}> $contextDimensions
      */
-    private function applyEngagement(AnalyticsEvent $event, array &$sessions, array &$rollups): void
+    private function applyEngagement(
+        AnalyticsEvent $event,
+        array $contextDimensions,
+        array &$sessions,
+        array &$rollups,
+    ): void
     {
         $session = $this->session($event->sessionKey, $sessions);
         if ($session === null) {
@@ -317,7 +353,7 @@ final readonly class AnalyticsIngestor
         $sessions[$event->sessionKey] = $session;
 
         if ($event->engagementSeconds > 0) {
-            foreach ($this->eventDimensions($event) as [$dimension, $dimensionKey]) {
+            foreach ($this->eventDimensions($event, $contextDimensions) as [$dimension, $dimensionKey]) {
                 $this->addTimedDelta(
                     $rollups,
                     $event->occurredAt,
@@ -547,14 +583,17 @@ final readonly class AnalyticsIngestor
             ->execute();
     }
 
-    /** @return list<array{string, string}> */
-    private function eventDimensions(AnalyticsEvent $event): array
+    /**
+     * @param  list<array{string, string}> $contextDimensions
+     * @return list<array{string, string}>
+     */
+    private function eventDimensions(AnalyticsEvent $event, array $contextDimensions): array
     {
-        return [
+        return array_merge([
             [self::DIMENSION_GLOBAL, self::GLOBAL_KEY],
             [self::DIMENSION_PAGE, $event->pageKey],
             [self::DIMENSION_SOURCE, $event->sourceKey],
-        ];
+        ], $contextDimensions);
     }
 
     /**

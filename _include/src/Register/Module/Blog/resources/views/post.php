@@ -34,10 +34,18 @@ $tagNames    = array_values(array_map(
     static fn(array $tag): string => (string)($tag['title'] ?? ''),
     \is_array($tags ?? null) ? $tags : [],
 ));
+$analyticsSection = (string)($tagNames[0] ?? '');
 ?>
 <article
     class="post-card<?php echo $inplaceData !== null ? ' is-manageable' : ''; ?><?php echo $isCreating ? ' is-creating' : ''; ?>"
     data-post-id="<?php echo $postId; ?>"
+<?php if ($heading === 'h1' && !$isCreating): ?>
+    data-analytics-content-type="post"
+    data-analytics-content-id="<?php echo $postId; ?>"
+    data-analytics-author="<?php echo register_htmlencode($author); ?>"
+    data-analytics-section="<?php echo register_htmlencode($analyticsSection); ?>"
+    data-analytics-published-at="<?php echo (int)$create_time; ?>"
+<?php endif; ?>
 <?php if ($isCreating): ?>
     data-post-creating
 <?php endif; ?>

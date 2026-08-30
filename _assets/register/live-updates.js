@@ -194,6 +194,17 @@
             for (const region of regions) {
                 url.searchParams.append('region[]', region);
             }
+            try {
+                const presence = window.RegisterAnalytics?.presence?.();
+                if (presence !== null && typeof presence === 'object') {
+                    url.searchParams.set('analytics_pageview_id', presence.pageViewId);
+                    url.searchParams.set('analytics_session_id', presence.sessionId);
+                    url.searchParams.set('analytics_path', presence.path);
+                    url.searchParams.set('analytics_title', presence.title);
+                }
+            } catch (_error) {
+                // Presence is optional; page synchronization must remain independent.
+            }
 
             const response = await window.fetch(url, {
                 credentials: 'same-origin',

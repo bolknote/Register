@@ -16,7 +16,7 @@ use Register\Core\Pdo\SchemaBuilderInterface;
 
 class Manifest implements BaseModuleInstallerInterface
 {
-    public const string VERSION = '4.1';
+    public const string VERSION = '5.0';
 
     public const string SALT_CONFIG_KEY = 'REGISTER_ANALYTICS_SALT';
 
@@ -35,7 +35,7 @@ class Manifest implements BaseModuleInstallerInterface
     #[\Override]
     public function getDescription(): string
     {
-        return 'Daily page-view and feed-reader statistics without raw IP or User-Agent storage.';
+        return 'Content, goal, audience, performance, page-view, and feed-reader analytics without raw IP or User-Agent storage.';
     }
 
     #[\Override]

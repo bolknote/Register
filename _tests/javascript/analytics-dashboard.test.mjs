@@ -12,15 +12,21 @@ function createHarness(pageSeries = []) {
     let ready;
     const chartCalls = [];
     const panels = Object.fromEntries(['pages', 'sessions', 'feeds'].map((name) => [name, {hidden: true}]));
-    const rankingPanels = Object.fromEntries(['pages', 'sources'].map((name) => [name, {hidden: true}]));
-    const rankingContainers = Object.fromEntries(['pages', 'sources'].map((name) => [name, {
+    const rankingPanels = Object.fromEntries(['pages', 'sources', 'goals', 'authors', 'sections'].map((name) => [name, {hidden: true}]));
+    const rankingContainers = Object.fromEntries(['pages', 'sources', 'goals', 'authors', 'sections'].map((name) => [name, {
         replaceChildren() {},
     }]));
     const loading = {hidden: false};
     const empty = {hidden: true};
     const error = {hidden: true, textContent: ''};
-    const rankingGrid = {hidden: true};
-    const buttons = ['14', '30', '90', 'all'].map((days) => ({
+    const rankingGrid = {
+        hidden: true,
+        querySelector() {
+            return [...Object.values(panels), ...Object.values(rankingPanels)]
+                .find((panel) => !panel.hidden) ?? null;
+        },
+    };
+    const buttons = ['7', '30', '90', 'all'].map((days) => ({
         dataset: {analyticsRangeDays: days},
         pressed: days === '30',
         addEventListener() {},
@@ -63,12 +69,8 @@ function createHarness(pageSeries = []) {
             return null;
         },
         querySelectorAll(selector) {
-            if (selector === '.analytics-summary-value') return [];
             if (selector === '[data-analytics-range-days]') return buttons;
-            if (selector.includes('[data-analytics-panel]:not([hidden])')) {
-                return [...Object.values(panels), ...Object.values(rankingPanels)]
-                    .filter((panel) => !panel.hidden);
-            }
+            if (selector === '[data-analytics-group]') return [rankingGrid];
             return [];
         },
     };
@@ -101,7 +103,31 @@ function createHarness(pageSeries = []) {
         async json() {
             if (url.includes('channel=page')) return {success: true, series: pageSeries};
             if (url.includes('channel=feed')) return {success: true, series: []};
-            return {success: true, data: []};
+            return {
+                success: true,
+                data: {
+                    earliest_day: '2026-08-30',
+                    summary: {
+                        average_engagement: 0,
+                        bounce_rate: 0,
+                        pages_per_session: 0,
+                        sessions: 0,
+                        unique_count: 0,
+                        views: 0,
+                    },
+                    comparison: {has_data: false, deltas: {}},
+                    daily: [],
+                    pages: [],
+                    sources: [],
+                    goals: [],
+                    authors: [],
+                    sections: [],
+                    funnel: [],
+                    vitals: [],
+                    technology: {devices: [], browsers: [], systems: []},
+                    realtime: {active_visitors: 0, views_30m: 0, pages: []},
+                },
+            };
         },
     });
     const context = vm.createContext({

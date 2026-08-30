@@ -19,26 +19,57 @@ final readonly class AnalyticsEventNormalizer
 
     private const int MAX_CLOCK_LEAD_SECONDS = 300;
 
-    private const array SEARCH_HOST_MARKERS = [
+    private const array SEARCH_DOMAINS = [
+        'baidu.com',
         'bing.com',
         'duckduckgo.com',
-        'google.',
-        'search.yahoo.',
-        'yandex.',
+        'ecosia.org',
+        'qwant.com',
+        'rambler.ru',
+        'search.brave.com',
+        'search.mail.ru',
     ];
 
-    private const array SOCIAL_HOST_MARKERS = [
+    private const array SOCIAL_DOMAINS = [
+        'dzen.ru',
         'facebook.com',
         'instagram.com',
         'linkedin.com',
         'ok.ru',
+        'pinterest.com',
         'reddit.com',
         't.co',
-        'telegram.',
+        't.me',
+        'telegram.me',
+        'telegram.org',
+        'threads.net',
         'twitter.com',
         'vk.com',
         'x.com',
+        'youtu.be',
+        'youtube.com',
     ];
+
+    private const array CONTENT_TYPES = [
+        'archive',
+        'blog-list',
+        'error',
+        'home',
+        'other',
+        'page',
+        'post',
+        'search',
+    ];
+
+    private const array DEVICES = ['desktop', 'mobile', 'tablet'];
+
+    private const array BROWSERS = ['Chrome', 'Edge', 'Firefox', 'Other', 'Safari', 'Samsung Internet'];
+
+    private const array OPERATING_SYSTEMS = ['Android', 'ChromeOS', 'Linux', 'Other', 'Windows', 'iOS', 'macOS'];
+
+    private const array SCREEN_CLASSES = ['large', 'medium', 'small', 'wide'];
+
+    private const array NAVIGATION_TYPES = ['back_forward', 'navigate', 'other', 'prerender', 'reload'];
 
     public function __construct(private StringProxy $salt)
     {
@@ -207,19 +238,30 @@ final readonly class AnalyticsEventNormalizer
             return 'internal';
         }
 
-        foreach (self::SEARCH_HOST_MARKERS as $marker) {
-            if (str_contains($referrerHost, $marker)) {
+        foreach (self::SEARCH_DOMAINS as $domain) {
+            if ($this->belongsToDomain($referrerHost, $domain)) {
                 return 'search';
             }
         }
+        if (preg_match('/(?:^|\.)google\.[a-z0-9.-]+$/D', $referrerHost) === 1
+            || preg_match('/(?:^|\.)yandex\.[a-z0-9.-]+$/D', $referrerHost) === 1
+            || preg_match('/(?:^|\.)search\.yahoo\.[a-z0-9.-]+$/D', $referrerHost) === 1
+        ) {
+            return 'search';
+        }
 
-        foreach (self::SOCIAL_HOST_MARKERS as $marker) {
-            if (str_contains($referrerHost, $marker)) {
+        foreach (self::SOCIAL_DOMAINS as $domain) {
+            if ($this->belongsToDomain($referrerHost, $domain)) {
                 return 'social';
             }
         }
 
         return 'referral';
+    }
+
+    private function belongsToDomain(string $host, string $domain): bool
+    {
+        return $host === $domain || str_ends_with($host, '.' . $domain);
     }
 
     private function eventName(mixed $value): string
@@ -266,7 +308,7 @@ final readonly class AnalyticsEventNormalizer
                 throw new \InvalidArgumentException('Analytics properties must contain scalar values.');
             }
 
-            $properties[$name] = $property;
+            $properties[$name] = $this->normalizedProperty($name, $property);
         }
 
         $json = json_encode($properties, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -275,6 +317,69 @@ final readonly class AnalyticsEventNormalizer
         }
 
         return $json;
+    }
+
+    private function normalizedProperty(string $name, bool|float|int|string|null $value): bool|float|int|string|null
+    {
+        return match ($name) {
+            'content_type' => $this->choiceProperty($value, self::CONTENT_TYPES, $name),
+            'device'       => $this->choiceProperty($value, self::DEVICES, $name),
+            'browser'      => $this->choiceProperty($value, self::BROWSERS, $name),
+            'os'           => $this->choiceProperty($value, self::OPERATING_SYSTEMS, $name),
+            'screen'       => $this->choiceProperty($value, self::SCREEN_CLASSES, $name),
+            'nav_type'     => $this->choiceProperty($value, self::NAVIGATION_TYPES, $name),
+            'content_id'   => $this->textProperty($value, 100, $name),
+            'author',
+            'section'      => $this->textProperty($value, 120, $name),
+            'language'     => $this->languageProperty($value),
+            'published_at' => $this->integerProperty($value, 0, 4_102_444_800, $name),
+            'word_count'   => $this->integerProperty($value, 0, 200_000, $name),
+            'lcp_ms'       => $this->integerProperty($value, 0, 120_000, $name),
+            'cls_milli'    => $this->integerProperty($value, 0, 10_000, $name),
+            'inp_ms'       => $this->integerProperty($value, 0, 60_000, $name),
+            default        => $value,
+        };
+    }
+
+    /** @param list<string> $choices */
+    private function choiceProperty(bool|float|int|string|null $value, array $choices, string $name): string
+    {
+        if (!\is_string($value) || !\in_array($value, $choices, true)) {
+            throw new \InvalidArgumentException('Invalid analytics ' . $name . ' property.');
+        }
+
+        return $value;
+    }
+
+    private function textProperty(bool|float|int|string|null $value, int $maximumBytes, string $name): string
+    {
+        if (!\is_string($value) || $value === '') {
+            throw new \InvalidArgumentException('Invalid analytics ' . $name . ' property.');
+        }
+
+        return $this->text($value, $maximumBytes);
+    }
+
+    private function languageProperty(bool|float|int|string|null $value): string
+    {
+        if (!\is_string($value) || preg_match('/^[a-z]{2,3}(?:-[A-Z]{2})?$/D', $value) !== 1) {
+            throw new \InvalidArgumentException('Invalid analytics language property.');
+        }
+
+        return $value;
+    }
+
+    private function integerProperty(
+        bool|float|int|string|null $value,
+        int $minimum,
+        int $maximum,
+        string $name,
+    ): int {
+        if (!\is_int($value) || $value < $minimum || $value > $maximum) {
+            throw new \InvalidArgumentException('Invalid analytics ' . $name . ' property.');
+        }
+
+        return $value;
     }
 
     private function text(mixed $value, int $maximumBytes): string

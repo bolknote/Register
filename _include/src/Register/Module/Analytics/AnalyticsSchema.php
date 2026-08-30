@@ -29,6 +29,20 @@ final class AnalyticsSchema
 
     public const string UNIQUE_DAY_TABLE = 'register_analytics_unique_day';
 
+    public const string PAGE_VIEW_TABLE = 'register_analytics_pageview';
+
+    public const string DIMENSION_TABLE = 'register_analytics_dimension';
+
+    public const string PAGE_METADATA_TABLE = 'register_analytics_page_metadata';
+
+    public const string GOAL_TABLE = 'register_analytics_goal';
+
+    public const string GOAL_DAY_TABLE = 'register_analytics_goal_day';
+
+    public const string GOAL_UNIQUE_DAY_TABLE = 'register_analytics_goal_unique_day';
+
+    public const string PERFORMANCE_DAY_TABLE = 'register_analytics_performance_day';
+
     public static function createEventStorage(DbLayer $dbLayer): void
     {
         $dbLayer->createTable(self::PAGE_TABLE, static function (SchemaBuilderInterface $table): void {
@@ -111,6 +125,124 @@ final class AnalyticsSchema
                 ->addString('visitor_key', 64)
                 ->setPrimaryKey(['day', 'dimension', 'dimension_key', 'visitor_key'])
                 ->addIndex('day_idx', ['day'])
+            ;
+        });
+
+        self::createBlogStorage($dbLayer);
+    }
+
+    /** Adds bounded projections used by content, goal, technology, and performance reports. */
+    public static function createBlogStorage(DbLayer $dbLayer): void
+    {
+        $dbLayer->createTable(self::PAGE_VIEW_TABLE, static function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('pageview_id', 32)
+                ->addString('visitor_key', 64)
+                ->addString('session_key', 64)
+                ->addString('page_key', 64)
+                ->addInteger('started_at', true)
+                ->addInteger('last_seen_at', true)
+                ->addInteger('engaged_seconds', true)
+                ->addInteger('max_scroll_depth', true)
+                ->addBoolean('engaged_30')
+                ->addBoolean('read_75')
+                ->addBoolean('read_100')
+                ->setPrimaryKey(['pageview_id'])
+                ->addIndex('last_seen_idx', ['last_seen_at'])
+                ->addIndex('page_started_idx', ['page_key', 'started_at'])
+                ->addIndex('session_started_idx', ['session_key', 'started_at'])
+            ;
+        });
+
+        $dbLayer->createTable(self::DIMENSION_TABLE, static function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('dimension_key', 64)
+                ->addString('kind', 16)
+                ->addString('label', 255)
+                ->addInteger('first_seen_at', true)
+                ->addInteger('last_seen_at', true)
+                ->setPrimaryKey(['dimension_key'])
+                ->addIndex('kind_seen_idx', ['kind', 'last_seen_at'])
+            ;
+        });
+
+        $dbLayer->createTable(self::PAGE_METADATA_TABLE, static function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('page_key', 64)
+                ->addString('content_type', 24)
+                ->addString('content_id', 100)
+                ->addString('author_key', 64)
+                ->addString('section_key', 64)
+                ->addInteger('published_at', true)
+                ->addInteger('word_count', true)
+                ->addInteger('first_seen_at', true)
+                ->addInteger('last_seen_at', true)
+                ->setPrimaryKey(['page_key'])
+                ->addIndex('content_type_seen_idx', ['content_type', 'last_seen_at'])
+                ->addIndex('author_seen_idx', ['author_key', 'last_seen_at'])
+                ->addIndex('section_seen_idx', ['section_key', 'last_seen_at'])
+            ;
+        });
+
+        $dbLayer->createTable(self::GOAL_TABLE, static function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('goal_key', 64)
+                ->addString('name', 64)
+                ->addInteger('first_seen_at', true)
+                ->addInteger('last_seen_at', true)
+                ->setPrimaryKey(['goal_key'])
+                ->addUniqueIndex('name_idx', ['name'])
+                ->addIndex('last_seen_idx', ['last_seen_at'])
+            ;
+        });
+
+        $dbLayer->createTable(self::GOAL_DAY_TABLE, static function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('bucket', 10)
+                ->addString('goal_key', 64)
+                ->addString('page_key', 64)
+                ->addInteger('events', true)
+                ->addInteger('unique_count', true)
+                ->setPrimaryKey(['bucket', 'goal_key', 'page_key'])
+                ->addIndex('goal_bucket_idx', ['goal_key', 'bucket'])
+                ->addIndex('page_bucket_idx', ['page_key', 'bucket'])
+            ;
+        });
+
+        $dbLayer->createTable(self::GOAL_UNIQUE_DAY_TABLE, static function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('day', 10)
+                ->addString('goal_key', 64)
+                ->addString('page_key', 64)
+                ->addString('visitor_key', 64)
+                ->setPrimaryKey(['day', 'goal_key', 'page_key', 'visitor_key'])
+                ->addIndex('day_idx', ['day'])
+                ->addIndex('goal_day_idx', ['goal_key', 'day'])
+            ;
+        });
+
+        $dbLayer->createTable(self::PERFORMANCE_DAY_TABLE, static function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('bucket', 10)
+                ->addString('page_key', 64)
+                ->addInteger('sample_count', true)
+                ->addInteger('lcp_sum', true)
+                ->addInteger('lcp_count', true)
+                ->addInteger('lcp_good', true)
+                ->addInteger('lcp_needs', true)
+                ->addInteger('lcp_poor', true)
+                ->addInteger('cls_sum', true)
+                ->addInteger('cls_count', true)
+                ->addInteger('cls_good', true)
+                ->addInteger('cls_needs', true)
+                ->addInteger('cls_poor', true)
+                ->addInteger('inp_sum', true)
+                ->addInteger('inp_count', true)
+                ->addInteger('inp_good', true)
+                ->addInteger('inp_needs', true)
+                ->addInteger('inp_poor', true)
+                ->setPrimaryKey(['bucket', 'page_key'])
+                ->addIndex('page_bucket_idx', ['page_key', 'bucket'])
             ;
         });
     }

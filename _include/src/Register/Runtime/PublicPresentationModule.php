@@ -19,6 +19,7 @@ use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Template\HtmlTemplateProvider;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class PublicPresentationModule implements ContainerModuleInterface
 {
@@ -35,6 +36,7 @@ final readonly class PublicPresentationModule implements ContainerModuleInterfac
             $container->get(ContentRepository::class),
             $container->get(LiveFragmentRenderer::class),
             $container->get(PublicAuthRenderer::class),
+            $container->get(EventDispatcherInterface::class),
         ));
     }
 }

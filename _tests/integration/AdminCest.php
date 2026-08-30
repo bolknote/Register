@@ -371,7 +371,7 @@ class AdminCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Statistics');
         $I->see('Analytics', 'h1#statistics-title');
-        $I->see('Traffic', '.register-analytics h2');
+        $I->see('Blog analytics', '.register-analytics h2');
         $I->seeElement('[data-analytics-table="register-analytics-pages"]');
         $I->seeElement('[data-analytics-table="register-analytics-feeds"]');
 

@@ -15,6 +15,7 @@ use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Auth\PublicAuthRenderer;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Register\Core\Framework\ControllerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,6 +35,7 @@ final readonly class LiveUpdateController implements ControllerInterface
         private ContentRepository      $contentRepository,
         private LiveFragmentRenderer   $fragmentRenderer,
         private PublicAuthRenderer     $publicAuthRenderer,
+        private EventDispatcherInterface $eventDispatcher,
     ) {
     }
 
@@ -68,6 +70,8 @@ final readonly class LiveUpdateController implements ControllerInterface
                 $this->renderRegion($region, $request),
             );
         }
+
+        $this->eventDispatcher->dispatch(new LiveUpdatePolledEvent($request, time()));
 
         $response = new JsonResponse([
             'cursor'  => $nextCursor,

@@ -104,4 +104,14 @@ test('collector waits for visitor identity and ignores browser privacy signals',
     assert.equal(payload.events[0].type, 'pageview');
     assert.equal(payload.events[0].path, '/post');
     assert.equal(payload.events[0].utm.source, 'newsletter');
+    assert.equal(payload.events[0].properties.content_type, 'page');
+    assert.equal(payload.events[0].properties.device, 'desktop');
+    assert.equal(payload.events[0].properties.browser, 'Other');
+    assert.equal(JSON.stringify(payload).includes('userAgent'), false);
+
+    const presence = window.RegisterAnalytics.presence();
+    assert.match(presence.pageViewId, /^[a-f0-9]{32}$/);
+    assert.match(presence.sessionId, /^[a-f0-9]{32}$/);
+    assert.equal(presence.path, '/post');
+    assert.equal(presence.title, 'Example');
 });
