@@ -39,7 +39,7 @@ class Manifest implements BaseModuleInstallerInterface
     #[\Override]
     public function getVersion(): string
     {
-        return '3.0';
+        return '4.0';
     }
 
     #[\Override]
@@ -65,6 +65,8 @@ class Manifest implements BaseModuleInstallerInterface
                 ->addIndex('day_idx', ['day'])
             ;
         });
+
+        AnalyticsSchema::createEventStorage($dbLayer);
 
         $dbLayer->insert('config')
             ->setValue('name', ':name')->setParameter('name', self::SALT_CONFIG_KEY)

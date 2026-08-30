@@ -16,6 +16,7 @@ use Register\Core\Comment\Antispam\SpamMaintenance;
 use Register\Core\Comment\Antispam\SpamMaintenanceQueueHandler;
 use Register\Core\Queue\QueueExecutionBudget;
 use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\OpportunisticMaintenanceTaskInterface;
 use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
 use Register\Core\Queue\ScheduledWorkCoordinatorInterface;
 
@@ -71,6 +72,15 @@ final readonly class ScheduledMaintenance implements ScheduledWorkCoordinatorInt
             return true;
         }
 
+        foreach ($this->additionalTasks as $additionalTask) {
+            if ($additionalTask instanceof OpportunisticMaintenanceTaskInterface) {
+                $budget->checkpoint(0.01);
+                if ($additionalTask->hasDueWork($now, $budget)) {
+                    return true;
+                }
+            }
+        }
+
         $budget->checkpoint(0.02);
         return $this->lastMaintenance($now) <= $now - self::INTERVAL_SECONDS;
     }
@@ -80,6 +90,19 @@ final readonly class ScheduledMaintenance implements ScheduledWorkCoordinatorInt
     {
         $now ??= time();
         $budget ??= new QueueExecutionBudget(30.0);
+        $completedOpportunisticWork = false;
+        foreach ($this->additionalTasks as $additionalTask) {
+            if (!$additionalTask instanceof OpportunisticMaintenanceTaskInterface) {
+                continue;
+            }
+
+            $budget->checkpoint(0.02);
+            if ($additionalTask->hasDueWork($now, $budget)) {
+                $completedOpportunisticWork = $additionalTask->runIfDue($now, $budget)
+                    || $completedOpportunisticWork;
+            }
+        }
+
         $budget->checkpoint(0.05);
         $statement = $this->pdo->prepare(
             'SELECT value FROM ' . $this->dbPrefix . 'config WHERE name = :name'
@@ -96,7 +119,7 @@ final readonly class ScheduledMaintenance implements ScheduledWorkCoordinatorInt
 
         $lastMaintenance = $this->parseLastMaintenance($lastValue);
         if ($lastMaintenance > $now - self::INTERVAL_SECONDS) {
-            return false;
+            return $completedOpportunisticWork;
         }
 
         foreach (SpamMaintenance::OPERATIONS as $operation) {

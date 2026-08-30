@@ -10,12 +10,24 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Module\Analytics\AnalyticsRepository;
+use Register\Module\Analytics\AnalyticsMaintenanceTask;
+use Register\Module\Analytics\AnalyticsSchema;
+use Register\Module\Analytics\AnalyticsSpool;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Module\VisitorIdentity\VisitorIdentityRepository;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueueExecutionBudget;
+use Symfony\Component\Filesystem\Filesystem;
 
 final class AnalyticsCest
 {
+    public function _before(\IntegrationTester $I): void
+    {
+        /** @var AnalyticsSpool $spool */
+        $spool = $I->grabService(AnalyticsSpool::class);
+        (new Filesystem())->remove($spool->directory());
+    }
+
     public function recordsAggregatesWithoutRawAddresses(\IntegrationTester $I): void
     {
         $headers = [
@@ -24,7 +36,7 @@ final class AnalyticsCest
         ];
         $I->sendRequestWithHeaders('https://localhost/', $headers);
         $I->seeResponseCodeIs(200);
-        $I->seeElement('meta[name="register-analytics-page"]');
+        $I->seeElement('meta[name="register-analytics"]');
 
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -38,7 +50,7 @@ final class AnalyticsCest
         $I->assertFalse($unresolvedSummary, 'An unresolved HTML fetch must not write analytics.');
 
         $I->sendJson('https://localhost/_visitor/resolve', [
-            'trackPage' => true,
+            'trackPage' => false,
         ], headers: [
             'Origin'     => 'https://localhost',
             'User-Agent' => 'Register integration browser',
@@ -69,7 +81,15 @@ final class AnalyticsCest
         $visitorRepository = $I->grabService(VisitorIdentityRepository::class);
         $I->assertSame(1, $visitorRepository->totalVisitors());
 
+        $sessionId = bin2hex(random_bytes(16));
+        $this->sendPageView($I, '/', $sessionId, headers: $headers);
+        $this->drainAnalytics($I);
+
+        // A warmed page-cache response still contains the browser collector and is counted by it.
         $I->sendRequestWithHeaders('https://localhost/', $headers);
+        $I->seeElement('meta[name="register-analytics"]');
+        $this->sendPageView($I, '/', $sessionId, headers: $headers);
+        $this->drainAnalytics($I);
 
         $summary = $dbLayer->select('hits, unique_count')
             ->from('register_analytics_daily')
@@ -93,14 +113,51 @@ final class AnalyticsCest
         $I->assertMatchesRegularExpression('/^[a-f0-9]{64}$/D', $fingerprint);
         $I->assertStringNotContainsString('192.0.2.42', $fingerprint);
 
+        $events = $dbLayer->select('visitor_key, properties_json')
+            ->from(AnalyticsSchema::EVENT_TABLE)
+            ->execute()
+            ->fetchAssocAll();
+        $I->assertCount(2, $events);
+        foreach ($events as $event) {
+            $I->assertMatchesRegularExpression('/^[a-f0-9]{64}$/D', (string)$event['visitor_key']);
+            $I->assertStringNotContainsString('192.0.2.42', (string)$event['properties_json']);
+            $I->assertStringNotContainsString('Register integration browser', (string)$event['properties_json']);
+        }
+
+        $session = $dbLayer->select('pageviews, bounced')
+            ->from(AnalyticsSchema::SESSION_TABLE)
+            ->execute()
+            ->fetchAssoc();
+        $I->assertNotFalse($session);
+        $I->assertSame(2, (int)$session['pageviews']);
+        $I->assertSame(0, (int)$session['bounced']);
+
         $I->amOnPage('https://localhost/_analytics/counter.png');
         $I->seeResponseCodeIs(200);
         $I->seeHttpHeader('Content-Type', 'image/png');
 
         $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/_admin/ajax.php?action=register_analytics_report&report=daily');
+        $I->seeResponseCodeIs(200);
+        $report = $I->grabJson();
+        $I->assertIsArray($report);
+        $I->assertTrue($report['success']);
+        $I->assertSame(2, $report['data'][0]['views']);
+        $I->assertSame(1, $report['data'][0]['sessions']);
+        $I->assertSame(0, $report['data'][0]['bounces']);
+
+        $today = date('Y-m-d');
+        $I->amOnPage('https://localhost/_admin/ajax.php?action=register_analytics_report&report=pages&from=' . $today . '&to=' . $today);
+        $I->seeResponseCodeIs(200);
+        $pages = $I->grabJson();
+        $I->assertIsArray($pages);
+        $I->assertSame('/', $pages['data'][0]['path']);
+        $I->assertSame(2, $pages['data'][0]['views']);
+
         $I->amOnPage('https://localhost/_admin/index.php?entity=Statistics');
         $I->see('Unique visitors', '.analytics-summary');
         $I->see('1', '.analytics-summary-value');
+        $I->see('Sessions today', '.analytics-summary-list');
     }
 
     public function ignoresBrowserPrivacySignalsAndRejectsPublicAnalyticsData(\IntegrationTester $I): void
@@ -114,12 +171,18 @@ final class AnalyticsCest
             'DNT'        => '1',
         ]);
         $I->sendJson('https://localhost/_visitor/resolve', [
-            'trackPage' => true,
+            'trackPage' => false,
         ], headers: [
             'DNT'        => '1',
             'Sec-GPC'    => '1',
             'User-Agent' => 'Register privacy test',
         ]);
+        $this->sendPageView($I, '/', bin2hex(random_bytes(16)), headers: [
+            'DNT'        => '1',
+            'Sec-GPC'    => '1',
+            'User-Agent' => 'Register privacy test',
+        ]);
+        $this->drainAnalytics($I);
 
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -134,6 +197,8 @@ final class AnalyticsCest
         $I->assertSame(1, (int)$summary['unique_count']);
 
         $I->amOnPage('https://localhost/_admin/ajax.php?action=register_analytics_series&channel=page');
+        $I->seeResponseCodeIs(401);
+        $I->amOnPage('https://localhost/_admin/ajax.php?action=register_analytics_report&report=daily');
         $I->seeResponseCodeIs(401);
     }
 
@@ -150,5 +215,36 @@ final class AnalyticsCest
 
         $I->amOnPage('https://localhost/_admin/ajax.php?action=register_analytics_series&channel=raw');
         $I->seeResponseCodeIs(400);
+    }
+
+    /** @param array<string, string> $headers */
+    private function sendPageView(
+        \IntegrationTester $I,
+        string $path,
+        string $sessionId,
+        array $headers,
+    ): void {
+        $I->sendJson('https://localhost/_analytics/collect', [
+            'v'      => 1,
+            'events' => [[
+                'id'          => bin2hex(random_bytes(16)),
+                'type'        => 'pageview',
+                'occurred_at' => time() * 1000,
+                'session_id'  => $sessionId,
+                'pageview_id' => bin2hex(random_bytes(16)),
+                'path'        => $path,
+                'title'       => 'Register',
+                'referrer'    => '',
+                'utm'         => [],
+            ]],
+        ], headers: ['Origin' => 'https://localhost'] + $headers);
+        $I->seeResponseCodeIs(204);
+    }
+
+    private function drainAnalytics(\IntegrationTester $I): void
+    {
+        /** @var AnalyticsMaintenanceTask $maintenance */
+        $maintenance = $I->grabService(AnalyticsMaintenanceTask::class);
+        $maintenance->runIfDue(time() + 60, new QueueExecutionBudget(2.0));
     }
 }

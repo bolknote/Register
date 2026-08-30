@@ -33,6 +33,7 @@ class AdminModule implements ContainerModuleInterface, ContainerAwareListenerMod
             static fn(Container $container): DashboardAnalyticsProvider => new DashboardAnalyticsProvider(
                 $container->get(TemplateRenderer::class),
                 $container->get(\Register\Module\VisitorIdentity\VisitorIdentityRepository::class),
+                $container->get(AnalyticsReportRepository::class),
             ),
             [DashboardBlockProviderInterface::class],
         );
@@ -43,6 +44,7 @@ class AdminModule implements ContainerModuleInterface, ContainerAwareListenerMod
     {
         $eventDispatcher->addListener(AdminAjaxControllerMapEvent::class, static function (AdminAjaxControllerMapEvent $event) use ($container): void {
             $event->allowGet('register_analytics_series');
+            $event->allowGet('register_analytics_report');
             $event->controllerMap['register_analytics_series'] = static function (
                 PermissionChecker $permissionChecker,
                 Request $request,
@@ -67,6 +69,37 @@ class AdminModule implements ContainerModuleInterface, ContainerAwareListenerMod
                     'success' => true,
                     'series'  => $container->get(AnalyticsRepository::class)->dailySeries($channel),
                 ]);
+            };
+            $event->controllerMap['register_analytics_report'] = static function (
+                PermissionChecker $permissionChecker,
+                Request $request,
+            ) use ($container): JsonResponse {
+                if (!$permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
+                    return new JsonResponse(['success' => false, 'message' => 'Permission denied.'], Response::HTTP_FORBIDDEN);
+                }
+                if (!$request->isMethod(Request::METHOD_GET)) {
+                    return new JsonResponse(['success' => false, 'message' => 'Only GET requests are allowed.'], Response::HTTP_METHOD_NOT_ALLOWED);
+                }
+
+                $report = $request->query->getString('report');
+                $toDay  = $request->query->getString('to', date('Y-m-d'));
+                $fromDay = $request->query->getString('from', date('Y-m-d', time() - 29 * 86400));
+                $repository = $container->get(AnalyticsReportRepository::class);
+                try {
+                    $data = match ($report) {
+                        'daily'   => $repository->dailyOverview(),
+                        'pages'   => $repository->topPages($fromDay, $toDay),
+                        'sources' => $repository->topSources($fromDay, $toDay),
+                        default   => throw new \InvalidArgumentException('Unknown analytics report.'),
+                    };
+                } catch (\InvalidArgumentException $exception) {
+                    return new JsonResponse([
+                        'success' => false,
+                        'message' => $exception->getMessage(),
+                    ], Response::HTTP_BAD_REQUEST);
+                }
+
+                return new JsonResponse(['success' => true, 'data' => $data]);
             };
         });
     }

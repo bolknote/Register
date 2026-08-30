@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const endpoint = root.dataset.endpoint;
-    if (endpoint === undefined) {
+    const reportEndpoint = root.dataset.reportEndpoint;
+    if (endpoint === undefined || reportEndpoint === undefined) {
         return;
     }
 
@@ -34,6 +35,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const data = await response.json();
         return data.series.map((item) => [Date.parse(`${item.day}T00:00:00Z`), item]);
+    };
+
+    const loadReport = async (report) => {
+        const response = await fetch(`${reportEndpoint}&report=${encodeURIComponent(report)}`, {
+            credentials: 'same-origin',
+            headers: {'Accept': 'application/json'},
+        });
+        if (!response.ok) {
+            throw new Error(`${root.dataset.requestFailed ?? 'Analytics request failed'}: HTTP ${response.status}`);
+        }
+
+        const payload = await response.json();
+        return payload.data;
     };
 
     const renderTable = (id, series) => {
@@ -166,15 +180,78 @@ document.addEventListener('DOMContentLoaded', () => {
         labelRangeSelector(chart);
     };
 
-    Promise.all([load('page'), load('feed:blog')])
-        .then(([pages, blogFeed]) => {
+    const sourceLabel = (row) => {
+        if (row.kind === 'campaign') {
+            return [row.utm_source, row.utm_medium, row.utm_campaign].filter(Boolean).join(' / ') || row.kind;
+        }
+        return row.referrer_host || row.kind;
+    };
+
+    const renderRanking = (name, rows) => {
+        const container = root.querySelector(`[data-analytics-ranking="${name}"]`);
+        if (container === null) {
+            return;
+        }
+        if (!Array.isArray(rows) || rows.length === 0) {
+            container.textContent = root.dataset.noData ?? 'No analytics data';
+            return;
+        }
+
+        const table = document.createElement('table');
+        table.className = 'analytics-data-table';
+        const header = table.createTHead().insertRow();
+        const labels = [
+            name === 'pages' ? (root.dataset.page ?? 'Page') : (root.dataset.source ?? 'Source'),
+            root.dataset.pageViews ?? 'Page views',
+            root.dataset.sessions ?? 'Sessions',
+            root.dataset.uniqueVisitors ?? 'Unique visitors',
+        ];
+        labels.forEach((label) => {
+            const heading = document.createElement('th');
+            heading.scope = 'col';
+            heading.textContent = label;
+            header.append(heading);
+        });
+
+        const body = table.createTBody();
+        rows.forEach((item) => {
+            const row = body.insertRow();
+            const label = document.createElement('th');
+            label.scope = 'row';
+            label.textContent = name === 'pages'
+                ? (item.title ? `${item.title} — ${item.path}` : item.path)
+                : sourceLabel(item);
+            row.append(label);
+            [item.views, item.sessions, item.unique_count].forEach((value) => {
+                const cell = row.insertCell();
+                cell.textContent = String(value);
+            });
+        });
+        container.replaceChildren(table);
+    };
+
+    Promise.all([
+        load('page'),
+        load('feed:blog'),
+        loadReport('daily'),
+        loadReport('pages'),
+        loadReport('sources'),
+    ])
+        .then(([pages, blogFeed, overview, topPages, topSources]) => {
             draw('register-analytics-pages', [
                 {name: root.dataset.pageViews ?? 'Page views', data: pages.map(([time, item]) => [time, item.hits])},
                 {name: root.dataset.uniqueVisitors ?? 'Unique visitors', data: pages.map(([time, item]) => [time, item.unique_count])},
             ]);
+            const daily = overview.map((item) => [Date.parse(`${item.day}T00:00:00Z`), item]);
+            draw('register-analytics-sessions', [
+                {name: root.dataset.sessions ?? 'Sessions', data: daily.map(([time, item]) => [time, item.sessions])},
+                {name: root.dataset.bounces ?? 'Bounces', data: daily.map(([time, item]) => [time, item.bounces])},
+            ]);
             draw('register-analytics-feeds', [
                 {name: root.dataset.blogFeedReaders ?? 'Blog feed readers', data: blogFeed.map(([time, item]) => [time, item.unique_count])},
             ]);
+            renderRanking('pages', topPages);
+            renderRanking('sources', topSources);
         })
         .catch((error) => {
             const message = document.createElement('p');

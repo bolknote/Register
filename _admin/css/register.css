@@ -1885,6 +1885,18 @@ form.config-inline-form :is(input:not([type="checkbox"]), select, textarea):not(
     margin: 0 0 0.35rem;
 }
 
+.analytics-summary-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    margin: 0 0 0.5rem;
+}
+
+.analytics-summary-list .analytics-summary {
+    min-width: 9rem;
+    margin: 0;
+}
+
 .analytics-summary-value {
     color: var(--admin-text-color);
     font-size: 1.75rem;
@@ -1931,6 +1943,16 @@ form.config-inline-form :is(input:not([type="checkbox"]), select, textarea):not(
 
 .analytics-data-table th:first-child {
     text-align: left;
+}
+
+.analytics-ranking-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+    gap: 1.5rem;
+}
+
+.analytics-ranking {
+    overflow-x: auto;
 }
 
 .visually-hidden {

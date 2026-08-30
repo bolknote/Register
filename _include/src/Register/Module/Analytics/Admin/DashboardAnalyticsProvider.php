@@ -10,6 +10,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Analytics\Admin;
 
+use Register\Module\Analytics\AnalyticsReportRepository;
 use Register\Module\VisitorIdentity\VisitorIdentityRepository;
 use Register\AdminYard\TemplateRenderer;
 use Register\Admin\Dashboard\DashboardBlockProviderInterface;
@@ -19,6 +20,7 @@ final readonly class DashboardAnalyticsProvider implements DashboardBlockProvide
     public function __construct(
         private TemplateRenderer          $templateRenderer,
         private VisitorIdentityRepository $visitorIdentityRepository,
+        private AnalyticsReportRepository $reportRepository,
     ) {
     }
 
@@ -27,7 +29,10 @@ final readonly class DashboardAnalyticsProvider implements DashboardBlockProvide
     {
         return $this->templateRenderer->render(
             \dirname(__DIR__) . '/resources/views/dashboard.php.inc',
-            ['uniqueVisitorsTotal' => $this->visitorIdentityRepository->totalVisitors()],
+            [
+                'uniqueVisitorsTotal' => $this->visitorIdentityRepository->totalVisitors(),
+                'todaySummary'        => $this->reportRepository->summary(date('Y-m-d')),
+            ],
         );
     }
 }
