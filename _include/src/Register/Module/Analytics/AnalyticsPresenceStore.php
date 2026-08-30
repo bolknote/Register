@@ -221,11 +221,7 @@ final class AnalyticsPresenceStore
         $this->localEntries = $this->validEntries($this->localEntries, $now - self::ENTRY_TTL);
         $this->localEntries[$pageViewKey] = $entry;
         while (\count($this->localEntries) > self::MAX_ENTRIES_PER_SHARD) {
-            $oldestKey = array_key_first($this->localEntries);
-            if ($oldestKey === null) {
-                break;
-            }
-            unset($this->localEntries[$oldestKey]);
+            self::removeOldestEntry($this->localEntries);
         }
     }
 
@@ -239,11 +235,7 @@ final class AnalyticsPresenceStore
             static fn(array $left, array $right): int => $left['seen_at'] <=> $right['seen_at'],
         );
         while (\count($entries) > self::MAX_ENTRIES_PER_SHARD) {
-            $oldestKey = array_key_first($entries);
-            if ($oldestKey === null) {
-                break;
-            }
-            unset($entries[$oldestKey]);
+            self::removeOldestEntry($entries);
         }
     }
 
@@ -261,11 +253,7 @@ final class AnalyticsPresenceStore
             if (\strlen($contents) <= self::MAX_FILE_BYTES) {
                 break;
             }
-            $oldestKey = array_key_first($entries);
-            if ($oldestKey === null) {
-                break;
-            }
-            unset($entries[$oldestKey]);
+            self::removeOldestEntry($entries);
         } while ($entries !== []);
 
         if (!ftruncate($handle, 0) || !rewind($handle)) {
@@ -281,6 +269,17 @@ final class AnalyticsPresenceStore
         if (!fflush($handle)) {
             throw new \RuntimeException('Unable to flush an analytics presence shard.');
         }
+    }
+
+    /**
+     * @param array<string, array{visitor_key: string, path: string, title: string, seen_at: int}> $entries
+     */
+    private static function removeOldestEntry(array &$entries): void
+    {
+        if ($entries === []) {
+            return;
+        }
+        unset($entries[array_key_first($entries)]);
     }
 
     /** @return array<string, array{visitor_key: string, path: string, title: string, seen_at: int}> */
