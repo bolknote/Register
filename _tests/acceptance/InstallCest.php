@@ -201,8 +201,9 @@ class InstallCest
         $I->setCookie($this->getCookieName() . '_c', 'wrong_value');
         $I->amOnPage('/section1/page1');
         $I->seeElement('.public-auth-email-form');
-        $I->canWriteComment();
+        $I->canWriteComment(premoderation: true);
         $this->restoreAdminSession($I);
+        $this->approveHiddenComment($I, '/section1/page1', 'This is my first comment! 👪🐶');
     }
 
     private function restoreAdminSession(AcceptanceTester $I): void
@@ -210,6 +211,16 @@ class InstallCest
         $I->resetCookie($this->getCookieName(), ['path' => '/_admin/']);
         $I->resetCookie($this->getCookieName() . '_c', ['path' => '/']);
         $I->login('admin', 'register-test-password');
+    }
+
+    private function approveHiddenComment(AcceptanceTester $I, string $path, string $text): void
+    {
+        $I->amOnPage($path);
+        $I->see($text, '.comment-item.is-hidden');
+        $I->submitForm('.comment-item.is-hidden form[data-moderation-action="show"]', []);
+        $I->seeResponseCodeIs(200);
+        $I->see($text, '.comment-item:not(.is-hidden)');
+        $I->clearEmails();
     }
 
     private function testBaseModules(AcceptanceTester $I): void
@@ -541,10 +552,12 @@ class InstallCest
         $I->see('New blog post');
         $I->see('August 12, 2023');
         $I->canWriteComment(
+            premoderation: true,
             text: 'This is my first blog comment! 👪🐶',
             email: 'roman-blog@example.com',
         );
         $this->restoreAdminSession($I);
+        $this->approveHiddenComment($I, '/new-post1', 'This is my first blog comment! 👪🐶');
 
         $I->amOnPage('/2023/08/12/new-post1');
         $I->seeResponseCodeIsClientError();
