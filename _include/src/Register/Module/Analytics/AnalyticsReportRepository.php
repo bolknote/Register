@@ -520,7 +520,9 @@ final readonly class AnalyticsReportRepository
                     $grade   = $good / $count >= 0.75
                         ? 'good'
                         : (($good + $needs) / $count >= 0.75 ? 'needs' : 'poor');
-                    $value = (int)$row[$key . '_sum'] / $count / $definition['divisor'];
+                    $value = (float)(int)$row[$key . '_sum']
+                        / (float)$count
+                        / (float)$definition['divisor'];
                     $result[] = [
                         'metric'    => $metric,
                         'value'     => $metric === 'CLS' ? round($value, 3) : round($value),
@@ -684,7 +686,7 @@ final readonly class AnalyticsReportRepository
         if ($previous === 0.0) {
             return $current === 0.0 ? 0.0 : null;
         }
-        return round(100 * ($current - $previous) / abs($previous), 1);
+        return round(100.0 * ($current - $previous) / abs($previous), 1);
     }
 
     /** @return array{int, int} */

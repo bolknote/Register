@@ -221,7 +221,11 @@ final class AnalyticsPresenceStore
         $this->localEntries = $this->validEntries($this->localEntries, $now - self::ENTRY_TTL);
         $this->localEntries[$pageViewKey] = $entry;
         while (\count($this->localEntries) > self::MAX_ENTRIES_PER_SHARD) {
-            unset($this->localEntries[array_key_first($this->localEntries)]);
+            $oldestKey = array_key_first($this->localEntries);
+            if ($oldestKey === null) {
+                break;
+            }
+            unset($this->localEntries[$oldestKey]);
         }
     }
 
@@ -235,7 +239,11 @@ final class AnalyticsPresenceStore
             static fn(array $left, array $right): int => $left['seen_at'] <=> $right['seen_at'],
         );
         while (\count($entries) > self::MAX_ENTRIES_PER_SHARD) {
-            unset($entries[array_key_first($entries)]);
+            $oldestKey = array_key_first($entries);
+            if ($oldestKey === null) {
+                break;
+            }
+            unset($entries[$oldestKey]);
         }
     }
 
@@ -253,7 +261,11 @@ final class AnalyticsPresenceStore
             if (\strlen($contents) <= self::MAX_FILE_BYTES) {
                 break;
             }
-            unset($entries[array_key_first($entries)]);
+            $oldestKey = array_key_first($entries);
+            if ($oldestKey === null) {
+                break;
+            }
+            unset($entries[$oldestKey]);
         } while ($entries !== []);
 
         if (!ftruncate($handle, 0) || !rewind($handle)) {

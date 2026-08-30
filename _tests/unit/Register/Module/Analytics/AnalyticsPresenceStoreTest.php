@@ -15,13 +15,15 @@ use Symfony\Component\Filesystem\Filesystem;
 
 final class AnalyticsPresenceStoreTest extends Unit
 {
-    private string $directory;
+    private string $directory = '';
 
+    #[\Override]
     protected function _before(): void
     {
         $this->directory = sys_get_temp_dir() . '/register_analytics_presence_' . bin2hex(random_bytes(6));
     }
 
+    #[\Override]
     protected function _after(): void
     {
         (new Filesystem())->remove($this->directory);

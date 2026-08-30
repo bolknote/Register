@@ -25,13 +25,15 @@ use Symfony\Component\Filesystem\Filesystem;
 
 final class AnalyticsReportRepositoryTest extends Unit
 {
-    private string $presenceDirectory;
+    private string $presenceDirectory = '';
 
+    #[\Override]
     protected function _before(): void
     {
         $this->presenceDirectory = sys_get_temp_dir() . '/register_analytics_report_' . bin2hex(random_bytes(6));
     }
 
+    #[\Override]
     protected function _after(): void
     {
         (new Filesystem())->remove($this->presenceDirectory);
