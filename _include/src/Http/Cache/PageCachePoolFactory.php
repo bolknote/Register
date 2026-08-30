@@ -21,7 +21,7 @@ final readonly class PageCachePoolFactory
      * Bump only when cached PHP values or anonymous HTML representations become incompatible.
      * Ordinary releases and render-neutral code changes must keep the existing cache warm.
      */
-    public const int CACHE_ABI = 1;
+    public const int CACHE_ABI = 2;
 
     private const string FILESYSTEM_NAMESPACE = 'pages';
 
