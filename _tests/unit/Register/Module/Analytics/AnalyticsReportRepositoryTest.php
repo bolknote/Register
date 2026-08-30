@@ -151,14 +151,14 @@ final class AnalyticsReportRepositoryTest extends Unit
         $repository = new AnalyticsReportRepository($dbLayer, $cache, $presence);
         $time = (new \DateTimeImmutable('2026-08-30T12:15:00+00:00'))->getTimestamp();
         $events = [];
-        for ($index = 0; $index < 20; ++$index) {
+        for ($index = 0; $index < 27; ++$index) {
             $events[] = $this->event(
                 str_pad(dechex($index + 1), 32, '0', STR_PAD_LEFT),
                 AnalyticsEvent::TYPE_CUSTOM,
                 $time + $index,
                 name: AnalyticsBlogProjector::EVENT_WEB_VITALS,
                 propertiesJson: json_encode([
-                    'lcp_ms' => $index % 2 === 0 ? 2400 : 2900,
+                    'lcp_ms' => $index < 17 ? 2400 : 2900,
                 ], JSON_THROW_ON_ERROR),
             );
         }
@@ -166,18 +166,20 @@ final class AnalyticsReportRepositoryTest extends Unit
         self::assertSame(2, $ingestor->ingest(array_slice($events, 0, 2)));
         $vital = $repository->webVitals('2026-08-30', '2026-08-30')[0];
         self::assertSame('LCP', $vital['metric']);
-        self::assertSame(2650.0, $vital['value']);
+        self::assertSame(2400.0, $vital['value']);
+        self::assertSame(2500.0, $vital['target']);
+        self::assertSame(75, $vital['percentile']);
         self::assertSame(2, $vital['samples']);
-        self::assertSame(1, $vital['good_samples']);
-        self::assertSame(50.0, $vital['good_rate']);
+        self::assertSame(2, $vital['good_samples']);
+        self::assertSame(100.0, $vital['good_rate']);
         self::assertSame('insufficient', $vital['grade']);
 
-        self::assertSame(18, $ingestor->ingest(array_slice($events, 2)));
+        self::assertSame(25, $ingestor->ingest(array_slice($events, 2)));
         $vital = $repository->webVitals('2026-08-30', '2026-08-30')[0];
-        self::assertSame(2650.0, $vital['value']);
-        self::assertSame(20, $vital['samples']);
-        self::assertSame(10, $vital['good_samples']);
-        self::assertSame(50.0, $vital['good_rate']);
+        self::assertSame(2900.0, $vital['value']);
+        self::assertSame(27, $vital['samples']);
+        self::assertSame(17, $vital['good_samples']);
+        self::assertSame(63.0, $vital['good_rate']);
         self::assertSame('needs', $vital['grade']);
     }
 

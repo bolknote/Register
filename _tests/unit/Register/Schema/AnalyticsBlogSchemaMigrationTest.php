@@ -34,6 +34,7 @@ final class AnalyticsBlogSchemaMigrationTest extends Unit
             AnalyticsSchema::GOAL_DAY_TABLE,
             AnalyticsSchema::GOAL_UNIQUE_DAY_TABLE,
             AnalyticsSchema::PERFORMANCE_DAY_TABLE,
+            AnalyticsSchema::PERFORMANCE_VALUE_TABLE,
         ] as $table) {
             self::assertTrue($dbLayer->tableExists($table), $table);
         }

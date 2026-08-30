@@ -46,6 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const locale = document.documentElement.lang || navigator.language || 'en';
     const integerFormatter = new Intl.NumberFormat(locale, {maximumFractionDigits: 0});
     const decimalFormatter = new Intl.NumberFormat(locale, {maximumFractionDigits: 1});
+    const vitalDecimalFormatter = new Intl.NumberFormat(locale, {maximumFractionDigits: 3});
+    const vitalSecondsFormatter = new Intl.NumberFormat(locale, {maximumFractionDigits: 2});
     const shortDateFormatter = new Intl.DateTimeFormat(locale, {
         day: 'numeric',
         month: 'short',
@@ -502,6 +504,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace('%good%', integerFormatter.format(goodSamples))
                 .replace('%total%', integerFormatter.format(samples));
         };
+        const formatVitalValue = (vital, rawValue) => {
+            const value = Number(rawValue);
+            if (!Number.isFinite(value)) return '';
+            if (vital.metric === 'LCP' && vital.unit === 'ms') {
+                return vitalSecondsFormatter.format(value / 1000) + ' ' + (root.dataset.secondsShort || 's');
+            }
+            if (vital.unit === 'ms') {
+                return integerFormatter.format(value) + ' ' + (root.dataset.millisecondsShort || 'ms');
+            }
+            return vitalDecimalFormatter.format(value) + (vital.unit ? ' ' + vital.unit : '');
+        };
         const fragment = document.createDocumentFragment();
         ['LCP', 'CLS', 'INP'].forEach((metric) => {
             const vital = byMetric.get(metric);
@@ -522,19 +535,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             card.className = 'analytics-vital analytics-vital-' + vital.grade;
-            const average = document.createElement('small');
-            average.className = 'analytics-vital-average';
-            average.textContent = root.dataset.vitalAverage || 'Average';
+            const reading = document.createElement('div');
+            reading.className = 'analytics-vital-reading';
+            const statistic = document.createElement('div');
+            statistic.className = 'analytics-vital-statistic';
+            const percentile = document.createElement('small');
+            percentile.className = 'analytics-vital-percentile';
+            percentile.textContent = (root.dataset.vitalPercentile || 'p%percentile%')
+                .replace('%percentile%', integerFormatter.format(Number(vital.percentile) || 75));
             const value = document.createElement('span');
             value.className = 'analytics-vital-value';
-            const unit = vital.unit === 'ms' ? (root.dataset.millisecondsShort || 'ms') : vital.unit;
-            value.textContent = decimalFormatter.format(vital.value) + (unit ? ' ' + unit : '');
+            value.textContent = formatVitalValue(vital, vital.value);
             const grade = document.createElement('span');
             grade.className = 'analytics-vital-grade';
             grade.textContent = grades[vital.grade] || vital.grade;
+            statistic.append(percentile, value);
+            reading.append(statistic, grade);
+            const target = document.createElement('small');
+            target.className = 'analytics-vital-target';
+            target.textContent = (root.dataset.vitalTarget || 'Target: no more than %value%')
+                .replace('%value%', formatVitalValue(vital, vital.target));
             const samples = document.createElement('small');
+            samples.className = 'analytics-vital-samples';
             samples.textContent = formatGoodSamples(vital);
-            card.append(name, description, average, value, grade, samples);
+            card.append(name, description, reading, target, samples);
             fragment.append(card);
         });
         container.replaceChildren(fragment);

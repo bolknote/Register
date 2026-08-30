@@ -39,7 +39,7 @@ final class AnalyticsCest
         $I->sendRequestWithHeaders('https://localhost/', $headers);
         $I->seeResponseCodeIs(200);
         $I->seeElement('meta[name="register-analytics"]');
-        $I->seeElement('script[src*="analytics/collector.js?v=5.0"]');
+        $I->seeElement('script[src*="analytics/collector.js?v=5.1"]');
 
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -209,7 +209,7 @@ final class AnalyticsCest
         $I->seeElement('[data-analytics-panel="pages"][hidden]');
         $I->seeElement('[data-analytics-panel="sessions"][hidden]');
         $I->seeElement('.analytics-ranking-grid[hidden]');
-        $I->seeElement('script[src*="analytics/charts.js?v=5.0"]');
+        $I->seeElement('script[src*="analytics/charts.js?v=5.1"]');
     }
 
     public function ignoresBrowserPrivacySignalsAndRejectsPublicAnalyticsData(\IntegrationTester $I): void

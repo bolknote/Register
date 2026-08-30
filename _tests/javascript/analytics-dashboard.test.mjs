@@ -66,16 +66,18 @@ function createHarness(pageSeries = [], report = {}) {
             sourceDirect: 'Прямые заходы',
             today: '2026-08-30',
             uniqueVisitors: 'Уникальные посетители',
-            vitalAverage: 'Среднее',
             vitalClsDescription: 'Стабильность страницы',
             vitalGood: 'Хорошо',
-            vitalGoodSamples: 'Хороших измерений: %good% из %total%',
+            vitalGoodSamples: 'В норме: %good% из %total%',
             vitalInpDescription: 'Отклик на действия',
             vitalInsufficient: 'Недостаточно данных',
             vitalLcpDescription: 'Появление основного содержимого',
             vitalNeeds: 'Нужно улучшить',
             vitalNoSamples: 'Пока нет измерений',
+            vitalPercentile: 'p%percentile%',
             vitalPoor: 'Плохо',
+            vitalTarget: 'Цель: не более %value%',
+            secondsShort: 'с',
         },
         querySelector(selector) {
             if (selector === '[data-analytics-loading]') return loading;
@@ -215,8 +217,10 @@ test('web vitals explain small samples and keep missing metrics visible', async 
             grade: 'insufficient',
             metric: 'LCP',
             samples: 2,
+            target: 2500,
+            percentile: 75,
             unit: 'ms',
-            value: 2648,
+            value: 2900,
         }],
     });
     await harness.settle();
@@ -228,11 +232,12 @@ test('web vitals explain small samples and keep missing metrics visible', async 
     assert.deepEqual(lcp.children.map((child) => child.textContent), [
         'LCP',
         'Появление основного содержимого',
-        'Среднее',
-        '2 648 ms',
-        'Недостаточно данных',
-        'Хороших измерений: 1 из 2',
+        '',
+        'Цель: не более 2,5 с',
+        'В норме: 1 из 2',
     ]);
+    assert.deepEqual(lcp.children[2].children.map((child) => child.textContent), ['', 'Недостаточно данных']);
+    assert.deepEqual(lcp.children[2].children[0].children.map((child) => child.textContent), ['p75', '2,9 с']);
     assert.equal(cls.className, 'analytics-vital analytics-vital-missing');
     assert.deepEqual(cls.children.map((child) => child.textContent), [
         'CLS',

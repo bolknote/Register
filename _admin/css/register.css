@@ -2306,9 +2306,9 @@ form.config-inline-form :is(input:not([type="checkbox"]), select, textarea):not(
 .analytics-vital {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.32rem;
     min-width: 0;
-    padding: 0.7rem;
+    padding: 0.72rem 0.78rem;
     border: 1px solid var(--admin-soft-border-color);
     border-top-width: 2px;
     border-radius: 0.5rem;
@@ -2333,19 +2333,66 @@ form.config-inline-form :is(input:not([type="checkbox"]), select, textarea):not(
 }
 
 .analytics-vital-value {
-    font-size: 1.25rem;
+    font-size: 1.35rem;
     font-weight: 760;
     font-variant-numeric: tabular-nums;
+    line-height: 1.05;
 }
 
-.analytics-vital-grade,
 .analytics-vital small {
     color: var(--admin-secondary-text-color);
     font-size: 0.7rem;
 }
 
-.analytics-vital-average {
-    margin-bottom: -0.2rem;
+.analytics-vital-reading {
+    display: flex;
+    gap: 0.55rem;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-top: 0.18rem;
+}
+
+.analytics-vital-statistic {
+    display: flex;
+    flex-direction: column;
+    gap: 0.08rem;
+}
+
+.analytics-vital-grade {
+    display: inline-flex;
+    width: fit-content;
+    padding: 0.18rem 0.42rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 720;
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
+.analytics-vital-good .analytics-vital-grade {
+    color: var(--analytics-good);
+}
+
+.analytics-vital-needs .analytics-vital-grade {
+    color: var(--analytics-needs);
+}
+
+.analytics-vital-poor .analytics-vital-grade {
+    color: var(--analytics-poor);
+}
+
+.analytics-vital-insufficient .analytics-vital-grade {
+    color: var(--admin-secondary-text-color);
+}
+
+.analytics-vital-target {
+    margin-top: 0.08rem;
+}
+
+.analytics-vital-samples {
+    padding-top: 0.28rem;
+    border-top: 1px solid var(--admin-soft-border-color);
 }
 
 .analytics-vital-empty {

@@ -16,7 +16,7 @@ use Register\Core\Pdo\SchemaBuilderInterface;
 
 class Manifest implements BaseModuleInstallerInterface
 {
-    public const string VERSION = '5.0';
+    public const string VERSION = '5.1';
 
     public const string SALT_CONFIG_KEY = 'REGISTER_ANALYTICS_SALT';
 

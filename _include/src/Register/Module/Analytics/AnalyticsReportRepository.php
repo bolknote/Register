@@ -481,59 +481,69 @@ final readonly class AnalyticsReportRepository
         ], $steps);
     }
 
-    /** @return list<array{metric: string, value: float, unit: string, samples: int, good_samples: int, good_rate: float, grade: string}> */
+    /** @return list<array{metric: string, value: float, target: float, unit: string, percentile: int, samples: int, good_samples: int, good_rate: float, grade: string}> */
     public function webVitals(string $fromDay, string $toDay): array
     {
         $this->validateRange($fromDay, $toDay, 1);
-        /** @var list<array{metric: string, value: float, unit: string, samples: int, good_samples: int, good_rate: float, grade: string}> */
+        /** @var list<array{metric: string, value: float, target: float, unit: string, percentile: int, samples: int, good_samples: int, good_rate: float, grade: string}> */
         return $this->cache->remember(
-            'web-vitals-' . $fromDay . '-' . $toDay,
+            'web-vitals-v2-' . $fromDay . '-' . $toDay,
             self::RANKING_CACHE_TTL,
             function () use ($fromDay, $toDay): array {
-                $row = $this->dbLayer->select(
-                    'COALESCE(SUM(lcp_sum), 0) AS lcp_sum, COALESCE(SUM(lcp_count), 0) AS lcp_count, '
-                    . 'COALESCE(SUM(lcp_good), 0) AS lcp_good, COALESCE(SUM(lcp_needs), 0) AS lcp_needs, '
-                    . 'COALESCE(SUM(cls_sum), 0) AS cls_sum, COALESCE(SUM(cls_count), 0) AS cls_count, '
-                    . 'COALESCE(SUM(cls_good), 0) AS cls_good, COALESCE(SUM(cls_needs), 0) AS cls_needs, '
-                    . 'COALESCE(SUM(inp_sum), 0) AS inp_sum, COALESCE(SUM(inp_count), 0) AS inp_count, '
-                    . 'COALESCE(SUM(inp_good), 0) AS inp_good, COALESCE(SUM(inp_needs), 0) AS inp_needs',
-                )
-                    ->from(AnalyticsSchema::PERFORMANCE_DAY_TABLE)
+                $rows = $this->dbLayer->select('metric', 'value', 'SUM(sample_count) AS sample_count')
+                    ->from(AnalyticsSchema::PERFORMANCE_VALUE_TABLE)
                     ->where('page_key = :page_key')->setParameter('page_key', AnalyticsIngestor::GLOBAL_KEY)
                     ->andWhere('bucket >= :from_day')->setParameter('from_day', $fromDay)
                     ->andWhere('bucket <= :to_day')->setParameter('to_day', $toDay)
+                    ->groupBy('metric', 'value')
+                    ->orderBy('metric', 'value')
                     ->execute()
-                    ->fetchAssoc();
-                if ($row === false) {
-                    return [];
+                    ->fetchAssocAll();
+                $histograms = [];
+                foreach ($rows as $row) {
+                    $metric = (string)$row['metric'];
+                    $histograms[$metric][] = [
+                        'value' => (int)$row['value'],
+                        'count' => (int)$row['sample_count'],
+                    ];
                 }
 
                 $result = [];
-                foreach ([
-                    'LCP' => ['key' => 'lcp', 'unit' => 'ms', 'divisor' => 1],
-                    'CLS' => ['key' => 'cls', 'unit' => '', 'divisor' => 1000],
-                    'INP' => ['key' => 'inp', 'unit' => 'ms', 'divisor' => 1],
-                ] as $metric => $definition) {
-                    $key     = $definition['key'];
-                    $count   = (int)$row[$key . '_count'];
+                foreach (AnalyticsWebVitalsDistribution::definitions() as $key => $definition) {
+                    $histogram = $histograms[$key] ?? [];
+                    $count = array_sum(array_column($histogram, 'count'));
                     if ($count < 1) {
                         continue;
                     }
 
-                    $good    = (int)$row[$key . '_good'];
-                    $needs   = (int)$row[$key . '_needs'];
+                    $rank       = intdiv(3 * $count + 3, 4);
+                    $cumulative = 0;
+                    $percentile = null;
+                    $good       = 0;
+                    foreach ($histogram as $bucket) {
+                        $cumulative += $bucket['count'];
+                        if ($bucket['value'] <= $definition['good']) {
+                            $good += $bucket['count'];
+                        }
+                        if ($percentile === null && $cumulative >= $rank) {
+                            $percentile = $bucket['value'];
+                        }
+                    }
+
+                    if ($percentile === null) {
+                        continue;
+                    }
                     $grade   = $count < self::WEB_VITALS_MIN_SAMPLES
                         ? 'insufficient'
-                        : ($good / $count >= 0.75
-                            ? 'good'
-                            : (($good + $needs) / $count >= 0.75 ? 'needs' : 'poor'));
-                    $value = (float)(int)$row[$key . '_sum']
-                        / (float)$count
-                        / (float)$definition['divisor'];
+                        : AnalyticsWebVitalsDistribution::grade($key, $percentile);
+                    $value  = (float)$percentile / (float)$definition['divisor'];
+                    $target = (float)$definition['good'] / (float)$definition['divisor'];
                     $result[] = [
-                        'metric'       => $metric,
-                        'value'        => $metric === 'CLS' ? round($value, 3) : round($value),
+                        'metric'       => strtoupper($key),
+                        'value'        => $key === 'cls' ? round($value, 3) : round($value),
+                        'target'       => $key === 'cls' ? round($target, 3) : round($target),
                         'unit'         => $definition['unit'],
+                        'percentile'   => 75,
                         'samples'      => $count,
                         'good_samples' => $good,
                         'good_rate'    => round(100 * $good / $count, 1),

@@ -43,6 +43,8 @@ final class AnalyticsSchema
 
     public const string PERFORMANCE_DAY_TABLE = 'register_analytics_performance_day';
 
+    public const string PERFORMANCE_VALUE_TABLE = 'register_analytics_performance_value';
+
     public static function createEventStorage(DbLayer $dbLayer): void
     {
         $dbLayer->createTable(self::PAGE_TABLE, static function (SchemaBuilderInterface $table): void {
@@ -243,6 +245,24 @@ final class AnalyticsSchema
                 ->addInteger('inp_poor', true)
                 ->setPrimaryKey(['bucket', 'page_key'])
                 ->addIndex('page_bucket_idx', ['page_key', 'bucket'])
+            ;
+        });
+
+        self::createPerformanceValueStorage($dbLayer);
+    }
+
+    /** Adds the exact-value histogram used to calculate Web Vitals percentiles. */
+    public static function createPerformanceValueStorage(DbLayer $dbLayer): void
+    {
+        $dbLayer->createTable(self::PERFORMANCE_VALUE_TABLE, static function (SchemaBuilderInterface $table): void {
+            $table
+                ->addString('bucket', 10)
+                ->addString('page_key', 64)
+                ->addString('metric', 3)
+                ->addInteger('value', true)
+                ->addInteger('sample_count', true)
+                ->setPrimaryKey(['bucket', 'page_key', 'metric', 'value'])
+                ->addIndex('page_metric_bucket_idx', ['page_key', 'metric', 'bucket'])
             ;
         });
     }

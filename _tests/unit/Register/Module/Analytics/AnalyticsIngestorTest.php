@@ -270,6 +270,18 @@ final class AnalyticsIngestorTest extends Unit
             'inp_count'    => 1,
             'inp_good'     => 1,
         ], $performance);
+
+        $distribution = $dbLayer->select('metric', 'value', 'sample_count')
+            ->from(AnalyticsSchema::PERFORMANCE_VALUE_TABLE)
+            ->where('page_key = :page_key')->setParameter('page_key', AnalyticsIngestor::GLOBAL_KEY)
+            ->orderBy('metric')
+            ->execute()
+            ->fetchAssocAll();
+        self::assertSame([
+            ['metric' => 'cls', 'value' => 80, 'sample_count' => 1],
+            ['metric' => 'inp', 'value' => 180, 'sample_count' => 1],
+            ['metric' => 'lcp', 'value' => 2100, 'sample_count' => 1],
+        ], $distribution);
     }
 
     private function createLegacyStorage(DbLayerSqlite $dbLayer): void

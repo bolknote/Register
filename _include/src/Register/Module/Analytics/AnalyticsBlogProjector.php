@@ -64,8 +64,11 @@ final class AnalyticsBlogProjector
 
     private ?int $goalCount = null;
 
+    private readonly AnalyticsWebVitalsDistribution $webVitalsDistribution;
+
     public function __construct(private readonly DbLayer $dbLayer)
     {
+        $this->webVitalsDistribution = new AnalyticsWebVitalsDistribution($dbLayer);
     }
 
     /**
@@ -418,13 +421,8 @@ final class AnalyticsBlogProjector
 
     private function recordPerformance(AnalyticsEvent $event): void
     {
-        $properties = $this->properties($event);
-        $values = [
-            'lcp' => $this->boundedMetric($properties['lcp_ms'] ?? null, 120000),
-            'cls' => $this->boundedMetric($properties['cls_milli'] ?? null, 10000),
-            'inp' => $this->boundedMetric($properties['inp_ms'] ?? null, 60000),
-        ];
-        if (array_filter($values, static fn(?int $value): bool => $value !== null) === []) {
+        $values = AnalyticsWebVitalsDistribution::values($event->propertiesJson);
+        if ($values === []) {
             return;
         }
 
@@ -436,17 +434,9 @@ final class AnalyticsBlogProjector
         ], 0);
         $delta['sample_count'] = 1;
         foreach ($values as $metric => $value) {
-            if ($value === null) {
-                continue;
-            }
-
             $delta[$metric . '_sum']   = $value;
             $delta[$metric . '_count'] = 1;
-            $grade = match ($metric) {
-                'lcp' => $value <= 2500 ? 'good' : ($value <= 4000 ? 'needs' : 'poor'),
-                'cls' => $value <= 100 ? 'good' : ($value <= 250 ? 'needs' : 'poor'),
-                'inp' => $value <= 200 ? 'good' : ($value <= 500 ? 'needs' : 'poor'),
-            };
+            $grade = AnalyticsWebVitalsDistribution::grade($metric, $value);
             $delta[$metric . '_' . $grade] = 1;
         }
 
@@ -471,15 +461,7 @@ final class AnalyticsBlogProjector
                 ->andWhere('page_key = :page_key')->setParameter('page_key', $pageKey)
                 ->execute();
         }
-    }
 
-    private function boundedMetric(mixed $value, int $maximum): ?int
-    {
-        if (!\is_int($value) && !\is_float($value)) {
-            return null;
-        }
-
-        $value = (int)round($value);
-        return $value >= 0 && $value <= $maximum ? $value : null;
+        $this->webVitalsDistribution->record($event->occurredAt, $event->pageKey, $values);
     }
 }
