@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Rose\Storage;
 
+use Register\Rose\Entity\ExactWord;
 use Register\Rose\Entity\ExternalId;
 use Register\Rose\Entity\WordPositionContainer;
 
@@ -35,14 +36,18 @@ class FulltextIndexContent
     {
         $serializedExtId = $positionBag->getExternalId()->toString();
 
-        $titlePositions = $positionBag->getTitlePositions();
-        if (\count($titlePositions) > 0) {
-            $this->titleDataByExternalId[$serializedExtId][$word] = $titlePositions;
-        }
+        // Exact forms rank whole results, but must not multiply phrase-proximity pairs
+        // alongside the normalized form stored at the same logical position.
+        if (ExactWord::decode($word) === null) {
+            $titlePositions = $positionBag->getTitlePositions();
+            if (\count($titlePositions) > 0) {
+                $this->titleDataByExternalId[$serializedExtId][$word] = $titlePositions;
+            }
 
-        $contentPositions = $positionBag->getContentPositions();
-        if (\count($contentPositions) > 0) {
-            $this->dataByExternalId[$serializedExtId][$word] = $contentPositions;
+            $contentPositions = $positionBag->getContentPositions();
+            if (\count($contentPositions) > 0) {
+                $this->dataByExternalId[$serializedExtId][$word] = $contentPositions;
+            }
         }
 
         $this->dataByWord[$word][$serializedExtId] = $positionBag;

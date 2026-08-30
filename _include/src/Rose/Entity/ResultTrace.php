@@ -41,6 +41,11 @@ class ResultTrace
         ];
     }
 
+    public function addExactMatch(string $word, string $serializedExtId): void
+    {
+        $this->data[$serializedExtId]['exact ' . $word][] = 'source word form matches';
+    }
+
     public function addNeighbourWeight(string $word1, string $word2, string $serializedExtId, float $weight, int $distance): void
     {
         $this->data[$serializedExtId]['fulltext ' . $word1 . ' - ' . $word2][] = sprintf('%s: matches are close (shift = %d)', $weight, $distance);

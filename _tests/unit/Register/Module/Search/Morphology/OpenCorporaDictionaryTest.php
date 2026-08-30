@@ -114,6 +114,32 @@ final class OpenCorporaDictionaryTest extends Unit
         );
     }
 
+    public function testExactInflectionOutranksStrongerLemmaOnlyMatches(): void
+    {
+        $storage = new PdoStorage(new \PDO('sqlite::memory:'), 'exact_form_test_');
+        $storage->erase();
+
+        $normalizer = $this->normalizer();
+        $indexer    = new Indexer($storage, $normalizer);
+        $indexer->index(new Indexable(
+            'lemma-title',
+            'Старостин Фёдор Николаевич',
+            'Старостина вспоминали. О Старостиных написано ещё много.',
+        ));
+        $indexer->index(new Indexable(
+            'exact',
+            'Бабушкино свидетельство о рождении',
+            'Свидетельство о рождении Клавдии Фёдоровны Старостиной.',
+        ));
+
+        $items = (new Finder($storage, $normalizer))->find(new Query('старостиной'))->getItems();
+
+        self::assertSame(
+            ['exact', 'lemma-title'],
+            array_map(static fn(ResultItem $item): string => $item->getId(), $items),
+        );
+    }
+
     public function testPreReformSpellingsWorkThroughRoseInBothDirections(): void
     {
         $storage = new PdoStorage(new \PDO('sqlite::memory:'), 'pre_reform_test_');

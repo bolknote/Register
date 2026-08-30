@@ -15,6 +15,7 @@ use Codeception\Test\Unit;
 use Codeception\Stub;
 use Register\Rose\Entity\ExternalId;
 use Register\Rose\Entity\ExternalIdCollection;
+use Register\Rose\Entity\ExactWord;
 use Register\Rose\Entity\Metadata\ImgCollection;
 use Register\Rose\Entity\Query;
 use Register\Rose\Entity\TocEntry;
@@ -45,6 +46,11 @@ final class FinderTest extends Unit
             'fulltextResultByWords'           => static function (array $words): \Register\Rose\Storage\FulltextIndexContent {
                 $result = new FulltextIndexContent();
                 foreach ($words as $k => $word) {
+                    if (ExactWord::decode($word) !== null) {
+                        unset($words[$k]);
+                        continue;
+                    }
+
                     if ($word === 'find') {
                         $result->add($word, new FulltextIndexPositionBag(new ExternalId('id_3'), [], [], [1], 0, 1.0));
                         $result->add($word, new FulltextIndexPositionBag(new ExternalId('id_2'), [], [1], [10, 20], 0, 1.0));

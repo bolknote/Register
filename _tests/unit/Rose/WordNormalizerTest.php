@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Rose\Test;
 
 use Codeception\Test\Unit;
+use Register\Rose\Entity\ExactWord;
 use Register\Rose\Entity\Indexable;
 use Register\Rose\Entity\Query;
 use Register\Rose\Finder;
@@ -19,6 +20,13 @@ use Register\Rose\Storage\File\SingleFileArrayStorage;
 
 final class WordNormalizerTest extends Unit
 {
+    public function testExactWordsUseASeparateCaseInsensitiveIndexKey(): void
+    {
+        self::assertSame(':exact:федор', ExactWord::encode('Фёдор'));
+        self::assertSame('федор', ExactWord::decode(':exact:федор'));
+        self::assertNull(ExactWord::decode('федор'));
+    }
+
     public function testSeveralNormalFormsAreIndexedSearchedAndHighlighted(): void
     {
         $storage    = new SingleFileArrayStorage(__DIR__ . '/../../tmp/word-normalizer.php');

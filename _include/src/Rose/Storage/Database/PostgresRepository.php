@@ -9,6 +9,7 @@ declare(strict_types = 1);
 
 namespace Register\Rose\Storage\Database;
 
+use Register\Rose\Entity\ExactWord;
 use Register\Rose\Entity\ExternalId;
 use Register\Rose\Entity\TocEntry;
 use Register\Rose\Exception\RuntimeException;
@@ -132,6 +133,7 @@ class PostgresRepository extends AbstractRepository
         $snippetTable  = $this->getTableName(self::SNIPPET);
         $fulltextTable = $this->getTableName(self::FULLTEXT_INDEX);
         $metadataTable = $this->getTableName(self::METADATA);
+        $exactWordLike = $this->pdo->quote(ExactWord::PREFIX . '%');
 
         $where = $instanceId !== null ? 'WHERE t.instance_id = ' . $instanceId : '';
 
@@ -157,7 +159,7 @@ FROM (
         m.word_count,
         STRING_AGG(concat(w.name, ' ',  round(original_repeat + exp( -pow( (abn/30.0),1) )/1.0, 3)   ), ', ') AS names -- TODO remove debug
     FROM {$fulltextTable} AS i
-        JOIN {$wordTable} AS w ON i.word_id = w.id -- TODO remove debug
+        JOIN {$wordTable} AS w ON i.word_id = w.id AND w.name NOT LIKE {$exactWordLike} -- TODO remove debug
         JOIN {$metadataTable} AS m ON m.toc_id = i.toc_id
     JOIN (
         SELECT -- достаем информацию по словам из оригинальной заметки

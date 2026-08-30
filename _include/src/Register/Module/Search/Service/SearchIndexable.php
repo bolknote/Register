@@ -14,7 +14,7 @@ use Register\Rose\Entity\Indexable;
 /** Makes search-algorithm changes visible to Rose even when document content is unchanged. */
 final class SearchIndexable extends Indexable
 {
-    private const string INDEX_FORMAT_VERSION = 'opencorpora-ru-2.4.417150.4580142-historical-ru-v3-featured';
+    private const string INDEX_FORMAT_VERSION = 'opencorpora-ru-2.4.417150.4580142-historical-ru-v4-exact-forms';
 
     #[\Override]
     public function calcHash(): string

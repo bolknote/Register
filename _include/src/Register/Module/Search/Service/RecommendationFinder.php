@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Search\Service;
 
 use Register\Rose\Entity\ExternalId;
+use Register\Rose\Entity\ExactWord;
 use Register\Rose\Entity\Metadata\ImgCollection;
 use Register\Rose\Entity\Metadata\SnippetSource;
 use Register\Rose\Entity\TocEntry;
@@ -49,9 +50,11 @@ final readonly class RecommendationFinder
         }
 
         $tocTable      = $this->tablePrefix . 'toc';
+        $wordTable     = $this->tablePrefix . 'word';
         $snippetTable  = $this->tablePrefix . 'snippet';
         $fulltextTable = $this->tablePrefix . 'fulltext_index';
         $metadataTable = $this->tablePrefix . 'metadata';
+        $exactWordLike = $this->pdo->quote(ExactWord::PREFIX . '%');
         $instanceWhere = $instanceId === null ? '' : 'AND candidate_toc.instance_id = :candidate_instance_id';
 
         $sql = <<<SQL
@@ -62,6 +65,9 @@ final readonly class RecommendationFinder
                     length(x.positions) - length(replace(x.positions, ',', '')) AS original_repeat
                 FROM {$fulltextTable} AS x
                 JOIN {$tocTable} AS original_toc ON original_toc.id = x.toc_id
+                JOIN {$wordTable} AS original_word
+                    ON original_word.id = x.word_id
+                    AND original_word.name NOT LIKE {$exactWordLike}
                 WHERE original_toc.external_id = :external_id
                     AND original_toc.instance_id = :instance_id
                     AND length(x.positions) - length(replace(x.positions, ',', '')) < 200

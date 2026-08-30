@@ -14,6 +14,7 @@ namespace Register\Rose;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
 use Register\Rose\Entity\ContentWithMetadata;
+use Register\Rose\Entity\ExactWord;
 use Register\Rose\Entity\ExternalId;
 use Register\Rose\Entity\Indexable;
 use Register\Rose\Exception\RuntimeException;
@@ -201,7 +202,9 @@ class Indexer
      *
      * this method returns
      *
-     * [10 => 'well-known', 11 => 'fact', '10.1' => 'well', '10.2' => 'known']
+     * [10 => ':exact:well-known', '10.1' => 'well-known', 11 => ':exact:facts',
+     *  '11.1' => 'fact', '10.2' => ':exact:well', '10.3' => 'well',
+     *  '10.4' => ':exact:known', '10.5' => 'known']
      *
      * @param string[] $words
      *
@@ -211,14 +214,14 @@ class Indexer
     {
         $result = [];
         foreach ($words as $position => $word) {
-            $stems = StemmerHelper::stemWords($this->stemmer, $word, false);
+            $stems = $this->getIndexWords($word);
 
             // If the word contains punctuation marks like hyphen, add variants without them.
             if (false !== strpbrk($word, StringHelper::WORD_COMPONENT_DELIMITERS)) {
                 $subWords = preg_split('#(?<=[\p{L}\d])[\-.,]+|[\-.,]++(?=[\p{L}\d])#u', $word);
                 foreach ($subWords === false ? [] : $subWords as $subWord) {
                     if ($subWord !== '' && $subWord !== $word) {
-                        array_push($stems, ...StemmerHelper::stemWords($this->stemmer, $subWord, false));
+                        array_push($stems, ...$this->getIndexWords($subWord));
                     }
                 }
             }
@@ -230,5 +233,14 @@ class Indexer
         }
 
         return $result;
+    }
+
+    /** @return non-empty-list<string> */
+    private function getIndexWords(string $word): array
+    {
+        return array_values(array_unique([
+            ExactWord::encode($word),
+            ...StemmerHelper::stemWords($this->stemmer, $word, false),
+        ]));
     }
 }

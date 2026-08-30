@@ -78,6 +78,19 @@ class FulltextResult
         $wordReductionRatios = [];
         foreach ($this->fulltextIndexContent->toArray() as $word => $indexedItems) {
             $word                       = (string)$word;
+            $exactWord                  = ExactWord::decode($word);
+            if ($exactWord !== null) {
+                foreach ($indexedItems as $positionBag) {
+                    $resultSet->addExactMatch(
+                        $exactWord,
+                        $positionBag->getExternalId(),
+                        $positionBag->getContentPositions(),
+                    );
+                }
+
+                continue;
+            }
+
             $reductionRatio             = self::frequencyReduction($this->tocSize, \count($indexedItems));
             $wordReductionRatios[$word] = $reductionRatio;
 

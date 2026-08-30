@@ -15,9 +15,9 @@ use Register\Rose\Stemmer\StemmerInterface;
 class FulltextQuery
 {
     /**
-     * @var array<int, string[]>
+     * @var array<int, non-empty-list<string>>
      */
-    protected array $additionalStems = [];
+    protected array $normalizedWords = [];
 
     /**
      * @param list<string> $words
@@ -30,11 +30,7 @@ class FulltextQuery
     protected function extractStems(StemmerInterface $stemmer): void
     {
         foreach ($this->words as $i => $word) {
-            foreach (StemmerHelper::stemWords($stemmer, $word) as $stemWord) {
-                if ($stemWord !== $word) {
-                    $this->additionalStems[$i][] = $stemWord;
-                }
-            }
+            $this->normalizedWords[$i] = StemmerHelper::stemWords($stemmer, $word);
         }
     }
 
@@ -43,24 +39,21 @@ class FulltextQuery
      */
     public function getWordsWithStems(): array
     {
-        $result = $this->words;
-        foreach ($this->additionalStems as $stems) {
-            array_push($result, ...$stems);
+        $result = [];
+        foreach ($this->words as $position => $word) {
+            $result[] = ExactWord::encode($word);
+            array_push($result, ...$this->normalizedWords[$position]);
         }
 
-        return $result;
+        return array_values(array_unique($result));
     }
 
     public function toWordPositionContainer(): WordPositionContainer
     {
         $container = new WordPositionContainer();
 
-        foreach ($this->words as $position => $word) {
-            $container->addWordAt($word, $position);
-        }
-
-        foreach ($this->additionalStems as $position => $stems) {
-            foreach ($stems as $stem) {
+        foreach ($this->normalizedWords as $position => $words) {
+            foreach ($words as $stem) {
                 $container->addWordAt($stem, $position);
             }
         }

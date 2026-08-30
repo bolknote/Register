@@ -47,6 +47,9 @@ class ResultSet
     /** @var array<string, array<string, list<int>>> */
     protected array $positions = [];
 
+    /** @var array<string, array<string, true>> */
+    protected array $exactMatches = [];
+
     protected string $highlightTemplate = '<i>%s</i>';
 
     protected ResultTrace $trace;
@@ -110,7 +113,10 @@ class ResultSet
             $this->positions[$serializedExtId][$word] = $positions;
         } else {
             $this->data[$serializedExtId][$word]      += $weight;
-            $this->positions[$serializedExtId][$word] = array_merge($this->positions[$serializedExtId][$word], $positions);
+            $this->positions[$serializedExtId][$word] = self::mergePositions(
+                $this->positions[$serializedExtId][$word],
+                $positions,
+            );
         }
 
         if ($positions === []) {
@@ -118,6 +124,28 @@ class ResultSet
         } else {
             $this->trace->addWordWeight($word, $serializedExtId, $weights, $positions);
         }
+    }
+
+    /**
+     * @param list<int> $positions
+     * @throws ImmutableException
+     */
+    public function addExactMatch(string $word, ExternalId $externalId, array $positions = []): void
+    {
+        if ($this->isFrozen) {
+            throw new ImmutableException('One cannot mutate a search result after obtaining its content.');
+        }
+
+        $serializedExtId = $externalId->toString();
+
+        $this->exactMatches[$serializedExtId][$word] = true;
+        $this->data[$serializedExtId]['*exact_' . $word] = 0.0;
+        $this->positions[$serializedExtId][$word] = self::mergePositions(
+            $this->positions[$serializedExtId][$word] ?? [],
+            $positions,
+        );
+
+        $this->trace->addExactMatch($word, $serializedExtId);
     }
 
     /** @throws ImmutableException */
@@ -169,8 +197,22 @@ class ResultSet
             $this->sortedRelevance[$serializedExtId] = $relevance;
         }
 
-        // Order by relevance
-        arsort($this->sortedRelevance);
+        // Prefer source-form matches, then retain the existing relevance order.
+        $insertionOrder = array_flip(array_keys($this->sortedRelevance));
+        uksort($this->sortedRelevance, function (string $left, string $right) use ($insertionOrder): int {
+            $exactOrder = $this->exactMatchCount($right) <=> $this->exactMatchCount($left);
+            if ($exactOrder !== 0) {
+                return $exactOrder;
+            }
+
+            $relevanceOrder = ($this->sortedRelevance[$right] ?? 0.0)
+                <=> ($this->sortedRelevance[$left] ?? 0.0);
+            if ($relevanceOrder !== 0) {
+                return $relevanceOrder;
+            }
+
+            return $insertionOrder[$left] <=> $insertionOrder[$right];
+        });
 
         if ($this->limit > 0) {
             $this->sortedRelevance = \array_slice(
@@ -249,6 +291,7 @@ class ResultSet
         $foundWords = $this->getFoundWordPositionsByExternalId();
 
         $result          = [];
+        $exactResult     = [];
         $relevanceResult = [];
         $dateResult      = [];
         foreach ($relevanceArray as $serializedExtId => $relevance) {
@@ -258,12 +301,13 @@ class ResultSet
                 ->setFoundWords(array_keys($foundWords[$serializedExtId] ?? []))
             ;
             $result[]          = $resultItem;
+            $exactResult[]     = $this->exactMatchCount($serializedExtId);
             $relevanceResult[] = $relevance;
             $date              = $resultItem->getDate();
             $dateResult[]      = $date !== null ? $date->getTimestamp() : 0;
         }
 
-        array_multisort($relevanceResult, SORT_DESC, $dateResult, SORT_DESC, $result);
+        array_multisort($exactResult, SORT_DESC, $relevanceResult, SORT_DESC, $dateResult, SORT_DESC, $result);
 
         return $result;
     }
@@ -347,5 +391,23 @@ class ResultSet
         }
 
         return $this->data[$serializedExtId];
+    }
+
+    /**
+     * @param list<int> $left
+     * @param list<int> $right
+     * @return list<int>
+     */
+    private static function mergePositions(array $left, array $right): array
+    {
+        $positions = array_values(array_unique(array_merge($left, $right)));
+        sort($positions);
+
+        return $positions;
+    }
+
+    private function exactMatchCount(string $serializedExtId): int
+    {
+        return \count($this->exactMatches[$serializedExtId] ?? []);
     }
 }
