@@ -436,6 +436,29 @@ final class AssetPackTest extends Unit
         self::assertStringContainsString('removeCommentFromThread(item);', $script);
     }
 
+    public function testHiddenCommentModerationToolsDoNotCaptureThePointer(): void
+    {
+        $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/^\.comment-moderation\s*\{[^}]*opacity:\s*0;[^}]*pointer-events:\s*none;/ms',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/^\.comment-moderation\s*\{[^}]*bottom:\s*auto;'
+                . '[^}]*height:\s*calc\(100% \+ 0\.4rem\);'
+                . '[^}]*min-height:\s*9\.55rem;/ms',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.comment-item:hover\s*>\s*\.comment-moderation,\s*'
+                . '\.comment-item:focus-within\s*>\s*\.comment-moderation\s*'
+                . '\{[^}]*pointer-events:\s*auto;/s',
+            $site,
+        );
+    }
+
     public function testSystemOneThemeUsesGlobalGrayscaleAndMacOsArtwork(): void
     {
         $themeDir = \dirname(__DIR__, 4) . '/_styles/system-1/';

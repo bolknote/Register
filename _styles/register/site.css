@@ -3138,10 +3138,12 @@ h2.comment {
     position: absolute;
     z-index: 2;
     top: -0.4rem;
-    bottom: 0;
+    bottom: auto;
     right: auto;
     left: calc(-1 * (var(--content-tools-gutter) + var(--comment-depth-offset)));
     display: flex;
+    height: calc(100% + 0.4rem);
+    min-height: 9.55rem;
     width: calc(var(--content-tools-gutter) + var(--comment-depth-offset));
     padding-top: 0;
     padding-left: calc((var(--content-tools-gutter) - 2.15rem) / 2);
@@ -3151,7 +3153,7 @@ h2.comment {
     grid-column: 1;
     grid-row: 1 / 4;
     opacity: 0;
-    pointer-events: auto;
+    pointer-events: none;
     transform: translateY(0.2rem);
     transition: opacity 100ms ease, transform 100ms ease;
 }
