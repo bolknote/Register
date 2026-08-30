@@ -7,6 +7,18 @@ const editorSource = await readFile(
     new URL('../../_assets/register/post-inplace.js', import.meta.url),
     'utf8'
 );
+const testableEditorSource = editorSource.replace(
+    '    applyShortcutHints(document);\n})();',
+    [
+        '    window.__postInplaceTest = {',
+        '        contextMenuAnchorRange,',
+        '        mergeAdjacentInlineCode,',
+        '    };',
+        '    applyShortcutHints(document);',
+        '})();',
+    ].join('\n')
+);
+assert.notEqual(testableEditorSource, editorSource);
 
 class FakeClassList {
     constructor(...names) {
@@ -33,23 +45,61 @@ class FakeNode {
         this.parentNode = parentNode;
         this.nodeType = 1;
     }
+
+    get nextSibling() {
+        if (!this.parentNode?.childNodes) {
+            return null;
+        }
+        const index = this.parentNode.childNodes.indexOf(this);
+        return index >= 0 ? (this.parentNode.childNodes[index + 1] || null) : null;
+    }
+
+    remove() {
+        if (!this.parentNode?.childNodes) {
+            this.parentNode = null;
+            return;
+        }
+        const index = this.parentNode.childNodes.indexOf(this);
+        if (index >= 0) {
+            this.parentNode.childNodes.splice(index, 1);
+        }
+        this.parentNode = null;
+    }
 }
 
 class FakeTextNode extends FakeNode {
     constructor(parentNode, textContent) {
         super(parentNode);
         this.nodeType = FakeNode.TEXT_NODE;
+        this.data = textContent;
         this.textContent = textContent;
     }
 }
 
 class FakeHTMLElement extends FakeNode {
-    constructor({parentNode = null, classes = [], media = false, rect = {left: 0, top: 0}} = {}) {
+    constructor({
+        parentNode = null,
+        classes = [],
+        media = false,
+        rect = {left: 0, top: 0},
+        tagName = 'DIV',
+    } = {}) {
         super(parentNode);
         this.childNodes = [];
         this.classList = new FakeClassList(...classes);
         this.media = media;
         this.rect = rect;
+        this.tagName = tagName;
+    }
+
+    get firstChild() {
+        return this.childNodes[0] || null;
+    }
+
+    append(node) {
+        node.remove();
+        node.parentNode = this;
+        this.childNodes.push(node);
     }
 
     contains(node) {
@@ -83,7 +133,22 @@ class FakeHTMLElement extends FakeNode {
         return selector === 'img, video, audio' && this.media ? {} : null;
     }
 
-    querySelectorAll() {
+    querySelectorAll(selector) {
+        if (selector === 'tt') {
+            const result = [];
+            const visit = (element) => {
+                element.childNodes.forEach((child) => {
+                    if (child instanceof FakeHTMLElement) {
+                        if (child.tagName === 'TT') {
+                            result.push(child);
+                        }
+                        visit(child);
+                    }
+                });
+            };
+            visit(this);
+            return result;
+        }
         return [];
     }
 }
@@ -144,11 +209,12 @@ function createHarness() {
         window
     });
 
-    new vm.Script(editorSource, {filename: 'post-inplace.js'}).runInContext(context);
+    new vm.Script(testableEditorSource, {filename: 'post-inplace.js'}).runInContext(context);
 
     return {
         document,
         elements,
+        helpers: context.window.__postInplaceTest,
         beforeInput(target, inputType = 'insertText') {
             const [listener] = listeners.get('beforeinput') || [];
             assert.equal(typeof listener, 'function');
@@ -173,6 +239,43 @@ function createHarness() {
         }
     };
 }
+
+test('a selected range anchors the context menu at its boundary instead of the pointer', function () {
+    const harness = createHarness();
+    const clone = {kind: 'selection clone'};
+    const range = {
+        cloneRange: function () {
+            return clone;
+        }
+    };
+
+    assert.equal(
+        harness.helpers.contextMenuAnchorRange({}, range, true, {clientX: 120, clientY: 240}),
+        clone
+    );
+});
+
+test('adjacent inline-code elements are merged into one formatting run', function () {
+    const harness = createHarness();
+    const root = new FakeHTMLElement();
+    const firstCode = new FakeHTMLElement({parentNode: root, tagName: 'TT'});
+    const emptyText = new FakeTextNode(root, '');
+    const secondCode = new FakeHTMLElement({parentNode: root, tagName: 'TT'});
+    const firstText = new FakeTextNode(firstCode, '&ap');
+    const secondText = new FakeTextNode(secondCode, 'os;');
+    firstCode.childNodes.push(firstText);
+    secondCode.childNodes.push(secondText);
+    root.childNodes.push(firstCode, emptyText, secondCode);
+
+    harness.helpers.mergeAdjacentInlineCode(root);
+
+    assert.equal(root.childNodes.length, 1);
+    assert.equal(root.childNodes[0], firstCode);
+    assert.equal(firstCode.childNodes.length, 2);
+    assert.equal(firstCode.childNodes[0], firstText);
+    assert.equal(firstCode.childNodes[1], secondText);
+    assert.equal(secondText.parentNode, firstCode);
+});
 
 test('the synthetic media-boundary caret is unique and stale copies are cleared before input', function () {
     const harness = createHarness();

@@ -3305,6 +3305,7 @@
             };
         }
 
+        mergeAdjacentInlineCode(state.body);
         markBodyChanged(state);
         const selectedRange = document.createRange();
         const first = selectedPortions[0];
@@ -3312,6 +3313,34 @@
         selectedRange.setStart(first.node, first.start);
         selectedRange.setEnd(last.node, last.end);
         selectRange(state, selectedRange);
+    }
+
+    function mergeAdjacentInlineCode(root) {
+        root.querySelectorAll('tt').forEach((inlineCode) => {
+            if (!inlineCode.parentNode) {
+                return;
+            }
+
+            let next = inlineCode.nextSibling;
+            while (next) {
+                if (next.nodeType === Node.TEXT_NODE && next.data === '') {
+                    const following = next.nextSibling;
+                    next.remove();
+                    next = following;
+                    continue;
+                }
+                if (!(next instanceof HTMLElement) || next.tagName !== 'TT') {
+                    break;
+                }
+
+                const following = next.nextSibling;
+                while (next.firstChild) {
+                    inlineCode.append(next.firstChild);
+                }
+                next.remove();
+                next = following;
+            }
+        });
     }
 
     function inlineCodeBoundary(state, token, edge) {
@@ -3736,9 +3765,7 @@
             anchor.classList.add('is-image');
             host.append(anchor);
         } else {
-            const anchorRange = event
-                ? bodyRangeFromPoint(state, event.clientX, event.clientY)
-                : range.cloneRange();
+            const anchorRange = contextMenuAnchorRange(state, range, selected, event);
             anchorRange.collapse(false);
             anchorRange.insertNode(anchor);
         }
@@ -3914,6 +3941,14 @@
             visibleContextButtons(menu)[0]?.focus();
         }
         return true;
+    }
+
+    function contextMenuAnchorRange(state, range, selected, event) {
+        if (selected || !event) {
+            return range.cloneRange();
+        }
+
+        return bodyRangeFromPoint(state, event.clientX, event.clientY);
     }
 
     function handleEditingShortcut(event, state) {
