@@ -26,6 +26,7 @@ use Register\Core\Mail\MailMessage;
 use Register\Core\Framework\Application;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Http\Cache\PageCachePoolFactory;
 use Register\Model\Installer;
 use Register\Core\Model\PermissionChecker;
 use Register\Core\Pdo\DbLayer;
@@ -527,7 +528,9 @@ class Integration extends AbstractBrowserModule
     private function clearConfigCache(): void
     {
         register_call_without_warnings(static fn(): bool => self::deleteRecursive(self::ROOT_DIR . '_cache/test/config/'));
-        register_call_without_warnings(static fn(): bool => self::deleteRecursive(self::ROOT_DIR . '_cache/test/pages/'));
+        register_call_without_warnings(static fn(): bool => self::deleteRecursive(
+            self::ROOT_DIR . '_cache/test/' . PageCachePoolFactory::filesystemNamespace() . '/',
+        ));
         register_call_without_warnings(static fn(): bool => unlink(self::ROOT_DIR . '_cache/test/register_config.php'));
     }
 
