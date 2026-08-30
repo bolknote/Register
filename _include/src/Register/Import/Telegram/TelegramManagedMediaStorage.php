@@ -146,9 +146,13 @@ final readonly class TelegramManagedMediaStorage
         ];
     }
 
-    /** @param resource $output */
+    /** @param resource|null $output */
     private function writeChunk(mixed $output, string $chunk): void
     {
+        if (!\is_resource($output)) {
+            throw new \LogicException('Telegram media output is not an open stream.');
+        }
+
         $offset = 0;
         $length = \strlen($chunk);
         while ($offset < $length) {

@@ -214,7 +214,7 @@ final readonly class AnalyticsSpool
         }
 
         try {
-            @chmod($path, 0600);
+            $this->protectFile($path);
             $remaining = $line;
             while ($remaining !== '') {
                 $written = fwrite($handle, $remaining);
@@ -255,7 +255,7 @@ final readonly class AnalyticsSpool
     {
         $active = $this->activePath($shard);
         if (!is_file($active) || filesize($active) === 0) {
-            @unlink($this->openedPath($shard));
+            $this->removeOpenedMarker($shard);
             return false;
         }
 
@@ -272,8 +272,8 @@ final readonly class AnalyticsSpool
         if (!rename($active, $sealed)) {
             throw new AnalyticsSpoolException('Unable to seal an analytics spool segment.');
         }
-        @chmod($sealed, 0600);
-        @unlink($this->openedPath($shard));
+        $this->protectFile($sealed);
+        $this->removeOpenedMarker($shard);
         return true;
     }
 
@@ -285,7 +285,12 @@ final readonly class AnalyticsSpool
         if ($handle === false) {
             throw new AnalyticsSpoolException('Unable to open an analytics spool lock.');
         }
-        @chmod($path, 0600);
+        try {
+            $this->protectFile($path);
+        } catch (\Throwable $exception) {
+            fclose($handle);
+            throw $exception;
+        }
         return $handle;
     }
 
@@ -299,7 +304,7 @@ final readonly class AnalyticsSpool
         if (!touch($path, $now)) {
             throw new AnalyticsSpoolException('Unable to create an analytics spool age marker.');
         }
-        @chmod($path, 0600);
+        $this->protectFile($path);
     }
 
     private function ensureDirectory(): void
@@ -307,15 +312,33 @@ final readonly class AnalyticsSpool
         if (!is_dir($this->directory) && !mkdir($this->directory, 0700, true) && !is_dir($this->directory)) {
             throw new AnalyticsSpoolException('Unable to create the analytics spool directory.');
         }
-        @chmod($this->directory, 0700);
+        if (!chmod($this->directory, 0700)) {
+            throw new AnalyticsSpoolException('Unable to protect the analytics spool directory.');
+        }
         if (!is_writable($this->directory)) {
             throw new AnalyticsSpoolException('The analytics spool directory is not writable.');
         }
     }
 
+    private function protectFile(string $path): void
+    {
+        if (!chmod($path, 0600)) {
+            throw new AnalyticsSpoolException('Unable to protect an analytics spool file.');
+        }
+    }
+
+    private function removeOpenedMarker(int $shard): void
+    {
+        $path = $this->openedPath($shard);
+        if (is_file($path) && !unlink($path) && is_file($path)) {
+            throw new AnalyticsSpoolException('Unable to remove an analytics spool age marker.');
+        }
+    }
+
     private function shard(string $eventId): int
     {
-        return hexdec(substr($eventId, 0, 8)) % $this->shards;
+        // Seven hexadecimal digits fit into a signed 32-bit integer on every supported host.
+        return (int)hexdec(substr($eventId, 0, 7)) % $this->shards;
     }
 
     private function activePath(int $shard): string

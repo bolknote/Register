@@ -132,6 +132,7 @@ final class TelegramDiscussionArchiveTest extends Unit
 
         $publicRoot = sys_get_temp_dir() . '/register-telegram-media-' . bin2hex(random_bytes(6)) . '/';
         self::assertTrue(mkdir($publicRoot . '_pictures/bolknote/comments', 0755, true));
+        $createdFile = null;
         try {
             $package = TelegramExportPackage::fromFile($archivePath, 'ChatExport.zip');
             $archive = $package->discussionArchive()->extract(
@@ -155,11 +156,12 @@ final class TelegramDiscussionArchiveTest extends Unit
             self::assertSame('image', $stored['kind']);
             self::assertSame('image/png', $stored['mime_type']);
             self::assertStringStartsWith('/_pictures/bolknote/comments/telegram/123/2/', $stored['url']);
-            self::assertIsString($stored['created_file']);
-            self::assertFileExists($stored['created_file']);
+            $createdFile = $stored['created_file'];
+            self::assertIsString($createdFile);
+            self::assertFileExists($createdFile);
         } finally {
-            if (isset($stored) && \is_string($stored['created_file'])) {
-                unlink($stored['created_file']);
+            if ($createdFile !== null) {
+                unlink($createdFile);
             }
             foreach (['123/2', '123', ''] as $suffix) {
                 $directory = $publicRoot . '_pictures/bolknote/comments/telegram'

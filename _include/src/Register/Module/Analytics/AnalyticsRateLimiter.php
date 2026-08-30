@@ -53,9 +53,10 @@ final class AnalyticsRateLimiter
             return $this->acceptsInApcu($key, $events);
         }
 
-        if ($this->fallbackDirectory !== null) {
+        $fallbackDirectory = $this->fallbackDirectory;
+        if ($fallbackDirectory !== null) {
             try {
-                return $this->acceptsOnFilesystem($digest, $events, intdiv($now, 60));
+                return $this->acceptsOnFilesystem($fallbackDirectory, $digest, $events, intdiv($now, 60));
             } catch (\Throwable) {
                 // A best-effort process-local guard is safer than making collection unavailable.
             }
@@ -87,11 +88,11 @@ final class AnalyticsRateLimiter
         return $success && \is_int($count) && $count <= self::EVENTS_PER_MINUTE;
     }
 
-    private function acceptsOnFilesystem(string $digest, int $events, int $minute): bool
+    private function acceptsOnFilesystem(string $directory, string $digest, int $events, int $minute): bool
     {
-        $this->ensureFallbackDirectory();
-        $shard = hexdec(substr($digest, 0, 2)) % self::FILE_SHARDS;
-        $path  = $this->fallbackDirectory
+        $this->ensureFallbackDirectory($directory);
+        $shard = (int)hexdec(substr($digest, 0, 2)) % self::FILE_SHARDS;
+        $path  = $directory
             . 'rate-' . sprintf('%010d', $minute) . '-' . sprintf('%02d', $shard) . '.json';
         $handle = fopen($path, 'c+b');
         if ($handle === false) {
@@ -99,7 +100,9 @@ final class AnalyticsRateLimiter
         }
 
         try {
-            @chmod($path, 0600);
+            if (!chmod($path, 0600)) {
+                throw new \RuntimeException('Unable to protect the analytics rate-limit shard.');
+            }
             if (!flock($handle, LOCK_EX)) {
                 throw new \RuntimeException('Unable to lock the analytics rate-limit shard.');
             }
@@ -127,7 +130,7 @@ final class AnalyticsRateLimiter
             fclose($handle);
         }
 
-        $this->occasionallyRemoveExpiredFiles($digest, $minute);
+        $this->occasionallyRemoveExpiredFiles($directory, $digest, $minute);
         return $count <= self::EVENTS_PER_MINUTE;
     }
 
@@ -183,27 +186,26 @@ final class AnalyticsRateLimiter
         }
     }
 
-    private function ensureFallbackDirectory(): void
+    private function ensureFallbackDirectory(string $directory): void
     {
-        if ($this->fallbackDirectory === null) {
-            throw new \LogicException('The analytics rate-limit fallback is not configured.');
-        }
-        if (!is_dir($this->fallbackDirectory)
-            && !mkdir($this->fallbackDirectory, 0700, true)
-            && !is_dir($this->fallbackDirectory)
+        if (!is_dir($directory)
+            && !mkdir($directory, 0700, true)
+            && !is_dir($directory)
         ) {
             throw new \RuntimeException('Unable to create the analytics rate-limit directory.');
         }
-        @chmod($this->fallbackDirectory, 0700);
+        if (!chmod($directory, 0700)) {
+            throw new \RuntimeException('Unable to protect the analytics rate-limit directory.');
+        }
     }
 
-    private function occasionallyRemoveExpiredFiles(string $digest, int $minute): void
+    private function occasionallyRemoveExpiredFiles(string $directory, string $digest, int $minute): void
     {
-        if ($this->fallbackDirectory === null || ($minute + hexdec(substr($digest, -2))) % 128 !== 0) {
+        if (($minute + (int)hexdec(substr($digest, -2))) % 128 !== 0) {
             return;
         }
 
-        $files = glob($this->fallbackDirectory . 'rate-*.json', GLOB_NOSORT);
+        $files = glob($directory . 'rate-*.json', GLOB_NOSORT);
         if ($files === false) {
             return;
         }
@@ -211,7 +213,9 @@ final class AnalyticsRateLimiter
             if (preg_match('/^rate-([0-9]{10})-[0-9]{2}\.json$/D', basename($file), $match) === 1
                 && (int)$match[1] < $minute - 2
             ) {
-                @unlink($file);
+                if (!unlink($file)) {
+                    return;
+                }
             }
         }
     }

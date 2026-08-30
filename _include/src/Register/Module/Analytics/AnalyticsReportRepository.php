@@ -54,7 +54,13 @@ final readonly class AnalyticsReportRepository
         $this->validateDay($day);
         foreach ($this->dailyOverview() as $row) {
             if ($row['day'] === $day) {
-                return $this->summaryFromRow($row);
+                return $this->summaryFromRow([
+                    'views'           => $row['views'],
+                    'sessions'        => $row['sessions'],
+                    'unique_count'    => $row['unique_count'],
+                    'bounces'         => $row['bounces'],
+                    'engaged_seconds' => $row['engaged_seconds'],
+                ]);
             }
         }
 
