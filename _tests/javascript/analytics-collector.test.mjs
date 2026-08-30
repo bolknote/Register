@@ -11,6 +11,7 @@ const collectorSource = await readFile(
 test('collector waits for visitor identity and ignores browser privacy signals', async function () {
     const listeners = new Map();
     const beacons = [];
+    const performanceObservers = new Map();
     const storage = new Map();
     let randomByte = 0;
     let identityCalls = 0;
@@ -47,8 +48,20 @@ test('collector waits for visitor identity and ignores browser privacy signals',
         scrollY: 0,
         setInterval() { return 1; }
     };
+    class PerformanceObserver {
+        static supportedEntryTypes = ['largest-contentful-paint', 'layout-shift', 'event'];
+
+        constructor(callback) {
+            this.callback = callback;
+        }
+
+        observe(options) {
+            performanceObservers.set(options.type, this.callback);
+        }
+    }
     const context = vm.createContext({
         Blob,
+        PerformanceObserver,
         URLSearchParams,
         console,
         crypto: {
@@ -114,4 +127,16 @@ test('collector waits for visitor identity and ignores browser privacy signals',
     assert.match(presence.sessionId, /^[a-f0-9]{32}$/);
     assert.equal(presence.path, '/post');
     assert.equal(presence.title, 'Example');
+
+    document.visibilityState = 'hidden';
+    for (const listener of listeners.get('visibilitychange') || []) {
+        listener();
+    }
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(performanceObservers.has('layout-shift'), true);
+    assert.equal(beacons.length, 2);
+    const vitalsPayload = JSON.parse(await beacons[1].body.text());
+    assert.equal(vitalsPayload.events[0].name, 'web_vitals');
+    assert.deepEqual(vitalsPayload.events[0].properties, {cls_milli: 0, nav_type: 'other'});
 });

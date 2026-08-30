@@ -2297,6 +2297,11 @@ form.config-inline-form :is(input:not([type="checkbox"]), select, textarea):not(
     border-top-color: var(--analytics-poor);
 }
 
+.analytics-vital-insufficient,
+.analytics-vital-missing {
+    border-top-color: var(--admin-soft-border-color);
+}
+
 .analytics-vital-value {
     font-size: 1.25rem;
     font-weight: 760;
@@ -2305,6 +2310,20 @@ form.config-inline-form :is(input:not([type="checkbox"]), select, textarea):not(
 
 .analytics-vital-grade,
 .analytics-vital small {
+    color: var(--admin-secondary-text-color);
+    font-size: 0.7rem;
+}
+
+.analytics-vital-average {
+    margin-bottom: -0.2rem;
+}
+
+.analytics-vital-empty {
+    color: var(--admin-secondary-text-color);
+    font-size: 0.85rem;
+}
+
+.analytics-vital-description {
     color: var(--admin-secondary-text-color);
     font-size: 0.7rem;
 }
@@ -2432,7 +2451,11 @@ form.config-inline-form :is(input:not([type="checkbox"]), select, textarea):not(
     }
 
     .analytics-vitals {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .analytics-vital:not(.analytics-vital-missing) {
+        grid-column: 1 / -1;
     }
 
     .analytics-presentation,

@@ -116,6 +116,8 @@ final class AnalyticsReportRepositoryTest extends Unit
         self::assertSame(100.0, $dashboard['goals'][0]['conversion_rate']);
         self::assertSame([1, 1, 1, 1], array_column($dashboard['funnel'], 'count'));
         self::assertSame(['LCP', 'CLS', 'INP'], array_column($dashboard['vitals'], 'metric'));
+        self::assertSame(['insufficient', 'insufficient', 'insufficient'], array_column($dashboard['vitals'], 'grade'));
+        self::assertSame([1, 1, 1], array_column($dashboard['vitals'], 'good_samples'));
 
         $presence->touch(str_repeat('a', 64), str_repeat('c', 64), '/post', 'Post', $time + 40);
         $presence->touch(str_repeat('b', 64), str_repeat('c', 64), '/post', 'Post', $time + 41);
@@ -125,6 +127,58 @@ final class AnalyticsReportRepositoryTest extends Unit
         self::assertSame(2, $realtime['active_sessions']);
         self::assertSame(1, $realtime['views_30m']);
         self::assertSame(2, $realtime['pages'][0]['sessions']);
+    }
+
+    public function testWebVitalsWithholdAGradeUntilTheSampleIsLargeEnough(): void
+    {
+        $pdo     = new \PDO('sqlite::memory:');
+        $dbLayer = new DbLayerSqlite($pdo);
+        $this->createLegacyStorage($dbLayer);
+        AnalyticsSchema::createEventStorage($dbLayer);
+        $cache = new AnalyticsReportCache(new NullAdapter());
+        $presence = new AnalyticsPresenceStore(
+            $this->presenceDirectory,
+            '0123456789abcdef',
+            useApcu: false,
+        );
+        $ingestor = new AnalyticsIngestor(
+            $pdo,
+            $dbLayer,
+            new AnalyticsRepository($dbLayer),
+            $cache,
+            new AnalyticsBlogProjector($dbLayer),
+        );
+        $repository = new AnalyticsReportRepository($dbLayer, $cache, $presence);
+        $time = (new \DateTimeImmutable('2026-08-30T12:15:00+00:00'))->getTimestamp();
+        $events = [];
+        for ($index = 0; $index < 20; ++$index) {
+            $events[] = $this->event(
+                str_pad(dechex($index + 1), 32, '0', STR_PAD_LEFT),
+                AnalyticsEvent::TYPE_CUSTOM,
+                $time + $index,
+                name: AnalyticsBlogProjector::EVENT_WEB_VITALS,
+                propertiesJson: json_encode([
+                    'lcp_ms' => $index % 2 === 0 ? 2400 : 2900,
+                ], JSON_THROW_ON_ERROR),
+            );
+        }
+
+        self::assertSame(2, $ingestor->ingest(array_slice($events, 0, 2)));
+        $vital = $repository->webVitals('2026-08-30', '2026-08-30')[0];
+        self::assertSame('LCP', $vital['metric']);
+        self::assertSame(2650.0, $vital['value']);
+        self::assertSame(2, $vital['samples']);
+        self::assertSame(1, $vital['good_samples']);
+        self::assertSame(50.0, $vital['good_rate']);
+        self::assertSame('insufficient', $vital['grade']);
+
+        self::assertSame(18, $ingestor->ingest(array_slice($events, 2)));
+        $vital = $repository->webVitals('2026-08-30', '2026-08-30')[0];
+        self::assertSame(2650.0, $vital['value']);
+        self::assertSame(20, $vital['samples']);
+        self::assertSame(10, $vital['good_samples']);
+        self::assertSame(50.0, $vital['good_rate']);
+        self::assertSame('needs', $vital['grade']);
     }
 
     private function createLegacyStorage(DbLayerSqlite $dbLayer): void

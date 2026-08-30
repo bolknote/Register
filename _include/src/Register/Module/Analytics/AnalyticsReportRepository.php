@@ -18,6 +18,8 @@ final readonly class AnalyticsReportRepository
 
     private const int RANKING_CACHE_TTL = 30;
 
+    private const int WEB_VITALS_MIN_SAMPLES = 20;
+
     public function __construct(
         private DbLayer              $dbLayer,
         private AnalyticsReportCache $cache,
@@ -479,11 +481,11 @@ final readonly class AnalyticsReportRepository
         ], $steps);
     }
 
-    /** @return list<array{metric: string, value: float, unit: string, samples: int, good_rate: float, grade: string}> */
+    /** @return list<array{metric: string, value: float, unit: string, samples: int, good_samples: int, good_rate: float, grade: string}> */
     public function webVitals(string $fromDay, string $toDay): array
     {
         $this->validateRange($fromDay, $toDay, 1);
-        /** @var list<array{metric: string, value: float, unit: string, samples: int, good_rate: float, grade: string}> */
+        /** @var list<array{metric: string, value: float, unit: string, samples: int, good_samples: int, good_rate: float, grade: string}> */
         return $this->cache->remember(
             'web-vitals-' . $fromDay . '-' . $toDay,
             self::RANKING_CACHE_TTL,
@@ -520,19 +522,22 @@ final readonly class AnalyticsReportRepository
 
                     $good    = (int)$row[$key . '_good'];
                     $needs   = (int)$row[$key . '_needs'];
-                    $grade   = $good / $count >= 0.75
-                        ? 'good'
-                        : (($good + $needs) / $count >= 0.75 ? 'needs' : 'poor');
+                    $grade   = $count < self::WEB_VITALS_MIN_SAMPLES
+                        ? 'insufficient'
+                        : ($good / $count >= 0.75
+                            ? 'good'
+                            : (($good + $needs) / $count >= 0.75 ? 'needs' : 'poor'));
                     $value = (float)(int)$row[$key . '_sum']
                         / (float)$count
                         / (float)$definition['divisor'];
                     $result[] = [
-                        'metric'    => $metric,
-                        'value'     => $metric === 'CLS' ? round($value, 3) : round($value),
-                        'unit'      => $definition['unit'],
-                        'samples'   => $count,
-                        'good_rate' => round(100 * $good / $count, 1),
-                        'grade'     => $grade,
+                        'metric'       => $metric,
+                        'value'        => $metric === 'CLS' ? round($value, 3) : round($value),
+                        'unit'         => $definition['unit'],
+                        'samples'      => $count,
+                        'good_samples' => $good,
+                        'good_rate'    => round(100 * $good / $count, 1),
+                        'grade'        => $grade,
                     ];
                 }
 

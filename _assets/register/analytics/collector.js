@@ -37,7 +37,7 @@
     let vitalsSent = false;
     let largestContentfulPaint = null;
     let cumulativeLayoutShift = 0;
-    let layoutShiftObserved = false;
+    let layoutShiftSupported = false;
     let interactionToNextPaint = null;
 
     const storedConsent = () => {
@@ -322,7 +322,7 @@
         }
         const properties = {nav_type: navigationType()};
         if (largestContentfulPaint !== null) properties.lcp_ms = Math.min(120000, Math.max(0, Math.round(largestContentfulPaint)));
-        if (layoutShiftObserved) properties.cls_milli = Math.min(10000, Math.max(0, Math.round(cumulativeLayoutShift * 1000)));
+        if (layoutShiftSupported) properties.cls_milli = Math.min(10000, Math.max(0, Math.round(cumulativeLayoutShift * 1000)));
         if (interactionToNextPaint !== null) properties.inp_ms = Math.min(60000, Math.max(0, Math.round(interactionToNextPaint)));
         if (properties.lcp_ms === undefined && properties.cls_milli === undefined && properties.inp_ms === undefined) {
             return Promise.resolve(false);
@@ -340,26 +340,34 @@
             return;
         }
         const observe = (type, callback, options = {}) => {
+            if (
+                Array.isArray(PerformanceObserver.supportedEntryTypes)
+                && !PerformanceObserver.supportedEntryTypes.includes(type)
+            ) {
+                return false;
+            }
             const observer = new PerformanceObserver((list) => callback(list.getEntries()));
             try {
                 observer.observe({type, buffered: true, ...options});
+                return true;
             } catch (_error) {
                 if (Object.keys(options).length === 0) {
-                    return;
+                    return false;
                 }
                 try {
                     observer.observe({type, buffered: true});
+                    return true;
                 } catch (_fallbackError) {
                     // Older engines expose only a subset of the Web Performance APIs.
                 }
             }
+            return false;
         };
         observe('largest-contentful-paint', (entries) => {
             const entry = entries.at(-1);
             if (entry) largestContentfulPaint = entry.startTime;
         });
-        observe('layout-shift', (entries) => {
-            layoutShiftObserved = layoutShiftObserved || entries.length > 0;
+        layoutShiftSupported = observe('layout-shift', (entries) => {
             entries.forEach((entry) => {
                 if (!entry.hadRecentInput) cumulativeLayoutShift += entry.value;
             });
@@ -385,7 +393,6 @@
         vitalsSent = false;
         largestContentfulPaint = null;
         cumulativeLayoutShift = 0;
-        layoutShiftObserved = false;
         interactionToNextPaint = null;
         activeMilliseconds = 0;
         maximumScrollDepth = 0;

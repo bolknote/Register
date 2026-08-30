@@ -477,25 +477,64 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const grades = {
             good: root.dataset.vitalGood,
+            insufficient: root.dataset.vitalInsufficient,
             needs: root.dataset.vitalNeeds,
             poor: root.dataset.vitalPoor,
         };
+        const byMetric = new Map(vitals.map((vital) => [vital.metric, vital]));
+        const descriptions = {
+            CLS: root.dataset.vitalClsDescription,
+            INP: root.dataset.vitalInpDescription,
+            LCP: root.dataset.vitalLcpDescription,
+        };
+        const formatGoodSamples = (vital) => {
+            const samples = Math.max(0, Number(vital.samples) || 0);
+            const goodSamples = Math.min(
+                samples,
+                Math.max(
+                    0,
+                    Number.isFinite(Number(vital.good_samples))
+                        ? Number(vital.good_samples)
+                        : Math.round(samples * (Number(vital.good_rate) || 0) / 100),
+                ),
+            );
+            return (root.dataset.vitalGoodSamples || 'Good measurements: %good% of %total%')
+                .replace('%good%', integerFormatter.format(goodSamples))
+                .replace('%total%', integerFormatter.format(samples));
+        };
         const fragment = document.createDocumentFragment();
-        vitals.forEach((vital) => {
+        ['LCP', 'CLS', 'INP'].forEach((metric) => {
+            const vital = byMetric.get(metric);
             const card = document.createElement('article');
-            card.className = 'analytics-vital analytics-vital-' + vital.grade;
             const name = document.createElement('strong');
-            name.textContent = vital.metric;
+            name.textContent = metric;
+            const description = document.createElement('span');
+            description.className = 'analytics-vital-description';
+            description.textContent = descriptions[metric] || '';
+            if (vital === undefined) {
+                card.className = 'analytics-vital analytics-vital-missing';
+                const empty = document.createElement('span');
+                empty.className = 'analytics-vital-empty';
+                empty.textContent = root.dataset.vitalNoSamples || 'No measurements yet';
+                card.append(name, description, empty);
+                fragment.append(card);
+                return;
+            }
+
+            card.className = 'analytics-vital analytics-vital-' + vital.grade;
+            const average = document.createElement('small');
+            average.className = 'analytics-vital-average';
+            average.textContent = root.dataset.vitalAverage || 'Average';
             const value = document.createElement('span');
             value.className = 'analytics-vital-value';
             const unit = vital.unit === 'ms' ? (root.dataset.millisecondsShort || 'ms') : vital.unit;
             value.textContent = decimalFormatter.format(vital.value) + (unit ? ' ' + unit : '');
             const grade = document.createElement('span');
             grade.className = 'analytics-vital-grade';
-            grade.textContent = (grades[vital.grade] || vital.grade) + ' · ' + formatPercent(vital.good_rate);
+            grade.textContent = grades[vital.grade] || vital.grade;
             const samples = document.createElement('small');
-            samples.textContent = (root.dataset.samples || 'Samples') + ': ' + integerFormatter.format(vital.samples);
-            card.append(name, value, grade, samples);
+            samples.textContent = formatGoodSamples(vital);
+            card.append(name, description, average, value, grade, samples);
             fragment.append(card);
         });
         container.replaceChildren(fragment);

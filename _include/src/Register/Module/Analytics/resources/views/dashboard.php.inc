@@ -50,6 +50,13 @@ $dataAttributes = [
     'vital-good'             => $trans('Analytics grade good'),
     'vital-needs'            => $trans('Analytics grade needs improvement'),
     'vital-poor'             => $trans('Analytics grade poor'),
+    'vital-insufficient'     => $trans('Analytics grade insufficient'),
+    'vital-average'          => $trans('Analytics metric average'),
+    'vital-good-samples'     => $trans('Analytics good measurements'),
+    'vital-no-samples'       => $trans('Analytics no measurements'),
+    'vital-lcp-description'  => $trans('Analytics LCP description'),
+    'vital-cls-description'  => $trans('Analytics CLS description'),
+    'vital-inp-description'  => $trans('Analytics INP description'),
     'milliseconds-short'     => $trans('Milliseconds short'),
     'samples'                => $trans('Samples'),
 ];
