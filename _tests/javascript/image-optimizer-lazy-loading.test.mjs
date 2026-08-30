@@ -77,7 +77,7 @@ test('automatic alt generation covers existing and newly uploaded images', funct
     const submitSource = editorSource.slice(submitStart, submitEnd);
 
     assert.match(editSource, /generateMissingImageAlts\(state\)/u);
-    assert.match(uploadSource, /await queueImageAlt\(state, image, uploadFile\)/u);
+    assert.match(uploadSource, /await queueImageAlt\(state, image, uploadFile, false, false\)/u);
     assert.match(submitSource, /await Promise\.all\(Array\.from\(state\.aiAltTasks\)\)/u);
     assert.match(editorSource, /data\.set\('inplace_action', 'ai_alt'\)/u);
     assert.match(editorSource, /\(!force && !imageNeedsGeneratedAlt\(image\)\)/u);
@@ -109,6 +109,8 @@ test('dropped images render immediately and the complete processing flow is queu
     const queued = uploadSource.indexOf('state.imageUploadTail.catch(() => {}).then(run)');
     assert.ok(optimizing >= 0 && uploading > optimizing && alt > uploading);
     assert.ok(queued > alt);
-    assert.match(uploadSource, /await queueImageAlt\(state, image, uploadFile\)/u);
+    assert.match(uploadSource, /await queueImageAlt\(state, image, uploadFile, false, false\)/u);
+    assert.match(editorSource, /if \(showStatus\) \{\s*\+\+state\.aiAltStatusPending;/u);
+    assert.match(editorSource, /updateAiAltStatus\(state, showStatus && outcome === 'applied'\)/u);
     assert.match(uploadSource, /await revealProcessedImage\(pending\)/u);
 });

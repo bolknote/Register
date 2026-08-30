@@ -102,6 +102,13 @@ class FakeHTMLElement extends FakeNode {
         this.childNodes.push(node);
     }
 
+    insertBefore(node, boundary) {
+        node.remove();
+        node.parentNode = this;
+        const index = this.childNodes.indexOf(boundary);
+        this.childNodes.splice(index < 0 ? this.childNodes.length : index, 0, node);
+    }
+
     contains(node) {
         for (let current = node; current; current = current.parentNode) {
             if (current === this) {
@@ -109,6 +116,15 @@ class FakeHTMLElement extends FakeNode {
             }
         }
         return false;
+    }
+
+    closest(selector) {
+        for (let current = this; current instanceof FakeHTMLElement; current = current.parentNode) {
+            if (current.matches(selector)) {
+                return current;
+            }
+        }
+        return null;
     }
 
     getBoundingClientRect() {
@@ -168,11 +184,23 @@ function createHarness() {
             registered.push(listener);
             listeners.set(type, registered);
         },
+        createElement: function (tagName) {
+            const normalizedTag = String(tagName).toUpperCase();
+            const element = normalizedTag === 'BR'
+                ? new FakeHTMLBRElement({tagName: normalizedTag})
+                : new FakeHTMLElement({tagName: normalizedTag});
+            elements.push(element);
+            return element;
+        },
         createRange: function () {
             return {
                 collapsed: false,
                 startBefore: null,
                 collapse: function () { this.collapsed = true; },
+                setStart: function (node, offset) {
+                    this.startContainer = node;
+                    this.startOffset = offset;
+                },
                 setStartBefore: function (node) {
                     this.startBefore = node;
                     this.startContainer = node.parentNode;
@@ -184,6 +212,11 @@ function createHarness() {
             if (selector === '.has-leading-boundary-caret') {
                 return elements.filter((element) => (
                     element.classList.contains('has-leading-boundary-caret')
+                ));
+            }
+            if (selector === '.uses-synthetic-boundary-caret') {
+                return elements.filter((element) => (
+                    element.classList.contains('uses-synthetic-boundary-caret')
                 ));
             }
             return [];
@@ -316,8 +349,12 @@ test('the synthetic media-boundary caret is unique and stale copies are cleared 
     );
 
     const insertionRange = harness.beforeInput(body);
-    assert.equal(insertionRange.startBefore, media);
-    assert.equal(insertionRange.startContainer, body);
+    const insertionParagraph = body.childNodes[0];
+    assert.equal(insertionParagraph.tagName, 'P');
+    assert.equal(insertionParagraph.childNodes[0].tagName, 'BR');
+    assert.equal(body.childNodes[1], media);
+    assert.equal(insertionRange.startBefore, null);
+    assert.equal(insertionRange.startContainer, insertionParagraph);
     assert.equal(insertionRange.startOffset, 0);
     assert.equal(media.classList.contains('has-leading-boundary-caret'), false);
 
@@ -343,4 +380,62 @@ test('the synthetic caret remains visible at the empty editor root', function ()
     harness.sync();
 
     assert.equal(body.classList.contains('has-leading-boundary-caret'), true);
+    assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), true);
+});
+
+test('typing at the editor root before leading media creates a paragraph', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    body.isEditingBody = true;
+    const media = new FakeHTMLElement({parentNode: body, media: true});
+    media.isMediaWrapper = true;
+    media.childNodes.push(new FakeHTMLElement({parentNode: media}));
+    body.childNodes.push(media);
+    harness.elements.push(body, media);
+    harness.document.activeElement = body;
+
+    harness.select(body, 0);
+    const insertionRange = harness.beforeInput(body);
+
+    const insertionParagraph = body.childNodes[0];
+    assert.equal(insertionParagraph.tagName, 'P');
+    assert.equal(insertionParagraph.childNodes[0].tagName, 'BR');
+    assert.equal(body.childNodes[1], media);
+    assert.equal(insertionRange.startContainer, insertionParagraph);
+    assert.equal(insertionRange.startOffset, 0);
+});
+
+test('an empty paragraph before media has exactly one synthetic caret', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    body.isEditingBody = true;
+    const paragraph = new FakeHTMLElement({parentNode: body, tagName: 'P'});
+    paragraph.childNodes.push(new FakeHTMLBRElement({parentNode: paragraph}));
+    const media = new FakeHTMLElement({parentNode: body, media: true});
+    media.isMediaWrapper = true;
+    media.childNodes.push(new FakeHTMLElement({parentNode: media}));
+    body.childNodes.push(paragraph, media);
+    harness.elements.push(body, paragraph, media);
+    harness.document.activeElement = body;
+
+    harness.select(paragraph, 0);
+    harness.sync();
+
+    assert.equal(paragraph.classList.contains('has-leading-boundary-caret'), true);
+    assert.equal(media.classList.contains('has-leading-boundary-caret'), false);
+    assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), true);
+    assert.equal(
+        harness.elements.filter((element) => (
+            element.classList.contains('has-leading-boundary-caret')
+        )).length,
+        1
+    );
+
+    const typedText = new FakeTextNode(paragraph, 'Сегодня');
+    paragraph.childNodes.push(typedText);
+    harness.select(typedText, typedText.textContent.length);
+    harness.sync();
+
+    assert.equal(paragraph.classList.contains('has-leading-boundary-caret'), false);
+    assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), false);
 });

@@ -215,7 +215,7 @@ final class AssetPackTest extends Unit
         );
     }
 
-    public function testPostEditorShowsTheCaretBeforeALeadingBlockWithoutChangingContent(): void
+    public function testPostEditorShowsOneCaretAndTypesBeforeLeadingMedia(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';
         $site = file_get_contents($rootDir . '_styles/register/site.css');
@@ -223,12 +223,24 @@ final class AssetPackTest extends Unit
 
         self::assertIsString($site);
         self::assertMatchesRegularExpression(
-            '/\.post\.body\[data-post-inplace-body\]\.has-leading-boundary-caret::before\s*,\s*'
+            '/\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]'
+                . '\.has-leading-boundary-caret::before\s*,\s*'
                 . '\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*'
                 . ':where\(\.post-picture, \.post-media-picture, figure\)'
                 . '\.has-leading-boundary-caret:has\(img, video, audio\)::before\s*'
-                . '\{[^}]*position:\s*absolute;[^}]*left:\s*-2px;'
+                . '\{[^}]*position:\s*absolute;[^}]*left:\s*0;'
                 . '[^}]*background:\s*var\(--accent-color\);/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*'
+                . '>\s*p\.has-leading-boundary-caret\s*'
+                . '\{[^}]*box-shadow:\s*inset 2px 0 var\(--accent-color\);/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.post\.body\[data-post-inplace-body\]\.uses-synthetic-boundary-caret\s*'
+                . '\{[^}]*caret-color:\s*transparent;/s',
             $site,
         );
 
@@ -238,17 +250,20 @@ final class AssetPackTest extends Unit
             $script,
         );
         self::assertStringContainsString(
-            "boundary.matches('.post-picture, .post-media-picture, figure')",
+            "element.matches('.post-picture, .post-media-picture, figure')",
             $script,
         );
         self::assertStringContainsString('node instanceof HTMLBRElement', $script);
-        self::assertStringContainsString("boundary.querySelector('img, video, audio')", $script);
+        self::assertStringContainsString("element.querySelector('img, video, audio')", $script);
+        self::assertStringContainsString('emptyParagraphBeforeMediaAtRange(active, range)', $script);
         self::assertStringContainsString(
             "document.querySelectorAll('.has-leading-boundary-caret').forEach",
             $script,
         );
-        self::assertStringContainsString("nextElement?.classList.add('has-leading-boundary-caret')", $script);
-        self::assertStringContainsString('range.setStartBefore(boundary)', $script);
+        self::assertStringContainsString("nextElement.classList.add('has-leading-boundary-caret')", $script);
+        self::assertStringContainsString("document.createElement('p')", $script);
+        self::assertStringContainsString('body.insertBefore(paragraph, boundary)', $script);
+        self::assertStringContainsString('range.setStart(paragraph, 0)', $script);
         self::assertStringContainsString(
             "document.addEventListener('beforeinput', moveInsertionBeforeMediaBoundary",
             $script,
@@ -297,7 +312,47 @@ final class AssetPackTest extends Unit
         self::assertStringContainsString("state.imageUploadTail.catch(() => {}).then(run)", $script);
         self::assertStringContainsString("updateMediaUploadPending(pending, optimizingMessage, 'optimizing')", $script);
         self::assertStringContainsString("updateMediaUploadPending(pending, uploadingMessage, 'uploading')", $script);
-        self::assertStringContainsString("await queueImageAlt(state, image, uploadFile)", $script);
+        self::assertStringContainsString(
+            'await queueImageAlt(state, image, uploadFile, false, false)',
+            $script,
+        );
+        self::assertStringContainsString('if (state.aiAltStatusPending > 0)', $script);
+    }
+
+    public function testInlineImageCaptionRemainsAvailableAfterEditingElsewhere(): void
+    {
+        $rootDir = \dirname(__DIR__, 4) . '/';
+        $site = file_get_contents($rootDir . '_styles/register/site.css');
+        $script = file_get_contents($rootDir . '_assets/register/post-inplace.js');
+
+        self::assertIsString($site);
+        self::assertStringContainsString(
+            ':is(.post-caption, figcaption):is(.is-inline-caption-entry, .is-editing-inline-caption)',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.is-inline-caption-entry, \.is-editing-inline-caption\)\s*'
+                . '\{[^}]*min-height:\s*1\.45em;[^}]*cursor:\s*text;/s',
+            $site,
+        );
+        self::assertStringContainsString(
+            ':is(.post-caption, figcaption):is(.is-inline-caption-entry, .is-editing-inline-caption):empty::before',
+            $site,
+        );
+
+        self::assertIsString($script);
+        self::assertStringContainsString('prepareInlineMediaCaptionEntries(root);', $script);
+        self::assertStringContainsString("caption.classList.add('is-inline-caption-entry')", $script);
+        self::assertStringContainsString("caption.removeAttribute('class')", $script);
+        self::assertStringContainsString("caption.setAttribute('contenteditable', 'false')", $script);
+        self::assertStringContainsString("target?.closest('.is-inline-caption-entry')", $script);
+        self::assertStringContainsString('beginInlineMediaCaption(inlineCaptionState, inlineCaption)', $script);
+        self::assertStringContainsString('if (text !== editor.original)', $script);
+        self::assertStringContainsString(
+            "'.is-editing-inline-caption, .is-inline-caption-entry'",
+            $script,
+        );
+        self::assertStringNotContainsString("caption.classList.add('post-caption')", $script);
     }
 
     public function testPostEditorHighlightsAiChangesWithoutPersistingTheMarks(): void

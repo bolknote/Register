@@ -521,7 +521,7 @@ hr {
     margin-bottom: 1.35em;
 }
 
-#content .post-caption.is-editing-inline-caption {
+#content :is(.post-caption, figcaption):is(.is-inline-caption-entry, .is-editing-inline-caption) {
     box-sizing: border-box;
     width: 100%;
     min-height: 1.45em;
@@ -532,10 +532,15 @@ hr {
     cursor: text;
 }
 
-#content .post-caption.is-editing-inline-caption:empty::before {
+#content :is(.post-caption, figcaption):is(.is-inline-caption-entry, .is-editing-inline-caption):empty::before {
     color: var(--quiet-color);
     content: attr(data-placeholder);
     pointer-events: none;
+}
+
+#content :is(.post-caption, figcaption).is-inline-caption-entry:focus-visible {
+    outline: 1px solid var(--accent-color);
+    outline-offset: 0.18rem;
 }
 
 #content > :first-child,
@@ -1012,6 +1017,16 @@ h2.preview,
     text-wrap: stable;
 }
 
+.post-card.is-editing > .post.body[data-post-inplace-body].uses-synthetic-boundary-caret {
+    caret-color: transparent;
+}
+
+.post-card.is-editing > .post.body[data-post-inplace-body]
+    > p.has-leading-boundary-caret {
+    position: relative;
+    box-shadow: inset 2px 0 var(--accent-color);
+}
+
 .post-card.is-editing > .post.body[data-post-inplace-body]
     :where(.post-picture, .post-media-picture, figure).has-leading-boundary-caret:has(img, video, audio) {
     position: relative;
@@ -1023,7 +1038,7 @@ h2.preview,
     position: absolute;
     z-index: 2;
     top: 0.08em;
-    left: -2px;
+    left: 0;
     width: 2px;
     height: 1.18em;
     border-radius: 1px;
