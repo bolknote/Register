@@ -253,7 +253,7 @@ class InstallCest
         $I->amOnPage('/_admin/index.php?entity=Statistics');
         $I->see('Analytics', 'h1');
         $I->seeElement('script[src$="/_assets/register/analytics/highstock.js"]');
-        $I->seeElement('script[src$="/_assets/register/analytics/charts.js"]');
+        $I->seeElement('script[src*="/_assets/register/analytics/charts.js?v="]');
         $I->dontSeeElement('script[src*="/_extensions/register_counter/"]');
 
         $I->amOnPage('/_admin/index.php?entity=SystemStatus');
