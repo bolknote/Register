@@ -67,13 +67,8 @@ final readonly class AnalyticsWebVitalsDistribution
 
         $values = [];
         foreach (self::DEFINITIONS as $metric => $definition) {
-            $value = $properties[$definition['property']] ?? null;
-            if (!\is_int($value) && !\is_float($value)) {
-                continue;
-            }
-
-            $value = (int)round($value);
-            if ($value >= 0 && $value <= $definition['maximum']) {
+            $value = self::boundedValue($properties[$definition['property']] ?? null, $definition['maximum']);
+            if ($value !== null) {
                 $values[$metric] = $value;
             }
         }
@@ -91,6 +86,17 @@ final readonly class AnalyticsWebVitalsDistribution
         return $value <= $definition['good']
             ? 'good'
             : ($value <= $definition['needs'] ? 'needs' : 'poor');
+    }
+
+    private static function boundedValue(mixed $value, int $maximum): ?int
+    {
+        if (!\is_int($value) && !\is_float($value)) {
+            return null;
+        }
+
+        $value = (int)round($value);
+
+        return $value >= 0 && $value <= $maximum ? $value : null;
     }
 
     /** @param array<string, int> $values */
