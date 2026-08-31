@@ -9,7 +9,7 @@ html body > .register-offline-warning {
     gap: 0.8em;
     width: 100%;
     max-width: none;
-    margin: 0;
+    margin: clamp(0.8rem, 1.8vw, 1.3rem) 0 0;
     padding: 0.65em max(1em, env(safe-area-inset-right)) 0.65em max(1em, env(safe-area-inset-left));
     color: #2b2100;
     background: #ffe082;

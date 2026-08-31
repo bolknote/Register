@@ -96,6 +96,18 @@ final class AssetPackTest extends Unit
         }
     }
 
+    public function testOfflineWarningLeavesSpaceAfterTheSiteHeader(): void
+    {
+        $css = file_get_contents(\dirname(__DIR__, 4) . '/_assets/register/offline.css');
+
+        self::assertIsString($css);
+        self::assertMatchesRegularExpression(
+            '/html body > \.register-offline-warning\s*\{[^}]*'
+                . 'margin:\s*clamp\(0\.8rem, 1\.8vw, 1\.3rem\) 0 0;/s',
+            $css,
+        );
+    }
+
     public function testStableCommentAnchorStartsAtTheTopOfAGridComment(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';
