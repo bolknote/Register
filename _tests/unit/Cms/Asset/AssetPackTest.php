@@ -227,6 +227,24 @@ final class AssetPackTest extends Unit
         );
     }
 
+    public function testPostEditorBodyAddsGuttersWithoutNarrowingItsContent(): void
+    {
+        $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*\{'
+                . '[^}]*--post-editor-inline-padding:\s*clamp\(0\.5rem, 1vw, 0\.75rem\);'
+                . '[^}]*width:\s*calc\(100% \+ var\(--post-editor-inline-padding\)'
+                . ' \+ var\(--post-editor-inline-padding\)\);'
+                . '[^}]*max-width:\s*calc\(var\(--text-width\) \+ var\(--post-editor-inline-padding\)'
+                . ' \+ var\(--post-editor-inline-padding\)\);'
+                . '[^}]*margin-inline:\s*calc\(-1 \* var\(--post-editor-inline-padding\)\);'
+                . '[^}]*padding:\s*0 var\(--post-editor-inline-padding\);/s',
+            $site,
+        );
+    }
+
     public function testPostEditorShowsOneCaretAndTypesBeforeLeadingMedia(): void
     {
         $rootDir = \dirname(__DIR__, 4) . '/';

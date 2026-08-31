@@ -1011,8 +1011,12 @@ h2.preview,
 }
 
 .post-card.is-editing > .post.body[data-post-inplace-body] {
-    margin-left: 0;
-    padding: 0;
+    --post-editor-inline-padding: clamp(0.5rem, 1vw, 0.75rem);
+
+    width: calc(100% + var(--post-editor-inline-padding) + var(--post-editor-inline-padding));
+    max-width: calc(var(--text-width) + var(--post-editor-inline-padding) + var(--post-editor-inline-padding));
+    margin-inline: calc(-1 * var(--post-editor-inline-padding));
+    padding: 0 var(--post-editor-inline-padding);
     text-wrap: wrap;
     text-wrap: stable;
 }
