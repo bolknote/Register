@@ -26,10 +26,11 @@ final readonly class LinkHealthAdminRepository
     public function summary(): array
     {
         $statusRows = $this->dbLayer
-            ->select('health_status, COUNT(*) AS target_count')
-            ->from(Manifest::TARGET_TABLE)
-            ->where('kind = :kind')->setParameter('kind', LinkKind::EXTERNAL->value)
-            ->groupBy('health_status')
+            ->select('target.health_status, COUNT(DISTINCT target.id) AS target_count')
+            ->from(Manifest::TARGET_TABLE . ' AS target')
+            ->innerJoin(Manifest::CONTENT_LINK_TABLE . ' AS cl', 'cl.target_id = target.id')
+            ->where('target.kind = :kind')->setParameter('kind', LinkKind::EXTERNAL->value)
+            ->groupBy('target.health_status')
             ->execute()
             ->fetchAssocAll()
         ;
@@ -69,22 +70,25 @@ final readonly class LinkHealthAdminRepository
         }
 
         $query = $this->dbLayer
-            ->select('id, normalized_url, host, health_status, http_status, failure_count')
-            ->addSelect('effective_url, last_error, first_seen_at, last_seen_at, last_checked_at')
-            ->addSelect('last_success_at, next_check_at, archive_status, archive_url, archive_timestamp')
-            ->from(Manifest::TARGET_TABLE)
-            ->where('kind = :kind')->setParameter('kind', LinkKind::EXTERNAL->value)
+            ->select('DISTINCT target.id, target.normalized_url, target.host, target.health_status')
+            ->addSelect('target.http_status, target.failure_count, target.effective_url, target.last_error')
+            ->addSelect('target.first_seen_at, target.last_seen_at, target.last_checked_at')
+            ->addSelect('target.last_success_at, target.next_check_at, target.archive_status')
+            ->addSelect('target.archive_url, target.archive_timestamp')
+            ->from(Manifest::TARGET_TABLE . ' AS target')
+            ->innerJoin(Manifest::CONTENT_LINK_TABLE . ' AS cl', 'cl.target_id = target.id')
+            ->where('target.kind = :kind')->setParameter('kind', LinkKind::EXTERNAL->value)
             ->orderBy(
-                "CASE health_status WHEN 'broken' THEN 0 WHEN 'suspect' THEN 1 WHEN 'unknown' THEN 2 "
+                "CASE target.health_status WHEN 'broken' THEN 0 WHEN 'suspect' THEN 1 WHEN 'unknown' THEN 2 "
                 . "WHEN 'restricted' THEN 3 WHEN 'blocked' THEN 4 WHEN 'ignored' THEN 5 ELSE 6 END",
-                'last_seen_at DESC',
-                'id',
+                'target.last_seen_at DESC',
+                'target.id',
             )
             ->limit($limit)
             ->offset(($page - 1) * $limit)
         ;
         if ($status instanceof LinkHealthStatus) {
-            $query->andWhere('health_status = :health_status')->setParameter('health_status', $status->value);
+            $query->andWhere('target.health_status = :health_status')->setParameter('health_status', $status->value);
         }
 
         $targets   = $query->execute()->fetchAssocAll();
@@ -118,10 +122,12 @@ final readonly class LinkHealthAdminRepository
 
     public function targetCount(?LinkHealthStatus $status): int
     {
-        $query = $this->dbLayer->select('COUNT(*)')->from(Manifest::TARGET_TABLE)
-            ->where('kind = :kind')->setParameter('kind', LinkKind::EXTERNAL->value);
+        $query = $this->dbLayer->select('COUNT(DISTINCT target.id)')
+            ->from(Manifest::TARGET_TABLE . ' AS target')
+            ->innerJoin(Manifest::CONTENT_LINK_TABLE . ' AS cl', 'cl.target_id = target.id')
+            ->where('target.kind = :kind')->setParameter('kind', LinkKind::EXTERNAL->value);
         if ($status instanceof LinkHealthStatus) {
-            $query->andWhere('health_status = :health_status')->setParameter('health_status', $status->value);
+            $query->andWhere('target.health_status = :health_status')->setParameter('health_status', $status->value);
         }
 
         return (int)$query->execute()->result();
@@ -129,9 +135,11 @@ final readonly class LinkHealthAdminRepository
 
     public function brokenCount(): int
     {
-        return (int)$this->dbLayer->select('COUNT(*)')->from(Manifest::TARGET_TABLE)
-            ->where('kind = :kind')->setParameter('kind', LinkKind::EXTERNAL->value)
-            ->andWhere('health_status = :status')->setParameter('status', LinkHealthStatus::BROKEN->value)
+        return (int)$this->dbLayer->select('COUNT(DISTINCT target.id)')
+            ->from(Manifest::TARGET_TABLE . ' AS target')
+            ->innerJoin(Manifest::CONTENT_LINK_TABLE . ' AS cl', 'cl.target_id = target.id')
+            ->where('target.kind = :kind')->setParameter('kind', LinkKind::EXTERNAL->value)
+            ->andWhere('target.health_status = :status')->setParameter('status', LinkHealthStatus::BROKEN->value)
             ->execute()->result();
     }
 

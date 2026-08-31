@@ -37,6 +37,7 @@ use Register\Module\LinkHealth\LinkKind;
 use Register\Module\LinkHealth\LinkQueue;
 use Register\Module\LinkHealth\LinkRepairQueueHandler;
 use Register\Module\LinkHealth\Manifest;
+use Register\Module\LinkHealth\Admin\LinkHealthAdminRepository;
 use Register\Module\LinkHealth\Admin\LocalLinkDeletionGuard;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Pdo\DbLayer;
@@ -139,6 +140,11 @@ final class LinkHealthCest
             ->where('normalized_url = :url')->setParameter('url', 'https://outside.example/removed')
             ->execute()->result();
 
+        $dbLayer->update(Manifest::TARGET_TABLE)
+            ->set('health_status', "'broken'")
+            ->where('id = :id')->setParameter('id', $targetId)
+            ->execute();
+
         $dbLayer->update(ContentSchema::TABLE_NAME)
             ->set('body', "''")
             ->set('revision', 'revision + 1')
@@ -159,6 +165,15 @@ final class LinkHealthCest
                 ->where('target_id = :target_id')->setParameter('target_id', $targetId)
                 ->execute()->result(),
         );
+
+        $adminRepository = new LinkHealthAdminRepository($dbLayer);
+        $summary = $adminRepository->summary();
+        $I->assertSame(0, $summary['total']);
+        $I->assertSame(0, $summary['usages']);
+        $I->assertSame([], $summary['statuses']);
+        $I->assertSame(0, $adminRepository->targetCount(null));
+        $I->assertSame(0, $adminRepository->brokenCount());
+        $I->assertSame([], $adminRepository->targets(null, 1, 50));
     }
 
     public function schedulesConfirmedBrokenTargetsMonthly(\IntegrationTester $I): void
