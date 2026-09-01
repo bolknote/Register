@@ -844,6 +844,59 @@
         selection.addRange(range);
     }
 
+    function collapseEmptyLeadingParagraphAfterDelete(event, body) {
+        if (!String(event.inputType || '').startsWith('delete')) {
+            return false;
+        }
+
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount !== 1) {
+            return false;
+        }
+        const currentRange = selection.getRangeAt(0);
+        if (!currentRange.collapsed) {
+            return false;
+        }
+
+        let paragraph = currentRange.startContainer instanceof HTMLElement
+            ? currentRange.startContainer
+            : currentRange.startContainer.parentNode;
+        while (paragraph instanceof HTMLElement && paragraph.parentNode !== body) {
+            paragraph = paragraph.parentNode;
+        }
+        if (!editorBoundaryParagraphIsEmpty(paragraph) || paragraph.parentNode !== body) {
+            return false;
+        }
+
+        const siblings = Array.from(body.childNodes);
+        const paragraphIndex = siblings.indexOf(paragraph);
+        if (paragraphIndex < 0 || !siblings.slice(0, paragraphIndex).every(boundaryNodeIsEmpty)) {
+            return false;
+        }
+
+        let media = null;
+        for (let index = paragraphIndex + 1; index < siblings.length; ++index) {
+            if (boundaryNodeIsEmpty(siblings[index])) {
+                continue;
+            }
+            media = isMediaBoundaryElement(body, siblings[index]) ? siblings[index] : null;
+            break;
+        }
+        if (!(media instanceof HTMLElement)) {
+            return false;
+        }
+
+        paragraph.remove();
+        body.focus({preventScroll: true});
+        const range = document.createRange();
+        range.setStart(body, paragraphIndex);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        syncBoundaryCaret();
+        return true;
+    }
+
     function prepareEditableMedia(root) {
         root.querySelectorAll('audio[controls]').forEach((audio) => {
             audio.setAttribute('data-register-audio-native', '');
@@ -4579,6 +4632,7 @@
         if (state.body.contains(event.target)) {
             state.bodyDirty = true;
             clearAiChangeMarks(state.body);
+            collapseEmptyLeadingParagraphAfterDelete(event, state.body);
         }
         if (event.target === state.dateInput) {
             state.dateDirty = true;

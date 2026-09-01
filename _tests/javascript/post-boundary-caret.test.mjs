@@ -11,6 +11,7 @@ const testableEditorSource = editorSource.replace(
     '    applyShortcutHints(document);\n})();',
     [
         '    window.__postInplaceTest = {',
+        '        collapseEmptyLeadingParagraphAfterDelete,',
         '        contextMenuAnchorRange,',
         '        focusBeforeLeadingMedia,',
         '        mergeAdjacentInlineCode,',
@@ -592,4 +593,36 @@ test('a real empty paragraph uses the browser caret instead of a full-height syn
 
     assert.equal(paragraph.classList.contains('has-leading-boundary-caret'), false);
     assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), false);
+});
+
+test('deleting the last text before media restores the gapless boundary caret', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    body.isEditingBody = true;
+    body.focus = function () {
+        harness.document.activeElement = body;
+    };
+    const paragraph = new FakeHTMLElement({parentNode: body, tagName: 'P'});
+    paragraph.childNodes.push(new FakeHTMLBRElement({parentNode: paragraph}));
+    const media = new FakeHTMLElement({parentNode: body, media: true});
+    media.isMediaWrapper = true;
+    media.childNodes.push(new FakeHTMLElement({parentNode: media}));
+    body.childNodes.push(paragraph, media);
+    harness.elements.push(body, paragraph, media);
+    harness.document.activeElement = body;
+    harness.select(paragraph, 0);
+
+    assert.equal(
+        harness.helpers.collapseEmptyLeadingParagraphAfterDelete(
+            {inputType: 'deleteContentBackward'},
+            body,
+        ),
+        true,
+    );
+    assert.deepEqual(body.childNodes, [media]);
+    assert.equal(paragraph.parentNode, null);
+    assert.equal(harness.currentRange().startContainer, body);
+    assert.equal(harness.currentRange().startOffset, 0);
+    assert.equal(body.classList.contains('has-leading-boundary-caret'), true);
+    assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), true);
 });
