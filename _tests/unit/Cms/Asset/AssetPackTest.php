@@ -259,13 +259,12 @@ final class AssetPackTest extends Unit
                 . ':where\(\.post-picture, \.post-media-picture, figure\)'
                 . '\.has-leading-boundary-caret:has\(img, video, audio\)::before\s*'
                 . '\{[^}]*position:\s*absolute;[^}]*left:\s*0;'
+                . '[^}]*height:\s*1em;'
                 . '[^}]*background:\s*var\(--accent-color\);/s',
             $site,
         );
-        self::assertMatchesRegularExpression(
-            '/\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*'
-                . '>\s*p\.has-leading-boundary-caret\s*'
-                . '\{[^}]*box-shadow:\s*inset 2px 0 var\(--accent-color\);/s',
+        self::assertStringNotContainsString(
+            '> p.has-leading-boundary-caret',
             $site,
         );
         self::assertMatchesRegularExpression(
@@ -285,7 +284,8 @@ final class AssetPackTest extends Unit
         );
         self::assertStringContainsString('node instanceof HTMLBRElement', $script);
         self::assertStringContainsString("element.querySelector('img, video, audio')", $script);
-        self::assertStringContainsString('emptyParagraphBeforeMediaAtRange(active, range)', $script);
+        self::assertStringContainsString('focusBeforeLeadingMedia(state.body, media)', $script);
+        self::assertStringContainsString('range.setStart(body, index)', $script);
         self::assertStringContainsString(
             "document.querySelectorAll('.has-leading-boundary-caret').forEach",
             $script,

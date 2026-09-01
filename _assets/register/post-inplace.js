@@ -645,27 +645,6 @@
             && Array.from(element.childNodes).every(boundaryNodeIsEmpty);
     }
 
-    function leadingMediaBoundary(body, expectedMedia = null) {
-        let emptyParagraph = null;
-        for (const child of Array.from(body.childNodes)) {
-            if (boundaryNodeIsEmpty(child)) {
-                continue;
-            }
-            if (editorBoundaryParagraphIsEmpty(child)) {
-                emptyParagraph = child;
-                continue;
-            }
-            if (
-                !isMediaBoundaryElement(body, child)
-                || (expectedMedia instanceof HTMLElement && child !== expectedMedia)
-            ) {
-                return null;
-            }
-            return {media: child, paragraph: emptyParagraph};
-        }
-        return null;
-    }
-
     function hoistMediaFromParagraph(body, media) {
         const paragraph = media.parentElement;
         if (
@@ -681,17 +660,11 @@
             trailing.append(media.nextSibling);
         }
         body.insertBefore(media, paragraph.nextSibling);
-        if (trailing.hasChildNodes()) {
+        if (!editorBoundaryParagraphIsEmpty(trailing)) {
             body.insertBefore(trailing, media.nextSibling);
         }
-        if (!paragraph.hasChildNodes()) {
-            paragraph.append(document.createElement('br'));
-        }
-        if (
-            editorBoundaryParagraphIsEmpty(paragraph)
-            && !paragraph.hasAttribute('data-post-editor-leading-boundary')
-        ) {
-            paragraph.setAttribute('data-post-editor-leading-boundary', 'generated');
+        if (editorBoundaryParagraphIsEmpty(paragraph)) {
+            paragraph.remove();
         }
     }
 
@@ -719,23 +692,17 @@
         }
     }
 
-    function ensureLeadingMediaParagraph(body, expectedMedia = null) {
+    function leadingMediaIndex(body, expectedMedia) {
         normalizeLeadingNestedMedia(body, expectedMedia);
-        const boundary = leadingMediaBoundary(body, expectedMedia);
-        if (!boundary) {
-            return null;
+        if (!(expectedMedia instanceof HTMLElement) || expectedMedia.parentElement !== body) {
+            return -1;
         }
 
-        let paragraph = boundary.paragraph;
-        if (!(paragraph instanceof HTMLElement)) {
-            paragraph = document.createElement('p');
-            paragraph.append(document.createElement('br'));
-            paragraph.setAttribute('data-post-editor-leading-boundary', 'generated');
-            body.insertBefore(paragraph, boundary.media);
-        } else if (!paragraph.hasAttribute('data-post-editor-leading-boundary')) {
-            paragraph.setAttribute('data-post-editor-leading-boundary', 'existing');
-        }
-        return paragraph;
+        const children = Array.from(body.childNodes);
+        const index = children.indexOf(expectedMedia);
+        return index >= 0 && children.slice(0, index).every(boundaryNodeIsEmpty)
+            ? index
+            : -1;
     }
 
     function prepareMediaInsertionRange(body, range) {
@@ -753,43 +720,28 @@
             return range;
         }
 
-        if (Array.from(body.childNodes).every((child) => (
-            child === paragraph
-            || boundaryNodeIsEmpty(child)
-            || editorBoundaryParagraphIsEmpty(child)
-        ))) {
-            paragraph.setAttribute('data-post-editor-leading-boundary', 'generated');
-        }
-        range.setStartAfter(paragraph);
+        const index = Array.from(body.childNodes).indexOf(paragraph);
+        paragraph.remove();
+        range.setStart(body, index);
         range.collapse(true);
         return range;
     }
 
-    function focusLeadingMediaParagraph(body, expectedMedia = null) {
-        const paragraph = ensureLeadingMediaParagraph(body, expectedMedia);
+    function focusBeforeLeadingMedia(body, expectedMedia) {
+        const index = leadingMediaIndex(body, expectedMedia);
         const selection = window.getSelection();
-        if (!(paragraph instanceof HTMLElement) || !selection) {
+        if (index < 0 || !selection) {
             return null;
         }
 
         body.focus({preventScroll: true});
         const range = document.createRange();
-        range.selectNodeContents(paragraph);
+        range.setStart(body, index);
         range.collapse(true);
         selection.removeAllRanges();
         selection.addRange(range);
         syncBoundaryCaret();
-        return paragraph;
-    }
-
-    function cleanLeadingMediaParagraphs(root) {
-        root.querySelectorAll('[data-post-editor-leading-boundary]').forEach((paragraph) => {
-            const generated = paragraph.getAttribute('data-post-editor-leading-boundary') === 'generated';
-            paragraph.removeAttribute('data-post-editor-leading-boundary');
-            if (generated && editorBoundaryParagraphIsEmpty(paragraph)) {
-                paragraph.remove();
-            }
-        });
+        return expectedMedia;
     }
 
     function mediaBoundaryAtRange(body, range) {
@@ -817,37 +769,6 @@
             : null;
     }
 
-    function emptyParagraphBeforeMediaAtRange(body, range) {
-        if (!range.collapsed) {
-            return null;
-        }
-
-        let block = range.startContainer instanceof HTMLElement
-            ? range.startContainer
-            : range.startContainer.parentNode;
-        while (block instanceof HTMLElement && block.parentNode !== body) {
-            block = block.parentNode;
-        }
-        if (
-            !(block instanceof HTMLElement)
-            || block.parentNode !== body
-            || block.tagName !== 'P'
-            || !Array.from(block.childNodes).every(boundaryNodeIsEmpty)
-        ) {
-            return null;
-        }
-
-        const siblings = Array.from(body.childNodes);
-        for (let index = siblings.indexOf(block) + 1; index < siblings.length; ++index) {
-            const sibling = siblings[index];
-            if (boundaryNodeIsEmpty(sibling)) {
-                continue;
-            }
-            return isMediaBoundaryElement(body, sibling) ? block : null;
-        }
-        return null;
-    }
-
     function syncBoundaryCaret() {
         const selection = window.getSelection();
         const active = document.activeElement;
@@ -865,8 +786,7 @@
                 if (range.startContainer === active && range.startOffset === 0) {
                     nextElement = active;
                 } else {
-                    nextElement = mediaBoundaryAtRange(active, range)
-                        || emptyParagraphBeforeMediaAtRange(active, range);
+                    nextElement = mediaBoundaryAtRange(active, range);
                 }
             }
         }
@@ -1009,7 +929,6 @@
     function editableBodyHtml(state) {
         const clone = state.body.cloneNode(true);
         clone.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
-        cleanLeadingMediaParagraphs(clone);
         clearAiChangeMarks(clone);
         clone.querySelectorAll('[data-register-audio-native]').forEach((audio) => {
             audio.removeAttribute('data-register-audio-native');
@@ -1353,7 +1272,6 @@
         elements.title.textContent = state.originalTitle;
         elements.body.innerHTML = state.originalBody;
         prepareEditableMedia(elements.body);
-        ensureLeadingMediaParagraph(elements.body);
         state.originalEditableBodyHtml = editableBodyHtml(state);
         elements.tags.replaceChildren();
         if (state.titleLinkHadHref) {
@@ -2233,14 +2151,14 @@
         }
 
         const media = caption.closest('.post-media-picture');
-        if (!(media instanceof HTMLElement) || !ensureLeadingMediaParagraph(state.body, media)) {
+        if (!(media instanceof HTMLElement) || leadingMediaIndex(state.body, media) < 0) {
             return false;
         }
 
         event.preventDefault();
         event.stopPropagation();
         finishInlineMediaCaption(state, caption, false);
-        focusLeadingMediaParagraph(state.body, media);
+        focusBeforeLeadingMedia(state.body, media);
         return true;
     }
 
@@ -2464,7 +2382,6 @@
             range.insertNode(pending.element);
             range.setStartAfter(pending.element);
             range.collapse(true);
-            ensureLeadingMediaParagraph(state.body);
             startMediaUpload(state, file, kind, pending);
         });
 

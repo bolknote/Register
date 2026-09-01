@@ -12,9 +12,7 @@ const testableEditorSource = editorSource.replace(
     [
         '    window.__postInplaceTest = {',
         '        contextMenuAnchorRange,',
-        '        cleanLeadingMediaParagraphs,',
-        '        ensureLeadingMediaParagraph,',
-        '        focusLeadingMediaParagraph,',
+        '        focusBeforeLeadingMedia,',
         '        mergeAdjacentInlineCode,',
         '        moveFromLeadingMediaCaption,',
         '        prepareMediaInsertionRange,',
@@ -308,6 +306,9 @@ function createHarness() {
         document,
         elements,
         helpers: context.window.__postInplaceTest,
+        currentRange() {
+            return selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+        },
         beforeInput(target, inputType = 'insertText') {
             const [listener] = listeners.get('beforeinput') || [];
             assert.equal(typeof listener, 'function');
@@ -465,7 +466,7 @@ test('typing at the editor root before leading media creates a paragraph', funct
     assert.equal(insertionRange.startOffset, 0);
 });
 
-test('leading media gets a real editor paragraph that arrow navigation can focus', function () {
+test('leading media can receive a caret before it without adding layout content', function () {
     const harness = createHarness();
     const body = new FakeHTMLElement();
     body.isEditingBody = true;
@@ -479,20 +480,19 @@ test('leading media gets a real editor paragraph that arrow navigation can focus
     harness.elements.push(body, media);
     harness.select(media, 0);
 
-    const paragraph = harness.helpers.ensureLeadingMediaParagraph(body);
-    const focused = harness.helpers.focusLeadingMediaParagraph(body, media);
+    const focused = harness.helpers.focusBeforeLeadingMedia(body, media);
+    const range = harness.currentRange();
 
-    assert.equal(paragraph, focused);
-    assert.equal(body.childNodes[0], paragraph);
-    assert.equal(body.childNodes[1], media);
-    assert.equal(paragraph.tagName, 'P');
-    assert.equal(paragraph.childNodes[0].tagName, 'BR');
-    assert.equal(paragraph.getAttribute('data-post-editor-leading-boundary'), 'generated');
+    assert.equal(focused, media);
+    assert.deepEqual(body.childNodes, [media]);
     assert.equal(harness.document.activeElement, body);
-    assert.equal(harness.beforeInput(body).startContainer, paragraph);
+    assert.equal(range.startContainer, body);
+    assert.equal(range.startOffset, 0);
+    assert.equal(body.classList.contains('has-leading-boundary-caret'), true);
+    assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), true);
 });
 
-test('media inserted at an empty paragraph becomes its sibling instead of invalid nested markup', function () {
+test('media insertion replaces the empty editor paragraph without leaving a visual gap', function () {
     const harness = createHarness();
     const body = new FakeHTMLElement();
     const paragraph = new FakeHTMLElement({parentNode: body, tagName: 'P'});
@@ -505,8 +505,9 @@ test('media inserted at an empty paragraph becomes its sibling instead of invali
     harness.helpers.prepareMediaInsertionRange(body, range);
 
     assert.equal(range.startContainer, body);
-    assert.equal(range.startOffset, 1);
-    assert.equal(paragraph.getAttribute('data-post-editor-leading-boundary'), 'generated');
+    assert.equal(range.startOffset, 0);
+    assert.deepEqual(body.childNodes, []);
+    assert.equal(paragraph.parentNode, null);
 });
 
 test('arrow up from an empty leading image caption moves the caret before the image', function () {
@@ -551,27 +552,14 @@ test('arrow up from an empty leading image caption moves the caret before the im
     assert.equal(event.propagationStopped, true);
     assert.equal(state.mediaCaptionEditors.size, 0);
     assert.equal(body.getAttribute('contenteditable'), 'true');
-    assert.equal(body.childNodes[0].tagName, 'P');
-    assert.equal(harness.document.activeElement, body);
-    assert.equal(harness.beforeInput(body).startContainer, body.childNodes[0]);
-});
-
-test('an untouched generated leading paragraph is not saved with the post', function () {
-    const harness = createHarness();
-    const body = new FakeHTMLElement();
-    const paragraph = new FakeHTMLElement({parentNode: body, tagName: 'P'});
-    paragraph.setAttribute('data-post-editor-leading-boundary', 'generated');
-    paragraph.childNodes.push(new FakeHTMLBRElement({parentNode: paragraph}));
-    const media = new FakeHTMLElement({parentNode: body, media: true});
-    media.isMediaWrapper = true;
-    body.childNodes.push(paragraph, media);
-
-    harness.helpers.cleanLeadingMediaParagraphs(body);
-
     assert.deepEqual(body.childNodes, [media]);
+    assert.equal(harness.document.activeElement, body);
+    assert.equal(harness.currentRange().startContainer, body);
+    assert.equal(harness.currentRange().startOffset, 0);
+    assert.equal(body.classList.contains('has-leading-boundary-caret'), true);
 });
 
-test('an empty paragraph before media has exactly one synthetic caret', function () {
+test('a real empty paragraph uses the browser caret instead of a full-height synthetic one', function () {
     const harness = createHarness();
     const body = new FakeHTMLElement();
     body.isEditingBody = true;
@@ -587,14 +575,14 @@ test('an empty paragraph before media has exactly one synthetic caret', function
     harness.select(paragraph, 0);
     harness.sync();
 
-    assert.equal(paragraph.classList.contains('has-leading-boundary-caret'), true);
+    assert.equal(paragraph.classList.contains('has-leading-boundary-caret'), false);
     assert.equal(media.classList.contains('has-leading-boundary-caret'), false);
-    assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), true);
+    assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), false);
     assert.equal(
         harness.elements.filter((element) => (
             element.classList.contains('has-leading-boundary-caret')
         )).length,
-        1
+        0
     );
 
     const typedText = new FakeTextNode(paragraph, 'Сегодня');
