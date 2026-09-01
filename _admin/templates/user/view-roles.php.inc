@@ -6,20 +6,21 @@ declare(strict_types=1);
 /** @var callable $trans */
 
 $roleFields = [
-    'view',
-    'view_hidden',
-    'hide_comments',
-    'edit_comments',
-    'create_articles',
-    'edit_site',
     'edit_users',
+    'edit_site',
+    'create_articles',
+    'edit_comments',
+    'hide_comments',
+    'view_hidden',
+    'view',
 ];
 
-$roles = [];
 foreach ($roleFields as $field) {
     if ((bool)($row['column_' . $field] ?? false)) {
-        $roles[] = '<span class="user-role">' . htmlspecialchars($trans($field), ENT_QUOTES, 'UTF-8') . '</span>';
+        echo '<span class="user-role">' . htmlspecialchars($trans($field), ENT_QUOTES, 'UTF-8') . '</span>';
+
+        return;
     }
 }
 
-echo $roles === [] ? '<span class="null">null</span>' : implode(' ', $roles);
+echo '<span class="user-role user-role-none">' . htmlspecialchars($trans('No admin access'), ENT_QUOTES, 'UTF-8') . '</span>';

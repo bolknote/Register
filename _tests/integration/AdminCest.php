@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Ai\AiSettings;
+use Register\Auth\PublicAuthSchema;
 use Register\Comment\CommentRepository;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
@@ -345,7 +346,7 @@ class AdminCest
         /** @var AdminConfigProvider $adminConfigProvider */
         $adminConfigProvider = $I->grabAdminService(AdminConfigProvider::class);
         $adminConfig = $adminConfigProvider->getAdminConfig();
-        foreach (['Article', 'BlogPost', 'Comment', 'Queue'] as $entityName) {
+        foreach (['Article', 'BlogPost', 'Comment', 'Queue', 'User'] as $entityName) {
             $entity = $adminConfig->findEntityByName($entityName)
                 ?? throw new \LogicException($entityName . ' admin entity is missing.');
             $I->assertSame(50, $entity->getLimit());
@@ -416,7 +417,12 @@ class AdminCest
         $I->dontSee('Spam label', 'table.list-table th');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=User&action=list');
+        $I->seeElement('nav.user-section-tabs[aria-label="User sections"]');
+        $I->seeElement('nav.user-section-tabs a[aria-current="page"][href*="account_type=team"]');
+        $I->seeElement('nav.user-section-tabs a[href*="account_type=guest"]');
+        $I->seeElement('nav.user-section-tabs a[href*="account_type=imported"]');
         $I->see('Roles', 'table.list-table th');
+        $I->dontSee('Username', 'table.list-table th');
         $I->dontSee('Password', 'table.list-table th');
         $I->seeElement('button.list-action-link-delete[data-admin-delete][data-delete-url]');
         $I->dontSeeElement('.list-action-delete-popup');
@@ -522,6 +528,109 @@ class AdminCest
         ]);
         $I->seeResponseCodeIs(200);
         $I->assertSame('disabled', $I->grabJson()['status'] ?? null);
+    }
+
+    public function testUserDirectorySeparatesHumanAccountTypes(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        $teamLogin = 'directory_team';
+        $guestLogin = 'external_yandex_directory';
+        $importedLogin = 'external_import_facebook_directory_person';
+        $teamId = $this->createDirectoryUser($dbLayer, $teamLogin, 'Directory Team', [
+            'view'            => 1,
+            'create_articles' => 1,
+        ]);
+        $guestId = $this->createDirectoryUser($dbLayer, $guestLogin, 'Directory Guest');
+        $importedId = $this->createDirectoryUser($dbLayer, $importedLogin, '');
+        $now = time();
+        $dbLayer
+            ->insert(PublicAuthSchema::IDENTITIES_TABLE)
+            ->values([
+                'user_id'      => ':user_id',
+                'provider'     => ':provider',
+                'subject'      => ':subject',
+                'email'        => ':email',
+                'display_name' => ':display_name',
+                'avatar_url'   => ':avatar_url',
+                'created_at'   => ':created_at',
+                'updated_at'   => ':updated_at',
+            ])
+            ->execute([
+                'user_id'      => $guestId,
+                'provider'     => 'yandex',
+                'subject'      => 'directory-guest',
+                'email'        => 'directory-guest@example.test',
+                'display_name' => 'Directory Guest',
+                'avatar_url'   => '',
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ])
+        ;
+        $dbLayer
+            ->insert(PublicAuthSchema::IDENTITIES_TABLE)
+            ->values([
+                'user_id'      => ':user_id',
+                'provider'     => ':provider',
+                'subject'      => ':subject',
+                'email'        => ':email',
+                'display_name' => ':display_name',
+                'avatar_url'   => ':avatar_url',
+                'created_at'   => ':created_at',
+                'updated_at'   => ':updated_at',
+            ])
+            ->execute([
+                'user_id'      => $importedId,
+                'provider'     => 'facebook',
+                'subject'      => 'directory-imported',
+                'email'        => '',
+                'display_name' => '',
+                'avatar_url'   => '',
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ])
+        ;
+
+        try {
+            $I->login('admin', 'admin');
+
+            $I->amOnPage('https://localhost/_admin/index.php?entity=User&action=list');
+            $I->see('Directory Team', 'table.list-table');
+            $I->see('Author', 'table.list-table');
+            $I->dontSee('Directory Guest', 'table.list-table');
+            $I->dontSee('Directory Imported', 'table.list-table');
+            $I->dontSee($teamLogin, 'table.list-table');
+            $I->dontSee('Username', 'table.list-table th');
+
+            $I->amOnPage(
+                'https://localhost/_admin/index.php?entity=User&action=list&apply_filter=1&account_type=guest',
+            );
+            $I->seeElement('nav.user-section-tabs a[aria-current="page"][href*="account_type=guest"]');
+            $I->see('Directory Guest', 'table.list-table');
+            $I->seeElement('td.field-User-identity_source .user-source-yandex');
+            $I->seeElement('th.field-User-identity_source');
+            $I->seeElement('th.field-User-comment_count');
+            $I->dontSeeElement('th.field-User-roles');
+            $I->dontSee('Directory Team', 'table.list-table');
+            $I->dontSee($guestLogin, 'table.list-table');
+
+            $I->amOnPage(
+                'https://localhost/_admin/index.php?entity=User&action=list&apply_filter=1&account_type=imported',
+            );
+            $I->seeElement('nav.user-section-tabs a[aria-current="page"][href*="account_type=imported"]');
+            $I->seeElement('td.field-User-name .inline-form-holder');
+            $I->seeElement('td.field-User-identity_source .user-source-facebook');
+            $I->dontSee('Directory Guest', 'table.list-table');
+            $I->dontSee($importedLogin, 'table.list-table');
+        } finally {
+            foreach ([$teamId, $guestId, $importedId] as $userId) {
+                $dbLayer
+                    ->delete('users')
+                    ->where('id = :id')->setParameter('id', $userId)
+                    ->execute()
+                ;
+            }
+        }
     }
 
     public function testNavigationRemainsCoherentForIndependentPermissions(\IntegrationTester $I): void
@@ -1290,6 +1399,48 @@ class AdminCest
         $I->see('Edit comment rate limit');
         $I->see('Window, seconds');
         $I->seeElement('nav.moderation-subtabs a[aria-current="page"][href="?entity=SpamRatePolicy&action=list"]');
+    }
+
+    /**
+     * @param array<string, int> $permissions
+     */
+    private function createDirectoryUser(DbLayer $dbLayer, string $login, string $name, array $permissions = []): int
+    {
+        $permissions = [
+            'view'            => 0,
+            'view_hidden'     => 0,
+            'hide_comments'   => 0,
+            'edit_comments'   => 0,
+            'create_articles' => 0,
+            'edit_site'       => 0,
+            'edit_users'      => 0,
+            ...$permissions,
+        ];
+        $dbLayer
+            ->insert('users')
+            ->values([
+                'login'           => ':login',
+                'password'        => ':password',
+                'email'           => ':email',
+                'name'            => ':name',
+                'view'            => ':view',
+                'view_hidden'     => ':view_hidden',
+                'hide_comments'   => ':hide_comments',
+                'edit_comments'   => ':edit_comments',
+                'create_articles' => ':create_articles',
+                'edit_site'       => ':edit_site',
+                'edit_users'      => ':edit_users',
+            ])
+            ->execute([
+                'login'    => $login,
+                'password' => password_hash('directory-test', PASSWORD_DEFAULT),
+                'email'    => $login === 'directory_team' ? 'directory-team@example.test' : '',
+                'name'     => $name,
+                ...$permissions,
+            ])
+        ;
+
+        return (int)$dbLayer->insertId();
     }
 
     private function assertSecureCookiePolicy(\IntegrationTester $I, AuthManager $authManager, string $url, bool $expected): void

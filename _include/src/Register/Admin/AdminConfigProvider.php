@@ -47,6 +47,7 @@ use Register\AdminYard\Validator\Length;
 use Register\AdminYard\Validator\NotBlank;
 use Register\AdminYard\Validator\Regex;
 use Register\Admin\Controller\CommentControllerFactory;
+use Register\Admin\Controller\UserController;
 use Register\Admin\Validator\IntegerRange;
 use Register\Admin\Validator\Optional;
 use Register\Admin\Validator\SecurePassword;
@@ -370,6 +371,13 @@ class AdminConfigProvider implements StatefulServiceInterface
         }
 
         $isAdmin    = $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS);
+        $teamAccountSql = '(entity.view_hidden = 1 OR entity.hide_comments = 1 OR entity.edit_comments = 1'
+            . ' OR entity.create_articles = 1 OR entity.edit_site = 1 OR entity.edit_users = 1)';
+        $importedAccountSql = "(entity.login LIKE 'external_import_%' OR EXISTS ("
+            . "SELECT 1 FROM {$this->dbPrefix}external_import_map AS user_import"
+            . " WHERE user_import.target_type = 'user' AND user_import.target_id = entity.id))";
+        $accountTypeSql = "CASE WHEN {$teamAccountSql} THEN 'team'"
+            . " WHEN {$importedAccountSql} THEN 'imported' ELSE 'guest' END";
         $userEntity = new EntityConfig('User', $this->dbPrefix . 'users');
         $userEntity
             ->setPluralName($this->translator->trans('Users'))
@@ -377,6 +385,8 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->setNewTitle($this->translator->trans('New user'))
             ->setEditTitle($this->translator->trans('Edit user'))
             ->setEntityDisplayNameBuilder(fn(array $row): string => $this->buildUserDisplayName($row))
+            ->setControllerClassOrFactory(UserController::class)
+            ->setLimit(50)
             ->setEnabledActions(
                 [
                     ...$this->permissionChecker->isGrantedAny(PermissionChecker::PERMISSION_VIEW_HIDDEN, PermissionChecker::PERMISSION_EDIT_USERS) ? [FieldConfig::ACTION_LIST] : [],
@@ -395,6 +405,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 validators: [new NotBlank(), new Length(max: 25)],
                 sortable: true,
                 inlineEdit: false,
+                useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_NEW, FieldConfig::ACTION_EDIT],
             ))
             ->addField(new FieldConfig(
                 name: 'password',
@@ -412,6 +423,8 @@ class AdminConfigProvider implements StatefulServiceInterface
                 validators: [new Length(max: 80)],
                 sortable: true,
                 inlineEdit: true,
+                viewTemplate: '_admin/templates/user/view-name.php.inc',
+                inlineFormTemplate: '_admin/templates/user/inline-name.php.inc',
             ))
             ->addField(new FieldConfig(
                 name: 'email',
@@ -499,6 +512,65 @@ class AdminConfigProvider implements StatefulServiceInterface
                 useOnActions: [FieldConfig::ACTION_LIST],
                 viewTemplate: '_admin/templates/user/view-roles.php.inc',
             ))
+            ->addField(new FieldConfig(
+                name: 'identity_source',
+                label: $this->translator->trans('Account source'),
+                type: new VirtualFieldType(
+                    "COALESCE((SELECT user_identity.provider FROM {$this->dbPrefix}auth_identities AS user_identity"
+                    . " WHERE user_identity.user_id = entity.id ORDER BY user_identity.id LIMIT 1), CASE"
+                    . " WHEN entity.login LIKE 'external_import_facebook_%' THEN 'import_facebook'"
+                    . " WHEN entity.login LIKE 'external_import_legacy_email_%' THEN 'import_legacy'"
+                    . " WHEN entity.login LIKE 'external_import_%' THEN 'import_external'"
+                    . " ELSE 'local' END)"
+                ),
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/user/view-identity-source.php.inc',
+            ))
+            ->addField(new FieldConfig(
+                name: 'comment_count',
+                label: $this->translator->trans('Comments'),
+                type: new VirtualFieldType(
+                    "SELECT COUNT(*) FROM {$this->dbPrefix}" . CommentSchema::TABLE_NAME
+                    . ' AS user_comment WHERE user_comment.user_id = entity.id'
+                ),
+                sortable: true,
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/user/view-comment-count.php.inc',
+            ))
+            ->addFilter(new Filter(
+                'account_type',
+                $this->translator->trans('Account type'),
+                'hidden_input',
+                $accountTypeSql . ' = %1$s',
+            ))
+            ->addListener(EntityConfig::EVENT_BEFORE_LIST_RENDER, function (BeforeRenderEvent $event): void {
+                if (!\is_array($event->data)) {
+                    return;
+                }
+
+                $request = $this->requestStack->getCurrentRequest();
+                $accountType = $request?->query->getString('account_type', UserController::ACCOUNT_TYPE_TEAM)
+                    ?? UserController::ACCOUNT_TYPE_TEAM;
+                $visibleFields = $accountType === UserController::ACCOUNT_TYPE_TEAM
+                    ? ['name', 'email', 'roles']
+                    : ['name', 'email', 'identity_source', 'comment_count'];
+                $visibleFieldMap = array_fill_keys($visibleFields, true);
+
+                $event->data['userAccountType'] = $accountType;
+                $event->data['header'] = array_intersect_key($event->data['header'], $visibleFieldMap);
+                $event->data['hint'] = array_intersect_key($event->data['hint'], $visibleFieldMap);
+                $event->data['sortableFields'] = array_values(array_intersect(
+                    $event->data['sortableFields'],
+                    $visibleFields,
+                ));
+                if (!\in_array($event->data['sortField'], $visibleFields, true)) {
+                    $event->data['sortField'] = null;
+                }
+                foreach ($event->data['rows'] as &$row) {
+                    $row['cells'] = array_intersect_key($row['cells'], $visibleFieldMap);
+                }
+                unset($row);
+            })
             ->addListener(EntityConfig::EVENT_AFTER_EDIT_FETCH, function (AfterLoadEvent $event): void {
                 if (\is_array($event->data)) {
                     $event->data['column_password'] = '';
@@ -1652,7 +1724,17 @@ class AdminConfigProvider implements StatefulServiceInterface
         $login = \trim((string)($row['column_login'] ?? ''));
         $name  = \trim((string)($row['column_name'] ?? ''));
 
-        return $name !== '' ? $name . ' (' . $login . ')' : $login;
+        if ($name !== '') {
+            return $name;
+        }
+        if (str_starts_with($login, 'external_import_')) {
+            return $this->translator->trans('Unnamed imported commenter');
+        }
+        if ($login === '' || str_starts_with($login, 'external_')) {
+            return $this->translator->trans('Unnamed guest');
+        }
+
+        return $login;
     }
 
     /**

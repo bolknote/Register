@@ -137,6 +137,9 @@ foreach ($filterControls as $fieldName => $control) {
         <a href="?entity=Site"><?= $html($trans('Structure view')) ?></a>
     </nav>
 <?php endif; ?>
+<?php if ($entityName === 'User' && isset($userAccountType)): ?>
+    <?php require __DIR__ . '/../user/tabs.php.inc'; ?>
+<?php endif; ?>
 <?php require __DIR__ . '/../moderation/tabs.php.inc'; ?>
 <?php if (isset($listIntroHtml) && \is_string($listIntroHtml) && $listIntroHtml !== ''): ?>
     <?= $listIntroHtml ?>

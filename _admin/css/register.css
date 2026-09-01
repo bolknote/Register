@@ -609,6 +609,43 @@ section.list-header h1 {
     color: var(--admin-text-color);
 }
 
+.user-section-tabs {
+    max-width: 100%;
+    margin-bottom: 0.65rem;
+    overflow-x: auto;
+}
+
+.user-section-description {
+    max-width: 52rem;
+    margin: 0 0 1.25rem;
+    color: var(--admin-secondary-text-color);
+}
+
+.user-role,
+.user-source {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.7rem;
+    padding: 0.1rem 0.55rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 999px;
+    background: var(--admin-secondary-background);
+    color: var(--admin-text-color);
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.user-role-none {
+    color: var(--admin-secondary-text-color);
+    font-weight: 500;
+}
+
+.user-name-placeholder {
+    color: var(--admin-secondary-text-color);
+    font-style: italic;
+}
+
 .moderation-navigation {
     display: grid;
     gap: 0.65rem;
