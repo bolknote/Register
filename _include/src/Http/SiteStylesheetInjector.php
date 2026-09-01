@@ -73,6 +73,7 @@ final readonly class SiteStylesheetInjector
             if (is_string($stylesheet)) {
                 $stylesheet = ['href' => $stylesheet];
             }
+
             if (!is_array($stylesheet)) {
                 throw new \InvalidArgumentException(sprintf(
                     'Site stylesheet %s must be a path or an array.',
@@ -96,6 +97,7 @@ final readonly class SiteStylesheetInjector
                     (string)$index,
                 ));
             }
+
             $href = trim($href);
             $this->assertSafeHref($href);
 
