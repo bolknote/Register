@@ -252,22 +252,30 @@ final class AssetPackTest extends Unit
         self::assertStringNotContainsString('--post-editor-inline-padding', $site);
         self::assertMatchesRegularExpression(
             '/\.post-card\.is-editing\s*>\s*\.post\.foot\s*\{[^}]*'
-                . 'height:\s*var\(--post-editor-foot-height, auto\);[^}]*'
-                . 'min-height:\s*var\(--post-editor-foot-height, 1\.8rem\);/s',
+                . 'min-height:\s*1\.8rem;/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.post-card\.is-editing\s*>\s*\.post\.foot\s*>\s*\.post-editor-foot-spacer\s*\{'
+                . '[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/s',
             $site,
         );
 
         self::assertIsString($script);
         self::assertStringContainsString(
-            "originalFootHeight: elements.foot.getBoundingClientRect().height",
+            "document.createElementNS('http://www.w3.org/2000/svg', 'svg')",
             $script,
         );
         self::assertStringContainsString(
-            "elements.foot.style.setProperty(\n                '--post-editor-foot-height'",
+            "spacer.setAttribute('height', String(Math.max(1, Math.ceil(foot.getBoundingClientRect().height))))",
             $script,
         );
         self::assertStringContainsString(
-            "state.foot.style.removeProperty('--post-editor-foot-height')",
+            'elements.foot.append(state.footSpacer)',
+            $script,
+        );
+        self::assertStringContainsString(
+            'state.footSpacer.remove()',
             $script,
         );
         self::assertStringContainsString(

@@ -549,8 +549,9 @@ class AdminConfigProvider implements StatefulServiceInterface
                 }
 
                 $request = $this->requestStack->getCurrentRequest();
-                $accountType = $request?->query->getString('account_type', UserController::ACCOUNT_TYPE_TEAM)
-                    ?? UserController::ACCOUNT_TYPE_TEAM;
+                $accountType = $request === null
+                    ? UserController::ACCOUNT_TYPE_TEAM
+                    : $request->query->getString('account_type', UserController::ACCOUNT_TYPE_TEAM);
                 $visibleFields = $accountType === UserController::ACCOUNT_TYPE_TEAM
                     ? ['name', 'email', 'roles']
                     : ['name', 'email', 'identity_source', 'comment_count'];

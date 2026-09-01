@@ -1094,14 +1094,20 @@ h2.preview,
     display: inline;
 }
 
-.post-card.is-editing > .post.foot > :not(.post-foot-meta) {
+.post-card.is-editing > .post.foot > :not(.post-foot-meta, .post-editor-foot-spacer) {
     display: none;
 }
 
 .post-card.is-editing > .post.foot {
     position: relative;
-    height: var(--post-editor-foot-height, auto);
-    min-height: var(--post-editor-foot-height, 1.8rem);
+    min-height: 1.8rem;
+}
+
+.post-card.is-editing > .post.foot > .post-editor-foot-spacer {
+    display: block;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
 }
 
 .post-card.is-editing > .post.foot > .post-foot-meta {

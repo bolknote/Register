@@ -624,6 +624,16 @@
         state.detachedBodyStyles.length = 0;
     }
 
+    function createFootHeightSpacer(foot) {
+        const spacer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        spacer.classList.add('post-editor-foot-spacer');
+        spacer.setAttribute('width', '0');
+        spacer.setAttribute('height', String(Math.max(1, Math.ceil(foot.getBoundingClientRect().height))));
+        spacer.setAttribute('aria-hidden', 'true');
+        spacer.setAttribute('focusable', 'false');
+        return spacer;
+    }
+
     function focusEdge(element, atEnd) {
         element.focus();
         const selection = window.getSelection();
@@ -1207,7 +1217,7 @@
         unsetEditable(state.body);
         restoreEditableBodyStyles(state);
         restoreHeadingLink(state);
-        state.foot.style.removeProperty('--post-editor-foot-height');
+        state.footSpacer.remove();
         state.card.classList.remove('is-editing');
         state.card.removeAttribute('aria-busy');
         toggleEditingTools(state.card, false);
@@ -1383,7 +1393,7 @@
             titleLink,
             titleLinkHadHref: titleLink?.hasAttribute('href') || false,
             titleLinkHref: titleLink?.getAttribute('href') || '',
-            originalFootHeight: elements.foot.getBoundingClientRect().height,
+            footSpacer: createFootHeightSpacer(elements.foot),
             detachedBodyStyles: detachEditableBodyStyles(elements.body),
         };
 
@@ -1407,10 +1417,7 @@
         state.tagEditor = createTagEditor(state);
         editorStates.set(card, state);
         if (!state.creating) {
-            elements.foot.style.setProperty(
-                '--post-editor-foot-height',
-                `${state.originalFootHeight}px`,
-            );
+            elements.foot.append(state.footSpacer);
         }
         card.classList.add('is-editing');
         applyShortcutHints(card);
