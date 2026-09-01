@@ -15,7 +15,7 @@ use Register\Core\Http\ContentSecurityPolicy;
 use Register\Core\Http\CspViolationReportController;
 use Register\Core\Http\CspViolationReporter;
 use Register\Core\Http\InlineStyleAttributeStripper;
-use Register\Core\Http\LegacyContentStylesheetInjector;
+use Register\Core\Http\SiteStylesheetInjector;
 use Register\Core\Http\ResponseCompressionCache;
 use Register\Core\Asset\AssetMergeFactory;
 use Register\Core\Comment\AkismetProxy;
@@ -49,6 +49,7 @@ use Register\Core\Config\DynamicSecretProviderInterface;
 use Register\Core\Controller\Rss\FeedSettings;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\Exception\ConfigurationException;
+use Register\Core\Framework\Exception\ParameterNotFoundException;
 use Register\Core\Framework\ExtensionInterface;
 use Register\Core\Framework\ResponseProcessorInterface;
 use Register\Core\Framework\StatefulServiceInterface;
@@ -376,10 +377,20 @@ class CmsExtension implements ExtensionInterface
             $container->get(CspViolationReporter::class),
         ));
         $container->set(InlineStyleAttributeStripper::class, static fn(): InlineStyleAttributeStripper => new InlineStyleAttributeStripper());
-        $container->set(LegacyContentStylesheetInjector::class, static fn(Container $container): LegacyContentStylesheetInjector => new LegacyContentStylesheetInjector(
-            $container->getStringParameter('public_root_dir'),
-            $container->getStringParameter('base_path'),
-        ));
+        $container->set(SiteStylesheetInjector::class, static function (Container $container): SiteStylesheetInjector {
+            try {
+                $stylesheets = $container->getArrayParameter('site_stylesheets');
+            } catch (ParameterNotFoundException) {
+                // Keep rolling deployments compatible with workers booted from an older parameter set.
+                $stylesheets = [];
+            }
+
+            return new SiteStylesheetInjector(
+                $container->getStringParameter('public_root_dir'),
+                $container->getStringParameter('base_path'),
+                $stylesheets,
+            );
+        });
         $container->set(SpamFeatureExtractor::class, new SpamFeatureExtractor());
         $container->set(SpamTextFeatureExtractor::class, new SpamTextFeatureExtractor());
         $container->set(SpamTextModelRepository::class, fn(Container $container): SpamTextModelRepository => new SpamTextModelRepository(
@@ -621,7 +632,13 @@ class CmsExtension implements ExtensionInterface
 
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
             $basePath = rtrim($container->getStringParameter('base_path'), '/');
-            $event->assetPack->addCss($basePath . '/_assets/register/content-security.css');
+            $assetPath = '/_assets/register/content-security.css';
+            $modifiedAt = \filemtime($container->getStringParameter('public_root_dir') . ltrim($assetPath, '/'));
+            if ($modifiedAt === false) {
+                throw new \LogicException(\sprintf('Unable to read the modification time of "%s".', $assetPath));
+            }
+
+            $event->assetPack->addCss($basePath . $assetPath . '?v=' . $modifiedAt);
         });
 
         $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, function (TemplateFinalReplaceEvent $event) use ($container): void {
@@ -651,7 +668,7 @@ class CmsExtension implements ExtensionInterface
 
         $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, static function (TemplateFinalReplaceEvent $event) use ($container): void {
             $styleName = $container->get(DynamicConfigProvider::class)->getStringProxy('REGISTER_STYLE')->get();
-            $template = $container->get(LegacyContentStylesheetInjector::class)->inject($event->template, $styleName);
+            $template = $container->get(SiteStylesheetInjector::class)->inject($event->template, $styleName);
             if ($template !== $event->template) {
                 $event->setTemplate($template);
             }

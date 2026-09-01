@@ -77,6 +77,7 @@ function register_build_base_static_parameters(array $config): array
         : $rootDir;
 
     $filesConfig = \is_array($config['files'] ?? null) ? $config['files'] : [];
+    $presentationConfig = \is_array($config['presentation'] ?? null) ? $config['presentation'] : [];
     $cacheDir = isset($filesConfig['cache_dir']) && \is_string($filesConfig['cache_dir'])
         ? rtrim($filesConfig['cache_dir'], '/') . '/'
         : register_get_default_cache_dir();
@@ -116,6 +117,7 @@ function register_build_base_static_parameters(array $config): array
         'image_dir'          => $mediaStorage['directory'], // no trailing '/' for Filesystem component
         'image_path'         => $mediaStorage['url'],
         'content_image_directory' => $filesConfig['content_image_directory'] ?? '',
+        'site_stylesheets'    => $presentationConfig['stylesheets'] ?? [],
         'disable_cache'      => $disableCache,
         'log_dir'            => $logDir,
 

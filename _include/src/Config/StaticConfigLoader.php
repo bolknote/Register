@@ -73,6 +73,12 @@ final class StaticConfigLoader
         $security  = $config['security'] ?? [];
         $backups   = $config['backups'] ?? [];
         $redirects = $config['redirects'] ?? [];
+        $presentation = $config['presentation'] ?? [];
+
+        $stylesheets = is_array($presentation) ? ($presentation['stylesheets'] ?? []) : [];
+        if (!is_array($stylesheets)) {
+            throw new \InvalidArgumentException('Presentation stylesheets must be an array.');
+        }
 
         $normalizeDir = static function (?string $dir): ?string {
             if ($dir === null || $dir === '') {
@@ -134,6 +140,9 @@ final class StaticConfigLoader
                 'encryption_key'        => $this->nullableString($backups['encryption_key'] ?? null),
                 'recipient_public_key'  => $this->nullableString($backups['recipient_public_key'] ?? null),
                 'recipient_private_key' => $this->nullableString($backups['recipient_private_key'] ?? null),
+            ],
+            'presentation' => [
+                'stylesheets' => array_values($stylesheets),
             ],
             'redirects' => \is_array($redirects) ? $redirects : [],
         ];
@@ -278,6 +287,9 @@ final class StaticConfigLoader
                         'encryption_key'        => null,
                         'recipient_public_key'  => null,
                         'recipient_private_key' => null,
+                    ],
+                    'presentation' => [
+                        'stylesheets' => [],
                     ],
                     'redirects' => \is_array($legacyRedirects) ? $legacyRedirects : [],
                 ],

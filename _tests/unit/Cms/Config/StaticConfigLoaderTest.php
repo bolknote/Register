@@ -166,4 +166,31 @@ final class StaticConfigLoaderTest extends Unit
             'files' => ['content_image_directory' => '../outside'],
         ]);
     }
+
+    public function testKeepsSiteStylesheetRulesAsSiteOwnedPresentationConfiguration(): void
+    {
+        $method = new \ReflectionMethod(StaticConfigLoader::class, 'normalizeArrayConfig');
+        $rules = [[
+            'href'    => '/_pictures/site/content.css',
+            'markers' => ['content-owned-marker'],
+            'themes'  => ['custom-theme'],
+        ]];
+
+        $config = $method->invoke(new StaticConfigLoader(), [
+            'presentation' => ['stylesheets' => $rules],
+        ]);
+
+        self::assertIsArray($config);
+        self::assertSame($rules, $config['presentation']['stylesheets']);
+    }
+
+    public function testRejectsNonArraySiteStylesheetConfiguration(): void
+    {
+        $method = new \ReflectionMethod(StaticConfigLoader::class, 'normalizeArrayConfig');
+        $this->expectException(\InvalidArgumentException::class);
+
+        $method->invoke(new StaticConfigLoader(), [
+            'presentation' => ['stylesheets' => '/site.css'],
+        ]);
+    }
 }

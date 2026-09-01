@@ -111,6 +111,9 @@ $defaultConfig = [
         'upload_quota_bytes'       => StaticConfigLoader::DEFAULT_UPLOAD_QUOTA_BYTES,
         'content_image_directory'  => '',
     ],
+    'presentation' => [
+        'stylesheets' => [],
+    ],
     'cookies' => [
         'name' => 'register_local_' . substr(hash('sha256', $rootDir), 0, 16),
     ],
@@ -317,6 +320,7 @@ $application->boot([
     'image_dir'          => $rootDir . '/_pictures',
     'image_path'         => '/_pictures',
     'content_image_directory' => $config['files']['content_image_directory'],
+    'site_stylesheets'    => $config['presentation']['stylesheets'],
     'allowed_extensions' => [],
     'upload_quota_bytes' => $config['files']['upload_quota_bytes'],
     'boot_timestamp'     => microtime(true),

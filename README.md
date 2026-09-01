@@ -136,6 +136,26 @@ Register ships with four first-party themes:
 Themes, templates, views, CSS, and module resources can be overridden without changing the
 publishing model.
 
+A site can also load its own CSS from the public directory without modifying a bundled theme. Add
+root-relative paths to the static configuration; optional `markers` and `themes` conditions keep a
+stylesheet limited to matching rendered pages:
+
+```php
+'presentation' => [
+    'stylesheets' => [
+        '/_pictures/site/content.css',
+        [
+            'href'    => '/_pictures/site/archive.css',
+            'markers' => ['archive-document'],
+            'themes'  => ['register'],
+        ],
+    ],
+],
+```
+
+The files remain site-owned data. Register only validates and attaches the configured local CSS;
+it does not contain migration-specific selectors or content identifiers.
+
 ### Comments, reactions, and moderation
 
 - Threaded comments with a compact rich-text editor, server-side sanitized canonical HTML storage,
