@@ -605,6 +605,25 @@
         element.removeAttribute('spellcheck');
     }
 
+    function detachEditableBodyStyles(body) {
+        return Array.from(body.querySelectorAll('style')).map((style, index) => {
+            document.head.append(style);
+            return {index, style};
+        });
+    }
+
+    function restoreEditableBodyStyles(state) {
+        const replacements = Array.from(state.body.querySelectorAll('style'));
+        state.detachedBodyStyles.forEach(({index, style}) => {
+            if (replacements[index]?.isConnected) {
+                replacements[index].replaceWith(style);
+            } else {
+                state.body.append(style);
+            }
+        });
+        state.detachedBodyStyles.length = 0;
+    }
+
     function focusEdge(element, atEnd) {
         element.focus();
         const selection = window.getSelection();
@@ -742,6 +761,47 @@
         selection.addRange(range);
         syncBoundaryCaret();
         return expectedMedia;
+    }
+
+    function focusAfterMedia(body, media) {
+        if (!(media instanceof HTMLElement) || media.parentElement !== body) {
+            return null;
+        }
+
+        let target = media.nextSibling;
+        if (
+            !editorBoundaryParagraphIsEmpty(target)
+            && (
+                !(target instanceof Node)
+                || boundaryNodeIsEmpty(target)
+                || isMediaBoundaryElement(body, target)
+            )
+        ) {
+            const paragraph = document.createElement('p');
+            paragraph.append(document.createElement('br'));
+            body.insertBefore(paragraph, media.nextSibling);
+            target = paragraph;
+        }
+        if (!(target instanceof Node)) {
+            return null;
+        }
+
+        const selection = window.getSelection();
+        if (!selection) {
+            return null;
+        }
+        body.focus({preventScroll: true});
+        const range = document.createRange();
+        if (target.nodeType === Node.TEXT_NODE) {
+            range.setStart(target, 0);
+        } else {
+            range.selectNodeContents(target);
+            range.collapse(true);
+        }
+        selection.removeAllRanges();
+        selection.addRange(range);
+        syncBoundaryCaret();
+        return target;
     }
 
     function mediaBoundaryAtRange(body, range) {
@@ -1145,7 +1205,9 @@
         state.dateButton.hidden = true;
         unsetEditable(state.title);
         unsetEditable(state.body);
+        restoreEditableBodyStyles(state);
         restoreHeadingLink(state);
+        state.foot.style.removeProperty('--post-editor-foot-height');
         state.card.classList.remove('is-editing');
         state.card.removeAttribute('aria-busy');
         toggleEditingTools(state.card, false);
@@ -1158,6 +1220,7 @@
         const body = card.querySelector(':scope > .post.body[data-post-inplace-body]');
         const tags = card.querySelector(':scope > .post.foot [data-post-inplace-tags-values]');
         const tagsHost = tags?.closest('.post-foot-tags');
+        const foot = tags?.closest('.post.foot');
         const titleField = form?.elements.namedItem('title');
         const bodyField = form?.elements.namedItem('body');
         const tagsField = form?.elements.namedItem('tags');
@@ -1172,6 +1235,7 @@
             || !(body instanceof HTMLElement)
             || !(tags instanceof HTMLElement)
             || !(tagsHost instanceof HTMLElement)
+            || !(foot instanceof HTMLElement)
             || !(titleField instanceof HTMLInputElement)
             || !(bodyField instanceof HTMLTextAreaElement)
             || !(tagsField instanceof HTMLInputElement)
@@ -1189,6 +1253,7 @@
             body,
             tags,
             tagsHost,
+            foot,
             titleField,
             bodyField,
             tagsField,
@@ -1303,7 +1368,6 @@
             imageUploadTail: Promise.resolve(),
             uploadedMediaIds: new Set(),
             mediaCaptionEditors: new Map(),
-            mediaCaptionBodyContentEditable: null,
             contextMenu: null,
             imageCaptionEditor: null,
             aiController: null,
@@ -1319,6 +1383,8 @@
             titleLink,
             titleLinkHadHref: titleLink?.hasAttribute('href') || false,
             titleLinkHref: titleLink?.getAttribute('href') || '',
+            originalFootHeight: elements.foot.getBoundingClientRect().height,
+            detachedBodyStyles: detachEditableBodyStyles(elements.body),
         };
 
         destroyWidgets(elements.body);
@@ -1340,6 +1406,12 @@
         elements.dateButton.hidden = false;
         state.tagEditor = createTagEditor(state);
         editorStates.set(card, state);
+        if (!state.creating) {
+            elements.foot.style.setProperty(
+                '--post-editor-foot-height',
+                `${state.originalFootHeight}px`,
+            );
+        }
         card.classList.add('is-editing');
         applyShortcutHints(card);
         toggleEditingTools(card, true);
@@ -2103,21 +2175,15 @@
             caption,
             state.card.dataset.mediaCaptionPlaceholder || 'Add a caption…',
         );
-        if (state.mediaCaptionEditors.size === 0) {
-            if (state.mediaCaptionBodyContentEditable === null) {
-                state.body.removeAttribute('contenteditable');
-            } else {
-                state.body.setAttribute('contenteditable', state.mediaCaptionBodyContentEditable);
-            }
-            state.mediaCaptionBodyContentEditable = null;
-        }
         if (text !== editor.original) {
             markBodyChanged(state);
         }
 
         if (restoreFocus) {
-            state.body.focus({preventScroll: true});
-            window.getSelection()?.removeAllRanges();
+            const media = caption.closest('.post-media-picture');
+            if (!(media instanceof HTMLElement) || !focusAfterMedia(state.body, media)) {
+                focusEdge(state.body, true);
+            }
         }
     }
 
@@ -2135,10 +2201,6 @@
         const controller = new AbortController();
         const placeholder = state.card.dataset.mediaCaptionPlaceholder || 'Add a caption…';
         const original = inlineMediaCaptionText(caption);
-        if (state.mediaCaptionEditors.size === 0) {
-            state.mediaCaptionBodyContentEditable = state.body.getAttribute('contenteditable');
-            state.body.setAttribute('contenteditable', 'false');
-        }
         state.mediaCaptionEditors.set(caption, {controller, original});
         clearInlineMediaCaptionAttributes(caption);
         caption.classList.add('is-editing-inline-caption');
@@ -2150,7 +2212,7 @@
         caption.setAttribute('tabindex', '0');
         caption.dataset.placeholder = placeholder;
         caption.addEventListener('keydown', (event) => {
-            if (moveFromLeadingMediaCaption(event, state, caption)) {
+            if (moveFromInlineMediaCaption(event, state, caption)) {
                 return;
             }
             if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
@@ -2190,6 +2252,25 @@
         return prefix.toString() === '';
     }
 
+    function selectionEndsAt(element) {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount !== 1) {
+            return false;
+        }
+        const range = selection.getRangeAt(0);
+        if (!range.collapsed || !element.contains(range.endContainer)) {
+            return false;
+        }
+        if (inlineMediaCaptionText(element) === '') {
+            return true;
+        }
+
+        const suffix = document.createRange();
+        suffix.selectNodeContents(element);
+        suffix.setStart(range.endContainer, range.endOffset);
+        return suffix.toString() === '';
+    }
+
     function moveFromLeadingMediaCaption(event, state, caption) {
         if (
             (event.key !== 'ArrowUp' && event.key !== 'ArrowLeft')
@@ -2215,7 +2296,75 @@
         return true;
     }
 
+    function moveFromInlineMediaCaption(event, state, caption) {
+        if (moveFromLeadingMediaCaption(event, state, caption)) {
+            return true;
+        }
+        if (
+            (event.key !== 'ArrowDown' && event.key !== 'ArrowRight')
+            || event.altKey
+            || event.ctrlKey
+            || event.metaKey
+            || event.shiftKey
+            || event.isComposing
+            || !selectionEndsAt(caption)
+        ) {
+            return false;
+        }
+
+        const media = caption.closest('.post-media-picture');
+        if (!(media instanceof HTMLElement) || media.parentElement !== state.body) {
+            return false;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        finishInlineMediaCaption(state, caption, false);
+        focusAfterMedia(state.body, media);
+        return true;
+    }
+
+    function moveFromBodyMediaBoundary(event, state) {
+        if (
+            (event.key !== 'ArrowDown' && event.key !== 'ArrowRight')
+            || event.altKey
+            || event.ctrlKey
+            || event.metaKey
+            || event.shiftKey
+            || event.isComposing
+            || event.target !== state.body
+        ) {
+            return false;
+        }
+
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount !== 1) {
+            return false;
+        }
+        const media = mediaBoundaryAtRange(state.body, selection.getRangeAt(0));
+        if (!(media instanceof HTMLElement)) {
+            return false;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        const caption = media.querySelector(
+            ':scope > .post-caption:not(.post-media-overlay-caption), '
+            + ':scope > figcaption:not(.post-media-overlay-caption)',
+        );
+        if (caption instanceof HTMLElement) {
+            beginInlineMediaCaption(state, caption);
+            focusInlineMediaCaption(state, caption);
+        } else {
+            focusAfterMedia(state.body, media);
+        }
+        return true;
+    }
+
     function focusInlineMediaCaption(state, caption) {
+        clearBoundaryCaret(state.body);
+        clearSyntheticBoundaryCaret(state.body);
+        state.body.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
         window.requestAnimationFrame(() => {
             if (!caption.isConnected || !state.mediaCaptionEditors.has(caption)) {
                 return;
@@ -2337,8 +2486,10 @@
                     const caption = document.createElement('div');
                     caption.className = 'post-caption';
                     pending.element.append(caption);
-                    beginInlineMediaCaption(state, caption);
-                    focusInlineMediaCaption(state, caption);
+                    configureInlineMediaCaptionEntry(
+                        caption,
+                        state.card.dataset.mediaCaptionPlaceholder || 'Add a caption…',
+                    );
                 } else {
                     const audio = createAudioMediaElement(payload, file);
                     pending.element.replaceWith(audio);
@@ -2423,6 +2574,7 @@
         clearStatus(state.card);
         let range = prepareMediaInsertionRange(state.body, bodyRange(state, initialRange));
         const unsupported = [];
+        let lastImage = null;
 
         files.forEach((file) => {
             const kind = mediaKindForFile(file);
@@ -2435,8 +2587,23 @@
             range.insertNode(pending.element);
             range.setStartAfter(pending.element);
             range.collapse(true);
+            if (kind === 'image') {
+                lastImage = pending.element;
+            }
             startMediaUpload(state, file, kind, pending);
         });
+
+        if (lastImage instanceof HTMLElement) {
+            focusAfterMedia(state.body, lastImage);
+        } else {
+            state.body.focus({preventScroll: true});
+            const selection = window.getSelection();
+            if (selection) {
+                selection.removeAllRanges();
+                selection.addRange(range);
+                syncBoundaryCaret();
+            }
+        }
 
         if (unsupported.length > 0) {
             showError(
@@ -4593,6 +4760,9 @@
             event.preventDefault();
             beginInlineMediaCaption(state, inlineCaption);
             focusInlineMediaCaption(state, inlineCaption);
+            return;
+        }
+        if (state && moveFromBodyMediaBoundary(event, state)) {
             return;
         }
         if (state && handleEditingShortcut(event, state)) {

@@ -102,6 +102,7 @@ test('dropped images render immediately and the complete processing flow is queu
     assert.match(pendingSource, /className = 'post-media-processing-progress'/u);
     assert.match(insertSource, /range\.insertNode\(pending\.element\)/u);
     assert.match(insertSource, /startMediaUpload\(state, file, kind, pending\)/u);
+    assert.match(insertSource, /focusAfterMedia\(state\.body, lastImage\)/u);
 
     const optimizing = uploadSource.indexOf("updateMediaUploadPending(pending, optimizingMessage, 'optimizing')");
     const uploading = uploadSource.indexOf("updateMediaUploadPending(pending, uploadingMessage, 'uploading')");
@@ -113,4 +114,18 @@ test('dropped images render immediately and the complete processing flow is queu
     assert.match(editorSource, /if \(showStatus\) \{\s*\+\+state\.aiAltStatusPending;/u);
     assert.match(editorSource, /updateAiAltStatus\(state, showStatus && outcome === 'applied'\)/u);
     assert.match(uploadSource, /await revealProcessedImage\(pending\)/u);
+    assert.match(uploadSource, /configureInlineMediaCaptionEntry\(/u);
+    assert.doesNotMatch(uploadSource, /beginInlineMediaCaption\(state, caption\)/u);
+    assert.doesNotMatch(uploadSource, /focusInlineMediaCaption\(state, caption\)/u);
+});
+
+test('editing an inline image caption does not disable the post body', function () {
+    const beginStart = editorSource.indexOf('function beginInlineMediaCaption');
+    const beginEnd = editorSource.indexOf('\n    function selectionStartsAt', beginStart);
+    const beginSource = editorSource.slice(beginStart, beginEnd);
+
+    assert.notEqual(beginStart, -1);
+    assert.notEqual(beginEnd, -1);
+    assert.doesNotMatch(beginSource, /state\.body\.setAttribute\('contenteditable', 'false'\)/u);
+    assert.match(beginSource, /caption\.setAttribute\('contenteditable', 'true'\)/u);
 });

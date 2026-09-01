@@ -227,21 +227,56 @@ final class AssetPackTest extends Unit
         );
     }
 
-    public function testPostEditorBodyAddsGuttersWithoutNarrowingItsContent(): void
+    public function testPostEditorFieldsAddEqualVisualGuttersWithoutChangingLayout(): void
     {
         $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');
+        $script = file_get_contents(\dirname(__DIR__, 4) . '/_assets/register/post-inplace.js');
 
         self::assertIsString($site);
         self::assertMatchesRegularExpression(
-            '/\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*\{'
-                . '[^}]*--post-editor-inline-padding:\s*clamp\(0\.5rem, 1vw, 0\.75rem\);'
-                . '[^}]*width:\s*calc\(100% \+ var\(--post-editor-inline-padding\)'
-                . ' \+ var\(--post-editor-inline-padding\)\);'
-                . '[^}]*max-width:\s*calc\(var\(--text-width\) \+ var\(--post-editor-inline-padding\)'
-                . ' \+ var\(--post-editor-inline-padding\)\);'
-                . '[^}]*margin-inline:\s*calc\(-1 \* var\(--post-editor-inline-padding\)\);'
-                . '[^}]*padding:\s*0 var\(--post-editor-inline-padding\);/s',
+            '/\.post-card\.is-editing[^}]*\{'
+                . '[^}]*--post-editor-field-padding:\s*clamp\(0\.25rem, 0\.35vw, 0\.3rem\);/s',
             $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.post-card\.is-editing \.post-title-text,\s*'
+                . '\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*\{'
+                . '[^}]*box-shadow:\s*0 0 0 var\(--post-editor-field-padding\)/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.post-card\.is-editing \.post-tags-surface\s*\{[^}]*'
+                . '0 0 0 var\(--post-editor-field-padding\) var\(--border-color\)/s',
+            $site,
+        );
+        self::assertStringNotContainsString('--post-editor-inline-padding', $site);
+        self::assertMatchesRegularExpression(
+            '/\.post-card\.is-editing\s*>\s*\.post\.foot\s*\{[^}]*'
+                . 'height:\s*var\(--post-editor-foot-height, auto\);[^}]*'
+                . 'min-height:\s*var\(--post-editor-foot-height, 1\.8rem\);/s',
+            $site,
+        );
+
+        self::assertIsString($script);
+        self::assertStringContainsString(
+            "originalFootHeight: elements.foot.getBoundingClientRect().height",
+            $script,
+        );
+        self::assertStringContainsString(
+            "elements.foot.style.setProperty(\n                '--post-editor-foot-height'",
+            $script,
+        );
+        self::assertStringContainsString(
+            "state.foot.style.removeProperty('--post-editor-foot-height')",
+            $script,
+        );
+        self::assertStringContainsString(
+            "detachedBodyStyles: detachEditableBodyStyles(elements.body)",
+            $script,
+        );
+        self::assertStringContainsString(
+            "replacements[index].replaceWith(style)",
+            $script,
         );
     }
 

@@ -13,9 +13,12 @@ const testableEditorSource = editorSource.replace(
         '    window.__postInplaceTest = {',
         '        collapseEmptyLeadingParagraphAfterDelete,',
         '        contextMenuAnchorRange,',
+        '        focusAfterMedia,',
         '        focusBeforeLeadingMedia,',
         '        mergeAdjacentInlineCode,',
         '        moveFromLeadingMediaCaption,',
+        '        moveFromBodyMediaBoundary,',
+        '        moveFromInlineMediaCaption,',
         '        prepareMediaInsertionRange,',
         '    };',
         '    applyShortcutHints(document);',
@@ -111,6 +114,10 @@ class FakeHTMLElement extends FakeNode {
         node.parentNode = this;
         this.childNodes.push(node);
     }
+
+    addEventListener() {}
+
+    blur() {}
 
     getAttribute(name) {
         return this.attributes.has(name) ? this.attributes.get(name) : null;
@@ -285,6 +292,7 @@ function createHarness() {
         location: {href: 'https://example.test/post'},
         addEventListener: function () {},
         getSelection: function () { return selection; },
+        requestAnimationFrame: function (callback) { callback(); },
         setTimeout: setTimeout
     };
     const context = vm.createContext({
@@ -317,7 +325,13 @@ function createHarness() {
             return selection.getRangeAt(0);
         },
         select(startContainer, startOffset = 0) {
-            let range = {collapsed: true, startContainer, startOffset};
+            let range = {
+                collapsed: true,
+                startContainer,
+                startOffset,
+                endContainer: startContainer,
+                endOffset: startOffset,
+            };
             selection = {
                 get rangeCount() { return range ? 1 : 0; },
                 addRange: function (nextRange) { range = nextRange; },
@@ -493,6 +507,30 @@ test('leading media can receive a caret before it without adding layout content'
     assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), true);
 });
 
+test('moving after media creates one real editor paragraph and keeps focus in the body', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    body.isEditingBody = true;
+    body.focus = function () {
+        harness.document.activeElement = body;
+    };
+    const media = new FakeHTMLElement({parentNode: body, media: true});
+    media.isMediaWrapper = true;
+    media.childNodes.push(new FakeHTMLElement({parentNode: media}));
+    body.childNodes.push(media);
+    harness.elements.push(body, media);
+    harness.select(body, 0);
+
+    const paragraph = harness.helpers.focusAfterMedia(body, media);
+
+    assert.equal(paragraph.tagName, 'P');
+    assert.equal(paragraph.childNodes[0].tagName, 'BR');
+    assert.deepEqual(body.childNodes, [media, paragraph]);
+    assert.equal(harness.document.activeElement, body);
+    assert.equal(harness.currentRange().startContainer, paragraph);
+    assert.equal(harness.currentRange().startOffset, 0);
+});
+
 test('media insertion replaces the empty editor paragraph without leaving a visual gap', function () {
     const harness = createHarness();
     const body = new FakeHTMLElement();
@@ -518,7 +556,7 @@ test('arrow up from an empty leading image caption moves the caret before the im
     body.focus = function () {
         harness.document.activeElement = body;
     };
-    body.setAttribute('contenteditable', 'false');
+    body.setAttribute('contenteditable', 'true');
     const media = new FakeHTMLElement({parentNode: body, media: true});
     media.isMediaWrapper = true;
     const caption = new FakeHTMLElement({parentNode: media});
@@ -532,7 +570,6 @@ test('arrow up from an empty leading image caption moves the caret before the im
     const state = {
         body,
         card: {dataset: {}},
-        mediaCaptionBodyContentEditable: 'true',
         mediaCaptionEditors: new Map([[caption, {controller, original: ''}]]),
     };
     const event = {
@@ -558,6 +595,115 @@ test('arrow up from an empty leading image caption moves the caret before the im
     assert.equal(harness.currentRange().startContainer, body);
     assert.equal(harness.currentRange().startOffset, 0);
     assert.equal(body.classList.contains('has-leading-boundary-caret'), true);
+});
+
+test('arrow down from an empty image caption moves to a visible paragraph after the image', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    body.isEditingBody = true;
+    body.focus = function () {
+        harness.document.activeElement = body;
+    };
+    body.setAttribute('contenteditable', 'true');
+    const media = new FakeHTMLElement({parentNode: body, media: true});
+    media.isMediaWrapper = true;
+    const caption = new FakeHTMLElement({parentNode: media});
+    caption.textContent = '';
+    media.childNodes.push(caption);
+    body.childNodes.push(media);
+    harness.elements.push(body, media, caption);
+    harness.select(caption, 0);
+
+    const controller = new AbortController();
+    const state = {
+        body,
+        card: {dataset: {}},
+        mediaCaptionEditors: new Map([[caption, {controller, original: ''}]]),
+    };
+    const event = {
+        key: 'ArrowDown',
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+        isComposing: false,
+        defaultPrevented: false,
+        propagationStopped: false,
+        preventDefault() { this.defaultPrevented = true; },
+        stopPropagation() { this.propagationStopped = true; },
+    };
+
+    assert.equal(harness.helpers.moveFromInlineMediaCaption(event, state, caption), true);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(event.propagationStopped, true);
+    assert.equal(state.mediaCaptionEditors.size, 0);
+    assert.equal(body.getAttribute('contenteditable'), 'true');
+    assert.equal(body.childNodes[1].tagName, 'P');
+    assert.equal(harness.document.activeElement, body);
+    assert.equal(harness.currentRange().startContainer, body.childNodes[1]);
+    assert.equal(harness.currentRange().startOffset, 0);
+});
+
+test('repeated boundary and caption navigation keeps exactly one visible caret', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    body.isEditingBody = true;
+    body.setAttribute('contenteditable', 'true');
+    body.focus = function () {
+        harness.document.activeElement = body;
+    };
+    const media = new FakeHTMLElement({parentNode: body, media: true});
+    media.isMediaWrapper = true;
+    const caption = new FakeHTMLElement({parentNode: media});
+    caption.textContent = '';
+    caption.isConnected = true;
+    caption.focus = function () {
+        harness.document.activeElement = caption;
+    };
+    media.childNodes.push(caption);
+    media.querySelector = function (selector) {
+        if (selector === 'img, video, audio') {
+            return {};
+        }
+        return selector.includes('.post-caption') ? caption : null;
+    };
+    body.childNodes.push(media);
+    harness.elements.push(body, media, caption);
+    harness.select(body, 0);
+    body.classList.add('has-leading-boundary-caret', 'uses-synthetic-boundary-caret');
+
+    const state = {
+        body,
+        card: {dataset: {}},
+        mediaCaptionEditors: new Map(),
+    };
+    const event = {
+        key: 'ArrowDown',
+        target: body,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+        isComposing: false,
+        defaultPrevented: false,
+        propagationStopped: false,
+        preventDefault() { this.defaultPrevented = true; },
+        stopPropagation() { this.propagationStopped = true; },
+    };
+
+    assert.equal(harness.helpers.moveFromBodyMediaBoundary(event, state), true);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(event.propagationStopped, true);
+    assert.equal(state.mediaCaptionEditors.size, 1);
+    assert.equal(harness.document.activeElement, caption);
+    assert.equal(caption.classList.contains('is-editing-inline-caption'), true);
+    assert.equal(body.getAttribute('contenteditable'), 'true');
+    assert.equal(body.classList.contains('has-leading-boundary-caret'), false);
+    assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), false);
+    assert.equal(
+        harness.elements.filter((element) => element.classList.contains('has-leading-boundary-caret')).length,
+        0,
+    );
 });
 
 test('a real empty paragraph uses the browser caret instead of a full-height synthetic one', function () {
