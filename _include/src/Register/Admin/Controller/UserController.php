@@ -17,7 +17,9 @@ use Symfony\Component\HttpFoundation\Response;
 final class UserController extends EntityController
 {
     public const string ACCOUNT_TYPE_TEAM = 'team';
+
     public const string ACCOUNT_TYPE_GUEST = 'guest';
+
     public const string ACCOUNT_TYPE_IMPORTED = 'imported';
 
     private const array ACCOUNT_TYPES = [

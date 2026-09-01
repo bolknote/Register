@@ -567,9 +567,11 @@ class AdminConfigProvider implements StatefulServiceInterface
                 if (!\in_array($event->data['sortField'], $visibleFields, true)) {
                     $event->data['sortField'] = null;
                 }
+
                 foreach ($event->data['rows'] as &$row) {
                     $row['cells'] = array_intersect_key($row['cells'], $visibleFieldMap);
                 }
+
                 unset($row);
             })
             ->addListener(EntityConfig::EVENT_AFTER_EDIT_FETCH, function (AfterLoadEvent $event): void {
@@ -1728,9 +1730,11 @@ class AdminConfigProvider implements StatefulServiceInterface
         if ($name !== '') {
             return $name;
         }
+
         if (str_starts_with($login, 'external_import_')) {
             return $this->translator->trans('Unnamed imported commenter');
         }
+
         if ($login === '' || str_starts_with($login, 'external_')) {
             return $this->translator->trans('Unnamed guest');
         }
