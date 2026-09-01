@@ -12,7 +12,12 @@ const testableEditorSource = editorSource.replace(
     [
         '    window.__postInplaceTest = {',
         '        contextMenuAnchorRange,',
+        '        cleanLeadingMediaParagraphs,',
+        '        ensureLeadingMediaParagraph,',
+        '        focusLeadingMediaParagraph,',
         '        mergeAdjacentInlineCode,',
+        '        moveFromLeadingMediaCaption,',
+        '        prepareMediaInsertionRange,',
         '    };',
         '    applyShortcutHints(document);',
         '})();',
@@ -54,6 +59,10 @@ class FakeNode {
         return index >= 0 ? (this.parentNode.childNodes[index + 1] || null) : null;
     }
 
+    get parentElement() {
+        return this.parentNode instanceof FakeHTMLElement ? this.parentNode : null;
+    }
+
     remove() {
         if (!this.parentNode?.childNodes) {
             this.parentNode = null;
@@ -87,9 +96,11 @@ class FakeHTMLElement extends FakeNode {
         super(parentNode);
         this.childNodes = [];
         this.classList = new FakeClassList(...classes);
+        this.dataset = {};
         this.media = media;
         this.rect = rect;
         this.tagName = tagName;
+        this.attributes = new Map();
     }
 
     get firstChild() {
@@ -100,6 +111,22 @@ class FakeHTMLElement extends FakeNode {
         node.remove();
         node.parentNode = this;
         this.childNodes.push(node);
+    }
+
+    getAttribute(name) {
+        return this.attributes.has(name) ? this.attributes.get(name) : null;
+    }
+
+    hasAttribute(name) {
+        return this.attributes.has(name);
+    }
+
+    removeAttribute(name) {
+        this.attributes.delete(name);
+    }
+
+    setAttribute(name, value) {
+        this.attributes.set(name, String(value));
     }
 
     insertBefore(node, boundary) {
@@ -142,6 +169,9 @@ class FakeHTMLElement extends FakeNode {
         if (selector === '.post-picture, .post-media-picture, figure') {
             return this.isMediaWrapper === true;
         }
+        if (selector === '.post-media-picture') {
+            return this.isMediaWrapper === true;
+        }
         return false;
     }
 
@@ -156,6 +186,21 @@ class FakeHTMLElement extends FakeNode {
                 element.childNodes.forEach((child) => {
                     if (child instanceof FakeHTMLElement) {
                         if (child.tagName === 'TT') {
+                            result.push(child);
+                        }
+                        visit(child);
+                    }
+                });
+            };
+            visit(this);
+            return result;
+        }
+        if (selector === '[data-post-editor-leading-boundary]') {
+            const result = [];
+            const visit = (element) => {
+                element.childNodes.forEach((child) => {
+                    if (child instanceof FakeHTMLElement) {
+                        if (child.hasAttribute('data-post-editor-leading-boundary')) {
                             result.push(child);
                         }
                         visit(child);
@@ -196,7 +241,18 @@ function createHarness() {
             return {
                 collapsed: false,
                 startBefore: null,
-                collapse: function () { this.collapsed = true; },
+                collapse: function (toStart) {
+                    this.collapsed = true;
+                    if (this.selectedNode && toStart) {
+                        this.startContainer = this.selectedNode;
+                        this.startOffset = 0;
+                    }
+                },
+                selectNodeContents: function (node) {
+                    this.selectedNode = node;
+                    this.startContainer = node;
+                    this.startOffset = 0;
+                },
                 setStart: function (node, offset) {
                     this.startContainer = node;
                     this.startOffset = offset;
@@ -205,6 +261,10 @@ function createHarness() {
                     this.startBefore = node;
                     this.startContainer = node.parentNode;
                     this.startOffset = node.parentNode.childNodes.indexOf(node);
+                },
+                setStartAfter: function (node) {
+                    this.startContainer = node.parentNode;
+                    this.startOffset = node.parentNode.childNodes.indexOf(node) + 1;
                 }
             };
         },
@@ -403,6 +463,112 @@ test('typing at the editor root before leading media creates a paragraph', funct
     assert.equal(body.childNodes[1], media);
     assert.equal(insertionRange.startContainer, insertionParagraph);
     assert.equal(insertionRange.startOffset, 0);
+});
+
+test('leading media gets a real editor paragraph that arrow navigation can focus', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    body.isEditingBody = true;
+    body.focus = function () {
+        harness.document.activeElement = body;
+    };
+    const media = new FakeHTMLElement({parentNode: body, media: true});
+    media.isMediaWrapper = true;
+    media.childNodes.push(new FakeHTMLElement({parentNode: media}));
+    body.childNodes.push(media);
+    harness.elements.push(body, media);
+    harness.select(media, 0);
+
+    const paragraph = harness.helpers.ensureLeadingMediaParagraph(body);
+    const focused = harness.helpers.focusLeadingMediaParagraph(body, media);
+
+    assert.equal(paragraph, focused);
+    assert.equal(body.childNodes[0], paragraph);
+    assert.equal(body.childNodes[1], media);
+    assert.equal(paragraph.tagName, 'P');
+    assert.equal(paragraph.childNodes[0].tagName, 'BR');
+    assert.equal(paragraph.getAttribute('data-post-editor-leading-boundary'), 'generated');
+    assert.equal(harness.document.activeElement, body);
+    assert.equal(harness.beforeInput(body).startContainer, paragraph);
+});
+
+test('media inserted at an empty paragraph becomes its sibling instead of invalid nested markup', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const paragraph = new FakeHTMLElement({parentNode: body, tagName: 'P'});
+    paragraph.childNodes.push(new FakeHTMLBRElement({parentNode: paragraph}));
+    body.childNodes.push(paragraph);
+    const range = harness.document.createRange();
+    range.setStart(paragraph, 0);
+    range.collapse(true);
+
+    harness.helpers.prepareMediaInsertionRange(body, range);
+
+    assert.equal(range.startContainer, body);
+    assert.equal(range.startOffset, 1);
+    assert.equal(paragraph.getAttribute('data-post-editor-leading-boundary'), 'generated');
+});
+
+test('arrow up from an empty leading image caption moves the caret before the image', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    body.isEditingBody = true;
+    body.focus = function () {
+        harness.document.activeElement = body;
+    };
+    body.setAttribute('contenteditable', 'false');
+    const media = new FakeHTMLElement({parentNode: body, media: true});
+    media.isMediaWrapper = true;
+    const caption = new FakeHTMLElement({parentNode: media});
+    caption.textContent = '';
+    media.childNodes.push(caption);
+    body.childNodes.push(media);
+    harness.elements.push(body, media, caption);
+    harness.select(caption, 0);
+
+    const controller = new AbortController();
+    const state = {
+        body,
+        card: {dataset: {}},
+        mediaCaptionBodyContentEditable: 'true',
+        mediaCaptionEditors: new Map([[caption, {controller, original: ''}]]),
+    };
+    const event = {
+        key: 'ArrowUp',
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+        isComposing: false,
+        defaultPrevented: false,
+        propagationStopped: false,
+        preventDefault() { this.defaultPrevented = true; },
+        stopPropagation() { this.propagationStopped = true; },
+    };
+
+    assert.equal(harness.helpers.moveFromLeadingMediaCaption(event, state, caption), true);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(event.propagationStopped, true);
+    assert.equal(state.mediaCaptionEditors.size, 0);
+    assert.equal(body.getAttribute('contenteditable'), 'true');
+    assert.equal(body.childNodes[0].tagName, 'P');
+    assert.equal(harness.document.activeElement, body);
+    assert.equal(harness.beforeInput(body).startContainer, body.childNodes[0]);
+});
+
+test('an untouched generated leading paragraph is not saved with the post', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const paragraph = new FakeHTMLElement({parentNode: body, tagName: 'P'});
+    paragraph.setAttribute('data-post-editor-leading-boundary', 'generated');
+    paragraph.childNodes.push(new FakeHTMLBRElement({parentNode: paragraph}));
+    const media = new FakeHTMLElement({parentNode: body, media: true});
+    media.isMediaWrapper = true;
+    body.childNodes.push(paragraph, media);
+
+    harness.helpers.cleanLeadingMediaParagraphs(body);
+
+    assert.deepEqual(body.childNodes, [media]);
 });
 
 test('an empty paragraph before media has exactly one synthetic caret', function () {

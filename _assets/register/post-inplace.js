@@ -639,6 +639,159 @@
             && Boolean(element.querySelector('img, video, audio'));
     }
 
+    function editorBoundaryParagraphIsEmpty(element) {
+        return element instanceof HTMLElement
+            && element.tagName === 'P'
+            && Array.from(element.childNodes).every(boundaryNodeIsEmpty);
+    }
+
+    function leadingMediaBoundary(body, expectedMedia = null) {
+        let emptyParagraph = null;
+        for (const child of Array.from(body.childNodes)) {
+            if (boundaryNodeIsEmpty(child)) {
+                continue;
+            }
+            if (editorBoundaryParagraphIsEmpty(child)) {
+                emptyParagraph = child;
+                continue;
+            }
+            if (
+                !isMediaBoundaryElement(body, child)
+                || (expectedMedia instanceof HTMLElement && child !== expectedMedia)
+            ) {
+                return null;
+            }
+            return {media: child, paragraph: emptyParagraph};
+        }
+        return null;
+    }
+
+    function hoistMediaFromParagraph(body, media) {
+        const paragraph = media.parentElement;
+        if (
+            !(paragraph instanceof HTMLElement)
+            || paragraph.tagName !== 'P'
+            || paragraph.parentElement !== body
+        ) {
+            return;
+        }
+
+        const trailing = document.createElement('p');
+        while (media.nextSibling) {
+            trailing.append(media.nextSibling);
+        }
+        body.insertBefore(media, paragraph.nextSibling);
+        if (trailing.hasChildNodes()) {
+            body.insertBefore(trailing, media.nextSibling);
+        }
+        if (!paragraph.hasChildNodes()) {
+            paragraph.append(document.createElement('br'));
+        }
+        if (
+            editorBoundaryParagraphIsEmpty(paragraph)
+            && !paragraph.hasAttribute('data-post-editor-leading-boundary')
+        ) {
+            paragraph.setAttribute('data-post-editor-leading-boundary', 'generated');
+        }
+    }
+
+    function normalizeLeadingNestedMedia(body, expectedMedia = null) {
+        if (expectedMedia instanceof HTMLElement) {
+            hoistMediaFromParagraph(body, expectedMedia);
+            return;
+        }
+
+        for (const child of Array.from(body.childNodes)) {
+            if (boundaryNodeIsEmpty(child)) {
+                continue;
+            }
+            if (!(child instanceof HTMLElement) || child.tagName !== 'P') {
+                return;
+            }
+            const nestedMedia = Array.from(child.childNodes).find((nested, index, siblings) => (
+                isMediaBoundaryElement(body, nested)
+                && siblings.slice(0, index).every(boundaryNodeIsEmpty)
+            ));
+            if (nestedMedia instanceof HTMLElement) {
+                hoistMediaFromParagraph(body, nestedMedia);
+            }
+            return;
+        }
+    }
+
+    function ensureLeadingMediaParagraph(body, expectedMedia = null) {
+        normalizeLeadingNestedMedia(body, expectedMedia);
+        const boundary = leadingMediaBoundary(body, expectedMedia);
+        if (!boundary) {
+            return null;
+        }
+
+        let paragraph = boundary.paragraph;
+        if (!(paragraph instanceof HTMLElement)) {
+            paragraph = document.createElement('p');
+            paragraph.append(document.createElement('br'));
+            paragraph.setAttribute('data-post-editor-leading-boundary', 'generated');
+            body.insertBefore(paragraph, boundary.media);
+        } else if (!paragraph.hasAttribute('data-post-editor-leading-boundary')) {
+            paragraph.setAttribute('data-post-editor-leading-boundary', 'existing');
+        }
+        return paragraph;
+    }
+
+    function prepareMediaInsertionRange(body, range) {
+        if (!range.collapsed) {
+            return range;
+        }
+
+        let paragraph = range.startContainer instanceof HTMLElement
+            ? range.startContainer
+            : range.startContainer.parentNode;
+        while (paragraph instanceof HTMLElement && paragraph.parentNode !== body) {
+            paragraph = paragraph.parentNode;
+        }
+        if (!editorBoundaryParagraphIsEmpty(paragraph) || paragraph.parentNode !== body) {
+            return range;
+        }
+
+        if (Array.from(body.childNodes).every((child) => (
+            child === paragraph
+            || boundaryNodeIsEmpty(child)
+            || editorBoundaryParagraphIsEmpty(child)
+        ))) {
+            paragraph.setAttribute('data-post-editor-leading-boundary', 'generated');
+        }
+        range.setStartAfter(paragraph);
+        range.collapse(true);
+        return range;
+    }
+
+    function focusLeadingMediaParagraph(body, expectedMedia = null) {
+        const paragraph = ensureLeadingMediaParagraph(body, expectedMedia);
+        const selection = window.getSelection();
+        if (!(paragraph instanceof HTMLElement) || !selection) {
+            return null;
+        }
+
+        body.focus({preventScroll: true});
+        const range = document.createRange();
+        range.selectNodeContents(paragraph);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        syncBoundaryCaret();
+        return paragraph;
+    }
+
+    function cleanLeadingMediaParagraphs(root) {
+        root.querySelectorAll('[data-post-editor-leading-boundary]').forEach((paragraph) => {
+            const generated = paragraph.getAttribute('data-post-editor-leading-boundary') === 'generated';
+            paragraph.removeAttribute('data-post-editor-leading-boundary');
+            if (generated && editorBoundaryParagraphIsEmpty(paragraph)) {
+                paragraph.remove();
+            }
+        });
+    }
+
     function mediaBoundaryAtRange(body, range) {
         if (!range.collapsed || !(range.startContainer instanceof HTMLElement)) {
             return null;
@@ -856,6 +1009,7 @@
     function editableBodyHtml(state) {
         const clone = state.body.cloneNode(true);
         clone.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
+        cleanLeadingMediaParagraphs(clone);
         clearAiChangeMarks(clone);
         clone.querySelectorAll('[data-register-audio-native]').forEach((audio) => {
             audio.removeAttribute('data-register-audio-native');
@@ -1199,6 +1353,7 @@
         elements.title.textContent = state.originalTitle;
         elements.body.innerHTML = state.originalBody;
         prepareEditableMedia(elements.body);
+        ensureLeadingMediaParagraph(elements.body);
         state.originalEditableBodyHtml = editableBodyHtml(state);
         elements.tags.replaceChildren();
         if (state.titleLinkHadHref) {
@@ -2024,6 +2179,9 @@
         caption.setAttribute('tabindex', '0');
         caption.dataset.placeholder = placeholder;
         caption.addEventListener('keydown', (event) => {
+            if (moveFromLeadingMediaCaption(event, state, caption)) {
+                return;
+            }
             if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -2040,6 +2198,50 @@
             event.preventDefault();
             document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
         }, {signal: controller.signal});
+    }
+
+    function selectionStartsAt(element) {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount !== 1) {
+            return false;
+        }
+        const range = selection.getRangeAt(0);
+        if (!range.collapsed || !element.contains(range.startContainer)) {
+            return false;
+        }
+        if (inlineMediaCaptionText(element) === '') {
+            return true;
+        }
+
+        const prefix = document.createRange();
+        prefix.selectNodeContents(element);
+        prefix.setEnd(range.startContainer, range.startOffset);
+        return prefix.toString() === '';
+    }
+
+    function moveFromLeadingMediaCaption(event, state, caption) {
+        if (
+            (event.key !== 'ArrowUp' && event.key !== 'ArrowLeft')
+            || event.altKey
+            || event.ctrlKey
+            || event.metaKey
+            || event.shiftKey
+            || event.isComposing
+            || !selectionStartsAt(caption)
+        ) {
+            return false;
+        }
+
+        const media = caption.closest('.post-media-picture');
+        if (!(media instanceof HTMLElement) || !ensureLeadingMediaParagraph(state.body, media)) {
+            return false;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        finishInlineMediaCaption(state, caption, false);
+        focusLeadingMediaParagraph(state.body, media);
+        return true;
     }
 
     function focusInlineMediaCaption(state, caption) {
@@ -2248,7 +2450,7 @@
     function insertMediaFiles(state, files, initialRange) {
         clearError(state.form);
         clearStatus(state.card);
-        let range = bodyRange(state, initialRange);
+        let range = prepareMediaInsertionRange(state.body, bodyRange(state, initialRange));
         const unsupported = [];
 
         files.forEach((file) => {
@@ -2262,6 +2464,7 @@
             range.insertNode(pending.element);
             range.setStartAfter(pending.element);
             range.collapse(true);
+            ensureLeadingMediaParagraph(state.body);
             startMediaUpload(state, file, kind, pending);
         });
 
