@@ -52,8 +52,6 @@ final readonly class VisitorIdentityManager
         }
 
         $visitorId ??= bin2hex(random_bytes(16));
-        $now = time();
-        $this->repository->touchVisitor($visitorId, $now);
 
         return new ResolvedVisitor($visitorId, $this->tokenFor($visitorId), $source);
     }

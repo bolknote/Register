@@ -10,7 +10,12 @@ declare(strict_types = 1);
 namespace Register\Runtime;
 
 use Register\Auth\PublicAuthController;
+use Register\Auth\CommentNotificationRepository;
+use Register\Comment\CommentChangedEvent;
+use Register\Comment\CommentMutationSource;
 use Register\Content\Controller\ContentSitemapController;
+use Register\Content\ContentChangedEvent;
+use Register\Content\ContentSitemapCache;
 use Register\Content\Controller\RobotsTxtController;
 use Register\Controller\CommentController;
 use Register\Controller\CommentModerationController;
@@ -54,6 +59,15 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
     #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
+        $eventDispatcher->addListener(ContentChangedEvent::class, static function (ContentChangedEvent $_event) use ($container): void {
+            $container->get(ContentSitemapCache::class)->invalidate();
+        });
+        $eventDispatcher->addListener(CommentChangedEvent::class, static function (CommentChangedEvent $event) use ($container): void {
+            $container->get(CommentNotificationRepository::class)->invalidateAll(
+                $event->source === CommentMutationSource::IMPORTED,
+            );
+        });
+
         $eventDispatcher->addListener(NotFoundEvent::class, static function (NotFoundEvent $event) use ($container): void {
             $redirectResponse = $container->get(RedirectDetector::class)->getRedirectResponse($event->request);
             if ($redirectResponse !== null) {

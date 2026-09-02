@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Content\Controller;
 
 use Register\Content\ContentRepository;
+use Register\Content\ContentSitemapCache;
 use Register\Content\ContentType;
 use Register\Url\ContentUrlGenerator;
 use Register\Core\Framework\ControllerInterface;
@@ -37,6 +38,7 @@ final readonly class ContentSitemapController implements ControllerInterface
         private ContentRepository $contentRepository,
         private ContentUrlGenerator $contentUrlGenerator,
         private Viewer            $viewer,
+        private ContentSitemapCache $cache,
         ContentType ...$contentTypes,
     ) {
         if ($contentTypes === []) {
@@ -64,23 +66,34 @@ final readonly class ContentSitemapController implements ControllerInterface
 
     private function indexResponse(Request $request): Response
     {
-        $urlCount = 0;
-        foreach ($this->entries() as $_entry) {
-            ++$urlCount;
-        }
+        $output = $this->cache->rememberString('index', function (): string {
+            $partCount = max(1, ceil($this->entryCount() / self::URLS_PER_SITEMAP));
+            $items     = '';
+            for ($part = 1; $part <= $partCount; ++$part) {
+                $items .= $this->viewer->render('sitemap_index_item', [
+                    'link' => $this->contentUrlGenerator->rawAbsolutePath('/sitemap-' . $part . '.xml'),
+                ]);
+            }
 
-        $partCount = max(1, (int)ceil($urlCount / self::URLS_PER_SITEMAP));
-        $items     = '';
-        for ($part = 1; $part <= $partCount; ++$part) {
-            $items .= $this->viewer->render('sitemap_index_item', [
-                'link' => $this->contentUrlGenerator->rawAbsolutePath('/sitemap-' . $part . '.xml'),
-            ]);
-        }
+            return $this->viewer->render('sitemap_index', ['items' => $items]);
+        });
 
-        return $this->xmlResponse($this->viewer->render('sitemap_index', ['items' => $items]), $request);
+        return $this->xmlResponse($output, $request);
     }
 
     private function partResponse(Request $request, int $part): Response
+    {
+        $partCount = max(1, (int)ceil($this->entryCount() / self::URLS_PER_SITEMAP));
+        if ($part > $partCount) {
+            return new Response('', Response::HTTP_NOT_FOUND);
+        }
+
+        $output = $this->cache->rememberString('part_' . $part, fn(): string => $this->renderPart($part));
+
+        return $this->xmlResponse($output, $request);
+    }
+
+    private function renderPart(int $part): string
     {
         $start = ($part - 1) * self::URLS_PER_SITEMAP;
         $end   = $start + self::URLS_PER_SITEMAP;
@@ -99,11 +112,19 @@ final readonly class ContentSitemapController implements ControllerInterface
             ++$index;
         }
 
-        if ($part > 1 && $items === '') {
-            return new Response('', Response::HTTP_NOT_FOUND);
-        }
+        return $this->viewer->render('sitemap', ['items' => $items]);
+    }
 
-        return $this->xmlResponse($this->viewer->render('sitemap', ['items' => $items]), $request);
+    private function entryCount(): int
+    {
+        return $this->cache->rememberInt('entry_count', function (): int {
+            $count = 0;
+            foreach ($this->entries() as $_entry) {
+                ++$count;
+            }
+
+            return $count;
+        });
     }
 
     /**

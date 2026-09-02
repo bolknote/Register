@@ -71,4 +71,70 @@ final readonly class VisitorIdentityRepository
             ->execute()
         ;
     }
+
+    /** Removes passive legacy identities only when no durable user action references them. */
+    public function purgeUnreferencedBefore(int $before, int $limit = 100): int
+    {
+        if ($before <= 0 || $limit < 1 || $limit > 1000) {
+            throw new \InvalidArgumentException('Invalid visitor retention boundary.');
+        }
+
+        $prefix = $this->dbLayer->getPrefix();
+        $references = [
+            [Manifest::USER_LINK_TABLE, 'visitor_id'],
+            [Manifest::FINGERPRINT_TABLE, 'visitor_id'],
+            [\Register\Comment\CommentSchema::TABLE_NAME, 'visitor_id'],
+            [\Register\Auth\PublicAuthSchema::MAGIC_LINKS_TABLE, 'visitor_id'],
+            [\Register\Module\Reactions\Manifest::TABLE_NAME, 'visitor_id'],
+        ];
+        $existingReferences = [];
+        foreach ($references as [$table, $field]) {
+            if ($this->dbLayer->tableExists($table) && $this->dbLayer->fieldExists($table, $field)) {
+                $existingReferences[] = [$prefix . $table, $field];
+            }
+        }
+
+        $candidateClauses = [];
+        foreach ($existingReferences as [$table, $field]) {
+            $candidateClauses[] = 'NOT EXISTS (SELECT 1 FROM ' . $table
+                . ' WHERE ' . $field . ' = candidate.visitor_id)';
+        }
+
+        $candidates = $this->dbLayer->query(
+            'SELECT candidate.visitor_id FROM ' . $prefix . Manifest::VISITOR_TABLE . ' AS candidate'
+            . ' WHERE candidate.last_seen_at < :before'
+            . ($candidateClauses === [] ? '' : ' AND ' . implode(' AND ', $candidateClauses))
+            . ' ORDER BY candidate.last_seen_at ASC LIMIT ' . $limit,
+            ['before' => $before],
+        )->fetchColumn();
+
+        $candidateIds = array_values(array_filter($candidates, is_string(...)));
+        if ($candidateIds === []) {
+            return 0;
+        }
+
+        $parameters = ['before' => $before];
+        $placeholders = [];
+        foreach ($candidateIds as $index => $visitorId) {
+            $parameter = 'candidate_visitor_id_' . $index;
+            $parameters[$parameter] = $visitorId;
+            $placeholders[] = ':' . $parameter;
+        }
+
+        // Recheck every reference in the DELETE so a concurrent interaction that arrives after
+        // candidate selection cannot be removed. One statement also avoids 100 delete round trips.
+        $deleteClauses = [];
+        foreach ($existingReferences as [$table, $field]) {
+            $deleteClauses[] = 'NOT EXISTS (SELECT 1 FROM ' . $table
+                . ' WHERE ' . $field . ' = ' . $prefix . Manifest::VISITOR_TABLE . '.visitor_id)';
+        }
+
+        return $this->dbLayer->query(
+            'DELETE FROM ' . $prefix . Manifest::VISITOR_TABLE
+            . ' WHERE visitor_id IN (' . implode(', ', $placeholders) . ')'
+            . ' AND last_seen_at < :before'
+            . ($deleteClauses === [] ? '' : ' AND ' . implode(' AND ', $deleteClauses)),
+            $parameters,
+        )->affectedRows();
+    }
 }

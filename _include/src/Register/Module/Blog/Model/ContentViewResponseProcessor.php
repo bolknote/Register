@@ -11,6 +11,7 @@ namespace Register\Module\Blog\Model;
 
 use Register\Content\ContentId;
 use Register\Content\ContentViewRepository;
+use Register\Content\ContentViewRecorderInterface;
 use Register\Core\Framework\ResponseProcessorInterface;
 use Register\Module\Analytics\BotDetector;
 use Register\Core\Template\PartialPageResponse;
@@ -27,6 +28,7 @@ final readonly class ContentViewResponseProcessor implements ResponseProcessorIn
 
     public function __construct(
         private ContentViewRepository $views,
+        private ContentViewRecorderInterface $recorder,
         private BotDetector           $botDetector,
         private TranslatorInterface   $translator,
     ) {
@@ -99,7 +101,7 @@ final readonly class ContentViewResponseProcessor implements ResponseProcessorIn
             return;
         }
 
-        $this->views->record($contentId);
+        $this->recorder->record($contentId);
     }
 
     private function isNonInteractive(Request $request): bool

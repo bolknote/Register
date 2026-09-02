@@ -18,7 +18,7 @@ use Register\Core\Pdo\DbLayerSqlite;
 use Register\Core\Pdo\PDO;
 
 /** Writes daily aggregates and builds popular/hot post rankings without storing visitor data. */
-final class ContentViewRepository implements StatefulServiceInterface
+final class ContentViewRepository implements StatefulServiceInterface, ContentViewRecorderInterface
 {
     private const string TOTAL_CACHE_PREFIX = 'content_view_total_v2_';
 
@@ -35,56 +35,68 @@ final class ContentViewRepository implements StatefulServiceInterface
     {
     }
 
+    #[\Override]
     public function record(ContentId $contentId, ?string $day = null): void
     {
-        $day ??= gmdate('Y-m-d');
-        $table = $this->dbLayer->getPrefix() . ContentViewSchema::TABLE_NAME;
-        $parameters = [
-            'content_type' => $contentId->type->value,
-            'content_id'   => $contentId->value,
-            'day'          => $day,
-        ];
-        $sql = match (true) {
-            $this->dbLayer instanceof DbLayerPostgres => <<<SQL
-                INSERT INTO $table (content_type, content_id, day, views)
-                VALUES (:content_type, :content_id, :day, 1)
-                ON CONFLICT (content_type, content_id, day) DO UPDATE SET
-                    views = $table.views + 1
-                SQL,
-            $this->dbLayer instanceof DbLayerSqlite => <<<SQL
-                INSERT INTO $table (content_type, content_id, day, views)
-                VALUES (:content_type, :content_id, :day, 1)
-                ON CONFLICT (content_type, content_id, day) DO UPDATE SET
-                    views = views + 1
-                SQL,
-            default => <<<SQL
-                INSERT INTO $table (content_type, content_id, day, views)
-                VALUES (:content_type, :content_id, :day, 1)
-                ON DUPLICATE KEY UPDATE views = views + 1
-                SQL,
-        };
+        $this->recordBatch(new ContentViewIncrement($contentId, $day ?? gmdate('Y-m-d')));
+    }
 
-        $this->dbLayer->query($sql, $parameters);
-        if ($this->totalCache instanceof CacheItemPoolInterface) {
-            $totalCache = $this->totalCache;
-            $cacheKey = $this->totalCacheKey($contentId);
-            $versionKey = $this->totalVersionKey($contentId);
-            if ($this->pdo instanceof PDO && $this->pdo->inTransaction()) {
-                // Keep the old committed value visible to concurrent readers. This
-                // request bypasses it below; COMMIT removes it for future requests.
-                $this->pendingTotalInvalidations[$cacheKey] = true;
-                $this->pdo->afterCommitOnce('content-view-total:' . (string)$contentId, function () use ($totalCache, $cacheKey, $versionKey): void {
-                    $totalCache->deleteItem($cacheKey);
-                    $totalCache->deleteItem($versionKey);
-                    unset($this->pendingTotalInvalidations[$cacheKey]);
-                });
-                $this->pdo->afterRollbackOnce('content-view-total:' . (string)$contentId, function () use ($cacheKey): void {
-                    unset($this->pendingTotalInvalidations[$cacheKey]);
-                });
-            } else {
-                $totalCache->deleteItem($cacheKey);
-                $totalCache->deleteItem($versionKey);
+    public function recordBatch(ContentViewIncrement ...$increments): void
+    {
+        if ($increments === []) {
+            return;
+        }
+
+        /** @var array<string, ContentViewIncrement> $aggregated */
+        $aggregated = [];
+        foreach ($increments as $increment) {
+            $key = $increment->key();
+            $existing = $aggregated[$key] ?? null;
+            $aggregated[$key] = $existing instanceof ContentViewIncrement
+                ? new ContentViewIncrement(
+                    $increment->contentId,
+                    $increment->day,
+                    $existing->views + $increment->views,
+                )
+                : $increment;
+        }
+
+        $table = $this->dbLayer->getPrefix() . ContentViewSchema::TABLE_NAME;
+        foreach (array_chunk(array_values($aggregated), 250) as $chunkIndex => $chunk) {
+            $parameters = [];
+            $values = [];
+            foreach ($chunk as $rowIndex => $increment) {
+                $parameterPrefix = 'view_' . $chunkIndex . '_' . $rowIndex . '_';
+                $values[] = sprintf(
+                    '(:%stype, :%sid, :%sday, :%scount)',
+                    $parameterPrefix,
+                    $parameterPrefix,
+                    $parameterPrefix,
+                    $parameterPrefix,
+                );
+                $parameters[$parameterPrefix . 'type'] = $increment->contentId->type->value;
+                $parameters[$parameterPrefix . 'id'] = $increment->contentId->value;
+                $parameters[$parameterPrefix . 'day'] = $increment->day;
+                $parameters[$parameterPrefix . 'count'] = $increment->views;
             }
+
+            $conflict = match (true) {
+                $this->dbLayer instanceof DbLayerPostgres => ' ON CONFLICT (content_type, content_id, day)'
+                    . ' DO UPDATE SET views = ' . $table . '.views + EXCLUDED.views',
+                $this->dbLayer instanceof DbLayerSqlite => ' ON CONFLICT (content_type, content_id, day)'
+                    . ' DO UPDATE SET views = views + excluded.views',
+                default => ' ON DUPLICATE KEY UPDATE views = views + VALUES(views)',
+            };
+            $this->dbLayer->query(
+                'INSERT INTO ' . $table . ' (content_type, content_id, day, views) VALUES '
+                . implode(', ', $values)
+                . $conflict,
+                $parameters,
+            );
+        }
+
+        foreach ($aggregated as $increment) {
+            $this->invalidateTotal($increment->contentId);
         }
     }
 
@@ -249,6 +261,34 @@ final class ContentViewRepository implements StatefulServiceInterface
         $this->totalCache->save($item);
 
         return $value;
+    }
+
+    private function invalidateTotal(ContentId $contentId): void
+    {
+        if (!$this->totalCache instanceof CacheItemPoolInterface) {
+            return;
+        }
+
+        $totalCache = $this->totalCache;
+        $cacheKey = $this->totalCacheKey($contentId);
+        $versionKey = $this->totalVersionKey($contentId);
+        if ($this->pdo instanceof PDO && $this->pdo->inTransaction()) {
+            // Keep the old committed value visible to concurrent readers. This
+            // request bypasses it below; COMMIT removes it for future requests.
+            $this->pendingTotalInvalidations[$cacheKey] = true;
+            $this->pdo->afterCommitOnce('content-view-total:' . (string)$contentId, function () use ($totalCache, $cacheKey, $versionKey): void {
+                $totalCache->deleteItem($cacheKey);
+                $totalCache->deleteItem($versionKey);
+                unset($this->pendingTotalInvalidations[$cacheKey]);
+            });
+            $this->pdo->afterRollbackOnce('content-view-total:' . (string)$contentId, function () use ($cacheKey): void {
+                unset($this->pendingTotalInvalidations[$cacheKey]);
+            });
+            return;
+        }
+
+        $totalCache->deleteItem($cacheKey);
+        $totalCache->deleteItem($versionKey);
     }
 
     /** @return list<int> */

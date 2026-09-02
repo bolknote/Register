@@ -158,6 +158,7 @@ final class ServiceModule implements ContainerModuleInterface
         ));
         $container->set(ContentViewResponseProcessor::class, static fn(Container $container): ContentViewResponseProcessor => new ContentViewResponseProcessor(
             $container->get(ContentViewRepository::class),
+            $container->get(\Register\Content\ContentViewRecorderInterface::class),
             $container->get(BotDetector::class),
             $container->get('register_blog_translator'),
         ), [ResponseProcessorInterface::class]);

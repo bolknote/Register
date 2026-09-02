@@ -16,6 +16,7 @@ use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Framework\RoutingModuleInterface;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
 use Register\Core\Template\TemplateAssetEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Routing\Route;
@@ -35,6 +36,9 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->getStringParameter('cookie_name'),
             $container->getStringParameter('base_path'),
         ));
+        $container->set(VisitorIdentityMaintenanceTask::class, static fn(Container $container): VisitorIdentityMaintenanceTask => new VisitorIdentityMaintenanceTask(
+            $container->get(VisitorIdentityRepository::class),
+        ), [ScheduledMaintenanceTaskInterface::class]);
         $container->set(JsonMutationGuard::class, new JsonMutationGuard());
         $container->set(ResolveVisitorController::class, static fn(Container $container): ResolveVisitorController => new ResolveVisitorController(
             $container->get(VisitorIdentityManager::class),

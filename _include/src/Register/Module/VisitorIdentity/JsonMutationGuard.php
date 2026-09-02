@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 /** Keeps cookie-backed JSON mutations same-origin without a per-page CSRF token. */
 final class JsonMutationGuard
 {
-    public function violation(Request $request): ?JsonResponse
+    public function violation(Request $request, bool $requireBrowserEvidence = false): ?JsonResponse
     {
         $contentType = strtolower($request->headers->get('Content-Type', '') ?? '');
         if (!str_starts_with($contentType, 'application/json')) {
@@ -38,6 +38,13 @@ final class JsonMutationGuard
         if ($origin !== '' && !hash_equals(strtolower($request->getSchemeAndHttpHost()), strtolower($origin))) {
             return new JsonResponse(
                 ['success' => false, 'message' => 'The request origin is not allowed.'],
+                Response::HTTP_FORBIDDEN,
+            );
+        }
+
+        if ($requireBrowserEvidence && $fetchSite === '' && $origin === '') {
+            return new JsonResponse(
+                ['success' => false, 'message' => 'A browser same-origin request is required.'],
                 Response::HTTP_FORBIDDEN,
             );
         }

@@ -215,7 +215,8 @@ final class SocialFeedsAndRankingCest
         $I->sendRequestWithHeaders('/old-popular-post', ['User-Agent' => 'Googlebot/2.1']);
         $I->assertSame($before, $views->total(ContentId::post($oldPopularId)));
         $I->sendRequestWithHeaders('/old-popular-post', ['User-Agent' => 'Mozilla/5.0 Register integration']);
-        $I->assertSame($before + 1, $views->total(ContentId::post($oldPopularId)));
+        // Public requests spool the increment and never block on the database write.
+        $I->assertSame($before, $views->total(ContentId::post($oldPopularId)));
 
         $dbLayer->delete(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $normalId)

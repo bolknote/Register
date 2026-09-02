@@ -12,6 +12,7 @@ namespace unit\Register\Content;
 use Codeception\Test\Unit;
 use Register\Content\ContentId;
 use Register\Content\ContentViewRepository;
+use Register\Content\ContentViewIncrement;
 use Register\Core\Pdo\DbLayerSqlite;
 use Register\Core\Pdo\PDO;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -59,6 +60,23 @@ final class ContentViewRepositoryTest extends Unit
         $pdo->rollBack();
 
         self::assertSame(1, $repository->total($contentId));
+    }
+
+    public function testAggregatesAWholeBatchIntoOneUpsert(): void
+    {
+        [$repository, , $pdo] = $this->repository();
+        $contentId = ContentId::post(9);
+
+        $pdo->clearState();
+        $repository->recordBatch(
+            new ContentViewIncrement($contentId, '2026-08-30', 2),
+            new ContentViewIncrement($contentId, '2026-08-30', 3),
+            new ContentViewIncrement(ContentId::page(10), '2026-08-30', 4),
+        );
+
+        self::assertSame(1, $pdo->getQueryCount());
+        self::assertSame(5, $repository->total($contentId));
+        self::assertSame(4, $repository->total(ContentId::page(10)));
     }
 
     /** @return array{ContentViewRepository, ArrayAdapter, PDO} */

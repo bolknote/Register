@@ -30,6 +30,8 @@ use Register\Controller\Comment\CommentStrategyInterface;
 use Register\Controller\Comment\PendingEmailCommentServiceInterface;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerModuleInterface;
+use Register\Core\Framework\StatefulServiceInterface;
+use Register\Core\Http\Cache\PageCachePools;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\Mail\ApplicationMailerInterface;
 use Register\Core\Mail\MailSettings;
@@ -37,6 +39,7 @@ use Register\Core\Model\AuthProvider;
 use Register\Core\Model\LoginRateLimiter;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\PDO as TrackedPDO;
 use Register\Core\Security\Audit\SecurityAuditLogger;
 use Register\Core\Template\HtmlTemplateProvider;
 use Register\Core\Template\Viewer;
@@ -68,10 +71,20 @@ final readonly class PublicAuthModule implements ContainerModuleInterface
         $container->set(PublicAuthRepository::class, static fn(Container $container): PublicAuthRepository => new PublicAuthRepository(
             $container->get(DbLayer::class),
         ));
-        $container->set(CommentNotificationRepository::class, static fn(Container $container): CommentNotificationRepository => new CommentNotificationRepository(
-            $container->get(DbLayer::class),
-            $container->get(PublicAuthRepository::class),
-        ));
+        $container->set(CommentNotificationRepository::class, static function (Container $container): CommentNotificationRepository {
+            $pdo = $container->get(\PDO::class);
+            if (!$pdo instanceof TrackedPDO) {
+                throw new \LogicException("Comment notification caching requires Register's transaction-aware PDO service.");
+            }
+
+            return new CommentNotificationRepository(
+                $container->get(DbLayer::class),
+                $container->get(PublicAuthRepository::class),
+                $container->get(PageCachePools::class)->hot,
+                $pdo,
+                $container->getBoolParameter('disable_cache'),
+            );
+        }, [StatefulServiceInterface::class]);
         $container->set(PublicOAuthClient::class, static fn(Container $container): PublicOAuthClient => new PublicOAuthClient(
             $container->get(HttpClient::class),
             $container->get(PublicAuthSettings::class),

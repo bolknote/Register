@@ -11,7 +11,9 @@ namespace integration;
 
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Content\PageContentSource;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\PDO;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ContentSitemapCest
@@ -41,6 +43,9 @@ final class ContentSitemapCest
         $I->assertNotNull($indexEtag);
         $I->sendRequestWithHeaders('/sitemap.xml', ['If-None-Match' => $indexEtag]);
         $I->seeResponseCodeIs(Response::HTTP_NOT_MODIFIED);
+        /** @var PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        $I->assertSame([], $pdo->getQueryLog(), 'A cached sitemap index must not query the database.');
 
         $I->amOnPage('/sitemap-1.xml');
         $I->seeResponseCodeIs(Response::HTTP_OK);
@@ -61,9 +66,49 @@ final class ContentSitemapCest
         $I->assertNotNull($etag);
         $I->sendRequestWithHeaders('/sitemap-1.xml', ['If-None-Match' => $etag]);
         $I->seeResponseCodeIs(Response::HTTP_NOT_MODIFIED);
+        $I->assertSame([], $pdo->getQueryLog(), 'A cached sitemap part must not query the database.');
 
         $I->amOnPage('/sitemap-2.xml');
         $I->seeResponseCodeIs(Response::HTTP_NOT_FOUND);
+    }
+
+    public function traversesTheCompletePageTreeWithOneDatabaseQuery(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $parentId = $this->insertContent(
+            $dbLayer,
+            ContentType::PAGE,
+            'single-query-parent',
+            true,
+            1_700_001_000,
+            1_700_001_100,
+        );
+        $childId = $this->insertContent(
+            $dbLayer,
+            ContentType::PAGE,
+            'single-query-child',
+            true,
+            1_700_001_200,
+            1_700_001_300,
+            $parentId,
+        );
+
+        /** @var PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        $pdo->cleanLogs();
+        /** @var PageContentSource $source */
+        $source = $I->grabService(PageContentSource::class);
+        $items = iterator_to_array($source->published());
+
+        $I->assertSame(1, $pdo->getQueryCount(), 'A page tree crawl must not issue one SQL query per parent.');
+        $pathsById = [];
+        foreach ($items as $item) {
+            $pathsById[$item->id->value] = $item->path;
+        }
+
+        $I->assertSame('/single-query-parent/', $pathsById[$parentId] ?? null);
+        $I->assertSame('/single-query-parent/single-query-child', $pathsById[$childId] ?? null);
     }
 
     public function robotsTxtAdvertisesTheSitemap(\IntegrationTester $I): void
@@ -89,10 +134,11 @@ final class ContentSitemapCest
         bool        $published,
         int         $publishedAt,
         int         $updatedAt,
-    ): void {
+        ?int        $parentId = null,
+    ): int {
         $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
             'content_type' => ':content_type',
-            'parent_id'    => 'NULL',
+            'parent_id'    => ':parent_id',
             'slug_scope'   => $contentType === ContentType::POST ? "'root'" : "'main'",
             'slug'         => ':slug',
             'title'        => ':title',
@@ -104,11 +150,14 @@ final class ContentSitemapCest
             'published'    => ':published',
         ])->execute([
             'content_type' => $contentType->value,
+            'parent_id'    => $parentId,
             'slug'         => $slug,
             'title'        => $slug,
             'published_at' => $publishedAt,
             'updated_at'   => $updatedAt,
             'published'    => (int)$published,
         ]);
+
+        return (int)$dbLayer->insertId();
     }
 }

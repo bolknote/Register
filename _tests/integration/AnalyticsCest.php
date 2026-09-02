@@ -88,7 +88,8 @@ final class AnalyticsCest
 
         /** @var VisitorIdentityRepository $visitorRepository */
         $visitorRepository = $I->grabService(VisitorIdentityRepository::class);
-        $I->assertSame(1, $visitorRepository->totalVisitors());
+        // Merely issuing or restoring a signed browser token must not grow the database.
+        $I->assertSame(0, $visitorRepository->totalVisitors());
 
         $sessionId = bin2hex(random_bytes(16));
         $this->sendPageView($I, '/', $sessionId, headers: $headers);
@@ -226,6 +227,7 @@ final class AnalyticsCest
             'trackPage' => false,
         ], headers: [
             'DNT'        => '1',
+            'Origin'     => 'https://localhost',
             'Sec-GPC'    => '1',
             'User-Agent' => 'Register privacy test',
         ]);

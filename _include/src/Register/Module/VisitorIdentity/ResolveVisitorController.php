@@ -37,7 +37,7 @@ final readonly class ResolveVisitorController implements ControllerInterface
             );
         }
 
-        $violation = $this->mutationGuard->violation($request);
+        $violation = $this->mutationGuard->violation($request, requireBrowserEvidence: true);
         if ($violation instanceof JsonResponse) {
             return $violation;
         }

@@ -17,6 +17,7 @@ use Register\Module\BaseModuleRegistry;
 use Register\Schema\CommentPrivacySchemaMigration;
 use Register\Schema\ContentAuthorIndexSchemaMigration;
 use Register\Schema\ContentMediaSchemaMigration;
+use Register\Schema\ContentViewSpoolSchemaMigration;
 use Register\Schema\PendingCommentSpamSchemaMigration;
 use Register\Schema\ExternalImportSchemaMigration;
 use Register\Schema\PublicAuthSchemaMigration;
@@ -105,6 +106,11 @@ final readonly class SchemaModule implements ContainerModuleInterface
         $container->set(
             AnalyticsWebVitalsSchemaMigration::class,
             new AnalyticsWebVitalsSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            ContentViewSpoolSchemaMigration::class,
+            new ContentViewSpoolSchemaMigration(),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

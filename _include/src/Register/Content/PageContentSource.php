@@ -84,53 +84,63 @@ final readonly class PageContentSource implements ContentSourceInterface
     #[\Override]
     public function published(): \Generator
     {
-        yield from $this->crawl(ArticleProvider::ROOT_ID, []);
-    }
-
-    /**
-     * @throws DbLayerException
-     * @param list<string> $parentSegments
-     * @return \Generator<int, ContentItem>
-     */
-    private function crawl(int $parentId, array $parentSegments): \Generator
-    {
-        $childrenQuery = $this->dbLayer
-            ->select('1')
-            ->from(ContentSchema::TABLE_NAME . ' AS child')
-            ->where('child.parent_id = page.id')
-            ->andWhere("child.content_type = '" . ContentType::PAGE->value . "'")
-            ->andWhere('child.published = 1')
-            ->limit(1)
-            ->getSql()
-        ;
-
-        $query = $this->dbLayer
-            ->select('page.id, page.title, page.body, page.excerpt, page.slug, page.published_at, page.updated_at, page.comments_enabled, page.featured')
+        $result = $this->dbLayer
+            ->select('page.id, page.parent_id, page.title, page.body, page.excerpt, page.slug, page.published_at, page.updated_at, page.comments_enabled, page.featured')
             ->addSelect('page.meta_keywords, page.meta_description, page.social_image, page.author_id')
             ->addSelect('(' . $this->authorNameQuery() . ') AS author')
-            ->addSelect('(' . $childrenQuery . ') IS NOT NULL AS has_children')
             ->from(ContentSchema::TABLE_NAME . ' AS page')
             ->where("page.content_type = '" . ContentType::PAGE->value . "'")
             ->andWhere('page.published = 1')
             ->orderBy('page.id')
+            ->execute()
         ;
 
-        if ($parentId === ArticleProvider::ROOT_ID) {
-            $query->andWhere('page.parent_id IS NULL');
-        } else {
-            $query->andWhere('page.parent_id = :parent_id')->setParameter('parent_id', $parentId);
+        /** @var array<int, list<array<string, mixed>>> $pagesByParent */
+        $pagesByParent = [];
+        while (($page = $result->fetchAssoc()) !== false) {
+            $parentId = $page['parent_id'] === null
+                ? ArticleProvider::ROOT_ID
+                : (int)$page['parent_id'];
+            $pagesByParent[$parentId][] = $page;
         }
 
-        $result = $query->execute();
+        $visited = [];
+        yield from $this->crawl($pagesByParent, ArticleProvider::ROOT_ID, [], $visited);
+    }
 
-        while ($page = $result->fetchAssoc()) {
+    /**
+     * Traverses an already loaded tree. The previous recursive SQL implementation issued one
+     * query per parent page, which made a complete content crawl need hundreds of round trips.
+     *
+     * @param array<int, list<array<string, mixed>>> $pagesByParent
+     * @param list<string> $parentSegments
+     * @param array<int, true> $visited
+     * @return \Generator<int, ContentItem>
+     */
+    private function crawl(
+        array $pagesByParent,
+        int   $parentId,
+        array $parentSegments,
+        array &$visited,
+    ): \Generator
+    {
+        foreach ($pagesByParent[$parentId] ?? [] as $page) {
+            $pageId = (int)$page['id'];
+            if (isset($visited[$pageId])) {
+                continue;
+            }
+
+            $visited[$pageId] = true;
             $slug     = (string)$page['slug'];
             $segments = $slug === '' ? $parentSegments : [...$parentSegments, $slug];
-            $path     = $this->contentUrlGenerator->pagePathFromSegments($segments, (bool)$page['has_children']);
+            $path     = $this->contentUrlGenerator->pagePathFromSegments(
+                $segments,
+                isset($pagesByParent[$pageId]),
+            );
 
             $timestamp = $page['published_at'] === null ? 0 : (int)$page['published_at'];
             yield new ContentItem(
-                id: ContentId::page((int)$page['id']),
+                id: ContentId::page($pageId),
                 title: (string)$page['title'],
                 body: (string)$page['body'],
                 path: $path,
@@ -146,7 +156,7 @@ final readonly class PageContentSource implements ContentSourceInterface
                 socialImage: (string)$page['social_image'],
             );
 
-            yield from $this->crawl((int)$page['id'], $segments);
+            yield from $this->crawl($pagesByParent, $pageId, $segments, $visited);
         }
     }
 

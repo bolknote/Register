@@ -640,6 +640,13 @@ final class PublicAuthCest
         $I->assertSame(['shown' => 0, 'sent' => 0, 'deleted' => 0], $pendingState);
 
         $I->assertSame(4, $notifications->countUnread($user));
+        /** @var \Register\Core\Pdo\PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        $pdo->cleanLogs();
+
+        $I->assertSame($pendingComment, $notifications->firstUnread($user)?->commentId);
+        $I->assertSame([], $pdo->getQueryLog(), 'The count and first notification must share one snapshot.');
+
         $I->assertSame(3, $notifications->countUnread(new AuthenticatedPublicUser(
             $user->id,
             $user->login,
@@ -652,7 +659,7 @@ final class PublicAuthCest
             false,
             $user->sessionHash,
         )));
-        $I->assertSame($pendingComment, $notifications->firstUnread($user)?->commentId);
+        $I->assertSame($pendingComment, $notifications->firstUnread($user)->commentId);
 
         $notifications->markContentRead($user, ContentId::page($unrelatedId));
         $I->assertSame(4, $notifications->countUnread($user));
@@ -664,8 +671,10 @@ final class PublicAuthCest
             ->where('id = :id')->setParameter('id', $pendingComment)
             ->execute()
         ;
+        // Direct test writes deliberately bypass CommentRepository and its CommentChangedEvent.
+        $notifications->invalidateAll();
         $I->assertSame(3, $notifications->countUnread($user));
-        $I->assertSame($ownedComment, $notifications->firstUnread($user)->commentId);
+        $I->assertSame($ownedComment, $notifications->firstUnread($user)?->commentId);
 
         $notifications->markContentRead($user, ContentId::page($ownedId));
         $I->assertSame(2, $notifications->countUnread($user));
@@ -743,6 +752,8 @@ final class PublicAuthCest
             ->where('id = :id')->setParameter('id', $pendingComment)
             ->execute()
         ;
+        // Direct test writes deliberately bypass CommentRepository and its CommentChangedEvent.
+        $notifications->invalidateAll();
         $I->assertSame(0, $notifications->countUnread($user));
     }
 

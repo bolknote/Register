@@ -13,7 +13,7 @@ use Register\Comment\CommentChangedEvent;
 use Register\Comment\CommentMutationSource;
 use Register\Content\ContentChangedEvent;
 use Register\Content\ContentRenderedEvent;
-use Register\Content\ContentViewRepository;
+use Register\Content\ContentViewRecorderInterface;
 use Register\Module\Analytics\BotDetector;
 use Register\Module\Blog\Controller\FlatContentController;
 use Register\Module\Blog\Model\BlogPageCache;
@@ -71,7 +71,7 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
                 return;
             }
 
-            $container->get(ContentViewRepository::class)->record($event->contentId);
+            $container->get(ContentViewRecorderInterface::class)->record($event->contentId);
         });
 
         $eventDispatcher->addListener(TemplateEvent::EVENT_PRE_REPLACE, static function (TemplateEvent $event) use ($container): void {

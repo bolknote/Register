@@ -17,8 +17,14 @@ use Register\Content\ContentPublicationScheduler;
 use Register\Content\ContentRepository;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentStatisticsRepository;
+use Register\Content\ContentSitemapCache;
 use Register\Content\ContentType;
 use Register\Content\ContentViewRepository;
+use Register\Content\ContentViewMaintenanceTask;
+use Register\Content\ContentViewRecorderInterface;
+use Register\Content\ContentViewSpool;
+use Register\Content\ContentViewSpoolProcessor;
+use Register\Content\ContentViewSpoolRecorder;
 use Register\Content\Admin\ContentRevisionService;
 use Register\Content\Controller\ContentSitemapController;
 use Register\Content\Controller\RobotsTxtController;
@@ -36,6 +42,8 @@ use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\PDO as TrackedPDO;
 use Register\Core\Queue\QueueHandlerInterface;
 use Register\Core\Queue\QueuePublisher;
+use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
@@ -53,6 +61,45 @@ final readonly class ContentModule implements ContainerModuleInterface
             return new ContentViewRepository(
                 $container->get(DbLayer::class),
                 new FilesystemAdapter('content_view_totals', 0, $container->getStringParameter('cache_dir')),
+                $pdo,
+            );
+        }, [StatefulServiceInterface::class]);
+        $container->set(ContentViewSpool::class, static fn(Container $container): ContentViewSpool => new ContentViewSpool(
+            $container->getStringParameter('cache_dir') . 'content-view-spool',
+            minimumSegmentAge: getenv('APP_ENV') === 'test' ? 0 : 10,
+        ));
+        $container->set(ContentViewSpoolProcessor::class, static function (Container $container): ContentViewSpoolProcessor {
+            $pdo = $container->get(\PDO::class);
+            if (!$pdo instanceof TrackedPDO) {
+                throw new \LogicException("Content-view spool processing requires Register's transaction-aware PDO service.");
+            }
+
+            return new ContentViewSpoolProcessor(
+                $pdo,
+                $container->get(DbLayer::class),
+                $container->get(ContentViewRepository::class),
+                $container->get(ContentViewSpool::class),
+                $container->get(LoggerInterface::class),
+            );
+        });
+        $container->set(ContentViewRecorderInterface::class, static fn(Container $container): ContentViewRecorderInterface => new ContentViewSpoolRecorder(
+            $container->get(ContentViewSpool::class),
+            $container->get(ContentViewRepository::class),
+            $container->get(LoggerInterface::class),
+        ));
+        $container->set(ContentViewMaintenanceTask::class, static fn(Container $container): ContentViewMaintenanceTask => new ContentViewMaintenanceTask(
+            $container->get(ContentViewSpool::class),
+            $container->get(ContentViewSpoolProcessor::class),
+        ), [ScheduledMaintenanceTaskInterface::class]);
+        $container->set(ContentSitemapCache::class, static function (Container $container): ContentSitemapCache {
+            $pdo = $container->get(\PDO::class);
+            if (!$pdo instanceof TrackedPDO) {
+                throw new \LogicException("Content sitemap caching requires Register's transaction-aware PDO service.");
+            }
+
+            return new ContentSitemapCache(
+                new FilesystemAdapter('content_sitemap', 0, $container->getStringParameter('cache_dir')),
+                $container->getBoolParameter('disable_cache'),
                 $pdo,
             );
         }, [StatefulServiceInterface::class]);
@@ -101,6 +148,7 @@ final readonly class ContentModule implements ContainerModuleInterface
             $container->get(ContentRepository::class),
             $container->get(ContentUrlGenerator::class),
             $container->get('strict_viewer'),
+            $container->get(ContentSitemapCache::class),
             ContentType::PAGE,
             ContentType::POST,
         ));
