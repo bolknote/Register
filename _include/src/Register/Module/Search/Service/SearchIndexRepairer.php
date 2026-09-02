@@ -21,10 +21,12 @@ use Register\Rose\Storage\Database\PdoStorage;
 use Register\Rose\Storage\Exception\EmptyIndexException;
 
 /**
- * Plans a complete index reconciliation through durable, independently retryable queue jobs.
+ * Reconciles the complete index through a durable, resumable queue cursor.
  *
  * The live index is never erased before replacement documents are ready. A transient database
- * lock therefore delays work instead of leaving search empty or permanently half-built.
+ * lock therefore delays work instead of leaving search empty or permanently half-built. Each
+ * queue slice indexes as many documents as fit its execution budget and persists the next offset
+ * before returning.
  */
 final readonly class SearchIndexRepairer implements QueueHandlerInterface
 {
@@ -36,10 +38,14 @@ final readonly class SearchIndexRepairer implements QueueHandlerInterface
 
     private const int BATCH_SIZE = 50;
 
+    /** Leaves enough time in an HTTP shutdown slice to persist the continuation cursor. */
+    private const float INDEX_TIME_RESERVE_SECONDS = 0.75;
+
     public function __construct(
         private ContentRepository      $contentRepository,
         private PdoStorage             $pdoStorage,
         private Indexer                $indexer,
+        private SearchDocumentFactory  $documentFactory,
         private CacheItemPoolInterface $recommendationsCache,
         private QueuePublisher         $queuePublisher,
     ) {
@@ -100,31 +106,34 @@ final readonly class SearchIndexRepairer implements QueueHandlerInterface
         }
 
         $position = 0;
-        $queued   = 0;
+        $indexed  = 0;
         $hasMore  = false;
         foreach ($this->contentRepository->published() as $content) {
             if ($position++ < $offset) {
                 continue;
             }
 
-            if ($queued >= self::BATCH_SIZE) {
+            if ($indexed >= self::BATCH_SIZE
+                || !$budget->canStart(self::INDEX_TIME_RESERVE_SECONDS)
+            ) {
                 $hasMore = true;
                 break;
             }
 
-            $budget->checkpoint(0.02);
-            $this->queuePublisher->publish((string)$content->id, ContentIndexer::QUEUE_CODE);
-            ++$queued;
+            $this->indexer->index($this->documentFactory->create($content));
+            ++$indexed;
         }
 
         if ($hasMore) {
-            $budget->checkpoint(0.02);
+            // Persisting progress is mandatory even when indexing consumed most of the soft
+            // budget. Throwing here would retry the same prefix forever on a slow shared host.
             $this->queuePublisher->publish(
                 self::JOB_ID,
                 self::REPAIR_QUEUE_CODE,
-                ['offset' => $offset + $queued],
+                ['offset' => $offset + $indexed],
                 time() + 1,
             );
+            $this->recommendationsCache->deleteItem(RecommendationProvider::INVALIDATED_AT);
             return;
         }
 

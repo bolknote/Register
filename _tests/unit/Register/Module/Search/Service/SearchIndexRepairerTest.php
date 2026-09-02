@@ -16,6 +16,7 @@ use Register\Content\ContentRepository;
 use Register\Content\ContentSourceInterface;
 use Register\Content\ContentType;
 use Register\Module\Search\Service\ContentIndexer;
+use Register\Module\Search\Service\SearchDocumentFactory;
 use Register\Module\Search\Service\SearchIndexRepairer;
 use Register\Core\Queue\QueueExecutionBudget;
 use Register\Core\Queue\QueuePublisher;
@@ -27,7 +28,7 @@ use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 final class SearchIndexRepairerTest extends Unit
 {
-    public function testPlansRetryableBatchesWithoutErasingTheLiveIndex(): void
+    public function testIndexesRetryableBatchesWithoutErasingTheLiveIndex(): void
     {
         $pdo = new \PDO('sqlite::memory:');
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
@@ -48,6 +49,7 @@ final class SearchIndexRepairerTest extends Unit
             new ContentRepository(new RepairContentSource(...$content)),
             $storage,
             $indexer,
+            new SearchDocumentFactory(),
             new ArrayAdapter(),
             new QueuePublisher($pdo, ''),
         );
@@ -60,8 +62,8 @@ final class SearchIndexRepairerTest extends Unit
             new QueueExecutionBudget(5.0),
         );
 
-        self::assertSame(1, $storage->getTocSize(null), 'Planning must not erase the usable index.');
-        self::assertSame(50, $this->jobCount($pdo, ContentIndexer::QUEUE_CODE));
+        self::assertSame(51, $storage->getTocSize(null), 'Repair must retain the usable old document.');
+        self::assertSame(0, $this->jobCount($pdo, ContentIndexer::QUEUE_CODE));
         self::assertSame(
             '{"offset":50}',
             $this->jobPayload($pdo, SearchIndexRepairer::JOB_ID, SearchIndexRepairer::REPAIR_QUEUE_CODE),
@@ -74,11 +76,57 @@ final class SearchIndexRepairerTest extends Unit
             new QueueExecutionBudget(5.0),
         );
 
-        self::assertSame(51, $this->jobCount($pdo, ContentIndexer::QUEUE_CODE));
+        self::assertSame(0, $this->jobCount($pdo, ContentIndexer::QUEUE_CODE));
         self::assertSame(1, $this->jobCount($pdo, SearchIndexRepairer::REMOVE_QUEUE_CODE));
         self::assertSame(
             ':post:999',
             $this->jobId($pdo, SearchIndexRepairer::REMOVE_QUEUE_CODE),
+        );
+    }
+
+    public function testPersistsProgressBeforeAQueueSliceRunsOutOfTime(): void
+    {
+        $pdo = new \PDO('sqlite::memory:');
+        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        $this->createQueue($pdo);
+
+        $storage = new PdoStorage($pdo, 'search_');
+        $storage->erase();
+        $indexer = new Indexer($storage, new PorterStemmerEnglish());
+
+        $repairer = new SearchIndexRepairer(
+            new ContentRepository(new RepairContentSource(
+                new ContentItem(ContentId::post(1), 'Post 1', 'Body', '/post-1', null),
+                new ContentItem(ContentId::post(2), 'Post 2', 'Body', '/post-2', null),
+            )),
+            $storage,
+            $indexer,
+            new SearchDocumentFactory(),
+            new ArrayAdapter(),
+            new QueuePublisher($pdo, ''),
+        );
+
+        $repairer->schedule(100);
+        $clockValues = [0.0, 0.0, 0.0, 10.0];
+        $clockIndex  = 0;
+        $budget = new QueueExecutionBudget(
+            5.0,
+            static function () use (&$clockValues, &$clockIndex): float {
+                return $clockValues[$clockIndex++] ?? 10.0;
+            },
+        );
+
+        $repairer->handle(
+            SearchIndexRepairer::JOB_ID,
+            SearchIndexRepairer::REPAIR_QUEUE_CODE,
+            ['offset' => 0],
+            $budget,
+        );
+
+        self::assertSame(1, $storage->getTocSize(null));
+        self::assertSame(
+            '{"offset":1}',
+            $this->jobPayload($pdo, SearchIndexRepairer::JOB_ID, SearchIndexRepairer::REPAIR_QUEUE_CODE),
         );
     }
 

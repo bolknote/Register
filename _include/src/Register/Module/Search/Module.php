@@ -142,6 +142,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(ContentRepository::class),
             $container->get(PdoStorage::class),
             $container->get(Indexer::class),
+            $container->get(SearchDocumentFactory::class),
             $container->get('recommendations_cache'),
             $container->get(QueuePublisher::class),
         ), [QueueHandlerInterface::class]);
