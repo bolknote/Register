@@ -92,6 +92,7 @@ final class SearchIndexRepairerTest extends Unit
 
         $storage = new PdoStorage($pdo, 'search_');
         $storage->erase();
+
         $indexer = new Indexer($storage, new PorterStemmerEnglish());
 
         $repairer = new SearchIndexRepairer(
@@ -107,6 +108,7 @@ final class SearchIndexRepairerTest extends Unit
         );
 
         $repairer->schedule(100);
+
         $clockValues = [0.0, 0.0, 0.0, 10.0];
         $budget = new QueueExecutionBudget(
             5.0,
