@@ -38,6 +38,7 @@ final class NativeVolatileCacheEnvironmentTest extends TestCase
         $environment = new NativeVolatileCacheEnvironment(
             [$this->temporaryDirectory . '/memory'],
             new MemoryFilesystemInspector($mountInfo),
+            true,
         );
 
         $directory = $environment->tmpfsDirectory($this->temporaryDirectory . '/application');
@@ -58,6 +59,17 @@ final class NativeVolatileCacheEnvironmentTest extends TestCase
         $environment = new NativeVolatileCacheEnvironment(
             [$this->temporaryDirectory . '/memory'],
             new MemoryFilesystemInspector($this->mountInfo('ext4')),
+            true,
+        );
+
+        self::assertNull($environment->tmpfsDirectory($this->temporaryDirectory . '/application'));
+    }
+
+    public function testCliRequiresAnExplicitTmpfsOptIn(): void
+    {
+        $environment = new NativeVolatileCacheEnvironment(
+            [$this->temporaryDirectory . '/memory'],
+            new MemoryFilesystemInspector($this->mountInfo('tmpfs')),
         );
 
         self::assertNull($environment->tmpfsDirectory($this->temporaryDirectory . '/application'));

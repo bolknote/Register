@@ -39,7 +39,9 @@ final readonly class SecureVolatileCacheDirectory
             return false;
         }
 
-        if (\function_exists('posix_geteuid') && $stat['uid'] !== posix_geteuid()) {
+        // The application files and its private cache must belong to the same shared-hosting
+        // account. This core PHP check deliberately avoids requiring the optional POSIX extension.
+        if ($stat['uid'] !== getmyuid()) {
             return false;
         }
 

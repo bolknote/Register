@@ -18,6 +18,7 @@ final readonly class NativeVolatileCacheEnvironment implements VolatileCacheEnvi
     public function __construct(
         private array $tmpfsCandidates = ['/dev/shm', '/run/shm'],
         private ?MemoryFilesystemInspector $filesystemInspector = null,
+        private bool $allowCliTmpfs = false,
     ) {
     }
 
@@ -35,6 +36,12 @@ final readonly class NativeVolatileCacheEnvironment implements VolatileCacheEnvi
     #[\Override]
     public function tmpfsDirectory(string $applicationRoot): ?SecureVolatileCacheDirectory
     {
+        // Page responses are produced by the web SAPI. Keeping CLI processes out of this tier also
+        // prevents test runners and maintenance commands from sharing web-cache state accidentally.
+        if (PHP_SAPI === 'cli' && !$this->allowCliTmpfs) {
+            return null;
+        }
+
         $inspector = $this->filesystemInspector ?? new MemoryFilesystemInspector();
         foreach ($this->tmpfsCandidates as $candidate) {
             $root = realpath($candidate);
@@ -51,7 +58,7 @@ final readonly class NativeVolatileCacheEnvironment implements VolatileCacheEnvi
 
             $application = realpath($applicationRoot);
             $application = $application === false ? rtrim($applicationRoot, '/\\') : $application;
-            $userId = \function_exists('posix_geteuid') ? (string)posix_geteuid() : (string)getmyuid();
+            $userId = (string)getmyuid();
             $directory = new SecureVolatileCacheDirectory(
                 $root . '/register-cache-' . $userId . '-' . substr(hash('sha256', $application), 0, 16),
             );
