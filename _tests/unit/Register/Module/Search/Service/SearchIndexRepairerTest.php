@@ -108,11 +108,10 @@ final class SearchIndexRepairerTest extends Unit
 
         $repairer->schedule(100);
         $clockValues = [0.0, 0.0, 0.0, 10.0];
-        $clockIndex  = 0;
         $budget = new QueueExecutionBudget(
             5.0,
-            static function () use (&$clockValues, &$clockIndex): float {
-                return $clockValues[$clockIndex++] ?? 10.0;
+            static function () use (&$clockValues): float {
+                return (float)array_shift($clockValues);
             },
         );
 
