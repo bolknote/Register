@@ -11,7 +11,7 @@ namespace Register\Core\Http\Cache;
 
 use Symfony\Contracts\Cache\CacheInterface;
 
-/** Separates the durable page-cache pool from its small shared-memory hot tier. */
+/** Separates the durable page-cache pool from its bounded encrypted volatile tiers. */
 final readonly class PageCachePools
 {
     public function __construct(
@@ -20,6 +20,8 @@ final readonly class PageCachePools
         public string         $filesystemDirectory,
         public bool           $sharedMemoryEnabled,
         public ?string        $sharedMemoryNamespace,
+        public ?string        $tmpfsDirectory,
+        public bool           $volatileEncryptionEnabled,
     ) {
     }
 }

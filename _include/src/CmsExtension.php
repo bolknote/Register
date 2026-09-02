@@ -58,6 +58,7 @@ use Register\Core\Http\TrustedProxyConfigurator;
 use Register\Core\Http\Cache\PageCacheGarbageCollector;
 use Register\Core\Http\Cache\PageCachePoolFactory;
 use Register\Core\Http\Cache\PageCachePools;
+use Register\Core\Http\Cache\VolatileCacheEncryptionKeyProvider;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\HttpClient\Remote\HostResolverInterface;
 use Register\Core\HttpClient\Remote\NativeHostResolver;
@@ -203,8 +204,15 @@ class CmsExtension implements ExtensionInterface
             $container->get(SqlQueryTemplateSanitizer::class),
             $container->getFloatParameter('boot_timestamp'),
         ), [StatefulServiceInterface::class]);
+        $container->set(
+            VolatileCacheEncryptionKeyProvider::class,
+            fn(Container $container): VolatileCacheEncryptionKeyProvider => new VolatileCacheEncryptionKeyProvider(
+                $container->get(DynamicSecretStore::class),
+            ),
+        );
         $container->set(PageCachePoolFactory::class, fn(Container $container): PageCachePoolFactory => new PageCachePoolFactory(
             $container->get(LoggerInterface::class),
+            keyProvider: $container->get(VolatileCacheEncryptionKeyProvider::class),
         ));
         $container->set(PageCachePools::class, fn(Container $container): PageCachePools => $container
             ->get(PageCachePoolFactory::class)
@@ -229,6 +237,7 @@ class CmsExtension implements ExtensionInterface
                 MailSettings::DKIM_PRIVATE_KEY_CONFIG_KEY,
             ]);
             $registry->registerExtensionPrivate(MailDeliveryLog::HASH_SECRET_KEY);
+            $registry->registerExtensionPrivate(VolatileCacheEncryptionKeyProvider::SECRET_NAME);
             foreach ($container->getByTag(DynamicSecretProviderInterface::class) as $provider) {
                 foreach ($provider->managedNames() as $parameterName) {
                     $registry->registerManaged($parameterName);

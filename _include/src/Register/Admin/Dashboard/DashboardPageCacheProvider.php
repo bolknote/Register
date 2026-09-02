@@ -29,7 +29,21 @@ final readonly class DashboardPageCacheProvider implements SystemStatusProviderI
             'filesystemDirectory' => $this->pools->filesystemDirectory,
             'sharedMemoryEnabled' => $this->pools->sharedMemoryEnabled,
             'sharedMemoryInfo'    => $this->sharedMemoryInfo(),
+            'tmpfsInfo'           => $this->tmpfsInfo(),
+            'hotCacheDescription' => $this->hotCacheDescription(),
+            'volatileEncryptionEnabled' => $this->pools->volatileEncryptionEnabled,
         ]);
+    }
+
+    private function hotCacheDescription(): string
+    {
+        return match (true) {
+            $this->pools->sharedMemoryEnabled && $this->pools->tmpfsDirectory !== null
+                => 'Encrypted APCu and tmpfs page cache enabled',
+            $this->pools->sharedMemoryEnabled => 'Encrypted APCu page cache enabled',
+            $this->pools->tmpfsDirectory !== null => 'Encrypted tmpfs page cache enabled',
+            default => 'Volatile page cache unavailable',
+        };
     }
 
     /**
@@ -113,6 +127,46 @@ final readonly class DashboardPageCacheProvider implements SystemStatusProviderI
         }
 
         return ['bytes' => $bytes, 'entries' => $entries];
+    }
+
+    /** @return array{total:int, available:int, bytes:int, entries:int}|null */
+    private function tmpfsInfo(): ?array
+    {
+        $directory = $this->pools->tmpfsDirectory;
+        if ($directory === null || !is_dir($directory) || is_link($directory)) {
+            return null;
+        }
+
+        $total     = register_call_without_warnings(static fn(): float|false => disk_total_space($directory));
+        $available = register_call_without_warnings(static fn(): float|false => disk_free_space($directory));
+        if ($total === false || $available === false) {
+            return null;
+        }
+
+        $bytes   = 0;
+        $entries = 0;
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
+            );
+            foreach ($iterator as $file) {
+                if (!$file instanceof \SplFileInfo || !$file->isFile() || $file->isLink()) {
+                    continue;
+                }
+
+                $bytes += max(0, $file->getSize());
+                ++$entries;
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return [
+            'total'     => max(0, (int)$total),
+            'available' => max(0, (int)$available),
+            'bytes'     => $bytes,
+            'entries'   => $entries,
+        ];
     }
 
     /** @return class-string|null */

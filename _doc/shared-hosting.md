@@ -156,6 +156,22 @@ Request-dependent reply forms and exact view totals are hydrated after the share
 selected. Consequently query parameters that do not affect a route do not create extra cache
 copies, while a cached material still records a real human view and displays the current counter.
 
+### Volatile cache tiers
+
+The persistent filesystem remains the authoritative cache tier on every host. When available,
+Register places the bounded hot set in `APCu → tmpfs → filesystem` order. If APCu is missing, the
+same code automatically uses `tmpfs → filesystem`; if neither volatile backend is safe and usable,
+it uses the filesystem alone. `/dev/shm` and `/run/shm` are accepted only after the runtime verifies
+the memory-backed mount and creates an account- and installation-specific directory owned by the
+PHP user with mode `0700`.
+
+Values written to APCu or tmpfs are authenticated and encrypted with XChaCha20-Poly1305. The
+installation-specific 256-bit key lives in the protected dynamic secret file, never in the database
+or shared-memory directory. Tampering, a missing mount, permission changes, or key rotation becomes
+an ordinary cache miss: Register reads the durable copy and repopulates the usable fast tiers. Old
+tmpfs namespaces are removed during a key or cache-format rotation. **System status → Page cache**
+shows which tiers are active, their usage, and whether volatile encryption is enabled.
+
 ## Updating an existing site
 
 After the first updater-capable release has been installed, use **System → Software update** in the

@@ -11,6 +11,9 @@
  *     entries:int,
  *     application:array{bytes:int, entries:int}|null
  * }|null $sharedMemoryInfo
+ * @var array{total:int, available:int, bytes:int, entries:int}|null $tmpfsInfo
+ * @var string $hotCacheDescription
+ * @var bool $volatileEncryptionEnabled
  */
 ?>
 <div class="stat-item page-cache-stat-item">
@@ -34,7 +37,10 @@
         <div>
             <dt><?= $trans('Hot page cache') ?></dt>
             <dd>
-                <?= $trans($sharedMemoryEnabled ? 'APCu page cache enabled' : 'APCu page cache unavailable') ?>
+                <?= $trans($hotCacheDescription) ?>
+                <?php if ($volatileEncryptionEnabled): ?>
+                    <small class="technical-data"><?= $trans('Volatile page cache encryption enabled') ?></small>
+                <?php endif; ?>
                 <?php if ($sharedMemoryInfo !== null): ?>
                     <small class="technical-data"><?= $trans('APCu memory usage', [
                         '{{ used }}'      => $friendlyFilesize(max(0, $sharedMemoryInfo['total'] - $sharedMemoryInfo['available'])),
@@ -48,6 +54,14 @@
                             '{{ entries }}' => $sharedMemoryInfo['application']['entries'],
                         ]) ?></small>
                     <?php endif; ?>
+                <?php endif; ?>
+                <?php if ($tmpfsInfo !== null): ?>
+                    <small class="technical-data"><?= $trans('tmpfs memory usage', [
+                        '{{ used }}'      => $friendlyFilesize($tmpfsInfo['bytes']),
+                        '{{ total }}'     => $friendlyFilesize($tmpfsInfo['total']),
+                        '{{ available }}' => $friendlyFilesize($tmpfsInfo['available']),
+                        '{{ entries }}'   => $tmpfsInfo['entries'],
+                    ]) ?></small>
                 <?php endif; ?>
             </dd>
         </div>

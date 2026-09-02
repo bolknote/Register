@@ -10,11 +10,10 @@ declare(strict_types = 1);
 namespace Register\Core\Http\Cache;
 
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Cache\Adapter\ApcuAdapter;
 use Symfony\Component\Cache\Adapter\ChainAdapter;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 
-/** Builds a portable filesystem page cache with an optional APCu tier for bounded hot data. */
+/** Builds a durable page cache with encrypted APCu and tmpfs tiers when the host supports them. */
 final readonly class PageCachePoolFactory
 {
     /**
@@ -27,8 +26,14 @@ final readonly class PageCachePoolFactory
 
     private const string SHARED_MEMORY_NAMESPACE_PREFIX = 'register_pages_';
 
-    public function __construct(private ?LoggerInterface $logger = null)
-    {
+    private VolatileCacheEnvironmentInterface $environment;
+
+    public function __construct(
+        private ?LoggerInterface $logger = null,
+        ?VolatileCacheEnvironmentInterface $environment = null,
+        private ?VolatileCacheEncryptionKeyProvider $keyProvider = null,
+    ) {
+        $this->environment = $environment ?? new NativeVolatileCacheEnvironment();
     }
 
     public function create(string $cacheDirectory, string $applicationRoot): PageCachePools
@@ -38,30 +43,91 @@ final readonly class PageCachePoolFactory
         $filesystem = new FilesystemAdapter($filesystemNamespace, 0, $cacheDirectory);
         $filesystemDirectory = $cacheDirectory . $filesystemNamespace;
 
-        if (!$this->apcuAvailable()) {
-            return new PageCachePools($filesystem, $filesystem, $filesystemDirectory, false, null);
+        try {
+            $apcuAvailable = $this->environment->apcuAvailable();
+            $tmpfsDirectory = $this->environment->tmpfsDirectory($applicationRoot);
+        } catch (\Throwable $throwable) {
+            $this->logger?->warning('Unable to inspect volatile page-cache backends; using filesystem only.', [
+                'exception' => $throwable,
+            ]);
+
+            return $this->filesystemOnly($filesystem, $filesystemDirectory);
+        }
+
+        if ((!$apcuAvailable && $tmpfsDirectory === null) || $this->keyProvider === null) {
+            return $this->filesystemOnly($filesystem, $filesystemDirectory);
+        }
+
+        try {
+            $encryptionKey = $this->keyProvider->get();
+            $marshaller = new EncryptedCacheMarshaller([$encryptionKey->key]);
+        } catch (\Throwable $throwable) {
+            $this->logger?->warning('Unable to load the volatile page-cache encryption key; using filesystem only.', [
+                'exception' => $throwable,
+            ]);
+
+            return $this->filesystemOnly($filesystem, $filesystemDirectory);
         }
 
         $root = realpath($applicationRoot);
         $root = $root === false ? rtrim($applicationRoot, '/\\') : $root;
 
         $namespace = self::SHARED_MEMORY_NAMESPACE_PREFIX . substr(hash('sha256', $root), 0, 16);
-        $versionKey = 'abi' . self::CACHE_ABI;
+        $versionKey = 'abi' . self::CACHE_ABI . '-' . $encryptionKey->fingerprint;
+        $volatileAdapters = [];
+        $apcuEnabled = false;
+        $tmpfsCacheDirectory = null;
 
-        try {
-            // APCUIterator is required by apcuAvailable(), so changing this version
-            // clears only this site's namespace, never the shared host's whole segment.
-            $sharedMemory = new ApcuAdapter($namespace, 0, $versionKey);
-            $hot = new ChainAdapter([$sharedMemory, $filesystem]);
-        } catch (\Throwable $throwable) {
-            $this->logger?->warning('Unable to enable the APCu page-cache tier; using filesystem only.', [
-                'exception' => $throwable,
-            ]);
-
-            return new PageCachePools($filesystem, $filesystem, $filesystemDirectory, false, null);
+        if ($apcuAvailable) {
+            try {
+                // The version includes the key fingerprint: rotating the secret drops unreadable APCu entries.
+                $volatileAdapters[] = new ResilientApcuAdapter(
+                    $namespace,
+                    0,
+                    $versionKey,
+                    $marshaller,
+                    $this->logger,
+                );
+                $apcuEnabled = true;
+            } catch (\Throwable $throwable) {
+                $this->logger?->warning('Unable to enable the encrypted APCu page-cache tier.', [
+                    'exception' => $throwable,
+                ]);
+            }
         }
 
-        return new PageCachePools($filesystem, $hot, $filesystemDirectory, true, $namespace);
+        if ($tmpfsDirectory !== null) {
+            try {
+                $tmpfsNamespace = self::filesystemNamespace() . '_' . $encryptionKey->fingerprint;
+                $tmpfsDirectory->prunePageCacheNamespaces($tmpfsNamespace);
+                $volatileAdapters[] = new ResilientFilesystemAdapter(
+                    $tmpfsNamespace,
+                    0,
+                    $tmpfsDirectory,
+                    $marshaller,
+                    $this->logger,
+                );
+                $tmpfsCacheDirectory = $tmpfsDirectory->path . DIRECTORY_SEPARATOR . $tmpfsNamespace;
+            } catch (\Throwable $throwable) {
+                $this->logger?->warning('Unable to enable the encrypted tmpfs page-cache tier.', [
+                    'exception' => $throwable,
+                ]);
+            }
+        }
+
+        if ($volatileAdapters === []) {
+            return $this->filesystemOnly($filesystem, $filesystemDirectory);
+        }
+
+        return new PageCachePools(
+            $filesystem,
+            new ChainAdapter([...$volatileAdapters, $filesystem]),
+            $filesystemDirectory,
+            $apcuEnabled,
+            $apcuEnabled ? $namespace : null,
+            $tmpfsCacheDirectory,
+            true,
+        );
     }
 
     public static function filesystemNamespace(): string
@@ -80,17 +146,8 @@ final readonly class PageCachePoolFactory
             : self::FILESYSTEM_NAMESPACE . '_v' . $abi;
     }
 
-    private function apcuAvailable(): bool
+    private function filesystemOnly(FilesystemAdapter $filesystem, string $filesystemDirectory): PageCachePools
     {
-        if (!ApcuAdapter::isSupported()) {
-            return false;
-        }
-
-        if (!class_exists('APCUIterator', false)) {
-            return false;
-        }
-
-        return PHP_SAPI !== 'cli'
-            || filter_var(ini_get('apc.enable_cli'), FILTER_VALIDATE_BOOL);
+        return new PageCachePools($filesystem, $filesystem, $filesystemDirectory, false, null, null, false);
     }
 }
