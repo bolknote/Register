@@ -117,7 +117,7 @@
         ],
         "analyse:compatibility": "phpcs --standard=tools/quality/phpcs.xml --runtime-set testVersion 8.3-8.5",
         "analyse:dependencies": [
-            "composer audit --locked",
+            "composer audit --locked --ignore-unreachable",
             "composer-dependency-analyser --config=tools/quality/dependency-analyser.php"
         ],
         "analyse:phan": "phan --config-file tools/quality/phan.php --allow-polyfill-parser",
