@@ -624,14 +624,188 @@
         state.detachedBodyStyles.length = 0;
     }
 
+    function restoreTypographicNoBreaks(body, words, editing = true) {
+        if (words.size === 0) {
+            return;
+        }
+        const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        let node;
+        while ((node = walker.nextNode())) {
+            if (!node.parentElement.closest('nobr, pre, code, tt, kbd, style, script, textarea')) {
+                nodes.push(node);
+            }
+        }
+        nodes.forEach((text) => {
+            const matches = Array.from(text.data.matchAll(/[^\s<>-]+-[^\s<]+/gu))
+                .filter((match) => words.has(match[0]));
+            matches.reverse().forEach((match) => {
+                const word = text.splitText(match.index);
+                word.splitText(match[0].length);
+                const wrapper = document.createElement('nobr');
+                if (editing) {
+                    wrapper.setAttribute('data-post-editor-nowrap', '');
+                }
+                word.replaceWith(wrapper);
+                wrapper.append(word);
+            });
+        });
+    }
+
     function createFootHeightSpacer(foot) {
         const spacer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         spacer.classList.add('post-editor-foot-spacer');
         spacer.setAttribute('width', '0');
-        spacer.setAttribute('height', String(Math.max(1, Math.ceil(foot.getBoundingClientRect().height))));
+        spacer.setAttribute('height', String(foot.getBoundingClientRect().height));
         spacer.setAttribute('aria-hidden', 'true');
         spacer.setAttribute('focusable', 'false');
         return spacer;
+    }
+
+    // Paint editor fields outside the content flow. Font leading belongs to the text layout,
+    // not to the field's padding; measuring it keeps the visible gutters equal without moving
+    // a baseline, changing line wrapping, or adding nodes to the editable/saved HTML.
+    function createEditorFieldSurfaces(state) {
+        if (!getComputedStyle(state.card).getPropertyValue('--post-editor-field-padding')) {
+            return {destroy() {}};
+        }
+        const namespace = 'http://www.w3.org/2000/svg';
+        const surface = document.createElementNS(namespace, 'svg');
+        surface.classList.add('post-editor-field-surfaces');
+        surface.setAttribute('aria-hidden', 'true');
+        surface.setAttribute('focusable', 'false');
+        const fields = [
+            ['title', state.title],
+            ['body', state.body],
+            ['tags', state.tags.querySelector('.post-tags-surface')],
+        ].map(([name, element]) => {
+            const rect = document.createElementNS(namespace, 'rect');
+            rect.setAttribute('data-editor-field-surface', name);
+            rect.setAttribute('rx', '4');
+            surface.append(rect);
+            return {element, rect};
+        });
+        const context = document.createElement('canvas').getContext('2d');
+        const fontMetrics = new Map();
+        let pendingFrame = 0;
+
+        function textEdge(node, atStart) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                if (String(node.textContent).trim() === '') {
+                    return null;
+                }
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                const rects = Array.from(range.getClientRects());
+                return {element: node.parentElement, bounds: rects.at(atStart ? 0 : -1)};
+            }
+            if (!(node instanceof HTMLElement) || node.hidden
+                || node.matches('style, script, template')) {
+                return null;
+            }
+            if (node.matches('img, video, audio, iframe, hr, table, pre, .post-tag-chip')) {
+                return {element: node, bounds: null};
+            }
+            if (node.matches('input, br') || node.childNodes.length === 0) {
+                return {element: node, bounds: node.getBoundingClientRect()};
+            }
+            const children = Array.from(node.childNodes);
+            for (const child of atStart ? children : children.reverse()) {
+                const edge = textEdge(child, atStart);
+                if (edge) {
+                    return edge;
+                }
+            }
+            return null;
+        }
+
+        function leading(element, bounds, atStart) {
+            if (!context || element.querySelector('.post-tag-chip')
+                || (element === state.body && element.textContent.trim() === '')) {
+                return 0;
+            }
+            const edge = textEdge(element, atStart);
+            if (!edge?.bounds?.height) {
+                return 0;
+            }
+            const typography = getComputedStyle(edge.element);
+            const font = `${typography.fontStyle} ${typography.fontWeight} ${typography.fontSize} ${typography.fontFamily}`;
+            let metrics = fontMetrics.get(font);
+            if (!metrics) {
+                context.font = font;
+                metrics = context.measureText('Hg');
+                fontMetrics.set(font, metrics);
+            }
+            const {fontBoundingBoxAscent: ascent, fontBoundingBoxDescent: descent} = metrics;
+            if (!Number.isFinite(ascent) || !Number.isFinite(descent)) {
+                return 0;
+            }
+            const baseline = edge.bounds.top + (edge.bounds.height - ascent - descent) / 2 + ascent;
+            const inset = atStart
+                ? baseline - metrics.actualBoundingBoxAscent - bounds.top
+                : bounds.bottom - baseline - metrics.actualBoundingBoxDescent;
+            // Do not trim intentional blank paragraphs, custom margins, or a new editor's height.
+            const limit = (edge.element.matches('input')
+                ? edge.bounds.height : Number.parseFloat(typography.lineHeight) || 0) / 2;
+            return inset >= 0 && inset <= limit ? inset : 0;
+        }
+
+        function update() {
+            pendingFrame = 0;
+            const origin = state.card.getBoundingClientRect();
+            const padding = Number.parseFloat(getComputedStyle(surface).getPropertyValue('--post-editor-field-padding'));
+            fields.forEach(({element, rect}) => {
+                const outer = element.getBoundingClientRect();
+                const fieldStyle = getComputedStyle(element);
+                const inset = (side) => (Number.parseFloat(fieldStyle[`padding${side}`]) || 0)
+                    + (Number.parseFloat(fieldStyle[`border${side}Width`]) || 0);
+                const bounds = {
+                    left: outer.left + inset('Left'),
+                    top: outer.top + inset('Top'),
+                    bottom: outer.bottom - inset('Bottom'),
+                    width: outer.width - inset('Left') - inset('Right'),
+                    height: outer.height - inset('Top') - inset('Bottom'),
+                };
+                const top = leading(element, bounds, true);
+                const bottom = leading(element, bounds, false);
+                rect.setAttribute('x', String(bounds.left - origin.left - padding));
+                rect.setAttribute('y', String(bounds.top - origin.top + top - padding));
+                rect.setAttribute('width', String(bounds.width + 2 * padding));
+                rect.setAttribute('height', String(Math.max(0, bounds.height - top - bottom) + 2 * padding));
+            });
+        }
+
+        function schedule() {
+            if (!pendingFrame) {
+                pendingFrame = requestAnimationFrame(update);
+            }
+        }
+
+        function fontsLoaded() {
+            fontMetrics.clear();
+            schedule();
+        }
+
+        state.card.append(surface);
+        const resizeObserver = new ResizeObserver(schedule);
+        const mutationObserver = new MutationObserver(schedule);
+        resizeObserver.observe(state.card);
+        fields.forEach(({element}) => {
+            resizeObserver.observe(element);
+            mutationObserver.observe(element, {childList: true, subtree: true, characterData: true});
+        });
+        document.fonts?.addEventListener('loadingdone', fontsLoaded);
+        update();
+
+        return {
+            destroy() {
+                cancelAnimationFrame(pendingFrame);
+                resizeObserver.disconnect();
+                mutationObserver.disconnect();
+                document.fonts?.removeEventListener('loadingdone', fontsLoaded);
+                surface.remove();
+            },
+        };
     }
 
     function focusEdge(element, atEnd) {
@@ -1051,6 +1225,9 @@
 
     function editableBodyHtml(state) {
         const clone = state.body.cloneNode(true);
+        clone.querySelectorAll('[data-post-editor-nowrap]').forEach((wrapper) => {
+            wrapper.replaceWith(...wrapper.childNodes);
+        });
         clone.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
         clearAiChangeMarks(clone);
         clone.querySelectorAll('[data-register-audio-native]').forEach((audio) => {
@@ -1096,7 +1273,7 @@
             || state.dateDirty
             || state.mediaUploads.size > 0
             || state.uploadedMediaIds.size > 0
-            || (state.title.textContent || '') !== state.originalTitle
+            || (state.title.textContent || '') !== state.originalTitleText
             || editableBodyHtml(state) !== state.originalEditableBodyHtml
             || state.tagEditor.hasChanges()
             || state.dateInput.value !== state.originalDateInputValue;
@@ -1218,6 +1395,7 @@
         restoreEditableBodyStyles(state);
         restoreHeadingLink(state);
         state.footSpacer.remove();
+        state.fieldSurfaces?.destroy();
         state.card.classList.remove('is-editing');
         state.card.removeAttribute('aria-busy');
         toggleEditingTools(state.card, false);
@@ -1283,8 +1461,9 @@
 
         const creating = state.creating;
         releasePendingMedia(state);
-        state.title.textContent = state.originalTitle;
+        state.title.innerHTML = state.originalTitleHtml;
         state.body.innerHTML = state.originalBody;
+        restoreTypographicNoBreaks(state.body, state.originalNoBreaks, false);
         state.tags.innerHTML = state.originalTagsHtml;
         state.tagsHost.classList.toggle('is-empty', state.originalTags === '');
         state.titleField.value = state.originalTitle;
@@ -1360,7 +1539,10 @@
             ...elements,
             card,
             originalTitle: elements.titleField.value,
+            originalTitleHtml: elements.title.innerHTML,
+            originalTitleText: elements.title.textContent || '',
             originalBody: elements.bodyField.value,
+            originalNoBreaks: new Set(Array.from(elements.body.querySelectorAll('nobr'), (word) => word.textContent)),
             originalTags: elements.tagsField.value,
             originalTagsHtml: elements.tags.innerHTML,
             originalPublishedAt: Number(elements.publishedAtField.value),
@@ -1398,8 +1580,8 @@
         };
 
         destroyWidgets(elements.body);
-        elements.title.textContent = state.originalTitle;
         elements.body.innerHTML = state.originalBody;
+        restoreTypographicNoBreaks(elements.body, state.originalNoBreaks);
         prepareEditableMedia(elements.body);
         state.originalEditableBodyHtml = editableBodyHtml(state);
         elements.tags.replaceChildren();
@@ -1420,6 +1602,7 @@
             elements.foot.append(state.footSpacer);
         }
         card.classList.add('is-editing');
+        state.fieldSurfaces = createEditorFieldSurfaces(state);
         applyShortcutHints(card);
         toggleEditingTools(card, true);
         document.execCommand('defaultParagraphSeparator', false, 'p');

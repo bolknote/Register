@@ -403,7 +403,7 @@ hr {
 #content > .post-card.is-editing,
 #content > .live-post-feed > .post-card.is-editing,
 #content > .tag-post-list > .post-card.is-editing {
-    --post-editor-field-padding: clamp(0.25rem, 0.35vw, 0.3rem);
+    --post-editor-field-padding: 8px;
     --post-editor-field-surface: color-mix(in srgb, var(--surface-background) 42%, transparent);
 
     z-index: 5;
@@ -919,19 +919,28 @@ h2.preview,
 .post-card.is-editing .post-title-text,
 .post-card.is-editing > .post.body[data-post-inplace-body] {
     position: relative;
-    border-radius: 2px;
-    background: var(--post-editor-field-surface);
-    box-shadow: 0 0 0 var(--post-editor-field-padding) var(--post-editor-field-surface);
     caret-color: var(--accent-color);
     outline: none;
+}
+
+.post-editor-field-surfaces {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.post-editor-field-surfaces > rect {
+    fill: var(--post-editor-field-surface);
 }
 
 .post-card.is-editing .post-title-text {
     display: block;
     width: 100%;
     color: var(--link-color);
-    text-wrap: wrap;
-    text-wrap: stable;
 }
 
 .post-card.is-editing .post-title-text[data-placeholder]:empty::after {
@@ -1012,11 +1021,6 @@ h2.preview,
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.75;
-}
-
-.post-card.is-editing > .post.body[data-post-inplace-body] {
-    text-wrap: wrap;
-    text-wrap: stable;
 }
 
 .post-card.is-editing > .post.body[data-post-inplace-body].uses-synthetic-boundary-caret {
@@ -1100,7 +1104,11 @@ h2.preview,
 
 .post-card.is-editing > .post.foot {
     position: relative;
-    min-height: 1.8rem;
+    min-height: 0;
+}
+
+.post-card.is-creating.is-editing > .post.foot {
+    min-height: 1.5rem;
 }
 
 .post-card.is-editing > .post.foot > .post-editor-foot-spacer {
@@ -1154,53 +1162,19 @@ h2.preview,
 .post-tags-surface {
     display: flex;
     width: 100%;
-    min-height: 2.15rem;
-    padding: 0.18rem 0.3rem;
+    min-height: 1.5rem;
+    padding: 0;
     align-items: center;
     align-content: center;
     flex-wrap: nowrap;
     gap: 0.3rem;
     overflow-x: auto;
     overflow-y: hidden;
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    background: color-mix(in srgb, var(--field-background) 82%, transparent);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    caret-color: var(--accent-color);
     cursor: text;
-    transition: border-color 100ms ease, box-shadow 100ms ease;
-}
-
-.post-tags-surface:hover {
-    border-color: color-mix(in srgb, var(--accent-color) 48%, var(--border-color));
-}
-
-.post-tags-surface:focus-within {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 0 1px var(--accent-color);
-}
-
-.post-card.is-editing .post-tags-surface {
-    border-color: transparent;
-    box-shadow:
-        0 0 0 calc(var(--post-editor-field-padding) - 1px)
-            color-mix(in srgb, var(--field-background) 82%, transparent),
-        0 0 0 var(--post-editor-field-padding) var(--border-color);
-}
-
-.post-card.is-editing .post-tags-surface:hover {
-    border-color: transparent;
-    box-shadow:
-        0 0 0 calc(var(--post-editor-field-padding) - 1px)
-            color-mix(in srgb, var(--field-background) 82%, transparent),
-        0 0 0 var(--post-editor-field-padding)
-            color-mix(in srgb, var(--accent-color) 48%, var(--border-color));
-}
-
-.post-card.is-editing .post-tags-surface:focus-within {
-    border-color: transparent;
-    box-shadow:
-        0 0 0 calc(var(--post-editor-field-padding) - 2px)
-            color-mix(in srgb, var(--field-background) 82%, transparent),
-        0 0 0 var(--post-editor-field-padding) var(--accent-color);
 }
 
 .post-tag-chip,
@@ -1295,7 +1269,7 @@ h2.preview,
     min-width: 8rem;
     min-height: 1.5rem;
     margin: 0;
-    padding: 0.06rem 0.3rem;
+    padding: 0;
     flex: 1 0 10rem;
     border: 0;
     border-radius: 0;
@@ -1368,7 +1342,9 @@ h2.preview,
     color: var(--text-color);
 }
 
-.post-card.is-editing :where(.post-title-text, .post.body[data-post-inplace-body]):focus {
+.post-card:has(.post-title-text:focus) [data-editor-field-surface="title"],
+.post-card:has(> .post.body:focus-within) [data-editor-field-surface="body"],
+.post-card:has(.post-tags-surface:focus-within) [data-editor-field-surface="tags"] {
     --post-editor-field-surface: color-mix(in srgb, var(--surface-background) 68%, transparent);
 }
 
@@ -2476,7 +2452,6 @@ h2.preview,
 
     .post-card.is-editing > .post.time {
         display: flex;
-        padding-right: 5.75rem;
         align-items: center;
         gap: 0.25rem;
     }
@@ -2486,6 +2461,7 @@ h2.preview,
         top: auto;
         right: auto;
         left: auto;
+        height: 1lh;
         flex: 0 0 1.5rem;
         transform: none;
     }
@@ -2570,6 +2546,12 @@ h2.preview,
     .post-inplace-button-label {
         display: inline;
         white-space: nowrap;
+    }
+
+    @container post-editor (max-width: 320px) {
+        .post-card.is-editing > .post-inplace-tools > :is(.post-edit-save, .post-edit-cancel) {
+            width: 1.5rem;
+        }
     }
 }
 
@@ -4032,10 +4014,13 @@ ul.back_forward .empty {
     }
 
     .post-editor-context-menu,
-    .post-tags-surface,
     .post-delete-confirmation,
     .comment-action-confirmation {
         border-color: currentColor;
+    }
+
+    .post-editor-field-surfaces > rect {
+        stroke: currentColor;
     }
 }
 
@@ -4064,11 +4049,15 @@ ul.back_forward .empty {
     }
 
     .post-editor-context-menu,
-    .post-tags-surface,
     .post-delete-confirmation,
     .comment-action-confirmation {
         border: 1px solid CanvasText;
         box-shadow: none;
+    }
+
+    .post-editor-field-surfaces > rect {
+        fill: Field;
+        stroke: CanvasText;
     }
 
     .comment-children {

@@ -235,24 +235,28 @@ final class AssetPackTest extends Unit
         self::assertIsString($site);
         self::assertMatchesRegularExpression(
             '/\.post-card\.is-editing[^}]*\{'
-                . '[^}]*--post-editor-field-padding:\s*clamp\(0\.25rem, 0\.35vw, 0\.3rem\);/s',
+                . '[^}]*--post-editor-field-padding:\s*8px;/s',
             $site,
         );
         self::assertMatchesRegularExpression(
-            '/\.post-card\.is-editing \.post-title-text,\s*'
-                . '\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*\{'
-                . '[^}]*box-shadow:\s*0 0 0 var\(--post-editor-field-padding\)/s',
+            '/\.post-editor-field-surfaces\s*\{[^}]*position:\s*absolute;'
+                . '[^}]*pointer-events:\s*none;/s',
             $site,
         );
         self::assertMatchesRegularExpression(
-            '/\.post-card\.is-editing \.post-tags-surface\s*\{[^}]*'
-                . '0 0 0 var\(--post-editor-field-padding\) var\(--border-color\)/s',
+            '/\.post-editor-field-surfaces\s*>\s*rect\s*\{'
+                . '[^}]*fill:\s*var\(--post-editor-field-surface\);/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.post-tags-surface\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;'
+                . '[^}]*background:\s*transparent;/s',
             $site,
         );
         self::assertStringNotContainsString('--post-editor-inline-padding', $site);
         self::assertMatchesRegularExpression(
             '/\.post-card\.is-editing\s*>\s*\.post\.foot\s*\{[^}]*'
-                . 'min-height:\s*1\.8rem;/s',
+                . 'min-height:\s*0;/s',
             $site,
         );
         self::assertMatchesRegularExpression(
@@ -267,7 +271,7 @@ final class AssetPackTest extends Unit
             $script,
         );
         self::assertStringContainsString(
-            "spacer.setAttribute('height', String(Math.max(1, Math.ceil(foot.getBoundingClientRect().height))))",
+            "spacer.setAttribute('height', String(foot.getBoundingClientRect().height))",
             $script,
         );
         self::assertStringContainsString(
