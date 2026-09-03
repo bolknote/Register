@@ -1359,33 +1359,24 @@ h2.preview,
 }
 
 .post-editor-context-anchor {
-    position: relative;
-    display: inline-block;
-    width: 0;
-    height: 0;
-    vertical-align: baseline;
-    font-size: 0;
-    line-height: 0;
+    position: fixed;
+    z-index: 100;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
     user-select: none;
 }
 
-.post-card.is-editing > .post.body :has(> .post-editor-context-anchor.is-image) {
-    position: relative;
-}
-
-.post-editor-context-anchor.is-image {
-    position: absolute;
-    z-index: 40;
-    top: 0.5rem;
-    left: 0.5rem;
-    display: block;
-    vertical-align: top;
+.post-editor-context-anchor > foreignObject {
+    overflow: visible;
 }
 
 .post-editor-context-menu {
     position: absolute;
     z-index: 30;
-    top: 0.65rem;
+    top: 0;
     left: 0;
     width: min(22rem, calc(100vw - 1.5rem));
     max-height: min(28rem, calc(50vh - 0.75rem));
@@ -1409,21 +1400,12 @@ h2.preview,
     white-space: normal;
     overscroll-behavior: contain;
     scrollbar-width: thin;
+    pointer-events: auto;
 }
 
 .post-editor-context-menu.is-image-menu {
     width: min(50rem, calc(100vw - 1.5rem));
     max-height: min(20rem, calc(100vh - 1.5rem));
-}
-
-.post-editor-context-anchor.is-left > .post-editor-context-menu {
-    right: 0;
-    left: auto;
-}
-
-.post-editor-context-anchor.is-above > .post-editor-context-menu {
-    top: auto;
-    bottom: 0.65rem;
 }
 
 .post-editor-context-menu [hidden] {
@@ -1512,6 +1494,12 @@ h2.preview,
     background: color-mix(in srgb, var(--accent-color) 12%, transparent);
     color: var(--text-color);
     outline: 0;
+}
+
+.post-editor-context-menu button.is-active {
+    background: color-mix(in srgb, var(--accent-color) 18%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 52%, transparent);
+    color: var(--accent-color);
 }
 
 .post-editor-context-menu button:focus-visible {
@@ -1855,9 +1843,7 @@ h2.preview,
 }
 
 @media (max-width: 720px) {
-    .post-editor-context-menu,
-    .post-editor-context-anchor.is-left > .post-editor-context-menu,
-    .post-editor-context-anchor.is-above > .post-editor-context-menu {
+    .post-editor-context-menu {
         position: fixed;
         top: auto;
         right: max(0.75rem, env(safe-area-inset-right));

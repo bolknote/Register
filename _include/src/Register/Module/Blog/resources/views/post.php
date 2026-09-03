@@ -182,12 +182,12 @@ $analyticsSection = (string)($tagNames[0] ?? '');
             <section class="post-editor-context-section">
                 <h3><?php echo $trans('Block style'); ?></h3>
                 <div class="post-editor-block-row" role="group" aria-label="<?php echo register_htmlencode($trans('Block style')); ?>">
-                    <button type="button" data-context-action="paragraph" title="<?php echo register_htmlencode($trans('Paragraph')); ?>">¶</button>
-                    <button type="button" data-context-action="h2" title="<?php echo register_htmlencode($trans('Header 2')); ?>">H2</button>
-                    <button type="button" data-context-action="h3" title="<?php echo register_htmlencode($trans('Header 3')); ?>">H3</button>
-                    <button type="button" data-context-action="h4" title="<?php echo register_htmlencode($trans('Header 4')); ?>">H4</button>
-                    <button type="button" data-context-action="quote" title="<?php echo register_htmlencode($trans('Quote')); ?>">❝</button>
-                    <button type="button" data-context-action="code" title="<?php echo register_htmlencode($trans('CODE')); ?>">&lt;/&gt;</button>
+                    <button type="button" data-context-action="paragraph" title="<?php echo register_htmlencode($trans('Paragraph')); ?>" aria-label="<?php echo register_htmlencode($trans('Paragraph')); ?>">¶</button>
+                    <button type="button" data-context-action="h2" title="<?php echo register_htmlencode($trans('Header 2')); ?>" aria-label="<?php echo register_htmlencode($trans('Header 2')); ?>">H2</button>
+                    <button type="button" data-context-action="h3" title="<?php echo register_htmlencode($trans('Header 3')); ?>" aria-label="<?php echo register_htmlencode($trans('Header 3')); ?>">H3</button>
+                    <button type="button" data-context-action="h4" title="<?php echo register_htmlencode($trans('Header 4')); ?>" aria-label="<?php echo register_htmlencode($trans('Header 4')); ?>">H4</button>
+                    <button type="button" data-context-action="quote" title="<?php echo register_htmlencode($trans('Quote')); ?>" aria-label="<?php echo register_htmlencode($trans('Quote')); ?>">❝</button>
+                    <button type="button" data-context-action="code" title="<?php echo register_htmlencode($trans('CODE')); ?>" aria-label="<?php echo register_htmlencode($trans('CODE')); ?>">&lt;/&gt;</button>
                     <button type="button" data-context-action="unordered-list" title="<?php echo register_htmlencode($trans('UL')); ?>">•≡</button>
                     <button type="button" data-context-action="ordered-list" title="<?php echo register_htmlencode($trans('OL')); ?>">1≡</button>
                 </div>

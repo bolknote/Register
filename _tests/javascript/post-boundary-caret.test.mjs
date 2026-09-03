@@ -11,8 +11,10 @@ const testableEditorSource = editorSource.replace(
     '    applyShortcutHints(document);\n})();',
     [
         '    window.__postInplaceTest = {',
+        '        applyContextBlockState,',
         '        collapseEmptyLeadingParagraphAfterDelete,',
-        '        contextMenuAnchorRange,',
+        '        contextBlockStyle,',
+        '        exitQuoteOnEnter,',
         '        focusAfterMedia,',
         '        focusBeforeLeadingMedia,',
         '        mergeAdjacentInlineCode,',
@@ -20,6 +22,7 @@ const testableEditorSource = editorSource.replace(
         '        moveFromBodyMediaBoundary,',
         '        moveFromInlineMediaCaption,',
         '        prepareMediaInsertionRange,',
+        '        quoteAtCaret,',
         '    };',
         '    applyShortcutHints(document);',
         '})();',
@@ -38,6 +41,15 @@ class FakeClassList {
 
     remove(...names) {
         names.forEach((name) => this.names.delete(name));
+    }
+
+    toggle(name, force) {
+        if (force === undefined ? !this.names.has(name) : force) {
+            this.names.add(name);
+            return true;
+        }
+        this.names.delete(name);
+        return false;
     }
 
     contains(name) {
@@ -109,6 +121,21 @@ class FakeHTMLElement extends FakeNode {
         return this.childNodes[0] || null;
     }
 
+    get lastChild() {
+        return this.childNodes[this.childNodes.length - 1] || null;
+    }
+
+    get textContent() {
+        return this.childNodes.map((node) => node.textContent).join('');
+    }
+
+    set textContent(value) {
+        [...this.childNodes].forEach((node) => node.remove());
+        if (value !== '') {
+            this.append(new FakeTextNode(null, value));
+        }
+    }
+
     append(node) {
         node.remove();
         node.parentNode = this;
@@ -118,6 +145,8 @@ class FakeHTMLElement extends FakeNode {
     addEventListener() {}
 
     blur() {}
+
+    focus() {}
 
     getAttribute(name) {
         return this.attributes.has(name) ? this.attributes.get(name) : null;
@@ -225,6 +254,7 @@ class FakeHTMLBRElement extends FakeHTMLElement {}
 function createHarness() {
     const listeners = new Map();
     const elements = [];
+    const commands = [];
     let selection = null;
     const document = {
         activeElement: null,
@@ -253,11 +283,17 @@ function createHarness() {
                         this.startContainer = this.selectedNode;
                         this.startOffset = 0;
                     }
+                    this.endContainer = this.startContainer;
+                    this.endOffset = this.startOffset;
+                    this.commonAncestorContainer = this.startContainer;
                 },
                 selectNodeContents: function (node) {
                     this.selectedNode = node;
                     this.startContainer = node;
                     this.startOffset = 0;
+                    this.endContainer = node;
+                    this.endOffset = node.childNodes?.length || 0;
+                    this.commonAncestorContainer = node;
                 },
                 setStart: function (node, offset) {
                     this.startContainer = node;
@@ -273,6 +309,10 @@ function createHarness() {
                     this.startOffset = node.parentNode.childNodes.indexOf(node) + 1;
                 }
             };
+        },
+        execCommand(command, ui, value) {
+            commands.push({command, value, range: selection.getRangeAt(0)});
+            return true;
         },
         querySelectorAll: function (selector) {
             if (selector === '.has-leading-boundary-caret') {
@@ -298,7 +338,10 @@ function createHarness() {
     const context = vm.createContext({
         AbortController,
         DOMException,
+        Element: FakeHTMLElement,
         HTMLBRElement: FakeHTMLBRElement,
+        HTMLButtonElement: FakeHTMLElement,
+        HTMLFormElement: class extends FakeHTMLElement {},
         HTMLElement: FakeHTMLElement,
         Node: FakeNode,
         URL,
@@ -314,6 +357,7 @@ function createHarness() {
     return {
         document,
         elements,
+        commands,
         helpers: context.window.__postInplaceTest,
         currentRange() {
             return selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
@@ -349,19 +393,171 @@ function createHarness() {
     };
 }
 
-test('a selected range anchors the context menu at its boundary instead of the pointer', function () {
+test('block style detection recognizes a quote for its text and trailing caret', function () {
     const harness = createHarness();
-    const clone = {kind: 'selection clone'};
-    const range = {
-        cloneRange: function () {
-            return clone;
-        }
+    const body = new FakeHTMLElement();
+    const paragraph = new FakeHTMLElement({tagName: 'P'});
+    const quote = new FakeHTMLElement({tagName: 'BLOCKQUOTE'});
+    const trailing = new FakeHTMLElement({tagName: 'P'});
+    const paragraphText = new FakeTextNode(null, 'Before');
+    const quoteText = new FakeTextNode(null, 'Quoted');
+    const trailingText = new FakeTextNode(null, 'After');
+    paragraph.append(paragraphText);
+    quote.append(quoteText);
+    trailing.append(trailingText);
+    body.append(paragraph);
+    body.append(quote);
+    body.append(trailing);
+
+    assert.equal(harness.helpers.contextBlockStyle(body, {
+        collapsed: false,
+        startContainer: quoteText,
+        startOffset: 0,
+        endContainer: quoteText,
+        endOffset: quoteText.data.length,
+    }), 'quote');
+    assert.equal(harness.helpers.contextBlockStyle(body, {
+        collapsed: true,
+        startContainer: body,
+        startOffset: 2,
+        endContainer: body,
+        endOffset: 2,
+    }), 'quote');
+    assert.equal(harness.helpers.contextBlockStyle(body, {
+        collapsed: false,
+        startContainer: paragraphText,
+        startOffset: 0,
+        endContainer: quoteText,
+        endOffset: quoteText.data.length,
+    }), null);
+
+    const innerParagraph = new FakeHTMLElement({tagName: 'P'});
+    innerParagraph.append(quoteText);
+    quote.append(innerParagraph);
+    assert.equal(harness.helpers.contextBlockStyle(body, {
+        collapsed: true,
+        startContainer: quoteText,
+        startOffset: 2,
+        endContainer: quoteText,
+        endOffset: 2,
+    }), 'quote');
+});
+
+test('a quote at the caret is detected only at the visual end of its content', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const quote = new FakeHTMLElement({tagName: 'BLOCKQUOTE'});
+    const quoteText = new FakeTextNode(null, 'Quoted');
+    quote.append(quoteText);
+    body.append(quote);
+    const selection = (remainingText) => ({
+        rangeCount: 1,
+        getRangeAt: () => ({
+            collapsed: true,
+            startContainer: quoteText,
+            startOffset: quoteText.data.length,
+            endContainer: quoteText,
+            endOffset: quoteText.data.length,
+            commonAncestorContainer: quoteText,
+            cloneRange: () => ({
+                setEnd() {},
+                cloneContents: () => ({
+                    textContent: remainingText,
+                    querySelector: () => null,
+                }),
+            }),
+        }),
+    });
+
+    assert.equal(harness.helpers.quoteAtCaret(body, selection('')), quote);
+    assert.equal(harness.helpers.quoteAtCaret(body, selection('more')), null);
+});
+
+test('context menu marks the current quote control as pressed', function () {
+    const harness = createHarness();
+    const actions = ['paragraph', 'h2', 'h3', 'h4', 'quote', 'code'];
+    const buttons = Object.fromEntries(actions.map((action) => [
+        action,
+        new FakeHTMLElement({tagName: 'BUTTON'}),
+    ]));
+    const menu = {
+        querySelector(selector) {
+            const match = selector.match(/data-context-action="([^"]+)"/u);
+            return match ? buttons[match[1]] : null;
+        },
     };
 
-    assert.equal(
-        harness.helpers.contextMenuAnchorRange({}, range, true, {clientX: 120, clientY: 240}),
-        clone
-    );
+    harness.helpers.applyContextBlockState(menu, 'quote');
+    assert.equal(buttons.quote.classList.contains('is-active'), true);
+    assert.equal(buttons.quote.getAttribute('aria-pressed'), 'true');
+    assert.equal(buttons.paragraph.classList.contains('is-active'), false);
+    assert.equal(buttons.paragraph.getAttribute('aria-pressed'), 'false');
+
+    harness.helpers.applyContextBlockState(menu, 'paragraph');
+    assert.equal(buttons.quote.classList.contains('is-active'), false);
+    assert.equal(buttons.quote.getAttribute('aria-pressed'), 'false');
+    assert.equal(buttons.paragraph.getAttribute('aria-pressed'), 'true');
+});
+
+test('Enter after a quote inserts a paragraph outside it through a native undo transaction', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const quote = new FakeHTMLElement({tagName: 'BLOCKQUOTE'});
+    const quoteText = new FakeTextNode(null, 'Quoted');
+    quote.append(quoteText);
+    body.append(quote);
+    const next = new FakeHTMLElement({tagName: 'P'});
+    body.append(next);
+    harness.select(quoteText, quoteText.data.length);
+    Object.assign(harness.currentRange(), {
+        commonAncestorContainer: quoteText,
+        cloneRange: () => ({
+            setEnd() {},
+            cloneContents: () => ({textContent: '', querySelector: () => null}),
+        }),
+    });
+    const state = {body, form: new FakeHTMLElement(), card: new FakeHTMLElement()};
+    let prevented = false;
+    const event = {key: 'Enter', preventDefault() { prevented = true; }};
+
+    assert.equal(harness.helpers.exitQuoteOnEnter({...event, shiftKey: true}, state), false);
+    assert.equal(harness.helpers.exitQuoteOnEnter({...event, isComposing: true}, state), false);
+    assert.equal(harness.helpers.exitQuoteOnEnter({...event, key: 'ArrowDown'}, state), false);
+    assert.equal(harness.commands.length, 0);
+    assert.equal(prevented, false);
+
+    assert.equal(harness.helpers.exitQuoteOnEnter(event, state), true);
+    assert.equal(prevented, true);
+    assert.equal(state.bodyDirty, true);
+    assert.equal(harness.commands.length, 1);
+    assert.equal(harness.commands[0].command, 'insertHTML');
+    assert.equal(harness.commands[0].value, '<p><br></p>');
+    assert.equal(harness.commands[0].range.startContainer, body);
+    assert.equal(harness.commands[0].range.startOffset, 1);
+    assert.equal(harness.commands[0].range.collapsed, true);
+    assert.deepEqual(body.childNodes, [quote, next]);
+});
+
+test('Enter in an empty quote changes it into a paragraph without adding another block', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const quote = new FakeHTMLElement({tagName: 'BLOCKQUOTE'});
+    body.append(quote);
+    harness.select(quote);
+    Object.assign(harness.currentRange(), {
+        commonAncestorContainer: quote,
+        cloneRange: () => ({
+            setEnd() {},
+            cloneContents: () => ({textContent: '', querySelector: () => null}),
+        }),
+    });
+    const state = {body, form: new FakeHTMLElement(), card: new FakeHTMLElement()};
+
+    assert.equal(harness.helpers.exitQuoteOnEnter({key: 'Enter', preventDefault() {}}, state), true);
+    assert.equal(harness.commands.length, 1);
+    assert.equal(harness.commands[0].command, 'formatBlock');
+    assert.equal(harness.commands[0].value, 'p');
+    assert.equal(harness.commands[0].range.startContainer, quote);
 });
 
 test('adjacent inline-code elements are merged into one formatting run', function () {

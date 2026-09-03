@@ -2814,6 +2814,64 @@
             );
     }
 
+    function clipboardMediaFiles(transfer) {
+        const files = Array.from(transfer?.files || []);
+        if (files.length === 0) {
+            Array.from(transfer?.items || []).forEach((item) => {
+                const file = item.kind === 'file' ? item.getAsFile() : null;
+                if (file) {
+                    files.push(file);
+                }
+            });
+        }
+        // Screenshots and copied images may have a MIME type but no filename.
+        const extensions = {
+            'image/avif': 'avif',
+            'image/bmp': 'bmp',
+            'image/gif': 'gif',
+            'image/jpeg': 'jpg',
+            'image/png': 'png',
+            'image/webp': 'webp',
+            'image/x-icon': 'ico',
+            'image/vnd.microsoft.icon': 'ico',
+        };
+        return files.map((file, index) => {
+            const extension = extensions[file.type.toLowerCase()];
+            if (!extension || mediaKindForFile(file) === 'image') {
+                return file;
+            }
+            return new File([file], `clipboard-image-${index + 1}.${extension}`, {
+                type: file.type,
+                lastModified: file.lastModified,
+            });
+        });
+    }
+
+    function pasteMediaFiles(event) {
+        if (event.defaultPrevented) {
+            return;
+        }
+        const state = bodyDropState(event.target);
+        if (!state) {
+            return;
+        }
+        const files = clipboardMediaFiles(event.clipboardData);
+        if (files.length === 0) {
+            return;
+        }
+        // Prevent the browser from inserting a second, unprocessed data: image.
+        event.preventDefault();
+        const selection = window.getSelection();
+        const selectedRange = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+        const range = selectedRange && rangeIsInside(state.body, selectedRange)
+            ? selectedRange.cloneRange()
+            : null;
+        if (range && files.some((file) => mediaKindForFile(file) !== null)) {
+            range.deleteContents();
+        }
+        insertMediaFiles(state, files, range);
+    }
+
     function bodyDropState(target) {
         const card = cardFor(target);
         const state = card ? editorStates.get(card) : null;
@@ -3121,11 +3179,120 @@
             && element.contains(range.commonAncestorContainer);
     }
 
+    function contextBoundaryNode(container, offset, backwards) {
+        if (!(container instanceof Element) || container.childNodes.length === 0) {
+            return container;
+        }
+        let node;
+        if (backwards) {
+            node = container.childNodes[Math.max(0, Math.min(offset - 1, container.childNodes.length - 1))];
+            while (node instanceof Element && node.lastChild) {
+                node = node.lastChild;
+            }
+        } else {
+            node = container.childNodes[Math.min(offset, container.childNodes.length - 1)];
+            while (node instanceof Element && node.firstChild) {
+                node = node.firstChild;
+            }
+        }
+        return node;
+    }
+
+    function contextBlockElement(root, node) {
+        let element = node instanceof Element ? node : node.parentElement;
+        let fallback = null;
+        while (element && element !== root) {
+            if (['BLOCKQUOTE', 'PRE'].includes(element.tagName)) {
+                return element;
+            }
+            if (fallback === null && ['P', 'H2', 'H3', 'H4'].includes(element.tagName)) {
+                fallback = element;
+            }
+            element = element.parentElement;
+        }
+        return fallback;
+    }
+
+    function contextBlockStyle(root, range) {
+        const startNode = contextBoundaryNode(range.startContainer, range.startOffset, range.collapsed);
+        const endNode = range.collapsed
+            ? startNode
+            : contextBoundaryNode(range.endContainer, range.endOffset, true);
+        const start = contextBlockElement(root, startNode);
+        const end = contextBlockElement(root, endNode);
+        if (!(start instanceof Element) || !(end instanceof Element) || start.tagName !== end.tagName) {
+            return null;
+        }
+        return {
+            'P': 'paragraph',
+            'H2': 'h2',
+            'H3': 'h3',
+            'H4': 'h4',
+            'BLOCKQUOTE': 'quote',
+            'PRE': 'code',
+        }[start.tagName] || null;
+    }
+
+    function quoteAtCaret(root, selection) {
+        if (!selection || selection.rangeCount === 0) {
+            return null;
+        }
+        const range = selection.getRangeAt(0);
+        if (!range.collapsed || !rangeIsInside(root, range)) {
+            return null;
+        }
+        const caretNode = contextBoundaryNode(range.startContainer, range.startOffset, true);
+        const quote = contextBlockElement(root, caretNode);
+        if (!(quote instanceof HTMLElement) || quote.tagName !== 'BLOCKQUOTE') {
+            return null;
+        }
+        const tail = range.cloneRange();
+        tail.setEnd(quote, quote.childNodes.length);
+        const remaining = tail.cloneContents();
+        if (
+            remaining.textContent.trim() !== ''
+            || remaining.querySelector('img, audio, video, figure, hr')
+        ) {
+            return null;
+        }
+        return quote;
+    }
+
+    function exitQuoteOnEnter(event, state) {
+        if (
+            event.key !== 'Enter'
+            || event.isComposing
+            || event.shiftKey
+            || event.altKey
+            || event.ctrlKey
+            || event.metaKey
+        ) {
+            return false;
+        }
+        const quote = quoteAtCaret(state.body, window.getSelection());
+        if (!quote) {
+            return false;
+        }
+        event.preventDefault();
+        if (quote.textContent.trim() === '' && !quote.querySelector('img, audio, video, figure, hr')) {
+            runFormattingCommand(state, 'formatBlock', 'p');
+        } else {
+            const range = document.createRange();
+            range.setStartAfter(quote);
+            range.collapse(true);
+            selectRange(state, range);
+            // Use the browser's edit transaction so Undo also removes this paragraph.
+            runFormattingCommand(state, 'insertHTML', '<p><br></p>');
+        }
+        markBodyChanged(state);
+        return true;
+    }
+
     function selectRange(state, range) {
         if (!rangeIsInside(state.body, range)) {
             return false;
         }
-        state.body.focus();
+        state.body.focus({preventScroll: true});
         const selection = window.getSelection();
         if (!selection) {
             return false;
@@ -3176,21 +3343,89 @@
         return link instanceof HTMLAnchorElement ? link : null;
     }
 
-    function positionContextMenu(anchor, menu) {
-        anchor.classList.remove('is-left', 'is-above');
-        let rect = menu.getBoundingClientRect();
-        if (rect.right > window.innerWidth - 12) {
-            anchor.classList.add('is-left');
-            rect = menu.getBoundingClientRect();
+    function createContextMenuAnchor() {
+        const namespace = 'http://www.w3.org/2000/svg';
+        const anchor = document.createElementNS(namespace, 'svg');
+        anchor.classList.add('post-editor-context-anchor');
+        anchor.setAttribute('focusable', 'false');
+        anchor.setAttribute('role', 'presentation');
+        const viewport = document.createElementNS(namespace, 'foreignObject');
+        anchor.append(viewport);
+        // Keep menu controls out of the editable HTML and its live selection.
+        // SVG geometry positions the overlay without CSP-blocked inline CSS.
+        document.body.append(anchor);
+        return {anchor, viewport};
+    }
+
+    function contextMenuPoint(state, range, event, targetImage) {
+        if (Number.isFinite(event?.clientX) && Number.isFinite(event?.clientY)) {
+            return {x: event.clientX, y: event.clientY};
         }
-        if (rect.bottom > window.innerHeight - 12) {
-            anchor.classList.add('is-above');
+        if (targetImage) {
+            const rect = targetImage.getBoundingClientRect();
+            return {x: rect.left, y: rect.top};
         }
+        const visible = Array.from(range.getClientRects()).filter((rect) => {
+            return rect.height > 0 && rect.bottom > 12 && rect.top < window.innerHeight - 12;
+        });
+        let rect = visible.at(-1) || range.getBoundingClientRect();
+        if (rect.height === 0) {
+            rect = state.body.getBoundingClientRect();
+        }
+        return {x: rect.left, y: rect.bottom};
+    }
+
+    function contextMenuPosition(point, size, viewport) {
+        const margin = 12;
+        const gap = 4;
+        const x = point.x + gap + size.width <= viewport.width - margin
+            ? point.x + gap
+            : point.x - gap - size.width;
+        const y = point.y + gap + size.height <= viewport.height - margin
+            ? point.y + gap
+            : point.y - gap - size.height;
+        return {
+            x: Math.max(margin, Math.min(x, viewport.width - size.width - margin)),
+            y: Math.max(margin, Math.min(y, viewport.height - size.height - margin)),
+        };
+    }
+
+    function positionContextMenu(context) {
+        const {menu, viewport, point} = context;
+        viewport.setAttribute('x', '0');
+        viewport.setAttribute('y', '0');
+        viewport.setAttribute('width', String(window.innerWidth));
+        viewport.setAttribute('height', String(window.innerHeight));
+        // On narrow screens the existing bottom sheet occupies the viewport.
+        if (getComputedStyle(menu).position === 'fixed') {
+            return;
+        }
+        const rect = menu.getBoundingClientRect();
+        const position = contextMenuPosition(point, rect, {
+            width: window.innerWidth,
+            height: window.innerHeight,
+        });
+        viewport.setAttribute('x', String(position.x));
+        viewport.setAttribute('y', String(position.y));
+        viewport.setAttribute('width', String(rect.width));
+        viewport.setAttribute('height', String(rect.height));
     }
 
     function visibleContextButtons(menu) {
         return Array.from(menu.querySelectorAll('button:not(:disabled)')).filter((button) => {
             return button.closest('[hidden]') === null;
+        });
+    }
+
+    function applyContextBlockState(menu, blockStyle) {
+        ['paragraph', 'h2', 'h3', 'h4', 'quote', 'code'].forEach((action) => {
+            const button = menu.querySelector(`[data-context-action="${action}"]`);
+            if (!(button instanceof HTMLButtonElement)) {
+                return;
+            }
+            const active = action === blockStyle;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', String(active));
         });
     }
 
@@ -3206,11 +3441,11 @@
         context.linkError.hidden = true;
         context.linkError.textContent = '';
         if (imageMode) {
-            context.imagePanel.querySelector('button, input')?.focus();
+            context.imagePanel.querySelector('button, input')?.focus({preventScroll: true});
         } else {
-            visibleContextButtons(context.menu)[0]?.focus();
+            visibleContextButtons(context.menu)[0]?.focus({preventScroll: true});
         }
-        positionContextMenu(context.anchor, context.menu);
+        positionContextMenu(context);
     }
 
     function showLinkPanel(state) {
@@ -3226,9 +3461,9 @@
         context.linkError.textContent = '';
         context.linkInput.value = link?.getAttribute('href') || '';
         context.removeLink.hidden = !link;
-        context.linkInput.focus();
+        context.linkInput.focus({preventScroll: true});
         context.linkInput.select();
-        positionContextMenu(context.anchor, context.menu);
+        positionContextMenu(context);
     }
 
     function normalizeLinkUrl(value) {
@@ -4325,7 +4560,10 @@
             'cut': ['cut'],
         };
         if (formats[action]) {
-            contextFormat(state, ...formats[action]);
+            const format = action === 'quote' && state.contextMenu?.blockStyle === 'quote'
+                ? ['formatBlock', 'p']
+                : formats[action];
+            contextFormat(state, ...format);
             return;
         }
         if (action === 'inline-code') {
@@ -4409,31 +4647,15 @@
             range = bodyRange(state);
         }
 
-        const anchor = document.createElement('span');
-        anchor.className = 'post-editor-context-anchor';
-        anchor.contentEditable = 'false';
-        if (targetImage) {
-            const host = targetImage.closest('[data-post-media-overlay], .post-picture, figure, a')
-                || targetImage.parentElement;
-            if (!(host instanceof HTMLElement)) {
-                return false;
-            }
-            anchor.classList.add('is-image');
-            host.append(anchor);
-        } else {
-            const anchorRange = contextMenuAnchorRange(state, range, selected, event);
-            anchorRange.collapse(false);
-            anchorRange.insertNode(anchor);
-        }
-
+        const point = contextMenuPoint(state, range, event, targetImage);
         const fragment = template.content.cloneNode(true);
         const menu = fragment.querySelector('.post-editor-context-menu');
         if (!(menu instanceof HTMLElement)) {
-            anchor.remove();
             return false;
         }
+        const {anchor, viewport} = createContextMenuAnchor();
         menu.classList.toggle('is-image-menu', targetImage !== null);
-        anchor.append(fragment);
+        viewport.append(fragment);
         menu.querySelectorAll('[data-context-selection-only]').forEach((element) => {
             element.hidden = targetImage !== null || !selected;
         });
@@ -4443,6 +4665,8 @@
         menu.querySelectorAll('[data-context-image-only]').forEach((element) => {
             element.hidden = targetImage === null;
         });
+        const blockStyle = targetImage === null ? contextBlockStyle(state.body, range) : null;
+        applyContextBlockState(menu, blockStyle);
         applyShortcutHints(menu);
 
         const main = menu.querySelector('.post-editor-context-main');
@@ -4489,6 +4713,8 @@
         }
         state.contextMenu = {
             anchor,
+            viewport,
+            point,
             menu,
             main,
             linkPanel,
@@ -4502,6 +4728,7 @@
             imageAiAltButton,
             range,
             selected,
+            blockStyle,
             targetImage,
             targetLink: targetLink instanceof HTMLAnchorElement && state.body.contains(targetLink)
                 ? targetLink
@@ -4590,21 +4817,13 @@
             buttons[next].focus();
         });
 
-        positionContextMenu(anchor, menu);
+        positionContextMenu(state.contextMenu);
         if (targetImage) {
-            imageLinkButton.focus();
+            imageLinkButton.focus({preventScroll: true});
         } else {
-            visibleContextButtons(menu)[0]?.focus();
+            visibleContextButtons(menu)[0]?.focus({preventScroll: true});
         }
         return true;
-    }
-
-    function contextMenuAnchorRange(state, range, selected, event) {
-        if (selected || !event) {
-            return range.cloneRange();
-        }
-
-        return bodyRangeFromPoint(state, event.clientX, event.clientY);
     }
 
     function handleEditingShortcut(event, state) {
@@ -4649,6 +4868,10 @@
             return true;
         }
 
+        if (state.body.contains(event.target) && exitQuoteOnEnter(event, state)) {
+            return true;
+        }
+
         if (!state.body.contains(event.target) || !modifier) {
             return false;
         }
@@ -4677,7 +4900,9 @@
             command = 'insertUnorderedList';
         } else if (event.shiftKey && !event.altKey && matchesKey('Digit9', '9')) {
             command = 'formatBlock';
-            value = 'blockquote';
+            const selection = window.getSelection();
+            const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+            value = range && contextBlockStyle(state.body, range) === 'quote' ? 'p' : 'blockquote';
         } else if (event.altKey && !event.shiftKey && ['Digit2', 'Digit3', 'Digit4'].includes(event.code)) {
             command = 'formatBlock';
             value = 'h' + event.code.slice(-1);
@@ -4965,6 +5190,8 @@
         event.preventDefault();
         closeConfirmation(card, true);
     }, false);
+
+    document.addEventListener('paste', pasteMediaFiles, false);
 
     document.addEventListener('paste', (event) => {
         const target = event.target instanceof Element ? event.target : null;
