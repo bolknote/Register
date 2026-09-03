@@ -226,7 +226,7 @@ class AcceptanceTester extends Actor
     public function drainQueue(int $requests = 20): void
     {
         for ($attempt = 0; $attempt < $requests; ++$attempt) {
-            $this->amOnPage('/index.php?/robots.txt');
+            $this->advanceQueue();
         }
     }
 
@@ -241,10 +241,18 @@ class AcceptanceTester extends Actor
                 return $emails;
             }
 
-            $this->amOnPage('/index.php?/robots.txt');
+            $this->advanceQueue();
         }
 
         return $this->getEmails();
+    }
+
+    private function advanceQueue(): void
+    {
+        $this->amOnPage('/index.php?/robots.txt');
+        // The queue worker is detached after the response. Let it finish before the next poll
+        // so rapid requests do not merely contend for its lock and create false test results.
+        usleep(100_000);
     }
 
     /**
