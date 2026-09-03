@@ -215,6 +215,35 @@ final class AssetPackTest extends Unit
         self::assertStringNotContainsString('--tag-post-list-inset', $site);
     }
 
+    public function testMobilePostFooterSeparatesTagsFromActionsWithoutAffectingTheEditor(): void
+    {
+        $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');
+        $footer = '.post-card:not(.is-editing) > .post.foot';
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/@media \(max-width: 760px\)\s*\{\s*' . preg_quote($footer, '/')
+                . '\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto;/s',
+            $site,
+        );
+
+        $rules = [
+            ' > .post-foot-meta' => 'display:\s*contents;',
+            ' .post-foot-tags' => 'grid-column:\s*1 / -1;[^}]*order:\s*-1;[^}]*transform:\s*none;',
+            ' > .post-foot-comments' => 'grid-column:\s*1;',
+            ' > .register-reactions' => 'min-width:\s*0;[^}]*grid-column:\s*2;[^}]*order:\s*1;',
+            ':not(:has(> .post-foot-comments)) > .register-reactions' => 'grid-column:\s*1 / 3;',
+            ' .post-foot-views' => 'grid-column:\s*3;[^}]*justify-self:\s*end;[^}]*order:\s*2;',
+        ];
+        foreach ($rules as $selector => $properties) {
+            self::assertMatchesRegularExpression(
+                '~' . preg_quote($footer . $selector, '~') . '\s*\{[^}]*' . $properties . '~s',
+                $site,
+            );
+        }
+        self::assertMatchesRegularExpression('/\.post-foot-tags\.is-empty\s*\{\s*display:\s*none;/s', $site);
+    }
+
     public function testTagPageCreationPrependsTheDraftToItsPostList(): void
     {
         $script = file_get_contents(\dirname(__DIR__, 4) . '/_assets/register/post-inplace.js');
