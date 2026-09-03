@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Проверка проигрывателя — только localhost</title>
+<link rel="stylesheet" href="/fixture.css">
+<script src="/_assets/register/audio-player/loader.js" defer></script>
+<script src="/fixture.js" defer></script>
+<body>
+<main>
+    <h1>Проигрыватель: длинная запись</h1>
+    <p>Час тишины, 28,8 МБ. Ответы 206 ограничены примерно 53 КБ/с, метаданные задержаны на 4 секунды.
+        Загрузка начинается только после нажатия. Настоящие ресурсы Register, база блога не используется.</p>
+    <article>
+        <h2>Основная запись</h2>
+        <audio id="main-audio" controls preload="none" src="/sample.wav?delay=4000" data-title="Часовая запись"></audio>
+        <p class="timestamps">
+            <a href="/sample.wav?delay=4000#t=0">0:00 — начало</a>
+            <a href="/sample.wav?delay=4000#t=12:35">12:35 — середина</a>
+            <a href="/sample.wav?delay=4000#t=59:00">59:00 — конец</a>
+        </p>
+    </article>
+    <article>
+        <h2>Вторая запись</h2>
+        <audio id="second-audio" controls preload="none" src="/sample.wav?track=second&amp;delay=4000" data-title="Вторая запись"></audio>
+        <p><a href="/sample.wav?track=second&amp;delay=4000#t=120">Вторая запись с 2:00</a></p>
+    </article>
+    <p class="actions">
+        <button id="remove-main">Убрать первый проигрыватель</button>
+        <button id="restore-main">Вернуть первый проигрыватель</button>
+        <button id="theme">Сменить тему</button>
+    </p>
+    <label for="notes">Проверка обычного ввода и пробела</label>
+    <textarea id="notes" rows="2"></textarea>
+    <h2>Состояние аудио</h2>
+    <pre id="state" role="status"></pre>
+    <details open>
+        <summary>HTTP-запросы аудио (байты)</summary>
+        <pre id="requests"></pre>
+    </details>
+    <pre id="errors" role="alert"></pre>
+</main>
+</body>
+</html>

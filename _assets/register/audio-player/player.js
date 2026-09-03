@@ -122,6 +122,35 @@
         return Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : null;
     }
 
+    function parseTimestamp(value) {
+        if (typeof value !== 'string' && typeof value !== 'number') {
+            return null;
+        }
+        const text = String(value).trim().replace(/^npt:/, '');
+        if (!/^(?:\d+:){0,2}\d+(?:\.\d+)?$/.test(text)) {
+            return null;
+        }
+        const parts = text.split(':').map(Number);
+        if (parts.slice(1).some(function (part) { return part >= 60; })) {
+            return null;
+        }
+        const seconds = parts.reduce(function (total, part) { return total * 60 + part; }, 0);
+        return Number.isFinite(seconds) ? seconds : null;
+    }
+
+    function sourceUrl(source) {
+        try {
+            const url = new URL(source, document.baseURI);
+            if (!/^https?:$/.test(url.protocol)) {
+                return null;
+            }
+            url.hash = '';
+            return url.href;
+        } catch (error) {
+            return null;
+        }
+    }
+
     function setProgressValue(progress, ratio) {
         progress.value = Math.round(Math.max(0, Math.min(1, ratio)) * 1000);
     }
@@ -171,22 +200,39 @@
 
     function updateBuffer(state) {
         const duration = finiteDuration(state.audio);
-        if (duration === null || state.audio.buffered.length === 0) {
-            setProgressValue(state.bufferedProgress, 0);
+        const ranges = [];
+        if (duration !== null) {
+            const buffered = state.audio.buffered;
+            for (let index = 0; index < buffered.length; index++) {
+                const start = Math.max(0, buffered.start(index));
+                const end = Math.min(duration, buffered.end(index));
+                if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+                    ranges.push([start / duration * 1000, (end - start) / duration * 1000]);
+                }
+            }
+        }
+        const signature = JSON.stringify(ranges);
+        if (signature === state.bufferSignature) {
             return;
         }
-
-        let bufferedEnd = 0;
-        for (let index = 0; index < state.audio.buffered.length; index++) {
-            bufferedEnd = Math.max(bufferedEnd, state.audio.buffered.end(index));
-        }
-
-        setProgressValue(state.bufferedProgress, bufferedEnd / duration);
+        state.bufferSignature = signature;
+        state.bufferedProgress.replaceChildren(...ranges.map(function ([start, width]) {
+            const range = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            range.setAttribute('x', String(start));
+            range.setAttribute('width', String(width));
+            range.setAttribute('height', '1');
+            return range;
+        }));
     }
 
     function updateTime(state) {
         const duration = finiteDuration(state.audio);
-        const currentTime = Number.isFinite(state.audio.currentTime) ? state.audio.currentTime : 0;
+        let currentTime = state.pendingSeek ?? (Number.isFinite(state.audio.currentTime) ? state.audio.currentTime : 0);
+        if (state.scrubbing && duration !== null) {
+            currentTime = duration * Number(state.timeline.value) / 1000;
+        } else if (duration !== null) {
+            currentTime = Math.min(duration, currentTime);
+        }
 
         state.currentTime.textContent = formatTime(currentTime);
         state.currentTime.dateTime = 'PT' + Math.max(0, currentTime) + 'S';
@@ -206,7 +252,9 @@
         state.duration.textContent = formatTime(duration);
         state.duration.dateTime = 'PT' + duration + 'S';
         state.timeline.disabled = false;
-        state.timeline.value = String(Math.round(ratio * 1000));
+        if (!state.scrubbing) {
+            state.timeline.value = String(Math.round(ratio * 1000));
+        }
         state.timeline.setAttribute(
             'aria-valuetext',
             formatTime(currentTime) + ' ' + state.strings.of + ' ' + formatTime(duration),
@@ -216,7 +264,7 @@
     }
 
     function updatePlaybackState(state) {
-        const isPlaying = !state.audio.paused && !state.audio.ended;
+        const isPlaying = state.playRequested || (!state.audio.paused && !state.audio.ended);
         state.wrapper.classList.toggle('register-audio-player--playing', isPlaying);
         state.playButton.setAttribute('aria-label', isPlaying ? state.strings.pause : state.strings.play);
         state.playButton.title = isPlaying ? state.strings.pause : state.strings.play;
@@ -230,37 +278,149 @@
     }
 
     function setError(state) {
+        state.pendingSeek = null;
+        state.playRequested = false;
+        state.playRequestId++;
         setLoading(state, false);
+        updatePlaybackState(state);
         state.wrapper.classList.add('register-audio-player--error');
         state.playButton.disabled = true;
         state.timeline.disabled = true;
         announce(state, state.strings.error);
     }
 
-    function seek(state) {
+    function updateLoading(state) {
+        const active = state.playRequested || (!state.audio.paused && !state.audio.ended);
+        setLoading(state, active && (state.pendingSeek !== null || state.audio.seeking || state.audio.readyState < 3));
+    }
+
+    function applyPendingSeek(state) {
+        if (state.disposed || state.pendingSeek === null || state.audio.readyState < 1) {
+            return false;
+        }
         const duration = finiteDuration(state.audio);
-        if (duration === null) {
+        const position = duration === null ? state.pendingSeek : Math.min(duration, state.pendingSeek);
+        try {
+            // Let the media engine map time to byte ranges, including variable-bitrate files.
+            state.audio.currentTime = position;
+            state.pendingSeek = null;
+            return true;
+        } catch (error) {
+            // Some media engines expose metadata before allowing a seek. Retry on canplay.
+            return false;
+        }
+    }
+
+    function requestSeek(state, position) {
+        if (state.disposed || !Number.isFinite(position) || position < 0) {
             return;
         }
-
-        state.audio.currentTime = duration * (Number(state.timeline.value) / 1000);
+        state.pendingSeek = position;
+        applyPendingSeek(state);
+        updateLoading(state);
         updateTime(state);
     }
 
-    function togglePlayback(state) {
-        if (state.audio.paused || state.audio.ended) {
-            const playPromise = state.audio.play();
-            if (playPromise && typeof playPromise.catch === 'function') {
-                playPromise.catch(function () {
-                    if (state.audio.error) {
-                        setError(state);
-                    }
-                });
-            }
+    function startPlayback(state) {
+        if (state.disposed) {
             return;
         }
+        if (activeAudio && activeAudio !== state.audio) {
+            const previous = playerByAudio.get(activeAudio);
+            if (previous) {
+                pausePlayback(previous);
+            } else {
+                activeAudio.pause();
+            }
+        }
+        activeAudio = state.audio;
+        const requestId = ++state.playRequestId;
+        state.playRequested = true;
+        updatePlaybackState(state);
+        updateLoading(state);
+        function playFailed() {
+            if (state.disposed || requestId !== state.playRequestId) {
+                return;
+            }
+            state.playRequested = false;
+            if (state.audio.error) {
+                setError(state);
+            } else {
+                setLoading(state, false);
+                updatePlaybackState(state);
+            }
+        }
+        try {
+            // Keep play() in the user's click, not in a later metadata callback.
+            const playPromise = state.audio.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(playFailed);
+            }
+        } catch (error) {
+            playFailed();
+        }
+    }
 
+    function pausePlayback(state) {
+        state.playRequested = false;
+        state.playRequestId++;
         state.audio.pause();
+        if (activeAudio === state.audio) {
+            activeAudio = null;
+        }
+        setLoading(state, false);
+        updatePlaybackState(state);
+    }
+
+    function togglePlayback(state) {
+        if (state.playRequested || (!state.audio.paused && !state.audio.ended)) {
+            pausePlayback(state);
+        } else {
+            startPlayback(state);
+        }
+    }
+
+    function timestampClick(event) {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return;
+        }
+        const link = event.target instanceof Element ? event.target.closest('a[href]') : null;
+        if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')
+            || link.matches('[data-register-native-navigation], [rel~="external"]')
+            || link.closest('.is-editing, [contenteditable]:not([contenteditable="false"])')) {
+            return;
+        }
+        let target;
+        let timestamp;
+        try {
+            target = new URL(link.href, document.baseURI);
+            const position = /^#t=([^&]+)$/.exec(target.hash);
+            timestamp = position ? parseTimestamp(decodeURIComponent(position[1])) : null;
+        } catch (error) {
+            return;
+        }
+        const source = sourceUrl(target.href);
+        if (timestamp === null || source === null) {
+            return;
+        }
+        const candidates = Array.from(players).filter(function (state) {
+            if (state.disposed || !state.wrapper.isConnected) {
+                return false;
+            }
+            return [audioSource(state.audio), ...Array.from(state.audio.querySelectorAll('source[src]'), function (node) {
+                return node.src;
+            })].some(function (url) { return url && sourceUrl(url) === source; });
+        });
+        const post = link.closest('article, .comment');
+        const state = candidates.find(function (candidate) { return post && post.contains(candidate.wrapper); }) || candidates[0];
+        if (!state) {
+            return;
+        }
+        event.preventDefault();
+        requestSeek(state, timestamp);
+        startPlayback(state);
+        state.playButton.focus({preventScroll: true});
+        state.wrapper.scrollIntoView({block: 'nearest'});
     }
 
     function bindPlayer(state) {
@@ -268,15 +428,42 @@
             togglePlayback(state);
         });
         listen(state, state.timeline, 'input', function () {
-            seek(state);
+            const duration = finiteDuration(state.audio);
+            if (duration !== null) {
+                requestSeek(state, duration * Number(state.timeline.value) / 1000);
+            }
+        });
+        listen(state, state.timeline, 'pointerdown', function () {
+            state.scrubbing = true;
+        });
+        function finishScrubbing() {
+            if (!state.scrubbing) {
+                return;
+            }
+            state.scrubbing = false;
+            updateTime(state);
+        }
+        listen(state, document, 'pointerup', finishScrubbing);
+        listen(state, document, 'pointercancel', finishScrubbing);
+        listen(state, state.timeline, 'blur', finishScrubbing);
+        listen(state, state.audio, 'emptied', function () {
+            state.pendingSeek = null;
+            state.playRequested = false;
+            state.playRequestId++;
+            state.scrubbing = false;
+            setLoading(state, false);
+            updatePlaybackState(state);
+            updateTime(state);
         });
         listen(state, state.audio, 'loadedmetadata', function () {
             state.wrapper.classList.remove('register-audio-player--error');
             state.playButton.disabled = false;
-            setLoading(state, false);
+            applyPendingSeek(state);
+            updateLoading(state);
             updateTime(state);
         });
         listen(state, state.audio, 'durationchange', function () {
+            applyPendingSeek(state);
             updateTime(state);
         });
         listen(state, state.audio, 'timeupdate', function () {
@@ -286,25 +473,33 @@
             updateBuffer(state);
         });
         listen(state, state.audio, 'loadstart', function () {
-            if (!state.audio.paused) {
-                setLoading(state, true);
-            }
+            updateLoading(state);
         });
         listen(state, state.audio, 'waiting', function () {
-            if (!state.audio.paused) {
+            if (state.playRequested || !state.audio.paused) {
                 setLoading(state, true);
             }
         });
         listen(state, state.audio, 'playing', function () {
+            state.playRequested = false;
             setLoading(state, false);
+            updatePlaybackState(state);
         });
         listen(state, state.audio, 'canplay', function () {
-            setLoading(state, false);
+            applyPendingSeek(state);
+            updateLoading(state);
+        });
+        listen(state, state.audio, 'seeking', function () {
+            updateLoading(state);
         });
         listen(state, state.audio, 'seeked', function () {
-            setLoading(state, false);
+            updateLoading(state);
+            updateTime(state);
         });
         listen(state, state.audio, 'play', function () {
+            if (state.audio.paused) {
+                return;
+            }
             if (activeAudio && activeAudio !== state.audio) {
                 activeAudio.pause();
             }
@@ -313,6 +508,11 @@
             announce(state, state.strings.playing);
         });
         listen(state, state.audio, 'pause', function () {
+            if (!state.audio.paused) {
+                return;
+            }
+            state.playRequested = false;
+            state.playRequestId++;
             if (activeAudio === state.audio) {
                 activeAudio = null;
             }
@@ -323,6 +523,11 @@
             }
         });
         listen(state, state.audio, 'ended', function () {
+            state.playRequested = false;
+            if (activeAudio === state.audio) {
+                activeAudio = null;
+            }
+            setLoading(state, false);
             updatePlaybackState(state);
             updateTime(state);
             announce(state, state.strings.ended);
@@ -360,10 +565,11 @@
         const timelineControl = document.createElement('span');
         timelineControl.className = 'register-audio-player__timeline-control';
 
-        const bufferedProgress = document.createElement('progress');
-        bufferedProgress.className = 'register-audio-player__progress register-audio-player__progress--buffered';
-        bufferedProgress.max = 1000;
-        bufferedProgress.value = 0;
+        const bufferedProgress = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        bufferedProgress.setAttribute('class', 'register-audio-player__progress register-audio-player__progress--buffered');
+        bufferedProgress.setAttribute('viewBox', '0 0 1000 1');
+        bufferedProgress.setAttribute('preserveAspectRatio', 'none');
+        bufferedProgress.setAttribute('focusable', 'false');
         bufferedProgress.setAttribute('aria-hidden', 'true');
 
         const playedProgress = document.createElement('progress');
@@ -409,6 +615,12 @@
             previousAriaHidden: audio.getAttribute('aria-hidden'),
             previousTabIndex: audio.getAttribute('tabindex'),
             removeListeners: [],
+            bufferSignature: '',
+            pendingSeek: null,
+            playRequested: false,
+            playRequestId: 0,
+            scrubbing: false,
+            disposed: false,
         };
 
         const parent = audio.parentNode;
@@ -440,9 +652,14 @@
     }
 
     function disposePlayer(state) {
+        state.disposed = true;
+        state.pendingSeek = null;
+        state.playRequested = false;
+        state.playRequestId++;
         state.removeListeners.splice(0).forEach(function (removeListener) {
             removeListener();
         });
+        state.audio.pause();
         if (activeAudio === state.audio) {
             activeAudio = null;
         }
@@ -489,6 +706,7 @@
             stylesheet.setAttribute('data-register-audio-player-styles', '');
             stylesheet.onload = resolve;
             stylesheet.onerror = function () {
+                stylesheet.remove();
                 reject(new Error('Unable to load local audio-player styles.'));
             };
             document.head.appendChild(stylesheet);
@@ -522,6 +740,9 @@
 
             return loadStylesheet().then(function () {
                 return elements.map(function (audio) {
+                    if (!audio.isConnected) {
+                        return null;
+                    }
                     const existing = playerByAudio.get(audio);
                     if (existing && existing.wrapper.isConnected) {
                         updatePlayerMetadata(existing);
@@ -582,6 +803,8 @@
     }
 
     window.RegisterAudioPlayer = api;
+    // Run before partial navigation, but leave ordinary, modified and editor links alone.
+    document.addEventListener('click', timestampClick, true);
     document.addEventListener('preview_updated.register', function (event) {
         if (event.detail && event.detail.wrapper) {
             api.enhance(event.detail.wrapper).catch(function (error) {

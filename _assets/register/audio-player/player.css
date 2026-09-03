@@ -153,16 +153,12 @@
     background: transparent;
 }
 
-.register-audio-player__progress--buffered::-webkit-progress-value {
-    background: var(--register-audio-buffered-color);
+.register-audio-player__progress--buffered rect {
+    fill: var(--register-audio-buffered-color);
 }
 
 .register-audio-player__progress--played::-webkit-progress-value {
     background: var(--register-audio-active);
-}
-
-.register-audio-player__progress--buffered::-moz-progress-bar {
-    background: var(--register-audio-buffered-color);
 }
 
 .register-audio-player__progress--played::-moz-progress-bar {
