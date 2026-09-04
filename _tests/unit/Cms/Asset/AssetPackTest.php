@@ -241,6 +241,7 @@ final class AssetPackTest extends Unit
                 $site,
             );
         }
+
         self::assertMatchesRegularExpression('/\.post-foot-tags\.is-empty\s*\{\s*display:\s*none;/s', $site);
     }
 
