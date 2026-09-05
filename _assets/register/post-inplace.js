@@ -2,6 +2,8 @@
     'use strict';
 
     const editorStates = new WeakMap();
+    const editorConfigs = new WeakMap();
+    const emptyEditorConfig = Object.freeze({});
     const tagSuggestionRequests = new Map();
     let tagEditorSequence = 0;
     let inlineCodeBoundarySequence = 0;
@@ -78,6 +80,32 @@
             'unordered-list': ['Ctrl+Shift+8', 'Control+Shift+8'],
             'apply-link': ['↵', 'Enter'],
         };
+
+    // The page owns one config and template set, including after partial navigation.
+    // Cache by DOM node so replacing the page also replaces its language and settings.
+    function editorConfig() {
+        const resources = document.getElementById('post-editor-resources');
+        if (!resources) {
+            return emptyEditorConfig;
+        }
+        if (!editorConfigs.has(resources)) {
+            let config = emptyEditorConfig;
+            try {
+                const parsed = JSON.parse(resources.dataset.config);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    config = Object.freeze(parsed);
+                }
+            } catch (_error) {
+                // The editor can still use its built-in labels if configuration is missing.
+            }
+            editorConfigs.set(resources, config);
+        }
+        return editorConfigs.get(resources);
+    }
+
+    function editorTemplate(selector) {
+        return document.getElementById('post-editor-resources')?.querySelector(selector) || null;
+    }
 
     function applyShortcutHints(root) {
         root.querySelectorAll('[data-editor-shortcut], [data-context-action]').forEach((element) => {
@@ -1307,7 +1335,7 @@
             return;
         }
 
-        const template = card.querySelector(':scope > .post-discard-changes-template');
+        const template = editorTemplate('.post-discard-changes-template');
         const fragment = template instanceof HTMLTemplateElement
             ? template.content.cloneNode(true)
             : null;
@@ -1319,7 +1347,7 @@
             || !(dialog instanceof HTMLElement)
             || !(continueButton instanceof HTMLButtonElement)
         ) {
-            const warning = card.dataset.discardChangesWarning || 'Discard unsaved changes?';
+            const warning = editorConfig().discardChangesWarning || 'Discard unsaved changes?';
             if (window.confirm(warning)) {
                 closeEditor(card, restoreFocus);
             }
@@ -1589,9 +1617,9 @@
             titleLink.removeAttribute('href');
         }
 
-        setEditable(elements.title, card.dataset.titleLabel || 'Title', false);
-        setEditable(elements.body, card.dataset.bodyLabel || 'Post text', true);
-        elements.title.dataset.placeholder = card.dataset.titlePlaceholder || '';
+        setEditable(elements.title, editorConfig().titleLabel || 'Title', false);
+        setEditable(elements.body, editorConfig().bodyLabel || 'Post text', true);
+        elements.title.dataset.placeholder = editorConfig().titlePlaceholder || '';
         elements.dateInput.value = localDateTimeValue(state.originalPublishedAt);
         state.originalDateInputValue = elements.dateInput.value;
         elements.dateInput.hidden = false;
@@ -1697,7 +1725,7 @@
             .replace(/\s+/gu, ' ')
             .trim();
         if (title === '' || title.length > 255) {
-            showError(state.form, state.card.dataset.invalidContent || state.card.dataset.editError || 'Invalid post content.');
+            showError(state.form, editorConfig().invalidContent || editorConfig().editError || 'Invalid post content.');
             focusEdge(state.title, true);
             return false;
         }
@@ -1708,7 +1736,7 @@
 
         const publishedAt = editorPublishedAt(state);
         if (!Number.isInteger(publishedAt) || publishedAt < 1 || publishedAt > 4102444799) {
-            showError(state.form, state.card.dataset.invalidContent || state.card.dataset.editError || 'Invalid post content.');
+            showError(state.form, editorConfig().invalidContent || editorConfig().editError || 'Invalid post content.');
             state.dateInput.focus();
             return false;
         }
@@ -1716,7 +1744,7 @@
 
         const tags = state.tagEditor.sync();
         if (tags === null) {
-            showError(state.form, state.card.dataset.invalidTags || state.card.dataset.editError || 'Invalid post tags.');
+            showError(state.form, editorConfig().invalidTags || editorConfig().editError || 'Invalid post tags.');
             state.tagEditor.focus();
             return false;
         }
@@ -1821,9 +1849,9 @@
         surface.className = 'post-tags-surface';
         input.type = 'text';
         input.className = 'post-tags-text-input';
-        input.placeholder = state.tags.dataset.placeholder || '';
+        input.placeholder = editorConfig().tagsPlaceholder || '';
         input.autocomplete = 'off';
-        input.setAttribute('aria-label', state.card.dataset.tagsLabel || 'Tags');
+        input.setAttribute('aria-label', editorConfig().tagsLabel || 'Tags');
         input.setAttribute('role', 'combobox');
         input.setAttribute('aria-autocomplete', 'list');
         input.setAttribute('aria-haspopup', 'listbox');
@@ -1835,7 +1863,7 @@
         suggestionList.setAttribute('role', 'listbox');
         suggestionList.setAttribute(
             'aria-label',
-            state.card.dataset.tagSuggestionsLabel || state.card.dataset.tagsLabel || 'Tag suggestions',
+            editorConfig().tagSuggestionsLabel || editorConfig().tagsLabel || 'Tag suggestions',
         );
         surface.append(input);
         root.append(surface, suggestionList);
@@ -1940,7 +1968,7 @@
                 remove.textContent = '×';
                 remove.setAttribute(
                     'aria-label',
-                    (state.card.dataset.removeTagLabel || 'Remove tag') + ': ' + tag,
+                    (editorConfig().removeTagLabel || 'Remove tag') + ': ' + tag,
                 );
                 chip.append(label, remove);
                 fragment.append(chip);
@@ -2029,7 +2057,7 @@
                 if (tag) {
                     add(tag);
                 } else if (!commit()) {
-                    showError(state.form, state.card.dataset.invalidTags || state.card.dataset.editError || 'Invalid post tags.');
+                    showError(state.form, editorConfig().invalidTags || editorConfig().editError || 'Invalid post tags.');
                 }
                 return;
             }
@@ -2065,7 +2093,7 @@
                     return;
                 }
                 if (!commit()) {
-                    showError(state.form, state.card.dataset.invalidTags || state.card.dataset.editError || 'Invalid post tags.');
+                    showError(state.form, editorConfig().invalidTags || editorConfig().editError || 'Invalid post tags.');
                 }
                 closeSuggestions();
             }, 0);
@@ -2089,7 +2117,7 @@
         });
 
         render();
-        loadTagSuggestions(state.card.dataset.tagSuggestionsUrl).then((loadedSuggestions) => {
+        loadTagSuggestions(editorConfig().tagSuggestionsUrl).then((loadedSuggestions) => {
             if (!root.isConnected) {
                 return;
             }
@@ -2144,7 +2172,7 @@
         if (kind !== 'image') {
             const element = document.createElement('span');
             const message = mediaMessage(
-                state.card.dataset.mediaUploading || 'Uploading “%s”…',
+                editorConfig().mediaUploading || 'Uploading “%s”…',
                 file.name,
             );
             element.className = 'post-media-upload';
@@ -2192,7 +2220,7 @@
         };
         updateMediaUploadPending(
             pending,
-            mediaMessage(state.card.dataset.mediaQueued || 'Queued: “%s”', file.name),
+            mediaMessage(editorConfig().mediaQueued || 'Queued: “%s”', file.name),
             'queued',
         );
         return pending;
@@ -2293,9 +2321,8 @@
         return String(text || '').replace(/\r\n?/gu, '\n').trim();
     }
 
-    function inlineMediaCaptionPlaceholder(root) {
-        const card = root.closest('.post-card');
-        return card?.dataset.mediaCaptionPlaceholder || 'Add a caption…';
+    function inlineMediaCaptionPlaceholder() {
+        return editorConfig().mediaCaptionPlaceholder || 'Add a caption…';
     }
 
     function clearInlineMediaCaptionAttributes(caption) {
@@ -2323,7 +2350,7 @@
     }
 
     function prepareInlineMediaCaptionEntries(root) {
-        const placeholder = inlineMediaCaptionPlaceholder(root);
+        const placeholder = inlineMediaCaptionPlaceholder();
         root.querySelectorAll('.post-media-picture').forEach((picture) => {
             if (!picture.querySelector('img') || picture.classList.contains('is-processing')) {
                 return;
@@ -2363,7 +2390,7 @@
         caption.textContent = text;
         configureInlineMediaCaptionEntry(
             caption,
-            state.card.dataset.mediaCaptionPlaceholder || 'Add a caption…',
+            editorConfig().mediaCaptionPlaceholder || 'Add a caption…',
         );
         if (text !== editor.original) {
             markBodyChanged(state);
@@ -2389,7 +2416,7 @@
             return;
         }
         const controller = new AbortController();
-        const placeholder = state.card.dataset.mediaCaptionPlaceholder || 'Add a caption…';
+        const placeholder = editorConfig().mediaCaptionPlaceholder || 'Add a caption…';
         const original = inlineMediaCaptionText(caption);
         state.mediaCaptionEditors.set(caption, {controller, original});
         clearInlineMediaCaptionAttributes(caption);
@@ -2589,7 +2616,7 @@
                 let uploadName = file.name;
                 if (kind === 'image') {
                     const optimizingMessage = mediaMessage(
-                        state.card.dataset.mediaOptimizing || 'Optimizing “%s”…',
+                        editorConfig().mediaOptimizing || 'Optimizing “%s”…',
                         file.name,
                     );
                     updateMediaUploadPending(pending, optimizingMessage, 'optimizing');
@@ -2608,10 +2635,10 @@
 
                 const publishedAt = editorPublishedAt(state);
                 if (!Number.isInteger(publishedAt) || publishedAt < 1 || publishedAt > 4102444799) {
-                    throw new Error(state.card.dataset.invalidContent || 'Invalid post content.');
+                    throw new Error(editorConfig().invalidContent || 'Invalid post content.');
                 }
                 const uploadingMessage = mediaMessage(
-                    state.card.dataset.mediaUploading || 'Uploading “%s”…',
+                    editorConfig().mediaUploading || 'Uploading “%s”…',
                     file.name,
                 );
                 updateMediaUploadPending(pending, uploadingMessage, 'uploading');
@@ -2642,7 +2669,7 @@
                 ) {
                     throw new Error(
                         payload?.message
-                        || mediaMessage(state.card.dataset.mediaUploadFailed || 'Unable to upload “%s”.', file.name),
+                        || mediaMessage(editorConfig().mediaUploadFailed || 'Unable to upload “%s”.', file.name),
                     );
                 }
                 if (editorStates.get(state.card) !== state || !pending.element.isConnected) {
@@ -2656,10 +2683,10 @@
 
                 if (kind === 'image') {
                     const image = applyImageMediaPayload(pending, payload);
-                    if (aiAltEnabled(state)) {
+                    if (aiAltEnabled()) {
                         updateMediaUploadPending(
                             pending,
-                            state.card.dataset.aiAltWorking || 'AI is creating alt text…',
+                            editorConfig().aiAltWorking || 'AI is creating alt text…',
                             'alt',
                         );
                         await queueImageAlt(state, image, uploadFile, false, false);
@@ -2678,7 +2705,7 @@
                     pending.element.append(caption);
                     configureInlineMediaCaptionEntry(
                         caption,
-                        state.card.dataset.mediaCaptionPlaceholder || 'Add a caption…',
+                        editorConfig().mediaCaptionPlaceholder || 'Add a caption…',
                     );
                 } else {
                     const audio = createAudioMediaElement(payload, file);
@@ -2694,7 +2721,7 @@
                     state.form,
                     error instanceof Error
                         ? error.message
-                        : mediaMessage(state.card.dataset.mediaUploadFailed || 'Unable to upload “%s”.', file.name),
+                        : mediaMessage(editorConfig().mediaUploadFailed || 'Unable to upload “%s”.', file.name),
                 );
             } finally {
                 state.mediaControllers.delete(controller);
@@ -2719,7 +2746,7 @@
 
         const publishedAt = editorPublishedAt(state);
         if (!Number.isInteger(publishedAt) || publishedAt < 1 || publishedAt > 4102444799) {
-            throw new Error(state.card.dataset.invalidContent || 'Invalid post content.');
+            throw new Error(editorConfig().invalidContent || 'Invalid post content.');
         }
         const token = state.form.elements.namedItem('inplace_token');
         const data = new FormData();
@@ -2738,7 +2765,7 @@
         });
         const payload = await response.json().catch(() => null);
         if (!response.ok || payload?.success !== true || !Array.isArray(payload.media)) {
-            throw new Error(payload?.message || state.card.dataset.mediaUploadFailed || 'Unable to name the image.');
+            throw new Error(payload?.message || editorConfig().mediaUploadFailed || 'Unable to name the image.');
         }
 
         const mediaById = new Map(payload.media.map((media) => [Number(media.media_id), media]));
@@ -2799,7 +2826,7 @@
             showError(
                 state.form,
                 mediaMessage(
-                    state.card.dataset.mediaUnsupported || '“%s” is not supported. Drop an image or audio file.',
+                    editorConfig().mediaUnsupported || '“%s” is not supported. Drop an image or audio file.',
                     unsupported.join(', '),
                 ),
             );
@@ -2908,7 +2935,7 @@
             || !Array.isArray(payload.tags)
             || payload.tags.some((tag) => !tag || typeof tag.name !== 'string' || typeof tag.url !== 'string')
         ) {
-            throw new Error(card.dataset.applyError || 'Unable to apply the updated post.');
+            throw new Error(editorConfig().applyError || 'Unable to apply the updated post.');
         }
 
         if (state) {
@@ -2931,7 +2958,7 @@
         tagsHost.classList.toggle('is-empty', payload.tags.length === 0);
 
         const confirmation = card.querySelector(':scope > .post-delete-confirmation');
-        const warningTemplate = confirmation?.dataset.warningTemplate;
+        const warningTemplate = editorConfig().deleteWarning;
         if (confirmation && typeof warningTemplate === 'string') {
             const warning = warningTemplate.replace('%s', payload.title);
             confirmation.setAttribute('aria-label', warning);
@@ -2993,7 +3020,7 @@
             || typeof payload.action_url !== 'string'
             || typeof payload.token !== 'string'
         ) {
-            throw new Error(card.dataset.applyError || 'Unable to apply the created post.');
+            throw new Error(editorConfig().applyError || 'Unable to apply the created post.');
         }
 
         card.dataset.postId = String(payload.id);
@@ -3052,11 +3079,11 @@
         notice.tabIndex = -1;
         notice.textContent = typeof payload.message === 'string'
             ? payload.message
-            : (card.dataset.deletedMessage || 'Post deleted');
+            : (editorConfig().deletedMessage || 'Post deleted');
         if (typeof payload.redirect === 'string' && payload.redirect !== '') {
             const link = document.createElement('a');
             link.href = payload.redirect;
-            link.textContent = card.dataset.listLabel || 'Back to posts';
+            link.textContent = editorConfig().listLabel || 'Back to posts';
             notice.append(' — ', link);
         }
         card.replaceWith(notice);
@@ -3124,7 +3151,7 @@
             });
             const payload = await response.json().catch(() => null);
             if (!response.ok || !payload || payload.success !== true) {
-                throw new Error(payload?.message || card.dataset.editError || 'Unable to change the post.');
+                throw new Error(payload?.message || editorConfig().editError || 'Unable to change the post.');
             }
 
             if (payload.action === 'edit') {
@@ -3139,7 +3166,7 @@
         } catch (error) {
             showError(
                 form,
-                error instanceof Error ? error.message : (card.dataset.editError || 'Unable to change the post.'),
+                error instanceof Error ? error.message : (editorConfig().editError || 'Unable to change the post.'),
             );
         } finally {
             if (state) {
@@ -3491,8 +3518,8 @@
         return !image.hasAttribute('alt') || (image.getAttribute('alt') || '').trim() === '';
     }
 
-    function aiAltEnabled(state) {
-        return state.card.dataset.aiAltEnabled === '1';
+    function aiAltEnabled() {
+        return editorConfig().aiAltEnabled === true;
     }
 
     function aiAltContext(state) {
@@ -3515,14 +3542,14 @@
         if (state.aiAltStatusPending > 0) {
             showEditorStatus(
                 state,
-                state.card.dataset.aiAltWorking || 'AI is creating alt text…',
+                editorConfig().aiAltWorking || 'AI is creating alt text…',
             );
             return;
         }
         if (hasFailedMissingImageAlt(state)) {
             showEditorStatus(
                 state,
-                state.card.dataset.aiAltFailed || 'Unable to create alt text. Add it manually or try again.',
+                editorConfig().aiAltFailed || 'Unable to create alt text. Add it manually or try again.',
                 true,
             );
             return;
@@ -3530,7 +3557,7 @@
         if (applied) {
             showEditorStatus(
                 state,
-                state.card.dataset.aiAltApplied || 'AI added alt text.',
+                editorConfig().aiAltApplied || 'AI added alt text.',
             );
         }
     }
@@ -3594,7 +3621,7 @@
                 || typeof payload.result !== 'string'
                 || payload.result.trim() === ''
             ) {
-                throw new Error(payload?.message || state.card.dataset.aiAltFailed || 'Unable to create alt text.');
+                throw new Error(payload?.message || editorConfig().aiAltFailed || 'Unable to create alt text.');
             }
 
             if (
@@ -3625,7 +3652,7 @@
 
     function queueImageAlt(state, image, source = null, force = false, showStatus = true) {
         if (
-            !aiAltEnabled(state)
+            !aiAltEnabled()
             || !(image instanceof HTMLImageElement)
             || !state.body.contains(image)
             || (!force && !imageNeedsGeneratedAlt(image))
@@ -3676,7 +3703,7 @@
     }
 
     function generateMissingImageAlts(state) {
-        if (!aiAltEnabled(state)) {
+        if (!aiAltEnabled()) {
             return;
         }
         state.body.querySelectorAll('img').forEach((image) => {
@@ -3894,7 +3921,7 @@
         const originalBackgroundAttribute = originalContext.caption?.getAttribute('data-caption-background') ?? null;
         const context = ensureImageCaption(state, image);
         const caption = context.caption;
-        const toolbarTemplate = state.card.querySelector(':scope > .post-image-caption-toolbar-template');
+        const toolbarTemplate = editorTemplate('.post-image-caption-toolbar-template');
         const toolbarFragment = toolbarTemplate instanceof HTMLTemplateElement
             ? toolbarTemplate.content.cloneNode(true)
             : null;
@@ -4033,7 +4060,7 @@
         }
         const url = normalizeLinkUrl(context.linkInput.value);
         if (url === null) {
-            context.linkError.textContent = state.card.dataset.invalidLink || 'Enter a safe link address.';
+            context.linkError.textContent = editorConfig().invalidLink || 'Enter a safe link address.';
             context.linkError.hidden = false;
             context.linkInput.focus();
             return;
@@ -4427,7 +4454,7 @@
         const wholeSource = editableBodyHtml(state);
         closeContextMenu(state, false);
         if (source.trim() === '') {
-            showEditorStatus(state, state.card.dataset.aiFailed || 'Unable to get a response from AI.', true);
+            showEditorStatus(state, editorConfig().aiFailed || 'Unable to get a response from AI.', true);
             return;
         }
 
@@ -4435,7 +4462,7 @@
         const controller = new AbortController();
         state.aiController = controller;
         state.card.classList.add('is-ai-working');
-        showEditorStatus(state, state.card.dataset.aiWorking || 'AI is processing the text…');
+        showEditorStatus(state, editorConfig().aiWorking || 'AI is processing the text…');
 
         const token = state.form.elements.namedItem('inplace_token');
         const data = new FormData();
@@ -4465,7 +4492,7 @@
                 || payload.ai_action !== action
                 || typeof payload.result !== 'string'
             ) {
-                throw new Error(payload?.message || state.card.dataset.aiFailed || 'Unable to get a response from AI.');
+                throw new Error(payload?.message || editorConfig().aiFailed || 'Unable to get a response from AI.');
             }
             if (editorStates.get(state.card) !== state || state.aiController !== controller) {
                 return;
@@ -4473,11 +4500,11 @@
 
             if (sourceRange) {
                 if (!rangeIsInside(state.body, sourceRange) || htmlForRange(sourceRange) !== source) {
-                    showEditorStatus(state, state.card.dataset.aiSourceChanged || 'The source text has changed.', true);
+                    showEditorStatus(state, editorConfig().aiSourceChanged || 'The source text has changed.', true);
                     return;
                 }
             } else if (editableBodyHtml(state) !== wholeSource) {
-                showEditorStatus(state, state.card.dataset.aiSourceChanged || 'The source text has changed.', true);
+                showEditorStatus(state, editorConfig().aiSourceChanged || 'The source text has changed.', true);
                 return;
             }
 
@@ -4485,8 +4512,8 @@
                 showEditorStatus(
                     state,
                     action === 'proofread'
-                        ? (state.card.dataset.aiProofreadClean || 'No errors found.')
-                        : (state.card.dataset.aiUnchanged || 'AI did not change the text.'),
+                        ? (editorConfig().aiProofreadClean || 'No errors found.')
+                        : (editorConfig().aiUnchanged || 'AI did not change the text.'),
                 );
                 return;
             }
@@ -4494,21 +4521,21 @@
             if (action === 'title') {
                 const title = payload.result.replace(/\s+/gu, ' ').trim();
                 if (title === '' || title.length > 255) {
-                    throw new Error(state.card.dataset.invalidContent || 'Invalid post content.');
+                    throw new Error(editorConfig().invalidContent || 'Invalid post content.');
                 }
                 state.title.textContent = title;
                 state.titleDirty = true;
                 focusEdge(state.title, true);
             } else if (action === 'tags') {
                 if (!state.tagEditor.replace(payload.result)) {
-                    throw new Error(state.card.dataset.invalidTags || 'Invalid post tags.');
+                    throw new Error(editorConfig().invalidTags || 'Invalid post tags.');
                 }
                 state.tagsDirty = true;
                 state.tagEditor.focus();
             } else if (sourceRange) {
                 const insertedNodes = replaceRangeHtml(state, sourceRange, payload.result);
                 if (insertedNodes === null) {
-                    throw new Error(state.card.dataset.aiSourceChanged || 'The source text has changed.');
+                    throw new Error(editorConfig().aiSourceChanged || 'The source text has changed.');
                 }
                 markAiChanges(insertedNodes, sourceText);
             } else {
@@ -4520,7 +4547,7 @@
             }
 
             clearError(state.form);
-            showEditorStatus(state, state.card.dataset.aiApplied || 'AI changes applied.');
+            showEditorStatus(state, editorConfig().aiApplied || 'AI changes applied.');
             generateMissingImageAlts(state);
         } catch (error) {
             if (!(error instanceof DOMException && error.name === 'AbortError')) {
@@ -4528,7 +4555,7 @@
                     state,
                     error instanceof Error
                         ? error.message
-                        : (state.card.dataset.aiFailed || 'Unable to get a response from AI.'),
+                        : (editorConfig().aiFailed || 'Unable to get a response from AI.'),
                     true,
                 );
             }
@@ -4614,7 +4641,7 @@
     }
 
     function openContextMenu(state, event = null, targetOverride = null) {
-        const template = state.card.querySelector(':scope > .post-editor-context-menu-template');
+        const template = editorTemplate('.post-editor-context-menu-template');
         if (!(template instanceof HTMLTemplateElement)) {
             return false;
         }

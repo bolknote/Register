@@ -35,6 +35,8 @@ final readonly class SiteHeaderRenderer
 
     public function render(Request $request): string
     {
+        $editorConfig = $this->inplaceControls->forPage($request);
+
         return $this->viewer->render('site-header', [
             'site_name'        => $this->siteName->get(),
             'tagline'          => $this->tagline->get(),
@@ -43,6 +45,11 @@ final readonly class SiteHeaderRenderer
             'site_tools_html'  => $this->renderTools($request),
             'public_auth_html' => $this->publicAuthRenderer->renderHeader($request),
             'create_post_html' => $this->postFeedRenderer->renderCreateTemplate($request),
+            'editor_resources_html' => $editorConfig === null ? '' : $this->viewer->render(
+                'post-editor-resources',
+                ['editor_config' => $editorConfig],
+                BlogModule::class,
+            ),
         ], BlogModule::class);
     }
 

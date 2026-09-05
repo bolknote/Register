@@ -10,6 +10,7 @@ declare(strict_types = 1);
 /** @var string $site_tools_html */
 /** @var string|null $create_post_html */
 /** @var string $public_auth_html */
+/** @var string $editor_resources_html */
 
 $canCreatePost = \is_string($create_post_html ?? null) && $create_post_html !== '';
 $titleTag      = $is_home ? 'h1' : 'div';
@@ -30,6 +31,7 @@ $titleTag      = $is_home ? 'h1' : 'div';
     </div>
 
 <?php if ($canCreatePost): ?>
+<?php echo $editor_resources_html; ?>
     <div class="post-create-slot" data-post-create-slot hidden>
         <template class="post-create-template"><?php echo $create_post_html; ?></template>
     </div>

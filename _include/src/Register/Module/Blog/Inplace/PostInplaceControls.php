@@ -27,7 +27,7 @@ final readonly class PostInplaceControls
     }
 
     /**
-     * @return array{action_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, ai_alt_enabled: bool, create: false}|null
+     * @return array{action_url: string, token: string, revision: int, return_to: string, create: false}|null
      */
     public function forPost(Request $request, int $postId, ?int $authorId, int $revision): ?array
     {
@@ -38,17 +38,14 @@ final readonly class PostInplaceControls
 
         return [
             'action_url'    => $this->urlBuilder->rawLink('/_inplace/post/' . $postId),
-            'tag_suggestions_url' => $this->urlBuilder->rawLink('/_inplace/tags'),
             'token'         => $this->tokenManager->issue($editor, $postId),
             'revision'      => $revision,
             'return_to'     => $request->getPathInfo(),
-            'ai_enabled'    => $this->aiSettings->isConfigured(),
-            'ai_alt_enabled' => $this->aiSettings->autoAltAvailable(),
             'create'        => false,
         ];
     }
 
-    /** @return array{action_url: string, tag_suggestions_url: string, token: string, revision: int, return_to: string, ai_enabled: bool, ai_alt_enabled: bool, create: true, editor_name: string}|null */
+    /** @return array{action_url: string, token: string, revision: int, return_to: string, create: true, editor_name: string}|null */
     public function forCreate(Request $request): ?array
     {
         $editor = $this->editorForCreate($request);
@@ -58,14 +55,25 @@ final readonly class PostInplaceControls
 
         return [
             'action_url'     => $this->urlBuilder->rawLink('/_inplace/post/new'),
-            'tag_suggestions_url' => $this->urlBuilder->rawLink('/_inplace/tags'),
             'token'          => $this->tokenManager->issueForCreate($editor),
             'revision'       => 0,
             'return_to'      => $request->getPathInfo(),
-            'ai_enabled'     => $this->aiSettings->isConfigured(),
-            'ai_alt_enabled' => $this->aiSettings->autoAltAvailable(),
             'create'         => true,
             'editor_name'    => $editor->displayName(),
+        ];
+    }
+
+    /** @return array{tag_suggestions_url: string, ai_enabled: bool, ai_alt_enabled: bool}|null */
+    public function forPage(Request $request): ?array
+    {
+        if ($this->editorForCreate($request) === null) {
+            return null;
+        }
+
+        return [
+            'tag_suggestions_url' => $this->urlBuilder->rawLink('/_inplace/tags'),
+            'ai_enabled' => $this->aiSettings->isConfigured(),
+            'ai_alt_enabled' => $this->aiSettings->autoAltAvailable(),
         ];
     }
 

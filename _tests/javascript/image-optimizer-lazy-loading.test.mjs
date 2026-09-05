@@ -106,7 +106,7 @@ test('dropped images render immediately and the complete processing flow is queu
 
     const optimizing = uploadSource.indexOf("updateMediaUploadPending(pending, optimizingMessage, 'optimizing')");
     const uploading = uploadSource.indexOf("updateMediaUploadPending(pending, uploadingMessage, 'uploading')");
-    const alt = uploadSource.indexOf("state.card.dataset.aiAltWorking || 'AI is creating alt text…'");
+    const alt = uploadSource.indexOf("editorConfig().aiAltWorking || 'AI is creating alt text…'");
     const queued = uploadSource.indexOf('state.imageUploadTail.catch(() => {}).then(run)');
     assert.ok(optimizing >= 0 && uploading > optimizing && alt > uploading);
     assert.ok(queued > alt);

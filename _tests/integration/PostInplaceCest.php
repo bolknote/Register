@@ -23,6 +23,7 @@ use Register\Content\TagRepository;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\HttpClient\HttpResponse;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Template\PartialPageResponse;
 use Register\Live\LiveUpdateRepository;
 use Register\Module\Blog\Inplace\PostInplaceController;
 use Register\Module\Blog\Inplace\PostMediaRepository;
@@ -45,6 +46,7 @@ final class PostInplaceCest
 
         $I->amOnPage('https://localhost/author-post');
         $I->dontSeeElement('.post-card[data-post-id="' . $ownId . '"] .post-inplace-tools');
+        $I->dontSeeElement('#post-editor-resources');
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $ownId, [
             'inplace_action' => 'edit',
             'inplace_token'  => str_repeat('0', 64),
@@ -71,8 +73,12 @@ final class PostInplaceCest
         $I->seeElement('.post-inplace-edit-form[hidden] input[type="hidden"][name="tags"]');
         $I->seeElement('.post.head [data-post-inplace-title]');
         $I->seeElement('.post.body[data-post-inplace-body]');
-        $I->seeElement('.post-card[data-media-caption-placeholder="Add a caption…"]');
-        $I->seeElement('.post-card[data-tag-suggestions-url="/_inplace/tags"]');
+
+        $config = json_decode((string)$I->grabAttributeFrom('#post-editor-resources', 'data-config'), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertSame('Add a caption…', $config['mediaCaptionPlaceholder']);
+        $I->assertSame('/_inplace/tags', $config['tagSuggestionsUrl']);
+        $I->dontSeeElement('.post-card[data-edit-error]');
+        $I->dontSeeElement('.post-card template');
         $I->seeElement('.post.foot .post-foot-tags.is-empty [data-post-inplace-tags-values]');
         $I->dontSeeElement('.post-inplace-html-editor');
         $I->seeElement('.post-delete-confirmation[hidden]');
@@ -114,6 +120,66 @@ final class PostInplaceCest
 
         $I->amOnPage('https://localhost/admin-post');
         $I->dontSeeElement('.post-card[data-post-id="' . $otherId . '"] .post-inplace-tools');
+    }
+
+    public function sharesEditorResourcesAcrossPostsAndPartialNavigation(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $authorId = $this->userId($dbLayer, 'author');
+        $firstId = $this->insertPost($dbLayer, 'shared-editor-first', $authorId);
+        $secondId = $this->insertPost($dbLayer, 'shared-editor-second', $authorId);
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/');
+
+        foreach (['#post-editor-resources', 'template.post-editor-context-menu-template',
+            'template.post-image-caption-toolbar-template', 'template.post-discard-changes-template'] as $selector) {
+            $I->assertCount(1, $I->grabMultiple($selector));
+        }
+
+        $I->dontSeeElement('.post-card[data-edit-error]');
+        $I->dontSeeElement('.post-card template');
+        $I->seeElement('.post-create-template .post-card[data-post-creating]');
+
+        $tokens = [];
+        foreach ([$firstId, $secondId] as $postId) {
+            $form = '.post-card[data-post-id="' . $postId . '"] > .post-inplace-edit-form';
+            $I->assertSame('/_inplace/post/' . $postId, $I->grabAttributeFrom($form, 'action'));
+            $tokens[] = $I->grabAttributeFrom($form . ' input[name="inplace_token"]', 'value');
+        }
+
+        $I->assertNotEmpty($tokens[0]);
+        $I->assertNotSame($tokens[0], $tokens[1]);
+
+        $I->sendRequestWithHeaders('https://localhost/shared-editor-first', [
+            'Accept' => PartialPageResponse::RESPONSE_CONTENT_TYPE,
+            PartialPageResponse::REQUEST_HEADER => 'partial',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->assertSame('partial', $I->grabHttpHeader(PartialPageResponse::REQUEST_HEADER));
+
+        $payload = $I->grabJson();
+        $fragment = $payload['fragment'] ?? '';
+        $I->assertSame(1, substr_count($fragment, 'id="post-editor-resources"'));
+        $I->assertStringNotContainsString('<script', $fragment);
+        $I->assertStringNotContainsString('data-edit-error=', $fragment);
+
+        /** @var LiveUpdateRepository $updates */
+        $updates = $I->grabService(LiveUpdateRepository::class);
+        $cursor = $updates->currentCursor();
+        $updates->publishContent(ContentId::post($secondId));
+        $I->amOnPage('https://localhost/_live?' . http_build_query([
+            'cursor' => $cursor,
+            'region' => ['posts:0'],
+        ]));
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $live = $I->grabJson();
+        $fragment = $live['patches']['posts:0'] ?? '';
+        $I->assertStringContainsString('post-inplace-edit-form', $fragment);
+        $I->assertStringNotContainsString('post-editor-resources', $fragment);
+        $I->assertStringNotContainsString('post-editor-context-menu-template', $fragment);
+        $I->assertStringNotContainsString('data-edit-error=', $fragment);
     }
 
     public function suggestsExistingTagsToAuthorizedEditors(\IntegrationTester $I): void
@@ -182,8 +248,10 @@ final class PostInplaceCest
             $I->login('author', 'author');
             $I->amOnPage('https://localhost/automatic-image-alt');
             $card = '.post-card[data-post-id="' . $postId . '"]';
-            $I->seeElement($card . '[data-ai-alt-enabled="1"]');
-            $I->seeElement($card . ' [data-context-action="generate-image-alt"]');
+            $config = json_decode((string)$I->grabAttributeFrom('#post-editor-resources', 'data-config'), true, flags: JSON_THROW_ON_ERROR);
+            $I->assertTrue($config['aiAltEnabled']);
+            $I->seeElement('#post-editor-resources [data-context-action="generate-image-alt"]');
+            $I->assertStringNotContainsString('test-gemini-key', $I->grabResponse());
 
             $form = $card . ' > .post-inplace-edit-form';
             $token = (string)$I->grabAttributeFrom($form . ' input[name="inplace_token"]', 'value');
@@ -241,8 +309,9 @@ final class PostInplaceCest
 
             $I->setConfigValue(AiSettings::AUTO_ALT_CONFIG_KEY, '0');
             $I->amOnPage('https://localhost/automatic-image-alt');
-            $I->seeElement($card . '[data-ai-alt-enabled="0"]');
-            $I->dontSeeElement($card . ' [data-context-action="generate-image-alt"]');
+            $config = json_decode((string)$I->grabAttributeFrom('#post-editor-resources', 'data-config'), true, flags: JSON_THROW_ON_ERROR);
+            $I->assertFalse($config['aiAltEnabled']);
+            $I->dontSeeElement('#post-editor-resources [data-context-action="generate-image-alt"]');
         } finally {
             $I->replaceService(AiClient::class, $originalAiClient, [PostInplaceController::class]);
         }

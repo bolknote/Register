@@ -260,6 +260,7 @@ function createHarness() {
         activeElement: null,
         currentScript: {src: 'https://example.test/_assets/register/post-inplace.js?v=1'},
         documentElement: {lang: 'en'},
+        getElementById() { return null; },
         addEventListener: function (type, listener) {
             const registered = listeners.get(type) || [];
             registered.push(listener);

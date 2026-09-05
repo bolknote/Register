@@ -488,7 +488,7 @@ final class AssetPackTest extends Unit
     {
         $rootDir = \dirname(__DIR__, 4) . '/';
         $template = file_get_contents(
-            $rootDir . '_include/src/Register/Module/Blog/resources/views/post.php',
+            $rootDir . '_include/src/Register/Module/Blog/resources/views/post-editor-resources.php',
         );
         $site = file_get_contents($rootDir . '_styles/register/site.css');
         $script = file_get_contents($rootDir . '_assets/register/post-inplace.js');
