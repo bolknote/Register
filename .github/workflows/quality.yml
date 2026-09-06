@@ -6,6 +6,23 @@ permissions:
   contents: read
 
 jobs:
+  editor-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install browser test dependencies
+        working-directory: _tests/browser/editor
+        run: npm ci
+      - name: Install test browsers
+        working-directory: _tests/browser/editor
+        run: npx playwright install --with-deps chromium firefox
+      - name: Editor regressions in Chromium and Firefox
+        working-directory: _tests/browser/editor
+        run: npm test
+
   analyse:
     runs-on: ubuntu-24.04
 

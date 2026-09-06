@@ -1416,6 +1416,7 @@
     }
 
     function stopEditing(state) {
+        state.history?.destroy();
         closeDiscardChangesDialog(state, false);
         closeContextMenu(state, false);
         state.imageCaptionEditor?.controller.abort();
@@ -1651,6 +1652,7 @@
         applyShortcutHints(card);
         toggleEditingTools(card, true);
         document.execCommand('defaultParagraphSeparator', false, 'p');
+        state.history = createBodyHistory(state);
         focusEdge(elements.title, true);
         queueMicrotask(() => {
             if (editorStates.get(card) === state) {
@@ -2432,6 +2434,7 @@
             focusInlineMediaCaption(state, caption);
             return;
         }
+        state.history?.before();
         const controller = new AbortController();
         const placeholder = editorConfig().mediaCaptionPlaceholder || 'Add a caption…';
         const original = inlineMediaCaptionText(caption);
@@ -2625,6 +2628,7 @@
         state.mediaControllers.add(controller);
 
         const run = async () => {
+            let completed = null;
             try {
                 if (controller.signal.aborted) {
                     throw new DOMException('Media upload was cancelled.', 'AbortError');
@@ -2689,7 +2693,11 @@
                         || mediaMessage(editorConfig().mediaUploadFailed || 'Unable to upload “%s”.', file.name),
                     );
                 }
-                if (editorStates.get(state.card) !== state || !pending.element.isConnected) {
+                if (editorStates.get(state.card) !== state) {
+                    // A response can win the race with abort after cancelling an
+                    // editor. The server-created file still needs to be released.
+                    state.uploadedMediaIds.add(payload.media_id);
+                    releasePendingMedia(state);
                     releaseMediaUploadPreview(pending);
                     return;
                 }
@@ -2708,7 +2716,7 @@
                         );
                         await queueImageAlt(state, image, uploadFile, false, false);
                     }
-                    if (editorStates.get(state.card) !== state || !pending.element.isConnected) {
+                    if (editorStates.get(state.card) !== state) {
                         releaseMediaUploadPreview(pending);
                         return;
                     }
@@ -2724,9 +2732,11 @@
                         caption,
                         editorConfig().mediaCaptionPlaceholder || 'Add a caption…',
                     );
+                    completed = pending.element;
                 } else {
                     const audio = createAudioMediaElement(payload, file);
                     pending.element.replaceWith(audio);
+                    completed = audio;
                 }
             } catch (error) {
                 releaseMediaUploadPreview(pending);
@@ -2741,6 +2751,7 @@
                         : mediaMessage(editorConfig().mediaUploadFailed || 'Unable to upload “%s”.', file.name),
                 );
             } finally {
+                state.history?.resolveUpload(pending, completed);
                 state.mediaControllers.delete(controller);
             }
         };
@@ -2804,6 +2815,7 @@
     }
 
     function insertMediaFiles(state, files, initialRange) {
+        state.history?.before();
         clearError(state.form);
         clearStatus(state.card);
         let range = prepareMediaInsertionRange(state.body, bodyRange(state, initialRange));
@@ -2818,6 +2830,7 @@
             }
 
             const pending = createMediaUploadPending(state, file, kind);
+            state.history?.trackUpload(pending);
             range.insertNode(pending.element);
             range.setStartAfter(pending.element);
             range.collapse(true);
@@ -2848,6 +2861,7 @@
                 ),
             );
         }
+        state.history?.record();
     }
 
     function transferHasFiles(transfer) {
@@ -2910,10 +2924,17 @@
         const range = selectedRange && rangeIsInside(state.body, selectedRange)
             ? selectedRange.cloneRange()
             : null;
-        if (range && files.some((file) => mediaKindForFile(file) !== null)) {
-            range.deleteContents();
+        const insert = () => {
+            if (range && files.some((file) => mediaKindForFile(file) !== null)) {
+                range.deleteContents();
+            }
+            insertMediaFiles(state, files, range);
+        };
+        if (state.history) {
+            state.history.transact(insert);
+        } else {
+            insert();
         }
-        insertMediaFiles(state, files, range);
     }
 
     function pasteMultilineText(event) {
@@ -3234,6 +3255,185 @@
         }
     }
 
+    // Native input and DOM-based tools must share ONE undo timeline. Native undo
+    // cannot see wrapping a <tt>, unlinking a node, or finishing an async upload.
+    // Keep DOM clones (not reparsed HTML) and both selection endpoints; reparsing
+    // browser-generated editing HTML can change its structure and caret offsets.
+    function createBodyHistory(state) {
+        const uploads = new Map();
+        const ignored = '[data-post-inline-code-exit], .post-editor-context-anchor';
+        let uploadSequence = 0;
+        let index = 0;
+        let depth = 0;
+        let queued = false;
+        let destroyed = false;
+        let previousInput = null;
+        let mergeInput = false;
+
+        const children = (node) => Array.from(node.childNodes).filter((child) => (
+            !(child instanceof Element) || !child.matches(ignored)
+        ));
+        function point(node, offset) {
+            if (!node || !state.body.contains(node)) {
+                return null;
+            }
+            const path = [];
+            const position = node.nodeType === Node.TEXT_NODE
+                ? offset
+                : Array.from(node.childNodes).slice(0, offset).filter((child) => (
+                    !(child instanceof Element) || !child.matches(ignored)
+                )).length;
+            while (node !== state.body) {
+                const parent = node.parentNode;
+                path.unshift(children(parent).indexOf(node));
+                node = parent;
+            }
+            return {path, offset: position};
+        }
+        function selection() {
+            const selected = window.getSelection();
+            const anchor = point(selected?.anchorNode, selected?.anchorOffset);
+            const focus = point(selected?.focusNode, selected?.focusOffset);
+            return anchor && focus ? {anchor, focus} : null;
+        }
+        function snapshot() {
+            const root = state.body.cloneNode(true);
+            root.querySelectorAll(ignored).forEach((node) => node.remove());
+            root.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
+            // A pending upload is one stable slot, not a succession of progress
+            // messages. Restoration reuses its live node, including its listeners.
+            root.querySelectorAll('[data-post-history-upload]').forEach((node) => {
+                const slot = document.createElement('span');
+                slot.dataset.postHistoryUpload = node.dataset.postHistoryUpload;
+                node.replaceWith(slot);
+            });
+            root.querySelectorAll('[class=""]').forEach((node) => node.removeAttribute('class'));
+            return {root, html: root.innerHTML, selection: selection()};
+        }
+        let entries = [snapshot()];
+        const suspended = () => destroyed || depth > 0 || state.imageCaptionEditor || state.mediaCaptionEditors.size > 0;
+        function trim() {
+            let size = entries.reduce((sum, entry) => sum + entry.html.length, 0);
+            // Bound both operation count and serialized size. Always retain the
+            // current and previous state, even for an exceptionally large post.
+            while (entries.length > 2 && index > 1 && (entries.length > 100 || size > 4 * 1024 * 1024)) {
+                size -= entries.shift().html.length;
+                index--;
+            }
+        }
+        function record(type = '') {
+            if (suspended()) {
+                return;
+            }
+            queued = false;
+            const next = snapshot();
+            if (next.html === entries[index].html) {
+                if (next.selection) entries[index].selection = next.selection;
+                return;
+            }
+            entries.splice(index + 1);
+            if (mergeInput && previousInput?.type === type && index > 0) {
+                entries[index] = next;
+            } else {
+                entries.push(next);
+                index++;
+            }
+            mergeInput = false;
+            previousInput = /^(insertText|insertCompositionText|deleteContentBackward|deleteContentForward)$/u.test(type)
+                ? {type, time: Date.now(), selection: next.selection}
+                : null;
+            trim();
+        }
+        function before(type = '') {
+            if (suspended()) return;
+            if (queued) record();
+            const current = snapshot();
+            if (current.html !== entries[index].html) record();
+            mergeInput = Boolean(previousInput && previousInput.type === type
+                && Date.now() - previousInput.time < 1000
+                && JSON.stringify(previousInput.selection) === JSON.stringify(current.selection));
+            if (current.selection) entries[index].selection = current.selection;
+        }
+        function restorePoint(saved) {
+            let node = state.body;
+            for (const part of saved.path) {
+                if (!node.childNodes[part]) break;
+                node = node.childNodes[part];
+            }
+            return [node, Math.min(saved.offset, node.nodeType === Node.TEXT_NODE ? node.data.length : node.childNodes.length)];
+        }
+        function travel(direction) {
+            if (suspended()) return false;
+            if (queued) record();
+            const target = index + direction;
+            if (target < 0 || target >= entries.length) return false;
+            closeContextMenu(state, false);
+            index = target;
+            previousInput = null;
+            mergeInput = false;
+            const entry = entries[index];
+            const restored = entry.root.cloneNode(true);
+            restored.querySelectorAll('[data-post-history-upload]').forEach((slot) => {
+                const pending = uploads.get(slot.dataset.postHistoryUpload);
+                if (pending) slot.replaceWith(pending.element);
+                else slot.remove();
+            });
+            state.body.replaceChildren(...restored.childNodes);
+            state.bodyDirty = true;
+            state.body.focus({preventScroll: true});
+            if (entry.selection) {
+                window.getSelection()?.setBaseAndExtent(
+                    ...restorePoint(entry.selection.anchor), ...restorePoint(entry.selection.focus),
+                );
+            } else {
+                focusEdge(state.body, true);
+            }
+            clearError(state.form);
+            clearStatus(state.card);
+            syncBoundaryCaret();
+            return true;
+        }
+        return {
+            before,
+            record,
+            transact(change) {
+                before();
+                depth++;
+                try { return change(); }
+                finally { depth--; record(); }
+            },
+            schedule() {
+                if (suspended()) return;
+                queued = true;
+                queueMicrotask(() => { if (queued) record(); });
+            },
+            undo: () => travel(-1),
+            redo: () => travel(1),
+            trackUpload(pending) {
+                const id = String(++uploadSequence);
+                pending.element.dataset.postHistoryUpload = id;
+                uploads.set(id, pending);
+            },
+            resolveUpload(pending, completed) {
+                const id = pending.element.dataset.postHistoryUpload;
+                pending.element.removeAttribute('data-post-history-upload');
+                if (destroyed || !uploads.delete(id)) return;
+                // Completion amends the insertion in every retained state. It
+                // never adds an undo step or resurrects an insertion already undone.
+                entries.forEach((entry) => {
+                    entry.root.querySelectorAll(`[data-post-history-upload="${id}"]`).forEach((slot) => {
+                        if (completed) slot.replaceWith(completed.cloneNode(true));
+                        else slot.remove();
+                    });
+                    entry.html = entry.root.innerHTML;
+                });
+                trim();
+            },
+            destroy() { destroyed = true; queued = false; entries = []; uploads.clear(); },
+            get length() { return entries.length; },
+        };
+    }
+
     function selectionIsInside(element) {
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) {
@@ -3244,16 +3444,143 @@
     }
 
     function runFormattingCommand(state, command, value = null) {
+        if (state.history && (command === 'undo' || command === 'redo')) {
+            return state.history[command]();
+        }
         if (!selectionIsInside(state.body)) {
             return false;
         }
-        const bodyBefore = state.body.innerHTML;
-        state.body.focus();
-        const changed = document.execCommand(command, false, value);
-        if (changed && state.body.innerHTML !== bodyBefore) {
-            state.bodyDirty = true;
+        const execute = () => {
+            const bodyBefore = state.body.innerHTML;
+            state.body.focus();
+            if (command === 'formatBlock' && value === 'p') {
+                if (paragraphsFromSelectedLists(state)) {
+                    state.bodyDirty = true;
+                    return true;
+                }
+            }
+            const changed = document.execCommand(command, false, value);
+            if (command === 'removeFormat' && selectionIsInside(state.body)) {
+                // Firefox's native removeFormat does not remove our <tt> marks.
+                const range = window.getSelection().getRangeAt(0);
+                const codes = Array.from(new Set(textPortionsInRange(state.body, range)
+                    .flatMap(({node}) => inlineCodeAncestors(state.body, node))));
+                if (codes.length > 0) removeInlineCode(state, range, codes);
+            }
+            if (state.body.innerHTML !== bodyBefore) state.bodyDirty = true;
+            return changed;
+        };
+        return state.history ? state.history.transact(execute) : execute();
+    }
+
+    function paragraphsFromSelectedLists(state) {
+        const range = window.getSelection().getRangeAt(0);
+        const items = new Set();
+        const include = (node) => {
+            const element = node instanceof Element ? node : node.parentElement;
+            const item = element?.closest('li');
+            if (item && state.body.contains(item)) items.add(item);
+        };
+        if (range.collapsed) {
+            include(range.startContainer);
+        } else {
+            textPortionsInRange(state.body, range).forEach(({node}) => include(node));
+            state.body.querySelectorAll('li:empty, li img, li audio, li video, li br').forEach((node) => {
+                if (range.intersectsNode(node)) include(node);
+            });
         }
-        return changed;
+        if (items.size === 0) return false;
+
+        // Mark both endpoints before moving nodes. This also preserves a caret in
+        // a partially selected item and backward selections through list splitting.
+        const selection = window.getSelection();
+        const backwards = selection.anchorNode === range.endContainer && selection.anchorOffset === range.endOffset;
+        const start = document.createElement('span');
+        const end = document.createElement('span');
+        const endRange = range.cloneRange();
+        endRange.collapse(false);
+        endRange.insertNode(end);
+        const startRange = range.cloneRange();
+        startRange.collapse(true);
+        startRange.insertNode(start);
+        const blocks = 'P,DIV,H1,H2,H3,H4,H5,H6,OL,UL,BLOCKQUOTE,PRE,TABLE,HR'.split(',');
+        const isBlock = node => node instanceof Element && blocks.includes(node.tagName);
+        function splitParagraphs(source, target) {
+            let paragraph = null;
+            Array.from(source.childNodes).forEach((node) => {
+                if (isBlock(node)) {
+                    paragraph = null;
+                    target.append(node);
+                } else {
+                    if (!paragraph) {
+                        paragraph = document.createElement('p');
+                        target.append(paragraph);
+                    }
+                    paragraph.append(node);
+                }
+            });
+        }
+        try {
+            // Inner lists first: converting one nested item must not unwrap its
+            // parent item or reset numbering on unselected siblings.
+            Array.from(state.body.querySelectorAll('ol, ul')).reverse().forEach((list) => {
+                if (!Array.from(list.children).some(item => items.has(item))) return;
+                const replacement = document.createDocumentFragment();
+                let group = null;
+                const step = list.hasAttribute('reversed') ? -1 : 1;
+                let number = Number(list.getAttribute('start') ?? (step < 0 ? list.children.length : 1));
+                Array.from(list.children).forEach((item) => {
+                    if (item.hasAttribute('value')) number = Number(item.getAttribute('value'));
+                    if (items.has(item)) {
+                        group = null;
+                        if (!item.hasChildNodes()) item.append(document.createElement('br'));
+                        splitParagraphs(item, replacement);
+                    } else {
+                        if (!group) {
+                            group = list.cloneNode(false);
+                            if (list.tagName === 'OL') group.setAttribute('start', String(number));
+                            replacement.append(group);
+                        }
+                        group.append(item);
+                    }
+                    number += step;
+                });
+                list.replaceWith(replacement);
+            });
+            // A selection may contain a heading outside or inside a list too.
+            // Convert those blocks without native formatBlock merging neighbours.
+            const markedRange = document.createRange();
+            markedRange.setStartAfter(start);
+            markedRange.setEndBefore(end);
+            Array.from(state.body.querySelectorAll('h1, h2, h3, h4, h5, h6, pre, blockquote')).reverse().forEach((block) => {
+                if (!markedRange.intersectsNode(block)) return;
+                const paragraph = document.createElement('p');
+                Array.from(block.attributes).forEach(({name, value}) => paragraph.setAttribute(name, value));
+                paragraph.append(...block.childNodes);
+                block.replaceWith(paragraph);
+            });
+            // Chromium can create <p><ol>…</ol></p> while editing. Do not carry
+            // that invalid wrapper into the resulting paragraphs or saved HTML.
+            Array.from(state.body.querySelectorAll('p')).reverse().forEach((paragraph) => {
+                if (!Array.from(paragraph.childNodes).some(isBlock)) return;
+                const replacement = document.createDocumentFragment();
+                splitParagraphs(paragraph, replacement);
+                paragraph.replaceWith(replacement);
+            });
+            const selected = document.createRange();
+            selected.setStartAfter(start);
+            selected.setEndBefore(end);
+            start.remove();
+            end.remove();
+            selectRange(state, selected);
+            if (backwards && !selected.collapsed) {
+                selection.setBaseAndExtent(selected.endContainer, selected.endOffset, selected.startContainer, selected.startOffset);
+            }
+        } finally {
+            start.remove();
+            end.remove();
+        }
+        return true;
     }
 
     function rangeIsInside(element, range) {
@@ -3285,7 +3612,7 @@
         let element = node instanceof Element ? node : node.parentElement;
         let fallback = null;
         while (element && element !== root) {
-            if (['BLOCKQUOTE', 'PRE'].includes(element.tagName)) {
+            if (['BLOCKQUOTE', 'PRE', 'OL', 'UL'].includes(element.tagName)) {
                 return element;
             }
             if (fallback === null && ['P', 'H2', 'H3', 'H4'].includes(element.tagName)) {
@@ -3313,6 +3640,8 @@
             'H4': 'h4',
             'BLOCKQUOTE': 'quote',
             'PRE': 'code',
+            'OL': 'ordered-list',
+            'UL': 'unordered-list',
         }[start.tagName] || null;
     }
 
@@ -3585,7 +3914,7 @@
     }
 
     function applyContextBlockState(menu, blockStyle) {
-        ['paragraph', 'h2', 'h3', 'h4', 'quote', 'code'].forEach((action) => {
+        ['paragraph', 'h2', 'h3', 'h4', 'quote', 'code', 'ordered-list', 'unordered-list'].forEach((action) => {
             const button = menu.querySelector(`[data-context-action="${action}"]`);
             if (!(button instanceof HTMLButtonElement)) {
                 return;
@@ -3652,6 +3981,7 @@
         state.bodyDirty = true;
         clearError(state.form);
         clearStatus(state.card);
+        state.history?.schedule();
     }
 
     function imageNeedsGeneratedAlt(image) {
@@ -4055,6 +4385,7 @@
 
     function beginImageCaptionEditing(state, image, placeholder) {
         finishImageCaptionEditing(state, true, false);
+        state.history?.before();
         const originalContext = imageCaptionContext(state, image);
         const original = (originalContext.caption?.textContent || '').replace(/\r\n?/gu, '\n').trim();
         const originalFontAttribute = originalContext.caption?.getAttribute('data-caption-font') ?? null;
@@ -4198,6 +4529,7 @@
         if (!context) {
             return;
         }
+        state.history?.before();
         const url = normalizeLinkUrl(context.linkInput.value);
         if (url === null) {
             context.linkError.textContent = editorConfig().invalidLink || 'Enter a safe link address.';
@@ -4253,6 +4585,7 @@
         if (!context) {
             return;
         }
+        state.history?.before();
         if (context.targetImage instanceof HTMLImageElement && context.targetImage.isConnected) {
             const image = context.targetImage;
             detachContextMenu(state);
@@ -4523,6 +4856,7 @@
         ) {
             return;
         }
+        state.history?.before();
 
         const portions = textPortionsInRange(state.body, context.range);
         if (portions.length === 0) {
@@ -4998,6 +5332,11 @@
         if (event.isComposing) {
             return false;
         }
+        // A caption is a nested editing session; its native typing history stays
+        // local until commit adds a single operation to the post's history.
+        if (event.target instanceof Element && event.target.closest('.is-editing-caption, .is-editing-inline-caption')) {
+            return false;
+        }
 
         const modifier = event.ctrlKey || event.metaKey;
         const matchesKey = (code, key) => event.code === code || event.key.toLowerCase() === key;
@@ -5382,6 +5721,18 @@
         document.execCommand('insertText', false, text);
     }, false);
 
+    document.addEventListener('beforeinput', (event) => {
+        const state = editorStates.get(cardFor(event.target));
+        if (!state?.body.contains(event.target) || state.imageCaptionEditor || state.mediaCaptionEditors.size > 0) return;
+        if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
+            if (!state.history) return;
+            event.preventDefault();
+            state.history[event.inputType === 'historyUndo' ? 'undo' : 'redo']();
+        } else {
+            state.history?.before(event.inputType);
+        }
+    }, false);
+
     document.addEventListener('beforeinput', moveInsertionBeforeMediaBoundary, false);
 
     document.addEventListener('input', (event) => {
@@ -5397,6 +5748,7 @@
             state.bodyDirty = true;
             clearAiChangeMarks(state.body);
             collapseEmptyLeadingParagraphAfterDelete(event, state.body);
+            state.history?.record(event.inputType);
         }
         if (event.target === state.dateInput) {
             state.dateDirty = true;

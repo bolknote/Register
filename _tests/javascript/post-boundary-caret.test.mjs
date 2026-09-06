@@ -407,9 +407,9 @@ function createHarness() {
             return selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
         },
         beforeInput(target, inputType = 'insertText') {
-            const [listener] = listeners.get('beforeinput') || [];
-            assert.equal(typeof listener, 'function');
-            listener({inputType, target});
+            const handlers = listeners.get('beforeinput') || [];
+            assert.ok(handlers.length > 0);
+            handlers.forEach(listener => listener({inputType, target}));
             return selection.getRangeAt(0);
         },
         select(startContainer, startOffset = 0) {

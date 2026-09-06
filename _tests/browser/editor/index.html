@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Register editor regressions</title>
+<link rel="stylesheet" href="/site.css">
+<h1>Register editor regressions</h1>
+<p>Isolated DOM, real browser editing commands; no database, uploads or AI services.</p>
+<button id="run" type="button">Run regressions</button>
+<pre id="results" role="status">Ready</pre>
+<main id="content"><div id="fixture"></div></main>
+<div id="post-editor-resources" hidden data-config='{"aiAltEnabled":false}'>
+    <template class="post-image-caption-toolbar-template">
+        <div class="post-media-caption-toolbar" contenteditable="false">
+            <button data-caption-action="commit">Commit</button>
+            <button data-caption-action="cancel">Cancel</button>
+            <button data-caption-font="serif">Serif</button>
+        </div>
+    </template>
+</div>
+<script src="/editor.js"></script>
+<script src="/cases.js"></script>
+</html>
