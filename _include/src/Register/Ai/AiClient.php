@@ -872,7 +872,7 @@ final readonly class AiClient
     private function stripLeadingReasoning(string $result): string
     {
         $result = trim($result);
-        for ($attempt = 0; $attempt < 3; $attempt++) {
+        for ($attempt = 0; $attempt < 3; ++$attempt) {
             if (preg_match(
                 '/\A\s*<(think|analysis|reasoning)\b[^>]*>[\s\S]*?<\/\1\s*>\s*/ui',
                 $result,
@@ -880,6 +880,7 @@ final readonly class AiClient
             ) !== 1) {
                 break;
             }
+
             $result = trim(substr($result, \strlen($matches[0])));
         }
 
@@ -903,7 +904,7 @@ final readonly class AiClient
     /** @throws AiException */
     private function normalizeEditorialResult(string $result): string
     {
-        for ($attempt = 0; $attempt < 3; $attempt++) {
+        for ($attempt = 0; $attempt < 3; ++$attempt) {
             $before = trim($result);
             $result = $this->stripLeadingReasoning($before);
             $result = preg_replace(
