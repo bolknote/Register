@@ -12,19 +12,26 @@ assert.ok(mediaKindSource.length > 0 && pasteSource.length > 0);
 function harness() {
     const state = {body: {}};
     const inserted = [];
+    const commands = [];
     let selection = null;
+    let blockStyle = 'paragraph';
     const context = vm.createContext({
         File,
         imageExtensions: new Set(['avif', 'bmp', 'gif', 'ico', 'jpeg', 'jpg', 'png', 'webp']),
         audioExtensions: new Set(['flac', 'mkv', 'mp3', 'mp4', 'ogg', 'wav', 'webm']),
         bodyDropState: target => target === state.body ? state : null,
+        contextBlockStyle: () => blockStyle,
+        runFormattingCommand: (editor, command, value) => {
+            commands.push({editor, command, value});
+            return true;
+        },
         rangeIsInside: (_body, range) => range.inside,
         insertMediaFiles: (editor, files, range) => inserted.push({editor, files, range}),
         window: {getSelection: () => selection},
     });
     vm.runInContext(mediaKindSource + pasteSource, context);
     return {
-        context, state, inserted,
+        context, state, inserted, commands,
         paste(clipboardData, properties = {}) {
             const event = {
                 target: state.body,
@@ -35,6 +42,20 @@ function harness() {
             };
             context.pasteMediaFiles(event);
             return event;
+        },
+        pasteText(clipboardData, properties = {}) {
+            const event = {
+                target: state.body,
+                clipboardData,
+                defaultPrevented: false,
+                preventDefault() { this.defaultPrevented = true; },
+                ...properties,
+            };
+            context.pasteMultilineText(event);
+            return event;
+        },
+        setBlockStyle(value) {
+            blockStyle = value;
         },
         select(inside = true) {
             const range = {
@@ -117,6 +138,58 @@ test('ordinary text and HTML paste keep native behavior', () => {
         assert.equal(paste(transfer).defaultPrevented, false);
     }
     assert.equal(inserted.length, 0);
+});
+
+test('multiline plain text keeps exactly one newline per clipboard newline', () => {
+    const {pasteText, select, commands, state} = harness();
+    select();
+    const event = pasteText({
+        getData(type) {
+            return type === 'text/plain' ? "first < second\r\nthird & fourth\rfifth\nsixth" : '';
+        },
+    });
+
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(commands.length, 1);
+    assert.equal(commands[0].editor, state);
+    assert.equal(commands[0].command, 'insertHTML');
+    assert.equal(commands[0].value, 'first &lt; second<br>third &amp; fourth<br>fifth<br>sixth');
+    assert.match(source, /document\.addEventListener\('paste', pasteMultilineText, false\)/u);
+});
+
+test('multiline rich text remains native outside code but is pasted literally inside code', () => {
+    const {pasteText, select, setBlockStyle, commands} = harness();
+    select();
+    const clipboardData = {
+        getData(type) {
+            return type === 'text/plain'
+                ? 'first\nsecond'
+                : '<strong>first</strong><br>second';
+        },
+    };
+
+    assert.equal(pasteText(clipboardData).defaultPrevented, false);
+    assert.equal(commands.length, 0);
+
+    setBlockStyle('code');
+    assert.equal(pasteText(clipboardData).defaultPrevented, true);
+    assert.equal(commands.length, 1);
+    assert.equal(commands[0].command, 'insertText');
+    assert.equal(commands[0].value, 'first\nsecond');
+});
+
+test('single-line text and an already handled paste are not intercepted', () => {
+    const {pasteText, select, commands} = harness();
+    select();
+    const clipboardData = {
+        getData(type) {
+            return type === 'text/plain' ? 'one line' : '';
+        },
+    };
+
+    assert.equal(pasteText(clipboardData).defaultPrevented, false);
+    assert.equal(pasteText(clipboardData, {defaultPrevented: true}).defaultPrevented, true);
+    assert.equal(commands.length, 0);
 });
 
 test('pastes into other fields or already handled by a caption are not intercepted', () => {

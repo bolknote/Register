@@ -15,14 +15,20 @@ const testableEditorSource = editorSource.replace(
         '        collapseEmptyLeadingParagraphAfterDelete,',
         '        contextBlockStyle,',
         '        exitQuoteOnEnter,',
+        '        exitStyledBlockOnEnter,',
         '        focusAfterMedia,',
         '        focusBeforeLeadingMedia,',
+        '        inlineCodeAtCaretEnd,',
         '        mergeAdjacentInlineCode,',
+        '        moveAfterInlineCode,',
         '        moveFromLeadingMediaCaption,',
         '        moveFromBodyMediaBoundary,',
         '        moveFromInlineMediaCaption,',
         '        prepareMediaInsertionRange,',
         '        quoteAtCaret,',
+        '        removeInlineCodeExitMarkers,',
+        '        removeTrailingEditorArtifacts,',
+        '        styledBlockAtCaretEnd,',
         '    };',
         '    applyShortcutHints(document);',
         '})();',
@@ -123,6 +129,10 @@ class FakeHTMLElement extends FakeNode {
 
     get lastChild() {
         return this.childNodes[this.childNodes.length - 1] || null;
+    }
+
+    get lastElementChild() {
+        return this.childNodes.findLast((node) => node instanceof FakeHTMLElement) || null;
     }
 
     get textContent() {
@@ -245,6 +255,36 @@ class FakeHTMLElement extends FakeNode {
             visit(this);
             return result;
         }
+        if (selector === '[data-post-inline-code-exit]') {
+            const result = [];
+            const visit = (element) => {
+                element.childNodes.forEach((child) => {
+                    if (child instanceof FakeHTMLElement) {
+                        if (child.hasAttribute('data-post-inline-code-exit')) {
+                            result.push(child);
+                        }
+                        visit(child);
+                    }
+                });
+            };
+            visit(this);
+            return result;
+        }
+        if (selector === '.post-media-picture') {
+            const result = [];
+            const visit = (element) => {
+                element.childNodes.forEach((child) => {
+                    if (child instanceof FakeHTMLElement) {
+                        if (child.isMediaWrapper) {
+                            result.push(child);
+                        }
+                        visit(child);
+                    }
+                });
+            };
+            visit(this);
+            return result;
+        }
         return [];
     }
 }
@@ -273,6 +313,9 @@ function createHarness() {
                 : new FakeHTMLElement({tagName: normalizedTag});
             elements.push(element);
             return element;
+        },
+        createTextNode: function (text) {
+            return new FakeTextNode(null, text);
         },
         createRange: function () {
             return {
@@ -561,6 +604,62 @@ test('Enter in an empty quote changes it into a paragraph without adding another
     assert.equal(harness.commands[0].range.startContainer, quote);
 });
 
+test('Enter at the end of block code starts a normal paragraph and Shift+Enter stays in code', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const code = new FakeHTMLElement({tagName: 'PRE'});
+    const codeText = new FakeTextNode(null, "first\nsecond");
+    code.append(codeText);
+    body.append(code);
+    harness.select(codeText, codeText.data.length);
+    Object.assign(harness.currentRange(), {
+        commonAncestorContainer: codeText,
+        cloneRange: () => ({
+            setEnd() {},
+            cloneContents: () => ({textContent: '', querySelector: () => null}),
+        }),
+    });
+    const state = {body, form: new FakeHTMLElement(), card: new FakeHTMLElement()};
+    let prevented = false;
+    const event = {key: 'Enter', preventDefault() { prevented = true; }};
+
+    assert.equal(harness.helpers.exitStyledBlockOnEnter({...event, shiftKey: true}, state), false);
+    assert.equal(harness.commands.length, 0);
+
+    assert.equal(harness.helpers.exitStyledBlockOnEnter(event, state), true);
+    assert.equal(prevented, true);
+    assert.equal(state.bodyDirty, true);
+    assert.equal(harness.commands.length, 1);
+    assert.equal(harness.commands[0].command, 'insertHTML');
+    assert.equal(harness.commands[0].value, '<p><br></p>');
+    assert.equal(harness.commands[0].range.startContainer, body);
+    assert.equal(harness.commands[0].range.startOffset, 1);
+});
+
+test('Enter before remaining block-code text does not leave the block', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const code = new FakeHTMLElement({tagName: 'PRE'});
+    const codeText = new FakeTextNode(null, 'first\nsecond');
+    code.append(codeText);
+    body.append(code);
+    harness.select(codeText, 5);
+    Object.assign(harness.currentRange(), {
+        commonAncestorContainer: codeText,
+        cloneRange: () => ({
+            setEnd() {},
+            cloneContents: () => ({textContent: '\nsecond', querySelector: () => null}),
+        }),
+    });
+    const state = {body, form: new FakeHTMLElement(), card: new FakeHTMLElement()};
+
+    assert.equal(
+        harness.helpers.exitStyledBlockOnEnter({key: 'Enter', preventDefault() {}}, state),
+        false,
+    );
+    assert.equal(harness.commands.length, 0);
+});
+
 test('adjacent inline-code elements are merged into one formatting run', function () {
     const harness = createHarness();
     const root = new FakeHTMLElement();
@@ -581,6 +680,170 @@ test('adjacent inline-code elements are merged into one formatting run', functio
     assert.equal(firstCode.childNodes[0], firstText);
     assert.equal(firstCode.childNodes[1], secondText);
     assert.equal(secondText.parentNode, firstCode);
+});
+
+test('ArrowRight at the end of inline code moves the caret outside without changing content', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const paragraph = new FakeHTMLElement({tagName: 'P'});
+    const inlineCode = new FakeHTMLElement({tagName: 'TT'});
+    const codeText = new FakeTextNode(null, 'ПЕСНЯ:1Т');
+    inlineCode.append(codeText);
+    paragraph.append(inlineCode);
+    body.append(paragraph);
+    harness.select(codeText, codeText.data.length);
+    Object.assign(harness.currentRange(), {
+        commonAncestorContainer: codeText,
+        cloneRange: () => ({
+            setEnd() {},
+            cloneContents: () => ({textContent: ''}),
+        }),
+    });
+    const state = {body, form: new FakeHTMLElement(), card: new FakeHTMLElement()};
+    let prevented = false;
+    let stopped = false;
+
+    assert.equal(harness.helpers.inlineCodeAtCaretEnd(body, {
+        rangeCount: 1,
+        getRangeAt: () => harness.currentRange(),
+    }), inlineCode);
+    assert.equal(harness.helpers.moveAfterInlineCode({
+        key: 'ArrowRight',
+        preventDefault() { prevented = true; },
+        stopPropagation() { stopped = true; },
+    }, state), true);
+
+    assert.equal(prevented, true);
+    assert.equal(stopped, true);
+    const marker = paragraph.childNodes[1];
+    assert.equal(marker.tagName, 'SPAN');
+    assert.equal(marker.hasAttribute('data-post-inline-code-exit'), true);
+    assert.equal(marker.getAttribute('contenteditable'), 'false');
+    assert.equal(marker.textContent, '');
+    assert.equal(harness.currentRange().startContainer, paragraph);
+    assert.equal(harness.currentRange().startOffset, 2);
+    assert.equal(paragraph.childNodes.length, 2);
+    assert.equal(harness.commands.length, 0);
+    assert.equal(state.bodyDirty, undefined);
+    assert.equal(body.textContent, 'ПЕСНЯ:1Т');
+});
+
+test('inline-code exit does not intercept navigation before its visual end or with modifiers', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const paragraph = new FakeHTMLElement({tagName: 'P'});
+    const inlineCode = new FakeHTMLElement({tagName: 'TT'});
+    const codeText = new FakeTextNode(null, 'code');
+    inlineCode.append(codeText);
+    paragraph.append(inlineCode);
+    body.append(paragraph);
+    harness.select(codeText, 2);
+    Object.assign(harness.currentRange(), {
+        commonAncestorContainer: codeText,
+        cloneRange: () => ({
+            setEnd() {},
+            cloneContents: () => ({textContent: 'de'}),
+        }),
+    });
+    const state = {body, form: new FakeHTMLElement(), card: new FakeHTMLElement()};
+
+    assert.equal(harness.helpers.moveAfterInlineCode({
+        key: 'ArrowRight',
+        preventDefault() {},
+        stopPropagation() {},
+    }, state), false);
+    assert.equal(harness.helpers.moveAfterInlineCode({
+        key: 'ArrowRight',
+        metaKey: true,
+        preventDefault() {},
+        stopPropagation() {},
+    }, state), false);
+    assert.equal(harness.helpers.moveAfterInlineCode({
+        key: 'ArrowLeft',
+        preventDefault() {},
+        stopPropagation() {},
+    }, state), false);
+    assert.equal(harness.currentRange().startContainer, codeText);
+    assert.equal(harness.currentRange().startOffset, 2);
+});
+
+test('inline-code exit uses existing normal text without adding a marker', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const paragraph = new FakeHTMLElement({tagName: 'P'});
+    const inlineCode = new FakeHTMLElement({tagName: 'TT'});
+    const codeText = new FakeTextNode(null, 'code');
+    const normalText = new FakeTextNode(null, ' after');
+    inlineCode.append(codeText);
+    paragraph.append(inlineCode);
+    paragraph.append(normalText);
+    body.append(paragraph);
+    harness.select(codeText, codeText.data.length);
+    Object.assign(harness.currentRange(), {
+        commonAncestorContainer: codeText,
+        cloneRange: () => ({
+            setEnd() {},
+            cloneContents: () => ({textContent: ''}),
+        }),
+    });
+    const state = {body, form: new FakeHTMLElement(), card: new FakeHTMLElement()};
+
+    assert.equal(harness.helpers.moveAfterInlineCode({
+        key: 'ArrowRight',
+        preventDefault() {},
+        stopPropagation() {},
+    }, state), true);
+
+    assert.deepEqual(paragraph.childNodes, [inlineCode, normalText]);
+    assert.equal(harness.currentRange().startContainer, normalText);
+    assert.equal(harness.currentRange().startOffset, 0);
+});
+
+test('inline-code exit markers are removed before editor HTML is serialized', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const paragraph = new FakeHTMLElement({tagName: 'P'});
+    const inlineCode = new FakeHTMLElement({tagName: 'TT'});
+    inlineCode.append(new FakeTextNode(null, 'code'));
+    const marker = new FakeHTMLElement({tagName: 'SPAN'});
+    marker.setAttribute('data-post-inline-code-exit', '');
+    const normalText = new FakeTextNode(null, ' after');
+    paragraph.append(inlineCode);
+    paragraph.append(marker);
+    paragraph.append(normalText);
+    body.append(paragraph);
+
+    harness.helpers.removeInlineCodeExitMarkers(body);
+
+    assert.deepEqual(paragraph.childNodes, [inlineCode, normalText]);
+    assert.equal(body.textContent, 'code after');
+});
+
+test('empty media shells and their trailing caret paragraphs are not serialized', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const content = new FakeHTMLElement({tagName: 'P'});
+    content.append(new FakeTextNode(null, 'Published text'));
+    const validMedia = new FakeHTMLElement({media: true});
+    validMedia.isMediaWrapper = true;
+    const emptyBeforeShell = new FakeHTMLElement({tagName: 'P'});
+    const emptyShell = new FakeHTMLElement();
+    emptyShell.isMediaWrapper = true;
+    emptyShell.append(new FakeHTMLBRElement({tagName: 'BR'}));
+    const emptyAfterShell = new FakeHTMLElement({tagName: 'P'});
+    emptyAfterShell.append(new FakeHTMLBRElement({tagName: 'BR'}));
+    body.append(content);
+    body.append(validMedia);
+    body.append(emptyBeforeShell);
+    body.append(emptyShell);
+    body.append(emptyAfterShell);
+
+    harness.helpers.removeTrailingEditorArtifacts(body);
+
+    assert.deepEqual(body.childNodes, [content, validMedia]);
+    assert.equal(emptyBeforeShell.parentNode, null);
+    assert.equal(emptyShell.parentNode, null);
+    assert.equal(emptyAfterShell.parentNode, null);
 });
 
 test('the synthetic media-boundary caret is unique and stale copies are cleared before input', function () {

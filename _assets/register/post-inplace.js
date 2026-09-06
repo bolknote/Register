@@ -1251,8 +1251,25 @@
         });
     }
 
+    function removeInlineCodeExitMarkers(root) {
+        root.querySelectorAll('[data-post-inline-code-exit]').forEach((marker) => marker.remove());
+    }
+
+    function removeTrailingEditorArtifacts(root) {
+        root.querySelectorAll('.post-media-picture').forEach((picture) => {
+            if (!picture.querySelector('img, video, audio')) {
+                picture.remove();
+            }
+        });
+        while (editorBoundaryParagraphIsEmpty(root.lastElementChild)) {
+            root.lastElementChild.remove();
+        }
+    }
+
     function editableBodyHtml(state) {
         const clone = state.body.cloneNode(true);
+        removeInlineCodeExitMarkers(clone);
+        removeTrailingEditorArtifacts(clone);
         clone.querySelectorAll('[data-post-editor-nowrap]').forEach((wrapper) => {
             wrapper.replaceWith(...wrapper.childNodes);
         });
@@ -2899,6 +2916,45 @@
         insertMediaFiles(state, files, range);
     }
 
+    function pasteMultilineText(event) {
+        if (event.defaultPrevented) {
+            return;
+        }
+        const state = bodyDropState(event.target);
+        if (!state || typeof event.clipboardData?.getData !== 'function') {
+            return;
+        }
+        const text = event.clipboardData.getData('text/plain');
+        if (!/[\r\n]/u.test(text)) {
+            return;
+        }
+        const selection = window.getSelection();
+        const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+        if (!range || !rangeIsInside(state.body, range)) {
+            return;
+        }
+        const isCode = contextBlockStyle(state.body, range) === 'code';
+        if (!isCode && event.clipboardData.getData('text/html').trim() !== '') {
+            return;
+        }
+
+        // Chromium turns plain-text line endings at the editor root into separate
+        // paragraphs, whose margins make every pasted line look doubled. A plain
+        // <br> represents each clipboard newline without adding paragraph spacing.
+        event.preventDefault();
+        const normalized = text.replace(/\r\n?/gu, '\n');
+        if (isCode) {
+            runFormattingCommand(state, 'insertText', normalized);
+            return;
+        }
+        const html = normalized
+            .replace(/&/gu, '&amp;')
+            .replace(/</gu, '&lt;')
+            .replace(/>/gu, '&gt;')
+            .replace(/\n/gu, '<br>');
+        runFormattingCommand(state, 'insertHTML', html);
+    }
+
     function bodyDropState(target) {
         const card = cardFor(target);
         const state = card ? editorStates.get(card) : null;
@@ -3260,7 +3316,7 @@
         }[start.tagName] || null;
     }
 
-    function quoteAtCaret(root, selection) {
+    function styledBlockAtCaretEnd(root, selection) {
         if (!selection || selection.rangeCount === 0) {
             return null;
         }
@@ -3269,23 +3325,100 @@
             return null;
         }
         const caretNode = contextBoundaryNode(range.startContainer, range.startOffset, true);
-        const quote = contextBlockElement(root, caretNode);
-        if (!(quote instanceof HTMLElement) || quote.tagName !== 'BLOCKQUOTE') {
+        const block = contextBlockElement(root, caretNode);
+        if (!(block instanceof HTMLElement) || !['BLOCKQUOTE', 'PRE'].includes(block.tagName)) {
             return null;
         }
         const tail = range.cloneRange();
-        tail.setEnd(quote, quote.childNodes.length);
+        tail.setEnd(block, block.childNodes.length);
         const remaining = tail.cloneContents();
         if (
-            remaining.textContent.trim() !== ''
+            (block.tagName === 'PRE' ? remaining.textContent !== '' : remaining.textContent.trim() !== '')
             || remaining.querySelector('img, audio, video, figure, hr')
         ) {
             return null;
         }
-        return quote;
+        return block;
     }
 
-    function exitQuoteOnEnter(event, state) {
+    function quoteAtCaret(root, selection) {
+        const block = styledBlockAtCaretEnd(root, selection);
+        return block?.tagName === 'BLOCKQUOTE' ? block : null;
+    }
+
+    function inlineCodeAtCaretEnd(root, selection) {
+        if (!selection || selection.rangeCount !== 1) {
+            return null;
+        }
+        const range = selection.getRangeAt(0);
+        if (!range.collapsed || !rangeIsInside(root, range)) {
+            return null;
+        }
+
+        const ancestors = inlineCodeAncestors(root, range.startContainer);
+        const inlineCode = ancestors.at(-1) || (
+            range.startContainer instanceof HTMLElement
+            && range.startContainer.tagName === 'TT'
+                ? range.startContainer
+                : null
+        );
+        if (!(inlineCode instanceof HTMLElement)) {
+            return null;
+        }
+
+        const tail = range.cloneRange();
+        tail.setEnd(inlineCode, inlineCode.childNodes.length);
+        return tail.cloneContents().textContent === '' ? inlineCode : null;
+    }
+
+    function moveAfterInlineCode(event, state) {
+        if (
+            event.key !== 'ArrowRight'
+            || event.isComposing
+            || event.shiftKey
+            || event.altKey
+            || event.ctrlKey
+            || event.metaKey
+        ) {
+            return false;
+        }
+        const inlineCode = inlineCodeAtCaretEnd(state.body, window.getSelection());
+        if (!inlineCode) {
+            return false;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        const parent = inlineCode.parentNode;
+        if (!parent) {
+            return false;
+        }
+        const next = inlineCode.nextSibling;
+        if (next?.nodeType === Node.TEXT_NODE && next.data !== '') {
+            const range = document.createRange();
+            range.setStart(next, 0);
+            range.collapse(true);
+            selectRange(state, range);
+            return true;
+        }
+        const marker = next instanceof HTMLElement
+            && next.hasAttribute('data-post-inline-code-exit')
+            ? next
+            : document.createElement('span');
+        if (!marker.hasAttribute('data-post-inline-code-exit')) {
+            marker.setAttribute('data-post-inline-code-exit', '');
+            marker.setAttribute('contenteditable', 'false');
+            marker.setAttribute('aria-hidden', 'true');
+            parent.insertBefore(marker, inlineCode.nextSibling);
+        }
+        const range = document.createRange();
+        range.setStartAfter(marker);
+        range.collapse(true);
+        selectRange(state, range);
+        return true;
+    }
+
+    function exitStyledBlockOnEnter(event, state) {
         if (
             event.key !== 'Enter'
             || event.isComposing
@@ -3296,16 +3429,18 @@
         ) {
             return false;
         }
-        const quote = quoteAtCaret(state.body, window.getSelection());
-        if (!quote) {
+        const block = styledBlockAtCaretEnd(state.body, window.getSelection());
+        if (!block) {
             return false;
         }
         event.preventDefault();
-        if (quote.textContent.trim() === '' && !quote.querySelector('img, audio, video, figure, hr')) {
+        const empty = (block.tagName === 'PRE' ? block.textContent === '' : block.textContent.trim() === '')
+            && !block.querySelector('img, audio, video, figure, hr');
+        if (empty) {
             runFormattingCommand(state, 'formatBlock', 'p');
         } else {
             const range = document.createRange();
-            range.setStartAfter(quote);
+            range.setStartAfter(block);
             range.collapse(true);
             selectRange(state, range);
             // Use the browser's edit transaction so Undo also removes this paragraph.
@@ -3313,6 +3448,11 @@
         }
         markBodyChanged(state);
         return true;
+    }
+
+    function exitQuoteOnEnter(event, state) {
+        const block = styledBlockAtCaretEnd(state.body, window.getSelection());
+        return block?.tagName === 'BLOCKQUOTE' && exitStyledBlockOnEnter(event, state);
     }
 
     function selectRange(state, range) {
@@ -4412,6 +4552,7 @@
     function htmlForRange(range) {
         const container = document.createElement('div');
         container.append(range.cloneContents());
+        removeInlineCodeExitMarkers(container);
         clearAiChangeMarks(container);
         container.querySelectorAll('[data-register-audio-native]').forEach((audio) => {
             audio.removeAttribute('data-register-audio-native');
@@ -4895,7 +5036,11 @@
             return true;
         }
 
-        if (state.body.contains(event.target) && exitQuoteOnEnter(event, state)) {
+        if (state.body.contains(event.target) && moveAfterInlineCode(event, state)) {
+            return true;
+        }
+
+        if (state.body.contains(event.target) && exitStyledBlockOnEnter(event, state)) {
             return true;
         }
 
@@ -5220,7 +5365,12 @@
 
     document.addEventListener('paste', pasteMediaFiles, false);
 
+    document.addEventListener('paste', pasteMultilineText, false);
+
     document.addEventListener('paste', (event) => {
+        if (event.defaultPrevented) {
+            return;
+        }
         const target = event.target instanceof Element ? event.target : null;
         const title = target?.closest('[data-post-inplace-title][contenteditable="true"]');
         if (!title) {

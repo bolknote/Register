@@ -11,6 +11,7 @@ namespace unit\Register\Ai;
 
 use PHPUnit\Framework\TestCase;
 use Register\Ai\AiClient;
+use Register\Ai\AiException;
 use Register\Ai\AiImageInput;
 use Register\Ai\AiSettings;
 use Register\Core\Config\DynamicConfigProvider;
@@ -191,6 +192,66 @@ final class AiClientTest extends TestCase
                 AiClient::ACTION_TAGS,
                 'Теги: разработка иг?, инди-игры, зачем?, геймдев, нейросети',
             ),
+        );
+    }
+
+    public function testEditorialResultDropsReasoningMarkdownAndDocumentWrappers(): void
+    {
+        $client = new AiClient(
+            new HttpClient(),
+            new AiSettings(new DynamicConfigProvider()),
+            new ArrayAdapter(),
+        );
+        $normalizeResult = new \ReflectionMethod($client, 'normalizeResult');
+
+        self::assertSame(
+            '<p>Короткий <strong>текст</strong>.</p>',
+            $normalizeResult->invoke(
+                $client,
+                AiClient::ACTION_SHORTEN,
+                "<think>First I will explain my work.</think>\n"
+                . "```html\n<!doctype html><html><head><title>Result</title></head><body>"
+                . "<p>Короткий <strong>текст</strong>.</p><!-- generated -->"
+                . "</body></html>\n```",
+            ),
+        );
+    }
+
+    public function testEditorialResultExtractsTheFinalHarmonyChannel(): void
+    {
+        $client = new AiClient(
+            new HttpClient(),
+            new AiSettings(new DynamicConfigProvider()),
+            new ArrayAdapter(),
+        );
+        $normalizeResult = new \ReflectionMethod($client, 'normalizeResult');
+
+        self::assertSame(
+            '<p>Исправленный текст.</p>',
+            $normalizeResult->invoke(
+                $client,
+                AiClient::ACTION_IMPROVE,
+                '<|start|>assistant<|channel|>analysis<|message|>Internal notes'
+                . '<|end|><|start|>assistant<|channel|>final<|message|>'
+                . '<p>Исправленный текст.</p><|return|>',
+            ),
+        );
+    }
+
+    public function testEditorialResultRejectsUnparsedProtocolDebris(): void
+    {
+        $client = new AiClient(
+            new HttpClient(),
+            new AiSettings(new DynamicConfigProvider()),
+            new ArrayAdapter(),
+        );
+        $normalizeResult = new \ReflectionMethod($client, 'normalizeResult');
+
+        $this->expectException(AiException::class);
+        $normalizeResult->invoke(
+            $client,
+            AiClient::ACTION_PROOFREAD,
+            '<p>Текст.</p><|broken-provider-token|>',
         );
     }
 

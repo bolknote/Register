@@ -516,6 +516,14 @@ hr {
     display: none;
 }
 
+/* An interrupted media insertion from an older editor can leave an empty picture shell between
+ * its two caret paragraphs. None of those nodes are published content. */
+.post-card:not(.is-editing) > .post.body > .post-media-picture:not(:has(img, video, audio)),
+.post-card:not(.is-editing) > .post.body
+    > :where(p:empty, p:has(> br:only-child)):has(+ .post-media-picture:not(:has(img, video, audio))) {
+    display: none;
+}
+
 #content .post-card:not(.is-editing) > .post.body > .post-media-picture:where(
     :last-child,
     :has(+ :where(p:empty, p:has(> br:only-child)):last-child),

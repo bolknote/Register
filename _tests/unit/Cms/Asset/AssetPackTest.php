@@ -245,6 +245,22 @@ final class AssetPackTest extends Unit
         self::assertMatchesRegularExpression('/\.post-foot-tags\.is-empty\s*\{\s*display:\s*none;/s', $site);
     }
 
+    public function testPublishedPostHidesEmptyMediaInsertionArtifacts(): void
+    {
+        $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');
+
+        self::assertIsString($site);
+        self::assertStringContainsString(
+            '.post-media-picture:not(:has(img, video, audio))',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/:where\(p:empty, p:has\(> br:only-child\)\):has\('
+                . '\+ \.post-media-picture:not\(:has\(img, video, audio\)\)\)\s*\{\s*display:\s*none;/s',
+            $site,
+        );
+    }
+
     public function testTagPageCreationPrependsTheDraftToItsPostList(): void
     {
         $script = file_get_contents(\dirname(__DIR__, 4) . '/_assets/register/post-inplace.js');
