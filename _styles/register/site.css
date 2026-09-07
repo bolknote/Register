@@ -3222,6 +3222,18 @@ h2.comment {
     margin: 0;
 }
 
+.comment-moderation > .comment-tools-menu-toggle {
+    display: none;
+}
+
+.comment-tools-overflow {
+    display: contents;
+}
+
+.comment-moderation-button-label {
+    display: none;
+}
+
 .comment-moderation-button {
     display: grid;
     width: 2.15rem;
@@ -3250,6 +3262,11 @@ h2.comment {
     stroke-linejoin: round;
     stroke-width: 1.8;
     vector-effect: non-scaling-stroke;
+}
+
+.comment-tools-menu-toggle svg {
+    fill: currentColor;
+    stroke: none;
 }
 
 .comment-moderation-button:hover,
@@ -3288,7 +3305,8 @@ h2.comment {
     transition: none;
 }
 
-.comment-item.is-confirming > .comment-moderation > :not(.is-confirming-source),
+.comment-item.is-confirming > .comment-moderation > .comment-tools-menu-toggle,
+.comment-item.is-confirming > .comment-moderation > .comment-tools-overflow > :not(.is-confirming-source),
 .comment-moderation-action.is-confirming-source > .comment-moderation-button {
     opacity: 0;
     pointer-events: none;
@@ -3430,7 +3448,90 @@ h2.comment {
     display: none;
 }
 
-@media (hover: none) {
+@media (max-width: 760px) {
+    .comment-item:has(> .comment-moderation) > .comment-meta {
+        padding-inline-end: 3rem;
+    }
+
+    .comment-moderation,
+    .comment-item:hover > .comment-moderation,
+    .comment-item:focus-within > .comment-moderation,
+    .comment-item:has(.comment-item:hover) > .comment-moderation,
+    .comment-item:has(.comment-item:focus-within) > .comment-moderation {
+        top: -0.45rem;
+        right: 0;
+        bottom: auto;
+        left: auto;
+        width: auto;
+        height: auto;
+        min-height: 0;
+        padding: 0;
+        align-items: flex-end;
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+    }
+
+    .comment-moderation > .comment-tools-menu-toggle {
+        display: grid;
+        width: 2.75rem;
+        min-height: 2.75rem;
+    }
+
+    .comment-tools-overflow {
+        position: absolute;
+        z-index: 10;
+        top: calc(100% + 0.35rem);
+        right: 0;
+        display: none;
+        width: max-content;
+        min-width: min(14rem, calc(100vw - 2 * var(--page-margin)));
+        max-width: calc(100vw - 2 * var(--page-margin));
+        padding: 0.3rem;
+        border: 1px solid color-mix(in srgb, var(--minor-color) 32%, transparent);
+        border-radius: 4px;
+        flex-direction: column;
+        background: var(--surface-background);
+        box-shadow: 0 0.6rem 1.8rem color-mix(in srgb, #000 22%, transparent);
+    }
+
+    .comment-moderation.is-menu-open > .comment-tools-overflow {
+        display: flex;
+    }
+
+    .comment-tools-overflow > .comment-moderation-action {
+        width: 100%;
+        min-height: 2.75rem;
+    }
+
+    .comment-tools-overflow > .comment-edit-start,
+    .comment-tools-overflow > .comment-moderation-action > .comment-moderation-button {
+        display: flex;
+        width: 100%;
+        min-height: 2.75rem;
+        padding: 0 0.75rem;
+        justify-content: flex-start;
+        gap: 0.65rem;
+        border-radius: 3px;
+        font-size: 0.9rem;
+        text-align: left;
+    }
+
+    .comment-tools-overflow > .comment-edit-start:hover,
+    .comment-tools-overflow > .comment-edit-start:focus-visible,
+    .comment-tools-overflow > .comment-moderation-action > .comment-moderation-button:hover,
+    .comment-tools-overflow > .comment-moderation-action > .comment-moderation-button:focus-visible {
+        background: color-mix(in srgb, var(--minor-color) 12%, transparent);
+        transform: none;
+    }
+
+    .comment-moderation-button-label {
+        display: inline;
+        white-space: nowrap;
+    }
+}
+
+@media (hover: none) and (min-width: 761px) {
     .comment-moderation {
         opacity: 1;
         pointer-events: auto;

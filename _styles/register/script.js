@@ -258,6 +258,39 @@
         }
     }
 
+    function closeCommentToolsMenu(tools, restoreFocus) {
+        if (!(tools instanceof Element)) {
+            return;
+        }
+
+        var wasOpen = tools.classList.contains('is-menu-open');
+        var toggle = tools.querySelector('.comment-tools-menu-toggle');
+        tools.classList.remove('is-menu-open');
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', 'false');
+            if (wasOpen && restoreFocus) {
+                toggle.focus();
+            }
+        }
+    }
+
+    function closeOtherCommentToolsMenus(activeTools) {
+        document.querySelectorAll('.comment-moderation.is-menu-open').forEach(function (tools) {
+            if (tools !== activeTools) {
+                closeCommentToolsMenu(tools, false);
+            }
+        });
+    }
+
+    function commentToolsFocusTarget(item, fallback) {
+        var toggle = item.querySelector(':scope > .comment-moderation .comment-tools-menu-toggle');
+        if (toggle && toggle.getClientRects().length > 0) {
+            return toggle;
+        }
+
+        return fallback || item.querySelector(':scope > .comment-moderation .comment-edit-start');
+    }
+
     function initCommentModeration(root) {
         root = root || document;
         var moderationForms = root.querySelectorAll('.comment-moderation-action, .comment-edit-form');
@@ -294,6 +327,8 @@
                     return;
                 }
 
+                closeCommentToolsMenu(item.querySelector(':scope > .comment-moderation'), false);
+
                 function finish(confirmed) {
                     if (finished) {
                         return;
@@ -304,7 +339,7 @@
                     item.classList.remove('is-confirming');
                     form.classList.remove('is-confirming-source');
                     confirmationElement.remove();
-                    sourceButton.focus();
+                    commentToolsFocusTarget(item, sourceButton).focus();
                     resolve(confirmed);
                 }
 
@@ -497,6 +532,7 @@
                     return;
                 }
 
+                closeCommentToolsMenu(item.querySelector(':scope > .comment-moderation'), false);
                 item.classList.add('is-editing');
                 form.hidden = false;
                 var textarea = form.querySelector('textarea');
@@ -521,14 +557,51 @@
 
                 form.hidden = true;
                 item.classList.remove('is-editing');
-                var startButton = item.querySelector(':scope > .comment-moderation .comment-edit-start');
-                if (startButton) {
-                    startButton.focus();
+                var focusTarget = commentToolsFocusTarget(item);
+                if (focusTarget) {
+                    focusTarget.focus();
                 }
                 document.dispatchEvent(new CustomEvent('register:live-unlock'));
             }, false);
         });
     }
+
+    document.addEventListener('click', function (event) {
+        var target = event.target instanceof Element ? event.target : null;
+        var toggle = target ? target.closest('.comment-tools-menu-toggle') : null;
+        if (toggle) {
+            var tools = toggle.closest('.comment-moderation');
+            if (tools) {
+                var opening = !tools.classList.contains('is-menu-open');
+                closeOtherCommentToolsMenus(tools);
+                tools.classList.toggle('is-menu-open', opening);
+                toggle.setAttribute('aria-expanded', String(opening));
+                event.preventDefault();
+            }
+            return;
+        }
+
+        if (target && target.closest('.comment-action-confirmation')) {
+            return;
+        }
+        document.querySelectorAll('.comment-moderation.is-menu-open').forEach(function (tools) {
+            if (!target || !tools.contains(target)) {
+                closeCommentToolsMenu(tools, false);
+            }
+        });
+    }, false);
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+        var tools = document.querySelector('.comment-moderation.is-menu-open');
+        if (tools) {
+            event.preventDefault();
+            closeCommentToolsMenu(tools, true);
+        }
+    }, false);
 
     document.addEventListener('DOMContentLoaded', function () {
         initCommentReplies();
@@ -551,5 +624,6 @@
 
     document.addEventListener('register:navigation-will-update', function () {
         activeCommentStorageForm = null;
+        closeOtherCommentToolsMenus(null);
     }, false);
 }());

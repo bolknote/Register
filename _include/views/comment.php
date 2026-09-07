@@ -46,6 +46,7 @@ $reactionSummary = $reaction_summary ?? [];
 $authorUrl       = $presentation_author_url ?? null;
 $sourceUrl       = $presentation_source_url ?? null;
 $sourceLabel     = $presentation_source_label ?? '';
+$moderationMenuId = 'comment-tools-menu-' . $id;
 
 ?>
 <article class="comment-item depth-<?php echo $visual_depth, !empty($good) && !$isDeleted ? ' good' : '', $is_author && !$isDeleted ? ' by-author' : '', $isPreview ? ' comment-preview-item' : '', $hasUserpic ? ' has-userpic' : '', $isDeleted ? ' is-deleted' : '', $moderationState === 'spam' ? ' is-spam' : '', $moderationState === 'hidden' ? ' is-hidden' : ''; ?>"<?php if (!$isPreview): ?>
@@ -63,12 +64,21 @@ $sourceLabel     = $presentation_source_label ?? '';
     <?php else: ?>
     <?php if ($moderationData !== null): ?>
         <nav class="comment-moderation" aria-label="<?php echo $trans('Comment moderation'); ?>">
+            <button class="comment-moderation-button comment-tools-menu-toggle" type="button" title="<?php echo $trans('Comment moderation'); ?>" aria-label="<?php echo $trans('Comment moderation'); ?>" aria-controls="<?php echo $moderationMenuId; ?>" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <circle cx="6" cy="12" r="1.5" />
+                    <circle cx="12" cy="12" r="1.5" />
+                    <circle cx="18" cy="12" r="1.5" />
+                </svg>
+            </button>
+            <div class="comment-tools-overflow" id="<?php echo $moderationMenuId; ?>">
             <?php if (!empty($moderationData['can_edit'])): ?>
                 <button class="comment-moderation-button comment-edit-start" type="button" title="<?php echo $trans('Edit comment'); ?>" aria-label="<?php echo $trans('Edit comment'); ?>">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M5.2 18.8 6.4 14.4 16.6 4.2a2.1 2.1 0 0 1 3 3L9.4 17.4l-4.2 1.4Z" />
                         <path d="m14.7 6.1 3.2 3.2M6.4 14.4l3 3" />
                     </svg>
+                    <span class="comment-moderation-button-label"><?php echo $trans('Edit comment'); ?></span>
                 </button>
             <?php endif; ?>
             <?php if (!empty($moderationData['can_hide'])): ?>
@@ -85,6 +95,7 @@ $sourceLabel     = $presentation_source_label ?? '';
                             <circle cx="12" cy="12" r="2.3" />
                             <path d="m4 4 16 16" />
                         </svg>
+                        <span class="comment-moderation-button-label"><?php echo $trans('Hide comment'); ?></span>
                     </button>
                 </form>
             <?php endif; ?>
@@ -101,6 +112,7 @@ $sourceLabel     = $presentation_source_label ?? '';
                             <path d="M3 12s3.3-5 9-5 9 5 9 5-3.3 5-9 5-9-5-9-5Z" />
                             <circle cx="12" cy="12" r="2.3" />
                         </svg>
+                        <span class="comment-moderation-button-label"><?php echo $trans('Show comment'); ?></span>
                     </button>
                 </form>
             <?php endif; ?>
@@ -116,6 +128,7 @@ $sourceLabel     = $presentation_source_label ?? '';
                         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                             <path d="M7.2 8.2 8 19.3h8l.8-11.1M5.2 6.2h13.6M9 6.2V4.5h6v1.7M10.2 10.3v6.4M13.8 10.3v6.4" />
                         </svg>
+                        <span class="comment-moderation-button-label"><?php echo $trans('Delete comment'); ?></span>
                     </button>
                 </form>
             <?php endif; ?>
@@ -131,6 +144,7 @@ $sourceLabel     = $presentation_source_label ?? '';
                         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                             <path d="m12 3.8 6 2.5v4.9c0 4-2.3 7.1-6 9-3.7-1.9-6-5-6-9V6.3l6-2.5ZM12 8v4.5M12 16h.01" />
                         </svg>
+                        <span class="comment-moderation-button-label"><?php echo $trans('Mark comment as spam'); ?></span>
                     </button>
                 </form>
             <?php endif; ?>
@@ -147,9 +161,11 @@ $sourceLabel     = $presentation_source_label ?? '';
                             <path d="m12 3.8 6 2.5v4.9c0 4-2.3 7.1-6 9-3.7-1.9-6-5-6-9V6.3l6-2.5Z" />
                             <path d="m9 12.2 2 2 4-4" />
                         </svg>
+                        <span class="comment-moderation-button-label"><?php echo $trans('Mark comment as not spam'); ?></span>
                     </button>
                 </form>
             <?php endif; ?>
+            </div>
         </nav>
     <?php endif; ?>
     <div class="comment-userpic" aria-hidden="true">

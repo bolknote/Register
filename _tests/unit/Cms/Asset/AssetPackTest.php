@@ -203,6 +203,41 @@ final class AssetPackTest extends Unit
         self::assertStringContainsString("toolsToggle.setAttribute('aria-expanded', String(opening))", $script);
     }
 
+    public function testMobileCommentToolsUseThePostOverflowPattern(): void
+    {
+        $rootDir = \dirname(__DIR__, 4) . '/';
+        $site = file_get_contents($rootDir . '_styles/register/site.css');
+        $script = file_get_contents($rootDir . '_styles/register/script.js');
+        $comment = file_get_contents($rootDir . '_include/views/comment.php');
+
+        self::assertIsString($site);
+        self::assertMatchesRegularExpression(
+            '/@media \(max-width: 760px\).*?\.comment-tools-menu-toggle\s*'
+                . '\{[^}]*display:\s*grid;/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.comment-moderation\.is-menu-open\s*>\s*\.comment-tools-overflow\s*'
+                . '\{[^}]*display:\s*flex;/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
+            '/\.comment-item:has\(> \.comment-moderation\)\s*>\s*\.comment-meta\s*'
+                . '\{[^}]*padding-inline-end:\s*3rem;/s',
+            $site,
+        );
+
+        self::assertIsString($script);
+        self::assertStringContainsString('function closeCommentToolsMenu(', $script);
+        self::assertStringContainsString("target.closest('.comment-tools-menu-toggle')", $script);
+        self::assertStringContainsString("toggle.setAttribute('aria-expanded', String(opening))", $script);
+
+        self::assertIsString($comment);
+        self::assertStringContainsString('class="comment-moderation-button comment-tools-menu-toggle"', $comment);
+        self::assertStringContainsString('class="comment-tools-overflow"', $comment);
+        self::assertStringContainsString('class="comment-moderation-button-label"', $comment);
+    }
+
     public function testTagPostListUsesTheSameLeftEdgeAsThePageContent(): void
     {
         $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');
