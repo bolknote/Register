@@ -794,6 +794,20 @@ final class PostInplaceCest
             $firstId = (int)$first['media_id'];
             $firstFile = $this->storedMediaPath($first['url']);
             $I->assertFileExists($firstFile);
+            $I->assertSame(
+                '<img src="' . $first['url'] . '" data-post-media-id="' . $firstId
+                . '" alt="Image width > height" width="1" height="1">',
+                $mediaRegistry->completeImageDimensions(
+                    '<img src="' . $first['url'] . '" data-post-media-id="' . $firstId
+                    . '" alt="Image width > height" width="invalid">',
+                ),
+            );
+            $fractionalDimensions = '<img src="' . $first['url'] . '" data-post-media-id="' . $firstId
+                . '" alt="Retina image" width="280.5" height="158.5">';
+            $I->assertSame(
+                $fractionalDimensions,
+                $mediaRegistry->completeImageDimensions($fractionalDimensions),
+            );
 
             $otherEditorId = $this->userId($dbLayer, 'power_guest');
             $otherPostId = $this->insertPost($dbLayer, 'other-editor-media-post', $otherEditorId);
@@ -821,6 +835,18 @@ final class PostInplaceCest
                 'uploaded_media_ids' => (string)$firstId,
             ]);
             $I->seeResponseCodeIs(Response::HTTP_OK);
+            $saved = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $I->assertStringContainsString('width="1" height="1"', $saved['body_html']);
+            $I->assertSame(
+                '<p><img src="' . $first['url'] . '" data-post-media-id="' . $firstId
+                . '" alt="" width="1" height="1"></p>',
+                (string)$dbLayer
+                    ->select('body')
+                    ->from(ContentSchema::TABLE_NAME)
+                    ->where('id = :id')->setParameter('id', $postId)
+                    ->execute()
+                    ->result(),
+            );
             $I->assertSame(1, (int)$dbLayer
                 ->select('usage_count')
                 ->from(ContentMediaSchema::FILE_TABLE)

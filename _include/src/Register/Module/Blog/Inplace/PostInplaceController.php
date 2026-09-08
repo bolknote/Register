@@ -550,6 +550,11 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $body = $this->mediaRepository->completeImageDimensions($body);
+        if (\strlen($body) > self::MAX_BODY_BYTES) {
+            return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $metadata = $this->publicationMetadataGenerator->complete(
             $title,
             $body,
@@ -692,6 +697,11 @@ final readonly class PostInplaceController implements ControllerInterface
             || \strlen($body) > self::MAX_BODY_BYTES
             || str_contains($body, "\0")
         ) {
+            return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $body = $this->mediaRepository->completeImageDimensions($body);
+        if (\strlen($body) > self::MAX_BODY_BYTES) {
             return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 

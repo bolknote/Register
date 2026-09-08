@@ -211,6 +211,161 @@ final readonly class PostMediaRepository
         return $this->mediaUrlPrefix . $storagePath;
     }
 
+    /**
+     * Adds intrinsic dimensions to registered images without rewriting the rest of the post HTML.
+     */
+    public function completeImageDimensions(string $body): string
+    {
+        /** @var array<int, array<string, mixed>|null> $mediaById */
+        $mediaById = [];
+        $imageCount = 0;
+        $completed = preg_replace_callback(
+            '/<img\b(?:[^>"\']|"[^"]*"|\'[^\']*\')*>/iu',
+            function (array $matches) use (&$mediaById, &$imageCount): string {
+                $tag = $matches[0];
+                if (++$imageCount > self::MAX_MEDIA_PER_POST) {
+                    return $tag;
+                }
+
+                $image = $this->imageElement($tag);
+                if (!$image instanceof \DOMElement) {
+                    return $tag;
+                }
+
+                $width = $this->positiveImageDimension($image, 'width');
+                $height = $this->positiveImageDimension($image, 'height');
+                if ($width !== null && $height !== null) {
+                    return $tag;
+                }
+
+                $mediaId = $image->getAttribute('data-post-media-id');
+                if (preg_match('/^[1-9][0-9]*$/D', $mediaId) !== 1) {
+                    return $tag;
+                }
+
+                $id = (int)$mediaId;
+                if (!array_key_exists($id, $mediaById)) {
+                    $mediaById[$id] = $this->find($id);
+                }
+                $media = $mediaById[$id];
+                if (
+                    $media === null
+                    || (string)$media['kind'] !== 'image'
+                    || $image->getAttribute('src') !== $this->url((string)$media['storage_path'])
+                ) {
+                    return $tag;
+                }
+
+                $mediaWidth = (int)($media['width'] ?? 0);
+                $mediaHeight = (int)($media['height'] ?? 0);
+                if ($mediaWidth <= 0 || $mediaHeight <= 0) {
+                    return $tag;
+                }
+
+                if (preg_match('/@2x\.[a-z0-9]+$/D', (string)$media['storage_path']) === 1) {
+                    $mediaWidth = max(1, (int)floor($mediaWidth / 2));
+                    $mediaHeight = max(1, (int)floor($mediaHeight / 2));
+                }
+
+                if ($width === null) {
+                    $width = $height === null
+                        ? $mediaWidth
+                        : max(1, (int)round($height * $mediaWidth / $mediaHeight));
+                    $tag = $this->setTagAttribute($tag, 'width', $width);
+                }
+                if ($height === null) {
+                    $height = max(1, (int)round($width * $mediaHeight / $mediaWidth));
+                    $tag = $this->setTagAttribute($tag, 'height', $height);
+                }
+
+                return $tag;
+            },
+            $body,
+        );
+
+        return $completed ?? $body;
+    }
+
+    private function imageElement(string $tag): ?\DOMElement
+    {
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $loaded = $document->loadHTML(
+                '<?xml encoding="UTF-8"><div>' . $tag . '</div>',
+                LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING,
+            );
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
+
+        if (!$loaded) {
+            return null;
+        }
+
+        $image = $document->getElementsByTagName('img')->item(0);
+
+        return $image instanceof \DOMElement ? $image : null;
+    }
+
+    private function positiveImageDimension(\DOMElement $image, string $attribute): ?float
+    {
+        $value = $image->getAttribute($attribute);
+        if (preg_match('/^(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)$/D', $value) !== 1) {
+            return null;
+        }
+
+        $dimension = (float)$value;
+
+        return $dimension > 0 && $dimension <= 1_000_000 ? $dimension : null;
+    }
+
+    private function setTagAttribute(string $tag, string $attribute, int $value): string
+    {
+        $replacement = $attribute . '="' . $value . '"';
+        $offset = 4;
+        $length = \strlen($tag);
+        while ($offset < $length) {
+            while ($offset < $length && ctype_space($tag[$offset])) {
+                ++$offset;
+            }
+            if ($offset >= $length || $tag[$offset] === '>' || $tag[$offset] === '/') {
+                break;
+            }
+            if (preg_match(
+                '/\G([^\s"\'=<>`\/>]+)(?:\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+))?/Au',
+                $tag,
+                $match,
+                PREG_OFFSET_CAPTURE,
+                $offset,
+            ) !== 1) {
+                break;
+            }
+
+            $fullAttribute = $match[0];
+            $attributeName = $match[1];
+            if (mb_strtolower($attributeName[0]) === $attribute) {
+                return substr_replace($tag, $replacement, $fullAttribute[1], \strlen($fullAttribute[0]));
+            }
+            $offset = $fullAttribute[1] + \strlen($fullAttribute[0]);
+        }
+
+        $closingBracket = strrpos($tag, '>');
+        if ($closingBracket === false) {
+            return $tag;
+        }
+        $insertAt = $closingBracket;
+        while ($insertAt > 0 && ctype_space($tag[$insertAt - 1])) {
+            --$insertAt;
+        }
+        if ($insertAt > 0 && $tag[$insertAt - 1] === '/') {
+            --$insertAt;
+        }
+
+        return substr($tag, 0, $insertAt) . ' ' . $replacement . substr($tag, $insertAt);
+    }
+
     /** @return list<int> */
     private function postMediaIds(int $postId): array
     {

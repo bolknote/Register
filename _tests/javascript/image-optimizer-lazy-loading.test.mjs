@@ -111,6 +111,7 @@ test('dropped images render immediately and the complete processing flow is queu
     assert.ok(optimizing >= 0 && uploading > optimizing && alt > uploading);
     assert.ok(queued > alt);
     assert.match(uploadSource, /await queueImageAlt\(state, image, uploadFile, false, false\)/u);
+    assert.match(uploadSource, /!Number\.isInteger\(payload\.width\)[\s\S]*!Number\.isInteger\(payload\.height\)/u);
     assert.match(editorSource, /if \(showStatus\) \{\s*\+\+state\.aiAltStatusPending;/u);
     assert.match(editorSource, /updateAiAltStatus\(state, showStatus && outcome === 'applied'\)/u);
     assert.match(uploadSource, /await revealProcessedImage\(pending\)/u);

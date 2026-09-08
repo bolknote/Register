@@ -2687,6 +2687,12 @@
                     || payload.media_id <= 0
                     || typeof payload.url !== 'string'
                     || payload.url === ''
+                    || (kind === 'image' && (
+                        !Number.isInteger(payload.width)
+                        || payload.width <= 0
+                        || !Number.isInteger(payload.height)
+                        || payload.height <= 0
+                    ))
                 ) {
                     throw new Error(
                         payload?.message
