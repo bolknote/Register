@@ -23,6 +23,7 @@ use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Module\Blog\Service\TagsSearchProvider;
 use Register\Module\Search\Event\TagsSearchEvent;
 use Register\Core\Asset\AssetPack;
+use Register\Core\Asset\PublicAssetUrl;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Model\Article\ArticleRenderedEvent;
@@ -160,16 +161,14 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
         });
 
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
-            $basePath = rtrim($container->getStringParameter('base_path'), '/');
-            $editorFilename = $container->getStringParameter('public_root_dir') . '_assets/register/post-inplace.js';
-            $editorModifiedAt = \filemtime($editorFilename);
-            if ($editorModifiedAt === false) {
-                throw new \LogicException(\sprintf('Unable to read the modification time of "%s".', $editorFilename));
-            }
+            $assetUrl = new PublicAssetUrl(
+                $container->getStringParameter('public_root_dir'),
+                $container->getStringParameter('base_path'),
+            );
 
             $event->assetPack
                 ->addCss('../../_assets/register/blog/site.css', [AssetPack::OPTION_MERGE])
-                ->addJs($basePath . '/_assets/register/post-inplace.js?v=' . $editorModifiedAt, [AssetPack::OPTION_DEFER])
+                ->addJs($assetUrl->versioned('/_assets/register/post-inplace.js'), [AssetPack::OPTION_DEFER])
             ;
         });
     }

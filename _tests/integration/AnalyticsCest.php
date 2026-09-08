@@ -39,7 +39,7 @@ final class AnalyticsCest
         $I->sendRequestWithHeaders('https://localhost/', $headers);
         $I->seeResponseCodeIs(200);
         $I->seeElement('meta[name="register-analytics"]');
-        $I->seeElement('script[src*="analytics/collector.js?v=5.1"]');
+        $I->seeElement('script[src^="/_assets/register/analytics/collector.js?v="]');
 
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);

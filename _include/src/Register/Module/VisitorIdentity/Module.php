@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\VisitorIdentity;
 
 use Register\Core\Asset\AssetPack;
+use Register\Core\Asset\PublicAssetUrl;
 use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
@@ -53,6 +54,10 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
             $basePath        = rtrim($container->getStringParameter('base_path'), '/');
             $identityManager = $container->get(VisitorIdentityManager::class);
+            $assetUrl        = new PublicAssetUrl(
+                $container->getStringParameter('public_root_dir'),
+                $container->getStringParameter('base_path'),
+            );
             $event->assetPack
                 ->addMeta(sprintf(
                     '<meta name="register-visitor" data-cookie="%s" data-cookie-path="%s" data-resolve-url="%s">',
@@ -60,7 +65,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                     register_htmlencode($identityManager->cookiePath()),
                     register_htmlencode($basePath . '/_visitor/resolve'),
                 ))
-                ->addJs($basePath . '/_assets/register/visitor/identity.js', [AssetPack::OPTION_DEFER])
+                ->addJs($assetUrl->versioned('/_assets/register/visitor/identity.js'), [AssetPack::OPTION_DEFER])
             ;
         });
     }

@@ -16,6 +16,7 @@ use Register\Content\ContentType;
 use Register\Module\VisitorIdentity\JsonMutationGuard;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Core\Asset\AssetPack;
+use Register\Core\Asset\PublicAssetUrl;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
@@ -106,10 +107,13 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
         });
 
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
-            $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $assetUrl = new PublicAssetUrl(
+                $container->getStringParameter('public_root_dir'),
+                $container->getStringParameter('base_path'),
+            );
             $event->assetPack
-                ->addCss($basePath . '/_assets/register/reactions/reactions.css')
-                ->addJs($basePath . '/_assets/register/reactions/reactions.js', [AssetPack::OPTION_DEFER])
+                ->addCss($assetUrl->versioned('/_assets/register/reactions/reactions.css'))
+                ->addJs($assetUrl->versioned('/_assets/register/reactions/reactions.js'), [AssetPack::OPTION_DEFER])
             ;
         });
     }

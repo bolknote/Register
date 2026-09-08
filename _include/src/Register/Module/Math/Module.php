@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\Math;
 
 use Register\Core\Asset\AssetPack;
+use Register\Core\Asset\PublicAssetUrl;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
@@ -48,10 +49,13 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
-            $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $assetUrl = new PublicAssetUrl(
+                $container->getStringParameter('public_root_dir'),
+                $container->getStringParameter('base_path'),
+            );
             $event->assetPack
-                ->addCss($basePath . '/_assets/register/math/math.css')
-                ->addJs($basePath . '/_assets/register/math/loader.js', [AssetPack::OPTION_DEFER])
+                ->addCss($assetUrl->versioned('/_assets/register/math/math.css'))
+                ->addJs($assetUrl->versioned('/_assets/register/math/loader.js'), [AssetPack::OPTION_DEFER])
             ;
         });
 

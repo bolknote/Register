@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\AudioPlayer;
 
 use Register\Core\Asset\AssetPack;
+use Register\Core\Asset\PublicAssetUrl;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Template\TemplateAssetEvent;
@@ -21,9 +22,12 @@ final class Module implements ContainerAwareListenerModuleInterface
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
-            $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $assetUrl = new PublicAssetUrl(
+                $container->getStringParameter('public_root_dir'),
+                $container->getStringParameter('base_path'),
+            );
             $event->assetPack->addJs(
-                $basePath . '/_assets/register/audio-player/loader.js',
+                $assetUrl->versioned('/_assets/register/audio-player/loader.js'),
                 [AssetPack::OPTION_DEFER],
             );
         });

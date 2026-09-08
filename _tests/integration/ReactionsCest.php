@@ -209,9 +209,9 @@ final class ReactionsCest
         $I->dontSeeElement('.register-reaction-chip[title]');
         $I->dontSeeElement('.register-reaction-choice[title]');
         $I->seeElement('.register-reaction-choice[aria-label]');
-        $I->seeElement('link[href$="/_assets/register/reactions/reactions.css"]');
-        $I->seeElement('script[src$="/_assets/register/reactions/reactions.js"]');
-        $I->seeElement('script[src$="/_assets/register/visitor/identity.js"]');
+        $I->seeElement('link[href^="/_assets/register/reactions/reactions.css?v="]');
+        $I->seeElement('script[src^="/_assets/register/reactions/reactions.js?v="]');
+        $I->seeElement('script[src^="/_assets/register/visitor/identity.js?v="]');
         $I->dontSeeElement('meta[name="register-visitor"][data-fingerprint-src]');
 
         $I->sendJson('https://localhost/_visitor/resolve', [

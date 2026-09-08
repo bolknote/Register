@@ -20,16 +20,22 @@ final class ModuleTest extends Unit
 {
     public function testAddsOnlyTheSmallLocalLoaderToEveryPage(): void
     {
-        $container       = new Container(['base_path' => '/register/']);
+        $publicRoot      = dirname(__DIR__, 5) . '/';
+        $container       = new Container([
+            'base_path'      => '/register/',
+            'public_root_dir' => $publicRoot,
+        ]);
         $eventDispatcher = new EventDispatcher();
         (new Module())->registerListeners($eventDispatcher, $container);
 
         $assetPack = new AssetPack('/tmp');
         $eventDispatcher->dispatch(new TemplateAssetEvent($assetPack));
+        $loaderModifiedAt = filemtime($publicRoot . '_assets/register/syntax-highlighting/loader.js');
+        self::assertIsInt($loaderModifiedAt);
 
         self::assertSame('', $assetPack->getStyles('', null));
         self::assertSame(
-            '<script src="/register/_assets/register/syntax-highlighting/loader.js" defer></script>',
+            '<script src="/register/_assets/register/syntax-highlighting/loader.js?v=' . $loaderModifiedAt . '" defer></script>',
             $assetPack->getScripts('', null),
         );
         self::assertStringNotContainsString('http', $assetPack->getScripts('', null));

@@ -97,8 +97,8 @@ class InstallCest
         $I->see('Register is a blog engine, not a universal site builder');
         $I->seeElement('meta[name="Generator"][content="Register"]');
         $I->seeElement('link[href$="/_styles/register/favicon.svg"]');
-        $I->seeElement('script[src$="/_assets/register/syntax-highlighting/loader.js"]');
-        $I->seeElement('script[src$="/_assets/register/audio-player/loader.js"]');
+        $I->seeElement('script[src^="/_assets/register/syntax-highlighting/loader.js?v="]');
+        $I->seeElement('script[src^="/_assets/register/audio-player/loader.js?v="]');
         $I->dontSeeElement('a.visual-login');
         $I->dontSeeElement('.public-auth-email-form');
         $this->assertCsp($I);

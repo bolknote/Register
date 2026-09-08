@@ -12,6 +12,7 @@ namespace Register\Module\Analytics;
 
 use Psr\Log\LoggerInterface;
 use Register\Core\Asset\AssetPack;
+use Register\Core\Asset\PublicAssetUrl;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Module\VisitorIdentity\JsonMutationGuard;
 use Register\Core\Config\DynamicConfigProvider;
@@ -119,13 +120,17 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
     {
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
             $basePath = rtrim($container->getStringParameter('base_path'), '/');
+            $assetUrl = new PublicAssetUrl(
+                $container->getStringParameter('public_root_dir'),
+                $container->getStringParameter('base_path'),
+            );
             $event->assetPack
                 ->addMeta(sprintf(
                     '<meta name="register-analytics" data-collect-url="%s">',
                     register_htmlencode($basePath . '/_analytics/collect'),
                 ))
                 ->addJs(
-                    $basePath . '/_assets/register/analytics/collector.js?v=' . rawurlencode(Manifest::VERSION),
+                    $assetUrl->versioned('/_assets/register/analytics/collector.js'),
                     [AssetPack::OPTION_DEFER],
                 )
             ;

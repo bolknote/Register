@@ -18,6 +18,7 @@ use Register\Core\Http\InlineStyleAttributeStripper;
 use Register\Core\Http\SiteStylesheetInjector;
 use Register\Core\Http\ResponseCompressionCache;
 use Register\Core\Asset\AssetMergeFactory;
+use Register\Core\Asset\PublicAssetUrl;
 use Register\Core\Comment\AkismetProxy;
 use Register\Core\Comment\Antispam\CommentFormTokenManager;
 use Register\Core\Comment\Antispam\ConfigurableSpamDetector;
@@ -640,14 +641,10 @@ class CmsExtension implements ExtensionInterface
         });
 
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
-            $basePath = rtrim($container->getStringParameter('base_path'), '/');
-            $assetPath = '/_assets/register/content-security.css';
-            $modifiedAt = \filemtime($container->getStringParameter('public_root_dir') . ltrim($assetPath, '/'));
-            if ($modifiedAt === false) {
-                throw new \LogicException(\sprintf('Unable to read the modification time of "%s".', $assetPath));
-            }
-
-            $event->assetPack->addCss($basePath . $assetPath . '?v=' . $modifiedAt);
+            $event->assetPack->addCss((new PublicAssetUrl(
+                $container->getStringParameter('public_root_dir'),
+                $container->getStringParameter('base_path'),
+            ))->versioned('/_assets/register/content-security.css'));
         });
 
         $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, function (TemplateFinalReplaceEvent $event) use ($container): void {
