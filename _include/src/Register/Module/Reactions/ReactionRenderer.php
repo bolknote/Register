@@ -66,14 +66,13 @@ final readonly class ReactionRenderer
                 ? '<svg class="register-reaction-like-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5 11 3.8a2.6 2.6 0 0 1 2.5 3.2l-.8 3.5h5.5a2 2 0 0 1 2 2.4l-1.3 6.5a2 2 0 0 1-2 1.6H7.5m0-10.5V21H4a2 2 0 0 1-2-2v-6.5a2 2 0 0 1 2-2h3.5Z"/></svg>'
                 : '<span class="register-reaction-emoji" aria-hidden="true">' . $reaction->emoji() . '</span>';
             $chips .= sprintf(
-                '<button class="register-reaction-chip%s%s" type="button" data-reaction="%s" data-count="%d" aria-pressed="false" title="%s"%s%s>%s' .
+                '<button class="register-reaction-chip%s%s" type="button" data-reaction="%s" data-count="%d" aria-pressed="false"%s%s>%s' .
                 '<span class="register-reaction-count"%s>%d</span>' .
                 '<span class="register-visually-hidden">%s</span></button>',
                 $isPrimary ? ' register-reaction-primary' : '',
                 $visible ? ' is-visible' : '',
                 $reaction->value,
                 $count,
-                register_htmlencode($label),
                 $isPrimary ? ' aria-haspopup="menu" aria-expanded="false" aria-controls="' . $pickerId . '"' : '',
                 $visible ? '' : ' hidden',
                 $icon,
@@ -82,9 +81,8 @@ final readonly class ReactionRenderer
                 register_htmlencode($label),
             );
             $picker .= sprintf(
-                '<button class="register-reaction-choice" type="button" role="menuitemradio" aria-checked="false" data-picker-reaction="%s" title="%s" aria-label="%s"><span aria-hidden="true">%s</span></button>',
+                '<button class="register-reaction-choice" type="button" role="menuitemradio" aria-checked="false" data-picker-reaction="%s" aria-label="%s"><span aria-hidden="true">%s</span></button>',
                 $reaction->value,
-                register_htmlencode($label),
                 register_htmlencode($label),
                 $reaction->emoji(),
             );
@@ -92,10 +90,18 @@ final readonly class ReactionRenderer
 
         foreach ($state->extraCounts as $emoji => $count) {
             $chips .= sprintf(
-                '<span class="register-reaction-chip register-reaction-imported is-visible" title="%s"><span class="register-reaction-emoji" aria-hidden="true">%s</span><span class="register-reaction-count">%d</span></span>',
-                register_htmlencode($emoji . ': ' . $count),
+                '<button class="register-reaction-chip register-reaction-imported is-visible" type="button" data-reaction="%s" data-count="%d" aria-pressed="false"><span class="register-reaction-emoji" aria-hidden="true">%s</span><span class="register-visually-hidden">%s</span><span class="register-reaction-count">%d</span></button>',
                 register_htmlencode($emoji),
                 $count,
+                register_htmlencode($emoji),
+                register_htmlencode($emoji),
+                $count,
+            );
+            $picker .= sprintf(
+                '<button class="register-reaction-choice register-reaction-choice-imported" type="button" role="menuitemradio" aria-checked="false" data-picker-reaction="%s" aria-label="%s"><span aria-hidden="true">%s</span></button>',
+                register_htmlencode($emoji),
+                register_htmlencode($emoji),
+                register_htmlencode($emoji),
             );
         }
 
@@ -123,8 +129,9 @@ final readonly class ReactionRenderer
 
     private function primaryReaction(ReactionState $state): ReactionType
     {
-        if ($state->selected instanceof ReactionType) {
-            return $state->selected;
+        $selected = $state->selected !== null ? ReactionType::tryFrom($state->selected) : null;
+        if ($selected instanceof ReactionType) {
+            return $selected;
         }
 
         $primary  = ReactionType::LIKE;

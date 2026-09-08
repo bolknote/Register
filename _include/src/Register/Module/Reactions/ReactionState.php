@@ -15,10 +15,10 @@ final readonly class ReactionState
      * @param array<string, int> $counts
      */
     public function __construct(
-        public array         $counts,
-        public ?ReactionType $selected,
+        public array   $counts,
+        public ?string $selected,
         /** @var array<string, int> Exact imported emoji which do not belong to the built-in picker. */
-        public array         $extraCounts = [],
+        public array   $extraCounts = [],
     ) {
     }
 
@@ -28,7 +28,7 @@ final readonly class ReactionState
         return [
             'counts'   => $this->counts,
             'extra'    => $this->extraCounts,
-            'selected' => $this->selected?->value,
+            'selected' => $this->selected,
             'total'    => array_sum($this->counts) + array_sum($this->extraCounts),
         ];
     }

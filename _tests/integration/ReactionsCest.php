@@ -59,6 +59,9 @@ final class ReactionsCest
         $I->seeElement('[data-register-reactions] [data-reaction="like"][data-count="3"]');
         $I->see('🔥', '.register-reaction-imported');
         $I->see('2', '.register-reaction-imported .register-reaction-count');
+        $I->seeElement('.register-reaction-imported[data-reaction="🔥"][data-count="2"]');
+        $I->seeElement('.register-reaction-choice-imported[data-picker-reaction="🔥"]');
+        $I->dontSeeElement('.register-reaction-imported[title]');
         $I->assertSame(0, (int)$dbLayer->select('COUNT(*)')->from(Manifest::TABLE_NAME)->execute()->result());
         $I->assertTrue($aggregateRepository->remove(
             ReactionAggregateTargetType::POST,
@@ -72,6 +75,58 @@ final class ReactionsCest
             'test-archive',
             'fire',
         ));
+    }
+
+    public function visitorsCanUseAnImportedEmojiReaction(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var ReactionAggregateRepository $aggregateRepository */
+        $aggregateRepository = $I->grabService(ReactionAggregateRepository::class);
+        $contentId = $this->insertPost($dbLayer, 'interactive-imported-reaction-post');
+        $aggregateRepository->store(new ReactionAggregate(
+            ReactionAggregateTargetType::POST,
+            $contentId,
+            'test-archive',
+            'fire',
+            '',
+            '🔥',
+            2,
+            time(),
+        ));
+
+        $endpoint = 'https://localhost/_reactions/post/' . $contentId;
+        $I->amOnPage('https://localhost/interactive-imported-reaction-post');
+        $I->seeElement('.register-reaction-imported[data-reaction="🔥"][data-count="2"]');
+        $I->seeElement('.register-reaction-picker [data-picker-reaction="🔥"]');
+
+        $I->sendJson('https://localhost/_visitor/resolve', [
+            'trackPage' => false,
+        ], headers: ['Origin' => 'https://localhost']);
+
+        $state = $this->react($I, $endpoint, '🔥');
+        $I->assertSame('🔥', $state['selected']);
+        $I->assertSame(3, $state['extra']['🔥']);
+        $I->assertSame(3, $state['total']);
+        $storedValue = (string)$dbLayer->select('reaction')
+            ->from(Manifest::TABLE_NAME)
+            ->where('content_id = :content_id')->setParameter('content_id', $contentId)
+            ->execute()
+            ->result();
+        $I->assertMatchesRegularExpression('/^e[0-9a-f]{15}$/D', $storedValue);
+
+        $state = $this->react($I, $endpoint, '🔥');
+        $I->assertNull($state['selected']);
+        $I->assertSame(2, $state['extra']['🔥']);
+        $I->assertSame(2, $state['total']);
+
+        $I->sendJson($endpoint, ['reaction' => '🦄'], headers: ['Origin' => 'https://localhost']);
+        $I->seeResponseCodeIs(422);
+        $I->assertSame(0, (int)$dbLayer->select('COUNT(*)')
+            ->from(Manifest::TABLE_NAME)
+            ->where('content_id = :content_id')->setParameter('content_id', $contentId)
+            ->execute()
+            ->result());
     }
 
     public function rendersCompactReactionsOnEveryPostInTheBlogList(\IntegrationTester $I): void
@@ -150,6 +205,9 @@ final class ReactionsCest
         $I->seeElement('[data-register-reactions]');
         $I->seeElement('[data-reaction="like"]');
         $I->seeElement('[data-picker-reaction="love"]');
+        $I->dontSeeElement('.register-reaction-chip[title]');
+        $I->dontSeeElement('.register-reaction-choice[title]');
+        $I->seeElement('.register-reaction-choice[aria-label]');
         $I->seeElement('link[href$="/_assets/register/reactions/reactions.css"]');
         $I->seeElement('script[src$="/_assets/register/reactions/reactions.js"]');
         $I->seeElement('script[src$="/_assets/register/visitor/identity.js"]');
@@ -335,7 +393,7 @@ final class ReactionsCest
         $I->assertNotSame($first['token'], $second['token']);
     }
 
-    /** @return array{success: true, counts: array<string, int>, selected: string|null, total: int} */
+    /** @return array{success: true, counts: array<string, int>, extra: array<string, int>, selected: string|null, total: int} */
     private function react(\IntegrationTester $I, string $endpoint, string $reaction): array
     {
         $I->sendJson($endpoint, ['reaction' => $reaction], headers: ['Origin' => 'https://localhost']);
@@ -356,6 +414,15 @@ final class ReactionsCest
             $counts[$reactionName] = $count;
         }
 
+        $extra = [];
+        foreach (($state['extra'] ?? []) as $emoji => $count) {
+            if (!\is_string($emoji) || !\is_int($count)) {
+                throw new \UnexpectedValueException('The reaction endpoint returned invalid extra counts.');
+            }
+
+            $extra[$emoji] = $count;
+        }
+
         $selected = $state['selected'] ?? null;
         $total    = $state['total'] ?? null;
         if (($selected !== null && !\is_string($selected)) || !\is_int($total)) {
@@ -365,6 +432,7 @@ final class ReactionsCest
         return [
             'success'  => true,
             'counts'   => $counts,
+            'extra'    => $extra,
             'selected' => $selected,
             'total'    => $total,
         ];

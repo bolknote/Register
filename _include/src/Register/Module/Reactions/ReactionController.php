@@ -86,10 +86,16 @@ final readonly class ReactionController implements ControllerInterface
             return $this->error('Malformed JSON.', Response::HTTP_BAD_REQUEST);
         }
 
-        $reaction = \is_array($payload) && \is_string($payload['reaction'] ?? null)
-            ? ReactionType::tryFrom($payload['reaction'])
+        $reactionValue = \is_array($payload) && \is_string($payload['reaction'] ?? null)
+            ? $payload['reaction']
             : null;
-        if (!$reaction instanceof ReactionType) {
+        $reaction = $reactionValue !== null
+            ? ReactionSelection::fromAvailableValue(
+                $reactionValue,
+                $this->repository->state($contentId->value, $visitorId)->extraCounts,
+            )
+            : null;
+        if (!$reaction instanceof ReactionSelection) {
             return $this->error('Unknown reaction.', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 

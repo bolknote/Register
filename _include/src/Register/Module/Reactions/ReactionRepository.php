@@ -41,16 +41,20 @@ final readonly class ReactionRepository
             return [];
         }
 
-        $parameters   = [];
-        $placeholders = [];
-        $counts       = [];
-        $extraCounts  = [];
+        $parameters               = [];
+        $placeholders             = [];
+        $counts                   = [];
+        $extraCounts              = [];
+        $localExtraCounts         = [];
+        $extraEmojiByStorageValue = [];
         foreach ($normalizedIds as $normalizedId) {
-            $parameter               = 'content_id_' . $normalizedId;
-            $parameters[$parameter]  = $normalizedId;
-            $placeholders[]          = ':' . $parameter;
-            $counts[$normalizedId]   = $this->emptyCounts();
-            $extraCounts[$normalizedId] = [];
+            $parameter                              = 'content_id_' . $normalizedId;
+            $parameters[$parameter]                 = $normalizedId;
+            $placeholders[]                         = ':' . $parameter;
+            $counts[$normalizedId]                  = $this->emptyCounts();
+            $extraCounts[$normalizedId]             = [];
+            $localExtraCounts[$normalizedId]        = [];
+            $extraEmojiByStorageValue[$normalizedId] = [];
         }
 
         $rows = $this->dbLayer->select('content_id', 'reaction', 'COUNT(*) AS reaction_count')
@@ -62,9 +66,12 @@ final readonly class ReactionRepository
         ;
         foreach ($rows as $row) {
             $rowContentId = (int)$row['content_id'];
-            $reaction     = ReactionType::tryFrom((string)$row['reaction']);
+            $storedValue  = (string)$row['reaction'];
+            $reaction     = ReactionType::tryFrom($storedValue);
             if ($reaction instanceof ReactionType && isset($counts[$rowContentId])) {
                 $counts[$rowContentId][$reaction->value] = (int)$row['reaction_count'];
+            } elseif (isset($localExtraCounts[$rowContentId])) {
+                $localExtraCounts[$rowContentId][$storedValue] = (int)$row['reaction_count'];
             }
         }
 
@@ -87,7 +94,7 @@ final readonly class ReactionRepository
                 continue;
             }
 
-            $count = (int)$row['reaction_count'];
+            $count    = (int)$row['reaction_count'];
             $reaction = ReactionType::tryFrom((string)$row['reaction']);
             if ($reaction instanceof ReactionType) {
                 $counts[$rowContentId][$reaction->value] += $count;
@@ -97,10 +104,17 @@ final readonly class ReactionRepository
             $emoji = trim((string)$row['emoji']);
             if ($emoji !== '' && $count > 0) {
                 $extraCounts[$rowContentId][$emoji] = ($extraCounts[$rowContentId][$emoji] ?? 0) + $count;
+                $selection = ReactionSelection::fromImportedEmoji($emoji);
+                $extraEmojiByStorageValue[$rowContentId][$selection->storageValue] = $emoji;
             }
         }
 
-        foreach ($extraCounts as &$extras) {
+        foreach ($extraCounts as $extraContentId => &$extras) {
+            foreach ($extras as $emoji => &$count) {
+                $storageValue = ReactionSelection::fromImportedEmoji($emoji)->storageValue;
+                $count += $localExtraCounts[$extraContentId][$storageValue] ?? 0;
+            }
+            unset($count);
             arsort($extras, SORT_NUMERIC);
         }
 
@@ -118,7 +132,11 @@ final readonly class ReactionRepository
             foreach ($rows as $row) {
                 $rowContentId = (int)$row['content_id'];
                 if (array_key_exists($rowContentId, $selected)) {
-                    $selected[$rowContentId] = ReactionType::tryFrom((string)$row['reaction']);
+                    $storedValue = (string)$row['reaction'];
+                    $builtIn     = ReactionType::tryFrom($storedValue);
+                    $selected[$rowContentId] = $builtIn instanceof ReactionType
+                        ? $builtIn->value
+                        : ($extraEmojiByStorageValue[$rowContentId][$storedValue] ?? null);
                 }
             }
         }
@@ -136,10 +154,10 @@ final readonly class ReactionRepository
     }
 
     public function toggle(
-        int          $contentId,
-        string       $visitorId,
-        ReactionType $reaction,
-        ?int         $userId = null,
+        int               $contentId,
+        string            $visitorId,
+        ReactionSelection $reaction,
+        ?int              $userId = null,
     ): ReactionState
     {
         $current = $this->dbLayer->select('reaction')
@@ -150,7 +168,7 @@ final readonly class ReactionRepository
             ->result()
         ;
 
-        if ($current === $reaction->value) {
+        if ($current === $reaction->storageValue) {
             $this->dbLayer->delete(Manifest::TABLE_NAME)
                 ->where('content_id = :content_id')->setParameter('content_id', $contentId)
                 ->andWhere('visitor_id = :visitor_id')->setParameter('visitor_id', $visitorId)
@@ -162,7 +180,7 @@ final readonly class ReactionRepository
                 ->setKey('content_id', ':content_id')->setParameter('content_id', $contentId)
                 ->setKey('visitor_id', ':visitor_id')->setParameter('visitor_id', $visitorId)
                 ->setValue('user_id', ':user_id')->setParameter('user_id', $userId)
-                ->setValue('reaction', ':reaction')->setParameter('reaction', $reaction->value)
+                ->setValue('reaction', ':reaction')->setParameter('reaction', $reaction->storageValue)
                 ->setValue('created_at', ':created_at')->setParameter('created_at', $now)
                 ->setValue('updated_at', ':updated_at')->setParameter('updated_at', $now)
                 ->execute()

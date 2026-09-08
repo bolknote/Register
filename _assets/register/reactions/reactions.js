@@ -1,7 +1,7 @@
 (() => {
     'use strict';
 
-    const reactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
+    const builtInReactionTypes = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
     const widgets = new WeakMap();
 
     function batchTarget(endpoint) {
@@ -32,7 +32,7 @@
             this.status = root.querySelector('.register-reaction-status');
             this.chips = new Map();
             this.choices = new Map();
-            this.counts = Object.fromEntries(reactionTypes.map((type) => [type, 0]));
+            this.counts = Object.create(null);
             this.selected = null;
             this.busy = false;
             this.stateRevision = 0;
@@ -43,14 +43,14 @@
 
             for (const button of root.querySelectorAll('[data-reaction]')) {
                 const type = button.dataset.reaction;
-                if (reactionTypes.includes(type)) {
+                if (type && !this.chips.has(type)) {
                     this.chips.set(type, button);
                     this.counts[type] = Math.max(0, Number.parseInt(button.dataset.count || '0', 10) || 0);
                 }
             }
             for (const button of root.querySelectorAll('[data-picker-reaction]')) {
                 const type = button.dataset.pickerReaction;
-                if (reactionTypes.includes(type)) {
+                if (type && this.chips.has(type)) {
                     this.choices.set(type, button);
                 }
             }
@@ -129,14 +129,14 @@
         }
 
         async select(type) {
-            if (this.busy || !reactionTypes.includes(type)) {
+            if (this.busy || !this.chips.has(type)) {
                 return;
             }
 
             this.closePicker(false);
             this.stateRevision += 1;
             const snapshot = {
-                counts: {...this.counts},
+                counts: Object.assign(Object.create(null), this.counts),
                 selected: this.selected,
             };
             this.optimisticToggle(type);
@@ -194,11 +194,12 @@
         }
 
         applyPayload(payload) {
-            for (const type of reactionTypes) {
-                const count = Number(payload.counts?.[type]);
+            for (const type of this.chips.keys()) {
+                const source = builtInReactionTypes.includes(type) ? payload.counts : payload.extra;
+                const count = Number(source?.[type]);
                 this.counts[type] = Number.isSafeInteger(count) && count >= 0 ? count : 0;
             }
-            this.selected = reactionTypes.includes(payload.selected) ? payload.selected : null;
+            this.selected = this.chips.has(payload.selected) ? payload.selected : null;
             this.render();
         }
 
@@ -231,7 +232,7 @@
 
             let primary = 'like';
             let maxCount = 0;
-            for (const type of reactionTypes) {
+            for (const type of builtInReactionTypes) {
                 if (this.counts[type] > maxCount) {
                     primary = type;
                     maxCount = this.counts[type];
