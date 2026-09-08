@@ -27,16 +27,14 @@ use Register\Core\Pdo\DbLayer;
 use Register\Core\Template\HtmlTemplate;
 use Register\Core\Template\HtmlTemplateProvider;
 use Register\Core\Template\Viewer;
-use Register\Rose\Entity\ExternalId;
-use Register\Module\Search\Module as SearchModule;
 use Register\Module\Blog\Module as BlogModule;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
+use Register\Module\Blog\Model\DeferredPostPageContext;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Inplace\PostInplaceControls;
 use Register\Module\Search\Service\RecommendationProvider;
-use Register\Module\Search\Service\SearchDocumentFactory;
-use Register\Module\VisitorIdentity\VisitorIdentityManager;
+use Register\Module\Search\Service\DeferredRecommendations;
 use Register\Url\ContentUrlGenerator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -56,7 +54,6 @@ class PostPageController extends BlogController
         ContentUrlGenerator                      $contentUrlGenerator,
         UrlBuilder                               $urlBuilder,
         private readonly ?RecommendationProvider $recommendationProvider,
-        private readonly VisitorIdentityManager  $visitorIdentityManager,
         TranslatorInterface                      $translator,
         HtmlTemplateProvider                     $templateProvider,
         Viewer                                   $viewer,
@@ -145,93 +142,31 @@ class PostPageController extends BlogController
             return $template->toHttpResponse()->setStatusCode(Response::HTTP_NOT_FOUND);
         }
 
-        $post_id = $row['id'];
-        $label   = (string)$row['label'];
+        $post_id = (int)$row['id'];
+        $contentId = ContentId::post($post_id);
 
         if ($template->hasPlaceholder('<!-- register_blog_calendar -->')) {
-            $createTime = (int)$row['create_time'];
-            $template->registerPlaceholder('<!-- register_blog_calendar -->', $this->calendarBuilder->calendar(
-                (int)date('Y', $createTime),
-                (int)date('m', $createTime),
-                (int)date('d', $createTime),
-                $url
-            ));
+            $template->registerPlaceholder(
+                '<!-- register_blog_calendar -->',
+                DeferredPostPageContext::placeholder(DeferredPostPageContext::CALENDAR, $post_id),
+            );
         }
 
         $template->putInPlaceholder('canonical_path', $this->contentUrlGenerator->post((string)$row['url']));
 
-        $is_back_forward = $template->hasPlaceholder('<!-- register_blog_back_forward -->');
-        $queries = [];
-        $params = [];
-        if ($label !== '') {
-            // Getting posts that have the same label
-            $queries[]         = $this->dbLayer->select('title, published_at AS create_time, slug AS url, "label" AS type')
-                ->from(ContentSchema::TABLE_NAME)
-                ->where("content_type = '" . ContentType::POST->value . "'")
-                ->andWhere('series = :label')
-                ->andWhere('id <> :post_id')
-                ->andWhere('published = 1')
-                ->orderBy('published_at DESC')
-                ->getSql()
-            ;
-            $params['label']   = $label;
-            $params['post_id'] = $post_id;
-        }
-
-        if ($is_back_forward) {
-            $queries[] = $this->dbLayer->select('title, published_at AS create_time, slug AS url, "next" AS type')
-                ->from(ContentSchema::TABLE_NAME)
-                ->where("content_type = '" . ContentType::POST->value . "'")
-                ->andWhere('published_at > :time_next')
-                ->andWhere('published = 1')
-                ->orderBy('published_at ASC')
-                ->limit(1)
-                ->getSql()
-            ;
-
-            $params['time_next'] = (int)$row['create_time'];
-
-            $queries[] = $this->dbLayer->select('title, published_at AS create_time, slug AS url, "prev" AS type')
-                ->from(ContentSchema::TABLE_NAME)
-                ->where("content_type = '" . ContentType::POST->value . "'")
-                ->andWhere('published_at < :time_prev')
-                ->setParameter('time_prev', (int)$row['create_time'], \PDO::PARAM_INT)
-                ->andWhere('published = 1')
-                ->orderBy('published_at DESC')
-                ->limit(1)
-                ->getSql()
-            ;
-
-            $params['time_prev'] = (int)$row['create_time'];
-        }
-
-        $result = $queries !== [] ? $this->dbLayer->query('(' . implode(') UNION (', $queries) . ')', $params) : null;
-
-        $back_forward = [];
-        while ($result instanceof \Register\Core\Pdo\QueryResult && ($row1 = $result->fetchAssoc()) !== false) {
-            $post_info = [
-                'title' => $row1['title'],
-                'link'  => $this->contentUrlGenerator->post((string)$row1['url']),
-            ];
-
-            if ($row1['type'] === 'label') {
-                $row['see_also'][] = $post_info;
-            } elseif ($row1['type'] === 'next') {
-                $template->setLink('next', $post_info['link']);
-                $back_forward['forward'] = $post_info;
-            } elseif ($row1['type'] === 'prev') {
-                $template->setLink('prev', $post_info['link']);
-                $back_forward['back'] = $post_info;
-            }
-        }
-
-        if ($back_forward !== []) {
-            $template->registerPlaceholder('<!-- register_blog_back_forward -->', $this->viewer->render('back_forward_post', $back_forward, BlogModule::class));
+        if ($template->hasPlaceholder('<!-- register_blog_back_forward -->')) {
+            $template->registerPlaceholder(
+                '<!-- register_blog_back_forward -->',
+                DeferredPostPageContext::placeholder(DeferredPostPageContext::BACK_FORWARD, $post_id),
+            );
+            $template->addMetaTag(
+                DeferredPostPageContext::placeholder(DeferredPostPageContext::HEAD_LINKS, $post_id),
+            );
         }
 
         // Getting tags
         $tags = [];
-        $tagsByContent = $this->tagRepository->findForContent([ContentId::post((int)$post_id)]);
+        $tagsByContent = $this->tagRepository->findForContent([ContentId::post($post_id)]);
         foreach ($tagsByContent['post:' . $post_id] as $tag) {
             $tags[] = [
                 'title' => $tag->name,
@@ -239,7 +174,6 @@ class PostPageController extends BlogController
             ];
         }
 
-        $contentId = ContentId::post((int)$post_id);
         $request->attributes->set(FlatContentController::CONTENT_ID_ATTRIBUTE, $contentId);
         $isSharedResponse = $request->attributes->getBoolean(FlatContentController::SHARED_RESPONSE_ATTRIBUTE);
         $template->putInPlaceholder('commented', $isSharedResponse ? 0 : $row['commented']);
@@ -257,13 +191,20 @@ class PostPageController extends BlogController
         $row['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
         $row['showComments']     = $this->showComments->get();
         $row['enabledComments']  = $this->enabledComments->get();
-        if (!$this->postProvider->hasMultiplePublishedAuthors()) {
-            $row['author'] = '';
-        }
+        $row['author'] = '';
+        $row['deferred_author'] = DeferredPostPageContext::placeholder(
+            DeferredPostPageContext::AUTHOR,
+            $post_id,
+        );
+        $row['see_also'] = [];
+        $row['deferred_see_also'] = DeferredPostPageContext::placeholder(
+            DeferredPostPageContext::SEE_ALSO,
+            $post_id,
+        );
 
         $row['inplace']          = $this->inplaceControls->forPost(
             $request,
-            (int)$post_id,
+            $post_id,
             $row['author_id'] === null ? null : (int)$row['author_id'],
             (int)$row['revision'],
         );
@@ -280,17 +221,7 @@ class PostPageController extends BlogController
         ;
 
         if ($this->recommendationProvider instanceof RecommendationProvider && $template->hasPlaceholder('<!-- register_recommendations -->')) {
-            $request_uri = $request->getPathInfo();
-            [$recommendations, $log, $rawRecommendations] = $this->recommendationProvider->getRecommendations(
-                $request_uri,
-                new ExternalId(SearchDocumentFactory::externalId(ContentId::post((int)$post_id))),
-                $this->visitorIdentityManager->visitorIdFromRequest($request) !== null,
-            );
-            $template->putInPlaceholder('recommendations', $this->viewer->render('recommendations', [
-                'raw'     => $rawRecommendations,
-                'content' => $recommendations,
-                'log'     => $log,
-            ], SearchModule::class));
+            $template->putInPlaceholder('recommendations', DeferredRecommendations::placeholder($contentId));
         }
 
         $this->eventDispatcher->dispatch(new ContentRenderedEvent($template, $contentId));

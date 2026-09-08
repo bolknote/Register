@@ -19,7 +19,6 @@ use Register\Module\Blog\Controller\FlatContentController;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\BlogPlaceholderProvider;
 use Register\Module\Blog\Model\DeferredBlogSidebar;
-use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Module\Blog\Service\TagsSearchProvider;
 use Register\Module\Search\Event\TagsSearchEvent;
@@ -41,11 +40,7 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(ContentChangedEvent::class, static function (ContentChangedEvent $event) use ($container): void {
-            $pageCache = $container->get(BlogPageCache::class);
-            $pageCache->invalidateContent($event->contentId);
-            // Navigation, sidebars, recommendations and cross-links can expose one
-            // content change on every cached page, not only on the changed URL.
-            $pageCache->invalidateAll();
+            $container->get(BlogPageCache::class)->invalidateContentChange($event->contentId);
         });
 
         $eventDispatcher->addListener(CommentChangedEvent::class, static function (CommentChangedEvent $event) use ($container): void {
@@ -90,7 +85,7 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
             );
         });
 
-        $eventDispatcher->addListener(TemplateEvent::EVENT_CREATED, function (TemplateEvent $event) use ($container): void {
+        $eventDispatcher->addListener(TemplateEvent::EVENT_CREATED, static function (TemplateEvent $event): void {
             $blogPlaceholders = [];
             $template         = $event->htmlTemplate;
 
@@ -103,8 +98,6 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
             if (\count($blogPlaceholders) === 0) {
                 return;
             }
-
-            $viewer = $container->get(Viewer::class);
 
             if (isset($blogPlaceholders['register_blog_last_comments'])) {
                 $template->registerPlaceholder(
@@ -121,24 +114,17 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
             }
 
             if (isset($blogPlaceholders['register_blog_last_post'])) {
-                $postProvider = $container->get(PostProvider::class);
-                $lastPosts    = $postProvider->lastPostsArray(1);
-
-                foreach ($lastPosts as &$register_blog_post) {
-                    $register_blog_post = $viewer->render('post_short', $register_blog_post, Module::class);
-                }
-
-                unset($register_blog_post);
-                $template->registerPlaceholder('<!-- register_blog_last_post -->', implode('', $lastPosts));
+                $template->registerPlaceholder(
+                    '<!-- register_blog_last_post -->',
+                    DeferredBlogSidebar::placeholder(DeferredBlogSidebar::LAST_POST),
+                );
             }
 
             if (isset($blogPlaceholders['register_blog_navigation'])) {
-                $placeholderProvider = $container->get(BlogPlaceholderProvider::class);
-                $template->registerPlaceholder('<!-- register_blog_navigation -->', $viewer->render(
-                    'navigation',
-                    $placeholderProvider->getBlogNavigationData(),
-                    Module::class,
-                ));
+                $template->registerPlaceholder(
+                    '<!-- register_blog_navigation -->',
+                    DeferredBlogSidebar::placeholder(DeferredBlogSidebar::NAVIGATION),
+                );
             }
         });
 

@@ -16,10 +16,19 @@ final class DeferredBlogSidebar
 
     public const string RECENT_DISCUSSIONS = 'recent-discussions';
 
+    public const string LAST_POST = 'last-post';
+
+    public const string NAVIGATION = 'navigation';
+
     private const string PREFIX = '<!-- register-deferred-blog-sidebar-v1:';
 
     /** @var list<string> */
-    private const array SLOTS = [self::RECENT_COMMENTS, self::RECENT_DISCUSSIONS];
+    private const array SLOTS = [
+        self::RECENT_COMMENTS,
+        self::RECENT_DISCUSSIONS,
+        self::LAST_POST,
+        self::NAVIGATION,
+    ];
 
     public static function placeholder(string $slot): string
     {

@@ -73,6 +73,8 @@ use Register\Module\Blog\Model\ContentViewResponseProcessor;
 use Register\Module\Blog\Model\ContentFeedItemProvider;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Module\Blog\Model\PostFeedRenderer;
+use Register\Module\Blog\Model\PostPageContextProvider;
+use Register\Module\Blog\Model\PostPageContextResponseProcessor;
 use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Module\Blog\Model\TagRssStrategy;
 use Register\Module\Blog\Service\TagsSearchProvider;
@@ -164,8 +166,20 @@ final class ServiceModule implements ContainerModuleInterface
         ), [ResponseProcessorInterface::class]);
         $container->set(BlogSidebarResponseProcessor::class, static fn(Container $container): BlogSidebarResponseProcessor => new BlogSidebarResponseProcessor(
             $container->get(BlogPlaceholderProvider::class),
+            $container->get(PostProvider::class),
+            $container->get(BlogPageCache::class),
             $container->get(Viewer::class),
             $container->get('register_blog_translator'),
+        ), [ResponseProcessorInterface::class]);
+        $container->set(PostPageContextProvider::class, static fn(Container $container): PostPageContextProvider => new PostPageContextProvider(
+            $container->get(DbLayer::class),
+            $container->get(ContentUrlGenerator::class),
+            $container->get(BlogPageCache::class),
+        ));
+        $container->set(PostPageContextResponseProcessor::class, static fn(Container $container): PostPageContextResponseProcessor => new PostPageContextResponseProcessor(
+            $container->get(PostPageContextProvider::class),
+            $container->get(CalendarBuilder::class),
+            $container->get(Viewer::class),
         ), [ResponseProcessorInterface::class]);
         $container->set(PostFeedRenderer::class, static function (Container $container): PostFeedRenderer {
             $provider = $container->get(DynamicConfigProvider::class);
@@ -339,7 +353,6 @@ final class ServiceModule implements ContainerModuleInterface
                 $container->get(ContentUrlGenerator::class),
                 $container->get(UrlBuilder::class),
                 $container->getIfDefined(RecommendationProvider::class),
-                $container->get(\Register\Module\VisitorIdentity\VisitorIdentityManager::class),
                 $container->get('register_blog_translator'),
                 $container->get(HtmlTemplateProvider::class),
                 $container->get(Viewer::class),

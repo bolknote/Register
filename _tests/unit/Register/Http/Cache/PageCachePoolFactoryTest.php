@@ -45,7 +45,7 @@ final class PageCachePoolFactoryTest extends TestCase
         self::assertFalse($pools->sharedMemoryEnabled);
         self::assertNull($pools->sharedMemoryNamespace);
         self::assertSame($pools->persistent, $pools->hot);
-        self::assertSame($this->temporaryDirectory . '/pages_v4', $pools->filesystemDirectory);
+        self::assertSame($this->temporaryDirectory . '/pages_v5', $pools->filesystemDirectory);
 
         $expected = bin2hex(random_bytes(4));
         self::assertSame($expected, $pools->persistent->get(
@@ -56,17 +56,18 @@ final class PageCachePoolFactoryTest extends TestCase
                 return $expected;
             },
         ));
-        self::assertDirectoryExists($this->temporaryDirectory . '/pages_v4');
+        self::assertDirectoryExists($this->temporaryDirectory . '/pages_v5');
         self::assertDirectoryDoesNotExist($this->temporaryDirectory . '/config');
     }
 
     public function testUsesVersionedNamespaceForCurrentCacheAbi(): void
     {
-        self::assertSame('pages_v4', PageCachePoolFactory::filesystemNamespace());
+        self::assertSame('pages_v5', PageCachePoolFactory::filesystemNamespace());
         self::assertSame('pages', PageCachePoolFactory::namespaceForAbi(1));
         self::assertSame('pages_v2', PageCachePoolFactory::namespaceForAbi(2));
         self::assertSame('pages_v3', PageCachePoolFactory::namespaceForAbi(3));
         self::assertSame('pages_v4', PageCachePoolFactory::namespaceForAbi(4));
+        self::assertSame('pages_v5', PageCachePoolFactory::namespaceForAbi(5));
     }
 
     public function testUsesEncryptedTmpfsWithDurableWriteThrough(): void

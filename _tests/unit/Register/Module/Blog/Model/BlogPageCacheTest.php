@@ -15,7 +15,9 @@ use Register\Core\Pdo\PDO;
 use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\BlogSidebarFeed;
+use Register\Module\Blog\Model\ContentViewResponseProcessor;
 use Register\Module\Blog\Model\PostFeed;
+use Register\Module\Blog\Model\PostPageContextIndex;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\Adapter\ChainAdapter;
 use Symfony\Component\HttpFoundation\Response;
@@ -312,6 +314,116 @@ final class BlogPageCacheTest extends TestCase
         self::assertSame('first-content-3', $cache->contentResponse('full_bot', '/one', $firstFactory)->getContent());
         self::assertSame('second-content-2', $cache->contentResponse('full_bot', '/two', $secondFactory)->getContent());
         self::assertCount(2, $this->contentResponseKeys($pool));
+    }
+
+    public function testPostChangeKeepsUnrelatedContentWarmAndInvalidatesSharedFragments(): void
+    {
+        $pool = new ArrayAdapter();
+        $cache = new BlogPageCache($pool);
+        $firstContentBuilds = 0;
+        $secondContentBuilds = 0;
+        $pageContentBuilds = 0;
+        $firstPageBuilds = 0;
+        $allPostsBuilds = 0;
+        $navigationBuilds = 0;
+        $lastPostBuilds = 0;
+        $contextBuilds = 0;
+        $sidebarBuilds = 0;
+
+        $firstContent = static function () use (&$firstContentBuilds): Response {
+            return new Response(
+                'content-one-' . ++$firstContentBuilds,
+                headers: [ContentViewResponseProcessor::CONTENT_ID_HEADER => 'post:1'],
+            );
+        };
+        $secondContent = static function () use (&$secondContentBuilds): Response {
+            return new Response(
+                'content-two-' . ++$secondContentBuilds,
+                headers: [ContentViewResponseProcessor::CONTENT_ID_HEADER => 'post:2'],
+            );
+        };
+        $pageContent = static function () use (&$pageContentBuilds): Response {
+            return new Response(
+                'page-content-' . ++$pageContentBuilds,
+                headers: [ContentViewResponseProcessor::CONTENT_ID_HEADER => 'page:3'],
+            );
+        };
+        $firstPage = static function () use (&$firstPageBuilds): PostFeed {
+            return new PostFeed('first-' . ++$firstPageBuilds, null, null);
+        };
+        $allPosts = static function () use (&$allPostsBuilds): AllPostsPage {
+            return new AllPostsPage('all', 'all-' . ++$allPostsBuilds);
+        };
+        $navigation = static function () use (&$navigationBuilds): array {
+            return ['build' => ++$navigationBuilds];
+        };
+        $lastPost = static function () use (&$lastPostBuilds): string {
+            return 'last-' . ++$lastPostBuilds;
+        };
+        $context = static function () use (&$contextBuilds): PostPageContextIndex {
+            ++$contextBuilds;
+
+            return new PostPageContextIndex([], [], [], [], [], false);
+        };
+        $sidebar = static function () use (&$sidebarBuilds): BlogSidebarFeed {
+            return new BlogSidebarFeed([['build' => ++$sidebarBuilds]]);
+        };
+
+        self::assertSame('content-one-1', $cache->contentResponse('full_bot', '/one', $firstContent)->getContent());
+        $cache->rememberContentPath(ContentId::post(1), '/one');
+        self::assertSame('content-two-1', $cache->contentResponse('full_bot', '/two', $secondContent)->getContent());
+        $cache->rememberContentPath(ContentId::post(2), '/two');
+        self::assertSame('page-content-1', $cache->contentResponse('full_bot', '/page', $pageContent)->getContent());
+        self::assertSame('first-1', $cache->firstPage($firstPage)->html);
+        self::assertSame('all-1', $cache->allPosts($allPosts)->html);
+        self::assertSame(['build' => 1], $cache->navigation($navigation));
+        self::assertSame('last-1', $cache->lastPost($lastPost));
+        $cache->postPageContextIndex($context);
+        self::assertSame([['build' => 1]], $cache->recentComments($sidebar));
+
+        $cache->invalidateContentChange(ContentId::post(1));
+
+        self::assertSame('content-one-2', $cache->contentResponse('full_bot', '/one', $firstContent)->getContent());
+        self::assertSame('content-two-1', $cache->contentResponse('full_bot', '/two', $secondContent)->getContent());
+        self::assertSame('page-content-2', $cache->contentResponse('full_bot', '/page', $pageContent)->getContent());
+        self::assertSame('first-2', $cache->firstPage($firstPage)->html);
+        self::assertSame('all-2', $cache->allPosts($allPosts)->html);
+        self::assertSame(['build' => 2], $cache->navigation($navigation));
+        self::assertSame('last-2', $cache->lastPost($lastPost));
+        $cache->postPageContextIndex($context);
+        self::assertSame([['build' => 2]], $cache->recentComments($sidebar));
+        self::assertSame(2, $contextBuilds);
+        self::assertSame(1, $secondContentBuilds);
+        self::assertSame(2, $pageContentBuilds);
+    }
+
+    public function testPageHierarchyInvalidationDoesNotCoolPostResponses(): void
+    {
+        $cache = new BlogPageCache(new ArrayAdapter());
+        $postBuilds = 0;
+        $pageBuilds = 0;
+        $post = static function () use (&$postBuilds): Response {
+            return new Response(
+                'post-' . ++$postBuilds,
+                headers: [ContentViewResponseProcessor::CONTENT_ID_HEADER => 'post:1'],
+            );
+        };
+        $page = static function () use (&$pageBuilds): Response {
+            return new Response(
+                'page-' . ++$pageBuilds,
+                headers: [ContentViewResponseProcessor::CONTENT_ID_HEADER => 'page:2'],
+            );
+        };
+
+        self::assertSame('post-1', $cache->contentResponse('full_bot', '/post', $post)->getContent());
+        self::assertSame('page-1', $cache->contentResponse('full_bot', '/page', $page)->getContent());
+
+        $cache->invalidateContentChange(ContentId::page(3));
+
+        self::assertSame('post-1', $cache->contentResponse('full_bot', '/post', $post)->getContent());
+        self::assertSame('page-2', $cache->contentResponse('full_bot', '/page', $page)->getContent());
+        self::assertSame(1, $postBuilds);
+        self::assertSame(2, $pageBuilds);
     }
 
     public function testDisabledCacheAlwaysBuildsFreshFragments(): void

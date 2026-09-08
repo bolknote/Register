@@ -22,6 +22,8 @@ use Register\Module\Blog\Model\DeferredViewCount;
 /** @var string $favoritePostsUrl */
 /** @var bool $showComments */
 /** @var bool $enabledComments */
+/** @var string|null $deferred_author */
+/** @var string|null $deferred_see_also */
 /** @var array{action_url: string, token: string, revision: int, return_to: string, create: bool}|null $inplace */
 
 $heading     = empty($title_link) ? 'h1' : 'h2';
@@ -42,7 +44,7 @@ $analyticsSection = (string)($tagNames[0] ?? '');
 <?php if ($heading === 'h1' && !$isCreating): ?>
     data-analytics-content-type="post"
     data-analytics-content-id="<?php echo $postId; ?>"
-    data-analytics-author="<?php echo register_htmlencode($author); ?>"
+    data-analytics-author="<?php echo $deferred_author ?? register_htmlencode($author); ?>"
     data-analytics-section="<?php echo register_htmlencode($analyticsSection); ?>"
     data-analytics-published-at="<?php echo (int)$create_time; ?>"
 <?php endif; ?>
@@ -85,7 +87,7 @@ $analyticsSection = (string)($tagNames[0] ?? '');
 </div>
 <p class="post-inplace-status" role="status" hidden></p>
 <?php endif; ?>
-<div class="post author"><?php if (!empty($author)) echo register_htmlencode($author); ?></div>
+<div class="post author"><?php echo $deferred_author ?? (!empty($author) ? register_htmlencode($author) : ''); ?></div>
 <<?php echo $heading; ?> class="post head">
 <?php if (!empty($title_link)) {?>
 	<a href="<?php echo register_htmlencode($title_link); ?>"><span class="post-title-text"<?php echo $inplaceData !== null ? ' data-post-inplace-title' : ''; ?>><?php echo register_htmlencode($title); ?></span></a>
@@ -152,6 +154,8 @@ $analyticsSection = (string)($tagNames[0] ?? '');
         . '</div>';
 	if (!empty($see_also))
 		include __DIR__ . '/see_also.php';
+	elseif (!empty($deferred_see_also))
+		echo $deferred_see_also;
 ?>
 <div class="post foot">
 <!-- register_reactions:post:<?php echo (int)$id; ?> -->

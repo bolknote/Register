@@ -20,6 +20,7 @@ final readonly class CachedBlogResponse
         private int    $status,
         private array  $headers,
         private ?string $dependencyVersion,
+        private ?string $dependencyScope,
         private ?int    $validUntil,
     ) {
     }
@@ -28,6 +29,7 @@ final readonly class CachedBlogResponse
         Response $response,
         ?string $dependencyVersion = null,
         ?int $validUntil = null,
+        ?string $dependencyScope = null,
     ): ?self
     {
         $content = $response->getContent();
@@ -43,6 +45,7 @@ final readonly class CachedBlogResponse
             $response->getStatusCode(),
             $response->headers->all(),
             $dependencyVersion,
+            $dependencyScope,
             $validUntil,
         );
     }
@@ -50,6 +53,11 @@ final readonly class CachedBlogResponse
     public function matchesDependencyVersion(?string $dependencyVersion): bool
     {
         return $this->dependencyVersion === $dependencyVersion;
+    }
+
+    public function dependencyScope(): ?string
+    {
+        return $this->dependencyScope;
     }
 
     public function isFreshAt(int $timestamp): bool

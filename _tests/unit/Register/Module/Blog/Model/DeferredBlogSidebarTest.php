@@ -20,11 +20,13 @@ final class DeferredBlogSidebarTest extends TestCase
             DeferredBlogSidebar::placeholder(DeferredBlogSidebar::RECENT_COMMENTS),
             'body',
             DeferredBlogSidebar::placeholder(DeferredBlogSidebar::RECENT_DISCUSSIONS),
+            DeferredBlogSidebar::placeholder(DeferredBlogSidebar::LAST_POST),
+            DeferredBlogSidebar::placeholder(DeferredBlogSidebar::NAVIGATION),
         ]);
 
         self::assertTrue(DeferredBlogSidebar::existsIn($content));
         self::assertSame(
-            'rendered:recent-comments|body|rendered:recent-discussions',
+            'rendered:recent-comments|body|rendered:recent-discussions|rendered:last-post|rendered:navigation',
             DeferredBlogSidebar::replace(
                 $content,
                 static fn(string $slot): string => 'rendered:' . $slot,

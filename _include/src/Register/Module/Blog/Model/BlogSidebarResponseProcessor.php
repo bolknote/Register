@@ -23,6 +23,8 @@ final readonly class BlogSidebarResponseProcessor implements ResponseProcessorIn
 
     public function __construct(
         private BlogPlaceholderProvider $placeholderProvider,
+        private PostProvider            $postProvider,
+        private BlogPageCache           $pageCache,
         private Viewer                  $viewer,
         private TranslatorInterface     $translator,
     ) {
@@ -86,6 +88,27 @@ final readonly class BlogSidebarResponseProcessor implements ResponseProcessorIn
                 'menu'  => $discussions,
                 'class' => 'register_blog_last_discussions',
             ]);
+        }
+
+        if ($slot === DeferredBlogSidebar::LAST_POST) {
+            return $this->pageCache->lastPost(function (): string {
+                $lastPosts = $this->postProvider->lastPostsArray(1);
+                foreach ($lastPosts as &$post) {
+                    $post = $this->viewer->render('post_short', $post, \Register\Module\Blog\Module::class);
+                }
+
+                unset($post);
+
+                return implode('', $lastPosts);
+            });
+        }
+
+        if ($slot === DeferredBlogSidebar::NAVIGATION) {
+            return $this->viewer->render(
+                'navigation',
+                $this->placeholderProvider->getBlogNavigationData(),
+                \Register\Module\Blog\Module::class,
+            );
         }
 
         throw new \InvalidArgumentException('Unknown deferred blog sidebar slot.');

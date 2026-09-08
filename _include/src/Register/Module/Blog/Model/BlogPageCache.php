@@ -29,6 +29,10 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string NAVIGATION_KEY = 'register_blog_navigation_v2';
 
+    private const string LAST_POST_KEY = 'register_blog_last_post_v1';
+
+    private const string POST_PAGE_CONTEXT_KEY = 'register_blog_post_page_context_v1';
+
     private const string RECENT_COMMENTS_KEY = 'register_blog_recent_comments_v1';
 
     private const string RECENT_DISCUSSIONS_KEY = 'register_blog_recent_discussions_v1';
@@ -38,6 +42,8 @@ final class BlogPageCache implements StatefulServiceInterface
     private const string ALL_RESPONSE_PREFIX = 'register_blog_all_response_v2_';
 
     private const string CONTENT_RESPONSE_GENERATION_KEY = 'register_content_response_generation_v1';
+
+    private const string CONTENT_RESPONSE_TYPE_GENERATION_PREFIX = 'register_content_response_type_generation_v1_';
 
     private const string CONTENT_RESPONSE_PATH_PREFIX = 'register_content_response_path_v1_';
 
@@ -144,6 +150,42 @@ final class BlogPageCache implements StatefulServiceInterface
         );
     }
 
+    /** @param callable(): string $factory */
+    public function lastPost(callable $factory): string
+    {
+        if ($this->disabled) {
+            return $factory();
+        }
+
+        return $this->hotCache->get(
+            self::LAST_POST_KEY,
+            static function (ItemInterface $item) use ($factory): string {
+                $item->expiresAfter(null);
+
+                return $factory();
+            },
+            0.0,
+        );
+    }
+
+    /** @param callable(): PostPageContextIndex $factory */
+    public function postPageContextIndex(callable $factory): PostPageContextIndex
+    {
+        if ($this->disabled) {
+            return $factory();
+        }
+
+        return $this->hotCache->get(
+            self::POST_PAGE_CONTEXT_KEY,
+            static function (ItemInterface $item) use ($factory): PostPageContextIndex {
+                $item->expiresAfter(null);
+
+                return $factory();
+            },
+            0.0,
+        );
+    }
+
     /**
      * @param callable(): BlogSidebarFeed $factory
      * @return list<array<mixed>>
@@ -191,7 +233,7 @@ final class BlogPageCache implements StatefulServiceInterface
             $this->cache,
             $this->contentResponsePrefix($path) . $this->validatedVariant($variant),
             $factory,
-            $this->contentResponseGeneration(),
+            contentScoped: true,
         );
     }
 
@@ -265,6 +307,21 @@ final class BlogPageCache implements StatefulServiceInterface
         );
     }
 
+    public function invalidateContentTypeResponses(ContentType $contentType, bool $deferUntilCommit = false): void
+    {
+        if ($this->disabled) {
+            return;
+        }
+
+        $this->invalidateOnce(
+            'content-responses:' . $contentType->value,
+            function () use ($contentType): void {
+                $this->hotCache->delete(self::CONTENT_RESPONSE_TYPE_GENERATION_PREFIX . $contentType->value);
+            },
+            $deferUntilCommit,
+        );
+    }
+
     public function invalidateFirstPage(bool $deferUntilCommit = false): void
     {
         if ($this->disabled) {
@@ -299,7 +356,60 @@ final class BlogPageCache implements StatefulServiceInterface
         // The first feed contains comment counters. Site-wide comment menus are
         // hydrated independently after a complete page-cache hit.
         $this->invalidateFirstPage($deferUntilCommit);
+        $this->invalidateLastPost($deferUntilCommit);
         $this->invalidateCommentFragments($deferUntilCommit);
+    }
+
+    /**
+     * Invalidates the changed document and independently cached projections of it.
+     *
+     * Complete responses for unrelated posts stay warm: site-wide projections are
+     * hydrated after the response cache and have their own event-driven entries.
+     */
+    public function invalidateContentChange(ContentId $contentId, bool $deferUntilCommit = false): void
+    {
+        $this->invalidateContent($contentId, $deferUntilCommit);
+        if ($contentId->type !== ContentType::POST) {
+            // Page hierarchy menus are cross-page projections. Rotate only page
+            // responses; thousands of unrelated post responses remain warm.
+            $this->invalidateContentTypeResponses(ContentType::PAGE, $deferUntilCommit);
+
+            return;
+        }
+
+        // Article pages can contain projections derived from the blog post set
+        // (for example, related blog tags). Rotate only those page shells; post
+        // shells use independently hydrated projections and stay warm.
+        $this->invalidateContentTypeResponses(ContentType::PAGE, $deferUntilCommit);
+        $this->invalidateFirstPage($deferUntilCommit);
+        $this->invalidatePostListings($deferUntilCommit);
+        $this->invalidatePublishedAuthors($deferUntilCommit);
+        $this->invalidateNavigation($deferUntilCommit);
+        $this->invalidateLastPost($deferUntilCommit);
+        $this->invalidatePostPageContext($deferUntilCommit);
+        $this->invalidateCommentFragments($deferUntilCommit);
+    }
+
+    public function invalidateLastPost(bool $deferUntilCommit = false): void
+    {
+        if ($this->disabled) {
+            return;
+        }
+
+        $this->invalidateOnce('last-post', function (): void {
+            $this->hotCache->delete(self::LAST_POST_KEY);
+        }, $deferUntilCommit);
+    }
+
+    public function invalidatePostPageContext(bool $deferUntilCommit = false): void
+    {
+        if ($this->disabled) {
+            return;
+        }
+
+        $this->invalidateOnce('post-page-context', function (): void {
+            $this->hotCache->delete(self::POST_PAGE_CONTEXT_KEY);
+        }, $deferUntilCommit);
     }
 
     public function invalidateAll(bool $deferUntilCommit = false): void
@@ -309,16 +419,11 @@ final class BlogPageCache implements StatefulServiceInterface
         }
 
         $this->invalidateFirstPage($deferUntilCommit);
-        $this->invalidateOnce('all-posts', function (): void {
-            $this->hotCache->delete(self::ALL_POSTS_KEY);
-            $this->deleteResponses($this->hotCache, self::ALL_RESPONSE_PREFIX);
-        }, $deferUntilCommit);
-        $this->invalidateOnce('published-authors', function (): void {
-            $this->hotCache->delete(self::MULTIPLE_PUBLISHED_AUTHORS_KEY);
-        }, $deferUntilCommit);
-        $this->invalidateOnce('navigation', function (): void {
-            $this->hotCache->delete(self::NAVIGATION_KEY);
-        }, $deferUntilCommit);
+        $this->invalidatePostListings($deferUntilCommit);
+        $this->invalidatePublishedAuthors($deferUntilCommit);
+        $this->invalidateNavigation($deferUntilCommit);
+        $this->invalidateLastPost($deferUntilCommit);
+        $this->invalidatePostPageContext($deferUntilCommit);
         $this->invalidateCommentFragments($deferUntilCommit);
         $this->invalidateContentResponses($deferUntilCommit);
     }
@@ -352,6 +457,7 @@ final class BlogPageCache implements StatefulServiceInterface
         string $key,
         callable $factory,
         ?string $dependencyVersion = null,
+        bool $contentScoped = false,
     ): Response
     {
         if ($this->disabled) {
@@ -362,6 +468,7 @@ final class BlogPageCache implements StatefulServiceInterface
         $factory = function (ItemInterface $_item, bool &$save) use (
             $factory,
             $dependencyVersion,
+            $contentScoped,
             &$miss,
         ): CachedBlogResponse|Response {
             $miss = true;
@@ -375,7 +482,16 @@ final class BlogPageCache implements StatefulServiceInterface
                 $this->currentResponseInvalidationAt = null;
             }
 
-            $cached = CachedBlogResponse::fromResponse($response, $dependencyVersion, $validUntil);
+            $dependencyScope = $contentScoped ? $this->contentResponseScope($response) : null;
+            $resolvedDependencyVersion = $contentScoped
+                ? $this->contentResponseGeneration($dependencyScope)
+                : $dependencyVersion;
+            $cached = CachedBlogResponse::fromResponse(
+                $response,
+                $resolvedDependencyVersion,
+                $validUntil,
+                $dependencyScope?->value,
+            );
             if (!$cached instanceof CachedBlogResponse) {
                 $save = false;
 
@@ -385,8 +501,11 @@ final class BlogPageCache implements StatefulServiceInterface
             return $cached;
         };
         $value = $cache->get($key, $factory, 0.0);
+        $resolvedDependencyVersion = $contentScoped && $value instanceof CachedBlogResponse
+            ? $this->contentResponseGeneration($this->contentTypeFromScope($value->dependencyScope()))
+            : $dependencyVersion;
         if ($value instanceof CachedBlogResponse && (
-            !$value->matchesDependencyVersion($dependencyVersion)
+            !$value->matchesDependencyVersion($resolvedDependencyVersion)
             || !$value->isFreshAt(($this->clock)())
         )) {
             // Keep one stable slot per route. A dependency event changes the
@@ -433,6 +552,28 @@ final class BlogPageCache implements StatefulServiceInterface
         return $feed;
     }
 
+    private function invalidatePostListings(bool $deferUntilCommit): void
+    {
+        $this->invalidateOnce('all-posts', function (): void {
+            $this->hotCache->delete(self::ALL_POSTS_KEY);
+            $this->deleteResponses($this->hotCache, self::ALL_RESPONSE_PREFIX);
+        }, $deferUntilCommit);
+    }
+
+    private function invalidatePublishedAuthors(bool $deferUntilCommit): void
+    {
+        $this->invalidateOnce('published-authors', function (): void {
+            $this->hotCache->delete(self::MULTIPLE_PUBLISHED_AUTHORS_KEY);
+        }, $deferUntilCommit);
+    }
+
+    private function invalidateNavigation(bool $deferUntilCommit): void
+    {
+        $this->invalidateOnce('navigation', function (): void {
+            $this->hotCache->delete(self::NAVIGATION_KEY);
+        }, $deferUntilCommit);
+    }
+
     private function contentPathKey(ContentId $contentId): string
     {
         return self::CONTENT_RESPONSE_PATH_PREFIX . hash('sha256', (string)$contentId);
@@ -445,10 +586,22 @@ final class BlogPageCache implements StatefulServiceInterface
             . '_';
     }
 
-    private function contentResponseGeneration(): string
+    private function contentResponseGeneration(?ContentType $contentType = null): string
+    {
+        $generation = $this->generation(self::CONTENT_RESPONSE_GENERATION_KEY);
+        if (!$contentType instanceof ContentType) {
+            return $generation;
+        }
+
+        return $generation . ':' . $this->generation(
+            self::CONTENT_RESPONSE_TYPE_GENERATION_PREFIX . $contentType->value,
+        );
+    }
+
+    private function generation(string $key): string
     {
         $generation = $this->hotCache->get(
-            self::CONTENT_RESPONSE_GENERATION_KEY,
+            $key,
             static function (ItemInterface $item): string {
                 $item->expiresAfter(null);
 
@@ -461,6 +614,26 @@ final class BlogPageCache implements StatefulServiceInterface
         }
 
         return $generation;
+    }
+
+    private function contentResponseScope(Response $response): ?ContentType
+    {
+        return $this->contentTypeFromScope($response->headers->get(ContentViewResponseProcessor::CONTENT_ID_HEADER));
+    }
+
+    private function contentTypeFromScope(?string $scope): ?ContentType
+    {
+        if ($scope === null || $scope === '') {
+            return null;
+        }
+
+        try {
+            return str_contains($scope, ':')
+                ? ContentId::fromString($scope)->type
+                : ContentType::from($scope);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function normalizedContentPath(string $path): string

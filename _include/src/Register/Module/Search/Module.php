@@ -23,6 +23,7 @@ use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Framework\RoutingModuleInterface;
+use Register\Core\Framework\ResponseProcessorInterface;
 use Register\Core\Image\ThumbnailGenerateEvent;
 use Register\Core\Image\ThumbnailGenerator;
 use Register\Core\Logger\Logger;
@@ -36,7 +37,6 @@ use Register\Core\Template\HtmlTemplateProvider;
 use Register\Core\Template\TemplateAssetEvent;
 use Register\Core\Template\TemplateEvent;
 use Register\Core\Template\Viewer;
-use Register\Rose\Entity\ExternalId;
 use Register\Rose\Extractor\ExtractorInterface;
 use Register\Rose\Finder;
 use Register\Rose\Indexer;
@@ -59,6 +59,8 @@ use Register\Module\Search\Service\ContentIndexer;
 use Register\Module\Search\Service\HistoricalTitleSearch;
 use Register\Module\Search\Service\RecommendationFinder;
 use Register\Module\Search\Service\RecommendationProvider;
+use Register\Module\Search\Service\DeferredRecommendations;
+use Register\Module\Search\Service\RecommendationResponseProcessor;
 use Register\Module\Search\Service\SearchDocumentFactory;
 use Register\Module\Search\Service\SearchIndexMaintenance;
 use Register\Module\Search\Service\SearchIndexRepairer;
@@ -254,6 +256,11 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $provider->getIntProxy('REGISTER_SEARCH_RECOMMENDATIONS_LIMIT'),
             );
         }, [QueueHandlerInterface::class]);
+        $container->set(RecommendationResponseProcessor::class, static fn(Container $container): RecommendationResponseProcessor => new RecommendationResponseProcessor(
+            $container->get(RecommendationProvider::class),
+            $container->get(VisitorIdentityManager::class),
+            $container->get(Viewer::class),
+        ), [ResponseProcessorInterface::class]);
     }
 
     /** @noinspection HtmlUnknownTarget */
@@ -297,26 +304,12 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             }
         });
 
-        $eventDispatcher->addListener(ArticleRenderedEvent::class, static function (ArticleRenderedEvent $event) use ($container): void {
+        $eventDispatcher->addListener(ArticleRenderedEvent::class, static function (ArticleRenderedEvent $event): void {
             if ($event->template->hasPlaceholder('<!-- register_recommendations -->')) {
-                $recommendationProvider = $container->get(RecommendationProvider::class);
-                $requestStack = $container->get(RequestStack::class);
-                $request = $requestStack->getCurrentRequest();
-                $request_uri = $request?->getPathInfo() ?? '/';
-                [$recommendations, $log, $rawRecommendations] = $recommendationProvider->getRecommendations(
-                    $request_uri,
-                    new ExternalId(SearchDocumentFactory::externalId(ContentId::page($event->articleId))),
-                    $request !== null
-                        && $container->get(VisitorIdentityManager::class)->visitorIdFromRequest($request) !== null,
+                $event->template->putInPlaceholder(
+                    'recommendations',
+                    DeferredRecommendations::placeholder(ContentId::page($event->articleId)),
                 );
-
-                $viewer = $container->get(Viewer::class);
-
-                $event->template->putInPlaceholder('recommendations', $viewer->render('recommendations', [
-                    'raw'     => $rawRecommendations,
-                    'content' => $recommendations,
-                    'log'     => $log,
-                ], self::class));
             }
         });
 

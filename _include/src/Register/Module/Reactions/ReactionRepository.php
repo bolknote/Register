@@ -114,6 +114,7 @@ final readonly class ReactionRepository
                 $storageValue = ReactionSelection::fromImportedEmoji($emoji)->storageValue;
                 $count += $localExtraCounts[$extraContentId][$storageValue] ?? 0;
             }
+
             unset($count);
             arsort($extras, SORT_NUMERIC);
         }

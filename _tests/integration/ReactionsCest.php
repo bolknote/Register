@@ -108,6 +108,7 @@ final class ReactionsCest
         $I->assertSame('🔥', $state['selected']);
         $I->assertSame(3, $state['extra']['🔥']);
         $I->assertSame(3, $state['total']);
+
         $storedValue = (string)$dbLayer->select('reaction')
             ->from(Manifest::TABLE_NAME)
             ->where('content_id = :content_id')->setParameter('content_id', $contentId)

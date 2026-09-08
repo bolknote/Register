@@ -11,6 +11,7 @@ namespace integration;
 
 use Register\Comment\CommentRepository;
 use Register\Content\ContentId;
+use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
@@ -215,7 +216,49 @@ final class BlogPageResponseCacheCest
         $I->assertStringNotContainsString('register-deferred-blog-sidebar', $I->grabResponse());
     }
 
-    private function insertPost(DbLayer $dbLayer, string $title, string $slug): int
+    public function updatesCrossPostFragmentsWithoutCoolingAnUnrelatedPost(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $firstPostId = $this->insertPost(
+            $dbLayer,
+            'First relation title',
+            'first-relation-post',
+            'Cache relation series',
+        );
+        $this->insertPost(
+            $dbLayer,
+            'Second relation title',
+            'second-relation-post',
+            'Cache relation series',
+        );
+
+        $headers = ['User-Agent' => 'Mozilla/5.0 (compatible; YandexBot/3.0)'];
+        $I->sendRequestWithHeaders('/second-relation-post', $headers);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
+        $I->see('First relation title');
+
+        $I->sendRequestWithHeaders('/second-relation-post', $headers);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+
+        $dbLayer->update(ContentSchema::TABLE_NAME)
+            ->set('title', ':title')->setParameter('title', 'Revised relation title')
+            ->where('id = :id')->setParameter('id', $firstPostId)
+            ->execute()
+        ;
+        /** @var ContentChangeDispatcher $changeDispatcher */
+        $changeDispatcher = $I->grabService(ContentChangeDispatcher::class);
+        $changeDispatcher->dispatch(ContentId::post($firstPostId));
+
+        $I->sendRequestWithHeaders('/second-relation-post', $headers);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+        $I->see('Revised relation title');
+        $I->dontSee('First relation title');
+        $I->assertStringNotContainsString('register-deferred-post-context', $I->grabResponse());
+        $I->assertStringNotContainsString('register-deferred-recommendations', $I->grabResponse());
+    }
+
+    private function insertPost(DbLayer $dbLayer, string $title, string $slug, string $series = ''): int
     {
         $dbLayer
             ->insert(ContentSchema::TABLE_NAME)
@@ -231,7 +274,7 @@ final class BlogPageResponseCacheCest
             ->setValue('published', '1')
             ->setValue('featured', '0')
             ->setValue('comments_enabled', '1')
-            ->setValue('series', "''")
+            ->setValue('series', ':series')->setParameter('series', $series)
             ->setValue('slug', ':slug')->setParameter('slug', $slug)
             ->setValue('author_id', 'NULL')
             ->execute()
