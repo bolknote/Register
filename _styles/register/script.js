@@ -414,6 +414,69 @@
             }
         }
 
+        function replaceCommentBody(item, html) {
+            var body = item && item.querySelector(':scope > .comment-body');
+            if (!body) {
+                return null;
+            }
+
+            var previousHtml = body.innerHTML;
+            var addressee = body.querySelector(':scope > .comment-addressee');
+            var reactions = body.querySelector(':scope > .comment-reaction-summary');
+            Array.from(body.childNodes).forEach(function (node) {
+                if (node !== addressee && node !== reactions) {
+                    node.remove();
+                }
+            });
+
+            var fragment = document.createRange().createContextualFragment(html);
+            if (addressee) {
+                body.insertBefore(document.createTextNode(' '), reactions);
+            }
+            body.insertBefore(fragment, reactions);
+            document.dispatchEvent(new CustomEvent('register:fragment-updated', {
+                detail: {root: body}
+            }));
+
+            return {
+                body: body,
+                previousHtml: previousHtml
+            };
+        }
+
+        function beginOptimisticCommentEdit(form, item) {
+            if (!item || !form.classList.contains('comment-edit-form')) {
+                return null;
+            }
+
+            var activeElement = document.activeElement;
+            if (activeElement && form.contains(activeElement) && typeof activeElement.blur === 'function') {
+                activeElement.blur();
+            }
+
+            var editorHtml = window.RegisterCommentEditor?.html?.(form);
+            var preview = typeof editorHtml === 'string' ? replaceCommentBody(item, editorHtml) : null;
+            form.hidden = true;
+            item.classList.remove('is-editing');
+
+            return preview;
+        }
+
+        function restoreOptimisticCommentEdit(form, item, preview) {
+            if (!item || !form.classList.contains('comment-edit-form')) {
+                return;
+            }
+
+            if (preview && preview.body && preview.body.isConnected) {
+                preview.body.innerHTML = preview.previousHtml;
+            }
+            form.hidden = false;
+            item.classList.add('is-editing');
+            if (!window.RegisterCommentEditor?.focus(form)) {
+                form.querySelector('textarea')?.focus();
+            }
+        }
+
         function submit(form) {
             askForConfirmation(form).then(function (confirmed) {
                 if (!confirmed) {
@@ -428,6 +491,7 @@
                 if (item) {
                     item.setAttribute('aria-busy', 'true');
                 }
+                var optimisticEdit = beginOptimisticCommentEdit(form, item);
 
                 window.fetch(form.action, {
                     method: 'POST',
@@ -493,6 +557,9 @@
                         if (item && !isSpamAction) {
                             item.classList.remove('is-editing');
                         }
+                        if (form.classList.contains('comment-edit-form')) {
+                            form.hidden = true;
+                        }
                         document.dispatchEvent(new CustomEvent('register:live-refresh'));
                     } else {
                         window.location.reload();
@@ -504,6 +571,7 @@
                     if (item) {
                         item.removeAttribute('aria-busy');
                     }
+                    restoreOptimisticCommentEdit(form, item, optimisticEdit);
                     showError(form, error.message);
                 });
             });

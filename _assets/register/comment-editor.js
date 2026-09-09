@@ -76,6 +76,15 @@
             clean.setAttribute('rel', 'nofollow ugc');
         }
         Array.from(node.childNodes).forEach((child) => appendSanitizedNode(child, clean));
+        if (
+            tag === 'p'
+            && Array.from(clean.childNodes).every((child) => (
+                child instanceof HTMLBRElement
+                || (child.nodeType === Node.TEXT_NODE && (child.nodeValue || '').replace(/\u00a0/gu, ' ').trim() === '')
+            ))
+        ) {
+            return;
+        }
         output.appendChild(clean);
     }
 
@@ -576,6 +585,27 @@
             }
         }
 
+        if (
+            event.key === 'Enter'
+            && !event.shiftKey
+            && !event.altKey
+            && !event.isComposing
+        ) {
+            const range = currentRange(state);
+            const rangeNode = range?.startContainer;
+            const rangeElement = rangeNode instanceof Element ? rangeNode : rangeNode?.parentElement;
+            const structuredBlock = rangeElement?.closest('blockquote, li, pre');
+            if (!structuredBlock || !state.surface.contains(structuredBlock)) {
+                event.preventDefault();
+                document.execCommand('insertLineBreak', false);
+                renderCompleteFormulas(state);
+                syncSource(state);
+                rememberSelection(state);
+                updateToolbar(state);
+                return;
+            }
+        }
+
         const backwards = event.key === 'Backspace' || event.key === 'ArrowLeft';
         const forwards = event.key === 'Delete' || event.key === 'ArrowRight';
         if (!backwards && !forwards) {
@@ -748,7 +778,20 @@
         return true;
     }
 
-    window.RegisterCommentEditor = {enhance, destroy, focus};
+    function html(target) {
+        const root = target?.matches?.('[data-comment-editor]')
+            ? target
+            : target?.querySelector?.('[data-comment-editor]');
+        const state = root ? states.get(root) : null;
+        if (!state) {
+            return null;
+        }
+
+        syncSource(state);
+        return state.source.value;
+    }
+
+    window.RegisterCommentEditor = {enhance, destroy, focus, html};
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => enhance(document), {once: true});

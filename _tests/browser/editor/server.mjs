@@ -30,10 +30,26 @@ export function createFixtureServer() {
                 })();`));
                 return;
             }
+            if (request.url === '/comment-editor.js') {
+                response.setHeader('Content-Type', 'text/javascript');
+                response.end(await readFile(new URL('../../../_assets/register/comment-editor.js', import.meta.url), 'utf8'));
+                return;
+            }
+            if (request.url === '/comment-flow.js') {
+                const source = await readFile(new URL('../../../_styles/register/script.js', import.meta.url), 'utf8');
+                response.setHeader('Content-Type', 'text/javascript');
+                response.end(source.replace(/\}\(\)\);\s*$/u, `
+                    window.commentFlowTest = {initCommentModeration};
+                }());`));
+                return;
+            }
             const files = new Map([
                 ['/', ['index.html', 'text/html; charset=utf-8']],
                 ['/cases.js', ['cases.js', 'text/javascript']],
+                ['/comment.html', ['comment.html', 'text/html; charset=utf-8']],
+                ['/comment-cases.js', ['comment-cases.js', 'text/javascript']],
                 ['/site.css', ['../../../_styles/register/site.css', 'text/css']],
+                ['/comment-editor.css', ['../../../_assets/register/comment-editor.css', 'text/css']],
             ]);
             const file = files.get(request.url);
             if (!file) { response.writeHead(404); response.end(); return; }
