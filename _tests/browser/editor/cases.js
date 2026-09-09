@@ -67,25 +67,40 @@ async function undo(state, redo = false) {
 }
 const plain = state => state.body.textContent;
 
-test('new post field keeps its top edge and height after the first character', async () => {
+test('new post fields stay separated and fixed after the first character', async () => {
     const s = setup();
     s.creating = true;
     s.card.classList.add('is-creating');
     s.card.style.setProperty('--post-editor-field-padding', '8px');
     s.card.style.setProperty('--post-editor-field-surface', '#24221f');
-    const tags = document.createElement('div');
-    tags.innerHTML = '<span class="post-tags-surface"><input aria-label="Tags"></span>';
-    s.card.append(tags);
-    s.tags = tags;
+    const foot = document.createElement('div');
+    foot.className = 'post foot';
+    foot.innerHTML = `<div class="post-foot-meta"><span class="post-foot-tags">
+        <span class="post-tag-values"><span class="post-tags-editor">
+            <span class="post-tags-surface"><input aria-label="Tags"></span>
+        </span></span>
+    </span></div>`;
+    s.card.append(foot);
+    s.tags = foot.querySelector('.post-tag-values');
+    const next = document.createElement('article');
+    next.className = 'post-card';
+    next.textContent = 'Next post';
+    s.card.after(next);
     s.fieldSurfaces = api.createEditorFieldSurfaces(s);
     await frame();
 
     const surface = s.card.querySelector('[data-editor-field-surface="body"]');
+    const tagSurface = s.card.querySelector('[data-editor-field-surface="tags"]');
+    const fieldGap = Number(tagSurface.getAttribute('y'))
+        - Number(surface.getAttribute('y'))
+        - Number(surface.getAttribute('height'));
+    ok(fieldGap >= 3.5, `Body and tag fields need a visible gap; actual: ${fieldGap}px`);
     const before = {
         y: surface.getAttribute('y'),
         height: surface.getAttribute('height'),
         bodyTop: s.body.getBoundingClientRect().top,
         bodyHeight: s.body.getBoundingClientRect().height,
+        nextTop: next.getBoundingClientRect().top,
     };
     select(s, s.body, true);
     await type(s, 'И');
@@ -95,6 +110,7 @@ test('new post field keeps its top edge and height after the first character', a
     equal(surface.getAttribute('height'), before.height, 'The painted field must not shrink');
     equal(s.body.getBoundingClientRect().top, before.bodyTop, 'The editable text must not move');
     equal(s.body.getBoundingClientRect().height, before.bodyHeight, 'The editable body must keep its height');
+    equal(next.getBoundingClientRect().top, before.nextTop, 'The following post must not move');
 });
 
 test('inline code undo/redo preserves the text and selection', async () => {

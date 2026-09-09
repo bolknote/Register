@@ -1129,7 +1129,8 @@ h2.preview,
 .post-card.is-editing > .post.foot > .post-foot-meta {
     position: absolute;
     z-index: 4;
-    top: 0;
+    /* Keep the two 8px field gutters from touching in the existing body/footer gap. */
+    top: var(--post-editor-field-padding, 0);
     right: 0;
     left: 0;
     width: 100%;

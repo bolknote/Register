@@ -330,6 +330,12 @@ final class AssetPackTest extends Unit
             $site,
         );
         self::assertMatchesRegularExpression(
+            '/\.post-card\.is-editing\s*>\s*\.post\.foot\s*>\s*\.post-foot-meta\s*\{'
+                . '[^}]*position:\s*absolute;'
+                . '[^}]*top:\s*var\(--post-editor-field-padding,\s*0\);/s',
+            $site,
+        );
+        self::assertMatchesRegularExpression(
             '/\.post-tags-surface\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;'
                 . '[^}]*background:\s*transparent;/s',
             $site,
