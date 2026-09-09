@@ -247,6 +247,7 @@ final readonly class PostMediaRepository
                 if (!array_key_exists($id, $mediaById)) {
                     $mediaById[$id] = $this->find($id);
                 }
+
                 $media = $mediaById[$id];
                 if (
                     $media === null
@@ -273,6 +274,7 @@ final readonly class PostMediaRepository
                         : max(1, (int)round($height * (float)$mediaWidth / (float)$mediaHeight));
                     $tag = $this->setTagAttribute($tag, 'width', $width);
                 }
+
                 if ($height === null) {
                     $height = max(1, (int)round((float)$width * (float)$mediaHeight / (float)$mediaWidth));
                     $tag = $this->setTagAttribute($tag, 'height', $height);
@@ -330,9 +332,11 @@ final readonly class PostMediaRepository
             while ($offset < $length && ctype_space($tag[$offset])) {
                 ++$offset;
             }
+
             if ($offset >= $length || $tag[$offset] === '>' || $tag[$offset] === '/') {
                 break;
             }
+
             if (preg_match(
                 '/\G([^\s"\'=<>`\/>]+)(?:\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+))?/Au',
                 $tag,
@@ -348,6 +352,7 @@ final readonly class PostMediaRepository
             if (mb_strtolower($attributeName[0]) === $attribute) {
                 return substr_replace($tag, $replacement, $fullAttribute[1], \strlen($fullAttribute[0]));
             }
+
             $offset = $fullAttribute[1] + \strlen($fullAttribute[0]);
         }
 
@@ -355,10 +360,12 @@ final readonly class PostMediaRepository
         if ($closingBracket === false) {
             return $tag;
         }
+
         $insertAt = $closingBracket;
         while ($insertAt > 0 && ctype_space($tag[$insertAt - 1])) {
             --$insertAt;
         }
+
         if ($insertAt > 0 && $tag[$insertAt - 1] === '/') {
             --$insertAt;
         }
