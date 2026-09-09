@@ -149,8 +149,15 @@ function deferredUpload(s, kind = 'audio') {
         : new File(['fixture'], 'test.png', {type: 'image/png'});
     api.insertMediaFiles(s, [file], getSelection().getRangeAt(0));
     return async (success = true) => {
-        finish({ok: success, json: async () => ({success, action: 'media', kind, media_id: 42, url: kind === 'audio' ? '/test.wav'
-            : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'})});
+        finish({ok: success, json: async () => ({
+            success,
+            action: 'media',
+            kind,
+            media_id: 42,
+            url: kind === 'audio' ? '/test.wav'
+                : 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+            ...(kind === 'image' ? {width: 1, height: 1} : {}),
+        })});
         await Promise.all([...s.mediaUploads]); await tick();
     };
 }
@@ -223,6 +230,8 @@ test('image completion after undo restores a finished image on redo', async () =
     await undo(s); equal(s.body.querySelector('img'), null);
     await finish(); equal(s.body.querySelector('img'), null);
     await undo(s, true); equal(s.body.querySelectorAll('img').length, 1);
+    equal(s.body.querySelector('img').getAttribute('width'), '1');
+    equal(s.body.querySelector('img').getAttribute('height'), '1');
     equal(s.body.querySelector('.is-processing, [data-post-history-upload]'), null);
     ok(s.body.querySelector('.is-inline-caption-entry'), 'Finished image has its caption control');
 });

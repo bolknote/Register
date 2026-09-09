@@ -270,11 +270,11 @@ final readonly class PostMediaRepository
                 if ($width === null) {
                     $width = $height === null
                         ? $mediaWidth
-                        : max(1, (int)round($height * $mediaWidth / $mediaHeight));
+                        : max(1, (int)round($height * (float)$mediaWidth / (float)$mediaHeight));
                     $tag = $this->setTagAttribute($tag, 'width', $width);
                 }
                 if ($height === null) {
-                    $height = max(1, (int)round($width * $mediaHeight / $mediaWidth));
+                    $height = max(1, (int)round((float)$width * (float)$mediaHeight / (float)$mediaWidth));
                     $tag = $this->setTagAttribute($tag, 'height', $height);
                 }
 
