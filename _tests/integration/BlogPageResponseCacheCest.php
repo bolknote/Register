@@ -237,6 +237,11 @@ final class BlogPageResponseCacheCest
         $I->sendRequestWithHeaders('/second-relation-post', $headers);
         $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
         $I->see('First relation title');
+        $I->assertSame('', $I->grabAttributeFrom('article.post-card', 'data-analytics-author'));
+        $I->assertSame('', $I->grabAttributeFrom('article.post-card', 'data-analytics-section'));
+        $I->assertSame('1700000001', $I->grabAttributeFrom('article.post-card', 'data-analytics-published-at'));
+        $I->assertStringNotContainsString('<nobr>data-analytics-', $I->grabResponse());
+        $I->assertStringNotContainsString('data-analytics-section=»', $I->grabResponse());
 
         $I->sendRequestWithHeaders('/second-relation-post', $headers);
         $I->seeHttpHeader('X-Register-Page-Cache', 'hit');

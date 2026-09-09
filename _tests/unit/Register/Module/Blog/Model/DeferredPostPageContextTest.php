@@ -11,6 +11,7 @@ namespace unit\Register\Module\Blog\Model;
 
 use PHPUnit\Framework\TestCase;
 use Register\Module\Blog\Model\DeferredPostPageContext;
+use Register\Module\Typography\Typograph;
 
 final class DeferredPostPageContextTest extends TestCase
 {
@@ -40,6 +41,26 @@ final class DeferredPostPageContextTest extends TestCase
             'ordinary response',
             static fn(string $slot, int $postId): string => $slot . $postId,
         ));
+    }
+
+    public function testAttributePlaceholderSurvivesTypographyWithoutBreakingTheOpeningTag(): void
+    {
+        $content = '<article data-analytics-author="'
+            . DeferredPostPageContext::attributePlaceholder(DeferredPostPageContext::AUTHOR, 7)
+            . '" data-analytics-section="web-dev" data-analytics-published-at="1700000001">';
+
+        $typographed = Typograph::process($content, 'ru');
+
+        self::assertSame($content, $typographed);
+        self::assertSame(
+            '<article data-analytics-author="Author" data-analytics-section="web-dev" data-analytics-published-at="1700000001">',
+            DeferredPostPageContext::replace(
+                $typographed,
+                static fn(string $slot, int $postId): string => $slot === DeferredPostPageContext::AUTHOR && $postId === 7
+                    ? 'Author'
+                    : '',
+            ),
+        );
     }
 
     public function testInvalidSlotAndPostIdAreRejected(): void

@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 use Register\Core\Http\TrustedScriptNonceInjector;
 use Register\Content\ContentId;
+use Register\Module\Blog\Model\DeferredPostPageContext;
 use Register\Module\Blog\Model\DeferredViewCount;
 
 /** @var callable $trans */
@@ -44,7 +45,9 @@ $analyticsSection = (string)($tagNames[0] ?? '');
 <?php if ($heading === 'h1' && !$isCreating): ?>
     data-analytics-content-type="post"
     data-analytics-content-id="<?php echo $postId; ?>"
-    data-analytics-author="<?php echo $deferred_author ?? register_htmlencode($author); ?>"
+    data-analytics-author="<?php echo isset($deferred_author)
+        ? DeferredPostPageContext::attributePlaceholder(DeferredPostPageContext::AUTHOR, $postId)
+        : register_htmlencode($author); ?>"
     data-analytics-section="<?php echo register_htmlencode($analyticsSection); ?>"
     data-analytics-published-at="<?php echo (int)$create_time; ?>"
 <?php endif; ?>
