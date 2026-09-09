@@ -207,10 +207,28 @@ test('the existing tablet tools gutter is outside the body field, not added to i
 
 test('a tall empty draft keeps its whole writing surface', () => {
     const {context, state} = harness();
+    state.creating = true;
     state.body.childNodes = [];
     state.body.box = bounds(180, 624);
     context.createEditorFieldSurfaces(state);
     assert.deepEqual(rectangle(state, 'body'), {x: -8, y: 92, width: 516, height: 640});
+});
+
+test('a new draft field does not shrink when its first character is typed', () => {
+    const {context, state, frames, observers} = harness();
+    state.creating = true;
+    state.body.childNodes = [];
+    state.body.box = bounds(180, 624);
+    context.createEditorFieldSurfaces(state);
+    const emptyRectangle = rectangle(state, 'body');
+
+    const firstCharacter = new TextNode('И');
+    firstCharacter.rects = [bounds(184.5, 23)];
+    state.body.append(firstCharacter);
+    observers.at(-1).callback();
+    frames.get(1)();
+
+    assert.deepEqual(rectangle(state, 'body'), emptyRectangle);
 });
 
 test('typing and resizing update one decoration; closing cancels pending work', () => {

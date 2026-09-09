@@ -3,6 +3,7 @@ const api = window.editorTest;
 const cases = [];
 const test = (name, run) => cases.push({name, run});
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
 function equal(actual, expected, message = '') {
     if (actual !== expected) throw new Error(`${message}\nExpected: ${expected}\nActual: ${actual}`);
 }
@@ -14,6 +15,7 @@ function setup(html = '<p><br></p>') {
         previous.mediaControllers.forEach(controller => controller.abort());
         previous.imageCaptionEditor?.controller.abort();
         previous.history?.destroy();
+        previous.fieldSurfaces?.destroy();
         api.editorStates.delete(previous.card);
     }
     document.getElementById('fixture').innerHTML = `<article class="post-card is-editing" data-post-id="1">
@@ -64,6 +66,36 @@ async function undo(state, redo = false) {
     await tick();
 }
 const plain = state => state.body.textContent;
+
+test('new post field keeps its top edge and height after the first character', async () => {
+    const s = setup();
+    s.creating = true;
+    s.card.classList.add('is-creating');
+    s.card.style.setProperty('--post-editor-field-padding', '8px');
+    s.card.style.setProperty('--post-editor-field-surface', '#24221f');
+    const tags = document.createElement('div');
+    tags.innerHTML = '<span class="post-tags-surface"><input aria-label="Tags"></span>';
+    s.card.append(tags);
+    s.tags = tags;
+    s.fieldSurfaces = api.createEditorFieldSurfaces(s);
+    await frame();
+
+    const surface = s.card.querySelector('[data-editor-field-surface="body"]');
+    const before = {
+        y: surface.getAttribute('y'),
+        height: surface.getAttribute('height'),
+        bodyTop: s.body.getBoundingClientRect().top,
+        bodyHeight: s.body.getBoundingClientRect().height,
+    };
+    select(s, s.body, true);
+    await type(s, 'И');
+    await frame();
+
+    equal(surface.getAttribute('y'), before.y, 'The painted top edge must stay fixed');
+    equal(surface.getAttribute('height'), before.height, 'The painted field must not shrink');
+    equal(s.body.getBoundingClientRect().top, before.bodyTop, 'The editable text must not move');
+    equal(s.body.getBoundingClientRect().height, before.bodyHeight, 'The editable body must keep its height');
+});
 
 test('inline code undo/redo preserves the text and selection', async () => {
     const s = setup();

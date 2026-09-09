@@ -27,7 +27,7 @@ Open `http://127.0.0.1:8082/` for post editing or
 `EDITOR_TEST_REVISION=<git ref>` runs the current tests against an older asset.
 The five original failures reproduce at `d8ebfbb3` (10 failing scenarios).
 
-The 21 post scenarios and four comment scenarios run in each browser. Post
+The 22 post scenarios and four comment scenarios run in each browser. Post
 coverage includes inline code and partial removal, mixed native/DOM formatting,
 unlink, overlay and inline captions,
 full/partial/nested list conversion, and asynchronous media insertion (undo before

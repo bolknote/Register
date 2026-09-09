@@ -749,7 +749,7 @@
 
         function leading(element, bounds, atStart) {
             if (!context || element.querySelector('.post-tag-chip')
-                || (element === state.body && element.textContent.trim() === '')) {
+                || (element === state.body && (state.creating || element.textContent.trim() === ''))) {
                 return 0;
             }
             const edge = textEdge(element, atStart);
