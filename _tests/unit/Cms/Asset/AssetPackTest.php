@@ -250,6 +250,19 @@ final class AssetPackTest extends Unit
         self::assertStringNotContainsString('--tag-post-list-inset', $site);
     }
 
+    public function testDesktopRemarksDoNotChangeThePageGutters(): void
+    {
+        $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');
+
+        self::assertIsString($site);
+        self::assertStringNotContainsString('body:has(.remark, .sidenote)', $site);
+        self::assertMatchesRegularExpression(
+            '/@media \(min-width: 1335px\)\s*\{\s*\.remark,\s*\.sidenote\s*'
+                . '\{[^}]*float:\s*right;[^}]*width:\s*var\(--remark-width\);/s',
+            $site,
+        );
+    }
+
     public function testMobilePostFooterSeparatesTagsFromActionsWithoutAffectingTheEditor(): void
     {
         $site = file_get_contents(\dirname(__DIR__, 4) . '/_styles/register/site.css');

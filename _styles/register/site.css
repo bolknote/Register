@@ -3984,11 +3984,6 @@ ul.back_forward .empty {
 }
 
 @media (min-width: 1335px) {
-    body:has(.remark, .sidenote) {
-        --page-width: 1400px;
-        --page-margin: 32px;
-    }
-
     .remark,
     .sidenote {
         float: right;
