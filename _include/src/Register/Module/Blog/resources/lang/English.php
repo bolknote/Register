@@ -54,7 +54,7 @@ return [
     'N pending comments' => '{{ count }} new comment|{{ count }} new comments',
     'Date pattern' => 'Y/m/d', // For example, 'Y/m/d'. 'Y', 'm' and 'd' stand for a year, a month and a day.
 
-    'Delete warning' => 'Do you want to delete the post “%s” and all its comments?',
+    'Delete warning' => 'The post “%s” and all of its comments will be deleted. This action cannot be undone.',
     'Post tools' => 'Post tools',
     'Edit post inplace' => 'Edit post',
     'Delete post inplace' => 'Delete post',

@@ -81,7 +81,7 @@ final class PostInplaceCest
         $I->dontSeeElement('.post-card template');
         $I->seeElement('.post.foot .post-foot-tags.is-empty [data-post-inplace-tags-values]');
         $I->dontSeeElement('.post-inplace-html-editor');
-        $I->seeElement('.post-delete-confirmation[hidden]');
+        $I->seeElement('dialog.post-delete-confirmation[hidden][aria-modal="true"]');
         $I->seeElement('template.post-editor-context-menu-template');
         $I->seeElement('.post-editor-context-menu-template [data-context-selection-only]');
         $I->seeElement('.post-editor-context-menu-template [data-context-caret-only]');

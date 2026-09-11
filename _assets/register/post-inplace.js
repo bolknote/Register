@@ -1542,6 +1542,9 @@
         if (!confirmation) {
             return;
         }
+        if (confirmation instanceof HTMLDialogElement && confirmation.open) {
+            confirmation.close();
+        }
         confirmation.hidden = true;
         card.classList.remove('is-confirming');
         clearError(confirmation);
@@ -1729,9 +1732,12 @@
         closePostToolsMenu(card.querySelector(':scope > .post-inplace-tools'), false);
         card.classList.add('is-confirming');
         confirmation.hidden = false;
+        if (confirmation instanceof HTMLDialogElement && !confirmation.open) {
+            confirmation.showModal();
+        }
         clearError(confirmation);
         clearStatus(card);
-        confirmation.querySelector('.post-delete-confirm')?.focus();
+        confirmation.querySelector('.post-delete-cancel')?.focus();
     }
 
     function syncEditor(state) {
@@ -3006,7 +3012,12 @@
             notice = document.createElement('p');
             notice.className = 'post-scheduled-notice';
             notice.setAttribute('role', 'status');
-            time.closest('.post.time')?.after(notice);
+        }
+        const firstPostElement = card.querySelector(':scope > .post.author, :scope > .post.head');
+        if (firstPostElement) {
+            firstPostElement.before(notice);
+        } else {
+            card.prepend(notice);
         }
         notice.textContent = payload.schedule_message;
     }
@@ -3064,7 +3075,6 @@
         const warningTemplate = editorConfig().deleteWarning;
         if (confirmation && typeof warningTemplate === 'string') {
             const warning = warningTemplate.replace('%s', payload.title);
-            confirmation.setAttribute('aria-label', warning);
             const warningText = confirmation.querySelector(':scope > p');
             if (warningText) {
                 warningText.textContent = warning;
@@ -5550,6 +5560,18 @@
     document.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : null;
         const card = cardFor(target);
+        if (target instanceof HTMLDialogElement && target.matches('.post-delete-confirmation')) {
+            const bounds = target.getBoundingClientRect();
+            const clickedBackdrop = event.clientX < bounds.left
+                || event.clientX > bounds.right
+                || event.clientY < bounds.top
+                || event.clientY > bounds.bottom;
+            if (clickedBackdrop && card) {
+                event.preventDefault();
+                closeConfirmation(card, true);
+            }
+            return;
+        }
         const inlineCaption = target?.closest('.is-inline-caption-entry');
         const inlineCaptionState = card ? editorStates.get(card) : null;
         if (
@@ -5663,6 +5685,19 @@
         event.preventDefault();
         submit(form);
     }, false);
+
+    document.addEventListener('cancel', (event) => {
+        const confirmation = event.target;
+        if (!(confirmation instanceof HTMLDialogElement) || !confirmation.matches('.post-delete-confirmation')) {
+            return;
+        }
+        const card = cardFor(confirmation);
+        if (!card) {
+            return;
+        }
+        event.preventDefault();
+        closeConfirmation(card, true);
+    }, true);
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {

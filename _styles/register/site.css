@@ -681,26 +681,16 @@ h2.preview,
     margin-top: 0;
 }
 
-.post-card.is-scheduled-preview {
-    border-radius: 0.2rem;
-    outline: 1px dashed color-mix(in srgb, var(--accent-color) 68%, transparent);
-    outline-offset: 0.55rem;
-    background: linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--accent-color) 7%, transparent),
-        transparent 45%
-    );
-}
-
 .post-scheduled-notice {
-    display: inline-flex;
-    margin: -0.95rem 0 1.55rem;
-    padding: 0.22rem 0.55rem;
-    border: 1px solid color-mix(in srgb, var(--accent-color) 58%, transparent);
-    border-radius: 999px;
+    display: block;
+    width: 100%;
+    margin: 0 0 1.35rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.2rem;
+    background: color-mix(in srgb, var(--accent-color) 12%, var(--surface-background));
     color: var(--accent-color);
     font-family: var(--ui-font);
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     font-weight: 650;
     line-height: 1.35;
 }
@@ -2357,35 +2347,66 @@ h2.preview,
 }
 
 .post-delete-cancel {
-    border: 0;
+    border: 1px solid var(--border-color);
     background: transparent;
-    color: var(--minor-color);
+    color: var(--text-color);
 }
 
 .post-delete-confirmation {
-    position: absolute;
-    z-index: 5;
-    top: -0.45rem;
-    right: 0;
-    width: min(34rem, 100%);
-    padding: 0.75rem 0.85rem;
-    border-radius: 3px;
+    position: fixed;
+    width: min(36rem, calc(100vw - 2rem));
+    max-width: none;
+    max-height: calc(100dvh - 2rem);
+    margin: auto;
+    padding: 0;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
     background: var(--surface-background);
-    box-shadow: 0 0.6rem 1.8rem color-mix(in srgb, #000 18%, transparent);
+    box-shadow: 0 1.2rem 4rem color-mix(in srgb, #000 42%, transparent);
     color: var(--text-color);
     font-family: var(--ui-font);
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: 1rem;
+    line-height: 1.45;
+    overscroll-behavior: contain;
+}
+
+.post-delete-confirmation::backdrop {
+    background: color-mix(in srgb, #000 58%, transparent);
+    backdrop-filter: blur(2px);
+}
+
+.post-delete-confirmation > h2 {
+    margin: 0;
+    padding: 1.25rem 1.35rem 0.35rem;
+    font-family: var(--ui-font);
+    font-size: clamp(1.25rem, 3vw, 1.6rem);
+    line-height: 1.2;
 }
 
 .post-delete-confirmation > p {
     margin: 0;
-    font-weight: 650;
+    padding: 0 1.35rem;
+    color: var(--minor-color);
+}
+
+.post-delete-confirmation > form {
+    margin: 0;
+    padding: 0 1.35rem 1.25rem;
 }
 
 .post-delete-confirmation .post-inplace-actions {
-    margin-top: 0.55rem;
+    margin-top: 1.2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
     justify-content: flex-end;
+}
+
+.post-delete-confirmation .post-inplace-actions button {
+    min-height: 2.5rem;
+    padding-inline: 0.95rem;
+    border-radius: 5px;
+    font-size: 0.88rem;
 }
 
 .post-delete-confirm,

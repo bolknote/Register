@@ -35,6 +35,8 @@ $isScheduledPreview = !empty($scheduled_preview);
 $postId      = (int)$id;
 $editFormId  = 'post-inplace-edit-' . $postId;
 $toolsMenuId = 'post-tools-menu-' . $postId;
+$deleteDialogTitleId = 'post-delete-title-' . $postId;
+$deleteDialogDescriptionId = 'post-delete-description-' . $postId;
 $tagNames    = array_values(array_map(
     static fn(array $tag): string => (string)($tag['title'] ?? ''),
     \is_array($tags ?? null) ? $tags : [],
@@ -76,8 +78,15 @@ $analyticsSection = (string)($tagNames[0] ?? '');
     <input type="hidden" name="return_to" value="<?php echo register_htmlencode($inplaceData['return_to']); ?>">
 </form>
 <p class="post-inplace-error post-inplace-edit-error" role="alert" tabindex="-1" hidden></p>
-<div class="post-delete-confirmation" role="group" aria-label="<?php echo register_htmlencode(sprintf($trans('Delete warning'), $title)); ?>" hidden>
-    <p><?php echo register_htmlencode(sprintf($trans('Delete warning'), $title)); ?></p>
+<dialog
+    class="post-delete-confirmation"
+    aria-modal="true"
+    aria-labelledby="<?php echo $deleteDialogTitleId; ?>"
+    aria-describedby="<?php echo $deleteDialogDescriptionId; ?>"
+    hidden
+>
+    <h2 id="<?php echo $deleteDialogTitleId; ?>"><?php echo $trans('Confirm post deletion'); ?></h2>
+    <p id="<?php echo $deleteDialogDescriptionId; ?>"><?php echo register_htmlencode(sprintf($trans('Delete warning'), $title)); ?></p>
     <form class="post-inplace-delete-form" method="post" action="<?php echo register_htmlencode($inplaceData['action_url']); ?>">
         <input type="hidden" name="inplace_action" value="delete">
         <input type="hidden" name="inplace_token" value="<?php echo register_htmlencode($inplaceData['token']); ?>">
@@ -85,12 +94,15 @@ $analyticsSection = (string)($tagNames[0] ?? '');
         <input type="hidden" name="return_to" value="<?php echo register_htmlencode($inplaceData['return_to']); ?>">
         <p class="post-inplace-error" role="alert" tabindex="-1" hidden></p>
         <div class="post-inplace-actions">
-            <button class="post-delete-confirm" type="submit"><?php echo $trans('Confirm post deletion'); ?></button>
             <button class="post-delete-cancel" type="button"><?php echo $trans('Cancel post deletion'); ?></button>
+            <button class="post-delete-confirm" type="submit"><?php echo $trans('Confirm post deletion'); ?></button>
         </div>
     </form>
-</div>
+</dialog>
 <p class="post-inplace-status" role="status" hidden></p>
+<?php endif; ?>
+<?php if ($isScheduledPreview): ?>
+<p class="post-scheduled-notice" role="status"><?php echo register_htmlencode($trans('Scheduled post preview')); ?></p>
 <?php endif; ?>
 <div class="post author"><?php echo $deferred_author ?? (!empty($author) ? register_htmlencode($author) : ''); ?></div>
 <<?php echo $heading; ?> class="post head">
@@ -117,9 +129,6 @@ $analyticsSection = (string)($tagNames[0] ?? '');
     <input class="post-inplace-datetime" type="datetime-local" step="1" tabindex="-1" aria-label="<?php echo register_htmlencode($trans('Post publication date')); ?>" hidden>
 <?php endif; ?>
 </div>
-<?php if ($isScheduledPreview): ?>
-<p class="post-scheduled-notice" role="status"><?php echo register_htmlencode($trans('Scheduled post preview')); ?></p>
-<?php endif; ?>
 <?php if ($inplaceData !== null): ?>
 <nav class="post-inplace-tools" aria-label="<?php echo $trans('Post tools'); ?>">
     <button class="post-inplace-button post-tools-menu-toggle" type="button" title="<?php echo register_htmlencode($trans('Post tools')); ?>" aria-label="<?php echo register_htmlencode($trans('Post tools')); ?>" aria-controls="<?php echo $toolsMenuId; ?>" aria-expanded="false">
