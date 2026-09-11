@@ -449,8 +449,8 @@ final class BlogPageCacheTest extends TestCase
         $cache = new BlogPageCache($filesystem, false, $hot);
 
         $cache->firstPage(static fn(): PostFeed => new PostFeed('hot feed', null, null));
-        self::assertTrue($memory->hasItem('register_blog_first_page_v1'));
-        self::assertTrue($filesystem->hasItem('register_blog_first_page_v1'));
+        self::assertTrue($memory->hasItem('register_blog_first_page_v2'));
+        self::assertTrue($filesystem->hasItem('register_blog_first_page_v2'));
 
         $cache->contentResponse(
             'full_bot',
@@ -461,12 +461,12 @@ final class BlogPageCacheTest extends TestCase
         self::assertContains('register_content_response_generation_v1', $memoryKeys);
         self::assertSame([], array_values(array_filter(
             $memoryKeys,
-            static fn(string $key): bool => str_starts_with($key, 'register_content_response_v2_'),
+            static fn(string $key): bool => str_starts_with($key, 'register_content_response_v3_'),
         )));
 
         $cache->invalidateFirstPage();
-        self::assertFalse($memory->hasItem('register_blog_first_page_v1'));
-        self::assertFalse($filesystem->hasItem('register_blog_first_page_v1'));
+        self::assertFalse($memory->hasItem('register_blog_first_page_v2'));
+        self::assertFalse($filesystem->hasItem('register_blog_first_page_v2'));
 
         $cache->invalidateContentResponses();
         self::assertFalse($memory->hasItem('register_content_response_generation_v1'));
@@ -545,7 +545,7 @@ final class BlogPageCacheTest extends TestCase
     {
         $result = [];
         foreach (array_keys($pool->getValues()) as $key) {
-            if (\is_string($key) && str_starts_with($key, 'register_content_response_v2_')) {
+            if (\is_string($key) && str_starts_with($key, 'register_content_response_v3_')) {
                 $result[] = $key;
             }
         }
