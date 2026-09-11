@@ -16,7 +16,9 @@ use Register\Content\ContentSchema;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Url\ContentUrlGenerator;
+use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Pdo\QueryBuilder\SelectBuilder;
 use Register\Core\Template\Viewer;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Core\Pdo\DbLayerException;
@@ -37,14 +39,18 @@ readonly class PostProvider
     /**
      * @throws DbLayerException
      */
-    public function publishedPostCount(): int
+    public function publishedPostCount(?AuthenticatedPublicUser $editor = null): int
     {
-        return (int)$this->dbLayer
+        $query = $this->dbLayer
             ->select('COUNT(*)')
             ->from(ContentSchema::TABLE_NAME)
             ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
-            ->andWhere('published = 1')
-            ->execute()
+            ->andWhere($this->visibilityCondition($editor))
+            ->setParameter('post_visible_at', time())
+        ;
+        $this->bindEditor($query, $editor);
+
+        return (int)$query->execute()
             ->result()
         ;
     }
@@ -58,6 +64,8 @@ readonly class PostProvider
                 ->from(ContentSchema::TABLE_NAME)
                 ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
                 ->andWhere('published = 1')
+                ->andWhere('published_at IS NOT NULL')
+                ->andWhere('published_at <= :post_visible_at')->setParameter('post_visible_at', time())
                 ->andWhere('author_id IS NOT NULL')
                 ->groupBy('author_id')
                 ->limit(2)
@@ -78,6 +86,8 @@ readonly class PostProvider
             ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('slug = :slug')->setParameter('slug', $slug)
             ->andWhere('published = 1')
+            ->andWhere('published_at IS NOT NULL')
+            ->andWhere('published_at <= :post_visible_at')->setParameter('post_visible_at', time())
             ->execute()
             ->result() > 0;
     }
@@ -93,6 +103,8 @@ readonly class PostProvider
             ->from(ContentSchema::TABLE_NAME)
             ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('published = 1')
+            ->andWhere('published_at IS NOT NULL')
+            ->andWhere('published_at <= :post_visible_at')->setParameter('post_visible_at', time())
             ->orderBy('published_at DESC')
             ->execute()
         ;
@@ -114,7 +126,12 @@ readonly class PostProvider
      * @throws DbLayerException
      * @return array<mixed>
      */
-    public function lastPostsArray(int $postsNum = 10, int $skip = 0, bool $fakeLastPost = false): array
+    public function lastPostsArray(
+        int $postsNum = 10,
+        int $skip = 0,
+        bool $fakeLastPost = false,
+        ?AuthenticatedPublicUser $editor = null,
+    ): array
     {
         if ($fakeLastPost) {
             ++$postsNum;
@@ -137,20 +154,22 @@ readonly class PostProvider
             ->getSql()
         ;
 
-        $result = $this->dbLayer
-            ->select('p.published_at AS create_time, p.date_label AS display_date, p.title, p.body AS text, p.slug AS url, p.id, p.author_id, p.revision, p.comments_enabled AS commented, p.updated_at AS modify_time, p.featured AS favorite')
+        $query = $this->dbLayer
+            ->select('CASE WHEN p.published = 0 AND p.scheduled_at > 0 THEN p.scheduled_at ELSE p.published_at END AS create_time, p.date_label AS display_date, p.title, p.body AS text, p.slug AS url, p.id, p.author_id, p.revision, p.comments_enabled AS commented, p.updated_at AS modify_time, p.featured AS favorite, p.published, p.scheduled_at')
             ->addSelect('(' . $rawQueryCount . ') AS comment_num')
             ->addSelect('(' . $rawQueryUser . ') AS author, p.series AS label')
             ->from(ContentSchema::TABLE_NAME . ' AS p')
             ->where('p.content_type = :post_content_type')
             ->setParameter('post_content_type', ContentType::POST->value)
-            ->andWhere('p.published = 1')
+            ->andWhere($this->visibilityCondition($editor, 'p'))
+            ->setParameter('post_visible_at', time())
             ->setParameter('comment_content_type', ContentType::POST->value)
-            ->orderBy('p.published_at DESC')
+            ->orderBy('create_time DESC')
             ->limit($postsNum)
             ->offset($skip)
-            ->execute()
         ;
+        $this->bindEditor($query, $editor);
+        $result = $query->execute();
         $posts = [];
         $mergeLabels = [];
         $labels = [];
@@ -191,6 +210,8 @@ readonly class PostProvider
             }
 
             $post['tags'] = $tags[$postId] ?? [];
+            $post['scheduled_preview'] = (int)$post['published'] === 0
+                && (int)$post['scheduled_at'] > 0;
             if (!isset($post['author'])) {
                 $post['author'] = '';
             }
@@ -216,6 +237,8 @@ readonly class PostProvider
             ->from(ContentSchema::TABLE_NAME)
             ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('published = 1')
+            ->andWhere('published_at IS NOT NULL')
+            ->andWhere('published_at <= :post_visible_at')->setParameter('post_visible_at', time())
             ->orderBy('id')
             ->limit(1)
             ->offset(random_int(0, $count - 1))
@@ -252,6 +275,8 @@ readonly class PostProvider
                 ->where("p.content_type = '" . ContentType::POST->value . "'")
                 ->andWhere('p.series IN (' . implode(',', array_fill(0, \count($labels), '?')) . ')')
                 ->andWhere('p.published = 1')
+                ->andWhere('p.published_at IS NOT NULL')
+                ->andWhere('p.published_at <= ' . time())
                 ->execute(array_keys($labels))
             ;
             $rows = [];
@@ -309,5 +334,29 @@ readonly class PostProvider
     public function getCommentNum(int $postId, bool $includeHidden): int
     {
         return $this->commentRepository->count(ContentId::post($postId), $includeHidden);
+    }
+
+    private function visibilityCondition(?AuthenticatedPublicUser $editor, string $alias = ''): string
+    {
+        $prefix = $alias === '' ? '' : $alias . '.';
+        $public = $prefix . 'published = 1 AND ' . $prefix . 'published_at IS NOT NULL'
+            . ' AND ' . $prefix . 'published_at <= :post_visible_at';
+        if (!$editor instanceof AuthenticatedPublicUser) {
+            return '(' . $public . ')';
+        }
+
+        $owner = $editor->canEditSite ? '1 = 1' : $prefix . 'author_id = :post_editor_id';
+        $scheduled = '(' . $prefix . 'published = 0 AND ' . $prefix . 'scheduled_at > 0)';
+        $legacyFuture = '(' . $prefix . 'published = 1 AND ' . $prefix
+            . 'published_at > :post_visible_at)';
+
+        return '((' . $public . ') OR ((' . $owner . ') AND (' . $scheduled . ' OR ' . $legacyFuture . ')))';
+    }
+
+    private function bindEditor(SelectBuilder $query, ?AuthenticatedPublicUser $editor): void
+    {
+        if ($editor instanceof AuthenticatedPublicUser && !$editor->canEditSite) {
+            $query->setParameter('post_editor_id', $editor->id);
+        }
     }
 }

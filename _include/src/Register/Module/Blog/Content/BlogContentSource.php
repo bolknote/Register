@@ -47,6 +47,8 @@ final readonly class BlogContentSource implements RecentContentSourceInterface
             ->where('id = :id')->setParameter('id', $id->value)
             ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('published = 1')
+            ->andWhere('published_at IS NOT NULL')
+            ->andWhere('published_at <= :visible_at')->setParameter('visible_at', time())
             ->execute()
             ->fetchAssoc()
         ;
@@ -66,6 +68,8 @@ final readonly class BlogContentSource implements RecentContentSourceInterface
             ->from(ContentSchema::TABLE_NAME)
             ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('published = 1')
+            ->andWhere('published_at IS NOT NULL')
+            ->andWhere('published_at <= :visible_at')->setParameter('visible_at', time())
             ->orderBy('id')
             ->execute()
         ;
@@ -91,6 +95,8 @@ final readonly class BlogContentSource implements RecentContentSourceInterface
             ->from(ContentSchema::TABLE_NAME)
             ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('published = 1')
+            ->andWhere('published_at IS NOT NULL')
+            ->andWhere('published_at <= :visible_at')->setParameter('visible_at', time())
             ->orderBy('published_at DESC')
             ->limit($limit)
             ->execute()

@@ -54,8 +54,9 @@ final readonly class PostFeedRenderer
     {
         $configuredItemsPerPage = $this->itemsPerPage->get();
         $postsPerPage           = $configuredItemsPerPage > 0 ? $configuredItemsPerPage : 10;
-        $posts                  = $this->postProvider->lastPostsArray($postsPerPage, $skip);
-        $totalPosts             = $this->postProvider->publishedPostCount();
+        $editor                 = $this->inplaceControls->editorForCreate($request);
+        $posts                  = $this->postProvider->lastPostsArray($postsPerPage, $skip, false, $editor);
+        $totalPosts             = $this->postProvider->publishedPostCount($editor);
         $showAuthors            = $this->postProvider->hasMultiplePublishedAuthors();
 
         $output = '';

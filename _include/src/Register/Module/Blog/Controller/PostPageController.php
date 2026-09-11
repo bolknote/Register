@@ -112,10 +112,21 @@ class PostPageController extends BlogController
     private function getPost(Request $request, HtmlTemplate $template, string $url): ?Response
     {
         $template->setLink('up', $this->blogUrlBuilder->main());
+        $editor = $this->inplaceControls->editorForCreate($request);
+        $now = time();
+        $publicVisibility = 'published = 1 AND published_at IS NOT NULL AND published_at <= :post_visible_at';
+        $visibility = $publicVisibility;
+        if ($editor !== null) {
+            $ownerVisibility = $editor->canEditSite ? '1 = 1' : 'author_id = :post_editor_id';
+            $visibility = '(' . $publicVisibility . ') OR ((' . $ownerVisibility . ') AND ('
+                . '(published = 0 AND scheduled_at > 0)'
+                . ' OR (published = 1 AND published_at > :post_visible_at)'
+                . '))';
+        }
 
-        $result = $this->dbLayer
+        $query = $this->dbLayer
             ->select(
-                'published_at AS create_time, date_label AS display_date, title, body AS text, id, author_id, revision, comments_enabled AS commented, series AS label, featured AS favorite, meta_description, social_image',
+                'published_at AS create_time, scheduled_at, published, date_label AS display_date, title, body AS text, id, author_id, revision, comments_enabled AS commented, series AS label, featured AS favorite, meta_description, social_image',
                 '(' . $this->dbLayer
                     ->select('u.name')
                     ->from('users AS u')
@@ -126,9 +137,14 @@ class PostPageController extends BlogController
             ->from(ContentSchema::TABLE_NAME . ' AS p')
             ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('slug = :url')->setParameter('url', $url)
-            ->andWhere('published = 1')
-            ->execute()
+            ->andWhere('(' . $visibility . ')')
+            ->setParameter('post_visible_at', $now)
         ;
+        if ($editor !== null && !$editor->canEditSite) {
+            $query->setParameter('post_editor_id', $editor->id);
+        }
+
+        $result = $query->execute();
 
         $row = $result->fetchAssoc();
         if ($row === false) {
@@ -144,8 +160,16 @@ class PostPageController extends BlogController
 
         $post_id = (int)$row['id'];
         $contentId = ContentId::post($post_id);
+        $scheduledAt = (int)$row['scheduled_at'];
+        $isScheduledPreview = ((int)$row['published'] === 0 && $scheduledAt > 0)
+            || ((int)$row['published'] === 1 && (int)$row['create_time'] > $now);
+        if ($isScheduledPreview) {
+            $row['create_time'] = $scheduledAt > 0 ? $scheduledAt : (int)$row['create_time'];
+            $row['scheduled_preview'] = true;
+            $template->addMetaTag('<meta name="robots" content="noindex, nofollow" />');
+        }
 
-        if ($template->hasPlaceholder('<!-- register_blog_calendar -->')) {
+        if (!$isScheduledPreview && $template->hasPlaceholder('<!-- register_blog_calendar -->')) {
             $template->registerPlaceholder(
                 '<!-- register_blog_calendar -->',
                 DeferredPostPageContext::placeholder(DeferredPostPageContext::CALENDAR, $post_id),
@@ -154,7 +178,7 @@ class PostPageController extends BlogController
 
         $template->putInPlaceholder('canonical_path', $this->contentUrlGenerator->post((string)$row['url']));
 
-        if ($template->hasPlaceholder('<!-- register_blog_back_forward -->')) {
+        if (!$isScheduledPreview && $template->hasPlaceholder('<!-- register_blog_back_forward -->')) {
             $template->registerPlaceholder(
                 '<!-- register_blog_back_forward -->',
                 DeferredPostPageContext::placeholder(DeferredPostPageContext::BACK_FORWARD, $post_id),
@@ -174,10 +198,12 @@ class PostPageController extends BlogController
             ];
         }
 
-        $request->attributes->set(FlatContentController::CONTENT_ID_ATTRIBUTE, $contentId);
+        if (!$isScheduledPreview) {
+            $request->attributes->set(FlatContentController::CONTENT_ID_ATTRIBUTE, $contentId);
+        }
         $isSharedResponse = $request->attributes->getBoolean(FlatContentController::SHARED_RESPONSE_ATTRIBUTE);
-        $template->putInPlaceholder('commented', $isSharedResponse ? 0 : $row['commented']);
-        if ((bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- register_comments -->')) {
+        $template->putInPlaceholder('commented', $isSharedResponse || $isScheduledPreview ? 0 : $row['commented']);
+        if (!$isScheduledPreview && (bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- register_comments -->')) {
             $this->liveUpdates->subscribeComments($contentId);
             $template->putInPlaceholder(
                 'comments',
@@ -191,16 +217,19 @@ class PostPageController extends BlogController
         $row['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
         $row['showComments']     = $this->showComments->get();
         $row['enabledComments']  = $this->enabledComments->get();
-        $row['author'] = '';
-        $row['deferred_author'] = DeferredPostPageContext::placeholder(
-            DeferredPostPageContext::AUTHOR,
-            $post_id,
-        );
+        if ($isScheduledPreview) {
+            $row['deferred_author'] = null;
+        } else {
+            $row['author'] = '';
+            $row['deferred_author'] = DeferredPostPageContext::placeholder(
+                DeferredPostPageContext::AUTHOR,
+                $post_id,
+            );
+        }
         $row['see_also'] = [];
-        $row['deferred_see_also'] = DeferredPostPageContext::placeholder(
-            DeferredPostPageContext::SEE_ALSO,
-            $post_id,
-        );
+        $row['deferred_see_also'] = $isScheduledPreview
+            ? null
+            : DeferredPostPageContext::placeholder(DeferredPostPageContext::SEE_ALSO, $post_id);
 
         $row['inplace']          = $this->inplaceControls->forPost(
             $request,
@@ -220,11 +249,13 @@ class PostPageController extends BlogController
             ->putInPlaceholder('head_title', register_htmlencode($row['title']))
         ;
 
-        if ($this->recommendationProvider instanceof RecommendationProvider && $template->hasPlaceholder('<!-- register_recommendations -->')) {
+        if (!$isScheduledPreview && $this->recommendationProvider instanceof RecommendationProvider && $template->hasPlaceholder('<!-- register_recommendations -->')) {
             $template->putInPlaceholder('recommendations', DeferredRecommendations::placeholder($contentId));
         }
 
-        $this->eventDispatcher->dispatch(new ContentRenderedEvent($template, $contentId));
+        if (!$isScheduledPreview) {
+            $this->eventDispatcher->dispatch(new ContentRenderedEvent($template, $contentId));
+        }
 
         return null;
     }

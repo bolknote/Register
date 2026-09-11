@@ -106,11 +106,11 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $post = $this->dbLayer
-            ->select('id, author_id, revision, title, excerpt, body, meta_description, slug, published_at, date_label')
+            ->select('id, author_id, revision, title, excerpt, body, meta_description, slug, published, published_at, scheduled_at, date_label')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $postId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
-            ->andWhere('published = 1')
+            ->andWhere('(published = 1 OR scheduled_at > 0)')
             ->execute()
             ->fetchAssoc()
         ;
@@ -129,12 +129,13 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $action = $request->request->getString('inplace_action');
+        $publicationAt = $this->storedPublicationAt($post);
         if ($action === 'media') {
-            return $this->uploadMedia($request, $editor, (int)$post['published_at']);
+            return $this->uploadMedia($request, $editor, $publicationAt);
         }
 
         if ($action === 'media_redate') {
-            return $this->redateMedia($request, $editor, (int)$post['published_at']);
+            return $this->redateMedia($request, $editor, $publicationAt);
         }
 
         if ($action === 'media_release') {
@@ -530,7 +531,8 @@ final readonly class PostInplaceController implements ControllerInterface
         $storedTagNames = array_map(static fn(\Register\Content\Tag $tag): string => $tag->name, $storedTags);
         $title          = trim($request->request->getString('title'));
         $body           = $request->request->getString('body');
-        $publishedAt    = $this->publishedAt($request, (int)$post['published_at']);
+        $storedPublishedAt = $this->storedPublicationAt($post);
+        $publishedAt    = $this->publishedAt($request, $storedPublishedAt);
         $tagNames       = $storedTagNames;
         if ($request->request->has('tags')) {
             $submittedTags = $request->request->get('tags');
@@ -562,6 +564,8 @@ final readonly class PostInplaceController implements ControllerInterface
             (string)$post['meta_description'],
         );
 
+        $scheduled = $publishedAt > time();
+        $storedScheduled = (int)$post['published'] === 0 && (int)$post['scheduled_at'] > 0;
         $revision = $this->revisionService->resolve(
             [
                 'title'    => $title,
@@ -570,6 +574,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 'meta_description' => $metadata->metaDescription,
                 'tags'     => $tagNames,
                 'published_at' => $publishedAt,
+                'scheduled' => $scheduled,
                 'revision' => $submittedRevision,
             ],
             [
@@ -578,20 +583,22 @@ final readonly class PostInplaceController implements ControllerInterface
                 'column_body'     => (string)$post['body'],
                 'column_meta_description' => (string)$post['meta_description'],
                 'column_tags'     => $storedTagNames,
-                'column_published_at' => (int)$post['published_at'],
+                'column_published_at' => $storedPublishedAt,
+                'column_scheduled' => $storedScheduled,
                 'column_revision' => (int)$post['revision'],
             ],
-            ['title', 'excerpt', 'body', 'meta_description', 'tags', 'published_at'],
+            ['title', 'excerpt', 'body', 'meta_description', 'tags', 'published_at', 'scheduled'],
         );
         if (!$revision instanceof \Register\Content\Admin\ContentRevision) {
             return $this->error($request, 'Post has changed in another window', Response::HTTP_CONFLICT);
         }
 
         $tagsChanged = $tagNames !== $storedTagNames;
-        $dateChanged = $publishedAt !== (int)$post['published_at'];
+        $dateChanged = $publishedAt !== $storedPublishedAt;
+        $scheduleChanged = $scheduled !== $storedScheduled;
         $orphanMedia = [];
         if ($revision->contentChanged) {
-            $updated = $this->transactional(function () use ($request, $contentId, $postId, $title, $metadata, $body, $publishedAt, $dateChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia): bool {
+            $updated = $this->transactional(function () use ($request, $contentId, $postId, $title, $metadata, $body, $publishedAt, $scheduled, $dateChanged, $scheduleChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia): bool {
                 $update = $this->dbLayer
                     ->update(ContentSchema::TABLE_NAME)
                     ->set('title', ':title')->setParameter('title', $title)
@@ -602,14 +609,24 @@ final readonly class PostInplaceController implements ControllerInterface
                     ->set('revision', ':new_revision')->setParameter('new_revision', (int)$revision->value)
                     ->where('id = :id')->setParameter('id', $postId)
                     ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
-                    ->andWhere('published = 1')
+                    ->andWhere('(published = 1 OR scheduled_at > 0)')
                     ->andWhere('revision = :revision')->setParameter('revision', $submittedRevision)
                 ;
-                if ($dateChanged) {
-                    $update
-                        ->set('published_at', ':published_at')->setParameter('published_at', $publishedAt)
-                        ->set('date_label', "''")
-                    ;
+                if ($dateChanged || $scheduleChanged) {
+                    $update->set('date_label', "''");
+                    if ($scheduled) {
+                        $update
+                            ->set('published', '0')
+                            ->set('published_at', 'NULL')
+                            ->set('scheduled_at', ':scheduled_at')->setParameter('scheduled_at', $publishedAt)
+                        ;
+                    } else {
+                        $update
+                            ->set('published', '1')
+                            ->set('published_at', ':published_at')->setParameter('published_at', $publishedAt)
+                            ->set('scheduled_at', '0')
+                        ;
+                    }
                 }
 
                 $affectedRows = $update->execute()
@@ -669,6 +686,8 @@ final readonly class PostInplaceController implements ControllerInterface
             'published_at' => $publishedAt,
             'datetime'  => gmdate(DATE_ATOM, $publishedAt),
             'time'      => $this->postProvider->displayDate($publishedAt, $dateChanged ? '' : (string)$post['date_label']),
+            'scheduled' => $scheduled,
+            'schedule_message' => $this->translator->trans('Scheduled post preview'),
             'body_html' => $this->fragmentRenderer->render(
                 '<div class="post body" data-post-inplace-body>' . $body . '</div>',
             ),
@@ -706,13 +725,26 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $metadata = $this->publicationMetadataGenerator->complete($title, $body);
+        $scheduled = $publishedAt > time();
 
         $postId      = 0;
         $slug        = '';
         $orphanMedia = [];
-        $created = $this->transactional(function () use ($request, $editor, $title, $metadata, $body, $publishedAt, $tagNames, &$postId, &$slug, &$orphanMedia): bool {
+        $created = $this->transactional(function () use ($request, $editor, $title, $metadata, $body, $publishedAt, $scheduled, $tagNames, &$postId, &$slug, &$orphanMedia): bool {
             $now  = time();
             $slug = $this->contentSlugService->generatePost($title);
+            $values = [
+                'content_type' => ContentType::POST->value,
+                'slug'         => $slug,
+                'title'        => $title,
+                'excerpt'      => $metadata->excerpt,
+                'body'         => $body,
+                'meta_description' => $metadata->metaDescription,
+                'created_at'   => $now,
+                'updated_at'   => $now,
+                'author_id'    => $editor->id,
+            ];
+            $values[$scheduled ? 'scheduled_at' : 'published_at'] = $publishedAt;
             $this->dbLayer
                 ->insert(ContentSchema::TABLE_NAME)
                 ->values([
@@ -724,25 +756,15 @@ final readonly class PostInplaceController implements ControllerInterface
                     'body'             => ':body',
                     'meta_description' => ':meta_description',
                     'created_at'       => ':created_at',
-                    'published_at'     => ':published_at',
+                    'published_at'     => $scheduled ? 'NULL' : ':published_at',
+                    'scheduled_at'     => $scheduled ? ':scheduled_at' : '0',
                     'updated_at'       => ':updated_at',
                     'revision'         => '1',
-                    'published'        => '1',
+                    'published'        => $scheduled ? '0' : '1',
                     'comments_enabled' => '1',
                     'author_id'        => ':author_id',
                 ])
-                ->execute([
-                    'content_type' => ContentType::POST->value,
-                    'slug'         => $slug,
-                    'title'        => $title,
-                    'excerpt'      => $metadata->excerpt,
-                    'body'         => $body,
-                    'meta_description' => $metadata->metaDescription,
-                    'created_at'   => $now,
-                    'published_at' => $publishedAt,
-                    'updated_at'   => $now,
-                    'author_id'    => $editor->id,
-                ])
+                ->execute($values)
             ;
             $postId = (int)$this->dbLayer->insertId();
             if ($postId <= 0) {
@@ -797,6 +819,8 @@ final readonly class PostInplaceController implements ControllerInterface
             'published_at'   => $publishedAt,
             'datetime'       => gmdate(DATE_ATOM, $publishedAt),
             'time'           => $this->postProvider->displayDate($publishedAt, ''),
+            'scheduled'      => $scheduled,
+            'schedule_message' => $this->translator->trans('Scheduled post preview'),
             'body_html'      => $this->fragmentRenderer->render(
                 '<div class="post body" data-post-inplace-body>' . $body . '</div>',
             ),
@@ -807,7 +831,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 ],
                 $savedTags,
             ),
-            'message'        => $this->translator->trans('Post created'),
+            'message'        => $this->translator->trans($scheduled ? 'Post scheduled' : 'Post created'),
         ]);
     }
 
@@ -872,7 +896,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 ->delete(ContentSchema::TABLE_NAME)
                 ->where('id = :id')->setParameter('id', $postId)
                 ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
-                ->andWhere('published = 1')
+                ->andWhere('(published = 1 OR scheduled_at > 0)')
                 ->andWhere('revision = :revision')->setParameter('revision', $submittedRevision)
                 ->execute()
                 ->affectedRows()
@@ -913,6 +937,17 @@ final readonly class PostInplaceController implements ControllerInterface
         $value = filter_var($revision, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
 
         return $value === false ? null : $value;
+    }
+
+    /** @param array<string, mixed> $post */
+    private function storedPublicationAt(array $post): int
+    {
+        $scheduledAt = (int)($post['scheduled_at'] ?? 0);
+        if ($scheduledAt > 0) {
+            return $scheduledAt;
+        }
+
+        return max(1, (int)($post['published_at'] ?? 0));
     }
 
     private function publishedAt(Request $request, int $fallback): ?int

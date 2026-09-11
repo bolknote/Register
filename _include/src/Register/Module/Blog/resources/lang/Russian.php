@@ -95,6 +95,8 @@ return [
     'New post title' => 'Заголовок нового поста',
     'Post publication date' => 'Дата и время публикации',
     'Post created' => 'Пост создан',
+    'Post scheduled' => 'Пост запланирован',
+    'Scheduled post preview' => 'Запланировано — пока видно только вам',
     'Upload file error' => '%1$s: %2$s',
     'Forbidden extension' => 'Файлы с расширением «{{ ext }}» создавать запрещено.',
     'Upload storage quota exceeded' => 'Исчерпана квота хранилища загрузок.',

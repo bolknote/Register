@@ -20,6 +20,7 @@ use Register\Schema\ContentMediaSchemaMigration;
 use Register\Schema\ContentViewSpoolSchemaMigration;
 use Register\Schema\PendingCommentSpamSchemaMigration;
 use Register\Schema\ExternalImportSchemaMigration;
+use Register\Schema\FuturePublicationSchemaMigration;
 use Register\Schema\PublicAuthSchemaMigration;
 use Register\Schema\QueueLeaseSchemaMigration;
 use Register\Schema\SchemaManager;
@@ -31,6 +32,7 @@ use Register\Schema\VisitorUserSchemaMigration;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Pdo\DbLayer;
+use Register\Core\Queue\QueuePublisher;
 
 final readonly class SchemaModule implements ContainerModuleInterface
 {
@@ -111,6 +113,13 @@ final readonly class SchemaModule implements ContainerModuleInterface
         $container->set(
             ContentViewSpoolSchemaMigration::class,
             new ContentViewSpoolSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            FuturePublicationSchemaMigration::class,
+            static fn(Container $container): FuturePublicationSchemaMigration => new FuturePublicationSchemaMigration(
+                $container->get(QueuePublisher::class),
+            ),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

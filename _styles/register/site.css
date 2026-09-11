@@ -681,6 +681,34 @@ h2.preview,
     margin-top: 0;
 }
 
+.post-card.is-scheduled-preview {
+    border-radius: 0.2rem;
+    outline: 1px dashed color-mix(in srgb, var(--accent-color) 68%, transparent);
+    outline-offset: 0.55rem;
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--accent-color) 7%, transparent),
+        transparent 45%
+    );
+}
+
+.post-scheduled-notice {
+    display: inline-flex;
+    margin: -0.95rem 0 1.55rem;
+    padding: 0.22rem 0.55rem;
+    border: 1px solid color-mix(in srgb, var(--accent-color) 58%, transparent);
+    border-radius: 999px;
+    color: var(--accent-color);
+    font-family: var(--ui-font);
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.35;
+}
+
+.post-card.is-scheduled-preview :where(.register-reactions, .post-foot-comments, .post-foot-views) {
+    display: none;
+}
+
 .preview.meta {
     display: flex;
     margin: 0 0 1.6rem;

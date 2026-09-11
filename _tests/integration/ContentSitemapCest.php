@@ -10,10 +10,13 @@ declare(strict_types = 1);
 namespace integration;
 
 use Register\Content\ContentSchema;
+use Register\Content\ContentId;
+use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Content\PageContentSource;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\PDO;
+use Register\Module\Blog\Content\BlogContentSource;
 use Symfony\Component\HttpFoundation\Response;
 
 final class ContentSitemapCest
@@ -25,6 +28,26 @@ final class ContentSitemapCest
         $this->insertContent($dbLayer, ContentType::PAGE, 'sitemap-page', true, 1_700_000_000, 1_700_000_100);
         $this->insertContent($dbLayer, ContentType::POST, 'sitemap-post', true, 1_700_000_200, 1_700_000_300);
         $this->insertContent($dbLayer, ContentType::POST, 'sitemap-draft', false, 1_700_000_400, 1_700_000_500);
+        $futurePostId = $this->insertContent(
+            $dbLayer,
+            ContentType::POST,
+            'sitemap-future-post',
+            true,
+            time() + 3600,
+            time(),
+        );
+
+        /** @var ContentRepository $contentRepository */
+        $contentRepository = $I->grabService(ContentRepository::class);
+        $I->assertNull($contentRepository->find(ContentId::post($futurePostId)));
+
+        /** @var BlogContentSource $blogSource */
+        $blogSource = $I->grabService(BlogContentSource::class);
+        $recentPaths = array_map(
+            static fn(\Register\Content\ContentItem $item): string => $item->path,
+            iterator_to_array($blogSource->recent(100)),
+        );
+        $I->assertNotContains('/sitemap-future-post', $recentPaths);
 
         $I->amOnPage('/sitemap.xml');
         $I->seeResponseCodeIs(Response::HTTP_OK);
@@ -58,6 +81,7 @@ final class ContentSitemapCest
         $I->assertStringContainsString('/sitemap-post', $xml);
         $I->assertStringContainsString(gmdate('c', 1_700_000_300), $xml);
         $I->assertStringNotContainsString('/sitemap-draft', $xml);
+        $I->assertStringNotContainsString('/sitemap-future-post', $xml);
         $I->assertStringNotContainsString('<priority>', $xml);
         $I->assertStringNotContainsString('<changefreq>', $xml);
         $I->assertSame('application/xml; charset=utf-8', $I->grabHttpHeader('Content-Type'));

@@ -577,7 +577,7 @@ final class PostInplaceCest
 
         $postId = (int)$payload['id'];
         $stored = $dbLayer
-            ->select('author_id, title, excerpt, body, meta_description, published_at, revision')
+            ->select('author_id, title, excerpt, body, meta_description, published, published_at, scheduled_at, revision')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $postId)
             ->execute()
@@ -590,6 +590,8 @@ final class PostInplaceCest
         $I->assertSame('<p>Created directly in the feed.</p>', $stored['body']);
         $I->assertSame('Created directly in the feed.', $stored['meta_description']);
         $I->assertSame($publishedAt, (int)$stored['published_at']);
+        $I->assertSame(1, (int)$stored['published']);
+        $I->assertSame(0, (int)$stored['scheduled_at']);
         $I->assertSame(1, (int)$stored['revision']);
 
         $dbLayer
@@ -620,6 +622,78 @@ final class PostInplaceCest
             ->where('id = :id')->setParameter('id', $postId)
             ->execute()
             ->result());
+    }
+
+    public function schedulesAFuturePostAndLetsItsAuthorPublishItImmediately(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $authorId = $this->userId($dbLayer, 'author');
+
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/');
+        $form = '.site-header-shell .post-create-template .post-inplace-edit-form';
+        $futureAt = time() + 3600;
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+            'inplace_action' => 'create',
+            'inplace_token'  => (string)$I->grabAttributeFrom($form . ' input[name="inplace_token"]', 'value'),
+            'revision'       => '0',
+            'title'          => 'Future inline post',
+            'body'           => '<p>Not public yet.</p>',
+            'tags'           => '',
+            'published_at'   => (string)$futureAt,
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $created = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertTrue($created['scheduled']);
+        $I->assertSame('Post scheduled', $created['message']);
+
+        $postId = (int)$created['id'];
+        $stored = $dbLayer
+            ->select('author_id, published, published_at, scheduled_at, revision')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute()
+            ->fetchAssoc();
+        $I->assertIsArray($stored);
+        $I->assertSame($authorId, (int)$stored['author_id']);
+        $I->assertSame(0, (int)$stored['published']);
+        $I->assertNull($stored['published_at']);
+        $I->assertSame($futureAt, (int)$stored['scheduled_at']);
+
+        $I->amOnPage('https://localhost' . $created['url']);
+        $I->seeElement('.post-card.is-scheduled-preview[data-post-id="' . $postId . '"]');
+        $editForm = '.post-card[data-post-id="' . $postId . '"] > .post-inplace-edit-form';
+        $publishNow = time() - 1;
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+            'inplace_action' => 'edit',
+            'inplace_token'  => (string)$I->grabAttributeFrom($editForm . ' input[name="inplace_token"]', 'value'),
+            'revision'       => '1',
+            'title'          => 'Future inline post',
+            'body'           => '<p>Public now.</p>',
+            'tags'           => '',
+            'published_at'   => (string)$publishNow,
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $edited = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        $I->assertFalse($edited['scheduled']);
+
+        $published = $dbLayer
+            ->select('published, published_at, scheduled_at')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute()
+            ->fetchAssoc();
+        $I->assertIsArray($published);
+        $I->assertSame(1, (int)$published['published']);
+        $I->assertSame($publishNow, (int)$published['published_at']);
+        $I->assertSame(0, (int)$published['scheduled_at']);
+
+        $I->logout();
+        $I->amOnPage('https://localhost' . $created['url']);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->see('Public now.');
+        $I->dontSeeElement('.post-scheduled-notice');
     }
 
     public function renamesPendingImageAndAudioWhenTheNoteDateChanges(\IntegrationTester $I): void

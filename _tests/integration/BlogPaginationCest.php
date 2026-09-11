@@ -202,6 +202,36 @@ class BlogPaginationCest
         $I->seeElement('#comments-title');
     }
 
+    public function testScheduledPostIsVisibleOnlyToItsAuthorAsAPreview(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $authorId = $this->userId($dbLayer, 'author');
+        $postId = $this->insertScheduledPost($dbLayer, 'scheduled-preview', $authorId, time() + 3600);
+
+        $I->amOnPage('https://localhost/');
+        $I->dontSee('Scheduled preview');
+        $I->amOnPage('https://localhost/scheduled-preview');
+        $I->seeResponseCodeIs(404);
+
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/');
+        $I->see('Scheduled preview');
+        $I->seeElement('.post-card.is-scheduled-preview[data-post-id="' . $postId . '"]');
+        $I->see('Scheduled — visible only to you for now', '.post-scheduled-notice');
+
+        $I->amOnPage('https://localhost/scheduled-preview');
+        $I->seeResponseCodeIs(200);
+        $I->seeElement('.post-card.is-scheduled-preview[data-post-id="' . $postId . '"]');
+        $I->seeElement('meta[name="robots"][content="noindex, nofollow"]');
+        $I->dontSeeElement('.post-card[data-analytics-content-type="post"]');
+        $I->dontSeeElement('#comments-title');
+
+        $I->logout();
+        $I->amOnPage('https://localhost/scheduled-preview');
+        $I->seeResponseCodeIs(404);
+    }
+
     private function insertPost(DbLayer $dbLayer, int $number, ?int $authorId = null): int
     {
         $dbLayer
@@ -222,6 +252,40 @@ class BlogPaginationCest
             ->setValue('slug', ':url')->setParameter('url', 'post-' . $number)
             ->setValue('author_id', ':author_id')->setParameter('author_id', $authorId)
             ->execute()
+        ;
+
+        return (int)$dbLayer->insertId();
+    }
+
+    private function insertScheduledPost(DbLayer $dbLayer, string $slug, int $authorId, int $scheduledAt): int
+    {
+        $dbLayer
+            ->insert(ContentSchema::TABLE_NAME)
+            ->values([
+                'content_type'     => ':content_type',
+                'slug_scope'       => "'root'",
+                'slug'             => ':slug',
+                'created_at'       => ':created_at',
+                'published_at'     => 'NULL',
+                'scheduled_at'     => ':scheduled_at',
+                'updated_at'       => ':created_at',
+                'revision'         => '1',
+                'title'            => "'Scheduled preview'",
+                'excerpt'          => "''",
+                'body'             => "'<p>Private until publication.</p>'",
+                'published'        => '0',
+                'featured'         => '0',
+                'comments_enabled' => '1',
+                'series'           => "''",
+                'author_id'        => ':author_id',
+            ])
+            ->execute([
+                'content_type' => ContentType::POST->value,
+                'slug'         => $slug,
+                'created_at'   => time(),
+                'scheduled_at' => $scheduledAt,
+                'author_id'    => $authorId,
+            ])
         ;
 
         return (int)$dbLayer->insertId();

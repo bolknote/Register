@@ -25,11 +25,13 @@ use Register\Module\Blog\Model\DeferredViewCount;
 /** @var bool $enabledComments */
 /** @var string|null $deferred_author */
 /** @var string|null $deferred_see_also */
+/** @var bool $scheduled_preview */
 /** @var array{action_url: string, token: string, revision: int, return_to: string, create: bool}|null $inplace */
 
 $heading     = empty($title_link) ? 'h1' : 'h2';
 $inplaceData = isset($inplace) && \is_array($inplace) ? $inplace : null;
 $isCreating  = $inplaceData !== null && ($inplaceData['create'] ?? false) === true;
+$isScheduledPreview = !empty($scheduled_preview);
 $postId      = (int)$id;
 $editFormId  = 'post-inplace-edit-' . $postId;
 $toolsMenuId = 'post-tools-menu-' . $postId;
@@ -40,9 +42,9 @@ $tagNames    = array_values(array_map(
 $analyticsSection = (string)($tagNames[0] ?? '');
 ?>
 <article
-    class="post-card<?php echo $inplaceData !== null ? ' is-manageable' : ''; ?><?php echo $isCreating ? ' is-creating' : ''; ?>"
+    class="post-card<?php echo $inplaceData !== null ? ' is-manageable' : ''; ?><?php echo $isCreating ? ' is-creating' : ''; ?><?php echo $isScheduledPreview ? ' is-scheduled-preview' : ''; ?>"
     data-post-id="<?php echo $postId; ?>"
-<?php if ($heading === 'h1' && !$isCreating): ?>
+<?php if ($heading === 'h1' && !$isCreating && !$isScheduledPreview): ?>
     data-analytics-content-type="post"
     data-analytics-content-id="<?php echo $postId; ?>"
     data-analytics-author="<?php echo isset($deferred_author)
@@ -115,6 +117,9 @@ $analyticsSection = (string)($tagNames[0] ?? '');
     <input class="post-inplace-datetime" type="datetime-local" step="1" tabindex="-1" aria-label="<?php echo register_htmlencode($trans('Post publication date')); ?>" hidden>
 <?php endif; ?>
 </div>
+<?php if ($isScheduledPreview): ?>
+<p class="post-scheduled-notice" role="status"><?php echo register_htmlencode($trans('Scheduled post preview')); ?></p>
+<?php endif; ?>
 <?php if ($inplaceData !== null): ?>
 <nav class="post-inplace-tools" aria-label="<?php echo $trans('Post tools'); ?>">
     <button class="post-inplace-button post-tools-menu-toggle" type="button" title="<?php echo register_htmlencode($trans('Post tools')); ?>" aria-label="<?php echo register_htmlencode($trans('Post tools')); ?>" aria-controls="<?php echo $toolsMenuId; ?>" aria-expanded="false">
@@ -161,13 +166,15 @@ $analyticsSection = (string)($tagNames[0] ?? '');
 		echo $deferred_see_also;
 ?>
 <div class="post foot">
+<?php if (!$isScheduledPreview): ?>
 <!-- register_reactions:post:<?php echo (int)$id; ?> -->
+<?php endif; ?>
 <?php
 	$footer = [];
 
-    if ($postId > 0) {
+    if (!$isScheduledPreview && $postId > 0) {
         $footer['views'] = DeferredViewCount::placeholder(ContentId::post($postId));
-    } else {
+    } elseif (!$isScheduledPreview) {
         $viewCount = (int)($view_count ?? 0);
         $viewLabel = $trans('N Views', ['%count%' => $viewCount, '{{ count }}' => $viewCount]);
         $encodedViewLabel = register_htmlencode($viewLabel);
@@ -176,7 +183,7 @@ $analyticsSection = (string)($tagNames[0] ?? '');
             . $viewCount . '</span></span>';
     }
 
-	if ($commented && $showComments) {
+	if (!$isScheduledPreview && $commented && $showComments) {
         if ($comment_num) {
             $commentLabel = $trans('N Comments', ['%count%' => $comment_num, '{{ count }}' => $comment_num]);
             $footer['comments'] = '<span class="post-foot-comments"><a href="' . $link . '#comments-title" data-comment-count="' . $comment_num . '" aria-label="' . register_htmlencode($commentLabel) . '">' . $commentLabel . '</a></span>';
@@ -208,7 +215,7 @@ $analyticsSection = (string)($tagNames[0] ?? '');
     echo $footer['comments'] ?? '';
     echo '<div class="post-foot-meta">'
         . ($footer['tags'] ?? '')
-        . $footer['views']
+        . ($footer['views'] ?? '')
         . '</div>';
 ?>
 </div>

@@ -21,25 +21,25 @@ use Symfony\Contracts\Cache\ItemInterface;
 /** Stores deterministic blog fragments and complete anonymous page representations. */
 final class BlogPageCache implements StatefulServiceInterface
 {
-    private const string FIRST_PAGE_KEY = 'register_blog_first_page_v1';
+    private const string FIRST_PAGE_KEY = 'register_blog_first_page_v2';
 
-    private const string ALL_POSTS_KEY = 'register_blog_all_posts_v1';
+    private const string ALL_POSTS_KEY = 'register_blog_all_posts_v2';
 
-    private const string MULTIPLE_PUBLISHED_AUTHORS_KEY = 'register_blog_multiple_published_authors_v1';
+    private const string MULTIPLE_PUBLISHED_AUTHORS_KEY = 'register_blog_multiple_published_authors_v2';
 
-    private const string NAVIGATION_KEY = 'register_blog_navigation_v2';
+    private const string NAVIGATION_KEY = 'register_blog_navigation_v3';
 
-    private const string LAST_POST_KEY = 'register_blog_last_post_v1';
+    private const string LAST_POST_KEY = 'register_blog_last_post_v2';
 
-    private const string POST_PAGE_CONTEXT_KEY = 'register_blog_post_page_context_v1';
+    private const string POST_PAGE_CONTEXT_KEY = 'register_blog_post_page_context_v2';
 
-    private const string RECENT_COMMENTS_KEY = 'register_blog_recent_comments_v1';
+    private const string RECENT_COMMENTS_KEY = 'register_blog_recent_comments_v2';
 
-    private const string RECENT_DISCUSSIONS_KEY = 'register_blog_recent_discussions_v1';
+    private const string RECENT_DISCUSSIONS_KEY = 'register_blog_recent_discussions_v2';
 
-    private const string FIRST_RESPONSE_PREFIX = 'register_blog_first_response_v2_';
+    private const string FIRST_RESPONSE_PREFIX = 'register_blog_first_response_v3_';
 
-    private const string ALL_RESPONSE_PREFIX = 'register_blog_all_response_v2_';
+    private const string ALL_RESPONSE_PREFIX = 'register_blog_all_response_v3_';
 
     private const string CONTENT_RESPONSE_GENERATION_KEY = 'register_content_response_generation_v1';
 
@@ -47,7 +47,7 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string CONTENT_RESPONSE_PATH_PREFIX = 'register_content_response_path_v1_';
 
-    private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v2_';
+    private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v3_';
 
     private const array RESPONSE_VARIANTS = [
         'full_bot',

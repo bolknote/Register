@@ -95,6 +95,8 @@ return [
     'New post title' => 'New post title',
     'Post publication date' => 'Publication date and time',
     'Post created' => 'Post created',
+    'Post scheduled' => 'Post scheduled',
+    'Scheduled post preview' => 'Scheduled — visible only to you for now',
     'Upload file error' => '%1$s: %2$s',
     'Forbidden extension' => 'Files with the “{{ ext }}” extension are not allowed.',
     'Upload storage quota exceeded' => 'The upload storage quota has been reached.',

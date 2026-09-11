@@ -2994,6 +2994,23 @@
         return template.content.querySelector('[data-post-inplace-body]');
     }
 
+    function updateScheduledPreview(card, time, payload) {
+        card.classList.toggle('is-scheduled-preview', payload.scheduled);
+        let notice = card.querySelector(':scope > .post-scheduled-notice');
+        if (!payload.scheduled) {
+            notice?.remove();
+            return;
+        }
+
+        if (!(notice instanceof HTMLElement)) {
+            notice = document.createElement('p');
+            notice.className = 'post-scheduled-notice';
+            notice.setAttribute('role', 'status');
+            time.closest('.post.time')?.after(notice);
+        }
+        notice.textContent = payload.schedule_message;
+    }
+
     function updateEditedCard(card, form, payload) {
         const state = editorStates.get(card);
         const title = state?.title || card.querySelector(':scope > .post.head [data-post-inplace-title]');
@@ -3015,6 +3032,8 @@
             || !Number.isInteger(payload.published_at)
             || typeof payload.datetime !== 'string'
             || typeof payload.time !== 'string'
+            || typeof payload.scheduled !== 'boolean'
+            || (payload.scheduled && typeof payload.schedule_message !== 'string')
             || !Array.isArray(payload.tags)
             || payload.tags.some((tag) => !tag || typeof tag.name !== 'string' || typeof tag.url !== 'string')
         ) {
@@ -3028,6 +3047,7 @@
         time.dateTime = payload.datetime;
         time.textContent = payload.time;
         dateInput.value = localDateTimeValue(payload.published_at);
+        updateScheduledPreview(card, time, payload);
 
         const tagFragment = document.createDocumentFragment();
         payload.tags.forEach((tag) => {
