@@ -201,6 +201,7 @@ class PostPageController extends BlogController
         if (!$isScheduledPreview) {
             $request->attributes->set(FlatContentController::CONTENT_ID_ATTRIBUTE, $contentId);
         }
+
         $isSharedResponse = $request->attributes->getBoolean(FlatContentController::SHARED_RESPONSE_ATTRIBUTE);
         $template->putInPlaceholder('commented', $isSharedResponse || $isScheduledPreview ? 0 : $row['commented']);
         if (!$isScheduledPreview && (bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- register_comments -->')) {
@@ -226,6 +227,7 @@ class PostPageController extends BlogController
                 $post_id,
             );
         }
+
         $row['see_also'] = [];
         $row['deferred_see_also'] = $isScheduledPreview
             ? null

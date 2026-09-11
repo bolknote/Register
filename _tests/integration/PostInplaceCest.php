@@ -632,6 +632,7 @@ final class PostInplaceCest
 
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/');
+
         $form = '.site-header-shell .post-create-template .post-inplace-edit-form';
         $futureAt = time() + 3600;
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
@@ -644,6 +645,7 @@ final class PostInplaceCest
             'published_at'   => (string)$futureAt,
         ]);
         $I->seeResponseCodeIs(Response::HTTP_OK);
+
         $created = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertTrue($created['scheduled']);
         $I->assertSame('Post scheduled', $created['message']);
@@ -663,6 +665,7 @@ final class PostInplaceCest
 
         $I->amOnPage('https://localhost' . $created['url']);
         $I->seeElement('.post-card.is-scheduled-preview[data-post-id="' . $postId . '"]');
+
         $editForm = '.post-card[data-post-id="' . $postId . '"] > .post-inplace-edit-form';
         $publishNow = time() - 1;
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
@@ -675,6 +678,7 @@ final class PostInplaceCest
             'published_at'   => (string)$publishNow,
         ]);
         $I->seeResponseCodeIs(Response::HTTP_OK);
+
         $edited = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertFalse($edited['scheduled']);
 
