@@ -76,12 +76,18 @@ final class TypographTest extends Unit
     /** @noinspection HtmlUnknownTarget */
     public static function russianTextProvider(): \Iterator
     {
+        $blogTranslations = require \dirname(__DIR__, 5) . '/_include/src/Register/Module/Blog/resources/lang/Russian.php';
+
         yield ['- Это "Типограф"?', '— Это «Типограф»?'];
         yield ['в этом – она вся', 'в этом&nbsp;— она вся'];
         yield ['да и в школах не проходят', 'да и&nbsp;в&nbsp;школах не проходят'];
         yield ['как-то же можно', '<nobr>как-то</nobr>&nbsp;же можно'];
         yield ['так-что ли?', '<nobr>так-что</nobr>&nbsp;ли?'];
         yield ['"Онлайн-кинотеатр "Аййо"".', '<nobr>«Онлайн-кинотеатр</nobr> „Аййо“».'];
+        yield 'quoted post title keeps proper nesting in confirmation copy' => [
+            sprintf((string)$blogTranslations['Delete warning'], '«MK-61s»: область памяти «Ms»'),
+            'Пост <nobr>«„MK-61s“:</nobr> область памяти „Ms“» и&nbsp;все комментарии к&nbsp;нему будут удалены. Это действие нельзя отменить.',
+        ];
         yield ['(c) 2024 - someone.', '© 2024&nbsp;— someone.'];
         yield ['<p>$$5+6z=A(6+z)\iff(6-A)z=6A-5\implies z={6A-5\over 6-A}.$$</p>', '<p>$$5+6z=A(6+z)\iff(6-A)z=6A-5\implies z={6A-5\over 6-A}.$$</p>'];
         // No replacement in LaTeX

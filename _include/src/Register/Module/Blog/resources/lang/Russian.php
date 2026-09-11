@@ -54,7 +54,7 @@ return [
     'N pending comments' => '{{ count }} новый комментарий|{{ count }} новых комментария|{{ count }} новых комментариев',
     'Date pattern' => 'd.m.Y', // For example, 'Y/m/d'. 'Y', 'm' and 'd' stand for a year, a month and a day.
 
-    'Delete warning' => 'Пост «%s» и все комментарии к нему будут удалены. Это действие нельзя отменить.',
+    'Delete warning' => 'Пост "%s" и все комментарии к нему будут удалены. Это действие нельзя отменить.',
     'Post tools' => 'Инструменты поста',
     'Edit post inplace' => 'Редактировать пост',
     'Delete post inplace' => 'Удалить пост',
