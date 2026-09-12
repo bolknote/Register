@@ -306,6 +306,17 @@ function DisplayError(sError) {
 
 // Ajax login form processing
 
+function setLoginMessage(element, text) {
+    const fragments = [];
+    String(text).split(/<br\s*\/?>/giu).forEach(function (line, index) {
+        if (index > 0) {
+            fragments.push(document.createElement('br'));
+        }
+        fragments.push(document.createTextNode(line));
+    });
+    element.replaceChildren(...fragments);
+}
+
 async function SendLoginData(eForm, fOk, fFail) {
     try {
         let response = await originalFetch('?action=login', {
@@ -338,7 +349,7 @@ function SendLoginForm() {
         document.location.reload();
     }, function (sText) {
         const message = document.getElementById('message');
-        message.textContent = String(sText);
+        setLoginMessage(message, sText);
         message.hidden = false;
         form.classList.remove('is-shaking');
         requestAnimationFrame(function () {
