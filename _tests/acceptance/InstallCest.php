@@ -247,7 +247,12 @@ class InstallCest
 
         $I->amOnPage('/_admin/index.php?entity=Dashboard');
         $I->see('Overview', 'h1');
-        $I->see('Needs attention', 'h3');
+        $I->see('Comments to review', '#overview-moderation-title');
+        $I->see('Continue writing', '#overview-drafts-title');
+        $I->see('Publication plan', '#overview-schedule-title');
+        $I->see('Audience', '#overview-audience-title');
+        $I->see('Most-read posts', '#overview-popular-title');
+        $I->dontSeeElement('.security-stat-item');
         $I->dontSeeElement('a[href="https://github.com/bolknote/Register"]');
 
         $I->amOnPage('/_admin/index.php?entity=Statistics');
@@ -258,6 +263,7 @@ class InstallCest
 
         $I->amOnPage('/_admin/index.php?entity=SystemStatus');
         $I->see('System status', 'h1');
+        $I->see('Security monitoring', '.security-stat-item h3');
         $I->seeElement('script[src$="/_assets/register/search/index-manager.js"]');
         $I->dontSeeElement('script[src*="/_extensions/register_search/"]');
         $I->seeElement('input[name=register_search_csrf_token]');
