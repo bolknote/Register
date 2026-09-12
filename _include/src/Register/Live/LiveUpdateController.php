@@ -184,6 +184,9 @@ final readonly class LiveUpdateController implements ControllerInterface
                 . '"></div>';
         }
 
+        // Refreshing a background region is not an explicit visit to its discussion.
+        $request->attributes->set('register_comment_background_update', true);
+
         return $this->commentRenderer->renderRegion($contentId, $request, $content->path);
     }
 

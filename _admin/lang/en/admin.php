@@ -3,6 +3,13 @@
 declare(strict_types = 1);
 
 return [
+    'Comment deleted' => 'Comment deleted',
+    'Undo comment deletion' => 'Undo',
+    'Comment deleted with undo period' => 'Comment deleted. Undo is available for ten minutes.',
+    'Comments deleted with undo period' => 'Comments deleted. Undo is available for ten minutes.',
+    'Bulk comment delete with undo confirmation' => 'Delete {{ count }} comments? You can undo this for ten minutes.',
+    'Delete comment with undo confirmation' => 'Delete this comment? You can undo this for ten minutes.',
+    'Comment changed before undo' => 'This deletion can no longer be undone. The comment changed or the ten-minute undo period ended.',
     'Overview introduction' => 'The conversations, writing and readership that matter today.',
     'Overview open blog' => 'Open the blog',
     'Overview moderation' => 'Comments to review',
@@ -399,6 +406,7 @@ return [
     'URL not unique'             => 'This Slug is already used. Choose another one.',
     'URL empty'                  => 'Set the slug to give this content an address.',
     'URL unavailable'            => 'This slug is reserved or belongs to other content. Choose another one.',
+    'The complete URL exceeds the 255-byte URL history limit. Shorten the address or its parent addresses.' => 'The complete URL exceeds the 255-byte URL history limit. Shorten the address or its parent addresses.',
     'URL on mainpage'            => 'You cannot change the URL fragment of the main page.',
     'inherited'                  => 'inherited',
     'Preview template not found' => 'Preview is unavailable: template “{{ template }}” not found.',
@@ -893,6 +901,8 @@ return [
     'REGISTER_WEBMASTER_EMAIL_help'  => 'Public contact address used in the copyright and as the default diagnostic-test recipient.',
     'REGISTER_SHOW_COMMENTS_help'    => 'You can hide all comments for a while by turning this off.',
     'REGISTER_ENABLED_COMMENTS_help' => 'Show the comment form (at pages where it was not explicitly disabled).',
+    'REGISTER_COMMENT_MAX_AGE_DAYS' => 'Close post discussions after this many days',
+    'REGISTER_COMMENT_MAX_AGE_DAYS_help' => 'Counted from publication. 0 means no age limit. Existing comments stay visible; permanent pages are not affected.',
     'REGISTER_AKISMET_KEY_help'      => 'Optional key for shadow comparison or rollback. Comments are sent to Akismet only in shadow or akismet mode.',
     'REGISTER_ANTISPAM_MODE_help'     => 'Antispam mode: local uses the on-site filter; shadow keeps Akismet decisions while recording local scores; akismet disables local decisions.',
     'REGISTER_ANTISPAM_SPAM_SCORE_help' => 'Comments at or above this local risk score are sent to moderation.',

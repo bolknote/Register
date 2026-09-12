@@ -29,6 +29,8 @@ final readonly class ContentSlugService
 
     public const string STATUS_UNAVAILABLE = 'unavailable';
 
+    public const string STATUS_TOO_LONG = 'too_long';
+
     private const string CANONICAL_SLUG_PATTERN = '/^[a-z0-9]+(?:-[a-z0-9]+)*$/D';
 
     public function __construct(
@@ -36,6 +38,7 @@ final readonly class ContentSlugService
         private UniqueSlugGenerator   $uniqueSlugGenerator,
         private ReservedRouteRegistry $reservedRouteRegistry,
         private ContentUrlAliasRepository $contentUrlAliases,
+        private ContentUrlGenerator $contentUrls,
     ) {
     }
 
@@ -54,7 +57,14 @@ final readonly class ContentSlugService
     {
         return $this->uniqueSlugGenerator->generate(
             $title,
-            fn(string $slug): bool => $this->pageStatusAtParent(0, $parentId, $slug) === self::STATUS_OK,
+            function (string $slug) use ($parentId): bool {
+                $status = $this->pageStatusAtParent(0, $parentId, $slug);
+                if ($status === self::STATUS_TOO_LONG) {
+                    throw new ContentUrlCollisionException(ContentUrlCollisionException::PATH_TOO_LONG);
+                }
+
+                return $status === self::STATUS_OK;
+            },
             ContentType::PAGE->value,
         );
     }
@@ -65,6 +75,12 @@ final readonly class ContentSlugService
         $syntaxStatus = $this->syntaxStatus($slug);
         if ($syntaxStatus !== self::STATUS_OK || $this->reservedRouteRegistry->contains($slug)) {
             return $syntaxStatus === self::STATUS_OK ? self::STATUS_UNAVAILABLE : $syntaxStatus;
+        }
+
+        try {
+            $this->contentUrlAliases->assertAvailable($slug, $postId);
+        } catch (ContentUrlCollisionException $exception) {
+            return $exception->getMessage() === ContentUrlCollisionException::PATH_TOO_LONG ? self::STATUS_TOO_LONG : self::STATUS_NOT_UNIQUE;
         }
 
         return $this->statusInScope($postId, 'root', $slug);
@@ -91,7 +107,7 @@ final readonly class ContentSlugService
             return self::STATUS_MAIN_PAGE;
         }
 
-        return $this->pageStatusInScope($pageId, (string)$page['slug_scope'], $slug ?? (string)$page['slug']);
+        return $this->pageStatusAtParent($pageId, (int)$parentId, $slug ?? (string)$page['slug']);
     }
 
     /** @throws DbLayerException */
@@ -100,6 +116,15 @@ final readonly class ContentSlugService
         $syntaxStatus = $this->syntaxStatus($slug);
         if ($syntaxStatus !== self::STATUS_OK) {
             return $syntaxStatus;
+        }
+
+        $parentPath = $this->contentUrls->usesHierarchy() ? $this->contentUrls->pagePath($parentId) : '/';
+        if ($parentPath !== null) {
+            try {
+                $this->contentUrlAliases->assertAvailable(rtrim($parentPath, '/') . '/' . $slug, $pageId);
+            } catch (ContentUrlCollisionException $exception) {
+                return $exception->getMessage() === ContentUrlCollisionException::PATH_TOO_LONG ? self::STATUS_TOO_LONG : self::STATUS_NOT_UNIQUE;
+            }
         }
 
         return $this->pageStatusInScope($pageId, $this->pageScope($parentId), $slug);
@@ -150,7 +175,7 @@ final readonly class ContentSlugService
             return $syntaxStatus;
         }
 
-        if ($scope === 'root' && $this->reservedRouteRegistry->contains($slug)) {
+        if (($scope === 'root' || !$this->contentUrls->usesHierarchy()) && $this->reservedRouteRegistry->contains($slug)) {
             return self::STATUS_UNAVAILABLE;
         }
 

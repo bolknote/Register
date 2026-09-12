@@ -11,6 +11,7 @@ namespace Register\Controller;
 
 use Psr\Log\LoggerInterface;
 use Register\Comment\CommentRepository;
+use Register\Comment\CommentDeletionState;
 use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentType;
 use Register\Core\Comment\CommentHtml;
@@ -45,6 +46,10 @@ final readonly class CommentModerationController implements ControllerInterface
     #[\Override]
     public function handle(Request $request): Response
     {
+        if (!$request->isMethod('POST')) {
+            return $this->error($request, $this->translator->trans('Invalid comment moderation request'), Response::HTTP_METHOD_NOT_ALLOWED);
+        }
+
         $moderator = $this->authProvider->getAuthenticatedCommentModerator($request);
         if (!$moderator instanceof CommentModerator) {
             return $this->error($request, $this->translator->trans('Comment moderation forbidden'), Response::HTTP_FORBIDDEN);
@@ -55,7 +60,7 @@ final readonly class CommentModerationController implements ControllerInterface
         $action     = $request->request->getString('moderation_action');
         $token      = $request->request->getString('moderation_token');
 
-        if ($contentType === null || $commentId <= 0 || !in_array($action, ['edit', 'hide', 'show', 'delete', 'spam', 'ham'], true)) {
+        if ($contentType === null || $commentId <= 0 || !in_array($action, ['edit', 'hide', 'show', 'delete', 'restore', 'spam', 'ham'], true)) {
             return $this->error($request, $this->translator->trans('Invalid comment moderation request'), Response::HTTP_BAD_REQUEST);
         }
 
@@ -63,6 +68,7 @@ final readonly class CommentModerationController implements ControllerInterface
             return $this->error($request, $this->translator->trans('Comment moderation token expired'), Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $undoToken = null;
         if ($action === 'edit') {
             if (!$moderator->canEdit) {
                 return $this->error($request, $this->translator->trans('Comment moderation forbidden'), Response::HTTP_FORBIDDEN);
@@ -87,12 +93,22 @@ final readonly class CommentModerationController implements ControllerInterface
                 return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
             }
 
-            if ($comment->deleted) {
+            if ($comment->deleted && $action !== 'restore') {
                 return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
             }
 
             if ($action === 'delete') {
-                $this->commentRepository->tombstone($commentId, $contentType);
+                $state = $this->commentRepository->deleteRecoverably($comment);
+                if (!$state instanceof CommentDeletionState) {
+                    return $this->error($request, $this->translator->trans('Comment changed before undo'), Response::HTTP_CONFLICT);
+                }
+
+                $undoToken = $this->tokenManager->issueUndo($token, $comment, $state);
+            } elseif ($action === 'restore') {
+                $state = $this->tokenManager->readUndo($request->request->getString('undo_token'), $token, $comment);
+                if (!$state instanceof CommentDeletionState || !$this->commentRepository->restoreDeleted($comment, $state)) {
+                    return $this->error($request, $this->translator->trans('Comment changed before undo'), Response::HTTP_CONFLICT);
+                }
             } elseif ($action === 'hide') {
                 if (!$comment->shown || !$this->commentRepository->hide($commentId, $contentType)) {
                     return $this->error($request, $this->translator->trans('Comment not found'), Response::HTTP_NOT_FOUND);
@@ -128,12 +144,37 @@ final readonly class CommentModerationController implements ControllerInterface
         }
 
         if ($request->isXmlHttpRequest() || str_contains($request->headers->get('Accept') ?? '', 'application/json')) {
-            return new JsonResponse(['success' => true, 'action' => $action]);
+            return new JsonResponse(['success' => true, 'action' => $action] + ($undoToken !== null ? [
+                'undo_token' => $undoToken,
+                'undo_label' => $this->translator->trans('Undo comment deletion'),
+                'dismiss_label' => $this->translator->trans('Close'),
+                'undo_error' => $this->translator->trans('Comment changed before undo'),
+                'message' => $this->translator->trans('Comment deleted with undo period'),
+            ] : []));
         }
 
         $returnPath = $this->safeReturnPath($request->request->getString('return_to'));
         $anchor     = $request->request->getInt('comment_anchor');
         $location   = $this->urlBuilder->link($returnPath) . ($anchor > 0 ? '#' . $anchor : '#comments-title');
+
+        if ($undoToken !== null) {
+            $fields = [
+                'moderation_action' => 'restore', 'target_type' => $contentType->value,
+                'comment_id' => (string)$commentId, 'comment_anchor' => (string)$anchor,
+                'moderation_token' => $token, 'undo_token' => $undoToken, 'return_to' => $returnPath,
+            ];
+            $html = '<!doctype html><meta charset="utf-8"><title>' . register_htmlencode($this->translator->trans('Comment deleted')) . '</title>'
+                . '<p>' . register_htmlencode($this->translator->trans('Comment deleted with undo period')) . '</p><form method="post" action="'
+                . register_htmlencode($this->urlBuilder->rawLink('/comment-moderate')) . '">';
+            foreach ($fields as $name => $value) {
+                $html .= '<input type="hidden" name="' . $name . '" value="' . register_htmlencode($value) . '">';
+            }
+
+            $html .= '<button type="submit">' . register_htmlencode($this->translator->trans('Undo comment deletion')) . '</button></form>'
+                . '<p><a href="' . register_htmlencode($location) . '">' . register_htmlencode($this->translator->trans('Return to discussion')) . '</a></p>';
+
+            return new Response($html, Response::HTTP_OK, ['Content-Type' => 'text/html; charset=UTF-8', 'Cache-Control' => 'no-store']);
+        }
 
         return new RedirectResponse($location, Response::HTTP_SEE_OTHER);
     }

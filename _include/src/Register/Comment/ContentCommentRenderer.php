@@ -11,6 +11,8 @@ namespace Register\Comment;
 
 use Register\Auth\CommentNotificationRepository;
 use Register\Content\ContentId;
+use Register\Content\ContentSchema;
+use Register\Content\ContentType;
 use Register\Module\Reactions\ReactionAggregateSchema;
 use Register\Core\Model\AuthProvider;
 use Register\Model\Comment\CommentModerationContext;
@@ -27,13 +29,16 @@ final readonly class ContentCommentRenderer
 
     private ?CommentNotificationRepository $notificationRepository;
 
+    private ?CommentAgePolicy $agePolicy;
+
     public function __construct(
         private DbLayer                        $dbLayer,
         private CommentThreadRenderer          $threadRenderer,
         private AuthProvider                   $authProvider,
-        CommentNotificationRepository|CommentPresentationEnricherInterface ...$dependencies,
+        CommentNotificationRepository|CommentPresentationEnricherInterface|CommentAgePolicy ...$dependencies,
     ) {
         $notificationRepository = null;
+        $agePolicy = null;
         $presentationEnrichers = [];
         foreach ($dependencies as $dependency) {
             if ($dependency instanceof CommentNotificationRepository) {
@@ -42,12 +47,15 @@ final readonly class ContentCommentRenderer
                 }
 
                 $notificationRepository = $dependency;
+            } elseif ($dependency instanceof CommentAgePolicy) {
+                $agePolicy = $dependency;
             } else {
                 $presentationEnrichers[] = $dependency;
             }
         }
 
         $this->notificationRepository = $notificationRepository;
+        $this->agePolicy = $agePolicy;
         $this->presentationEnrichers = $presentationEnrichers;
     }
 
@@ -102,8 +110,13 @@ final readonly class ContentCommentRenderer
         $authenticatedUser = $this->authProvider->getAuthenticatedPublicUser($request);
         if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser
             && $this->notificationRepository instanceof CommentNotificationRepository
+            && !$request->attributes->getBoolean('register_comment_background_update')
         ) {
-            $this->notificationRepository->markContentRead($authenticatedUser, $contentId);
+            if ($request->query->has('comment_unread')) {
+                $this->notificationRepository->markCommentRead($authenticatedUser, $contentId, $request->query->getInt('comment_unread'));
+            } else {
+                $this->notificationRepository->markContentRead($authenticatedUser, $contentId);
+            }
         }
 
         return $this->threadRenderer->render(
@@ -111,7 +124,22 @@ final readonly class ContentCommentRenderer
             $moderator instanceof CommentModerator
                 ? new CommentModerationContext($moderator, $contentId->type, $returnPath)
                 : null,
+            $this->allowReplies($contentId),
         );
+    }
+
+    private function allowReplies(ContentId $contentId): bool
+    {
+        if ($contentId->type !== ContentType::POST || $this->agePolicy === null || $this->agePolicy->days() === 0) {
+            return true;
+        }
+
+        $publishedAt = $this->dbLayer->select('published_at')->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $contentId->value)
+            ->andWhere('content_type = :type')->setParameter('type', ContentType::POST->value)
+            ->execute()->result();
+
+        return !$this->agePolicy->isClosed($publishedAt === null ? null : (int)$publishedAt);
     }
 
     /**

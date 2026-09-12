@@ -69,7 +69,6 @@ use Register\Extension\activitypub\Infrastructure\LocalFederationRepository;
 use Register\Extension\activitypub\Infrastructure\ModerationRuleRepository;
 use Register\Extension\activitypub\Infrastructure\ReaderRepository;
 use Register\Extension\activitypub\Infrastructure\RemoteActorRepository;
-use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
 use Register\Extension\activitypub\Security\CollectionCursorCodec;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -101,7 +100,7 @@ final class AdminExtension implements ContainerModuleInterface, ContainerAwareLi
             $container->get(ContentFederationSettingsFormParser::class),
         ));
         $container->set(ActivityPubContentEditorControllerFactory::class, static fn(Container $container): ActivityPubContentEditorControllerFactory => new ActivityPubContentEditorControllerFactory(
-            $container->get(PortableDatabaseTransaction::class),
+            $container->get(\Register\Url\UrlHistoryService::class),
         ));
         $container->set(ActivityPubContentPreviewController::class, static fn(Container $container): ActivityPubContentPreviewController => new ActivityPubContentPreviewController(
             $container->get(AdminConfigProvider::class),

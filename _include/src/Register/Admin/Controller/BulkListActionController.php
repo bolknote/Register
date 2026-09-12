@@ -52,6 +52,7 @@ final readonly class BulkListActionController
 
         $entityName = $request->request->getString('entity');
         $action     = $request->request->getString('bulk_action');
+        $undoItems = [];
         try {
             if (!$this->mutationGuard->hasValidCsrfToken(
                 $request,
@@ -65,7 +66,7 @@ final readonly class BulkListActionController
             }
 
             $items = $this->decodeItems($request->request->getString('items'));
-            $count = $this->transactional(function () use ($entityName, $action, $items, $request): int {
+            $count = $this->transactional(function () use ($entityName, $action, $items, $request, &$undoItems): int {
                 if ($action === BulkListActionProvider::ACTION_PUBLISH
                     || $action === BulkListActionProvider::ACTION_UNPUBLISH
                 ) {
@@ -78,7 +79,7 @@ final readonly class BulkListActionController
                     );
                 }
 
-                return $this->runEntityActions($entityName, $action, $items, $request);
+                return $this->runEntityActions($entityName, $action, $items, $request, $undoItems);
             });
         } catch (AccessDeniedException $exception) {
             return $this->error($exception->getMessage(), Response::HTTP_FORBIDDEN);
@@ -99,13 +100,20 @@ final readonly class BulkListActionController
             return $this->error($message, $status);
         }
 
-        return new JsonResponse(['success' => true, 'updated' => $count]);
+        return new JsonResponse(['success' => true, 'updated' => $count] + ($undoItems !== [] ? [
+            'undo_items' => $undoItems,
+            'message' => $this->translator->trans('Comments deleted with undo period'),
+            'undo_label' => $this->translator->trans('Undo comment deletion'),
+            'dismiss_label' => $this->translator->trans('Close'),
+            'undo_error' => $this->translator->trans('Comment changed before undo'),
+        ] : []));
     }
 
     /**
      * @param list<array{id: int, csrf_token: string}> $items
+     * @param list<array{url: string, data: array{csrf_token: string, undo_token: string}}> $undoItems
      */
-    private function runEntityActions(string $entityName, string $action, array $items, Request $parentRequest): int
+    private function runEntityActions(string $entityName, string $action, array $items, Request $parentRequest, array &$undoItems): int
     {
         $adminPanel = $this->adminPanelFactory->create();
         foreach ($items as $item) {
@@ -129,6 +137,17 @@ final readonly class BulkListActionController
 
             if (!$response->isSuccessful()) {
                 throw new \RuntimeException($this->responseError($response), $response->getStatusCode());
+            }
+
+            if ($entityName === 'Comment' && $action === BulkListActionProvider::ACTION_DELETE) {
+                $payload = json_decode((string)$response->getContent(), true, 16, JSON_THROW_ON_ERROR);
+                $undoToken = \is_array($payload) ? ($payload['undo_token'] ?? null) : null;
+                if (\is_string($undoToken)) {
+                    $undoItems[] = [
+                        'url' => 'index.php?' . http_build_query(['entity' => 'Comment', 'action' => 'delete', 'id' => $item['id']]),
+                        'data' => ['csrf_token' => $item['csrf_token'], 'undo_token' => $undoToken],
+                    ];
+                }
             }
         }
 

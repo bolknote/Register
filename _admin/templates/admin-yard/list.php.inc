@@ -313,15 +313,15 @@ foreach ($filterControls as $fieldName => $control) {
                  data-running-label="<?= $html($trans('Bulk action running')) ?>"
                  data-error-label="<?= $html($trans('Bulk action failed')) ?>"
                  data-confirm-title="<?= $html($trans('Delete selected items')) ?>"
-                 data-confirm-label="<?= $html($trans('Delete permanently')) ?>"
-                 data-confirm-message="<?= $html($trans('Bulk delete confirmation')) ?>">
+                 data-confirm-label="<?= $html($trans($entityName === 'Comment' ? 'delete' : 'Delete permanently')) ?>"
+                 data-confirm-message="<?= $html($trans($entityName === 'Comment' ? 'Bulk comment delete with undo confirmation' : 'Bulk delete confirmation')) ?>">
             <strong data-bulk-selection-count><?= $html(str_replace('{{ count }}', '0', $trans('Bulk selected count'))) ?></strong>
             <label for="bulk-list-action-<?= $html($entityName) ?>"><?= $html($trans('Bulk action')) ?></label>
             <select id="bulk-list-action-<?= $html($entityName) ?>" data-bulk-action>
                 <option value=""><?= $html($trans('Choose bulk action')) ?></option>
                 <?php foreach ($bulkListActions as $bulkListAction): ?>
                     <option value="<?= $html($bulkListAction) ?>"
-                            <?= $bulkListAction === 'delete' ? 'data-dangerous' : '' ?>><?= $html($trans('Bulk action ' . $bulkListAction)) ?></option>
+                            <?= $bulkListAction === 'delete' ? 'data-dangerous' : '' ?>><?= $html($trans($entityName === 'Comment' && $bulkListAction === 'delete' ? 'delete' : 'Bulk action ' . $bulkListAction)) ?></option>
                 <?php endforeach; ?>
             </select>
             <button type="button" class="secondary" data-bulk-apply disabled><?= $html($trans('Apply bulk action')) ?></button>

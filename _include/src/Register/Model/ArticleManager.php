@@ -46,6 +46,7 @@ readonly class ArticleManager
         private BoolProxy               $useHierarchy,
         private ContentSlugService      $contentSlugService,
         private ContentChangeDispatcher $contentChangeDispatcher,
+        private \Register\Url\UrlHistoryService $urlHistory,
         ContentDeletionGuardInterface   ...$contentDeletionGuards,
     ) {
         $this->contentDeletionGuards = array_values($contentDeletionGuards);
@@ -210,53 +211,52 @@ readonly class ArticleManager
             throw new NotFoundException('Item not found!');
         }
 
-        $this->dbLayer->startTransaction();
+        $insertId = $this->urlHistory->run(function () use ($parentId, $title): int {
+            $slug = $this->contentSlugService->generatePage($parentId, $title);
 
-        $slug = $this->contentSlugService->generatePage($parentId, $title);
+            if ($this->newPositionOnTop->get()) {
+                $this->dbLayer
+                    ->update(ContentSchema::TABLE_NAME)
+                    ->set('sort_order', 'sort_order + 1')
+                    ->where('parent_id = :id')->setParameter('id', $parentId)
+                    ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+                    ->execute()
+                ;
+                $newPriority = 0;
 
-        if ($this->newPositionOnTop->get()) {
+            } else {
+                $result      = $this->dbLayer
+                    ->select('MAX(sort_order + 1)')
+                    ->from(ContentSchema::TABLE_NAME)
+                    ->where('parent_id = :id')->setParameter('id', $parentId)
+                    ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+                    ->execute()
+                ;
+                $newPriority = (int)$result->result();
+            }
+
+            $now = time();
+
             $this->dbLayer
-                ->update(ContentSchema::TABLE_NAME)
-                ->set('sort_order', 'sort_order + 1')
-                ->where('parent_id = :id')->setParameter('id', $parentId)
-                ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+                ->insert(ContentSchema::TABLE_NAME)
+                ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
+                ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $parentId)
+                ->setValue('slug_scope', ':slug_scope')->setParameter('slug_scope', $this->contentSlugService->pageScope($parentId))
+                ->setValue('title', ':title')->setParameter('title', $title)
+                ->setValue('sort_order', ':sort_order')->setParameter('sort_order', $newPriority)
+                ->setValue('slug', ':slug')->setParameter('slug', $slug)
+                ->setValue('author_id', ':author_id')->setParameter('author_id', $this->permissionChecker->getUserId())
+                ->setValue('template', ':template')->setParameter('template', $this->useHierarchy->get() ? '' : 'site.php')
+                ->setValue('excerpt', ':excerpt')->setParameter('excerpt', '')
+                ->setValue('body', ':body')->setParameter('body', '')
+                ->setValue('created_at', ':created_at')->setParameter('created_at', $now)
+                ->setValue('published_at', ':published_at')->setParameter('published_at', $now)
+                ->setValue('updated_at', ':updated_at')->setParameter('updated_at', $now)
                 ->execute()
             ;
-            $newPriority = 0;
 
-        } else {
-            $result      = $this->dbLayer
-                ->select('MAX(sort_order + 1)')
-                ->from(ContentSchema::TABLE_NAME)
-                ->where('parent_id = :id')->setParameter('id', $parentId)
-                ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
-                ->execute()
-            ;
-            $newPriority = (int)$result->result();
-        }
-
-        $now = time();
-
-        $this->dbLayer
-            ->insert(ContentSchema::TABLE_NAME)
-            ->setValue('content_type', ':content_type')->setParameter('content_type', ContentType::PAGE->value)
-            ->setValue('parent_id', ':parent_id')->setParameter('parent_id', $parentId)
-            ->setValue('slug_scope', ':slug_scope')->setParameter('slug_scope', $this->contentSlugService->pageScope($parentId))
-            ->setValue('title', ':title')->setParameter('title', $title)
-            ->setValue('sort_order', ':sort_order')->setParameter('sort_order', $newPriority)
-            ->setValue('slug', ':slug')->setParameter('slug', $slug)
-            ->setValue('author_id', ':author_id')->setParameter('author_id', $this->permissionChecker->getUserId())
-            ->setValue('template', ':template')->setParameter('template', $this->useHierarchy->get() ? '' : 'site.php')
-            ->setValue('excerpt', ':excerpt')->setParameter('excerpt', '')
-            ->setValue('body', ':body')->setParameter('body', '')
-            ->setValue('created_at', ':created_at')->setParameter('created_at', $now)
-            ->setValue('published_at', ':published_at')->setParameter('published_at', $now)
-            ->setValue('updated_at', ':updated_at')->setParameter('updated_at', $now)
-            ->execute()
-        ;
-        $insertId = (int)$this->dbLayer->insertId();
-
-        $this->dbLayer->endTransaction();
+            return (int)$this->dbLayer->insertId();
+        });
         $this->contentChangeDispatcher->dispatch(ContentId::page($insertId));
 
         return $insertId;
@@ -353,41 +353,48 @@ readonly class ArticleManager
             throw new AccessDeniedException("You don't have permissions to move this article!");
         }
 
-        if ($this->contentSlugService->pageStatusAtParent($sourceId, $destinationId, $sourceSlug) !== ContentSlugService::STATUS_OK) {
-            throw new ContentUrlCollisionException('A page with this URL already exists at the destination.');
+        $urlStatus = $this->contentSlugService->pageStatusAtParent($sourceId, $destinationId, $sourceSlug);
+        if ($urlStatus !== ContentSlugService::STATUS_OK) {
+            throw new ContentUrlCollisionException($urlStatus === ContentSlugService::STATUS_TOO_LONG
+                ? ContentUrlCollisionException::PATH_TOO_LONG
+                : 'A page with this URL already exists at the destination.');
         }
 
-        $this->dbLayer->startTransaction();
+        foreach ($this->contentChangeDispatcher->pageBranch($sourceId) as $descendant) {
+            if ($descendant->value === $destinationId) {
+                throw new ContentUrlCollisionException('A page cannot be moved inside its own branch.');
+            }
+        }
 
-        $this->dbLayer
-            ->update(ContentSchema::TABLE_NAME)
-            ->set('sort_order', 'sort_order + 1')
-            ->where('sort_order >= :priority')->setParameter('priority', $position)
-            ->andWhere('parent_id = :parent_id')->setParameter('parent_id', $destinationId)
-            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
-            ->execute()
-        ;
+        $this->urlHistory->changeContent(ContentId::page($sourceId), function () use ($sourceId, $destinationId, $position, $sourceParentId, $sourcePriority): void {
+            $this->dbLayer
+                ->update(ContentSchema::TABLE_NAME)
+                ->set('sort_order', 'sort_order + 1')
+                ->where('sort_order >= :priority')->setParameter('priority', $position)
+                ->andWhere('parent_id = :parent_id')->setParameter('parent_id', $destinationId)
+                ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+                ->execute()
+            ;
 
-        $this->dbLayer
-            ->update(ContentSchema::TABLE_NAME)
-            ->set('sort_order', ':priority')->setParameter('priority', $position)
-            ->set('parent_id', ':parent_id')->setParameter('parent_id', $destinationId)
-            ->set('slug_scope', ':slug_scope')->setParameter('slug_scope', $this->contentSlugService->pageScope($destinationId))
-            ->where('id = :id')->setParameter('id', $sourceId)
-            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
-            ->execute()
-        ;
+            $this->dbLayer
+                ->update(ContentSchema::TABLE_NAME)
+                ->set('sort_order', ':priority')->setParameter('priority', $position)
+                ->set('parent_id', ':parent_id')->setParameter('parent_id', $destinationId)
+                ->set('slug_scope', ':slug_scope')->setParameter('slug_scope', $this->contentSlugService->pageScope($destinationId))
+                ->where('id = :id')->setParameter('id', $sourceId)
+                ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+                ->execute()
+            ;
 
-        $this->dbLayer
-            ->update(ContentSchema::TABLE_NAME)
-            ->set('sort_order', 'sort_order - 1')
-            ->where('parent_id = :parent_id')->setParameter('parent_id', $sourceParentId)
-            ->andWhere('sort_order > :priority')->setParameter('priority', $sourcePriority)
-            ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
-            ->execute()
-        ;
-
-        $this->dbLayer->endTransaction();
+            $this->dbLayer
+                ->update(ContentSchema::TABLE_NAME)
+                ->set('sort_order', 'sort_order - 1')
+                ->where('parent_id = :parent_id')->setParameter('parent_id', $sourceParentId)
+                ->andWhere('sort_order > :priority')->setParameter('priority', $sourcePriority)
+                ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::PAGE->value)
+                ->execute()
+            ;
+        });
         $this->contentChangeDispatcher->dispatchPageBranch($sourceId);
     }
 

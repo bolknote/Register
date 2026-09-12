@@ -512,6 +512,12 @@
                         return payload;
                     });
                 }).then(function (payload) {
+                    if (payload.undo_token && window.RegisterCommentUndo) {
+                        var undoData = Object.fromEntries(new FormData(form));
+                        undoData.moderation_action = 'restore';
+                        undoData.undo_token = payload.undo_token;
+                        window.RegisterCommentUndo.remember(payload, [{url: form.action, data: undoData}]);
+                    }
                     var isSpamAction = payload.action === 'spam';
                     var activeElement = document.activeElement;
                     if (activeElement && form.contains(activeElement) && typeof activeElement.blur === 'function') {

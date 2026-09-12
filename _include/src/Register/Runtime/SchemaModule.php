@@ -29,6 +29,7 @@ use Register\Schema\SchemaMigrator;
 use Register\Schema\SessionAudienceSchemaMigration;
 use Register\Schema\SocialEngagementSchemaMigration;
 use Register\Schema\VisitorUserSchemaMigration;
+use Register\Schema\UrlHistorySchemaMigration;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Pdo\DbLayer;
@@ -120,6 +121,11 @@ final readonly class SchemaModule implements ContainerModuleInterface
             static fn(Container $container): FuturePublicationSchemaMigration => new FuturePublicationSchemaMigration(
                 $container->get(QueuePublisher::class),
             ),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            UrlHistorySchemaMigration::class,
+            new UrlHistorySchemaMigration(),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

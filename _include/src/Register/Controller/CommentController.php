@@ -128,6 +128,18 @@ readonly class CommentController implements ControllerInterface
             $errors[] = $this->translator->trans('disabled');
         }
 
+        // Check before preview as well as submission: a form opened before the deadline
+        // cannot bypass the age limit, even when its signed token is still valid.
+        $target = $this->commentStrategy->getTargetByRequest($request);
+        $targetAcceptsComments = false;
+        if ($target instanceof TargetDto) {
+            $targetAcceptsComments = $target->commentsAllowed;
+            if (!$targetAcceptsComments) {
+                $errors[] = $this->translator->trans('Comments closed by age');
+                $errorStatus = Response::HTTP_FORBIDDEN;
+            }
+        }
+
         $submittedText = trim($request->request->getString('text'));
         $text = CommentHtml::sanitizeForStorage($submittedText);
         $analysisText = CommentHtml::plainText($text);
@@ -264,8 +276,6 @@ readonly class CommentController implements ControllerInterface
         }
 
         // What are we going to comment?
-        $target = $this->commentStrategy->getTargetByRequest($request);
-
         if (!$target instanceof \Register\Controller\Comment\TargetDto && \count($errors) === 0) {
             $errors[] = $this->translator->trans('no_item');
         }
@@ -292,7 +302,7 @@ readonly class CommentController implements ControllerInterface
                 ->putInPlaceholder('title', $this->translator->trans('Error'))
                 ->putInPlaceholder('text', $errorText . ($target instanceof \Register\Controller\Comment\TargetDto ? '<p>' . $this->translator->trans('Fix error') . '</p>' : ''))
                 ->putInPlaceholder('id', $id)
-                ->putInPlaceholder('commented', $target instanceof \Register\Controller\Comment\TargetDto) // can be commented, i.e. render comment form
+                ->putInPlaceholder('commented', $targetAcceptsComments)
                 ->putInPlaceholder('comment_form', [
                     'name'         => $name,
                     'email'        => $email,

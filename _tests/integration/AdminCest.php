@@ -478,7 +478,8 @@ class AdminCest
         $I->see('AI assistant', '.config-section');
         $I->seeElement('nav.config-section-nav[aria-label="Settings sections"]');
         $I->seeElement('[data-config-page-state][data-state="applied"]');
-        $I->assertCount(54, $I->grabMultiple('.config-setting label[for]'));
+        $I->assertCount(55, $I->grabMultiple('.config-setting label[for]'));
+        $I->seeElement('[data-config-key="REGISTER_COMMENT_MAX_AGE_DAYS"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_SITE_NAME"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_SITE_TAGLINE"] input[name="value"]');
         $I->seeElement('[data-config-key="REGISTER_SOCIAL_IMAGE"] input[name="value"]');

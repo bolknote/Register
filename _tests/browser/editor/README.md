@@ -45,3 +45,10 @@ current and preceding state for unusually large documents), and discarded on clo
 Comment coverage includes normalizing a legacy empty browser paragraph, one-line
 Enter behavior, immediate optimistic rendering after save, and rollback after a
 failed request.
+
+The runner also opens `/recovery.html` for nine integration scenarios against the
+real public editor and browser storage. These cover actual page reloads, offline
+typing, new untitled posts, explicit recovery versus a newer server revision,
+save/discard cleanup, account isolation, local HTML sanitisation, oversized copies,
+completed media on page exit, independent tabs, and URL-only edits with redirects.
+Only server responses are stubbed; storage, navigation and editor events are real.

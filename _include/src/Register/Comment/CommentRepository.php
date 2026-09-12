@@ -393,7 +393,8 @@ final readonly class CommentRepository
         $updated = $this->dbLayer
             ->update(CommentSchema::TABLE_NAME)
             ->set('text', ':text')->setParameter('text', $text)
-            ->set('modify_time', ':modify_time')->setParameter('modify_time', time())
+            ->set('modify_time', 'CASE WHEN modify_time >= :edit_now THEN modify_time + 1 ELSE :modify_time END')
+            ->setParameter('edit_now', time())->setParameter('modify_time', time())
             ->where('id = :id')->setParameter('id', $commentId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
             ->andWhere('deleted = 0')
@@ -414,12 +415,16 @@ final readonly class CommentRepository
     ): bool
     {
         $comment = $this->findOfType($commentId, $contentType);
+        $now = time();
         $updated = $this->dbLayer
             ->update(CommentSchema::TABLE_NAME)
             ->set('deleted', '1')
             ->set('shown', '0')
             ->set('sent', '1')
             ->set('subscribed', '0')
+            // An authoritative deletion must revoke Undo even for an existing reply anchor.
+            ->set('modify_time', 'CASE WHEN modify_time >= :delete_now THEN modify_time + 1 ELSE :modify_time END')
+            ->setParameter('delete_now', $now)->setParameter('modify_time', $now)
             ->where('id = :id')->setParameter('id', $commentId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
             ->execute()
@@ -437,6 +442,154 @@ final readonly class CommentRepository
         }
 
         return $updated;
+    }
+
+    /** Keeps even a leaf comment so an authenticated, revision-bound Undo can restore it. */
+    public function deleteRecoverably(Comment $comment): ?CommentDeletionState
+    {
+        if ($comment->deleted) {
+            return null;
+        }
+
+        $revision = max(time(), $comment->modifyTime + 1);
+        $updated = $this->dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('deleted', '1')
+            ->set('shown', '0')
+            ->set('sent', '1')
+            ->set('subscribed', '0')
+            ->set('modify_time', ':revision')->setParameter('revision', $revision)
+            ->where('id = :id')->setParameter('id', $comment->id)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', $comment->contentId->type->value)
+            ->andWhere('deleted = 0')
+            ->andWhere('modify_time = :previous_revision')->setParameter('previous_revision', $comment->modifyTime)
+            ->andWhere('shown = :shown')->setParameter('shown', (int)$comment->shown)
+            ->andWhere('sent = :sent')->setParameter('sent', (int)$comment->sent)
+            ->andWhere('subscribed = :subscribed')->setParameter('subscribed', (int)$comment->subscribed)
+            ->execute()
+            ->affectedRows() > 0;
+        if (!$updated) {
+            return null;
+        }
+
+        $this->liveUpdateRepository->publishComments($comment->contentId);
+        $this->dispatch($comment->id, $comment->contentId, CommentChangeKind::TOMBSTONED);
+
+        return new CommentDeletionState($revision, $comment->shown, $comment->sent, $comment->subscribed);
+    }
+
+    /** Restoring does not repeat subscription mail or change the author's original text. */
+    public function restoreDeleted(Comment $comment, CommentDeletionState $state): bool
+    {
+        if (!$comment->deleted || $comment->modifyTime !== $state->revision) {
+            return false;
+        }
+
+        $updated = $this->dbLayer
+            ->update(CommentSchema::TABLE_NAME)
+            ->set('deleted', '0')
+            ->set('shown', ':shown')->setParameter('shown', (int)$state->shown)
+            ->set('sent', ':sent')->setParameter('sent', (int)$state->sent)
+            ->set('subscribed', ':subscribed')->setParameter('subscribed', (int)$state->subscribed)
+            ->set('modify_time', ':revision')->setParameter('revision', max(time(), $state->revision + 1))
+            ->where('id = :id')->setParameter('id', $comment->id)
+            ->andWhere('content_type = :content_type')->setParameter('content_type', $comment->contentId->type->value)
+            ->andWhere('content_id = :content_id')->setParameter('content_id', $comment->contentId->value)
+            ->andWhere('deleted = 1')
+            ->andWhere('shown = 0 AND sent = 1 AND subscribed = 0')
+            ->andWhere('modify_time = :previous_revision')->setParameter('previous_revision', $state->revision)
+            ->execute()
+            ->affectedRows() > 0;
+        if ($updated) {
+            $this->liveUpdateRepository->publishComments($comment->contentId);
+            $this->dispatch($comment->id, $comment->contentId, $state->shown ? CommentChangeKind::PUBLISHED : CommentChangeKind::HIDDEN);
+        }
+
+        return $updated;
+    }
+
+    /** Hourly maintenance removes expired leaf deletions in bounded batches. Reply anchors stay. */
+    public function purgeExpiredDeletions(int $before, int $limit = 100): int
+    {
+        $rows = $this->dbLayer
+            ->select('c.id')
+            ->from(CommentSchema::TABLE_NAME . ' AS c')
+            ->leftJoin(CommentSchema::TABLE_NAME . ' AS child', 'child.parent_id = c.id')
+            ->where('c.deleted = 1')
+            ->andWhere('c.modify_time < :before')->setParameter('before', $before)
+            ->andWhere('child.id IS NULL')
+            ->orderBy('c.modify_time', 'c.id')
+            ->limit(max(1, min(100, $limit)))
+            ->execute()->fetchColumn();
+        $count = 0;
+        foreach ($rows as $id) {
+            $comment = $this->find((int)$id);
+            if ($comment === null || $this->hasReplies($comment->id, $comment->contentId)) {
+                continue;
+            }
+
+            $removed = $this->dbLayer->delete(CommentSchema::TABLE_NAME)
+                ->where('id = :id')->setParameter('id', $comment->id)
+                ->andWhere('deleted = 1')
+                ->andWhere('modify_time < :before')->setParameter('before', $before)
+                ->execute()->affectedRows() > 0;
+            if ($removed) {
+                ++$count;
+                $this->liveUpdateRepository->publishComments($comment->contentId);
+                $this->dispatch($comment->id, $comment->contentId, CommentChangeKind::REMOVED);
+            }
+        }
+
+        return $count;
+    }
+
+    /** Retained reply anchors lose their original text and personal data after Undo retention. */
+    public function anonymizeExpiredDeletions(int $before, int $limit = 100): int
+    {
+        $rows = $this->dbLayer
+            ->select('id')
+            ->from(CommentSchema::TABLE_NAME)
+            ->where('deleted = 1')
+            ->andWhere('modify_time < :before')->setParameter('before', $before)
+            ->andWhere("(text <> '' OR nick <> '' OR email <> '' OR ip <> '' OR user_id IS NOT NULL OR visitor_id IS NOT NULL OR userpic_id IS NOT NULL OR good <> 0)")
+            ->orderBy('modify_time', 'id')
+            ->limit(max(1, min(100, $limit)))
+            ->execute()->fetchColumn();
+        $count = 0;
+        foreach ($rows as $id) {
+            $comment = $this->find((int)$id);
+            if ($comment === null) {
+                continue;
+            }
+
+            if (!$comment->deleted || $comment->modifyTime >= $before) {
+                continue;
+            }
+
+            $updated = $this->dbLayer->update(CommentSchema::TABLE_NAME)
+                ->set('text', "''")
+                ->set('nick', "''")
+                ->set('email', "''")
+                ->set('ip', "''")
+                ->set('user_id', 'NULL')
+                ->set('visitor_id', 'NULL')
+                ->set('userpic_id', 'NULL')
+                ->set('good', '0')
+                ->set('subscribed', '0')
+                ->set('modify_time', ':revision')->setParameter('revision', max(time(), $comment->modifyTime + 1))
+                ->where('id = :id')->setParameter('id', $comment->id)
+                ->andWhere('deleted = 1')
+                ->andWhere('modify_time = :previous_revision')->setParameter('previous_revision', $comment->modifyTime)
+                ->andWhere('modify_time < :before')->setParameter('before', $before)
+                ->execute()->affectedRows() > 0;
+            if ($updated) {
+                ++$count;
+                $this->liveUpdateRepository->publishComments($comment->contentId);
+                $this->dispatch($comment->id, $comment->contentId, CommentChangeKind::TOMBSTONED);
+            }
+        }
+
+        return $count;
     }
 
     /**

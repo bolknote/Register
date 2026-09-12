@@ -10,6 +10,8 @@ declare(strict_types = 1);
 namespace Register\Admin\Controller;
 
 use Register\Comment\CommentRepository;
+use Register\Comment\CommentDeletionState;
+use Register\Model\Comment\CommentModerationTokenManager;
 use Register\Live\LiveUpdateRepository;
 use Register\AdminYard\Config\EntityConfig;
 use Register\AdminYard\Config\FieldConfig;
@@ -51,6 +53,7 @@ class CommentController extends EntityController
         private readonly AdminMutationGuard $mutationGuard,
         private readonly CommentRepository $commentRepository,
         private readonly LiveUpdateRepository $liveUpdateRepository,
+        private readonly CommentModerationTokenManager $moderationTokenManager,
     ) {
         parent::__construct(
             $entityConfig,
@@ -205,15 +208,60 @@ class CommentController extends EntityController
     #[\Override]
     public function deleteAction(Request $request): Response
     {
-        $comment = $this->commentRepository->find(
-            $this->getEntityPrimaryKeyFromRequest($request)->getIntId(),
-        );
-        $response = parent::deleteAction($request);
-        if ($response->isSuccessful() && $comment instanceof \Register\Comment\Comment) {
-            $this->liveUpdateRepository->publishComments($comment->contentId);
+        if (!$this->mutationGuard->isPost($request)) {
+            throw new InvalidRequestException('Delete action must be called via POST request.', Response::HTTP_METHOD_NOT_ALLOWED);
         }
 
-        return $response;
+        if (!$this->entityConfig->isAllowedAction(FieldConfig::ACTION_DELETE)) {
+            return new JsonResponse(['success' => false], Response::HTTP_FORBIDDEN);
+        }
+
+        $primaryKey = $this->getEntityPrimaryKeyFromRequest($request);
+        $csrfToken = $this->getDeleteCsrfToken($primaryKey->toArray());
+        if (!$this->mutationGuard->hasValidCsrfToken($request, $csrfToken)) {
+            return new JsonResponse(['success' => false], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $comment = $this->commentRepository->find($primaryKey->getIntId());
+        if ($comment === null) {
+            return new JsonResponse(['success' => false], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($request->request->has('undo_token')) {
+            // A deleted row no longer passes the list's deleted=0 predicate. The signed Undo
+            // proves this same session passed the row's read/write checks before deleting it.
+            $state = $this->moderationTokenManager->readUndo($request->request->getString('undo_token'), $csrfToken, $comment);
+            if (!$state instanceof CommentDeletionState || !$this->commentRepository->restoreDeleted($comment, $state)) {
+                return new JsonResponse(['success' => false, 'errors' => [$this->translator->trans('Comment changed before undo')]], Response::HTTP_CONFLICT);
+            }
+
+            return new JsonResponse(['success' => true]);
+        }
+
+        $accessible = $this->dataProvider->getEntity(
+            $this->entityConfig->getTableName(),
+            $this->entityConfig->getFieldDataTypes(FieldConfig::ACTION_DELETE, includePrimaryKey: true),
+            [],
+            DatabaseHelper::getReadAndWriteAccessControlConditions($this->entityConfig),
+            $primaryKey,
+        );
+        if ($accessible === null) {
+            return new JsonResponse(['success' => false], Response::HTTP_NOT_FOUND);
+        }
+
+        $state = $this->commentRepository->deleteRecoverably($comment);
+        if (!$state instanceof CommentDeletionState) {
+            return new JsonResponse(['success' => false], Response::HTTP_CONFLICT);
+        }
+
+        return new JsonResponse([
+            'success' => true,
+            'undo_token' => $this->moderationTokenManager->issueUndo($csrfToken, $comment, $state),
+            'message' => $this->translator->trans('Comment deleted with undo period'),
+            'undo_label' => $this->translator->trans('Undo comment deletion'),
+            'dismiss_label' => $this->translator->trans('Close'),
+            'undo_error' => $this->translator->trans('Comment changed before undo'),
+        ]);
     }
 
     public function hamAction(Request $request): Response

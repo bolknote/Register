@@ -692,7 +692,8 @@ class CommentCest
             'moderation_token'  => $deleteToken,
             'return_to'         => '/thread-test',
         ]);
-        $I->seeResponseCodeIs(303);
+        $I->seeResponseCodeIs(200);
+        $I->seeElement('form input[name="undo_token"]');
 
         $I->sendPost('https://localhost/comment-moderate', [
             'moderation_action' => 'edit',

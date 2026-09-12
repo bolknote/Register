@@ -17,7 +17,7 @@ use Register\AdminYard\SettingStorage\SettingStorageInterface;
 use Register\AdminYard\TemplateRenderer;
 use Register\AdminYard\Transformer\ViewTransformer;
 use Register\AdminYard\Translator;
-use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
+use Register\Url\UrlHistoryService;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,7 +34,7 @@ final class ActivityPubContentEditorController extends EntityController
         TemplateRenderer        $templateRenderer,
         FormFactory             $formFactory,
         SettingStorageInterface $settingStorage,
-        private readonly PortableDatabaseTransaction $transaction,
+        private readonly UrlHistoryService $transaction,
     ) {
         parent::__construct(
             $entityConfig,
@@ -55,6 +55,8 @@ final class ActivityPubContentEditorController extends EntityController
             return parent::editAction($request);
         }
 
+        // Acquire the URL mutex before form/before-save reads establish a MySQL RR snapshot.
+        // This outer transaction still includes both the content write and its AP projection.
         return $this->transaction->run(fn(): string|Response => parent::editAction($request));
     }
 

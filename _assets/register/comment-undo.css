@@ -1,0 +1,39 @@
+.comment-undo-notices {
+    position: fixed;
+    z-index: 10000;
+    inset: auto 1rem 1rem;
+    display: grid;
+    justify-content: center;
+    gap: .5rem;
+    max-height: 45vh;
+    overflow: auto;
+    pointer-events: none;
+}
+.comment-undo-notice {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin: 0;
+    padding: .75rem 1rem;
+    max-width: 40rem;
+    border: 1px solid var(--border-color, #aaa);
+    border-radius: .5rem;
+    color: var(--text-color, #202020);
+    background: var(--field-background, #fff);
+    box-shadow: 0 3px 18px #0002;
+    font: 1rem/1.4 system-ui, sans-serif;
+    pointer-events: auto;
+}
+.comment-undo-notice > span { flex: 1 1 10rem; }
+.comment-undo-notice button {
+    color: inherit;
+    background: transparent;
+    border: 1px solid currentColor;
+    border-radius: .25rem;
+    padding: .35rem .6rem;
+    font: inherit;
+    cursor: pointer;
+}
+.comment-undo-notice button:focus-visible { outline: 3px solid var(--link-color, #246); outline-offset: 2px; }
+.comment-undo-notice button:disabled { opacity: .6; cursor: wait; }

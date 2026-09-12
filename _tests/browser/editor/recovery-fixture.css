@@ -1,0 +1,5 @@
+body { margin: 40px 100px; }
+#content { width: min(680px, 100%); }
+.post-inplace-tools { opacity: 1; }
+/* These cases exercise storage and navigation, not cross-document animations. */
+@view-transition { navigation: none; }

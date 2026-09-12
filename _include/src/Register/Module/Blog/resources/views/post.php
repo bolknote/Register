@@ -80,6 +80,12 @@ $analyticsSection = (string)($tagNames[0] ?? '');
     <input type="hidden" name="revision" value="<?php echo $inplaceData['revision']; ?>">
     <input type="hidden" name="return_to" value="<?php echo register_htmlencode($inplaceData['return_to']); ?>">
 </form>
+<?php if (!$isCreating): ?>
+<label class="post-url-editor" hidden>
+    <span><?php echo register_htmlencode($trans('Post URL')); ?></span>
+    <input name="slug" form="<?php echo $editFormId; ?>" value="<?php echo register_htmlencode((string)($url ?? '')); ?>" maxlength="255" autocomplete="off" autocapitalize="none" spellcheck="false">
+</label>
+<?php endif; ?>
 <p class="post-inplace-error post-inplace-edit-error" role="alert" tabindex="-1" hidden></p>
 <dialog
     class="post-delete-confirmation"

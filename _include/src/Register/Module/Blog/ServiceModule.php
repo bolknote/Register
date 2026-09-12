@@ -258,6 +258,7 @@ final class ServiceModule implements ContainerModuleInterface
             $container->get(\Register\Ai\AiSettings::class),
             $container->get(\Register\Content\PublicationMetadataGenerator::class),
             $container->get('register_blog_translator'),
+            $container->get(\Register\Url\UrlHistoryService::class),
             ...$container->getByTag(ContentDeletionGuardInterface::class),
         ));
         $container->set(PostTagSuggestionsController::class, static fn(Container $container): PostTagSuggestionsController => new PostTagSuggestionsController(
@@ -364,6 +365,8 @@ final class ServiceModule implements ContainerModuleInterface
                 $provider->getStringProxy('REGISTER_BLOG_TITLE'),
                 $provider->getBoolProxy('REGISTER_SHOW_COMMENTS'),
                 $provider->getBoolProxy('REGISTER_ENABLED_COMMENTS'),
+                $container->get(\Register\Comment\CommentAgePolicy::class),
+                $container->get(BlogPageCache::class),
             );
         });
         $container->set(FlatContentController::class, static fn(Container $container): \Register\Module\Blog\Controller\FlatContentController => new FlatContentController(

@@ -12,6 +12,7 @@ namespace unit\Cms\Admin;
 use Codeception\Test\Unit;
 use Register\AdminYard\Config\FieldConfig;
 use Register\Admin\DynamicConfigFormBuilder;
+use Register\Comment\CommentAgePolicy;
 use Register\Core\Model\PermissionChecker;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -49,5 +50,25 @@ final class DynamicConfigFormBuilderSecurityTest extends Unit
 
         self::assertSame([], $validator->getValidationErrors('#A1b2C3', $translator));
         self::assertSame(['Invalid admin color'], $validator->getValidationErrors('red;body{}', $translator));
+    }
+
+    public function testCommentAgeAcceptsZeroAndRejectsNegativeOrExcessiveLimits(): void
+    {
+        $reflection = new \ReflectionClass(DynamicConfigFormBuilder::class);
+        $builder = $reflection->newInstanceWithoutConstructor();
+        $types = $reflection->getConstant('PARAM_TYPES');
+        self::assertIsArray($types);
+        $builder->paramTypes = $types;
+        $reflection->getProperty('permissionChecker')->setValue($builder, new PermissionChecker());
+        $field = $reflection->getMethod('createDynamicFieldConfig')->invoke($builder, CommentAgePolicy::CONFIG_KEY);
+        self::assertInstanceOf(FieldConfig::class, $field);
+        $translator = self::createStub(TranslatorInterface::class);
+        $translator->method('trans')->willReturnArgument(0);
+        $validator = $field->validators[0];
+
+        self::assertSame([], $validator->getValidationErrors(0, $translator));
+        self::assertSame([], $validator->getValidationErrors(14, $translator));
+        self::assertNotEmpty($validator->getValidationErrors(-1, $translator));
+        self::assertNotEmpty($validator->getValidationErrors(CommentAgePolicy::MAX_DAYS + 1, $translator));
     }
 }

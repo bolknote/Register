@@ -11,6 +11,7 @@ namespace Register\Admin\Controller;
 
 use Register\Comment\CommentRepository;
 use Register\Live\LiveUpdateRepository;
+use Register\Model\Comment\CommentModerationTokenManager;
 use Register\AdminYard\Config\EntityConfig;
 use Register\AdminYard\Controller\ControllerFactoryInterface;
 use Register\AdminYard\Database\PdoDataProvider;
@@ -30,6 +31,7 @@ final readonly class CommentControllerFactory implements ControllerFactoryInterf
         private AdminMutationGuard  $mutationGuard,
         private CommentRepository   $commentRepository,
         private LiveUpdateRepository $liveUpdateRepository,
+        private CommentModerationTokenManager $moderationTokenManager,
     ) {
     }
 
@@ -57,6 +59,7 @@ final readonly class CommentControllerFactory implements ControllerFactoryInterf
             $this->mutationGuard,
             $this->commentRepository,
             $this->liveUpdateRepository,
+            $this->moderationTokenManager,
         );
     }
 }

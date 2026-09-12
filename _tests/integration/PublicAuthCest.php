@@ -738,7 +738,7 @@ final class PublicAuthCest
         $I->sendRequestWithMethod('GET', 'https://localhost/auth/unread');
         $I->seeResponseCodeIs(302);
         $I->assertSame(
-            '/pending-before-notifications#comment-' . $pendingComment,
+            '/pending-before-notifications?comment_unread=' . $pendingComment . '#comment-' . $pendingComment,
             $I->grabHttpHeader('Location'),
         );
 
@@ -755,6 +755,53 @@ final class PublicAuthCest
         // Direct test writes deliberately bypass CommentRepository and its CommentChangedEvent.
         $notifications->invalidateAll();
         $I->assertSame(0, $notifications->countUnread($user));
+    }
+
+    public function testUnreadMarkerVisitsOneCommentAndKeepsReadStatePerUser(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        /** @var CommentNotificationRepository $notifications */
+        $notifications = $I->grabService(CommentNotificationRepository::class);
+        /** @var PublicAuthRepository $auth */
+        $auth = $I->grabService(PublicAuthRepository::class);
+        $this->markExistingPendingCommentsHandled($db);
+        $adminId = $this->userId($db, 'admin');
+        $otherId = $this->userId($db, 'guest');
+        $admin = new AuthenticatedPublicUser($adminId, 'admin', 'admin@example.com', 'Admin', true, true, true, true, true, str_repeat('a', 64));
+        $other = new AuthenticatedPublicUser($otherId, 'guest', 'guest@example.com', 'Guest', true, true, false, false, false, str_repeat('b', 64));
+        $auth->ensureNotificationBaseline($adminId);
+        $auth->ensureNotificationBaseline($otherId);
+
+        $contentId = $this->insertContent($db, 'sequential-comments', $adminId);
+        $pending = $this->insertComment($db, $contentId, 'Pending', 'pending@example.test', shown: false, sent: false);
+        $first = $this->insertComment($db, $contentId, 'First', 'first@example.test');
+        $second = $this->insertComment($db, $contentId, 'Second', 'second@example.test');
+        $notifications->invalidateAll();
+        $I->assertSame(3, $notifications->countUnread($admin));
+        $I->assertSame(1, $notifications->countUnread($other));
+
+        $notifications->markCommentRead($admin, ContentId::page(1), $pending);
+        $I->assertSame(3, $notifications->countUnread($admin), 'A comment on another content item cannot be marked read.');
+
+        $I->login('admin', 'admin');
+        foreach ([$pending, $first, $second] as $index => $commentId) {
+            $I->sendRequestWithMethod('GET', 'https://localhost/auth/unread');
+            $I->seeResponseCodeIs(302);
+            $location = '/sequential-comments?comment_unread=' . $commentId . '#comment-' . $commentId;
+            $I->assertSame($location, $I->grabHttpHeader('Location'));
+            $I->amOnPage('https://localhost' . $location);
+            $I->seeResponseCodeIs(200);
+            $I->assertSame(2 - $index, $notifications->countUnread($admin));
+            $I->assertSame(1, $notifications->countUnread($other), 'Reading is local to the authenticated user.');
+        }
+
+        $I->sendRequestWithMethod('GET', 'https://localhost/auth/unread');
+        $I->assertSame('/', $I->grabHttpHeader('Location'));
+
+        $pendingState = $db->select('shown, sent')->from(CommentSchema::TABLE_NAME)->where('id = :id')->setParameter('id', $pending)->execute()->fetchAssoc();
+        $I->assertIsArray($pendingState);
+        $I->assertSame(['shown' => 0, 'sent' => 0], array_map(intval(...), $pendingState));
     }
 
     private function markExistingPendingCommentsHandled(DbLayer $dbLayer): void

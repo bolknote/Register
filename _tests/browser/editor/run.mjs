@@ -1,5 +1,6 @@
 import {chromium, firefox} from 'playwright';
 import {createFixtureServer} from './server.mjs';
+import {runRecoveryRegressions} from './recovery-tests.mjs';
 
 const server = createFixtureServer();
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -21,6 +22,7 @@ try {
                 }
                 await page.close();
             }
+            await runRecoveryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
         } finally {
             await browser.close();
         }

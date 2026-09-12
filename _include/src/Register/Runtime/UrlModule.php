@@ -11,6 +11,11 @@ namespace Register\Runtime;
 
 use Register\Url\ContentSlugService;
 use Register\Url\ContentUrlAliasRepository;
+use Register\Url\ContentUrlGenerator;
+use Register\Url\TagUrlAliasRepository;
+use Register\Url\TagUrlAliasRedirector;
+use Register\Url\UrlHistoryService;
+use Register\Content\ContentChangeDispatcher;
 use Register\Url\IcuTransliterator;
 use Register\Url\PortableAsciiTransliterator;
 use Register\Url\ReservedRouteRegistry;
@@ -26,6 +31,22 @@ final readonly class UrlModule implements ContainerModuleInterface
     #[\Override]
     public function buildContainer(Container $container): void
     {
+        $container->set(TagUrlAliasRepository::class, static fn(Container $container): TagUrlAliasRepository => new TagUrlAliasRepository(
+            $container->get(DbLayer::class),
+        ));
+        $container->set(TagUrlAliasRedirector::class, static fn(Container $container): TagUrlAliasRedirector => new TagUrlAliasRedirector(
+            $container->get(TagUrlAliasRepository::class),
+            $container->get(\Register\Core\Model\UrlBuilder::class),
+            $container->get(DynamicConfigProvider::class)->getStringProxy('REGISTER_TAGS_URL'),
+        ));
+        $container->set(UrlHistoryService::class, static fn(Container $container): UrlHistoryService => new UrlHistoryService(
+            $container->get(\PDO::class),
+            $container->get(DbLayer::class),
+            $container->get(ContentUrlGenerator::class),
+            $container->get(ContentUrlAliasRepository::class),
+            $container->get(TagUrlAliasRepository::class),
+            $container->get(ContentChangeDispatcher::class),
+        ));
         $container->set(SlugGenerator::class, new SlugGenerator(
             new PortableAsciiTransliterator(),
             IcuTransliterator::create(),
@@ -46,6 +67,7 @@ final readonly class UrlModule implements ContainerModuleInterface
             $container->get(UniqueSlugGenerator::class),
             $container->get(ReservedRouteRegistry::class),
             $container->get(ContentUrlAliasRepository::class),
+            $container->get(ContentUrlGenerator::class),
         ));
     }
 }

@@ -232,7 +232,9 @@ final readonly class PublicAuthController implements ControllerInterface
             return new RedirectResponse($this->urlBuilder->rawLink('/'));
         }
 
-        return new RedirectResponse(html_entity_decode($contentPath) . '#comment-' . $notification->commentId);
+        return new RedirectResponse($this->urlBuilder->rawLink($contentPath, [
+            'comment_unread=' . $notification->commentId,
+        ]) . '#comment-' . $notification->commentId);
     }
 
     private function requirePostToken(Request $request): void

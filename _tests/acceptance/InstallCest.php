@@ -326,8 +326,11 @@ class InstallCest
         $I->sendAjaxGetRequest('/_admin/ajax.php?action=load_tree&id=0&search=');
         $I->assertStringContainsString('New Page Title', $I->grabPageSource());
 
+        $I->stopFollowingRedirects();
         $I->amOnPage('/section1/page1');
-        $I->seeResponseCodeIsClientError();
+        $I->seeResponseCodeIs(301);
+        $I->assertSame([self::URL_PREFIX . '/section1/new-page1'], $I->grabHeaders()['Location'] ?? []);
+        $I->startFollowingRedirects();
 
         $I->amOnPage('/section1/new-page1');
         $I->see('Some new page text');
@@ -679,8 +682,11 @@ class InstallCest
         $I->sendAjaxPostRequest('/_admin/index.php?entity=Tag&action=edit&id=' . $tagId, $dataProvider($csrfToken));
         $I->see('{"success":true}');
 
+        $I->stopFollowingRedirects();
         $I->amOnPage('/tags/tag1');
-        $I->seeResponseCodeIsClientError();
+        $I->seeResponseCodeIs(301);
+        $I->assertSame([self::URL_PREFIX . '/tags/new-tag-url1/'], $I->grabHeaders()['Location'] ?? []);
+        $I->startFollowingRedirects();
 
         $I->amOnPage('/tags/new-tag-url1');
         $I->seeResponseCodeIsSuccessful();

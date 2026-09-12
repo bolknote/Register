@@ -13,7 +13,7 @@ use Register\Core\Pdo\DbLayer;
 
 final readonly class TagRepository
 {
-    public function __construct(private DbLayer $dbLayer)
+    public function __construct(private DbLayer $dbLayer, private ?\Register\Url\UrlHistoryService $urlHistory = null)
     {
     }
 
@@ -81,12 +81,23 @@ final readonly class TagRepository
 
     /**
      * Finds tags case-insensitively and creates the missing ones, preserving the submitted order.
-     * A surrounding transaction, when needed, belongs to the editorial operation.
+     * URL allocation is serialized with editorial renames and joins an existing transaction.
      *
      * @param list<string> $names
      * @return list<int>
      */
     public function findOrCreateIdsByNames(array $names): array
+    {
+        return $this->urlHistory === null
+            ? $this->createMissingNames($names)
+            : $this->urlHistory->run(fn(): array => $this->createMissingNames($names));
+    }
+
+    /**
+     * @param list<string> $names
+     * @return list<int>
+     */
+    private function createMissingNames(array $names): array
     {
         $existingRows = $this->dbLayer
             ->select('id, name')
@@ -110,6 +121,21 @@ final readonly class TagRepository
             $used[$key] = true;
 
             if (!isset($idsByName[$key])) {
+                if (mb_strlen($name) > 191 || preg_match('/[\x00-\x1f\x7f]/u', $name) !== 0) {
+                    throw new \InvalidArgumentException('Invalid tag name.');
+                }
+
+                $url = $name;
+                $aliases = new \Register\Url\TagUrlAliasRepository($this->dbLayer);
+                for ($suffix = 2; ; ++$suffix) {
+                    try {
+                        $aliases->assertAvailable($url, 0);
+                        break;
+                    } catch (\Register\Url\ContentUrlCollisionException) {
+                        $url = mb_substr($name, 0, 180) . '-' . $suffix;
+                    }
+                }
+
                 $this->dbLayer
                     ->insert('tags')
                     ->values([
@@ -120,7 +146,7 @@ final readonly class TagRepository
                     ])
                     ->execute([
                         'name' => $name,
-                        'url'  => $name,
+                        'url'  => $url,
                     ])
                 ;
                 $idsByName[$key] = (int)$this->dbLayer->insertId();

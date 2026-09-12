@@ -3,7 +3,7 @@
 declare(strict_types = 1);
 
 /** @var callable $trans */
-/** @var array{tag_suggestions_url: string, ai_enabled: bool, ai_alt_enabled: bool} $editor_config */
+/** @var array{tag_suggestions_url: string, ai_enabled: bool, ai_alt_enabled: bool, recovery_user_id: int} $editor_config */
 
 $config = [
     'editError' => $trans('Post editing failed'),
@@ -39,6 +39,16 @@ $config = [
     'deleteWarning' => $trans('Delete warning'),
     'tagSuggestionsUrl' => $editor_config['tag_suggestions_url'],
     'aiAltEnabled' => $editor_config['ai_alt_enabled'],
+    'recoveryUserId' => $editor_config['recovery_user_id'],
+    'recoveryFound' => $trans('Post recovery found'),
+    'recoveryChanged' => $trans('Post recovery server changed'),
+    'recoveryRestore' => $trans('Post recovery restore'),
+    'recoveryDiscard' => $trans('Post recovery discard'),
+    'recoveryDiscardWarning' => $trans('Post recovery discard warning'),
+    'recoveryRestored' => $trans('Post recovery restored'),
+    'recoveryUnavailable' => $trans('Post recovery unavailable'),
+    'recoveryMedia' => $trans('Post recovery media'),
+    'recoveryMarkup' => $trans('Post recovery markup'),
 ];
 ?>
 <div id="post-editor-resources" hidden data-config="<?php echo register_htmlencode(json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)); ?>">

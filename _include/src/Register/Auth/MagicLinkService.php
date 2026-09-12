@@ -114,8 +114,13 @@ final readonly class MagicLinkService implements PendingEmailCommentServiceInter
         $targetId = isset($row['content_id']) ? (int)$row['content_id'] : 0;
         if ($contentType instanceof ContentType && $targetId > 0 && \is_string($row['comment_text'])) {
             $strategy = $this->strategies[$contentType->value] ?? null;
-            if (!$strategy instanceof CommentStrategyInterface || $strategy->getTargetById($targetId) === null) {
+            $target = $strategy?->getTargetById($targetId);
+            if (!$strategy instanceof CommentStrategyInterface || $target === null) {
                 throw new \RuntimeException('The page for the pending comment no longer exists.');
+            }
+
+            if (!$target->commentsAllowed) {
+                throw new \RuntimeException('Comments on this post are closed.');
             }
 
             $parentId = isset($row['parent_id']) ? (int)$row['parent_id'] : null;

@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 return [
     'locale'                 => 'ru',
+    'Comments closed by age' => 'Срок обсуждения закончился. Новые комментарии закрыты, прежние остаются доступны.',
 
     // Error messages
     'Error encountered'      => 'Произошла ошибка',
@@ -72,6 +73,11 @@ return [
     'Mark comment as spam'   => 'Пометить как спам',
     'Mark comment as not spam' => 'Не спам',
     'Comment deleted'        => 'Комментарий удалён',
+    'Undo comment deletion'  => 'Отменить удаление',
+    'Comment deleted with undo period' => 'Комментарий удалён. Удаление можно отменить в течение десяти минут.',
+    'Comment restored'       => 'Комментарий восстановлен',
+    'Comment changed before undo' => 'Не удалось отменить удаление: комментарий изменился или прошло больше десяти минут.',
+    'Return to discussion'   => 'Вернуться к обсуждению',
     'Comment is spam'        => 'спам',
     'Comment is hidden'      => 'скрыт',
     'Confirm comment deletion' => 'Удалить этот комментарий?',

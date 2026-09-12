@@ -9,6 +9,10 @@ tests, and the CodeGraph index. Repeated items from Aegea's release summaries an
 are consolidated. A feature that can only be recreated with arbitrary HTML, a custom theme, or a new
 extension is not marked as built in.
 
+On 2026-09-12, the recovery, URL-history, and moderation rows were updated after
+implementing the selected follow-up work. Other rows retain their earlier review
+scope and should not be treated as a fresh audit of the whole product.
+
 Status legend:
 
 - **Available** — the user-facing outcome is implemented in Register.
@@ -52,7 +56,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Silent looping video (`@loop`) | Missing | No first-party implementation. |
 | Public code highlighting for 18 languages | Missing | CodeMirror highlights editor source, but Register does not bundle a public article code renderer. |
 | Preview plus explicit draft/publish choice | Available | The shared editor has live preview and explicit draft, scheduled, and immediate publication states. |
-| Continuous browser crash recovery | Available | Editor content is periodically stored in `localStorage`. |
+| Continuous browser crash recovery | Available | The public post editor now offers explicit recovery after reload or interruption, with account/tab isolation, revision warnings, bounded local storage, and no automatic publishing. See [recovery behaviour and limits](post-recovery.md). |
 | Save with Ctrl/Cmd-S | Partial | Ctrl-S is implemented; modifier handling is not fully uniform across platforms. |
 | Scheduled publishing | Available | The editor stores a future publication time; the request-driven shutdown queue publishes due content in bounded batches and updates dependent views and search. |
 | Backdated publishing | Available | The creation timestamp is editable. |
@@ -83,9 +87,9 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Secret public link to a draft | Missing | No preview token or public draft route. |
 | Per-item and global comment controls | Available | Both global and content-level settings exist. |
 | Built-in anti-spam | Available | Includes a challenge, local decisions, and Akismet integration. |
-| Automatically close old discussions | Missing | Comment availability is not derived from post age. |
-| Delete a comment with Undo | Missing | No undo workflow. |
-| Sequential new-comment marker | Partial | Administrative counters exist, but not Aegea's sequential marker. |
+| Automatically close old discussions | Available | A setting closes post discussions after a chosen number of days since publication; existing comments remain visible, pages are unaffected, and zero disables the policy. |
+| Delete a comment with Undo | Available | Public moderation and single/bulk administrative deletion offer a session-bound ten-minute Undo, restoring original visibility and subscription/mail state without duplicate delivery. |
+| Sequential new-comment marker | Available | The unread-comment control visits one relevant comment at a time; background updates do not mark the discussion read. |
 | Comment formatting equivalent to posts | Partial | Comments use a compact rich-text editor with the common text and block styles, while media and AI tools remain exclusive to the post editor. Submitted HTML is sanitized on the server. |
 | Social identities for commenters | Partial | Public sign-in supports VK ID, Mail.ru, Odnoklassniki, Yandex, email magic links, and existing Register accounts; Twitter, Facebook, and Telegram are not providers. |
 | Login-free emoji reactions | Available | A visitor can keep one of six reactions on a post or page; clicking it again removes it and choosing another switches it. |
@@ -183,7 +187,7 @@ popularity analytics, bundled themes and languages, and automatic URL lifecycle 
 | Custom item and tag URLs | Available | Both are editable. |
 | Short post permalinks | Available | Posts use `/<slug>` at the site root; dates remain archive navigation only. |
 | Automatic title transliteration | Available | New posts receive an ICU-transliterated slug when `intl` is installed and a portable PHP fallback otherwise. |
-| Automatic redirects from every previous URL | Missing | URL history is not stored. |
+| Automatic redirects from every previous URL | Available | Future post/page/tag URL changes retain aliases; page moves include descendant paths and tag aliases preserve RSS/JSON subscription URLs. Redirects resolve directly to the current address. Earlier changes made before history tracking cannot be reconstructed automatically. |
 | Manually configured redirects | Available | Supported by the redirect map. |
 
 ## Administration, installation, and operations
@@ -244,7 +248,6 @@ and implementation scope; it is not an approved roadmap.
 
 ### Smaller, high-value increments
 
-- track URL history and create automatic redirects;
 - make editor shortcuts consistent across Windows, Linux, and macOS.
 
 ### Medium product projects
@@ -253,8 +256,7 @@ and implementation scope; it is not an approved roadmap.
 - a configurable main-menu composer;
 - first-party share controls and analytics settings;
 - richer media blocks, captions, galleries, and replacement workflows;
-- configurable age-based comment closing;
-- offline-safe editing.
+- an offline server-save queue beyond local crash recovery.
 
 ### Large product projects
 
@@ -270,6 +272,9 @@ and implementation scope; it is not an approved roadmap.
 The main implementation anchors used during review are:
 
 - editor persistence and preview: [`_admin/js/editor/form.js`](../_admin/js/editor/form.js);
+- public editor recovery: [`post-recovery.md`](post-recovery.md) and [`_assets/register/post-recovery.js`](../_assets/register/post-recovery.js);
+- automatic URL history: [`Register\\Url\\UrlHistoryService`](../_include/src/Register/Url/UrlHistoryService.php);
+- moderation Undo, unread navigation, and age policy: [`comments.md`](comments.md) and [`Register\\Comment\\CommentAgePolicy`](../_include/src/Register/Comment/CommentAgePolicy.php);
 - public inline-editor image pipeline: [`_assets/register/image-optimizer/js/optimizer.js`](../_assets/register/image-optimizer/js/optimizer.js);
 - default upload formats: [`_include/src/Config/StaticConfigLoader.php`](../_include/src/Config/StaticConfigLoader.php);
 - content, comment, tag, session, and user schema: [`Register\Model\Installer`](../_include/src/Register/Model/Installer.php);

@@ -189,7 +189,7 @@ final class LiveUpdatesCest
 
         $I->sendRequestWithMethod('GET', 'https://localhost/auth/unread');
         $I->seeResponseCodeIs(Response::HTTP_FOUND);
-        $I->assertSame('/live-post#comment-' . $commentId, $I->grabHttpHeader('Location'));
+        $I->assertSame('/live-post?comment_unread=' . $commentId . '#comment-' . $commentId, $I->grabHttpHeader('Location'));
 
         $cursor = (int)$payload['cursor'];
         $comments->tombstone($commentId, ContentType::POST);

@@ -134,9 +134,12 @@ class AdminExtension implements ExtensionInterface
         // AdminYard services
         $container->set(TypeTransformer::class, fn(Container $_container): \Register\AdminYard\Database\TypeTransformer => new TypeTransformer());
 
-        $container->set(PdoDataProvider::class, fn(Container $container): \Register\AdminYard\Database\PdoDataProvider => new PdoDataProvider(
+        $container->set(PdoDataProvider::class, fn(Container $container): \Register\AdminYard\Database\PdoDataProvider => new UrlHistoryDataProvider(
             $container->get(\PDO::class),
             $container->get(TypeTransformer::class),
+            $container->get(\Register\Url\UrlHistoryService::class),
+            $container->get(\Register\Url\TagUrlAliasRepository::class),
+            $container->getStringParameter('db_prefix'),
         ));
 
         $container->set(TranslationProvider::class, fn(Container $container): \Register\Admin\TranslationProvider => new TranslationProvider($container->getStringParameter('root_dir')), [TranslationProviderInterface::class]);
@@ -280,6 +283,7 @@ class AdminExtension implements ExtensionInterface
             $container->get(AdminMutationGuard::class),
             $container->get(CommentRepository::class),
             $container->get(\Register\Live\LiveUpdateRepository::class),
+            $container->get(\Register\Model\Comment\CommentModerationTokenManager::class),
         ));
 
         $container->set(AdminPanelFactory::class, fn(Container $container): \Register\Admin\AdminPanelFactory => new AdminPanelFactory($container));
@@ -399,6 +403,7 @@ class AdminExtension implements ExtensionInterface
                 $provider->getBoolProxy('REGISTER_USE_HIERARCHY'),
                 $container->get(ContentSlugService::class),
                 $container->get(ContentChangeDispatcher::class),
+                $container->get(\Register\Url\UrlHistoryService::class),
                 ...$container->getByTag(\Register\Content\ContentDeletionGuardInterface::class),
             );
         });
@@ -654,7 +659,10 @@ class AdminExtension implements ExtensionInterface
     #[\Override]
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
-        $eventDispatcher->addListener(CustomTemplateRendererEvent::class, static function (CustomTemplateRendererEvent $event): void {
+        $eventDispatcher->addListener(CustomTemplateRendererEvent::class, static function (CustomTemplateRendererEvent $event) use ($container): void {
+            $assetUrl = new \Register\Core\Asset\PublicAssetUrl($container->getStringParameter('public_root_dir'), $event->basePath);
+            $event->extraStyles[] = $assetUrl->versioned('/_assets/register/comment-undo.css');
+            $event->extraScripts[] = $assetUrl->versioned('/_assets/register/comment-undo.js');
             $event->extraScripts[] = $event->basePath . '/_admin/js/autocomplete.js';
             $event->extraScripts[] = $event->basePath . '/_admin/js/update.js';
             $event->extraStyles[]  = $event->basePath . '/_admin/css/update.css';

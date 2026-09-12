@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Admin;
 
 use Register\Ai\AiSettings;
+use Register\Comment\CommentAgePolicy;
 use Register\Auth\PublicAuthSettings;
 use Register\Module\Analytics\Manifest as AnalyticsManifest;
 use Register\Schema\SchemaManager;
@@ -79,6 +80,7 @@ class DynamicConfigFormBuilder
         'Comments config'     => 'title',
         'REGISTER_SHOW_COMMENTS'    => 'boolean',
         'REGISTER_ENABLED_COMMENTS' => 'boolean',
+        CommentAgePolicy::CONFIG_KEY => 'comment_max_age',
         'REGISTER_ANTISPAM_MODE'    => 'antispam_mode',
         'REGISTER_ANTISPAM_SECRET'  => 'hidden',
         'REGISTER_ANTISPAM_SPAM_SCORE' => 'int',
@@ -321,6 +323,14 @@ class DynamicConfigFormBuilder
                 'value',
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                 control: 'int_input',
+                inlineEdit: $inlineEdit,
+                inlineFormTemplate: '_admin/templates/config/inline.php.inc',
+            ),
+            'comment_max_age' => new FieldConfig(
+                'value',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                control: 'int_input',
+                validators: [new IntegerRange(0, CommentAgePolicy::MAX_DAYS)],
                 inlineEdit: $inlineEdit,
                 inlineFormTemplate: '_admin/templates/config/inline.php.inc',
             ),

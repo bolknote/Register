@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Runtime;
 
 use Register\Author\AuthorProfileRepository;
+use Register\Core\Config\DynamicConfigProvider;
 use Register\Content\ContentChangeDispatcher;
 use Register\Content\ContentDetailsRepository;
 use Register\Content\ContentPublicationQueueHandler;
@@ -106,9 +107,11 @@ final readonly class ContentModule implements ContainerModuleInterface
         $container->set(ContentUrlGenerator::class, static fn(Container $container): ContentUrlGenerator => new ContentUrlGenerator(
             $container->get(DbLayer::class),
             $container->get(UrlBuilder::class),
+            $container->get(DynamicConfigProvider::class)->getBoolProxy('REGISTER_USE_HIERARCHY'),
         ));
         $container->set(ContentUrlAliasRepository::class, static fn(Container $container): ContentUrlAliasRepository => new ContentUrlAliasRepository(
             $container->get(DbLayer::class),
+            $container->get(DynamicConfigProvider::class)->getBoolProxy('REGISTER_USE_HIERARCHY'),
         ));
         $container->set(PageContentSource::class, static fn(Container $container): PageContentSource => new PageContentSource(
             $container->get(DbLayer::class),
@@ -158,6 +161,7 @@ final readonly class ContentModule implements ContainerModuleInterface
         ));
         $container->set(TagRepository::class, static fn(Container $container): TagRepository => new TagRepository(
             $container->get(DbLayer::class),
+            $container->get(\Register\Url\UrlHistoryService::class),
         ));
         $container->set(ContentDetailsRepository::class, static fn(Container $container): ContentDetailsRepository => new ContentDetailsRepository(
             $container->get(ContentRepository::class),

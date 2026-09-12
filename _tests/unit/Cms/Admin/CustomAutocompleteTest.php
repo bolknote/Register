@@ -48,12 +48,20 @@ final class CustomAutocompleteTest extends Unit
     public function testAdminExtensionPublishesCspSafeAutocompleteController(): void
     {
         $dispatcher = new EventDispatcher();
-        (new AdminExtension())->registerListeners($dispatcher, new Container([]));
+        (new AdminExtension())->registerListeners($dispatcher, new Container([
+            'public_root_dir' => dirname(__DIR__, 4) . '/',
+        ]));
 
         $event = new CustomTemplateRendererEvent('/blog');
         $dispatcher->dispatch($event);
 
+        $undoScriptVersion = filemtime('_assets/register/comment-undo.js');
+        $undoStyleVersion = filemtime('_assets/register/comment-undo.css');
+        self::assertNotFalse($undoScriptVersion);
+        self::assertNotFalse($undoStyleVersion);
         self::assertContains('/blog/_admin/js/autocomplete.js', $event->extraScripts);
+        self::assertContains('/blog/_assets/register/comment-undo.js?v=' . (string)$undoScriptVersion, $event->extraScripts);
+        self::assertContains('/blog/_assets/register/comment-undo.css?v=' . (string)$undoStyleVersion, $event->extraStyles);
 
         $script = (string)file_get_contents('_admin/js/autocomplete.js');
         self::assertStringContainsString('dropdown.hidden', $script);

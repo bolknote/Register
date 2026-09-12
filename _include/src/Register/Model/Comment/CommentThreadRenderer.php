@@ -27,7 +27,7 @@ final readonly class CommentThreadRenderer
     /**
      * @param array<mixed> $comments
      */
-    public function render(array $comments, ?CommentModerationContext $moderation = null): string
+    public function render(array $comments, ?CommentModerationContext $moderation = null, bool $allowReplies = true): string
     {
         $normalizedComments = [];
         foreach ($comments as $comment) {
@@ -51,7 +51,7 @@ final readonly class CommentThreadRenderer
         }
 
         return $this->viewer->render('comments', [
-            'comments' => $this->renderNodes($tree, $moderation),
+            'comments' => $this->renderNodes($tree, $moderation, 0, $allowReplies),
             'count'    => count($audienceComments),
         ]);
     }
@@ -63,6 +63,7 @@ final readonly class CommentThreadRenderer
         array                     $nodes,
         ?CommentModerationContext $moderation,
         int                       $depth = 0,
+        bool                      $allowReplies = true,
     ): string
     {
         $html = '';
@@ -71,7 +72,8 @@ final readonly class CommentThreadRenderer
             $children = $node['children'];
             $html .= $this->viewer->render('comment', [
                 ...$node,
-                'children'       => $this->renderNodes($children, $moderation, $depth + 1),
+                'children'       => $this->renderNodes($children, $moderation, $depth + 1, $allowReplies),
+                'allow_replies' => $allowReplies,
                 'depth'          => $depth,
                 'visual_depth'   => min($depth, 3),
                 'show_addressee' => $depth > 3,
@@ -110,7 +112,7 @@ final readonly class CommentThreadRenderer
 
         $publicIds = [];
         foreach ($commentsById as $id => $comment) {
-            if (in_array($comment['moderation_state'], ['visible', 'deleted'], true)
+            if ($comment['moderation_state'] === 'visible'
                 || ($includeHidden && $comment['moderation_state'] === 'hidden')
             ) {
                 $publicIds[$id] = true;

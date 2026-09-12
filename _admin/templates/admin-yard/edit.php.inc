@@ -71,8 +71,8 @@ $errorMessages = array_merge($errorMessages, $form->getGlobalFormErrors());
                            data-delete-url="?<?= $html($queryParams) ?>"
                            data-csrf-token="<?= $html($csrfToken) ?>"
                            data-confirm-title="<?= $html($trans('Delete record')) ?>"
-                           data-confirm="<?= $html($trans('Delete record confirmation')) ?>"
-                           data-confirm-label="<?= $html($trans('Delete permanently')) ?>"
+                           data-confirm="<?= $html($trans($entityName === 'Comment' ? 'Delete comment with undo confirmation' : 'Delete record confirmation')) ?>"
+                           data-confirm-label="<?= $html($trans($entityName === 'Comment' ? 'delete' : 'Delete permanently')) ?>"
                            data-error="<?= $html($trans('Delete record failed')) ?>"
                            data-success-url="?<?= $html(http_build_query(['entity' => $entityName, 'action' => 'list'])) ?>"><span><?= $html($actionLabel) ?></span></button>
                     <?php else: ?>

@@ -12,6 +12,7 @@ namespace Register\Url;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Core\Config\BoolProxy;
 use Register\Core\Model\UrlBuilder;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerException;
@@ -23,6 +24,7 @@ final readonly class ContentUrlGenerator
     public function __construct(
         private DbLayer    $dbLayer,
         private UrlBuilder $urlBuilder,
+        private ?BoolProxy $useHierarchy = null,
     ) {
     }
 
@@ -95,6 +97,18 @@ final readonly class ContentUrlGenerator
             return null;
         }
 
+        if (!$this->usesHierarchy()) {
+            $query = $this->dbLayer->select('slug')->from(ContentSchema::TABLE_NAME)
+                ->where('id = :id')->setParameter('id', $pageId)
+                ->andWhere("content_type = 'page'");
+            if ($publishedOnly) {
+                $query->andWhere('published = 1');
+            }
+
+            $slug = $query->execute()->result();
+            return is_string($slug) ? '/' . rawurlencode($slug) : null;
+        }
+
         $publishedChildQuery = $this->dbLayer
             ->select('1')
             ->from(ContentSchema::TABLE_NAME . ' AS child')
@@ -153,6 +167,11 @@ final readonly class ContentUrlGenerator
         }
 
         return $rootFound ? $this->pagePathFromSegments($segments, $hasChildren) : null;
+    }
+
+    public function usesHierarchy(): bool
+    {
+        return $this->useHierarchy?->get() ?? true;
     }
 
     /**

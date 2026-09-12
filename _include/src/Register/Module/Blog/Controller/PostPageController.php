@@ -13,6 +13,7 @@ declare(strict_types = 1);
 namespace Register\Module\Blog\Controller;
 
 use Register\Comment\ContentCommentRenderer;
+use Register\Comment\CommentAgePolicy;
 use Register\Content\ContentId;
 use Register\Content\ContentRenderedEvent;
 use Register\Content\ContentSchema;
@@ -32,6 +33,7 @@ use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\CalendarBuilder;
 use Register\Module\Blog\Model\DeferredPostPageContext;
 use Register\Module\Blog\Model\PostProvider;
+use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Inplace\PostInplaceControls;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\DeferredRecommendations;
@@ -65,6 +67,8 @@ class PostPageController extends BlogController
         StringProxy                              $blogTitle,
         BoolProxy                                $showComments,
         BoolProxy                                $enabledComments,
+        private readonly CommentAgePolicy        $commentAgePolicy,
+        private readonly BlogPageCache           $pageCache,
     ) {
         parent::__construct(
             $dbLayer,
@@ -213,12 +217,23 @@ class PostPageController extends BlogController
         }
 
         $isSharedResponse = $request->attributes->getBoolean(FlatContentController::SHARED_RESPONSE_ATTRIBUTE);
-        $template->putInPlaceholder('commented', $isSharedResponse || $isPrivatePreview ? 0 : $row['commented']);
+        $commentsClosedByAge = !$isPrivatePreview && $this->commentAgePolicy->isClosed((int)$row['create_time'], $now);
+        if (!$isPrivatePreview && (bool)$row['commented'] && !$commentsClosedByAge) {
+            $closesAt = $this->commentAgePolicy->closesAt((int)$row['create_time']);
+            if ($closesAt !== null) {
+                $this->pageCache->invalidateCurrentResponseAt($closesAt);
+            }
+        }
+
+        $template->putInPlaceholder('commented', $isSharedResponse || $isPrivatePreview || $commentsClosedByAge ? 0 : $row['commented']);
         if (!$isPrivatePreview && (bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- register_comments -->')) {
             $this->liveUpdates->subscribeComments($contentId);
             $template->putInPlaceholder(
                 'comments',
-                $this->commentRenderer->renderRegion($contentId, $request, $request->getPathInfo()),
+                $this->commentRenderer->renderRegion($contentId, $request, $request->getPathInfo())
+                    . ($commentsClosedByAge
+                        ? '<p class="comment-discussion-closed">' . register_htmlencode($this->translator->trans('Comments closed by age')) . '</p>'
+                        : ''),
             );
         }
 

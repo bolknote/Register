@@ -63,10 +63,11 @@ final readonly class PostInplaceControls
         ];
     }
 
-    /** @return array{tag_suggestions_url: string, ai_enabled: bool, ai_alt_enabled: bool}|null */
+    /** @return array{tag_suggestions_url: string, ai_enabled: bool, ai_alt_enabled: bool, recovery_user_id: int}|null */
     public function forPage(Request $request): ?array
     {
-        if ($this->editorForCreate($request) === null) {
+        $editor = $this->editorForCreate($request);
+        if ($editor === null) {
             return null;
         }
 
@@ -74,6 +75,7 @@ final readonly class PostInplaceControls
             'tag_suggestions_url' => $this->urlBuilder->rawLink('/_inplace/tags'),
             'ai_enabled' => $this->aiSettings->isConfigured(),
             'ai_alt_enabled' => $this->aiSettings->autoAltAvailable(),
+            'recovery_user_id' => $editor->id,
         ];
     }
 

@@ -5,6 +5,8 @@ declare(strict_types = 1);
 namespace unit\Cms\Admin\Picture;
 
 use Codeception\Test\Unit;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Translator;
 use Register\Core\Model\PermissionChecker;
 
 final class MediaLibraryTemplateTest extends Unit
@@ -48,18 +50,17 @@ final class MediaLibraryTemplateTest extends Unit
     /** @param list<string> $permissions */
     private function render(array $permissions): string
     {
-        $basePath = '';
-        $locale = 'en';
-        $trans = static fn(string $key): string => $key;
-        $isGranted = static fn(string $permission): bool => \in_array($permission, $permissions, true);
-        $friendlyFilesize = static fn(int $size): string => (string)$size;
-        $adminAssetVersion = static fn(string $asset): string => 'test';
-        $imagePath = '/_pictures';
-        $standalone = false;
-
-        ob_start();
-        require dirname(__DIR__, 5) . '/_admin/templates/picture-manager-content.php.inc';
-
-        return (string)ob_get_clean();
+        return (new TemplateRenderer(new Translator([], 'en')))->render(
+            dirname(__DIR__, 5) . '/_admin/templates/picture-manager-content.php.inc',
+            [
+                'basePath' => '',
+                'locale' => 'en',
+                'isGranted' => static fn(string $permission): bool => \in_array($permission, $permissions, true),
+                'friendlyFilesize' => static fn(int $size): string => (string)$size,
+                'adminAssetVersion' => static fn(): string => 'test',
+                'imagePath' => '/_pictures',
+                'standalone' => false,
+            ],
+        );
     }
 }

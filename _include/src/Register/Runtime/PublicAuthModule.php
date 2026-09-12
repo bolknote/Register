@@ -83,6 +83,7 @@ final readonly class PublicAuthModule implements ContainerModuleInterface
                 $container->get(PageCachePools::class)->hot,
                 $pdo,
                 $container->getBoolParameter('disable_cache'),
+                $container->get(ContentUrlGenerator::class),
             );
         }, [StatefulServiceInterface::class]);
         $container->set(PublicOAuthClient::class, static fn(Container $container): PublicOAuthClient => new PublicOAuthClient(

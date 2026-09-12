@@ -15,6 +15,7 @@ use Register\Core\Framework\StatefulServiceInterface;
 use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\PDO;
+use Register\Url\ContentUrlGenerator;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 
@@ -25,9 +26,9 @@ final class CommentNotificationRepository implements StatefulServiceInterface
 
     private const string USER_VERSION_PREFIX = 'register_comment_notifications_user_version_v1_';
 
-    private const string SNAPSHOT_PREFIX = 'register_comment_notifications_snapshot_v1_';
+    private const string SNAPSHOT_PREFIX = 'register_comment_notifications_snapshot_v2_';
 
-    /** @var array<int, array{dependency: string, identity: string, rows: list<array{id: int, content_type: string, content_id: int}>}> */
+    /** @var array<int, array{dependency: string, identity: string, rows: list<array{id: int, content_type: string, content_id: int, pending: bool}>}> */
     private array $localSnapshots = [];
 
     private ?string $globalVersion = null;
@@ -41,6 +42,7 @@ final class CommentNotificationRepository implements StatefulServiceInterface
         private readonly CacheInterface       $cache,
         private readonly ?PDO                 $pdo = null,
         private readonly bool                 $cacheDisabled = false,
+        private readonly ?ContentUrlGenerator $contentUrlGenerator = null,
     ) {
     }
 
@@ -69,12 +71,26 @@ final class CommentNotificationRepository implements StatefulServiceInterface
 
     public function markContentRead(AuthenticatedPublicUser $user, ContentId $contentId): void
     {
+        $this->markRead($user, $contentId, null);
+    }
+
+    /** A deliberate next-comment visit reads exactly one relevant comment, including pending ones. */
+    public function markCommentRead(AuthenticatedPublicUser $user, ContentId $contentId, int $commentId): void
+    {
+        if ($commentId > 0) {
+            $this->markRead($user, $contentId, $commentId);
+        }
+    }
+
+    private function markRead(AuthenticatedPublicUser $user, ContentId $contentId, ?int $commentId): void
+    {
         $rows = $this->snapshot($user)['rows'];
         $now = time();
         $changed = false;
         foreach ($rows as $row) {
             if ($row['content_type'] !== $contentId->type->value
                 || $row['content_id'] !== $contentId->value
+                || ($commentId === null ? $row['pending'] : $row['id'] !== $commentId)
             ) {
                 continue;
             }
@@ -122,7 +138,7 @@ final class CommentNotificationRepository implements StatefulServiceInterface
     }
 
     /**
-     * @return array{dependency: string, identity: string, rows: list<array{id: int, content_type: string, content_id: int}>}
+     * @return array{dependency: string, identity: string, rows: list<array{id: int, content_type: string, content_id: int, pending: bool}>}
      */
     private function snapshot(AuthenticatedPublicUser $user): array
     {
@@ -166,7 +182,7 @@ final class CommentNotificationRepository implements StatefulServiceInterface
     }
 
     /**
-     * @return array{dependency: string, identity: string, rows: list<array{id: int, content_type: string, content_id: int}>}
+     * @return array{dependency: string, identity: string, rows: list<array{id: int, content_type: string, content_id: int, pending: bool}>}
      */
     private function buildSnapshot(
         AuthenticatedPublicUser $user,
@@ -176,16 +192,26 @@ final class CommentNotificationRepository implements StatefulServiceInterface
         $this->authRepository->ensureNotificationBaseline($user->id);
 
         $rows = [];
+        $reachableContent = [];
         foreach ($this->unreadRows($user)->fetchAssocAll() as $row) {
             $contentType = ContentType::tryFrom((string)($row['content_type'] ?? ''));
             if (!$contentType instanceof ContentType) {
                 continue;
             }
 
+            $contentId = new ContentId($contentType, (int)$row['content_id']);
+            if ($this->contentUrlGenerator !== null) {
+                $reachable = $reachableContent[(string)$contentId] ??= $this->contentUrlGenerator->path($contentId, true) !== null;
+                if (!$reachable) {
+                    continue;
+                }
+            }
+
             $rows[] = [
                 'id'           => (int)$row['id'],
                 'content_type' => $contentType->value,
                 'content_id'   => (int)$row['content_id'],
+                'pending'      => !(bool)$row['shown'],
             ];
         }
 
@@ -199,7 +225,7 @@ final class CommentNotificationRepository implements StatefulServiceInterface
     private function unreadRows(AuthenticatedPublicUser $user): \Register\Core\Pdo\QueryResult
     {
         $prefix = $this->dbLayer->getPrefix();
-        $sql = 'SELECT c.id, c.content_type, c.content_id'
+        $sql = 'SELECT c.id, c.content_type, c.content_id, c.shown'
             . ' FROM ' . $prefix . 'comments AS c'
             . ' INNER JOIN ' . $prefix . 'comment_notification_users AS nu ON nu.user_id = :user_id'
             . ' INNER JOIN ' . $prefix . 'content AS content_item'
@@ -208,12 +234,13 @@ final class CommentNotificationRepository implements StatefulServiceInterface
             . ' LEFT JOIN ' . $prefix . 'comment_notification_reads AS nr'
             . ' ON nr.user_id = :read_user_id AND nr.comment_id = c.id'
             . ' WHERE c.deleted = 0'
+            . ' AND content_item.published = 1'
+            . ' AND nr.comment_id IS NULL'
             . ' AND (c.user_id IS NULL OR c.user_id <> :own_user_id)'
             . " AND (c.email = '' OR LOWER(c.email) <> LOWER(:own_email))"
             . ' AND ('
             . " (c.shown = 0 AND c.sent = 0 AND :include_pending = '1')"
             . ' OR (c.id > nu.initial_comment_id'
-            . ' AND nr.comment_id IS NULL'
             . ' AND c.shown = 1 AND ('
             . ' content_item.author_id = :author_user_id'
             . ' OR parent_comment.user_id = :parent_user_id'
@@ -333,7 +360,7 @@ final class CommentNotificationRepository implements StatefulServiceInterface
     }
 
     /**
-     * @return array{dependency: string, identity: string, rows: list<array{id: int, content_type: string, content_id: int}>}|null
+     * @return array{dependency: string, identity: string, rows: list<array{id: int, content_type: string, content_id: int, pending: bool}>}|null
      */
     private function normalizeSnapshot(mixed $snapshot, string $dependency, string $identity): ?array
     {
@@ -352,6 +379,7 @@ final class CommentNotificationRepository implements StatefulServiceInterface
                 || !\is_int($row['id'] ?? null)
                 || !\is_string($row['content_type'] ?? null)
                 || !\is_int($row['content_id'] ?? null)
+                || !\is_bool($row['pending'] ?? null)
             ) {
                 return null;
             }
@@ -360,6 +388,7 @@ final class CommentNotificationRepository implements StatefulServiceInterface
                 'id'           => $row['id'],
                 'content_type' => $row['content_type'],
                 'content_id'   => $row['content_id'],
+                'pending'      => $row['pending'],
             ];
         }
 

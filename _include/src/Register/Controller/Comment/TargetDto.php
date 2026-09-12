@@ -14,6 +14,7 @@ readonly class TargetDto
     public function __construct(
         public int    $id,
         public string $title,
+        public bool   $commentsAllowed = true,
     ) {
     }
 }

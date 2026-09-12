@@ -24,6 +24,7 @@ final readonly class ContentCommentTargetResolver
     public function __construct(
         private DbLayer         $dbLayer,
         private ArticleProvider $articleProvider,
+        private CommentAgePolicy $agePolicy,
     ) {
     }
 
@@ -40,7 +41,7 @@ final readonly class ContentCommentTargetResolver
     public function fromId(ContentId $contentId): ?TargetDto
     {
         $content = $this->dbLayer
-            ->select('id', 'title')
+            ->select('id', 'title', 'published_at', 'published', 'comments_enabled')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $contentId->value)
             ->andWhere('content_type = :content_type')->setParameter('content_type', $contentId->type->value)
@@ -49,7 +50,17 @@ final readonly class ContentCommentTargetResolver
         ;
 
         return \is_array($content)
-            ? new TargetDto((int)$content['id'], (string)$content['title'])
+            ? new TargetDto(
+                (int)$content['id'],
+                (string)$content['title'],
+                $contentId->type !== ContentType::POST || (
+                    (int)$content['published'] === 1
+                    && (int)$content['comments_enabled'] === 1
+                    && $content['published_at'] !== null
+                    && (int)$content['published_at'] <= time()
+                    && !$this->agePolicy->isClosed((int)$content['published_at'])
+                ),
+            )
             : null;
     }
 
@@ -68,18 +79,23 @@ final readonly class ContentCommentTargetResolver
     private function postFromRequest(Request $request): ?TargetDto
     {
         $post = $this->dbLayer
-            ->select('id', 'title')
+            ->select('id', 'title', 'published_at')
             ->from(ContentSchema::TABLE_NAME)
             ->where('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
             ->andWhere('slug = :slug')->setParameter('slug', $request->attributes->getString('url'))
             ->andWhere('published = 1')
+            ->andWhere('published_at <= :visible_at')->setParameter('visible_at', time())
             ->andWhere('comments_enabled = 1')
             ->execute()
             ->fetchAssoc()
         ;
 
         return \is_array($post)
-            ? new TargetDto((int)$post['id'], (string)$post['title'])
+            ? new TargetDto(
+                (int)$post['id'],
+                (string)$post['title'],
+                !$this->agePolicy->isClosed((int)$post['published_at']),
+            )
             : null;
     }
 }

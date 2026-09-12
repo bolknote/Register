@@ -782,6 +782,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!response.ok || !payload.success) {
                         throw new Error(payload.message || 'HTTP ' + response.status);
                     }
+                    if (Array.isArray(payload.undo_items) && window.RegisterCommentUndo) {
+                        window.RegisterCommentUndo.remember(payload, payload.undo_items);
+                    }
                     window.location.reload();
                 });
             }).catch(function (error) {
@@ -879,9 +882,16 @@ document.addEventListener('DOMContentLoaded', () => {
             fetch(deleteUrl, {
                 method: 'POST',
                 body: new URLSearchParams({csrf_token: deleteAction.dataset.csrfToken || ''})
-            }).then(function (response) {
+            }).then(async function (response) {
                 if (!response.ok) {
                     throw new Error('Delete failed with HTTP ' + response.status);
+                }
+                const payload = await response.json().catch(() => ({}));
+                if (payload.undo_token && window.RegisterCommentUndo) {
+                    window.RegisterCommentUndo.remember(payload, [{
+                        url: deleteUrl,
+                        data: {csrf_token: deleteAction.dataset.csrfToken || '', undo_token: payload.undo_token}
+                    }]);
                 }
                 if (deleteAction.dataset.successUrl) {
                     window.location.assign(deleteAction.dataset.successUrl);

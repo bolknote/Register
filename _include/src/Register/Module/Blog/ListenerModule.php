@@ -168,6 +168,8 @@ final readonly class ListenerModule implements ContainerAwareListenerModuleInter
 
             $event->assetPack
                 ->addCss('../../_assets/register/blog/site.css', [AssetPack::OPTION_MERGE])
+                ->addCss('../../_assets/register/post-recovery.css', [AssetPack::OPTION_MERGE])
+                ->addJs($assetUrl->versioned('/_assets/register/post-recovery.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($assetUrl->versioned('/_assets/register/post-inplace.js'), [AssetPack::OPTION_DEFER])
             ;
         });

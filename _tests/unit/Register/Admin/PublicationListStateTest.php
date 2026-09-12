@@ -6,6 +6,8 @@ namespace unit\Register\Admin;
 
 use Codeception\Test\Unit;
 use Register\Admin\PublicationListState;
+use Register\AdminYard\TemplateRenderer;
+use Register\AdminYard\Translator;
 
 final class PublicationListStateTest extends Unit
 {
@@ -38,13 +40,15 @@ final class PublicationListStateTest extends Unit
 
     public function testPageTitleKeepsItsEditLinkAndEscapesMetadataWithoutStrikingDrafts(): void
     {
-        $row = ['virtual_author_id' => '<b>Author</b>', 'virtual_tags' => 'one & two'];
-        $label = '<Page>';
-        $value = $label;
-        $linkParams = ['entity' => 'Article', 'action' => 'edit', 'id' => 12];
-        ob_start();
-        require dirname(__DIR__, 4) . '/_admin/templates/article/view-title.php';
-        $output = (string)ob_get_clean();
+        $output = (new TemplateRenderer(new Translator([], 'en')))->render(
+            dirname(__DIR__, 4) . '/_admin/templates/article/view-title.php',
+            [
+                'row' => ['virtual_author_id' => '<b>Author</b>', 'virtual_tags' => 'one & two'],
+                'label' => '<Page>',
+                'value' => '<Page>',
+                'linkParams' => ['entity' => 'Article', 'action' => 'edit', 'id' => 12],
+            ],
+        );
 
         self::assertStringContainsString('href="?entity=Article&amp;action=edit&amp;id=12"', $output);
         self::assertStringContainsString('&lt;Page&gt;', $output);
@@ -55,10 +59,10 @@ final class PublicationListStateTest extends Unit
 
     public function testNullPublicationDateDoesNotPretendADraftWasPublished(): void
     {
-        $value = null;
-        ob_start();
-        require dirname(__DIR__, 4) . '/_admin/templates/content/publication-date.php.inc';
-        $output = (string)ob_get_clean();
+        $output = (new TemplateRenderer(new Translator([], 'en')))->render(
+            dirname(__DIR__, 4) . '/_admin/templates/content/publication-date.php.inc',
+            ['value' => null],
+        );
 
         self::assertStringContainsString('—', $output);
         self::assertStringNotContainsString('<time', $output);

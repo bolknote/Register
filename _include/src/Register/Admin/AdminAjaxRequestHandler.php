@@ -828,7 +828,7 @@ class AdminAjaxRequestHandler
         try {
             $response = $controller($this->permissionChecker, $request, $this->container, $this->translator);
         } catch (ContentUrlCollisionException $e) {
-            $response = new Json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+            $response = new Json(['success' => false, 'message' => $this->translator->trans($e->getMessage())], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (AccessDeniedException $e) {
             $response = new Json(['success' => false, 'message' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         } catch (NotFoundException $e) {

@@ -28,6 +28,7 @@ use Register\Core\Model\UserpicSchema;
 use Register\Live\LiveUpdateSchema;
 use Register\Import\ExternalImportMapSchema;
 use Register\Url\ContentUrlAliasSchema;
+use Register\Url\TagUrlAliasSchema;
 use Register\Schema\SchemaManager;
 use Register\Core\Security\WebAuthn\WebAuthnSchema;
 use Register\Core\Pdo\DbLayer;
@@ -113,6 +114,7 @@ readonly class Installer
             ;
         });
 
+        TagUrlAliasSchema::create($this->dbLayer);
         ContentTagSchema::create($this->dbLayer);
 
         $this->dbLayer->createTable('users_online', function (SchemaBuilderInterface $table): void {
@@ -183,6 +185,7 @@ readonly class Installer
         $this->dbLayer->dropTable(QueueSchema::LEASE_TABLE);
         $this->dbLayer->dropTable('queue');
         ContentTagSchema::drop($this->dbLayer);
+        TagUrlAliasSchema::drop($this->dbLayer);
         $this->dbLayer->dropTable('tags');
         LiveUpdateSchema::drop($this->dbLayer);
         ExternalImportMapSchema::drop($this->dbLayer);
@@ -245,6 +248,7 @@ readonly class Installer
             'REGISTER_LANGUAGE'         => $defaultLanguage,
             'REGISTER_SHOW_COMMENTS'    => '1',
             'REGISTER_ENABLED_COMMENTS' => '1',
+            \Register\Comment\CommentAgePolicy::CONFIG_KEY => '0',
             'REGISTER_PREMODERATION'    => '0',
             'REGISTER_ANTISPAM_MODE'    => 'local',
             'REGISTER_ANTISPAM_SECRET'  => $antispamFallbackSecret,

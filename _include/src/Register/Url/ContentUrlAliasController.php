@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/** Redirects historical paths directly to the current canonical post URL. */
+/** Redirects historical paths directly to the current canonical content URL. */
 final readonly class ContentUrlAliasController implements ControllerInterface
 {
     public function __construct(
@@ -26,18 +26,23 @@ final readonly class ContentUrlAliasController implements ControllerInterface
 
     public function redirect(Request $request): ?RedirectResponse
     {
+        if (!$request->isMethodSafe()) {
+            return null;
+        }
+
         try {
             $path = ContentUrlAliasRepository::normalizePath($request->getPathInfo());
         } catch (\InvalidArgumentException) {
             return null;
         }
 
-        $slug = $this->aliases->publishedPostSlug($path);
-        if ($slug === null || $slug === $path) {
+        $contentId = $this->aliases->content($request->getPathInfo());
+        $currentPath = $contentId === null ? null : $this->urlGenerator->path($contentId, true);
+        if ($currentPath === null || ($currentPath !== '/' && ContentUrlAliasRepository::normalizePath($currentPath) === $path)) {
             return null;
         }
 
-        $target = $this->urlGenerator->post($slug);
+        $target = $this->urlGenerator->linkPath($currentPath);
         $query  = $request->getQueryString();
         if (is_string($query) && $query !== '') {
             $target .= (str_contains($target, '?') ? '&' : '?') . $query;

@@ -898,6 +898,7 @@ final class ContentProjectionTest extends Unit
             new UniqueSlugGenerator(new SlugGenerator(new PortableAsciiTransliterator())),
             new ReservedRouteRegistry('tags', 'favorite'),
             new ContentUrlAliasRepository($dbLayer),
+            $contentUrlGenerator,
         );
         $pictureDirectory = $this->temporaryDirectory . '/pictures';
         mkdir($pictureDirectory, 0700, true);

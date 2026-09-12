@@ -4,6 +4,7 @@ declare(strict_types = 1);
 
 return [
     'locale'                 => 'en',
+    'Comments closed by age' => 'The discussion is closed to new comments. Existing comments remain available.',
 
     // Error messages
     'Error encountered'      => 'An error was encountered',
@@ -72,6 +73,11 @@ return [
     'Mark comment as spam'   => 'Mark as spam',
     'Mark comment as not spam' => 'Not spam',
     'Comment deleted'        => 'Comment deleted',
+    'Undo comment deletion'  => 'Undo',
+    'Comment deleted with undo period' => 'Comment deleted. Undo is available for ten minutes.',
+    'Comment restored'       => 'Comment restored',
+    'Comment changed before undo' => 'This deletion can no longer be undone. The comment changed or the ten-minute undo period ended.',
+    'Return to discussion'   => 'Return to discussion',
     'Comment is spam'        => 'spam',
     'Comment is hidden'      => 'hidden',
     'Confirm comment deletion' => 'Delete this comment?',

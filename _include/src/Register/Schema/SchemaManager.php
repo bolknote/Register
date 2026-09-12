@@ -27,12 +27,13 @@ final readonly class SchemaManager
 {
     public const string CONFIG_KEY = 'REGISTER_SCHEMA_GENERATION';
 
-    public const int CURRENT_GENERATION = 30;
+    public const int CURRENT_GENERATION = 31;
 
     /** Oldest installed generation accepted by the release updater. */
     public const int MINIMUM_UPGRADE_GENERATION = 15;
 
     private const array CONFIG_DEFAULTS = [
+        \Register\Comment\CommentAgePolicy::CONFIG_KEY => '0',
         'REGISTER_SITE_TAGLINE' => '',
         'REGISTER_SOCIAL_IMAGE' => '',
         FeedSettings::ITEM_LIMIT_CONFIG_KEY => FeedSettings::DEFAULT_ITEM_LIMIT,

@@ -53,6 +53,19 @@ is enabled, ordinary `ham` comments also wait for review. A published comment is
 optional parent, subscriber and moderator notifications are scheduled, and the browser is redirected
 to the comment anchor.
 
+### Closing older discussions
+
+**Settings → Comments → Close post discussions after this many days** controls
+`REGISTER_COMMENT_MAX_AGE_DAYS`. Its default is `0` (no age limit); positive values count
+24-hour days from the publication timestamp, not the creation or last-edit time.
+Permanent pages are unaffected. Per-post and global comment switches still apply.
+
+At the deadline the post keeps its existing thread but no longer offers a form or reply
+buttons. The server rejects both new submissions and previews from an already-open form,
+and checks the deadline again when a pending email-confirmed comment is accepted. Anonymous
+page-cache entries expire at the same deadline. Changing the setting to `0` reopens eligible
+discussions without modifying or republishing any comments.
+
 ## Thread rendering and unread comments
 
 Comments are fetched in chronological order and assembled into a tree on the server. Missing
@@ -67,3 +80,28 @@ participants, the header counter links to the first relevant unread comment. Sit
 new comments in their posts; other users always see direct replies and see every new comment in a
 discussion only after selecting **Subscribe to new comments** there. The same subscription continues
 to control email delivery when the account has an email address.
+
+Following the unread counter opens one comment using its stable `#comment-ID` anchor and
+`comment_unread` query parameter. Only that comment becomes read when its discussion is rendered;
+the next click advances to the next relevant unread comment, including another comment on the same
+page. Reads belong to the authenticated user and do not affect other participants. Moderators can
+explicitly read a pending comment without publishing, hiding, or otherwise resolving it in the
+administration queue. An ordinary discussion visit marks its published notifications read but leaves
+pending moderation untouched. Background live updates never mark a discussion read. Unpublished
+content and pages below unpublished ancestors are excluded from the counter.
+
+## Undoing comment deletion
+
+Public moderation and individual or bulk deletion in administration offer **Undo** for ten minutes.
+Deletion immediately removes the public text while preserving replies and their parent identities.
+Undo restores the original text, visibility, pending/handled state, and subscription preference;
+it does not send subscription emails again. The notification survives a page reload in the same
+browser tab through `sessionStorage`; when browser storage is blocked it still works on the current
+page. Public moderation without JavaScript offers an ordinary POST form for Undo.
+
+Restoration requires the deleting moderator's authenticated session, the original CSRF context,
+and a signed token tied to the comment and its deletion revision. Expired, altered, replayed, or
+stale tokens cannot restore a comment. Hourly maintenance removes at most 100 deleted leaf comments
+older than a day and erases the original text and personal data of at most 100 remaining deleted
+comments per pass. Deleted parents with surviving replies retain only anonymous thread anchors. Removing
+a complete publication and external-import reconciliation keep their existing deletion semantics.

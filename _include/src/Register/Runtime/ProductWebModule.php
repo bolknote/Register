@@ -62,6 +62,7 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
     {
         $eventDispatcher->addListener(ContentChangedEvent::class, static function (ContentChangedEvent $_event) use ($container): void {
             $container->get(ContentSitemapCache::class)->invalidate();
+            $container->get(CommentNotificationRepository::class)->invalidateAll();
         });
         $eventDispatcher->addListener(CommentChangedEvent::class, static function (CommentChangedEvent $event) use ($container): void {
             $container->get(CommentNotificationRepository::class)->invalidateAll(
@@ -70,6 +71,12 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
         });
 
         $eventDispatcher->addListener(NotFoundEvent::class, static function (NotFoundEvent $event) use ($container): void {
+            $aliasResponse = $container->get(\Register\Url\TagUrlAliasRedirector::class)->redirect($event->request);
+            if ($aliasResponse !== null) {
+                $event->response = $aliasResponse;
+                return;
+            }
+
             $redirectResponse = $container->get(RedirectDetector::class)->getRedirectResponse($event->request);
             if ($redirectResponse !== null) {
                 $event->response = $redirectResponse;
@@ -149,6 +156,8 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
                 $container->getStringParameter('base_path'),
             );
             $event->assetPack
+                ->addCss($assetUrl->versioned('/_assets/register/comment-undo.css'))
+                ->addJs($assetUrl->versioned('/_assets/register/comment-undo.js'), [AssetPack::OPTION_DEFER])
                 ->addCss($assetUrl->versioned('/_assets/register/comment-editor.css'))
                 ->addCss($assetUrl->versioned('/_assets/register/offline.css'))
                 ->addCss($assetUrl->versioned('/_assets/register/partial-navigation.css'))

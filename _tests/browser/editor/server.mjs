@@ -49,10 +49,15 @@ export function createFixtureServer() {
                 ['/cases.js', ['cases.js', 'text/javascript']],
                 ['/comment.html', ['comment.html', 'text/html; charset=utf-8']],
                 ['/comment-cases.js', ['comment-cases.js', 'text/javascript']],
+                ['/recovery.html', ['recovery.html', 'text/html; charset=utf-8']],
+                ['/recovery-fixture.js', ['recovery-fixture.js', 'text/javascript']],
+                ['/recovery-fixture.css', ['recovery-fixture.css', 'text/css']],
+                ['/post-recovery.js', ['../../../_assets/register/post-recovery.js', 'text/javascript']],
+                ['/post-recovery.css', ['../../../_assets/register/post-recovery.css', 'text/css']],
                 ['/site.css', ['../../../_styles/register/site.css', 'text/css']],
                 ['/comment-editor.css', ['../../../_assets/register/comment-editor.css', 'text/css']],
             ]);
-            const file = files.get(request.url);
+            const file = files.get(new URL(request.url, 'http://127.0.0.1').pathname);
             if (!file) { response.writeHead(404); response.end(); return; }
             response.setHeader('Content-Type', file[1]);
             response.end(await readFile(new URL(file[0], import.meta.url)));

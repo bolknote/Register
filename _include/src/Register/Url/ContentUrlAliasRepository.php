@@ -12,13 +12,14 @@ namespace Register\Url;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
+use Register\Core\Config\BoolProxy;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerException;
 
-/** Keeps historical paths unique and resolves them directly to the current post slug. */
+/** Keeps historical paths unique and resolves them to the current content identity. */
 final readonly class ContentUrlAliasRepository
 {
-    public function __construct(private DbLayer $dbLayer)
+    public function __construct(private DbLayer $dbLayer, private ?BoolProxy $useHierarchy = null)
     {
     }
 
@@ -52,6 +53,13 @@ final readonly class ContentUrlAliasRepository
         return $path;
     }
 
+    public static function assertHistoryPathLength(string $path): void
+    {
+        if (strlen(rawurldecode(trim($path, '/'))) > 255) {
+            throw new ContentUrlCollisionException(ContentUrlCollisionException::PATH_TOO_LONG);
+        }
+    }
+
     /** @throws DbLayerException */
     public function add(ContentId $contentId, string $path): void
     {
@@ -77,10 +85,10 @@ final readonly class ContentUrlAliasRepository
             return;
         }
 
-        $canonicalOwner = $this->rootCanonicalOwner($path);
+        $canonicalOwner = $this->canonicalOwner($path, $contentId->value);
         if ($canonicalOwner !== null && $canonicalOwner !== $contentId->value) {
             throw new ContentUrlCollisionException(sprintf(
-                'URL alias "%s" is already a canonical root URL.',
+                'URL alias "%s" is already a canonical URL.',
                 $path,
             ));
         }
@@ -108,13 +116,14 @@ final readonly class ContentUrlAliasRepository
     /** @throws DbLayerException */
     public function rememberCanonicalChange(ContentId $contentId, string $previousPath, string $currentPath): void
     {
+        $encodedPreviousPath = $previousPath;
         $previousPath = self::normalizePath($previousPath);
         $currentPath  = self::normalizePath($currentPath);
 
         // Reverting to an earlier slug promotes that path back to canonical status.
         $this->remove($contentId, $currentPath);
         if ($previousPath !== $currentPath) {
-            $this->add($contentId, $previousPath);
+            $this->add($contentId, $encodedPreviousPath);
         }
     }
 
@@ -124,6 +133,30 @@ final readonly class ContentUrlAliasRepository
         $owner = $this->owner(self::normalizePath($path));
 
         return $owner !== null && $owner !== $contentId;
+    }
+
+    public function assertAvailable(string $path, int $contentId): void
+    {
+        self::assertHistoryPathLength($path);
+        $path = self::normalizePath($path);
+        $canonicalOwner = $this->canonicalOwner($path, $contentId);
+        $aliasOwner = $this->owner($path);
+        if (($aliasOwner !== null && $aliasOwner !== $contentId)
+            || ($canonicalOwner !== null && $canonicalOwner !== $contentId)) {
+            throw new ContentUrlCollisionException('The entity with same parameters already exists.');
+        }
+    }
+
+    public function content(string $path): ?ContentId
+    {
+        $row = $this->dbLayer->select('c.id, c.content_type')->from(ContentUrlAliasSchema::TABLE_NAME . ' AS a')
+            ->innerJoin(ContentSchema::TABLE_NAME . ' AS c', 'c.id = a.content_id')
+            ->where('a.path = :path')->setParameter('path', self::normalizePath($path))
+            ->andWhere('c.published = 1')
+            ->andWhere("(c.content_type = 'page' OR c.published_at <= :now)")->setParameter('now', time())
+            ->execute()->fetchAssoc();
+
+        return $row === false ? null : new ContentId(ContentType::from((string)$row['content_type']), (int)$row['id']);
     }
 
     /** @throws DbLayerException */
@@ -170,17 +203,46 @@ final readonly class ContentUrlAliasRepository
     }
 
     /** @throws DbLayerException */
-    private function rootCanonicalOwner(string $path): ?int
+    private function canonicalOwner(string $path, int $excludedId): ?int
     {
+        if ($this->useHierarchy !== null && !$this->useHierarchy->get()) {
+            $owner = $this->dbLayer->select('id')->from(ContentSchema::TABLE_NAME)
+                ->where('slug = :slug')->setParameter('slug', $path)
+                ->andWhere('id <> :id')->setParameter('id', $excludedId)->execute()->result();
+
+            return $owner === false || $owner === null ? null : (int)$owner;
+        }
+
         $owner = $this->dbLayer
             ->select('id')
             ->from(ContentSchema::TABLE_NAME)
             ->where('slug_scope = :slug_scope')->setParameter('slug_scope', 'root')
             ->andWhere('slug = :slug')->setParameter('slug', $path)
+            ->andWhere('id <> :id')->setParameter('id', $excludedId)
             ->execute()
             ->result()
         ;
 
-        return $owner === false || $owner === null ? null : (int)$owner;
+        if ($owner !== false && $owner !== null) {
+            return (int)$owner;
+        }
+
+        $parent = $this->dbLayer->select('id')->from(ContentSchema::TABLE_NAME)
+            ->where("content_type = 'page'")->andWhere('parent_id IS NULL')->execute()->result();
+        if ($parent === false || $parent === null) {
+            return null;
+        }
+
+        foreach (explode('/', $path) as $segment) {
+            $parent = $this->dbLayer->select('id')->from(ContentSchema::TABLE_NAME)
+                ->where("content_type = 'page'")
+                ->andWhere('parent_id = :parent')->setParameter('parent', (int)$parent)
+                ->andWhere('slug = :slug')->setParameter('slug', $segment)->execute()->result();
+            if ($parent === false || $parent === null) {
+                return null;
+            }
+        }
+
+        return (int)$parent;
     }
 }

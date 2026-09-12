@@ -77,8 +77,8 @@ foreach ($rowActions as $action) {
                 data-delete-url="?<?= register_htmlencode($queryParams) ?>"
                 data-csrf-token="<?= register_htmlencode($csrfToken) ?>"
                 data-confirm-title="<?= register_htmlencode($trans('Delete record')) ?>"
-                data-confirm="<?= register_htmlencode($trans('Delete record confirmation')) ?>"
-                data-confirm-label="<?= register_htmlencode($trans('Delete permanently')) ?>"
+                data-confirm="<?= register_htmlencode($trans('Delete comment with undo confirmation')) ?>"
+                data-confirm-label="<?= register_htmlencode($trans('Delete comment')) ?>"
                 data-error="<?= register_htmlencode($trans('Delete record failed')) ?>"><span><?= register_htmlencode($actionName) ?></span></button>
         <?php
     } else {

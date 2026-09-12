@@ -104,8 +104,8 @@ final class BlogPostListTest extends Unit
 
     public function testCommentCountsExcludeDeletedAndInaccessibleComments(): void
     {
-        foreach ([true => '2', false => '1'] as $admin => $count) {
-            [$controller, $renderer] = $this->harness((bool)$admin);
+        foreach ([[true, '2'], [false, '1']] as [$admin, $count]) {
+            [$controller, $renderer] = $this->harness($admin);
             $controller->listAction(Request::create('/_admin/?state=published'));
             $html = $renderer->listData['rows'][0]['cells']['comments']['content'];
             self::assertStringContainsString('>' . $count . '</a>', (string) $html);

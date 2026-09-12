@@ -1,0 +1,26 @@
+.post-recovery-notice {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--text-width, 680px);
+    margin: 1rem 0;
+    padding: 1rem;
+    border: 1px solid var(--border-color, #aaa);
+    border-radius: 6px;
+    color: var(--text-color, CanvasText);
+    background: var(--field-background, Canvas);
+    font: 14px/1.5 var(--ui-font, sans-serif);
+    overflow-wrap: anywhere;
+}
+.post-recovery-notice p { margin: 0 0 .6rem; }
+.post-recovery-notice p:last-child { margin-bottom: 0; }
+.post-recovery-actions { display: flex; flex-wrap: wrap; gap: .5rem 1rem; }
+.post-recovery-actions button {
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    padding: .3rem .6rem;
+    cursor: pointer;
+}
+.post-recovery-actions button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }

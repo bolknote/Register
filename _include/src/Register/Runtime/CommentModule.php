@@ -19,6 +19,7 @@ use Register\Comment\CommentMailQueueHandler;
 use Register\Comment\CommentPublicationTrustPolicy;
 use Register\Comment\CommentPresentationEnricherInterface;
 use Register\Comment\CommentRepository;
+use Register\Comment\CommentAgePolicy;
 use Register\Comment\CommentSubscriptionService;
 use Register\Comment\ContentCommentNotifier;
 use Register\Comment\ContentCommentRenderer;
@@ -65,6 +66,9 @@ final readonly class CommentModule implements ContainerModuleInterface
     #[\Override]
     public function buildContainer(Container $container): void
     {
+        $container->set(CommentAgePolicy::class, static fn(Container $container): CommentAgePolicy => new CommentAgePolicy(
+            $container->get(DynamicConfigProvider::class),
+        ));
         $container->set(SpamAssessmentRepository::class, static fn(Container $container): SpamAssessmentRepository => new SpamAssessmentRepository(
             $container->get(DbLayer::class),
         ));
@@ -77,6 +81,9 @@ final readonly class CommentModule implements ContainerModuleInterface
             $container->get(LiveUpdateRepository::class),
             $container->get(EventDispatcherInterface::class),
         ));
+        $container->set(\Register\Comment\CommentDeletionMaintenanceTask::class, static fn(Container $container): \Register\Comment\CommentDeletionMaintenanceTask => new \Register\Comment\CommentDeletionMaintenanceTask(
+            $container->get(CommentRepository::class),
+        ), [\Register\Core\Queue\ScheduledMaintenanceTaskInterface::class]);
         $container->set(CommentPublicationTrustPolicy::class, static fn(Container $container): CommentPublicationTrustPolicy => new CommentPublicationTrustPolicy(
             $container->get(DbLayer::class),
         ));
@@ -99,11 +106,13 @@ final readonly class CommentModule implements ContainerModuleInterface
             $container->get(CommentThreadRenderer::class),
             $container->get(AuthProvider::class),
             $container->get(CommentNotificationRepository::class),
+            $container->get(CommentAgePolicy::class),
             ...$container->getByTag(CommentPresentationEnricherInterface::class),
         ));
         $container->set(ContentCommentTargetResolver::class, static fn(Container $container): ContentCommentTargetResolver => new ContentCommentTargetResolver(
             $container->get(DbLayer::class),
             $container->get(ArticleProvider::class),
+            $container->get(CommentAgePolicy::class),
         ));
         $container->set(CommentMailDelivery::class, static fn(Container $container): CommentMailDelivery => new CommentMailDelivery(
             $container->get(CommentRepository::class),

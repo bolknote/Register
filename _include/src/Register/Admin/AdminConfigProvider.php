@@ -385,8 +385,8 @@ class AdminConfigProvider implements StatefulServiceInterface
                 }
 
                 $paths = [];
-                foreach ($event->data['rows'] as &$row) {
-                    $comment = &$row['comment'];
+                foreach ($event->data['rows'] as $rowIndex => $row) {
+                    $comment = $row['comment'];
                     $contentId = new ContentId(ContentType::from($comment['content_type']), $comment['content_id']);
                     $key = $comment['content_type'] . ':' . $comment['content_id'];
                     if (!array_key_exists($key, $paths)) {
@@ -394,10 +394,8 @@ class AdminConfigProvider implements StatefulServiceInterface
                         $paths[$key] = $path !== null ? html_entity_decode($this->contentUrlGenerator->linkPath($path), ENT_QUOTES | ENT_HTML5, 'UTF-8') : null;
                     }
 
-                    $comment['discussion_url'] = $paths[$key] !== null ? $paths[$key] . '#comments-title' : null;
+                    $event->data['rows'][$rowIndex]['comment']['discussion_url'] = $paths[$key] !== null ? $paths[$key] . '#comments-title' : null;
                 }
-
-                unset($comment, $row);
             })
             ->addListener(EntityConfig::EVENT_BEFORE_PATCH, static function (BeforeSaveEvent $event): void {
                 if (($event->data['shown'] ?? false) === true) {
@@ -1194,11 +1192,11 @@ class AdminConfigProvider implements StatefulServiceInterface
                 $tags   = array_map(trim(...), explode(',', $tagStr));
                 $tags   = array_filter($tags, static fn(string $tag): bool => $tag !== '');
 
-                $newTagIds = self::tagIdsFromTags($event->dataProvider, $tags, $this->dbPrefix);
+                $newTagIds = $this->tagRepository->findOrCreateIdsByNames(array_values($tags));
 
                 $this->tagRepository->replace(
                     ContentId::page($this->requirePrimaryKey($event->primaryKey)->getIntId()),
-                    array_values(array_map(intval(...), $newTagIds)),
+                    array_map(intval(...), $newTagIds),
                 );
             })
             ->addFilter(
@@ -1962,6 +1960,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         return match ($urlStatus) {
             ContentSlugService::STATUS_EMPTY => $this->translator->trans('URL empty'),
             ContentSlugService::STATUS_NOT_UNIQUE => $this->translator->trans('URL not unique'),
+            ContentSlugService::STATUS_TOO_LONG => $this->translator->trans(\Register\Url\ContentUrlCollisionException::PATH_TOO_LONG),
             ContentSlugService::STATUS_MAIN_PAGE => $this->translator->trans('URL on mainpage'),
             ContentSlugService::STATUS_OK => '',
             default => $this->translator->trans('URL unavailable'),

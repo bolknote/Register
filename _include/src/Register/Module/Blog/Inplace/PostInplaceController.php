@@ -88,6 +88,7 @@ final readonly class PostInplaceController implements ControllerInterface
         private AiSettings                 $aiSettings,
         private PublicationMetadataGenerator $publicationMetadataGenerator,
         private TranslatorInterface        $translator,
+        private \Register\Url\UrlHistoryService $urlHistory,
         ContentDeletionGuardInterface ...$deletionGuards,
     ) {
         $this->deletionGuards = array_values($deletionGuards);
@@ -530,6 +531,13 @@ final readonly class PostInplaceController implements ControllerInterface
         $storedTagNames = array_map(static fn(\Register\Content\Tag $tag): string => $tag->name, $storedTags);
         $title          = trim($request->request->getString('title'));
         $body           = $request->request->getString('body');
+        $slug = $request->request->has('slug') ? trim($request->request->getString('slug')) : (string)$post['slug'];
+        $slugChanged = $slug !== (string)$post['slug'];
+        $slugStatus = $slugChanged ? $this->contentSlugService->postStatus($postId, $slug) : ContentSlugService::STATUS_OK;
+        if ($slugStatus !== ContentSlugService::STATUS_OK) {
+            return $this->error($request, $slugStatus === ContentSlugService::STATUS_TOO_LONG ? \Register\Url\ContentUrlCollisionException::PATH_TOO_LONG : 'Invalid post URL', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $storedPublishedAt = $this->storedPublicationAt($post);
         $publishedAt    = $this->publishedAt($request, $storedPublishedAt);
         $tagNames       = $storedTagNames;
@@ -569,6 +577,7 @@ final readonly class PostInplaceController implements ControllerInterface
         $revision = $this->revisionService->resolve(
             [
                 'title'    => $title,
+                'slug'     => $slug,
                 'excerpt'  => $metadata->excerpt,
                 'body'     => $body,
                 'meta_description' => $metadata->metaDescription,
@@ -579,6 +588,7 @@ final readonly class PostInplaceController implements ControllerInterface
             ],
             [
                 'column_title'    => (string)$post['title'],
+                'column_slug'     => (string)$post['slug'],
                 'column_excerpt'  => (string)$post['excerpt'],
                 'column_body'     => (string)$post['body'],
                 'column_meta_description' => (string)$post['meta_description'],
@@ -587,7 +597,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 'column_scheduled' => $storedScheduled,
                 'column_revision' => (int)$post['revision'],
             ],
-            ['title', 'excerpt', 'body', 'meta_description', 'tags', 'published_at', 'scheduled'],
+            ['title', 'slug', 'excerpt', 'body', 'meta_description', 'tags', 'published_at', 'scheduled'],
         );
         if (!$revision instanceof \Register\Content\Admin\ContentRevision) {
             return $this->error($request, 'Post has changed in another window', Response::HTTP_CONFLICT);
@@ -598,64 +608,71 @@ final readonly class PostInplaceController implements ControllerInterface
         $scheduleChanged = $scheduled !== $storedScheduled;
         $orphanMedia = [];
         if ($revision->contentChanged) {
-            $updated = $this->transactional(function () use ($request, $contentId, $postId, $title, $metadata, $body, $publishedAt, $scheduled, $isDraft, $dateChanged, $scheduleChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia): bool {
-                $update = $this->dbLayer
-                    ->update(ContentSchema::TABLE_NAME)
-                    ->set('title', ':title')->setParameter('title', $title)
-                    ->set('excerpt', ':excerpt')->setParameter('excerpt', $metadata->excerpt)
-                    ->set('body', ':body')->setParameter('body', $body)
-                    ->set('meta_description', ':meta_description')->setParameter('meta_description', $metadata->metaDescription)
-                    ->set('updated_at', ':updated_at')->setParameter('updated_at', time())
-                    ->set('revision', ':new_revision')->setParameter('new_revision', (int)$revision->value)
-                    ->where('id = :id')->setParameter('id', $postId)
-                    ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
-                    ->andWhere('revision = :revision')->setParameter('revision', $submittedRevision)
-                ;
-                if ($dateChanged || $scheduleChanged) {
-                    $update->set('date_label', "''");
-                    if ($isDraft) {
-                        // Editing a draft never publishes or schedules it implicitly.
-                        $update->set('published_at', ':published_at')->setParameter('published_at', $publishedAt);
-                    } elseif ($scheduled) {
-                        $update
-                            ->set('published', '0')
-                            ->set('published_at', 'NULL')
-                            ->set('scheduled_at', ':scheduled_at')->setParameter('scheduled_at', $publishedAt)
-                        ;
-                    } else {
-                        $update
-                            ->set('published', '1')
-                            ->set('published_at', ':published_at')->setParameter('published_at', $publishedAt)
-                            ->set('scheduled_at', '0')
-                        ;
+            try {
+                $write = function () use ($request, $contentId, $postId, $title, $slug, $metadata, $body, $publishedAt, $scheduled, $isDraft, $dateChanged, $scheduleChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia): bool {
+                    $update = $this->dbLayer
+                        ->update(ContentSchema::TABLE_NAME)
+                        ->set('title', ':title')->setParameter('title', $title)
+                        ->set('slug', ':slug')->setParameter('slug', $slug)
+                        ->set('excerpt', ':excerpt')->setParameter('excerpt', $metadata->excerpt)
+                        ->set('body', ':body')->setParameter('body', $body)
+                        ->set('meta_description', ':meta_description')->setParameter('meta_description', $metadata->metaDescription)
+                        ->set('updated_at', ':updated_at')->setParameter('updated_at', time())
+                        ->set('revision', ':new_revision')->setParameter('new_revision', (int)$revision->value)
+                        ->where('id = :id')->setParameter('id', $postId)
+                        ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
+                        ->andWhere('revision = :revision')->setParameter('revision', $submittedRevision)
+                    ;
+                    if ($dateChanged || $scheduleChanged) {
+                        $update->set('date_label', "''");
+                        if ($isDraft) {
+                            // Editing a draft never publishes or schedules it implicitly.
+                            $update->set('published_at', ':published_at')->setParameter('published_at', $publishedAt);
+                        } elseif ($scheduled) {
+                            $update
+                                ->set('published', '0')
+                                ->set('published_at', 'NULL')
+                                ->set('scheduled_at', ':scheduled_at')->setParameter('scheduled_at', $publishedAt)
+                            ;
+                        } else {
+                            $update
+                                ->set('published', '1')
+                                ->set('published_at', ':published_at')->setParameter('published_at', $publishedAt)
+                                ->set('scheduled_at', '0')
+                            ;
+                        }
                     }
-                }
 
-                $affectedRows = $update->execute()
-                    ->affectedRows()
-                ;
-                if ($affectedRows !== 1) {
-                    return false;
-                }
+                    $affectedRows = $update->execute()
+                        ->affectedRows()
+                    ;
+                    if ($affectedRows !== 1) {
+                        return false;
+                    }
 
-                if ($tagsChanged) {
-                    $this->tagRepository->replace(
-                        $contentId,
-                        $this->tagRepository->findOrCreateIdsByNames($tagNames),
+                    if ($tagsChanged) {
+                        $this->tagRepository->replace(
+                            $contentId,
+                            $this->tagRepository->findOrCreateIdsByNames($tagNames),
+                        );
+                    }
+
+                    $orphanMedia = $this->mediaRepository->syncPost(
+                        $postId,
+                        $body,
+                        $this->mediaIds($request->request->getString('uploaded_media_ids')),
+                        $editor->id,
                     );
-                }
 
-                $orphanMedia = $this->mediaRepository->syncPost(
-                    $postId,
-                    $body,
-                    $this->mediaIds($request->request->getString('uploaded_media_ids')),
-                    $editor->id,
-                );
+                    $this->changeDispatcher->dispatch($contentId);
 
-                $this->changeDispatcher->dispatch($contentId);
+                    return true;
+                };
+                $updated = $this->urlHistory->changeContent($contentId, fn(): bool => $this->transactional($write));
+            } catch (\Register\Url\ContentUrlCollisionException $exception) {
+                return $this->error($request, $exception->getMessage() === \Register\Url\ContentUrlCollisionException::PATH_TOO_LONG ? $exception->getMessage() : 'Invalid post URL', Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
 
-                return true;
-            });
             if (!$updated) {
                 return $this->error($request, 'Post has changed in another window', Response::HTTP_CONFLICT);
             }
@@ -671,7 +688,7 @@ final readonly class PostInplaceController implements ControllerInterface
 
         if (!$this->wantsJson($request)) {
             return new RedirectResponse(
-                $this->safeReturnPath($request->request->getString('return_to')),
+                $slugChanged ? $this->contentUrlGenerator->post($slug) : $this->safeReturnPath($request->request->getString('return_to')),
                 Response::HTTP_SEE_OTHER,
             );
         }
@@ -683,6 +700,9 @@ final readonly class PostInplaceController implements ControllerInterface
         return $this->json([
             'success'   => true,
             'action'    => 'edit',
+            'slug'      => $slug,
+            'url'       => $this->contentUrlGenerator->post($slug),
+            'url_changed' => $slugChanged,
             'title'     => $title,
             'revision'  => (int)$revision->value,
             'published_at' => $publishedAt,
@@ -732,7 +752,7 @@ final readonly class PostInplaceController implements ControllerInterface
         $postId      = 0;
         $slug        = '';
         $orphanMedia = [];
-        $created = $this->transactional(function () use ($request, $editor, $title, $metadata, $body, $publishedAt, $scheduled, $tagNames, &$postId, &$slug, &$orphanMedia): bool {
+        $write = function () use ($request, $editor, $title, $metadata, $body, $publishedAt, $scheduled, $tagNames, &$postId, &$slug, &$orphanMedia): bool {
             $now  = time();
             $slug = $this->contentSlugService->generatePost($title);
             $values = [
@@ -790,7 +810,8 @@ final readonly class PostInplaceController implements ControllerInterface
             $this->changeDispatcher->dispatch($contentId);
 
             return true;
-        });
+        };
+        $created = $this->urlHistory->run(fn(): bool => $this->transactional($write));
         if (!$created) {
             return $this->error($request, 'Post editing failed', Response::HTTP_CONFLICT);
         }

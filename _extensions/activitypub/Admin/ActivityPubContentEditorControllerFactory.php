@@ -18,12 +18,12 @@ use Register\AdminYard\SettingStorage\SettingStorageInterface;
 use Register\AdminYard\TemplateRenderer;
 use Register\AdminYard\Transformer\ViewTransformer;
 use Register\AdminYard\Translator;
-use Register\Extension\activitypub\Infrastructure\PortableDatabaseTransaction;
+use Register\Url\UrlHistoryService;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final readonly class ActivityPubContentEditorControllerFactory implements ControllerFactoryInterface
 {
-    public function __construct(private PortableDatabaseTransaction $transaction)
+    public function __construct(private UrlHistoryService $transaction)
     {
     }
 
