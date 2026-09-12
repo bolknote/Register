@@ -119,14 +119,14 @@ class PostPageController extends BlogController
         if ($editor !== null) {
             $ownerVisibility = $editor->canEditSite ? '1 = 1' : 'author_id = :post_editor_id';
             $visibility = '(' . $publicVisibility . ') OR ((' . $ownerVisibility . ') AND ('
-                . '(published = 0 AND scheduled_at > 0)'
+                . 'published = 0'
                 . ' OR (published = 1 AND published_at > :post_visible_at)'
                 . '))';
         }
 
         $query = $this->dbLayer
             ->select(
-                'published_at AS create_time, scheduled_at, published, date_label AS display_date, title, body AS text, id, author_id, revision, comments_enabled AS commented, series AS label, featured AS favorite, meta_description, social_image',
+                'published_at AS create_time, created_at, scheduled_at, published, date_label AS display_date, title, body AS text, id, author_id, revision, comments_enabled AS commented, series AS label, featured AS favorite, meta_description, social_image',
                 '(' . $this->dbLayer
                     ->select('u.name')
                     ->from('users AS u')
@@ -163,13 +163,23 @@ class PostPageController extends BlogController
         $scheduledAt = (int)$row['scheduled_at'];
         $isScheduledPreview = ((int)$row['published'] === 0 && $scheduledAt > 0)
             || ((int)$row['published'] === 1 && (int)$row['create_time'] > $now);
+        $isDraftPreview = (int)$row['published'] === 0 && $scheduledAt <= 0;
+        $isPrivatePreview = $isScheduledPreview || $isDraftPreview;
         if ($isScheduledPreview) {
             $row['create_time'] = $scheduledAt > 0 ? $scheduledAt : (int)$row['create_time'];
             $row['scheduled_preview'] = true;
+        }
+
+        if ($isDraftPreview) {
+            $row['create_time'] = max(1, (int)($row['create_time'] ?? $row['created_at']));
+            $row['draft_preview'] = true;
+        }
+
+        if ($isPrivatePreview) {
             $template->addMetaTag('<meta name="robots" content="noindex, nofollow" />');
         }
 
-        if (!$isScheduledPreview && $template->hasPlaceholder('<!-- register_blog_calendar -->')) {
+        if (!$isPrivatePreview && $template->hasPlaceholder('<!-- register_blog_calendar -->')) {
             $template->registerPlaceholder(
                 '<!-- register_blog_calendar -->',
                 DeferredPostPageContext::placeholder(DeferredPostPageContext::CALENDAR, $post_id),
@@ -178,7 +188,7 @@ class PostPageController extends BlogController
 
         $template->putInPlaceholder('canonical_path', $this->contentUrlGenerator->post((string)$row['url']));
 
-        if (!$isScheduledPreview && $template->hasPlaceholder('<!-- register_blog_back_forward -->')) {
+        if (!$isPrivatePreview && $template->hasPlaceholder('<!-- register_blog_back_forward -->')) {
             $template->registerPlaceholder(
                 '<!-- register_blog_back_forward -->',
                 DeferredPostPageContext::placeholder(DeferredPostPageContext::BACK_FORWARD, $post_id),
@@ -198,13 +208,13 @@ class PostPageController extends BlogController
             ];
         }
 
-        if (!$isScheduledPreview) {
+        if (!$isPrivatePreview) {
             $request->attributes->set(FlatContentController::CONTENT_ID_ATTRIBUTE, $contentId);
         }
 
         $isSharedResponse = $request->attributes->getBoolean(FlatContentController::SHARED_RESPONSE_ATTRIBUTE);
-        $template->putInPlaceholder('commented', $isSharedResponse || $isScheduledPreview ? 0 : $row['commented']);
-        if (!$isScheduledPreview && (bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- register_comments -->')) {
+        $template->putInPlaceholder('commented', $isSharedResponse || $isPrivatePreview ? 0 : $row['commented']);
+        if (!$isPrivatePreview && (bool)$row['commented'] && $this->showComments->get() && $template->hasPlaceholder('<!-- register_comments -->')) {
             $this->liveUpdates->subscribeComments($contentId);
             $template->putInPlaceholder(
                 'comments',
@@ -218,7 +228,7 @@ class PostPageController extends BlogController
         $row['favoritePostsUrl'] = $this->blogUrlBuilder->favorite();
         $row['showComments']     = $this->showComments->get();
         $row['enabledComments']  = $this->enabledComments->get();
-        if ($isScheduledPreview) {
+        if ($isPrivatePreview) {
             $row['deferred_author'] = null;
         } else {
             $row['author'] = '';
@@ -229,7 +239,7 @@ class PostPageController extends BlogController
         }
 
         $row['see_also'] = [];
-        $row['deferred_see_also'] = $isScheduledPreview
+        $row['deferred_see_also'] = $isPrivatePreview
             ? null
             : DeferredPostPageContext::placeholder(DeferredPostPageContext::SEE_ALSO, $post_id);
 
@@ -251,11 +261,11 @@ class PostPageController extends BlogController
             ->putInPlaceholder('head_title', register_htmlencode($row['title']))
         ;
 
-        if (!$isScheduledPreview && $this->recommendationProvider instanceof RecommendationProvider && $template->hasPlaceholder('<!-- register_recommendations -->')) {
+        if (!$isPrivatePreview && $this->recommendationProvider instanceof RecommendationProvider && $template->hasPlaceholder('<!-- register_recommendations -->')) {
             $template->putInPlaceholder('recommendations', DeferredRecommendations::placeholder($contentId));
         }
 
-        if (!$isScheduledPreview) {
+        if (!$isPrivatePreview) {
             $this->eventDispatcher->dispatch(new ContentRenderedEvent($template, $contentId));
         }
 

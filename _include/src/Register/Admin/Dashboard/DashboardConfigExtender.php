@@ -33,7 +33,13 @@ readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
     #[\Override]
     public function extend(AdminConfig $adminConfig): void
     {
-        if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
+        if (!$this->permissionChecker->isGrantedAny(
+            PermissionChecker::PERMISSION_VIEW_HIDDEN,
+            PermissionChecker::PERMISSION_CREATE_ARTICLES,
+            PermissionChecker::PERMISSION_EDIT_SITE,
+            PermissionChecker::PERMISSION_HIDE_COMMENTS,
+            PermissionChecker::PERMISSION_EDIT_COMMENTS,
+        )) {
             return;
         }
 
@@ -43,7 +49,13 @@ readonly class DashboardConfigExtender implements AdminConfigExtenderInterface
                 [
                     'dashboardStatProviders' => $this->dashboardStatProviders,
                 ]
-            ), 30, 'Overview')
+            ), 30, 'Overview');
+
+        if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
+            return;
+        }
+
+        $adminConfig
             ->setServicePage('Statistics', fn(): string => $this->templateRenderer->render(
                 '_admin/templates/dashboard/statistics.php.inc',
                 [

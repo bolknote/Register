@@ -11,13 +11,16 @@ declare(strict_types = 1);
 namespace Register\Module\Analytics;
 
 use Register\Module\Analytics\Admin\DashboardAnalyticsProvider;
+use Register\Module\Analytics\Admin\OverviewAnalyticsProvider;
 use Register\AdminYard\TemplateRenderer;
 use Register\Admin\Dashboard\DashboardBlockProviderInterface;
+use Register\Admin\Dashboard\DashboardStatProviderInterface;
 use Register\Admin\Event\AdminAjaxControllerMapEvent;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Model\PermissionChecker;
+use Register\Core\Pdo\DbLayer;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,6 +31,19 @@ class AdminModule implements ContainerModuleInterface, ContainerAwareListenerMod
     #[\Override]
     public function buildContainer(Container $container): void
     {
+        $container->set(AnalyticsOverviewRepository::class, static fn(Container $container): AnalyticsOverviewRepository => new AnalyticsOverviewRepository(
+            $container->get(DbLayer::class),
+            $container->get(AnalyticsReportCache::class),
+        ));
+        $container->set(
+            OverviewAnalyticsProvider::class,
+            static fn(Container $container): OverviewAnalyticsProvider => new OverviewAnalyticsProvider(
+                $container->get(TemplateRenderer::class),
+                $container->get(AnalyticsOverviewRepository::class),
+                $container->get(PermissionChecker::class),
+            ),
+            [DashboardStatProviderInterface::class],
+        );
         $container->set(
             DashboardAnalyticsProvider::class,
             static fn(Container $container): DashboardAnalyticsProvider => new DashboardAnalyticsProvider(

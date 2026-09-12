@@ -3,6 +3,7 @@
 declare(strict_types = 1);
 
 return [
+    'Draft post preview' => 'Draft — saving changes does not publish it',
 
     'N Comments'   => '{{ count }} comment|{{ count }} comments',
     'N Views'      => '{{ count }} view|{{ count }} views',

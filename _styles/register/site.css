@@ -681,7 +681,8 @@ h2.preview,
     margin-top: 0;
 }
 
-.post-scheduled-notice {
+.post-scheduled-notice,
+.post-draft-notice {
     display: block;
     width: 100%;
     margin: 0 0 1.35rem;
@@ -695,7 +696,7 @@ h2.preview,
     line-height: 1.35;
 }
 
-.post-card.is-scheduled-preview :where(.register-reactions, .post-foot-comments, .post-foot-views) {
+.post-card:is(.is-scheduled-preview, .is-draft-preview) :where(.register-reactions, .post-foot-comments, .post-foot-views) {
     display: none;
 }
 

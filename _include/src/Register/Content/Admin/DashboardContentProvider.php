@@ -9,42 +9,41 @@ declare(strict_types = 1);
 
 namespace Register\Content\Admin;
 
-use Register\Comment\CommentRepository;
-use Register\Content\ContentStatisticsRepository;
-use Register\Content\ContentType;
 use Register\AdminYard\TemplateRenderer;
 use Register\Admin\Dashboard\DashboardStatProviderInterface;
-use Register\Core\Pdo\DbLayerException;
+use Register\Core\Model\PermissionChecker;
 
-/** Renders one dashboard summary for all publishable content. */
+/** Renders actionable editorial lists for the signed-in author. */
 final readonly class DashboardContentProvider implements DashboardStatProviderInterface
 {
     public function __construct(
-        private TemplateRenderer            $templateRenderer,
-        private ContentStatisticsRepository $statisticsRepository,
-        private CommentRepository           $commentRepository,
-        private string                      $templatePath,
+        private TemplateRenderer $templateRenderer,
+        private BlogOverviewRepository $repository,
+        private PermissionChecker $permissions,
     ) {
     }
 
-    /** @throws DbLayerException */
     #[\Override]
     public function getHtml(): string
     {
-        $pages = $this->statisticsRepository->published(ContentType::PAGE);
-        $posts = $this->statisticsRepository->published(ContentType::POST);
-        $queue = $this->statisticsRepository->editorial(ContentType::POST);
-
-        return $this->templateRenderer->render($this->templatePath, [
-            'pages_num'         => $pages->contentCount,
-            'page_comments_num' => $pages->commentCount,
-            'posts_num'         => $posts->contentCount,
-            'post_comments_num' => $posts->commentCount,
-            'drafts_num'        => $queue->draftCount,
-            'scheduled_num'     => $queue->scheduledCount,
-            'overdue_num'       => $queue->overdueCount,
-            'next_scheduled_at' => $queue->nextScheduledAt,
-            'pending_comments_num' => $this->commentRepository->countPending(),
+        $now = time();
+        $canWrite = $this->permissions->isGrantedAny(
+            PermissionChecker::PERMISSION_CREATE_ARTICLES,
+            PermissionChecker::PERMISSION_EDIT_SITE,
+        );
+        $canModerate = $this->permissions->isGrantedAny(
+            PermissionChecker::PERMISSION_HIDE_COMMENTS,
+            PermissionChecker::PERMISSION_EDIT_COMMENTS,
+        );
+        return $this->templateRenderer->render('_admin/templates/dashboard/publication-item.php.inc', [
+            'overview' => $this->repository->snapshot(
+                $now, $canWrite,
+                $this->permissions->isGranted(PermissionChecker::PERMISSION_EDIT_SITE),
+                $this->permissions->getUserId(), $canModerate,
+            ),
+            'now' => $now,
+            'canWrite' => $canWrite,
+            'canModerate' => $canModerate,
         ]);
     }
 }

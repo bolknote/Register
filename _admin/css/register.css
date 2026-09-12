@@ -1523,6 +1523,143 @@ form.config-inline-form :is(input:not([type="checkbox"]), select, textarea):not(
 
 /* Dashboard */
 
+.blog-overview {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+    align-items: start;
+    gap: 1.25rem;
+    max-width: 90rem;
+    margin-block: 1.5rem 3rem;
+}
+
+.overview-editorial,
+.overview-audience {
+    display: grid;
+    gap: 1.25rem;
+    min-width: 0;
+}
+
+.overview-editorial {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.overview-panel {
+    min-width: 0;
+    margin: 0;
+    padding: 1.25rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.65rem;
+    background: var(--admin-surface-background);
+}
+
+.overview-panel-header {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.overview-panel h2 {
+    margin: 0;
+    font-size: 1.08rem;
+    line-height: 1.4;
+}
+
+.overview-count {
+    display: inline-block;
+    padding-inline: 0.5em;
+    border-radius: 1em;
+    background: var(--admin-secondary-background);
+    color: var(--admin-secondary-text-color);
+    font-size: 0.85em;
+    font-variant-numeric: tabular-nums;
+}
+
+.overview-panel p {
+    margin-block: 0.5rem;
+}
+
+.overview-muted,
+.overview-empty,
+.overview-item-meta,
+.overview-section-link,
+.overview-delta {
+    color: var(--admin-secondary-text-color);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.overview-empty {
+    padding-block: 0.75rem;
+}
+
+.overview-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.overview-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding-block: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+.overview-item + .overview-item {
+    border-top: 1px solid var(--admin-soft-border-color);
+}
+
+.overview-item:last-child {
+    padding-bottom: 0;
+}
+
+.overview-comment-link {
+    line-height: 1.5;
+}
+
+.overview-item-meta strong {
+    color: var(--admin-text-color);
+}
+
+.overview-warning {
+    color: var(--admin-error-color);
+    font-weight: 600;
+}
+
+.overview-metrics {
+    display: grid;
+    gap: 1rem;
+    margin-block: 1.25rem;
+}
+
+.overview-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.overview-metric strong {
+    font-size: 2.2rem;
+    font-weight: 650;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1100px) {
+    .blog-overview { grid-template-columns: minmax(0, 1fr); }
+    .overview-audience { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 650px) {
+    .overview-editorial,
+    .overview-audience { grid-template-columns: minmax(0, 1fr); }
+    .overview-panel { padding: 1rem; }
+}
+
 .dashboard-header {
     margin-bottom: 1.25rem;
 }

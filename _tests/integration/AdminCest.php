@@ -354,20 +354,21 @@ class AdminCest
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Dashboard');
         $I->see('Overview', 'h1#dashboard-title');
-        $I->assertCount(1, $I->grabMultiple('.publication-stat-item'));
-        $I->see('Needs attention', '.publication-stat-item h3');
-        $I->see('page', '.publication-statistics li:first-child');
-        $I->see('post', '.publication-statistics li:last-child');
-        $I->see('comment', '.publication-comments');
+        $I->seeElement('.blog-overview');
+        $I->see('Comments to review', '#overview-moderation-title');
+        $I->see('Latest discussions', '#overview-comments-title');
+        $I->see('Continue writing', '#overview-drafts-title');
+        $I->see('Publication plan', '#overview-schedule-title');
+        $I->see('Recently published', '#overview-recent-title');
+        $I->see('Audience', '#overview-audience-title');
+        $I->see('Most-read posts', '#overview-popular-title');
         $I->dontSeeElement('[data-analytics-table="register-analytics-pages"]');
         $I->dontSeeElement('[data-analytics-table="register-analytics-feeds"]');
         $I->dontSeeElement('.environment-stat-item');
-        $I->assertCount(2, $I->grabMultiple('.stat-items > .stat-item'));
-        $I->see('Security monitoring', '.security-stat-item h3');
-        $I->see('No unusual security activity detected.', '.security-stat-item');
-        $I->see('HTTP 401: 0 · HTTP 403: 0 · HTTP 429: 0', '.security-stat-item');
-        $I->dontSee('Register source code', '.stat-items');
-        $I->dontSee('Register is based on', '.stat-items');
+        $I->dontSeeElement('.publication-stat-item');
+        $I->dontSeeElement('.security-stat-item');
+        $I->dontSee('Register source code', '.blog-overview');
+        $I->dontSee('Register is based on', '.blog-overview');
         $I->dontSee('© 2007–');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Statistics');

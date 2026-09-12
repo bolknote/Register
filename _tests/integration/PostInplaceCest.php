@@ -19,6 +19,7 @@ use Register\Content\ContentMediaSchema;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
+use Register\Content\ContentViewSchema;
 use Register\Content\TagRepository;
 use Register\Core\HttpClient\HttpClient;
 use Register\Core\HttpClient\HttpResponse;
@@ -698,6 +699,144 @@ final class PostInplaceCest
         $I->seeResponseCodeIs(Response::HTTP_OK);
         $I->see('Public now.');
         $I->dontSeeElement('.post-scheduled-notice');
+    }
+
+    public function resumesDraftsWithoutPublishingOrSharingThem(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $createdAt = time() - 7200;
+        $ownId = $this->insertPost($dbLayer, 'private-draft-preview', $this->userId($dbLayer, 'author'), $createdAt);
+        $otherId = $this->insertPost($dbLayer, 'other-private-draft', $this->userId($dbLayer, 'admin'), $createdAt);
+        $readOnlyId = $this->insertPost($dbLayer, 'read-only-private-draft', $this->userId($dbLayer, 'power_guest'), $createdAt);
+        foreach ([$ownId, $otherId, $readOnlyId] as $id) {
+            $dbLayer->update(ContentSchema::TABLE_NAME)
+                ->set('published', '0')
+                ->set('published_at', 'NULL')
+                ->set('scheduled_at', '0')
+                ->where('id = :id')->setParameter('id', $id)
+                ->execute();
+        }
+
+        $I->amOnPage('https://localhost/private-draft-preview');
+        $I->seeResponseCodeIs(Response::HTTP_NOT_FOUND);
+        $I->dontSee('Private draft preview');
+
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/private-draft-preview');
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->seeElement('.post-card.is-draft-preview[data-post-id="' . $ownId . '"]');
+        $I->seeElement('.post-draft-notice');
+        $I->seeElement('meta[name="robots"][content="noindex, nofollow"]');
+        $I->dontSeeElement('.post-card[data-analytics-content-type]');
+        $I->dontSeeElement('.is-draft-preview .post-foot-views');
+        $I->dontSeeElement('#comments-title');
+        $I->dontSeeElement('#add-comment');
+        $I->assertNull($I->grabHttpHeader('X-Register-Page-Cache'));
+        $I->assertStringContainsString('private', (string)$I->grabHttpHeader('Cache-Control'));
+
+        $form = '.post-card[data-post-id="' . $ownId . '"] > .post-inplace-edit-form';
+        $token = (string)$I->grabAttributeFrom($form . ' input[name="inplace_token"]', 'value');
+        $I->assertSame((string)$createdAt, $I->grabAttributeFrom($form . ' input[name="published_at"]', 'value'));
+
+        $I->amOnPage('https://localhost/other-private-draft');
+        $I->seeResponseCodeIs(Response::HTTP_NOT_FOUND);
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $otherId, [
+            'inplace_action' => 'edit',
+            'inplace_token' => $token,
+            'revision' => '1',
+            'title' => 'Forbidden draft edit',
+            'body' => '<p>Forbidden</p>',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_FORBIDDEN);
+
+        // Changing a draft's date, even into the future, is not a publication command.
+        $futureAt = time() + 3600;
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $ownId, [
+            'inplace_action' => 'edit',
+            'inplace_token' => $token,
+            'revision' => '1',
+            'title' => 'Resumed private draft',
+            'body' => '<p>Still private after saving.</p>',
+            'published_at' => (string)$futureAt,
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $edited = $I->grabJson();
+        $I->assertIsArray($edited);
+        $I->assertArrayHasKey('scheduled', $edited);
+        $I->assertArrayHasKey('revision', $edited);
+        $I->assertFalse($edited['scheduled']);
+        $I->assertSame(2, $edited['revision']);
+
+        $stored = $dbLayer->select('published, published_at, scheduled_at, body')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $ownId)
+            ->execute()->fetchAssoc();
+        $I->assertIsArray($stored);
+        $I->assertSame(0, (int)$stored['published']);
+        $I->assertSame(0, (int)$stored['scheduled_at']);
+        $I->assertSame($futureAt, (int)$stored['published_at']);
+        $I->assertSame('<p>Still private after saving.</p>', $stored['body']);
+
+        $I->logout();
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/private-draft-preview');
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->seeElement('.post-card.is-draft-preview');
+
+        $adminToken = (string)$I->grabAttributeFrom($form . ' input[name="inplace_token"]', 'value');
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $ownId, [
+            'inplace_action' => 'edit',
+            'inplace_token' => $adminToken,
+            'revision' => '2',
+            'title' => 'Resumed private draft',
+            'body' => '<p>Administrator draft correction.</p>',
+            'published_at' => (string)$createdAt,
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+        $adminEdited = $I->grabJson();
+        $I->assertIsArray($adminEdited);
+        $I->assertArrayHasKey('scheduled', $adminEdited);
+        $I->assertFalse($adminEdited['scheduled']);
+        $I->assertSame(0, (int)$dbLayer->select('published')->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $ownId)->execute()->result());
+
+        $I->logout();
+        foreach (['/private-draft-preview', '/private-draft-preview?utm_source=preview-check'] as $path) {
+            $I->amOnPage('https://localhost' . $path);
+            $I->seeResponseCodeIs(Response::HTTP_NOT_FOUND);
+            $I->dontSee('Administrator draft correction.');
+        }
+
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $ownId, [
+            'inplace_action' => 'edit',
+            'inplace_token' => $token,
+            'revision' => '3',
+            'title' => 'Forbidden anonymous edit',
+            'body' => '<p>Forbidden</p>',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_FORBIDDEN);
+        $I->login('power_guest', 'power_guest');
+        $I->amOnPage('https://localhost/read-only-private-draft');
+        $I->seeResponseCodeIs(Response::HTTP_NOT_FOUND);
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $readOnlyId, [
+            'inplace_action' => 'edit',
+            'inplace_token' => $token,
+            'revision' => '1',
+            'title' => 'Forbidden read-only edit',
+            'body' => '<p>Forbidden</p>',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_FORBIDDEN);
+        $I->logout();
+        $I->amOnPage('https://localhost/');
+        $I->dontSee('Resumed private draft');
+        $I->amOnPage('https://localhost/rss');
+        $I->dontSee('Resumed private draft');
+        $I->assertSame(0, (int)$dbLayer->select('COUNT(*)')->from(ContentViewSchema::TABLE_NAME)
+            ->where('content_type = :type')->setParameter('type', ContentType::POST->value)
+            ->andWhere('content_id = :id')->setParameter('id', $ownId)->execute()->result());
     }
 
     public function renamesPendingImageAndAudioWhenTheNoteDateChanges(\IntegrationTester $I): void

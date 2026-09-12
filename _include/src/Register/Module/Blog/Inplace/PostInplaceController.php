@@ -106,11 +106,10 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $post = $this->dbLayer
-            ->select('id, author_id, revision, title, excerpt, body, meta_description, slug, published, published_at, scheduled_at, date_label')
+            ->select('id, author_id, revision, title, excerpt, body, meta_description, slug, published, created_at, published_at, scheduled_at, date_label')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $postId)
             ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
-            ->andWhere('(published = 1 OR scheduled_at > 0)')
             ->execute()
             ->fetchAssoc()
         ;
@@ -564,7 +563,8 @@ final readonly class PostInplaceController implements ControllerInterface
             (string)$post['meta_description'],
         );
 
-        $scheduled = $publishedAt > time();
+        $isDraft = (int)$post['published'] === 0 && (int)$post['scheduled_at'] <= 0;
+        $scheduled = !$isDraft && $publishedAt > time();
         $storedScheduled = (int)$post['published'] === 0 && (int)$post['scheduled_at'] > 0;
         $revision = $this->revisionService->resolve(
             [
@@ -598,7 +598,7 @@ final readonly class PostInplaceController implements ControllerInterface
         $scheduleChanged = $scheduled !== $storedScheduled;
         $orphanMedia = [];
         if ($revision->contentChanged) {
-            $updated = $this->transactional(function () use ($request, $contentId, $postId, $title, $metadata, $body, $publishedAt, $scheduled, $dateChanged, $scheduleChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia): bool {
+            $updated = $this->transactional(function () use ($request, $contentId, $postId, $title, $metadata, $body, $publishedAt, $scheduled, $isDraft, $dateChanged, $scheduleChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia): bool {
                 $update = $this->dbLayer
                     ->update(ContentSchema::TABLE_NAME)
                     ->set('title', ':title')->setParameter('title', $title)
@@ -609,12 +609,14 @@ final readonly class PostInplaceController implements ControllerInterface
                     ->set('revision', ':new_revision')->setParameter('new_revision', (int)$revision->value)
                     ->where('id = :id')->setParameter('id', $postId)
                     ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
-                    ->andWhere('(published = 1 OR scheduled_at > 0)')
                     ->andWhere('revision = :revision')->setParameter('revision', $submittedRevision)
                 ;
                 if ($dateChanged || $scheduleChanged) {
                     $update->set('date_label', "''");
-                    if ($scheduled) {
+                    if ($isDraft) {
+                        // Editing a draft never publishes or schedules it implicitly.
+                        $update->set('published_at', ':published_at')->setParameter('published_at', $publishedAt);
+                    } elseif ($scheduled) {
                         $update
                             ->set('published', '0')
                             ->set('published_at', 'NULL')
@@ -896,7 +898,6 @@ final readonly class PostInplaceController implements ControllerInterface
                 ->delete(ContentSchema::TABLE_NAME)
                 ->where('id = :id')->setParameter('id', $postId)
                 ->andWhere('content_type = :content_type')->setParameter('content_type', ContentType::POST->value)
-                ->andWhere('(published = 1 OR scheduled_at > 0)')
                 ->andWhere('revision = :revision')->setParameter('revision', $submittedRevision)
                 ->execute()
                 ->affectedRows()
@@ -947,7 +948,7 @@ final readonly class PostInplaceController implements ControllerInterface
             return $scheduledAt;
         }
 
-        return max(1, (int)($post['published_at'] ?? 0));
+        return max(1, (int)($post['published_at'] ?? $post['created_at'] ?? 0));
     }
 
     private function publishedAt(Request $request, int $fallback): ?int

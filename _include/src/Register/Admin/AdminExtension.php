@@ -19,9 +19,9 @@ use Register\Backup\Admin\DashboardBackupProvider;
 use Register\Backup\BackupManager;
 use Register\Backup\BackupScheduler;
 use Register\Content\Admin\DashboardContentProvider;
+use Register\Content\Admin\BlogOverviewRepository;
 use Register\Content\Admin\ContentBulkPublicationService;
 use Register\Content\Admin\ContentRevisionService;
-use Register\Content\ContentStatisticsRepository;
 use Register\Content\ContentChangeDispatcher;
 use Register\Comment\CommentRepository;
 use Register\Module\BaseModuleRegistry;
@@ -509,7 +509,7 @@ class AdminExtension implements ExtensionInterface
         $container->set(DashboardSecurityProvider::class, static fn(Container $container): DashboardSecurityProvider => new DashboardSecurityProvider(
             $container->get(TemplateRenderer::class),
             $container->get(SecurityAlertDetector::class),
-        ), [DashboardStatProviderInterface::class, SystemStatusProviderInterface::class]);
+        ), [SystemStatusProviderInterface::class]);
 
         $container->set(BackupToken::class, fn(Container $container): BackupToken => new BackupToken(
             $container->get(SettingStorageInterface::class),
@@ -596,11 +596,14 @@ class AdminExtension implements ExtensionInterface
             $container->getStringParameter('db_prefix'),
         ));
 
+        $container->set(BlogOverviewRepository::class, static fn(Container $container): BlogOverviewRepository => new BlogOverviewRepository(
+            $container->get(DbLayer::class),
+            $container->get(\Register\Url\ContentUrlGenerator::class),
+        ));
         $container->set(DashboardContentProvider::class, fn(Container $container): DashboardContentProvider => new DashboardContentProvider(
             $container->get(TemplateRenderer::class),
-            $container->get(ContentStatisticsRepository::class),
-            $container->get(CommentRepository::class),
-            $container->getStringParameter('root_dir') . '_admin/templates/dashboard/publication-item.php.inc',
+            $container->get(BlogOverviewRepository::class),
+            $container->get(PermissionChecker::class),
         ), [DashboardStatProviderInterface::class]);
 
         $container->set(PathToAdminEntityConverter::class, fn(Container $container): \Register\Admin\PathToAdminEntityConverter => new PathToAdminEntityConverter(

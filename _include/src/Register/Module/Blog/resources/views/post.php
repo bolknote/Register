@@ -26,12 +26,15 @@ use Register\Module\Blog\Model\DeferredViewCount;
 /** @var string|null $deferred_author */
 /** @var string|null $deferred_see_also */
 /** @var bool $scheduled_preview */
+/** @var bool $draft_preview */
 /** @var array{action_url: string, token: string, revision: int, return_to: string, create: bool}|null $inplace */
 
 $heading     = empty($title_link) ? 'h1' : 'h2';
 $inplaceData = isset($inplace) && \is_array($inplace) ? $inplace : null;
 $isCreating  = $inplaceData !== null && ($inplaceData['create'] ?? false) === true;
 $isScheduledPreview = !empty($scheduled_preview);
+$isDraftPreview = !empty($draft_preview);
+$isPrivatePreview = $isScheduledPreview || $isDraftPreview;
 $postId      = (int)$id;
 $editFormId  = 'post-inplace-edit-' . $postId;
 $toolsMenuId = 'post-tools-menu-' . $postId;
@@ -44,9 +47,9 @@ $tagNames    = array_values(array_map(
 $analyticsSection = (string)($tagNames[0] ?? '');
 ?>
 <article
-    class="post-card<?php echo $inplaceData !== null ? ' is-manageable' : ''; ?><?php echo $isCreating ? ' is-creating' : ''; ?><?php echo $isScheduledPreview ? ' is-scheduled-preview' : ''; ?>"
+    class="post-card<?php echo $inplaceData !== null ? ' is-manageable' : ''; ?><?php echo $isCreating ? ' is-creating' : ''; ?><?php echo $isScheduledPreview ? ' is-scheduled-preview' : ''; ?><?php echo $isDraftPreview ? ' is-draft-preview' : ''; ?>"
     data-post-id="<?php echo $postId; ?>"
-<?php if ($heading === 'h1' && !$isCreating && !$isScheduledPreview): ?>
+<?php if ($heading === 'h1' && !$isCreating && !$isPrivatePreview): ?>
     data-analytics-content-type="post"
     data-analytics-content-id="<?php echo $postId; ?>"
     data-analytics-author="<?php echo isset($deferred_author)
@@ -103,6 +106,9 @@ $analyticsSection = (string)($tagNames[0] ?? '');
 <?php endif; ?>
 <?php if ($isScheduledPreview): ?>
 <p class="post-scheduled-notice" role="status"><?php echo register_htmlencode($trans('Scheduled post preview')); ?></p>
+<?php endif; ?>
+<?php if ($isDraftPreview): ?>
+<p class="post-draft-notice" role="status"><?php echo register_htmlencode($trans('Draft post preview')); ?></p>
 <?php endif; ?>
 <div class="post author"><?php echo $deferred_author ?? (!empty($author) ? register_htmlencode($author) : ''); ?></div>
 <<?php echo $heading; ?> class="post head">
@@ -175,15 +181,15 @@ $analyticsSection = (string)($tagNames[0] ?? '');
 		echo $deferred_see_also;
 ?>
 <div class="post foot">
-<?php if (!$isScheduledPreview): ?>
+<?php if (!$isPrivatePreview): ?>
 <!-- register_reactions:post:<?php echo (int)$id; ?> -->
 <?php endif; ?>
 <?php
 	$footer = [];
 
-    if (!$isScheduledPreview && $postId > 0) {
+    if (!$isPrivatePreview && $postId > 0) {
         $footer['views'] = DeferredViewCount::placeholder(ContentId::post($postId));
-    } elseif (!$isScheduledPreview) {
+    } elseif (!$isPrivatePreview) {
         $viewCount = (int)($view_count ?? 0);
         $viewLabel = $trans('N Views', ['%count%' => $viewCount, '{{ count }}' => $viewCount]);
         $encodedViewLabel = register_htmlencode($viewLabel);
@@ -192,7 +198,7 @@ $analyticsSection = (string)($tagNames[0] ?? '');
             . $viewCount . '</span></span>';
     }
 
-	if (!$isScheduledPreview && $commented && $showComments) {
+	if (!$isPrivatePreview && $commented && $showComments) {
         if ($comment_num) {
             $commentLabel = $trans('N Comments', ['%count%' => $comment_num, '{{ count }}' => $comment_num]);
             $footer['comments'] = '<span class="post-foot-comments"><a href="' . $link . '#comments-title" data-comment-count="' . $comment_num . '" aria-label="' . register_htmlencode($commentLabel) . '">' . $commentLabel . '</a></span>';

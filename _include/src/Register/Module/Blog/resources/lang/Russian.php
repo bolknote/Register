@@ -3,6 +3,7 @@
 declare(strict_types = 1);
 
 return [
+    'Draft post preview' => 'Черновик — сохранение изменений не публикует заметку',
 
     'N Comments'   => '{{ count }} комментарий|{{ count }} комментария|{{ count }} комментариев',
     'N Views'      => '{{ count }} просмотр|{{ count }} просмотра|{{ count }} просмотров',
