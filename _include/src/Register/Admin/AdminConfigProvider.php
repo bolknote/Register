@@ -139,8 +139,12 @@ class AdminConfigProvider implements StatefulServiceInterface
         ;
 
         $commentEntity = new EntityConfig('Comment', $this->dbPrefix . CommentSchema::TABLE_NAME);
+        $commentStateSql = "CASE WHEN (SELECT moderator_label FROM {$this->dbPrefix}spam_assessments AS latest"
+            . " WHERE latest.target_type = entity.content_type AND latest.comment_id = entity.id ORDER BY latest.id DESC LIMIT 1) = 'spam' THEN 'spam'"
+            . " WHEN entity.shown = 1 THEN 'published' WHEN entity.sent = 0 THEN 'pending' ELSE 'hidden' END";
         $commentEntity
             ->setLimit(50)
+            ->setListTemplate('_admin/templates/comment/list.php.inc')
             ->setPluralName($this->translator->trans('Comments'))
             ->setSingularName($this->translator->trans('Comment'))
             ->setEditTitle($this->translator->trans('Edit comment'))
@@ -178,6 +182,24 @@ class AdminConfigProvider implements StatefulServiceInterface
                 ),
                 useOnActions: [FieldConfig::ACTION_LIST],
                 viewTemplate: '_admin/templates/comment/view-content.php.inc',
+            ))
+            ->addField(new FieldConfig(
+                name: 'parent_name',
+                type: new VirtualFieldType(
+                    "SELECT nick FROM {$this->dbPrefix}" . CommentSchema::TABLE_NAME . ' AS parent WHERE parent.id = entity.parent_id AND parent.content_id = entity.content_id AND parent.content_type = entity.content_type AND parent.deleted = 0'
+                    . ($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN) ? '' : ' AND parent.shown = 1'),
+                ),
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
+            ))
+            ->addField(new FieldConfig(
+                name: 'parent_text',
+                type: new VirtualFieldType(
+                    "SELECT text FROM {$this->dbPrefix}" . CommentSchema::TABLE_NAME . ' AS parent WHERE parent.id = entity.parent_id AND parent.content_id = entity.content_id AND parent.content_type = entity.content_type AND parent.deleted = 0'
+                    . ($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN) ? '' : ' AND parent.shown = 1'),
+                ),
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'nick',
@@ -219,6 +241,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 name: 'text',
                 label: $this->translator->trans('Comment'),
                 control: 'textarea',
+                viewTemplate: '_admin/templates/comment/view-text.php',
             ))
             ->addField(new FieldConfig(
                 name: 'ip',
@@ -279,6 +302,20 @@ class AdminConfigProvider implements StatefulServiceInterface
                 viewTemplate: '_admin/templates/comment/view-spam-reasons.php',
             ))
             ->addFilter(new Filter(
+                'queue',
+                $this->translator->trans('Status'),
+                'hidden_input',
+                '(' . $commentStateSql . ') = %1$s',
+                static fn(?string $value): ?string => in_array($value, [null, '', 'all'], true) ? null : $value,
+            ))
+            ->addFilter(new Filter(
+                'comment_id',
+                $this->translator->trans('Comment ID'),
+                'hidden_input',
+                'entity.id = %1$s',
+                static fn(?string $value): ?int => $value !== null && $value !== '' ? (int)$value : null,
+            ))
+            ->addFilter(new Filter(
                 'search',
                 $this->translator->trans('Search'),
                 'search_input',
@@ -299,7 +336,7 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->addFilter(new Filter(
                 'content_id',
                 $this->translator->trans('Content ID'),
-                'input',
+                'hidden_input',
                 'content_id = %1$s',
                 static fn(?string $value): ?int => $value !== null && $value !== '' ? (int)$value : null,
             ))
@@ -317,7 +354,7 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->addFilter(new Filter(
                 'published',
                 $this->translator->trans('Published'),
-                'radio',
+                'hidden_input',
                 'shown = %1$s',
                 options: [
                     '' => $this->translator->trans('All'),
@@ -328,7 +365,7 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->addFilter(new Filter(
                 'status',
                 $this->translator->trans('Status'),
-                'radio',
+                'hidden_input',
                 '(sent = 0 AND shown = 0) = (0 = %1$s)',
                 options: [
                     '' => $this->translator->trans('All'),
@@ -342,6 +379,26 @@ class AdminConfigProvider implements StatefulServiceInterface
                 ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_COMMENTS) ? [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_DELETE] : [],
             ])
             ->setListActionsTemplate('_admin/templates/comment/list-actions.php.inc')
+            ->addListener(EntityConfig::EVENT_BEFORE_LIST_RENDER, function (BeforeRenderEvent $event): void {
+                if ($event->data === null) {
+                    return;
+                }
+
+                $paths = [];
+                foreach ($event->data['rows'] as &$row) {
+                    $comment = &$row['comment'];
+                    $contentId = new ContentId(ContentType::from($comment['content_type']), $comment['content_id']);
+                    $key = $comment['content_type'] . ':' . $comment['content_id'];
+                    if (!array_key_exists($key, $paths)) {
+                        $path = $this->contentUrlGenerator->path($contentId);
+                        $paths[$key] = $path !== null ? html_entity_decode($this->contentUrlGenerator->linkPath($path), ENT_QUOTES | ENT_HTML5, 'UTF-8') : null;
+                    }
+
+                    $comment['discussion_url'] = $paths[$key] !== null ? $paths[$key] . '#comments-title' : null;
+                }
+
+                unset($comment, $row);
+            })
             ->addListener(EntityConfig::EVENT_BEFORE_PATCH, static function (BeforeSaveEvent $event): void {
                 if (($event->data['shown'] ?? false) === true) {
                     $event->context['publish_comment'] = true;
@@ -366,9 +423,11 @@ class AdminConfigProvider implements StatefulServiceInterface
             )
         ;
 
-        if (!$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)) {
-            $commentEntity->setReadAccessControl(new LogicalExpression('shown', 1));
-        }
+        $commentEntity->setReadAccessControl(new LogicalExpression(
+            'available_comment',
+            0,
+            'entity.deleted = %s' . ($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN) ? '' : ' AND entity.shown = 1'),
+        ));
 
         $isAdmin    = $this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_USERS);
         $teamAccountSql = '(entity.view_hidden = 1 OR entity.hide_comments = 1 OR entity.edit_comments = 1'
@@ -772,6 +831,7 @@ class AdminConfigProvider implements StatefulServiceInterface
         }
 
         $articleEntity
+            ->setListTemplate('_admin/templates/page-list.php.inc')
             ->setPluralName($this->translator->trans('Pages'))
             ->addField(new FieldConfig(
                 name: 'id',
@@ -822,6 +882,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 ],
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'meta_keywords',
@@ -866,6 +927,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME, defaultValue: new \DateTimeImmutable()),
                 control: 'datetime',
                 sortable: true,
+                useOnActions: [FieldConfig::ACTION_EDIT],
                 viewTemplate: '_admin/templates/date.php.inc',
             ))
             ->addField(new FieldConfig(
@@ -875,7 +937,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
                 control: 'datetime',
                 sortable: true,
-                useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
+                useOnActions: [FieldConfig::ACTION_EDIT],
                 viewTemplate: '_admin/templates/date.php.inc',
             ))
             ->addField(new FieldConfig(
@@ -893,7 +955,42 @@ class AdminConfigProvider implements StatefulServiceInterface
                 label: $this->translator->trans('Published'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
-                useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
+                useOnActions: [FieldConfig::ACTION_EDIT],
+            ))
+            ->addField(new FieldConfig(
+                name: 'parent_id',
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
+            ))
+            ->addField(new FieldConfig(
+                name: 'section',
+                label: $this->translator->trans('Page section'),
+                type: new VirtualFieldType(
+                    "SELECT parent.title FROM {$this->dbPrefix}" . ContentSchema::TABLE_NAME
+                    . " AS parent WHERE parent.id = entity.parent_id AND parent.content_type = 'page'"
+                    . ($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)
+                        ? ''
+                        : ' AND (parent.published = 1 OR parent.author_id = ' . (int)$this->permissionChecker->getUserId() . ')'),
+                ),
+                sortable: true,
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/article/view-section.php.inc',
+            ))
+            ->addField(new FieldConfig(
+                name: 'publication_state',
+                label: $this->translator->trans('Publication status'),
+                type: new VirtualFieldType(PublicationListState::sql(time())),
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/content/publication-state.php.inc',
+            ))
+            ->addField(new FieldConfig(
+                name: 'publication_date',
+                label: $this->translator->trans('Publication date'),
+                type: new VirtualFieldType(PublicationListState::dateSql(time())),
+                sortable: true,
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/content/publication-date.php.inc',
             ))
             ->addField(new FieldConfig(
                 name: 'featured',
@@ -902,7 +999,6 @@ class AdminConfigProvider implements StatefulServiceInterface
                 control: 'checkbox',
                 sortable: true,
                 useOnActions: [
-                    FieldConfig::ACTION_LIST,
                     ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) ? [FieldConfig::ACTION_EDIT] : [],
                 ],
                 viewTemplate: '_admin/templates/article/view-favorite.php',
@@ -914,12 +1010,15 @@ class AdminConfigProvider implements StatefulServiceInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',
                 useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_LIST],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'comments',
                 label: $this->translator->trans('Comments'),
                 type: new VirtualFieldType(
-                    "SELECT CASE WHEN COUNT(*) > 0 THEN COUNT(*) ELSE NULL END FROM {$this->dbPrefix}" . CommentSchema::TABLE_NAME . " WHERE content_type = 'page' AND content_id = entity.id",
+                    "SELECT CASE WHEN COUNT(*) > 0 THEN COUNT(*) ELSE NULL END FROM {$this->dbPrefix}" . CommentSchema::TABLE_NAME
+                    . " WHERE content_type = 'page' AND content_id = entity.id AND deleted = 0"
+                    . ($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN) ? '' : ' AND shown = 1'),
                     new LinkToEntityParams($commentEntity->getName(), ['content_id'], ['id']),
                 ),
                 sortable: true,
@@ -937,17 +1036,33 @@ class AdminConfigProvider implements StatefulServiceInterface
                 name: 'template',
                 label: $this->translator->trans('Template'),
                 control: 'input',
+                useOnActions: [FieldConfig::ACTION_EDIT],
             ))
             ->addField($userIdField = new FieldConfig(
                 name: 'author_id',
                 label: $this->translator->trans('Author'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                 control: 'select',
-                linkToEntity: new LinkTo($userEntity, "CASE WHEN name IS NULL OR name = '' THEN login ELSE name END"),
+                linkToEntity: new LinkTo(
+                    $userEntity,
+                    "CASE WHEN COALESCE(name, '') = '' THEN login ELSE name END",
+                    new LogicalExpression(
+                        'page_author',
+                        1,
+                        'create_articles = 1 OR edit_site = 1 OR edit_users = 1 OR id IN ('
+                        . "SELECT author_id FROM {$this->dbPrefix}" . ContentSchema::TABLE_NAME
+                        . " WHERE content_type = 'page' AND author_id IS NOT NULL"
+                        . ($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)
+                            ? ''
+                            : ' AND (published = 1 OR author_id = ' . (int)$this->permissionChecker->getUserId() . ')')
+                        . ')',
+                    ),
+                ),
                 useOnActions: [
                     FieldConfig::ACTION_LIST,
                     ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) ? [FieldConfig::ACTION_EDIT] : [],
                 ],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'revision',
@@ -1190,14 +1305,16 @@ class AdminConfigProvider implements StatefulServiceInterface
                     label: $this->translator->trans('Modify time'),
                     type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
                     control: 'datetime',
-                    sortable: true
+                    sortable: true,
+                    useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_NEW, FieldConfig::ACTION_SHOW],
                 ))
                 ->addField(new FieldConfig(
                     name: 'url',
                     label: $this->translator->trans('URL part'),
                     control: 'input',
                     validators: [new Length(max: 255)],
-                    sortable: true
+                    sortable: true,
+                    useOnActions: [FieldConfig::ACTION_EDIT, FieldConfig::ACTION_NEW, FieldConfig::ACTION_SHOW],
                 ))
                 ->addFilter(new Filter(
                     'search',
@@ -1334,6 +1451,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                         label: $this->translator->trans('Comment type'),
                         sortable: true,
                         useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                        viewTemplate: null,
                     ))
                     ->addField(new FieldConfig(
                         name: 'comment_id',
@@ -1341,6 +1459,20 @@ class AdminConfigProvider implements StatefulServiceInterface
                         type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                         sortable: true,
                         useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                        viewTemplate: null,
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'comment_author',
+                        type: new VirtualFieldType("SELECT nick FROM {$this->dbPrefix}" . CommentSchema::TABLE_NAME . ' AS comment WHERE comment.id = entity.comment_id AND comment.content_type = entity.target_type AND comment.deleted = 0'),
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                        viewTemplate: null,
+                    ))
+                    ->addField(new FieldConfig(
+                        name: 'comment_text',
+                        label: $this->translator->trans('Comment'),
+                        type: new VirtualFieldType("SELECT text FROM {$this->dbPrefix}" . CommentSchema::TABLE_NAME . ' AS comment WHERE comment.id = entity.comment_id AND comment.content_type = entity.target_type AND comment.deleted = 0'),
+                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                        viewTemplate: '_admin/templates/antispam/view-comment.php',
                     ))
                     ->addField(new FieldConfig(
                         name: 'score',
@@ -1360,7 +1492,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                         name: 'shadow_status',
                         label: $this->translator->trans('Akismet decision'),
                         sortable: true,
-                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                        useOnActions: [FieldConfig::ACTION_SHOW],
                         viewTemplate: '_admin/templates/antispam/view-status.php',
                     ))
                     ->addField(new FieldConfig(
@@ -1383,7 +1515,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                     ->addField(new FieldConfig(
                         name: 'reasons',
                         label: $this->translator->trans('Spam reasons'),
-                        useOnActions: [FieldConfig::ACTION_LIST, FieldConfig::ACTION_SHOW],
+                        useOnActions: [FieldConfig::ACTION_SHOW],
                         viewTemplate: '_admin/templates/comment/view-spam-reasons.php',
                     ))
                     ->addField(new FieldConfig(

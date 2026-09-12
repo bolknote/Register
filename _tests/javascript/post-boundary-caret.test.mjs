@@ -8,8 +8,9 @@ const editorSource = await readFile(
     'utf8'
 );
 const testableEditorSource = editorSource.replace(
-    '    applyShortcutHints(document);\n})();',
+    /\n\}\)\(\);\s*$/u,
     [
+        '',
         '    window.__postInplaceTest = {',
         '        applyContextBlockState,',
         '        collapseEmptyLeadingParagraphAfterDelete,',
@@ -30,7 +31,6 @@ const testableEditorSource = editorSource.replace(
         '        removeTrailingEditorArtifacts,',
         '        styledBlockAtCaretEnd,',
         '    };',
-        '    applyShortcutHints(document);',
         '})();',
     ].join('\n')
 );

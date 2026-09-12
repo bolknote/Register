@@ -43,6 +43,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
         private TagRepository           $tagRepository,
         private ContentChangeDispatcher $contentChangeDispatcher,
         private BlogPageCache           $pageCache,
+        private BlogPostListControllerFactory $listControllerFactory,
         private string                  $dbType,
         private string                  $dbPrefix,
     ) {
@@ -101,6 +102,8 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
 
         $postEntity
             ->setLimit(50)
+            ->setControllerClassOrFactory($this->listControllerFactory)
+            ->setListTemplate('_admin/templates/blog-list.php.inc')
             ->setPluralName($this->translator->trans('Posts'))
             ->setSingularName($this->translator->trans('Post'))
             ->setEntityDisplayNameBuilder(
@@ -121,7 +124,12 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 label: $this->translator->trans('Title'),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
-                viewTemplate: '_admin/templates/article/view-title.php',
+                viewTemplate: '_admin/templates/blog-list-title.php.inc',
+            ))
+            ->addField(new FieldConfig(
+                name: 'slug',
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'tags',
@@ -129,28 +137,45 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 type: new VirtualFieldType($this->tagsSql()),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'published_at',
                 label: $this->translator->trans('Create time'),
-                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
-                viewTemplate: '_admin/templates/date.php.inc',
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'scheduled_at',
                 label: $this->translator->trans('Scheduled publication'),
-                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_UNIXTIME),
+                type: new DbColumnFieldType(FieldConfig::DATA_TYPE_INT),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
-                viewTemplate: '_admin/templates/date.php.inc',
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'published',
                 label: $this->translator->trans('Published'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
+            ))
+            ->addField(new FieldConfig(
+                name: 'publication_state',
+                label: $this->translator->trans('Publication status'),
+                type: new VirtualFieldType(BlogPostListState::sql(time())),
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/blog-list-status.php.inc',
+            ))
+            ->addField(new FieldConfig(
+                name: 'editorial_date',
+                label: $this->translator->trans('Editorial date'),
+                type: new VirtualFieldType(BlogPostListState::dateSql(time())),
+                sortable: true,
+                useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: '_admin/templates/blog-list-date.php.inc',
             ))
             ->addField(new FieldConfig(
                 name: 'featured',
@@ -158,31 +183,34 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
-                viewTemplate: '_admin/templates/article/view-favorite.php',
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'comments_enabled',
                 label: $this->translator->trans('Commented'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
             ))
             ->addField(new FieldConfig(
                 name: 'comments',
                 label: $this->translator->trans('Comments'),
                 type: new VirtualFieldType(
                     "SELECT CASE WHEN COUNT(*) > 0 THEN COUNT(*) ELSE NULL END FROM {$this->dbPrefix}"
-                    . CommentSchema::TABLE_NAME . " WHERE content_type = 'post' AND content_id = entity.id",
+                    . CommentSchema::TABLE_NAME . " WHERE content_type = 'post' AND content_id = entity.id AND deleted = 0"
+                    . ($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN) ? '' : ' AND shown = 1'),
                     new LinkToEntityParams($commentEntity->getName(), ['content_id'], ['id']),
                 ),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
-                viewTemplate: __DIR__ . '/../resources/views/admin/post/view-comments.php.inc',
+                viewTemplate: '_admin/templates/blog-list-comments.php.inc',
             ))
             ->addField(new FieldConfig(
                 name: 'series',
                 label: $this->translator->trans('Label'),
                 sortable: true,
                 useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
             ))
             ->addField($userIdField = new FieldConfig(
                 name: 'author_id',
@@ -192,8 +220,19 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     $adminConfig->findEntityByName('User')
                         ?? throw new \LogicException('User admin entity is missing.'),
                     "CASE WHEN name IS NULL OR name = '' THEN login ELSE name END",
+                    new LogicalExpression(
+                        'post_author',
+                        1,
+                        "id IN (SELECT author_id FROM {$this->dbPrefix}" . ContentSchema::TABLE_NAME
+                        . " WHERE content_type = 'post' AND author_id IS NOT NULL"
+                        . ($this->permissionChecker->isGranted(PermissionChecker::PERMISSION_VIEW_HIDDEN)
+                            ? ''
+                            : ' AND ((published = 1 AND published_at <= ' . time() . ') OR author_id = ' . (int)$this->permissionChecker->getUserId() . ')')
+                        . ')',
+                    ),
                 ),
                 useOnActions: [FieldConfig::ACTION_LIST],
+                viewTemplate: null,
             ))
             ->setEnabledActions([
                 FieldConfig::ACTION_LIST,
@@ -208,7 +247,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                     : new LogicalExpression(
                         'read_access_control_author_id',
                         $this->permissionChecker->getUserId(),
-                        "content_type = 'post' AND (published = 1 OR author_id = %s)",
+                        "content_type = 'post' AND ((published = 1 AND published_at <= " . time() . ') OR author_id = %s)',
                     ),
             )
             ->setWriteAccessControl(
@@ -242,26 +281,22 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 fn(string $value): ?string => $value !== '' ? '%' . $value . '%' : null,
             ))
             ->addFilter(new Filter(
-                'is_active',
-                $this->translator->trans('Published'),
-                'radio',
-                'published = %1$s',
-                options: [
-                    '' => $this->translator->trans('All'),
-                    1  => $this->translator->trans('Yes'),
-                    0  => $this->translator->trans('No'),
-                ],
+                'state',
+                $this->translator->trans('Publication status'),
+                'hidden_input',
+                BlogPostListState::filterSql(time()),
+                static fn(mixed $value): ?string => BlogPostListState::filterValue($value),
             ))
             ->addFilter(new Filter(
                 'created_from',
-                $this->translator->trans('Created after'),
+                $this->translator->trans('Published after'),
                 'date',
                 'published_at >= %1$s',
                 fn(?string $value): int|false|null => $value !== null ? strtotime($value) : null,
             ))
             ->addFilter(new Filter(
                 'created_to',
-                $this->translator->trans('Created before'),
+                $this->translator->trans('Published before'),
                 'date',
                 'published_at < %1$s',
                 fn(?string $value): int|false|null => $value !== null ? strtotime($value) : null,
@@ -285,7 +320,7 @@ readonly class AdminConfigExtender implements AdminConfigExtenderInterface
             ), 'used_in_articles')
             ->addField(new FieldConfig(
                 name: 'register_blog_important',
-                label: $this->translator->trans('Important tag'),
+                label: $this->translator->trans('Show in navigation'),
                 hint: $this->translator->trans('Important tag info'),
                 type: new DbColumnFieldType(FieldConfig::DATA_TYPE_BOOL),
                 control: 'checkbox',

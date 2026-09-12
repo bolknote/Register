@@ -29,8 +29,7 @@ readonly class CustomMenuGenerator extends MenuGenerator
     ];
 
     /** @var list<string> */
-    private const array MODERATION_ENTITY_ORDER = [
-        'Comment',
+    private const array ANTISPAM_ENTITY_ORDER = [
         'SpamAssessment',
         'SpamRule',
         'SpamSignalPolicy',
@@ -112,6 +111,10 @@ readonly class CustomMenuGenerator extends MenuGenerator
             $links['Article']['active'] = true;
         }
 
+        if (isset($links['Article'], $links['Site'])) {
+            $links['Article']['url'] = $links['Site']['url'];
+        }
+
         unset($links['Site']);
 
         $navigationItems[] = $this->createGroup(
@@ -119,16 +122,13 @@ readonly class CustomMenuGenerator extends MenuGenerator
             'Materials',
             $this->extractLinks($links, self::MATERIAL_ENTITY_ORDER),
         );
-        $moderationLinks = $this->extractLinks($links, self::MODERATION_ENTITY_ORDER);
-        foreach ($moderationLinks as &$moderationLink) {
-            if (\in_array($moderationLink['key'], ['SpamSignalPolicy', 'SpamRatePolicy'], true)) {
-                $moderationLink['menuHidden']  = true;
-                $moderationLink['currentName'] = 'Expert settings';
-            }
+        $commentLink = $links['Comment'] ?? null;
+        if (\is_array($commentLink)) {
+            $navigationItems[] = ['kind' => 'link', ...$commentLink];
+            unset($links['Comment']);
         }
 
-        unset($moderationLink);
-        $navigationItems[] = $this->createGroup('Moderation', 'Moderation', $moderationLinks);
+        $antispamLinks = $this->extractLinks($links, self::ANTISPAM_ENTITY_ORDER);
 
         $statisticsLink = $links['Statistics'] ?? null;
         if (\is_array($statisticsLink)) {
@@ -176,8 +176,21 @@ readonly class CustomMenuGenerator extends MenuGenerator
 
         $settingsLink = $links['Config'] ?? null;
         if (\is_array($settingsLink)) {
-            $navigationItems[] = ['kind' => 'link', ...$settingsLink];
+            $settingsLink['name'] = 'General settings';
+            foreach ($antispamLinks as &$antispamLink) {
+                if ($antispamLink['key'] === 'SpamRule') {
+                    $antispamLink['name'] = 'Spam protection';
+                } elseif ($antispamLink['key'] !== 'SpamAssessment') {
+                    $antispamLink['menuHidden'] = true;
+                    $antispamLink['currentName'] = 'Spam protection';
+                }
+            }
+
+            unset($antispamLink);
+            $navigationItems[] = $this->createGroup('Settings', 'Settings', [$settingsLink, ...$antispamLinks]);
             unset($links['Config']);
+        } elseif ($antispamLinks !== []) {
+            $navigationItems[] = $this->createGroup('Settings', 'Settings', $antispamLinks);
         }
 
         $systemLinks = [

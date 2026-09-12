@@ -75,6 +75,16 @@ foreach ($rows as $row) {
                 <header class="config-section-header">
                     <h2><?= $escape($section['title']) ?></h2>
                 </header>
+                <?php if ($section['id'] === 'settings-comments-config'
+                    && $isGranted(\Register\Core\Model\PermissionChecker::PERMISSION_EDIT_USERS)
+                ): ?>
+                    <nav class="section-tabs" aria-label="<?= $escape($trans('Spam protection')) ?>">
+                        <a href="?entity=SpamRule&amp;action=list"><?= $escape($trans('Spam rules')) ?></a>
+                        <a href="?entity=SpamRatePolicy&amp;action=list"><?= $escape($trans('Comment rate limits')) ?></a>
+                        <a href="?entity=SpamAssessment&amp;action=list"><?= $escape($trans('Antispam report')) ?></a>
+                        <a href="?entity=SpamSignalPolicy&amp;action=list"><?= $escape($trans('Spam signal weights')) ?></a>
+                    </nav>
+                <?php endif; ?>
                 <?php if ($section['id'] === 'settings-ai-config'
                     && array_filter(
                         $section['rows'],

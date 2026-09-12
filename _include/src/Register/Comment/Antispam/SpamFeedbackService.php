@@ -107,7 +107,9 @@ final readonly class SpamFeedbackService
         $this->reputationRepository->replaceLabel($reputationKeys, $previousLabel, $label);
 
         if ($label === SpamReputationRepository::LABEL_HAM) {
-            if (!$comment->shown && $comment->sent) {
+            // Reopening an already approved comment must not resend its notification.
+            // A first approval or a corrected spam decision still needs delivery.
+            if (!$comment->shown && $comment->sent && $previousLabel !== SpamReputationRepository::LABEL_HAM) {
                 $this->commentRepository->setSent($commentId, $contentType, false);
             }
 

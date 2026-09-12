@@ -82,6 +82,39 @@ function isAudioFile(fileName) {
     return ['mp3', 'wav', 'ogg', 'flac'].includes(extension);
 }
 
+function mediaFileType(fileName) {
+    var extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : '';
+    if (['avif', 'bmp', 'gif', 'heic', 'heif', 'jpeg', 'jpg', 'png', 'svg', 'tif', 'tiff', 'webp'].includes(extension)) {
+        return 'image';
+    }
+    if (['aac', 'aiff', 'alac', 'flac', 'm4a', 'mp3', 'oga', 'ogg', 'opus', 'wav'].includes(extension)) {
+        return 'audio';
+    }
+    if (['avi', 'm4v', 'mkv', 'mov', 'mp4', 'mpeg', 'mpg', 'ogv', 'webm'].includes(extension)) {
+        return 'video';
+    }
+    if (['csv', 'doc', 'docx', 'epub', 'md', 'odt', 'ods', 'odp', 'pdf', 'ppt', 'pptx', 'rtf', 'txt', 'xls', 'xlsx'].includes(extension)) {
+        return 'document';
+    }
+    return 'other';
+}
+
+function filterMediaFiles(nodes, query, type, onHidden) {
+    var search = query.trim().normalize('NFC').toLocaleLowerCase();
+    var visible = 0;
+    nodes.forEach(function (node) {
+        var fileName = node.dataset.fname || '';
+        var matches = fileName.normalize('NFC').toLocaleLowerCase().includes(search)
+            && (type === 'all' || mediaFileType(fileName) === type);
+        if (!matches && onHidden) {
+            onHidden(node);
+        }
+        node.hidden = !matches;
+        visible += Number(matches);
+    });
+    return {visible: visible, total: nodes.length};
+}
+
 function audioTitle(fileName) {
     return fileName.replace(/\.[^.]*$/, '').replace(/[_-]+/g, ' ').trim();
 }
@@ -161,7 +194,9 @@ function renderFileInformation(container, fileName, filePath, fileSize, dimensio
                 );
             }
         };
-        appendInsertButton(container);
+        if (parentWnd.ReturnImage) {
+            appendInsertButton(container);
+        }
         return;
     }
 
@@ -203,7 +238,89 @@ $(function () {
         pathCsrfToken = '',
         isRenaming = false,
         folderDeletionConfirmed = false,
-        fileDeletionConfirmed = false;
+        fileDeletionConfirmed = false,
+        fileLoadError = '',
+        filesLoading = true;
+
+    var searchInput = pictureManagerRoot?.querySelector('[data-media-search]');
+    var typeInput = pictureManagerRoot?.querySelector('[data-media-type]');
+
+    function updateFileSelection() {
+        var selected = fileTree.jstree('get_selected');
+        var selectionBar = pictureManagerRoot?.querySelector('[data-media-selection-bar]');
+        if (selectionBar) {
+            selectionBar.hidden = filesLoading || selected.length === 0;
+            selectionBar.querySelector('[data-media-selected-count]').textContent = (pictureManagerConfig.selectedCount || '')
+                .replace('{{ count }}', selected.length);
+            var renameButton = selectionBar.querySelector('[data-media-rename]');
+            if (renameButton) {
+                renameButton.disabled = selected.length !== 1;
+            }
+        }
+        if (selected.length !== 1) {
+            document.getElementById('finfo')?.replaceChildren();
+            fExecDouble = function () {};
+        }
+    }
+
+    function updateFileView() {
+        var nodes = Array.from(document.querySelectorAll('#files li[data-fname]'));
+        nodes.forEach(function (node) {
+            var link = node.querySelector('a');
+            if (link) {
+                link.dataset.fileSummary = [node.dataset.dim?.replace('*', ' × '), node.dataset.fsize].filter(Boolean).join(' · ');
+            }
+        });
+        var counts = filterMediaFiles(nodes, searchInput?.value || '', typeInput?.value || 'all', function (node) {
+            if (node.querySelector('a.jstree-clicked')) {
+                fileTree.jstree('deselect_node', node);
+            }
+        });
+        var count = pictureManagerRoot?.querySelector('[data-media-count]');
+        if (count) {
+            count.textContent = filesLoading ? register_lang.load : (pictureManagerConfig.fileCount || '')
+                .replace('{{ visible }}', counts.visible).replace('{{ total }}', counts.total);
+        }
+        pictureManagerRoot?.querySelector('[data-media-empty]')?.toggleAttribute('hidden', filesLoading || !!fileLoadError || counts.total !== 0);
+        pictureManagerRoot?.querySelector('[data-media-no-matches]')?.toggleAttribute('hidden', filesLoading || !!fileLoadError || counts.total === 0 || counts.visible !== 0);
+        updateFileSelection();
+    }
+
+    function beginFileLoading() {
+        filesLoading = true;
+        fileLoadError = '';
+        document.getElementById('finfo')?.replaceChildren();
+        document.getElementById('files')?.setAttribute('aria-busy', 'true');
+        pictureManagerRoot?.querySelector('[data-media-selection-bar]')?.setAttribute('hidden', '');
+        pictureManagerRoot?.querySelector('[data-media-empty]')?.setAttribute('hidden', '');
+        pictureManagerRoot?.querySelector('[data-media-no-matches]')?.setAttribute('hidden', '');
+        var count = pictureManagerRoot?.querySelector('[data-media-count]');
+        if (count) {
+            count.textContent = register_lang.load;
+        }
+    }
+
+    searchInput?.addEventListener('input', updateFileView);
+    typeInput?.addEventListener('change', updateFileView);
+    pictureManagerRoot?.querySelector('[data-media-reset]')?.addEventListener('click', function () {
+        searchInput.value = '';
+        typeInput.value = 'all';
+        updateFileView();
+        searchInput.focus();
+    });
+    pictureManagerRoot?.querySelector('[data-media-refresh]')?.addEventListener('click', function () {
+        refreshFiles();
+    });
+    pictureManagerRoot?.querySelector('[data-media-rename]')?.addEventListener('click', function () {
+        var selected = fileTree.jstree('get_selected');
+        if (selected.length === 1) {
+            isRenaming = true;
+            fileTree.jstree('rename', selected);
+        }
+    });
+    pictureManagerRoot?.querySelector('[data-media-delete]')?.addEventListener('click', function () {
+        fileTree.jstree('remove', fileTree.jstree('get_selected'));
+    });
 
     getCurDir = function () {
         return path;
@@ -301,8 +418,12 @@ $(function () {
 
             if (path !== newPath) {
                 path = newPath;
-                fileTree.jstree('refresh', -1);
+                refreshFiles();
                 replaceStrongText('fold_name', folderTree.jstree('get_text', d.rslt.obj));
+            }
+            var location = pictureManagerRoot?.querySelector('[data-media-folder-path]');
+            if (location) {
+                location.textContent = path || folderTree.jstree('get_text', d.rslt.obj);
             }
         })
         .bind('deselect_node.jstree', function (e, d) {
@@ -502,10 +623,17 @@ $(function () {
         });
 
     refreshFiles = function () {
+        beginFileLoading();
         fileTree.jstree('refresh', -1);
     };
 
     var fileTree = $('#files')
+        .bind('loaded.jstree load_node.jstree refresh.jstree', function () {
+            filesLoading = false;
+            document.getElementById('files')?.removeAttribute('aria-busy');
+            updateFileView();
+        })
+        .bind('deselect_node.jstree deselect_all.jstree', updateFileSelection)
         .bind('before.jstree', function (e, data) {
             if (data.func !== 'remove' || fileDeletionConfirmed) {
                 return;
@@ -542,6 +670,7 @@ $(function () {
         })
         .bind('select_node.jstree', function (e, d) {
             fileTree.jstree('set_focus');
+            updateFileSelection();
 
             var fileInformation = document.getElementById('finfo');
             if (!fileInformation) {
@@ -586,6 +715,7 @@ $(function () {
                         }
                     } else {
                         data.rslt.obj.attr('data-fname', d.new_name);
+                        updateFileView();
                     }
                 })
                 .catch(() => {
@@ -612,6 +742,7 @@ $(function () {
                             PopupMessages.show(d.message);
                         }
                     }
+                    updateFileView();
                 })
                 .catch(() => {
                     fileTree.jstree('refresh', -1);
@@ -629,7 +760,9 @@ $(function () {
                     fileTree.jstree('remove');
                 },
                 'ctrl+a': function () {
-                    $.jstree._reference(fileTree)._get_children(-1).each(function () {
+                    $.jstree._reference(fileTree)._get_children(-1).filter(function () {
+                        return !this.hidden;
+                    }).each(function () {
                         fileTree.jstree('select_node', this);
                     });
                     return false;
@@ -642,15 +775,32 @@ $(function () {
             json_data: {
                 ajax: {
                     url: function () {
+                        beginFileLoading();
                         return sUrl + 'action=load_files&path=' + encodeURIComponent(path);
                     },
                     success: function (data) {
+                        filesLoading = false;
+                        fileLoadError = '';
+                        document.getElementById('files')?.removeAttribute('aria-busy');
                         if (data.length) {
                             $('#loadstatus').text('');
                             return data;
                         }
-                        $('#loadstatus').text(data.message || register_lang.unknown_error);
+                        if (data.message !== pictureManagerConfig.emptyDirectory && !Array.isArray(data)) {
+                            fileLoadError = data.message || register_lang.unknown_error;
+                        }
+                        $('#loadstatus').text(fileLoadError);
+                        window.setTimeout(updateFileView, 0);
                         return false;
+                    },
+                    error: function (xhr, status) {
+                        filesLoading = false;
+                        if (status !== 'success') {
+                            fileLoadError = register_lang.unknown_error;
+                        }
+                        document.getElementById('files')?.removeAttribute('aria-busy');
+                        $('#loadstatus').text(fileLoadError);
+                        updateFileView();
                     }
                 }
             },

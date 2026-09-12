@@ -20,12 +20,15 @@ use Register\AdminYard\Database\LogicalExpression;
 use Register\AdminYard\Database\PdoDataProvider;
 use Register\AdminYard\Database\SafeDataProviderException;
 use Register\AdminYard\Form\FormFactory;
+use Register\AdminYard\Form\Form;
+use Register\AdminYard\Event\BeforeRenderEvent;
 use Register\AdminYard\SettingStorage\SettingStorageInterface;
 use Register\AdminYard\TemplateRenderer;
 use Register\AdminYard\Transformer\ViewTransformer;
 use Register\AdminYard\Translator;
 use Register\Comment\Antispam\SpamFeedbackService;
 use Register\Core\Security\Http\AdminMutationGuard;
+use Register\Core\Comment\CommentHtml;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,6 +36,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CommentController extends EntityController
 {
+    public const array QUEUES = ['pending', 'published', 'hidden', 'spam', 'all'];
+
     public function __construct(
         EntityConfig            $entityConfig,
         EventDispatcher         $eventDispatcher,
@@ -59,8 +64,99 @@ class CommentController extends EntityController
         );
     }
 
+    #[\Override]
+    public function listAction(Request $request): string|Response
+    {
+        $eventName = 'adminyard.Comment.' . EntityConfig::EVENT_BEFORE_LIST_RENDER;
+        $listener = function (BeforeRenderEvent $event): void {
+            if ($event->data === null) {
+                return;
+            }
+
+            $event->data['commentQueue'] = $event->data['filterData']['queue'] ?? 'pending';
+            $event->data['commentQueueCounts'] = [];
+            $filters = $this->entityConfig->getFilters();
+            $queueFilter = $filters['queue'];
+            $contextConditions = [];
+            foreach ($event->data['filterData'] as $name => $value) {
+                if ($name !== 'queue' && isset($filters[$name])) {
+                    $contextConditions[] = $filters[$name]->getCondition($value);
+                }
+            }
+
+            foreach (self::QUEUES as $queue) {
+                $event->data['commentQueueCounts'][$queue] = $this->getEntityCount([...$contextConditions, $queueFilter->getCondition($queue)]);
+            }
+        };
+        $this->eventDispatcher->addListener($eventName, $listener);
+        try {
+            return parent::listAction($request);
+        } finally {
+            $this->eventDispatcher->removeListener($eventName, $listener);
+        }
+    }
+
+    #[\Override]
+    protected function getListFilterForm(Request $request): Form
+    {
+        if (!$request->query->has('queue')) {
+            // Links from a material or an antispam decision must show that context,
+            // including comments which have already been handled.
+            $queue = $request->query->has('content_id') || $request->query->has('comment_id')
+                || $request->query->has('status') || $request->query->has('published')
+                ? 'all'
+                : 'pending';
+            $request->query->set('queue', $queue);
+        }
+
+        if (!\in_array($request->query->getString('queue'), self::QUEUES, true)) {
+            $request->query->set('queue', 'pending');
+        }
+
+        if (!$request->query->has('apply_filter')) {
+            $request->query->set('apply_filter', '0');
+        }
+
+        return parent::getListFilterForm($request);
+    }
+
     /**
-     * Keep comments awaiting a moderation decision above every ordinary list sort.
+     * @param array<mixed> $row
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    protected function renderCellsForNormalizedRow(Request $request, array $row, string $actionForFieldRestriction): array
+    {
+        $result = parent::renderCellsForNormalizedRow($request, $row, $actionForFieldRestriction);
+        $result['csrf_token'] = $this->getDeleteCsrfToken($result['primary_key']);
+        $label = (string)($row['virtual_spam_label'] ?? '');
+        $state = match (true) {
+            $label === 'spam' => 'spam',
+            (bool)$row['column_shown'] => 'published',
+            (bool)$row['column_sent'] => 'hidden',
+            default => 'pending',
+        };
+        $parentText = CommentHtml::plainText((string)($row['virtual_parent_text'] ?? ''), false);
+        $result['comment'] = [
+            'id' => (int)$row['column_id'],
+            'state' => $state,
+            'name' => (string)$row['column_nick'],
+            'email' => isset($row['column_email']) ? (string)$row['column_email'] : null,
+            'ip' => isset($row['column_ip']) ? (string)$row['column_ip'] : null,
+            'body_html' => CommentHtml::render((string)$row['column_text'], $this->translator->trans('wrote')),
+            'content_type' => (string)$row['column_content_type'],
+            'content_id' => (int)$row['column_content_id'],
+            'content_title' => (string)($row['virtual_content_title'] ?? ''),
+            'parent_name' => (string)($row['virtual_parent_name'] ?? ''),
+            'parent_text' => mb_substr($parentText, 0, 360) . (mb_strlen($parentText) > 360 ? '…' : ''),
+            'spam_score' => $row['virtual_spam_score'] ?? null,
+        ];
+
+        return $result;
+    }
+
+    /**
+     * Each queue is an ordinary chronological list with an explicit status filter.
      *
      * @param LogicalExpression[] $filterConditions
      * @return array<int, array<string, mixed>>
@@ -89,8 +185,7 @@ class CommentController extends EntityController
 
         $limit = $this->entityConfig->getLimit();
         $offset = $limit === null || $page < 1 ? 0 : ($page - 1) * $limit;
-        $pendingFirstOrder = 'CASE WHEN entity.shown = 0 AND entity.sent = 0 THEN 0 ELSE 1 END ASC, '
-            . $sortField . ' ' . $sortDirection . ', entity.id';
+        $order = $sortField . ' ' . $sortDirection . ', entity.id';
 
         return $this->dataProvider->getEntityList(
             $this->entityConfig->getTableName(),
@@ -100,7 +195,7 @@ class CommentController extends EntityController
                 DatabaseHelper::getReadAccessControlConditions($this->entityConfig),
                 $filterConditions,
             ),
-            $pendingFirstOrder,
+            $order,
             'desc',
             $limit,
             $offset,
@@ -169,8 +264,12 @@ class CommentController extends EntityController
                 ],
                 DatabaseHelper::getReadAndWriteAccessControlConditions($this->entityConfig),
                 $primaryKey,
-                ['sent' => true],
+                ['shown' => false, 'sent' => true],
             );
+            $comment = $this->commentRepository->find($primaryKey->getIntId());
+            if ($comment !== null) {
+                $this->liveUpdateRepository->publishComments($comment->contentId);
+            }
         } catch (SafeDataProviderException $e) {
             $statusCode = $e->getCode();
             return new JsonResponse(['errors' => [$this->translator->trans($e->getMessage())]], $statusCode > 0 ? $statusCode : Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -209,6 +308,17 @@ class CommentController extends EntityController
         }
 
         try {
+            $accessible = $this->dataProvider->getEntity(
+                $this->entityConfig->getTableName(),
+                $this->entityConfig->getFieldDataTypes('patch', includePrimaryKey: true),
+                [],
+                DatabaseHelper::getReadAndWriteAccessControlConditions($this->entityConfig),
+                $primaryKey,
+            );
+            if ($accessible === null) {
+                return new JsonResponse(['errors' => [$this->translator->trans('Comment not found')]], Response::HTTP_NOT_FOUND);
+            }
+
             $updated = $label === 'ham'
                 ? $this->spamFeedbackService->markHam(
                     $primaryKey->getIntId(),

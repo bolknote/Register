@@ -32,12 +32,16 @@ $maxPostSize = $bytesFromString(ini_get('post_max_size'));
 
 ?>
 <link rel="stylesheet" href="<?= $html($basePath) ?>/_admin/css/pictures.css?v=<?= $html($adminAssetVersion('_admin/css/pictures.css')) ?>">
+<link rel="stylesheet" href="<?= $html($basePath) ?>/_admin/css/media-library.css?v=<?= $html($adminAssetVersion('_admin/css/media-library.css')) ?>">
 <section class="picture-manager-page <?= $standalone ? 'is-standalone' : 'is-embedded' ?>"
          data-picture-manager
          data-ajax-url="<?= $html($basePath . '/_admin/ajax.php?') ?>"
          data-picture-prefix="<?= $html($imagePath) ?>"
          data-max-file-size="<?= $maxFileSize ?>"
          data-friendly-max-file-size="<?= $html($friendlyFilesize($maxFileSize)) ?>"
+         data-empty-directory="<?= $html($trans('Empty directory')) ?>"
+         data-file-count="<?= $html($trans('Media file count')) ?>"
+         data-selected-count="<?= $html($trans('Media selected count')) ?>"
          aria-labelledby="media-library-title">
     <?php if (!$standalone): ?>
         <header class="media-library-header">
@@ -76,22 +80,59 @@ $maxPostSize = $bytesFromString(ini_get('post_max_size'));
                 </form>
             <?php endif; ?>
 
-            <section class="media-folder-panel" aria-labelledby="media-folders-title">
-                <h2 id="media-folders-title"><?= $html($trans('Folders')) ?></h2>
+            <details class="media-folder-panel" open>
+                <summary id="media-folders-title"><?= $html($trans('Folders')) ?></summary>
                 <div id="folders" tabindex="0" aria-label="<?= $html($trans('Folders')) ?>"></div>
-            </section>
-            <div id="finfo" class="media-selection-info" aria-live="polite"></div>
+            </details>
         </aside>
 
         <section id="file-wrap" class="media-files-panel" aria-labelledby="media-files-title">
             <header>
-                <h2 id="media-files-title"><?= $html($trans('Files')) ?></h2>
-                <p><?= $html($trans('Media drop hint')) ?></p>
+                <div>
+                    <h2 id="media-files-title"><?= $html($trans('Files')) ?></h2>
+                    <p data-media-folder-path aria-label="<?= $html($trans('Media folder location')) ?>"><?= $html($trans('Pictures')) ?></p>
+                </div>
+                <button type="button" class="link-as-button secondary" data-media-refresh><?= $html($trans('Media refresh')) ?></button>
             </header>
+            <div class="media-file-toolbar">
+                <label class="media-search-field">
+                    <span><?= $html($trans('Media search')) ?></span>
+                    <input type="search" data-media-search autocomplete="off" placeholder="<?= $html($trans('Media search')) ?>">
+                </label>
+                <label class="media-type-field">
+                    <span><?= $html($trans('Media file type')) ?></span>
+                    <select data-media-type>
+                        <?php foreach (['all' => 'Media all types', 'image' => 'Media images', 'audio' => 'Media audio', 'video' => 'Media video', 'document' => 'Media documents', 'other' => 'Media other files'] as $type => $label): ?>
+                            <option value="<?= $html($type) ?>"><?= $html($trans($label)) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
+                <p class="media-file-count" data-media-count role="status" aria-live="polite"></p>
+            </div>
+            <div class="media-selection-bar" data-media-selection-bar hidden>
+                <span data-media-selected-count></span>
+                <?php if ($isGranted(\Register\Core\Model\PermissionChecker::PERMISSION_EDIT_SITE)): ?>
+                    <button type="button" class="link-as-button secondary" data-media-rename><?= $html($trans('Media rename')) ?></button>
+                    <button type="button" class="link-as-button secondary media-delete-button" data-media-delete><?= $html($trans('Delete')) ?></button>
+                <?php endif; ?>
+            </div>
             <div id="brd">
                 <div id="files" tabindex="0" aria-label="<?= $html($trans('Files')) ?>"></div>
                 <div id="loadstatus" role="status" aria-live="polite"></div>
+                <div class="media-empty-state" data-media-empty hidden>
+                    <h3><?= $html($trans('Media empty folder')) ?></h3>
+                    <p><?= $html($trans($isGranted(\Register\Core\Model\PermissionChecker::PERMISSION_CREATE_ARTICLES) ? 'Media empty folder hint' : 'Media empty folder browse hint')) ?></p>
+                </div>
+                <div class="media-empty-state" data-media-no-matches hidden>
+                    <h3><?= $html($trans('Media no matches')) ?></h3>
+                    <p><?= $html($trans('Media no matches hint')) ?></p>
+                    <button type="button" class="link-as-button secondary" data-media-reset><?= $html($trans('Media reset filters')) ?></button>
+                </div>
             </div>
+            <div id="finfo" class="media-selection-info" aria-live="polite"></div>
+            <?php if ($isGranted(\Register\Core\Model\PermissionChecker::PERMISSION_CREATE_ARTICLES)): ?>
+                <p class="media-files-hint"><?= $html($trans('Media drop hint')) ?></p>
+            <?php endif; ?>
         </section>
     </div>
 

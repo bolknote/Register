@@ -5855,7 +5855,39 @@
 
     document.addEventListener('register:fragment-updated', (event) => {
         applyShortcutHints(event.detail?.root || document);
+        openEditorFromUrl();
     }, false);
 
+    function openEditorFromUrl() {
+        if (!window.location?.href) {
+            return;
+        }
+        const url = new URL(window.location.href);
+        const action = url.searchParams.get('editor');
+        if (action !== 'new' && action !== 'edit') {
+            return;
+        }
+        const button = document.querySelector(action === 'new'
+            ? '.post-create-start'
+            : '.post-card.is-manageable .post-edit-start');
+        if (!button || button.disabled || button.hidden) {
+            return;
+        }
+        // Consume the one-shot request before opening the existing editor.
+        // Reload and history navigation must never start a second creation.
+        // Keep the original query spelling: some installations route posts
+        // through a prefix such as index.php?/post, not through rewrite rules.
+        url.search = url.search.slice(1).split('&').filter((part) => {
+            try {
+                return decodeURIComponent(part.split('=', 1)[0].replace(/\+/gu, ' ')) !== 'editor';
+            } catch (_error) {
+                return true;
+            }
+        }).join('&');
+        window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+        button.click();
+    }
+
     applyShortcutHints(document);
+    openEditorFromUrl();
 })();

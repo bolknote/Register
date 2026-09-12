@@ -1,0 +1,205 @@
+.picture-manager-page #tree_div {
+    grid-template-columns: minmax(13rem, 16rem) minmax(0, 1fr);
+}
+
+.picture-manager-page .treetree {
+    display: flex;
+    flex-direction: column;
+}
+
+.picture-manager-page details.media-folder-panel {
+    display: block;
+    min-height: 0;
+    padding: 0;
+    overflow: auto;
+}
+
+.picture-manager-page .media-folder-panel > summary {
+    padding: 1rem;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.picture-manager-page #file-wrap {
+    grid-template-rows: auto auto auto minmax(10rem, 1fr) auto auto;
+}
+
+.picture-manager-page .media-files-panel > header {
+    grid-row: 1;
+    align-items: center;
+}
+
+.picture-manager-page [data-media-folder-path] {
+    margin-top: 0.3rem !important;
+    overflow-wrap: anywhere;
+}
+
+.picture-manager-page .media-file-toolbar {
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 12rem);
+    gap: 0.75rem 1rem;
+    align-items: end;
+    padding: 1rem;
+    border-bottom: 1px solid var(--admin-soft-border-color);
+}
+
+.picture-manager-page .media-file-toolbar label {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+    font-size: 0.8rem;
+}
+
+.picture-manager-page .media-file-toolbar :is(input, select) {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.5rem;
+    margin: 0;
+}
+
+.picture-manager-page .media-file-count {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.8rem;
+}
+
+.picture-manager-page .media-selection-bar {
+    grid-row: 3;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid var(--admin-soft-border-color);
+    background: color-mix(in srgb, var(--admin-accent-color) 8%, var(--admin-surface-background));
+}
+
+.picture-manager-page .media-selection-bar > span {
+    margin-right: auto;
+}
+
+.picture-manager-page .media-delete-button {
+    color: var(--admin-error-color);
+}
+
+.picture-manager-page #files > ul {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+    gap: 0.6rem;
+}
+
+.picture-manager-page #files .jstree-leaf {
+    box-sizing: border-box;
+    display: block;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+}
+
+.picture-manager-page #files.jstree a {
+    box-sizing: border-box;
+    height: auto;
+    padding: 0.6rem;
+}
+
+.picture-manager-page #files.jstree a::after {
+    content: attr(data-file-summary);
+    display: block;
+    margin-top: 0.3rem;
+    color: var(--admin-secondary-text-color);
+    font-size: 0.75rem;
+    line-height: 1.3;
+}
+
+.picture-manager-page .media-empty-state {
+    padding: 3rem 1rem;
+    color: var(--admin-secondary-text-color);
+    text-align: center;
+}
+
+.picture-manager-page .media-empty-state h3 {
+    margin: 0 0 0.5rem;
+    color: var(--admin-text-color);
+    font-size: 1.1rem;
+}
+
+.picture-manager-page .media-empty-state p {
+    margin: 0 0 1rem;
+}
+
+.picture-manager-page .media-files-hint {
+    grid-row: 6;
+    margin: 0;
+    padding: 0.65rem 1rem;
+    border-top: 1px solid var(--admin-soft-border-color);
+    color: var(--admin-secondary-text-color);
+    font-size: 0.78rem;
+}
+
+.picture-manager-page .media-selection-info:empty {
+    display: none;
+}
+
+.picture-manager-page #finfo {
+    grid-row: 5;
+}
+
+.picture-manager-page #brd {
+    grid-row: 4;
+}
+
+.picture-manager-page .media-selection-info:not(:empty) {
+    max-height: 11rem;
+    overflow: auto;
+    border-top: 1px solid var(--admin-soft-border-color);
+}
+
+.picture-manager-page :is([hidden], #files .jstree-leaf[hidden]) {
+    display: none !important;
+}
+
+@media (max-width: 760px) {
+    .picture-manager-page #tree_div {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(28rem, auto);
+    }
+
+    .picture-manager-page .treetree {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto;
+        align-items: start;
+    }
+
+    .picture-manager-page .media-upload-panel {
+        border: 0;
+    }
+
+    .picture-manager-page #folders {
+        max-height: 12rem;
+    }
+
+    .picture-manager-page .media-files-panel > header {
+        flex-direction: row;
+        gap: 0.75rem;
+    }
+
+    .picture-manager-page #brd {
+        overflow: visible;
+    }
+}
+
+@media (max-width: 420px) {
+    .picture-manager-page .treetree,
+    .picture-manager-page .media-file-toolbar {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .picture-manager-page .media-folder-panel > summary {
+        padding-block: 0.65rem;
+    }
+}

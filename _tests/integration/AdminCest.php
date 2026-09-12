@@ -309,21 +309,21 @@ class AdminCest
         $I->assertSame('camera=(), microphone=(), geolocation=()', $I->grabHttpHeader('Permissions-Policy'));
         $I->assertNull($I->grabHttpHeader('X-Powered-By'));
         $I->seeElement('details[data-menu-group="Materials"]');
-        $I->seeElement('details[data-menu-group="Moderation"]');
+        $I->dontSeeElement('details[data-menu-group="Moderation"]');
         $I->seeElement('li[data-menu-key="Config"] > a[href="?entity=Config&action=list"]');
         $I->seeElement('details[data-menu-group="System"]');
-        $I->dontSeeElement('details[data-menu-group="Settings"]');
+        $I->seeElement('details[data-menu-group="Settings"]');
         $I->seeElement('details[data-menu-group="Account"]');
         $I->dontSeeElement('details.main-menu-system');
         $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=BlogPost&action=list"]');
-        $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Article&action=list"]');
+        $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Site"]');
         $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Media"]');
         $I->seeElement('details[data-menu-group="Materials"] a[href="?entity=Tag&action=list"]');
-        $I->seeElement('details[data-menu-group="Moderation"] a[href="?entity=Comment&action=list"]');
-        $I->seeElement('details[data-menu-group="Moderation"] a[href="?entity=SpamAssessment&action=list"]');
-        $I->seeElement('details[data-menu-group="Moderation"] a[href="?entity=SpamRule&action=list"]');
-        $I->dontSeeElement('details[data-menu-group="Moderation"] a[href*="entity=SpamSignalPolicy"]');
-        $I->dontSeeElement('details[data-menu-group="Moderation"] a[href*="entity=SpamRatePolicy"]');
+        $I->seeElement('li[data-menu-key="Comment"] > a[href="?entity=Comment&action=list"]');
+        $I->seeElement('details[data-menu-group="Settings"] a[href="?entity=SpamAssessment&action=list"]');
+        $I->seeElement('details[data-menu-group="Settings"] a[href="?entity=SpamRule&action=list"]');
+        $I->dontSeeElement('details[data-menu-group="Settings"] a[href*="entity=SpamSignalPolicy"]');
+        $I->dontSeeElement('details[data-menu-group="Settings"] a[href*="entity=SpamRatePolicy"]');
         $I->seeElement('details[data-menu-group="Account"] a[href^="?entity=User&action=edit&id="]');
         $I->seeElement('details[data-menu-group="Account"] a[href="?entity=Session&action=list"]');
         $I->seeElement('details[data-menu-group="Account"] a[href="?entity=Security"]');
@@ -396,7 +396,7 @@ class AdminCest
         $I->seeElement('nav.section-tabs a[aria-current="page"][href="?entity=Article&action=list"]');
         $I->seeElement('nav.section-tabs a[href="?entity=Site"]');
         $I->seeElement('details.filter-panel:not([open])');
-        $I->seeElement('label[for="filter-Article-search"]');
+        $I->seeElement('.list-search label[for="list-search-Article"]');
         $I->seeElement('fieldset.filter-control-radio > legend.filter-label');
         $I->dontSeeElement('.pagination');
 
@@ -406,12 +406,11 @@ class AdminCest
         $I->see('Failed at', 'table.list-table th');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Comment&action=list');
-        $I->see('Content', 'table.list-table th');
-        $I->seeElement('nav.moderation-tabs[aria-label="Moderation sections"]');
-        $I->seeElement('nav.moderation-tabs a[aria-current="page"][href="?entity=Comment&action=list"]');
-        $I->seeElement('nav.moderation-tabs a[href="?entity=SpamAssessment&action=list"]');
-        $I->seeElement('nav.moderation-tabs a[href="?entity=SpamRule&action=list"]');
-        $I->seeElement('nav.moderation-tabs a[href="?entity=SpamSignalPolicy&action=list"]');
+        $I->seeElement('nav.comment-queues a[aria-current="page"][href*="queue=pending"]');
+        $I->seeElement('nav.comment-queues a[href*="queue=published"]');
+        $I->seeElement('nav.comment-queues a[href*="queue=spam"]');
+        $I->dontSeeElement('nav.moderation-tabs');
+        $I->dontSeeElement('table.list-table');
         $I->dontSeeElement('nav.moderation-subtabs');
         $I->dontSee('Email', 'table.list-table th');
         $I->dontSee('Content type', 'table.list-table th');
@@ -455,7 +454,7 @@ class AdminCest
         $I->seeElement('#context_buttons[role="group"] button#context_delete.is-dangerous[aria-label]');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=Media');
-        $I->see('Media', 'h1#media-library-title');
+        $I->see('Files', 'h1#media-library-title');
         $I->seeElement('header.admin-shell');
         $I->seeElement('a.main-menu-link[aria-current="page"][href="?entity=Media"]');
         $I->seeElement('section.picture-manager-page.is-embedded[data-picture-manager]');
@@ -651,7 +650,7 @@ class AdminCest
 
             $I->see($heading, 'h1');
             $I->seeElement('details[data-menu-group="Materials"]');
-            $I->seeElement('details[data-menu-group="Moderation"]');
+            $I->seeElement('li[data-menu-key="Comment"] > a');
             $I->dontSeeElement('li[data-menu-key="NewPost"]');
 
             if ($canSeeSettings) {
@@ -773,9 +772,9 @@ class AdminCest
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
 
-        $I->seeElement('section.saved-list-views[data-saved-list-views]');
+        $I->seeElement('details.saved-list-views[data-saved-list-views]:not([open])');
 
-        $csrfToken = $I->grabAttributeFrom('section.saved-list-views', 'data-csrf-token');
+        $csrfToken = $I->grabAttributeFrom('details.saved-list-views', 'data-csrf-token');
         $I->assertNotNull($csrfToken);
 
         $state = json_encode([
@@ -1249,14 +1248,14 @@ class AdminCest
         $I->amOnPage('https://localhost/_admin/index.php?entity=Comment&action=list');
 
         $I->seeResponseCodeIs(200);
-        $I->seeElement('details[data-menu-group="Moderation"]');
-        $I->assertCount(1, $I->grabMultiple('nav.moderation-tabs a'));
-        $I->seeElement('nav.moderation-tabs a[aria-current="page"][href="?entity=Comment&action=list"]');
+        $I->seeElement('li[data-menu-key="Comment"] > a[aria-current="page"]');
+        $I->dontSeeElement('details[data-menu-group="Moderation"]');
+        $I->dontSeeElement('nav.moderation-tabs');
         $I->dontSeeElement('nav.moderation-tabs a[href*="entity=Spam"]');
         $I->dontSeeElement('nav.moderation-subtabs');
     }
 
-    public function testPendingCommentsStayAboveNewerHandledComments(\IntegrationTester $I): void
+    public function testCommentInboxExcludesHandledComments(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabAdminService(DbLayer::class);
@@ -1307,9 +1306,9 @@ class AdminCest
         $I->seeResponseCodeIs(200);
         $I->see(
             'Pending must be first',
-            'table.list-table tbody tr:first-child td.field-Comment-nick',
+            '.comment-list .comment-card:first-child .comment-author',
         );
-        $I->dontSee('Newer handled comment', 'table.list-table tbody tr:first-child');
+        $I->dontSee('Newer handled comment', '.comment-list');
     }
 
     public function testEmptyAntispamReportExplainsConfiguredModelAndLiveLog(\IntegrationTester $I): void
@@ -1356,14 +1355,14 @@ class AdminCest
         $I->see('Antispam model');
         $I->see('rules-8');
         $I->see('Local filter quality');
-        $I->see('Shadow comparison');
+        $I->dontSee('Shadow comparison');
         $I->see('False positive');
-        $I->see('Links');
+        $I->dontSeeElement('th.field-SpamAssessment-reasons');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=SpamAssessment&action=list&quality=false_positive&apply_filter=1');
         $I->seeResponseCodeIs(200);
         $I->see('False positive');
-        $I->see('Links');
+        $I->dontSeeElement('th.field-SpamAssessment-reasons');
 
         $I->amOnPage('https://localhost/_admin/index.php?entity=SpamRule&action=list');
         $I->seeResponseCodeIs(200);

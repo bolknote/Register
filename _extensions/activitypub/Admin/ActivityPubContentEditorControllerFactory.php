@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Extension\activitypub\Admin;
 
 use Register\AdminYard\Config\EntityConfig;
+use Register\AdminYard\Config\FieldConfig;
 use Register\AdminYard\Controller\ControllerFactoryInterface;
 use Register\AdminYard\Database\PdoDataProvider;
 use Register\AdminYard\Form\FormFactory;
@@ -24,6 +25,20 @@ final readonly class ActivityPubContentEditorControllerFactory implements Contro
 {
     public function __construct(private PortableDatabaseTransaction $transaction)
     {
+    }
+
+    /** List-only content uses its own public editing flow, so it needs no admin write transaction. */
+    public function configure(EntityConfig $entity): void
+    {
+        if (!$entity->isAllowedAction(FieldConfig::ACTION_EDIT) && !$entity->isAllowedAction(FieldConfig::ACTION_NEW)) {
+            return;
+        }
+
+        if ($entity->getControllerClassOrFactory() !== null) {
+            throw new \LogicException('ActivityPub cannot compose with the configured content editor controller.');
+        }
+
+        $entity->setControllerClassOrFactory($this);
     }
 
     #[\Override]

@@ -58,11 +58,7 @@ final readonly class AdminConfigExtender implements AdminConfigExtenderInterface
 
     private function configureContentEntity(EntityConfig $entity, ContentType $contentType, bool $allowCreate): void
     {
-        if ($entity->getControllerClassOrFactory() !== null) {
-            throw new \LogicException('ActivityPub cannot compose with the configured content editor controller.');
-        }
-
-        $entity->setControllerClassOrFactory($this->contentEditorControllerFactory);
+        $this->contentEditorControllerFactory->configure($entity);
         $actions = [FieldConfig::ACTION_EDIT, ...$allowCreate ? [FieldConfig::ACTION_NEW] : []];
         $entity
             ->addField(new FieldConfig(

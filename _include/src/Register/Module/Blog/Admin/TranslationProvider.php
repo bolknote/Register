@@ -31,6 +31,7 @@ class TranslationProvider implements TranslationProviderInterface
 
                 // Tags
                 'Important tag'         => 'Важное',
+                'Show in navigation'    => 'В навигации',
                 'Important tag info'    => 'Важные теги входят в навигационные ссылки блога',
                 'Used in posts'         => 'В постах',
                 'Used in posts info'    => 'Количество постов с этим тегом и ссылки на них.',
@@ -56,6 +57,7 @@ class TranslationProvider implements TranslationProviderInterface
 
                 // Tags
                 'Important tag'         => 'Important',
+                'Show in navigation'    => 'In navigation',
                 'Important tag info'    => 'Important tags are used in the blog navigation menu',
                 'Used in posts'         => 'In posts',
                 'Used in posts info'    => 'The number of posts using this tag and links to them.',

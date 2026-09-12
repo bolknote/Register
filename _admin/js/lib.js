@@ -702,7 +702,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const applyButton = toolbar.querySelector('[data-bulk-apply]');
         const status = toolbar.querySelector('[data-bulk-status]');
         const selectionCount = toolbar.querySelector('[data-bulk-selection-count]');
-        const selectAll = listContent?.querySelector('[data-bulk-select-all]');
+        const selectAllControls = Array.from(listContent?.querySelectorAll('[data-bulk-select-all]') || []);
+        const selectAll = selectAllControls[0];
         const rowCheckboxes = Array.from(listContent?.querySelectorAll('[data-bulk-row-select]') || []);
         let busy = false;
 
@@ -722,15 +723,18 @@ document.addEventListener('DOMContentLoaded', () => {
         function updateBulkControls() {
             const selected = selectedRows();
             const count = selected.length;
+            toolbar.hidden = count === 0;
             if (selectionCount) {
                 selectionCount.textContent = (toolbar.dataset.selectedLabel || '{{ count }}')
                     .replace('{{ count }}', String(count));
             }
-            selectAll.checked = count > 0 && count === rowCheckboxes.length;
-            selectAll.indeterminate = count > 0 && count < rowCheckboxes.length;
+            selectAllControls.forEach(function (control) {
+                control.checked = count > 0 && count === rowCheckboxes.length;
+                control.indeterminate = count > 0 && count < rowCheckboxes.length;
+            });
             applyButton.disabled = busy || count === 0 || actionSelect.value === '';
             rowCheckboxes.forEach(function (checkbox) {
-                checkbox.closest('tr')?.classList.toggle('is-selected', checkbox.checked);
+                checkbox.closest('[data-bulk-row]')?.classList.toggle('is-selected', checkbox.checked);
             });
 
             const selectedOption = actionSelect.selectedOptions[0];
@@ -741,7 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function setBusy(isBusy) {
             busy = isBusy;
             actionSelect.disabled = isBusy;
-            selectAll.disabled = isBusy;
+            selectAllControls.forEach(function (control) { control.disabled = isBusy; });
             rowCheckboxes.forEach(function (checkbox) {
                 checkbox.disabled = isBusy;
             });
@@ -788,11 +792,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        selectAll.addEventListener('change', function () {
-            rowCheckboxes.forEach(function (checkbox) {
-                checkbox.checked = selectAll.checked;
+        selectAllControls.forEach(function (control) {
+            control.addEventListener('change', function () {
+                rowCheckboxes.forEach(function (checkbox) {
+                    checkbox.checked = control.checked;
+                });
+                updateBulkControls();
             });
-            updateBulkControls();
         });
         rowCheckboxes.forEach(function (checkbox) {
             checkbox.addEventListener('change', updateBulkControls);

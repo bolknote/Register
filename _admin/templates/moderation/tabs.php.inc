@@ -10,7 +10,6 @@ declare(strict_types = 1);
 use Register\Core\Model\PermissionChecker;
 
 $moderationEntities = [
-    'Comment',
     'SpamAssessment',
     'SpamRule',
     'SpamSignalPolicy',
@@ -21,14 +20,13 @@ if (!\in_array($entityName, $moderationEntities, true)) {
 }
 
 $canTuneAntispam = $isGranted(PermissionChecker::PERMISSION_EDIT_USERS);
-$sections = [
-    'Comment' => [
-        'label' => 'Comments',
-        'url'   => '?entity=Comment&action=list',
-    ],
-];
+$sections = [];
 if ($canTuneAntispam) {
     $sections += [
+        'Config' => [
+            'label' => 'Spam protection settings',
+            'url'   => '?entity=Config&action=list#settings-comments-config',
+        ],
         'SpamAssessment' => [
             'label' => 'Antispam report',
             'url'   => '?entity=SpamAssessment&action=list',
@@ -49,6 +47,7 @@ $activeSection = \in_array($entityName, $expertEntities, true) ? 'Expert' : $ent
 
 ?>
 <div class="moderation-navigation">
+    <a class="section-back-link" href="?entity=Comment&amp;action=list"><?= $html($trans('Back to comments')) ?></a>
     <nav class="section-tabs moderation-tabs" aria-label="<?= $html($trans('Moderation sections')) ?>">
         <?php foreach ($sections as $sectionKey => $section): ?>
             <a href="<?= $html($section['url']) ?>" <?= $activeSection === $sectionKey ? 'aria-current="page"' : '' ?>>

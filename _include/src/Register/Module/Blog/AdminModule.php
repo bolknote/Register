@@ -20,6 +20,7 @@ use Register\Core\Framework\ContainerAwareListenerModuleInterface;
 use Register\Core\Framework\ContainerModuleInterface;
 use Register\Core\Model\PermissionChecker;
 use Register\Module\Blog\Admin\AdminConfigExtender;
+use Register\Module\Blog\Admin\BlogPostListControllerFactory;
 use Register\Module\Blog\Admin\DynamicConfigFormExtender;
 use Register\Module\Blog\Admin\PathToAdminEntityConverter;
 use Register\Module\Blog\Admin\TranslationProvider;
@@ -38,6 +39,11 @@ final class AdminModule implements ContainerModuleInterface, ContainerAwareListe
             $container->get(\Register\Content\TagRepository::class),
             $container->get(ContentChangeDispatcher::class),
             $container->get(BlogPageCache::class),
+            new BlogPostListControllerFactory(
+                $container->get(\Register\Url\ContentUrlGenerator::class),
+                $container->get(BlogUrlBuilder::class),
+                $container->get(PermissionChecker::class),
+            ),
             $container->getStringParameter('db_type'),
             $container->getStringParameter('db_prefix'),
         ), [AdminConfigExtenderInterface::class]);

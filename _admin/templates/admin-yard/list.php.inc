@@ -31,6 +31,8 @@ use Register\AdminYard\Form\Radio;
 /** @var string $bulkListCsrfToken */
 
 $html = static fn(string $text): string => htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+$listContextParams ??= [];
+$listPrimaryActions ??= [];
 
 /**
  * Generates pagination only when navigation between pages is possible.
@@ -95,6 +97,11 @@ if (isset($bulkListActions, $bulkListCsrfToken) && $bulkListActions !== []) {
 }
 
 $visibleFilterData = array_intersect_key($filterData, $filterControls);
+$advancedFilterData = array_diff_key($visibleFilterData, ['search' => true]);
+$advancedFilterCount = count(array_filter(
+    $advancedFilterData,
+    static fn(mixed $value): bool => $value !== null && $value !== '' && $value !== [] && $value !== false,
+));
 $activeFilterCount = count(array_filter(
     $visibleFilterData,
     static fn(mixed $value): bool => $value !== null && $value !== '' && $value !== [] && $value !== false,
@@ -111,6 +118,7 @@ $resetFilterParams = [
     'entity'       => $entityName,
     'action'       => 'list',
     'apply_filter' => '1',
+    ...$listContextParams,
 ];
 foreach ($filterControls as $fieldName => $control) {
     if (!$control instanceof MultiSelect) {
@@ -121,8 +129,11 @@ foreach ($filterControls as $fieldName => $control) {
 ?>
 <section class="list-header">
     <h1><?= $html($title) ?></h1>
-    <?php if ($entityActions !== []): ?>
+    <?php if ($entityActions !== [] || $listPrimaryActions !== []): ?>
         <div class="list-header-actions">
+            <?php foreach ($listPrimaryActions as $action): ?>
+                <a class="link-as-button entity-action" href="<?= $html($action['url']) ?>"><?= $html($action['label']) ?></a>
+            <?php endforeach; ?>
             <?php foreach ($entityActions as $action): ?>
                 <a class="link-as-button entity-action entity-action-<?= $html($action['name']) ?>"
                    href="?<?= $html(http_build_query(['entity' => $entityName, 'action' => $action['name']])) ?>"
@@ -144,9 +155,10 @@ foreach ($filterControls as $fieldName => $control) {
 <?php if (isset($listIntroHtml) && \is_string($listIntroHtml) && $listIntroHtml !== ''): ?>
     <?= $listIntroHtml ?>
 <?php endif; ?>
+<?php ob_start(); ?>
 <?php if ($filterControls !== [] && isset($savedListViews, $savedListViewState, $savedListViewCsrfToken)): ?>
     <?php $savedViewStateJson = json_encode($savedListViewState, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE); ?>
-    <section class="saved-list-views"
+    <details class="saved-list-views"
              data-saved-list-views
              data-ajax-url="<?= $html($basePath . '/_admin/ajax.php') ?>"
              data-entity="<?= $html($entityName) ?>"
@@ -154,6 +166,7 @@ foreach ($filterControls as $fieldName => $control) {
              data-current-state="<?= $html($savedViewStateJson) ?>"
              data-saving-label="<?= $html($trans('Saving saved view')) ?>"
              data-error-label="<?= $html($trans('Unable to update saved views')) ?>">
+        <summary><?= $html($trans('Saved views')) ?><?= $savedListViews !== [] ? ' · ' . count($savedListViews) : '' ?></summary>
         <div class="saved-list-views-summary">
             <strong><?= $html($trans('Saved views')) ?></strong>
             <?php if ($savedListViews === []): ?>
@@ -166,6 +179,7 @@ foreach ($filterControls as $fieldName => $control) {
                             'entity'       => $entityName,
                             'action'       => 'list',
                             'apply_filter' => '1',
+                            ...$listContextParams,
                             ...$savedView['state']['filters'],
                             ...($savedView['state']['sort_field'] !== null ? [
                                 'sort_field'     => $savedView['state']['sort_field'],
@@ -199,22 +213,41 @@ foreach ($filterControls as $fieldName => $control) {
             <button class="secondary" type="submit"><?= $html($trans('Save current view')) ?></button>
             <span class="saved-list-view-status" data-saved-list-view-status aria-live="polite"></span>
         </form>
-    </section>
+    </details>
 <?php endif; ?>
+<?php $savedListViewsHtml = (string)ob_get_clean(); ?>
 <?php if ($filterControls !== []): ?>
-    <details class="filter-panel" <?= $activeFilterCount > 0 || $hasFilterErrors ? 'open' : '' ?>>
+    <form class="list-filter-form" method="GET" action="?" aria-label="<?= $html($trans('Filters')) ?>">
+        <input type="hidden" name="entity" value="<?= $html($entityName) ?>">
+        <input type="hidden" name="action" value="list">
+        <input type="hidden" name="apply_filter" value="1">
+        <?php foreach ($listContextParams as $paramName => $paramValue): ?>
+            <?php if (!isset($filterControls[$paramName])): ?>
+                <input type="hidden" name="<?= $html($paramName) ?>" value="<?= $html((string)$paramValue) ?>">
+            <?php endif; ?>
+        <?php endforeach; ?>
+        <?php if (isset($filterControls['search'])): ?>
+            <div class="list-search">
+                <label for="list-search-<?= $html($entityName) ?>"><?= $html($trans('Search')) ?></label>
+                <?= $filterControls['search']->getHtml('list-search-' . $entityName) ?>
+                <button class="secondary" type="submit"><?= $html($trans('Search')) ?></button>
+                <?php if ($activeFilterCount > 0): ?>
+                    <a href="?<?= $html(http_build_query($resetFilterParams)) ?>"><?= $html($trans('Reset filters')) ?></a>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+    <?php if (count($filterControls) > (isset($filterControls['search']) ? 1 : 0)): ?>
+    <details class="filter-panel" <?= $advancedFilterCount > 0 || $hasFilterErrors ? 'open' : '' ?>>
         <summary>
             <span><?= $html($trans('Filters')) ?></span>
-            <?php if ($activeFilterCount > 0): ?>
-                <span class="filter-count" aria-label="<?= $html($trans('Active filters')) ?>"><?= $activeFilterCount ?></span>
+            <?php if ($advancedFilterCount > 0): ?>
+                <span class="filter-count" aria-label="<?= $html($trans('Active filters')) ?>"><?= $advancedFilterCount ?></span>
             <?php endif; ?>
         </summary>
         <section class="filter-content">
-            <form method="GET" action="?" aria-label="<?= $html($trans('Filters')) ?>">
-                <input type="hidden" name="entity" value="<?= $html($entityName) ?>">
-                <input type="hidden" name="action" value="list">
                 <div class="filter-controls">
                     <?php foreach ($filterControls as $fieldName => $control): ?>
+                        <?php if ($fieldName === 'search') { continue; } ?>
                         <?php
                         $controlClass = strtolower(basename(strtr(get_class($control), ['\\' => '/'])));
                         $safeName     = preg_replace('/[^a-zA-Z0-9_-]+/', '-', $entityName . '-' . $fieldName) ?? '';
@@ -262,13 +295,16 @@ foreach ($filterControls as $fieldName => $control) {
                         <?php endif; ?>
                     </div>
                 </div>
-            </form>
         </section>
     </details>
+    <?php endif; ?>
+    </form>
 <?php endif; ?>
-<section class="list-content">
+<?= $savedListViewsHtml ?>
+<section class="list-content list-entity-<?= $html($entityName) ?>">
     <?php if ($hasBulkSelectableRows): ?>
         <section class="bulk-list-toolbar"
+                 hidden
                  data-bulk-list
                  data-ajax-url="<?= $html($basePath . '/_admin/ajax.php') ?>"
                  data-entity="<?= $html($entityName) ?>"
@@ -292,6 +328,28 @@ foreach ($filterControls as $fieldName => $control) {
             <span class="bulk-list-status" data-bulk-status aria-live="polite"></span>
         </section>
     <?php endif; ?>
+    <?php if (isset($listBodyTemplate)): ?>
+        <?php require $listBodyTemplate; ?>
+    <?php else: ?>
+    <div class="list-mobile-tools">
+        <?php if ($hasBulkSelectableRows): ?>
+            <label class="comment-select-all"><input type="checkbox" data-bulk-select-all> <?= $html($trans('Select all rows')) ?></label>
+        <?php endif; ?>
+        <?php if ($sortableFields !== []): ?>
+            <details class="list-mobile-sort">
+                <summary><?= $html($trans('List sorting')) ?></summary>
+                <nav aria-label="<?= $html($trans('List sorting')) ?>">
+                    <?php foreach ($header as $fieldName => $cell): ?>
+                        <?php if (in_array($fieldName, $sortableFields, true)): ?>
+                            <a href="?<?= $html(http_build_query(['entity' => $entityName, 'action' => 'list', ...$filterData, ...$listContextParams, 'sort_field' => $fieldName, 'sort_direction' => $sortDirection === 'asc' && $fieldName === $sortField ? 'desc' : 'asc'])) ?>">
+                                <?= $html($cell) ?><?= $fieldName === $sortField ? ($sortDirection === 'asc' ? ' ▴' : ' ▾') : '' ?>
+                            </a>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </nav>
+            </details>
+        <?php endif; ?>
+    </div>
     <div class="table-wrapper">
         <table class="list-table" aria-label="<?= $html($title) ?>">
             <thead>
@@ -309,7 +367,7 @@ foreach ($filterControls as $fieldName => $control) {
                             title="<?= $html($hint[$fieldName] ?? '') ?>"
                             class="field-<?= $html($entityName) ?>-<?= $html($fieldName) ?> <?= $fieldName === $sortField ? 'current-sort' : '' ?>">
                             <a class="sort-link"
-                               href="?<?= $html(http_build_query(['entity' => $entityName, 'action' => 'list', ...$filterData, 'sort_field' => $fieldName, 'sort_direction' => $sortDirection === 'asc' && $fieldName === $sortField ? 'desc' : 'asc'])) ?>">
+                               href="?<?= $html(http_build_query(['entity' => $entityName, 'action' => 'list', ...$filterData, ...$listContextParams, 'sort_field' => $fieldName, 'sort_direction' => $sortDirection === 'asc' && $fieldName === $sortField ? 'desc' : 'asc'])) ?>">
                                 <?= $html($cell) ?><?= $fieldName === $sortField ? ($sortDirection === 'asc' ? ' ▴' : ' ▾') : '' ?>
                             </a>
                         </th>
@@ -340,7 +398,7 @@ foreach ($filterControls as $fieldName => $control) {
                         </td>
                     <?php endif; ?>
                     <?php foreach ($row['cells'] as $fieldName => $cell): ?>
-                        <td class="type-<?= $html($cell['type']) ?> field-<?= $html($entityName) ?>-<?= $html($fieldName) ?> <?= $fieldName === $sortField ? 'current-sort' : '' ?>"><?= $cell['content'] ?></td>
+                        <td data-label="<?= $html($header[$fieldName] ?? '') ?>" class="type-<?= $html($cell['type']) ?> field-<?= $html($entityName) ?>-<?= $html($fieldName) ?> <?= $fieldName === $sortField ? 'current-sort' : '' ?>"><?= $cell['content'] ?></td>
                     <?php endforeach; ?>
                     <?php if ($hasActions): ?>
                         <td class="row-actions"><?= $row['rendered_actions'] ?? '' ?></td>
@@ -350,7 +408,7 @@ foreach ($filterControls as $fieldName => $control) {
             <?php if ($rows === []): ?>
                 <tr class="empty-state-row">
                     <td colspan="<?= count($header) + ($hasActions ? 1 : 0) + ($hasBulkSelectableRows ? 1 : 0) ?>">
-                        <strong><?= $html($trans($activeFilterCount > 0 ? 'No matching results' : 'No items yet')) ?></strong>
+                        <strong><?= $html($listEmptyMessage ?? $trans($activeFilterCount > 0 ? 'No matching results' : 'No items yet')) ?></strong>
                         <?php if ($activeFilterCount > 0): ?>
                             <a href="?<?= $html(http_build_query($resetFilterParams)) ?>"><?= $html($trans('Reset filters')) ?></a>
                         <?php endif; ?>
@@ -360,11 +418,13 @@ foreach ($filterControls as $fieldName => $control) {
             </tbody>
         </table>
     </div>
+    <?php endif; ?>
     <?php
     $paginationParams = [
         'entity' => $entityName,
         'action' => 'list',
         ...$filterData,
+        ...$listContextParams,
         ...($sortField !== null ? ['sort_field' => $sortField, 'sort_direction' => $sortDirection] : []),
     ];
     echo $renderPagination($page, $limit, $totalCount, $paginationParams);

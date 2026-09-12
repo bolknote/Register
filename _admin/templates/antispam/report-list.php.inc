@@ -18,8 +18,8 @@ ob_start();
 ?>
 <section class="admin-stat antispam-metrics">
     <div class="stat-items">
-        <div class="stat-item">
-            <h3><?= htmlspecialchars($trans('Antispam model'), ENT_QUOTES, 'UTF-8') ?></h3>
+        <details class="stat-item antispam-model-details">
+            <summary><?= htmlspecialchars($trans('Antispam model'), ENT_QUOTES, 'UTF-8') ?></summary>
             <strong><?= htmlspecialchars($trans('Filter is configured'), ENT_QUOTES, 'UTF-8') ?></strong>
             <p class="technical-data">
                 <?= htmlspecialchars(sprintf(
@@ -43,7 +43,7 @@ ob_start();
                     <?= htmlspecialchars($trans('Antispam text model is not trained yet.'), ENT_QUOTES, 'UTF-8') ?>
                 <?php endif; ?>
             </p>
-        </div>
+        </details>
         <?php if ($metrics['total'] === 0): ?>
             <div class="stat-item">
                 <h3><?= htmlspecialchars($trans('New antispam checks, 30 days'), ENT_QUOTES, 'UTF-8') ?></h3>
@@ -66,6 +66,7 @@ ob_start();
                 <?= htmlspecialchars($trans('False negatives'), ENT_QUOTES, 'UTF-8') ?>:
                 <?= $formatRate($metrics['local_false_negative'], $metrics['labelled_spam']) ?>
             </div>
+            <?php if ($metrics['shadow_total'] > 0): ?>
             <div class="stat-item">
                 <h3><?= htmlspecialchars($trans('Shadow comparison'), ENT_QUOTES, 'UTF-8') ?></h3>
                 <?= htmlspecialchars($trans('Agreement'), ENT_QUOTES, 'UTF-8') ?>:
@@ -79,6 +80,7 @@ ob_start();
                 <?= htmlspecialchars($trans('False negatives'), ENT_QUOTES, 'UTF-8') ?>:
                 <?= $formatRate($metrics['shadow_false_negative'], $metrics['shadow_labelled_spam']) ?>
             </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </section>

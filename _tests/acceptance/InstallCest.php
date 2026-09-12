@@ -689,8 +689,8 @@ class InstallCest
 
     private function testAdminCommentManagement(AcceptanceTester $I): void
     {
-        $I->amOnPage('/_admin/index.php?entity=Comment&action=list');
-        $I->see('This is my first comment!');
+        $I->amOnPage('/_admin/index.php?entity=Comment&action=list&queue=all&apply_filter=0');
+        $I->see('This is my first comment!', '.comment-list');
 
         $I->changeSetting('REGISTER_PREMODERATION', true);
         $I->changeSetting('REGISTER_WEBMASTER_EMAIL', 'webmaster@example.com');
@@ -985,13 +985,10 @@ class InstallCest
         */
         $I->clearEmails();
 
-        $commentListUrl = '/_admin/index.php?entity=Comment&action=list&content_type=' . $contentType . '&content_id=' . $targetId . '&apply_filter=1';
+        $commentListUrl = '/_admin/index.php?entity=Comment&action=list&queue=all&content_type=' . $contentType . '&content_id=' . $targetId . '&apply_filter=0';
         $I->amOnPage($commentListUrl);
         $moderator2CommentId = $this->findCommentId($I, 'This is a comment from a moderator2.');
-        $moderator2PatchForm = 'form[action="?entity=Comment&action=patch&field=shown&id=' . $moderator2CommentId . '"]';
-        $I->submitForm($moderator2PatchForm, [
-            'shown' => 'on',
-        ]);
+        $this->submitCommentDecision($I, $moderator2CommentId, 'ham');
 
         $emails = $I->waitForEmails(1);
         $I->assertCount(1, $emails);
@@ -1026,8 +1023,7 @@ class InstallCest
          * Test hiding
         */
         $I->amOnPage($commentListUrl);
-        $I->uncheckOption($moderator2PatchForm . ' input[name="shown"]');
-        $I->submitForm($moderator2PatchForm, []);
+        $this->submitCommentDecision($I, $moderator2CommentId, 'reject');
         $I->amOnPage($publicUrl);
         $I->seeElement('[data-comment-id="' . $moderator2CommentId . '"][data-moderation-state="hidden"]');
 
@@ -1042,9 +1038,7 @@ class InstallCest
         */
         $I->clearEmails();
         $I->amOnPage($commentListUrl);
-        $I->submitForm($moderator2PatchForm, [
-            'shown' => 'on',
-        ]);
+        $this->submitCommentDecision($I, $moderator2CommentId, 'ham');
         $I->amOnPage($publicUrl);
         $I->see('Moderator2', '.comment-name');
         $I->see('This is a comment from a moderator2.');
@@ -1098,14 +1092,28 @@ class InstallCest
 
     private function findCommentId(AcceptanceTester $I, string $commentText): int
     {
-        $xpath = '//tr[contains(., ' . $this->xpathLiteral($commentText)
-            . ')]//*[@data-admin-delete and contains(@data-delete-url, "action=delete")]';
-        $deleteUrl = $I->grabAttributeFrom($xpath, 'data-delete-url');
-        if ($deleteUrl === null || preg_match('/[?&]id=(\d+)/', $deleteUrl, $matches) !== 1) {
+        $xpath = '//article[starts-with(@id, "admin-comment-")][.//*[@class="comment-body" and contains(., '
+            . $this->xpathLiteral($commentText) . ')]]';
+        $cardId = $I->grabAttributeFrom($xpath, 'id');
+        if ($cardId === null || preg_match('/^admin-comment-(\d+)$/', $cardId, $matches) !== 1) {
             throw new \RuntimeException(sprintf('Cannot determine the ID for comment "%s".', $commentText));
         }
 
         return (int)$matches[1];
+    }
+
+    private function submitCommentDecision(AcceptanceTester $I, int $commentId, string $action): void
+    {
+        $selector = '#admin-comment-' . $commentId . ' .list-action-link-' . $action;
+        $url = $I->grabAttributeFrom($selector, 'href');
+        $csrfToken = $I->grabAttributeFrom($selector, 'data-csrf-token');
+        if ($url === null || $url === '' || $csrfToken === null || $csrfToken === '') {
+            throw new \RuntimeException('The comment action does not contain its URL and CSRF token.');
+        }
+
+        $I->sendAjaxPostRequest('/_admin/index.php' . $url, ['csrf_token' => $csrfToken]);
+        $I->seeResponseCodeIsSuccessful();
+        $I->see('"success":true');
     }
 
     private function xpathLiteral(string $value): string
