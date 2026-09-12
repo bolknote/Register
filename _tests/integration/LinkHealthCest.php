@@ -21,6 +21,7 @@ use Register\Module\LinkHealth\LinkCheckQueueHandler;
 use Register\Module\LinkHealth\LinkHealthPolicy;
 use Register\Module\LinkHealth\LinkHealthRepository;
 use Register\Module\LinkHealth\LinkHealthResultRecorder;
+use Register\Module\LinkHealth\LinkHealthStatus;
 use Register\Module\LinkHealth\LinkHealthTransaction;
 use Register\Module\LinkHealth\LinkProbeInterface;
 use Register\Module\LinkHealth\LinkProbeMethod;
@@ -174,6 +175,92 @@ final class LinkHealthCest
         $I->assertSame(0, $adminRepository->targetCount(null));
         $I->assertSame(0, $adminRepository->brokenCount());
         $I->assertSame([], $adminRepository->targets(null, 1, 50));
+    }
+
+    public function listsUniqueCurrentExternalTargetsInPriorityOrderBeforePagination(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertPost($dbLayer, 'list-local-target', '<p>Local target</p>');
+        $fixtures = [
+            'healthy'       => [LinkHealthStatus::HEALTHY, 100],
+            'broken-old'    => [LinkHealthStatus::BROKEN, 10],
+            'skipped'       => [LinkHealthStatus::SKIPPED, 101],
+            'ignored'       => [LinkHealthStatus::IGNORED, 100],
+            'unknown'       => [LinkHealthStatus::UNKNOWN, 100],
+            'broken-recent' => [LinkHealthStatus::BROKEN, 101],
+            'blocked'       => [LinkHealthStatus::BLOCKED, 100],
+            'broken-tie'    => [LinkHealthStatus::BROKEN, 101],
+            'restricted'   => [LinkHealthStatus::RESTRICTED, 100],
+            'suspect'      => [LinkHealthStatus::SUSPECT, 100],
+        ];
+        $body = '';
+        foreach (array_keys($fixtures) as $path) {
+            $body .= '<a href="https://outside.example/list-' . $path . '">' . $path . '</a>';
+        }
+
+        $body .= '<a href="https://outside.example/list-broken-recent#repeat">Repeated target</a>'
+            . '<a href="/list-local-target">Local</a>'
+            . '<a href="https://web.archive.org/web/20200101000000/https://old.example/">Archive</a>';
+        $firstId  = $this->insertPost($dbLayer, 'list-first-source', $body);
+        $secondId = $this->insertPost(
+            $dbLayer,
+            'list-second-source',
+            '<a href="https://outside.example/list-broken-recent">Shared target</a>',
+        );
+
+        /** @var LinkInventory $inventory */
+        $inventory = $I->grabService(LinkInventory::class);
+        $inventory->synchronize(ContentId::post($firstId), 1_800_000_000);
+        $inventory->synchronize(ContentId::post($secondId), 1_800_000_001);
+
+        foreach ($fixtures as $path => [$status, $lastSeenAt]) {
+            $targetId = $this->targetId($dbLayer, 'https://outside.example/list-' . $path);
+            $dbLayer->update(Manifest::TARGET_TABLE)
+                ->set('health_status', ':status')->setParameter('status', $status->value)
+                ->set('last_seen_at', ':last_seen_at')->setParameter('last_seen_at', $lastSeenAt)
+                ->where('id = :id')->setParameter('id', $targetId)
+                ->execute();
+        }
+
+        $tiedIds = [
+            $this->targetId($dbLayer, 'https://outside.example/list-broken-recent'),
+            $this->targetId($dbLayer, 'https://outside.example/list-broken-tie'),
+        ];
+        sort($tiedIds, SORT_NUMERIC);
+        $oldBrokenId = $this->targetId($dbLayer, 'https://outside.example/list-broken-old');
+        $expectedIds = [
+            ...$tiedIds,
+            $oldBrokenId,
+            ...array_map(
+                fn(string $path): int => $this->targetId($dbLayer, 'https://outside.example/list-' . $path),
+                ['suspect', 'unknown', 'restricted', 'blocked', 'ignored', 'skipped', 'healthy'],
+            ),
+        ];
+
+        $repository = new LinkHealthAdminRepository($dbLayer);
+        $targets = $repository->targets(null, 1, 50);
+        $I->assertSame($expectedIds, array_column($targets, 'id'));
+        $I->assertSame(10, $repository->targetCount(null));
+
+        $sharedTarget = $this->findTarget($targets, 'https://outside.example/list-broken-recent');
+        $I->assertSame(2, $sharedTarget['content_count']);
+        $I->assertSame(3, $sharedTarget['occurrence_count']);
+        for ($page = 1; $page <= 4; ++$page) {
+            $I->assertSame(
+                array_slice($expectedIds, ($page - 1) * 3, 3),
+                array_column($repository->targets(null, $page, 3), 'id'),
+            );
+        }
+
+        $I->assertSame([], $repository->targets(null, 5, 3));
+        $I->assertSame(3, $repository->targetCount(LinkHealthStatus::BROKEN));
+        $I->assertSame($tiedIds, array_column($repository->targets(LinkHealthStatus::BROKEN, 1, 2), 'id'));
+        $I->assertSame(
+            [$oldBrokenId],
+            array_column($repository->targets(LinkHealthStatus::BROKEN, 2, 2), 'id'),
+        );
+        $I->assertSame([], $repository->targets(LinkHealthStatus::BROKEN, 3, 2));
     }
 
     public function schedulesConfirmedBrokenTargetsMonthly(\IntegrationTester $I): void

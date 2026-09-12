@@ -69,15 +69,19 @@ final readonly class LinkHealthAdminRepository
             throw new \InvalidArgumentException('Invalid link-health list pagination.');
         }
 
+        $usageQuery = $this->dbLayer->select('1')
+            ->from(Manifest::CONTENT_LINK_TABLE . ' AS cl')
+            ->where('cl.target_id = target.id');
+
         $query = $this->dbLayer
-            ->select('DISTINCT target.id, target.normalized_url, target.host, target.health_status')
+            ->select('target.id, target.normalized_url, target.host, target.health_status')
             ->addSelect('target.http_status, target.failure_count, target.effective_url, target.last_error')
             ->addSelect('target.first_seen_at, target.last_seen_at, target.last_checked_at')
             ->addSelect('target.last_success_at, target.next_check_at, target.archive_status')
             ->addSelect('target.archive_url, target.archive_timestamp')
             ->from(Manifest::TARGET_TABLE . ' AS target')
-            ->innerJoin(Manifest::CONTENT_LINK_TABLE . ' AS cl', 'cl.target_id = target.id')
             ->where('target.kind = :kind')->setParameter('kind', LinkKind::EXTERNAL->value)
+            ->andWhere('EXISTS (' . $usageQuery->getSql() . ')')
             ->orderBy(
                 "CASE target.health_status WHEN 'broken' THEN 0 WHEN 'suspect' THEN 1 WHEN 'unknown' THEN 2 "
                 . "WHEN 'restricted' THEN 3 WHEN 'blocked' THEN 4 WHEN 'ignored' THEN 5 ELSE 6 END",
