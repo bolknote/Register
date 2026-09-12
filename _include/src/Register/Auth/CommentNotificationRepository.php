@@ -71,18 +71,40 @@ final class CommentNotificationRepository implements StatefulServiceInterface
 
     public function markContentRead(AuthenticatedPublicUser $user, ContentId $contentId): void
     {
-        $this->markRead($user, $contentId, null);
+        $this->markRead($user, $contentId, null, false);
     }
 
-    /** A deliberate next-comment visit reads exactly one relevant comment, including pending ones. */
-    public function markCommentRead(AuthenticatedPublicUser $user, ContentId $contentId, int $commentId): void
+    /**
+     * A notification link points at one comment, but opens the whole visible thread. Once the
+     * target has been validated, every relevant comment in that thread has therefore been read.
+     */
+    public function markThreadReadFromComment(
+        AuthenticatedPublicUser $user,
+        ContentId               $contentId,
+        int                     $commentId,
+    ): void
     {
-        if ($commentId > 0) {
-            $this->markRead($user, $contentId, $commentId);
+        if ($commentId <= 0) {
+            return;
+        }
+
+        foreach ($this->snapshot($user)['rows'] as $row) {
+            if ($row['content_type'] === $contentId->type->value
+                && $row['content_id'] === $contentId->value
+                && $row['id'] === $commentId
+            ) {
+                $this->markRead($user, $contentId, null, true);
+                return;
+            }
         }
     }
 
-    private function markRead(AuthenticatedPublicUser $user, ContentId $contentId, ?int $commentId): void
+    private function markRead(
+        AuthenticatedPublicUser $user,
+        ContentId               $contentId,
+        ?int                    $commentId,
+        bool                    $includePending,
+    ): void
     {
         $rows = $this->snapshot($user)['rows'];
         $now = time();
@@ -90,7 +112,8 @@ final class CommentNotificationRepository implements StatefulServiceInterface
         foreach ($rows as $row) {
             if ($row['content_type'] !== $contentId->type->value
                 || $row['content_id'] !== $contentId->value
-                || ($commentId === null ? $row['pending'] : $row['id'] !== $commentId)
+                || (!$includePending && $row['pending'])
+                || ($commentId !== null && $row['id'] !== $commentId)
             ) {
                 continue;
             }

@@ -113,7 +113,11 @@ final readonly class ContentCommentRenderer
             && !$request->attributes->getBoolean('register_comment_background_update')
         ) {
             if ($request->query->has('comment_unread')) {
-                $this->notificationRepository->markCommentRead($authenticatedUser, $contentId, $request->query->getInt('comment_unread'));
+                $this->notificationRepository->markThreadReadFromComment(
+                    $authenticatedUser,
+                    $contentId,
+                    $request->query->getInt('comment_unread'),
+                );
             } else {
                 $this->notificationRepository->markContentRead($authenticatedUser, $contentId);
             }

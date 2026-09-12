@@ -757,7 +757,7 @@ final class PublicAuthCest
         $I->assertSame(0, $notifications->countUnread($user));
     }
 
-    public function testUnreadMarkerVisitsOneCommentAndKeepsReadStatePerUser(\IntegrationTester $I): void
+    public function testUnreadMarkerReadsTheVisibleThreadAndKeepsReadStatePerUser(\IntegrationTester $I): void
     {
         /** @var DbLayer $db */
         $db = $I->grabService(DbLayer::class);
@@ -777,27 +777,35 @@ final class PublicAuthCest
         $pending = $this->insertComment($db, $contentId, 'Pending', 'pending@example.test', shown: false, sent: false);
         $first = $this->insertComment($db, $contentId, 'First', 'first@example.test');
         $second = $this->insertComment($db, $contentId, 'Second', 'second@example.test');
+        $otherContentId = $this->insertContent($db, 'other-sequential-comments', $adminId);
+        $otherComment = $this->insertComment($db, $otherContentId, 'Other thread', 'other-thread@example.test');
         $notifications->invalidateAll();
-        $I->assertSame(3, $notifications->countUnread($admin));
+        $I->assertSame(4, $notifications->countUnread($admin));
         $I->assertSame(1, $notifications->countUnread($other));
 
-        $notifications->markCommentRead($admin, ContentId::page(1), $pending);
-        $I->assertSame(3, $notifications->countUnread($admin), 'A comment on another content item cannot be marked read.');
+        $notifications->markThreadReadFromComment($admin, ContentId::page(1), $pending);
+        $I->assertSame(4, $notifications->countUnread($admin), 'A comment on another content item cannot mark a thread read.');
 
         $I->login('admin', 'admin');
-        foreach ([$pending, $first, $second] as $index => $commentId) {
-            $I->sendRequestWithMethod('GET', 'https://localhost/auth/unread');
-            $I->seeResponseCodeIs(302);
-            $location = '/sequential-comments?comment_unread=' . $commentId . '#comment-' . $commentId;
-            $I->assertSame($location, $I->grabHttpHeader('Location'));
-            $I->amOnPage('https://localhost' . $location);
-            $I->seeResponseCodeIs(200);
-            $I->assertSame(2 - $index, $notifications->countUnread($admin));
-            $I->assertSame(1, $notifications->countUnread($other), 'Reading is local to the authenticated user.');
-        }
+        $I->sendRequestWithMethod('GET', 'https://localhost/auth/unread');
+        $I->seeResponseCodeIs(302);
+        $location = '/sequential-comments?comment_unread=' . $pending . '#comment-' . $pending;
+        $I->assertSame($location, $I->grabHttpHeader('Location'));
+        $I->amOnPage('https://localhost' . $location);
+        $I->seeResponseCodeIs(200);
+        $I->see('Pending');
+        $I->see('First');
+        $I->see('Second');
+        $I->seeElement('.public-auth-unread[data-unread-comments-count="1"]');
+        $I->assertSame(1, $notifications->countUnread($admin));
+        $I->assertSame($otherComment, $notifications->firstUnread($admin)?->commentId);
+        $I->assertSame(1, $notifications->countUnread($other), 'Reading is local to the authenticated user.');
 
         $I->sendRequestWithMethod('GET', 'https://localhost/auth/unread');
-        $I->assertSame('/', $I->grabHttpHeader('Location'));
+        $I->assertSame(
+            '/other-sequential-comments?comment_unread=' . $otherComment . '#comment-' . $otherComment,
+            $I->grabHttpHeader('Location'),
+        );
 
         $pendingState = $db->select('shown, sent')->from(CommentSchema::TABLE_NAME)->where('id = :id')->setParameter('id', $pending)->execute()->fetchAssoc();
         $I->assertIsArray($pendingState);
