@@ -317,6 +317,36 @@ test('inline image caption commits and undoes as one operation', async () => {
     await undo(s, true); equal(s.body.querySelector('.post-caption')?.textContent, 'Image caption');
 });
 
+test('Enter leaves the last image caption while Shift+Enter inserts a caption line break', async () => {
+    const s = setup('<div class="post-media-picture"><img alt="fixture"><div class="post-caption"></div></div>');
+    api.prepareEditableMedia(s.body);
+    const media = s.body.querySelector('.post-media-picture');
+    const caption = s.body.querySelector('.post-caption');
+    api.beginInlineMediaCaption(s, caption); select(s, caption); caption.focus();
+    document.execCommand('insertText', false, 'First line');
+
+    const lineBreak = new KeyboardEvent('keydown', {
+        key: 'Enter', shiftKey: true, bubbles: true, cancelable: true,
+    });
+    caption.dispatchEvent(lineBreak);
+    document.execCommand('insertText', false, 'Second line');
+    equal(caption.innerText, 'First line\nSecond line');
+    ok(caption.classList.contains('is-editing-inline-caption'), 'Shift+Enter keeps caption editing active');
+
+    const leave = new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true});
+    caption.dispatchEvent(leave);
+    equal(leave.defaultPrevented, true, 'Enter is handled by the caption editor');
+    equal(s.mediaCaptionEditors.size, 0, 'Caption editing finishes on Enter');
+    ok(caption.classList.contains('is-inline-caption-entry'), 'Caption returns to its finished state');
+    const paragraph = media.nextElementSibling;
+    equal(paragraph?.tagName, 'P', `A paragraph must be available after the last image: ${s.body.innerHTML}`);
+    ok(paragraph?.contains(getSelection().anchorNode), 'The caret moves into the paragraph after the image');
+
+    document.execCommand('insertText', false, 'Text after image');
+    equal(paragraph.textContent, 'Text after image');
+    equal(caption.textContent, 'First line\nSecond line');
+});
+
 test('native history beforeinput is handled without touching title history', async () => {
     const s = setup('<p>Body</p>'); select(s); await action(s, 'inline-code');
     const undoEvent = new InputEvent('beforeinput', {inputType: 'historyUndo', bubbles: true, cancelable: true});

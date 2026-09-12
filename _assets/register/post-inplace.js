@@ -2684,16 +2684,19 @@
             if (moveFromInlineMediaCaption(event, state, caption)) {
                 return;
             }
-            if (event.key === 'Escape' || (event.key === 'Enter' && (event.ctrlKey || event.metaKey))) {
+            if (
+                event.key === 'Escape'
+                || (event.key === 'Enter' && !event.shiftKey && !event.isComposing)
+            ) {
                 event.preventDefault();
                 event.stopPropagation();
                 finishInlineMediaCaption(state, caption, true);
                 return;
             }
-            if (event.key === 'Enter') {
+            if (event.key === 'Enter' && event.shiftKey && !event.isComposing) {
                 event.preventDefault();
                 event.stopPropagation();
-                document.execCommand('insertText', false, '\n');
+                document.execCommand('insertLineBreak');
             }
         }, {signal: controller.signal});
         caption.addEventListener('paste', (event) => {
