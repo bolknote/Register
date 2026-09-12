@@ -307,6 +307,7 @@ class CommentController extends EntityController
             $this->dataProvider->updateEntity(
                 $this->entityConfig->getTableName(),
                 [
+                    'shown' => FieldConfig::DATA_TYPE_BOOL,
                     'sent' => FieldConfig::DATA_TYPE_BOOL,
                     ... $this->entityConfig->getFieldDataTypes('patch', includePrimaryKey: true)
                 ],

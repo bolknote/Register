@@ -6,6 +6,7 @@ namespace integration;
 
 use Register\Comment\CommentMutationSource;
 use Register\Comment\CommentRepository;
+use Register\Comment\CommentSchema;
 use Register\Comment\ContentCommentRenderer;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
@@ -200,6 +201,32 @@ final class CommentUndoCest
         foreach ($ids as $id) {
             $I->assertFalse($comments->find($id)?->deleted);
         }
+    }
+
+    public function administrationHidingUsesPortableBooleanStorage(\IntegrationTester $I): void
+    {
+        [$comments, $content] = $this->context($I);
+        $id = $comments->save($content, 'Reader', 'reader@example.test', false, 'Hide through administration', '', null);
+        $comments->publish($id, $content->type);
+        $I->login('admin', 'admin');
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Comment&action=list&queue=published');
+
+        $selector = '#admin-comment-' . $id . ' .list-action-link-reject';
+        $csrf = (string)$I->grabAttributeFrom($selector, 'data-csrf-token');
+        $url = 'https://localhost/_admin/index.php' . $I->grabAttributeFrom($selector, 'href');
+        $I->sendAjaxPostRequest($url, ['csrf_token' => $csrf]);
+        $I->seeResponseCodeIs(200);
+
+        /** @var DbLayer $db */
+        $db = $I->grabService(DbLayer::class);
+        $stored = $db->select('shown', 'sent')->from(CommentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $id)->execute()->fetchAssoc();
+        $I->assertIsArray($stored);
+        // SQLite accepts an untyped false as an empty string, unlike MySQL and PostgreSQL.
+        $I->assertSame('0', (string)$stored['shown']);
+        $I->assertSame('1', (string)$stored['sent']);
+        $I->amOnPage('https://localhost/_admin/index.php?entity=Comment&action=list&queue=hidden');
+        $I->see('Hide through administration', '#admin-comment-' . $id);
     }
 
     public function maintenanceKeepsLiveRepliesAndUnexpiredUndo(\IntegrationTester $I): void
