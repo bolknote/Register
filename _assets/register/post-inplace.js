@@ -999,7 +999,7 @@
         if (!(target instanceof Node)) {
             return null;
         }
-        if (target instanceof HTMLParagraphElement) {
+        if (target instanceof HTMLElement && target.tagName === 'P') {
             target.classList.add('post-editor-body-paragraph');
         }
 
