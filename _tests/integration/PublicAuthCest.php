@@ -789,6 +789,7 @@ final class PublicAuthCest
         $I->login('admin', 'admin');
         $I->sendRequestWithMethod('GET', 'https://localhost/auth/unread');
         $I->seeResponseCodeIs(302);
+
         $location = '/sequential-comments?comment_unread=' . $pending . '#comment-' . $pending;
         $I->assertSame($location, $I->grabHttpHeader('Location'));
         $I->amOnPage('https://localhost' . $location);
