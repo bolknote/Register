@@ -172,30 +172,9 @@ export async function runRecoveryRegressions(browser, origin) {
         console.log('recovery: simultaneous tabs retain independent copies');
 
         await reset();
-        await page.getByRole('button', {name: 'Edit', exact: true}).click();
-        await edited().locator('.post-url-editor input').fill('new-address');
-        page.once('dialog', dialog => dialog.accept());
-        await edited().getByRole('button', {name: 'Cancel', exact: true}).click();
-        assert.equal(await page.locator('.post-url-editor input').inputValue(), 'server-slug');
-        assert.equal(await page.locator('.post-url-editor').isVisible(), false);
-        await page.getByRole('button', {name: 'Edit', exact: true}).click();
-        await edited().locator('.post-url-editor input').fill('new-address');
-        await waitForCopy();
-        await page.route('**/_inplace/post/9', async route => {
-            assert.match(route.request().postData(), /name="slug"\r?\n\r?\nnew-address/u);
-            await route.fulfill({json: {
-                success: true, action: 'edit', title: 'Server title 1', revision: 2,
-                body_html: '<div class="post body" data-post-inplace-body><p>Server body 1</p></div>',
-                published_at: 1788696000, datetime: '2026-09-06T12:00:00Z', time: '6 September',
-                tags: [], scheduled: false, message: 'Saved', slug: 'new-address',
-                url: '/new-address', url_changed: true,
-            }});
-        });
-        await page.route('**/new-address', route => route.fulfill({contentType: 'text/html', body: '<p>Renamed post</p>'}));
-        await edited().getByRole('button', {name: 'Save', exact: true}).click();
-        await page.waitForURL('**/new-address');
-        assert.equal(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('register:post-recovery:')).length), 0);
-        console.log('editor: slug-only changes save, cancellation restores the old address, redirect happens after recovery cleanup');
+        assert.equal(await page.locator('.post-inplace-edit-form input[name="slug"]').getAttribute('type'), 'hidden');
+        assert.equal(await page.getByText('Post address', {exact: true}).count(), 0);
+        console.log('editor: the quick editor keeps the canonical slug without exposing a rare address field');
         assert.deepEqual(errors, []);
     } finally {
         await context.close();

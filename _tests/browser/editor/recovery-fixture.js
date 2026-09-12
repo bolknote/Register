@@ -23,11 +23,11 @@
                 <input name="title" type="hidden"><textarea name="body" hidden></textarea>
                 <input name="tags" type="hidden" value="old"><input name="published_at" type="hidden" value="1788696000">
                 <input name="uploaded_media_ids" type="hidden">
+                ${creating ? '' : '<input name="slug" type="hidden" value="server-slug">'}
                 <input name="inplace_action" type="hidden" value="${creating ? 'create' : 'edit'}">
                 <input name="revision" type="hidden" value="${creating ? 0 : revision}">
                 <input name="inplace_token" type="hidden" value="private-fixture-token">
             </form>
-            <label class="post-url-editor" hidden>Post address <input name="slug" form="form-${creating ? 'new' : '9'}" value="server-slug"></label>
             <p class="post-inplace-error post-inplace-edit-error" hidden></p><p class="post-inplace-status" hidden></p>
             <h2 class="post head"><a href="/server-slug"><span data-post-inplace-title></span></a></h2>
             <div class="post time"><time datetime="2026-09-06T12:00:00Z">6 September</time>

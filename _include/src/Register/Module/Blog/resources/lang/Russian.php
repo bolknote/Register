@@ -3,7 +3,6 @@
 declare(strict_types = 1);
 
 return [
-    'Post URL' => 'Адрес поста',
     'Invalid post URL' => 'Введите свободный адрес поста без пробелов, служебных символов и параметров.',
     'The complete URL exceeds the 255-byte URL history limit. Shorten the address or its parent addresses.' => 'Полный адрес превышает лимит истории URL в 255 байт. Сократите адрес страницы или её родителей.',
     'Post recovery found' => 'На этом устройстве есть несохранённый текст:',

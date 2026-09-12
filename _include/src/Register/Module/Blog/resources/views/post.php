@@ -75,17 +75,14 @@ $analyticsSection = (string)($tagNames[0] ?? '');
     <input name="tags" type="hidden" value="<?php echo register_htmlencode(implode(', ', $tagNames)); ?>">
     <input name="published_at" type="hidden" value="<?php echo (int)$create_time; ?>">
     <input name="uploaded_media_ids" type="hidden" value="">
+<?php if (!$isCreating): ?>
+    <input name="slug" type="hidden" value="<?php echo register_htmlencode((string)($url ?? '')); ?>">
+<?php endif; ?>
     <input type="hidden" name="inplace_action" value="<?php echo $isCreating ? 'create' : 'edit'; ?>">
     <input type="hidden" name="inplace_token" value="<?php echo register_htmlencode($inplaceData['token']); ?>">
     <input type="hidden" name="revision" value="<?php echo $inplaceData['revision']; ?>">
     <input type="hidden" name="return_to" value="<?php echo register_htmlencode($inplaceData['return_to']); ?>">
 </form>
-<?php if (!$isCreating): ?>
-<label class="post-url-editor" hidden>
-    <span><?php echo register_htmlencode($trans('Post URL')); ?></span>
-    <input name="slug" form="<?php echo $editFormId; ?>" value="<?php echo register_htmlencode((string)($url ?? '')); ?>" maxlength="255" autocomplete="off" autocapitalize="none" spellcheck="false">
-</label>
-<?php endif; ?>
 <p class="post-inplace-error post-inplace-edit-error" role="alert" tabindex="-1" hidden></p>
 <dialog
     class="post-delete-confirmation"

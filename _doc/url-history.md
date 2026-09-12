@@ -1,9 +1,9 @@
 # Editorial URL history
 
 Changing a post's address, renaming a page, moving a page branch, or changing a
-tag's URL now preserves the previous public address automatically. The public
-post editor exposes the address while editing; page and tag changes use their
-normal administration forms.
+tag's URL now preserves the previous public address automatically. Addresses are
+rare publication settings, so post, page and tag changes use their full
+administration forms instead of cluttering the quick editor.
 
 Aliases point to content/tag identities, not to the next alias. Repeated renames
 therefore redirect straight to the current canonical URL with HTTP 301. Renaming

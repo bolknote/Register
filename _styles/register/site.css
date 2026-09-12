@@ -900,28 +900,10 @@ h2.preview,
 
 .post-inplace-button[hidden],
 .post-inplace-edit-form[hidden],
-.post-url-editor[hidden],
 .post-delete-confirmation[hidden],
 .post-inplace-error[hidden],
 .post-inplace-status[hidden] {
     display: none;
-}
-
-.post-url-editor {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: .5rem;
-    margin-block: 1rem;
-    font-size: .85em;
-}
-
-.post-url-editor input {
-    flex: 1 1 15rem;
-    min-width: 0;
-    max-width: 100%;
-    font: inherit;
-    padding: .35em .5em;
 }
 
 .post-inplace-button:hover,
@@ -966,6 +948,18 @@ h2.preview,
     position: relative;
     caret-color: var(--accent-color);
     outline: none;
+}
+
+/* A paragraph created when leaving an image caption is ordinary article text.
+ * Keep its typography explicit so browser editing state cannot carry the
+ * caption's compact UI font into the new block. The class is stripped before save. */
+#content .post-card.is-editing > .post.body[data-post-inplace-body] > p.post-editor-body-paragraph {
+    color: inherit;
+    font-family: var(--text-font);
+    font-size: 1em;
+    font-style: normal;
+    font-weight: 400;
+    line-height: inherit;
 }
 
 .post-editor-field-surfaces {

@@ -22,7 +22,7 @@ final class UrlHistoryCest
         $I->amOnPage('https://localhost/first-url');
 
         $token = (string)$I->grabAttributeFrom('[data-post-id="' . $postId . '"] .post-inplace-edit-form input[name="inplace_token"]', 'value');
-        $I->seeElement('.post-url-editor input[name="slug"][value="first-url"]');
+        $I->seeElement('.post-inplace-edit-form input[type="hidden"][name="slug"][value="first-url"]');
         $request = [
             'inplace_action' => 'edit', 'inplace_token' => $token,
             'revision' => '1', 'title' => 'URL history', 'body' => '<p>Original body.</p>', 'slug' => 'second-url',

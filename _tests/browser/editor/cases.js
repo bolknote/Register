@@ -317,8 +317,8 @@ test('inline image caption commits and undoes as one operation', async () => {
     await undo(s, true); equal(s.body.querySelector('.post-caption')?.textContent, 'Image caption');
 });
 
-test('Enter leaves the last image caption while Shift+Enter inserts a caption line break', async () => {
-    const s = setup('<div class="post-media-picture"><img alt="fixture"><div class="post-caption"></div></div>');
+test('Enter leaves the last image caption in an ordinary body paragraph while Shift+Enter inserts a caption line break', async () => {
+    const s = setup('<p>Reference body text</p><div class="post-media-picture"><img alt="fixture"><div class="post-caption"></div></div><p><br></p>');
     api.prepareEditableMedia(s.body);
     const media = s.body.querySelector('.post-media-picture');
     const caption = s.body.querySelector('.post-caption');
@@ -340,11 +340,21 @@ test('Enter leaves the last image caption while Shift+Enter inserts a caption li
     ok(caption.classList.contains('is-inline-caption-entry'), 'Caption returns to its finished state');
     const paragraph = media.nextElementSibling;
     equal(paragraph?.tagName, 'P', `A paragraph must be available after the last image: ${s.body.innerHTML}`);
+    equal(paragraph?.parentElement, s.body, 'The paragraph must be outside the compact caption block');
+    ok(paragraph?.classList.contains('post-editor-body-paragraph'), 'The reused trailing block has explicit body typography');
     ok(paragraph?.contains(getSelection().anchorNode), 'The caret moves into the paragraph after the image');
 
     document.execCommand('insertText', false, 'Text after image');
     equal(paragraph.textContent, 'Text after image');
     equal(caption.textContent, 'First line\nSecond line');
+    const paragraphStyle = getComputedStyle(paragraph);
+    const referenceStyle = getComputedStyle(s.body.firstElementChild);
+    const captionStyle = getComputedStyle(caption);
+    equal(paragraphStyle.fontFamily, referenceStyle.fontFamily, 'The new paragraph uses the article font');
+    equal(paragraphStyle.fontSize, referenceStyle.fontSize, 'The new paragraph uses the article font size');
+    equal(paragraphStyle.lineHeight, referenceStyle.lineHeight, 'The new paragraph uses the article line height');
+    ok(parseFloat(paragraphStyle.fontSize) > parseFloat(captionStyle.fontSize), 'Body text is visibly larger than a caption');
+    equal(api.editableBodyHtml(s).includes('post-editor-body-paragraph'), false, 'Editor-only typography is never saved');
 });
 
 test('native history beforeinput is handled without touching title history', async () => {

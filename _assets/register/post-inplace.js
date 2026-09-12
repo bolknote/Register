@@ -991,12 +991,16 @@
             )
         ) {
             const paragraph = document.createElement('p');
+            paragraph.className = 'post-editor-body-paragraph';
             paragraph.append(document.createElement('br'));
             body.insertBefore(paragraph, media.nextSibling);
             target = paragraph;
         }
         if (!(target instanceof Node)) {
             return null;
+        }
+        if (target instanceof HTMLParagraphElement) {
+            target.classList.add('post-editor-body-paragraph');
         }
 
         const selection = window.getSelection();
@@ -1273,6 +1277,12 @@
         removeTrailingEditorArtifacts(clone);
         clone.querySelectorAll('[data-post-editor-nowrap]').forEach((wrapper) => {
             wrapper.replaceWith(...wrapper.childNodes);
+        });
+        clone.querySelectorAll('.post-editor-body-paragraph').forEach((paragraph) => {
+            paragraph.classList.remove('post-editor-body-paragraph');
+            if (paragraph.getAttribute('class') === '') {
+                paragraph.removeAttribute('class');
+            }
         });
         clone.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
         clearAiChangeMarks(clone);
@@ -1637,7 +1647,6 @@
         clearAiChangeMarks(state.body);
         state.dateInput.hidden = true;
         state.dateButton.hidden = true;
-        if (state.slugEditor) state.slugEditor.hidden = true;
         unsetEditable(state.title);
         unsetEditable(state.body);
         restoreEditableBodyStyles(state);
@@ -1698,7 +1707,6 @@
             tagsField,
             publishedAtField,
             slugField,
-            slugEditor: card.querySelector('.post-url-editor'),
             uploadedMediaField,
             dateInput,
             dateButton,
@@ -1861,7 +1869,6 @@
         state.originalDateInputValue = elements.dateInput.value;
         elements.dateInput.hidden = false;
         elements.dateButton.hidden = false;
-        if (elements.slugEditor) elements.slugEditor.hidden = false;
         state.tagEditor = createTagEditor(state);
         editorStates.set(card, state);
         if (!state.creating) {

@@ -3,7 +3,6 @@
 declare(strict_types = 1);
 
 return [
-    'Post URL' => 'Post address',
     'Invalid post URL' => 'Enter an unused post address without spaces, special characters or query parameters.',
     'The complete URL exceeds the 255-byte URL history limit. Shorten the address or its parent addresses.' => 'The complete URL exceeds the 255-byte URL history limit. Shorten the address or its parent addresses.',
     'Post recovery found' => 'This device has unsaved text:',
