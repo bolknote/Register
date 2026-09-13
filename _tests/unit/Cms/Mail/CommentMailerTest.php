@@ -66,17 +66,21 @@ final class CommentMailerTest extends Unit
 
         self::assertCount(3, $transport->messages);
         foreach ($transport->messages as $message) {
-            self::assertNotNull($message->htmlBody);
-            self::assertStringContainsString('<p>', (string) $message->htmlBody);
-            self::assertStringContainsString('<hr>', (string) $message->htmlBody);
-            self::assertStringContainsString('Первая строка<br', (string) $message->htmlBody);
-            self::assertStringContainsString('Вторая &lt;строка&gt;', (string) $message->htmlBody);
-            self::assertStringContainsString('Церкви &amp; храмы', (string) $message->htmlBody);
-            self::assertStringNotContainsString('----------------------------------------------------------------------', (string) $message->htmlBody);
-            self::assertStringNotContainsString('<pre', (string) $message->htmlBody);
-            self::assertStringNotContainsString('font-family', (string) $message->htmlBody);
-            self::assertStringNotContainsString('background', (string) $message->htmlBody);
-            self::assertStringNotContainsString('color:', (string) $message->htmlBody);
+            $htmlBody = $message->htmlBody;
+            if ($htmlBody === null) {
+                self::fail('The comment notification has no HTML body.');
+            }
+
+            self::assertStringContainsString('<p>', $htmlBody);
+            self::assertStringContainsString('<hr>', $htmlBody);
+            self::assertStringContainsString('Первая строка<br', $htmlBody);
+            self::assertStringContainsString('Вторая &lt;строка&gt;', $htmlBody);
+            self::assertStringContainsString('Церкви &amp; храмы', $htmlBody);
+            self::assertStringNotContainsString('----------------------------------------------------------------------', $htmlBody);
+            self::assertStringNotContainsString('<pre', $htmlBody);
+            self::assertStringNotContainsString('font-family', $htmlBody);
+            self::assertStringNotContainsString('background', $htmlBody);
+            self::assertStringNotContainsString('color:', $htmlBody);
         }
 
         $moderatorMessage = $transport->messages[2];
