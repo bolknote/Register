@@ -585,7 +585,7 @@ final readonly class TelegramImportService
                 throw new \LogicException('Available Telegram media has no storage identity.');
             }
 
-            $html .= $this->mediaHtml($storedMedia, $media);
+            $html .= $this->mediaHtml($storedMedia['url'], $storedMedia['kind'], $media);
             $state[] = [
                 'status'        => 'available',
                 'kind'          => $storedMedia['kind'],
@@ -602,7 +602,7 @@ final readonly class TelegramImportService
         }
 
         foreach ($existingMedia as $position => $storedMedia) {
-            $html .= $this->mediaHtml($storedMedia, []);
+            $html .= $this->mediaHtml($storedMedia['url'], $storedMedia['kind'], []);
             $state[] = [
                 'status'        => 'available',
                 'kind'          => $storedMedia['kind'],
@@ -633,15 +633,12 @@ final readonly class TelegramImportService
         ];
     }
 
-    /**
-     * @param array{url: string, kind: string} $storedMedia
-     * @param array<string, mixed> $sourceMedia
-     */
-    private function mediaHtml(array $storedMedia, array $sourceMedia): string
+    /** @param array<string, mixed> $sourceMedia */
+    private function mediaHtml(string $mediaUrl, string $mediaKind, array $sourceMedia): string
     {
-        $url = htmlspecialchars($storedMedia['url'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $url = htmlspecialchars($mediaUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-        return match ($storedMedia['kind']) {
+        return match ($mediaKind) {
             'image' => '<figure class="comment-media"><img src="' . $url
                 . '" alt="" loading="lazy" decoding="async"></figure>',
             'video' => '<figure class="comment-media"><video src="' . $url
