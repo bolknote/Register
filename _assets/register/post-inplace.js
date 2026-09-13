@@ -2687,7 +2687,19 @@
         caption.setAttribute('spellcheck', 'true');
         caption.setAttribute('tabindex', '0');
         caption.dataset.placeholder = placeholder;
-        caption.addEventListener('keydown', (event) => {
+        const selectionIsInside = () => {
+            const selection = window.getSelection();
+            const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+            return Boolean(
+                range
+                && caption.contains(range.startContainer)
+                && caption.contains(range.endContainer)
+            );
+        };
+        const keydown = (event) => {
+            if (!selectionIsInside()) {
+                return;
+            }
             if (moveFromInlineMediaCaption(event, state, caption)) {
                 return;
             }
@@ -2705,11 +2717,22 @@
                 event.stopPropagation();
                 document.execCommand('insertLineBreak');
             }
-        }, {signal: controller.signal});
-        caption.addEventListener('paste', (event) => {
+        };
+        const paste = (event) => {
+            if (!selectionIsInside()) {
+                return;
+            }
             event.preventDefault();
+            event.stopPropagation();
             document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
-        }, {signal: controller.signal});
+        };
+        caption.addEventListener('keydown', keydown, {signal: controller.signal});
+        caption.addEventListener('paste', paste, {signal: controller.signal});
+        // Chromium keeps the outer editing host focused when a nested caption is
+        // selected. Route its keyboard and clipboard events by the live selection
+        // so Enter cannot become a browser-created line inside the caption.
+        state.body.addEventListener('keydown', keydown, {signal: controller.signal});
+        state.body.addEventListener('paste', paste, {signal: controller.signal});
     }
 
     function selectionStartsAt(element) {
@@ -2844,21 +2867,19 @@
         clearBoundaryCaret(state.body);
         clearSyntheticBoundaryCaret(state.body);
         state.body.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
-        window.requestAnimationFrame(() => {
-            if (!caption.isConnected || !state.mediaCaptionEditors.has(caption)) {
-                return;
-            }
-            caption.focus({preventScroll: true});
-            const selection = window.getSelection();
-            if (!selection) {
-                return;
-            }
-            const range = document.createRange();
-            range.selectNodeContents(caption);
-            range.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(range);
-        });
+        if (!caption.isConnected || !state.mediaCaptionEditors.has(caption)) {
+            return;
+        }
+        caption.focus({preventScroll: true});
+        const selection = window.getSelection();
+        if (!selection) {
+            return;
+        }
+        const range = document.createRange();
+        range.selectNodeContents(caption);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
     }
 
     function startMediaUpload(state, file, kind, pending) {

@@ -357,6 +357,39 @@ test('Enter leaves the last image caption in an ordinary body paragraph while Sh
     equal(api.editableBodyHtml(s).includes('post-editor-body-paragraph'), false, 'Editor-only typography is never saved');
 });
 
+test('clicking an empty last-image caption then Enter starts an ordinary body paragraph', async () => {
+    const s = setup('<p>Reference body text</p><div class="post-picture post-media-picture"><img alt="fixture"></div>');
+    api.prepareEditableMedia(s.body);
+    const media = s.body.querySelector('.post-media-picture');
+    const caption = s.body.querySelector('.post-caption');
+
+    caption.click();
+    await frame();
+    ok(caption.contains(getSelection().anchorNode), 'Clicking the placeholder must select the nested caption editor');
+    equal(s.body.getAttribute('contenteditable'), 'true', 'The surrounding post remains editable');
+
+    const leave = new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true});
+    document.activeElement.dispatchEvent(leave);
+    equal(leave.defaultPrevented, true, 'The first Enter after clicking the empty caption must be handled');
+    equal(caption.textContent, '', 'Leaving an empty caption does not create caption content');
+    ok(caption.classList.contains('is-inline-caption-entry'), 'The empty caption remains available as a placeholder');
+
+    const paragraph = media.nextElementSibling;
+    equal(paragraph?.tagName, 'P', `Enter must create a paragraph after the image: ${s.body.innerHTML}`);
+    equal(paragraph?.parentElement, s.body, 'The new paragraph must be outside the image and caption');
+    ok(paragraph?.contains(getSelection().anchorNode), 'The caret must move into the new body paragraph');
+    await type(s, 'Ordinary body text');
+    equal(paragraph.textContent, 'Ordinary body text');
+
+    const paragraphStyle = getComputedStyle(paragraph);
+    const referenceStyle = getComputedStyle(s.body.firstElementChild);
+    const captionStyle = getComputedStyle(caption);
+    equal(paragraphStyle.fontFamily, referenceStyle.fontFamily, 'Text after the image uses the article font');
+    equal(paragraphStyle.fontSize, referenceStyle.fontSize, 'Text after the image uses the article font size');
+    equal(paragraphStyle.lineHeight, referenceStyle.lineHeight, 'Text after the image uses the article line height');
+    ok(parseFloat(paragraphStyle.fontSize) > parseFloat(captionStyle.fontSize), 'Text after the image is visibly larger than a caption');
+});
+
 test('native history beforeinput is handled without touching title history', async () => {
     const s = setup('<p>Body</p>'); select(s); await action(s, 'inline-code');
     const undoEvent = new InputEvent('beforeinput', {inputType: 'historyUndo', bubbles: true, cancelable: true});
