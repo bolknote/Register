@@ -183,7 +183,6 @@ final class CommentWorkspaceCest
             'Reply to the moderator',
             '192.0.2.11',
             $parentId,
-            null,
         );
         $comments->publish($replyId, $contentId->type);
 

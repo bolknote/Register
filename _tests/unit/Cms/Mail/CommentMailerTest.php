@@ -67,16 +67,16 @@ final class CommentMailerTest extends Unit
         self::assertCount(3, $transport->messages);
         foreach ($transport->messages as $message) {
             self::assertNotNull($message->htmlBody);
-            self::assertStringContainsString('<p>', $message->htmlBody);
-            self::assertStringContainsString('<hr>', $message->htmlBody);
-            self::assertStringContainsString('Первая строка<br', $message->htmlBody);
-            self::assertStringContainsString('Вторая &lt;строка&gt;', $message->htmlBody);
-            self::assertStringContainsString('Церкви &amp; храмы', $message->htmlBody);
-            self::assertStringNotContainsString('----------------------------------------------------------------------', $message->htmlBody);
-            self::assertStringNotContainsString('<pre', $message->htmlBody);
-            self::assertStringNotContainsString('font-family', $message->htmlBody);
-            self::assertStringNotContainsString('background', $message->htmlBody);
-            self::assertStringNotContainsString('color:', $message->htmlBody);
+            self::assertStringContainsString('<p>', (string) $message->htmlBody);
+            self::assertStringContainsString('<hr>', (string) $message->htmlBody);
+            self::assertStringContainsString('Первая строка<br', (string) $message->htmlBody);
+            self::assertStringContainsString('Вторая &lt;строка&gt;', (string) $message->htmlBody);
+            self::assertStringContainsString('Церкви &amp; храмы', (string) $message->htmlBody);
+            self::assertStringNotContainsString('----------------------------------------------------------------------', (string) $message->htmlBody);
+            self::assertStringNotContainsString('<pre', (string) $message->htmlBody);
+            self::assertStringNotContainsString('font-family', (string) $message->htmlBody);
+            self::assertStringNotContainsString('background', (string) $message->htmlBody);
+            self::assertStringNotContainsString('color:', (string) $message->htmlBody);
         }
 
         $moderatorMessage = $transport->messages[2];

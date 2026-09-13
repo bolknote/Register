@@ -570,6 +570,7 @@ final readonly class TelegramImportService
             if ($existingMedia !== null) {
                 unset($existingMedia[$mediaPosition]);
             }
+
             $handledPositions[$mediaPosition] = true;
             if ($storedMedia === null) {
                 $kind = $this->missingMediaKind($media);
@@ -581,6 +582,7 @@ final readonly class TelegramImportService
                 ];
                 continue;
             }
+
             if ($mediaStateIdentity === null) {
                 throw new \LogicException('Available Telegram media has no storage identity.');
             }
