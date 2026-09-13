@@ -903,7 +903,7 @@ class InstallCest
                 'http://localhost:8881/index.php?' . $publicUrl . '#comment-',
                 'Roman 🌞 is the comment author.',
                 $guestCommentText,
-                'Hidden: the comment failed the check (report=ham).',
+                'The comment is hidden and awaiting review. Publish it if it is appropriate.',
                 'of the comment will receive your answer.',
             ],
         );
@@ -978,7 +978,7 @@ class InstallCest
                 'http://localhost:8881/index.php?' . $publicUrl . '#comment-',
                 'Moderator2 is the comment author.',
                 'This is a comment from a moderator2.',
-                'Hidden: the comment failed the check (report=ham).',
+                'The comment is hidden and awaiting review. Publish it if it is appropriate.',
                 'of the comment will receive your answer.',
             ],
         );

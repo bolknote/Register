@@ -14,6 +14,14 @@ readonly class Moderator
     public function __construct(
         public string $login,
         public string $email,
+        public string $name,
     ) {
+    }
+
+    public function displayName(): string
+    {
+        $name = trim($this->name);
+
+        return $name !== '' ? $name : $this->login;
     }
 }

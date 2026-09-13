@@ -134,6 +134,7 @@ final readonly class CommentModule implements ContainerModuleInterface
             $container->get(CommentSubscriptionService::class),
             $container->get(ContentRepository::class),
             $container->get(CommentMailPublisher::class),
+            $container->get(UserProvider::class),
         ));
         $container->set(ContentCommentStrategy::PAGE_SERVICE_ID, static fn(Container $container): ContentCommentStrategy => new ContentCommentStrategy(
             ContentType::PAGE,

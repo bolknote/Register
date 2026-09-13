@@ -1109,9 +1109,21 @@
             return;
         }
 
+        // Chromium applies insertParagraph after this listener returns. Moving
+        // the selection into a paragraph and then allowing that default action
+        // would split the new paragraph, so one Enter would leave two empty
+        // blocks before the media. Handle this particular insertion ourselves;
+        // other insertions still need the browser to place their text in the
+        // paragraph prepared below.
+        const handlesParagraph = event.inputType === 'insertParagraph' && event.cancelable;
+        if (handlesParagraph) {
+            event.preventDefault();
+        }
+
         document.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
         document.querySelectorAll('.uses-synthetic-boundary-caret').forEach(clearSyntheticBoundaryCaret);
         const paragraph = document.createElement('p');
+        paragraph.className = 'post-editor-body-paragraph';
         paragraph.append(document.createElement('br'));
         body.insertBefore(paragraph, boundary);
         const range = document.createRange();
@@ -1119,6 +1131,144 @@
         range.collapse(true);
         selection.removeAllRanges();
         selection.addRange(range);
+
+        // A cancelled native action emits no input event. Reuse the normal input
+        // path so dirty state, recovery and the shared undo history all observe
+        // the single paragraph insertion.
+        if (handlesParagraph) {
+            body.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                inputType: event.inputType,
+            }));
+        }
+    }
+
+    function collapseEmptyParagraphBesideMedia(event) {
+        const direction = event.inputType.endsWith('Backward')
+            ? -1
+            : (event.inputType.endsWith('Forward') ? 1 : 0);
+        if (direction === 0 || !event.cancelable) {
+            return false;
+        }
+
+        const target = event.target;
+        const body = target instanceof HTMLElement
+            ? target.closest('.post-card.is-editing > .post.body[data-post-inplace-body]')
+            : null;
+        const selection = window.getSelection();
+        if (
+            !(body instanceof HTMLElement)
+            || !selection
+            || selection.rangeCount !== 1
+        ) {
+            return false;
+        }
+
+        const currentRange = selection.getRangeAt(0);
+        if (!currentRange.collapsed) {
+            return false;
+        }
+        let paragraph = currentRange.startContainer instanceof HTMLElement
+            ? currentRange.startContainer
+            : currentRange.startContainer.parentNode;
+        while (paragraph instanceof HTMLElement && paragraph.parentNode !== body) {
+            paragraph = paragraph.parentNode;
+        }
+        if (!editorBoundaryParagraphIsEmpty(paragraph) || paragraph.parentNode !== body) {
+            return false;
+        }
+
+        const siblings = Array.from(body.childNodes);
+        const paragraphIndex = siblings.indexOf(paragraph);
+        let neighbour = null;
+        for (
+            let index = paragraphIndex + direction;
+            index >= 0 && index < siblings.length;
+            index += direction
+        ) {
+            if (boundaryNodeIsEmpty(siblings[index])) {
+                continue;
+            }
+            neighbour = siblings[index];
+            break;
+        }
+        if (!isMediaBoundaryElement(body, neighbour)) {
+            return false;
+        }
+
+        // Chromium merges an empty paragraph with the adjacent media wrapper and
+        // can remove its caption as collateral. Collapse the editable placeholder
+        // instead: visually the line is gone, while the next insertion still has
+        // a safe text container on the same side of the media.
+        event.preventDefault();
+        if (paragraph.classList.contains('post-editor-collapsed-boundary-paragraph')) {
+            return true;
+        }
+        paragraph.classList.add('post-editor-collapsed-boundary-paragraph');
+        body.focus({preventScroll: true});
+        const range = document.createRange();
+        range.setStart(paragraph, 0);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        body.dispatchEvent(new InputEvent('input', {
+            bubbles: true,
+            inputType: event.inputType,
+        }));
+        return true;
+    }
+
+    function expandCollapsedBoundaryParagraph(event) {
+        if (!String(event.inputType || '').startsWith('insert')) {
+            return false;
+        }
+
+        const target = event.target;
+        const body = target instanceof HTMLElement
+            ? target.closest('.post-card.is-editing > .post.body[data-post-inplace-body]')
+            : null;
+        const selection = window.getSelection();
+        if (
+            !(body instanceof HTMLElement)
+            || !selection
+            || selection.rangeCount !== 1
+        ) {
+            return false;
+        }
+
+        const currentRange = selection.getRangeAt(0);
+        if (!currentRange.collapsed) {
+            return false;
+        }
+        let paragraph = currentRange.startContainer instanceof HTMLElement
+            ? currentRange.startContainer
+            : currentRange.startContainer.parentNode;
+        while (paragraph instanceof HTMLElement && paragraph.parentNode !== body) {
+            paragraph = paragraph.parentNode;
+        }
+        if (
+            !(paragraph instanceof HTMLElement)
+            || paragraph.parentNode !== body
+            || !paragraph.classList.contains('post-editor-collapsed-boundary-paragraph')
+        ) {
+            return false;
+        }
+
+        const handlesEmptyLine = (
+            event.inputType === 'insertParagraph'
+            || event.inputType === 'insertLineBreak'
+        ) && event.cancelable;
+        if (handlesEmptyLine) {
+            event.preventDefault();
+        }
+        paragraph.classList.remove('post-editor-collapsed-boundary-paragraph');
+        if (handlesEmptyLine) {
+            body.dispatchEvent(new InputEvent('input', {
+                bubbles: true,
+                inputType: event.inputType,
+            }));
+        }
+        return true;
     }
 
     function collapseEmptyLeadingParagraphAfterDelete(event, body) {
@@ -1274,6 +1424,9 @@
     function editableBodyHtml(state) {
         const clone = state.body.cloneNode(true);
         removeInlineCodeExitMarkers(clone);
+        clone.querySelectorAll('p.post-editor-collapsed-boundary-paragraph').forEach((paragraph) => {
+            paragraph.remove();
+        });
         removeTrailingEditorArtifacts(clone);
         clone.querySelectorAll('[data-post-editor-nowrap]').forEach((wrapper) => {
             wrapper.replaceWith(...wrapper.childNodes);
@@ -2277,6 +2430,10 @@
             renderSuggestions(true);
         });
         input.addEventListener('keydown', (event) => {
+            if (handleEditingSaveShortcut(event, state)) {
+                event.stopPropagation();
+                return;
+            }
             if (event.isComposing) {
                 return;
             }
@@ -5635,23 +5792,32 @@
         return true;
     }
 
-    function handleEditingShortcut(event, state) {
-        if (event.isComposing) {
+    function handleEditingSaveShortcut(event, state) {
+        const modifier = event.ctrlKey || event.metaKey;
+        const key = String(event.key || '').toLowerCase();
+        if (!modifier || event.altKey || (event.code !== 'KeyS' && key !== 's')) {
             return false;
         }
+        event.preventDefault();
+        submit(state.form);
+        return true;
+    }
+
+    function handleEditingShortcut(event, state) {
         // A caption is a nested editing session; its native typing history stays
         // local until commit adds a single operation to the post's history.
         if (event.target instanceof Element && event.target.closest('.is-editing-caption, .is-editing-inline-caption')) {
             return false;
         }
+        if (handleEditingSaveShortcut(event, state)) {
+            return true;
+        }
+        if (event.isComposing) {
+            return false;
+        }
 
         const modifier = event.ctrlKey || event.metaKey;
         const matchesKey = (code, key) => event.code === code || event.key.toLowerCase() === key;
-        if (modifier && !event.altKey && matchesKey('KeyS', 's')) {
-            event.preventDefault();
-            submit(state.form);
-            return true;
-        }
 
         if (event.target instanceof Element && event.target.closest('.post-editor-context-menu')) {
             return false;
@@ -6067,6 +6233,10 @@
 
     document.addEventListener('beforeinput', moveInsertionBeforeMediaBoundary, false);
 
+    document.addEventListener('beforeinput', collapseEmptyParagraphBesideMedia, false);
+
+    document.addEventListener('beforeinput', expandCollapsedBoundaryParagraph, false);
+
     document.addEventListener('input', (event) => {
         const card = cardFor(event.target);
         const state = card ? editorStates.get(card) : null;
@@ -6079,6 +6249,11 @@
         if (state.body.contains(event.target)) {
             state.bodyDirty = true;
             clearAiChangeMarks(state.body);
+            state.body.querySelectorAll('p.post-editor-collapsed-boundary-paragraph').forEach((paragraph) => {
+                if (!editorBoundaryParagraphIsEmpty(paragraph)) {
+                    paragraph.classList.remove('post-editor-collapsed-boundary-paragraph');
+                }
+            });
             collapseEmptyLeadingParagraphAfterDelete(event, state.body);
             state.history?.record(event.inputType);
         }

@@ -28,7 +28,7 @@ readonly class UserProvider
     public function getModerators(array $includeEmails = [], array $excludeEmails = []): array
     {
         $qb = $this->dbLayer
-            ->select('login, email')
+            ->select('login, email, name')
             ->from('users')
             ->where('hide_comments = 1')
             ->andWhere("email <> ''")
@@ -53,7 +53,11 @@ readonly class UserProvider
 
         $moderators = [];
         while ($moderatorRow = $result->fetchAssoc()) {
-            $moderators[] = new Moderator($moderatorRow['login'], $moderatorRow['email']);
+            $moderators[] = new Moderator(
+                (string)$moderatorRow['login'],
+                (string)$moderatorRow['email'],
+                (string)$moderatorRow['name'],
+            );
         }
 
         return $moderators;

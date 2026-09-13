@@ -92,6 +92,7 @@ final readonly class TelegramImportService
             'comments_unchanged'             => 0,
             'comments_media_available'       => 0,
             'comments_media_unavailable'     => 0,
+            'comments_media_preserved'       => 0,
             'comments_media_repaired'        => 0,
             'comments_local_edits_preserved' => 0,
             'legacy_mappings_backfilled'     => 0,
@@ -183,6 +184,7 @@ final readonly class TelegramImportService
 
                     $changes['comments_media_available'] += $availableMedia;
                     $changes['comments_media_unavailable'] += $unavailableMedia;
+                    $changes['comments_media_preserved'] += $mediaResult['preserved_count'];
                     $comment = new CommentImport(
                         $contentId,
                         $name,
@@ -515,7 +517,8 @@ final readonly class TelegramImportService
      * @return array{
      *     text: string,
      *     state: list<array{status: 'available'|'unavailable', kind: string, source_sha256: string}>,
-     *     created_files: list<string>
+     *     created_files: list<string>,
+     *     preserved_count: int
      * }
      */
     private function commentText(
@@ -529,11 +532,15 @@ final readonly class TelegramImportService
         $state = [];
         $createdFiles = [];
         $unavailableKinds = [];
+        $preservedCount = 0;
+        $existingMedia = null;
+        $handledPositions = [];
         foreach ((array)($sourceComment['media'] ?? []) as $position => $media) {
             if (!\is_array($media)) {
                 continue;
             }
 
+            $mediaPosition = (int)$position + 1;
             $relativePath = trim((string)($media['path'] ?? ''));
             $sourceSha256 = hash('sha256', $relativePath);
             $storedMedia = $this->mediaStorage->import(
@@ -541,9 +548,29 @@ final readonly class TelegramImportService
                 $relativePath,
                 $chatId,
                 $messageId,
-                (int)$position + 1,
+                $mediaPosition,
                 $dryRun,
             );
+            $mediaStateIdentity = $storedMedia === null ? null : $storedMedia['sha256'];
+            if ($storedMedia === null) {
+                if ($existingMedia === null) {
+                    $existingMedia = $this->mediaStorage->existingForMessage($chatId, $messageId);
+                    foreach (array_keys($handledPositions) as $handledPosition) {
+                        unset($existingMedia[$handledPosition]);
+                    }
+                }
+
+                $storedMedia = $existingMedia[$mediaPosition] ?? null;
+                if ($storedMedia !== null) {
+                    $mediaStateIdentity = 'preserved:' . $storedMedia['storage_id'];
+                    ++$preservedCount;
+                }
+            }
+
+            if ($existingMedia !== null) {
+                unset($existingMedia[$mediaPosition]);
+            }
+            $handledPositions[$mediaPosition] = true;
             if ($storedMedia === null) {
                 $kind = $this->missingMediaKind($media);
                 $unavailableKinds[] = $kind;
@@ -554,16 +581,34 @@ final readonly class TelegramImportService
                 ];
                 continue;
             }
+            if ($mediaStateIdentity === null) {
+                throw new \LogicException('Available Telegram media has no storage identity.');
+            }
 
             $html .= $this->mediaHtml($storedMedia, $media);
             $state[] = [
                 'status'        => 'available',
                 'kind'          => $storedMedia['kind'],
-                'source_sha256' => $sourceSha256 . ':' . $storedMedia['sha256'],
+                'source_sha256' => $sourceSha256 . ':' . $mediaStateIdentity,
             ];
             if ($storedMedia['created_file'] !== null) {
                 $createdFiles[] = $storedMedia['created_file'];
             }
+        }
+
+        $existingMedia ??= $this->mediaStorage->existingForMessage($chatId, $messageId);
+        foreach (array_keys($handledPositions) as $handledPosition) {
+            unset($existingMedia[$handledPosition]);
+        }
+
+        foreach ($existingMedia as $position => $storedMedia) {
+            $html .= $this->mediaHtml($storedMedia, []);
+            $state[] = [
+                'status'        => 'available',
+                'kind'          => $storedMedia['kind'],
+                'source_sha256' => 'preserved:' . $position . ':' . $storedMedia['storage_id'],
+            ];
+            ++$preservedCount;
         }
 
         if ($unavailableKinds !== []) {
@@ -581,14 +626,15 @@ final readonly class TelegramImportService
         }
 
         return [
-            'text'          => $stored,
-            'state'         => $state,
-            'created_files' => $createdFiles,
+            'text'            => $stored,
+            'state'           => $state,
+            'created_files'   => $createdFiles,
+            'preserved_count' => $preservedCount,
         ];
     }
 
     /**
-     * @param array{url: string, kind: string, mime_type: string, sha256: string, created_file: ?string} $storedMedia
+     * @param array{url: string, kind: string} $storedMedia
      * @param array<string, mixed> $sourceMedia
      */
     private function mediaHtml(array $storedMedia, array $sourceMedia): string

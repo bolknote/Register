@@ -172,6 +172,28 @@ export async function runRecoveryRegressions(browser, origin) {
         console.log('recovery: simultaneous tabs retain independent copies');
 
         await reset();
+        await page.route('**/_inplace/post/9', async route => {
+            await route.fulfill({status: 422, json: {success: false, message: 'Expected shortcut probe'}});
+        });
+        await page.getByRole('button', {name: 'Edit', exact: true}).click();
+        const tagInput = edited().locator('.post-tags-text-input');
+        await tagInput.fill('shortcut-tag');
+        const request = page.waitForRequest('**/_inplace/post/9', {timeout: 1000});
+        const shortcutPrevented = await tagInput.evaluate(input => {
+            const event = new KeyboardEvent('keydown', {
+                key: 's', code: 'KeyS', metaKey: true, isComposing: true,
+                bubbles: true, cancelable: true,
+            });
+            input.dispatchEvent(event);
+            return event.defaultPrevented;
+        });
+        const shortcutRequest = (await request).postData() || '';
+        assert.equal(shortcutPrevented, true);
+        assert.match(shortcutRequest, /shortcut-tag/u);
+        await page.unroute('**/_inplace/post/9');
+        console.log('editor: Cmd+S saves an unfinished tag even during text composition');
+
+        await reset();
         assert.equal(await page.locator('.post-inplace-edit-form input[name="slug"]').getAttribute('type'), 'hidden');
         assert.equal(await page.getByText('Post address', {exact: true}).count(), 0);
         console.log('editor: the quick editor keeps the canonical slug without exposing a rare address field');

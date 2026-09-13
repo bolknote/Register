@@ -19,8 +19,8 @@ return [
 
 	'Comment preview'          => 'Comment preview',
 	'Comment preview info'     => 'Your comment has not been saved yet! Do not forget to press the “Submit” button after editing.',
-    'Comment check passed'     => 'Published: the comment passed the check (report=%s). Hide it if it is not appropriate.',
-    'Comment check failed'     => 'Hidden: the comment failed the check (report=%s). Publish it if it is appropriate.',
+    'Comment check passed'     => 'The comment was published automatically. Hide it if it is not appropriate.',
+    'Comment check failed'     => 'The comment is hidden and awaiting review. Publish it if it is appropriate.',
 
     'Email pattern'            =>
 		'Hello, <name>.
@@ -40,6 +40,19 @@ This e-mail has been sent automatically. If you reply, the author
 of the site will receive your answer. To unsubscribe, follow the link
 
 <unsubscribe>',
+	'Email HTML pattern'       =>
+		'<p>Hello, <strong><name></strong>.</p>
+
+<p>You subscribed to comments on <a href="<url>">“<title>”</a>.</p>
+<p>Comment author: <strong><author></strong>.</p>
+
+<hr>
+<div><text></div>
+<hr>
+
+<p>If you reply to this email, the site author will receive your answer.</p>
+<p><a href="<unsubscribe>">Unsubscribe from comments on this content</a>.</p>
+<p><small>This is an automated notification.</small></p>',
 	'Email reply pattern'      =>
 		'Hello, <name>.
 
@@ -52,6 +65,17 @@ of the site will receive your answer. To unsubscribe, follow the link
 ----------------------------------------------------------------------
 
 This e-mail has been sent automatically.',
+	'Email reply HTML pattern' =>
+		'<p>Hello, <strong><name></strong>.</p>
+
+<p><strong><author></strong> replied to your comment on <a href="<url>">“<title>”</a>.</p>
+
+<hr>
+<div><text></div>
+<hr>
+
+<p><a href="<url>">Open the reply on the site</a>.</p>
+<p><small>This is an automated notification.</small></p>',
 	'Email moderator pattern'  =>
 		'Hello, <name>.
 
@@ -71,6 +95,20 @@ has been received. You can find it here:
 
 This e-mail has been sent automatically. If you reply, the author
 of the comment will receive your answer.',
+	'Email moderator HTML pattern' =>
+		'<p>Hello, <strong><name></strong>.</p>
+
+<p>A new comment was posted on <a href="<url>">“<title>”</a>.</p>
+<p>Comment author: <strong><author></strong>.</p>
+
+<hr>
+<div><text></div>
+<hr>
+
+<p><strong><status></strong></p>
+<p><a href="<url>">Open the comment on the site</a>.</p>
+<p>If you reply to this email, the comment author will receive your answer.</p>
+<p><small>This is an automated notification.</small></p>',
 
 	// Comment errors
 	'Error message'            => 'The following errors must be corrected before your comment can be saved:',

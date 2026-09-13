@@ -6,7 +6,9 @@ namespace integration;
 
 use Register\Auth\PublicAuthRepository;
 use Register\Comment\Antispam\SpamFeedbackService;
+use Register\Comment\CommentMailPublisher;
 use Register\Comment\CommentRepository;
+use Register\Comment\ContentCommentNotifier;
 use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Content\ContentType;
@@ -143,6 +145,59 @@ final class CommentWorkspaceCest
         $I->assertTrue($republished->shown);
         $I->assertTrue($republished->sent);
         $I->assertCount(1, $I->grabSubscriberMails());
+    }
+
+    public function testModeratorDoesNotReceiveASecondCopyAsReplyRecipient(\IntegrationTester $I): void
+    {
+        [$comments, $contentId] = $this->context($I);
+        /** @var DbLayer $db */
+        $db = $I->grabAdminService(DbLayer::class);
+        $adminId = $db
+            ->select('id')
+            ->from('users')
+            ->where("login = 'admin'")
+            ->execute()
+            ->result();
+        $I->assertIsNumeric($adminId);
+        $db->query(
+            "UPDATE users SET name = :name WHERE login = 'admin'",
+            ['name' => 'Евгений Степанищев'],
+        );
+
+        $parentId = $comments->save(
+            $contentId,
+            'Евгений Степанищев',
+            'admin@example.com',
+            false,
+            'Parent comment',
+            '192.0.2.10',
+            null,
+            (int)$adminId,
+        );
+        $comments->publish($parentId, $contentId->type);
+        $replyId = $comments->save(
+            $contentId,
+            'beltsevayana',
+            'reply@example.test',
+            false,
+            'Reply to the moderator',
+            '192.0.2.11',
+            $parentId,
+            null,
+        );
+        $comments->publish($replyId, $contentId->type);
+
+        /** @var CommentMailPublisher $publisher */
+        $publisher = $I->grabService(CommentMailPublisher::class);
+        $publisher->moderator($replyId, $contentId->type, 'admin@example.com', true, 'ham');
+        /** @var ContentCommentNotifier $notifier */
+        $notifier = $I->grabService(ContentCommentNotifier::class);
+        $notifier->notify($replyId, $contentId->type);
+
+        $I->assertCount(1, $I->grabModeratorMails());
+        $I->assertSame('admin@example.com', $I->grabModeratorMails()[0]['moderatorEmail']);
+        $I->assertSame('Евгений Степанищев', $I->grabModeratorMails()[0]['moderatorName']);
+        $I->assertCount(0, $I->grabSubscriberMails());
     }
 
     public function testModeratorBulkHideMatchesIndividualHideWithoutDeletePermission(\IntegrationTester $I): void

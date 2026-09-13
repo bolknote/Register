@@ -42,7 +42,14 @@ readonly class CommentMailer
             recipientName: $subscriberName,
             subject: \sprintf($this->translator->trans('Email subject'), $url),
             textBody: $message,
-            htmlBody: $this->plainTextHtml($message),
+            htmlBody: $this->htmlMessage('Email HTML pattern', [
+                'name'        => $subscriberName,
+                'author'      => $authorName,
+                'title'       => $title,
+                'url'         => $url,
+                'text'        => $text,
+                'unsubscribe' => $unsubscribeLink,
+            ]),
             unsubscribeUrl: $unsubscribeLink,
         ));
 
@@ -70,7 +77,13 @@ readonly class CommentMailer
             recipientName: $recipientName,
             subject: \sprintf($this->translator->trans('Email subject'), $url),
             textBody: $message,
-            htmlBody: $this->plainTextHtml($message),
+            htmlBody: $this->htmlMessage('Email reply HTML pattern', [
+                'name'   => $recipientName,
+                'author' => $authorName,
+                'title'  => $title,
+                'url'    => $url,
+                'text'   => $text,
+            ]),
         ));
 
         return true;
@@ -110,7 +123,17 @@ readonly class CommentMailer
             recipientName: $moderatorName,
             subject: \sprintf($this->translator->trans('Email subject'), $url),
             textBody: $message,
-            htmlBody: $this->plainTextHtml($message),
+            htmlBody: $this->htmlMessage('Email moderator HTML pattern', [
+                'name'   => $moderatorName,
+                'author' => $authorName,
+                'title'  => $title,
+                'url'    => $url,
+                'text'   => $text,
+                'status' => \sprintf(
+                    $this->translator->trans($isPublished ? 'Comment check passed' : 'Comment check failed'),
+                    $spamReportStatus,
+                ),
+            ]),
             replyToEmail: $authorEmail,
             replyToName: $authorName,
         ));
@@ -118,8 +141,21 @@ readonly class CommentMailer
         return true;
     }
 
-    private function plainTextHtml(string $message): string
+    /** @param array<string, string> $values */
+    private function htmlMessage(string $templateKey, array $values): string
     {
-        return '<div>' . nl2br(htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8')) . '</div>';
+        $placeholders = [];
+        $replacements = [];
+        foreach ($values as $name => $value) {
+            $placeholders[] = '<' . $name . '>';
+            $escaped = htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+            $replacements[] = $name === 'text' ? nl2br($escaped) : $escaped;
+        }
+
+        return str_replace(
+            $placeholders,
+            $replacements,
+            $this->translator->trans($templateKey),
+        );
     }
 }

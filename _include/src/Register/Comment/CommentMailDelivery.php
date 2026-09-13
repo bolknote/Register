@@ -112,7 +112,7 @@ final readonly class CommentMailDelivery
 
         foreach ($this->userProvider->getModerators([$moderatorEmail]) as $moderator) {
             $this->commentMailer->mailToModerator(
-                $moderator->login,
+                $moderator->displayName(),
                 $moderator->email,
                 CommentHtml::plainText($comment->text),
                 $content->title,

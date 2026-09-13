@@ -19,7 +19,7 @@ use Register\Import\Telegram\TelegramManagedMediaStorage;
 
 final class TelegramImportCest
 {
-    public function repairsAnUnavailableAttachmentWhenZipMediaArrives(\IntegrationTester $I): void
+    public function repairsAndPreservesAttachmentsAcrossPartialImports(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
@@ -93,6 +93,46 @@ final class TelegramImportCest
 
             $storedFile = rtrim($publicRoot, '/') . $matches[1];
             $I->assertFileExists($storedFile);
+
+            $textOnlyExport = $this->export(
+                '(File not included. Change data exporting settings to download.)',
+                'Updated text from Telegram',
+            );
+            $I->assertNotFalse(file_put_contents(
+                $jsonPath,
+                json_encode($textOnlyExport, JSON_THROW_ON_ERROR),
+            ));
+
+            $thirdReport = $importService->importFile($jsonPath, clientOriginalName: 'result.json');
+            $I->assertSame(1, $thirdReport['changes']['comments_updated']);
+            $I->assertSame(1, $thirdReport['changes']['comments_media_available']);
+            $I->assertSame(0, $thirdReport['changes']['comments_media_unavailable']);
+            $I->assertSame(1, $thirdReport['changes']['comments_media_preserved']);
+
+            $comments = $commentRepository->findForContent(ContentId::post($contentId));
+            $I->assertCount(1, $comments);
+            $I->assertSame($commentId, $comments[0]->id);
+            $I->assertStringContainsString('Updated text from Telegram', $comments[0]->text);
+            $I->assertStringContainsString('<figure class="comment-media"><img ', $comments[0]->text);
+            $I->assertStringNotContainsString('comment-media-missing', $comments[0]->text);
+            $I->assertFileExists($storedFile);
+
+            $withoutReferenceExport = $this->export(null, 'Updated again without a media reference');
+            $I->assertNotFalse(file_put_contents(
+                $jsonPath,
+                json_encode($withoutReferenceExport, JSON_THROW_ON_ERROR),
+            ));
+
+            $fourthReport = $importService->importFile($jsonPath, clientOriginalName: 'result.json');
+            $I->assertSame(1, $fourthReport['changes']['comments_updated']);
+            $I->assertSame(1, $fourthReport['changes']['comments_media_preserved']);
+
+            $comments = $commentRepository->findForContent(ContentId::post($contentId));
+            $I->assertCount(1, $comments);
+            $I->assertStringContainsString('Updated again without a media reference', $comments[0]->text);
+            $I->assertStringContainsString('<figure class="comment-media"><img ', $comments[0]->text);
+            $I->assertStringNotContainsString('comment-media-missing', $comments[0]->text);
+            $I->assertFileExists($storedFile);
         } finally {
             if ($storedFile !== null && is_file($storedFile)) {
                 unlink($storedFile);
@@ -154,8 +194,22 @@ final class TelegramImportCest
     }
 
     /** @return array<string, mixed> */
-    private function export(string $photoPath): array
+    private function export(?string $photoPath, string $text = ''): array
     {
+        $comment = [
+            'id' => 2,
+            'type' => 'message',
+            'date_unixtime' => '101',
+            'reply_to_message_id' => 1,
+            'from' => 'Reader',
+            'from_id' => 'user22',
+            'text' => $text,
+            'text_entities' => $text === '' ? [] : [['type' => 'plain', 'text' => $text]],
+        ];
+        if ($photoPath !== null) {
+            $comment['photo'] = $photoPath;
+        }
+
         return [
             'id' => 123,
             'name' => 'Example discussion',
@@ -177,17 +231,7 @@ final class TelegramImportCest
                         'href' => 'http://register.localhost/apos',
                     ]],
                 ],
-                [
-                    'id' => 2,
-                    'type' => 'message',
-                    'date_unixtime' => '101',
-                    'reply_to_message_id' => 1,
-                    'from' => 'Reader',
-                    'from_id' => 'user22',
-                    'text' => '',
-                    'text_entities' => [],
-                    'photo' => $photoPath,
-                ],
+                $comment,
             ],
         ];
     }

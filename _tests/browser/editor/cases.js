@@ -390,6 +390,83 @@ test('clicking an empty last-image caption then Enter starts an ordinary body pa
     ok(parseFloat(paragraphStyle.fontSize) > parseFloat(captionStyle.fontSize), 'Text after the image is visibly larger than a caption');
 });
 
+test('one Enter before leading media creates exactly one empty paragraph', async () => {
+    const s = setup('<div class="post-picture post-media-picture"><img alt="fixture"><div class="post-caption"></div></div>');
+    const media = s.body.firstElementChild;
+    const range = document.createRange();
+    range.setStart(s.body, 0);
+    range.collapse(true);
+    s.body.focus();
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+
+    const enter = new InputEvent('beforeinput', {
+        inputType: 'insertParagraph', bubbles: true, cancelable: true,
+    });
+    s.body.dispatchEvent(enter);
+    await tick();
+
+    equal(enter.defaultPrevented, true, 'The browser must not split the prepared paragraph a second time');
+    equal(s.body.children.length, 2, `One paragraph and the media must remain: ${s.body.innerHTML}`);
+    const paragraph = s.body.firstElementChild;
+    equal(paragraph?.tagName, 'P');
+    equal(paragraph?.nextElementSibling, media);
+    equal(paragraph?.childNodes.length, 1);
+    equal(paragraph?.firstChild?.tagName, 'BR');
+    ok(paragraph?.contains(getSelection().anchorNode), 'The caret stays in the one new paragraph');
+    equal(s.bodyDirty, true, 'The manual paragraph insertion follows the normal input path');
+
+    await undo(s);
+    equal(s.body.children.length, 1, 'Undo removes the one inserted paragraph');
+    ok(s.body.firstElementChild?.matches('.post-picture.post-media-picture'), 'Undo restores the original leading media');
+});
+
+test('Backspace after an image removes only the empty line and preserves its caption', async () => {
+    const s = setup('<div class="post-picture post-media-picture"><img alt="fixture"><div class="post-caption">Image caption</div></div><p class="post-editor-body-paragraph"><br></p>');
+    api.prepareEditableMedia(s.body);
+    s.history?.destroy();
+    s.history = api.createBodyHistory?.(s);
+    const paragraph = s.body.lastElementChild;
+    const range = document.createRange();
+    range.setStart(paragraph, 0);
+    range.collapse(true);
+    s.body.focus();
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+
+    const backspace = new InputEvent('beforeinput', {
+        inputType: 'deleteContentBackward', bubbles: true, cancelable: true,
+    });
+    s.body.dispatchEvent(backspace);
+    await tick();
+
+    equal(backspace.defaultPrevented, true, 'The browser must not merge the paragraph into the media wrapper');
+    equal(s.body.children.length, 2, `The media and its safe text boundary must remain: ${s.body.innerHTML}`);
+    equal(s.body.querySelector('.post-media-picture')?.parentElement, s.body);
+    equal(s.body.querySelector('.post-caption')?.textContent, 'Image caption');
+    ok(paragraph.classList.contains('post-editor-collapsed-boundary-paragraph'), 'The deleted line is visually collapsed');
+    equal(paragraph.getBoundingClientRect().height, 0, 'The deleted line takes no vertical space');
+    equal(getComputedStyle(paragraph).marginTop, '0px');
+    equal(getComputedStyle(paragraph).marginBottom, '0px');
+    equal(s.bodyDirty, true, 'Deleting the line follows the normal input path');
+    ok(paragraph.contains(getSelection().anchorNode), 'The caret remains safely after the image');
+    equal(api.editableBodyHtml(s).includes('<p'), false, 'The deleted line is not saved');
+    ok(api.editableBodyHtml(s).includes('Image caption'), 'Serializing the deletion keeps the caption');
+
+    document.execCommand('insertText', false, 'Text after image');
+    await tick();
+    equal(paragraph.textContent, 'Text after image', 'Typing after Delete stays after the image');
+    equal(paragraph.classList.contains('post-editor-collapsed-boundary-paragraph'), false, 'Typing restores ordinary paragraph layout');
+    equal(s.body.querySelector('.post-caption')?.textContent, 'Image caption');
+
+    await undo(s);
+    ok(s.body.lastElementChild?.classList.contains('post-editor-collapsed-boundary-paragraph'), 'Undo typing restores the collapsed boundary');
+    await undo(s);
+    equal(s.body.children.length, 2, 'Undo Delete restores the empty line');
+    equal(s.body.lastElementChild?.classList.contains('post-editor-collapsed-boundary-paragraph'), false);
+    equal(s.body.querySelector('.post-caption')?.textContent, 'Image caption');
+});
+
 test('native history beforeinput is handled without touching title history', async () => {
     const s = setup('<p>Body</p>'); select(s); await action(s, 'inline-code');
     const undoEvent = new InputEvent('beforeinput', {inputType: 'historyUndo', bubbles: true, cancelable: true});
