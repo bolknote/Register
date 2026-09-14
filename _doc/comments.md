@@ -79,7 +79,9 @@ moves the same form below the selected comment and updates its hidden parent fie
 participants, the header counter links to the first relevant unread comment. Site participants see
 new comments in their posts; other users always see direct replies and see every new comment in a
 discussion only after selecting **Subscribe to new comments** there. The same subscription continues
-to control email delivery when the account has an email address.
+to control email delivery when the account has an email address. Moderators instead receive the
+operational comment notification granted by their moderation permission, so the participant
+subscription control is hidden from them and cannot disable those moderator messages.
 
 Following the unread counter opens one comment using its stable `#comment-ID` anchor and
 `comment_unread` query parameter. Only that comment becomes read when its discussion is rendered;

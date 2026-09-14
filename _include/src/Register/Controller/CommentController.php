@@ -84,7 +84,9 @@ readonly class CommentController implements ControllerInterface
         $authenticatedUser     = $this->authProvider->getAuthenticatedPublicUser($request);
         $isAuthenticatedAuthor = false;
         $formFieldError        = $this->restoreMutableFormFields($request);
-        $subscribed            = $request->request->get('subscribed', false) !== false;
+        $subscribed            = (!$authenticatedUser instanceof AuthenticatedPublicUser
+                || !$authenticatedUser->canHideComments)
+            && $request->request->get('subscribed', false) !== false;
         $id                    = $request->request->getString('id', '');
         if (preg_match('#^[0-9a-f]{32}$#', $id) !== 1) {
             $id = '';

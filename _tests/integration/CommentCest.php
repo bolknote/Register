@@ -132,19 +132,20 @@ class CommentCest
         $I->see('Commenting as', '.comment-public-auth');
         $I->see('admin', '.comment-public-auth');
         $I->dontSeeElement('#comment-form [data-comment-guest-identity]');
-        $I->seeElement('#comment-form .comment-options #subscribed');
+        $I->dontSeeElement('#comment-form .comment-options');
         $I->dontSeeElement('#comment-form input[name="show_email"]');
         $I->dontSeeElement('#comment-form .comment-preview');
 
         $I->sendPost('https://localhost/thread-test', [
-            'name'  => 'Spoofed name',
-            'email' => 'spoofed@example.test',
-            'text'  => '<p><strong>Owner</strong> comment</p>',
+            'name'       => 'Spoofed name',
+            'email'      => 'spoofed@example.test',
+            'subscribed' => '1',
+            'text'       => '<p><strong>Owner</strong> comment</p>',
         ]);
         $I->seeResponseCodeIs(302);
 
         $comment = $dbLayer
-            ->select('nick', 'email', 'user_id', 'visitor_id', 'text')
+            ->select('nick', 'email', 'user_id', 'visitor_id', 'subscribed', 'text')
             ->from(CommentSchema::TABLE_NAME)
             ->where('nick = :nick')->setParameter('nick', 'admin')
             ->execute()
@@ -157,6 +158,7 @@ class CommentCest
         $userId = (int)$dbLayer->select('id')->from('users')->where("login = 'admin'")->execute()->result();
         $I->assertSame($userId, (int)$comment['user_id']);
         $I->assertSame($visitorId, $comment['visitor_id']);
+        $I->assertSame(0, (int)$comment['subscribed']);
         $I->assertSame(1, (int)$dbLayer
             ->select('COUNT(*)')
             ->from(VisitorIdentityManifest::USER_LINK_TABLE)
@@ -166,6 +168,17 @@ class CommentCest
             ->result());
         $I->assertSame('Owner comment', CommentHtml::plainText((string)$comment['text']));
         $I->assertStringContainsString('<strong>Owner</strong>', (string)$comment['text']);
+    }
+
+    public function testAuthenticatedParticipantCanSubscribeToADiscussion(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertArticle($dbLayer);
+
+        $I->login('guest', 'guest');
+        $I->amOnPage('https://localhost/thread-test');
+        $I->seeElement('#comment-form .comment-options #subscribed');
     }
 
     public function testAuthenticatedCommentUsesTheNewestUserpicByCreationTime(\IntegrationTester $I): void

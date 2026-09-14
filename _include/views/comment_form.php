@@ -26,6 +26,8 @@ $parent_id    = isset($parent_id) && $parent_id > 0 ? $parent_id : null;
 $reply_number = isset($reply_number) && $reply_number > 0 ? $reply_number : 0;
 $reply_name   ??= '';
 $authenticatedUser ??= null;
+$isCommentModerator = $authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser
+    && $authenticatedUser->canHideComments;
 
 $fieldName = static function (string $field) use ($commentFieldNames): string {
     if (!isset($commentFieldNames[$field])) {
@@ -98,9 +100,11 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
             </p>
         </div>
         <?php endif; ?>
+        <?php if (!$isCommentModerator): ?>
         <div class="comment-options">
             <label for="subscribed" title="<?php echo $trans('Subscribe label title'); ?>"><input type="checkbox" id="subscribed" name="<?php echo $fieldName('subscribed'); ?>" <?php if ($subscribed) echo 'checked="checked" '; ?>/><?php echo $trans('Subscribe label'); ?></label>
         </div>
+        <?php endif; ?>
         <details class="comment-formatting">
             <summary><?php echo $trans('Formatting help'); ?></summary>
             <div class="comment-syntax"><?php foreach ($syntaxHelpItems as $item) { echo $item . "\n"; } ?></div>
