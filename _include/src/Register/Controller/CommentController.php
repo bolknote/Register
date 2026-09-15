@@ -88,6 +88,7 @@ readonly class CommentController implements ControllerInterface
         if ($authenticatedUser instanceof AuthenticatedPublicUser) {
             $canModerateComments = $authenticatedUser->canHideComments;
         }
+
         $subscribed            = !$canModerateComments
             && $request->request->get('subscribed', false) !== false;
         $id                    = $request->request->getString('id', '');
