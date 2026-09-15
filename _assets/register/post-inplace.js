@@ -1001,7 +1001,14 @@
         }
         if (target instanceof HTMLElement && target.tagName === 'P') {
             target.classList.add('post-editor-body-paragraph');
+            // Leaving a caption is an explicit request to start a visible body
+            // line. A boundary collapsed by an earlier Backspace/Delete must
+            // therefore become a normal paragraph again immediately.
+            target.classList.remove('post-editor-collapsed-boundary-paragraph');
         }
+        const needsVisibleEmptyCaret = editorBoundaryParagraphIsEmpty(target)
+            ? target
+            : null;
 
         const selection = window.getSelection();
         if (!selection) {
@@ -1017,6 +1024,9 @@
         }
         selection.removeAllRanges();
         selection.addRange(range);
+        if (needsVisibleEmptyCaret instanceof HTMLElement) {
+            needsVisibleEmptyCaret.classList.add('has-leading-boundary-caret');
+        }
         syncBoundaryCaret();
         return target;
     }
@@ -1064,6 +1074,28 @@
                     nextElement = active;
                 } else {
                     nextElement = mediaBoundaryAtRange(active, range);
+                    // Chromium and Firefox can keep a valid selection in a
+                    // programmatically focused empty <p><br></p> without
+                    // painting its native caret. This happens after the first
+                    // Enter that leaves an image caption. Reuse the synthetic
+                    // boundary caret so the new body line is visible at once.
+                    if (!nextElement) {
+                        let paragraph = range.startContainer instanceof HTMLElement
+                            ? range.startContainer
+                            : range.startContainer.parentElement;
+                        while (paragraph instanceof HTMLElement && paragraph.parentElement !== active) {
+                            paragraph = paragraph.parentElement;
+                        }
+                        if (
+                            paragraph instanceof HTMLElement
+                            && paragraph.classList.contains('has-leading-boundary-caret')
+                            && editorBoundaryParagraphIsEmpty(paragraph)
+                            && paragraph.parentElement === active
+                            && !paragraph.classList.contains('post-editor-collapsed-boundary-paragraph')
+                        ) {
+                            nextElement = paragraph;
+                        }
+                    }
                 }
             }
         }

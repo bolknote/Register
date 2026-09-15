@@ -343,9 +343,12 @@ test('Enter leaves the last image caption in an ordinary body paragraph while Sh
     equal(paragraph?.parentElement, s.body, 'The paragraph must be outside the compact caption block');
     ok(paragraph?.classList.contains('post-editor-body-paragraph'), 'The reused trailing block has explicit body typography');
     ok(paragraph?.contains(getSelection().anchorNode), 'The caret moves into the paragraph after the image');
+    ok(paragraph?.classList.contains('has-leading-boundary-caret'), 'The first Enter paints a visible caret in the empty body paragraph');
+    ok(s.body.classList.contains('uses-synthetic-boundary-caret'), 'The unreliable native empty-paragraph caret is hidden');
 
     document.execCommand('insertText', false, 'Text after image');
     equal(paragraph.textContent, 'Text after image');
+    equal(paragraph.classList.contains('has-leading-boundary-caret'), false, 'Typing restores the native caret');
     equal(caption.textContent, 'First line\nSecond line');
     const paragraphStyle = getComputedStyle(paragraph);
     const referenceStyle = getComputedStyle(s.body.firstElementChild);
@@ -378,6 +381,7 @@ test('clicking an empty last-image caption then Enter starts an ordinary body pa
     equal(paragraph?.tagName, 'P', `Enter must create a paragraph after the image: ${s.body.innerHTML}`);
     equal(paragraph?.parentElement, s.body, 'The new paragraph must be outside the image and caption');
     ok(paragraph?.contains(getSelection().anchorNode), 'The caret must move into the new body paragraph');
+    ok(paragraph?.classList.contains('has-leading-boundary-caret'), 'The empty paragraph must show a caret after one Enter');
     await type(s, 'Ordinary body text');
     equal(paragraph.textContent, 'Ordinary body text');
 
@@ -388,6 +392,23 @@ test('clicking an empty last-image caption then Enter starts an ordinary body pa
     equal(paragraphStyle.fontSize, referenceStyle.fontSize, 'Text after the image uses the article font size');
     equal(paragraphStyle.lineHeight, referenceStyle.lineHeight, 'Text after the image uses the article line height');
     ok(parseFloat(paragraphStyle.fontSize) > parseFloat(captionStyle.fontSize), 'Text after the image is visibly larger than a caption');
+});
+
+test('leaving a caption restores a previously collapsed body line in one Enter', async () => {
+    const s = setup('<div class="post-picture post-media-picture"><img alt="fixture"><div class="post-caption">Image caption</div></div><p class="post-editor-body-paragraph post-editor-collapsed-boundary-paragraph"><br></p>');
+    api.prepareEditableMedia(s.body);
+    const caption = s.body.querySelector('.post-caption');
+    const paragraph = s.body.lastElementChild;
+
+    caption.click();
+    await frame();
+    const leave = new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true});
+    document.activeElement.dispatchEvent(leave);
+
+    equal(leave.defaultPrevented, true, 'Enter must leave the caption');
+    equal(paragraph.classList.contains('post-editor-collapsed-boundary-paragraph'), false, 'The body line is visible immediately');
+    ok(paragraph.contains(getSelection().anchorNode), 'The caret moves into the restored line');
+    ok(paragraph.classList.contains('has-leading-boundary-caret'), 'The restored line paints its caret immediately');
 });
 
 test('one Enter before leading media creates exactly one empty paragraph', async () => {

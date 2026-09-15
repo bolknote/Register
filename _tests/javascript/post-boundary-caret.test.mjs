@@ -989,6 +989,8 @@ test('moving after media creates one real editor paragraph and keeps focus in th
     assert.equal(harness.document.activeElement, body);
     assert.equal(harness.currentRange().startContainer, paragraph);
     assert.equal(harness.currentRange().startOffset, 0);
+    assert.equal(paragraph.classList.contains('has-leading-boundary-caret'), true);
+    assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), true);
 });
 
 test('media insertion replaces the empty editor paragraph without leaving a visual gap', function () {
