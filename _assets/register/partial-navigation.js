@@ -205,7 +205,7 @@
             && typeof payload.bodyClass === 'string'
             && typeof payload.head === 'string'
             && typeof payload.fragment === 'string'
-            && !/<script\b/iu.test(payload.fragment)
+            && !/<(?:script|style)\b/iu.test(payload.fragment)
             && assetsMatch(payload);
     }
 

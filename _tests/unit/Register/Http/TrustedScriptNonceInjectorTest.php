@@ -17,7 +17,7 @@ final class TrustedScriptNonceInjectorTest extends Unit
 {
     private const string NONCE = 'AbCdEfGhIjKlMnOpQrStUvWx';
 
-    public function testGrantsNonceOnlyToScriptsAndConverterOwnedStylesInsideTrustedPostBodies(): void
+    public function testGrantsNonceOnlyToScriptsAndStylesInsideTrustedPostBodies(): void
     {
         $trustedHtml = TrustedScriptNonceInjector::markTrustedHtml(<<<'HTML'
 <p>Trusted body</p>
@@ -38,7 +38,7 @@ HTML);
         $count = (new TrustedScriptNonceInjector())->injectIntoResponse($response, self::NONCE);
         $html  = $response->getContent();
 
-        self::assertSame(2, $count);
+        self::assertSame(3, $count);
         self::assertIsString($html);
         self::assertStringContainsString(
             '<script nonce="' . self::NONCE . '" data-value=">">window.inlineRan = "<script>";</script>',
@@ -49,11 +49,14 @@ HTML);
             $html,
         );
         self::assertStringContainsString(
+            '<style nonce="' . self::NONCE . '">.historical-frame { border: 1px dotted #ccc; }</style>',
+            $html,
+        );
+        self::assertStringContainsString(
             '<style nonce="' . self::NONCE . '" data-register-imported-inline-styles>'
                 . '.register-import-style-a1 { color: red; }</style>',
             $html,
         );
-        self::assertStringNotContainsString('.historical-frame', $html);
         self::assertStringContainsString(
             '<script>window.outsideMustStayInert = true;</script>',
             $html,

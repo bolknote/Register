@@ -14,7 +14,6 @@ use Psr\Log\LogLevel;
 use Register\Core\Http\ContentSecurityPolicy;
 use Register\Core\Http\CspViolationReportController;
 use Register\Core\Http\CspViolationReporter;
-use Register\Core\Http\InlineStyleAttributeStripper;
 use Register\Core\Http\SiteStylesheetInjector;
 use Register\Core\Http\ResponseCompressionCache;
 use Register\Core\Asset\AssetMergeFactory;
@@ -386,7 +385,6 @@ class CmsExtension implements ExtensionInterface
         $container->set(CspViolationReportController::class, static fn(Container $container): CspViolationReportController => new CspViolationReportController(
             $container->get(CspViolationReporter::class),
         ));
-        $container->set(InlineStyleAttributeStripper::class, static fn(): InlineStyleAttributeStripper => new InlineStyleAttributeStripper());
         $container->set(SiteStylesheetInjector::class, static function (Container $container): SiteStylesheetInjector {
             try {
                 $stylesheets = $container->getArrayParameter('site_stylesheets');
@@ -680,9 +678,6 @@ class CmsExtension implements ExtensionInterface
             }
         }, -384);
 
-        $eventDispatcher->addListener(TemplateFinalReplaceEvent::class, static function (TemplateFinalReplaceEvent $event) use ($container): void {
-            $event->setTemplate($container->get(InlineStyleAttributeStripper::class)->strip($event->template));
-        }, -512);
     }
 
     #[\Override]

@@ -41,11 +41,11 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertStringContainsString("object-src 'none'", ContentSecurityPolicy::POLICY);
         self::assertStringNotContainsString("script-src 'self' 'unsafe-inline'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("style-src 'self'", ContentSecurityPolicy::POLICY);
-        self::assertStringContainsString("style-src-attr 'none'", ContentSecurityPolicy::POLICY);
-        self::assertStringNotContainsString("'unsafe-inline'", ContentSecurityPolicy::POLICY);
+        self::assertStringContainsString("style-src-attr 'unsafe-inline'", ContentSecurityPolicy::POLICY);
+        self::assertStringNotContainsString("style-src 'self' 'unsafe-inline'", ContentSecurityPolicy::POLICY);
         self::assertStringContainsString("style-src 'self'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
-        self::assertStringContainsString("style-src-attr 'none'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
-        self::assertStringNotContainsString("'unsafe-inline'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
+        self::assertStringContainsString("style-src-attr 'unsafe-inline'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
+        self::assertStringNotContainsString("style-src 'self' 'unsafe-inline'", ContentSecurityPolicy::REPORT_ONLY_POLICY);
         self::assertStringNotContainsString('http:', ContentSecurityPolicy::REPORT_ONLY_POLICY);
     }
 
@@ -56,13 +56,20 @@ final class ContentSecurityPolicyTest extends Unit
 
         self::assertSame(ContentSecurityPolicy::ADMIN_POLICY, $adminResponse->headers->get(ContentSecurityPolicy::HEADER_NAME));
         self::assertStringContainsString("frame-ancestors 'none'", ContentSecurityPolicy::ADMIN_POLICY);
+        self::assertStringContainsString("style-src-attr 'none'", ContentSecurityPolicy::ADMIN_POLICY);
+        self::assertStringNotContainsString("'unsafe-inline'", ContentSecurityPolicy::ADMIN_POLICY);
         self::assertSame('no-store, private', $adminResponse->headers->get('Cache-Control'));
 
         $embeddedResponse = new Response();
         ContentSecurityPolicy::applyToEmbeddedAdmin($embeddedResponse);
 
-        self::assertSame(ContentSecurityPolicy::POLICY, $embeddedResponse->headers->get(ContentSecurityPolicy::HEADER_NAME));
-        self::assertStringContainsString("frame-ancestors 'self'", ContentSecurityPolicy::POLICY);
+        self::assertSame(
+            ContentSecurityPolicy::EMBEDDED_ADMIN_POLICY,
+            $embeddedResponse->headers->get(ContentSecurityPolicy::HEADER_NAME),
+        );
+        self::assertStringContainsString("frame-ancestors 'self'", ContentSecurityPolicy::EMBEDDED_ADMIN_POLICY);
+        self::assertStringContainsString("style-src-attr 'none'", ContentSecurityPolicy::EMBEDDED_ADMIN_POLICY);
+        self::assertStringNotContainsString("'unsafe-inline'", ContentSecurityPolicy::EMBEDDED_ADMIN_POLICY);
         self::assertSame('no-store, private', $embeddedResponse->headers->get('Cache-Control'));
     }
 
@@ -78,7 +85,8 @@ final class ContentSecurityPolicyTest extends Unit
         self::assertStringContainsString("script-src 'self' 'wasm-unsafe-eval' 'nonce-" . $nonce . "';", $enforced);
         self::assertStringContainsString("style-src 'self' 'nonce-" . $nonce . "';", $enforced);
         self::assertStringContainsString("script-src-attr 'none';", $enforced);
-        self::assertStringNotContainsString("'unsafe-inline'", $enforced);
+        self::assertStringContainsString("style-src-attr 'unsafe-inline';", $enforced);
+        self::assertStringNotContainsString("style-src 'self' 'unsafe-inline'", $enforced);
 
         $reportOnly = $response->headers->get(ContentSecurityPolicy::REPORT_ONLY_HEADER_NAME);
         self::assertNotNull($reportOnly);

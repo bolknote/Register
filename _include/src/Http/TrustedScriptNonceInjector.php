@@ -11,7 +11,7 @@ namespace Register\Core\Http;
 
 use Symfony\Component\HttpFoundation\Response;
 
-/** Grants a nonce to trusted post scripts and converter-owned style blocks. */
+/** Grants a nonce to scripts and style blocks inside trusted post HTML. */
 final readonly class TrustedScriptNonceInjector
 {
     private const string START_MARKER = '<!--register-trusted-script-region:83e42a4f:start-->';
@@ -135,24 +135,6 @@ final readonly class TrustedScriptNonceInjector
             $tag     = substr($html, $elementStart, $tagEnd - $elementStart + 1);
             $offset  = $tagEnd + 1;
 
-            if ($elementName === 'style' && !$this->isImportedInlineStyle($tag)) {
-                // Historical raw CSS is externalized and scoped by article id. Never allow a
-                // stored style block to re-enter the global cascade merely because its post is
-                // otherwise trusted to run reviewed scripts.
-                $closingTag = stripos($html, '</style', $offset);
-                if ($closingTag === false) {
-                    break;
-                }
-
-                $closingTagEnd = strpos($html, '>', $closingTag + 7);
-                if ($closingTagEnd === false) {
-                    break;
-                }
-
-                $offset = $closingTagEnd + 1;
-                continue;
-            }
-
             [$tag, $nonceAdded] = $this->nonceOpeningTag($tag, $nonce, $elementName);
             $result .= $tag;
             if ($nonceAdded) {
@@ -177,17 +159,6 @@ final readonly class TrustedScriptNonceInjector
         }
 
         return [$result, $scriptCount];
-    }
-
-    private function isImportedInlineStyle(string $tag): bool
-    {
-        $attributes = substr($tag, 6, -1);
-
-        return preg_match(
-            '~(?:^|\s)data-register-imported-inline-styles'
-                . '(?:\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]+))?(?=\s|/|$)~iu',
-            $attributes,
-        ) === 1;
     }
 
     /**

@@ -27,7 +27,27 @@ final class ContentSecurityPolicy
         . "font-src 'self' data:; "
         . "form-action 'self'; ";
 
-    private const string ENFORCED_POLICY_SUFFIX = "frame-src 'self' blob: https:; "
+    private const string ENFORCED_PUBLIC_POLICY_SUFFIX = "frame-src 'self' blob: https:; "
+        . "img-src 'self' data: blob: http: https:; "
+        . "media-src 'self' blob: http: https:; "
+        . "object-src 'none'; "
+        . "script-src 'self' 'wasm-unsafe-eval'; "
+        . "script-src-attr 'none'; "
+        . "style-src 'self'; "
+        . "style-src-attr 'unsafe-inline'; "
+        . "worker-src 'self' blob:";
+
+    private const string REPORT_ONLY_PUBLIC_POLICY_SUFFIX = "frame-src 'self' blob: https:; "
+        . "img-src 'self' data: blob: https:; "
+        . "media-src 'self' blob: https:; "
+        . "object-src 'none'; "
+        . "script-src 'self' 'wasm-unsafe-eval'; "
+        . "script-src-attr 'none'; "
+        . "style-src 'self'; "
+        . "style-src-attr 'unsafe-inline'; "
+        . "worker-src 'self' blob:";
+
+    private const string ENFORCED_ADMIN_POLICY_SUFFIX = "frame-src 'self' blob: https:; "
         . "img-src 'self' data: blob: http: https:; "
         . "media-src 'self' blob: http: https:; "
         . "object-src 'none'; "
@@ -37,7 +57,7 @@ final class ContentSecurityPolicy
         . "style-src-attr 'none'; "
         . "worker-src 'self' blob:";
 
-    private const string REPORT_ONLY_POLICY_SUFFIX = "frame-src 'self' blob: https:; "
+    private const string REPORT_ONLY_ADMIN_POLICY_SUFFIX = "frame-src 'self' blob: https:; "
         . "img-src 'self' data: blob: https:; "
         . "media-src 'self' blob: https:; "
         . "object-src 'none'; "
@@ -49,19 +69,27 @@ final class ContentSecurityPolicy
 
     public const string POLICY = self::POLICY_PREFIX
         . "frame-ancestors 'self'; "
-        . self::ENFORCED_POLICY_SUFFIX;
+        . self::ENFORCED_PUBLIC_POLICY_SUFFIX;
 
     public const string ADMIN_POLICY = self::POLICY_PREFIX
         . "frame-ancestors 'none'; "
-        . self::ENFORCED_POLICY_SUFFIX;
+        . self::ENFORCED_ADMIN_POLICY_SUFFIX;
+
+    public const string EMBEDDED_ADMIN_POLICY = self::POLICY_PREFIX
+        . "frame-ancestors 'self'; "
+        . self::ENFORCED_ADMIN_POLICY_SUFFIX;
 
     public const string REPORT_ONLY_POLICY = self::POLICY_PREFIX
         . "frame-ancestors 'self'; "
-        . self::REPORT_ONLY_POLICY_SUFFIX;
+        . self::REPORT_ONLY_PUBLIC_POLICY_SUFFIX;
 
     public const string ADMIN_REPORT_ONLY_POLICY = self::POLICY_PREFIX
         . "frame-ancestors 'none'; "
-        . self::REPORT_ONLY_POLICY_SUFFIX;
+        . self::REPORT_ONLY_ADMIN_POLICY_SUFFIX;
+
+    public const string EMBEDDED_ADMIN_REPORT_ONLY_POLICY = self::POLICY_PREFIX
+        . "frame-ancestors 'self'; "
+        . self::REPORT_ONLY_ADMIN_POLICY_SUFFIX;
 
     public static function generateScriptNonce(): string
     {
@@ -86,7 +114,12 @@ final class ContentSecurityPolicy
 
     public static function applyToEmbeddedAdmin(Response $response, string $reportUri = ''): void
     {
-        self::applyHeaders($response, self::POLICY, self::REPORT_ONLY_POLICY, $reportUri);
+        self::applyHeaders(
+            $response,
+            self::EMBEDDED_ADMIN_POLICY,
+            self::EMBEDDED_ADMIN_REPORT_ONLY_POLICY,
+            $reportUri,
+        );
         $response->headers->set('Cache-Control', 'no-store, private');
     }
 

@@ -34,6 +34,7 @@ HTML);
         self::assertStringNotContainsString('<img', $stored);
         self::assertStringNotContainsString('<script', $stored);
         self::assertStringNotContainsString('javascript:', $stored);
+        self::assertStringNotContainsString('style=', $stored);
     }
 
     public function testParserRepairsMalformedHtmlBeforeItIsRendered(): void
