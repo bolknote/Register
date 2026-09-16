@@ -33,6 +33,7 @@
     let lastActivityAt = 0;
     let activeMilliseconds = 0;
     let maximumScrollDepth = 0;
+    let reportedScrollDepth = 0;
     let navigationReferrer = '';
     let vitalsSent = false;
     let largestContentfulPaint = null;
@@ -295,16 +296,16 @@
         updateScrollDepth();
         const milliseconds = Math.min(300000, Math.round(activeMilliseconds));
         const scrollDepth = maximumScrollDepth;
-        activeMilliseconds = 0;
-        maximumScrollDepth = 0;
         const now = performance.now();
         if (document.visibilityState === 'visible' && now <= lastActivityAt + idleMilliseconds) {
             visibleSince = now;
         }
-        if (pageViewId === '' || (milliseconds < 1000 && scrollDepth === 0)) {
+        if (pageViewId === '' || (milliseconds < 1000 && scrollDepth <= reportedScrollDepth)) {
             return Promise.resolve(false);
         }
 
+        activeMilliseconds = 0;
+        reportedScrollDepth = Math.max(reportedScrollDepth, scrollDepth);
         const event = baseEvent('engagement');
         event.engagement_ms = milliseconds;
         event.scroll_depth = scrollDepth;
@@ -396,6 +397,7 @@
         interactionToNextPaint = null;
         activeMilliseconds = 0;
         maximumScrollDepth = 0;
+        reportedScrollDepth = 0;
         lastActivityAt = performance.now();
         visibleSince = document.visibilityState === 'visible' ? lastActivityAt : null;
         updateScrollDepth();

@@ -91,6 +91,12 @@ final readonly class QueueConsumer
             }
 
             $this->deferForBudget($jobId, $jobCode, $generation, $now, $exception);
+        } catch (QueueDeferredUntil $exception) {
+            if (!$hadTransaction && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            $this->deferUntil($jobId, $jobCode, $generation, $now, $exception);
         } catch (QueuePermanentFailure $throwable) {
             if (!$hadTransaction && $this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -148,6 +154,43 @@ final readonly class QueueConsumer
             $this->logger->notice('Queue item was deferred because the execution budget was exhausted.', $context);
         } else {
             $this->logger->notice('Queue item exhausted its budget, but a newer generation is already available.', $context);
+        }
+    }
+
+    private function deferUntil(
+        string             $id,
+        string             $code,
+        int                $generation,
+        int                $now,
+        QueueDeferredUntil $exception,
+    ): void {
+        $availableAt = max($now + 1, $exception->availableAt);
+        $statement   = $this->pdo->prepare(
+            'UPDATE ' . $this->dbPrefix . 'queue SET updated_at = :updated_at, available_at = :available_at '
+            . 'WHERE id = :id AND code = :code AND generation = :generation'
+        );
+        if ($statement === false) {
+            throw new \RuntimeException('Unable to prepare the explicit queue deferral query.', 0, $exception);
+        }
+
+        $statement->execute([
+            'updated_at'   => $now,
+            'available_at' => $availableAt,
+            'id'           => $id,
+            'code'         => $code,
+            'generation'   => $generation,
+        ]);
+
+        $context = [
+            'id'           => $id,
+            'code'         => $code,
+            'generation'   => $generation,
+            'available_at' => $availableAt,
+        ];
+        if ($statement->rowCount() === 1) {
+            $this->logger->notice('Queue item was deferred until its requested time.', $context);
+        } else {
+            $this->logger->notice('Queue item requested a delay, but a newer generation is already available.', $context);
         }
     }
 

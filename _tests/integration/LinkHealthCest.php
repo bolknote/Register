@@ -44,6 +44,7 @@ use Register\Core\Config\DynamicConfigProvider;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Queue\BackgroundWorkRunner;
 use Register\Core\Queue\QueueConsumer;
+use Register\Core\Queue\QueueDeferredUntil;
 use Register\Core\Queue\QueueExecutionBudget;
 use Register\Core\Queue\QueueHandlerRegistry;
 use Register\Core\Queue\QueuePublisher;
@@ -812,21 +813,19 @@ final class LinkHealthCest
             $firstPayload,
             new QueueExecutionBudget(5.0),
         );
-        $handler->handle(
-            LinkQueue::targetJobId($secondTargetId),
-            LinkQueue::ARCHIVE_CODE,
-            $secondPayload,
-            new QueueExecutionBudget(5.0),
-        );
+        try {
+            $handler->handle(
+                LinkQueue::targetJobId($secondTargetId),
+                LinkQueue::ARCHIVE_CODE,
+                $secondPayload,
+                new QueueExecutionBudget(5.0),
+            );
+            $I->fail('A throttled Wayback lookup must request a durable deferral.');
+        } catch (QueueDeferredUntil $exception) {
+            $I->assertSame($now + WaybackRequestThrottle::INTERVAL_SECONDS, $exception->availableAt);
+        }
 
         $I->assertSame(1, $waybackClient->lookups);
-        $deferredJob = $dbLayer->select('available_at')
-            ->from('queue')
-            ->where('id = :id')->setParameter('id', LinkQueue::targetJobId($secondTargetId))
-            ->andWhere('code = :code')->setParameter('code', LinkQueue::ARCHIVE_CODE)
-            ->execute()->fetchAssoc();
-        $I->assertIsArray($deferredJob);
-        $I->assertSame($now + WaybackRequestThrottle::INTERVAL_SECONDS, (int)$deferredJob['available_at']);
 
         $laterHandler = new LinkArchiveQueueHandler(
             $healthRepository,
@@ -927,7 +926,8 @@ final class LinkHealthCest
             ->where('service = :service')->setParameter('service', WaybackRequestThrottle::SERVICE)
             ->execute();
 
-        $now = 1_800_000_000;
+        $now   = 1_800_000_000;
+        $clock = $now;
         /** @var LinkHealthRepository $repository */
         $repository = $I->grabService(LinkHealthRepository::class);
         /** @var WaybackRequestThrottle $throttle */
@@ -938,32 +938,66 @@ final class LinkHealthCest
         $publisher = $I->grabService(QueuePublisher::class);
         /** @var DynamicConfigProvider $configProvider */
         $configProvider = $I->grabService(DynamicConfigProvider::class);
+        $waybackClient = new RateLimitedWaybackClient();
         $handler = new LinkArchiveQueueHandler(
             $repository,
-            new RateLimitedWaybackClient(),
+            $waybackClient,
             $throttle,
             $recorder,
             $publisher,
             $configProvider->getBoolProxy(Manifest::AUTO_REPAIR_CONFIG_KEY),
-            static fn(): int => $now,
+            static function () use (&$clock): int {
+                return $clock;
+            },
         );
+        /** @var \PDO $pdo */
+        $pdo = $I->grabService(\PDO::class);
+        $pdo->exec('DELETE FROM queue');
 
-        try {
-            $handler->handle(
-                LinkQueue::targetJobId($targetId),
-                LinkQueue::ARCHIVE_CODE,
-                LinkQueue::archivePayload($targetId),
-                new QueueExecutionBudget(5.0),
-            );
-            $I->fail('A rate-limited archive lookup must fail.');
-        } catch (WaybackRequestException $exception) {
-            $I->assertSame(429, $exception->statusCode);
-        }
-
-        $I->assertSame(
-            $now + WaybackRequestThrottle::RATE_LIMIT_BACKOFF_SECONDS,
-            $throttle->claim($now + WaybackRequestThrottle::INTERVAL_SECONDS),
+        $publisher->publish(
+            LinkQueue::targetJobId($targetId),
+            LinkQueue::ARCHIVE_CODE,
+            LinkQueue::archivePayload($targetId),
+            $now,
         );
+        $consumer = new QueueConsumer($pdo, '', new NullLogger(), new QueueHandlerRegistry($handler));
+
+        $I->assertTrue($consumer->runQueue($now, new QueueExecutionBudget(5.0)));
+        $job = $dbLayer->select('generation, attempts, available_at, last_error')->from('queue')
+            ->where('id = :id')->setParameter('id', LinkQueue::targetJobId($targetId))
+            ->andWhere('code = :code')->setParameter('code', LinkQueue::ARCHIVE_CODE)
+            ->execute()->fetchAssoc();
+        $I->assertIsArray($job);
+        $I->assertSame(1, (int)$job['generation']);
+        $I->assertSame(1, (int)$job['attempts']);
+        $I->assertSame($now + 30, (int)$job['available_at']);
+        $I->assertStringContainsString('HTTP 429', (string)$job['last_error']);
+        $I->assertSame(1, $waybackClient->lookups);
+
+        $clock = $now + 30;
+        $I->assertTrue($consumer->runQueue($clock, new QueueExecutionBudget(5.0)));
+        $deferred = $dbLayer->select('generation, attempts, available_at, last_error')->from('queue')
+            ->where('id = :id')->setParameter('id', LinkQueue::targetJobId($targetId))
+            ->andWhere('code = :code')->setParameter('code', LinkQueue::ARCHIVE_CODE)
+            ->execute()->fetchAssoc();
+        $I->assertIsArray($deferred);
+        $I->assertSame(1, (int)$deferred['generation']);
+        $I->assertSame(1, (int)$deferred['attempts']);
+        $I->assertSame($now + WaybackRequestThrottle::RATE_LIMIT_BACKOFF_SECONDS, (int)$deferred['available_at']);
+        $I->assertSame($job['last_error'], $deferred['last_error']);
+        $I->assertSame(1, $waybackClient->lookups);
+
+        $clock = $now + WaybackRequestThrottle::RATE_LIMIT_BACKOFF_SECONDS;
+        $I->assertTrue($consumer->runQueue($clock, new QueueExecutionBudget(5.0)));
+        $retried = $dbLayer->select('generation, attempts, available_at')->from('queue')
+            ->where('id = :id')->setParameter('id', LinkQueue::targetJobId($targetId))
+            ->andWhere('code = :code')->setParameter('code', LinkQueue::ARCHIVE_CODE)
+            ->execute()->fetchAssoc();
+        $I->assertIsArray($retried);
+        $I->assertSame(1, (int)$retried['generation']);
+        $I->assertSame(2, (int)$retried['attempts']);
+        $I->assertSame($clock + 60, (int)$retried['available_at']);
+        $I->assertSame(2, $waybackClient->lookups);
         $I->assertSame(
             'error',
             $dbLayer->select('archive_status')->from(Manifest::TARGET_TABLE)
@@ -1279,9 +1313,12 @@ final class CountingWaybackClient implements WaybackClientInterface
 /** @internal */
 final class RateLimitedWaybackClient implements WaybackClientInterface
 {
+    public int $lookups = 0;
+
     #[\Override]
     public function lookup(string $url, int $referenceTime): ArchiveLookupResult
     {
+        ++$this->lookups;
         throw new WaybackRequestException(429);
     }
 }

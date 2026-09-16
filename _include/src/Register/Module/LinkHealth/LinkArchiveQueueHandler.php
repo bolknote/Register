@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\LinkHealth;
 
 use Register\Core\Config\BoolProxy;
+use Register\Core\Queue\QueueDeferredUntil;
 use Register\Core\Queue\QueueExecutionBudget;
 use Register\Core\Queue\QueueHandlerInterface;
 use Register\Core\Queue\QueuePublisher;
@@ -99,8 +100,7 @@ final readonly class LinkArchiveQueueHandler implements QueueHandlerInterface
         $now     = ($this->clock)();
         $retryAt = $this->requestThrottle->claim($now);
         if ($retryAt !== null) {
-            $this->queuePublisher->publish($id, $code, $payload, $retryAt);
-            return;
+            throw new QueueDeferredUntil($retryAt);
         }
 
         try {

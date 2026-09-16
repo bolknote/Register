@@ -15,6 +15,14 @@ test('collector waits for visitor identity and ignores browser privacy signals',
     const storage = new Map();
     let randomByte = 0;
     let identityCalls = 0;
+    let heartbeat = null;
+    const content = {
+        getBoundingClientRect() {
+            return {height: 1000, top: 0};
+        },
+        innerText: '',
+        scrollHeight: 1000,
+    };
     const document = {
         body: {scrollHeight: 1000},
         documentElement: {scrollHeight: 1000},
@@ -28,9 +36,10 @@ test('collector waits for visitor identity and ignores browser privacy signals',
             listeners.set(type, registered);
         },
         querySelector(selector) {
-            return selector === 'meta[name="register-analytics"]'
-                ? {dataset: {collectUrl: '/_analytics/collect'}}
-                : null;
+            if (selector === 'meta[name="register-analytics"]') {
+                return {dataset: {collectUrl: '/_analytics/collect'}};
+            }
+            return selector === '#content' ? content : null;
         }
     };
     const location = {
@@ -46,7 +55,10 @@ test('collector waits for visitor identity and ignores browser privacy signals',
         innerHeight: 800,
         location,
         scrollY: 0,
-        setInterval() { return 1; }
+        setInterval(callback) {
+            heartbeat = callback;
+            return 1;
+        }
     };
     class PerformanceObserver {
         static supportedEntryTypes = ['largest-contentful-paint', 'layout-shift', 'event'];
@@ -127,6 +139,18 @@ test('collector waits for visitor identity and ignores browser privacy signals',
     assert.match(presence.sessionId, /^[a-f0-9]{32}$/);
     assert.equal(presence.path, '/post');
     assert.equal(presence.title, 'Example');
+    assert.equal(typeof heartbeat, 'function');
+
+    heartbeat();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(beacons.length, 2);
+    const engagementPayload = JSON.parse(await beacons[1].body.text());
+    assert.equal(engagementPayload.events[0].type, 'engagement');
+    assert.equal(engagementPayload.events[0].scroll_depth, 80);
+
+    heartbeat();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(beacons.length, 2, 'an idle heartbeat must not repeat an unchanged scroll depth');
 
     document.visibilityState = 'hidden';
     for (const listener of listeners.get('visibilitychange') || []) {
@@ -135,8 +159,8 @@ test('collector waits for visitor identity and ignores browser privacy signals',
     await new Promise((resolve) => setImmediate(resolve));
 
     assert.equal(performanceObservers.has('layout-shift'), true);
-    assert.equal(beacons.length, 2);
-    const vitalsPayload = JSON.parse(await beacons[1].body.text());
+    assert.equal(beacons.length, 3);
+    const vitalsPayload = JSON.parse(await beacons[2].body.text());
     assert.equal(vitalsPayload.events[0].name, 'web_vitals');
     assert.deepEqual(vitalsPayload.events[0].properties, {cls_milli: 0, nav_type: 'other'});
 });

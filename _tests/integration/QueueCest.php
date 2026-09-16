@@ -21,6 +21,7 @@ use Register\Core\Comment\Antispam\SpamMaintenanceQueueHandler;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Queue\BackgroundWorkRunner;
 use Register\Core\Queue\QueueConsumer;
+use Register\Core\Queue\QueueDeferredUntil;
 use Register\Core\Queue\QueueExecutionBudget;
 use Register\Core\Queue\QueueHandlerInterface;
 use Register\Core\Queue\QueueHandlerRegistry;
@@ -292,6 +293,36 @@ final class QueueCest
         $I->assertSame(0, (int)$row['attempts']);
         $I->assertSame($now + 1, (int)$row['available_at']);
         $I->assertNull($row['last_error']);
+    }
+
+    public function requestedDeferralPreservesGenerationAndRetryState(IntegrationTester $I): void
+    {
+        $pdo       = $this->pdo($I);
+        $publisher = new QueuePublisher($pdo, '');
+        $handler   = new QueueTestHandler();
+        $now       = time();
+        $resumeAt  = $now + 300;
+        $handler->callback = static function () use ($resumeAt): never {
+            throw new QueueDeferredUntil($resumeAt);
+        };
+        $consumer = $this->consumer($pdo, $handler);
+        $publisher->publish('deferred', 'test', availableAt: $now);
+        $pdo->exec(
+            "UPDATE queue SET attempts = 2, last_error = 'keep-me' "
+            . "WHERE id = 'deferred' AND code = 'test'"
+        );
+
+        $I->assertTrue($consumer->runQueue($now, new QueueExecutionBudget(5.0)));
+        $row = $this->job($pdo, 'deferred', 'test');
+        $I->assertSame(1, (int)$row['generation']);
+        $I->assertSame(2, (int)$row['attempts']);
+        $I->assertSame('keep-me', $row['last_error']);
+        $I->assertSame($resumeAt, (int)$row['available_at']);
+        $I->assertFalse($consumer->runQueue($resumeAt - 1));
+
+        $handler->callback = null;
+        $I->assertTrue($consumer->runQueue($resumeAt));
+        $I->assertFalse($this->findJob($pdo, 'deferred', 'test'));
     }
 
     public function insufficientBudgetDoesNotStartOrMutateJob(IntegrationTester $I): void
