@@ -105,6 +105,7 @@ final class LiveUpdatesCest
             $I->assertIsInt($cause);
             $I->assertGreaterThan($cursor, $cause);
         }
+
         $I->assertSame($payload['cursor'], $payload['causes']['posts:0'][array_key_last($payload['causes']['posts:0'])]);
         $I->assertStringContainsString('data-live-region="posts:0"', $payload['patches']['posts:0']);
         $I->assertStringContainsString(
