@@ -362,6 +362,8 @@ final class PostInplaceCest
         $I->assertTrue($payload['success']);
         $I->assertSame('edit', $payload['action']);
         $I->assertSame(2, $payload['revision']);
+        $I->assertSame($updates->currentCursor(), $payload['live_cursor']);
+        $I->assertGreaterThan($cursor, $payload['live_cursor']);
         $I->assertStringContainsString('data-post-inplace-body', $payload['body_html']);
         $I->assertStringContainsString('<strong>without a reload</strong>', $payload['body_html']);
         $I->assertStringContainsString('<tt>a - b...</tt>', $payload['body_html']);
@@ -405,6 +407,8 @@ final class PostInplaceCest
 
         $tagPayload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertSame(3, $tagPayload['revision']);
+        $I->assertSame($updates->currentCursor(), $tagPayload['live_cursor']);
+        $I->assertGreaterThan($tagCursor, $tagPayload['live_cursor']);
         $I->assertSame([], $tagPayload['tags']);
         $I->assertSame([], $tags->findForContent([$contentId])[(string)$contentId]);
         $I->assertGreaterThan($tagCursor, $updates->currentCursor());
@@ -540,6 +544,8 @@ final class PostInplaceCest
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
+        /** @var LiveUpdateRepository $updates */
+        $updates = $I->grabService(LiveUpdateRepository::class);
         $authorId = $this->userId($dbLayer, 'author');
 
         $I->login('author', 'author');
@@ -559,6 +565,7 @@ final class PostInplaceCest
         );
         $token = (string)$I->grabAttributeFrom($formSelector . ' input[name="inplace_token"]', 'value');
         $publishedAt = time() - 3600;
+        $cursor = $updates->currentCursor();
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
             'inplace_action' => 'create',
             'inplace_token'  => $token,
@@ -573,6 +580,8 @@ final class PostInplaceCest
         $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertSame('create', $payload['action']);
         $I->assertGreaterThan(0, $payload['id']);
+        $I->assertSame($updates->currentCursor(), $payload['live_cursor']);
+        $I->assertGreaterThan($cursor, $payload['live_cursor']);
         $I->assertSame($publishedAt, $payload['published_at']);
         $I->assertStringStartsWith('/', $payload['url']);
 
@@ -1159,6 +1168,8 @@ final class PostInplaceCest
         $I->assertIsArray($payload);
         $I->assertTrue($payload['success']);
         $I->assertSame('delete', $payload['action']);
+        $I->assertSame($updates->currentCursor(), $payload['live_cursor']);
+        $I->assertGreaterThan($cursor, $payload['live_cursor']);
 
         $I->assertSame(0, (int)$dbLayer
             ->select('COUNT(*)')

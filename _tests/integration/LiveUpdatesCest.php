@@ -97,6 +97,15 @@ final class LiveUpdatesCest
         $I->assertFalse($payload['more']);
         $I->assertArrayHasKey('posts:0', $payload['patches']);
         $I->assertArrayHasKey('comments:post:' . $postId, $payload['patches']);
+        $I->assertArrayHasKey('posts:0', $payload['causes']);
+        $I->assertArrayHasKey('comments:post:' . $postId, $payload['causes']);
+        $I->assertSame($payload['causes']['posts:0'], $payload['causes']['comments:post:' . $postId]);
+        $I->assertNotEmpty($payload['causes']['posts:0']);
+        foreach ($payload['causes']['posts:0'] as $cause) {
+            $I->assertIsInt($cause);
+            $I->assertGreaterThan($cursor, $cause);
+        }
+        $I->assertSame($payload['cursor'], $payload['causes']['posts:0'][array_key_last($payload['causes']['posts:0'])]);
         $I->assertStringContainsString('data-live-region="posts:0"', $payload['patches']['posts:0']);
         $I->assertStringContainsString(
             'Comment delivered without a reload',

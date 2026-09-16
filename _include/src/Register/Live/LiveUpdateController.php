@@ -60,15 +60,18 @@ final readonly class LiveUpdateController implements ControllerInterface
 
         $nextCursor = $updates === [] ? $cursor : $updates[\count($updates) - 1]->cursor;
         $patches     = [];
+        $causes      = [];
 
         foreach ($regions as $region) {
-            if (!$this->regionChanged($region, $updates)) {
+            $regionCauses = $this->regionChangeCursors($region, $updates);
+            if ($regionCauses === []) {
                 continue;
             }
 
             $patches[$region] = $this->fragmentRenderer->render(
                 $this->renderRegion($region, $request),
             );
+            $causes[$region] = $regionCauses;
         }
 
         $this->eventDispatcher->dispatch(new LiveUpdatePolledEvent($request, time()));
@@ -76,6 +79,7 @@ final readonly class LiveUpdateController implements ControllerInterface
         $response = new JsonResponse([
             'cursor'  => $nextCursor,
             'patches' => $patches === [] ? new \stdClass() : $patches,
+            'causes'  => $causes === [] ? new \stdClass() : $causes,
             'more'    => $more,
         ]);
         $response->headers->set('Cache-Control', 'no-store, private');
@@ -127,37 +131,41 @@ final readonly class LiveUpdateController implements ControllerInterface
             || $region === 'site-account';
     }
 
-    /** @param list<LiveUpdate> $updates */
-    private function regionChanged(string $region, array $updates): bool
+    /**
+     * @param list<LiveUpdate> $updates
+     * @return list<int>
+     */
+    private function regionChangeCursors(string $region, array $updates): array
     {
+        $cursors = [];
         if ($region === 'site-account') {
             foreach ($updates as $update) {
                 if ($update->topic === LiveUpdateRepository::TOPIC_COMMENTS) {
-                    return true;
+                    $cursors[] = $update->cursor;
                 }
             }
 
-            return false;
+            return $cursors;
         }
 
         if (str_starts_with($region, 'posts:')) {
             foreach ($updates as $update) {
                 if ($update->contentId->type === ContentType::POST) {
-                    return true;
+                    $cursors[] = $update->cursor;
                 }
             }
 
-            return false;
+            return $cursors;
         }
 
         $contentId = ContentId::fromString(substr($region, \strlen('comments:')));
         foreach ($updates as $update) {
             if ($update->contentId->equals($contentId)) {
-                return true;
+                $cursors[] = $update->cursor;
             }
         }
 
-        return false;
+        return $cursors;
     }
 
     private function renderRegion(string $region, Request $request): string

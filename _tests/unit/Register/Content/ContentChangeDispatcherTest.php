@@ -24,9 +24,13 @@ final class ContentChangeDispatcherTest extends Unit
     {
         $collector  = new ChangedContentCollector();
         $dispatcher = $this->createDispatcher($collector);
-        $dispatcher->dispatch(ContentId::post(5), ContentId::post(5), ContentId::page(4));
+        $cursors = $dispatcher->dispatch(ContentId::post(5), ContentId::post(5), ContentId::page(4));
 
         self::assertSame(['post:5', 'page:4'], $collector->all());
+        self::assertSame(['post:5', 'page:4'], array_keys($cursors));
+        self::assertCount(2, array_unique($cursors));
+        self::assertGreaterThan(0, $cursors['post:5']);
+        self::assertGreaterThan($cursors['post:5'], $cursors['page:4']);
     }
 
     public function testCapturesAndDispatchesPageBranch(): void

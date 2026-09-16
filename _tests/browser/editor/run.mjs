@@ -8,7 +8,7 @@ try {
     for (const engine of [chromium, firefox]) {
         const browser = await engine.launch();
         try {
-            for (const fixture of ['/', '/comment.html']) {
+            for (const fixture of ['/', '/comment.html', '/live.html']) {
                 const page = await browser.newPage();
                 const errors = [];
                 page.on('pageerror', error => errors.push(String(error)));

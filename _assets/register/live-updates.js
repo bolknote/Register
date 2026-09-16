@@ -4,6 +4,7 @@
     const pollInterval = 15000;
     const maximumRetryInterval = 60000;
     const pendingPatches = new Map();
+    const locallyAppliedCursors = new Set();
     let endpoint = '';
     let cursor = 0;
     let regions = [];
@@ -78,14 +79,44 @@
         }
     }
 
-    function applyPatch(name, html) {
+    function normalizeCauses(value) {
+        if (
+            !Array.isArray(value)
+            || value.length === 0
+            || value.some((cause) => !Number.isSafeInteger(cause) || cause <= 0)
+        ) {
+            return null;
+        }
+
+        return Array.from(new Set(value));
+    }
+
+    function mergeCauses(previous, next) {
+        if (!Array.isArray(previous) || !Array.isArray(next)) {
+            return null;
+        }
+
+        return Array.from(new Set([...previous, ...next]));
+    }
+
+    function wasAppliedLocally(patch) {
+        return Array.isArray(patch.causes)
+            && patch.causes.length > 0
+            && patch.causes.every((cause) => locallyAppliedCursors.has(cause));
+    }
+
+    function applyPatch(name, patch) {
+        if (wasAppliedLocally(patch)) {
+            return true;
+        }
+
         const current = findRegion(name);
         if (!current || isLocked(current)) {
             return false;
         }
 
         const template = document.createElement('template');
-        template.innerHTML = html;
+        template.innerHTML = patch.html;
         const replacement = findRegion(name, template.content);
         if (!replacement) {
             return false;
@@ -99,12 +130,27 @@
         return true;
     }
 
+    function forgetConsumedLocalCursors() {
+        const pendingCauses = new Set();
+        for (const patch of pendingPatches.values()) {
+            if (Array.isArray(patch.causes)) {
+                patch.causes.forEach((cause) => pendingCauses.add(cause));
+            }
+        }
+        for (const appliedCursor of locallyAppliedCursors) {
+            if (appliedCursor <= cursor && !pendingCauses.has(appliedCursor)) {
+                locallyAppliedCursors.delete(appliedCursor);
+            }
+        }
+    }
+
     function applyPendingPatches() {
-        for (const [name, html] of pendingPatches) {
-            if (applyPatch(name, html)) {
+        for (const [name, patch] of pendingPatches) {
+            if (applyPatch(name, patch)) {
                 pendingPatches.delete(name);
             }
         }
+        forgetConsumedLocalCursors();
     }
 
     function schedule(delay) {
@@ -125,6 +171,7 @@
         retryCount = 0;
         refreshRequested = false;
         pendingPatches.clear();
+        locallyAppliedCursors.clear();
     }
 
     function readConfiguration() {
@@ -230,7 +277,12 @@
             cursor = payload.cursor;
             for (const [name, html] of Object.entries(payload.patches)) {
                 if (regions.includes(name) && typeof html === 'string') {
-                    pendingPatches.set(name, html);
+                    const causes = normalizeCauses(payload.causes?.[name]);
+                    const previous = pendingPatches.get(name);
+                    pendingPatches.set(name, {
+                        html,
+                        causes: previous ? mergeCauses(previous.causes, causes) : causes,
+                    });
                 }
             }
             applyPendingPatches();
@@ -252,6 +304,21 @@
                 schedule(refreshRequested ? 0 : nextDelay);
             }
         }
+    }
+
+    function acknowledge(appliedCursor) {
+        if (!enabled || !Number.isSafeInteger(appliedCursor) || appliedCursor <= 0) {
+            return false;
+        }
+
+        locallyAppliedCursors.add(appliedCursor);
+        refreshRequested = true;
+        applyPendingPatches();
+        if (!inFlight) {
+            schedule(0);
+        }
+
+        return true;
     }
 
     document.addEventListener('visibilitychange', () => {
@@ -289,6 +356,9 @@
         }
     });
 
-    window.RegisterLiveUpdates = Object.freeze({reconfigure: configure});
+    window.RegisterLiveUpdates = Object.freeze({
+        reconfigure: configure,
+        acknowledge,
+    });
     configure(1000);
 })();

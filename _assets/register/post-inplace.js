@@ -270,6 +270,12 @@
         document.dispatchEvent(new CustomEvent('register:live-refresh'));
     }
 
+    function acknowledgeLiveMutation(payload) {
+        return Number.isSafeInteger(payload?.live_cursor)
+            && payload.live_cursor > 0
+            && window.RegisterLiveUpdates?.acknowledge?.(payload.live_cursor) === true;
+    }
+
     function editErrorFor(card) {
         return card?.querySelector(':scope > .post-inplace-edit-error') || null;
     }
@@ -3574,8 +3580,11 @@
             status.textContent = payload.message;
             status.hidden = false;
         }
+        const acknowledged = acknowledgeLiveMutation(payload);
         unlock();
-        refresh();
+        if (!acknowledged) {
+            refresh();
+        }
         postToolsFocusTarget(card, '.post-edit-start')?.focus();
         if (payload.url_changed === true && typeof payload.url === 'string') {
             window.location.assign(payload.url);
@@ -3625,6 +3634,7 @@
     }
 
     function removeDeletedCard(card, payload) {
+        const acknowledged = acknowledgeLiveMutation(payload);
         const recoveryStore = postRecoveryStore();
         recoveryStore?.list(card.dataset.postId).forEach(record => recoveryStore.remove(record));
         closeConfirmation(card, false);
@@ -3635,7 +3645,9 @@
                 || postToolsFocusTarget(card.previousElementSibling, '.post-edit-start')
                 || feed;
             card.remove();
-            refresh();
+            if (!acknowledged) {
+                refresh();
+            }
             if (focusTarget instanceof HTMLElement) {
                 if (focusTarget === feed) {
                     focusTarget.tabIndex = -1;
@@ -3660,7 +3672,9 @@
         }
         card.replaceWith(notice);
         document.querySelectorAll('.comments-section, .comment-form-block').forEach((section) => section.remove());
-        refresh();
+        if (!acknowledged) {
+            refresh();
+        }
         notice.focus();
     }
 

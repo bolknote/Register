@@ -29,12 +29,18 @@ final class ContentChangeDispatcher implements StatefulServiceInterface
     ) {
     }
 
-    public function dispatch(ContentId ...$contentIds): void
+    /**
+     * @return array<string, int> Published live-update cursors indexed by content ID.
+     */
+    public function dispatch(ContentId ...$contentIds): array
     {
+        $cursors = [];
         foreach ($this->unique($contentIds) as $contentId) {
-            $this->liveUpdateRepository->publishContent($contentId);
+            $cursors[(string)$contentId] = $this->liveUpdateRepository->publishContent($contentId);
             $this->eventDispatcher->dispatch(new ContentChangedEvent($contentId));
         }
+
+        return $cursors;
     }
 
     public function dispatchPageBranch(int $rootId): void

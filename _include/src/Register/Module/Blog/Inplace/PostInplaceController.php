@@ -607,9 +607,10 @@ final readonly class PostInplaceController implements ControllerInterface
         $dateChanged = $publishedAt !== $storedPublishedAt;
         $scheduleChanged = $scheduled !== $storedScheduled;
         $orphanMedia = [];
+        $liveCursor = null;
         if ($revision->contentChanged) {
             try {
-                $write = function () use ($request, $contentId, $postId, $title, $slug, $metadata, $body, $publishedAt, $scheduled, $isDraft, $dateChanged, $scheduleChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia): bool {
+                $write = function () use ($request, $contentId, $postId, $title, $slug, $metadata, $body, $publishedAt, $scheduled, $isDraft, $dateChanged, $scheduleChanged, $tagNames, $tagsChanged, $revision, $submittedRevision, $editor, &$orphanMedia, &$liveCursor): bool {
                     $update = $this->dbLayer
                         ->update(ContentSchema::TABLE_NAME)
                         ->set('title', ':title')->setParameter('title', $title)
@@ -664,7 +665,7 @@ final readonly class PostInplaceController implements ControllerInterface
                         $editor->id,
                     );
 
-                    $this->changeDispatcher->dispatch($contentId);
+                    $liveCursor = $this->changeDispatcher->dispatch($contentId)[(string)$contentId];
 
                     return true;
                 };
@@ -700,6 +701,7 @@ final readonly class PostInplaceController implements ControllerInterface
         return $this->json([
             'success'   => true,
             'action'    => 'edit',
+            'live_cursor' => $liveCursor,
             'slug'      => $slug,
             'url'       => $this->contentUrlGenerator->post($slug),
             'url_changed' => $slugChanged,
@@ -752,7 +754,8 @@ final readonly class PostInplaceController implements ControllerInterface
         $postId      = 0;
         $slug        = '';
         $orphanMedia = [];
-        $write = function () use ($request, $editor, $title, $metadata, $body, $publishedAt, $scheduled, $tagNames, &$postId, &$slug, &$orphanMedia): bool {
+        $liveCursor  = null;
+        $write = function () use ($request, $editor, $title, $metadata, $body, $publishedAt, $scheduled, $tagNames, &$postId, &$slug, &$orphanMedia, &$liveCursor): bool {
             $now  = time();
             $slug = $this->contentSlugService->generatePost($title);
             $values = [
@@ -807,7 +810,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 $this->mediaIds($request->request->getString('uploaded_media_ids')),
                 $editor->id,
             );
-            $this->changeDispatcher->dispatch($contentId);
+            $liveCursor = $this->changeDispatcher->dispatch($contentId)[(string)$contentId];
 
             return true;
         };
@@ -833,6 +836,7 @@ final readonly class PostInplaceController implements ControllerInterface
         return $this->json([
             'success'        => true,
             'action'         => 'create',
+            'live_cursor'    => $liveCursor,
             'id'             => $postId,
             'url'            => $url,
             'action_url'     => $controls['action_url'],
@@ -911,7 +915,8 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         $orphanMedia = [];
-        $deleted = $this->transactional(function () use ($contentId, $postId, $submittedRevision, &$orphanMedia): bool {
+        $liveCursor = null;
+        $deleted = $this->transactional(function () use ($contentId, $postId, $submittedRevision, &$orphanMedia, &$liveCursor): bool {
             $this->tagRepository->remove($contentId);
             $this->commentRepository->removeForContent($contentId);
             $orphanMedia = $this->mediaRepository->releasePost($postId);
@@ -927,7 +932,7 @@ final readonly class PostInplaceController implements ControllerInterface
                 return false;
             }
 
-            $this->changeDispatcher->dispatch($contentId);
+            $liveCursor = $this->changeDispatcher->dispatch($contentId)[(string)$contentId];
 
             return true;
         });
@@ -944,6 +949,7 @@ final readonly class PostInplaceController implements ControllerInterface
         return $this->json([
             'success'  => true,
             'action'   => 'delete',
+            'live_cursor' => $liveCursor,
             'redirect' => $this->blogUrlBuilder->main(),
             'message'  => $this->translator->trans('Post deleted'),
         ]);

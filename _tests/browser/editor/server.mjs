@@ -44,11 +44,18 @@ export function createFixtureServer() {
                 }());`));
                 return;
             }
+            if (request.url === '/live-updates.js') {
+                response.setHeader('Content-Type', 'text/javascript');
+                response.end(await readFile(new URL('../../../_assets/register/live-updates.js', import.meta.url), 'utf8'));
+                return;
+            }
             const files = new Map([
                 ['/', ['index.html', 'text/html; charset=utf-8']],
                 ['/cases.js', ['cases.js', 'text/javascript']],
                 ['/comment.html', ['comment.html', 'text/html; charset=utf-8']],
                 ['/comment-cases.js', ['comment-cases.js', 'text/javascript']],
+                ['/live.html', ['live.html', 'text/html; charset=utf-8']],
+                ['/live-cases.js', ['live-cases.js', 'text/javascript']],
                 ['/recovery.html', ['recovery.html', 'text/html; charset=utf-8']],
                 ['/recovery-fixture.js', ['recovery-fixture.js', 'text/javascript']],
                 ['/recovery-fixture.css', ['recovery-fixture.css', 'text/css']],
