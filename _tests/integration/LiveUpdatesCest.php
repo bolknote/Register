@@ -18,6 +18,7 @@ use Register\Content\ContentType;
 use Register\Core\Model\AuthenticatedPublicUser;
 use Register\Live\LiveUpdateRepository;
 use Register\Core\Pdo\DbLayer;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 final class LiveUpdatesCest
@@ -101,6 +102,38 @@ final class LiveUpdatesCest
             'Comment delivered without a reload',
             $payload['patches']['comments:post:' . $postId],
         );
+    }
+
+    public function translatesPostPatchesWithoutRenderingABlogPageFirst(\IntegrationTester $I): void
+    {
+        $I->setConfigValue('REGISTER_LANGUAGE', 'Russian');
+
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var LiveUpdateRepository $updates */
+        $updates = $I->grabService(LiveUpdateRepository::class);
+
+        $postId = $this->insertPost($dbLayer);
+        $cursor = $updates->currentCursor();
+        $updates->publishContent(ContentId::post($postId));
+
+        // A production live request starts with a fresh application and does not first instantiate
+        // a blog page controller. Share the current transactional connection to reproduce that path.
+        $application = $I->createApplication(['disable_cache' => true]);
+        $pdo = $I->grabService(\PDO::class);
+        $application->container->decorate(\PDO::class, static fn(): \PDO => $pdo);
+
+        $query = http_build_query([
+            'cursor' => $cursor,
+            'region' => ['posts:0'],
+        ]);
+        $response = $application->handle(Request::create('https://localhost/_live?' . $query));
+
+        $I->assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $payload = json_decode((string)$response->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        $fragment = $payload['patches']['posts:0'] ?? '';
+        $I->assertStringContainsString('Оставить комментарий', $fragment);
+        $I->assertStringNotContainsString('Post comment', $fragment);
     }
 
     public function putsPendingModerationIntoTheRegularUnreadCounter(\IntegrationTester $I): void

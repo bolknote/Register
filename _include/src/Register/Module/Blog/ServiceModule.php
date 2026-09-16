@@ -184,6 +184,10 @@ final class ServiceModule implements ContainerModuleInterface
         $container->set(PostFeedRenderer::class, static function (Container $container): PostFeedRenderer {
             $provider = $container->get(DynamicConfigProvider::class);
 
+            // Post feeds are also rendered directly by the live-update endpoint, without a blog controller.
+            // Resolve the module translator here so every rendering path has the blog catalogue attached.
+            $container->get('register_blog_translator');
+
             return new PostFeedRenderer(
                 $container->get(PostProvider::class),
                 $container->get(BlogUrlBuilder::class),
