@@ -13,6 +13,14 @@ use Register\Rose\Storage\Exception\InvalidEnvironmentException;
 
 readonly class QueuePublisher
 {
+    public const int PRIORITY_NORMAL = 0;
+
+    public const int PRIORITY_HIGH = 100;
+
+    private const int MIN_PRIORITY = -2_147_483_648;
+
+    private const int MAX_PRIORITY = 2_147_483_647;
+
     public function __construct(private \PDO $pdo, private string $dbPrefix)
     {
     }
@@ -20,27 +28,43 @@ readonly class QueuePublisher
     /**
      * @param array<mixed> $payload
      */
-    public function publish(string $id, string $code, array $payload = [], ?int $availableAt = null): void
+    public function publish(
+        string $id,
+        string $code,
+        array $payload = [],
+        ?int $availableAt = null,
+        int $priority = self::PRIORITY_NORMAL,
+    ): void
     {
-        [$data, $driverName, $table, $now, $availableAt] = $this->prepareJob(
+        [$data, $driverName, $table, $now, $availableAt, $priority] = $this->prepareJob(
             $id,
             $code,
             $payload,
             $availableAt,
+            $priority,
         );
 
         $statement = match ($driverName) {
             'mysql' => $this->pdo->prepare(
-                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, attempts, last_error, failed_at) '
-                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, 0, NULL, NULL) '
+                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, priority, attempts, last_error, failed_at) '
+                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, :priority, 0, NULL, NULL) '
                 . 'ON DUPLICATE KEY UPDATE generation = generation + 1, payload = VALUES(payload), '
-                . 'updated_at = VALUES(updated_at), available_at = VALUES(available_at), attempts = 0, last_error = NULL, failed_at = NULL'
+                . 'updated_at = VALUES(updated_at), available_at = VALUES(available_at), '
+                . 'priority = GREATEST(priority, VALUES(priority)), attempts = 0, last_error = NULL, failed_at = NULL'
             ),
-            'sqlite', 'pgsql' => $this->pdo->prepare(
-                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, attempts, last_error, failed_at) '
-                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, 0, NULL, NULL) '
+            'sqlite' => $this->pdo->prepare(
+                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, priority, attempts, last_error, failed_at) '
+                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, :priority, 0, NULL, NULL) '
                 . 'ON CONFLICT (id, code) DO UPDATE SET generation = ' . $table . '.generation + 1, payload = excluded.payload, '
-                . 'updated_at = excluded.updated_at, available_at = excluded.available_at, attempts = 0, last_error = NULL, failed_at = NULL'
+                . 'updated_at = excluded.updated_at, available_at = excluded.available_at, '
+                . 'priority = MAX(' . $table . '.priority, excluded.priority), attempts = 0, last_error = NULL, failed_at = NULL'
+            ),
+            'pgsql' => $this->pdo->prepare(
+                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, priority, attempts, last_error, failed_at) '
+                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, :priority, 0, NULL, NULL) '
+                . 'ON CONFLICT (id, code) DO UPDATE SET generation = ' . $table . '.generation + 1, payload = excluded.payload, '
+                . 'updated_at = excluded.updated_at, available_at = excluded.available_at, '
+                . 'priority = GREATEST(' . $table . '.priority, excluded.priority), attempts = 0, last_error = NULL, failed_at = NULL'
             ),
             default => throw new InvalidEnvironmentException(sprintf('Driver "%s" is not supported.', $driverName)),
         };
@@ -56,6 +80,7 @@ readonly class QueuePublisher
             'created_at'   => $now,
             'updated_at'   => $now,
             'available_at' => $availableAt,
+            'priority'     => $priority,
         ]);
     }
 
@@ -64,25 +89,37 @@ readonly class QueuePublisher
      *
      * @param array<mixed> $payload
      */
-    public function publishIfAbsent(string $id, string $code, array $payload = [], ?int $availableAt = null): void
+    public function publishIfAbsent(
+        string $id,
+        string $code,
+        array $payload = [],
+        ?int $availableAt = null,
+        int $priority = self::PRIORITY_NORMAL,
+    ): void
     {
-        [$data, $driverName, $table, $now, $availableAt] = $this->prepareJob(
+        [$data, $driverName, $table, $now, $availableAt, $priority] = $this->prepareJob(
             $id,
             $code,
             $payload,
             $availableAt,
+            $priority,
         );
 
         $statement = match ($driverName) {
             'mysql' => $this->pdo->prepare(
-                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, attempts, last_error, failed_at) '
-                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, 0, NULL, NULL) '
-                . 'ON DUPLICATE KEY UPDATE code = VALUES(code)'
+                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, priority, attempts, last_error, failed_at) '
+                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, :priority, 0, NULL, NULL) '
+                . 'ON DUPLICATE KEY UPDATE priority = GREATEST(priority, VALUES(priority))'
             ),
-            'sqlite', 'pgsql' => $this->pdo->prepare(
-                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, attempts, last_error, failed_at) '
-                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, 0, NULL, NULL) '
-                . 'ON CONFLICT (id, code) DO NOTHING'
+            'sqlite' => $this->pdo->prepare(
+                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, priority, attempts, last_error, failed_at) '
+                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, :priority, 0, NULL, NULL) '
+                . 'ON CONFLICT (id, code) DO UPDATE SET priority = MAX(' . $table . '.priority, excluded.priority)'
+            ),
+            'pgsql' => $this->pdo->prepare(
+                'INSERT INTO ' . $table . ' (id, code, payload, generation, created_at, updated_at, available_at, priority, attempts, last_error, failed_at) '
+                . 'VALUES (:id, :code, :payload, 1, :created_at, :updated_at, :available_at, :priority, 0, NULL, NULL) '
+                . 'ON CONFLICT (id, code) DO UPDATE SET priority = GREATEST(' . $table . '.priority, excluded.priority)'
             ),
             default => throw new InvalidEnvironmentException(sprintf('Driver "%s" is not supported.', $driverName)),
         };
@@ -98,14 +135,15 @@ readonly class QueuePublisher
             'created_at'   => $now,
             'updated_at'   => $now,
             'available_at' => $availableAt,
+            'priority'     => $priority,
         ]);
     }
 
     /**
      * @param array<mixed> $payload
-     * @return array{string, string, string, int, int}
+     * @return array{string, string, string, int, int, int}
      */
-    private function prepareJob(string $id, string $code, array $payload, ?int $availableAt): array
+    private function prepareJob(string $id, string $code, array $payload, ?int $availableAt, int $priority): array
     {
         if (\strlen($id) > 80) {
             throw new \DomainException('Id length must not exceed 80 characters');
@@ -136,6 +174,10 @@ readonly class QueuePublisher
             throw new \DomainException('Availability timestamp must not be negative');
         }
 
-        return [$data, $driverName, $this->dbPrefix . 'queue', $now, $availableAt];
+        if ($priority < self::MIN_PRIORITY || $priority > self::MAX_PRIORITY) {
+            throw new \DomainException('Queue priority must fit a signed 32-bit integer');
+        }
+
+        return [$data, $driverName, $this->dbPrefix . 'queue', $now, $availableAt, $priority];
     }
 }

@@ -59,6 +59,7 @@ final readonly class ContentPublicationQueueHandler implements QueueHandlerInter
                 self::JOB_ID,
                 self::CODE,
                 availableAt: time() + self::CONTINUATION_DELAY_SECONDS,
+                priority: QueuePublisher::PRIORITY_HIGH,
             );
         }
     }

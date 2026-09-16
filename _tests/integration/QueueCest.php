@@ -156,6 +156,7 @@ final class QueueCest
         $I->assertSame(3, (int)$publicationJob['attempts']);
         $I->assertSame('keep-me', $publicationJob['last_error']);
         $I->assertSame(123, (int)$publicationJob['failed_at']);
+        $I->assertSame(QueuePublisher::PRIORITY_HIGH, (int)$publicationJob['priority']);
 
         $pdo->exec("UPDATE config SET value = '0' WHERE name = 'REGISTER_LAST_MAINTENANCE'");
         /** @var ContentPublicationScheduler $publicationScheduler */
@@ -261,7 +262,7 @@ final class QueueCest
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
 
-        foreach (['generation', 'created_at', 'updated_at', 'available_at', 'attempts', 'last_error', 'failed_at'] as $field) {
+        foreach (['generation', 'created_at', 'updated_at', 'available_at', 'priority', 'attempts', 'last_error', 'failed_at'] as $field) {
             $I->assertTrue($dbLayer->fieldExists('queue', $field));
         }
 
@@ -293,6 +294,48 @@ final class QueueCest
         $I->assertSame(0, (int)$row['attempts']);
         $I->assertSame($now + 1, (int)$row['available_at']);
         $I->assertNull($row['last_error']);
+    }
+
+    public function higherPriorityWorkRunsBeforeOlderNormalWork(IntegrationTester $I): void
+    {
+        $pdo       = $this->pdo($I);
+        $publisher = new QueuePublisher($pdo, '');
+        $handler   = new QueueTestHandler();
+        $consumer  = $this->consumer($pdo, $handler);
+        $now       = time();
+
+        $publisher->publish('older-normal', 'test', availableAt: $now);
+        $publisher->publish(
+            'newer-urgent',
+            'test',
+            availableAt: $now,
+            priority: QueuePublisher::PRIORITY_HIGH,
+        );
+
+        $I->assertTrue($consumer->runQueue($now));
+        $I->assertSame([['newer-urgent', 'test', []]], $handler->calls);
+        $I->assertIsArray($this->findJob($pdo, 'older-normal', 'test'));
+    }
+
+    public function delayedHighPriorityWorkDoesNotBlockReadyNormalWork(IntegrationTester $I): void
+    {
+        $pdo       = $this->pdo($I);
+        $publisher = new QueuePublisher($pdo, '');
+        $handler   = new QueueTestHandler();
+        $consumer  = $this->consumer($pdo, $handler);
+        $now       = time();
+
+        $publisher->publish(
+            'future-urgent',
+            'test',
+            availableAt: $now + 60,
+            priority: QueuePublisher::PRIORITY_HIGH,
+        );
+        $publisher->publish('ready-normal', 'test', availableAt: $now);
+
+        $I->assertTrue($consumer->runQueue($now));
+        $I->assertSame([['ready-normal', 'test', []]], $handler->calls);
+        $I->assertIsArray($this->findJob($pdo, 'future-urgent', 'test'));
     }
 
     public function requestedDeferralPreservesGenerationAndRetryState(IntegrationTester $I): void
@@ -447,7 +490,12 @@ final class QueueCest
     {
         $pdo       = $this->pdo($I);
         $publisher = new QueuePublisher($pdo, '');
-        $publisher->publish('same-id', 'test', ['version' => 1]);
+        $publisher->publish(
+            'same-id',
+            'test',
+            ['version' => 1],
+            priority: QueuePublisher::PRIORITY_HIGH,
+        );
 
         $pdo->exec("UPDATE queue SET attempts = 4, last_error = 'error', failed_at = 123 WHERE id = 'same-id' AND code = 'test'");
         $publisher->publish('same-id', 'test', ['version' => 2]);
@@ -458,6 +506,36 @@ final class QueueCest
         $I->assertSame(0, (int)$row['attempts']);
         $I->assertNull($row['last_error']);
         $I->assertNull($row['failed_at']);
+        $I->assertSame(QueuePublisher::PRIORITY_HIGH, (int)$row['priority']);
+    }
+
+    public function conditionalPublishCanElevateWithoutReplacingExistingWork(IntegrationTester $I): void
+    {
+        $pdo       = $this->pdo($I);
+        $publisher = new QueuePublisher($pdo, '');
+        $now       = time();
+        $publisher->publish('existing', 'test', ['keep'], availableAt: $now + 300);
+        $pdo->exec(
+            "UPDATE queue SET attempts = 3, last_error = 'keep-me', failed_at = 123 "
+            . "WHERE id = 'existing' AND code = 'test'"
+        );
+
+        $publisher->publishIfAbsent(
+            'existing',
+            'test',
+            ['replace'],
+            availableAt: $now,
+            priority: QueuePublisher::PRIORITY_HIGH,
+        );
+
+        $row = $this->job($pdo, 'existing', 'test');
+        $I->assertSame(1, (int)$row['generation']);
+        $I->assertSame('["keep"]', $row['payload']);
+        $I->assertSame($now + 300, (int)$row['available_at']);
+        $I->assertSame(3, (int)$row['attempts']);
+        $I->assertSame('keep-me', $row['last_error']);
+        $I->assertSame(123, (int)$row['failed_at']);
+        $I->assertSame(QueuePublisher::PRIORITY_HIGH, (int)$row['priority']);
     }
 
     public function successfulJobIsAcknowledged(IntegrationTester $I): void

@@ -163,6 +163,7 @@ readonly class Installer
                 ->addInteger('created_at', true)
                 ->addInteger('updated_at', true)
                 ->addInteger('available_at', true)
+                ->addInteger('priority')
                 ->addInteger('attempts', true)
                 ->addText('last_error')
                 ->addInteger('failed_at', true, true, null)

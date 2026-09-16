@@ -85,6 +85,7 @@ final class ScheduledPublishingCest
 
         $continuation = $this->publicationJob($pdo);
         $I->assertSame(2, (int)$continuation['generation']);
+        $I->assertSame(QueuePublisher::PRIORITY_HIGH, (int)$continuation['priority']);
 
         $pdo->exec("DELETE FROM queue WHERE code = '" . ContentIndexer::QUEUE_CODE . "'");
         $I->assertTrue($consumer->runQueue($runAt + 2, new QueueExecutionBudget(5.0)));

@@ -1240,6 +1240,7 @@ final class LinkHealthCest
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL,
                 available_at INTEGER NOT NULL,
+                priority INTEGER NOT NULL DEFAULT 0,
                 attempts INTEGER NOT NULL DEFAULT 0,
                 last_error TEXT,
                 failed_at INTEGER,
@@ -1349,7 +1350,13 @@ final readonly class FailingQueuePublisher extends QueuePublisher
 {
     /** @param array<mixed> $payload */
     #[\Override]
-    public function publish(string $id, string $code, array $payload = [], ?int $availableAt = null): void
+    public function publish(
+        string $id,
+        string $code,
+        array $payload = [],
+        ?int $availableAt = null,
+        int $priority = self::PRIORITY_NORMAL,
+    ): void
     {
         throw new \PDOException('Forced queue publication failure.');
     }

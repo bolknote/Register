@@ -880,6 +880,7 @@ final readonly class DeliveryTestEnvironment
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
             available_at INTEGER NOT NULL,
+            priority INTEGER NOT NULL DEFAULT 0,
             attempts INTEGER NOT NULL,
             last_error TEXT,
             failed_at INTEGER,

@@ -23,6 +23,7 @@ use Register\Schema\ExternalImportSchemaMigration;
 use Register\Schema\FuturePublicationSchemaMigration;
 use Register\Schema\PublicAuthSchemaMigration;
 use Register\Schema\QueueLeaseSchemaMigration;
+use Register\Schema\QueuePrioritySchemaMigration;
 use Register\Schema\ReactionEmojiCollationSchemaMigration;
 use Register\Schema\ReactionEmojiHashSchemaMigration;
 use Register\Schema\SchemaManager;
@@ -138,6 +139,11 @@ final readonly class SchemaModule implements ContainerModuleInterface
         $container->set(
             ReactionEmojiCollationSchemaMigration::class,
             new ReactionEmojiCollationSchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            QueuePrioritySchemaMigration::class,
+            new QueuePrioritySchemaMigration(),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

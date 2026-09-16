@@ -58,6 +58,7 @@ final readonly class ScheduledMaintenance implements ScheduledWorkCoordinatorInt
             ContentPublicationQueueHandler::JOB_ID,
             ContentPublicationQueueHandler::CODE,
             availableAt: $now,
+            priority: QueuePublisher::PRIORITY_HIGH,
         );
     }
 

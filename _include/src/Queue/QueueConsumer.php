@@ -215,7 +215,7 @@ final readonly class QueueConsumer
             'SELECT id, code, payload, generation, attempts FROM ' . $this->dbPrefix . 'queue '
             . 'WHERE failed_at IS NULL AND available_at <= :now '
             . $codeFilter
-            . 'ORDER BY available_at, created_at, id, code LIMIT 1'
+            . 'ORDER BY priority DESC, available_at, created_at, id, code LIMIT 1'
         );
         if ($statement === false) {
             throw new \RuntimeException('Unable to prepare the queue fetch query.');
