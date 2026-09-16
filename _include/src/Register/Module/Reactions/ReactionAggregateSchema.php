@@ -33,6 +33,7 @@ final class ReactionAggregateSchema
                 ->addString('source_key', 128)
                 ->addString('reaction', 16)
                 ->addString('emoji', 64)
+                ->addString('emoji_hash', 64)
                 ->addInteger('reaction_count', true)
                 ->addInteger('created_at', true)
                 ->addText('source_data')

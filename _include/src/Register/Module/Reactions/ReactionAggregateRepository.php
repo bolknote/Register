@@ -36,6 +36,10 @@ final readonly class ReactionAggregateRepository
             ->setKey('source_key', ':source_key')->setParameter('source_key', $aggregate->sourceKey)
             ->setValue('reaction', ':reaction')->setParameter('reaction', $aggregate->reaction)
             ->setValue('emoji', ':emoji')->setParameter('emoji', $aggregate->emoji)
+            ->setValue('emoji_hash', ':emoji_hash')->setParameter(
+                'emoji_hash',
+                ReactionAggregate::emojiHash($aggregate->emoji),
+            )
             ->setValue('reaction_count', ':reaction_count')->setParameter('reaction_count', $aggregate->count)
             ->setValue('created_at', ':created_at')->setParameter('created_at', $aggregate->createdAt)
             ->setValue('source_data', ':source_data')->setParameter(

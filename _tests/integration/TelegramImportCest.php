@@ -16,9 +16,77 @@ use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
 use Register\Import\Telegram\TelegramImportService;
 use Register\Import\Telegram\TelegramManagedMediaStorage;
+use Register\Module\Reactions\Manifest as ReactionManifest;
+use Register\Module\Reactions\ReactionRepository;
 
 final class TelegramImportCest
 {
+    public function preservesLocalSiteReactionsWhileReconcilingTelegramAggregates(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $contentId = $this->insertPost($dbLayer);
+        $jsonPath = tempnam(sys_get_temp_dir(), 'register-telegram-reactions-');
+        $I->assertIsString($jsonPath);
+
+        try {
+            $firstExport = $this->export(null, 'A Telegram comment', [
+                ['type' => 'emoji', 'count' => 2, 'emoji' => '👀'],
+                ['type' => 'emoji', 'count' => 1, 'emoji' => '👎'],
+            ]);
+            $I->assertNotFalse(file_put_contents(
+                $jsonPath,
+                json_encode($firstExport, JSON_THROW_ON_ERROR),
+            ));
+
+            /** @var TelegramImportService $importService */
+            $importService = $I->grabService(TelegramImportService::class);
+            $firstReport = $importService->importFile($jsonPath, clientOriginalName: 'result.json');
+            $I->assertSame(2, $firstReport['changes']['reaction_groups_inserted']);
+
+            /** @var ReactionRepository $reactionRepository */
+            $reactionRepository = $I->grabService(ReactionRepository::class);
+            $I->assertSame(['👀' => 2, '👎' => 1], $reactionRepository->state($contentId)->extraCounts);
+
+            $I->sendJson('https://localhost/_visitor/resolve', [
+                'trackPage' => false,
+            ], headers: ['Origin' => 'https://localhost']);
+            $I->seeResponseCodeIs(200);
+            $I->sendJson('https://localhost/_reactions/post/' . $contentId, [
+                'reaction' => '👀',
+            ], headers: ['Origin' => 'https://localhost']);
+            $I->seeResponseCodeIs(200);
+            $state = $I->grabJson();
+            $I->assertIsArray($state);
+            $I->assertSame(['👀' => 3, '👎' => 1], $state['extra']);
+
+            $secondExport = $this->export(null, 'A Telegram comment', [
+                ['type' => 'emoji', 'count' => 4, 'emoji' => '👀'],
+                ['type' => 'emoji', 'count' => 1, 'emoji' => '👎'],
+            ]);
+            $I->assertNotFalse(file_put_contents(
+                $jsonPath,
+                json_encode($secondExport, JSON_THROW_ON_ERROR),
+            ));
+            $secondReport = $importService->importFile($jsonPath, clientOriginalName: 'result.json');
+            $I->assertSame(1, $secondReport['changes']['reaction_groups_updated']);
+            $I->assertSame(1, $secondReport['changes']['reaction_groups_unchanged']);
+
+            $I->assertSame(1, (int)$dbLayer->select('COUNT(*)')
+                ->from(ReactionManifest::TABLE_NAME)
+                ->where('content_id = :content_id')->setParameter('content_id', $contentId)
+                ->execute()
+                ->result());
+            $finalState = $reactionRepository->state($contentId);
+            $I->assertSame(['👀' => 5, '👎' => 1], $finalState->extraCounts);
+            $I->assertSame(6, $finalState->toArray()['total']);
+        } finally {
+            if (is_file($jsonPath)) {
+                unlink($jsonPath);
+            }
+        }
+    }
+
     public function repairsAndPreservesAttachmentsAcrossPartialImports(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
@@ -193,8 +261,11 @@ final class TelegramImportCest
         return (int)$dbLayer->insertId();
     }
 
-    /** @return array<string, mixed> */
-    private function export(?string $photoPath, string $text = ''): array
+    /**
+     * @param list<array{type: string, count: int, emoji: string}> $rootReactions
+     * @return array<string, mixed>
+     */
+    private function export(?string $photoPath, string $text = '', array $rootReactions = []): array
     {
         $comment = [
             'id' => 2,
@@ -210,27 +281,32 @@ final class TelegramImportCest
             $comment['photo'] = $photoPath;
         }
 
+        $root = [
+            'id' => 1,
+            'type' => 'message',
+            'date_unixtime' => '100',
+            'forwarded_from_id' => 'channel111',
+            'text' => [[
+                'type' => 'text_link',
+                'text' => 'Post',
+                'href' => 'http://register.localhost/apos',
+            ]],
+            'text_entities' => [[
+                'type' => 'text_link',
+                'text' => 'Post',
+                'href' => 'http://register.localhost/apos',
+            ]],
+        ];
+        if ($rootReactions !== []) {
+            $root['reactions'] = $rootReactions;
+        }
+
         return [
             'id' => 123,
             'name' => 'Example discussion',
             'type' => 'private_supergroup',
             'messages' => [
-                [
-                    'id' => 1,
-                    'type' => 'message',
-                    'date_unixtime' => '100',
-                    'forwarded_from_id' => 'channel111',
-                    'text' => [[
-                        'type' => 'text_link',
-                        'text' => 'Post',
-                        'href' => 'http://register.localhost/apos',
-                    ]],
-                    'text_entities' => [[
-                        'type' => 'text_link',
-                        'text' => 'Post',
-                        'href' => 'http://register.localhost/apos',
-                    ]],
-                ],
+                $root,
                 $comment,
             ],
         ];
