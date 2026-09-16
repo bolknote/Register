@@ -501,6 +501,7 @@ class DbLayer implements QueryBuilder\QueryExecutorInterface, StatefulServiceInt
             SchemaBuilderInterface::TYPE_LONGTEXT => 'LONGTEXT',
             SchemaBuilderInterface::TYPE_TEXT => 'TEXT',
             SchemaBuilderInterface::TYPE_STRING => 'VARCHAR(' . ($length ?? 255) . ')',
+            SchemaBuilderInterface::TYPE_EXACT_STRING => 'VARCHAR(' . ($length ?? 255) . ') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin',
             default => $type
         };
     }

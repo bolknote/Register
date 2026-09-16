@@ -413,6 +413,51 @@ class DbLayerCest
     /**
      * @throws DbLayerException
      */
+    public function testExactStringGroupsEmojiByExactValue(\IntegrationTester $I): void
+    {
+        // DDL causes implicit commits in MySQL, so keep it outside the shared test transaction.
+        $this->pdo->rollBack();
+
+        $tableName = 'tmp_exact_string';
+        $this->dbLayer->dropTable($tableName);
+        try {
+            $this->dbLayer->createTable($tableName, static function (SchemaBuilderInterface $table): void {
+                $table
+                    ->addExactString('emoji', 64)
+                    ->addInteger('reaction_count', true)
+                ;
+            });
+            foreach ([['👀', 2], ['👎', 1]] as [$emoji, $count]) {
+                $this->dbLayer->insert($tableName)
+                    ->setValue('emoji', ':emoji')->setParameter('emoji', $emoji)
+                    ->setValue('reaction_count', ':reaction_count')->setParameter('reaction_count', $count)
+                    ->execute()
+                ;
+            }
+
+            $rows = $this->dbLayer
+                ->select('emoji', 'SUM(reaction_count) AS reaction_count')
+                ->from($tableName)
+                ->groupBy('emoji')
+                ->execute()
+                ->fetchAssocAll()
+            ;
+            $counts = [];
+            foreach ($rows as $row) {
+                $counts[(string)$row['emoji']] = (int)$row['reaction_count'];
+            }
+
+            ksort($counts);
+            $I->assertSame(['👀' => 2, '👎' => 1], $counts);
+        } finally {
+            $this->dbLayer->dropTable($tableName);
+            $this->pdo->beginTransaction();
+        }
+    }
+
+    /**
+     * @throws DbLayerException
+     */
     public function testForeignKeyManagement(\IntegrationTester $I): void
     {
         $I->assertTrue($this->dbLayer->foreignKeyExists(ContentSchema::TABLE_NAME, 'fk_author'));

@@ -19,6 +19,7 @@ use Register\Content\ContentTagSchema;
 use Register\Content\ContentViewSchema;
 use Register\Module\BaseModuleRegistry;
 use Register\Module\Reactions\Manifest as ReactionsManifest;
+use Register\Module\Reactions\ReactionAggregateSchema;
 use Register\Module\VisitorIdentity\Manifest as VisitorIdentityManifest;
 use Register\Schema\SchemaManager;
 use Register\Url\ContentUrlAliasSchema;
@@ -174,9 +175,11 @@ final class ModuleManagerCest
         $I->assertTrue($dbLayer->foreignKeyExists('register_reaction', 'fk_content'));
         $I->assertTrue($dbLayer->foreignKeyExists('register_reaction', 'fk_visitor'));
         $I->assertTrue($dbLayer->foreignKeyExists(ReactionsManifest::TABLE_NAME, 'fk_user'));
-        $I->assertTrue($dbLayer->tableExists(\Register\Module\Reactions\ReactionAggregateSchema::TABLE_NAME));
+        $I->assertTrue($dbLayer->tableExists(ReactionAggregateSchema::TABLE_NAME));
+        $I->assertTrue($dbLayer->fieldExists(ReactionAggregateSchema::TABLE_NAME, 'emoji'));
+        $I->assertFalse($dbLayer->fieldExists(ReactionAggregateSchema::TABLE_NAME, 'emoji_hash'));
         $I->assertTrue($dbLayer->indexExists(
-            \Register\Module\Reactions\ReactionAggregateSchema::TABLE_NAME,
+            ReactionAggregateSchema::TABLE_NAME,
             'target_idx',
         ));
         $I->assertTrue($dbLayer->tableExists(\Register\Module\LinkHealth\Manifest::TARGET_TABLE));
@@ -377,6 +380,77 @@ final class ModuleManagerCest
             ->where('login = :login')->setParameter('login', $externalLogin)
             ->execute()
             ->result());
+    }
+
+    public function generationThirtyTwoUsesExactEmojiComparisonWithoutHashes(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var SchemaManager $schemaManager */
+        $schemaManager = $I->grabAdminService(SchemaManager::class);
+
+        $dbLayer->alterField(
+            ReactionAggregateSchema::TABLE_NAME,
+            'emoji',
+            SchemaBuilderInterface::TYPE_STRING,
+            64,
+            false,
+            '',
+            'reaction',
+        );
+        $dbLayer->addField(
+            ReactionAggregateSchema::TABLE_NAME,
+            'emoji_hash',
+            SchemaBuilderInterface::TYPE_STRING,
+            64,
+            false,
+            '',
+            'emoji',
+        );
+
+        $targetId = 2_147_483_000;
+        $dbLayer->delete(ReactionAggregateSchema::TABLE_NAME)
+            ->where('target_type = :target_type')->setParameter('target_type', 'post')
+            ->andWhere('target_id = :target_id')->setParameter('target_id', $targetId)
+            ->execute()
+        ;
+        foreach ([['eyes', '👀', 2], ['down', '👎', 1]] as [$sourceKey, $emoji, $count]) {
+            $dbLayer->insert(ReactionAggregateSchema::TABLE_NAME)
+                ->setValue('target_type', ':target_type')->setParameter('target_type', 'post')
+                ->setValue('target_id', ':target_id')->setParameter('target_id', $targetId)
+                ->setValue('source', ':source')->setParameter('source', 'migration-test')
+                ->setValue('source_key', ':source_key')->setParameter('source_key', $sourceKey)
+                ->setValue('reaction', ':reaction')->setParameter('reaction', '')
+                ->setValue('emoji', ':emoji')->setParameter('emoji', $emoji)
+                ->setValue('emoji_hash', ':emoji_hash')->setParameter('emoji_hash', hash('sha256', $emoji))
+                ->setValue('reaction_count', ':reaction_count')->setParameter('reaction_count', $count)
+                ->setValue('created_at', ':created_at')->setParameter('created_at', 100)
+                ->setValue('source_data', ':source_data')->setParameter('source_data', '{}')
+                ->execute()
+            ;
+        }
+
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, '32');
+        $I->assertTrue($schemaManager->ensureCurrent());
+        $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
+        $I->assertFalse($dbLayer->fieldExists(ReactionAggregateSchema::TABLE_NAME, 'emoji_hash'));
+
+        $rows = $dbLayer
+            ->select('emoji', 'SUM(reaction_count) AS reaction_count')
+            ->from(ReactionAggregateSchema::TABLE_NAME)
+            ->where('target_type = :target_type')->setParameter('target_type', 'post')
+            ->andWhere('target_id = :target_id')->setParameter('target_id', $targetId)
+            ->groupBy('emoji')
+            ->execute()
+            ->fetchAssocAll()
+        ;
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(string)$row['emoji']] = (int)$row['reaction_count'];
+        }
+
+        ksort($counts);
+        $I->assertSame(['👀' => 2, '👎' => 1], $counts);
     }
 
     public function releaseMigrationPreservesExistingSettings(\IntegrationTester $I): void

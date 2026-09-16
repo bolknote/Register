@@ -305,6 +305,7 @@ class DbLayerPostgres extends DbLayer
             SchemaBuilderInterface::TYPE_LONGTEXT,
             SchemaBuilderInterface::TYPE_TEXT => 'TEXT',
             SchemaBuilderInterface::TYPE_STRING => 'VARCHAR(' . ($length ?? 255) . ')',
+            SchemaBuilderInterface::TYPE_EXACT_STRING => 'VARCHAR(' . ($length ?? 255) . ') COLLATE "C"',
             default => $type
         };
     }

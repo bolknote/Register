@@ -408,6 +408,7 @@ class DbLayerSqlite extends DbLayer
             SchemaBuilderInterface::TYPE_LONGTEXT,
             SchemaBuilderInterface::TYPE_TEXT => 'TEXT',
             SchemaBuilderInterface::TYPE_STRING => 'VARCHAR(' . ($length ?? 255) . ')', // Anyway, internally will be stored as TEXT
+            SchemaBuilderInterface::TYPE_EXACT_STRING => 'VARCHAR(' . ($length ?? 255) . ') COLLATE BINARY',
             default => $type
         };
     }

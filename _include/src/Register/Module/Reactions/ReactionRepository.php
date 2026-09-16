@@ -75,19 +75,16 @@ final readonly class ReactionRepository
             }
         }
 
-        // Some MySQL/MariaDB Unicode collations give distinct emoji the same sort
-        // weight. The application-written ASCII hash keeps grouping exact and uses
-        // no database-specific binary or hashing function.
         $rows = $this->dbLayer->select(
             'target_id',
             'reaction',
-            'MIN(emoji) AS emoji',
+            'emoji',
             'SUM(reaction_count) AS reaction_count',
         )
             ->from(ReactionAggregateSchema::TABLE_NAME)
             ->where("target_type = 'post'")
             ->andWhere('target_id IN (' . implode(', ', $placeholders) . ')')
-            ->groupBy('target_id', 'reaction', 'emoji_hash')
+            ->groupBy('target_id', 'reaction', 'emoji')
             ->execute($parameters)
             ->fetchAssocAll()
         ;

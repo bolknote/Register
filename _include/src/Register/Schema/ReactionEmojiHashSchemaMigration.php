@@ -11,7 +11,6 @@ namespace Register\Schema;
 
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\SchemaBuilderInterface;
-use Register\Module\Reactions\ReactionAggregate;
 use Register\Module\Reactions\ReactionAggregateSchema;
 
 /** Adds a database-independent exact grouping key for imported emoji. */
@@ -54,7 +53,7 @@ final readonly class ReactionEmojiHashSchemaMigration implements SchemaMigration
                 ->update(ReactionAggregateSchema::TABLE_NAME)
                 ->set('emoji_hash', ':emoji_hash')->setParameter(
                     'emoji_hash',
-                    ReactionAggregate::emojiHash($emoji),
+                    hash('sha256', $emoji),
                 )
                 ->where('target_type = :target_type')->setParameter(
                     'target_type',

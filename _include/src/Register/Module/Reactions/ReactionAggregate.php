@@ -12,11 +12,6 @@ namespace Register\Module\Reactions;
 /** One idempotently addressable imported aggregate or individually reversible remote reaction. */
 final readonly class ReactionAggregate
 {
-    public static function emojiHash(string $emoji): string
-    {
-        return hash('sha256', $emoji);
-    }
-
     /** @param array<string, mixed> $sourceData */
     public function __construct(
         public ReactionAggregateTargetType $targetType,

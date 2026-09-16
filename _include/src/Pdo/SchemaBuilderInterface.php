@@ -15,6 +15,9 @@ interface SchemaBuilderInterface
 
     public const string TYPE_STRING = 'STRING';
 
+    /** A Unicode string compared by its exact encoded value instead of linguistic sort weights. */
+    public const string TYPE_EXACT_STRING = 'EXACT STRING';
+
     public const string TYPE_TEXT = 'TEXT';
 
     public const string TYPE_LONGTEXT = 'LONGTEXT';
@@ -38,6 +41,13 @@ interface SchemaBuilderInterface
     ): self;
 
     public function addString(
+        string  $name,
+        int     $length = 255,
+        bool    $nullable = false,
+        ?string $default = '',
+    ): self;
+
+    public function addExactString(
         string  $name,
         int     $length = 255,
         bool    $nullable = false,

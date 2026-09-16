@@ -81,6 +81,12 @@ class SchemaBuilder implements SchemaBuilderInterface
     }
 
     #[\Override]
+    public function addExactString(string $name, int $length = 255, bool $nullable = false, ?string $default = ''): self
+    {
+        return $this->addColumn($name, self::TYPE_EXACT_STRING, $nullable, $default, $length);
+    }
+
+    #[\Override]
     public function addText(string $name, bool $nullable = true): self
     {
         return $this->addColumn($name, self::TYPE_TEXT, $nullable);

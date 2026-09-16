@@ -12,7 +12,6 @@ namespace unit\Register\Schema;
 use Codeception\Test\Unit;
 use Register\Core\Pdo\DbLayerSqlite;
 use Register\Core\Pdo\SchemaBuilderInterface;
-use Register\Module\Reactions\ReactionAggregate;
 use Register\Module\Reactions\ReactionAggregateSchema;
 use Register\Schema\ReactionEmojiHashSchemaMigration;
 
@@ -63,8 +62,8 @@ final class ReactionEmojiHashSchemaMigrationTest extends Unit
         self::assertTrue($dbLayer->fieldExists(ReactionAggregateSchema::TABLE_NAME, 'emoji_hash'));
         self::assertSame(
             [
-                ['emoji' => '👎', 'emoji_hash' => ReactionAggregate::emojiHash('👎')],
-                ['emoji' => '👀', 'emoji_hash' => ReactionAggregate::emojiHash('👀')],
+                ['emoji' => '👎', 'emoji_hash' => hash('sha256', '👎')],
+                ['emoji' => '👀', 'emoji_hash' => hash('sha256', '👀')],
             ],
             $dbLayer
                 ->select('emoji', 'emoji_hash')
