@@ -66,6 +66,49 @@ export async function runRecoveryRegressions(browser, origin) {
         console.log('recovery: untitled new post restores and deliberate cancellation removes its copy');
 
         await reset();
+        let createdRequest = '';
+        await page.evaluate(() => {
+            window.createRefreshes = 0;
+            window.acknowledgedCreate = 0;
+            window.RegisterLiveUpdates = {
+                acknowledge(cursor) {
+                    window.acknowledgedCreate = cursor;
+                    return true;
+                },
+            };
+            document.addEventListener('register:live-refresh', () => {
+                window.createRefreshes += 1;
+            });
+        });
+        await page.route('**/_inplace/post/new', async route => {
+            createdRequest = route.request().postData() || '';
+            await route.fulfill({json: {
+                success: true, action: 'create', id: 10, live_cursor: 51,
+                url: '/newly-created', action_url: '/_inplace/post/10', token: 'created-token',
+                title: 'Created with shortcut', revision: 1,
+                body_html: '<div class="post body" data-post-inplace-body><p>Visible immediately</p></div>',
+                published_at: 1788696000, datetime: '2026-09-06T12:00:00Z', time: '6 September',
+                tags: [], scheduled: false, message: 'Created',
+            }});
+        });
+        await page.getByRole('button', {name: 'New post', exact: true}).click();
+        await page.keyboard.type('Created with shortcut');
+        const createdBody = edited().locator('[data-post-inplace-body]');
+        await createdBody.fill('Visible immediately');
+        await createdBody.press('Meta+s');
+        await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+        const createdCard = page.locator('.post-card[data-post-id="10"]');
+        assert.equal(await createdCard.locator('[data-post-inplace-title]').textContent(), 'Created with shortcut');
+        assert.equal(await createdCard.locator('[data-post-inplace-body]').textContent(), 'Visible immediately');
+        assert.match(createdRequest, /name="inplace_action"\r?\n\r?\ncreate/u);
+        assert.deepEqual(await page.evaluate(() => ({
+            acknowledgements: window.acknowledgedCreate,
+            refreshes: window.createRefreshes,
+        })), {acknowledgements: 0, refreshes: 1});
+        await page.unroute('**/_inplace/post/new');
+        console.log('editor: Cmd+S shows a created post immediately and refreshes the authoritative feed');
+
+        await reset();
         await page.getByRole('button', {name: 'Edit', exact: true}).click();
         await edited().locator('[data-post-inplace-body]').fill('Local revision one');
         await waitForCopy();

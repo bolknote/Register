@@ -3474,7 +3474,7 @@
         notice.textContent = payload.schedule_message;
     }
 
-    function updateEditedCard(card, form, payload) {
+    function updateEditedCard(card, form, payload, forceLiveRefresh = false) {
         const state = editorStates.get(card);
         const title = state?.title || card.querySelector(':scope > .post.head [data-post-inplace-title]');
         const currentBody = state?.body || card.querySelector(':scope > .post.body[data-post-inplace-body]');
@@ -3580,7 +3580,13 @@
             status.textContent = payload.message;
             status.hidden = false;
         }
-        const acknowledged = acknowledgeLiveMutation(payload);
+        // Editing an existing card is fully represented by the local DOM update,
+        // so the matching live patch would only replace the same card again. A
+        // creation also changes the feed itself (ordering, page size and
+        // pagination), which the temporary editor card cannot reproduce. Let the
+        // authoritative feed patch run after a create instead of acknowledging it
+        // as already applied.
+        const acknowledged = !forceLiveRefresh && acknowledgeLiveMutation(payload);
         unlock();
         if (!acknowledged) {
             refresh();
@@ -3626,7 +3632,7 @@
                 deleteToken.defaultValue = payload.token;
             }
         }
-        updateEditedCard(card, form, payload);
+        updateEditedCard(card, form, payload, true);
         const titleLink = card.querySelector(':scope > .post.head > a');
         if (titleLink instanceof HTMLAnchorElement) {
             titleLink.href = payload.url;
