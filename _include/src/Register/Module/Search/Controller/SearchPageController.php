@@ -11,6 +11,7 @@ declare(strict_types = 1);
 
 namespace Register\Module\Search\Controller;
 
+use Register\Content\ContentId;
 use Register\Content\ContentType;
 use Register\Content\TagRepository;
 use Register\Module\Search\Module;
@@ -122,8 +123,27 @@ readonly class SearchPageController implements ControllerInterface
                 $content['profile'] = array_map(ProfileHelper::formatProfilePoint(...), $resultSet->getProfilePoints());
                 $content['trace']   = $resultSet->getTrace();
 
+                $items      = $resultSet->getItems();
+                $contentIds = [];
+                foreach ($items as $item) {
+                    try {
+                        $contentIds[$item->getId()] = ContentId::fromString($item->getId());
+                    } catch (\InvalidArgumentException) {
+                        // An index created by an older integration may use a non-content identifier.
+                    }
+                }
+                $tagsByContent = $this->tagRepository->findForContent(array_values($contentIds));
+
                 $content['output'] = '';
-                foreach ($resultSet->getItems() as $item) {
+                foreach ($items as $item) {
+                    $tags = [];
+                    foreach ($tagsByContent[$item->getId()] ?? [] as $tag) {
+                        $tags[] = [
+                            'title' => $tag->name,
+                            'link'  => $this->urlBuilder->link('/' . rawurlencode($this->tagsUrl->get()) . '/' . rawurlencode($tag->slug) . '/'),
+                        ];
+                    }
+
                     $content['output'] .= $this->viewer->render('search_result', [
                         'plainTitle'    => $item->getTitle(),
                         'title'         => $item->getHighlightedTitle($this->stemmer),
@@ -131,6 +151,7 @@ readonly class SearchPageController implements ControllerInterface
                         'descr'         => $item->getFormattedSnippet(),
                         'time'          => $item->getDate()?->getTimestamp(),
                         'images'        => $item->getImageCollection(),
+                        'tags'          => $tags,
                         'debug'         => $content['trace'][(new ExternalId($item->getId()))->toString()],
                         'thumbnailHtml' => $this->thumbnailGenerator->getThumbnailHtml(...),
                     ], Module::class);

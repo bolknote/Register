@@ -61,7 +61,10 @@ class SearchCest
             'title'          => 'New Blog Post Title',
             'tags'           => 'tag1, blog tag, міръ, отрок',
             'published_at'   => (string)$publishedAt,
-            'body'           => '<p>New blog post with some text</p>',
+            'body'           => '<p>New blog post with some text</p>'
+                . '<img src="/decorative.svg" width="16" height="16" alt="">'
+                . '<img src="/photo.svg" width="640" height="480" alt="">'
+                . '<img src="/photo.svg" width="640" height="480" alt="">',
         ]);
         $I->seeResponseCodeIs(Response::HTTP_OK);
 
@@ -157,6 +160,11 @@ class SearchCest
         $I->amOnPage('https://localhost/?search=1&q=some+text');
         $I->see('New blog post with <span class="register_search_highlight">some text</span>');
         $I->seeElement('.search-results > article.search-result .search-result-title');
+        $I->seeElement('.search-result-meta .search-result-tags[aria-label="Tags"]');
+        $I->seeElement('.search-result-tags a.post-tag-link[href="/tags/tag1/"]');
+        $I->seeElement('.search-result-tags a.post-tag-link[href="/tags/blog%20tag/"]');
+        $I->dontSeeElement('.search-result-media img[src="/decorative.svg"]');
+        $I->assertCount(1, $I->grabMultiple('.search-result-media img[src="/photo.svg"]'));
         $I->dontSeeElement('.paging');
 
         $I->amOnPage('https://localhost/?search=1&q=another+tag');

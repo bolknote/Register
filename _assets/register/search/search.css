@@ -115,12 +115,19 @@
 		text-wrap: pretty;
 		}
 	.search-result-meta {
+		display: flex;
 		margin-top: 0.65rem;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem 0.7rem;
 		color: var(--txt-lightweight-color, #777);
 		font-family: var(--ui-font, sans-serif);
 		font-size: 0.82rem;
 		font-variant-numeric: tabular-nums;
 		line-height: 1.4;
+		}
+	.search-result-tags {
+		min-width: 0;
 		}
 	.search-result-media {
 		min-width: 0;
