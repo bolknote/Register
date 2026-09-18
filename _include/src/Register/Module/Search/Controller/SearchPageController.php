@@ -132,6 +132,7 @@ readonly class SearchPageController implements ControllerInterface
                         // An index created by an older integration may use a non-content identifier.
                     }
                 }
+
                 $tagsByContent = $this->tagRepository->findForContent(array_values($contentIds));
 
                 $content['output'] = '';
