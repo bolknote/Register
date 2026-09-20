@@ -7,7 +7,6 @@ declare(strict_types = 1);
  * @var callable $makeLink
  * @var callable $dateAndTime
  * @var array  $raw
- * @var array  $log
  * @var ?array $content
  */
 
@@ -122,7 +121,6 @@ foreach ($content as $recommendation) {
 
 ?>
 <h2 class="recommendation-title" id="recommendations"><?php echo $trans('Read next'); ?></h2>
-<!-- <?php echo end($log); ?> -->
 <div class="recommendations<?php if ($maxLine > 5) {echo ' recommendations-columns-' . ($maxLine - 1); } ?>">
     <?php foreach ($content as $recommendation) : ?>
         <div class="recommendation <?= $getGridClasses($recommendation['position']) ?>">

@@ -47,12 +47,25 @@ final class RecommendationViewTest extends Unit
         self::assertDoesNotMatchRegularExpression('~\sstyle\s*=~i', $html);
     }
 
+    public function testVolatileLayoutDiagnosticsDoNotChangePublicMarkup(): void
+    {
+        $content = [
+            $this->item('1/1', null),
+        ];
+
+        $first = $this->render($content, '0.24 match &nbsp; 1 1 1');
+        $second = $this->render($content, '0.25 match &nbsp; 1 1 1');
+
+        self::assertSame($first, $second);
+        self::assertStringNotContainsString('0.24 match', $first);
+    }
+
     /**
      * @param list<array<string, mixed>> $content
      * @psalm-suppress UnusedParam The parameter and local variables are consumed by the included view.
      * @psalm-suppress UnusedVariable
      */
-    private function render(array $content): string
+    private function render(array $content, string $layoutDiagnostic = 'recommendation-view-test'): string
     {
         if ($content === []) {
             throw new \InvalidArgumentException('The recommendation fixture must contain at least one item.');
@@ -62,7 +75,7 @@ final class RecommendationViewTest extends Unit
         $makeLink    = static fn(string $path): string => $path;
         $dateAndTime = static fn(int $timestamp): string => (string)$timestamp;
         $raw         = [];
-        $log         = ['recommendation-view-test'];
+        $log         = [$layoutDiagnostic];
 
         ob_start();
         include \dirname(__DIR__, 5) . '/_include/src/Register/Module/Search/resources/views/recommendations.php';

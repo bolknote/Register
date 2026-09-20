@@ -77,7 +77,7 @@ final readonly class RecommendationResponseProcessor implements ResponseProcesso
 
     private function render(Request $request, ContentId $contentId): string
     {
-        [$recommendations, $log, $rawRecommendations] = $this->recommendationProvider->getRecommendations(
+        [$recommendations, , $rawRecommendations] = $this->recommendationProvider->getRecommendations(
             $request->getPathInfo(),
             new ExternalId(SearchDocumentFactory::externalId($contentId)),
             $this->visitorIdentityManager->visitorIdFromRequest($request) !== null,
@@ -86,7 +86,6 @@ final readonly class RecommendationResponseProcessor implements ResponseProcesso
         return $this->viewer->render('recommendations', [
             'raw'     => $rawRecommendations,
             'content' => $recommendations,
-            'log'     => $log,
         ], Module::class);
     }
 
