@@ -27,6 +27,8 @@ use Register\Core\Template\TemplateEvent;
 use Register\Core\Template\TemplateAssetEvent;
 use Register\Live\LiveUpdatePolledEvent;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
@@ -39,6 +41,9 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
             $container->get(DbLayer::class),
         ));
         $container->set(BotDetector::class, new BotDetector());
+        $container->set(NonInteractiveRequestDetector::class, static fn(Container $container): NonInteractiveRequestDetector => new NonInteractiveRequestDetector(
+            $container->get(BotDetector::class),
+        ));
         $container->set(RssReaderParser::class, new RssReaderParser());
         $container->set(AnalyticsRecorder::class, static fn(Container $container): AnalyticsRecorder => new AnalyticsRecorder(
             $container->get(AnalyticsRepository::class),
@@ -119,6 +124,11 @@ class Module implements ContainerModuleInterface, ContainerAwareListenerModuleIn
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
+            $request = $container->get(RequestStack::class)->getCurrentRequest();
+            if ($request instanceof Request && $container->get(NonInteractiveRequestDetector::class)->reason($request) !== null) {
+                return;
+            }
+
             $basePath = rtrim($container->getStringParameter('base_path'), '/');
             $assetUrl = new PublicAssetUrl(
                 $container->getStringParameter('public_root_dir'),

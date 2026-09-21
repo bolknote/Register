@@ -15,6 +15,7 @@ use Register\Content\ContentRepository;
 use Register\Live\LiveFragmentRenderer;
 use Register\Live\LiveUpdateController;
 use Register\Live\LiveUpdateRepository;
+use Register\Module\Analytics\BotDetector;
 use Register\Module\Blog\Model\PostFeedRenderer;
 use Register\Core\Framework\Container;
 use Register\Core\Framework\ContainerModuleInterface;
@@ -37,6 +38,7 @@ final readonly class PublicPresentationModule implements ContainerModuleInterfac
             $container->get(LiveFragmentRenderer::class),
             $container->get(PublicAuthRenderer::class),
             $container->get(EventDispatcherInterface::class),
+            $container->get(BotDetector::class),
         ));
     }
 }

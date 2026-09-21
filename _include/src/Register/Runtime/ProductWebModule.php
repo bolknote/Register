@@ -32,6 +32,7 @@ use Register\Live\LiveUpdateController;
 use Register\Model\ArticleProvider;
 use Register\Model\CommentProvider;
 use Register\Model\TagsProvider;
+use Register\Module\Analytics\NonInteractiveRequestDetector;
 use Register\Offline\OfflineCachePolicy;
 use Register\Admin\Event\AdminAjaxControllerMapEvent;
 use Register\Core\Asset\AssetPack;
@@ -151,6 +152,9 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
         });
 
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
+            $request = $container->get(RequestStack::class)->getCurrentRequest();
+            $nonInteractive = $request instanceof Request
+                && $container->get(NonInteractiveRequestDetector::class)->reason($request) !== null;
             $assetUrl = new PublicAssetUrl(
                 $container->getStringParameter('public_root_dir'),
                 $container->getStringParameter('base_path'),
@@ -163,7 +167,11 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
                 ->addCss($assetUrl->versioned('/_assets/register/partial-navigation.css'))
                 ->addJs($assetUrl->versioned('/_assets/register/comment-editor.js'), [AssetPack::OPTION_DEFER])
                 ->addJs($assetUrl->versioned('/_assets/register/offline.js'), [AssetPack::OPTION_DEFER])
-                ->addJs($assetUrl->versioned('/_assets/register/live-updates.js'), [AssetPack::OPTION_DEFER])
+            ;
+            if (!$nonInteractive) {
+                $event->assetPack->addJs($assetUrl->versioned('/_assets/register/live-updates.js'), [AssetPack::OPTION_DEFER]);
+            }
+            $event->assetPack
                 ->addJs($assetUrl->versioned('/_assets/register/partial-navigation.js'), [AssetPack::OPTION_DEFER])
                 ->addCss($assetUrl->versioned('/_assets/register/public-auth.css'))
                 ->addJs($assetUrl->versioned('/_assets/register/public-auth.js'), [AssetPack::OPTION_DEFER])
@@ -193,6 +201,10 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
                 register_htmlencode($translator->trans('Offline cache syncing')),
                 register_htmlencode($translator->trans('Reload current page')),
             ));
+
+            if ($request instanceof Request && $container->get(NonInteractiveRequestDetector::class)->reason($request) !== null) {
+                return;
+            }
 
             $context = $container->get(LiveUpdateContext::class);
             $cursor  = $context->cursor();

@@ -27,7 +27,11 @@ use Register\Module\Blog\Model\BlogPageCache;
 use Register\Core\Template\TemplateAssetEvent;
 use Register\Core\Template\TemplateEvent;
 use Register\Core\Translation\ExtensibleTranslator;
+use Register\Module\Analytics\BotDetector;
+use Register\Module\Analytics\NonInteractiveRequestDetector;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -70,6 +74,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(DbLayer::class),
             $container->get(ReactionRepository::class),
             $container->get(VisitorIdentityManager::class),
+            $container->get(BotDetector::class),
         ));
     }
 
@@ -111,10 +116,14 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
                 $container->getStringParameter('public_root_dir'),
                 $container->getStringParameter('base_path'),
             );
-            $event->assetPack
-                ->addCss($assetUrl->versioned('/_assets/register/reactions/reactions.css'))
-                ->addJs($assetUrl->versioned('/_assets/register/reactions/reactions.js'), [AssetPack::OPTION_DEFER])
-            ;
+            $event->assetPack->addCss($assetUrl->versioned('/_assets/register/reactions/reactions.css'));
+
+            $request = $container->get(RequestStack::class)->getCurrentRequest();
+            if ($request instanceof Request && $container->get(NonInteractiveRequestDetector::class)->reason($request) !== null) {
+                return;
+            }
+
+            $event->assetPack->addJs($assetUrl->versioned('/_assets/register/reactions/reactions.js'), [AssetPack::OPTION_DEFER]);
         });
     }
 

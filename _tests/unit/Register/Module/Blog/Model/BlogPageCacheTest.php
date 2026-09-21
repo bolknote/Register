@@ -15,6 +15,7 @@ use Register\Core\Pdo\PDO;
 use Register\Module\Blog\Model\AllPostsPage;
 use Register\Module\Blog\Model\BlogPageCache;
 use Register\Module\Blog\Model\BlogSidebarFeed;
+use Register\Module\Blog\Model\CachedBlogResponse;
 use Register\Module\Blog\Model\ContentViewResponseProcessor;
 use Register\Module\Blog\Model\PostFeed;
 use Register\Module\Blog\Model\PostPageContextIndex;
@@ -24,6 +25,24 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class BlogPageCacheTest extends TestCase
 {
+    public function testOnlyOldCrawlerHtmlIsDiscardedAfterAnInteractiveAssetChange(): void
+    {
+        $pool = new ArrayAdapter();
+        $oldCrawler = CachedBlogResponse::fromResponse(new Response('old crawler HTML'));
+        $oldReader = CachedBlogResponse::fromResponse(new Response('warm reader HTML'));
+        self::assertNotNull($oldCrawler);
+        self::assertNotNull($oldReader);
+        $pool->get('register_blog_first_response_v3_full_bot', static fn(): CachedBlogResponse => $oldCrawler);
+        $pool->get('register_blog_first_response_v3_full_new_visitor', static fn(): CachedBlogResponse => $oldReader);
+
+        $cache = new BlogPageCache($pool);
+        self::assertSame('new crawler HTML', $cache->firstResponse('full_bot', static fn(): Response => new Response('new crawler HTML'))->getContent());
+        self::assertSame('warm reader HTML', $cache->firstResponse('full_new_visitor', static fn(): Response => new Response('cold reader HTML'))->getContent());
+
+        $cache->invalidateFirstPage();
+        self::assertSame('fresh crawler HTML', $cache->firstResponse('full_bot', static fn(): Response => new Response('fresh crawler HTML'))->getContent());
+    }
+
     public function testFragmentsAreReusedUntilTheirRelevantInvalidation(): void
     {
         $cache = new BlogPageCache(new ArrayAdapter());

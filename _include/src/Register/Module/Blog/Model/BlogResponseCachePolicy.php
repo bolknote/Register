@@ -11,7 +11,7 @@ namespace Register\Module\Blog\Model;
 
 use Register\Core\Http\Cache\QueryParameterDependencies;
 use Register\Core\Model\AuthProvider;
-use Register\Module\Analytics\BotDetector;
+use Register\Module\Analytics\NonInteractiveRequestDetector;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -23,7 +23,7 @@ final readonly class BlogResponseCachePolicy
     public function __construct(
         private AuthProvider           $authProvider,
         private VisitorIdentityManager $visitorIdentityManager,
-        private BotDetector            $botDetector,
+        private NonInteractiveRequestDetector $nonInteractiveRequestDetector,
     ) {
     }
 
@@ -61,7 +61,7 @@ final readonly class BlogResponseCachePolicy
             return null;
         }
 
-        $nonInteractive = $this->nonInteractiveReason($request);
+        $nonInteractive = $this->nonInteractiveRequestDetector->reason($request);
         if ($nonInteractive !== null) {
             $this->decision($request, $nonInteractive);
 
@@ -74,21 +74,6 @@ final readonly class BlogResponseCachePolicy
         $this->decision($request, $visitor);
 
         return $representation . '_' . $visitor;
-    }
-
-    /** Browser preloads must not mint a visitor-bound comment form which will never be used. */
-    private function nonInteractiveReason(Request $request): ?string
-    {
-        if ($this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '')) {
-            return 'bot';
-        }
-
-        $purpose = strtolower(trim(implode(' ', [
-            $request->headers->get('Purpose', '') ?? '',
-            $request->headers->get('Sec-Purpose', '') ?? '',
-        ])));
-
-        return str_contains($purpose, 'prefetch') ? 'prefetch' : null;
     }
 
     private function decision(Request $request, string $decision): void

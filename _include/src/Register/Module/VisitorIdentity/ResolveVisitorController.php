@@ -10,6 +10,7 @@ declare(strict_types = 1);
 namespace Register\Module\VisitorIdentity;
 
 use Register\Core\Framework\ControllerInterface;
+use Register\Module\Analytics\BotDetector;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,11 +24,12 @@ final readonly class ResolveVisitorController implements ControllerInterface
         private VisitorIdentityManager   $identityManager,
         private JsonMutationGuard        $mutationGuard,
         private EventDispatcherInterface $eventDispatcher,
+        private BotDetector              $botDetector,
     ) {
     }
 
     #[\Override]
-    public function handle(Request $request): JsonResponse
+    public function handle(Request $request): Response
     {
         if (!$request->isMethod(Request::METHOD_POST)) {
             return new JsonResponse(
@@ -35,6 +37,12 @@ final readonly class ResolveVisitorController implements ControllerInterface
                 Response::HTTP_METHOD_NOT_ALLOWED,
                 ['Allow' => Request::METHOD_POST],
             );
+        }
+
+        if ($this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '')) {
+            return new Response('', Response::HTTP_NO_CONTENT, [
+                'Cache-Control' => 'no-store, private',
+            ]);
         }
 
         $violation = $this->mutationGuard->violation($request, requireBrowserEvidence: true);

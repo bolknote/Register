@@ -79,6 +79,7 @@ use Register\Module\Blog\Model\SiteHeaderRenderer;
 use Register\Module\Blog\Model\TagRssStrategy;
 use Register\Module\Blog\Service\TagsSearchProvider;
 use Register\Module\Analytics\BotDetector;
+use Register\Module\Analytics\NonInteractiveRequestDetector;
 use Register\Module\Search\Service\RecommendationProvider;
 use Register\Module\Search\Service\SimilarWordsDetector;
 use Register\Url\ContentUrlGenerator;
@@ -156,7 +157,7 @@ final class ServiceModule implements ContainerModuleInterface
         $container->set(BlogResponseCachePolicy::class, static fn(Container $container): BlogResponseCachePolicy => new BlogResponseCachePolicy(
             $container->get(AuthProvider::class),
             $container->get(\Register\Module\VisitorIdentity\VisitorIdentityManager::class),
-            $container->get(BotDetector::class),
+            $container->get(NonInteractiveRequestDetector::class),
         ));
         $container->set(ContentViewResponseProcessor::class, static fn(Container $container): ContentViewResponseProcessor => new ContentViewResponseProcessor(
             $container->get(ContentViewRepository::class),

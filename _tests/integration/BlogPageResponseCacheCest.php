@@ -68,10 +68,25 @@ final class BlogPageResponseCacheCest
         $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
         $I->see('Cached crawler post');
         $I->dontSeeElement('#add-comment');
+        $I->dontSeeElement('meta[name="register-analytics"]');
+        $I->dontSeeElement('meta[name="register-visitor"]');
+        $I->dontSeeElement('meta[name="register-live-updates"]');
+        foreach (['analytics/collector.js', 'visitor/identity.js', 'reactions/reactions.js', 'live-updates.js'] as $script) {
+            $I->assertStringNotContainsString($script, $I->grabResponse());
+        }
+        $I->assertStringContainsString('reactions/reactions.css', $I->grabResponse());
 
         $I->sendRequestWithHeaders('/cached-crawler-post', $headers);
         $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
         $I->see('Cached crawler post');
+
+        $I->sendRequestWithHeaders('/cached-crawler-post', [
+            'User-Agent' => 'Mozilla/5.0 integration browser',
+            'Purpose' => 'prefetch',
+        ]);
+        $I->seeHttpHeader('X-Register-Page-Cache', 'hit');
+        $I->dontSeeElement('meta[name="register-visitor"]');
+        $I->assertStringNotContainsString('live-updates.js', $I->grabResponse());
 
         /** @var PDO $pdo */
         $pdo = $I->grabService(\PDO::class);
@@ -80,6 +95,12 @@ final class BlogPageResponseCacheCest
         $I->sendRequestWithHeaders('/cached-crawler-post', ['User-Agent' => 'Mozilla/5.0 integration browser']);
         $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
         $I->seeElement('#add-comment');
+        $I->seeElement('meta[name="register-analytics"]');
+        $I->seeElement('meta[name="register-visitor"]');
+        $I->seeElement('meta[name="register-live-updates"]');
+        foreach (['analytics/collector.js', 'visitor/identity.js', 'reactions/reactions.js', 'live-updates.js'] as $script) {
+            $I->assertStringContainsString($script, $I->grabResponse());
+        }
     }
 
     public function servesRepeatedBrowserPrefetchWithoutDatabaseQueries(\IntegrationTester $I): void
@@ -96,6 +117,12 @@ final class BlogPageResponseCacheCest
         $I->seeHttpHeader('X-Register-Page-Cache', 'miss');
         $I->see('Cached prefetched post');
         $I->dontSeeElement('#add-comment');
+        $I->dontSeeElement('meta[name="register-analytics"]');
+        $I->dontSeeElement('meta[name="register-visitor"]');
+        $I->dontSeeElement('meta[name="register-live-updates"]');
+        foreach (['analytics/collector.js', 'visitor/identity.js', 'reactions/reactions.js', 'live-updates.js'] as $script) {
+            $I->assertStringNotContainsString($script, $I->grabResponse());
+        }
 
         $I->sendRequestWithHeaders('/cached-prefetched-post', $headers);
         $I->seeHttpHeader('X-Register-Page-Cache', 'hit');

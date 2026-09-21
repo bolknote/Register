@@ -49,6 +49,9 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string CONTENT_RESPONSE_PREFIX = 'register_content_response_v3_';
 
+    /** Only crawler/prefetch HTML changed; keep ordinary reader responses warm. */
+    private const string NON_INTERACTIVE_RESPONSE_SUFFIX = '_noninteractive_v2';
+
     private const array RESPONSE_VARIANTS = [
         'full_bot',
         'full_new_visitor',
@@ -527,7 +530,9 @@ final class BlogPageCache implements StatefulServiceInterface
             throw new \InvalidArgumentException('Unknown blog response cache variant.');
         }
 
-        return $variant;
+        return str_ends_with($variant, '_bot')
+            ? $variant . self::NON_INTERACTIVE_RESPONSE_SUFFIX
+            : $variant;
     }
 
     /** @param callable(): BlogSidebarFeed $factory */
@@ -664,6 +669,9 @@ final class BlogPageCache implements StatefulServiceInterface
     {
         foreach (self::RESPONSE_VARIANTS as $variant) {
             $cache->delete($prefix . $variant);
+            if (str_ends_with($variant, '_bot')) {
+                $cache->delete($prefix . $this->validatedVariant($variant));
+            }
         }
     }
 

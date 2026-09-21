@@ -14,6 +14,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentRepository;
 use Register\Content\ContentType;
 use Register\Module\Blog\Model\PostFeedRenderer;
+use Register\Module\Analytics\BotDetector;
 use Register\Auth\PublicAuthRenderer;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Register\Core\Framework\ControllerInterface;
@@ -36,12 +37,20 @@ final readonly class LiveUpdateController implements ControllerInterface
         private LiveFragmentRenderer   $fragmentRenderer,
         private PublicAuthRenderer     $publicAuthRenderer,
         private EventDispatcherInterface $eventDispatcher,
+        private BotDetector            $botDetector,
     ) {
     }
 
     #[\Override]
-    public function handle(Request $request): \Symfony\Component\HttpFoundation\JsonResponse
+    public function handle(Request $request): Response
     {
+        if ($this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '')) {
+            return new Response('', Response::HTTP_NO_CONTENT, [
+                'Cache-Control' => 'no-store, private',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        }
+
         $cursor = $this->cursor($request);
         if ($cursor === null) {
             return $this->error('Invalid live-update cursor.');

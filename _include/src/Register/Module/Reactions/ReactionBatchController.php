@@ -13,6 +13,7 @@ use Register\Content\ContentId;
 use Register\Content\ContentSchema;
 use Register\Core\Framework\ControllerInterface;
 use Register\Core\Pdo\DbLayer;
+use Register\Module\Analytics\BotDetector;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,12 +30,19 @@ final readonly class ReactionBatchController implements ControllerInterface
         private DbLayer                $dbLayer,
         private ReactionRepository     $repository,
         private VisitorIdentityManager $identityManager,
+        private BotDetector            $botDetector,
     ) {
     }
 
     #[\Override]
-    public function handle(Request $request): JsonResponse
+    public function handle(Request $request): Response
     {
+        if ($this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '')) {
+            return new Response('', Response::HTTP_NO_CONTENT, [
+                'Cache-Control' => 'no-store, private',
+            ]);
+        }
+
         $value = $request->query->get('content');
         if (!\is_string($value) || $value === '' || strlen($value) > self::MAX_QUERY_BYTES) {
             return $this->error('Invalid content identifiers.');

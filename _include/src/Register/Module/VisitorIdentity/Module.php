@@ -19,7 +19,11 @@ use Register\Core\Framework\RoutingModuleInterface;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Queue\ScheduledMaintenanceTaskInterface;
 use Register\Core\Template\TemplateAssetEvent;
+use Register\Module\Analytics\BotDetector;
+use Register\Module\Analytics\NonInteractiveRequestDetector;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
@@ -45,6 +49,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(VisitorIdentityManager::class),
             $container->get(JsonMutationGuard::class),
             $container->get(\Symfony\Contracts\EventDispatcher\EventDispatcherInterface::class),
+            $container->get(BotDetector::class),
         ));
     }
 
@@ -52,6 +57,11 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
     public function registerListeners(EventDispatcherInterface $eventDispatcher, Container $container): void
     {
         $eventDispatcher->addListener(TemplateAssetEvent::class, static function (TemplateAssetEvent $event) use ($container): void {
+            $request = $container->get(RequestStack::class)->getCurrentRequest();
+            if ($request instanceof Request && $container->get(NonInteractiveRequestDetector::class)->reason($request) !== null) {
+                return;
+            }
+
             $basePath        = rtrim($container->getStringParameter('base_path'), '/');
             $identityManager = $container->get(VisitorIdentityManager::class);
             $assetUrl        = new PublicAssetUrl(
