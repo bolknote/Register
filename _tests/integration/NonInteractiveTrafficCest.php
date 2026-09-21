@@ -23,6 +23,7 @@ final class NonInteractiveTrafficCest
         foreach (['register-analytics', 'register-visitor', 'register-live-updates'] as $name) {
             $I->dontSeeElement('meta[name="' . $name . '"]');
         }
+
         foreach (['analytics/collector.js', 'visitor/identity.js', 'reactions/reactions.js', 'live-updates.js'] as $script) {
             $I->assertStringNotContainsString($script, $I->grabResponse());
         }

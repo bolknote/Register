@@ -74,6 +74,7 @@ final class BlogPageResponseCacheCest
         foreach (['analytics/collector.js', 'visitor/identity.js', 'reactions/reactions.js', 'live-updates.js'] as $script) {
             $I->assertStringNotContainsString($script, $I->grabResponse());
         }
+
         $I->assertStringContainsString('reactions/reactions.css', $I->grabResponse());
 
         $I->sendRequestWithHeaders('/cached-crawler-post', $headers);

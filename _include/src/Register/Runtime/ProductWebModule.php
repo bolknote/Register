@@ -171,6 +171,7 @@ final readonly class ProductWebModule implements ContainerAwareListenerModuleInt
             if (!$nonInteractive) {
                 $event->assetPack->addJs($assetUrl->versioned('/_assets/register/live-updates.js'), [AssetPack::OPTION_DEFER]);
             }
+
             $event->assetPack
                 ->addJs($assetUrl->versioned('/_assets/register/partial-navigation.js'), [AssetPack::OPTION_DEFER])
                 ->addCss($assetUrl->versioned('/_assets/register/public-auth.css'))
