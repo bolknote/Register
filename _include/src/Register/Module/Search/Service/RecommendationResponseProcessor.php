@@ -13,6 +13,7 @@ use Register\Content\ContentId;
 use Register\Core\Framework\ResponseProcessorInterface;
 use Register\Core\Template\PartialPageResponse;
 use Register\Core\Template\Viewer;
+use Register\Module\Analytics\BotDetector;
 use Register\Module\Search\Module;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Register\Rose\Entity\ExternalId;
@@ -28,6 +29,7 @@ final readonly class RecommendationResponseProcessor implements ResponseProcesso
         private RecommendationProvider  $recommendationProvider,
         private VisitorIdentityManager  $visitorIdentityManager,
         private Viewer                  $viewer,
+        private BotDetector             $botDetector,
     ) {
     }
 
@@ -39,6 +41,13 @@ final readonly class RecommendationResponseProcessor implements ResponseProcesso
             return $response;
         }
 
+        // Crawlers need the article, not a per-request layout of related links.
+        // A warm recommendation cache would otherwise still be read and rendered
+        // after every complete page-cache hit.
+        $renderer = $this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '')
+            ? static fn(ContentId $_contentId): string => ''
+            : fn(ContentId $contentId): string => $this->render($request, $contentId);
+
         if ($this->isPartialPageResponse($response)) {
             $payload = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
             if (!\is_array($payload) || !\is_string($payload['fragment'] ?? null)) {
@@ -47,7 +56,7 @@ final readonly class RecommendationResponseProcessor implements ResponseProcesso
 
             $fragment = DeferredRecommendations::replace(
                 $payload['fragment'],
-                fn(ContentId $contentId): string => $this->render($request, $contentId),
+                $renderer,
             );
             if ($fragment === null) {
                 return $response;
@@ -58,7 +67,7 @@ final readonly class RecommendationResponseProcessor implements ResponseProcesso
         } else {
             $hydrated = DeferredRecommendations::replace(
                 $content,
-                fn(ContentId $contentId): string => $this->render($request, $contentId),
+                $renderer,
             );
             if ($hydrated === null) {
                 return $response;

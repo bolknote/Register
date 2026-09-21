@@ -66,6 +66,7 @@ use Register\Module\Search\Service\SearchIndexMaintenance;
 use Register\Module\Search\Service\SearchIndexRepairer;
 use Register\Module\Search\Service\SimilarWordsDetector;
 use Register\Module\Search\Service\SearchRssStrategy;
+use Register\Module\Analytics\BotDetector;
 use Register\Module\VisitorIdentity\VisitorIdentityManager;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
@@ -260,6 +261,7 @@ final class Module implements ContainerModuleInterface, ContainerAwareListenerMo
             $container->get(RecommendationProvider::class),
             $container->get(VisitorIdentityManager::class),
             $container->get(Viewer::class),
+            $container->get(BotDetector::class),
         ), [ResponseProcessorInterface::class]);
     }
 

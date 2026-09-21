@@ -26,7 +26,10 @@ final readonly class PostPageContextProvider
 
     public function forPost(int $postId): ?PostPageContext
     {
-        return $this->pageCache->postPageContextIndex($this->buildIndex(...))->forPost($postId);
+        return $this->pageCache->postPageContext(
+            $postId,
+            fn(): ?PostPageContext => $this->pageCache->postPageContextIndex($this->buildIndex(...))->forPost($postId),
+        );
     }
 
     private function buildIndex(): PostPageContextIndex

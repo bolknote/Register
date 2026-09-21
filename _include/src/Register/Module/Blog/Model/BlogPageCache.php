@@ -33,6 +33,10 @@ final class BlogPageCache implements StatefulServiceInterface
 
     private const string POST_PAGE_CONTEXT_KEY = 'register_blog_post_page_context_v2';
 
+    private const string POST_PAGE_CONTEXT_ENTRY_PREFIX = 'register_blog_post_page_context_entry_v1_';
+
+    private const string POST_PAGE_CONTEXT_GENERATION_KEY = 'register_blog_post_page_context_generation_v1';
+
     private const string RECENT_COMMENTS_KEY = 'register_blog_recent_comments_v2';
 
     private const string RECENT_DISCUSSIONS_KEY = 'register_blog_recent_discussions_v2';
@@ -187,6 +191,35 @@ final class BlogPageCache implements StatefulServiceInterface
             },
             0.0,
         );
+    }
+
+    /** @param callable(): ?PostPageContext $factory */
+    public function postPageContext(int $postId, callable $factory): ?PostPageContext
+    {
+        if ($postId < 1) {
+            throw new \InvalidArgumentException('A post context requires a positive post ID.');
+        }
+
+        if ($this->disabled) {
+            return $factory();
+        }
+
+        $generation = $this->generation(self::POST_PAGE_CONTEXT_GENERATION_KEY);
+        $key = self::POST_PAGE_CONTEXT_ENTRY_PREFIX . $postId;
+        $build = static function (ItemInterface $item) use ($factory, $generation): array {
+            $item->expiresAfter(null);
+
+            return [$generation, $factory()];
+        };
+
+        $cached = $this->cache->get($key, $build, 0.0);
+        if ($cached[0] !== $generation) {
+            // Keep one stable slot per post even when the publication graph changes.
+            $this->cache->delete($key);
+            $cached = $this->cache->get($key, $build, 0.0);
+        }
+
+        return $cached[1];
     }
 
     /**
@@ -412,6 +445,7 @@ final class BlogPageCache implements StatefulServiceInterface
 
         $this->invalidateOnce('post-page-context', function (): void {
             $this->hotCache->delete(self::POST_PAGE_CONTEXT_KEY);
+            $this->hotCache->delete(self::POST_PAGE_CONTEXT_GENERATION_KEY);
         }, $deferUntilCommit);
     }
 

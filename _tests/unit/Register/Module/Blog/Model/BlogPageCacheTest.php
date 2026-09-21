@@ -18,6 +18,7 @@ use Register\Module\Blog\Model\BlogSidebarFeed;
 use Register\Module\Blog\Model\CachedBlogResponse;
 use Register\Module\Blog\Model\ContentViewResponseProcessor;
 use Register\Module\Blog\Model\PostFeed;
+use Register\Module\Blog\Model\PostPageContext;
 use Register\Module\Blog\Model\PostPageContextIndex;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\Adapter\ChainAdapter;
@@ -118,6 +119,46 @@ final class BlogPageCacheTest extends TestCase
         $cache->invalidateCommentFragments();
         self::assertSame([['build' => 2]], $cache->recentComments($comments));
         self::assertSame([['build' => 3]], $cache->recentDiscussions($discussions));
+    }
+
+    public function testPostContextsAreCachedSeparatelyAndRotateAfterPostChanges(): void
+    {
+        $pool = new ArrayAdapter();
+        $cache = new BlogPageCache($pool);
+        $builds = [1 => 0, 2 => 0];
+        $context = static function (int $postId) use (&$builds): PostPageContext {
+            ++$builds[$postId];
+
+            return new PostPageContext(
+                'Author ' . $builds[$postId],
+                [],
+                null,
+                null,
+                2026,
+                9,
+                21,
+                'post-' . $postId,
+                [],
+            );
+        };
+
+        $this->assertPostContextAuthor('Author 1', $cache->postPageContext(1, static fn(): PostPageContext => $context(1)));
+        $this->assertPostContextAuthor('Author 1', $cache->postPageContext(2, static fn(): PostPageContext => $context(2)));
+        $this->assertPostContextAuthor('Author 1', $cache->postPageContext(1, static fn(): PostPageContext => $context(1)));
+
+        $cache->invalidateCommentChange(ContentId::post(1));
+        $this->assertPostContextAuthor('Author 1', $cache->postPageContext(1, static fn(): PostPageContext => $context(1)));
+
+        $cache->invalidateContentChange(ContentId::post(1));
+        $this->assertPostContextAuthor('Author 2', $cache->postPageContext(1, static fn(): PostPageContext => $context(1)));
+        $this->assertPostContextAuthor('Author 2', $cache->postPageContext(2, static fn(): PostPageContext => $context(2)));
+        self::assertSame([1 => 2, 2 => 2], $builds);
+
+        $keys = array_filter(
+            array_keys($pool->getValues()),
+            static fn(string $key): bool => str_starts_with($key, 'register_blog_post_page_context_entry_v1_'),
+        );
+        self::assertCount(2, $keys);
     }
 
     public function testCommentChangeInvalidatesOnlyTheAffectedPostAndCommentDependencies(): void
@@ -570,6 +611,12 @@ final class BlogPageCacheTest extends TestCase
         }
 
         return $result;
+    }
+
+    private function assertPostContextAuthor(string $expected, ?PostPageContext $context): void
+    {
+        self::assertNotNull($context);
+        self::assertSame($expected, $context->author);
     }
 }
 
