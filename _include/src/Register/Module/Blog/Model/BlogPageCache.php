@@ -193,7 +193,7 @@ final class BlogPageCache implements StatefulServiceInterface
         );
     }
 
-    /** @param callable(): ?PostPageContext $factory */
+    /** @param callable(): (PostPageContext|null) $factory */
     public function postPageContext(int $postId, callable $factory): ?PostPageContext
     {
         if ($postId < 1) {

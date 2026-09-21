@@ -45,7 +45,7 @@ final readonly class RecommendationResponseProcessor implements ResponseProcesso
         // A warm recommendation cache would otherwise still be read and rendered
         // after every complete page-cache hit.
         $renderer = $this->botDetector->isBot($request->headers->get('User-Agent', '') ?? '')
-            ? static fn(ContentId $_contentId): string => ''
+            ? static fn(): string => ''
             : fn(ContentId $contentId): string => $this->render($request, $contentId);
 
         if ($this->isPartialPageResponse($response)) {
