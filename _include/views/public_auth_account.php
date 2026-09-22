@@ -20,7 +20,7 @@ $initials = $user instanceof \Register\Core\Model\AuthenticatedPublicUser
 ?>
 <div class="public-auth-account"<?php if ($live_region !== null): ?> data-live-region="<?php echo register_htmlencode($live_region); ?>"<?php endif; ?>>
 <?php if (!$user instanceof \Register\Core\Model\AuthenticatedPublicUser): ?>
-    <a class="public-auth-open public-auth-login-button" href="<?php echo register_htmlencode($login_url); ?>" data-public-auth-open data-register-native-navigation>
+    <a class="public-auth-open public-auth-login-button" href="<?php echo register_htmlencode($login_url); ?>" rel="nofollow" data-public-auth-open data-register-native-navigation>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.3"></circle><path d="M5.5 20a6.5 6.5 0 0 1 13 0M19 4v5M16.5 6.5h5"></path></svg>
         <span><?php echo $trans('Sign in'); ?></span>
     </a>

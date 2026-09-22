@@ -58,6 +58,22 @@ class CommentCest
         $I->assertSame($countBefore, (int)$dbLayer->select('COUNT(*)')->from(CommentSchema::TABLE_NAME)->execute()->result());
     }
 
+    public function testGuestSignInLinksInTheHeaderAndCommentFormDiscourageCrawlers(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $this->insertArticle($dbLayer);
+
+        $I->amOnPage('https://localhost/thread-test');
+
+        $I->seeElement('.public-auth-login-button[rel="nofollow"][data-public-auth-open]');
+        $I->seeElement('.comment-public-auth-login[rel="nofollow"][data-public-auth-open]');
+        $I->assertStringContainsString(
+            '%23add-comment',
+            (string)$I->grabAttributeFrom('.comment-public-auth-login', 'href'),
+        );
+    }
+
     public function testSavesATopLevelCommentWithAnEmptyParentId(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

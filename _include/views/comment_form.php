@@ -68,7 +68,7 @@ if ($authenticatedUser instanceof \Register\Core\Model\AuthenticatedPublicUser) 
         </form>
     <?php else: ?>
         <span class="comment-public-auth-copy"><?php echo $trans('Confirm your email before the comment is published.'); ?></span>
-        <a class="public-auth-open comment-public-auth-login" href="<?php echo register_htmlencode($authLoginUrl); ?>" data-public-auth-open><?php echo $trans('Sign in'); ?></a>
+        <a class="public-auth-open comment-public-auth-login" href="<?php echo register_htmlencode($authLoginUrl); ?>" rel="nofollow" data-public-auth-open><?php echo $trans('Sign in'); ?></a>
     <?php endif; ?>
     </div>
     <form method="post" name="post_comment" id="comment-form" action="<?php echo register_htmlencode($action); ?>">

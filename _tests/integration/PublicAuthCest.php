@@ -49,7 +49,7 @@ final class PublicAuthCest
     {
         $I->amOnPage('https://localhost/');
 
-        $I->seeElement('.public-auth-login-button[data-public-auth-open][data-register-native-navigation]');
+        $I->seeElement('.public-auth-login-button[rel="nofollow"][data-public-auth-open][data-register-native-navigation]');
         $I->seeElement('#public-auth-dialog .public-auth-email-form');
         $I->seeElement('#public-auth-dialog .public-auth-password-form');
         $I->seeElement('#public-auth-dialog [data-public-auth-mode-panel="password"][hidden]');

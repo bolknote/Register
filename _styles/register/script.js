@@ -520,7 +520,10 @@
                     }
                     var isSpamAction = payload.action === 'spam';
                     var activeElement = document.activeElement;
-                    if (activeElement && form.contains(activeElement) && typeof activeElement.blur === 'function') {
+                    if (item) {
+                        closeCommentToolsMenu(item.querySelector(':scope > .comment-moderation'), false);
+                    }
+                    if (activeElement && item && item.contains(activeElement) && typeof activeElement.blur === 'function') {
                         activeElement.blur();
                     }
 

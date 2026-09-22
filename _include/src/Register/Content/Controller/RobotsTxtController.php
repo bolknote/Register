@@ -26,10 +26,39 @@ final readonly class RobotsTxtController implements ControllerInterface
     #[\Override]
     public function handle(Request $request): Response
     {
-        $adminPath = rtrim($this->basePath, '/') . '/_admin/';
-        $output = "User-agent: *\n"
-            . 'Disallow: ' . $adminPath . "\n"
-            . 'Sitemap: ' . $this->contentUrlGenerator->rawAbsolutePath('/sitemap.xml') . "\n";
+        $basePath = rtrim($this->basePath, '/');
+        // Exact and query rules avoid blocking unrelated content such as /author.
+        // Leave page assets, feeds and public discovery endpoints crawlable.
+        $disallowedPaths = [
+            '/_admin$',
+            '/_admin?',
+            '/_admin/',
+            '/_analytics/collect$',
+            '/_analytics/collect?',
+            '/_inplace/',
+            '/_live$',
+            '/_live?',
+            '/_reactions$',
+            '/_reactions?',
+            '/_reactions/',
+            '/_visitor/resolve$',
+            '/_visitor/resolve?',
+            '/auth$',
+            '/auth?',
+            '/auth/',
+            '/comment-moderate$',
+            '/comment-moderate?',
+            '/comment_sent$',
+            '/comment_sent?',
+            '/comment_unsubscribe$',
+            '/comment_unsubscribe?',
+        ];
+        $output = "User-agent: *\n";
+        foreach ($disallowedPaths as $path) {
+            $output .= 'Disallow: ' . $basePath . $path . "\n";
+        }
+
+        $output .= 'Sitemap: ' . $this->contentUrlGenerator->rawAbsolutePath('/sitemap.xml') . "\n";
 
         $response = new Response($output);
         $response->headers->set('Content-Length', (string)\strlen($output));

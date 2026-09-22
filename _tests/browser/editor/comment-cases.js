@@ -132,6 +132,58 @@ test('a failed save restores the editor and the original rendered comment', asyn
     }
 });
 
+test('revealing a comment releases the focused moderation menu for a live update', async () => {
+    const fixture = document.getElementById('fixture');
+    window.RegisterCommentEditor.destroy(fixture);
+    fixture.innerHTML = `<div class="live-comments-region" data-live-region="comments:post:1">
+        <article class="comment-item is-hidden" data-moderation-state="hidden">
+            <nav class="comment-moderation is-menu-open">
+                <button class="comment-tools-menu-toggle" type="button" aria-expanded="true">Menu</button>
+                <div class="comment-tools-overflow">
+                    <form class="comment-moderation-action" method="post" action="/comment-moderate" data-moderation-action="show">
+                        <input type="hidden" name="moderation_action" value="show">
+                        <button type="submit">Reveal</button>
+                    </form>
+                </div>
+            </nav>
+            <header class="comment-meta"><span class="comment-state-mark">Hidden</span></header>
+            <div class="comment-body">Comment text</div>
+            <div class="comment-actions"><a class="comment-reply" href="#add-comment" hidden>Reply</a></div>
+        </article>
+    </div>`;
+    window.commentFlowTest.initCommentModeration(fixture);
+
+    const region = fixture.querySelector('.live-comments-region');
+    const item = fixture.querySelector('.comment-item');
+    const menu = fixture.querySelector('.comment-moderation');
+    const toggle = fixture.querySelector('.comment-tools-menu-toggle');
+    const form = fixture.querySelector('.comment-moderation-action');
+    let refreshes = 0;
+    const onRefresh = () => { refreshes += 1; };
+    document.addEventListener('register:live-refresh', onRefresh);
+    toggle.style.display = 'block';
+    toggle.focus();
+    equal(document.activeElement, toggle, 'The menu retains focus as it can on mobile browsers');
+
+    window.fetch = async () => ({
+        ok: true,
+        json: async () => ({success: true, action: 'show'}),
+    });
+    try {
+        form.requestSubmit();
+        await tick();
+        await tick();
+        equal(item.classList.contains('is-hidden'), false);
+        equal(item.querySelector('.comment-state-mark'), null);
+        equal(menu.classList.contains('is-menu-open'), false, 'The completed action closes its menu');
+        ok(!region.contains(document.activeElement), 'Menu focus must not block the server-rendered update');
+        equal(refreshes, 1);
+    } finally {
+        document.removeEventListener('register:live-refresh', onRefresh);
+        window.fetch = nativeFetch;
+    }
+});
+
 document.getElementById('run').addEventListener('click', async () => {
     const output = document.getElementById('results');
     const results = [];

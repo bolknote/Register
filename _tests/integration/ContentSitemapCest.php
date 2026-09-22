@@ -135,13 +135,39 @@ final class ContentSitemapCest
         $I->assertSame('/single-query-parent/single-query-child', $pathsById[$childId] ?? null);
     }
 
-    public function robotsTxtAdvertisesTheSitemap(\IntegrationTester $I): void
+    public function robotsTxtBlocksSystemEndpointsAndAdvertisesTheSitemap(\IntegrationTester $I): void
     {
         $I->amOnPage('/robots.txt');
         $I->seeResponseCodeIs(Response::HTTP_OK);
         $I->assertSame('text/plain; charset=utf-8', $I->grabHttpHeader('Content-Type'));
         $I->assertSame(
-            "User-agent: *\nDisallow: /_admin/\nSitemap: http://register.localhost/sitemap.xml\n",
+            implode("\n", [
+                'User-agent: *',
+                'Disallow: /_admin$',
+                'Disallow: /_admin?',
+                'Disallow: /_admin/',
+                'Disallow: /_analytics/collect$',
+                'Disallow: /_analytics/collect?',
+                'Disallow: /_inplace/',
+                'Disallow: /_live$',
+                'Disallow: /_live?',
+                'Disallow: /_reactions$',
+                'Disallow: /_reactions?',
+                'Disallow: /_reactions/',
+                'Disallow: /_visitor/resolve$',
+                'Disallow: /_visitor/resolve?',
+                'Disallow: /auth$',
+                'Disallow: /auth?',
+                'Disallow: /auth/',
+                'Disallow: /comment-moderate$',
+                'Disallow: /comment-moderate?',
+                'Disallow: /comment_sent$',
+                'Disallow: /comment_sent?',
+                'Disallow: /comment_unsubscribe$',
+                'Disallow: /comment_unsubscribe?',
+                'Sitemap: http://register.localhost/sitemap.xml',
+                '',
+            ]),
             $I->grabResponse(),
         );
 
