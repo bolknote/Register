@@ -55,6 +55,32 @@ class BlogPaginationCest
         $I->dontSeeElement('.blog-pagination');
     }
 
+    public function testOnlyOffsetArchivePagesAreExcludedFromSearchResults(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $I->setConfigValue('REGISTER_MAX_ITEMS', '2');
+
+        $this->insertPost($dbLayer, 1);
+        $this->insertPost($dbLayer, 2);
+        $this->insertPost($dbLayer, 3);
+
+        $I->amOnPage('https://localhost/');
+        $I->dontSeeElement('meta[name="robots"][content*="noindex"]');
+
+        $I->amOnPage('https://localhost/skip/0');
+        $I->seeResponseCodeIs(200);
+        $I->seeElement('meta[name="robots"][content="noindex, follow"]');
+
+        $I->amOnPage('https://localhost/skip/2');
+        $I->seeResponseCodeIs(200);
+        $I->seeElement('meta[name="robots"][content="noindex, follow"]');
+
+        $I->amOnPage('https://localhost/post-1');
+        $I->seeResponseCodeIs(200);
+        $I->dontSeeElement('meta[name="robots"][content*="noindex"]');
+    }
+
     public function testTagPageUsesTheGlobalPaginationLimit(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

@@ -104,6 +104,10 @@ class MainPageController extends BlogController
             $skipLastPostsNum = 0;
         }
 
+        if ($request->getPathInfo() !== '/') {
+            $template->addMetaTag('<meta name="robots" content="noindex, follow" />');
+        }
+
         $this->liveUpdates->subscribePosts($skipLastPostsNum);
 
         if ($template->hasPlaceholder('<!-- register_blog_calendar -->')) {
