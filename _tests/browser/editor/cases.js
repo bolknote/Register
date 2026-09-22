@@ -127,6 +127,27 @@ test('inline code undo/redo preserves the text and selection', async () => {
     equal(s.body.querySelector('tt')?.textContent, 'Альфа бета гамма');
 });
 
+test('typing inside an AI correction keeps the caret at the chosen offset', async () => {
+    for (const offset of [0, 2, 5]) {
+        const s = setup('<p>One error here.</p>');
+        api.markAiChanges(Array.from(s.body.childNodes), 'One eror here.');
+        const marked = s.body.querySelector('.post-editor-ai-change');
+        equal(marked?.textContent, 'error', 'The corrected word is marked');
+
+        const range = document.createRange();
+        range.setStart(marked.firstChild, offset);
+        range.collapse(true);
+        getSelection().removeAllRanges();
+        getSelection().addRange(range);
+
+        const expected = `One ${'error'.slice(0, offset)}XY${'error'.slice(offset)} here.`;
+        await type(s, 'X');
+        await type(s, 'Y');
+        equal(plain(s), expected, `Both characters stay at the chosen offset ${offset}`);
+        equal(s.body.querySelector('.post-editor-ai-change'), null, 'The transient mark is removed');
+    }
+});
+
 test('partial inline-code removal, undo and redo keep surrounding code', async () => {
     const s = setup('<p><tt>Альфа бета гамма</tt></p>');
     const text = s.body.querySelector('tt').firstChild;

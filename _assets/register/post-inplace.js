@@ -1370,9 +1370,29 @@
     }
 
     function clearAiChangeMarks(root) {
-        root.querySelectorAll('.post-editor-ai-change').forEach((mark) => {
+        const marks = root.querySelectorAll('.post-editor-ai-change');
+        if (marks.length === 0) {
+            return;
+        }
+
+        const selection = window.getSelection();
+        const preserveSelection = selection?.rangeCount > 0
+            && root.contains(selection.anchorNode)
+            && root.contains(selection.focusNode);
+        const anchorNode = preserveSelection ? selection.anchorNode : null;
+        const anchorOffset = preserveSelection ? selection.anchorOffset : 0;
+        const focusNode = preserveSelection ? selection.focusNode : null;
+        const focusOffset = preserveSelection ? selection.focusOffset : 0;
+
+        marks.forEach((mark) => {
             mark.replaceWith(...mark.childNodes);
         });
+
+        // Moving the marked text nodes makes the browser relocate its live caret
+        // to the former span boundary. Restore the original position in the text.
+        if (preserveSelection && root.contains(anchorNode) && root.contains(focusNode)) {
+            selection.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
+        }
     }
 
     function textFromHtml(html) {

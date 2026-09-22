@@ -25,7 +25,7 @@ export function createFixtureServer() {
                         removeContextLink, applyContextLink, handleContextAction, contextBlockStyle,
                         beginImageCaptionEditing, finishImageCaptionEditing, insertMediaFiles,
                         beginInlineMediaCaption, finishInlineMediaCaption,
-                        editableBodyHtml, prepareEditableMedia, stopEditing,
+                        editableBodyHtml, prepareEditableMedia, stopEditing, markAiChanges,
                         createEditorFieldSurfaces,
                         createBodyHistory: typeof createBodyHistory === 'function' ? createBodyHistory : null};
                 })();`));
