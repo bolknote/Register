@@ -295,6 +295,64 @@ final class LinkHealthCest
         $I->assertSame([$targetId], $repository->dueTargetIds($dueAt, 50));
     }
 
+    public function keepsIgnoredTargetsIgnoredWhenAnOlderForcedCheckRuns(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $postId = $this->insertPost(
+            $dbLayer,
+            'ignored-forced-check-source',
+            '<a href="https://outside.example/ignored-forced-check">External</a>',
+        );
+
+        /** @var LinkInventory $inventory */
+        $inventory = $I->grabService(LinkInventory::class);
+        $inventory->synchronize(ContentId::post($postId), 1_800_000_000);
+
+        $targetId = $this->targetId($dbLayer, 'https://outside.example/ignored-forced-check');
+
+        /** @var LinkHealthAdminRepository $adminRepository */
+        $adminRepository = $I->grabAdminService(LinkHealthAdminRepository::class);
+        $adminRepository->ignore($targetId);
+
+        $probe = new SequencedLinkProbe([
+            LinkProbeStep::complete(new LinkProbeResult('https://outside.example/ignored-forced-check', 200)),
+        ]);
+        /** @var LinkHealthRepository $healthRepository */
+        $healthRepository = $I->grabService(LinkHealthRepository::class);
+        /** @var LinkHealthPolicy $policy */
+        $policy = $I->grabService(LinkHealthPolicy::class);
+        /** @var HostRequestThrottle $hostRequestThrottle */
+        $hostRequestThrottle = $I->grabService(HostRequestThrottle::class);
+        /** @var LinkHealthResultRecorder $resultRecorder */
+        $resultRecorder = $I->grabService(LinkHealthResultRecorder::class);
+        /** @var QueuePublisher $queuePublisher */
+        $queuePublisher = $I->grabService(QueuePublisher::class);
+        $handler = new LinkCheckQueueHandler(
+            $healthRepository,
+            $policy,
+            $probe,
+            $hostRequestThrottle,
+            $resultRecorder,
+            $queuePublisher,
+            static fn(): int => 1_800_000_001,
+        );
+
+        $handler->handle(
+            LinkQueue::targetJobId($targetId),
+            LinkQueue::CHECK_CODE,
+            LinkQueue::checkPayload($targetId, true),
+            new QueueExecutionBudget(5.0),
+        );
+
+        $I->assertSame([], $probe->states);
+        $I->assertSame(
+            LinkHealthStatus::IGNORED->value,
+            (string)$dbLayer->select('health_status')->from(Manifest::TARGET_TABLE)
+                ->where('id = :id')->setParameter('id', $targetId)->execute()->result(),
+        );
+    }
+
     public function advancesHttpProbeAcrossFiveSecondShutdownSlices(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
