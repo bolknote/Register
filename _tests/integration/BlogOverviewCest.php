@@ -81,7 +81,7 @@ final class BlogOverviewCest
         $I->assertSame(array_slice(array_reverse($drafts), 0, 5), $this->ids($snapshot['drafts']));
         $I->assertSame([$legacyFuture, ...array_slice($scheduled, 0, 4)], $this->ids($snapshot['scheduled']));
         $I->assertSame($now + 1800, (int)$snapshot['scheduled'][0]['scheduled_at']);
-        $I->assertSame('/draft-7', $snapshot['drafts'][0]['url']);
+        $I->assertSame('/all/draft-7', $snapshot['drafts'][0]['url']);
         $I->assertArrayNotHasKey('body', $snapshot['drafts'][0]);
         $I->assertSame($snapshot, $repository->snapshot($now, true, false, $author, false));
 
@@ -132,7 +132,7 @@ final class BlogOverviewCest
         $I->assertSame(7, $snapshot['pendingCount']);
         $I->assertSame(array_slice(array_reverse($pending), 0, 5), $this->ids($snapshot['pending']));
         $I->assertSame(array_slice(array_reverse($visible), 0, 5), $this->ids($snapshot['comments']));
-        $I->assertSame('/discussion-for-overview#comment-' . end($pending), $snapshot['pending'][0]['url']);
+        $I->assertSame('/all/discussion-for-overview#comment-' . end($pending), $snapshot['pending'][0]['url']);
         $I->assertArrayNotHasKey('text', $snapshot['pending'][0]);
         $I->assertArrayNotHasKey('email', $snapshot['pending'][0]);
 
@@ -168,7 +168,7 @@ final class BlogOverviewCest
         $I->assertSame(['drafts' => 1, 'scheduled' => 2, 'overdue' => 2], $snapshot['queue']);
         $I->assertSame([$overdue, $due, $legacyNext, $next], $this->ids($snapshot['scheduled']));
         $I->assertSame($now + 1800, (int)$snapshot['scheduled'][2]['scheduled_at']);
-        $I->assertSame('/walking%20%26%20writing#comment-' . $pending, $snapshot['pending'][0]['url']);
+        $I->assertSame('/all/walking%20%26%20writing#comment-' . $pending, $snapshot['pending'][0]['url']);
         $I->assertSame(180, mb_strlen($snapshot['pending'][0]['snippet']));
         $I->assertStringEndsWith('…', $snapshot['pending'][0]['snippet']);
         $I->assertStringContainsString('A useful question & <img', $snapshot['pending'][0]['snippet']);
@@ -179,9 +179,9 @@ final class BlogOverviewCest
         $I->login('admin', 'admin');
         $I->amOnPage('https://localhost/_admin/index.php?entity=Dashboard');
         $I->seeResponseCodeIs(200);
-        $I->seeElement('.overview-moderation .overview-comment-link[href="/walking%20%26%20writing#comment-' . $pending . '"]');
-        $I->seeElement('.overview-drafts a[href="/work-in-progress"]');
-        $I->seeElement('.overview-schedule a[href="/publication-next"]');
+        $I->seeElement('.overview-moderation .overview-comment-link[href="/all/walking%20%26%20writing#comment-' . $pending . '"]');
+        $I->seeElement('.overview-drafts a[href="/all/work-in-progress"]');
+        $I->seeElement('.overview-schedule a[href="/all/publication-next"]');
         $I->dontSeeElement('.overview-editorial img');
         $I->dontSeeElement('.overview-editorial script');
         $I->dontSeeElement('.overview-editorial [onerror]');
@@ -207,16 +207,16 @@ final class BlogOverviewCest
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/_admin/index.php?entity=Dashboard');
         $I->seeResponseCodeIs(200);
-        $I->seeElement('.overview-drafts a[href="/authors-own-draft"]');
-        $I->dontSeeElement('.overview-drafts a[href="/another-authors-draft"]');
+        $I->seeElement('.overview-drafts a[href="/all/authors-own-draft"]');
+        $I->dontSeeElement('.overview-drafts a[href="/all/another-authors-draft"]');
         $I->dontSeeElement('.overview-moderation');
         $I->logout();
 
         $I->login('editor', 'editor');
         $I->amOnPage('https://localhost/_admin/index.php?entity=Dashboard');
         $I->seeResponseCodeIs(200);
-        $I->seeElement('.overview-drafts a[href="/authors-own-draft"]');
-        $I->seeElement('.overview-drafts a[href="/another-authors-draft"]');
+        $I->seeElement('.overview-drafts a[href="/all/authors-own-draft"]');
+        $I->seeElement('.overview-drafts a[href="/all/another-authors-draft"]');
         $I->logout();
 
         $I->login('power_guest', 'power_guest');
@@ -236,10 +236,10 @@ final class BlogOverviewCest
         $repository = $I->grabAdminService(BlogOverviewRepository::class);
         $now = time();
         $admin = $this->userId($db, 'admin');
-        $visibleRoot = $this->post($db, 'overview-section', $admin, $now, true);
-        $hiddenRoot = $this->post($db, 'private-overview-section', $admin, $now, false);
-        $visibleChild = $this->post($db, 'public-child', $admin, $now, true);
-        $hiddenChild = $this->post($db, 'private-child', $admin, $now, true);
+        $visibleRoot = $this->post($db, 'overview-section', $admin, $now, true, canonical: false);
+        $hiddenRoot = $this->post($db, 'private-overview-section', $admin, $now, false, canonical: false);
+        $visibleChild = $this->post($db, 'public-child', $admin, $now, true, canonical: false);
+        $hiddenChild = $this->post($db, 'private-child', $admin, $now, true, canonical: false);
         foreach ([$visibleRoot, $hiddenRoot, $visibleChild, $hiddenChild] as $id) {
             $db->update(ContentSchema::TABLE_NAME)->set('content_type', "'page'")
                 ->where('id = :id')->setParameter('id', $id)->execute();
@@ -285,7 +285,17 @@ final class BlogOverviewCest
         $I->assertSame([], $snapshot['pending']);
     }
 
-    private function post(DbLayer $db, string $slug, int $author, int $updatedAt, bool $published, ?int $publishedAt = null, int $scheduledAt = 0, ?string $title = null): int
+    private function post(
+        DbLayer $db,
+        string $slug,
+        int $author,
+        int $updatedAt,
+        bool $published,
+        ?int $publishedAt = null,
+        int $scheduledAt = 0,
+        ?string $title = null,
+        bool $canonical = true,
+    ): int
     {
         $db->insert(ContentSchema::TABLE_NAME)->values([
             'content_type' => "'post'", 'slug_scope' => "'root'", 'slug' => ':slug',
@@ -293,7 +303,8 @@ final class BlogOverviewCest
             'created_at' => ':created', 'updated_at' => ':updated', 'published' => ':published',
             'published_at' => ':published_at', 'scheduled_at' => ':scheduled_at', 'author_id' => ':author',
         ])->execute([
-            'slug' => $slug, 'title' => $title ?? ucfirst(str_replace('-', ' ', $slug)),
+            'slug' => $canonical ? 'all/' . $slug : $slug,
+            'title' => $title ?? ucfirst(str_replace('-', ' ', $slug)),
             'created' => $updatedAt, 'updated' => $updatedAt, 'published' => (int)$published,
             'published_at' => $publishedAt, 'scheduled_at' => $scheduledAt, 'author' => $author,
         ]);
@@ -325,7 +336,7 @@ final class BlogOverviewCest
         $key = hash('sha256', 'overview-fixture-post');
         $db->query('INSERT INTO ' . $prefix . AnalyticsSchema::PAGE_TABLE
             . ' (page_key, path, title, first_seen_at, last_seen_at) VALUES (?, ?, ?, 0, 0)',
-            [$key, '/walking%20%26%20writing', 'How I organize notes for the blog']);
+            [$key, '/all/walking%20%26%20writing', 'How I organize notes for the blog']);
         $db->query('INSERT INTO ' . $prefix . AnalyticsSchema::PAGE_METADATA_TABLE
             . ' (page_key, content_type, content_id, author_key, section_key, published_at, word_count, first_seen_at, last_seen_at) '
             . "VALUES (?, 'post', ?, '', '', 0, 0, 0, 0)", [$key, (string)$postId]);

@@ -21,8 +21,8 @@ final class BlogPostWorkspaceCest
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
         $I->seeResponseCodeIs(200);
         $I->seeElement('.list-header-actions a[href="/?editor=new"]');
-        $I->seeElement('.blog-list-title-link[href="/workspace-draft?editor=edit"]');
-        $I->seeElement('.blog-list-title-link[href="/workspace-future?editor=edit"]');
+        $I->seeElement('.blog-list-title-link[href="/all/workspace-draft?editor=edit"]');
+        $I->seeElement('.blog-list-title-link[href="/all/workspace-future?editor=edit"]');
         $I->seeElement('.blog-list-tabs a[aria-current="page"][href*="state=all"]');
         $I->seeElement('.list-search input[name="search"]');
         $I->seeElement('[data-bulk-list][hidden]');
@@ -55,10 +55,10 @@ final class BlogPostWorkspaceCest
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list');
         $I->seeResponseCodeIs(200);
-        $I->seeElement('.blog-list-title-link[href="/workspace-draft?editor=edit"]');
-        $I->seeElement('.blog-list-title-link[href="/workspace-future?editor=edit"]');
-        $I->seeElement('.blog-list-title-link[href="/workspace-published"]');
-        $I->dontSeeElement('.blog-list-title-link[href="/workspace-published?editor=edit"]');
+        $I->seeElement('.blog-list-title-link[href="/all/workspace-draft?editor=edit"]');
+        $I->seeElement('.blog-list-title-link[href="/all/workspace-future?editor=edit"]');
+        $I->seeElement('.blog-list-title-link[href="/all/workspace-published"]');
+        $I->dontSeeElement('.blog-list-title-link[href="/all/workspace-published?editor=edit"]');
         $I->dontSee('Workspace private', '.blog-list-title-link');
         $I->assertCount(3, $I->grabMultiple('select[name="author_id"] option'));
         $I->amOnPage('https://localhost/_admin/index.php?entity=BlogPost&action=list&state=draft&apply_filter=1');
@@ -85,7 +85,7 @@ final class BlogPostWorkspaceCest
                 'published_at' => ':published_at', 'scheduled_at' => ':scheduled_at', 'created_at' => ':created_at',
                 'updated_at' => ':created_at',
             ])->execute([
-                'slug' => 'workspace-' . $name, 'title' => 'Workspace ' . $name, 'author' => $owner,
+                'slug' => 'all/workspace-' . $name, 'title' => 'Workspace ' . $name, 'author' => $owner,
                 'published' => $published, 'published_at' => $publishedAt, 'scheduled_at' => $scheduledAt,
                 'created_at' => $now - 3600,
             ]);

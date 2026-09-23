@@ -27,6 +27,7 @@ use Register\Live\LiveFragmentRenderer;
 use Register\Module\Blog\BlogUrlBuilder;
 use Register\Module\Blog\Model\PostProvider;
 use Register\Url\ContentSlugService;
+use Register\Url\PostUrlNamespace;
 use Register\Url\ContentUrlGenerator;
 use Register\Core\Framework\ControllerInterface;
 use Register\Core\Model\AuthenticatedPublicUser;
@@ -531,7 +532,9 @@ final readonly class PostInplaceController implements ControllerInterface
         $storedTagNames = array_map(static fn(\Register\Content\Tag $tag): string => $tag->name, $storedTags);
         $title          = trim($request->request->getString('title'));
         $body           = $request->request->getString('body');
-        $slug = $request->request->has('slug') ? trim($request->request->getString('slug')) : (string)$post['slug'];
+        $slug = $request->request->has('slug')
+            ? PostUrlNamespace::canonicalSlug(trim($request->request->getString('slug')))
+            : (string)$post['slug'];
         $slugChanged = $slug !== (string)$post['slug'];
         $slugStatus = $slugChanged ? $this->contentSlugService->postStatus($postId, $slug) : ContentSlugService::STATUS_OK;
         if ($slugStatus !== ContentSlugService::STATUS_OK) {

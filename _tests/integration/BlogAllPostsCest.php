@@ -36,17 +36,17 @@ final class BlogAllPostsCest
             ['Newest post', 'Older post'],
             $I->grabMultiple('.blog-all-posts-list a'),
         );
-        $I->assertSame('/newest-post', $I->grabAttributeFrom('.blog-all-posts-list p:first-child a', 'href'));
+        $I->assertSame('/all/newest-post', $I->grabAttributeFrom('.blog-all-posts-list p:first-child a', 'href'));
         $I->dontSee('Unpublished post', '.blog-all-posts');
     }
 
-    public function testPostIsPublishedAtTheSiteRoot(\IntegrationTester $I): void
+    public function testPostIsPublishedInTheAllNamespace(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
         $this->insertPost($dbLayer, 'Root permalink', 'root-permalink', 1_700_000_005, true);
 
-        $I->amOnPage('/root-permalink');
+        $I->amOnPage('/all/root-permalink');
         $I->seeResponseCodeIs(Response::HTTP_OK);
         $I->see('Root permalink', '.post.head');
 
@@ -112,7 +112,7 @@ final class BlogAllPostsCest
             ->setValue('featured', '0')
             ->setValue('comments_enabled', '1')
             ->setValue('series', "''")
-            ->setValue('slug', ':url')->setParameter('url', $url)
+            ->setValue('slug', ':url')->setParameter('url', 'all/' . $url)
             ->setValue('author_id', 'NULL')
             ->execute()
         ;

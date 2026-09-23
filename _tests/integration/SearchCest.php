@@ -50,7 +50,7 @@ class SearchCest
 
         $created = $I->grabJson();
         $I->assertIsArray($created);
-        $I->assertSame('/new-post1', $created['url']);
+        $I->assertSame('/all/new-post1', $created['url']);
 
         $postId = (int)$created['id'];
 
@@ -93,7 +93,7 @@ class SearchCest
         }
 
         $I->assertSame('New Blog Post Title', $post->title);
-        $I->assertSame('/new-post1', $post->path);
+        $I->assertSame('/all/new-post1', $post->path);
         $I->assertSame($publishedAt, $post->publishedAt);
         $I->assertSame('Main page', $mainPage->title);
         $I->assertSame('/', $mainPage->path);
@@ -114,7 +114,7 @@ class SearchCest
         $I->dontSeeElement('a.entity-action-new');
         $I->dontSeeElement('a.list-action-link-edit');
 
-        $I->amOnPage('https://localhost/new-post1');
+        $I->amOnPage('https://localhost/all/new-post1');
         $I->see('New Blog Post Title');
         $I->see('New blog post');
         $I->see('лето 1977 года');
@@ -135,7 +135,7 @@ class SearchCest
             ->execute()
         ;
         $changeDispatcher->dispatch(ContentId::post($postId));
-        $I->amOnPage('https://localhost/new-post1');
+        $I->amOnPage('https://localhost/all/new-post1');
         $I->see('August 12, 2023');
         $I->dontSee('лето 1977 года');
 

@@ -76,7 +76,7 @@ class BlogPaginationCest
         $I->seeResponseCodeIs(200);
         $I->seeElement('meta[name="robots"][content="noindex, follow"]');
 
-        $I->amOnPage('https://localhost/post-1');
+        $I->amOnPage('https://localhost/all/post-1');
         $I->seeResponseCodeIs(200);
         $I->dontSeeElement('meta[name="robots"][content*="noindex"]');
     }
@@ -179,7 +179,7 @@ class BlogPaginationCest
 
         $I->amOnPage('https://localhost/');
         $I->dontSeeElement('.post.author:not(:empty)');
-        $I->amOnPage('https://localhost/post-1');
+        $I->amOnPage('https://localhost/all/post-1');
         $I->dontSeeElement('.post.author:not(:empty)');
 
         $secondPostId = $this->insertPost($dbLayer, 2, $adminId);
@@ -222,9 +222,9 @@ class BlogPaginationCest
 
         $I->amOnPage('https://localhost/');
         $I->seeResponseCodeIs(200);
-        $I->seeElement('.post-foot-comments a[href="/post-1#comments-title"][data-comment-count="1"]');
+        $I->seeElement('.post-foot-comments a[href="/all/post-1#comments-title"][data-comment-count="1"]');
 
-        $I->amOnPage('https://localhost/post-1');
+        $I->amOnPage('https://localhost/all/post-1');
         $I->seeElement('#comments-title');
     }
 
@@ -237,7 +237,7 @@ class BlogPaginationCest
 
         $I->amOnPage('https://localhost/');
         $I->dontSee('Scheduled preview');
-        $I->amOnPage('https://localhost/scheduled-preview');
+        $I->amOnPage('https://localhost/all/scheduled-preview');
         $I->seeResponseCodeIs(404);
 
         $I->login('author', 'author');
@@ -246,7 +246,7 @@ class BlogPaginationCest
         $I->seeElement('.post-card.is-scheduled-preview[data-post-id="' . $postId . '"]');
         $I->see('Scheduled — visible only to you for now', '.post-scheduled-notice');
 
-        $I->amOnPage('https://localhost/scheduled-preview');
+        $I->amOnPage('https://localhost/all/scheduled-preview');
         $I->seeResponseCodeIs(200);
         $I->seeElement('.post-card.is-scheduled-preview[data-post-id="' . $postId . '"]');
         $I->seeElement('meta[name="robots"][content="noindex, nofollow"]');
@@ -254,7 +254,7 @@ class BlogPaginationCest
         $I->dontSeeElement('#comments-title');
 
         $I->logout();
-        $I->amOnPage('https://localhost/scheduled-preview');
+        $I->amOnPage('https://localhost/all/scheduled-preview');
         $I->seeResponseCodeIs(404);
     }
 
@@ -275,7 +275,7 @@ class BlogPaginationCest
             ->setValue('featured', '0')
             ->setValue('comments_enabled', '1')
             ->setValue('series', "''")
-            ->setValue('slug', ':url')->setParameter('url', 'post-' . $number)
+            ->setValue('slug', ':url')->setParameter('url', 'all/post-' . $number)
             ->setValue('author_id', ':author_id')->setParameter('author_id', $authorId)
             ->execute()
         ;
@@ -307,7 +307,7 @@ class BlogPaginationCest
             ])
             ->execute([
                 'content_type' => ContentType::POST->value,
-                'slug'         => $slug,
+                'slug'         => 'all/' . $slug,
                 'created_at'   => time(),
                 'scheduled_at' => $scheduledAt,
                 'author_id'    => $authorId,

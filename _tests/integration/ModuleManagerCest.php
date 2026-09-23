@@ -453,6 +453,51 @@ final class ModuleManagerCest
         $I->assertSame(['👀' => 2, '👎' => 1], $counts);
     }
 
+    public function generationThirtyFourMovesPostsBelowAllAndKeepsRootAliases(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabAdminService(DbLayer::class);
+        /** @var SchemaManager $schemaManager */
+        $schemaManager = $I->grabAdminService(SchemaManager::class);
+
+        $dbLayer->insert(ContentSchema::TABLE_NAME)->values([
+            'content_type' => "'post'",
+            'slug_scope' => "'root'",
+            'slug' => "'migration-root-post'",
+            'title' => "'Migrated root post'",
+            'excerpt' => "''",
+            'body' => "'<p>Migrated body.</p>'",
+            'created_at' => '1',
+            'published_at' => '1',
+            'updated_at' => '1',
+            'published' => '1',
+        ])->execute();
+        $postId = (int)$dbLayer->insertId();
+
+        $I->setConfigValue(SchemaManager::CONFIG_KEY, '34');
+        $I->assertTrue($schemaManager->ensureCurrent());
+        $I->assertSame(SchemaManager::CURRENT_GENERATION, $schemaManager->currentGeneration());
+        $I->assertSame('all/migration-root-post', $dbLayer
+            ->select('slug')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute()
+            ->result());
+        $I->assertSame($postId, (int)$dbLayer
+            ->select('content_id')
+            ->from(ContentUrlAliasSchema::TABLE_NAME)
+            ->where('path = :path')->setParameter('path', 'migration-root-post')
+            ->execute()
+            ->result());
+
+        $I->amOnPage('/migration-root-post');
+        $I->seeResponseCodeIs(301);
+        $I->seeLocationIs('/all/migration-root-post');
+        $I->amOnPage('/all/migration-root-post');
+        $I->seeResponseCodeIs(200);
+        $I->see('Migrated root post', '.post.head');
+    }
+
     public function releaseMigrationPreservesExistingSettings(\IntegrationTester $I): void
     {
         /** @var SchemaManager $schemaManager */

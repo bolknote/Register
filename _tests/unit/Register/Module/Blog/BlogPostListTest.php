@@ -67,7 +67,7 @@ final class BlogPostListTest extends Unit
             $title = $row['cells']['title']['content'];
             if ((int)$row['primary_key']['id'] === 2) {
                 self::assertStringNotContainsString('editor=edit', (string) $title);
-                self::assertStringContainsString('/blog/post-2', (string) $title);
+                self::assertStringContainsString('/blog/all/post-2', (string) $title);
             } else {
                 self::assertStringContainsString('editor=edit', (string) $title);
             }
@@ -139,7 +139,8 @@ final class BlogPostListTest extends Unit
             [8, 'post', 7, 0, null, $now - 10, $now - 20, 'Overdue post'],
             [9, 'page', 8, 1, $now, 0, $now, 'Page'],
         ] as [$id, $type, $author, $published, $publishedAt, $scheduledAt, $updatedAt, $title]) {
-            $insert->execute([$id, $type, 'root', 'post-' . $id, $title, '', '<p>Body</p>', $author, $published, $publishedAt, $scheduledAt, $now - 500, $updatedAt]);
+            $slug = $type === 'post' ? 'all/post-' . $id : 'post-' . $id;
+            $insert->execute([$id, $type, 'root', $slug, $title, '', '<p>Body</p>', $author, $published, $publishedAt, $scheduledAt, $now - 500, $updatedAt]);
         }
 
         $permissions = new PermissionChecker();

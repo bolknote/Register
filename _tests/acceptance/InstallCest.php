@@ -462,7 +462,7 @@ class InstallCest
         $I->canSee('Register');
         $I->canSee('My blog');
         $I->canSee('New Blog Post Title');
-        $I->canSee('/new-post1');
+        $I->canSee('/all/new-post1');
         $I->canSee(gmdate('D, d M Y H:i:s', strtotime('2023-08-12 11:32:00')) . ' GMT');
         $I->see('New blog post');
         $I->dontSee('New Page Title');
@@ -482,7 +482,7 @@ class InstallCest
         $I->amOnPage('/index.php?/sitemap-1.xml');
         $I->seeResponseCodeIsSuccessful();
         $I->see('/section1/new-page1');
-        $I->see('/new-post1');
+        $I->see('/all/new-post1');
         $I->see(gmdate('c', strtotime('2023-08-11 12:15')));
 
         $I->amOnPage('/index.php?/robots.txt');
@@ -516,7 +516,7 @@ class InstallCest
 
         $created = json_decode($I->grabPageSource(), true, flags: JSON_THROW_ON_ERROR);
         $I->assertSame('create', $created['action'] ?? null);
-        $I->assertSame(self::URL_PREFIX . '/new-post1', $created['url'] ?? null);
+        $I->assertSame(self::URL_PREFIX . '/all/new-post1', $created['url'] ?? null);
 
         $postId = (int)($created['id'] ?? 0);
         $I->assertGreaterThan(0, $postId);
@@ -556,7 +556,7 @@ class InstallCest
         }
 
         $I->setCookie($this->getCookieName() . '_c', 'wrong_value');
-        $I->amOnPage('/new-post1');
+        $I->amOnPage('/all/new-post1');
         $I->see('New Blog Post Title');
         $I->see('New blog post');
         $I->see('August 12, 2023');
@@ -566,7 +566,7 @@ class InstallCest
             email: 'roman-blog@example.com',
         );
         $this->restoreAdminSession($I);
-        $this->approveHiddenComment($I, '/new-post1', 'This is my first blog comment! 👪🐶');
+        $this->approveHiddenComment($I, '/all/new-post1', 'This is my first blog comment! 👪🐶');
 
         $I->amOnPage('/2023/08/12/new-post1');
         $I->seeResponseCodeIsClientError();
@@ -594,7 +594,7 @@ class InstallCest
         $I->seeResponseCodeIsSuccessful();
         $I->canSee('My blog');
         $I->canSee('New Blog Post Title');
-        $I->canSee('/new-post1');
+        $I->canSee('/all/new-post1');
         $I->canSee(gmdate('D, d M Y H:i:s', strtotime('2023-08-12 11:32:00')) . ' GMT');
         $I->see('New blog post');
 
@@ -604,7 +604,7 @@ class InstallCest
 
         $I->amOnPage('/index.php?/sitemap-1.xml');
         $I->seeResponseCodeIsSuccessful();
-        $I->see('/new-post1');
+        $I->see('/all/new-post1');
     }
 
     private function testSearchModule(AcceptanceTester $I): void
@@ -632,10 +632,10 @@ class InstallCest
         $I->sendAjaxPostRequest('/_admin/ajax.php?action=register_search_reindex', ['csrf_token' => $csrfToken]);
         $I->see('queued');
 
-        $I->amOnPage('/new-post1');
+        $I->amOnPage('/all/new-post1');
         $I->dontSeeElement('h2.recommendation-title#recommendations');
         $I->changeSetting('REGISTER_SEARCH_RECOMMENDATIONS_LIMIT', 10);
-        $I->amOnPage('/new-post1');
+        $I->amOnPage('/all/new-post1');
         $I->seeElement('h2.recommendation-title#recommendations');
         $I->seeElement('div.recommendations > div.recommendation > a.recommendation-link');
         $I->see('Read next', 'h2.recommendation-title');
@@ -733,7 +733,7 @@ class InstallCest
         );
         $this->testComments(
             $I,
-            '/new-post1',
+            '/all/new-post1',
             'New Blog Post Title',
             'New blog post',
             $this->blogPostId,

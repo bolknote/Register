@@ -27,25 +27,26 @@ final class ContentSlugServiceCest
         $this->dbLayer     = $I->grabService(DbLayer::class);
     }
 
-    public function reservedAndInvalidPostSlugsAreRejected(\IntegrationTester $I): void
+    public function postsUseTheAllNamespaceAndRejectInvalidLocalSlugs(\IntegrationTester $I): void
     {
-        $I->assertSame(ContentSlugService::STATUS_UNAVAILABLE, $this->slugService->postStatus(0, 'all'));
-        $I->assertSame(ContentSlugService::STATUS_UNAVAILABLE, $this->slugService->postStatus(0, 'tags'));
+        $I->assertSame(ContentSlugService::STATUS_OK, $this->slugService->postStatus(0, 'all'));
+        $I->assertSame(ContentSlugService::STATUS_OK, $this->slugService->postStatus(0, 'tags'));
+        $I->assertSame(ContentSlugService::STATUS_OK, $this->slugService->postStatus(0, 'all/example'));
         $I->assertSame(ContentSlugService::STATUS_UNAVAILABLE, $this->slugService->postStatus(0, 'Bad Slug'));
         $I->assertSame(ContentSlugService::STATUS_UNAVAILABLE, $this->slugService->postStatus(0, 'bad/slug'));
         $I->assertSame(ContentSlugService::STATUS_EMPTY, $this->slugService->postStatus(0, ''));
     }
 
-    public function postAndRootPageShareOneNamespace(\IntegrationTester $I): void
+    public function postAndRootPageUseSeparateCanonicalNamespaces(\IntegrationTester $I): void
     {
         $rootId = $this->rootPageId();
         $pageId = $this->insertPage($rootId, 'shared');
 
-        $I->assertSame(ContentSlugService::STATUS_NOT_UNIQUE, $this->slugService->postStatus(0, 'shared'));
+        $I->assertSame(ContentSlugService::STATUS_OK, $this->slugService->postStatus(0, 'shared'));
         $I->assertSame(ContentSlugService::STATUS_OK, $this->slugService->pageStatus($pageId, 'shared'));
 
-        $postId = $this->insertPost('post-only');
-        $I->assertSame(ContentSlugService::STATUS_NOT_UNIQUE, $this->slugService->pageStatusAtParent(0, $rootId, 'post-only'));
+        $postId = $this->insertPost('all/post-only');
+        $I->assertSame(ContentSlugService::STATUS_OK, $this->slugService->pageStatusAtParent(0, $rootId, 'post-only'));
         $I->assertSame(ContentSlugService::STATUS_OK, $this->slugService->postStatus($postId, 'post-only'));
     }
 
@@ -65,21 +66,22 @@ final class ContentSlugServiceCest
     public function generatesTypeSpecificUniqueFallbacks(\IntegrationTester $I): void
     {
         $rootId = $this->rootPageId();
-        $this->insertPost('post');
+        $this->insertPost('all/post');
         $this->insertPage($rootId, 'page');
 
-        $I->assertSame('post-2', $this->slugService->generatePost('💥'));
+        $I->assertSame('all/post-2', $this->slugService->generatePost('💥'));
         $I->assertSame('page-2', $this->slugService->generatePage($rootId, '💥'));
     }
 
-    public function databaseEnforcesTheSharedRootNamespace(\IntegrationTester $I): void
+    public function databaseEnforcesCanonicalPostUniqueness(\IntegrationTester $I): void
     {
         $rootId = $this->rootPageId();
         $this->insertPage($rootId, 'database-collision');
+        $this->insertPost('all/database-collision');
 
         $I->expectThrowable(
             DbLayerException::class,
-            fn(): int => $this->insertPost('database-collision'),
+            fn(): int => $this->insertPost('all/database-collision'),
         );
     }
 

@@ -14,7 +14,7 @@ use Register\Content\ContentType;
 use Register\Core\Pdo\DbLayer;
 use Register\Core\Pdo\DbLayerException;
 
-/** Generates canonical slugs and checks the shared post/page URL namespace. */
+/** Generates canonical slugs and checks the independent post and page URL namespaces. */
 final readonly class ContentSlugService
 {
     public const string STATUS_EMPTY = 'empty';
@@ -45,11 +45,16 @@ final readonly class ContentSlugService
     /** @throws DbLayerException */
     public function generatePost(string $title): string
     {
-        return $this->uniqueSlugGenerator->generate(
+        $slug = $this->uniqueSlugGenerator->generate(
             $title,
-            fn(string $slug): bool => $this->postStatus(0, $slug) === self::STATUS_OK,
+            fn(string $slug): bool => $this->postStatus(
+                0,
+                PostUrlNamespace::canonicalSlug($slug),
+            ) === self::STATUS_OK,
             ContentType::POST->value,
         );
+
+        return PostUrlNamespace::canonicalSlug($slug);
     }
 
     /** @throws DbLayerException */
@@ -72,9 +77,17 @@ final readonly class ContentSlugService
     /** @throws DbLayerException */
     public function postStatus(int $postId, string $slug): string
     {
-        $syntaxStatus = $this->syntaxStatus($slug);
-        if ($syntaxStatus !== self::STATUS_OK || $this->reservedRouteRegistry->contains($slug)) {
-            return $syntaxStatus === self::STATUS_OK ? self::STATUS_UNAVAILABLE : $syntaxStatus;
+        if ($slug === '') {
+            return self::STATUS_EMPTY;
+        }
+
+        $slug = PostUrlNamespace::canonicalSlug($slug);
+        $localSlug = PostUrlNamespace::localSlug($slug);
+        $syntaxStatus = $localSlug === null || str_contains($localSlug, '/')
+            ? self::STATUS_UNAVAILABLE
+            : $this->syntaxStatus($localSlug);
+        if ($syntaxStatus !== self::STATUS_OK) {
+            return $syntaxStatus;
         }
 
         try {

@@ -21,7 +21,7 @@ final class ContentUrlAliasCest
 {
     public function historicalPathsRedirectStraightToTheCurrentSlug(\IntegrationTester $I): void
     {
-        $postId = $this->insertPost($I, 'alias-target');
+        $postId = $this->insertPost($I, 'all/alias-target');
         $aliases = $I->grabService(ContentUrlAliasRepository::class);
         foreach ([
             'old-flat-address',
@@ -44,43 +44,43 @@ final class ContentUrlAliasCest
         ] as $path) {
             $I->amOnPage($path);
             $I->seeResponseCodeIs(Response::HTTP_MOVED_PERMANENTLY);
-            $I->seeLocationIs('/alias-target');
+            $I->seeLocationIs('/all/alias-target');
         }
 
         $I->amOnPage('/2004/07/19/~1004?from=archive');
         $I->seeResponseCodeIs(Response::HTTP_MOVED_PERMANENTLY);
-        $I->seeLocationIs('/alias-target?from=archive');
+        $I->seeLocationIs('/all/alias-target?from=archive');
     }
 
     public function canonicalChangeRetainsThePreviousSlugAndAllowsARevert(\IntegrationTester $I): void
     {
-        $postId = $this->insertPost($I, 'first-address');
+        $postId = $this->insertPost($I, 'all/first-address');
         $dbLayer = $I->grabService(DbLayer::class);
         $aliases = $I->grabService(ContentUrlAliasRepository::class);
         $slugService = $I->grabService(ContentSlugService::class);
 
         $dbLayer->update(ContentSchema::TABLE_NAME)
-            ->set('slug', ':slug')->setParameter('slug', 'second-address')
+            ->set('slug', ':slug')->setParameter('slug', 'all/second-address')
             ->where('id = :id')->setParameter('id', $postId)
             ->execute();
-        $aliases->rememberCanonicalChange(ContentId::post($postId), 'first-address', 'second-address');
+        $aliases->rememberCanonicalChange(ContentId::post($postId), 'all/first-address', 'all/second-address');
 
         $I->assertSame(ContentSlugService::STATUS_OK, $slugService->postStatus($postId, 'first-address'));
         $I->assertSame(ContentSlugService::STATUS_NOT_UNIQUE, $slugService->postStatus(0, 'first-address'));
-        $I->amOnPage('/first-address');
+        $I->amOnPage('/all/first-address');
         $I->seeResponseCodeIs(Response::HTTP_MOVED_PERMANENTLY);
-        $I->seeLocationIs('/second-address');
+        $I->seeLocationIs('/all/second-address');
 
         $dbLayer->update(ContentSchema::TABLE_NAME)
-            ->set('slug', ':slug')->setParameter('slug', 'first-address')
+            ->set('slug', ':slug')->setParameter('slug', 'all/first-address')
             ->where('id = :id')->setParameter('id', $postId)
             ->execute();
-        $aliases->rememberCanonicalChange(ContentId::post($postId), 'second-address', 'first-address');
+        $aliases->rememberCanonicalChange(ContentId::post($postId), 'all/second-address', 'all/first-address');
 
-        $I->amOnPage('/second-address');
+        $I->amOnPage('/all/second-address');
         $I->seeResponseCodeIs(Response::HTTP_MOVED_PERMANENTLY);
-        $I->seeLocationIs('/first-address');
-        $I->amOnPage('/first-address');
+        $I->seeLocationIs('/all/first-address');
+        $I->amOnPage('/all/first-address');
         $I->seeResponseCodeIs(Response::HTTP_OK);
     }
 

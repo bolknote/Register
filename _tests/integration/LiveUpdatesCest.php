@@ -66,7 +66,7 @@ final class LiveUpdatesCest
         $contentId = ContentId::post($postId);
         $updates->publishContent($contentId);
 
-        $I->amOnPage('https://localhost/live-post');
+        $I->amOnPage('https://localhost/all/live-post');
         $I->seeResponseCodeIs(Response::HTTP_OK);
         $I->seeElement('[data-live-region="comments:post:' . $postId . '"]');
         $I->seeElement('meta[name="register-live-updates"]');
@@ -232,7 +232,7 @@ final class LiveUpdatesCest
 
         $I->sendRequestWithMethod('GET', 'https://localhost/auth/unread');
         $I->seeResponseCodeIs(Response::HTTP_FOUND);
-        $I->assertSame('/live-post?comment_unread=' . $commentId . '#comment-' . $commentId, $I->grabHttpHeader('Location'));
+        $I->assertSame('/all/live-post?comment_unread=' . $commentId . '#comment-' . $commentId, $I->grabHttpHeader('Location'));
 
         $cursor = (int)$payload['cursor'];
         $comments->tombstone($commentId, ContentType::POST);
@@ -282,7 +282,7 @@ final class LiveUpdatesCest
             ->setValue('featured', '0')
             ->setValue('comments_enabled', '1')
             ->setValue('series', "''")
-            ->setValue('slug', "'live-post'")
+            ->setValue('slug', "'all/live-post'")
             ->setValue('author_id', 'NULL')
             ->execute()
         ;

@@ -26,7 +26,7 @@ final readonly class WelcomePostInstaller
             ->values([
                 'content_type'     => ':content_type',
                 'slug_scope'       => "'root'",
-                'slug'             => "'welcome-to-register'",
+                'slug'             => "'all/welcome-to-register'",
                 'title'            => ':title',
                 'excerpt'          => "''",
                 'body'             => ':body',

@@ -30,8 +30,9 @@ final readonly class ContentUrlGenerator
 
     public function postPath(string $slug): string
     {
+        $slug = PostUrlNamespace::canonicalSlug($slug);
         $segments = explode('/', $slug);
-        if ($slug === '' || in_array('', $segments, true)) {
+        if (!PostUrlNamespace::isCanonical($slug) || in_array('', $segments, true)) {
             throw new \InvalidArgumentException('A post URL path cannot contain empty segments.');
         }
 

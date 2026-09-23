@@ -63,7 +63,7 @@ final class LinkHealthCest
             <p>
                 <a href="https://outside.example/path?x=1#first">Outside one</a>
                 <a href="https://outside.example/path?x=1#second">Outside two</a>
-                <a href="/local-target#part">Local</a>
+                <a href="/all/local-target#part">Local</a>
                 <a href="https://web.archive.org/web/20200101000000/https://old.example/">Archived</a>
             </p>
             HTML);
@@ -87,7 +87,7 @@ final class LinkHealthCest
         $I->assertCount(3, $targets);
 
         $external = $this->findTarget($targets, 'https://outside.example/path?x=1');
-        $local    = $this->findTarget($targets, '/local-target');
+        $local    = $this->findTarget($targets, '/all/local-target');
         $archive  = $this->findTarget(
             $targets,
             'https://web.archive.org/web/20200101000000/https://old.example/',
@@ -201,7 +201,7 @@ final class LinkHealthCest
         }
 
         $body .= '<a href="https://outside.example/list-broken-recent#repeat">Repeated target</a>'
-            . '<a href="/list-local-target">Local</a>'
+            . '<a href="/all/list-local-target">Local</a>'
             . '<a href="https://web.archive.org/web/20200101000000/https://old.example/">Archive</a>';
         $firstId  = $this->insertPost($dbLayer, 'list-first-source', $body);
         $secondId = $this->insertPost(
@@ -1128,7 +1128,7 @@ final class LinkHealthCest
         $sourceId = $this->insertPost(
             $dbLayer,
             'source-with-future-link',
-            '<p><a href="/future-target">Future target path</a></p>',
+            '<p><a href="/all/future-target">Future target path</a></p>',
         );
 
         /** @var LinkInventory $inventory */
@@ -1136,11 +1136,11 @@ final class LinkHealthCest
         $inventory->synchronize(ContentId::post($sourceId), 1_800_000_000);
 
         $I->assertFalse($dbLayer->select('local_content_id')->from(Manifest::TARGET_TABLE)
-            ->where('normalized_url = :url')->setParameter('url', '/future-target')
+            ->where('normalized_url = :url')->setParameter('url', '/all/future-target')
             ->execute()->result());
 
         $dbLayer->update(ContentSchema::TABLE_NAME)
-            ->set('slug', ':slug')->setParameter('slug', 'future-target')
+            ->set('slug', ':slug')->setParameter('slug', 'all/future-target')
             ->where('id = :id')->setParameter('id', $targetId)
             ->execute();
         $dbLayer->update('config')
@@ -1243,7 +1243,7 @@ final class LinkHealthCest
             'published'    => '1',
         ])->execute([
             'content_type' => ContentType::POST->value,
-            'slug'         => $slug,
+            'slug'         => 'all/' . $slug,
             'title'        => $slug,
             'body'         => $body,
             'now'          => $now,

@@ -16,38 +16,38 @@ final class UrlHistoryCest
         $db = $I->grabService(DbLayer::class);
         $postId = $this->content($db, 'first-url', ContentType::POST);
         $this->content($db, 'occupied-url', ContentType::POST);
-        $I->amOnPage('https://localhost/first-url');
+        $I->amOnPage('https://localhost/all/first-url');
         $I->seeResponseCodeIs(200);
         $I->login('admin', 'admin');
-        $I->amOnPage('https://localhost/first-url');
+        $I->amOnPage('https://localhost/all/first-url');
 
         $token = (string)$I->grabAttributeFrom('[data-post-id="' . $postId . '"] .post-inplace-edit-form input[name="inplace_token"]', 'value');
-        $I->seeElement('.post-inplace-edit-form input[type="hidden"][name="slug"][value="first-url"]');
+        $I->seeElement('.post-inplace-edit-form input[type="hidden"][name="slug"][value="all/first-url"]');
         $request = [
             'inplace_action' => 'edit', 'inplace_token' => $token,
             'revision' => '1', 'title' => 'URL history', 'body' => '<p>Original body.</p>', 'slug' => 'second-url',
         ];
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, $request);
         $I->seeResponseCodeIs(200);
-        $I->assertJsonSubResponseEquals('/second-url', ['url']);
+        $I->assertJsonSubResponseEquals('/all/second-url', ['url']);
         $I->assertJsonSubResponseEquals(true, ['url_changed']);
-        $this->redirect($I, '/first-url', '/second-url');
+        $this->redirect($I, '/all/first-url', '/all/second-url');
 
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [...$request, 'slug' => 'third-url']);
         $I->seeResponseCodeIs(409);
-        $this->redirect($I, '/first-url', '/second-url');
+        $this->redirect($I, '/all/first-url', '/all/second-url');
 
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [...$request, 'revision' => '2', 'slug' => 'occupied-url']);
         $I->seeResponseCodeIs(422);
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [...$request, 'revision' => '2', 'slug' => 'third-url']);
         $I->seeResponseCodeIs(200);
-        $this->redirect($I, '/first-url?from=archive', '/third-url?from=archive');
-        $this->redirect($I, '/second-url', '/third-url');
+        $this->redirect($I, '/all/first-url?from=archive', '/all/third-url?from=archive');
+        $this->redirect($I, '/all/second-url', '/all/third-url');
 
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [...$request, 'revision' => '3', 'slug' => 'first-url']);
         $I->seeResponseCodeIs(200);
-        $this->redirect($I, '/third-url', '/first-url');
-        $I->amOnPage('https://localhost/first-url');
+        $this->redirect($I, '/all/third-url', '/all/first-url');
+        $I->amOnPage('https://localhost/all/first-url');
         $I->seeResponseCodeIs(200);
     }
 
@@ -85,11 +85,12 @@ final class UrlHistoryCest
     {
         $adminId = (int)$db->select('id')->from('users')->where("login = 'admin'")->execute()->result();
         $rootId = (int)$db->select('id')->from(ContentSchema::TABLE_NAME)->where('parent_id IS NULL')->andWhere("content_type = 'page'")->execute()->result();
+        $storedSlug = $type === ContentType::POST ? 'all/' . $slug : $slug;
         $db->insert(ContentSchema::TABLE_NAME)->values([
             'content_type' => ':type', 'parent_id' => ':parent', 'slug_scope' => ':scope', 'slug' => ':slug',
             'title' => "'URL history'", 'excerpt' => "''", 'body' => "'<p>Original body.</p>'",
             'created_at' => '1', 'published_at' => '1', 'updated_at' => '1', 'published' => '1', 'author_id' => ':author',
-        ])->execute(['type' => $type->value, 'parent' => $parentId, 'scope' => $parentId === null || $parentId === $rootId ? 'root' : 'page:' . $parentId, 'slug' => $slug, 'author' => $adminId]);
+        ])->execute(['type' => $type->value, 'parent' => $parentId, 'scope' => $parentId === null || $parentId === $rootId ? 'root' : 'page:' . $parentId, 'slug' => $storedSlug, 'author' => $adminId]);
 
         return (int)$db->insertId();
     }

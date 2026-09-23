@@ -75,15 +75,16 @@ final class UrlHistoryTest extends TestCase
         } catch (SafeDataProviderException) {
             self::assertSame('first', $this->value('SELECT slug FROM content WHERE id = 2'));
             self::assertNull($this->fixture()->redirector->redirect(Request::create('/first/child')));
-            $this->assertRedirect('/blocked/child', '/post');
+            $this->assertRedirect('/blocked/child', '/all/post');
         }
     }
 
-    public function testCanonicalNestedPostCollisionIsRejected(): void
+    public function testPagesAndPostsHaveIndependentUrlNamespaces(): void
     {
-        $this->fixture()->pdo->exec("INSERT INTO content(id, content_type, slug_scope, slug) VALUES (5, 'post', 'root', 'occupied/child')");
-        $this->expectException(SafeDataProviderException::class);
+        $this->fixture()->pdo->exec("INSERT INTO content(id, content_type, slug_scope, slug) VALUES (5, 'post', 'root', 'all/occupied/child')");
         $this->rename(2, 'occupied');
+        self::assertSame('occupied', $this->value('SELECT slug FROM content WHERE id = 2'));
+        self::assertSame('all/occupied/child', $this->value('SELECT slug FROM content WHERE id = 5'));
     }
 
     public function testDeniedAdminWriteDoesNotCreateAliases(): void
@@ -113,12 +114,12 @@ final class UrlHistoryTest extends TestCase
         $this->fixture()->pdo->exec("INSERT INTO tags(id, name, url) VALUES (1, 'Tag', 'tag')");
         try {
             $this->fixture()->history->changeContent(ContentId::post(4), function (): never {
-                $this->fixture()->pdo->exec("UPDATE content SET slug = 'changed' WHERE id = 4");
+                $this->fixture()->pdo->exec("UPDATE content SET slug = 'all/changed' WHERE id = 4");
                 throw new \RuntimeException('Simulated failure');
             });
         } catch (\RuntimeException) {
             self::assertTrue($this->fixture()->pdo->inTransaction());
-            self::assertSame('post', $this->value('SELECT slug FROM content WHERE id = 4'));
+            self::assertSame('all/post', $this->value('SELECT slug FROM content WHERE id = 4'));
             self::assertSame('tag', $this->value('SELECT url FROM tags WHERE id = 1'));
         }
 
@@ -129,25 +130,28 @@ final class UrlHistoryTest extends TestCase
     {
         $this->fixture()->aliases->add(ContentId::post(4), '2004/07/19/~1004');
         (new UrlHistorySchemaMigration())->migrate($this->fixture()->db);
-        $this->assertRedirect('/2004/07/19/~1004', '/post');
+        $this->assertRedirect('/2004/07/19/~1004', '/all/post');
     }
 
     public function testAdminContentCreationCannotStealHistoricalAddresses(): void
     {
-        $this->fixture()->aliases->add(ContentId::post(4), '/reserved');
+        $this->fixture()->aliases->add(ContentId::post(4), '/reserved-page');
+        $this->fixture()->aliases->add(ContentId::post(4), '/all/reserved-post');
         $dataTypes = ['content_type' => 'string', 'parent_id' => 'int', 'slug_scope' => 'string', 'slug' => 'string'];
-        foreach (['post' => null, 'page' => 1] as $type => $parentId) {
+        foreach ([['page', 1, 'reserved-page'], ['post', null, 'all/reserved-post']] as [$type, $parentId, $slug]) {
             try {
-                $this->fixture()->provider->createEntity('content', $dataTypes, ['content_type' => $type, 'parent_id' => $parentId, 'slug_scope' => 'root', 'slug' => 'reserved']);
+                $this->fixture()->provider->createEntity('content', $dataTypes, ['content_type' => $type, 'parent_id' => $parentId, 'slug_scope' => 'root', 'slug' => $slug]);
                 self::fail('An admin insert must not steal an existing alias.');
             } catch (SafeDataProviderException) {
-                self::assertSame(0, (int)$this->value("SELECT COUNT(*) FROM content WHERE slug = 'reserved'"));
-                $this->assertRedirect('/reserved', '/post');
+                self::assertSame(0, (int)$this->value("SELECT COUNT(*) FROM content WHERE slug = '" . $slug . "'"));
             }
         }
 
-        $this->fixture()->provider->createEntity('content', $dataTypes, ['content_type' => 'post', 'parent_id' => null, 'slug_scope' => 'root', 'slug' => 'fresh-post']);
-        self::assertSame((string)$this->value("SELECT id FROM content WHERE slug = 'fresh-post'"), $this->fixture()->provider->lastInsertId());
+        $this->assertRedirect('/reserved-page', '/all/post');
+        $this->assertRedirect('/all/reserved-post', '/all/post');
+
+        $this->fixture()->provider->createEntity('content', $dataTypes, ['content_type' => 'post', 'parent_id' => null, 'slug_scope' => 'root', 'slug' => 'all/fresh-post']);
+        self::assertSame((string)$this->value("SELECT id FROM content WHERE slug = 'all/fresh-post'"), $this->fixture()->provider->lastInsertId());
     }
 
     public function testFlatPageHistoryAndCanonicalCollisions(): void
@@ -162,12 +166,9 @@ final class UrlHistoryTest extends TestCase
         $this->assertRedirect('/child', '/new-child');
         self::assertNull($this->fixture()->redirector->redirect(Request::create('/first/child')));
 
-        try {
-            $this->rename(3, 'post');
-            self::fail('Flat nested pages share the post namespace.');
-        } catch (SafeDataProviderException) {
-            self::assertSame('new-child', $this->value('SELECT slug FROM content WHERE id = 3'));
-        }
+        $this->rename(3, 'post');
+        self::assertSame('post', $this->value('SELECT slug FROM content WHERE id = 3'));
+        $this->assertRedirect('/child', '/post');
 
         $this->expectException(SafeDataProviderException::class);
         $this->rename(2, 'child');
@@ -188,11 +189,11 @@ final class UrlHistoryTest extends TestCase
 
     public function testUnpublishedAndFuturePostsDoNotExposeAliasTargets(): void
     {
-        $this->rename(4, 'renamed-post');
+        $this->rename(4, 'all/renamed-post');
         $this->fixture()->pdo->exec('UPDATE content SET published = 0 WHERE id = 4');
-        self::assertNull($this->fixture()->redirector->redirect(Request::create('/post')));
+        self::assertNull($this->fixture()->redirector->redirect(Request::create('/all/post')));
         $this->fixture()->pdo->exec('UPDATE content SET published = 1, published_at = ' . (time() + 86400) . ' WHERE id = 4');
-        self::assertNull($this->fixture()->redirector->redirect(Request::create('/post')));
+        self::assertNull($this->fixture()->redirector->redirect(Request::create('/all/post')));
     }
 
     public function testTooLongDescendantPathRollsBackRenameWithSafe422(): void
@@ -221,21 +222,21 @@ final class UrlHistoryTest extends TestCase
 
     public function testContentAliasesDoNotRedirectMutationRequests(): void
     {
-        $this->rename(4, 'renamed');
-        self::assertNull($this->fixture()->redirector->redirect(Request::create('/post', 'POST')));
-        $response = $this->fixture()->redirector->redirect(Request::create('/post', 'HEAD'));
+        $this->rename(4, 'all/renamed');
+        self::assertNull($this->fixture()->redirector->redirect(Request::create('/all/post', 'POST')));
+        $response = $this->fixture()->redirector->redirect(Request::create('/all/post', 'HEAD'));
         self::assertNotNull($response);
         self::assertSame(301, $response->getStatusCode());
     }
 
     public function testLiteralPercentSequencesAreDecodedOnlyOnce(): void
     {
-        $this->fixture()->pdo->exec("UPDATE content SET slug = 'literal%41' WHERE id = 4");
-        $this->rename(4, 'renamed');
-        $this->assertRedirect('/literal%2541', '/renamed');
-        self::assertNull($this->fixture()->redirector->redirect(Request::create('/literalA')));
+        $this->fixture()->pdo->exec("UPDATE content SET slug = 'all/literal%41' WHERE id = 4");
+        $this->rename(4, 'all/renamed');
+        $this->assertRedirect('/all/literal%2541', '/all/renamed');
+        self::assertNull($this->fixture()->redirector->redirect(Request::create('/all/literalA')));
         $this->fixture()->aliases->add(ContentId::post(4), '/import%2542');
-        $this->assertRedirect('/import%2542', '/renamed');
+        $this->assertRedirect('/import%2542', '/all/renamed');
         $this->expectException(ContentUrlCollisionException::class);
         $this->fixture()->aliases->assertAvailable('/import%2542', 3);
     }
@@ -295,7 +296,7 @@ final class UrlHistoryFixture
         ContentUrlAliasSchema::create($this->db);
         (new UrlHistorySchemaMigration())->migrate($this->db);
         $this->configureUrlServices();
-        $this->pdo->exec("INSERT INTO content(id, content_type, parent_id, slug_scope, slug) VALUES (1, 'page', NULL, 'root', ''), (2, 'page', 1, 'root', 'first'), (3, 'page', 2, 'page:2', 'child'), (4, 'post', NULL, 'root', 'post')");
+        $this->pdo->exec("INSERT INTO content(id, content_type, parent_id, slug_scope, slug) VALUES (1, 'page', NULL, 'root', ''), (2, 'page', 1, 'root', 'first'), (3, 'page', 2, 'page:2', 'child'), (4, 'post', NULL, 'root', 'all/post')");
     }
 
     public function configureUrlServices(?BoolProxy $useHierarchy = null): void

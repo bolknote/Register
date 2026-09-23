@@ -24,6 +24,7 @@ use Register\Schema\FuturePublicationSchemaMigration;
 use Register\Schema\PublicAuthSchemaMigration;
 use Register\Schema\QueueLeaseSchemaMigration;
 use Register\Schema\QueuePrioritySchemaMigration;
+use Register\Schema\PostUrlNamespaceSchemaMigration;
 use Register\Schema\ReactionEmojiCollationSchemaMigration;
 use Register\Schema\ReactionEmojiHashSchemaMigration;
 use Register\Schema\SchemaManager;
@@ -144,6 +145,16 @@ final readonly class SchemaModule implements ContainerModuleInterface
         $container->set(
             QueuePrioritySchemaMigration::class,
             new QueuePrioritySchemaMigration(),
+            [SchemaMigrationInterface::class],
+        );
+        $container->set(
+            PostUrlNamespaceSchemaMigration::class,
+            static fn(Container $container): PostUrlNamespaceSchemaMigration => new PostUrlNamespaceSchemaMigration(
+                $container->get(\PDO::class),
+                static function (array $contentIds) use ($container): void {
+                    $container->get(\Register\Content\ContentChangeDispatcher::class)->dispatch(...$contentIds);
+                },
+            ),
             [SchemaMigrationInterface::class],
         );
         $container->set(SchemaMigrator::class, fn(Container $container): SchemaMigrator => new SchemaMigrator(

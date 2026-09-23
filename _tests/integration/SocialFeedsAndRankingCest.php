@@ -45,7 +45,7 @@ final class SocialFeedsAndRankingCest
         $tagId = $this->insertTag($dbLayer, 'Feed topic', 'feed-topic');
         $tagRepository->replace(ContentId::post($postId), [$tagId]);
 
-        $I->amOnPage('/json-feed-constellation');
+        $I->amOnPage('/all/json-feed-constellation');
         $I->seeResponseCodeIs(Response::HTTP_OK);
         $I->seeElement('meta[property="og:type"][content="article"]');
         $I->seeElement('meta[property="og:description"][content="A concise social description."]');
@@ -64,7 +64,7 @@ final class SocialFeedsAndRankingCest
         $I->assertSame('http://register.localhost/feed.json', $feed['feed_url']);
 
         $item = $this->findFeedItem($feed, 'JSON Feed constellation');
-        $I->assertSame('http://register.localhost/json-feed-constellation', $item['url']);
+        $I->assertSame('http://register.localhost/all/json-feed-constellation', $item['url']);
         $I->assertSame('http://register.localhost/media/social-card.jpg', $item['image']);
         $I->assertSame(['Feed topic'], $item['tags']);
         $I->assertStringContainsString('href="http://register.localhost/about"', $item['content_html']);
@@ -93,9 +93,9 @@ final class SocialFeedsAndRankingCest
         $pageCache = $I->grabService(BlogPageCache::class);
         $pageCache->invalidateContent(ContentId::post($postId));
 
-        $I->amOnPage('/json-feed-constellation?source=social');
+        $I->amOnPage('/all/json-feed-constellation?source=social');
         $I->seeElement('meta[property="og:image"][content="http://register.localhost/media/body-card.jpg"]');
-        $I->seeElement('meta[property="og:url"][content="http://register.localhost/json-feed-constellation"]');
+        $I->seeElement('meta[property="og:url"][content="http://register.localhost/all/json-feed-constellation"]');
 
         $dbLayer->update(ContentSchema::TABLE_NAME)
             ->set('body', "'<p>Body without an image.</p>'")
@@ -103,7 +103,7 @@ final class SocialFeedsAndRankingCest
             ->execute();
         $pageCache->invalidateContent(ContentId::post($postId));
         $I->setConfigValue('REGISTER_SOCIAL_IMAGE', '/media/site-card.jpg');
-        $I->amOnPage('/json-feed-constellation');
+        $I->amOnPage('/all/json-feed-constellation');
         $I->seeElement('meta[property="og:image"][content="http://register.localhost/media/site-card.jpg"]');
     }
 
@@ -205,16 +205,16 @@ final class SocialFeedsAndRankingCest
         $I->amOnPage('/random/');
         $I->seeResponseCodeIs(Response::HTTP_FOUND);
         $I->assertContains($I->grabHttpHeader('Location'), [
-            '/old-popular-post',
-            '/hot-post',
-            '/featured-post',
-            '/normal-post',
+            '/all/old-popular-post',
+            '/all/hot-post',
+            '/all/featured-post',
+            '/all/normal-post',
         ]);
 
         $before = $views->total(ContentId::post($oldPopularId));
-        $I->sendRequestWithHeaders('/old-popular-post', ['User-Agent' => 'Googlebot/2.1']);
+        $I->sendRequestWithHeaders('/all/old-popular-post', ['User-Agent' => 'Googlebot/2.1']);
         $I->assertSame($before, $views->total(ContentId::post($oldPopularId)));
-        $I->sendRequestWithHeaders('/old-popular-post', ['User-Agent' => 'Mozilla/5.0 Register integration']);
+        $I->sendRequestWithHeaders('/all/old-popular-post', ['User-Agent' => 'Mozilla/5.0 Register integration']);
         // Public requests spool the increment and never block on the database write.
         $I->assertSame($before, $views->total(ContentId::post($oldPopularId)));
 
@@ -258,7 +258,7 @@ final class SocialFeedsAndRankingCest
             'title' => $title,
             'body' => $body,
             'featured' => (int)$featured,
-            'slug' => $slug,
+            'slug' => 'all/' . $slug,
             'description' => $description,
             'social_image' => $socialImage,
         ]);

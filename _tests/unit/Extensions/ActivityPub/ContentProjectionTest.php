@@ -459,7 +459,7 @@ final class ContentProjectionTest extends Unit
             $postId,
             'Hello federation',
             $body,
-            '/hello',
+            '/all/hello',
             1_000,
             updatedAt: 5_200,
             excerpt: '<p>Short version.</p>',
