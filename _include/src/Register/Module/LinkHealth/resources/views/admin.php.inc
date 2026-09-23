@@ -47,6 +47,7 @@ foreach ($visiblePages as $visiblePage) {
          data-link-health-admin
          data-action-endpoint="<?= $html($basePath . '/_admin/ajax.php?action=register_link_health_action') ?>"
          data-csrf-token="<?= $html($csrfToken) ?>"
+         data-filter-status="<?= $status instanceof LinkHealthStatus ? $html($status->value) : '' ?>"
          data-working-message="<?= $html($trans('Link action working')) ?>"
          data-failure-message="<?= $html($trans('Link action failed')) ?>">
     <input type="hidden" name="link_health_csrf_token" value="<?= $html($csrfToken) ?>">
@@ -65,7 +66,7 @@ foreach ($visiblePages as $visiblePage) {
     <div class="link-health-summary" aria-label="<?= $trans('Link health') ?>">
         <div><strong><?= $summary['total'] ?></strong><span><?= $trans('Unique external links') ?></span></div>
         <div><strong><?= $summary['usages'] ?></strong><span><?= $trans('Link occurrences') ?></span></div>
-        <div class="is-broken"><strong><?= $statusCount(LinkHealthStatus::BROKEN) ?></strong><span><?= $trans('Broken links') ?></span></div>
+        <div class="is-broken"><strong data-status-count="broken"><?= $statusCount(LinkHealthStatus::BROKEN) ?></strong><span><?= $trans('Broken links') ?></span></div>
         <div class="is-suspect"><strong><?= $statusCount(LinkHealthStatus::SUSPECT) ?></strong><span><?= $trans('Suspect links') ?></span></div>
     </div>
 
@@ -80,7 +81,7 @@ foreach ($visiblePages as $visiblePage) {
             LinkHealthStatus::IGNORED,
         ] as $filterStatus): ?>
             <a href="<?= $filterUrl($filterStatus) ?>"<?= $status === $filterStatus ? ' aria-current="page"' : '' ?>>
-                <?= $trans('Link status ' . $filterStatus->value) ?> <span><?= $statusCount($filterStatus) ?></span>
+                <?= $trans('Link status ' . $filterStatus->value) ?> <span data-status-count="<?= $html($filterStatus->value) ?>"><?= $statusCount($filterStatus) ?></span>
             </a>
         <?php endforeach; ?>
     </nav>
@@ -105,7 +106,7 @@ foreach ($visiblePages as $visiblePage) {
                     $targetStatus = LinkHealthStatus::from((string)$target['health_status']);
                     $archiveStatus = ArchiveStatus::from((string)$target['archive_status']);
                     ?>
-                    <tr>
+                    <tr data-health-status="<?= $html($targetStatus->value) ?>">
                         <td class="link-health-target">
                             <a href="<?= $html((string)$target['normalized_url']) ?>" target="_blank" rel="noreferrer noopener">
                                 <?= $html((string)$target['normalized_url']) ?>
@@ -154,13 +155,15 @@ foreach ($visiblePages as $visiblePage) {
                         <td class="link-health-actions">
                             <?php if ($canManage): ?>
                                 <button type="button" data-operation="recheck" data-target-id="<?= $target['id'] ?>"><?= $trans('Link recheck') ?></button>
-                                <?php if ($targetStatus === LinkHealthStatus::IGNORED): ?>
-                                    <button type="button" data-operation="unignore" data-target-id="<?= $target['id'] ?>"><?= $trans('Link unignore') ?></button>
-                                <?php else: ?>
-                                    <button type="button" data-operation="ignore" data-target-id="<?= $target['id'] ?>"><?= $trans('Link ignore') ?></button>
-                                <?php endif; ?>
+                                <label class="link-health-ignore-toggle">
+                                    <input type="checkbox" role="switch" data-ignore-toggle
+                                           data-target-id="<?= $target['id'] ?>"
+                                           <?= $targetStatus === LinkHealthStatus::IGNORED ? 'checked' : '' ?>>
+                                    <span class="link-health-ignore-track" aria-hidden="true"></span>
+                                    <span><?= $trans('Link ignore') ?></span>
+                                </label>
                                 <?php if ($targetStatus === LinkHealthStatus::BROKEN && $archiveStatus === ArchiveStatus::AVAILABLE): ?>
-                                    <button type="button" class="primary" data-operation="repair" data-target-id="<?= $target['id'] ?>"><?= $trans('Link repair') ?></button>
+                                    <button type="button" class="primary link-health-repair-action" data-operation="repair" data-target-id="<?= $target['id'] ?>"><?= $trans('Link repair') ?></button>
                                 <?php endif; ?>
                             <?php else: ?>
                                 <span aria-hidden="true">—</span>

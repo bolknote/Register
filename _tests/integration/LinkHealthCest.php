@@ -1126,6 +1126,8 @@ final class LinkHealthCest
         $I->seeElement('.link-health-admin');
         $I->canSee('https://outside.example/overview');
         $I->seeElement('button[data-operation="recheck"]');
+        $I->seeElement('input[role="switch"][data-ignore-toggle][data-target-id]');
+        $I->dontSeeElement('button[data-operation="ignore"]');
 
         $csrfToken = (string)$I->grabAttributeFrom('input[name="link_health_csrf_token"]', 'value');
         $targetId = (int)$dbLayer->select('id')->from(Manifest::TARGET_TABLE)
@@ -1146,6 +1148,9 @@ final class LinkHealthCest
             (string)$dbLayer->select('health_status')->from(Manifest::TARGET_TABLE)
                 ->where('id = :id')->setParameter('id', $targetId)->execute()->result(),
         );
+
+        $I->amOnPage('https://localhost/_admin/index.php?entity=LinkHealth&status=ignored');
+        $I->seeElement('tr[data-health-status="ignored"] input[role="switch"][data-ignore-toggle][checked]');
     }
 
     /**

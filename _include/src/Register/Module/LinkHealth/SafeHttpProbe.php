@@ -21,9 +21,12 @@ final readonly class SafeHttpProbe implements LinkProbeInterface
 {
     private const int MAX_RESPONSE_BYTES = 16_384;
 
-    private const int CONNECT_TIMEOUT = 1;
+    // A public TLS handshake can legitimately exceed one second. Keep the same three-second
+    // network budget, but spend most of it establishing the connection; probes read only headers
+    // or a tightly bounded response body.
+    private const int CONNECT_TIMEOUT = 2;
 
-    private const int READ_TIMEOUT = 2;
+    private const int READ_TIMEOUT = 1;
 
     private int $connectTimeout;
 

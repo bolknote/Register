@@ -5345,16 +5345,96 @@ body.login_page {
 }
 
 .link-health-actions {
-    display: flex;
-    max-width: 13rem;
-    flex-wrap: wrap;
-    gap: 0.4rem;
+    display: grid;
+    width: 12.5rem;
+    gap: 0.5rem;
+    align-content: start;
 }
 
 .link-health-actions button {
+    display: inline-flex;
+    width: 100%;
+    min-height: 2.65rem;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
     margin: 0;
-    padding: 0.35rem 0.55rem;
-    font-size: 0.8rem;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.82rem;
+    line-height: 1.25;
+    text-align: center;
+}
+
+.link-health-ignore-toggle {
+    display: grid;
+    width: 100%;
+    min-height: 2.65rem;
+    box-sizing: border-box;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.55rem;
+    align-items: center;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 0.4rem;
+    background: var(--admin-surface-background);
+    color: var(--admin-text-color);
+    cursor: pointer;
+    font-size: 0.82rem;
+    line-height: 1.25;
+}
+
+.link-health-ignore-toggle:hover {
+    border-color: var(--admin-secondary-text-color);
+}
+
+.link-health-ignore-toggle input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.link-health-ignore-track {
+    position: relative;
+    width: 2rem;
+    height: 1.15rem;
+    border: 1px solid var(--admin-soft-border-color);
+    border-radius: 999px;
+    background: var(--admin-secondary-background);
+    transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.link-health-ignore-track::after {
+    position: absolute;
+    top: 0.14rem;
+    left: 0.14rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: var(--admin-secondary-text-color);
+    content: '';
+    transition: transform 120ms ease, background-color 120ms ease;
+}
+
+.link-health-ignore-toggle input:checked + .link-health-ignore-track {
+    border-color: var(--admin-accent-color);
+    background: color-mix(in srgb, var(--admin-accent-color) 24%, var(--admin-surface-background));
+}
+
+.link-health-ignore-toggle input:checked + .link-health-ignore-track::after {
+    background: var(--admin-accent-color);
+    transform: translateX(0.85rem);
+}
+
+.link-health-ignore-toggle input:focus-visible + .link-health-ignore-track {
+    outline: 2px solid var(--admin-accent-color);
+    outline-offset: 2px;
+}
+
+.link-health-ignore-toggle:has(input:disabled) {
+    cursor: wait;
+    opacity: 0.55;
 }
 
 .link-health-pagination {

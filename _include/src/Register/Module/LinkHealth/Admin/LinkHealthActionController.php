@@ -61,21 +61,29 @@ final readonly class LinkHealthActionController
         }
 
         $operation = $request->request->getString('operation');
-        $message   = match ($operation) {
+        $result    = match ($operation) {
             'recheck' => $this->recheck($target),
             'ignore'  => $this->ignore($target),
             'unignore' => $this->unignore($target),
             'repair'  => $this->repair($target),
             default   => null,
         };
-        if ($message === null) {
+        if ($result === null) {
             return $this->error('Unknown link action.', Response::HTTP_BAD_REQUEST);
         }
 
-        return new JsonResponse(['success' => true, 'message' => $message]);
+        [$message, $healthStatus] = $result;
+
+        return new JsonResponse([
+            'success'            => true,
+            'message'            => $message,
+            'health_status'      => $healthStatus->value,
+            'health_status_label' => $this->translator->trans('Link status ' . $healthStatus->value),
+        ]);
     }
 
-    private function recheck(LinkTargetState $target): string
+    /** @return array{string, LinkHealthStatus} */
+    private function recheck(LinkTargetState $target): array
     {
         $this->queuePublisher->publish(
             LinkQueue::targetJobId($target->id),
@@ -83,16 +91,19 @@ final readonly class LinkHealthActionController
             LinkQueue::checkPayload($target->id, true),
         );
 
-        return $this->translator->trans('Link recheck queued');
+        return [$this->translator->trans('Link recheck queued'), $target->healthStatus];
     }
 
-    private function ignore(LinkTargetState $target): string
+    /** @return array{string, LinkHealthStatus} */
+    private function ignore(LinkTargetState $target): array
     {
         $this->adminRepository->ignore($target->id);
-        return $this->translator->trans('Link ignored');
+
+        return [$this->translator->trans('Link ignored'), LinkHealthStatus::IGNORED];
     }
 
-    private function unignore(LinkTargetState $target): string
+    /** @return array{string, LinkHealthStatus} */
+    private function unignore(LinkTargetState $target): array
     {
         $this->adminRepository->unignore($target->id, time());
         $this->queuePublisher->publish(
@@ -101,10 +112,11 @@ final readonly class LinkHealthActionController
             LinkQueue::checkPayload($target->id, true),
         );
 
-        return $this->translator->trans('Link restored to checks');
+        return [$this->translator->trans('Link restored to checks'), LinkHealthStatus::UNKNOWN];
     }
 
-    private function repair(LinkTargetState $target): ?string
+    /** @return null|array{string, LinkHealthStatus} */
+    private function repair(LinkTargetState $target): ?array
     {
         if ($target->healthStatus !== LinkHealthStatus::BROKEN
             || $target->archiveStatus !== ArchiveStatus::AVAILABLE
@@ -119,7 +131,7 @@ final readonly class LinkHealthActionController
             ['target_id' => $target->id],
         );
 
-        return $this->translator->trans('Link repair queued');
+        return [$this->translator->trans('Link repair queued'), $target->healthStatus];
     }
 
     private function error(string $message, int $status): JsonResponse

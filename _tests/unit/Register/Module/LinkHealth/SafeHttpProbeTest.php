@@ -76,8 +76,8 @@ final class SafeHttpProbeTest extends Unit
         self::assertSame(200, $result->statusCode);
         self::assertSame(['HEAD', 'GET'], array_column($client->calls, 'method'));
         self::assertSame([], $client->calls[1]['headers']);
-        self::assertSame(1, $client->calls[1]['options'][HttpClient::CONNECT_TIMEOUT]);
-        self::assertSame(2, $client->calls[1]['options'][HttpClient::READ_TIMEOUT]);
+        self::assertSame(2, $client->calls[1]['options'][HttpClient::CONNECT_TIMEOUT]);
+        self::assertSame(1, $client->calls[1]['options'][HttpClient::READ_TIMEOUT]);
         self::assertSame(16_384, $client->calls[1]['options'][HttpClient::MAX_RESPONSE_BYTES]);
     }
 
