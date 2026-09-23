@@ -68,6 +68,7 @@ export function createFixtureServer() {
                 ['/recovery.html', ['recovery.html', 'text/html; charset=utf-8']],
                 ['/recovery-fixture.js', ['recovery-fixture.js', 'text/javascript']],
                 ['/recovery-fixture.css', ['recovery-fixture.css', 'text/css']],
+                ['/local-time.js', ['../../../_assets/register/local-time.js', 'text/javascript']],
                 ['/post-recovery.js', ['../../../_assets/register/post-recovery.js', 'text/javascript']],
                 ['/post-recovery.css', ['../../../_assets/register/post-recovery.css', 'text/css']],
                 ['/site.css', ['../../../_styles/register/site.css', 'text/css']],

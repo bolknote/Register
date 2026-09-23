@@ -30,7 +30,7 @@
             </form>
             <p class="post-inplace-error post-inplace-edit-error" hidden></p><p class="post-inplace-status" hidden></p>
             <h2 class="post head"><a href="/server-slug"><span data-post-inplace-title></span></a></h2>
-            <div class="post time"><time datetime="2026-09-06T12:00:00Z">6 September</time>
+            <div class="post time"><time datetime="2026-09-06T12:00:00Z" data-local-time="datetime" data-locale="ru">6 September</time>
                 <button type="button" class="post-inplace-date-button" hidden>Date</button>
                 <input class="post-inplace-datetime" type="datetime-local" step="1" hidden></div>
             <nav class="post-inplace-tools">

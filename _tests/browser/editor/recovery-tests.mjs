@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 export async function runRecoveryRegressions(browser, origin) {
-    const context = await browser.newContext();
+    const context = await browser.newContext({timezoneId: 'Europe/Moscow'});
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(String(error)));
@@ -107,6 +107,37 @@ export async function runRecoveryRegressions(browser, origin) {
         })), {acknowledgements: 0, refreshes: 1});
         await page.unroute('**/_inplace/post/new');
         console.log('editor: Cmd+S shows a created post immediately and refreshes the authoritative feed');
+
+        await reset();
+        const publishedAt = Math.floor(Date.parse('2026-09-23T16:15:00Z') / 1000);
+        let changedDateRequest = '';
+        await page.route('**/_inplace/post/9', async route => {
+            changedDateRequest = route.request().postData() || '';
+            await route.fulfill({json: {
+                success: true, action: 'edit', title: 'Server title 1', revision: 2,
+                body_html: '<div class="post body" data-post-inplace-body><p>Server body 1</p></div>',
+                published_at: publishedAt, datetime: '2026-09-23T16:15:00Z',
+                time: '23 сентября 2026 года, 16:15', tags: [], scheduled: true,
+                schedule_message: 'Scheduled post preview', message: 'Saved',
+            }});
+        });
+        await page.getByRole('button', {name: 'Edit', exact: true}).click();
+        await edited().locator('.post-inplace-datetime').evaluate(input => {
+            input.value = '2026-09-23T19:15:00';
+            input.dispatchEvent(new Event('input', {bubbles: true}));
+        });
+        await edited().getByRole('button', {name: 'Save', exact: true}).click();
+        await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+        const savedTime = page.locator('.post-card[data-post-id="9"] > .post.time > time');
+        assert.match(changedDateRequest, new RegExp(`name="published_at"\\r?\\n\\r?\\n${publishedAt}`, 'u'));
+        assert.equal(await savedTime.getAttribute('datetime'), '2026-09-23T16:15:00Z');
+        assert.equal(await savedTime.textContent(), '23 сентября 2026 года, 19:15');
+        assert.equal(await savedTime.getAttribute('data-local-time-ready'), '1');
+        await page.getByRole('button', {name: 'Edit', exact: true}).click();
+        assert.equal(await edited().locator('.post-inplace-datetime').inputValue(), '2026-09-23T19:15');
+        await edited().getByRole('button', {name: 'Cancel', exact: true}).click();
+        await page.unroute('**/_inplace/post/9');
+        console.log('editor: a changed publication date stays in the browser time zone immediately after save');
 
         await reset();
         await page.getByRole('button', {name: 'Edit', exact: true}).click();

@@ -3613,6 +3613,8 @@
         title.textContent = payload.title;
         time.dateTime = payload.datetime;
         time.textContent = payload.time;
+        delete time.dataset.localTimeReady;
+        window.RegisterLocalTime?.enhance(time);
         dateInput.value = localDateTimeValue(payload.published_at);
         updateScheduledPreview(card, time, payload);
 
