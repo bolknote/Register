@@ -209,14 +209,16 @@ for (const kind of ['ordered-list', 'unordered-list']) {
     });
 }
 
-function deferredUpload(s, kind = 'audio') {
+function deferredUpload(s, kind = 'audio', initialRange = null) {
     let finish;
     const response = new Promise(resolve => { finish = resolve; });
     window.fetch = async () => response;
-    select(s, s.body, true);
+    const range = initialRange instanceof Range
+        ? initialRange
+        : select(s, s.body, true);
     const file = kind === 'audio' ? new File(['RIFF'], 'test.wav', {type: 'audio/wav'})
         : new File(['fixture'], 'test.png', {type: 'image/png'});
-    api.insertMediaFiles(s, [file], getSelection().getRangeAt(0));
+    api.insertMediaFiles(s, [file], range);
     return async (success = true) => {
         finish({ok: success, json: async () => ({
             success,
@@ -336,6 +338,61 @@ test('inline image caption commits and undoes as one operation', async () => {
     api.finishInlineMediaCaption(s, caption, true); await tick();
     await undo(s); equal(s.body.querySelector('.post-caption')?.textContent, '');
     await undo(s, true); equal(s.body.querySelector('.post-caption')?.textContent, 'Image caption');
+});
+
+test('ordinary Enter advances the caret by exactly one visible text line', async () => {
+    const s = setup('<p>First line</p>');
+    const first = s.body.firstElementChild;
+    select(s, first, true);
+    document.execCommand('insertParagraph');
+    await frame();
+
+    const second = first.nextElementSibling;
+    equal(second?.tagName, 'P', `Enter must create one paragraph: ${s.body.innerHTML}`);
+    equal(s.body.children.length, 2, `Enter must create only one paragraph: ${s.body.innerHTML}`);
+    const firstStyle = getComputedStyle(first);
+    equal(firstStyle.marginBottom, '0px', 'The editor must not add a paragraph gap to the caret step');
+    const lineHeight = parseFloat(firstStyle.lineHeight);
+    const step = second.getBoundingClientRect().top - first.getBoundingClientRect().top;
+    ok(Math.abs(step - lineHeight) < 1.5, `One Enter must move one line; line=${lineHeight}px, step=${step}px`);
+});
+
+test('Enter leaves a legacy nested image caption after the complete top-level media block', async () => {
+    const s = setup('<div class="post-picture post-media-picture"><div class="post-picture post-media-picture"><img alt="nested"><div class="post-caption">Nested caption</div></div><img alt="outer"></div>');
+    api.prepareEditableMedia(s.body);
+    const outer = s.body.firstElementChild;
+    const nestedCaption = outer.querySelector('.post-media-picture > .post-caption');
+    api.beginInlineMediaCaption(s, nestedCaption);
+    select(s, nestedCaption, true);
+    nestedCaption.focus();
+
+    const leave = new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true});
+    nestedCaption.dispatchEvent(leave);
+    equal(leave.defaultPrevented, true, 'Enter must leave the malformed legacy caption');
+    const paragraph = outer.nextElementSibling;
+    equal(paragraph?.tagName, 'P', `A body paragraph must follow the top-level media: ${s.body.innerHTML}`);
+    equal(paragraph?.parentElement, s.body, 'The caret paragraph must not be nested in either media wrapper');
+    ok(paragraph?.contains(getSelection().anchorNode), 'The caret moves into the visible paragraph after the media');
+    await type(s, 'Body text');
+    equal(paragraph.textContent, 'Body text');
+});
+
+test('dropping an image onto an existing image inserts a sibling instead of nested media', async () => {
+    const s = setup('<div class="post-picture post-media-picture"><img alt="existing"><div class="post-caption"></div></div><p>After</p>');
+    const existing = s.body.firstElementChild;
+    const caption = existing.querySelector('.post-caption');
+    const range = document.createRange();
+    range.selectNodeContents(caption);
+    range.collapse(true);
+
+    const finish = deferredUpload(s, 'image', range);
+    await finish();
+    const media = Array.from(s.body.children).filter((element) => element.matches('.post-media-picture'));
+    equal(media.length, 2, `Both images must be top-level siblings: ${s.body.innerHTML}`);
+    equal(media[0], existing);
+    equal(media[1].parentElement, s.body);
+    equal(existing.querySelector('.post-media-picture'), null, 'The existing image must never contain the dropped one');
+    equal(media[1].nextElementSibling?.textContent, 'After');
 });
 
 test('Enter leaves the last image caption in an ordinary body paragraph while Shift+Enter inserts a caption line break', async () => {

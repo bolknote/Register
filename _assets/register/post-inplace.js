@@ -883,6 +883,21 @@
             && Array.from(element.childNodes).every(boundaryNodeIsEmpty);
     }
 
+    function topLevelBodyChild(body, node) {
+        if (!(body instanceof HTMLElement) || !(node instanceof Node) || node === body) {
+            return null;
+        }
+
+        let child = node instanceof HTMLElement ? node : node.parentElement;
+        while (child instanceof HTMLElement && child.parentElement !== body) {
+            if (child === body || !body.contains(child)) {
+                return null;
+            }
+            child = child.parentElement;
+        }
+        return child instanceof HTMLElement && child.parentElement === body ? child : null;
+    }
+
     function hoistMediaFromParagraph(body, media) {
         const paragraph = media.parentElement;
         if (
@@ -948,6 +963,13 @@
             return range;
         }
 
+        const boundary = topLevelBodyChild(body, range.startContainer);
+        if (isMediaBoundaryElement(body, boundary)) {
+            range.setStartAfter(boundary);
+            range.collapse(true);
+            return range;
+        }
+
         let paragraph = range.startContainer instanceof HTMLElement
             ? range.startContainer
             : range.startContainer.parentNode;
@@ -983,9 +1005,15 @@
     }
 
     function focusAfterMedia(body, media) {
-        if (!(media instanceof HTMLElement) || media.parentElement !== body) {
+        if (!(media instanceof HTMLElement)) {
             return null;
         }
+
+        const boundary = media.parentElement === body ? media : topLevelBodyChild(body, media);
+        if (!isMediaBoundaryElement(body, boundary)) {
+            return null;
+        }
+        media = boundary;
 
         let target = media.nextSibling;
         if (

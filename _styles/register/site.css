@@ -962,6 +962,12 @@ h2.preview,
     line-height: inherit;
 }
 
+/* Enter is a single visible line while writing. Published paragraphs keep the
+ * normal reading rhythm; the editor must not add 1.35em to every caret move. */
+#content .post-card.is-editing > .post.body[data-post-inplace-body] > p {
+    margin-bottom: 0;
+}
+
 #content .post-card.is-editing > .post.body[data-post-inplace-body]
     > p.post-editor-collapsed-boundary-paragraph {
     height: 0;
