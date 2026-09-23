@@ -970,6 +970,55 @@
             return range;
         }
 
+        if (editorBoundaryParagraphIsEmpty(boundary)) {
+            const boundaryIndex = Array.from(body.childNodes).indexOf(boundary);
+            boundary.remove();
+            range.setStart(body, boundaryIndex);
+            range.collapse(true);
+            return range;
+        }
+
+        // Media is a block in stored post HTML. Inserting it at a text caret with
+        // Range.insertNode() would otherwise put the picture inside the current
+        // <p> (and possibly inside an inline <strong>/<a> as well). Browsers repair
+        // that invalid tree differently when the post is rendered again; text
+        // following the image can then move into its caption or disappear. Split
+        // the paragraph first and give the media its own top-level insertion point.
+        if (boundary instanceof HTMLElement && boundary.tagName === 'P') {
+            const startContainer = range.startContainer;
+            const startOffset = range.startOffset;
+            const prefixRange = document.createRange();
+            prefixRange.setStart(boundary, 0);
+            prefixRange.setEnd(startContainer, startOffset);
+            const suffixRange = document.createRange();
+            suffixRange.setStart(startContainer, startOffset);
+            suffixRange.setEnd(boundary, boundary.childNodes.length);
+
+            const prefix = boundary.cloneNode(false);
+            const suffix = boundary.cloneNode(false);
+            suffix.removeAttribute('id');
+            prefix.append(prefixRange.cloneContents());
+            suffix.append(suffixRange.cloneContents());
+            const hasContent = (paragraph) => (
+                String(paragraph.textContent || '').trim() !== ''
+                || Boolean(paragraph.querySelector('img, video, audio, iframe, table, hr'))
+            );
+            const keepPrefix = hasContent(prefix);
+            const keepSuffix = hasContent(suffix);
+            const boundaryIndex = Array.from(body.childNodes).indexOf(boundary);
+            const replacements = [];
+            if (keepPrefix) {
+                replacements.push(prefix);
+            }
+            if (keepSuffix) {
+                replacements.push(suffix);
+            }
+            boundary.replaceWith(...replacements);
+            range.setStart(body, boundaryIndex + (keepPrefix ? 1 : 0));
+            range.collapse(true);
+            return range;
+        }
+
         let paragraph = range.startContainer instanceof HTMLElement
             ? range.startContainer
             : range.startContainer.parentNode;
@@ -3471,20 +3520,26 @@
             return;
         }
 
-        // Chromium turns plain-text line endings at the editor root into separate
-        // paragraphs, whose margins make every pasted line look doubled. A plain
-        // <br> represents each clipboard newline without adding paragraph spacing.
+        // A blank line in prose separates paragraphs. Saving it as <br><br> keeps
+        // the whole article in one giant paragraph; later block-media insertion
+        // then creates invalid nested HTML. Keep single newlines as explicit soft
+        // breaks, but turn blank-line-separated prose into semantic paragraphs.
         event.preventDefault();
         const normalized = text.replace(/\r\n?/gu, '\n');
         if (isCode) {
             runFormattingCommand(state, 'insertText', normalized);
             return;
         }
-        const html = normalized
+        const escape = (value) => value
             .replace(/&/gu, '&amp;')
             .replace(/</gu, '&lt;')
-            .replace(/>/gu, '&gt;')
-            .replace(/\n/gu, '<br>');
+            .replace(/>/gu, '&gt;');
+        const chunks = normalized.split(/\n(?:[\t ]*\n)+/u);
+        const html = chunks.length === 1
+            ? escape(normalized).replace(/\n/gu, '<br>')
+            : chunks.map((chunk) => (
+                `<p>${escape(chunk).replace(/\n/gu, '<br>') || '<br>'}</p>`
+            )).join('');
         runFormattingCommand(state, 'insertHTML', html);
     }
 

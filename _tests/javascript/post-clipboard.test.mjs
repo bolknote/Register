@@ -157,6 +157,27 @@ test('multiline plain text keeps exactly one newline per clipboard newline', () 
     assert.match(source, /document\.addEventListener\('paste', pasteMultilineText, false\)/u);
 });
 
+test('blank lines in pasted prose become semantic paragraphs, not doubled breaks', () => {
+    const {pasteText, select, commands} = harness();
+    select();
+    const event = pasteText({
+        getData(type) {
+            return type === 'text/plain'
+                ? 'First paragraph.\n\nSecond paragraph.\nContinued line.'
+                : '';
+        },
+    });
+
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(commands.length, 1);
+    assert.equal(commands[0].command, 'insertHTML');
+    assert.equal(
+        commands[0].value,
+        '<p>First paragraph.</p><p>Second paragraph.<br>Continued line.</p>',
+    );
+    assert.doesNotMatch(commands[0].value, /<br>\s*<br>/u);
+});
+
 test('multiline rich text remains native outside code but is pasted literally inside code', () => {
     const {pasteText, select, setBlockStyle, commands} = harness();
     select();

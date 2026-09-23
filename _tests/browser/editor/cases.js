@@ -395,6 +395,25 @@ test('dropping an image onto an existing image inserts a sibling instead of nest
     equal(media[1].nextElementSibling?.textContent, 'After');
 });
 
+test('inserting an image in pasted prose splits the paragraph around a top-level media block', async () => {
+    const s = setup('<p>Before image. After image.</p>');
+    const text = s.body.firstElementChild.firstChild;
+    const range = document.createRange();
+    range.setStart(text, 'Before image.'.length);
+    range.collapse(true);
+
+    const finish = deferredUpload(s, 'image', range);
+    await finish();
+
+    const media = s.body.querySelector('.post-media-picture');
+    equal(media?.parentElement, s.body, `Image must be a top-level block: ${s.body.innerHTML}`);
+    equal(media?.previousElementSibling?.tagName, 'P');
+    equal(media?.previousElementSibling?.textContent, 'Before image.');
+    equal(media?.nextElementSibling?.tagName, 'P');
+    equal(media?.nextElementSibling?.textContent, ' After image.');
+    equal(s.body.querySelector('p .post-media-picture'), null, 'Saved paragraphs must never contain media blocks');
+});
+
 test('Enter leaves the last image caption in an ordinary body paragraph while Shift+Enter inserts a caption line break', async () => {
     const s = setup('<p>Reference body text</p><div class="post-media-picture"><img alt="fixture"><div class="post-caption"></div></div><p><br></p>');
     api.prepareEditableMedia(s.body);
@@ -605,6 +624,12 @@ test('multiline paste preserves data and undo restores the replaced selection', 
     await tick(); const inserted = api.editableBodyHtml(s);
     ok(plain(s).includes('<tag>&'), `Pasted markup is text: ${inserted}`);
     equal(s.body.querySelector('tag'), null);
+    equal(s.body.querySelector('br + br'), null, `A blank clipboard line must not become doubled breaks: ${inserted}`);
+    equal(s.body.children.length, 2, `Pasted prose must use two semantic paragraphs: ${inserted}`);
+    equal(s.body.children[0]?.tagName, 'P');
+    equal(s.body.children[0]?.textContent, 'Кириллица ё');
+    equal(s.body.children[1]?.tagName, 'P');
+    equal(s.body.children[1]?.textContent, '👩🏽‍💻 <tag>&');
     await undo(s); equal(plain(s), 'Replace this');
     await undo(s, true); equal(api.editableBodyHtml(s), inserted);
 });
@@ -620,6 +645,10 @@ test('mixed native formatting, code, clear-format, undo/redo and a new branch', 
     select(s, s.body, true); await type(s, ' Новая ветка');
     const html = s.body.innerHTML; await undo(s, true); equal(s.body.innerHTML, html);
 });
+
+// The Playwright runner uses this fixture-only hook for real keyboard events.
+// It is never present in the production asset.
+window.setupEditorWorkflow = setup;
 
 document.getElementById('run').addEventListener('click', async () => {
     const output = document.getElementById('results');
