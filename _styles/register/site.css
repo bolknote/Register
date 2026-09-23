@@ -962,10 +962,18 @@ h2.preview,
     line-height: inherit;
 }
 
-/* Enter is a single visible line while writing. Published paragraphs keep the
- * normal reading rhythm; the editor must not add 1.35em to every caret move. */
-#content .post-card.is-editing > .post.body[data-post-inplace-body] > p {
+/* A caret line inserted immediately before media must occupy one text line,
+ * without also inheriting the normal paragraph and picture gaps. Do not flatten
+ * every paragraph here: stored paragraph boundaries must stay visible when the
+ * post switches from reading to editing. */
+#content .post-card.is-editing > .post.body[data-post-inplace-body]
+    > p.post-editor-body-paragraph:has(+ .post-media-picture) {
     margin-bottom: 0;
+}
+
+#content .post-card.is-editing > .post.body[data-post-inplace-body]
+    > p.post-editor-body-paragraph + .post-media-picture {
+    margin-top: 0;
 }
 
 #content .post-card.is-editing > .post.body[data-post-inplace-body]

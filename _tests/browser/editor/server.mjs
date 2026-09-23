@@ -31,6 +31,15 @@ export function createFixtureServer() {
                 })();`));
                 return;
             }
+            if (request.url === '/site.css' && process.env.EDITOR_TEST_REVISION) {
+                response.setHeader('Content-Type', 'text/css');
+                response.end(execFileSync(
+                    'git',
+                    ['show', `${process.env.EDITOR_TEST_REVISION}:_styles/register/site.css`],
+                    {encoding: 'utf8'},
+                ));
+                return;
+            }
             if (request.url === '/comment-editor.js') {
                 response.setHeader('Content-Type', 'text/javascript');
                 response.end(await readFile(new URL('../../../_assets/register/comment-editor.js', import.meta.url), 'utf8'));

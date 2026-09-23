@@ -340,20 +340,47 @@ test('inline image caption commits and undoes as one operation', async () => {
     await undo(s, true); equal(s.body.querySelector('.post-caption')?.textContent, 'Image caption');
 });
 
-test('ordinary Enter advances the caret by exactly one visible text line', async () => {
-    const s = setup('<p>First line</p>');
-    const first = s.body.firstElementChild;
-    select(s, first, true);
-    document.execCommand('insertParagraph');
+test('stored paragraph gaps remain visible when a post enters edit mode', async () => {
+    const s = setup('<p>First paragraph</p><p>Second paragraph</p>');
+    const first = s.body.children[0];
+    const second = s.body.children[1];
+    s.card.classList.remove('is-editing');
+    await frame();
+    const publishedStep = second.getBoundingClientRect().top - first.getBoundingClientRect().top;
+
+    s.card.classList.add('is-editing');
+    await frame();
+    const editingStep = second.getBoundingClientRect().top - first.getBoundingClientRect().top;
+    const lineHeight = parseFloat(getComputedStyle(first).lineHeight);
+    ok(publishedStep > lineHeight * 1.5, `Published paragraphs need a visible gap: ${publishedStep}px`);
+    ok(Math.abs(editingStep - publishedStep) < 1.5,
+        `Editing must preserve the published paragraph rhythm; published=${publishedStep}px, editing=${editingStep}px`);
+});
+
+test('one Enter immediately before an image reserves exactly one visible text line', async () => {
+    const s = setup('<div class="post-picture post-media-picture"><img alt="fixture"><div class="post-caption"></div></div>');
+    const media = s.body.firstElementChild;
+    const range = document.createRange();
+    range.setStart(s.body, 0);
+    range.collapse(true);
+    s.body.focus();
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    const beforeInput = new InputEvent('beforeinput', {
+        inputType: 'insertParagraph', bubbles: true, cancelable: true,
+    });
+    s.body.dispatchEvent(beforeInput);
     await frame();
 
-    const second = first.nextElementSibling;
-    equal(second?.tagName, 'P', `Enter must create one paragraph: ${s.body.innerHTML}`);
+    const paragraph = media.previousElementSibling;
+    equal(beforeInput.defaultPrevented, true, 'The media-boundary Enter is handled once');
+    equal(paragraph?.tagName, 'P', `Enter must create one paragraph: ${s.body.innerHTML}`);
     equal(s.body.children.length, 2, `Enter must create only one paragraph: ${s.body.innerHTML}`);
-    const firstStyle = getComputedStyle(first);
-    equal(firstStyle.marginBottom, '0px', 'The editor must not add a paragraph gap to the caret step');
-    const lineHeight = parseFloat(firstStyle.lineHeight);
-    const step = second.getBoundingClientRect().top - first.getBoundingClientRect().top;
+    const paragraphStyle = getComputedStyle(paragraph);
+    equal(paragraphStyle.marginBottom, '0px', 'The boundary line must not add a paragraph gap');
+    equal(getComputedStyle(media).marginTop, '0px', 'The boundary line must not also add a picture gap');
+    const lineHeight = parseFloat(paragraphStyle.lineHeight);
+    const step = media.getBoundingClientRect().top - paragraph.getBoundingClientRect().top;
     ok(Math.abs(step - lineHeight) < 1.5, `One Enter must move one line; line=${lineHeight}px, step=${step}px`);
 });
 
