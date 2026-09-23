@@ -83,11 +83,26 @@ jobs:
 
           commit_date="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}" --jq '.commit.committer.date')"
           release_stamp="$(date --utc --date="$commit_date" '+%Y%m%dT%H%M%SZ')"
-          release_tag="edge-${release_stamp}-${TARGET_SHA:0:8}"
-          if is_draft="$(gh release view "$release_tag" --json isDraft --jq '.isDraft' 2>/dev/null)" \
-            && [[ "$is_draft" != 'true' ]]; then
-            echo "Release $release_tag is already published."
-            exit 0
+          release_id="${release_stamp}-${TARGET_SHA:0:8}"
+          release_tag="edge-${release_id}"
+          archive_stem="register-${release_id}"
+          release_json="$(gh release view "$release_tag" --json isDraft,assets 2>/dev/null || true)"
+          if [[ -n "$release_json" ]] \
+            && [[ "$(jq -r '.isDraft' <<< "$release_json")" != 'true' ]] \
+            && jq -e --arg stem "$archive_stem" '
+              ((.assets | map(.name) | sort) == ([
+                "SHA256SUMS",
+                ($stem + ".tar.bz2"),
+                ($stem + ".tar.gz"),
+                ($stem + ".zip")
+              ] | sort)) and
+              (all(.assets[]; .size > 0))
+            ' <<< "$release_json" >/dev/null; then
+              echo "Release $release_tag is already published with every archive."
+              exit 0
+          fi
+          if [[ -n "$release_json" ]]; then
+            echo "Release $release_tag is incomplete and will be rebuilt."
           fi
 
           echo 'ready=true' >> "$GITHUB_OUTPUT"
@@ -147,6 +162,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ needs.gate.outputs.target_sha }}
+          RELEASE_ID: ${{ steps.build.outputs.release_id }}
           RELEASE_TAG: ${{ steps.build.outputs.tag }}
           RELEASE_VERSION: ${{ steps.build.outputs.version }}
         run: |
@@ -156,24 +172,54 @@ jobs:
             exit 0
           fi
 
-          if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' >/tmp/register-release-draft 2>/dev/null; then
-            if [[ "$(</tmp/register-release-draft)" != 'true' ]]; then
+          archive_stem="register-${RELEASE_ID}"
+          release_json="$(gh release view "$RELEASE_TAG" --json isDraft,assets 2>/dev/null || true)"
+          if [[ -n "$release_json" ]]; then
+            if [[ "$(jq -r '.isDraft' <<< "$release_json")" != 'true' ]] \
+              && jq -e --arg stem "$archive_stem" '
+                ((.assets | map(.name) | sort) == ([
+                  "SHA256SUMS",
+                  ($stem + ".tar.bz2"),
+                  ($stem + ".tar.gz"),
+                  ($stem + ".zip")
+                ] | sort)) and
+                (all(.assets[]; .size > 0))
+              ' <<< "$release_json" >/dev/null; then
               echo "Release $RELEASE_TAG is already published."
               echo 'published=true' >> "$GITHUB_OUTPUT"
               exit 0
             fi
-          else
-            notes="Automated production build from ${TARGET_SHA}. Download one register-* archive, not GitHub's automatic Source code assets; all three formats contain the same release. SHA256SUMS covers the archive files, and every installed file is listed inside the release manifest."
-            gh release create "$RELEASE_TAG" \
-              --draft \
-              --prerelease \
-              --target "$TARGET_SHA" \
-              --title "Register ${RELEASE_VERSION}" \
-              --notes "$notes"
+
+            echo "Deleting incomplete release $RELEASE_TAG before rebuilding it."
+            gh release delete "$RELEASE_TAG" --yes
           fi
 
-          gh release upload "$RELEASE_TAG" dist/release/* --clobber
-          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          notes="Automated production build from ${TARGET_SHA}. Download one register-* archive, not GitHub's automatic Source code assets; all three formats contain the same release. SHA256SUMS covers the archive files, and every installed file is listed inside the release manifest."
+
+          # Passing assets to create keeps the release in GitHub's internal draft until every
+          # archive has uploaded successfully, so a network failure cannot publish an empty release.
+          gh release create "$RELEASE_TAG" dist/release/* \
+            --prerelease \
+            --latest=false \
+            --target "$TARGET_SHA" \
+            --title "Register ${RELEASE_VERSION}" \
+            --notes "$notes"
+
+          release_json="$(gh release view "$RELEASE_TAG" --json assets)"
+          if ! jq -e --arg stem "$archive_stem" '
+            ((.assets | map(.name) | sort) == ([
+              "SHA256SUMS",
+              ($stem + ".tar.bz2"),
+              ($stem + ".tar.gz"),
+              ($stem + ".zip")
+            ] | sort)) and
+            (all(.assets[]; .size > 0))
+          ' <<< "$release_json" >/dev/null; then
+            echo "::error::Release $RELEASE_TAG does not contain every non-empty archive."
+            jq -r '.assets[] | "\(.name) (\(.size) bytes)"' <<< "$release_json"
+            exit 1
+          fi
+
           echo 'published=true' >> "$GITHUB_OUTPUT"
 
       - name: Delete superseded GitHub releases
