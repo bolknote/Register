@@ -14,6 +14,30 @@ use Register\Module\LinkHealth\LinkHealthStatus;
 
 final class LinkHealthAdminViewTest extends Unit
 {
+    public function testBlockedExternalLinksHaveAVisibleFilter(): void
+    {
+        $html = $this->renderView([
+            'trans'      => static fn(string $key, array $_parameters = []): string => $key,
+            'summary'    => [
+                'total'           => 8,
+                'usages'          => 8,
+                'statuses'        => [LinkHealthStatus::BLOCKED->value => 8],
+                'inventory_ready' => true,
+            ],
+            'targets'    => [],
+            'status'     => null,
+            'page'       => 1,
+            'pageCount'  => 1,
+            'csrfToken'  => 'token',
+            'autoRepair' => false,
+            'canManage'  => true,
+            'basePath'   => '',
+        ]);
+
+        self::assertStringContainsString('href="?entity=LinkHealth&status=blocked"', $html);
+        self::assertStringContainsString('data-status-count="blocked">8</span>', $html);
+    }
+
     public function testLongPaginationKeepsOnlyEdgesAndCurrentWindow(): void
     {
         $html = $this->renderView([

@@ -77,6 +77,7 @@ foreach ($visiblePages as $visiblePage) {
             LinkHealthStatus::SUSPECT,
             LinkHealthStatus::UNKNOWN,
             LinkHealthStatus::RESTRICTED,
+            LinkHealthStatus::BLOCKED,
             LinkHealthStatus::HEALTHY,
             LinkHealthStatus::IGNORED,
         ] as $filterStatus): ?>
