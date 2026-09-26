@@ -273,11 +273,11 @@ final class AiClientTest extends TestCase
             ]),
             new ArrayAdapter(),
             static function (
-                string $method,
-                string $url,
-                array $headers,
+                string $_method,
+                string $_url,
+                array $_headers,
                 ?string $body,
-                array $options,
+                array $_options,
             ) use (&$requestPrompt): HttpResponse {
                 $request = json_decode((string)$body, true, 512, JSON_THROW_ON_ERROR);
                 $requestPrompt = (string)$request['messages'][0]['content'];
@@ -325,11 +325,11 @@ final class AiClientTest extends TestCase
             ]),
             new ArrayAdapter(),
             static fn(
-                string $method,
-                string $url,
-                array $headers,
-                ?string $body,
-                array $options,
+                string $_method,
+                string $_url,
+                array $_headers,
+                ?string $_body,
+                array $_options,
             ): HttpResponse => new HttpResponse(
                 statusCode: 200,
                 content: '{"choices":[{"message":{"content":"<p>Исправленный текст без ссылки.</p>"}}]}',
@@ -359,11 +359,11 @@ final class AiClientTest extends TestCase
             ]),
             new ArrayAdapter(),
             static function (
-                string $method,
-                string $url,
-                array $headers,
+                string $_method,
+                string $_url,
+                array $_headers,
                 ?string $body,
-                array $options,
+                array $_options,
             ): HttpResponse {
                 $request = json_decode((string)$body, true, 512, JSON_THROW_ON_ERROR);
                 if (preg_match(
