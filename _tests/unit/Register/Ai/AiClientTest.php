@@ -255,6 +255,145 @@ final class AiClientTest extends TestCase
         );
     }
 
+    public function testProofreadingHidesAndRestoresUrls(): void
+    {
+        $source = '<p>Сылка на <a href="https://example.test/articles/memory?from=post&amp;v=1">'
+            . 'https://example.test/articles/memory</a>.</p>'
+            . '<img src="/pictures/memory.jpg" srcset="/pictures/memory.jpg 1x, /pictures/memory-2x.jpg 2x">';
+        $requestPrompt = '';
+        $client = new AiClient(
+            new HttpClient(),
+            $this->settings([
+                AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_OPENROUTER,
+                AiSettings::API_KEY_CONFIG_KEY => 'provider-secret',
+                AiSettings::MODEL_CONFIG_KEY => '',
+                AiSettings::FOLDER_ID_CONFIG_KEY => '',
+                AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
+                AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
+            ]),
+            new ArrayAdapter(),
+            static function (
+                string $method,
+                string $url,
+                array $headers,
+                ?string $body,
+                array $options,
+            ) use (&$requestPrompt): HttpResponse {
+                $request = json_decode((string)$body, true, 512, JSON_THROW_ON_ERROR);
+                $requestPrompt = (string)$request['messages'][0]['content'];
+                preg_match_all(
+                    '/REGISTER_AI_PROTECTED_URL_[A-F0-9]+_\d+__/',
+                    $requestPrompt,
+                    $tokens,
+                );
+                self::assertCount(4, $tokens[0]);
+
+                return new HttpResponse(
+                    statusCode: 200,
+                    content: json_encode([
+                        'choices' => [[
+                            'message' => ['content' => '<p>Ссылка на <a href="' . $tokens[0][0] . '">'
+                                . $tokens[0][1] . '</a>.</p><img src="' . $tokens[0][2]
+                                . '" srcset="' . $tokens[0][3] . '">'],
+                        ]],
+                    ], JSON_THROW_ON_ERROR),
+                );
+            },
+        );
+
+        self::assertSame(
+            '<p>Ссылка на <a href="https://example.test/articles/memory?from=post&amp;v=1">'
+            . 'https://example.test/articles/memory</a>.</p>'
+            . '<img src="/pictures/memory.jpg" srcset="/pictures/memory.jpg 1x, /pictures/memory-2x.jpg 2x">',
+            $client->generate(AiClient::ACTION_PROOFREAD, '', $source),
+        );
+        self::assertStringNotContainsString('example.test/articles/memory', $requestPrompt);
+        self::assertStringContainsString('immutable placeholders', $requestPrompt);
+    }
+
+    public function testProofreadingRejectsAResultThatDropsAProtectedLink(): void
+    {
+        $client = new AiClient(
+            new HttpClient(),
+            $this->settings([
+                AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_OPENROUTER,
+                AiSettings::API_KEY_CONFIG_KEY => 'provider-secret',
+                AiSettings::MODEL_CONFIG_KEY => '',
+                AiSettings::FOLDER_ID_CONFIG_KEY => '',
+                AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
+                AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
+            ]),
+            new ArrayAdapter(),
+            static fn(
+                string $method,
+                string $url,
+                array $headers,
+                ?string $body,
+                array $options,
+            ): HttpResponse => new HttpResponse(
+                statusCode: 200,
+                content: '{"choices":[{"message":{"content":"<p>Исправленный текст без ссылки.</p>"}}]}',
+            ),
+        );
+
+        $this->expectException(AiException::class);
+        $this->expectExceptionMessage('changed or removed a protected URL');
+        $client->generate(
+            AiClient::ACTION_PROOFREAD,
+            '',
+            '<p>Текст со <a href="/all/existing-post">ссылкой</a>.</p>',
+        );
+    }
+
+    public function testProofreadingRejectsAResultThatMovesAProtectedUrlToAnotherAttribute(): void
+    {
+        $client = new AiClient(
+            new HttpClient(),
+            $this->settings([
+                AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_OPENROUTER,
+                AiSettings::API_KEY_CONFIG_KEY => 'provider-secret',
+                AiSettings::MODEL_CONFIG_KEY => '',
+                AiSettings::FOLDER_ID_CONFIG_KEY => '',
+                AiSettings::CLOUDFLARE_ACCOUNT_ID_CONFIG_KEY => '',
+                AiSettings::GIGACHAT_SCOPE_CONFIG_KEY => AiSettings::GIGACHAT_SCOPE_PERSONAL,
+            ]),
+            new ArrayAdapter(),
+            static function (
+                string $method,
+                string $url,
+                array $headers,
+                ?string $body,
+                array $options,
+            ): HttpResponse {
+                $request = json_decode((string)$body, true, 512, JSON_THROW_ON_ERROR);
+                if (preg_match(
+                    '/REGISTER_AI_PROTECTED_URL_[A-F0-9]+_\d+__/',
+                    (string)$request['messages'][0]['content'],
+                    $token,
+                ) !== 1) {
+                    throw new \LogicException('The request did not contain a protected URL token.');
+                }
+
+                return new HttpResponse(
+                    statusCode: 200,
+                    content: json_encode([
+                        'choices' => [[
+                            'message' => ['content' => '<img src="' . $token[0] . '">'],
+                        ]],
+                    ], JSON_THROW_ON_ERROR),
+                );
+            },
+        );
+
+        $this->expectException(AiException::class);
+        $this->expectExceptionMessage('changed the link or media structure');
+        $client->generate(
+            AiClient::ACTION_PROOFREAD,
+            '',
+            '<p><a href="/all/existing-post">Ссылка</a></p>',
+        );
+    }
+
     /** @dataProvider openAiCompatibleProviderDataProvider */
     public function testOpenAiCompatibleProvidersUseExpectedEndpointAndDefaultModel(
         string $provider,
