@@ -346,7 +346,7 @@ final readonly class AiClient
             foreach ($matches as $match) {
                 $attributes[] = [
                     'tag' => strtolower($tag['tag']),
-                    'name' => strtolower($match['name']),
+                    'name' => strtolower($match[2]),
                     'value' => ($match['quote'] ?? '') !== ''
                         ? ($match['quoted'] ?? '')
                         : ($match['unquoted'] ?? ''),
