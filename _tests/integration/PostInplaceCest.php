@@ -337,6 +337,32 @@ final class PostInplaceCest
         $token    = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
         $I->assertSame('Inplace tag', $I->grabAttributeFrom($selector . ' input[name="tags"]', 'value'));
         $cursor   = $updates->currentCursor();
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+            'inplace_action' => 'edit',
+            'inplace_token'  => $token,
+            'revision'       => '1',
+            'title'          => 'Must not be truncated',
+            'body'           => '<div class="post-picture post-media-picture">'
+                . '<img src="/photo.jpg" alt="Fixture">'
+                . '<span style="color: inherit; font-size: 1em">Text accidentally nested in image</span>'
+                . '<div class="post-caption"></div></div>',
+            'tags'           => 'Inplace tag',
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $I->assertStringContainsString('Nothing was saved', $I->grabResponse());
+
+        $unchanged = $dbLayer
+            ->select('title, body, revision')
+            ->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', $postId)
+            ->execute()
+            ->fetchAssoc()
+        ;
+        $I->assertIsArray($unchanged);
+        $I->assertSame('Editable post', $unchanged['title']);
+        $I->assertSame('<p>Original body</p>', $unchanged['body']);
+        $I->assertSame(1, (int)$unchanged['revision']);
+
         $editedBody = '<p>Updated <strong>without a reload</strong> and <tt>a - b...</tt>.</p>'
             . '<div class="post-picture post-media-picture">'
             . '<span class="post-media-overlay" data-post-media-overlay="" role="figure">'

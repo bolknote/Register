@@ -567,6 +567,10 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        if ($this->bodyHasProseInsideMedia($body)) {
+            return $this->error($request, 'Post text crossed image boundary', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $metadata = $this->publicationMetadataGenerator->complete(
             $title,
             $body,
@@ -751,6 +755,10 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        if ($this->bodyHasProseInsideMedia($body)) {
+            return $this->error($request, 'Post text crossed image boundary', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $metadata = $this->publicationMetadataGenerator->complete($title, $body);
         $scheduled = $publishedAt > time();
 
@@ -899,6 +907,97 @@ final readonly class PostInplaceController implements ControllerInterface
         }
 
         return $tags;
+    }
+
+    private function bodyHasProseInsideMedia(string $body): bool
+    {
+        if (!str_contains($body, 'post-media-picture')) {
+            return false;
+        }
+
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $loaded = $document->loadHTML(
+                '<?xml encoding="UTF-8"><div id="register-post-body">' . $body . '</div>',
+                LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING,
+            );
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
+
+        if (!$loaded) {
+            return true;
+        }
+
+        $xpath = new \DOMXPath($document);
+        $pictures = $xpath->query(
+            '//*[contains(concat(" ", normalize-space(@class), " "), " post-media-picture ")]',
+        );
+        if (!$pictures instanceof \DOMNodeList) {
+            return true;
+        }
+
+        foreach ($pictures as $picture) {
+            if (!$picture instanceof \DOMElement) {
+                return true;
+            }
+
+            foreach ($picture->childNodes as $child) {
+                if ($child instanceof \DOMText) {
+                    if (trim($child->textContent) !== '') {
+                        return true;
+                    }
+
+                    continue;
+                }
+
+                if (!$child instanceof \DOMElement || !$this->isMediaOwnedElement($child)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function isMediaOwnedElement(\DOMElement $element): bool
+    {
+        $tag = mb_strtolower($element->tagName);
+        if (\in_array($tag, ['img', 'picture', 'video', 'audio', 'source', 'track', 'figcaption'], true)) {
+            return true;
+        }
+
+        $classes = preg_split('/\s+/u', trim($element->getAttribute('class')));
+        if ($classes === false) {
+            return false;
+        }
+
+        foreach ([
+            'post-picture',
+            'post-media-picture',
+            'post-media-overlay',
+            'post-media-processing-progress',
+            'post-caption',
+            'post-media-caption-toolbar',
+        ] as $class) {
+            if (\in_array($class, $classes, true)) {
+                return true;
+            }
+        }
+
+        if ($tag !== 'a') {
+            return false;
+        }
+
+        foreach (['img', 'picture', 'video', 'audio'] as $mediaTag) {
+            if ($element->getElementsByTagName($mediaTag)->length > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function delete(Request $request, int $postId, int $storedRevision, int $submittedRevision): Response

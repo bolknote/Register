@@ -357,6 +357,37 @@ test('stored paragraph gaps remain visible when a post enters edit mode', async 
         `Editing must preserve the published paragraph rhythm; published=${publishedStep}px, editing=${editingStep}px`);
 });
 
+test('prose accidentally nested in an image is hoisted without losing text or selection', async () => {
+    const s = setup(
+        '<div class="post-picture post-media-picture">'
+        + '<img alt="fixture">'
+        + '<span style="color: inherit; font-size: 1em; text-wrap-mode: initial;">First paragraph.</span>'
+        + '<p>Second paragraph.</p>'
+        + '<p>Third paragraph.</p>'
+        + '<div class="post-caption"></div>'
+        + '</div>',
+    );
+    const thirdText = s.body.querySelectorAll('.post-media-picture > p')[1].firstChild;
+    const range = document.createRange();
+    range.setStart(thirdText, 2);
+    range.setEnd(thirdText, 8);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+
+    equal(api.normalizeMediaBodyStructure(s.body), true, 'The malformed image wrapper is repaired');
+    const media = s.body.firstElementChild;
+    equal(media.querySelector(':scope > span:not(.post-media-overlay)'), null);
+    equal(media.querySelector(':scope > p'), null);
+    equal(media.querySelector(':scope > .post-caption')?.textContent, '');
+    equal(Array.from(s.body.childNodes).map((node) => node.textContent).join(''),
+        'First paragraph.Second paragraph.Third paragraph.');
+    equal(getSelection().toString(), 'ird pa', 'Moving the original nodes preserves the live selection');
+    api.prepareEditableMedia(s.body);
+    equal(api.editableBodyHtml(s),
+        '<div class="post-picture post-media-picture"><img alt="fixture"></div>'
+        + '<p>First paragraph.</p><p>Second paragraph.</p><p>Third paragraph.</p>');
+});
+
 test('one Enter immediately before an image reserves exactly one visible text line', async () => {
     const s = setup('<div class="post-picture post-media-picture"><img alt="fixture"><div class="post-caption"></div></div>');
     const media = s.body.firstElementChild;

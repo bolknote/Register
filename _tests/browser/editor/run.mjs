@@ -129,6 +129,139 @@ async function runAuthorWorkflowRegressions(browser, origin) {
             savedEndsWithParagraph: true,
         });
         console.log('editor workflow: one real Enter leaves the last image caption and preserves following body text');
+
+        const lastParagraphText = 'Последний абзац.';
+        await page.evaluate(() => {
+            const state = window.setupEditorWorkflow(
+                '<div class="post-picture post-media-picture">'
+                + '<img alt="fixture"><div class="post-caption"></div></div>'
+                + '<p class="post-editor-body-paragraph">Последний абзац.</p>',
+            );
+            const paragraph = state.body.lastElementChild;
+            const range = document.createRange();
+            range.selectNodeContents(paragraph);
+            range.collapse(false);
+            state.body.focus();
+            getSelection().removeAllRanges();
+            getSelection().addRange(range);
+            window.authorWorkflowState = state;
+        });
+        await page.keyboard.press('Enter');
+        assert.deepEqual(await page.evaluate(() => {
+            const state = window.authorWorkflowState;
+            const selection = getSelection();
+            const paragraph = state.body.lastElementChild;
+            return {
+                text: Array.from(state.body.querySelectorAll(':scope > p'), node => node.textContent),
+                selectionInLastParagraph: Boolean(
+                    selection?.anchorNode && paragraph.contains(selection.anchorNode),
+                ),
+                paragraphCaret: paragraph.classList.contains('has-leading-boundary-caret'),
+                syntheticCaret: state.body.classList.contains('uses-synthetic-boundary-caret'),
+                caretContent: getComputedStyle(paragraph, '::before').content,
+            };
+        }), {
+            text: [lastParagraphText, ''],
+            selectionInLastParagraph: true,
+            paragraphCaret: true,
+            syntheticCaret: true,
+            caretContent: '""',
+        });
+        await page.keyboard.insertText('Текст в новой строке.');
+        assert.deepEqual(await page.evaluate(() => {
+            const state = window.authorWorkflowState;
+            return {
+                text: state.body.lastElementChild?.textContent || '',
+                paragraphCaret: state.body.lastElementChild?.classList
+                    .contains('has-leading-boundary-caret'),
+                syntheticCaret: state.body.classList.contains('uses-synthetic-boundary-caret'),
+            };
+        }), {
+            text: 'Текст в новой строке.',
+            paragraphCaret: false,
+            syntheticCaret: false,
+        });
+        console.log('editor workflow: Enter after the final paragraph keeps a visible caret on the new line');
+
+        assert.deepEqual(await page.evaluate(() => {
+            const state = window.setupEditorWorkflow(
+                '<div class="post-picture post-media-picture">'
+                + '<img alt="fixture"><div class="post-caption"></div></div>'
+                + '<p>Выделенный абзац после картинки.</p>',
+            );
+            const paragraph = state.body.lastElementChild;
+            const range = document.createRange();
+            range.selectNodeContents(paragraph);
+            state.body.focus();
+            getSelection().removeAllRanges();
+            getSelection().addRange(range);
+            const image = state.body.querySelector('img');
+            image.dispatchEvent(new MouseEvent('contextmenu', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 20,
+                clientY: 20,
+            }));
+            return {
+                selected: state.contextMenu?.selected,
+                targetImage: state.contextMenu?.targetImage !== null,
+                mainHidden: state.contextMenu?.main.hidden,
+                imageHidden: state.contextMenu?.imagePanel.hidden,
+            };
+        }), {
+            selected: true,
+            targetImage: false,
+            mainHidden: false,
+            imageHidden: true,
+        });
+        console.log('editor workflow: a text selection below an image opens paragraph tools, not image tools');
+
+        await page.evaluate(() => {
+            const state = window.setupEditorWorkflow(
+                '<div class="post-picture post-media-picture">'
+                + '<img alt="fixture"><div class="post-caption"></div></div>',
+            );
+            window.editorTest.prepareEditableMedia(state.body);
+            const media = state.body.firstElementChild;
+            const caption = media.querySelector('.post-caption');
+            const paragraph = document.createElement('p');
+            paragraph.innerHTML = '<span style="color: inherit; font-size: 1em; text-wrap-mode: initial;">'
+                + 'Набранный вручную текст.</span>';
+            media.insertBefore(paragraph, caption);
+            const text = paragraph.querySelector('span').firstChild;
+            const range = document.createRange();
+            range.setStart(text, 9);
+            range.collapse(true);
+            state.body.focus();
+            getSelection().removeAllRanges();
+            getSelection().addRange(range);
+            window.authorWorkflowState = state;
+        });
+        await page.keyboard.insertText('X');
+        assert.deepEqual(await page.evaluate(() => {
+            const state = window.authorWorkflowState;
+            const media = state.body.querySelector('.post-media-picture');
+            const paragraph = media.nextElementSibling;
+            return {
+                mediaText: media.textContent,
+                paragraphTag: paragraph?.tagName || '',
+                paragraphText: paragraph?.textContent || '',
+                paragraphIsTopLevel: paragraph?.parentElement === state.body,
+                selectionInParagraph: Boolean(
+                    getSelection()?.anchorNode && paragraph?.contains(getSelection().anchorNode),
+                ),
+                saved: window.editorTest.editableBodyHtml(state),
+            };
+        }), {
+            mediaText: '',
+            paragraphTag: 'P',
+            paragraphText: 'НабранныйX вручную текст.',
+            paragraphIsTopLevel: true,
+            selectionInParagraph: true,
+            saved: '<div class="post-picture post-media-picture"><img alt="fixture"></div>'
+                + '<p>НабранныйX вручную текст.</p>',
+        });
+        console.log('editor workflow: manually typed prose cannot remain inside an image or disappear on save');
         assert.deepEqual(errors, []);
     } finally {
         await page.close();

@@ -406,14 +406,10 @@ final class AssetPackTest extends Unit
                 . ':where\(\.post-picture, \.post-media-picture, figure\)'
                 . '\.has-leading-boundary-caret:has\(img, video, audio\)::before\s*,\s*'
                 . '\.post-card\.is-editing\s*>\s*\.post\.body\[data-post-inplace-body\]\s*'
-                . '>\s*p\.post-editor-body-paragraph\.has-leading-boundary-caret::before\s*'
+                . '>\s*p\.has-leading-boundary-caret::before\s*'
                 . '\{[^}]*position:\s*absolute;[^}]*left:\s*0;'
                 . '[^}]*height:\s*1em;'
                 . '[^}]*background:\s*var\(--accent-color\);/s',
-            $site,
-        );
-        self::assertStringNotContainsString(
-            '> p.has-leading-boundary-caret',
             $site,
         );
         self::assertMatchesRegularExpression(

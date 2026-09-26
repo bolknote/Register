@@ -9,6 +9,26 @@
 <pre id="results" role="status">Ready</pre>
 <main id="content"><div id="fixture"></div></main>
 <div id="post-editor-resources" hidden data-config='{"aiAltEnabled":false}'>
+    <template class="post-editor-context-menu-template">
+        <div class="post-editor-context-menu">
+            <strong data-context-selection-only>Selected text</strong>
+            <strong data-context-caret-only>Cursor position</strong>
+            <strong data-context-image-only hidden>Image</strong>
+            <div class="post-editor-context-main">
+                <button type="button" data-context-action="paragraph">Paragraph</button>
+            </div>
+            <div class="post-editor-link-panel" hidden>
+                <input data-context-link-input>
+                <p class="post-editor-link-error" hidden></p>
+                <button type="button" data-context-action="remove-link">Remove link</button>
+            </div>
+            <div class="post-editor-image-panel" hidden>
+                <button type="button" data-context-action="open-link">Link</button>
+                <button type="button" data-context-action="edit-image-caption">Caption</button>
+                <input data-context-image-alt-input>
+            </div>
+        </div>
+    </template>
     <template class="post-image-caption-toolbar-template">
         <div class="post-media-caption-toolbar" contenteditable="false">
             <button data-caption-action="commit">Commit</button>

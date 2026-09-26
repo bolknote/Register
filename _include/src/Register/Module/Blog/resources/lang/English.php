@@ -95,6 +95,7 @@ return [
     'Post editing forbidden' => 'You are not allowed to edit this post.',
     'Post editing token expired' => 'The editing session has expired. Reload the page and try again.',
     'Invalid post content' => 'Enter a title no longer than 255 characters and valid post text.',
+    'Post text crossed image boundary' => 'Part of the post text moved inside an image. Nothing was saved; the text remains in the editor.',
     'Invalid post tags' => 'Enter no more than 100 tags using letters, numbers, spaces, underscores, hyphens, periods, and exclamation marks.',
     'Post media file missing' => 'No media file was provided.',
     'Unsupported post media' => 'Only image and audio files can be uploaded.',

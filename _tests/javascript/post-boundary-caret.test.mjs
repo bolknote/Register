@@ -1168,7 +1168,7 @@ test('repeated boundary and caption navigation keeps exactly one visible caret',
     );
 });
 
-test('a real empty paragraph uses the browser caret instead of a full-height synthetic one', function () {
+test('an empty trailing paragraph gets a visible synthetic caret until typing begins', function () {
     const harness = createHarness();
     const body = new FakeHTMLElement();
     body.isEditingBody = true;
@@ -1177,21 +1177,21 @@ test('a real empty paragraph uses the browser caret instead of a full-height syn
     const media = new FakeHTMLElement({parentNode: body, media: true});
     media.isMediaWrapper = true;
     media.childNodes.push(new FakeHTMLElement({parentNode: media}));
-    body.childNodes.push(paragraph, media);
+    body.childNodes.push(media, paragraph);
     harness.elements.push(body, paragraph, media);
     harness.document.activeElement = body;
 
     harness.select(paragraph, 0);
     harness.sync();
 
-    assert.equal(paragraph.classList.contains('has-leading-boundary-caret'), false);
+    assert.equal(paragraph.classList.contains('has-leading-boundary-caret'), true);
     assert.equal(media.classList.contains('has-leading-boundary-caret'), false);
-    assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), false);
+    assert.equal(body.classList.contains('uses-synthetic-boundary-caret'), true);
     assert.equal(
         harness.elements.filter((element) => (
             element.classList.contains('has-leading-boundary-caret')
         )).length,
-        0
+        1
     );
 
     const typedText = new FakeTextNode(paragraph, 'Сегодня');

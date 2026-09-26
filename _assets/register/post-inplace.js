@@ -1157,11 +1157,11 @@
                     nextElement = active;
                 } else {
                     nextElement = mediaBoundaryAtRange(active, range);
-                    // Chromium and Firefox can keep a valid selection in a
-                    // programmatically focused empty <p><br></p> without
-                    // painting its native caret. This happens after the first
-                    // Enter that leaves an image caption. Reuse the synthetic
-                    // boundary caret so the new body line is visible at once.
+                    // Chromium and Firefox can keep a valid selection in an
+                    // empty <p><br></p> without painting its native caret.
+                    // This also happens when Enter creates the trailing line
+                    // after an ordinary last paragraph. Reuse the synthetic
+                    // caret for every active empty top-level paragraph.
                     if (!nextElement) {
                         let paragraph = range.startContainer instanceof HTMLElement
                             ? range.startContainer
@@ -1171,7 +1171,6 @@
                         }
                         if (
                             paragraph instanceof HTMLElement
-                            && paragraph.classList.contains('has-leading-boundary-caret')
                             && editorBoundaryParagraphIsEmpty(paragraph)
                             && paragraph.parentElement === active
                             && !paragraph.classList.contains('post-editor-collapsed-boundary-paragraph')
@@ -1439,7 +1438,81 @@
         return true;
     }
 
+    function isMediaOwnedDirectChild(node) {
+        if (!(node instanceof HTMLElement)) {
+            return false;
+        }
+        if (node.matches(
+            'img, picture, video, audio, source, track, '
+            + '.post-picture, .post-media-picture, '
+            + '.post-media-overlay, .post-media-processing-progress, '
+            + '.post-caption, figcaption, .post-media-caption-toolbar',
+        )) {
+            return true;
+        }
+        return node.matches('a') && Boolean(node.querySelector('img, picture, video, audio'));
+    }
+
+    function normalizeMediaBodyStructure(root) {
+        let changed = false;
+        const selection = window.getSelection();
+        const preserveSelection = selection?.rangeCount > 0
+            && root.contains(selection.anchorNode)
+            && root.contains(selection.focusNode);
+        const anchorNode = preserveSelection ? selection.anchorNode : null;
+        const anchorOffset = preserveSelection ? selection.anchorOffset : 0;
+        const focusNode = preserveSelection ? selection.focusNode : null;
+        const focusOffset = preserveSelection ? selection.focusOffset : 0;
+        const pictures = Array.from(root.querySelectorAll('.post-media-picture')).reverse();
+        pictures.forEach((picture) => {
+            if (!picture.isConnected && !root.contains(picture)) {
+                return;
+            }
+            const children = Array.from(picture.childNodes);
+            const hasBodyContent = children.some((node) => (
+                node.nodeType === Node.TEXT_NODE
+                    ? String(node.textContent || '').trim() !== ''
+                    : !isMediaOwnedDirectChild(node)
+            ));
+            if (!hasBodyContent) {
+                return;
+            }
+
+            // A browser editing operation must never leave prose inside the
+            // image wrapper. Besides inheriting caption typography, that tree
+            // is reparsed differently by the page renderer and can lose text.
+            // Move the original nodes (rather than cloning or serializing them)
+            // so a live selection/caret inside the prose remains attached.
+            const bodyNodes = children.filter((node) => !isMediaOwnedDirectChild(node));
+            const fragment = document.createDocumentFragment();
+            let paragraph = null;
+            bodyNodes.forEach((node) => {
+                const isBlock = node instanceof HTMLElement && node.matches(
+                    'p, div, h1, h2, h3, h4, h5, h6, blockquote, pre, ul, ol, table, hr, figure',
+                );
+                if (isBlock) {
+                    paragraph = null;
+                    fragment.append(node);
+                    return;
+                }
+                if (!(paragraph instanceof HTMLElement)) {
+                    paragraph = document.createElement('p');
+                    paragraph.className = 'post-editor-body-paragraph';
+                    fragment.append(paragraph);
+                }
+                paragraph.append(node);
+            });
+            picture.parentNode?.insertBefore(fragment, picture.nextSibling);
+            changed = true;
+        });
+        if (changed && preserveSelection && root.contains(anchorNode) && root.contains(focusNode)) {
+            selection.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
+        }
+        return changed;
+    }
+
     function prepareEditableMedia(root) {
+        normalizeMediaBodyStructure(root);
         root.querySelectorAll('audio[controls]').forEach((audio) => {
             audio.setAttribute('data-register-audio-native', '');
         });
@@ -1558,6 +1631,7 @@
 
     function editableBodyHtml(state) {
         const clone = state.body.cloneNode(true);
+        normalizeMediaBodyStructure(clone);
         removeInlineCodeExitMarkers(clone);
         clone.querySelectorAll('p.post-editor-collapsed-boundary-paragraph').forEach((paragraph) => {
             paragraph.remove();
@@ -1599,6 +1673,26 @@
             }
             clearInlineMediaCaptionAttributes(caption);
             caption.textContent = text;
+        });
+        clone.querySelectorAll('span[style]').forEach((span) => {
+            const declarations = String(span.getAttribute('style') || '')
+                .split(';')
+                .map((declaration) => declaration.trim())
+                .filter(Boolean);
+            const browserDefaultsOnly = declarations.every((declaration) => {
+                const separator = declaration.indexOf(':');
+                const property = declaration.slice(0, separator).trim().toLowerCase();
+                const value = declaration.slice(separator + 1).trim().toLowerCase();
+                return (
+                    (property === 'color' && value === 'inherit')
+                    || (property === 'font-size' && value === '1em')
+                    || (property === 'text-wrap-mode' && value === 'initial')
+                );
+            });
+            if (browserDefaultsOnly) {
+                span.removeAttribute('style');
+            }
+            if (span.attributes.length === 0) span.replaceWith(...span.childNodes);
         });
         return clone.innerHTML;
     }
@@ -2257,6 +2351,9 @@
         finishImageCaptionEditing(state, true, false);
         finishInlineMediaCaptions(state);
         closeContextMenu(state, false);
+        if (normalizeMediaBodyStructure(state.body)) {
+            state.bodyDirty = true;
+        }
         const titleSource = state.titleDirty ? (state.title.textContent || '') : state.originalTitle;
         const title = titleSource
             .replace(/\u00a0/gu, ' ')
@@ -5741,23 +5838,30 @@
         if (!(template instanceof HTMLTemplateElement)) {
             return false;
         }
+        const selection = window.getSelection();
+        let range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+        const selected = range instanceof Range
+            && rangeIsInside(state.body, range)
+            && !range.collapsed
+            && range.toString().trim() !== '';
         const target = targetOverride instanceof Element
             ? targetOverride
             : (event?.target instanceof Element ? event.target : null);
         const image = target?.matches('img')
             ? target
             : target?.closest('[data-post-media-overlay], .post-picture, figure')?.querySelector('img');
-        const targetImage = image instanceof HTMLImageElement && state.body.contains(image) ? image : null;
+        // A live text selection is the user's current editing target. Some
+        // Chromium touch/drag paths still report the preceding image as the
+        // contextmenu event target after selecting the paragraph below it.
+        // Prefer the selection; a plain image click collapses it first.
+        const targetImage = !selected
+            && image instanceof HTMLImageElement
+            && state.body.contains(image)
+            ? image
+            : null;
         finishImageCaptionEditing(state, true, false);
         closeContextMenu(state, false);
 
-        const selection = window.getSelection();
-        let range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
-        const selected = targetImage === null
-            && range instanceof Range
-            && rangeIsInside(state.body, range)
-            && !range.collapsed
-            && range.toString().trim() !== '';
         if (targetImage) {
             range = document.createRange();
             range.selectNode(targetImage);
@@ -6406,6 +6510,7 @@
         if (state.body.contains(event.target)) {
             state.bodyDirty = true;
             clearAiChangeMarks(state.body);
+            normalizeMediaBodyStructure(state.body);
             state.body.querySelectorAll('p.post-editor-collapsed-boundary-paragraph').forEach((paragraph) => {
                 if (!editorBoundaryParagraphIsEmpty(paragraph)) {
                     paragraph.classList.remove('post-editor-collapsed-boundary-paragraph');
