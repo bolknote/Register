@@ -3239,6 +3239,10 @@
 
         event.preventDefault();
         event.stopPropagation();
+        if (event.key === 'ArrowDown') {
+            focusAfterMedia(state.body, media);
+            return true;
+        }
         const caption = media.querySelector(
             ':scope > .post-caption:not(.post-media-overlay-caption), '
             + ':scope > figcaption:not(.post-media-overlay-caption)',
@@ -3249,6 +3253,49 @@
         } else {
             focusAfterMedia(state.body, media);
         }
+        return true;
+    }
+
+    function keepCaretInTrailingEmptyParagraph(event, state) {
+        if (
+            event.key !== 'ArrowDown'
+            || event.altKey
+            || event.ctrlKey
+            || event.metaKey
+            || event.shiftKey
+            || event.isComposing
+            || event.target !== state.body
+        ) {
+            return false;
+        }
+
+        const selection = window.getSelection();
+        const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+        if (!range?.collapsed) {
+            return false;
+        }
+        const paragraph = topLevelBodyChild(state.body, range.startContainer);
+        if (
+            !editorBoundaryParagraphIsEmpty(paragraph)
+            || Array.from(state.body.childNodes)
+                .slice(Array.from(state.body.childNodes).indexOf(paragraph) + 1)
+                .some((node) => !boundaryNodeIsEmpty(node))
+        ) {
+            return false;
+        }
+
+        // Opera/Chromium can move the selection out of the editing host when
+        // ArrowDown is pressed on its last empty line. Keep that final body line
+        // active so the next typed character cannot disappear into the page.
+        event.preventDefault();
+        event.stopPropagation();
+        state.body.focus({preventScroll: true});
+        const caret = document.createRange();
+        caret.selectNodeContents(paragraph);
+        caret.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(caret);
+        syncBoundaryCaret();
         return true;
     }
 
@@ -6445,6 +6492,9 @@
             event.preventDefault();
             beginInlineMediaCaption(state, inlineCaption);
             focusInlineMediaCaption(state, inlineCaption);
+            return;
+        }
+        if (state && keepCaretInTrailingEmptyParagraph(event, state)) {
             return;
         }
         if (state && moveFromBodyMediaBoundary(event, state)) {

@@ -130,6 +130,80 @@ async function runAuthorWorkflowRegressions(browser, origin) {
         });
         console.log('editor workflow: one real Enter leaves the last image caption and preserves following body text');
 
+        await page.evaluate(() => {
+            const state = window.setupEditorWorkflow(
+                '<div class="post-picture post-media-picture">'
+                + '<img alt="fixture"><div class="post-caption"></div></div>',
+            );
+            window.editorTest.prepareEditableMedia(state.body);
+            const range = document.createRange();
+            range.setStart(state.body, 0);
+            range.collapse(true);
+            state.body.focus();
+            getSelection().removeAllRanges();
+            getSelection().addRange(range);
+            window.authorWorkflowState = state;
+        });
+        await page.keyboard.press('ArrowDown');
+        assert.deepEqual(await page.evaluate(() => {
+            const state = window.authorWorkflowState;
+            const media = state.body.querySelector('.post-media-picture');
+            const paragraph = media?.nextElementSibling;
+            const selection = getSelection();
+            return {
+                paragraphTag: paragraph?.tagName || '',
+                selectionInParagraph: Boolean(selection?.anchorNode && paragraph?.contains(selection.anchorNode)),
+                visibleCaret: paragraph?.classList.contains('has-leading-boundary-caret') || false,
+                captionIsEditing: state.mediaCaptionEditors.size > 0,
+            };
+        }), {
+            paragraphTag: 'P',
+            selectionInParagraph: true,
+            visibleCaret: true,
+            captionIsEditing: false,
+        });
+        await page.keyboard.insertText('Текст после стрелки вниз.');
+        assert.equal(await page.evaluate(() => (
+            window.authorWorkflowState.body.lastElementChild?.textContent
+        )), 'Текст после стрелки вниз.');
+        console.log('editor workflow: ArrowDown after an image creates a visible body caret and accepts text');
+
+        await page.evaluate(() => {
+            const state = window.setupEditorWorkflow(
+                '<div class="post-picture post-media-picture">'
+                + '<img alt="fixture"><div class="post-caption"></div></div>'
+                + '<p class="post-editor-body-paragraph"><br></p>',
+            );
+            const paragraph = state.body.lastElementChild;
+            const range = document.createRange();
+            range.selectNodeContents(paragraph);
+            range.collapse(true);
+            state.body.focus();
+            getSelection().removeAllRanges();
+            getSelection().addRange(range);
+            window.authorWorkflowState = state;
+        });
+        await page.keyboard.press('ArrowDown');
+        assert.deepEqual(await page.evaluate(() => {
+            const state = window.authorWorkflowState;
+            const paragraph = state.body.lastElementChild;
+            const selection = getSelection();
+            return {
+                selectionInParagraph: Boolean(selection?.anchorNode && paragraph.contains(selection.anchorNode)),
+                visibleCaret: paragraph.classList.contains('has-leading-boundary-caret'),
+                activeIsBody: document.activeElement === state.body,
+            };
+        }), {
+            selectionInParagraph: true,
+            visibleCaret: true,
+            activeIsBody: true,
+        });
+        await page.keyboard.insertText('Курсор не пропал.');
+        assert.equal(await page.evaluate(() => (
+            window.authorWorkflowState.body.lastElementChild?.textContent
+        )), 'Курсор не пропал.');
+        console.log('editor workflow: ArrowDown on the final empty line keeps its caret visible');
+
         const lastParagraphText = 'Последний абзац.';
         await page.evaluate(() => {
             const state = window.setupEditorWorkflow(
