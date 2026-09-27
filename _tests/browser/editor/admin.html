@@ -6,8 +6,14 @@
 <form action="/admin-save">
     <label>Title <input name="title" value="Server title"></label>
     <label>Body <textarea id="body" name="body">Server body</textarea></label>
+    <label>Tags <input name="tags" value="old"></label>
     <input name="revision" type="hidden" value="1">
     <button type="submit">Save</button>
+    <div id="content-editor-ai-tools" hidden>
+        <button type="button" data-ai-action="title">Suggest title</button>
+        <button type="button" data-ai-action="tags">Suggest tags</button>
+        <p id="ai-tools-status"></p>
+    </div>
 </form>
 <p id="error"></p>
 <script src="/admin-codemirror.js"></script>

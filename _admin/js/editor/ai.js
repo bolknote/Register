@@ -40,6 +40,8 @@ export function initAiTools(form, config) {
             activeController.abort();
         }
         const controller = new AbortController();
+        const targetInput = ['title', 'tags'].includes(action) ? form.elements[action] : null;
+        const targetValue = targetInput?.value;
         activeController = controller;
         setBusy(true);
         setStatus(config.working, false);
@@ -68,6 +70,11 @@ export function initAiTools(form, config) {
             }
             if (!response.ok || !responseData.success || typeof responseData.result !== 'string') {
                 throw new Error(responseData && responseData.message ? responseData.message : config.requestFailed);
+            }
+
+            if (targetInput && targetInput.value !== targetValue) {
+                setStatus(config.sourceChanged, true);
+                return;
             }
 
             if (action === 'title') {

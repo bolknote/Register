@@ -6,7 +6,34 @@
 <link rel="stylesheet" href="/post-recovery.css">
 <link rel="stylesheet" href="/recovery-fixture.css">
 <main id="content"><div class="live-post-feed"></div></main>
-<div id="post-editor-resources" hidden></div>
+<div id="post-editor-resources" hidden>
+    <template class="post-editor-context-menu-template">
+        <div class="post-editor-context-menu">
+            <div class="post-editor-context-main">
+                <button type="button" data-context-ai-action="title">Suggest title</button>
+                <button type="button" data-context-ai-action="tags">Suggest tags</button>
+            </div>
+            <div class="post-editor-link-panel" hidden>
+                <input data-context-link-input>
+                <p class="post-editor-link-error" hidden></p>
+                <button type="button" data-context-action="remove-link">Remove link</button>
+            </div>
+            <div class="post-editor-image-panel" hidden>
+                <button type="button" data-context-action="open-link">Link</button>
+                <button type="button" data-context-action="edit-image-caption">Caption</button>
+                <input data-context-image-alt-input>
+            </div>
+        </div>
+    </template>
+    <template class="post-image-caption-toolbar-template">
+        <div class="post-media-caption-toolbar" contenteditable="false">
+            <button data-caption-action="commit">Commit</button>
+            <button data-caption-action="cancel">Cancel</button>
+            <button data-caption-font="serif">Serif</button>
+            <button data-caption-background="light">Light</button>
+        </div>
+    </template>
+</div>
 <script src="/recovery-fixture.js"></script>
 <script src="/post-recovery.js"></script>
 <script src="/local-time.js"></script>

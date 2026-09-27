@@ -601,15 +601,18 @@
     }
 
     function releasePendingMedia(state) {
-        if (state.uploadedMediaIds.size === 0) {
+        // Once exposed through recovery, a file may be in another live editor
+        // even after its local copy is removed. Let the server expire it instead.
+        const mediaIds = Array.from(state.uploadedMediaIds).filter(id => !state.recoveryMediaIds.has(id));
+        state.uploadedMediaIds.clear();
+        if (mediaIds.length === 0) {
             return;
         }
         const token = state.form.elements.namedItem('inplace_token');
         const data = new FormData();
         data.set('inplace_action', 'media_release');
         data.set('inplace_token', token instanceof HTMLInputElement ? token.value : '');
-        data.set('media_ids', Array.from(state.uploadedMediaIds).join(','));
-        state.uploadedMediaIds.clear();
+        data.set('media_ids', mediaIds.join(','));
         window.fetch(state.form.action, {
             method: 'POST',
             body: data,
@@ -1766,14 +1769,17 @@
                 if (stored) store.remove(stored);
                 stored = null;
                 last = initial;
-                return false;
+                return true;
             }
-            if (serialized === last && stored) return true;
+            if (serialized === last && stored && store.list(target).some(record => (
+                record.id === id && record.savedAt === stored.savedAt
+            ))) return true;
             const record = {version: 1, id, target, revision, savedAt: Date.now(), snapshot};
             if (!store.save(record)) {
                 showEditorStatus(state, editorConfig().recoveryUnavailable || 'Unable to save a local copy. Keep this tab open.', true);
                 return false;
             }
+            snapshot.mediaIds.forEach(mediaId => state.recoveryMediaIds.add(mediaId));
             stored = record;
             last = serialized;
             const status = state.card.querySelector(':scope > .post-inplace-status');
@@ -1830,6 +1836,7 @@
         const slug = state.form.elements.namedItem('slug');
         if (slug && snapshot.slugChanged) slug.value = snapshot.slug;
         state.uploadedMediaIds = new Set(snapshot.mediaIds);
+        snapshot.mediaIds.forEach(mediaId => state.recoveryMediaIds.add(mediaId));
         state.titleDirty = state.bodyDirty = state.tagsDirty = state.dateDirty = true;
         state.history?.record();
         state.recovery.restored(record);
@@ -1882,7 +1889,7 @@
                 const editing = card || document.querySelector('.post-card[data-post-creating]');
                 const previous = editing ? editorStates.get(editing) : null;
                 if (previous?.submitting) return;
-                if (previous) closeEditor(editing, false);
+                if (previous && !closeEditor(editing, false)) return;
                 if (!(record.target === 'new' ? beginCreate(button) : beginEdit(button))) return;
                 const opened = card || document.querySelector('.post-card[data-post-creating]');
                 const state = editorStates.get(opened);
@@ -1934,8 +1941,7 @@
             return;
         }
         if (!editorHasUnsavedChanges(state)) {
-            state.recovery?.stop(true);
-            closeEditor(card, restoreFocus);
+            closeEditor(card, restoreFocus, true);
             return;
         }
         if (state.discardConfirmation) {
@@ -1957,8 +1963,7 @@
         ) {
             const warning = editorConfig().discardChangesWarning || 'Discard unsaved changes?';
             if (window.confirm(warning)) {
-                state.recovery?.stop(true);
-                closeEditor(card, restoreFocus);
+                closeEditor(card, restoreFocus, true);
             }
             return;
         }
@@ -1970,8 +1975,7 @@
         const keepEditing = () => closeDiscardChangesDialog(state, true);
         const discard = () => {
             closeDiscardChangesDialog(state, false);
-            state.recovery?.stop(true);
-            closeEditor(card, restoreFocus);
+            closeEditor(card, restoreFocus, true);
         };
         state.discardConfirmation = {
             backdrop,
@@ -2097,14 +2101,20 @@
         };
     }
 
-    function closeEditor(card, restoreFocus) {
+    function closeEditor(card, restoreFocus, discard = false) {
         const state = editorStates.get(card);
         if (!state) {
-            return;
+            return true;
+        }
+        // Switching editors must retain the latest text, not merely an older
+        // copy from before storage became unavailable or the draft grew too big.
+        if (!discard && editorHasUnsavedChanges(state) && !state.recovery?.persist()) {
+            showEditorStatus(state, editorConfig().recoveryUnavailable || 'Unable to save a local copy. Keep this tab open.', true);
+            return false;
         }
 
         const creating = state.creating;
-        if (state.recovery?.stop()) {
+        if (state.recovery?.stop(discard)) {
             // Uploaded files referenced by a saved local copy must survive reload
             // or switching editors. The server still bounds pending-media lifetime.
             state.uploadedMediaIds.clear();
@@ -2135,12 +2145,13 @@
             if (restoreFocus) {
                 document.querySelector('.post-create-start')?.focus();
             }
-            return;
+            return true;
         }
 
         if (restoreFocus) {
             postToolsFocusTarget(card, '.post-edit-start')?.focus();
         }
+        return true;
     }
 
     function closeConfirmation(card, restoreFocus) {
@@ -2166,13 +2177,13 @@
         ))) {
             return false;
         }
-        document.querySelectorAll('.post-card.is-editing, .post-card.is-confirming').forEach((card) => {
+        for (const card of document.querySelectorAll('.post-card.is-editing, .post-card.is-confirming')) {
             if (card === activeCard) {
-                return;
+                continue;
             }
-            closeEditor(card, false);
+            if (!closeEditor(card, false)) return false;
             closeConfirmation(card, false);
-        });
+        }
         return true;
     }
 
@@ -2223,6 +2234,7 @@
             mediaControllers: new Set(),
             imageUploadTail: Promise.resolve(),
             uploadedMediaIds: new Set(),
+            recoveryMediaIds: new Set(),
             mediaCaptionEditors: new Map(),
             contextMenu: null,
             imageCaptionEditor: null,
@@ -2346,7 +2358,7 @@
         if (editorStates.get(card)?.submitting || !closeOtherCards(card)) {
             return;
         }
-        closeEditor(card, false);
+        if (!closeEditor(card, false)) return;
         closePostToolsMenu(card.querySelector(':scope > .post-inplace-tools'), false);
         card.classList.add('is-confirming');
         confirmation.hidden = false;
@@ -3513,7 +3525,12 @@
         }
 
         const mediaById = new Map(payload.media.map((media) => [Number(media.media_id), media]));
-        state.body.querySelectorAll('[data-post-media-id][src]').forEach((element) => {
+        updateMediaUrls(state.body, mediaById);
+        state.history?.redateMedia(mediaById);
+    }
+
+    function updateMediaUrls(root, mediaById) {
+        root.querySelectorAll('[data-post-media-id][src]').forEach((element) => {
             const media = mediaById.get(Number(element.dataset.postMediaId));
             if (!media || typeof media.url !== 'string' || media.url === '') {
                 return;
@@ -4222,6 +4239,15 @@
             },
             undo: () => travel(-1),
             redo: () => travel(1),
+            redateMedia(mediaById) {
+                // Renaming a server file is not an edit to undo. Every retained
+                // state, including the redo branch, must point to its new URL.
+                entries.forEach((entry) => {
+                    updateMediaUrls(entry.root, mediaById);
+                    entry.html = entry.root.innerHTML;
+                });
+                trim();
+            },
             trackUpload(pending) {
                 const id = String(++uploadSequence);
                 pending.element.dataset.postHistoryUpload = id;
@@ -5740,6 +5766,8 @@
         const source = sourceRange ? htmlForRange(sourceRange) : editableBodyHtml(state);
         const sourceText = textFromHtml(source);
         const wholeSource = editableBodyHtml(state);
+        const targetValue = action === 'title' ? state.title.textContent
+            : action === 'tags' ? state.tagEditor.snapshot() : null;
         closeContextMenu(state, false);
         if (source.trim() === '') {
             showEditorStatus(state, editorConfig().aiFailed || 'Unable to get a response from AI.', true);
@@ -5783,6 +5811,12 @@
                 throw new Error(payload?.message || editorConfig().aiFailed || 'Unable to get a response from AI.');
             }
             if (editorStates.get(state.card) !== state || state.aiController !== controller) {
+                return;
+            }
+
+            if ((action === 'title' && state.title.textContent !== targetValue)
+                || (action === 'tags' && state.tagEditor.snapshot() !== targetValue)) {
+                showEditorStatus(state, editorConfig().aiSourceChanged || 'The source text has changed.', true);
                 return;
             }
 

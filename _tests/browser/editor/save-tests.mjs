@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 
-async function formData(route) {
+export async function formData(route) {
     const request = route.request();
     return new Request(request.url(), {
         method: 'POST', headers: request.headers(), body: request.postDataBuffer(),
     }).formData();
 }
 
-function holdRequests(page, pattern) {
+export function holdRequests(page, pattern) {
     const requests = [];
     let notify;
     const installed = page.route(pattern, route => {

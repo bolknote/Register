@@ -85,7 +85,7 @@
         root.querySelectorAll('script, style, iframe, object, embed, link, meta, base, form, input, button, textarea, select, svg, math, template, .post-media-upload, .post-media-picture.is-processing')
             .forEach(node => node.remove());
         const elements = new Set('p br div span a b strong i em s del u tt code pre blockquote h1 h2 h3 h4 h5 h6 ul ol li hr img picture source figure figcaption audio video table thead tbody tfoot tr th td caption sub sup small mark abbr q nobr'.split(' '));
-        const attributes = new Set('class title alt width height colspan rowspan start reversed type controls preload loop muted playsinline data-post-media-id data-title'.split(' '));
+        const attributes = new Set('class title alt width height colspan rowspan start reversed type controls preload loop muted playsinline data-post-media-id data-title data-post-media-overlay data-caption-font data-caption-background'.split(' '));
         root.querySelectorAll('*').forEach(node => {
             if (!elements.has(node.localName)) {
                 node.replaceWith(...node.childNodes);
@@ -99,6 +99,8 @@
                         if ((name === 'href' ? ['http:', 'https:', 'mailto:', 'tel:'] : ['http:', 'https:']).includes(url.protocol)) return;
                     } catch (_) { /* Remove malformed URLs. */ }
                 } else if (attributes.has(name)) {
+                    return;
+                } else if (name === 'role' && attribute.value === 'figure') {
                     return;
                 }
                 node.removeAttribute(attribute.name);

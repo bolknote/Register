@@ -199,9 +199,14 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
 
     var Changes = (function () {
         const eTextarea = eForm.elements[sTextareaName];
+        const eTitle = eForm.elements['title'];
         let savedText = eTextarea.value;
         let previousText = savedText;
+        let previousTitle = eTitle.value;
         let currentFormHash = '';
+        let lastDraft = null;
+        let lastPersistedText = savedText;
+        let lastPersistedSavedText = savedText;
 
         function readDraft() {
             try {
@@ -212,21 +217,26 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             }
         }
 
-        function removeDraft() {
-            try {
+        function removeDraft(expected) {
+            if (expected !== null && localStorage.getItem(draftStorageKey) === expected) {
                 localStorage.removeItem(draftStorageKey);
-            } catch (error) {
-                console.warn('Unable to remove the local editor draft:', error);
             }
         }
 
         function persistDraft(currentText) {
+            // An idle tab must not replace a more recent copy on its preview
+            // timer or on exit. Only a text change or a completed save writes.
+            if (currentText === lastPersistedText && savedText === lastPersistedSavedText) return;
             try {
                 if (savedText !== currentText) {
                     localStorage.setItem(draftStorageKey, currentText);
+                    lastDraft = currentText;
                 } else {
-                    localStorage.removeItem(draftStorageKey);
+                    removeDraft(lastDraft);
+                    lastDraft = null;
                 }
+                lastPersistedText = currentText;
+                lastPersistedSavedText = savedText;
             } catch (error) {
                 console.warn('Unable to save the local editor draft:', error);
             }
@@ -242,13 +252,14 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
 
             register_codemirror.flip();
             const currentText = eTextarea.value;
+            const currentTitle = eTitle.value;
             persistDraft(currentText);
 
-            if (previousText !== currentText) {
+            if (previousText !== currentText || previousTitle !== currentTitle) {
                 const absoluteUrl = new URL(eForm.action);
                 const id = absoluteUrl.searchParams.get('id');
                 Preview(
-                    eForm.elements['title'].value,
+                    currentTitle,
                     currentText,
                     id,
                     sTemplateId || eForm.elements['template'].value,
@@ -256,6 +267,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
                     previewFrame
                 );
                 previousText = currentText;
+                previousTitle = currentTitle;
             }
         }
 
@@ -276,6 +288,8 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             } else {
                 eTextarea.addEventListener('input', handleTextChange);
             }
+            eTitle.addEventListener('input', updatePreview);
+            eTitle.addEventListener('change', updatePreview);
         }
 
         function getFormHash(formData = new FormData(eForm)) {
@@ -302,6 +316,8 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         }
 
         const recoveredText = readDraft();
+        lastDraft = recoveredText;
+        lastPersistedText = recoveredText ?? savedText;
         currentFormHash = getFormHash();
         wireLivePreview();
 
@@ -312,7 +328,12 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             register_codemirror.flip();
             previousText = recoveredText;
         } else if (recoveredText !== null) {
-            removeDraft();
+            try {
+                removeDraft(recoveredText);
+                lastDraft = null;
+            } catch (error) {
+                console.warn('Unable to remove the local editor draft:', error);
+            }
         }
 
         setInterval(checkChanges, 5000);

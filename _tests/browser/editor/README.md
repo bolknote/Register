@@ -3,8 +3,8 @@
 These tests execute the real `post-inplace.js` with real DOM, Selection, editing
 commands and input/keyboard events. Unlike the VM unit tests, they exercise undo
 history. The fixture exposes private functions **only in its loopback test server**;
-production code has no testing API. Upload responses are deterministic stubs,
-and AI is disabled. No blog, database, credentials or external services are used.
+production code has no testing API. Upload and AI responses are deterministic
+stubs. No blog, database, credentials or external services are used.
 
 ```sh
 npm ci --prefix _tests/browser/editor
@@ -60,3 +60,20 @@ editing is locked until a save settles, failed image/audio uploads stop a waitin
 save, and re-uploading allows a complete retry. Admin tests verify that text typed
 during an update stays unsaved and recoverable, including after a CSRF retry,
 and that creation is locked until its redirect or unlocked after failure.
+
+Fourteen additional review scenarios check switching editors when a fresh recovery
+copy cannot be written (oversized text or unavailable storage), while retaining
+explicit discard and successful restoration. Admin tabs with a textarea or
+CodeMirror cannot erase or overwrite a newer draft when idle, closing, or finishing
+an earlier save. Delayed AI title/tag suggestions preserve subsequent manual input
+in both editors, and unchanged targets still accept suggestions. Image/audio
+renaming updates the complete undo/redo history, recovery copies, and a retried save
+after a conflict without adding a history step.
+
+Seven recovery/preview scenarios cover cancelling either tab after a draft is
+restored elsewhere, including after a third tab deletes the local copy. Files
+exposed through recovery remain available until saved or expired by the server;
+private uploads still release on cancellation. Restored image overlays retain
+their text, formatting and identity when edited again. The admin preview follows
+title-only changes from typing, the periodic check and AI without changing or
+creating a draft of the body, with both textarea and CodeMirror editors.

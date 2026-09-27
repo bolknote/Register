@@ -30,6 +30,7 @@ function setup(html = '<p><br></p>') {
     const state = {card, body, title: card.querySelector('h2'), form: card.querySelector('form'),
         originalPublishedAt: 1788696000, bodyDirty: false, dateDirty: false, contextMenu: null,
         mediaControllers: new Set(), mediaUploads: new Set(), uploadedMediaIds: new Set(),
+        recoveryMediaIds: new Set(),
         mediaCaptionEditors: new Map(), imageUploadTail: Promise.resolve(), imageCaptionEditor: null};
     api.editorStates.set(card, state);
     document.execCommand('defaultParagraphSeparator', false, 'p');
