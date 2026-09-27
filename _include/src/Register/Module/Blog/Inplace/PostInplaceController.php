@@ -292,6 +292,7 @@ final readonly class PostInplaceController implements ControllerInterface
                         $payload[] = $this->mediaPayload($media);
                         continue;
                     }
+
                     $move = $this->mediaStorage->redateCanonical((string)$media['storage_path'], $publishedAt);
                     $moves[] = $move;
                     if ($move['from'] !== $move['to']) {

@@ -955,14 +955,12 @@ final class PostInplaceCest
 
             $renamedMedia = $payload['media'];
             $mediaIds = array_column($renamedMedia, 'media_id');
-            $bodyFromMedia = static function (array $media): string {
-                return implode('', array_map(static function (array $file): string {
-                    $attributes = ' src="' . $file['url'] . '" data-post-media-id="' . $file['media_id'] . '"';
+            $bodyFromMedia = (static fn(array $media): string => implode('', array_map(static function (array $file): string {
+                $attributes = ' src="' . $file['url'] . '" data-post-media-id="' . $file['media_id'] . '"';
 
-                    return $file['kind'] === 'image' ? '<img' . $attributes . ' alt="">'
-                        : '<audio' . $attributes . ' controls></audio>';
-                }, $media));
-            };
+                return $file['kind'] === 'image' ? '<img' . $attributes . ' alt="">'
+                    : '<audio' . $attributes . ' controls></audio>';
+            }, $media)));
             $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
                 'inplace_action' => 'edit',
                 'inplace_token'  => $token,
@@ -1009,6 +1007,7 @@ final class PostInplaceCest
                 $I->assertSame(0, (int)$registered['pending']);
                 $I->assertFileExists($this->storedMediaPath($media['url']));
             }
+
             $I->assertFileDoesNotExist($oldImageFile);
             $I->assertFileDoesNotExist($oldAudioFile);
 
@@ -1219,6 +1218,7 @@ final class PostInplaceCest
         $postId = $this->insertPost($dbLayer, 'recovery-media-post', $this->userId($dbLayer, 'author'), $publishedAt);
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/recovery-media-post');
+
         $selector = '.post-card[data-post-id="' . $postId . '"] > .post-inplace-edit-form';
         $token = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
         $temporaryFiles = [];
@@ -1237,6 +1237,7 @@ final class PostInplaceCest
                 'media_display_height' => '1',
             ], ['media' => new UploadedFile($temporary, 'optimized.png', 'image/png', null, true)]);
             $I->seeResponseCodeIs(Response::HTTP_OK);
+
             $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
             $storedFiles[] = $this->storedMediaPath($payload['url']);
 
