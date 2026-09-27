@@ -70,10 +70,18 @@ in both editors, and unchanged targets still accept suggestions. Image/audio
 renaming updates the complete undo/redo history, recovery copies, and a retried save
 after a conflict without adding a history step.
 
-Seven recovery/preview scenarios cover cancelling either tab after a draft is
+Nine recovery/preview scenarios cover cancelling either tab after a draft is
 restored elsewhere, including after a third tab deletes the local copy. Files
 exposed through recovery remain available until saved or expired by the server;
 private uploads still release on cancellation. Restored image overlays retain
 their text, formatting and identity when edited again. The admin preview follows
 title-only changes from typing, the periodic check and AI without changing or
 creating a draft of the body, with both textarea and CodeMirror editors.
+Saving an existing or new post after undoing uploads also retains shared files
+and still cleans private uploads. The PHP integration suite verifies the cleanup
+contract through the actual controller, registry and stored files.
+
+Eight asynchronous preview scenarios delay the initial template request until
+newer title/body changes are rendered. A stale success, HTTP error, network error,
+or malformed JSON response cannot replace the latest preview, in either admin
+editor mode.

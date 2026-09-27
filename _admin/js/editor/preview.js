@@ -129,6 +129,8 @@ export function renderPreviewError(doc, message, stylesheetUrl = '') {
     doc.body.replaceChildren(errorMessage);
 }
 
+const previewRequests = new WeakMap();
+
 export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTemplateScope = '', previewFrame = null) {
     if (!assertDeps(['register_lang', 'sUrl'], 'Preview')) {
         return;
@@ -138,6 +140,9 @@ export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTe
     if (!d) {
         return;
     }
+    const request = {};
+    previewRequests.set(d, request);
+    const isCurrent = () => previewRequests.get(d) === request;
     let eHeader;
     let eText;
     const sUrl = editorDeps.sUrl;
@@ -145,25 +150,28 @@ export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTe
 
     const templateCacheKey = sTemplateScope + ':' + sTemplateId;
     if (templateCacheKey !== Preview.lastTemplateId) {
-        let response;
+        let data;
         try {
-            response = await fetch(
+            const response = await fetch(
                 sUrl
                 + 'action=load_template&template_id=' + encodeURIComponent(sTemplateId)
                 + '&article_id=' + encodeURIComponent(iArticleId)
                 + '&content_type=' + encodeURIComponent(sTemplateScope)
             );
+            if (!isCurrent()) return;
+            if (!response.ok) {
+                console.warn('Failed to load template preview:', response.status);
+                renderPreviewError(d, editorDeps.register_lang.unknown_error, editorDeps.previewErrorStylesheet);
+                return;
+            }
+            data = await response.json();
         } catch (error) {
+            if (!isCurrent()) return;
             console.warn('Failed to load template preview:', error);
             renderPreviewError(d, editorDeps.register_lang.unknown_error, editorDeps.previewErrorStylesheet);
             return;
         }
-        if (!response.ok) {
-            console.warn('Failed to load template preview:', response.status);
-            renderPreviewError(d, editorDeps.register_lang.unknown_error, editorDeps.previewErrorStylesheet);
-            return;
-        }
-        const data = await response.json();
+        if (!isCurrent()) return;
         if (!data || data.success !== true || !data.template) {
             console.warn('Template preview is unavailable:', data && data.preview_message ? data.preview_message : 'Unknown error');
             renderPreviewError(
@@ -192,6 +200,7 @@ export async function Preview(sTitle, sHtmlContent, iArticleId, sTemplateId, sTe
 
     let try_num = 30;
     const repeater = function () {
+        if (!isCurrent()) return;
         const eText = d.getElementById('preview-text-wrapper');
         const eHeader = d.getElementById('preview-header-wrapper');
 

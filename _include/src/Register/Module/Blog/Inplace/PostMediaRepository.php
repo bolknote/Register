@@ -87,7 +87,7 @@ final readonly class PostMediaRepository
     /**
      * Replaces post-media relations and returns registry rows that became unused.
      *
-     * @param list<int> $uploadedMediaIds
+     * @param list<int> $uploadedMediaIds Uploads eligible for cleanup; used media is read from the body.
      * @return list<array<string, mixed>>
      */
     public function syncPost(int $postId, string $body, array $uploadedMediaIds, int $editorId): array

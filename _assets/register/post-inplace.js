@@ -600,10 +600,14 @@
         }
     }
 
-    function releasePendingMedia(state) {
+    function releasableMediaIds(state) {
         // Once exposed through recovery, a file may be in another live editor
         // even after its local copy is removed. Let the server expire it instead.
-        const mediaIds = Array.from(state.uploadedMediaIds).filter(id => !state.recoveryMediaIds.has(id));
+        return Array.from(state.uploadedMediaIds).filter(id => !state.recoveryMediaIds.has(id));
+    }
+
+    function releasePendingMedia(state) {
+        const mediaIds = releasableMediaIds(state);
         state.uploadedMediaIds.clear();
         if (mediaIds.length === 0) {
             return;
@@ -2409,7 +2413,9 @@
         const tagValue = tags.join(', ');
         state.tagsHost.classList.toggle('is-empty', tagValue === '');
         state.tagsField.value = tagValue;
-        state.uploadedMediaField.value = Array.from(state.uploadedMediaIds).join(',');
+        // The server uses this list to discard unused uploads on save. Used
+        // media is registered from the body, including files shared by recovery.
+        state.uploadedMediaField.value = releasableMediaIds(state).join(',');
         return true;
     }
 

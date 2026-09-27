@@ -1145,6 +1145,109 @@ final class PostInplaceCest
         }
     }
 
+    public function preservesRecoveryUploadsWhileCleaningPrivateUploadsOnSave(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var PostMediaRepository $mediaRegistry */
+        $mediaRegistry = $I->grabService(PostMediaRepository::class);
+        $publishedAt = (new \DateTimeImmutable('1991-02-01 12:00:00'))->getTimestamp();
+        $postId = $this->insertPost($dbLayer, 'recovery-media-post', $this->userId($dbLayer, 'author'), $publishedAt);
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/recovery-media-post');
+        $selector = '.post-card[data-post-id="' . $postId . '"] > .post-inplace-edit-form';
+        $token = (string)$I->grabAttributeFrom($selector . ' input[name="inplace_token"]', 'value');
+        $temporaryFiles = [];
+        $storedFiles = [];
+        $upload = function () use ($I, $postId, $token, $publishedAt, &$temporaryFiles, &$storedFiles): array {
+            $temporary = $this->temporaryFile((string)base64_decode(self::ONE_PIXEL_PNG, true));
+            $temporaryFiles[] = $temporary;
+            $I->sendPost('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action'       => 'media',
+                'inplace_token'        => $token,
+                'published_at'         => (string)$publishedAt,
+                'media_retina'         => '0',
+                'media_width'          => '1',
+                'media_height'         => '1',
+                'media_display_width'  => '1',
+                'media_display_height' => '1',
+            ], ['media' => new UploadedFile($temporary, 'optimized.png', 'image/png', null, true)]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $storedFiles[] = $this->storedMediaPath($payload['url']);
+
+            return $payload;
+        };
+
+        try {
+            // Establish the generated metadata before testing a genuinely unchanged save.
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action' => 'edit',
+                'inplace_token'  => $token,
+                'revision'       => '1',
+                'title'          => 'Recovery media post',
+                'body'           => '<p>Original body</p>',
+                'tags'           => '',
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $revision = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR)['revision'];
+            $shared = $upload();
+            $sharedId = (int)$shared['media_id'];
+            $sharedFile = $this->storedMediaPath($shared['url']);
+            foreach ([false, true] as $changed) {
+                $private = $upload();
+                $privateId = (int)$private['media_id'];
+                // The browser omits files exposed through recovery from this cleanup list.
+                // Exercise both the unchanged-save branch and syncPost after an ordinary edit.
+                $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                    'inplace_action'     => 'edit',
+                    'inplace_token'      => $token,
+                    'revision'           => (string)$revision,
+                    'title'              => $changed ? 'Edited without attachment' : 'Recovery media post',
+                    'body'               => $changed ? '<p>Text after undo.</p>' : '<p>Original body</p>',
+                    'tags'               => '',
+                    'uploaded_media_ids' => (string)$privateId,
+                ]);
+                $I->seeResponseCodeIs(Response::HTTP_OK);
+                $saved = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+                $I->assertSame($changed ? $revision + 1 : $revision, $saved['revision']);
+                $revision = $saved['revision'];
+                $I->assertFileDoesNotExist($this->storedMediaPath($private['url']));
+                $I->assertNull($mediaRegistry->find($privateId));
+                $I->assertFileExists($sharedFile);
+                $media = $mediaRegistry->find($sharedId);
+                $I->assertNotNull($media);
+                $I->assertSame(0, (int)$media['usage_count']);
+                $I->assertSame(1, (int)$media['pending']);
+            }
+
+            // A restored editor can publish the retained file through its body,
+            // even though the file is still excluded from the cleanup list.
+            $body = '<p><img src="' . $shared['url'] . '" data-post-media-id="' . $sharedId . '" alt="Restored"></p>';
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action'     => 'edit',
+                'inplace_token'      => $token,
+                'revision'           => (string)$revision,
+                'title'              => 'Restored with attachment',
+                'body'               => $body,
+                'tags'               => '',
+                'uploaded_media_ids' => '',
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $I->assertFileExists($sharedFile);
+            $media = $mediaRegistry->find($sharedId);
+            $I->assertNotNull($media);
+            $I->assertSame(1, (int)$media['usage_count']);
+            $I->assertSame(0, (int)$media['pending']);
+        } finally {
+            foreach ([...$temporaryFiles, ...$storedFiles] as $filename) {
+                if (is_file($filename)) {
+                    unlink($filename);
+                }
+            }
+        }
+    }
+
     public function deletesAPostTogetherWithCommentsAndTagRelations(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */

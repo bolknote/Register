@@ -17,6 +17,18 @@ async function upload(page, kind, mediaId) {
     }, mediaId);
 }
 
+async function allowBlockingRecoveryStorage(context) {
+    await context.addInitScript(() => {
+        const setItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key, value) {
+            if (window.blockDraftStorage && key.startsWith('register:post-recovery:')) {
+                throw new DOMException('Storage full', 'QuotaExceededError');
+            }
+            return setItem.call(this, key, value);
+        };
+    });
+}
+
 export async function runRecoveryPreviewRegressions(browser, origin) {
     const errors = [];
     async function withContext(run) {
@@ -30,18 +42,80 @@ export async function runRecoveryPreviewRegressions(browser, origin) {
         finally { await context.close(); }
     }
 
+    for (const creating of [false, true]) {
+        await withContext(async context => {
+            await allowBlockingRecoveryStorage(context);
+            const files = new Set();
+            let nextMediaId = 501;
+            await context.route('**/clip-*.wav', route => {
+                const id = Number(new URL(route.request().url()).pathname.match(/clip-(\d+)\.wav/u)[1]);
+                return route.fulfill({status: files.has(id) ? 200 : 404, contentType: 'audio/wav', body: 'RIFF'});
+            });
+            await context.route('**/_inplace/post/*', async route => {
+                const data = await formData(route);
+                const action = data.get('inplace_action');
+                if (action === 'media') {
+                    const mediaId = nextMediaId++;
+                    files.add(mediaId);
+                    await route.fulfill({json: {success: true, action, kind: 'audio', media_id: mediaId,
+                        url: `/clip-${mediaId}.wav`, name: 'Recording'}});
+                } else if (action === 'media_redate') {
+                    // Recovery protection must not stop pending files being reconciled before save.
+                    assert.equal(data.get('media_ids'), '501,502');
+                    await route.fulfill({json: {success: true, action, media: [...files].map(id => ({
+                        media_id: id, url: `/clip-${id}.wav`, name: 'Recording',
+                    }))}});
+                } else {
+                    assert.equal(action, creating ? 'create' : 'edit');
+                    assert.equal(data.get('uploaded_media_ids'), '502');
+                    assert.ok(!data.get('body').includes('<audio'));
+                    // Match the server's cleanup contract; the PHP integration test exercises it directly.
+                    for (const id of data.get('uploaded_media_ids').split(',').filter(Boolean).map(Number)) {
+                        files.delete(id);
+                    }
+                    await route.fulfill({json: {
+                        success: true, action, title: data.get('title'), revision: 2,
+                        body_html: `<div class="post body" data-post-inplace-body>${data.get('body')}</div>`,
+                        published_at: 1788696000, datetime: '2026-09-06T12:00:00Z', time: '6 September',
+                        tags: [], scheduled: false, message: 'Saved',
+                        ...(creating ? {id: 10, url: '/created', action_url: '/_inplace/post/10', token: 'fixture'} : {}),
+                    }});
+                }
+            });
+            const original = await context.newPage();
+            await original.goto(origin + '/recovery.html');
+            await original.getByRole('button', {name: creating ? 'New post' : 'Edit', exact: true}).click();
+            if (creating) await original.keyboard.type('New draft');
+            const body = original.locator('.post-card.is-editing [data-post-inplace-body]');
+            await body.fill('Text before uploads');
+            await upload(original, 'audio', 501);
+            await original.waitForFunction(() => window.RegisterPostRecovery.createStore(localStorage, '/_inplace/tags', 1)
+                .list().some(copy => copy.snapshot.body.includes('clip-501.wav')));
+
+            const restored = await context.newPage();
+            await restored.goto(origin + '/recovery.html');
+            await restored.getByRole('button', {name: 'Restore text', exact: true}).click();
+            await original.evaluate(() => { window.blockDraftStorage = true; });
+            await upload(original, 'audio', 502);
+            await body.press('Meta+z');
+            await body.press('Meta+z');
+            assert.equal(await body.locator('audio').count(), 0);
+            await original.locator('.post-card.is-editing [data-post-inplace-title]').fill('Changed title');
+            await original.getByRole('button', {name: 'Save', exact: true}).click();
+            await original.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+            assert.equal(await restored.locator('.post-card.is-editing audio').getAttribute('src'), '/clip-501.wav');
+            assert.equal(await restored.evaluate(async () => (await fetch('/clip-501.wav')).status), 200);
+            assert.equal(await restored.evaluate(async () => (await fetch('/clip-502.wav')).status), 404);
+            assert.ok(await restored.evaluate(() => window.RegisterPostRecovery.createStore(localStorage, '/_inplace/tags', 1)
+                .list().some(copy => copy.snapshot.body.includes('clip-501.wav'))));
+        });
+        console.log(`recovery: ${creating ? 'creating' : 'saving'} after undo preserves shared uploads and cleans private uploads`);
+    }
+
     for (const cancelOriginal of [false, true]) {
         for (const deleteCopy of [false, true]) {
             await withContext(async context => {
-                await context.addInitScript(() => {
-                    const setItem = Storage.prototype.setItem;
-                    Storage.prototype.setItem = function (key, value) {
-                        if (window.blockDraftStorage && key.startsWith('register:post-recovery:')) {
-                            throw new DOMException('Storage full', 'QuotaExceededError');
-                        }
-                        return setItem.call(this, key, value);
-                    };
-                });
+                await allowBlockingRecoveryStorage(context);
                 const files = new Set();
                 const releases = [];
                 let nextMediaId = 501;
@@ -70,7 +144,7 @@ export async function runRecoveryPreviewRegressions(browser, origin) {
                         }))}});
                     } else {
                         assert.equal(action, 'edit');
-                        assert.equal(data.get('uploaded_media_ids'), '501');
+                        assert.equal(data.get('uploaded_media_ids'), '');
                         assert.ok(data.get('body').includes('/clip-501.wav'));
                         await route.fulfill({json: {
                             success: true, action, title: 'Server title 1', revision: 2,
@@ -93,6 +167,9 @@ export async function runRecoveryPreviewRegressions(browser, origin) {
                 assert.equal(await restored.locator('.post-card.is-editing audio').getAttribute('src'), '/clip-501.wav');
                 if (deleteCopy) {
                     // A third tab can delete the copy while both editors still use its file.
+                    // Block writes so a visibility change cannot recreate it during this check.
+                    await original.evaluate(() => { window.blockDraftStorage = true; });
+                    await restored.evaluate(() => { window.blockDraftStorage = true; });
                     const third = await context.newPage();
                     await third.goto(origin + '/recovery.html');
                     third.on('dialog', dialog => dialog.accept());
