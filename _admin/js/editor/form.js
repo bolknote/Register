@@ -52,9 +52,11 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         ? document.getElementById(editorTextarea.id + '-preview-frame')
         : null;
     initPreviewSync(eForm, sTextareaName);
+    let saving = false;
 
     async function saveForm(event) {
         event.preventDefault();
+        if (saving) return;
 
         if (!eForm.checkValidity()) {
             eForm.reportValidity();
@@ -62,9 +64,11 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         }
 
         document.dispatchEvent(new Event('save_article_start.register'));
+        let submittedSnapshot;
 
         function successHandler(nextStatusData) {
             editorDeps.PopupMessages.hide(sLowerEntityName + '-save');
+            Changes.markSaved(submittedSnapshot);
             document.dispatchEvent(new Event('save_article_end.register'));
 
             eForm.elements['revision'].value = nextStatusData['revision'];
@@ -87,51 +91,73 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
                 ?.split('=')[1] || '';
         }
 
+        const focusBeforeSave = document.activeElement;
+        const wasInert = eForm.inert;
+        let readOnlyFields = [];
+        let unlockEditing = () => {};
+        let navigating = false;
+        saving = true;
         try {
             const formData = new FormData(eForm);
+            submittedSnapshot = Changes.snapshot(formData);
+            // Creating a post redirects to its new id, so later edits cannot
+            // remain in this form as they can after an ordinary update.
+            if (contentId === 'new') {
+                readOnlyFields = Array.from(eForm.querySelectorAll('input, textarea'), input => [input, input.readOnly]);
+                readOnlyFields.forEach(([input]) => { input.readOnly = true; });
+                unlockEditing = register_codemirror.lockEditing();
+                eForm.inert = true;
+            }
             const headers = {'X-Requested-With': 'XMLHttpRequest'};
             const tempCsrfToken = getTempCsrfToken();
             if (tempCsrfToken !== '') {
                 headers['X-AdminYard-CSRF-Token'] = tempCsrfToken;
             }
-            const response = await fetch(eForm.action, {method: 'POST', headers: headers, body: formData});
+            let response = await fetch(eForm.action, {method: 'POST', headers: headers, body: formData});
+
+            if (response.status === 422) {
+                const data = await response.json();
+                if (!data.invalid_csrf_token) {
+                    errorHandler(data);
+                    return;
+                }
+                response = await fetch(eForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-AdminYard-CSRF-Token': getTempCsrfToken()
+                    },
+                    body: formData
+                });
+            }
 
             if (response.redirected) {
+                Changes.markSaved(submittedSnapshot);
                 document.dispatchEvent(new Event('save_article_end.register'));
-                try {
-                    localStorage.removeItem(draftStorageKey);
-                } catch (error) {
-                    console.warn('Unable to remove the local editor draft:', error);
-                }
+                eForm.inert = true;
                 window.location.assign(response.url);
+                navigating = true;
                 return;
             }
 
             if (response.ok) {
                 successHandler(await response.json());
             } else if (response.status === 422) {
-                const data = await response.json();
-                if (data.invalid_csrf_token) {
-                    const response2 = await fetch(eForm.action, {
-                        method: 'POST',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-AdminYard-CSRF-Token': getTempCsrfToken()
-                        },
-                        body: formData
-                    });
-
-                    if (response2.ok) {
-                        successHandler(await response2.json());
-                    } else if (response2.status === 422) {
-                        errorHandler(await response2.json());
-                    }
-                } else {
-                    errorHandler(data);
-                }
+                errorHandler(await response.json());
             }
         } catch (error) {
             console.warn('An error occurred:', error);
+        } finally {
+            if (!navigating) {
+                saving = false;
+                unlockEditing();
+                readOnlyFields.forEach(([input, readOnly]) => { input.readOnly = readOnly; });
+                eForm.inert = wasInert;
+                if (document.activeElement === document.body
+                    && focusBeforeSave instanceof HTMLElement && focusBeforeSave.isConnected) {
+                    focusBeforeSave.focus({preventScroll: true});
+                }
+            }
         }
     }
 
@@ -252,8 +278,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             }
         }
 
-        function getFormHash() {
-            const formData = new FormData(eForm);
+        function getFormHash(formData = new FormData(eForm)) {
             const visibleFormData = new FormData();
 
             for (const [key, value] of formData.entries()) {
@@ -270,11 +295,10 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             return hex_md5(serializedData);
         }
 
-        function markSaved() {
-            register_codemirror.flip();
-            currentFormHash = getFormHash();
-            savedText = eTextarea.value;
-            removeDraft();
+        function markSaved(snapshot) {
+            currentFormHash = snapshot.hash;
+            savedText = snapshot.text;
+            persistCurrentText();
         }
 
         const recoveredText = readDraft();
@@ -302,10 +326,10 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             sTemplateScope,
             previewFrame
         );
-        document.addEventListener('save_article_end.register', markSaved);
-
         return {
             persist: persistCurrentText,
+            snapshot: formData => ({hash: getFormHash(formData), text: formData.get(sTextareaName)}),
+            markSaved,
             present: function () {
                 document.dispatchEvent(new Event('changes_present.register'));
 

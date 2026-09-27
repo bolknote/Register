@@ -1881,6 +1881,7 @@
                 // editing; retain the CURRENT server revision for conflict checks.
                 const editing = card || document.querySelector('.post-card[data-post-creating]');
                 const previous = editing ? editorStates.get(editing) : null;
+                if (previous?.submitting) return;
                 if (previous) closeEditor(editing, false);
                 if (!(record.target === 'new' ? beginCreate(button) : beginEdit(button))) return;
                 const opened = card || document.querySelector('.post-card[data-post-creating]');
@@ -1929,7 +1930,7 @@
 
     function requestCloseEditor(card, restoreFocus) {
         const state = editorStates.get(card);
-        if (!state) {
+        if (!state || state.submitting) {
             return;
         }
         if (!editorHasUnsavedChanges(state)) {
@@ -2160,6 +2161,11 @@
     }
 
     function closeOtherCards(activeCard) {
+        if (Array.from(document.querySelectorAll('.post-card.is-editing')).some((card) => (
+            card !== activeCard && editorStates.get(card)?.submitting
+        ))) {
+            return false;
+        }
         document.querySelectorAll('.post-card.is-editing, .post-card.is-confirming').forEach((card) => {
             if (card === activeCard) {
                 return;
@@ -2167,6 +2173,7 @@
             closeEditor(card, false);
             closeConfirmation(card, false);
         });
+        return true;
     }
 
     function beginEdit(link) {
@@ -2183,7 +2190,9 @@
             return false;
         }
 
-        closeOtherCards(card);
+        if (!closeOtherCards(card)) {
+            return false;
+        }
         closeConfirmation(card, false);
         clearError(elements.form);
         clearStatus(card);
@@ -2334,7 +2343,9 @@
             return;
         }
 
-        closeOtherCards(card);
+        if (editorStates.get(card)?.submitting || !closeOtherCards(card)) {
+            return;
+        }
         closeEditor(card, false);
         closePostToolsMenu(card.querySelector(':scope > .post-inplace-tools'), false);
         card.classList.add('is-confirming');
@@ -3449,12 +3460,12 @@
                 if (error instanceof DOMException && error.name === 'AbortError') {
                     return;
                 }
-                showError(
-                    state.form,
-                    error instanceof Error
-                        ? error.message
-                        : mediaMessage(editorConfig().mediaUploadFailed || 'Unable to upload “%s”.', file.name),
-                );
+                const failure = error instanceof Error
+                    ? error
+                    : new Error(mediaMessage(editorConfig().mediaUploadFailed || 'Unable to upload “%s”.', file.name));
+                showError(state.form, failure.message);
+                // Keep idle uploads handled, but let a waiting save detect failure.
+                return failure;
             } finally {
                 state.history?.resolveUpload(pending, completed);
                 state.mediaControllers.delete(controller);
@@ -3951,11 +3962,37 @@
             state.aiController?.abort();
             state.aiController = null;
             state.card.classList.remove('is-ai-working');
+            finishImageCaptionEditing(state, true, false);
+            finishInlineMediaCaptions(state);
+            closeContextMenu(state, false);
         }
 
+        const focusBeforeSave = document.activeElement;
         const buttons = card.querySelectorAll('.post-inplace-tools button, .post-delete-confirmation button');
+        let lockedFields = null;
+        const lockEditing = (locked) => {
+            if (!state || locked === (lockedFields !== null)) return;
+            if (locked) {
+                // Firefox can retain an editing host after its ancestor becomes
+                // inert. Explicitly end editing on each surface as well.
+                const editable = Array.from(card.querySelectorAll('[contenteditable="true"]'));
+                const inputs = [state.dateInput, ...state.tags.querySelectorAll('input, button')];
+                lockedFields = {editable, inputs: inputs.map(input => [input, input.disabled])};
+                editable.forEach(element => element.setAttribute('contenteditable', 'false'));
+                inputs.forEach(input => { input.disabled = true; });
+            } else {
+                lockedFields.editable.forEach(element => element.setAttribute('contenteditable', 'true'));
+                lockedFields.inputs.forEach(([input, disabled]) => { input.disabled = disabled; });
+                lockedFields = null;
+            }
+            card.inert = locked;
+        };
         const setBusy = (busy) => {
-            card.toggleAttribute('aria-busy', busy);
+            if (busy) card.setAttribute('aria-busy', 'true');
+            else card.removeAttribute('aria-busy');
+            // Lock every editing surface, including nested captions and tag/date
+            // controls, without excluding their values from FormData.
+            lockEditing(busy);
             buttons.forEach((button) => {
                 button.disabled = busy;
             });
@@ -3965,12 +4002,17 @@
             setBusy(true);
             if (state) {
                 if (state.mediaUploads.size > 0) {
-                    await Promise.all(Array.from(state.mediaUploads));
+                    const uploads = await Promise.all(Array.from(state.mediaUploads));
+                    const failure = uploads.find((result) => result instanceof Error);
+                    if (failure) throw failure;
                 }
                 if (state.aiAltTasks.size > 0) {
                     await Promise.all(Array.from(state.aiAltTasks));
                 }
                 await redatePendingMedia(state);
+                // Validation may focus an invalid field. This synchronous section
+                // relocks the card before yielding to the save request.
+                lockEditing(false);
                 if (editorStates.get(card) !== state || !syncEditor(state)) {
                     return;
                 }
@@ -3979,6 +4021,7 @@
                     closeEditor(card, true);
                     return;
                 }
+                lockEditing(true);
             }
 
             clearError(form);
@@ -3996,6 +4039,7 @@
                 throw new Error(payload?.message || editorConfig().editError || 'Unable to change the post.');
             }
 
+            setBusy(false);
             if (payload.action === 'edit') {
                 updateEditedCard(card, form, payload);
             } else if (payload.action === 'create') {
@@ -4016,6 +4060,10 @@
             }
             if (card.isConnected) {
                 setBusy(false);
+                if (editorStates.get(card) === state && document.activeElement === document.body
+                    && focusBeforeSave instanceof HTMLElement && focusBeforeSave.isConnected) {
+                    focusBeforeSave.focus({preventScroll: true});
+                }
             }
         }
     }

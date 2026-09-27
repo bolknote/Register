@@ -52,3 +52,11 @@ typing, new untitled posts, explicit recovery versus a newer server revision,
 save/discard cleanup, account isolation, local HTML sanitisation, oversized copies,
 completed media on page exit, independent tabs, and URL-only edits with redirects.
 Only server responses are stubbed; storage, navigation and editor events are real.
+
+Save regressions also exercise delayed and failed requests through the public
+editor and the real admin form module (`/admin.html`), with CodeMirror and a plain
+textarea. They check that public
+editing is locked until a save settles, failed image/audio uploads stop a waiting
+save, and re-uploading allows a complete retry. Admin tests verify that text typed
+during an update stays unsaved and recoverable, including after a CSRF retry,
+and that creation is locked until its redirect or unlocked after failure.

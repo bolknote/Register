@@ -208,6 +208,15 @@ const register_codemirror = (function () {
         isReady: function () {
             return !!instance;
         },
+        lockEditing: function () {
+            const editor = instance;
+            if (!editor) return () => {};
+            const readOnly = editor.getOption('readOnly');
+            editor.setOption('readOnly', 'nocursor');
+            return () => {
+                if (instance === editor) editor.setOption('readOnly', readOnly);
+            };
+        },
         onChange: function (handler) {
             if (!instance || typeof handler !== 'function') {
                 return;

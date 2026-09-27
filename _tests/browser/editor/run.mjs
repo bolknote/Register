@@ -2,6 +2,7 @@ import {chromium, firefox} from 'playwright';
 import assert from 'node:assert/strict';
 import {createFixtureServer} from './server.mjs';
 import {runRecoveryRegressions} from './recovery-tests.mjs';
+import {runSaveRegressions} from './save-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -364,6 +365,7 @@ try {
             }
             await runAuthorWorkflowRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRecoveryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runSaveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
         } finally {
             await browser.close();
         }

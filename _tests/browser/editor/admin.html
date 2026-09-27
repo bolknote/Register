@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Register admin save regressions</title>
+<link rel="stylesheet" href="/admin-codemirror.css">
+<form action="/admin-save">
+    <label>Title <input name="title" value="Server title"></label>
+    <label>Body <textarea id="body" name="body">Server body</textarea></label>
+    <input name="revision" type="hidden" value="1">
+    <button type="submit">Save</button>
+</form>
+<p id="error"></p>
+<script src="/admin-codemirror.js"></script>
+<script type="module" src="/admin-fixture.js"></script>
+</html>
