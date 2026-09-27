@@ -3328,6 +3328,40 @@
         return true;
     }
 
+    function moveFromMediaSideClick(event, state) {
+        if (
+            event.button !== 0
+            || event.altKey
+            || event.ctrlKey
+            || event.metaKey
+            || event.shiftKey
+            || event.target !== state.body
+        ) {
+            return false;
+        }
+
+        const media = Array.from(state.body.childNodes).find((node) => {
+            if (!isMediaBoundaryElement(state.body, node)) {
+                return false;
+            }
+            const bounds = node.getBoundingClientRect();
+            return event.clientY >= bounds.top && event.clientY <= bounds.bottom;
+        });
+        if (!(media instanceof HTMLElement)) {
+            return false;
+        }
+
+        // A click beside a block image has no meaningful horizontal text
+        // position. Chromium-based browsers can nevertheless paint a native
+        // caret at the image's top-right DOM boundary. Treat the surrounding
+        // whitespace as the ordinary line after the image instead. This runs
+        // on pointerdown so the browser cannot overwrite the corrected range
+        // with its own boundary selection before the subsequent click.
+        event.preventDefault();
+        focusAfterMedia(state.body, media);
+        return true;
+    }
+
     function focusInlineMediaCaption(state, caption) {
         clearBoundaryCaret(state.body);
         clearSyntheticBoundaryCaret(state.body);
@@ -6365,6 +6399,11 @@
 
     document.addEventListener('pointerdown', (event) => {
         const target = event.target instanceof Element ? event.target : null;
+        const clickedCard = cardFor(target);
+        const clickedEditorState = clickedCard ? editorStates.get(clickedCard) : null;
+        if (clickedEditorState && moveFromMediaSideClick(event, clickedEditorState)) {
+            return;
+        }
         document.querySelectorAll('.post-card.is-editing').forEach((card) => {
             const state = editorStates.get(card);
             state?.mediaCaptionEditors.forEach((_controller, caption) => {

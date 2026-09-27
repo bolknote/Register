@@ -209,6 +209,48 @@ async function runAuthorWorkflowRegressions(browser, origin) {
         )), 'Курсор не пропал.');
         console.log('editor workflow: ArrowDown on the final empty line keeps its caret visible');
 
+        await page.evaluate(() => {
+            const state = window.setupEditorWorkflow(
+                '<div class="post-picture post-media-picture">'
+                + '<img width="320" height="180" alt="fixture" '
+                + 'src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==">'
+                + '<div class="post-caption"></div></div>'
+                + '<p class="post-editor-body-paragraph"><br></p>',
+            );
+            window.editorTest.prepareEditableMedia(state.body);
+            window.authorWorkflowState = state;
+        });
+        const clickPoint = await page.evaluate(() => {
+            const body = window.authorWorkflowState.body.getBoundingClientRect();
+            const media = window.authorWorkflowState.body
+                .querySelector('.post-media-picture').getBoundingClientRect();
+            return {
+                x: Math.max(media.right + 8, body.right - 12),
+                y: media.top + Math.min(24, media.height / 2),
+            };
+        });
+        await page.mouse.click(clickPoint.x, clickPoint.y);
+        assert.deepEqual(await page.evaluate(() => {
+            const state = window.authorWorkflowState;
+            const media = state.body.querySelector('.post-media-picture');
+            const paragraph = media?.nextElementSibling;
+            const selection = getSelection();
+            return {
+                selectionInParagraph: Boolean(selection?.anchorNode && paragraph?.contains(selection.anchorNode)),
+                visibleCaret: paragraph?.classList.contains('has-leading-boundary-caret') || false,
+                activeIsBody: document.activeElement === state.body,
+            };
+        }), {
+            selectionInParagraph: true,
+            visibleCaret: true,
+            activeIsBody: true,
+        });
+        await page.keyboard.insertText('Текст после клика рядом с картинкой.');
+        assert.equal(await page.evaluate(() => (
+            window.authorWorkflowState.body.lastElementChild?.textContent
+        )), 'Текст после клика рядом с картинкой.');
+        console.log('editor workflow: clicking beside a block image moves the caret below it');
+
         const lastParagraphText = 'Последний абзац.';
         await page.evaluate(() => {
             const state = window.setupEditorWorkflow(
