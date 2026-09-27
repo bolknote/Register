@@ -881,7 +881,7 @@ final class PostInplaceCest
         /** @var PostMediaRepository $mediaRegistry */
         $mediaRegistry = $I->grabService(PostMediaRepository::class);
         $originalDate = (new \DateTimeImmutable('1991-01-30 12:00:00'))->getTimestamp();
-        $updatedDate  = (new \DateTimeImmutable('2040-05-06 12:00:00'))->getTimestamp();
+        $updatedDate  = (new \DateTimeImmutable('2037-05-06 12:00:00'))->getTimestamp();
         $postId = $this->insertPost(
             $dbLayer,
             'redated-media-post',
@@ -942,7 +942,7 @@ final class PostInplaceCest
             $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
             $I->assertSame('media_redate', $payload['action']);
             $I->assertSame(
-                ['2040.05.06.png', '2040.05.06.1.wav'],
+                ['2037.05.06.png', '2037.05.06.1.wav'],
                 array_column($payload['media'], 'name'),
             );
             $I->assertFileDoesNotExist($oldImageFile);
