@@ -85,3 +85,12 @@ Eight asynchronous preview scenarios delay the initial template request until
 newer title/body changes are rendered. A stale success, HTTP error, network error,
 or malformed JSON response cannot replace the latest preview, in either admin
 editor mode.
+
+Nine lifecycle scenarios cover native reload after quota, oversized-copy or
+storage-access failures; cancelling the exit keeps the latest text, and recovery
+after storage becomes available needs no warning. Older image/audio copies fetch
+current URLs after another tab renames and publishes their uploads. PHP integration
+checks that this reconciliation preserves the files and their usage without
+renaming published attachments. Saving an admin article cancels pending AI title,
+tag, proofreading and image-alt requests; failed saves permit another attempt,
+and successful creation redirects without leaving a dirty, locked form.

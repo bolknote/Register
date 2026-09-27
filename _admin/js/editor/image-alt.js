@@ -152,7 +152,18 @@ export function initImageAlt(form, config) {
         render(image, currentState(image));
     }
 
+    document.addEventListener('save_article_start.register', function () {
+        requestStates.forEach(function (state, source) {
+            if (state.controller) {
+                state.controller.abort();
+                requestStates.delete(source);
+            }
+        });
+        syncWithCursor();
+    });
+
     async function generate(image) {
+        if (form.inert) return;
         const previous = requestStates.get(image.src);
         if (previous?.controller) {
             previous.controller.abort();
@@ -190,6 +201,7 @@ export function initImageAlt(form, config) {
             } catch {
                 throw new Error(config.requestFailed);
             }
+            if (controller.signal.aborted || requestStates.get(image.src) !== state) return;
             if (!response.ok || !responseData.success || typeof responseData.result !== 'string') {
                 throw new Error(config.requestFailed);
             }
@@ -210,7 +222,7 @@ export function initImageAlt(form, config) {
                 render(updated, requestStates.get(image.src));
             }
         } catch (error) {
-            if (error.name === 'AbortError') {
+            if (controller.signal.aborted || requestStates.get(image.src) !== state || error.name === 'AbortError') {
                 return;
             }
             requestStates.set(image.src, {

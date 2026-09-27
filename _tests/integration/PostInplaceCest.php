@@ -874,10 +874,12 @@ final class PostInplaceCest
             ->andWhere('content_id = :id')->setParameter('id', $ownId)->execute()->result());
     }
 
-    public function renamesPendingImageAndAudioWhenTheNoteDateChanges(\IntegrationTester $I): void
+    public function renamesPendingMediaAndReconcilesPublishedMediaAfterRecovery(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
         $dbLayer = $I->grabService(DbLayer::class);
+        /** @var PostMediaRepository $mediaRegistry */
+        $mediaRegistry = $I->grabService(PostMediaRepository::class);
         $originalDate = (new \DateTimeImmutable('1991-01-30 12:00:00'))->getTimestamp();
         $updatedDate  = (new \DateTimeImmutable('2040-05-06 12:00:00'))->getTimestamp();
         $postId = $this->insertPost(
@@ -951,12 +953,74 @@ final class PostInplaceCest
                 $I->assertFileExists($storedFiles[array_key_last($storedFiles)]);
             }
 
+            $renamedMedia = $payload['media'];
+            $mediaIds = array_column($renamedMedia, 'media_id');
+            $bodyFromMedia = static function (array $media): string {
+                return implode('', array_map(static function (array $file): string {
+                    $attributes = ' src="' . $file['url'] . '" data-post-media-id="' . $file['media_id'] . '"';
+
+                    return $file['kind'] === 'image' ? '<img' . $attributes . ' alt="">'
+                        : '<audio' . $attributes . ' controls></audio>';
+                }, $media));
+            };
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action' => 'edit',
+                'inplace_token'  => $token,
+                'revision'       => '1',
+                'title'          => 'Published media',
+                'body'           => $bodyFromMedia($renamedMedia),
+                'published_at'   => (string)$updatedDate,
+                'tags'           => '',
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $revision = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR)['revision'];
+
+            // A second tab restores its older copy after loading the new server revision.
+            // Its old date must not rename published files, but it still needs their URLs.
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action' => 'media_redate',
+                'inplace_token'  => $token,
+                'published_at'   => (string)$originalDate,
+                'media_ids'      => implode(',', $mediaIds),
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $reconciled = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR)['media'];
+            $I->assertSame($renamedMedia, $reconciled);
+            $I->assertSame([], $mediaRegistry->ownedUploads($mediaIds, $this->userId($dbLayer, 'admin')));
+
+            $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
+                'inplace_action'     => 'edit',
+                'inplace_token'      => $token,
+                'revision'           => (string)$revision,
+                'title'              => 'Restored copy',
+                'body'               => '<p>Local addition</p>' . $bodyFromMedia($reconciled),
+                'published_at'       => (string)$originalDate,
+                'uploaded_media_ids' => '',
+                'tags'               => '',
+            ]);
+            $I->seeResponseCodeIs(Response::HTTP_OK);
+            $restored = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+            $I->assertSame($revision + 1, $restored['revision']);
+            foreach ($renamedMedia as $media) {
+                $I->assertStringContainsString('src="' . $media['url'] . '"', $restored['body_html']);
+                $registered = $mediaRegistry->find($media['media_id']);
+                $I->assertNotNull($registered);
+                $I->assertSame(1, (int)$registered['usage_count']);
+                $I->assertSame(0, (int)$registered['pending']);
+                $I->assertFileExists($this->storedMediaPath($media['url']));
+            }
+            $I->assertFileDoesNotExist($oldImageFile);
+            $I->assertFileDoesNotExist($oldAudioFile);
+
             $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
                 'inplace_action' => 'media_release',
                 'inplace_token'  => $token,
                 'media_ids'      => $image['media_id'] . ',' . $audio['media_id'],
             ]);
             $I->seeResponseCodeIs(Response::HTTP_OK);
+            foreach ($renamedMedia as $media) {
+                $I->assertFileExists($this->storedMediaPath($media['url']));
+            }
         } finally {
             foreach ([$png, $wav, ...$storedFiles] as $filename) {
                 if (is_file($filename)) {

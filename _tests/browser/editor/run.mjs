@@ -6,6 +6,7 @@ import {runSaveRegressions} from './save-tests.mjs';
 import {runReviewRegressions} from './review-tests.mjs';
 import {runRecoveryPreviewRegressions} from './recovery-preview-tests.mjs';
 import {runAsyncPreviewRegressions} from './async-preview-tests.mjs';
+import {runLifecycleRegressions} from './lifecycle-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -372,6 +373,7 @@ try {
             await runReviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRecoveryPreviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAsyncPreviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runLifecycleRegressions(browser, `http://127.0.0.1:${server.address().port}`);
         } finally {
             await browser.close();
         }

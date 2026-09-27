@@ -6687,6 +6687,16 @@
         syncBoundaryCaret();
     }, false);
 
+    window.addEventListener('beforeunload', (event) => {
+        document.querySelectorAll('.post-card.is-editing').forEach((card) => {
+            const state = editorStates.get(card);
+            if (state && editorHasUnsavedChanges(state) && !state.recovery?.persist()) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
+    });
+
     window.addEventListener('pagehide', (event) => {
         recoverySessions.forEach(state => state.recovery?.persist());
         if (event.persisted) {

@@ -279,15 +279,19 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $uploads = $this->mediaRepository->releasableUploads(
-            $this->mediaIds($request->request->getString('media_ids')),
-            $editor->id,
-        );
+        $mediaIds = $this->mediaIds($request->request->getString('media_ids'));
         $moves = [];
         $payload = [];
         try {
-            $updated = $this->transactional(function () use ($uploads, $publishedAt, &$moves, &$payload): bool {
+            $updated = $this->transactional(function () use ($mediaIds, $editor, $publishedAt, &$moves, &$payload): bool {
+                $uploads = $this->mediaRepository->ownedUploads($mediaIds, $editor->id);
                 foreach ($uploads as $media) {
+                    // Another tab may have renamed and published this upload.
+                    // Reconcile its URL without moving a file already used by a post.
+                    if (!(bool)$media['pending'] || (int)$media['usage_count'] !== 0) {
+                        $payload[] = $this->mediaPayload($media);
+                        continue;
+                    }
                     $move = $this->mediaStorage->redateCanonical((string)$media['storage_path'], $publishedAt);
                     $moves[] = $move;
                     if ($move['from'] !== $move['to']) {

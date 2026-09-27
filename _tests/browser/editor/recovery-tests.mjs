@@ -16,7 +16,13 @@ export async function runRecoveryRegressions(browser, origin) {
     };
     const reset = async () => {
         await page.evaluate(() => {
-            document.querySelectorAll('.post-card.is-editing').forEach(card => window.editorTest.editorStates.get(card)?.recovery?.stop(true));
+            document.querySelectorAll('.post-card.is-editing').forEach(card => {
+                const state = window.editorTest.editorStates.get(card);
+                if (state) {
+                    state.recovery?.stop(true);
+                    window.editorTest.stopEditing(state);
+                }
+            });
             localStorage.clear();
         });
         await open();

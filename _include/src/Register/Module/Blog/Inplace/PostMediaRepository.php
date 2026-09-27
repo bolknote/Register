@@ -165,6 +165,25 @@ final readonly class PostMediaRepository
         return $this->unusedOwnedRows(array_values(array_unique($mediaIds)), $editorId, true);
     }
 
+    /**
+     * Includes published uploads so a restored copy can recover their current URLs.
+     *
+     * @param list<int> $mediaIds
+     * @return list<array<string, mixed>>
+     */
+    public function ownedUploads(array $mediaIds, int $editorId): array
+    {
+        $rows = [];
+        foreach (array_unique($mediaIds) as $mediaId) {
+            $media = $this->find($mediaId);
+            if ($media !== null && (int)$media['uploaded_by'] === $editorId) {
+                $rows[] = $media;
+            }
+        }
+
+        return $rows;
+    }
+
     public function deleteUnused(int $mediaId): bool
     {
         return $this->dbLayer

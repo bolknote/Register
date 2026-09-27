@@ -29,7 +29,17 @@ export function initAiTools(form, config) {
         status.classList.toggle('is-error', !!error);
     }
 
+    document.addEventListener('save_article_start.register', function () {
+        if (activeController) {
+            activeController.abort();
+            activeController = null;
+            setBusy(false);
+            setStatus('', false);
+        }
+    });
+
     async function runAction(action) {
+        if (form.inert) return;
         const snapshot = register_codemirror.getSelectionSnapshot();
         if (snapshot.text.trim() === '') {
             setStatus(config.emptyText, true);
@@ -68,6 +78,7 @@ export function initAiTools(form, config) {
             } catch {
                 throw new Error(config.requestFailed);
             }
+            if (controller.signal.aborted || activeController !== controller) return;
             if (!response.ok || !responseData.success || typeof responseData.result !== 'string') {
                 throw new Error(responseData && responseData.message ? responseData.message : config.requestFailed);
             }
@@ -120,7 +131,7 @@ export function initAiTools(form, config) {
                 setStatus('', false);
             }
         } catch (error) {
-            if (error.name !== 'AbortError') {
+            if (!controller.signal.aborted && activeController === controller && error.name !== 'AbortError') {
                 setStatus(error.message || config.requestFailed, true);
             }
         } finally {

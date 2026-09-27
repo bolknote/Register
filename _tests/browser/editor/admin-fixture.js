@@ -2,6 +2,7 @@ import {setEditorDeps} from '/admin/editor/deps.js';
 import {initArticleEditForm} from '/admin/editor/form.js';
 import {register_codemirror} from '/admin/editor/codemirror.js';
 import {initAiTools} from '/admin/editor/ai.js';
+import {initImageAlt} from '/admin/editor/image-alt.js';
 
 const params = new URL(location.href).searchParams;
 setEditorDeps({
@@ -32,6 +33,13 @@ if (params.has('ai')) {
     initAiTools(form, {
         enabled: true, entityName: 'Post', contentId: Number(id), url: '/admin-ai',
         working: 'Working', requestFailed: 'Failed', sourceChanged: 'The source text has changed.',
+    });
+}
+if (params.has('alt')) {
+    initImageAlt(form, {
+        enabled: true, entityName: 'Post', contentId: Number(id), url: '/admin-ai-alt',
+        generating: 'Generating alt', requestFailed: 'Alt failed', edit: 'Edit alt',
+        preview: 'Image preview', empty: 'Empty alt', regenerate: 'Regenerate alt', retry: 'Retry alt',
     });
 }
 window.adminEditor = register_codemirror;
