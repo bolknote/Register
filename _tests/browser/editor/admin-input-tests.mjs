@@ -7,7 +7,7 @@ export async function runAdminInputRegressions(browser, origin) {
         const context = await browser.newContext();
         const page = await context.newPage();
         page.setDefaultTimeout(10000);
-        page.on('pageerror', error => errors.push(String(error)));
+        page.on('pageerror', error => errors.push(`${params}: ${error.stack || String(error)}`));
         await page.goto(origin + '/admin.html?id=9&codemirror=1&toolbar=1' + params);
         await page.waitForFunction(() => window.adminEditorReady);
         try { await run(page); }
@@ -96,7 +96,11 @@ export async function runAdminInputRegressions(browser, origin) {
         assert.equal(await source.inputValue(), 'Cameras, Travel, Notes');
         await input.fill('Discard on reset');
         await page.evaluate(() => document.querySelector('form').reset());
-        await page.waitForFunction(() => document.querySelector('.editor-tags-text-input').value === '');
+        await page.waitForFunction(() => (
+            document.querySelector('.editor-tags-text-input').value === ''
+            && document.querySelector('[name="tags"]').value === 'old'
+            && Array.from(document.querySelectorAll('.editor-tag-chip-label'), label => label.textContent).join() === 'old'
+        ));
         assert.equal(await source.inputValue(), 'old');
         assert.deepEqual(await page.locator('.editor-tag-chip-label').allTextContents(), ['old']);
     });
