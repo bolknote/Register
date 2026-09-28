@@ -3143,14 +3143,14 @@
         });
     }
 
-    function createFieldHistory(state, field, controller, onRestore = null) {
+    function createFieldHistory(state, field, controller, restoreCallback = null) {
         const history = createBodyHistory({
             ...state,
             body: field,
             contextMenu: null,
             imageCaptionEditor: null,
             mediaCaptionEditors: new Map(),
-        }, onRestore);
+        }, restoreCallback);
         const keydown = (event) => {
             if (!selectionIsInside(field) || event.isComposing || event.altKey || !(event.ctrlKey || event.metaKey)) return;
             const key = String(event.key || '').toLowerCase();
@@ -4411,7 +4411,7 @@
     // cannot see wrapping a <tt>, unlinking a node, or finishing an async upload.
     // Keep DOM clones (not reparsed HTML) and both selection endpoints; reparsing
     // browser-generated editing HTML can change its structure and caret offsets.
-    function createBodyHistory(state, onRestore = null) {
+    function createBodyHistory(state, restoreCallback = null) {
         const uploads = new Map();
         const liveImages = new WeakMap();
         const ignored = '[data-post-inline-code-exit], .post-editor-context-anchor';
@@ -4566,7 +4566,7 @@
             clearError(state.form);
             clearStatus(state.card);
             syncBoundaryCaret();
-            onRestore?.();
+            restoreCallback?.();
             return true;
         }
         function trackUpload(pending) {
