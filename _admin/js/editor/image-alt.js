@@ -8,7 +8,6 @@ export function initImageAlt(form, config) {
     }
 
     const requestStates = new Map();
-    let activeWidget = null;
     let activeRoot = null;
     let activeImage = null;
     let activeEdit = null;
@@ -27,10 +26,7 @@ export function initImageAlt(form, config) {
     }
 
     function clearWidget() {
-        if (activeWidget) {
-            activeWidget.clear();
-        }
-        activeWidget = null;
+        activeRoot?.remove();
         activeRoot = null;
         activeImage = null;
     }
@@ -116,11 +112,7 @@ export function initImageAlt(form, config) {
         // Removing a focused input does not reliably fire blur (notably in
         // Firefox). Let the author finish it before replacing the widget.
         if (keepActiveEdit()) return;
-        const reuseWidget = activeWidget && activeRoot && activeImage?.target === image.target
-            && activeImage.line === image.line;
-        if (!reuseWidget) clearWidget();
-
-        const root = reuseWidget ? activeRoot : document.createElement('div');
+        const root = activeRoot || document.createElement('div');
         root.replaceChildren();
         root.className = 'ai-image-alt-preview';
         root.dataset.state = state.status;
@@ -166,8 +158,14 @@ export function initImageAlt(form, config) {
             overlay.append(altText, regenerate);
         }
 
-        if (!reuseWidget) {
-            activeWidget = register_codemirror.addLineWidget(image.line, root);
+        if (!activeRoot) {
+            // A CodeMirror line widget is physically inside its contenteditable
+            // DOM. Focusing and then replacing an input there while CodeMirror
+            // reconciles a save can corrupt its internal DOM snapshot. Keep the
+            // interactive preview next to the editor, outside that boundary.
+            const editor = form.querySelector('.CodeMirror');
+            if (!editor) return;
+            editor.insertAdjacentElement('afterend', root);
             activeRoot = root;
         }
         activeImage = image;
