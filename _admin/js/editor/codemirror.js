@@ -6,6 +6,7 @@
  * @package   Register
  */
 import {smartParagraphs} from './text/paragraphs.js';
+import {htmlTags, htmlAttribute, paragraphBlocks, formatParagraph} from './text/html.js';
 import {editorDeps} from './deps.js';
 import {escapeHtml} from './utils/escape.js';
 
@@ -54,8 +55,8 @@ const register_codemirror = (function () {
     }
 
     function readImageAttribute(tag, name) {
-        const match = tag.match(new RegExp('\\b' + name + '\\s*=\\s*(["\\\'])([\\s\\S]*?)\\1', 'i'));
-        return match ? decodeHtmlAttribute(match[2]) : '';
+        const attribute = htmlAttribute(tag, name);
+        return attribute ? decodeHtmlAttribute(attribute.value) : '';
     }
 
     function imageTags() {
@@ -76,22 +77,20 @@ const register_codemirror = (function () {
         const content = instance.getValue();
         const images = [];
         const retained = new Set();
-        const pattern = /<img\b[^>]*>/gi;
-        let match;
-        while ((match = pattern.exec(content)) !== null) {
-            const end = match.index + match[0].length;
-            const target = targetsByRange.get(`${match.index}:${end}`) || {
-                marker: doc.markText(doc.posFromIndex(match.index), doc.posFromIndex(end))
+        for (const tag of htmlTags(content)) {
+            if (tag.name !== 'img' || tag.closing) continue;
+            const target = targetsByRange.get(`${tag.start}:${tag.end}`) || {
+                marker: doc.markText(doc.posFromIndex(tag.start), doc.posFromIndex(tag.end))
             };
             imageTargets.add(target);
             retained.add(target);
             images.push({
-                src: readImageAttribute(match[0], 'src'),
-                alt: readImageAttribute(match[0], 'alt'),
-                tag: match[0],
-                start: match.index,
-                end,
-                line: doc.posFromIndex(match.index).line,
+                src: readImageAttribute(tag.text, 'src'),
+                alt: readImageAttribute(tag.text, 'alt'),
+                tag: tag.text,
+                start: tag.start,
+                end: tag.end,
+                line: doc.posFromIndex(tag.start).line,
                 target
             });
         }
@@ -394,12 +393,11 @@ const register_codemirror = (function () {
             }
 
             const escapedAlt = escapeHtml(nextAlt);
-            const altPattern = /\balt\s*=\s*(["'])([\s\S]*?)\1/i;
+            const alt = htmlAttribute(image.tag, 'alt');
             let updatedTag;
-            if (altPattern.test(image.tag)) {
-                updatedTag = image.tag.replace(altPattern, function (attribute, quote) {
-                    return 'alt=' + quote + escapedAlt + quote;
-                });
+            if (alt) {
+                updatedTag = image.tag.slice(0, alt.start) + 'alt=' + alt.quote + escapedAlt + alt.quote
+                    + image.tag.slice(alt.end);
             } else {
                 updatedTag = image.tag.replace(/\s*\/?>(?=\s*$)/, function (ending) {
                     return ' alt="' + escapedAlt + '"' + (ending.includes('/') ? ' />' : '>');
@@ -550,17 +548,22 @@ const register_codemirror = (function () {
                 return false;
 
             if (instance.somethingSelected()) {
-                const replacements = instance.getSelections().map(text => text.replace(
-                    /^(?:[ ]*<(?:p|blockquote|h[2-4])[^>]*>)?([\s\S]*?)(?:<\/(?:p|blockquote|h[2-4])>)?[ ]*$/,
-                    sOpenTag + '$1' + sCloseTag
-                ));
+                const replacements = instance.getSelections().map(text => formatParagraph(text, sOpenTag, sCloseTag));
                 instance.replaceSelections(replacements, 'around', 'editor-format');
             } else {
-                var cursor = instance.getCursor(),
-                    totalLineNum = instance.lineCount(),
-                    currentLine = instance.getLine(cursor.line);
+                const cursor = instance.getCursor();
+                const totalLineNum = instance.lineCount();
+                const currentLine = instance.getLine(cursor.line);
+                const doc = instance.getDoc();
+                const source = instance.getValue();
+                const position = doc.indexFromPos(cursor);
+                const blocks = paragraphBlocks(source);
+                // Use the innermost enclosing element, even when adjacent
+                // blocks share a line or have no blank line between them.
+                let block = blocks.filter(block => block.start <= position && position <= block.end)
+                    .sort((a, b) => b.start - a.start)[0];
 
-                if (currentLine.replace(/^\s+|\s+$/g, '') === '') {
+                if (!block && currentLine.trim() === '') {
                     // Empty line
                     if ((totalLineNum <= cursor.line + 1 || instance.getLine(cursor.line + 1).replace(/^\s+|\s+$/g, '') === '') &&
                         (cursor.line <= 0 || instance.getLine(cursor.line - 1).replace(/^\s+|\s+$/g, '') === '')) {
@@ -573,63 +576,33 @@ const register_codemirror = (function () {
                         instance.setCursor(cursor.line, sOpenTag.length);
                     }
                 } else {
-                    // Cursor is on a non-empty line.
-                    // Find non-empty lines before this line.
-                    for (var i = cursor.line; i--;) {
-                        if (instance.getLine(i).trim() === '') {
-                            break;
+                    if (!block) {
+                        let first = cursor.line;
+                        let last = cursor.line;
+                        while (first > 0 && instance.getLine(first - 1).trim() !== '') first--;
+                        while (last + 1 < totalLineNum && instance.getLine(last + 1).trim() !== '') last++;
+                        let start = doc.indexFromPos({line: first, ch: 0});
+                        let end = doc.indexFromPos({line: last, ch: instance.getLine(last).length});
+                        // Untagged text retains blank-line formatting without
+                        // absorbing a neighbouring complete HTML block.
+                        for (const neighbour of blocks) {
+                            if (neighbour.end <= position) start = Math.max(start, neighbour.end);
+                            if (neighbour.start >= position) end = Math.min(end, neighbour.start);
                         }
+                        const text = source.slice(start, end);
+                        // Leave separator lines outside the new block, but keep
+                        // indentation and trailing spaces in preformatted text.
+                        start += text.match(/^[ \t]*\n/)?.[0].length || 0;
+                        end -= text.match(/\n[ \t]*$/)?.[0].length || 0;
+                        block = {start, end, contentStart: start, contentEnd: end};
                     }
-                    i++;
-
-                    var newLinesBuffer = [],
-                        firstLine = instance.getLine(i),
-                        startLineIndex = i,
-                        firstLineOldLength = firstLine.length;
-
-                    // Process first line and add to buffer
-                    firstLine = sOpenTag + firstLine.replace(/^[ ]*<(?:p|blockquote|h[2-4])[^>]*>/, '');
-                    newLinesBuffer.push(firstLine);
-
-                    // Find all non-empty lines after.
-                    for (i++; i < totalLineNum; i++) {
-                        var line = instance.getLine(i);
-                        if (line.trim() === '') {
-                            break;
-                        }
-                        // Add middle lines to buffer as is
-                        newLinesBuffer.push(line);
-                    }
-                    i--;
-
-                    var lastLine = newLinesBuffer[newLinesBuffer.length - 1],
-                        lastLineLength = (i === startLineIndex ? firstLineOldLength : lastLine.length);
-
-                    // Process last line and replace in stored buffer
-                    lastLine = lastLine.replace(/(?:<\/(?:p|blockquote|h[2-4])>)?[ ]*$/, '') + sCloseTag;
-                    newLinesBuffer[newLinesBuffer.length - 1] = lastLine;
-
-                    // We know the positions of old text and the new text
-                    instance.replaceRange(
-                        newLinesBuffer.join("\n"),
-                        {line: startLineIndex, ch: 0},
-                        {line: i, ch: lastLineLength},
-                        '*replaceparagraph'
-                    );
-
-                    // Restore position of cursor inside shifted text
-                    if (cursor.line === startLineIndex) {
-                        cursor.ch += firstLine.length - firstLineOldLength;
-                        if (cursor.ch < sOpenTag.length) {
-                            cursor.ch = sOpenTag.length;
-                        }
-                        instance.setCursor(cursor, '*replaceparagraph');
-                    } else if (cursor.line === i) {
-                        if (cursor.ch > lastLine.length - sCloseTag.length) {
-                            cursor.ch = lastLine.length - sCloseTag.length;
-                        }
-                        instance.setCursor(cursor, '*replaceparagraph');
-                    }
+                    const content = source.slice(block.contentStart, block.contentEnd);
+                    const offset = Math.max(0, Math.min(content.length, position - block.contentStart));
+                    instance.operation(function () {
+                        instance.replaceRange(sOpenTag + content + sCloseTag,
+                            doc.posFromIndex(block.start), doc.posFromIndex(block.end), 'editor-format');
+                        instance.setCursor(doc.posFromIndex(block.start + sOpenTag.length + offset));
+                    });
                 }
             }
 

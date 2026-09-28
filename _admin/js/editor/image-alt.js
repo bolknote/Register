@@ -183,6 +183,11 @@ export function initImageAlt(form, config) {
         syncWithCursor();
     });
 
+    // Exit checks must see the pending description even if removing the page
+    // never blurs its input. Capture also runs before the form's pagehide copy.
+    document.addEventListener('changes_present.register', () => activeEdit?.finish(true));
+    window.addEventListener('pagehide', () => activeEdit?.finish(true), {capture: true});
+
     async function generate(image) {
         if (form.inert) return;
         const current = register_codemirror.getTrackedImage(image);

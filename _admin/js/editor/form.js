@@ -204,8 +204,10 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
     var Changes = (function () {
         const eTextarea = eForm.elements[sTextareaName];
         const eTitle = eForm.elements['title'];
-        let savedText = eTextarea.value;
-        let previousText = savedText;
+        // Firefox can restore an unsaved textarea value before initialization.
+        // Only the server-rendered default is the saved body in that case.
+        let savedText = eTextarea.defaultValue;
+        let previousText = eTextarea.value;
         let previousTitle = eTitle.value;
         let currentFormHash = '';
         let lastDraft = null;
@@ -322,7 +324,9 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         const recoveredText = readDraft();
         lastDraft = recoveredText;
         lastPersistedText = recoveredText ?? savedText;
-        currentFormHash = getFormHash();
+        const initialFormData = new FormData(eForm);
+        initialFormData.set(sTextareaName, savedText);
+        currentFormHash = getFormHash(initialFormData);
         wireLivePreview();
 
         if (recoveredText !== null && recoveredText !== savedText) {

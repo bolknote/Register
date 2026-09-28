@@ -119,3 +119,12 @@ with one undo step. Delayed image-alt successes and failures preserve an open
 description field, its focus and selection in both browsers; Enter, Escape and
 blur retain their usual meaning. Saving commits the open field before capturing
 the body and cancels pending generation.
+
+Twenty-eight HTML editor scenarios cover native reload and pagehide with an
+unfinished image description, cancellation, undo, and Firefox's restoration of
+unsaved textarea values. Block formatting respects adjacent and nested elements,
+same-line blocks, plain multiline text, selections and the caret, and round trips
+through preformatted text, including its indentation and trailing spaces. Image
+descriptions preserve quoted attribute boundaries and unrelated attributes through
+manual edits, delayed AI, undo and redo. Literal image markup in comments, raw-text
+elements and attributes stays untouched.

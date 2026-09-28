@@ -146,10 +146,8 @@ export async function runAdminInputRegressions(browser, origin) {
             assert.equal(await value(page), original);
             await page.getByRole('button', {name: 'Redo', exact: true}).click();
             assert.equal(await value(page), expected);
-            if (tag !== 'pre') {
-                await page.getByRole('button', {name: 'Heading 2', exact: true}).click();
-                assert.equal(await value(page), '<h2>alpha</h2> tail\n<h2>bravo</h2> tail');
-            }
+            await page.getByRole('button', {name: 'Heading 2', exact: true}).click();
+            assert.equal(await value(page), '<h2>alpha</h2> tail\n<h2>bravo</h2> tail');
         });
         console.log(`admin blocks: ${label} transforms each range independently with undo/redo`);
     }
