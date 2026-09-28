@@ -148,6 +148,7 @@ return [
     'AI request failed' => 'Unable to get a response from AI.',
     'AI result unchanged' => 'AI did not change the text.',
     'AI source changed' => 'The source changed after the request was sent. Run the action again.',
+    'AI media pending' => 'Wait for images and audio to finish uploading.',
     'AI changes applied' => 'AI changes applied.',
     'AI proofreading clean' => 'No errors found.',
     'AI image alt working' => 'AI is creating alt text…',

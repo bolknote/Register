@@ -27,6 +27,7 @@ $config = [
     'aiFailed' => $trans('AI request failed'),
     'aiUnchanged' => $trans('AI result unchanged'),
     'aiSourceChanged' => $trans('AI source changed'),
+    'aiMediaPending' => $trans('AI media pending'),
     'aiApplied' => $trans('AI changes applied'),
     'aiProofreadClean' => $trans('AI proofreading clean'),
     'aiAltWorking' => $trans('AI image alt working'),

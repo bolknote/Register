@@ -148,6 +148,7 @@ return [
     'AI request failed' => 'Не удалось получить ответ от ИИ.',
     'AI result unchanged' => 'ИИ не изменил текст.',
     'AI source changed' => 'Текст изменился после отправки запроса. Запустите действие ещё раз.',
+    'AI media pending' => 'Дождитесь завершения загрузки изображений и аудио.',
     'AI changes applied' => 'Изменения ИИ применены.',
     'AI proofreading clean' => 'Ошибок не найдено.',
     'AI image alt working' => 'ИИ создаёт alt-текст…',

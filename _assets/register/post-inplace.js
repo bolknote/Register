@@ -2786,12 +2786,15 @@
             if (!/[,;\n]/u.test(pasted)) {
                 return;
             }
-            const additions = normalizeTags(pasted);
-            if (additions === null) {
-                return;
+            const value = input.value;
+            const start = input.selectionStart ?? value.length;
+            const end = input.selectionEnd ?? start;
+            const next = value.slice(0, start) + pasted + value.slice(end);
+            // Only consume a paste that can be committed in full. Otherwise
+            // native insertion leaves the unfinished text available to correct.
+            if (add(next)) {
+                event.preventDefault();
             }
-            event.preventDefault();
-            add(pasted);
         });
         input.addEventListener('blur', () => {
             setTimeout(() => {
@@ -5946,6 +5949,18 @@
 
         const usesSelection = context.selected && !['tags', 'title'].includes(action);
         const sourceRange = usesSelection ? context.range.cloneRange() : null;
+        // Upload placeholders belong to live requests. Sending their HTML to AI
+        // and then replacing it would detach those requests from the editor.
+        // A selection outside the uploads can still be processed independently.
+        if (
+            state.mediaUploads.size > 0
+            && Array.from(state.body.querySelectorAll('[data-post-history-upload]'))
+                .some((pending) => !sourceRange || sourceRange.intersectsNode(pending))
+        ) {
+            closeContextMenu(state, false);
+            showEditorStatus(state, editorConfig().aiMediaPending || 'Wait for images and audio to finish uploading.', true);
+            return;
+        }
         const source = sourceRange ? htmlForRange(sourceRange) : editableBodyHtml(state);
         const sourceText = textFromHtml(source);
         const wholeSource = editableBodyHtml(state);

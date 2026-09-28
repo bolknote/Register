@@ -292,9 +292,13 @@ export function initTagsInput(config) {
         if (!pastedText || !/[,;\n]/u.test(pastedText)) {
             return;
         }
+        const value = input.value;
+        const start = input.selectionStart ?? value.length;
+        const end = input.selectionEnd ?? start;
+        const next = value.slice(0, start) + pastedText + value.slice(end);
         event.preventDefault();
         input.value = '';
-        addTags(parseTags(pastedText));
+        addTags(parseTags(next));
         renderSuggestions(true);
     });
     input.addEventListener('blur', function () {

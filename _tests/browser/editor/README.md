@@ -160,3 +160,13 @@ retains individual image nodes so pending AI descriptions survive undo/redo with
 repeated requests, including identical images and a deletion undone before the
 reply. Deleted images and manual descriptions still reject stale responses;
 generated descriptions remain undoable and persist through recovery and saving.
+
+Eight media/AI scenarios cover pending image and audio uploads. AI actions whose
+source includes a pending upload ask the author to wait; selected text outside it
+can still be processed. Uploads started after an AI request reject a stale reply.
+After completion, AI works normally and keeps the attachment through undo/redo,
+recovery and saving, without serializing temporary progress markup or blob URLs.
+Ten tag-paste scenarios cover both editors: insertion at either edge, partial and
+full selections, separators, normalization, duplicates, failed saves and retry.
+The public editor falls back to native paste when the combined text is invalid
+or exceeds the tag limit, preserving the input for correction.
