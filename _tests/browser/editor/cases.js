@@ -525,11 +525,12 @@ test('clicking an empty last-image caption then Enter starts an ordinary body pa
     caption.click();
     await frame();
     ok(caption.contains(getSelection().anchorNode), 'Clicking the placeholder must select the nested caption editor');
-    equal(s.body.getAttribute('contenteditable'), 'true', 'The surrounding post remains editable');
+    ok(caption.isContentEditable, 'The active caption accepts input');
 
     const leave = new KeyboardEvent('keydown', {key: 'Enter', bubbles: true, cancelable: true});
     document.activeElement.dispatchEvent(leave);
     equal(leave.defaultPrevented, true, 'The first Enter after clicking the empty caption must be handled');
+    equal(s.body.getAttribute('contenteditable'), 'true', 'Leaving the caption restores body editing');
     equal(caption.textContent, '', 'Leaving an empty caption does not create caption content');
     ok(caption.classList.contains('is-inline-caption-entry'), 'The empty caption remains available as a placeholder');
 

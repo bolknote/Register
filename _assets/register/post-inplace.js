@@ -2023,7 +2023,10 @@
         closeContextMenu(state, false);
         state.imageCaptionEditor?.controller.abort();
         state.imageCaptionEditor = null;
-        state.mediaCaptionEditors.forEach((editor) => editor.controller.abort());
+        state.mediaCaptionEditors.forEach((editor) => {
+            editor.controller.abort();
+            editor.history?.destroy();
+        });
         state.mediaCaptionEditors.clear();
         state.aiController?.abort();
         state.aiController = null;
@@ -3053,6 +3056,7 @@
         }
         state.mediaCaptionEditors.delete(caption);
         editor.controller.abort();
+        editor.history?.destroy();
         const selection = window.getSelection();
         const selectionWasInside = Boolean(selection?.anchorNode && caption.contains(selection.anchorNode));
         if (document.activeElement === caption) {
@@ -3068,9 +3072,17 @@
             caption,
             editorConfig().mediaCaptionPlaceholder || 'Add a caption…',
         );
+        if (editor.bodyContentEditable === null) {
+            state.body.removeAttribute('contenteditable');
+        } else {
+            state.body.setAttribute('contenteditable', editor.bodyContentEditable);
+        }
         if (text !== editor.original) {
             markBodyChanged(state);
         }
+        // History was suspended even for an unchanged caption. Retain async
+        // changes that arrived during the session before the next undo.
+        state.history?.record();
 
         if (restoreFocus) {
             const media = caption.closest('.post-media-picture');
@@ -3091,11 +3103,21 @@
             focusInlineMediaCaption(state, caption);
             return;
         }
+        finishInlineMediaCaptions(state);
+        finishImageCaptionEditing(state, true, false);
         state.history?.before();
         const controller = new AbortController();
         const placeholder = editorConfig().mediaCaptionPlaceholder || 'Add a caption…';
         const original = inlineMediaCaptionText(caption);
-        state.mediaCaptionEditors.set(caption, {controller, original});
+        const editor = {
+            controller,
+            original,
+            bodyContentEditable: state.body.getAttribute('contenteditable'),
+        };
+        state.mediaCaptionEditors.set(caption, editor);
+        // Give Select All its own editing host. Native undo can still cross host
+        // boundaries in Firefox, so keep a separate bounded caption history too.
+        state.body.setAttribute('contenteditable', 'false');
         clearInlineMediaCaptionAttributes(caption);
         caption.classList.add('is-editing-inline-caption');
         caption.setAttribute('contenteditable', 'true');
@@ -3105,6 +3127,13 @@
         caption.setAttribute('spellcheck', 'true');
         caption.setAttribute('tabindex', '0');
         caption.dataset.placeholder = placeholder;
+        editor.history = createBodyHistory({
+            ...state,
+            body: caption,
+            contextMenu: null,
+            imageCaptionEditor: null,
+            mediaCaptionEditors: new Map(),
+        });
         const selectionIsInside = () => {
             const selection = window.getSelection();
             const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
@@ -3117,6 +3146,19 @@
         const keydown = (event) => {
             if (!selectionIsInside()) {
                 return;
+            }
+            if (!event.isComposing && !event.altKey && (event.ctrlKey || event.metaKey)) {
+                const key = String(event.key || '').toLowerCase();
+                const undo = !event.shiftKey && (event.code === 'KeyZ' || key === 'z');
+                const redo = editorPlatform === 'windows'
+                    ? !event.shiftKey && (event.code === 'KeyY' || key === 'y')
+                    : event.shiftKey && (event.code === 'KeyZ' || key === 'z');
+                if (undo || redo) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    editor.history[undo ? 'undo' : 'redo']();
+                    return;
+                }
             }
             if (moveFromInlineMediaCaption(event, state, caption)) {
                 return;
@@ -3146,9 +3188,26 @@
         };
         caption.addEventListener('keydown', keydown, {signal: controller.signal});
         caption.addEventListener('paste', paste, {signal: controller.signal});
-        // Chromium keeps the outer editing host focused when a nested caption is
-        // selected. Route its keyboard and clipboard events by the live selection
-        // so Enter cannot become a browser-created line inside the caption.
+        caption.addEventListener('beforeinput', (event) => {
+            if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
+                event.preventDefault();
+                editor.history[event.inputType === 'historyUndo' ? 'undo' : 'redo']();
+            } else {
+                editor.history.before(event.inputType);
+            }
+        }, {signal: controller.signal});
+        caption.addEventListener('input', (event) => {
+            editor.history.record(event.inputType);
+        }, {signal: controller.signal});
+        caption.addEventListener('blur', () => {
+            window.setTimeout(() => {
+                if (state.mediaCaptionEditors.has(caption) && document.activeElement !== caption) {
+                    finishInlineMediaCaption(state, caption, false);
+                }
+            }, 0);
+        }, {signal: controller.signal});
+        // Retain selection-based routing for browsers that deliver caption keys
+        // or clipboard events through the outer body.
         state.body.addEventListener('keydown', keydown, {signal: controller.signal});
         state.body.addEventListener('paste', paste, {signal: controller.signal});
     }
@@ -3588,6 +3647,8 @@
     }
 
     function insertMediaFiles(state, files, initialRange) {
+        finishInlineMediaCaptions(state);
+        finishImageCaptionEditing(state, true, false);
         state.history?.before();
         clearError(state.form);
         clearStatus(state.card);
@@ -6249,8 +6310,8 @@
         if (handleEditingSaveShortcut(event, state)) {
             return true;
         }
-        // A caption is a nested editing session; its native typing history stays
-        // local until commit adds a single operation to the post's history.
+        // Caption sessions handle their own typing history until commit adds
+        // a single operation to the post's history.
         if (event.target instanceof Element && event.target.closest('.is-editing-caption, .is-editing-inline-caption')) {
             return false;
         }
@@ -6413,9 +6474,6 @@
         const target = event.target instanceof Element ? event.target : null;
         const clickedCard = cardFor(target);
         const clickedEditorState = clickedCard ? editorStates.get(clickedCard) : null;
-        if (clickedEditorState && moveFromMediaSideClick(event, clickedEditorState)) {
-            return;
-        }
         document.querySelectorAll('.post-card.is-editing').forEach((card) => {
             const state = editorStates.get(card);
             state?.mediaCaptionEditors.forEach((_controller, caption) => {
@@ -6429,6 +6487,9 @@
                 finishImageCaptionEditing(state, true, false);
             }
         });
+        if (clickedEditorState) {
+            moveFromMediaSideClick(event, clickedEditorState);
+        }
     }, true);
 
     document.addEventListener('click', (event) => {

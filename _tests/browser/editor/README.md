@@ -129,10 +129,16 @@ descriptions preserve quoted attribute boundaries and unrelated attributes throu
 manual edits, delayed AI, undo and redo. Literal image markup in comments, raw-text
 elements and attributes stays untouched.
 
-Seventeen public caption/input scenarios cover concurrent AI descriptions when
+Twenty-eight public caption/input scenarios cover concurrent AI descriptions when
 an overlay caption is cancelled or committed unchanged, including undo/redo,
 recovery and saving. Clean cancellation restores text and styles without adding
 an edit, while retaining earlier body changes. Ctrl/Cmd+S works from overlay and
 inline captions and the image-alt field, including failed saves and retries.
 Home/End, selection and arrow keys stay in alt and link inputs; keyboard menu
 navigation, Enter and Escape keep their usual behavior.
+Inline captions isolate Select All and keep a bounded undo/redo history until
+commit adds one post-history step. Keyboard and beforeinput undo cannot modify
+earlier body edits. Unchanged captions retain concurrent AI descriptions when
+finished with Enter, Escape or Tab; undo, redo, recovery and saving preserve them.
+Leaving by Tab, clicking the body or beside an image, dropping media, and switching
+captions restore body editing and retain each caption as a separate undo step.

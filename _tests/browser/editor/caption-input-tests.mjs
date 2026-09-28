@@ -65,6 +65,184 @@ export async function runCaptionInputRegressions(browser, origin) {
         }
     }
 
+    for (const original of ['Saved caption', '']) {
+        await withPage(ordinary.replace('Saved caption', original), false, async (page, requests) => {
+            const body = page.locator('.post-card.is-editing [data-post-inplace-body]');
+            await body.locator(':scope > p').first().fill('Earlier body edit');
+            const before = await editorState(page);
+            await page.locator('.post-card.is-editing .post-caption').click();
+            const caption = page.locator('.is-editing-inline-caption');
+            const modifier = await page.evaluate(() => /mac/i.test(navigator.platform) ? 'Meta' : 'Control');
+            await page.keyboard.press(`${modifier}+a`);
+            assert.deepEqual(await caption.evaluate(caption => ({
+                text: getSelection().toString(),
+                contained: caption.contains(getSelection().anchorNode) && caption.contains(getSelection().focusNode),
+            })), {text: original, contained: true}, 'Select All must stay inside the caption');
+            await page.keyboard.insertText('Replacement caption');
+            assert.equal(await caption.textContent(), 'Replacement caption');
+            assert.equal(await body.locator('img').count(), 1);
+            assert.equal(await body.locator(':scope > p').first().textContent(), 'Earlier body edit');
+            await page.keyboard.press(`${modifier}+z`);
+            assert.equal(await caption.textContent(), original, 'Undo must restore the caption');
+            await page.keyboard.press(`${modifier}+Shift+z`);
+            assert.equal(await caption.textContent(), 'Replacement caption');
+            await page.keyboard.press(`${modifier}+z`);
+            await page.keyboard.press(`${modifier}+z`);
+            assert.equal(await body.locator(':scope > p').first().textContent(), 'Earlier body edit', 'Caption undo must not change prior body edits');
+            await page.keyboard.press(`${modifier}+a`);
+            await page.keyboard.insertText('Replacement caption');
+            await page.keyboard.press('Enter');
+            assert.equal(await body.getAttribute('contenteditable'), 'true');
+            assert.equal((await editorState(page)).history, before.history + 1, 'Caption typing is one body history step');
+            await body.press(`${modifier}+z`);
+            assert.equal((await editorState(page)).html, before.html);
+            await body.press(`${modifier}+Shift+z`);
+            const after = await editorState(page);
+            assert.match(after.html, /Earlier body edit/u);
+            assert.match(after.html, /Replacement caption/u);
+            assert.match(after.html, /<img /u);
+            await body.press(`${modifier}+s`);
+            const save = await requests.next();
+            assert.equal((await formData(save)).get('body'), after.html);
+            await completeSave(save);
+            await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+        });
+    }
+    console.log('inline caption: Select All and keyboard undo/redo stay local, retain body edits and save the complete post');
+
+    await withPage(ordinary, false, async page => {
+        const body = page.locator('.post-card.is-editing [data-post-inplace-body]');
+        await body.locator(':scope > p').first().fill('Earlier body edit');
+        await body.locator('.post-caption').click();
+        const caption = page.locator('.is-editing-inline-caption');
+        await caption.fill('Replacement caption');
+        for (const [inputType, expected] of [
+            ['historyUndo', 'Saved caption'],
+            ['historyUndo', 'Saved caption'],
+            ['historyRedo', 'Replacement caption'],
+        ]) {
+            // Browser Edit-menu actions can arrive without a keyboard shortcut.
+            assert.equal(await caption.evaluate((caption, inputType) => {
+                const event = new InputEvent('beforeinput', {inputType, bubbles: true, cancelable: true});
+                caption.dispatchEvent(event);
+                return event.defaultPrevented;
+            }, inputType), true);
+            assert.equal(await caption.textContent(), expected);
+            assert.equal(await body.locator(':scope > p').first().textContent(), 'Earlier body edit');
+            assert.equal(await caption.evaluate(caption => caption.contains(getSelection().anchorNode)), true);
+        }
+    });
+    console.log('inline caption: beforeinput undo/redo is local and restores the caption selection');
+
+    for (const finish of ['Enter', 'Escape', 'Tab']) {
+        const body = ordinary.replace('<p>Body text</p>', '<p>Body text</p><p>' + image.replace('alt="Existing"', 'alt=""') + '</p>');
+        await withPage(body, true, async (page, requests) => {
+            const ai = await requests.next();
+            assert.equal((await formData(ai)).get('inplace_action'), 'ai_alt');
+            const editable = page.locator('.post-card.is-editing [data-post-inplace-body]');
+            await editable.locator(':scope > p').first().fill('Earlier body edit');
+            const before = await editorState(page);
+            await page.locator('.post-card.is-editing .post-caption').last().click();
+            await ai.fulfill({json: {success: true, action: 'ai_alt', result: 'Generated first description'}});
+            await page.waitForFunction(() => document.querySelector('.post-card.is-editing img')?.alt === 'Generated first description');
+            await page.keyboard.press(finish);
+            await page.waitForFunction(() => !document.querySelector('.is-editing-inline-caption'));
+            assert.equal(await editable.getAttribute('contenteditable'), 'true');
+            const after = await editorState(page);
+            assert.equal(after.history, before.history + 1, 'An unchanged caption must flush concurrent changes into history');
+            assert.equal(after.html, before.html.replace('alt=""', 'alt="Generated first description"'));
+            await editable.press('Control+z');
+            assert.equal((await editorState(page)).html, before.html, 'Only the generated description is undone');
+            await editable.press('Control+Shift+z');
+            assert.equal((await editorState(page)).html, after.html, 'Redo must restore the description');
+            await page.waitForFunction(() => window.RegisterPostRecovery.createStore(localStorage, '/_inplace/tags', 1)
+                .list().some(copy => copy.snapshot.body.includes('Generated first description')
+                    && copy.snapshot.body.includes('Earlier body edit')));
+            await page.getByRole('button', {name: 'Save', exact: true}).click();
+            const save = await requests.next();
+            assert.equal((await formData(save)).get('body'), after.html);
+            await completeSave(save);
+            await page.waitForFunction(() => !document.querySelector('.post-card.is-editing'));
+        });
+    }
+    console.log('inline caption: unchanged Enter, Escape and Tab commits retain concurrent AI in undo, redo, recovery and saving');
+
+    for (const exit of ['Tab', 'paragraph', 'image-side']) {
+        await withPage(ordinary, false, async page => {
+            await page.locator('.post-card.is-editing .post-caption').click();
+            await page.locator('.is-editing-inline-caption').fill('Changed caption');
+            if (exit === 'Tab') {
+                await page.keyboard.press('Tab');
+                await page.waitForFunction(() => !document.querySelector('.is-editing-inline-caption'));
+                await page.locator('.post-card.is-editing [data-post-inplace-body] > p').last().click();
+            } else if (exit === 'paragraph') {
+                await page.locator('.post-card.is-editing [data-post-inplace-body] > p').last().click();
+            } else {
+                const point = await page.evaluate(() => {
+                    const body = document.querySelector('.post-card.is-editing [data-post-inplace-body]');
+                    const image = body.querySelector('img').getBoundingClientRect();
+                    const x = body.getBoundingClientRect().right - 8;
+                    const y = image.top + 12;
+                    return {x, y, targetsBody: document.elementFromPoint(x, y) === body};
+                });
+                assert.equal(point.targetsBody, true);
+                await page.mouse.click(point.x, point.y);
+            }
+            assert.equal(await page.locator('.is-editing-inline-caption').count(), 0);
+            const body = page.locator('.post-card.is-editing [data-post-inplace-body]');
+            assert.equal(await body.getAttribute('contenteditable'), 'true');
+            await page.keyboard.insertText('Text after caption');
+            assert.match(await body.locator(':scope > p').last().textContent(), /Text after caption/u);
+            assert.equal(await body.locator('.post-caption').textContent(), 'Changed caption');
+        });
+    }
+    console.log('inline caption: Tab, body clicks and image-side clicks commit the caption and restore body typing');
+
+    await withPage(ordinary + ordinary, false, async page => {
+        await page.locator('.post-card.is-editing .post-caption').first().click();
+        await page.locator('.is-editing-inline-caption').fill('First caption edit');
+        await page.locator('.post-card.is-editing .post-caption').last().click();
+        assert.equal(await page.locator('.is-editing-inline-caption').count(), 1);
+        await page.locator('.is-editing-inline-caption').fill('Second caption edit');
+        await page.keyboard.press('Enter');
+        const body = page.locator('.post-card.is-editing [data-post-inplace-body]');
+        assert.equal(await body.getAttribute('contenteditable'), 'true');
+        await body.press('Control+z');
+        assert.deepEqual(await body.locator('.post-caption').allTextContents(), ['First caption edit', 'Saved caption']);
+        await body.press('Control+z');
+        assert.deepEqual(await body.locator('.post-caption').allTextContents(), ['Saved caption', 'Saved caption']);
+    });
+    console.log('inline caption: switching captions commits each independently and restores body editability');
+
+    await withPage(ordinary, false, async (page, requests) => {
+        await page.locator('.post-card.is-editing .post-caption').click();
+        await page.locator('.is-editing-inline-caption').fill('Caption before upload');
+        await page.locator('.post-card.is-editing img').evaluate(image => {
+            const transfer = new DataTransfer();
+            transfer.items.add(new File(['fixture'], 'dropped.png', {type: 'image/png'}));
+            const rect = image.getBoundingClientRect();
+            image.dispatchEvent(new DragEvent('drop', {
+                bubbles: true, cancelable: true, dataTransfer: transfer,
+                clientX: rect.left + 5, clientY: rect.top + 5,
+            }));
+        });
+        const upload = await requests.next();
+        assert.equal((await formData(upload)).get('inplace_action'), 'media');
+        await upload.fulfill({json: {
+            success: true, action: 'media', kind: 'image', media_id: 42,
+            url: '/caption-image.svg', width: 160, height: 100,
+        }});
+        await page.waitForFunction(() => !document.querySelector('.is-processing'));
+        const body = page.locator('.post-card.is-editing [data-post-inplace-body]');
+        assert.equal(await body.getAttribute('contenteditable'), 'true');
+        assert.equal(await page.locator('.is-editing-inline-caption').count(), 0);
+        assert.equal(await body.locator('img').count(), 2);
+        assert.equal(await body.locator('.post-caption').first().textContent(), 'Caption before upload');
+        await page.keyboard.insertText('Text after upload');
+        assert.match(await body.textContent(), /Text after upload/u);
+    });
+    console.log('inline caption: dropping media commits the caption and restores body typing');
+
     for (const finish of ['Escape', 'cancel', 'commit-unchanged']) {
         const body = '<p>' + image.replace('alt="Existing"', 'alt=""') + '</p><p>' + image + '</p><p>Body text</p>';
         await withPage(body, true, async (page, requests) => {

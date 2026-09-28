@@ -1019,7 +1019,7 @@ test('arrow up from an empty leading image caption moves the caret before the im
     body.focus = function () {
         harness.document.activeElement = body;
     };
-    body.setAttribute('contenteditable', 'true');
+    body.setAttribute('contenteditable', 'false');
     const media = new FakeHTMLElement({parentNode: body, media: true});
     media.isMediaWrapper = true;
     const caption = new FakeHTMLElement({parentNode: media});
@@ -1033,7 +1033,7 @@ test('arrow up from an empty leading image caption moves the caret before the im
     const state = {
         body,
         card: {dataset: {}},
-        mediaCaptionEditors: new Map([[caption, {controller, original: ''}]]),
+        mediaCaptionEditors: new Map([[caption, {controller, original: '', bodyContentEditable: 'true'}]]),
     };
     const event = {
         key: 'ArrowUp',
@@ -1067,7 +1067,7 @@ test('arrow down from an empty image caption moves to a visible paragraph after 
     body.focus = function () {
         harness.document.activeElement = body;
     };
-    body.setAttribute('contenteditable', 'true');
+    body.setAttribute('contenteditable', 'false');
     const media = new FakeHTMLElement({parentNode: body, media: true});
     media.isMediaWrapper = true;
     const caption = new FakeHTMLElement({parentNode: media});
@@ -1081,7 +1081,7 @@ test('arrow down from an empty image caption moves to a visible paragraph after 
     const state = {
         body,
         card: {dataset: {}},
-        mediaCaptionEditors: new Map([[caption, {controller, original: ''}]]),
+        mediaCaptionEditors: new Map([[caption, {controller, original: '', bodyContentEditable: 'true'}]]),
     };
     const event = {
         key: 'ArrowDown',

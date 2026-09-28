@@ -119,14 +119,3 @@ test('dropped images render immediately and the complete processing flow is queu
     assert.doesNotMatch(uploadSource, /beginInlineMediaCaption\(state, caption\)/u);
     assert.doesNotMatch(uploadSource, /focusInlineMediaCaption\(state, caption\)/u);
 });
-
-test('editing an inline image caption does not disable the post body', function () {
-    const beginStart = editorSource.indexOf('function beginInlineMediaCaption');
-    const beginEnd = editorSource.indexOf('\n    function selectionStartsAt', beginStart);
-    const beginSource = editorSource.slice(beginStart, beginEnd);
-
-    assert.notEqual(beginStart, -1);
-    assert.notEqual(beginEnd, -1);
-    assert.doesNotMatch(beginSource, /state\.body\.setAttribute\('contenteditable', 'false'\)/u);
-    assert.match(beginSource, /caption\.setAttribute\('contenteditable', 'true'\)/u);
-});
