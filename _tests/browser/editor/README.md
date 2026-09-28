@@ -102,3 +102,11 @@ including appended text and edits outside the selected source. Concurrent media
 renames reject stale edit/create requests while retaining text for a successful
 retry. PHP integration tests check rollback of content, tags and media relations,
 file retention, and repeated occurrences of one media id with different URLs.
+
+Fifteen admin selection scenarios exercise the actual toolbar with single,
+reversed, multiline and multiple selections, mixed wrapping/unwrapping, empty
+carets and undo/redo. Image descriptions track individual occurrences even when
+several images have the same URL and alt text. Delayed generation follows edits
+before an image, ignores deleted/replaced images and manual descriptions, and
+supports independent requests for identical images. Inserting a repeated image
+before an existing one generates alt text for the newly inserted occurrence.

@@ -33,6 +33,12 @@ const register_codemirror = (function () {
     let instance, scrollTop = null;
     let aiChangeMarkers = [];
     let applyingAiChanges = false;
+    const imageTargets = new Set();
+
+    function clearImageTargets() {
+        imageTargets.forEach(target => target.marker.clear());
+        imageTargets.clear();
+    }
 
     function clearAiChangeMarkers() {
         aiChangeMarkers.forEach(function (marker) {
@@ -57,27 +63,57 @@ const register_codemirror = (function () {
             return [];
         }
 
+        // Neutral text markers follow each occurrence through surrounding edits.
+        // Neither its URL nor its original offset uniquely identifies an image.
+        const doc = instance.getDoc();
+        const targetsByRange = new Map();
+        imageTargets.forEach(target => {
+            const range = target.marker.find();
+            if (range) {
+                targetsByRange.set(`${doc.indexFromPos(range.from)}:${doc.indexFromPos(range.to)}`, target);
+            }
+        });
         const content = instance.getValue();
         const images = [];
+        const retained = new Set();
         const pattern = /<img\b[^>]*>/gi;
         let match;
         while ((match = pattern.exec(content)) !== null) {
+            const end = match.index + match[0].length;
+            const target = targetsByRange.get(`${match.index}:${end}`) || {
+                marker: doc.markText(doc.posFromIndex(match.index), doc.posFromIndex(end))
+            };
+            imageTargets.add(target);
+            retained.add(target);
             images.push({
                 src: readImageAttribute(match[0], 'src'),
                 alt: readImageAttribute(match[0], 'alt'),
                 tag: match[0],
                 start: match.index,
-                end: match.index + match[0].length,
-                line: instance.posFromIndex(match.index).line
+                end,
+                line: doc.posFromIndex(match.index).line,
+                target
             });
         }
+
+        imageTargets.forEach(target => {
+            if (!retained.has(target)) {
+                target.marker.clear();
+                imageTargets.delete(target);
+            }
+        });
 
         return images;
     }
 
     function findImageBySource(src, expectedAlt) {
+        if (!instance) return null;
         src = decodeHtmlAttribute(src);
         const images = imageTags();
+        const cursorIndex = instance.getDoc().indexFromPos(instance.getCursor());
+        const selected = images.find(image => image.start <= cursorIndex && cursorIndex <= image.end
+            && image.src === src && (expectedAlt === undefined || image.alt === expectedAlt));
+        if (selected) return selected;
         for (let i = images.length - 1; i >= 0; i--) {
             if (images[i].src === src && (expectedAlt === undefined || images[i].alt === expectedAlt)) {
                 return images[i];
@@ -135,6 +171,7 @@ const register_codemirror = (function () {
             if (!CodeMirror) {
                 return null;
             }
+            clearImageTargets();
             scrollTop = eTextarea.scrollTop;
 
             instance = CodeMirror.fromTextArea(eTextarea, {
@@ -177,6 +214,7 @@ const register_codemirror = (function () {
         close: function () {
             if (instance) {
                 clearAiChangeMarkers();
+                clearImageTargets();
                 api.store_scroll();
 
                 var eText = instance.getTextArea();
@@ -318,6 +356,10 @@ const register_codemirror = (function () {
         getImageBySrc: function (src, expectedAlt) {
             return findImageBySource(src, expectedAlt);
         },
+        getTrackedImage: function (image, expectedAlt) {
+            return imageTags().find(current => current.target === image.target && current.src === image.src
+                && (expectedAlt === undefined || current.alt === expectedAlt)) || null;
+        },
         getCursorImage: function () {
             if (!instance) {
                 return null;
@@ -341,12 +383,12 @@ const register_codemirror = (function () {
                 return image.start <= cursorIndex;
             }).pop() || candidates[0];
         },
-        replaceImageAlt: function (src, expectedAlt, nextAlt) {
+        replaceImageAlt: function (originalImage, expectedAlt, nextAlt) {
             if (!instance) {
                 return false;
             }
 
-            const image = findImageBySource(src, expectedAlt);
+            const image = api.getTrackedImage(originalImage, expectedAlt);
             if (!image) {
                 return false;
             }
@@ -365,12 +407,20 @@ const register_codemirror = (function () {
             }
 
             const doc = instance.getDoc();
-            doc.replaceRange(
-                updatedTag,
-                doc.posFromIndex(image.start),
-                doc.posFromIndex(image.end),
-                'ai-image-alt'
-            );
+            instance.operation(function () {
+                image.target.marker.clear();
+                doc.replaceRange(
+                    updatedTag,
+                    doc.posFromIndex(image.start),
+                    doc.posFromIndex(image.end),
+                    'ai-image-alt'
+                );
+                // Keep the same occurrence identity after replacing its whole tag.
+                image.target.marker = doc.markText(
+                    doc.posFromIndex(image.start),
+                    doc.posFromIndex(image.start + updatedTag.length)
+                );
+            });
             instance.save();
             return true;
         },
@@ -475,41 +525,14 @@ const register_codemirror = (function () {
                 return false;
             }
 
-            var selections = instance.listSelections();
-            var newSelections = [];
-            var totalOffset = 0;
-
-            instance.operation(function () {
-                selections.forEach(function (selection) {
-                    var anchor = selection.anchor;
-                    var head = selection.head;
-
-                    // Вычисляем начало и конец выделения
-                    var start = anchor.line < head.line || (anchor.line === head.line && anchor.ch < head.ch) ? anchor : head;
-                    var end = anchor.line > head.line || (anchor.line === head.line && anchor.ch > head.ch) ? anchor : head;
-
-                    start = {line: start.line, ch: start.ch + totalOffset};
-                    end = {line: end.line, ch: end.ch + totalOffset};
-                    var text = instance.getRange(start, end);
-
-                    if (text.substring(0, sOpenTag.length) === sOpenTag && text.substring(text.length - sCloseTag.length) === sCloseTag) {
-                        text = text.substring(sOpenTag.length, text.length - sCloseTag.length);
-                        instance.replaceRange(text, start, end);
-                        totalOffset -= (sOpenTag.length + sCloseTag.length);
-                        newSelections.push({anchor: start, head: {line: start.line, ch: start.ch + text.length}});
-                    } else {
-                        var newText = sOpenTag + text + sCloseTag;
-                        instance.replaceRange(newText, start, end);
-                        totalOffset += (sOpenTag.length + sCloseTag.length);
-                        newSelections.push({
-                            anchor: start,
-                            head: {line: end.line, ch: end.ch + sOpenTag.length + sCloseTag.length}
-                        });
-                    }
-                });
-            });
-
-            instance.setSelections(newSelections);
+            const replacements = instance.getSelections().map(text => (
+                text.startsWith(sOpenTag) && text.endsWith(sCloseTag)
+                    ? text.slice(sOpenTag.length, text.length - sCloseTag.length)
+                    : sOpenTag + text + sCloseTag
+            ));
+            // CodeMirror maps every range through the replacements, including
+            // newlines, reversed selections and edits on preceding lines.
+            instance.replaceSelections(replacements, 'around', 'editor-format');
             instance.focus();
             return true;
         },

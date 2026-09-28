@@ -23,7 +23,20 @@ if (params.has('preview')) {
 const id = params.get('id');
 form.action = '/admin-save' + (id ? '?id=' + encodeURIComponent(id) : '');
 if (params.has('codemirror')) {
-    const editor = register_codemirror.get_instance(form.elements.body);
+    let editor;
+    if (params.has('toolbar')) {
+        const {initHtmlTextarea, initHtmlToolbar} = await import('/admin/editor/shortcuts.js');
+        initHtmlTextarea(form.elements.body);
+        editor = document.querySelector('.CodeMirror').CodeMirror;
+        const toolbar = document.createElement('div');
+        toolbar.innerHTML = '<button type="button" data-editor-action="b">Bold</button>'
+            + '<button type="button" data-editor-action="undo">Undo</button>'
+            + '<button type="button" data-editor-action="redo">Redo</button>';
+        form.before(toolbar);
+        initHtmlToolbar(toolbar);
+    } else {
+        editor = register_codemirror.get_instance(form.elements.body);
+    }
     Object.assign(editor.getWrapperElement().style, {position: 'relative', width: '500px', height: '160px'});
     editor.refresh();
 }

@@ -9,23 +9,23 @@ export function initImageAlt(form, config) {
 
     const requestStates = new Map();
     let activeWidget = null;
-    let activeSource = '';
+    let activeImage = null;
 
     function clearWidget() {
         if (activeWidget) {
             activeWidget.clear();
         }
         activeWidget = null;
-        activeSource = '';
+        activeImage = null;
     }
 
     function currentState(image) {
-        const state = requestStates.get(image.src);
+        const state = requestStates.get(image.target);
         if (state && state.status !== 'generating' && state.alt !== image.alt) {
-            requestStates.delete(image.src);
+            requestStates.delete(image.target);
         }
 
-        return requestStates.get(image.src) || {
+        return requestStates.get(image.target) || {
             status: 'ready',
             alt: image.alt,
             expectedAlt: image.alt
@@ -61,8 +61,8 @@ export function initImageAlt(form, config) {
             }
             finished = true;
             const nextAlt = input.value.trim();
-            if (save && register_codemirror.replaceImageAlt(image.src, image.alt, nextAlt)) {
-                requestStates.set(image.src, {
+            if (save && register_codemirror.replaceImageAlt(image, image.alt, nextAlt)) {
+                requestStates.set(image.target, {
                     status: 'ready',
                     alt: nextAlt,
                     expectedAlt: nextAlt
@@ -136,13 +136,19 @@ export function initImageAlt(form, config) {
         }
 
         activeWidget = register_codemirror.addLineWidget(image.line, root);
-        activeSource = image.src;
+        activeImage = image;
     }
 
     function syncWithCursor() {
         const image = register_codemirror.getCursorImage();
+        requestStates.forEach((state, target) => {
+            if (!target.marker.find()) {
+                state.controller?.abort();
+                requestStates.delete(target);
+            }
+        });
         if (!image) {
-            const state = activeSource ? requestStates.get(activeSource) : null;
+            const state = activeImage ? requestStates.get(activeImage.target) : null;
             if (!state || state.status !== 'generating') {
                 clearWidget();
             }
@@ -153,10 +159,10 @@ export function initImageAlt(form, config) {
     }
 
     document.addEventListener('save_article_start.register', function () {
-        requestStates.forEach(function (state, source) {
+        requestStates.forEach(function (state, target) {
             if (state.controller) {
                 state.controller.abort();
-                requestStates.delete(source);
+                requestStates.delete(target);
             }
         });
         syncWithCursor();
@@ -164,7 +170,10 @@ export function initImageAlt(form, config) {
 
     async function generate(image) {
         if (form.inert) return;
-        const previous = requestStates.get(image.src);
+        const current = register_codemirror.getTrackedImage(image);
+        if (!current) return;
+        image = current;
+        const previous = requestStates.get(image.target);
         if (previous?.controller) {
             previous.controller.abort();
         }
@@ -176,7 +185,7 @@ export function initImageAlt(form, config) {
             expectedAlt: image.alt,
             controller: controller
         };
-        requestStates.set(image.src, state);
+        requestStates.set(image.target, state);
         render(image, state);
 
         const data = new FormData();
@@ -201,38 +210,38 @@ export function initImageAlt(form, config) {
             } catch {
                 throw new Error(config.requestFailed);
             }
-            if (controller.signal.aborted || requestStates.get(image.src) !== state) return;
+            if (controller.signal.aborted || requestStates.get(image.target) !== state) return;
             if (!response.ok || !responseData.success || typeof responseData.result !== 'string') {
                 throw new Error(config.requestFailed);
             }
 
-            if (!register_codemirror.replaceImageAlt(image.src, state.expectedAlt, responseData.result)) {
-                requestStates.delete(image.src);
+            if (!register_codemirror.replaceImageAlt(image, state.expectedAlt, responseData.result)) {
+                requestStates.delete(image.target);
                 syncWithCursor();
                 return;
             }
 
-            requestStates.set(image.src, {
+            requestStates.set(image.target, {
                 status: 'ready',
                 alt: responseData.result,
                 expectedAlt: responseData.result
             });
-            const updated = register_codemirror.getImageBySrc(image.src, responseData.result);
+            const updated = register_codemirror.getTrackedImage(image, responseData.result);
             if (updated) {
-                render(updated, requestStates.get(image.src));
+                render(updated, requestStates.get(image.target));
             }
         } catch (error) {
-            if (controller.signal.aborted || requestStates.get(image.src) !== state || error.name === 'AbortError') {
+            if (controller.signal.aborted || requestStates.get(image.target) !== state || error.name === 'AbortError') {
                 return;
             }
-            requestStates.set(image.src, {
+            requestStates.set(image.target, {
                 status: 'error',
                 alt: state.expectedAlt,
                 expectedAlt: state.expectedAlt
             });
-            const current = register_codemirror.getImageBySrc(image.src, state.expectedAlt);
+            const current = register_codemirror.getTrackedImage(image, state.expectedAlt);
             if (current) {
-                render(current, requestStates.get(image.src));
+                render(current, requestStates.get(image.target));
             }
         }
     }
