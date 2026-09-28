@@ -30,6 +30,12 @@ if (params.has('codemirror')) {
         editor = document.querySelector('.CodeMirror').CodeMirror;
         const toolbar = document.createElement('div');
         toolbar.innerHTML = '<button type="button" data-editor-action="b">Bold</button>'
+            + '<button type="button" data-editor-action="h2">Heading 2</button>'
+            + '<button type="button" data-editor-action="h3">Heading 3</button>'
+            + '<button type="button" data-editor-action="h4">Heading 4</button>'
+            + '<button type="button" data-editor-action="quote">Quote</button>'
+            + '<button type="button" data-editor-action="pre">Preformatted</button>'
+            + '<button type="button" data-editor-action="left">Paragraph</button>'
             + '<button type="button" data-editor-action="undo">Undo</button>'
             + '<button type="button" data-editor-action="redo">Redo</button>';
         form.before(toolbar);
@@ -54,6 +60,11 @@ if (params.has('alt')) {
         generating: 'Generating alt', requestFailed: 'Alt failed', edit: 'Edit alt',
         preview: 'Image preview', empty: 'Empty alt', regenerate: 'Regenerate alt', retry: 'Retry alt',
     });
+}
+if (params.has('tags')) {
+    const {initTagsInput} = await import('/admin/editor/tags.js');
+    form.elements.tags.id = 'id-tags';
+    initTagsInput({inputId: 'id-tags', label: 'Tags', suggestions: ['Cameras', 'Travel']});
 }
 window.adminEditor = register_codemirror;
 window.adminEditorReady = true;

@@ -10,6 +10,7 @@ export function initImageAlt(form, config) {
     const requestStates = new Map();
     let activeWidget = null;
     let activeImage = null;
+    let activeEdit = null;
 
     function clearWidget() {
         if (activeWidget) {
@@ -60,6 +61,7 @@ export function initImageAlt(form, config) {
                 return;
             }
             finished = true;
+            activeEdit = null;
             const nextAlt = input.value.trim();
             if (save && register_codemirror.replaceImageAlt(image, image.alt, nextAlt)) {
                 requestStates.set(image.target, {
@@ -70,6 +72,7 @@ export function initImageAlt(form, config) {
             }
             queueMicrotask(syncWithCursor);
         }
+        activeEdit = {image, finish};
 
         input.addEventListener('keydown', function (event) {
             if (event.key === 'Enter') {
@@ -87,7 +90,17 @@ export function initImageAlt(form, config) {
         input.select();
     }
 
+    function keepActiveEdit() {
+        if (!activeEdit) return false;
+        if (register_codemirror.getTrackedImage(activeEdit.image, activeEdit.image.alt)) return true;
+        activeEdit.finish(false);
+        return false;
+    }
+
     function render(image, state) {
+        // Removing a focused input does not reliably fire blur (notably in
+        // Firefox). Let the author finish it before replacing the widget.
+        if (keepActiveEdit()) return;
         clearWidget();
 
         const root = document.createElement('div');
@@ -147,6 +160,7 @@ export function initImageAlt(form, config) {
                 requestStates.delete(target);
             }
         });
+        if (keepActiveEdit()) return;
         if (!image) {
             const state = activeImage ? requestStates.get(activeImage.target) : null;
             if (!state || state.status !== 'generating') {
@@ -165,6 +179,7 @@ export function initImageAlt(form, config) {
                 requestStates.delete(target);
             }
         });
+        activeEdit?.finish(true);
         syncWithCursor();
     });
 

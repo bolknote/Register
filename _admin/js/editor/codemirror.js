@@ -550,10 +550,11 @@ const register_codemirror = (function () {
                 return false;
 
             if (instance.somethingSelected()) {
-                instance.replaceSelection(instance.getSelection().replace(
+                const replacements = instance.getSelections().map(text => text.replace(
                     /^(?:[ ]*<(?:p|blockquote|h[2-4])[^>]*>)?([\s\S]*?)(?:<\/(?:p|blockquote|h[2-4])>)?[ ]*$/,
                     sOpenTag + '$1' + sCloseTag
                 ));
+                instance.replaceSelections(replacements, 'around', 'editor-format');
             } else {
                 var cursor = instance.getCursor(),
                     totalLineNum = instance.lineCount(),

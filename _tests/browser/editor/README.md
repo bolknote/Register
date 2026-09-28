@@ -110,3 +110,12 @@ several images have the same URL and alt text. Delayed generation follows edits
 before an image, ignores deleted/replaced images and manual descriptions, and
 supports independent requests for identical images. Inserting a repeated image
 before an existing one generates alt text for the newly inserted occurrence.
+
+Twenty-two admin input scenarios cover unfinished tags in form values, exit
+warnings, button and keyboard saves, edits during a save, CSRF retries, failures,
+suggestions, paste and delayed AI replies. Block formatting transforms each
+selection independently, including multiline/reversed ranges and mixed carets,
+with one undo step. Delayed image-alt successes and failures preserve an open
+description field, its focus and selection in both browsers; Enter, Escape and
+blur retain their usual meaning. Saving commits the open field before capturing
+the body and cancels pending generation.

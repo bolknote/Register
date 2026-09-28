@@ -165,7 +165,11 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
     eForm.addEventListener('publication-state-change', function () {
         decorateForm(statusData);
     });
-    document.addEventListener('save_form.register', saveForm);
+    document.addEventListener('save_form.register', function (event) {
+        event.preventDefault();
+        // Run the same validation and field commit listeners as the Save button.
+        eForm.requestSubmit();
+    });
 
     document.addEventListener('return_image.register', function (e) {
         let w = e.detail.width;

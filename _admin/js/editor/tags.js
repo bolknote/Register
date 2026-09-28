@@ -79,7 +79,9 @@ export function initTagsInput(config) {
 
     function syncSourceInput() {
         internalUpdate = true;
-        sourceInput.value = tags.join(', ');
+        // Keep in-progress text visible to FormData, dirty checks and delayed AI
+        // replies without turning it into a chip while the author is typing.
+        sourceInput.value = uniqueTags([...tags, ...parseTags(input.value)]).join(', ');
         sourceInput.dispatchEvent(new Event('input', {bubbles: true}));
         sourceInput.dispatchEvent(new Event('change', {bubbles: true}));
         internalUpdate = false;
@@ -202,8 +204,8 @@ export function initTagsInput(config) {
 
         if (changed) {
             renderTags();
-            syncSourceInput();
         }
+        syncSourceInput();
         return changed;
     }
 
@@ -212,8 +214,8 @@ export function initTagsInput(config) {
         if (values.length === 0) {
             return false;
         }
-        addTags(values);
         input.value = '';
+        addTags(values);
         renderSuggestions(document.activeElement === input);
         return true;
     }
@@ -223,8 +225,8 @@ export function initTagsInput(config) {
         if (!tag) {
             return;
         }
-        addTags([tag]);
         input.value = '';
+        addTags([tag]);
         renderSuggestions(true);
     }
 
@@ -248,6 +250,7 @@ export function initTagsInput(config) {
         renderSuggestions(true);
     });
     input.addEventListener('input', function () {
+        syncSourceInput();
         renderSuggestions(true);
     });
     input.addEventListener('keydown', function (event) {
@@ -290,8 +293,8 @@ export function initTagsInput(config) {
             return;
         }
         event.preventDefault();
-        addTags(parseTags(pastedText));
         input.value = '';
+        addTags(parseTags(pastedText));
         renderSuggestions(true);
     });
     input.addEventListener('blur', function () {
