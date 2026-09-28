@@ -128,3 +128,11 @@ through preformatted text, including its indentation and trailing spaces. Image
 descriptions preserve quoted attribute boundaries and unrelated attributes through
 manual edits, delayed AI, undo and redo. Literal image markup in comments, raw-text
 elements and attributes stays untouched.
+
+Seventeen public caption/input scenarios cover concurrent AI descriptions when
+an overlay caption is cancelled or committed unchanged, including undo/redo,
+recovery and saving. Clean cancellation restores text and styles without adding
+an edit, while retaining earlier body changes. Ctrl/Cmd+S works from overlay and
+inline captions and the image-alt field, including failed saves and retries.
+Home/End, selection and arrow keys stay in alt and link inputs; keyboard menu
+navigation, Enter and Escape keep their usual behavior.

@@ -5232,6 +5232,12 @@
             state.body.setAttribute('contenteditable', editor.bodyContentEditable);
         }
 
+        const text = commit ? imageCaptionEditorText(editor.caption) : editor.original;
+        const styleChanged = text !== '' && (
+            editor.caption.dataset.captionFont !== editor.originalFont
+            || editor.caption.dataset.captionBackground !== editor.originalBackground
+        );
+        applyImageCaption(state, editor.image, text);
         if (!commit) {
             if (editor.originalFontAttribute === null) {
                 editor.caption.removeAttribute('data-caption-font');
@@ -5245,17 +5251,14 @@
             }
         }
 
-        const text = commit ? imageCaptionEditorText(editor.caption) : editor.original;
-        const styleChanged = text !== '' && (
-            editor.caption.dataset.captionFont !== editor.originalFont
-            || editor.caption.dataset.captionBackground !== editor.originalBackground
-        );
-        applyImageCaption(state, editor.image, text);
         if (commit && (text !== editor.original || styleChanged)) {
             markBodyChanged(state);
         } else if (!commit) {
-            state.bodyDirty = editor.bodyDirtyBefore;
+            // Cancelling the caption must retain unrelated changes (for example,
+            // an AI image description that completed during this session).
+            state.bodyDirty = editor.bodyDirtyBefore || editableBodyHtml(state) !== editor.bodyHtmlBefore;
         }
+        state.history?.record();
         if (restoreFocus) {
             state.body.focus({preventScroll: true});
             window.getSelection()?.removeAllRanges();
@@ -5269,6 +5272,7 @@
         const original = (originalContext.caption?.textContent || '').replace(/\r\n?/gu, '\n').trim();
         const originalFontAttribute = originalContext.caption?.getAttribute('data-caption-font') ?? null;
         const originalBackgroundAttribute = originalContext.caption?.getAttribute('data-caption-background') ?? null;
+        const bodyHtmlBefore = editableBodyHtml(state);
         const context = ensureImageCaption(state, image);
         const caption = context.caption;
         const toolbarTemplate = editorTemplate('.post-image-caption-toolbar-template');
@@ -5280,7 +5284,7 @@
             applyImageCaption(state, image, original);
             return;
         }
-        context.wrapper.append(toolbarFragment);
+        context.wrapper.append(toolbar);
         const controller = new AbortController();
         state.imageCaptionEditor = {
             image,
@@ -5293,6 +5297,7 @@
             originalFont: originalFontAttribute || 'sans',
             originalBackground: originalBackgroundAttribute || 'dark',
             bodyDirtyBefore: state.bodyDirty,
+            bodyHtmlBefore,
             bodyContentEditable: state.body.getAttribute('contenteditable'),
         };
 
@@ -6169,6 +6174,10 @@
             }
         });
         menu.addEventListener('keydown', (keyEvent) => {
+            if (handleEditingSaveShortcut(keyEvent, state)) {
+                keyEvent.stopPropagation();
+                return;
+            }
             if (keyEvent.key === 'Escape') {
                 keyEvent.preventDefault();
                 keyEvent.stopPropagation();
@@ -6190,6 +6199,9 @@
                 keyEvent.stopPropagation();
                 closeContextMenu(state, false);
                 state.body.focus();
+                return;
+            }
+            if (keyEvent.target instanceof HTMLInputElement || keyEvent.target instanceof HTMLTextAreaElement) {
                 return;
             }
             if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(keyEvent.key)) {
@@ -6234,13 +6246,13 @@
     }
 
     function handleEditingShortcut(event, state) {
+        if (handleEditingSaveShortcut(event, state)) {
+            return true;
+        }
         // A caption is a nested editing session; its native typing history stays
         // local until commit adds a single operation to the post's history.
         if (event.target instanceof Element && event.target.closest('.is-editing-caption, .is-editing-inline-caption')) {
             return false;
-        }
-        if (handleEditingSaveShortcut(event, state)) {
-            return true;
         }
         if (event.isComposing) {
             return false;

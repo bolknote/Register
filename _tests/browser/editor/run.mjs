@@ -11,6 +11,7 @@ import {runConcurrencyRegressions} from './concurrency-tests.mjs';
 import {runAdminSelectionRegressions} from './admin-selection-tests.mjs';
 import {runAdminInputRegressions} from './admin-input-tests.mjs';
 import {runAdminHtmlRegressions} from './admin-html-tests.mjs';
+import {runCaptionInputRegressions} from './caption-input-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -424,6 +425,7 @@ try {
             await runAdminSelectionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminInputRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminHtmlRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runCaptionInputRegressions(browser, `http://127.0.0.1:${server.address().port}`);
         } finally {
             await browser.close();
         }
