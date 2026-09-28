@@ -180,7 +180,10 @@ export function initImageAlt(form, config) {
             }
         });
         activeEdit?.finish(true);
-        syncWithCursor();
+        // A save shortcut can arrive while CodeMirror's contenteditable input
+        // is still reconciling the key event. Clearing its line widget in the
+        // same stack may remove a DOM sibling that CodeMirror is about to use.
+        queueMicrotask(syncWithCursor);
     });
 
     // Exit checks must see the pending description even if removing the page
