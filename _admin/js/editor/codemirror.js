@@ -7,6 +7,7 @@
  */
 import {smartParagraphs} from './text/paragraphs.js';
 import {htmlTags, htmlAttribute, paragraphBlocks, formatParagraph} from './text/html.js';
+import {htmlToPlainText, normalizePlainText} from './text/plain.js';
 import {editorDeps} from './deps.js';
 import {escapeHtml} from './utils/escape.js';
 
@@ -567,15 +568,15 @@ const register_codemirror = (function () {
             instance.scrollTo(null, y);
         },
 
-        addTag: function (sOpenTag, sCloseTag) {
+        addTag: function (sOpenTag, sCloseTag, selectionAsAttribute = false) {
             if (!instance) {
                 return false;
             }
 
             const replacements = instance.getSelections().map(text => (
-                text.startsWith(sOpenTag) && text.endsWith(sCloseTag)
+                !selectionAsAttribute && text.startsWith(sOpenTag) && text.endsWith(sCloseTag)
                     ? text.slice(sOpenTag.length, text.length - sCloseTag.length)
-                    : sOpenTag + text + sCloseTag
+                    : sOpenTag + (selectionAsAttribute ? escapeHtml(normalizePlainText(htmlToPlainText(text))) : text) + sCloseTag
             ));
             // CodeMirror maps every range through the replacements, including
             // newlines, reversed selections and edits on preceding lines.

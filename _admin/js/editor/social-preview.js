@@ -1,6 +1,7 @@
 /** Keeps the Open Graph card preview in sync with the editor fields. */
 
 import {register_codemirror} from './codemirror.js';
+import {htmlToPlainText, normalizePlainText} from './text/plain.js';
 
 function firstImage(html) {
     if (!html) {
@@ -11,13 +12,28 @@ function firstImage(html) {
     return documentFragment.querySelector('img[src]')?.getAttribute('src')?.trim() || '';
 }
 
-function plainText(html) {
-    if (!html) {
-        return '';
+function descriptionFromBody(html, title) {
+    // Keep the local fallback consistent with PublicationMetadataGenerator.
+    const beforeCut = html.split(/<cut\s*\/?>/i, 1)[0];
+    let text = htmlToPlainText(beforeCut, true);
+    if (!text && beforeCut !== html) text = htmlToPlainText(html, true);
+    const lines = text.split(/\n+/);
+    if (normalizePlainText(lines[0]).toLowerCase() === normalizePlainText(title).toLowerCase()) {
+        lines.shift();
     }
+    text = normalizePlainText(lines.join(' '));
+    const characters = Array.from(text);
+    if (characters.length <= 160) return text;
 
-    const documentFragment = new DOMParser().parseFromString(String(html), 'text/html');
-    return (documentFragment.body.textContent || '').replace(/\s+/g, ' ').trim();
+    let summary = '';
+    for (const sentence of text.split(/(?<=[.!?…])\s+/u)) {
+        const candidate = summary ? summary + ' ' + sentence : sentence;
+        if (Array.from(candidate).length > 160) break;
+        summary = candidate;
+    }
+    if (summary) return summary;
+    const prefix = characters.slice(0, 159).join('').trimEnd();
+    return prefix.replace(/^(.+)\s+\S*$/u, '$1').trimEnd() + '…';
 }
 
 function inputValue(form, name) {
@@ -39,7 +55,7 @@ function initSocialPreview(form, config = {}) {
     const render = function () {
         const body = register_codemirror.isReady() ? register_codemirror.getValue() : inputValue(form, 'body');
         const imageUrl = inputValue(form, 'social_image') || firstImage(body) || config.defaultImage || '';
-        const descriptionText = inputValue(form, 'meta_description') || plainText(body).slice(0, 220);
+        const descriptionText = inputValue(form, 'meta_description') || descriptionFromBody(body, inputValue(form, 'title'));
 
         site.textContent = config.siteName || window.location.hostname;
         title.textContent = inputValue(form, 'title') || config.emptyTitle || 'Untitled';

@@ -111,6 +111,20 @@ before an image, ignores deleted/replaced images and manual descriptions, and
 supports independent requests for identical images. Inserting a repeated image
 before an existing one generates alt text for the newly inserted occurrence.
 
+Nine image-insertion scenarios cover quoted and encoded descriptions, selected
+HTML, block/line boundaries, literal markup, inline code, multiple reversed
+selections and empty carets. The inserted attributes, surrounding text, undo/redo,
+recovery and submitted HTML remain intact. Eleven smart-paragraph scenarios keep
+complete preformatted, raw-text and list blocks unchanged, including whitespace,
+quoted attributes, uppercase tags, nesting and an unfinished block, while still
+formatting surrounding prose. Repeated formatting is stable.
+
+Twenty-six social-preview text scenarios cover both admin editor modes. They
+preserve block/line separators, exclude code and non-editorial content, decode
+entities, honor cut markers and omit a repeated title. Local descriptions use
+whole sentences or words within the same 160-character limit as the server,
+including supplementary Unicode characters. Explicit descriptions still win.
+
 Twenty-two admin input scenarios cover unfinished tags in form values, exit
 warnings, button and keyboard saves, edits during a save, CSRF retries, failures,
 suggestions, paste and delayed AI replies. Block formatting transforms each

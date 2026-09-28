@@ -20,6 +20,7 @@ import {runAdminSaveFailureRegressions, runSocialPreviewRegressions} from './adm
 import {runMediaInsertionAltRegressions, runMediaInsertionCaretRegressions, runMixedMediaCaretRegressions, runRejectedMediaRegressions} from './media-insertion-tests.mjs';
 import {runMediaDragRegressions} from './media-drag-tests.mjs';
 import {runAdminAiTargetRegressions} from './admin-ai-target-tests.mjs';
+import {runImageInsertionTextRegressions, runSmartParagraphRegressions, runSocialPreviewTextRegressions} from './admin-text-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -447,6 +448,9 @@ try {
             await runMixedMediaCaretRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaDragRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminAiTargetRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runImageInsertionTextRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runSmartParagraphRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runSocialPreviewTextRegressions(browser, `http://127.0.0.1:${server.address().port}`);
         } finally {
             await browser.close();
         }

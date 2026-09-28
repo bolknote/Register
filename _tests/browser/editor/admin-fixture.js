@@ -45,6 +45,7 @@ if (params.has('codemirror')) {
             + '<button type="button" data-editor-action="h4">Heading 4</button>'
             + '<button type="button" data-editor-action="quote">Quote</button>'
             + '<button type="button" data-editor-action="pre">Preformatted</button>'
+            + '<button type="button" data-editor-action="parag">Smart paragraphs</button>'
             + '<button type="button" data-editor-action="left">Paragraph</button>'
             + '<button type="button" data-editor-action="undo">Undo</button>'
             + '<button type="button" data-editor-action="redo">Redo</button>';

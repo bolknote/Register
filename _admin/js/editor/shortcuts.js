@@ -27,7 +27,7 @@ function bindEditorDocumentEvents() {
     });
 
     document.addEventListener('insert_tag.register', function (event) {
-        const inserted = register_codemirror.addTag(event.detail.sStart, event.detail.sEnd);
+        const inserted = register_codemirror.addTag(event.detail.sStart, event.detail.sEnd, Boolean(event.detail.imageSrc));
         if (inserted && event.detail.imageSrc) {
             document.dispatchEvent(new CustomEvent('image_inserted.register', {
                 detail: {src: event.detail.imageSrc}
