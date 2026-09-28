@@ -847,6 +847,22 @@ test('empty media shells and their trailing caret paragraphs are not serialized'
     assert.equal(emptyAfterShell.parentNode, null);
 });
 
+test('a media shell with a remaining caption is not discarded during serialization', function () {
+    const harness = createHarness();
+    const body = new FakeHTMLElement();
+    const shell = new FakeHTMLElement();
+    shell.isMediaWrapper = true;
+    const caption = new FakeHTMLElement();
+    caption.append(new FakeTextNode(null, 'Caption left behind by a native block merge'));
+    shell.append(caption);
+    body.append(shell);
+
+    harness.helpers.removeTrailingEditorArtifacts(body);
+
+    assert.deepEqual(body.childNodes, [shell]);
+    assert.equal(body.textContent, 'Caption left behind by a native block merge');
+});
+
 test('the synthetic media-boundary caret is unique and stale copies are cleared before input', function () {
     const harness = createHarness();
     const body = new FakeHTMLElement({rect: {left: 20, top: 40}});

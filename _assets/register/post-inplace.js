@@ -1264,6 +1264,32 @@
         }
     }
 
+    function protectSelectedMediaBoundary(body) {
+        const selection = window.getSelection();
+        if (selection?.rangeCount !== 1) return;
+        const range = selection.getRangeAt(0);
+        if (range.collapsed || !rangeIsInside(body, range)) return;
+        const end = range.cloneRange();
+        end.collapse(false);
+        const media = mediaBoundaryAtRange(body, end);
+        if (!media) return;
+        let previous = media.previousSibling;
+        while (previous && boundaryNodeIsEmpty(previous)) previous = previous.previousSibling;
+        if (!(previous instanceof HTMLElement) || previous.querySelector('img, video, audio')) return;
+
+        // Chromium's paragraph selection includes the start of the next block.
+        // Replacing it can pull an unselected image out of its caption wrapper.
+        // End inside the preceding text block, excluding only the whitespace
+        // between blocks, never any selected prose or media.
+        const protectedRange = range.cloneRange();
+        protectedRange.setEnd(previous, previous.childNodes.length);
+        if (protectedRange.collapsed || protectedRange.toString().trimEnd() !== range.toString().trimEnd()) return;
+        const backwards = selection.anchorNode === range.endContainer && selection.anchorOffset === range.endOffset;
+        const start = [protectedRange.startContainer, protectedRange.startOffset];
+        const finish = [protectedRange.endContainer, protectedRange.endOffset];
+        selection.setBaseAndExtent(...(backwards ? finish : start), ...(backwards ? start : finish));
+    }
+
     function collapseEmptyParagraphBesideMedia(event) {
         const direction = event.inputType.endsWith('Backward')
             ? -1
@@ -1627,7 +1653,7 @@
 
     function removeTrailingEditorArtifacts(root) {
         root.querySelectorAll('.post-media-picture').forEach((picture) => {
-            if (!picture.querySelector('img, video, audio')) {
+            if (!picture.querySelector('img, video, audio') && picture.textContent.trim() === '') {
                 picture.remove();
             }
         });
@@ -2022,6 +2048,7 @@
         closeDiscardChangesDialog(state, false);
         closeContextMenu(state, false);
         state.imageCaptionEditor?.controller.abort();
+        state.imageCaptionEditor?.history?.destroy();
         state.imageCaptionEditor = null;
         state.mediaCaptionEditors.forEach((editor) => {
             editor.controller.abort();
@@ -3098,6 +3125,43 @@
         });
     }
 
+    function createCaptionHistory(state, caption, controller) {
+        const history = createBodyHistory({
+            ...state,
+            body: caption,
+            contextMenu: null,
+            imageCaptionEditor: null,
+            mediaCaptionEditors: new Map(),
+        });
+        const keydown = (event) => {
+            if (!selectionIsInside(caption) || event.isComposing || event.altKey || !(event.ctrlKey || event.metaKey)) return;
+            const key = String(event.key || '').toLowerCase();
+            const undo = !event.shiftKey && (event.code === 'KeyZ' || key === 'z');
+            const redo = editorPlatform === 'windows'
+                ? !event.shiftKey && (event.code === 'KeyY' || key === 'y')
+                : event.shiftKey && (event.code === 'KeyZ' || key === 'z');
+            if (undo || redo) {
+                event.preventDefault();
+                event.stopPropagation();
+                history[undo ? 'undo' : 'redo']();
+            }
+        };
+        caption.addEventListener('keydown', keydown, {signal: controller.signal});
+        state.body.addEventListener('keydown', keydown, {signal: controller.signal});
+        caption.addEventListener('beforeinput', (event) => {
+            if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
+                event.preventDefault();
+                history[event.inputType === 'historyUndo' ? 'undo' : 'redo']();
+            } else {
+                history.before(event.inputType);
+            }
+        }, {signal: controller.signal});
+        caption.addEventListener('input', (event) => {
+            history.record(event.inputType);
+        }, {signal: controller.signal});
+        return history;
+    }
+
     function beginInlineMediaCaption(state, caption) {
         if (state.mediaCaptionEditors.has(caption)) {
             focusInlineMediaCaption(state, caption);
@@ -3127,13 +3191,7 @@
         caption.setAttribute('spellcheck', 'true');
         caption.setAttribute('tabindex', '0');
         caption.dataset.placeholder = placeholder;
-        editor.history = createBodyHistory({
-            ...state,
-            body: caption,
-            contextMenu: null,
-            imageCaptionEditor: null,
-            mediaCaptionEditors: new Map(),
-        });
+        editor.history = createCaptionHistory(state, caption, controller);
         const selectionIsInside = () => {
             const selection = window.getSelection();
             const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
@@ -3146,19 +3204,6 @@
         const keydown = (event) => {
             if (!selectionIsInside()) {
                 return;
-            }
-            if (!event.isComposing && !event.altKey && (event.ctrlKey || event.metaKey)) {
-                const key = String(event.key || '').toLowerCase();
-                const undo = !event.shiftKey && (event.code === 'KeyZ' || key === 'z');
-                const redo = editorPlatform === 'windows'
-                    ? !event.shiftKey && (event.code === 'KeyY' || key === 'y')
-                    : event.shiftKey && (event.code === 'KeyZ' || key === 'z');
-                if (undo || redo) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    editor.history[undo ? 'undo' : 'redo']();
-                    return;
-                }
             }
             if (moveFromInlineMediaCaption(event, state, caption)) {
                 return;
@@ -3188,17 +3233,6 @@
         };
         caption.addEventListener('keydown', keydown, {signal: controller.signal});
         caption.addEventListener('paste', paste, {signal: controller.signal});
-        caption.addEventListener('beforeinput', (event) => {
-            if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
-                event.preventDefault();
-                editor.history[event.inputType === 'historyUndo' ? 'undo' : 'redo']();
-            } else {
-                editor.history.before(event.inputType);
-            }
-        }, {signal: controller.signal});
-        caption.addEventListener('input', (event) => {
-            editor.history.record(event.inputType);
-        }, {signal: controller.signal});
         caption.addEventListener('blur', () => {
             window.setTimeout(() => {
                 if (state.mediaCaptionEditors.has(caption) && document.activeElement !== caption) {
@@ -4391,6 +4425,9 @@
             return false;
         }
         const execute = () => {
+            // execCommand (including the context menu's Cut) need not emit
+            // beforeinput, so protect its selection here as well.
+            protectSelectedMediaBoundary(state.body);
             const bodyBefore = state.body.innerHTML;
             state.body.focus();
             if (command === 'formatBlock' && value === 'p') {
@@ -5274,6 +5311,7 @@
         }
         state.imageCaptionEditor = null;
         editor.controller.abort();
+        editor.history?.destroy();
         if (document.activeElement === editor.caption) {
             editor.caption.blur();
         }
@@ -5327,6 +5365,7 @@
     }
 
     function beginImageCaptionEditing(state, image, placeholder) {
+        finishInlineMediaCaptions(state);
         finishImageCaptionEditing(state, true, false);
         state.history?.before();
         const originalContext = imageCaptionContext(state, image);
@@ -5371,6 +5410,7 @@
         caption.setAttribute('spellcheck', 'true');
         caption.tabIndex = 0;
         caption.dataset.placeholder = placeholder;
+        state.imageCaptionEditor.history = createCaptionHistory(state, caption, controller);
         caption.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 event.preventDefault();
@@ -5946,6 +5986,19 @@
                 return;
             }
 
+            if (!['tags', 'title'].includes(action)) {
+                // Removing a focused caption does not fire blur in every browser.
+                // Restore body editing and flush caption history before replacing
+                // any nodes, including when the reply only replaces a selection.
+                finishImageCaptionEditing(state, true, false);
+                finishInlineMediaCaptions(state);
+                if (sourceRange && (!rangeIsInside(state.body, sourceRange) || htmlForRange(sourceRange) !== source)) {
+                    showEditorStatus(state, editorConfig().aiSourceChanged || 'The source text has changed.', true);
+                    return;
+                }
+                state.history?.before();
+            }
+
             if (action === 'title') {
                 const title = payload.result.replace(/\s+/gu, ' ').trim();
                 if (title === '' || title.length > 255) {
@@ -6458,7 +6511,10 @@
             return;
         }
         const target = event.target instanceof Element ? event.target : null;
-        if (target?.closest('.post-editor-context-menu')) {
+        // Plain-text captions keep the native clipboard menu and their own
+        // editing session. Focusing the post menu would commit the caption and
+        // invalidate its selection before Copy or Cut can use it.
+        if (target?.closest('.post-editor-context-menu, .is-editing-caption, .is-editing-inline-caption')) {
             return;
         }
         const card = cardFor(target);
@@ -6738,6 +6794,7 @@
             event.preventDefault();
             state.history[event.inputType === 'historyUndo' ? 'undo' : 'redo']();
         } else {
+            if (/^(insert|delete)/u.test(event.inputType)) protectSelectedMediaBoundary(state.body);
             state.history?.before(event.inputType);
         }
     }, false);

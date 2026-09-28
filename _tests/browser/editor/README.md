@@ -142,3 +142,13 @@ earlier body edits. Unchanged captions retain concurrent AI descriptions when
 finished with Enter, Escape or Tab; undo, redo, recovery and saving preserve them.
 Leaving by Tab, clicking the body or beside an image, dropping media, and switching
 captions restore body editing and retain each caption as a separate undo step.
+
+Seventeen caption/boundary scenarios cover replacing, deleting and cutting a
+paragraph before an image, including the context menu, backwards selections,
+undo/redo, recovery and saving. Unselected images keep their captions and wrappers;
+explicitly selected media can still be deleted. New and existing overlay captions
+have local keyboard and native-menu undo, with cancellation retaining earlier body
+edits and commit adding one post-history step. Whole-body and selected AI replies
+finish caption sessions before changing the DOM, restore typing and history, and
+retain unrelated caption edits; stale whole-body replies leave the active caption
+intact. Both caption types use the native clipboard menu without losing selection.
