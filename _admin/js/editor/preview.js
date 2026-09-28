@@ -53,6 +53,7 @@ function collectBlockLineNumbers(html) {
 
         const raw = html.slice(lt + 1, gt).trim();
         if (!raw) {
+            line += countNewlines(html.slice(lt, gt + 1));
             pos = gt + 1;
             continue;
         }
@@ -73,6 +74,7 @@ function collectBlockLineNumbers(html) {
             depth--;
         }
 
+        line += countNewlines(html.slice(lt, gt + 1));
         pos = gt + 1;
     }
 

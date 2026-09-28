@@ -223,3 +223,54 @@ export async function runPreviewDocumentRegressions(browser, origin) {
         console.log(`admin preview: repeated document replacement${fault ? ' and error recovery' : ''} preserves bidirectional scrolling`);
     }
 }
+
+export async function runPreviewLineRegressions(browser, origin) {
+    for (const mode of ['opening', 'closing', 'mixed']) {
+        await withPage(browser, origin, {templates: true}, async (page, url) => {
+            await page.route('**/admin-ajax?*', route => route.fulfill({json: previewTemplate('first')}));
+            await page.goto(url);
+            await page.waitForFunction(() => window.adminEditorReady);
+            const body = (mode === 'mixed' ? '<!-- Multiline\ncomment -->\n<br\n>\n' : '')
+                + Array.from({length: 50}, (_, i) => mode === 'opening' ? `<p\n class="paragraph">Paragraph ${i}</p>`
+                    : mode === 'closing' ? `<p>Paragraph ${i}</p\n>` : `<p\n title="A > B">\nParagraph ${i}</p\n>`).join('\n');
+            const lines = body.split('\n').flatMap((line, index) => line.startsWith('<p') ? [index] : []);
+            await page.evaluate(body => window.adminEditor.setValue(body, true), body);
+            await page.waitForFunction(() => document.getElementById('body-preview-frame').contentDocument.querySelectorAll('#preview-text-wrapper p').length === 50);
+            await page.waitForFunction(() => document.getElementById('body-preview-frame').contentDocument.querySelector('p')?.offsetHeight === 80);
+            assert.deepEqual(await page.evaluate(() => Array.from(document.getElementById('body-preview-frame').contentDocument
+                .querySelectorAll('#preview-text-wrapper p'), p => Number(p.dataset.line))), lines);
+
+            await page.locator('.CodeMirror').hover();
+            await page.mouse.wheel(0, 1);
+            await page.evaluate(line => {
+                const cm = document.querySelector('.CodeMirror').CodeMirror;
+                cm.scrollTo(null, cm.heightAtLine(line, 'local') - cm.getScrollInfo().clientHeight / 2);
+            }, lines[20]);
+            await page.waitForFunction(() => document.getElementById('body-preview-frame').contentDocument.scrollingElement.scrollTop > 100);
+            await page.waitForTimeout(400);
+            const previewMiddle = await page.evaluate(() => {
+                const doc = document.getElementById('body-preview-frame').contentDocument;
+                const middle = doc.scrollingElement.clientHeight / 2;
+                return Array.from(doc.querySelectorAll('#preview-text-wrapper p')).findIndex(p => {
+                    const rect = p.getBoundingClientRect();
+                    return rect.top <= middle && rect.bottom >= middle;
+                });
+            });
+            assert.ok(Math.abs(previewMiddle - 20) <= 1, `Source paragraph 20 should stay visible, got ${previewMiddle}`);
+
+            await page.locator('#body-preview-frame').click({position: {x: 10, y: 10}});
+            await page.evaluate(() => {
+                const doc = document.getElementById('body-preview-frame').contentDocument;
+                doc.scrollingElement.scrollTop = doc.querySelectorAll('#preview-text-wrapper p')[30].offsetTop - doc.scrollingElement.clientHeight / 2;
+            });
+            await page.waitForTimeout(400);
+            const sourceMiddle = await page.evaluate(() => {
+                const cm = document.querySelector('.CodeMirror').CodeMirror;
+                return cm.lineAtHeight(cm.getScrollInfo().top + cm.getScrollInfo().clientHeight / 2, 'local');
+            });
+            assert.ok(sourceMiddle >= lines[29] && sourceMiddle <= lines[31], `Preview paragraph 30 should keep its source visible, got line ${sourceMiddle}`);
+            assert.equal(await page.evaluate(() => window.adminEditor.getValue()), body);
+        });
+        console.log(`admin preview: multiline ${mode} tags retain source lines and bidirectional scrolling`);
+    }
+}

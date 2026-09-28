@@ -265,10 +265,7 @@ export function initImageAlt(form, config) {
                 alt: responseData.result,
                 expectedAlt: responseData.result
             });
-            const updated = register_codemirror.getTrackedImage(image, responseData.result);
-            if (updated) {
-                render(updated, requestStates.get(image.target));
-            }
+            scheduleSyncWithCursor();
         } catch (error) {
             if (controller.signal.aborted || requestStates.get(image.target) !== state || error.name === 'AbortError') {
                 return;
@@ -278,10 +275,7 @@ export function initImageAlt(form, config) {
                 alt: state.expectedAlt,
                 expectedAlt: state.expectedAlt
             });
-            const current = register_codemirror.getTrackedImage(image, state.expectedAlt);
-            if (current) {
-                render(current, requestStates.get(image.target));
-            }
+            scheduleSyncWithCursor();
         }
     }
 

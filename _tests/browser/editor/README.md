@@ -208,6 +208,14 @@ draft. Two document-lifecycle scenarios repeatedly replace the preview template,
 including recovery after an error, and retain scrolling in both directions without
 old listeners or animations interfering.
 
+Two shortcut scenarios keep alt and CodeMirror search fields independent from
+source formatting, while retaining keyboard saves and formatting in the source.
+Six alt-response scenarios cover success, HTTP/network errors and malformed JSON
+after moving to another image, a paragraph or a second pending request. The panel
+follows the current cursor; each image retains its result and retry action.
+Three scroll scenarios cover multiline opening/closing tags, attributes, comments
+and void elements, checking actual paragraphs in both scroll directions.
+
 Twenty-seven media-insertion scenarios retain existing images and their pending
 descriptions when splitting paragraphs, including nested formatting, repeated
 images, manual overrides and undo/redo. Block anchors survive splitting without

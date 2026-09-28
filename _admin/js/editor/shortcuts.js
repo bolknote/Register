@@ -41,7 +41,7 @@ export function initHtmlTextarea(eTextarea) {
         return;
     }
     bindEditorDocumentEvents();
-    register_codemirror.get_instance(eTextarea);
+    const editor = register_codemirror.get_instance(eTextarea);
 
     // Use parentNode to catch events from CodeMirror.
     const textareaWrapper = eTextarea.parentNode;
@@ -50,6 +50,10 @@ export function initHtmlTextarea(eTextarea) {
     }
     textareaWrapper.dataset.editorShortcutsBound = 'true';
     textareaWrapper.addEventListener('keydown', function (e) {
+        // Alt and search fields share this wrapper but edit their own text.
+        const sourceInput = editor?.getInputField() || eTextarea;
+        if (!sourceInput.contains(e.target)) return;
+
         function insertParagraph(sType) {
             document.dispatchEvent(new CustomEvent('insert_paragraph.register', {detail: {sType: sType}}));
         }

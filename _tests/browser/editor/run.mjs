@@ -21,7 +21,8 @@ import {runMediaInsertionAltRegressions, runMediaInsertionCaretRegressions, runM
 import {runMediaDragRegressions} from './media-drag-tests.mjs';
 import {runAdminAiTargetRegressions} from './admin-ai-target-tests.mjs';
 import {runImageInsertionTextRegressions, runSmartParagraphRegressions, runSocialPreviewTextRegressions} from './admin-text-tests.mjs';
-import {runAltLayoutRegressions, runTemplateFieldRegressions, runPreviewDocumentRegressions} from './admin-layout-preview-tests.mjs';
+import {runAltLayoutRegressions, runTemplateFieldRegressions, runPreviewDocumentRegressions, runPreviewLineRegressions} from './admin-layout-preview-tests.mjs';
+import {runAdminShortcutTargetRegressions, runAltCursorRegressions} from './admin-interaction-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -455,6 +456,9 @@ try {
             await runAltLayoutRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runTemplateFieldRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runPreviewDocumentRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runAdminShortcutTargetRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runAltCursorRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runPreviewLineRegressions(browser, `http://127.0.0.1:${server.address().port}`);
         } finally {
             await browser.close();
         }
