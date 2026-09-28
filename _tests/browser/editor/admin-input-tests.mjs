@@ -227,6 +227,7 @@ export async function runAdminInputRegressions(browser, origin) {
         const saves = holdRequests(page, '**/admin-save?id=9');
         await saves.installed;
         const {request, input} = await beginAltRace(page);
+        await input.evaluate(input => { window.activeAltLineWidget = input.closest('.CodeMirror-linewidget'); });
         await input.press('Meta+s');
         const save = await saves.next();
         const expected = images.replace('src="/second.png" alt=""', 'src="/second.png" alt="My second description"');
@@ -235,6 +236,9 @@ export async function runAdminInputRegressions(browser, origin) {
         await save.fulfill({json: saved(2)});
         await page.waitForFunction(() => document.querySelector('[name="revision"]').value === '2');
         assert.equal(await value(page), expected);
+        assert.equal(await page.evaluate(() => (
+            document.querySelector('.CodeMirror-linewidget') === window.activeAltLineWidget
+        )), true, 'Saving an alt must update the existing widget without replacing CodeMirror DOM');
         assert.equal(await dirty(page), false);
     });
     console.log('admin alt: the save shortcut commits the open field and cancels pending generation');

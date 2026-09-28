@@ -9,14 +9,29 @@ export function initImageAlt(form, config) {
 
     const requestStates = new Map();
     let activeWidget = null;
+    let activeRoot = null;
     let activeImage = null;
     let activeEdit = null;
+    let syncTimer = null;
+
+    function scheduleSyncWithCursor() {
+        if (syncTimer !== null) return;
+        // CodeMirror's contenteditable input reconciles DOM mutations after
+        // the current event. Replacing a line widget before that finishes can
+        // make its saved sibling reference stale. Run one coalesced sync in
+        // the next task, after the observer has settled.
+        syncTimer = setTimeout(function () {
+            syncTimer = null;
+            syncWithCursor();
+        }, 0);
+    }
 
     function clearWidget() {
         if (activeWidget) {
             activeWidget.clear();
         }
         activeWidget = null;
+        activeRoot = null;
         activeImage = null;
     }
 
@@ -70,7 +85,7 @@ export function initImageAlt(form, config) {
                     expectedAlt: nextAlt
                 });
             }
-            queueMicrotask(syncWithCursor);
+            scheduleSyncWithCursor();
         }
         activeEdit = {image, finish};
 
@@ -101,9 +116,12 @@ export function initImageAlt(form, config) {
         // Removing a focused input does not reliably fire blur (notably in
         // Firefox). Let the author finish it before replacing the widget.
         if (keepActiveEdit()) return;
-        clearWidget();
+        const reuseWidget = activeWidget && activeRoot && activeImage?.target === image.target
+            && activeImage.line === image.line;
+        if (!reuseWidget) clearWidget();
 
-        const root = document.createElement('div');
+        const root = reuseWidget ? activeRoot : document.createElement('div');
+        root.replaceChildren();
         root.className = 'ai-image-alt-preview';
         root.dataset.state = state.status;
         root.setAttribute('role', 'group');
@@ -148,7 +166,10 @@ export function initImageAlt(form, config) {
             overlay.append(altText, regenerate);
         }
 
-        activeWidget = register_codemirror.addLineWidget(image.line, root);
+        if (!reuseWidget) {
+            activeWidget = register_codemirror.addLineWidget(image.line, root);
+            activeRoot = root;
+        }
         activeImage = image;
     }
 
@@ -180,10 +201,7 @@ export function initImageAlt(form, config) {
             }
         });
         activeEdit?.finish(true);
-        // A save shortcut can arrive while CodeMirror's contenteditable input
-        // is still reconciling the key event. Clearing its line widget in the
-        // same stack may remove a DOM sibling that CodeMirror is about to use.
-        queueMicrotask(syncWithCursor);
+        scheduleSyncWithCursor();
     });
 
     // Exit checks must see the pending description even if removing the page
@@ -278,6 +296,6 @@ export function initImageAlt(form, config) {
 
     register_codemirror.onCursorActivity(syncWithCursor);
     register_codemirror.onChange(function () {
-        queueMicrotask(syncWithCursor);
+        scheduleSyncWithCursor();
     });
 }
