@@ -1857,6 +1857,7 @@
         if (!window.RegisterPostRecovery || !state.recovery) return;
         const snapshot = record.snapshot;
         state.history?.before();
+        state.titleHistory?.before();
         state.title.textContent = snapshot.title;
         const safeBody = window.RegisterPostRecovery.cleanBody(snapshot.body);
         state.body.innerHTML = safeBody;
@@ -1869,6 +1870,7 @@
         snapshot.mediaIds.forEach(mediaId => state.recoveryMediaIds.add(mediaId));
         state.titleDirty = state.bodyDirty = state.tagsDirty = state.dateDirty = true;
         state.history?.record();
+        state.titleHistory?.record();
         state.recovery.restored(record);
         showEditorStatus(state, [
             editorConfig().recoveryRestored || 'Text restored. Review it before saving.',
@@ -2045,6 +2047,7 @@
     function stopEditing(state) {
         state.recovery?.stop();
         state.history?.destroy();
+        state.titleHistory?.destroy();
         closeDiscardChangesDialog(state, false);
         closeContextMenu(state, false);
         state.imageCaptionEditor?.controller.abort();
@@ -2317,6 +2320,9 @@
         toggleEditingTools(card, true);
         document.execCommand('defaultParagraphSeparator', false, 'p');
         state.history = createBodyHistory(state);
+        state.titleHistory = createFieldHistory(state, elements.title, new AbortController(), () => {
+            state.titleDirty = true;
+        });
         startPostRecovery(state);
         focusEdge(elements.title, true);
         queueMicrotask(() => {
@@ -2422,7 +2428,9 @@
             return false;
         }
 
+        state.titleHistory?.before();
         state.title.textContent = title;
+        state.titleHistory?.record();
         state.titleField.value = title;
         state.bodyField.value = state.bodyDirty ? editableBodyHtml(state) : state.originalBody;
 
@@ -3125,16 +3133,16 @@
         });
     }
 
-    function createCaptionHistory(state, caption, controller) {
+    function createFieldHistory(state, field, controller, onRestore = null) {
         const history = createBodyHistory({
             ...state,
-            body: caption,
+            body: field,
             contextMenu: null,
             imageCaptionEditor: null,
             mediaCaptionEditors: new Map(),
-        });
+        }, onRestore);
         const keydown = (event) => {
-            if (!selectionIsInside(caption) || event.isComposing || event.altKey || !(event.ctrlKey || event.metaKey)) return;
+            if (!selectionIsInside(field) || event.isComposing || event.altKey || !(event.ctrlKey || event.metaKey)) return;
             const key = String(event.key || '').toLowerCase();
             const undo = !event.shiftKey && (event.code === 'KeyZ' || key === 'z');
             const redo = editorPlatform === 'windows'
@@ -3146,9 +3154,9 @@
                 history[undo ? 'undo' : 'redo']();
             }
         };
-        caption.addEventListener('keydown', keydown, {signal: controller.signal});
+        field.addEventListener('keydown', keydown, {signal: controller.signal});
         state.body.addEventListener('keydown', keydown, {signal: controller.signal});
-        caption.addEventListener('beforeinput', (event) => {
+        field.addEventListener('beforeinput', (event) => {
             if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') {
                 event.preventDefault();
                 history[event.inputType === 'historyUndo' ? 'undo' : 'redo']();
@@ -3156,9 +3164,14 @@
                 history.before(event.inputType);
             }
         }, {signal: controller.signal});
-        caption.addEventListener('input', (event) => {
+        field.addEventListener('input', (event) => {
             history.record(event.inputType);
         }, {signal: controller.signal});
+        const destroy = history.destroy;
+        history.destroy = () => {
+            controller.abort();
+            destroy();
+        };
         return history;
     }
 
@@ -3191,7 +3204,7 @@
         caption.setAttribute('spellcheck', 'true');
         caption.setAttribute('tabindex', '0');
         caption.dataset.placeholder = placeholder;
-        editor.history = createCaptionHistory(state, caption, controller);
+        editor.history = createFieldHistory(state, caption, controller);
         const selectionIsInside = () => {
             const selection = window.getSelection();
             const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
@@ -4224,8 +4237,9 @@
     // cannot see wrapping a <tt>, unlinking a node, or finishing an async upload.
     // Keep DOM clones (not reparsed HTML) and both selection endpoints; reparsing
     // browser-generated editing HTML can change its structure and caret offsets.
-    function createBodyHistory(state) {
+    function createBodyHistory(state, onRestore = null) {
         const uploads = new Map();
+        const liveImages = new WeakMap();
         const ignored = '[data-post-inline-code-exit], .post-editor-context-anchor';
         let uploadSequence = 0;
         let index = 0;
@@ -4261,8 +4275,15 @@
             const focus = point(selected?.focusNode, selected?.focusOffset);
             return anchor && focus ? {anchor, focus} : null;
         }
+        const imagesIn = (root) => root instanceof HTMLImageElement ? [root] : Array.from(root.querySelectorAll('img'));
+        function cloneWithImages(source) {
+            const root = source.cloneNode(true);
+            const images = imagesIn(source);
+            imagesIn(root).forEach((image, index) => liveImages.set(image, images[index]));
+            return root;
+        }
         function snapshot() {
-            const root = state.body.cloneNode(true);
+            const root = cloneWithImages(state.body);
             root.querySelectorAll(ignored).forEach((node) => node.remove());
             root.querySelectorAll('.has-leading-boundary-caret').forEach(clearBoundaryCaret);
             // A pending upload is one stable slot, not a succession of progress
@@ -4338,6 +4359,21 @@
             mergeInput = false;
             const entry = entries[index];
             const restored = entry.root.cloneNode(true);
+            // Keep each image occurrence's identity so delayed AI descriptions
+            // still target it. Restore attributes from the snapshot, preserving
+            // the existing source/alt guards against stale replies.
+            const savedImages = imagesIn(entry.root);
+            imagesIn(restored).forEach((image, index) => {
+                const live = liveImages.get(savedImages[index]);
+                if (!live) return;
+                Array.from(live.attributes).forEach(({name}) => {
+                    if (!image.hasAttribute(name)) live.removeAttribute(name);
+                });
+                Array.from(image.attributes).forEach(({name, value}) => {
+                    if (live.getAttribute(name) !== value) live.setAttribute(name, value);
+                });
+                image.replaceWith(live);
+            });
             restored.querySelectorAll('[data-post-history-upload]').forEach((slot) => {
                 const pending = uploads.get(slot.dataset.postHistoryUpload);
                 if (pending) slot.replaceWith(pending.element);
@@ -4356,6 +4392,7 @@
             clearError(state.form);
             clearStatus(state.card);
             syncBoundaryCaret();
+            onRestore?.();
             return true;
         }
         return {
@@ -4396,7 +4433,7 @@
                 // never adds an undo step or resurrects an insertion already undone.
                 entries.forEach((entry) => {
                     entry.root.querySelectorAll(`[data-post-history-upload="${id}"]`).forEach((slot) => {
-                        if (completed) slot.replaceWith(completed.cloneNode(true));
+                        if (completed) slot.replaceWith(cloneWithImages(completed));
                         else slot.remove();
                     });
                     entry.html = entry.root.innerHTML;
@@ -5410,7 +5447,7 @@
         caption.setAttribute('spellcheck', 'true');
         caption.tabIndex = 0;
         caption.dataset.placeholder = placeholder;
-        state.imageCaptionEditor.history = createCaptionHistory(state, caption, controller);
+        state.imageCaptionEditor.history = createFieldHistory(state, caption, controller);
         caption.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 event.preventDefault();
@@ -6004,9 +6041,11 @@
                 if (title === '' || title.length > 255) {
                     throw new Error(editorConfig().invalidContent || 'Invalid post content.');
                 }
+                state.titleHistory?.before();
                 state.title.textContent = title;
                 state.titleDirty = true;
                 focusEdge(state.title, true);
+                state.titleHistory?.record();
             } else if (action === 'tags') {
                 if (!state.tagEditor.replace(payload.result)) {
                     throw new Error(editorConfig().invalidTags || 'Invalid post tags.');

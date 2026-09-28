@@ -152,3 +152,11 @@ edits and commit adding one post-history step. Whole-body and selected AI replie
 finish caption sessions before changing the DOM, restore typing and history, and
 retain unrelated caption edits; stale whole-body replies leave the active caption
 intact. Both caption types use the native clipboard menu without losing selection.
+
+Nine field/history scenarios cover independent keyboard and native-menu undo in
+the title, body redo, saving, and fresh editing sessions. AI title suggestions and
+restored draft titles participate in the same bounded title history. Body history
+retains individual image nodes so pending AI descriptions survive undo/redo without
+repeated requests, including identical images and a deletion undone before the
+reply. Deleted images and manual descriptions still reject stale responses;
+generated descriptions remain undoable and persist through recovery and saving.

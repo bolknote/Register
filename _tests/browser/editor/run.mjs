@@ -13,6 +13,7 @@ import {runAdminInputRegressions} from './admin-input-tests.mjs';
 import {runAdminHtmlRegressions} from './admin-html-tests.mjs';
 import {runCaptionInputRegressions} from './caption-input-tests.mjs';
 import {runCaptionBoundaryRegressions} from './caption-boundary-tests.mjs';
+import {runFieldHistoryRegressions} from './field-history-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -428,6 +429,7 @@ try {
             await runAdminHtmlRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runCaptionInputRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runCaptionBoundaryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runFieldHistoryRegressions(browser, `http://127.0.0.1:${server.address().port}`);
         } finally {
             await browser.close();
         }
