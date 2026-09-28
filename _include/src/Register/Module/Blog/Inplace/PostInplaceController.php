@@ -279,63 +279,66 @@ final readonly class PostInplaceController implements ControllerInterface
             return $this->error($request, 'Invalid post content', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $mediaIds = $this->mediaIds($request->request->getString('media_ids'));
-        $moves = [];
-        $payload = [];
-        try {
-            $updated = $this->transactional(function () use ($mediaIds, $editor, $publishedAt, &$moves, &$payload): bool {
-                $uploads = $this->mediaRepository->ownedUploads($mediaIds, $editor->id);
-                foreach ($uploads as $media) {
-                    // Another tab may have renamed and published this upload.
-                    // Reconcile its URL without moving a file already used by a post.
-                    if (!(bool)$media['pending'] || (int)$media['usage_count'] !== 0) {
-                        $payload[] = $this->mediaPayload($media);
-                        continue;
+        // Serialize file renames with post writes under the same editorial mutex.
+        return $this->urlHistory->run(function () use ($request, $editor, $publishedAt): Response {
+            $mediaIds = $this->mediaIds($request->request->getString('media_ids'));
+            $moves = [];
+            $payload = [];
+            try {
+                $updated = $this->transactional(function () use ($mediaIds, $editor, $publishedAt, &$moves, &$payload): bool {
+                    $uploads = $this->mediaRepository->ownedUploads($mediaIds, $editor->id);
+                    foreach ($uploads as $media) {
+                        // Another tab may have renamed and published this upload.
+                        // Reconcile its URL without moving a file already used by a post.
+                        if (!(bool)$media['pending'] || (int)$media['usage_count'] !== 0) {
+                            $payload[] = $this->mediaPayload($media);
+                            continue;
+                        }
+
+                        $move = $this->mediaStorage->redateCanonical((string)$media['storage_path'], $publishedAt);
+                        $moves[] = $move;
+                        if ($move['from'] !== $move['to']) {
+                            $name = basename($move['to']);
+                            $this->mediaRepository->relocate((int)$media['id'], $move['to'], $name);
+                        }
+
+                        $current = $this->mediaRepository->find((int)$media['id']);
+                        if ($current === null) {
+                            throw new \LogicException('The renamed media registry row disappeared.');
+                        }
+
+                        $payload[] = $this->mediaPayload($current);
                     }
 
-                    $move = $this->mediaStorage->redateCanonical((string)$media['storage_path'], $publishedAt);
-                    $moves[] = $move;
-                    if ($move['from'] !== $move['to']) {
-                        $name = basename($move['to']);
-                        $this->mediaRepository->relocate((int)$media['id'], $move['to'], $name);
-                    }
-
-                    $current = $this->mediaRepository->find((int)$media['id']);
-                    if ($current === null) {
-                        throw new \LogicException('The renamed media registry row disappeared.');
-                    }
-
-                    $payload[] = $this->mediaPayload($current);
+                    return true;
+                });
+            } catch (\Throwable $throwable) {
+                foreach (array_reverse($moves) as $move) {
+                    $this->mediaStorage->rollbackRedate($move);
                 }
 
-                return true;
-            });
-        } catch (\Throwable $throwable) {
-            foreach (array_reverse($moves) as $move) {
-                $this->mediaStorage->rollbackRedate($move);
+                if ($throwable instanceof \RuntimeException) {
+                    return $this->error(
+                        $request,
+                        $throwable->getMessage(),
+                        $this->uploadErrorStatus($throwable),
+                        false,
+                    );
+                }
+
+                throw $throwable;
             }
 
-            if ($throwable instanceof \RuntimeException) {
-                return $this->error(
-                    $request,
-                    $throwable->getMessage(),
-                    $this->uploadErrorStatus($throwable),
-                    false,
-                );
+            if (!$updated) {
+                foreach (array_reverse($moves) as $move) {
+                    $this->mediaStorage->rollbackRedate($move);
+                }
+
+                return $this->error($request, 'Post media rename failed', Response::HTTP_CONFLICT);
             }
 
-            throw $throwable;
-        }
-
-        if (!$updated) {
-            foreach (array_reverse($moves) as $move) {
-                $this->mediaStorage->rollbackRedate($move);
-            }
-
-            return $this->error($request, 'Post media rename failed', Response::HTTP_CONFLICT);
-        }
-
-        return $this->json(['success' => true, 'action' => 'media_redate', 'media' => $payload]);
+            return $this->json(['success' => true, 'action' => 'media_redate', 'media' => $payload]);
+        });
     }
 
     private function releaseMedia(Request $request, AuthenticatedPublicUser $editor): JsonResponse
@@ -682,6 +685,8 @@ final readonly class PostInplaceController implements ControllerInterface
                     return true;
                 };
                 $updated = $this->urlHistory->changeContent($contentId, fn(): bool => $this->transactional($write));
+            } catch (PostMediaConflictException) {
+                return $this->error($request, 'Post media has changed', Response::HTTP_CONFLICT);
             } catch (\Register\Url\ContentUrlCollisionException $exception) {
                 return $this->error($request, $exception->getMessage() === \Register\Url\ContentUrlCollisionException::PATH_TOO_LONG ? $exception->getMessage() : 'Invalid post URL', Response::HTTP_UNPROCESSABLE_ENTITY);
             }
@@ -830,7 +835,12 @@ final readonly class PostInplaceController implements ControllerInterface
 
             return true;
         };
-        $created = $this->urlHistory->run(fn(): bool => $this->transactional($write));
+        try {
+            $created = $this->urlHistory->run(fn(): bool => $this->transactional($write));
+        } catch (PostMediaConflictException) {
+            return $this->error($request, 'Post media has changed', Response::HTTP_CONFLICT);
+        }
+
         if (!$created) {
             return $this->error($request, 'Post editing failed', Response::HTTP_CONFLICT);
         }

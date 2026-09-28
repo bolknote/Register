@@ -86,23 +86,32 @@ final readonly class PostMediaRepository
 
     /**
      * Replaces post-media relations and returns registry rows that became unused.
+     * Call within the same editorial transaction as the post write.
      *
      * @param list<int> $uploadedMediaIds Uploads eligible for cleanup; used media is read from the body.
      * @return list<array<string, mixed>>
+     * @throws PostMediaConflictException
      */
     public function syncPost(int $postId, string $body, array $uploadedMediaIds, int $editorId): array
     {
         $currentIds = $this->postMediaIds($postId);
         $usedIds    = $this->mediaIdsFromBody($body);
         $validIds   = [];
-        foreach ($usedIds as $mediaId => $source) {
+        foreach ($usedIds as $mediaId => $sources) {
             $media = $this->find($mediaId);
             if (
                 $media === null
-                || $source !== $this->url((string)$media['storage_path'])
                 || ((bool)$media['pending'] && (int)$media['uploaded_by'] !== $editorId)
             ) {
                 continue;
+            }
+
+            foreach ($sources as $source) {
+                if ($source !== $this->url((string)$media['storage_path'])) {
+                    // The controller rolls back the post write as well as its
+                    // relations. Never commit a link to a file another tab moved.
+                    throw new PostMediaConflictException();
+                }
             }
 
             $validIds[] = $mediaId;
@@ -403,7 +412,7 @@ final readonly class PostMediaRepository
             ->fetchColumn()));
     }
 
-    /** @return array<int, string> */
+    /** @return array<int, list<string>> */
     private function mediaIdsFromBody(string $body): array
     {
         $document = new \DOMDocument('1.0', 'UTF-8');
@@ -436,7 +445,7 @@ final readonly class PostMediaRepository
 
             $id = $node->getAttribute('data-post-media-id');
             if (preg_match('/^[1-9][0-9]*$/D', $id) === 1) {
-                $media[(int)$id] = $node->getAttribute('src');
+                $media[(int)$id][] = $node->getAttribute('src');
                 if (\count($media) >= self::MAX_MEDIA_PER_POST) {
                     break;
                 }

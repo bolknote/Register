@@ -94,3 +94,11 @@ checks that this reconciliation preserves the files and their usage without
 renaming published attachments. Saving an admin article cancels pending AI title,
 tag, proofreading and image-alt requests; failed saves permit another attempt,
 and successful creation redirects without leaving a dirty, locked form.
+
+Eleven concurrency scenarios verify that a failed eleventh recovery copy preserves
+all earlier drafts, and that pruning resumes only after a successful write. Admin
+AI title/tag suggestions validate both whole-body and selected-text sources,
+including appended text and edits outside the selected source. Concurrent media
+renames reject stale edit/create requests while retaining text for a successful
+retry. PHP integration tests check rollback of content, tags and media relations,
+file retention, and repeated occurrences of one media id with different URLs.

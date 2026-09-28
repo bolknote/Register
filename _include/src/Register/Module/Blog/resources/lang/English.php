@@ -114,6 +114,7 @@ return [
     'Forbidden extension' => 'Files with the “{{ ext }}” extension are not allowed.',
     'Upload storage quota exceeded' => 'The upload storage quota has been reached.',
     'Post has changed in another window' => 'The post has changed in another window. Reload it before saving or deleting.',
+    'Post media has changed' => 'An attachment has changed in another window. Try saving again.',
 
     'Editor context menu' => 'Editor context menu',
     'Editor' => 'Editor',

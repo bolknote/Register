@@ -83,7 +83,11 @@ export function initAiTools(form, config) {
                 throw new Error(responseData && responseData.message ? responseData.message : config.requestFailed);
             }
 
-            if (targetInput && targetInput.value !== targetValue) {
+            const currentText = register_codemirror.getValue();
+            const sourceChanged = snapshot.hasSelection
+                ? currentText.slice(snapshot.start, snapshot.end) !== snapshot.text
+                : currentText !== snapshot.text;
+            if (sourceChanged || (targetInput && targetInput.value !== targetValue)) {
                 setStatus(config.sourceChanged, true);
                 return;
             }
@@ -111,12 +115,6 @@ export function initAiTools(form, config) {
             }
 
             {
-                const currentText = register_codemirror.getValue().slice(snapshot.start, snapshot.end);
-                if (currentText !== snapshot.text) {
-                    setStatus(config.sourceChanged, true);
-                    return;
-                }
-
                 if (responseData.result === snapshot.text) {
                     setStatus(action === 'proofread' ? config.proofreadClean : config.unchanged, false);
                     return;

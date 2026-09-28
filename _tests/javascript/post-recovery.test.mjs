@@ -99,3 +99,35 @@ test('retention bounds the number and total size of drafts', () => {
     }
     assert.ok([...data.values.values()].reduce((sum, value) => sum + value.length, 0) <= 2 * 1024 * 1024);
 });
+
+for (const limit of ['count', 'size']) {
+    test(`a failed write at the ${limit} retention limit preserves every previous draft`, () => {
+        const data = storage();
+        const store = open(data);
+        const count = limit === 'count' ? 10 : 4;
+        for (let index = 0; index < count; index++) {
+            const item = record(`draft${index}`, {savedAt: stamp + index});
+            if (limit === 'size') item.snapshot.body = 'x'.repeat(500000);
+            assert.equal(store.save(item), true);
+        }
+        const before = [...data.values];
+        const setItem = data.setItem;
+        data.setItem = () => { throw new Error('QuotaExceededError'); };
+        const next = record('newDraft', {savedAt: stamp + 100});
+        next.snapshot.body = 'New content ' + 'x'.repeat(500000);
+        assert.equal(store.save(next), false);
+        assert.deepEqual([...data.values], before);
+
+        // Updating an existing draft must retain its earlier text on failure, too.
+        next.id = 'draft0';
+        assert.equal(store.save(next), false);
+        assert.deepEqual([...data.values], before);
+
+        data.setItem = setItem;
+        next.id = 'newDraft';
+        assert.equal(store.save(next), true);
+        assert.ok(store.list().some(copy => copy.id === next.id));
+        assert.equal(store.list().length, count);
+        assert.ok(!store.list().some(copy => copy.id === 'draft0'));
+    });
+}

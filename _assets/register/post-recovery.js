@@ -58,13 +58,15 @@
                     if (raw.length > maximumRecordLength) return false;
                     const others = entries().filter(item => item.record.id !== record.id);
                     let size = raw.length + others.reduce((sum, item) => sum + item.length, 0);
+                    // Preserve every valid older copy if this write fails. In
+                    // particular, pruning first cannot safely recover from quota errors.
+                    storage.setItem(key(record), raw);
                     while (others.length >= maximumRecords || size > maximumTotalLength) {
                         const oldest = others.pop();
                         if (!oldest) break;
                         storage.removeItem(key(oldest.record));
                         size -= oldest.length;
                     }
-                    storage.setItem(key(record), raw);
                     return true;
                 } catch (_) { return false; }
             },

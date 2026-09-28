@@ -114,6 +114,7 @@ return [
     'Forbidden extension' => 'Файлы с расширением «{{ ext }}» создавать запрещено.',
     'Upload storage quota exceeded' => 'Исчерпана квота хранилища загрузок.',
     'Post has changed in another window' => 'Пост изменился в другом окне. Обновите его перед сохранением или удалением.',
+    'Post media has changed' => 'Вложение изменилось в другом окне. Повторите сохранение.',
 
     'Editor context menu' => 'Контекстное меню редактора',
     'Editor' => 'Редактор',

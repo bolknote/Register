@@ -1029,6 +1029,109 @@ final class PostInplaceCest
         }
     }
 
+    public function rejectsStaleMediaUrlsAndAllowsSavingAgain(\IntegrationTester $I): void
+    {
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        /** @var PostMediaRepository $mediaRegistry */
+        $mediaRegistry = $I->grabService(PostMediaRepository::class);
+        $date = (new \DateTimeImmutable('1991-02-02 12:00:00'))->getTimestamp();
+        $I->login('author', 'author');
+
+        foreach (['audio', 'image'] as $kind) {
+            foreach ([false, true] as $creating) {
+                $date += 4 * 86400;
+                $slug = 'media-race-' . $kind . ($creating ? '-create' : '-edit');
+                $postId = $this->insertPost($dbLayer, $slug, $this->userId($dbLayer, 'author'), $date);
+                $I->amOnPage('https://localhost/' . $slug);
+                $form = $creating ? '.site-header-shell .post-create-template .post-inplace-edit-form'
+                    : '.post-card[data-post-id="' . $postId . '"] > .post-inplace-edit-form';
+                $token = (string)$I->grabAttributeFrom($form . ' input[name="inplace_token"]', 'value');
+                $endpoint = 'https://localhost/_inplace/post/' . ($creating ? 'new' : $postId);
+                $file = $this->temporaryFile($kind === 'audio' ? $this->wavContents() : (string)base64_decode(self::ONE_PIXEL_PNG, true));
+                $storedFiles = [];
+                $postCount = (int)$dbLayer->select('COUNT(*)')->from(ContentSchema::TABLE_NAME)->execute()->result();
+                $tagCount = (int)$dbLayer->select('COUNT(*)')->from('tags')->execute()->result();
+                $readPost = fn(): array|false => $dbLayer->select('title, body, revision')->from(ContentSchema::TABLE_NAME)
+                    ->where('id = :id')->setParameter('id', $postId)->execute()->fetchAssoc();
+                $before = $readPost();
+                try {
+                    $I->sendPost($endpoint, [
+                        'inplace_action' => 'media', 'inplace_token' => $token, 'published_at' => (string)$date,
+                        'media_retina' => '0', 'media_width' => '1', 'media_height' => '1',
+                        'media_display_width' => '1', 'media_display_height' => '1',
+                    ], ['media' => new UploadedFile($file, $kind === 'audio' ? 'clip.wav' : 'image.png',
+                        $kind === 'audio' ? 'audio/wav' : 'image/png', null, true)]);
+                    $I->seeResponseCodeIs(Response::HTTP_OK);
+                    $upload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+                    $mediaId = (int)$upload['media_id'];
+                    $storedFiles[] = $this->storedMediaPath($upload['url']);
+                    $redate = function (int $publishedAt) use ($I, $endpoint, $token, $mediaId, &$storedFiles): array {
+                        $I->sendAjaxPostRequest($endpoint, [
+                            'inplace_action' => 'media_redate', 'inplace_token' => $token,
+                            'published_at' => (string)$publishedAt, 'media_ids' => (string)$mediaId,
+                        ]);
+                        $I->seeResponseCodeIs(Response::HTTP_OK);
+
+                        $media = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR)['media'][0];
+                        $storedFiles[] = $this->storedMediaPath($media['url']);
+
+                        return $media;
+                    };
+                    $element = static function (string $url) use ($kind, $mediaId): string {
+                        $attributes = ' src="' . $url . '" data-post-media-id="' . $mediaId . '"';
+
+                        return $kind === 'image' ? '<img' . $attributes . ' alt="">' : '<audio' . $attributes . ' controls></audio>';
+                    };
+                    $first = $redate($date + 86400);
+                    $second = $redate($date + 2 * 86400);
+                    $I->assertFileDoesNotExist($this->storedMediaPath($first['url']));
+                    // For images, also validate an older occurrence before a current
+                    // occurrence of the same id; checking only the last src is unsafe.
+                    $staleBody = $element($first['url']) . ($kind === 'image' ? $element($second['url']) : '');
+                    $save = [
+                        'inplace_action' => $creating ? 'create' : 'edit', 'inplace_token' => $token,
+                        'revision' => $creating ? '0' : '1', 'title' => 'Concurrent media save',
+                        'body' => $staleBody, 'published_at' => (string)($date + 86400),
+                        'tags' => 'New race tag ' . $slug, 'uploaded_media_ids' => '',
+                    ];
+                    $I->sendAjaxPostRequest($endpoint, $save);
+                    $I->seeResponseCodeIs(Response::HTTP_CONFLICT);
+                    $failure = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+                    $I->assertSame('An attachment has changed in another window. Try saving again.', $failure['message']);
+                    $I->assertSame($postCount, (int)$dbLayer->select('COUNT(*)')->from(ContentSchema::TABLE_NAME)->execute()->result());
+                    $I->assertSame($before, $readPost());
+                    $I->assertSame($tagCount, (int)$dbLayer->select('COUNT(*)')->from('tags')->execute()->result());
+                    $I->assertSame(0, (int)$dbLayer->select('COUNT(*)')->from(ContentMediaSchema::USAGE_TABLE)
+                        ->where('media_id = :id')->setParameter('id', $mediaId)->execute()->result());
+                    $registered = $mediaRegistry->find($mediaId);
+                    $I->assertNotNull($registered);
+                    $I->assertSame(0, (int)$registered['usage_count']);
+                    $I->assertSame(1, (int)$registered['pending']);
+                    $I->assertFileExists($this->storedMediaPath($second['url']));
+
+                    // Retrying goes through the same reconciliation as an ordinary save.
+                    $current = $redate($date + 86400);
+                    $save['body'] = $element($current['url']) . ($kind === 'image' ? $element($current['url']) : '');
+                    $I->sendAjaxPostRequest($endpoint, $save);
+                    $I->seeResponseCodeIs(Response::HTTP_OK);
+                    $saved = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+                    $I->assertStringContainsString('src="' . $current['url'] . '"', $saved['body_html']);
+                    $I->assertSame($postCount + (int)$creating, (int)$dbLayer->select('COUNT(*)')->from(ContentSchema::TABLE_NAME)->execute()->result());
+                    $registered = $mediaRegistry->find($mediaId);
+                    $I->assertNotNull($registered);
+                    $I->assertSame(1, (int)$registered['usage_count']);
+                    $I->assertSame(0, (int)$registered['pending']);
+                    $I->assertFileExists($this->storedMediaPath($current['url']));
+                } finally {
+                    foreach (array_unique([$file, ...$storedFiles]) as $filename) {
+                        if (is_file($filename)) unlink($filename);
+                    }
+                }
+            }
+        }
+    }
+
     public function tracksCanonicallyNamedImagesAndDeletesThemAfterRemoval(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
