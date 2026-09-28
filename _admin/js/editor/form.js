@@ -219,6 +219,9 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         let savedText = eTextarea.defaultValue;
         let previousText = eTextarea.value;
         let previousTitle = eTitle.value;
+        const templateInput = eForm.elements['template'];
+        const templateId = () => sTemplateId || templateInput?.value || '';
+        let previousTemplate = templateId();
         let currentFormHash = '';
         let lastDraft = null;
         let lastPersistedText = savedText;
@@ -269,21 +272,23 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             register_codemirror.flip();
             const currentText = eTextarea.value;
             const currentTitle = eTitle.value;
+            const currentTemplate = templateId();
             persistDraft(currentText);
 
-            if (previousText !== currentText || previousTitle !== currentTitle) {
+            if (previousText !== currentText || previousTitle !== currentTitle || previousTemplate !== currentTemplate) {
                 const absoluteUrl = new URL(eForm.action);
                 const id = absoluteUrl.searchParams.get('id');
                 Preview(
                     currentTitle,
                     currentText,
                     id,
-                    sTemplateId || eForm.elements['template'].value,
+                    currentTemplate,
                     sTemplateScope,
                     previewFrame
                 );
                 previousText = currentText;
                 previousTitle = currentTitle;
+                previousTemplate = currentTemplate;
             }
         }
 
@@ -306,6 +311,10 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             }
             eTitle.addEventListener('input', updatePreview);
             eTitle.addEventListener('change', updatePreview);
+            if (!sTemplateId && templateInput) {
+                templateInput.addEventListener('input', updatePreview);
+                templateInput.addEventListener('change', updatePreview);
+            }
         }
 
         function getFormHash(formData = new FormData(eForm)) {
@@ -361,7 +370,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             eForm.elements['title'].value,
             eTextarea.value,
             id,
-            sTemplateId || eForm.elements['template'].value,
+            templateId(),
             sTemplateScope,
             previewFrame
         );

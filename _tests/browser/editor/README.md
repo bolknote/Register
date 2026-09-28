@@ -198,6 +198,16 @@ CodeMirror editors unlock after a failed creation and can save successfully on
 retry. Four social-preview scenarios cover body edits, undo/redo, AI replies,
 explicit description/image overrides and initial draft recovery in both modes.
 
+Four alt-layout scenarios use the production admin styles and HTML editor wrappers
+on desktop, narrow screens, new posts and fullscreen. The image panel remains
+outside CodeMirror without covering its source or escaping the editor. Keyboard
+saving commits the description, failed saves retain it, and body typing resumes.
+Eight template-field scenarios cover input/change events, periodic checks, stale
+responses and saving in both editor modes, without creating an unnecessary body
+draft. Two document-lifecycle scenarios repeatedly replace the preview template,
+including recovery after an error, and retain scrolling in both directions without
+old listeners or animations interfering.
+
 Twenty-seven media-insertion scenarios retain existing images and their pending
 descriptions when splitting paragraphs, including nested formatting, repeated
 images, manual overrides and undo/redo. Block anchors survive splitting without

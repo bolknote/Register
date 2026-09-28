@@ -351,9 +351,12 @@ export function initPreviewSync(eForm, sTextareaName) {
 
     let syncScroll = null;
     let layoutResetRaf = null;
-    const observedDocs = new WeakSet();
-    const observedTextWrappers = new WeakSet();
-    const observedInputTargets = new WeakSet();
+    let sourceScroller = null;
+    let previewScroller = null;
+    let previewRoot = null;
+    let syncEvents = null;
+    let textResizeObserver = null;
+    let observedTextWrapper = null;
 
     function scheduleLayoutReset() {
         if (layoutResetRaf) {
@@ -369,50 +372,42 @@ export function initPreviewSync(eForm, sTextareaName) {
     }
 
     function bindPreviewLayoutObservers(doc) {
-        if (!doc || observedDocs.has(doc)) {
-            return;
-        }
-        observedDocs.add(doc);
-
-        doc.addEventListener('load', function (event) {
-            const target = event.target;
-            if (target && target.tagName === 'IMG') {
-                scheduleLayoutReset();
-            }
-        }, true);
-
-        doc.addEventListener('error', function (event) {
-            const target = event.target;
-            if (target && target.tagName === 'IMG') {
-                scheduleLayoutReset();
-            }
-        }, true);
-
-        const textWrapper = doc.getElementById('preview-text-wrapper');
-        if (textWrapper && !observedTextWrappers.has(textWrapper)) {
-            observedTextWrappers.add(textWrapper);
+        const textWrapper = doc?.getElementById('preview-text-wrapper');
+        if (textWrapper === observedTextWrapper) return;
+        textResizeObserver?.disconnect();
+        textResizeObserver = null;
+        observedTextWrapper = textWrapper;
+        if (textWrapper) {
             const ViewResizeObserver = doc.defaultView && doc.defaultView.ResizeObserver;
             if (ViewResizeObserver) {
-                const resizeObserver = new ViewResizeObserver(function () {
-                    scheduleLayoutReset();
-                });
-                resizeObserver.observe(textWrapper);
+                textResizeObserver = new ViewResizeObserver(scheduleLayoutReset);
+                textResizeObserver.observe(textWrapper);
             }
         }
     }
 
     function ensureSync() {
-        if (syncScroll) {
-            return;
-        }
-
         const doc = previewFrame.contentDocument;
         const srcScroller = register_codemirror.getScrollerElement();
-        if (!srcScroller || !doc) {
-            return;
-        }
+        const scrollElement = doc ? getScrollElement(doc) : null;
+        if (syncScroll && sourceScroller === srcScroller && previewScroller === scrollElement
+            && previewRoot === doc?.documentElement) return;
 
-        const scrollElement = getScrollElement(doc);
+        // document.open()/write() can keep the Document but replace its root and
+        // scroller. Retire every listener and animation tied to the old DOM.
+        syncEvents?.abort();
+        syncScroll?.destroy();
+        syncScroll = null;
+        textResizeObserver?.disconnect();
+        textResizeObserver = null;
+        observedTextWrapper = null;
+        sourceScroller = srcScroller;
+        previewScroller = scrollElement;
+        previewRoot = doc?.documentElement;
+        scrollMap.reset();
+        if (!srcScroller || !scrollElement) return;
+        syncEvents = new AbortController();
+        const signal = syncEvents.signal;
 
         const previewScrollTargets = [
             scrollElement,
@@ -439,40 +434,21 @@ export function initPreviewSync(eForm, sTextareaName) {
             previewScrollTargets
         );
 
-        srcScroller.addEventListener('wheel', syncScroll.switchScrollToSrc, {passive: true});
-        srcScroller.addEventListener('mousedown', syncScroll.switchScrollToSrc);
-        srcScroller.addEventListener('touchstart', syncScroll.switchScrollToSrc, {passive: true});
-
-        scrollElement.addEventListener('wheel', syncScroll.switchScrollToResult, {passive: true});
-        scrollElement.addEventListener('mousedown', syncScroll.switchScrollToResult);
-        scrollElement.addEventListener('touchstart', syncScroll.switchScrollToResult, {passive: true});
-
-        syncScroll.switchScrollToSrc();
-    }
-
-    function bindPreviewInputTargets(doc) {
-        if (!doc || !syncScroll) {
-            return;
+        for (const type of ['wheel', 'mousedown', 'touchstart']) {
+            srcScroller.addEventListener(type, syncScroll.switchScrollToSrc, {passive: true, signal});
         }
-
-        const targets = [
-            doc,
-            doc.defaultView,
-            doc.documentElement,
-            doc.body,
-            previewFrame
-        ].filter(Boolean);
-
-        targets.forEach(function (target) {
-            if (observedInputTargets.has(target)) {
-                return;
+        new Set([...previewScrollTargets, previewFrame]).forEach(function (target) {
+            for (const type of ['wheel', 'mousedown', 'touchstart']) {
+                target.addEventListener(type, syncScroll.switchScrollToResult, {passive: true, capture: true, signal});
             }
-            observedInputTargets.add(target);
-
-            target.addEventListener('wheel', syncScroll.switchScrollToResult, {passive: true, capture: true});
-            target.addEventListener('mousedown', syncScroll.switchScrollToResult, {capture: true});
-            target.addEventListener('touchstart', syncScroll.switchScrollToResult, {passive: true, capture: true});
         });
+
+        function onImageLayout(event) {
+            if (event.target?.tagName === 'IMG') scheduleLayoutReset();
+        }
+        doc.addEventListener('load', onImageLayout, {capture: true, signal});
+        doc.addEventListener('error', onImageLayout, {capture: true, signal});
+        syncScroll.switchScrollToSrc();
     }
 
     function handlePreviewUpdated(event) {
@@ -482,7 +458,6 @@ export function initPreviewSync(eForm, sTextareaName) {
 
         ensureSync();
         bindPreviewLayoutObservers(event.detail.document);
-        bindPreviewInputTargets(event.detail.document);
         scheduleLayoutReset();
 
         if (syncScroll) {
@@ -501,6 +476,7 @@ export function initPreviewSync(eForm, sTextareaName) {
         if (!previewFrame.contentDocument) {
             return;
         }
+        ensureSync();
         bindPreviewLayoutObservers(previewFrame.contentDocument);
         scheduleLayoutReset();
     });
@@ -795,5 +771,12 @@ function SyncScroll(scrollMap, animatorSrc, animatorResult, eSrc, eResult, previ
         eSrc.removeEventListener('scroll', syncResultScroll);
         removePreviewListeners();
         addPreviewListeners();
+    };
+
+    this.destroy = function () {
+        eSrc.removeEventListener('scroll', syncResultScroll);
+        removePreviewListeners();
+        animatorSrc.stop();
+        animatorResult.stop();
     };
 }
