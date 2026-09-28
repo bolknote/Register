@@ -97,7 +97,7 @@ async function waitForMedia(page) {
     });
 }
 
-async function save(page, requests) {
+async function save(page, requests, media = null) {
     const expected = (await snapshot(page)).html;
     await page.waitForFunction(html => window.RegisterPostRecovery.createStore(localStorage, '/_inplace/tags', 1)
         .list().some(copy => copy.snapshot.body === html), expected);
@@ -106,7 +106,7 @@ async function save(page, requests) {
     let data = await formData(request);
     if (data.get('inplace_action') === 'media_redate') {
         const audio = expected.includes('<audio');
-        await request.fulfill({json: {success: true, media: [{
+        await request.fulfill({json: {success: true, media: media || [{
             media_id: 42, url: audio ? '/insertion.wav' : '/insertion.png', name: 'Clip',
         }]}});
         request = await requests.next();
@@ -208,6 +208,52 @@ export async function runMediaInsertionCaretRegressions(browser, origin) {
         }
     }
     console.log('media insertion: typing follows images at the start, middle and end of headings, quotes, code and lists, through completion, history and saving');
+}
+
+export async function runMixedMediaCaretRegressions(browser, origin) {
+    const batches = [
+        ['image', 'audio'], ['audio', 'image'], ['audio'], ['audio', 'audio'],
+        ['image', 'audio', 'image'], ['image', 'audio', 'audio'],
+    ];
+    for (const kinds of batches) {
+        for (const offset of [5, 8]) {
+            await withEditor(browser, origin, '<p>StartEnd</p>', false, async ({page, body, requests, modifier}) => {
+                await selectText(body, 'StartEnd', offset);
+                const before = (await snapshot(page)).html;
+                await transferFiles(body, kinds);
+                await body.press(`${modifier}+z`);
+                assert.equal((await snapshot(page)).html, before, 'The entire batch must undo as one insertion');
+                await body.press(`${modifier}+Shift+z`);
+                assert.equal(await body.locator('[data-post-history-upload]').count(), kinds.length);
+                await page.keyboard.insertText('During');
+                const media = [];
+                for (let index = 0; index < kinds.length; index++) {
+                    const request = await requests.next();
+                    const data = await formData(request);
+                    assert.equal(data.get('inplace_action'), 'media');
+                    const kind = data.get('media').type.startsWith('image/') ? 'image' : 'audio';
+                    const payload = {media_id: 42 + index, url: `/insertion.${kind === 'image' ? 'png' : 'wav'}`, name: 'Clip'};
+                    media.push(payload);
+                    await request.fulfill({json: {success: true, action: 'media', kind, ...payload, width: 160, height: 100}});
+                }
+                await waitForMedia(page);
+                await page.keyboard.insertText('After');
+                const after = (await snapshot(page)).html;
+                assert.ok(after.indexOf('DuringAfter') > Math.max(after.lastIndexOf('<img'), after.lastIndexOf('<audio')),
+                    `${kinds} at ${offset}: continued typing must follow every attachment: ${after}`);
+                assert.equal(await body.textContent(), 'StartEnd'.slice(0, offset) + 'DuringAfter' + 'StartEnd'.slice(offset));
+                assert.equal(await body.locator('img').count(), kinds.filter(kind => kind === 'image').length);
+                assert.equal(await body.locator('audio').count(), kinds.filter(kind => kind === 'audio').length);
+                assert.equal(requests.count, 0, 'Undo/redo must not restart the uploads');
+                await body.press(`${modifier}+z`);
+                assert.equal(await body.locator('img, audio').count(), kinds.length, 'Undoing typing must retain every attachment');
+                await body.press(`${modifier}+Shift+z`);
+                assert.equal((await snapshot(page)).html, after);
+                await save(page, requests, media);
+            });
+        }
+    }
+    console.log('mixed media: all file orders leave typing after the final attachment during and after upload, including undo/redo, recovery and saving');
 }
 
 export async function runRejectedMediaRegressions(browser, origin) {

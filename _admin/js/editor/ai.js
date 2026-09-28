@@ -50,6 +50,9 @@ export function initAiTools(form, config) {
             activeController.abort();
         }
         const controller = new AbortController();
+        const trackedRange = snapshot.hasSelection
+            ? register_codemirror.trackRange(snapshot.start, snapshot.end) : null;
+        controller.signal.addEventListener('abort', () => trackedRange?.clear(), {once: true});
         const targetInput = ['title', 'tags'].includes(action) ? form.elements[action] : null;
         const targetValue = targetInput?.value;
         activeController = controller;
@@ -84,8 +87,9 @@ export function initAiTools(form, config) {
             }
 
             const currentText = register_codemirror.getValue();
+            const range = snapshot.hasSelection ? trackedRange?.find() : snapshot;
             const sourceChanged = snapshot.hasSelection
-                ? currentText.slice(snapshot.start, snapshot.end) !== snapshot.text
+                ? !range || currentText.slice(range.start, range.end) !== snapshot.text
                 : currentText !== snapshot.text;
             if (sourceChanged || (targetInput && targetInput.value !== targetValue)) {
                 setStatus(config.sourceChanged, true);
@@ -122,8 +126,8 @@ export function initAiTools(form, config) {
 
                 register_codemirror.replaceRangeWithHighlights(
                     responseData.result,
-                    snapshot.start,
-                    snapshot.end,
+                    range.start,
+                    range.end,
                     findCorrectionRanges(snapshot.text, responseData.result)
                 );
                 setStatus('', false);
@@ -133,6 +137,7 @@ export function initAiTools(form, config) {
                 setStatus(error.message || config.requestFailed, true);
             }
         } finally {
+            trackedRange?.clear();
             if (activeController === controller) {
                 activeController = null;
                 setBusy(false);

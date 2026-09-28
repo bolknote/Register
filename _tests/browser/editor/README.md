@@ -192,3 +192,20 @@ start, middle and end of headings, quotes, code and lists, during and after uplo
 Rejected files preserve content, selection, history, empty paragraphs and active
 captions; mixed file lists still upload supported attachments. All cases check
 the local recovery copy and submitted HTML.
+
+Twelve native image-drag scenarios move the original media block, including
+captions, links, figures, overlays and inline images. Pending uploads and image
+descriptions survive the move and undo/redo without starting new requests.
+Dropping onto the source or outside the body leaves the post unchanged; failed
+uploads leave no temporary references. Recovery and saving retain the result.
+
+Thirteen admin AI scenarios track the selected occurrence through surrounding
+edits and clipboard insertions. Deleting or replacing the source rejects its
+reply, even if identical text takes its place or the edit is undone. Ambiguous
+DOM diffs across repeated text also reject the reply. Success, failure and save
+release the tracked range; undo/redo and saving preserve unrelated edits.
+
+Twelve mixed-media scenarios cover image/audio order, repeated attachments and
+insertion in the middle or at the end of text. Continued typing follows the last
+attachment during and after uploads. The batch is one insertion for undo/redo;
+recovery and saving retain all files and subsequent text in order.

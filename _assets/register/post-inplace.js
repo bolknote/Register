@@ -9,6 +9,8 @@
     let tagEditorSequence = 0;
     let inlineCodeBoundarySequence = 0;
     let pendingMediaClipboard = null;
+    let activeMediaDrag = null;
+    const mediaDragType = 'application/x-register-media';
     const imageOptimizerUrl = (() => {
         const source = new URL(document.currentScript?.src || window.location.href, window.location.href);
         const target = new URL('image-optimizer/js/optimizer.js', source);
@@ -2049,6 +2051,7 @@
 
     function stopEditing(state) {
         if (pendingMediaClipboard?.state === state) pendingMediaClipboard = null;
+        if (activeMediaDrag?.state === state) activeMediaDrag = null;
         state.recovery?.stop();
         state.history?.destroy();
         state.titleHistory?.destroy();
@@ -3733,7 +3736,7 @@
         clearError(state.form);
         clearStatus(state.card);
         const range = prepareMediaInsertionRange(state.body, bodyRange(state, initialRange));
-        let lastImage = null;
+        let lastMedia = null;
 
         supported.forEach(({file, kind}) => {
             const pending = createMediaUploadPending(state, file, kind);
@@ -3741,13 +3744,11 @@
             range.insertNode(pending.element);
             range.setStartAfter(pending.element);
             range.collapse(true);
-            if (kind === 'image') {
-                lastImage = pending.element;
-            }
+            lastMedia = pending.element;
             startMediaUpload(state, file, kind, pending);
         });
 
-        if (!(lastImage instanceof HTMLElement) || !focusAfterMedia(state.body, lastImage)) {
+        if (!focusAfterMedia(state.body, lastMedia)) {
             // Use the insertion range when no media caret target is available.
             state.body.focus({preventScroll: true});
             const selection = window.getSelection();
@@ -3768,6 +3769,35 @@
                 Array.from(transfer.types || []).includes('Files')
                 || Array.from(transfer.items || []).some((item) => item.kind === 'file')
             );
+    }
+
+    function isEditorMediaDrag(transfer) {
+        return activeMediaDrag !== null || Array.from(transfer?.types || []).includes(mediaDragType);
+    }
+
+    function clearMediaDrag() {
+        activeMediaDrag?.state.body.classList.remove('is-media-dragover');
+        activeMediaDrag = null;
+    }
+
+    function moveDraggedMedia(state, media, range) {
+        if (!state.body.contains(media) || media.contains(range.startContainer)) return;
+        const move = () => {
+            range = prepareMediaInsertionRange(state.body, range);
+            // Move the live block, retaining captions, links and pending upload
+            // or description callbacks. Native image drops omit the outer block.
+            media.remove();
+            range.insertNode(media);
+            prepareEditableMedia(state.body);
+            markBodyChanged(state);
+            if (!focusAfterMedia(state.body, media)) {
+                range.setStartAfter(media);
+                range.collapse(true);
+                selectRange(state, range);
+            }
+        };
+        if (state.history) state.history.transact(move);
+        else move();
     }
 
     function deleteMediaClipboardRange(body, range) {
@@ -6686,15 +6716,47 @@
         return true;
     }
 
+    document.addEventListener('dragstart', (event) => {
+        clearMediaDrag();
+        const state = bodyDropState(event.target);
+        if (!state || !(event.target instanceof HTMLImageElement) || !event.dataTransfer) return;
+        if (state.submitting) {
+            event.preventDefault();
+            return;
+        }
+        finishInlineMediaCaptions(state);
+        finishImageCaptionEditing(state, true, false);
+        let media = event.target;
+        for (let parent = media.parentElement; parent && parent !== state.body; parent = parent.parentElement) {
+            if (parent.matches('a, picture, figure, .post-picture, .post-media-picture, .post-media-overlay, .post-proportional-wrapper')) {
+                media = parent;
+            }
+        }
+        activeMediaDrag = {state, media};
+        event.dataTransfer.setData(mediaDragType, 'move');
+        event.dataTransfer.effectAllowed = 'move';
+    }, false);
+
+    document.addEventListener('dragend', clearMediaDrag, false);
+
     document.addEventListener('dragenter', (event) => {
         const state = bodyDropState(event.target);
-        if (state && transferHasFiles(event.dataTransfer)) {
+        if (state && (isEditorMediaDrag(event.dataTransfer)
+            ? activeMediaDrag?.state === state : transferHasFiles(event.dataTransfer))) {
             state.body.classList.add('is-media-dragover');
         }
     }, false);
 
     document.addEventListener('dragover', (event) => {
         const state = bodyDropState(event.target);
+        if (isEditorMediaDrag(event.dataTransfer)) {
+            event.preventDefault();
+            event.stopPropagation();
+            const allowed = state && activeMediaDrag?.state === state && !state.submitting;
+            event.dataTransfer.dropEffect = allowed ? 'move' : 'none';
+            if (allowed) state.body.classList.add('is-media-dragover');
+            return;
+        }
         if (!state || !transferHasFiles(event.dataTransfer)) {
             return;
         }
@@ -6717,6 +6779,16 @@
 
     document.addEventListener('drop', (event) => {
         const state = bodyDropState(event.target);
+        if (isEditorMediaDrag(event.dataTransfer)) {
+            event.preventDefault();
+            event.stopPropagation();
+            const drag = activeMediaDrag;
+            clearMediaDrag();
+            if (state && drag?.state === state && !state.submitting) {
+                moveDraggedMedia(state, drag.media, bodyRangeFromPoint(state, event.clientX, event.clientY));
+            }
+            return;
+        }
         if (!state || !transferHasFiles(event.dataTransfer)) {
             return;
         }

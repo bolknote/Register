@@ -344,6 +344,55 @@ const register_codemirror = (function () {
                 hasSelection: true
             };
         },
+        trackRange: function (startIndex, endIndex) {
+            const editor = instance;
+            if (!editor) return null;
+            const doc = editor.getDoc();
+            const marker = doc.markText(doc.posFromIndex(startIndex), doc.posFromIndex(endIndex));
+            let invalid = false;
+            function beforeChange(_editor, change) {
+                const range = marker.find();
+                if (!range || change.origin === 'setValue') {
+                    invalid = true;
+                    return;
+                }
+                const start = doc.indexFromPos(range.from);
+                const end = doc.indexFromPos(range.to);
+                const from = doc.indexFromPos(change.from);
+                const to = doc.indexFromPos(change.to);
+                // Surrounding edits move the marker. Any edit inside it retires
+                // this target, even if identical text later occupies its range.
+                if (from === to ? start < from && from < end : from < end && to > start) {
+                    invalid = true;
+                }
+                if (change.origin === '+input') {
+                    // Contenteditable's DOM diff can locate an insertion on the
+                    // other side of identical text. If that ambiguity crosses
+                    // our source, its marker no longer identifies the occurrence.
+                    const inputFrom = doc.indexFromPos(doc.getCursor('from'));
+                    const inputTo = doc.indexFromPos(doc.getCursor('to'));
+                    if ((from !== inputFrom || to !== inputTo)
+                        && Math.min(from, inputFrom) < end && Math.max(to, inputTo) > start) {
+                        invalid = true;
+                    }
+                }
+            }
+            editor.on('beforeChange', beforeChange);
+            return {
+                find() {
+                    const range = marker.find();
+                    return !invalid && instance === editor && range ? {
+                        start: doc.indexFromPos(range.from),
+                        end: doc.indexFromPos(range.to)
+                    } : null;
+                },
+                clear() {
+                    invalid = true;
+                    editor.off('beforeChange', beforeChange);
+                    marker.clear();
+                }
+            };
+        },
         replaceRangeByIndex: function (text, startIndex, endIndex) {
             if (!instance) {
                 return;

@@ -102,7 +102,6 @@ test('dropped images render immediately and the complete processing flow is queu
     assert.match(pendingSource, /className = 'post-media-processing-progress'/u);
     assert.match(insertSource, /range\.insertNode\(pending\.element\)/u);
     assert.match(insertSource, /startMediaUpload\(state, file, kind, pending\)/u);
-    assert.match(insertSource, /focusAfterMedia\(state\.body, lastImage\)/u);
 
     const optimizing = uploadSource.indexOf("updateMediaUploadPending(pending, optimizingMessage, 'optimizing')");
     const uploading = uploadSource.indexOf("updateMediaUploadPending(pending, uploadingMessage, 'uploading')");
