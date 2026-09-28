@@ -183,3 +183,12 @@ retry show one useful error and retain the unsaved draft. Both textarea and
 CodeMirror editors unlock after a failed creation and can save successfully on
 retry. Four social-preview scenarios cover body edits, undo/redo, AI replies,
 explicit description/image overrides and initial draft recovery in both modes.
+
+Twenty-seven media-insertion scenarios retain existing images and their pending
+descriptions when splitting paragraphs, including nested formatting, repeated
+images, manual overrides and undo/redo. Block anchors survive splitting without
+duplicates. Typing follows an inserted image at the
+start, middle and end of headings, quotes, code and lists, during and after upload.
+Rejected files preserve content, selection, history, empty paragraphs and active
+captions; mixed file lists still upload supported attachments. All cases check
+the local recovery copy and submitted HTML.

@@ -986,43 +986,40 @@
             return range;
         }
 
-        // Media is a block in stored post HTML. Inserting it at a text caret with
-        // Range.insertNode() would otherwise put the picture inside the current
-        // <p> (and possibly inside an inline <strong>/<a> as well). Browsers repair
-        // that invalid tree differently when the post is rendered again; text
-        // following the image can then move into its caption or disappear. Split
-        // the paragraph first and give the media its own top-level insertion point.
-        if (boundary instanceof HTMLElement && boundary.tagName === 'P') {
-            const startContainer = range.startContainer;
-            const startOffset = range.startOffset;
-            const prefixRange = document.createRange();
-            prefixRange.setStart(boundary, 0);
-            prefixRange.setEnd(startContainer, startOffset);
-            const suffixRange = document.createRange();
-            suffixRange.setStart(startContainer, startOffset);
-            suffixRange.setEnd(boundary, boundary.childNodes.length);
+        // Block media cannot remain inside a paragraph, heading or code block
+        // (including their inline formatting). Split that text block, retaining
+        // any surrounding quote/list, before inserting the attachment beside it.
+        const caretElement = range.startContainer instanceof Element
+            ? range.startContainer : range.startContainer.parentElement;
+        const block = caretElement?.closest('p, h1, h2, h3, h4, h5, h6, pre');
+        if (block instanceof HTMLElement && body.contains(block)) {
+            const parent = block.parentNode;
+            const suffixRange = range.cloneRange();
+            suffixRange.setEnd(block, block.childNodes.length);
 
-            const prefix = boundary.cloneNode(false);
-            const suffix = boundary.cloneNode(false);
-            suffix.removeAttribute('id');
-            prefix.append(prefixRange.cloneContents());
-            suffix.append(suffixRange.cloneContents());
-            const hasContent = (paragraph) => (
-                String(paragraph.textContent || '').trim() !== ''
-                || Boolean(paragraph.querySelector('img, video, audio, iframe, table, hr'))
-            );
+            const prefix = block;
+            const suffix = block.cloneNode(false);
+            // Move the original descendants on either side of the caret. Image
+            // descriptions and upload callbacks retain references to those nodes.
+            suffix.append(suffixRange.extractContents());
+            const hasContent = (element) => {
+                const text = String(element.textContent || '');
+                return (element.tagName === 'PRE' ? text : text.trim()) !== ''
+                    || Boolean(element.querySelector('img, video, audio, iframe, table, hr'));
+            };
             const keepPrefix = hasContent(prefix);
             const keepSuffix = hasContent(suffix);
-            const boundaryIndex = Array.from(body.childNodes).indexOf(boundary);
-            const replacements = [];
-            if (keepPrefix) {
-                replacements.push(prefix);
-            }
+            // At the start of a block only the suffix survives; it must keep
+            // the original anchor. A split with two halves must not duplicate it.
+            if (keepPrefix) suffix.removeAttribute('id');
+            const boundaryIndex = Array.from(parent.childNodes).indexOf(block);
             if (keepSuffix) {
-                replacements.push(suffix);
+                block.after(suffix);
             }
-            boundary.replaceWith(...replacements);
-            range.setStart(body, boundaryIndex + (keepPrefix ? 1 : 0));
+            if (!keepPrefix) {
+                block.remove();
+            }
+            range.setStart(parent, boundaryIndex + (keepPrefix ? 1 : 0));
             range.collapse(true);
             return range;
         }
@@ -1068,11 +1065,12 @@
         const mediaBoundary = node => isMediaBoundaryElement(body, node)
             || (node instanceof HTMLElement && body.contains(node) && node.matches('audio, .post-media-upload'));
 
-        const boundary = media.parentElement === body ? media : topLevelBodyChild(body, media);
-        if (!mediaBoundary(boundary)) {
+        const boundary = topLevelBodyChild(body, media);
+        if (mediaBoundary(boundary)) {
+            media = boundary;
+        } else if (!mediaBoundary(media)) {
             return null;
         }
-        media = boundary;
 
         let target = media.nextSibling;
         if (
@@ -1086,7 +1084,9 @@
             const paragraph = document.createElement('p');
             paragraph.className = 'post-editor-body-paragraph';
             paragraph.append(document.createElement('br'));
-            body.insertBefore(paragraph, media.nextSibling);
+            // A picture in a quote or list item needs an editable trailing line
+            // in that same container, even while its upload is noneditable.
+            media.parentNode.insertBefore(paragraph, media.nextSibling);
             target = paragraph;
         }
         if (!(target instanceof Node)) {
@@ -3706,22 +3706,36 @@
     }
 
     function insertMediaFiles(state, files, initialRange) {
+        const mediaFiles = files.map(file => ({file, kind: mediaKindForFile(file)}));
+        const unsupported = mediaFiles.filter(({kind}) => kind === null).map(({file}) => file.name);
+        const supported = mediaFiles.filter(({kind}) => kind !== null);
+        const reportUnsupported = () => {
+            if (unsupported.length > 0) {
+                showError(
+                    state.form,
+                    mediaMessage(
+                        editorConfig().mediaUnsupported || '“%s” is not supported. Drop an image or audio file.',
+                        unsupported.join(', '),
+                    ),
+                );
+            }
+        };
+        // A rejected file must not split a paragraph, commit a caption or move
+        // the selection. Mixed drops still insert all supported attachments.
+        if (supported.length === 0) {
+            reportUnsupported();
+            return;
+        }
+
         finishInlineMediaCaptions(state);
         finishImageCaptionEditing(state, true, false);
         state.history?.before();
         clearError(state.form);
         clearStatus(state.card);
-        let range = prepareMediaInsertionRange(state.body, bodyRange(state, initialRange));
-        const unsupported = [];
+        const range = prepareMediaInsertionRange(state.body, bodyRange(state, initialRange));
         let lastImage = null;
 
-        files.forEach((file) => {
-            const kind = mediaKindForFile(file);
-            if (kind === null) {
-                unsupported.push(file.name);
-                return;
-            }
-
+        supported.forEach(({file, kind}) => {
             const pending = createMediaUploadPending(state, file, kind);
             state.history?.trackUpload(pending);
             range.insertNode(pending.element);
@@ -3733,9 +3747,8 @@
             startMediaUpload(state, file, kind, pending);
         });
 
-        if (lastImage instanceof HTMLElement) {
-            focusAfterMedia(state.body, lastImage);
-        } else {
+        if (!(lastImage instanceof HTMLElement) || !focusAfterMedia(state.body, lastImage)) {
+            // Use the insertion range when no media caret target is available.
             state.body.focus({preventScroll: true});
             const selection = window.getSelection();
             if (selection) {
@@ -3745,15 +3758,7 @@
             }
         }
 
-        if (unsupported.length > 0) {
-            showError(
-                state.form,
-                mediaMessage(
-                    editorConfig().mediaUnsupported || '“%s” is not supported. Drop an image or audio file.',
-                    unsupported.join(', '),
-                ),
-            );
-        }
+        reportUnsupported();
         state.history?.record();
     }
 

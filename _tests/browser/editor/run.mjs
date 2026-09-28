@@ -17,6 +17,7 @@ import {runFieldHistoryRegressions} from './field-history-tests.mjs';
 import {runMediaAiRegressions, runTagPasteRegressions} from './media-ai-tag-tests.mjs';
 import {runClipboardUploadRegressions} from './clipboard-upload-tests.mjs';
 import {runAdminSaveFailureRegressions, runSocialPreviewRegressions} from './admin-save-social-tests.mjs';
+import {runMediaInsertionAltRegressions, runMediaInsertionCaretRegressions, runRejectedMediaRegressions} from './media-insertion-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -438,6 +439,9 @@ try {
             await runClipboardUploadRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminSaveFailureRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSocialPreviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaInsertionAltRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaInsertionCaretRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runRejectedMediaRegressions(browser, `http://127.0.0.1:${server.address().port}`);
         } finally {
             await browser.close();
         }
