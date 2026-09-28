@@ -22,6 +22,7 @@ $config = [
     'mediaUploading' => $trans('Post media uploading'),
     'mediaUploadFailed' => $trans('Post media upload failed'),
     'mediaUnsupported' => $trans('Unsupported dropped media'),
+    'mediaClipboardUnavailable' => $trans('Post clipboard media unavailable'),
     'mediaCaptionPlaceholder' => $trans('Add image caption'),
     'aiWorking' => $trans('AI working'),
     'aiFailed' => $trans('AI request failed'),

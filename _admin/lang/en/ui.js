@@ -19,6 +19,7 @@ var register_lang = {
 	extension_action_failed: 'Unable to change the extension. Reload the page and try again.',
 
 	unknown_error		: 'Unknown error',
+	save_failed			: 'Unable to save. Please try again.',
 	server_response		: 'Something is broken. Please report the conditions when error occurs to administrators or developers and attach the server response:',
 
 	unsaved_exit		: 'You have not saved the page that you had changed before. Do you really want to exit the control panel? In this case, your changes will be lost.',

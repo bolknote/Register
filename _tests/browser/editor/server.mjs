@@ -15,6 +15,13 @@ export function createFixtureServer() {
                 response.end('export async function optimizeImage(blob) { return {blob, extension: "png", retina: false, width: 1, height: 1, displayWidth: 1, displayHeight: 1}; }');
                 return;
             }
+            if (request.url === '/admin-fetch.js') {
+                // Exercise the real fetch interceptor without unrelated admin UI.
+                const source = await readFile(new URL('../../../_admin/js/lib.js', import.meta.url), 'utf8');
+                response.setHeader('Content-Type', 'text/javascript');
+                response.end(source.slice(0, source.indexOf('window.AdminConfirm')));
+                return;
+            }
             if (request.url === '/editor.js') {
                 const source = process.env.EDITOR_TEST_REVISION
                     ? execFileSync('git', ['show', `${process.env.EDITOR_TEST_REVISION}:_assets/register/post-inplace.js`], {encoding: 'utf8'})
@@ -79,7 +86,7 @@ export function createFixtureServer() {
                 ['/site.css', ['../../../_styles/register/site.css', 'text/css']],
                 ['/comment-editor.css', ['../../../_assets/register/comment-editor.css', 'text/css']],
             ]);
-            for (const module of ['form', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'utils/escape']) {
+            for (const module of ['form', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'utils/escape']) {
                 files.set(`/admin/editor/${module}.js`, [`../../../_admin/js/editor/${module}.js`, 'text/javascript']);
             }
             const file = files.get(new URL(request.url, 'http://127.0.0.1').pathname);

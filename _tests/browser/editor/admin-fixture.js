@@ -5,12 +5,22 @@ import {initAiTools} from '/admin/editor/ai.js';
 import {initImageAlt} from '/admin/editor/image-alt.js';
 
 const params = new URL(location.href).searchParams;
+window.adminMessages = [];
+const popupMessages = {
+    hide() { document.getElementById('error').textContent = ''; },
+    show(message) {
+        window.adminMessages.push(message);
+        document.getElementById('error').textContent = message;
+    },
+};
+if (params.has('fetch-wrapper')) {
+    window.PopupMessages = popupMessages;
+    window.DisplayError = message => popupMessages.show(message);
+    await import('/admin-fetch.js');
+}
 setEditorDeps({
     CodeMirror: params.has('codemirror') ? window.CodeMirror : null,
-    PopupMessages: {
-        hide() { document.getElementById('error').textContent = ''; },
-        show(message) { document.getElementById('error').textContent = message; },
-    },
+    PopupMessages: popupMessages,
     register_lang: {unsaved_exit: 'Unsaved changes'},
     sUrl: '/admin-ajax',
 });
@@ -46,7 +56,20 @@ if (params.has('codemirror')) {
     Object.assign(editor.getWrapperElement().style, {position: 'relative', width: '500px', height: '160px'});
     editor.refresh();
 }
+if (params.has('social')) {
+    const panel = document.createElement('section');
+    panel.innerHTML = '<label>Description <input name="meta_description"></label>'
+        + '<label>Social image <input name="social_image"></label>'
+        + '<aside data-social-preview><span data-social-preview-site></span>'
+        + '<h2 data-social-preview-title></h2><p data-social-preview-description></p>'
+        + '<div data-social-preview-image></div></aside>';
+    form.append(panel);
+}
 initArticleEditForm(form, null, 'Post', 'body', 'default');
+if (params.has('social')) {
+    const {initSocialPreview} = await import('/admin/editor/social-preview.js');
+    initSocialPreview(form, {defaultImage: '/default.png', emptyText: 'Empty preview'});
+}
 if (params.has('ai')) {
     document.getElementById('content-editor-ai-tools').hidden = false;
     initAiTools(form, {

@@ -100,6 +100,7 @@ return [
     'Post media file missing' => 'No media file was provided.',
     'Unsupported post media' => 'Only image and audio files can be uploaded.',
     'Post media queued' => 'Queued: “%s”',
+    'Post clipboard media unavailable' => 'Copy the attachment again after it finishes uploading.',
     'Post media optimizing' => 'Optimizing “%s”…',
     'Post media uploading' => 'Uploading “%s”…',
     'Post media upload failed' => 'Unable to upload “%s”.',

@@ -76,10 +76,15 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             decorateForm(statusData);
         }
 
-        function errorHandler(data) {
-            Array.from(data.errors).forEach(function (error) {
-                // TODO array_merge
-                editorDeps.PopupMessages.show(error, null, null, sLowerEntityName + '-save');
+        const saveFailed = editorDeps.register_lang?.save_failed || 'Unable to save. Please try again.';
+        function errorHandler(data, status) {
+            const errors = Array.isArray(data?.errors)
+                ? data.errors.filter(error => typeof error === 'string' && error.trim() !== '') : [];
+            if (errors.length === 0) {
+                errors.push(typeof data?.message === 'string' && data.message.trim() !== '' ? data.message : saveFailed);
+            }
+            errors.forEach(function (error) {
+                editorDeps.PopupMessages.show(error, null, null, status === 401 ? 'login' : sLowerEntityName + '-save');
             });
             console.warn('Form submission failed');
         }
@@ -113,11 +118,13 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             if (tempCsrfToken !== '') {
                 headers['X-AdminYard-CSRF-Token'] = tempCsrfToken;
             }
-            let response = await fetch(eForm.action, {method: 'POST', headers: headers, body: formData});
+            let response = await fetch(eForm.action, {
+                method: 'POST', headers: headers, body: formData, registerHandleErrorsInline: true
+            });
 
             if (response.status === 422) {
-                const data = await response.json();
-                if (!data.invalid_csrf_token) {
+                const data = await response.json().catch(() => null);
+                if (!data?.invalid_csrf_token) {
                     errorHandler(data);
                     return;
                 }
@@ -127,7 +134,8 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
                         'X-Requested-With': 'XMLHttpRequest',
                         'X-AdminYard-CSRF-Token': getTempCsrfToken()
                     },
-                    body: formData
+                    body: formData,
+                    registerHandleErrorsInline: true
                 });
             }
 
@@ -140,12 +148,14 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
                 return;
             }
 
-            if (response.ok) {
-                successHandler(await response.json());
-            } else if (response.status === 422) {
-                errorHandler(await response.json());
+            const data = await response.json().catch(() => null);
+            if (response.ok && data && data.revision != null) {
+                successHandler(data);
+            } else {
+                errorHandler(data, response.status);
             }
         } catch (error) {
+            errorHandler(null);
             console.warn('An error occurred:', error);
         } finally {
             if (!navigating) {

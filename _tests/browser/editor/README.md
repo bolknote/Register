@@ -170,3 +170,16 @@ Ten tag-paste scenarios cover both editors: insertion at either edge, partial an
 full selections, separators, normalization, duplicates, failed saves and retry.
 The public editor falls back to native paste when the combined text is invalid
 or exceeds the tag limit, preserving the input for correction.
+
+Eighteen upload/clipboard scenarios use actual Copy, Cut and Paste, including the
+context menu. Moving or duplicating pending images/audio retains the upload and
+each occurrence through completion, undo/redo, recovery and saving. Pasting after
+completion still works, including automatic image descriptions; failed uploads
+and closed sessions cannot insert stale progress markup or replace selected text.
+
+Eighteen admin save scenarios include the production fetch interceptor. Network
+failures, HTML error responses, JSON errors, malformed successes and a failed CSRF
+retry show one useful error and retain the unsaved draft. Both textarea and
+CodeMirror editors unlock after a failed creation and can save successfully on
+retry. Four social-preview scenarios cover body edits, undo/redo, AI replies,
+explicit description/image overrides and initial draft recovery in both modes.

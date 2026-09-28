@@ -93,10 +93,6 @@ document.addEventListener('DOMContentLoaded', function () {
         initActivityPubPreview(form, {...config.activityPub, entityName: config.entityName});
     }
 
-    if (form && config.socialPreview) {
-        initSocialPreview(form, config.socialPreview);
-    }
-
     if (form && config.entityName && config.textareaName) {
         initPublicationState(form);
         initArticleEditForm(
@@ -108,6 +104,10 @@ document.addEventListener('DOMContentLoaded', function () {
             config.slugFieldName || 'url',
             config.templateScope || ''
         );
+    }
+
+    if (form && config.socialPreview) {
+        initSocialPreview(form, config.socialPreview);
     }
 
     if (config.tags && config.tags.inputId && Array.isArray(config.tags.suggestions)) {

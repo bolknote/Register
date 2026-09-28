@@ -1,5 +1,7 @@
 /** Keeps the Open Graph card preview in sync with the editor fields. */
 
+import {register_codemirror} from './codemirror.js';
+
 function firstImage(html) {
     if (!html) {
         return '';
@@ -35,7 +37,7 @@ function initSocialPreview(form, config = {}) {
     const description = preview.querySelector('[data-social-preview-description]');
 
     const render = function () {
-        const body = inputValue(form, 'body');
+        const body = register_codemirror.isReady() ? register_codemirror.getValue() : inputValue(form, 'body');
         const imageUrl = inputValue(form, 'social_image') || firstImage(body) || config.defaultImage || '';
         const descriptionText = inputValue(form, 'meta_description') || plainText(body).slice(0, 220);
 
@@ -54,6 +56,7 @@ function initSocialPreview(form, config = {}) {
 
     form.addEventListener('input', render);
     form.addEventListener('change', render);
+    register_codemirror.onChange(render);
     render();
 }
 

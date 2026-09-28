@@ -100,6 +100,7 @@ return [
     'Post media file missing' => 'Файл для загрузки не передан.',
     'Unsupported post media' => 'Можно загружать только изображения и аудиофайлы.',
     'Post media queued' => 'В очереди: «%s»',
+    'Post clipboard media unavailable' => 'Скопируйте вложение ещё раз после завершения загрузки.',
     'Post media optimizing' => 'Оптимизирую «%s»…',
     'Post media uploading' => 'Загружаю «%s»…',
     'Post media upload failed' => 'Не удалось загрузить «%s».',

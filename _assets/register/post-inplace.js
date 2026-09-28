@@ -8,6 +8,7 @@
     const tagSuggestionRequests = new Map();
     let tagEditorSequence = 0;
     let inlineCodeBoundarySequence = 0;
+    let pendingMediaClipboard = null;
     const imageOptimizerUrl = (() => {
         const source = new URL(document.currentScript?.src || window.location.href, window.location.href);
         const target = new URL('image-optimizer/js/optimizer.js', source);
@@ -1064,9 +1065,11 @@
         if (!(media instanceof HTMLElement)) {
             return null;
         }
+        const mediaBoundary = node => isMediaBoundaryElement(body, node)
+            || (node instanceof HTMLElement && body.contains(node) && node.matches('audio, .post-media-upload'));
 
         const boundary = media.parentElement === body ? media : topLevelBodyChild(body, media);
-        if (!isMediaBoundaryElement(body, boundary)) {
+        if (!mediaBoundary(boundary)) {
             return null;
         }
         media = boundary;
@@ -1077,7 +1080,7 @@
             && (
                 !(target instanceof Node)
                 || boundaryNodeIsEmpty(target)
-                || isMediaBoundaryElement(body, target)
+                || mediaBoundary(target)
             )
         ) {
             const paragraph = document.createElement('p');
@@ -2045,6 +2048,7 @@
     }
 
     function stopEditing(state) {
+        if (pendingMediaClipboard?.state === state) pendingMediaClipboard = null;
         state.recovery?.stop();
         state.history?.destroy();
         state.titleHistory?.destroy();
@@ -3628,6 +3632,8 @@
                 // Keep idle uploads handled, but let a waiting save detect failure.
                 return failure;
             } finally {
+                pending.completed = completed;
+                pending.settled = true;
                 state.history?.resolveUpload(pending, completed);
                 state.mediaControllers.delete(controller);
             }
@@ -3679,7 +3685,10 @@
     }
 
     function updateMediaUrls(root, mediaById) {
-        root.querySelectorAll('[data-post-media-id][src]').forEach((element) => {
+        const selector = '[data-post-media-id][src]';
+        const elements = Array.from(root.querySelectorAll(selector));
+        if (root instanceof Element && root.matches(selector)) elements.unshift(root);
+        elements.forEach((element) => {
             const media = mediaById.get(Number(element.dataset.postMediaId));
             if (!media || typeof media.url !== 'string' || media.url === '') {
                 return;
@@ -3754,6 +3763,133 @@
                 Array.from(transfer.types || []).includes('Files')
                 || Array.from(transfer.items || []).some((item) => item.kind === 'file')
             );
+    }
+
+    function deleteMediaClipboardRange(body, range) {
+        const first = topLevelBodyChild(body, range.startContainer);
+        const last = topLevelBodyChild(body, range.endContainer);
+        const empty = fragment => fragment.textContent.trim() === ''
+            && !fragment.querySelector('img, video, audio, iframe, table, hr, [data-post-history-upload]');
+        // Native Select All often starts/ends *inside* the outer paragraphs.
+        // Cutting several blocks must not leave those fully selected shells.
+        if (first !== last && !range.collapsed) {
+            if (first) {
+                const prefix = document.createRange();
+                prefix.selectNodeContents(first);
+                prefix.setEnd(range.startContainer, range.startOffset);
+                if (empty(prefix.cloneContents())) range.setStartBefore(first);
+            }
+            if (last) {
+                const suffix = document.createRange();
+                suffix.selectNodeContents(last);
+                suffix.setStart(range.endContainer, range.endOffset);
+                if (empty(suffix.cloneContents())) range.setEndAfter(last);
+            }
+        }
+        range.deleteContents();
+    }
+
+    function copyPendingMedia(event) {
+        if (event.defaultPrevented || !event.clipboardData) return;
+        pendingMediaClipboard = null;
+        const state = bodyDropState(event.target);
+        const selection = window.getSelection();
+        if (!state?.history || selection?.rangeCount !== 1) return;
+        const range = selection.getRangeAt(0);
+        if (range.collapsed || !rangeIsInside(state.body, range)) return;
+        const container = document.createElement('div');
+        container.append(range.cloneContents());
+        const uploads = state.history.clipboardUploads(container);
+        if (uploads.size === 0) return;
+        removeTrailingEditorArtifacts(container);
+
+        // Native clipboard HTML can omit blob images and noneditable audio
+        // placeholders. Keep references to the requests until this clipboard is
+        // replaced or the editing session ends, including pastes after completion.
+        const token = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+        const references = new Map();
+        container.querySelectorAll('[data-post-history-upload]').forEach(node => {
+            const pending = uploads.get(node.dataset.postHistoryUpload);
+            if (!pending) return;
+            const id = `${token}-${node.dataset.postHistoryUpload}`;
+            const placeholder = document.createElement(node.tagName.toLowerCase());
+            placeholder.dataset.postClipboardUpload = id;
+            placeholder.textContent = node.textContent;
+            node.replaceWith(placeholder);
+            references.set(id, pending);
+        });
+        const html = container.innerHTML;
+        event.clipboardData.setData('text/html', html);
+        event.clipboardData.setData('text/plain', range.toString());
+        event.preventDefault();
+        pendingMediaClipboard = {state, html, root: container, uploads: references};
+        if (event.type === 'cut') {
+            state.history.transact(() => {
+                deleteMediaClipboardRange(state.body, range);
+                selectRange(state, range);
+                markBodyChanged(state);
+            });
+        }
+    }
+
+    function pastePendingMedia(event) {
+        if (event.defaultPrevented) return;
+        const state = bodyDropState(event.target);
+        const html = event.clipboardData?.getData('text/html') || '';
+        if (!state || !/data-post-(?:clipboard|history)-upload/u.test(html)) return;
+        const template = document.createElement('template');
+        template.innerHTML = html;
+        if (!template.content.querySelector('[data-post-clipboard-upload], [data-post-history-upload]')) return;
+        event.preventDefault();
+        const clipboard = pendingMediaClipboard;
+        if (!clipboard || clipboard.state !== state || clipboard.html !== html
+            || Array.from(clipboard.uploads.values()).some(pending => pending.settled && !pending.completed)) {
+            showEditorStatus(state, editorConfig().mediaClipboardUnavailable
+                || 'Copy the attachment again after it finishes uploading.', true);
+            return;
+        }
+        // Only insert the HTML that this session put on the clipboard. Other
+        // tabs and closed sessions cannot supply a live request for these slots.
+        const completedImages = [];
+        state.history.transact(() => {
+            protectSelectedMediaBoundary(state.body);
+            const selection = window.getSelection();
+            let range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+            if (!range || !rangeIsInside(state.body, range)) return;
+            // Native insertHTML can retain a selected noneditable audio slot or
+            // manufacture nested paragraphs around upload placeholders. Insert
+            // our own cached DOM at a block boundary instead of reparsing it.
+            deleteMediaClipboardRange(state.body, range);
+            range = prepareMediaInsertionRange(state.body, range);
+            const fragment = document.createDocumentFragment();
+            fragment.append(...clipboard.root.cloneNode(true).childNodes);
+            let last = fragment.lastChild;
+            range.insertNode(fragment);
+            state.body.querySelectorAll('[data-post-clipboard-upload]').forEach(slot => {
+                const pending = clipboard.uploads.get(slot.dataset.postClipboardUpload);
+                if (!pending) return;
+                let media;
+                if (pending.completed) {
+                    media = pending.completed.cloneNode(true);
+                    completedImages.push(...media.querySelectorAll('img'));
+                } else {
+                    media = state.body.contains(pending.element)
+                        ? state.history.cloneUpload(pending) : pending.element;
+                }
+                slot.replaceWith(media);
+                if (slot === last) last = media;
+            });
+            prepareEditableMedia(state.body);
+            markBodyChanged(state);
+            if (!focusAfterMedia(state.body, last)) {
+                if (last) range.setStartAfter(last);
+                range.collapse(true);
+                selectRange(state, range);
+            }
+        });
+        // A cut image can finish uploading while absent from the body, where
+        // automatic description generation correctly skips it until this paste.
+        completedImages.forEach(image => queueImageAlt(state, image));
     }
 
     function clipboardMediaFiles(transfer) {
@@ -4398,6 +4534,11 @@
             onRestore?.();
             return true;
         }
+        function trackUpload(pending) {
+            const id = String(++uploadSequence);
+            pending.element.dataset.postHistoryUpload = id;
+            uploads.set(id, pending);
+        }
         return {
             before,
             record,
@@ -4421,25 +4562,49 @@
                     updateMediaUrls(entry.root, mediaById);
                     entry.html = entry.root.innerHTML;
                 });
+                if (pendingMediaClipboard?.state === state) {
+                    pendingMediaClipboard.uploads.forEach(pending => {
+                        if (pending.completed) updateMediaUrls(pending.completed, mediaById);
+                    });
+                }
                 trim();
             },
-            trackUpload(pending) {
-                const id = String(++uploadSequence);
-                pending.element.dataset.postHistoryUpload = id;
-                uploads.set(id, pending);
+            clipboardUploads(root) {
+                return new Map(Array.from(root.querySelectorAll('[data-post-history-upload]'))
+                    .map(node => {
+                        const pending = uploads.get(node.dataset.postHistoryUpload);
+                        return [node.dataset.postHistoryUpload, pending?.original || pending];
+                    })
+                    .filter(([_id, pending]) => pending));
+            },
+            trackUpload,
+            cloneUpload(pending) {
+                const element = pending.element.cloneNode(true);
+                trackUpload({element, original: pending});
+                return element;
             },
             resolveUpload(pending, completed) {
-                const id = pending.element.dataset.postHistoryUpload;
                 pending.element.removeAttribute('data-post-history-upload');
-                if (destroyed || !uploads.delete(id)) return;
+                if (destroyed) return;
                 // Completion amends the insertion in every retained state. It
                 // never adds an undo step or resurrects an insertion already undone.
-                entries.forEach((entry) => {
-                    entry.root.querySelectorAll(`[data-post-history-upload="${id}"]`).forEach((slot) => {
-                        if (completed) slot.replaceWith(cloneWithImages(completed));
-                        else slot.remove();
+                uploads.forEach((occurrence, id) => {
+                    if (occurrence !== pending && occurrence.original !== pending) return;
+                    uploads.delete(id);
+                    // Copies share a request, but retain distinct image identities
+                    // through completion and every undo/redo snapshot.
+                    const result = occurrence === pending ? completed : completed?.cloneNode(true);
+                    if (occurrence !== pending) {
+                        if (result) occurrence.element.replaceWith(result);
+                        else occurrence.element.remove();
+                    }
+                    entries.forEach((entry) => {
+                        entry.root.querySelectorAll(`[data-post-history-upload="${id}"]`).forEach((slot) => {
+                            if (result) slot.replaceWith(cloneWithImages(result));
+                            else slot.remove();
+                        });
+                        entry.html = entry.root.innerHTML;
                     });
-                    entry.html = entry.root.innerHTML;
                 });
                 trim();
             },
@@ -6821,6 +6986,9 @@
         closeConfirmation(card, true);
     }, false);
 
+    document.addEventListener('copy', copyPendingMedia, false);
+    document.addEventListener('cut', copyPendingMedia, false);
+    document.addEventListener('paste', pastePendingMedia, false);
     document.addEventListener('paste', pasteMediaFiles, false);
 
     document.addEventListener('paste', pasteMultilineText, false);
