@@ -97,7 +97,24 @@ export async function runMediaDragRegressions(browser, origin) {
             const target = mode === 'outside' ? page.locator('.post-card.is-editing [data-post-inplace-title]')
                 : mode === 'self' ? body.locator('img')
                     : mode === 'backward' ? body.locator(':scope > p').first() : body.locator(':scope > p').last();
-            await body.locator('img').dragTo(target, {sourcePosition: {x: 80, y: 45}, targetPosition: {x: 50, y: 12}});
+            const targetPosition = mode === 'backward' ? await target.evaluate(paragraph => {
+                const text = paragraph.firstChild;
+                if (!(text instanceof Text) || !text.data.startsWith('First paragraph')) {
+                    throw new Error('Backward drag target must start with the fixture paragraph');
+                }
+                const prefix = document.createRange();
+                prefix.setStart(text, 0);
+                prefix.setEnd(text, 'First '.length);
+                const prefixBounds = prefix.getBoundingClientRect();
+                const paragraphBounds = paragraph.getBoundingClientRect();
+                return {
+                    // Target the rendered end of "First " rather than a fixed
+                    // pixel whose character depends on the runner's font.
+                    x: Math.max(1, prefixBounds.right - paragraphBounds.left - 1),
+                    y: prefixBounds.top - paragraphBounds.top + prefixBounds.height / 2,
+                };
+            }) : {x: 50, y: 12};
+            await body.locator('img').dragTo(target, {sourcePosition: {x: 80, y: 45}, targetPosition});
             const moved = await snapshot(page);
             assert.equal(await body.locator('img').count(), 1, `${mode}: native dragging must not delete or duplicate the image`);
             assert.equal(await body.evaluate(body => body.querySelector('img') === window.dragOriginalImage), true,
