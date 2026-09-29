@@ -53,7 +53,8 @@ never starts a process or calls the potentially blocking libc resolver.
 - Authorized authors can create, edit, and delete posts directly on the public blog. The in-place
   and control-panel editors share media upload, live preview, keyboard shortcuts, native undo/redo,
   optimistic revision checks, and article-body recovery from `localStorage` after navigation, a tab
-  closure, or a browser crash.
+  closure, or a browser crash. Revision checks also cover publication changes made by the scheduler,
+  bulk actions, and another editor.
 - Optional AI assistance through your own Gemini, Groq, OpenRouter, Mistral, Cloudflare Workers AI,
   Yandex AI Studio, or GigaChat credentials:
   fix spelling, grammar, punctuation, and typos; improve or shorten text; suggest a title; and

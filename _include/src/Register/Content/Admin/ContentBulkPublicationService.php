@@ -63,6 +63,7 @@ final readonly class ContentBulkPublicationService
             ->update(ContentSchema::TABLE_NAME)
             ->set('published', ':published')->setParameter('published', $published ? 1 : 0)
             ->set('scheduled_at', '0')
+            ->set('revision', 'revision + 1')
             ->where('content_type = :content_type')->setParameter('content_type', $contentType->value)
         ;
         if ($published) {

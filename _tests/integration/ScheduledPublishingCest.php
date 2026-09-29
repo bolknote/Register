@@ -129,6 +129,7 @@ final class ScheduledPublishingCest
         $I->assertSame(1, (int)$row['published']);
         $I->assertSame($publishedAt, (int)$row['published_at']);
         $I->assertSame(0, (int)$row['scheduled_at']);
+        $I->assertSame(2, (int)$row['revision']);
     }
 
     private function assertDraft(\IntegrationTester $I, DbLayer $dbLayer, int $id, int $scheduledAt): void
@@ -137,13 +138,14 @@ final class ScheduledPublishingCest
         $I->assertSame(0, (int)$row['published']);
         $I->assertNull($row['published_at']);
         $I->assertSame($scheduledAt, (int)$row['scheduled_at']);
+        $I->assertSame(1, (int)$row['revision']);
     }
 
     /** @return array<string, mixed> */
     private function contentState(DbLayer $dbLayer, int $id): array
     {
         $row = $dbLayer
-            ->select('published, published_at, scheduled_at')
+            ->select('published, published_at, scheduled_at, revision')
             ->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', $id)
             ->execute()

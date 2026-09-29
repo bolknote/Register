@@ -121,6 +121,7 @@ final readonly class ContentPublicationScheduler
                 ->set('published', '1')
                 ->set('published_at', ':published_at')->setParameter('published_at', $scheduledAt)
                 ->set('scheduled_at', '0')
+                ->set('revision', 'revision + 1')
                 ->where('id = :id')->setParameter('id', $id)
                 ->andWhere('content_type = :content_type')->setParameter('content_type', $contentType->value)
                 ->andWhere('published = 0')

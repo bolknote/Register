@@ -203,17 +203,15 @@ class SearchCest
         $I->see('No results found for your query.');
 
         $bulkAction('publish');
+        $I->amOnPage('https://localhost/all/new-post1');
+
+        $current = $I->grabFormValues('.post-card[data-post-id="' . $postId . '"] > .post-inplace-edit-form');
         $I->sendAjaxPostRequest('https://localhost/_inplace/post/' . $postId, [
-            'inplace_action' => 'edit',
-            'inplace_token'  => $created['token'],
-            'revision'       => '2',
-            'title'          => 'New Blog Post Title',
-            'tags'           => 'tag1, blog tag, міръ, отрок',
-            'published_at'   => (string)$publishedAt,
-            'body'           => '<p>Replacement searchable text</p>',
+            ...$current,
+            'body' => '<p>Replacement searchable text</p>',
         ]);
         $I->seeResponseCodeIs(Response::HTTP_OK);
-        $I->assertSame(3, $I->grabJson()['revision'] ?? null);
+        $I->assertSame((int)$current['revision'] + 1, $I->grabJson()['revision'] ?? null);
         while ($consumer->runQueue());
 
         $I->amOnPage('https://localhost/?search=1&q=replacement+searchable');

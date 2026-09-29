@@ -1154,7 +1154,7 @@ class AdminConfigProvider implements StatefulServiceInterface
                 $revision = $this->contentRevisionService->resolve(
                     $event->data,
                     $oldData,
-                    ['body', 'title', 'slug', 'excerpt', 'meta_keywords', 'meta_description', 'social_image', 'scheduled_at'],
+                    ['body', 'title', 'slug', 'excerpt', 'meta_keywords', 'meta_description', 'social_image', 'published', 'scheduled_at'],
                 );
                 if (!$revision instanceof ContentRevision) {
                     $event->errorMessages[] = $this->translator->trans('Outdated version');
