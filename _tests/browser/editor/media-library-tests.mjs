@@ -667,3 +667,129 @@ export async function runMediaLibraryFolderCreateRegressions(browser, origin) {
     }
     console.log('media library: folder creation synchronizes pending selections and preserves unrelated selections after errors');
 }
+
+export async function runMediaLibraryFolderRollbackRegressions(browser, origin, actions = ['rename', 'move', 'delete']) {
+    for (const action of actions) {
+        for (const [selection, outcome] of [
+            ['other', 'rejected'], ['created', 'rejected'], ['current', 'network'], ['current', 'null'], ['other', 'network'],
+        ]) {
+            const page = await browser.newPage();
+            try {
+                const library = await openLibrary(page, origin, [
+                    {data: 'source', state: 'open', attr: {'data-path': '/source', 'data-csrf-token': 'source-token'}, children: [
+                        {data: 'first', state: 'open', attr: {'data-path': '/source/first', 'data-csrf-token': 'first-token'}, children: [
+                            {data: 'child', attr: {'data-path': '/source/first/child', 'data-csrf-token': 'child-token'}},
+                        ]},
+                    ]},
+                    {data: 'target', attr: {'data-path': '/target', 'data-csrf-token': 'target-token'}},
+                ]);
+                library.filesByPath.set('/source/first', ['photo.png']);
+                library.filesByPath.set('/source/first/child', ['photo.png']);
+                await page.locator('#folders [data-path="/source/first"] > a').click();
+                await page.waitForFunction(() => jQuery.active === 0 && document.querySelector('#files [data-fname="photo.png"]'));
+                const mutations = holdRequests(page, `**/library-api?action=${action}_folder&*`);
+                await mutations.installed;
+                const mutateFolder = async () => {
+                    if (action === 'rename') {
+                        await page.evaluate(() => jQuery('#folders').jstree('rename', jQuery('#folders [data-path="/source/first"]')));
+                        await page.locator('#folders input').fill('renamed');
+                        await page.locator('#folders input').press('Enter');
+                    } else if (action === 'move') {
+                        await page.evaluate(() => jQuery('#folders').jstree('move_node',
+                            jQuery('#folders [data-path="/source/first"]'), jQuery('#folders [data-path="/target"]'), 'last'));
+                    } else {
+                        await page.locator('#context_delete').click();
+                        await page.locator('[data-admin-confirm-submit]').click();
+                    }
+                };
+                await mutateFolder();
+                const request = await mutations.next();
+                const params = new URL(request.request().url()).searchParams;
+                assert.equal(params.get(action === 'move' ? 'spath' : 'path'), '/source/first');
+                assert.equal((await formData(request)).get('csrf_token'), 'first-token');
+                let expectedPath = action === 'delete' ? '/source' : '/source/first';
+                let expectedToken = action === 'delete' ? 'source-token' : 'first-token';
+                if (selection !== 'current') {
+                    await page.locator('#folders [data-path="/target"] > a').click();
+                    expectedPath = '/target';
+                    expectedToken = 'target-token';
+                }
+                if (selection === 'created') {
+                    const creates = holdRequests(page, '**/library-api?action=create_subfolder&*');
+                    await creates.installed;
+                    await page.locator('#context_add').click();
+                    await page.locator('#folders input').fill('kept');
+                    await page.locator('#folders input').press('Enter');
+                    const create = await creates.next();
+                    library.filesByPath.set('/target/kept', ['photo.png']);
+                    await create.fulfill({json: {success: true, path: '/target/kept', name: 'kept', csrf_token: 'kept-token'}});
+                    await page.locator('#folders [data-path="/target/kept"] > a').click();
+                    expectedPath = '/target/kept';
+                    expectedToken = 'kept-token';
+                }
+                await page.waitForFunction(() => jQuery.active === 0 && document.querySelector('#files [data-fname="photo.png"]'));
+                await page.locator('#files [data-fname="photo.png"] > a').click();
+                const done = outcome === 'network' ? page.waitForEvent('requestfailed', failed => failed.url() === request.request().url())
+                    : page.waitForResponse(response => response.url() === request.request().url()).then(response => response.finished());
+                if (outcome === 'network') await request.abort('failed');
+                else await request.fulfill(outcome === 'null' ? {json: null}
+                    : {status: 409, json: {success: false, message: 'The folder operation failed.'}});
+                await done;
+                await nextTask(page);
+                await page.waitForFunction(() => jQuery.active === 0);
+                assert.deepEqual(await page.evaluate(() => jQuery('#folders').jstree('get_selected').map(function () {
+                    return this.dataset.path;
+                }).get()), [expectedPath], 'A failed folder operation must retain the current tree selection');
+                assert.equal(await page.evaluate(() => getCurDir()), expectedPath);
+                assert.equal(await page.locator('[data-media-folder-path]').textContent(), expectedPath);
+                assert.equal(await page.locator('#folders a.jstree-clicked').evaluate(anchor => anchor.parentElement.dataset.path), expectedPath);
+                assert.equal(await page.locator('#folders [data-path="/source/first"]').count(), 1);
+                assert.equal(await page.locator('#folders [data-path="/source/first"]').evaluate(node => node.parentElement.parentElement.dataset.path), '/source');
+                assert.equal(await page.evaluate(() => jQuery('#folders').jstree('get_text', jQuery('#folders [data-path="/source/first"]'))), 'first');
+                assert.equal(await page.locator('#folders [data-path="/source/first/child"]').count(), 1);
+                assert.equal(await page.locator('#folders [data-path="/target/kept"]').count(), selection === 'created' ? 1 : 0);
+                assert.equal(await page.locator('#context_buttons').count(), 1);
+                assert.equal(await page.locator('#context_buttons').evaluate(node => node.closest('li').dataset.path), expectedPath);
+                assert.equal(await page.locator('#files a.jstree-clicked').count(), 1);
+                await page.getByRole('button', {name: '← Insert', exact: true}).click();
+                assert.equal(await page.evaluate(() => window.libraryInsertedImages.at(-1)[0]), '/pictures' + expectedPath + '/photo.png');
+                await upload(page, 'after-error.png', false);
+                const uploadRequest = await library.uploads.next();
+                const body = await formData(uploadRequest);
+                assert.equal(body.get('dir'), expectedPath);
+                assert.equal(body.get('csrf_token'), expectedToken);
+                library.filesByPath.get(expectedPath).push('after-error.png');
+                await uploadRequest.fulfill({json: {success: true}});
+                await page.waitForFunction(() => document.querySelector('#files [data-fname="after-error.png"]'));
+                assert.equal(mutations.count, 0, 'Restoring the UI must not repeat the failed server mutation');
+                assert.deepEqual(await page.evaluate(() => window.libraryMessages), outcome === 'rejected' ? ['The folder operation failed.'] : []);
+                if (selection === 'current' && outcome === 'network') {
+                    // The selected anchor also contains the add/delete buttons.
+                    // Click its leading icon rather than a context button.
+                    await page.locator('#folders [data-path="/source/first"] > a').click({position: {x: 3, y: 3}});
+                    await page.waitForFunction(() => jQuery.active === 0);
+                    assert.equal(await page.locator('#folders input').count(), 0);
+                    await mutateFolder();
+                    const retry = await mutations.next();
+                    const retryPath = action === 'rename' ? '/source/renamed' : '/target/first';
+                    library.filesByPath.set(retryPath, ['photo.png']);
+                    library.filesByPath.set(retryPath + '/child', ['photo.png']);
+                    const retried = page.waitForResponse(response => response.url() === retry.request().url()).then(response => response.finished());
+                    await retry.fulfill({json: action === 'delete' ? {success: true}
+                        : {success: true, new_path: retryPath, csrf_token: 'first-token'}});
+                    await retried;
+                    await nextTask(page);
+                    await page.waitForFunction(() => jQuery.active === 0);
+                    assert.equal(await page.locator('#folders [data-path="/source/first"]').count(), 0);
+                    assert.equal(await page.evaluate(() => getCurDir()), action === 'delete' ? '/source' : retryPath);
+                    if (action !== 'delete') assert.deepEqual(await page.locator(`#folders [data-path="${retryPath}"] li`)
+                        .evaluateAll(nodes => nodes.map(node => node.dataset.path)), [retryPath + '/child']);
+                }
+                assert.deepEqual(library.errors, []);
+            } catch (error) {
+                throw new Error(`media folder rollback ${action}/${selection}/${outcome}: ${error.message}`, {cause: error});
+            } finally { await page.close(); }
+        }
+    }
+    console.log('media library: failed folder renames, moves and deletes restore only the affected folder and retain later work');
+}

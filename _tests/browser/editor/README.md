@@ -293,3 +293,10 @@ folder selected before the server replies. A failed creation removes only its
 provisional node, preserving later selections and other successfully created
 folders. Subsequent image insertions and uploads verify that the selected
 destination remains usable.
+
+Fifteen folder-recovery scenarios cover rejected, disconnected and null responses
+for renaming, moving and deleting folders. Recovery restores only the affected
+name or tree position, retaining the selected folder, its insertion link and
+upload token, nested folders, context buttons, and independently created folders.
+Each operation can be retried successfully after a network failure without
+repeating the original server mutation during local recovery.

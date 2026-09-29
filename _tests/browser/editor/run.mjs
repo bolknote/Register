@@ -30,7 +30,8 @@ import {runAdminCompositionRegressions, runAdminNativeCompositionRegressions, ru
 import {runMediaLibraryUploadRegressions, runMediaLibraryFailureRegressions, runMediaLibrarySortRegressions,
     runMediaLibraryFolderRegressions, runMediaLibraryFolderMutationRegressions, runMediaLibraryFolderFailureRegressions,
     runMediaLibraryFileSelectionRegressions, runMediaLibraryFileRenameRegressions, runMediaLibraryFileMoveRegressions,
-    runMediaLibraryFileDeleteRegressions, runMediaLibraryFolderCreateRegressions} from './media-library-tests.mjs';
+    runMediaLibraryFileDeleteRegressions, runMediaLibraryFolderCreateRegressions,
+    runMediaLibraryFolderRollbackRegressions} from './media-library-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -479,6 +480,7 @@ try {
             await runMediaLibraryFileMoveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFileDeleteRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFolderCreateRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryFolderRollbackRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminDirtyFieldRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminShortcutModifierRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminCompositionRegressions(browser, `http://127.0.0.1:${server.address().port}`);

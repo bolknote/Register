@@ -364,11 +364,24 @@ $(function () {
     initContext();
     eButtons.detach();
 
-    function folderRollback(data) {
-        eButtons.remove();
-        eButtons = null;
-        $.jstree.rollback(data);
-        eButtons = $('#context_buttons');
+    function restoreFolderPosition(folder, parent) {
+        if (!$.contains(folderTree[0], parent[0])) return;
+        // Keep the live nodes and selection; replacing the old tree snapshot
+        // would discard unrelated changes made while the request was pending.
+        var previousParent = folder.parent().closest('li');
+        if (!parent.children('ul').length) parent.append('<ul></ul>');
+        folder.appendTo(parent.children('ul').first());
+        parent.removeClass('jstree-leaf');
+        if (!parent.is('.jstree-open, .jstree-closed')) parent.addClass('jstree-open');
+        folderTree.jstree('sort', parent.children('ul'));
+        if (previousParent.length && previousParent[0] !== parent[0]) {
+            if (previousParent.children('ul').children('li').length) {
+                folderTree.jstree('clean_node', previousParent);
+            } else {
+                folderTree.jstree('correct_state', previousParent);
+            }
+        }
+        syncSelectedFolder();
     }
 
     function syncSelectedFolder() {
@@ -443,12 +456,17 @@ $(function () {
                 + '&path=' + encodeURIComponent(data.rslt.obj.attr('data-path'));
             const renameParams = new URLSearchParams();
             renameParams.append('csrf_token', data.rslt.obj.attr('data-csrf-token'));
+            const restoreFolderName = function () {
+                if (!$.contains(folderTree[0], data.rslt.obj[0])) return;
+                folderTree.jstree('rename_node', data.rslt.obj, data.rslt.old_name);
+                syncSelectedFolder();
+            };
             fetch(endpointUrl, {method: 'POST', body: renameParams})
                 .then(response => response.json())
                 .then(d => {
-                    if (!d || !d.success) {
-                        folderRollback(data.rlbk);
-                        if (d.message) {
+                    if (!d?.success) {
+                        restoreFolderName();
+                        if (d?.message) {
                             PopupMessages.show(d.message);
                         }
                         return;
@@ -464,28 +482,27 @@ $(function () {
 
                     syncSelectedFolder();
                 })
-                .catch(() => {
-                    folderRollback(data.rlbk);
-                });
+                .catch(restoreFolderName);
         })
         .bind('remove.jstree', function (e, data) {
             const endpointUrl = sUrl + 'action=delete_folder&path=' + encodeURIComponent(data.rslt.obj.attr('data-path'));
 
             const deleteParams = new URLSearchParams();
             deleteParams.append('csrf_token', data.rslt.obj.attr('data-csrf-token'));
+            const restoreDeletedFolder = function () {
+                restoreFolderPosition(data.rslt.obj, data.rslt.parent);
+            };
             fetch(endpointUrl, {method: 'POST', body: deleteParams})
                 .then(response => response.json())
                 .then(d => {
-                    if (!d || !d.success) {
-                        folderRollback(data.rlbk);
-                        if (d.message) {
+                    if (!d?.success) {
+                        restoreDeletedFolder();
+                        if (d?.message) {
                             PopupMessages.show(d.message);
                         }
                     }
                 })
-                .catch(() => {
-                    folderRollback(data.rlbk);
-                });
+                .catch(restoreDeletedFolder);
         })
         .bind('create.jstree', function (e, data) {
             const endpointUrl = sUrl + 'action=create_subfolder&name=' + encodeURIComponent(data.rslt.name)
@@ -529,12 +546,15 @@ $(function () {
                 const moveParams = new URLSearchParams();
                 moveParams.append('csrf_token', data.rslt.o.attr('data-csrf-token'));
                 moveParams.append('destination_csrf_token', data.rslt.np.attr('data-csrf-token'));
+                const restoreMovedFolder = function () {
+                    restoreFolderPosition(data.rslt.o, data.rslt.op);
+                };
                 fetch(endpointUrl, {method: 'POST', body: moveParams})
                     .then(response => response.json())
                     .then(d => {
-                        if (!d || !d.success) {
-                            folderRollback(data.rlbk);
-                            if (d.message) {
+                        if (!d?.success) {
+                            restoreMovedFolder();
+                            if (d?.message) {
                                 PopupMessages.show(d.message);
                             }
                         } else {
@@ -548,9 +568,7 @@ $(function () {
                             syncSelectedFolder();
                         }
                     })
-                    .catch(() => {
-                        folderRollback(data.rlbk);
-                    });
+                    .catch(restoreMovedFolder);
             } else {
                 var fileNames = [];
                 data.rslt.o.each(function () {
