@@ -6,13 +6,21 @@ import {initImageAlt} from '/admin/editor/image-alt.js';
 
 const params = new URL(location.href).searchParams;
 window.adminMessages = [];
-const popupMessages = {
+let popupMessages = {
     hide() { document.getElementById('error').textContent = ''; },
     show(message) {
         window.adminMessages.push(message);
         document.getElementById('error').textContent = message;
     },
 };
+if (params.has('popup')) {
+    await import('/admin-popup.js');
+    popupMessages = window.PopupMessages;
+    const stylesheet = document.createElement('link');
+    stylesheet.rel = 'stylesheet';
+    stylesheet.href = '/admin-popup.css';
+    document.head.append(stylesheet);
+}
 if (params.has('fetch-wrapper')) {
     window.PopupMessages = popupMessages;
     window.DisplayError = message => popupMessages.show(message);

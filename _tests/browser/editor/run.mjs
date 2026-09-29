@@ -18,6 +18,7 @@ import {runMediaAiRegressions, runTagPasteRegressions} from './media-ai-tag-test
 import {runClipboardUploadRegressions} from './clipboard-upload-tests.mjs';
 import {runAdminSaveFailureRegressions, runSocialPreviewRegressions} from './admin-save-social-tests.mjs';
 import {runActivityPubPreviewRegressions} from './admin-activitypub-tests.mjs';
+import {runAdminFieldErrorRegressions, runAdminErrorRefreshRegressions, runActivityPubFieldErrorRegressions} from './admin-validation-tests.mjs';
 import {runMediaInsertionAltRegressions, runMediaInsertionCaretRegressions, runMixedMediaCaretRegressions, runRejectedMediaRegressions} from './media-insertion-tests.mjs';
 import {runMediaDragRegressions} from './media-drag-tests.mjs';
 import {runAdminAiTargetRegressions} from './admin-ai-target-tests.mjs';
@@ -454,8 +455,11 @@ try {
             await runTagPasteRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runClipboardUploadRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminSaveFailureRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runAdminFieldErrorRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runAdminErrorRefreshRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runSocialPreviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runActivityPubPreviewRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runActivityPubFieldErrorRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaInsertionAltRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaInsertionCaretRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runRejectedMediaRegressions(browser, `http://127.0.0.1:${server.address().port}`);

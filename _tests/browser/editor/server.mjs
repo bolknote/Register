@@ -22,6 +22,12 @@ export function createFixtureServer() {
                 response.end(source.slice(0, source.indexOf('window.AdminConfirm')));
                 return;
             }
+            if (request.url === '/admin-popup.js') {
+                const source = await readFile(new URL('../../../_admin/js/lib.js', import.meta.url), 'utf8');
+                response.setHeader('Content-Type', 'text/javascript');
+                response.end(source.slice(source.indexOf('window.PopupMessages ='), source.indexOf('function DisplayError')));
+                return;
+            }
             if (request.url === '/editor.js') {
                 const source = process.env.EDITOR_TEST_REVISION
                     ? execFileSync('git', ['show', `${process.env.EDITOR_TEST_REVISION}:_assets/register/post-inplace.js`], {encoding: 'utf8'})
@@ -78,6 +84,8 @@ export function createFixtureServer() {
                 ['/recovery-fixture.css', ['recovery-fixture.css', 'text/css']],
                 ['/admin.html', ['admin.html', 'text/html; charset=utf-8']],
                 ['/admin-fixture.js', ['admin-fixture.js', 'text/javascript']],
+                ['/admin-popup.css', ['../../../_admin/css/admin-override.css', 'text/css']],
+                ['/admin-editor.css', ['../../../_admin/css/register.css', 'text/css']],
                 ['/admin-codemirror.js', ['../../../_admin/lib/codemirror/codemirror.min.js', 'text/javascript']],
                 ['/admin-codemirror.css', ['../../../_admin/lib/codemirror.css', 'text/css']],
                 ['/local-time.js', ['../../../_assets/register/local-time.js', 'text/javascript']],
@@ -86,7 +94,7 @@ export function createFixtureServer() {
                 ['/site.css', ['../../../_styles/register/site.css', 'text/css']],
                 ['/comment-editor.css', ['../../../_assets/register/comment-editor.css', 'text/css']],
             ]);
-            for (const module of ['form', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'activitypub', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'text/plain', 'utils/escape']) {
+            for (const module of ['form', 'ai', 'image-alt', 'tags', 'shortcuts', 'dialogs', 'deps', 'hash', 'preview', 'social-preview', 'activitypub', 'codemirror', 'text/paragraphs', 'text/corrections', 'text/html', 'text/plain', 'utils/escape', 'utils/form-errors']) {
                 files.set(`/admin/editor/${module}.js`, [`../../../_admin/js/editor/${module}.js`, 'text/javascript']);
             }
             const file = files.get(new URL(request.url, 'http://127.0.0.1').pathname);

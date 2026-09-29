@@ -603,6 +603,7 @@ a.js {
 
 #popup_message .message {
     padding: 0.15rem 0;
+    white-space: pre-line;
 }
 
 #popup_message .message.is-repeated {

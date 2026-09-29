@@ -1,6 +1,7 @@
 /** Side-effect-free ActivityPub preview for the current unsaved editor form. */
 
 import {register_codemirror} from './codemirror.js';
+import {formErrorMessages} from './utils/form-errors.js';
 
 export function initActivityPubPreview(form, config) {
     if (!form || !config || !config.enabled) {
@@ -99,7 +100,7 @@ export function initActivityPubPreview(form, config) {
             }
             if (controller.signal.aborted || previewController !== controller) return;
             if (!response.ok || !payload || payload.success !== true) {
-                throw new Error(payload && payload.message ? payload.message : config.failed);
+                throw new Error(formErrorMessages(form, payload, config.failed).join('\n'));
             }
 
             setStatus(payload.message || '', false);

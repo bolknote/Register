@@ -3967,6 +3967,7 @@ section.large-edit-form form {
 
 .activitypub-editor-preview-status.is-error {
     color: var(--admin-error-color);
+    white-space: pre-line;
 }
 
 .activitypub-editor-preview-provisional {

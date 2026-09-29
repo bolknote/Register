@@ -133,6 +133,8 @@ resetting or saving the form does too. Rebuilding uses the current fields, and a
 obsolete response, including delayed JSON decoding, cannot replace the new result
 or unlock its request button. A preview started during a save is also invalidated
 when that save completes. Previewing preserves unsaved changes and does not save.
+Server validation errors identify the rejected fields, remain separate readable
+lines, and allow rebuilding a preview after correcting the form.
 
 Twenty-two admin input scenarios cover unfinished tags in form values, exit
 warnings, button and keyboard saves, edits during a save, CSRF retries, failures,
@@ -204,7 +206,12 @@ Eighteen admin save scenarios include the production fetch interceptor. Network
 failures, HTML error responses, JSON errors, malformed successes and a failed CSRF
 retry show one useful error and retain the unsaved draft. Both textarea and
 CodeMirror editors unlock after a failed creation and can save successfully on
-retry. Four social-preview scenarios cover body edits, undo/redo, AI replies,
+retry. Ten additional scenarios use the production notification component: all
+global and field errors appear together, field labels identify the rejected
+values, malformed error entries are ignored, and each failed retry replaces the
+previous messages, including session expiration. Successful retries clear the
+notification and saved draft.
+Four social-preview scenarios cover body edits, undo/redo, AI replies,
 explicit description/image overrides and initial draft recovery in both modes.
 
 Four alt-layout scenarios use the production admin styles and HTML editor wrappers

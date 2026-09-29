@@ -11,6 +11,7 @@ import {hex_md5} from './hash.js';
 import {Preview, initPreviewSync} from './preview.js';
 import {register_codemirror} from './codemirror.js';
 import {escapeHtml, sanitizeUrlForAttribute} from './utils/escape.js';
+import {formErrorMessages} from './utils/form-errors.js';
 
 export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaName, sTemplateId, sSlugFieldName = 'url', sTemplateScope = '') {
     const sLowerEntityName = sEntityName.toLowerCase();
@@ -77,15 +78,13 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
         }
 
         const saveFailed = editorDeps.register_lang?.save_failed || 'Unable to save. Please try again.';
-        function errorHandler(data, status) {
-            const errors = Array.isArray(data?.errors)
-                ? data.errors.filter(error => typeof error === 'string' && error.trim() !== '') : [];
-            if (errors.length === 0) {
-                errors.push(typeof data?.message === 'string' && data.message.trim() !== '' ? data.message : saveFailed);
-            }
-            errors.forEach(function (error) {
-                editorDeps.PopupMessages.show(error, null, null, status === 401 ? 'login' : sLowerEntityName + '-save');
-            });
+        function errorHandler(data) {
+            const errors = formErrorMessages(eForm, data, saveFailed);
+            const messageId = sLowerEntityName + '-save';
+            // PopupMessages deduplicates by id, retaining the first message.
+            // Replace the previous attempt with all of this response's errors.
+            editorDeps.PopupMessages.hide(messageId);
+            editorDeps.PopupMessages.show(errors.join('\n'), null, null, messageId);
             console.warn('Form submission failed');
         }
 
@@ -152,7 +151,7 @@ export function initArticleEditForm(eForm, statusData, sEntityName, sTextareaNam
             if (response.ok && data && data.revision != null) {
                 successHandler(data);
             } else {
-                errorHandler(data, response.status);
+                errorHandler(data);
             }
         } catch (error) {
             errorHandler(null);
