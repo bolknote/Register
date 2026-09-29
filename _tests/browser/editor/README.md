@@ -276,3 +276,11 @@ image insertion and subsequent uploads use the current folder path and token.
 Six more scenarios distinguish a failed current request from an empty directory,
 reject malformed responses without leaving the browser busy, and load the same
 folder successfully on retry.
+
+Fourteen file-operation scenarios restore insertion details when filtering a
+multiple selection down to one file, reconcile renames after an intervening
+refresh or folder round trip, and retain selections in unrelated folders.
+Cross-tree file moves clear old insertion links and counts, preserve folder
+navigation and nested folders, and reload the current source or destination.
+Moving the entire file list, network failures, rejected renames and moves, and
+partially completed moves also leave the library usable with current file URLs.

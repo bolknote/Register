@@ -28,7 +28,8 @@ import {runAdminNativeShortcutRegressions, runSmartParagraphMarkupRegressions, r
 import {runAdminMediaPathRegressions, runAdminAudioInsertionRegressions, runAdminShortcutModifierRegressions} from './admin-media-shortcut-tests.mjs';
 import {runAdminCompositionRegressions, runAdminNativeCompositionRegressions, runAdminTagNavigationRegressions} from './admin-composition-tests.mjs';
 import {runMediaLibraryUploadRegressions, runMediaLibraryFailureRegressions, runMediaLibrarySortRegressions,
-    runMediaLibraryFolderRegressions, runMediaLibraryFolderMutationRegressions, runMediaLibraryFolderFailureRegressions} from './media-library-tests.mjs';
+    runMediaLibraryFolderRegressions, runMediaLibraryFolderMutationRegressions, runMediaLibraryFolderFailureRegressions,
+    runMediaLibraryFileSelectionRegressions, runMediaLibraryFileRenameRegressions, runMediaLibraryFileMoveRegressions} from './media-library-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -472,6 +473,9 @@ try {
             await runMediaLibraryFolderRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFolderMutationRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runMediaLibraryFolderFailureRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryFileSelectionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryFileRenameRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryFileMoveRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminDirtyFieldRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminShortcutModifierRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminCompositionRegressions(browser, `http://127.0.0.1:${server.address().port}`);

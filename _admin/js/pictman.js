@@ -236,10 +236,23 @@ $(function () {
                 renameButton.disabled = selected.length !== 1;
             }
         }
-        if (selected.length !== 1) {
-            document.getElementById('finfo')?.replaceChildren();
+        var fileInformation = document.getElementById('finfo');
+        if (!fileInformation) return;
+        if (filesLoading || selected.length !== 1) {
+            fileInformation.replaceChildren();
             fExecDouble = function () {};
+            return;
         }
+        var file = selected.eq(0);
+        var fileName = file.attr('data-fname');
+        renderFileInformation(
+            fileInformation,
+            fileName,
+            sPicturePrefix + path + '/' + fileName,
+            file.attr('data-fsize'),
+            file.attr('data-dim'),
+            file.attr('data-bits')
+        );
     }
 
     function updateFileView() {
@@ -534,32 +547,40 @@ $(function () {
                     fileNames.push('fname[]=' + encodeURIComponent($(this).attr('data-fname')));
                 });
 
-                const endpointUrl = sUrl + 'action=move_files&spath=' + encodeURIComponent(path)
-                    + '&dpath=' + encodeURIComponent(data.rslt.np.attr('data-path'))
+                const sourcePath = path;
+                const destinationPath = data.rslt.np.attr('data-path');
+                const endpointUrl = sUrl + 'action=move_files&spath=' + encodeURIComponent(sourcePath)
+                    + '&dpath=' + encodeURIComponent(destinationPath)
                     + '&' + fileNames.join('&');
                 const fileMoveParams = new URLSearchParams();
                 fileMoveParams.append('csrf_token', pathCsrfToken);
                 fileMoveParams.append('destination_csrf_token', data.rslt.np.attr('data-csrf-token'));
+                // A cross-tree drop temporarily inserts file nodes into the
+                // folder tree. Remove just those nodes, preserving later folder
+                // selections and changes instead of restoring an old snapshot.
+                data.rslt.o.remove();
+                if (data.rslt.np.children('ul').children('li').length) {
+                    folderTree.jstree('clean_node', data.rslt.np);
+                } else {
+                    folderTree.jstree('correct_state', data.rslt.np);
+                }
+                if (!fileTree.children('ul').length) {
+                    fileTree.append('<ul></ul>');
+                }
+                fileTree.jstree('deselect_all');
+                updateFileView();
+                const refreshMovedFiles = function () {
+                    if (path === sourcePath || path === destinationPath) refreshFiles();
+                };
                 fetch(endpointUrl, {method: 'POST', body: fileMoveParams})
                     .then(response => response.json())
                     .then(d => {
-                        folderRollback(data.rlbk);
-
-                        if (!fileTree.children().length) {
-                            fileTree.html('<ul></ul>'); // jstree fix (doesn't work after all roots disappearing)
+                        if (!d?.success && d?.message) {
+                            PopupMessages.show(d.message);
                         }
-
-                        if (!d || !d.success) {
-                            fileTree.jstree('refresh', -1);
-                            if (d.message) {
-                                PopupMessages.show(d.message);
-                            }
-                        }
+                        refreshMovedFiles();
                     })
-                    .catch(() => {
-                        folderRollback(data.rlbk);
-                        fileTree.jstree('refresh', -1);
-                    });
+                    .catch(refreshMovedFiles);
             }
         })
         .bind('focus', function () {
@@ -657,31 +678,9 @@ $(function () {
                 fileTree.jstree('rename', e.target);
             }
         })
-        .bind('select_node.jstree', function (e, d) {
+        .bind('select_node.jstree', function () {
             fileTree.jstree('set_focus');
             updateFileSelection();
-
-            var fileInformation = document.getElementById('finfo');
-            if (!fileInformation) {
-                return;
-            }
-
-            if (fileTree.jstree('get_selected').length === 1) {
-                var fileName = d.rslt.obj.attr('data-fname');
-                var filePath = sPicturePrefix + path + '/' + fileName;
-                renderFileInformation(
-                    fileInformation,
-                    fileName,
-                    filePath,
-                    d.rslt.obj.attr('data-fsize'),
-                    d.rslt.obj.attr('data-dim'),
-                    d.rslt.obj.attr('data-bits')
-                );
-            } else {
-                fExecDouble = function () {
-                };
-                fileInformation.replaceChildren();
-            }
         })
         .bind('rename.jstree', function (e, data) {
             isRenaming = false;
@@ -689,27 +688,25 @@ $(function () {
                 return;
             }
 
+            const renamedPath = path;
             const endpointUrl = sUrl + 'action=rename_file&name=' + encodeURIComponent(data.rslt.new_name)
-                + '&path=' + encodeURIComponent(path + '/' + data.rslt.obj.attr('data-fname'));
+                + '&path=' + encodeURIComponent(renamedPath + '/' + data.rslt.obj.attr('data-fname'));
             const renameFileParams = new URLSearchParams();
             renameFileParams.append('csrf_token', pathCsrfToken);
+            const refreshRenamedFiles = function () {
+                if (path === renamedPath) refreshFiles();
+            };
             fetch(endpointUrl, {method: 'POST', body: renameFileParams})
                 .then(response => response.json())
                 .then(d => {
-                    fileTree.jstree('deselect_all');
-                    if (!d.success) {
-                        fileTree.jstree('refresh', -1);
-                        if (d.message) {
-                            PopupMessages.show(d.message);
-                        }
-                    } else {
-                        data.rslt.obj.attr('data-fname', d.new_name);
-                        updateFileView();
+                    if (!d?.success && d?.message) {
+                        PopupMessages.show(d.message);
                     }
+                    // The original node may have been replaced by a refresh
+                    // while this request was pending.
+                    refreshRenamedFiles();
                 })
-                .catch(() => {
-                    fileTree.jstree('refresh', -1);
-                });
+                .catch(refreshRenamedFiles);
         })
         .bind('remove.jstree', function (e, data) {
             var fileNames = [];

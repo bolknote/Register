@@ -335,3 +335,162 @@ export async function runMediaLibraryFolderFailureRegressions(browser, origin) {
     }
     console.log('media library: current folder failures and empty lists clear loading state and allow a successful refresh');
 }
+
+export async function runMediaLibraryFileSelectionRegressions(browser, origin) {
+    const page = await browser.newPage();
+    try {
+        const library = await openLibrary(page, origin);
+        const first = page.locator('#files [data-fname="image2.png"] > a');
+        const second = page.locator('#files [data-fname="image10.png"] > a');
+        await first.click();
+        await second.click({modifiers: ['Shift']});
+        assert.equal(await page.locator('#files a.jstree-clicked').count(), 2);
+        assert.equal(await page.locator('#finfo a').count(), 0);
+        await page.locator('[data-media-search]').fill('image2');
+        assert.equal(await page.locator('#files a.jstree-clicked').count(), 1);
+        assert.equal(await page.locator('#finfo a').count(), 1,
+            'Filtering back to one selected file must restore its information and insertion action');
+        assert.equal(new URL(await page.locator('#finfo a').getAttribute('href'), origin).pathname, '/pictures/image2.png');
+        await page.getByRole('button', {name: '← Insert', exact: true}).click();
+        assert.equal(await page.evaluate(() => window.libraryInsertedImages.at(-1)[0]), '/pictures/image2.png');
+        await page.locator('[data-media-search]').fill('missing');
+        assert.equal(await page.locator('#finfo a').count(), 0);
+        assert.equal(await page.locator('[data-media-selection-bar]').evaluate(element => element.hidden), true);
+        assert.deepEqual(library.errors, []);
+    } finally { await page.close(); }
+    console.log('media library: reducing multiple selections to one restores that file’s details and insertion action');
+}
+
+export async function runMediaLibraryFileRenameRegressions(browser, origin) {
+    for (const [nextAction, success] of [
+        ['stay', true], ['refresh', true], ['other-folder', true], ['round-trip', true],
+        ['other-folder', false], ['refresh', false],
+    ]) {
+        const page = await browser.newPage();
+        try {
+            const library = await openLibrary(page, origin, [
+                {data: 'second', attr: {'data-path': '/second', 'data-csrf-token': 'second-token'}},
+            ]);
+            const renames = holdRequests(page, '**/library-api?action=rename_file&*');
+            await renames.installed;
+            await page.locator('#files [data-fname="image2.png"] > a').click();
+            await page.evaluate(() => jQuery('#files').jstree('rename', jQuery('#files [data-fname="image2.png"]')));
+            await page.locator('#files input').fill('renamed.png');
+            await page.locator('#files input').press('Enter');
+            const request = await renames.next();
+            const params = new URL(request.request().url()).searchParams;
+            assert.equal(params.get('path'), '/image2.png');
+            assert.equal(params.get('name'), 'renamed.png');
+            assert.equal((await formData(request)).get('csrf_token'), 'fixture');
+            if (nextAction === 'refresh') {
+                await page.getByRole('button', {name: 'Refresh', exact: true}).click();
+                await page.waitForFunction(() => jQuery.active === 0 && document.querySelector('#files [data-fname="image2.png"]'));
+            } else if (nextAction !== 'stay') {
+                await page.locator('#folders [data-path="/second"] > a').click();
+                await page.waitForFunction(() => document.querySelector('#files [data-fname="photo.png"]'));
+                await page.locator('#files [data-fname="photo.png"] > a').click();
+                if (nextAction === 'round-trip') {
+                    await page.locator('#folders [data-path=""] > a').click();
+                    await page.waitForFunction(() => jQuery.active === 0 && document.querySelector('#files [data-fname="image2.png"]'));
+                }
+            }
+            if (success) library.files.splice(library.files.indexOf('image2.png'), 1, 'renamed.png');
+            const response = page.waitForResponse(response => response.url() === request.request().url());
+            await request.fulfill(success ? {json: {success: true, new_name: 'renamed.png'}}
+                : {status: 409, json: {success: false, message: 'That filename is already taken.'}});
+            await (await response).finished();
+            await nextTask(page);
+            if (nextAction === 'other-folder') {
+                assert.equal(await page.locator('#files a.jstree-clicked').count(), 1,
+                    'Finishing a rename elsewhere must retain the current selection');
+                assert.equal(new URL(await page.locator('#finfo a').getAttribute('href'), origin).pathname, '/pictures/second/photo.png');
+            } else {
+                const expectedName = success ? 'renamed.png' : 'image2.png';
+                await page.waitForFunction(name => jQuery.active === 0 && document.querySelector(`#files [data-fname="${name}"]`), expectedName);
+                assert.equal(await page.locator(`#files [data-fname="${success ? 'image2.png' : 'renamed.png'}"]`).count(), 0,
+                    'A refresh before the rename response must not leave the old filename actionable');
+                await page.locator(`#files [data-fname="${expectedName}"] > a`).click();
+                await page.getByRole('button', {name: '← Insert', exact: true}).click();
+                assert.equal(await page.evaluate(() => window.libraryInsertedImages.at(-1)[0]), '/pictures/' + expectedName);
+            }
+            assert.deepEqual(await page.evaluate(() => window.libraryMessages), success ? [] : ['That filename is already taken.']);
+            assert.deepEqual(library.errors, []);
+        } catch (error) {
+            throw new Error(`media file rename ${nextAction}/${success}: ${error.message}`, {cause: error});
+        } finally { await page.close(); }
+    }
+    console.log('media library: file rename replies reconcile refreshed lists and retain unrelated folder selections');
+}
+
+export async function runMediaLibraryFileMoveRegressions(browser, origin) {
+    for (const [selectedFolder, outcome, allFiles] of [
+        ['', 'success', false], ['/second', 'success', false], ['/other', 'success', false],
+        ['', 'success', true], ['', 'rejected', false], ['', 'network', true], ['/second', 'partial', true],
+    ]) {
+        const page = await browser.newPage();
+        try {
+            const library = await openLibrary(page, origin, ['second', 'other'].map(name => ({
+                data: name, attr: {'data-path': '/' + name, 'data-csrf-token': name + '-token'},
+                ...(allFiles && name === 'second' ? {children: [
+                    {data: 'nested', attr: {'data-path': '/second/nested', 'data-csrf-token': 'nested-token'}},
+                ]} : {}),
+            })));
+            const moves = holdRequests(page, '**/library-api?action=move_files&*');
+            await moves.installed;
+            await page.locator('#files [data-fname="image2.png"] > a').click();
+            if (allFiles) {
+                await page.locator('#files [data-fname="image10.png"] > a').click({modifiers: ['Shift']});
+            }
+            // This is the production tree operation invoked by a cross-tree drop.
+            await page.evaluate(() => jQuery('#folders').jstree('move_node',
+                jQuery('#files').jstree('get_selected'), jQuery('#folders [data-path="/second"]'), 'last'));
+            const request = await moves.next();
+            const params = new URL(request.request().url()).searchParams;
+            assert.equal(params.get('spath'), '');
+            assert.equal(params.get('dpath'), '/second');
+            assert.deepEqual(params.getAll('fname[]').sort(), allFiles ? ['image10.png', 'image2.png'] : ['image2.png']);
+            const body = await formData(request);
+            assert.equal(body.get('csrf_token'), 'fixture');
+            assert.equal(body.get('destination_csrf_token'), 'second-token');
+            assert.equal(await page.locator('#finfo a').count(), 0, 'A moved file must not retain an insertable source URL');
+            assert.equal(await page.locator('#folders [data-fname]').count(), 0, 'File drops must not add fake folders');
+            assert.equal(await page.locator('[data-media-count]').textContent(), allFiles ? '0/0' : '1/1');
+            if (selectedFolder) {
+                await page.locator(`#folders [data-path="${selectedFolder}"] > a`).click();
+                await page.waitForFunction(() => jQuery.active === 0 && document.querySelector('#files [data-fname="photo.png"]'));
+                if (selectedFolder === '/other') await page.locator('#files [data-fname="photo.png"] > a').click();
+            }
+            const moved = outcome === 'success' ? (allFiles ? ['image2.png', 'image10.png'] : ['image2.png'])
+                : outcome === 'partial' ? ['image2.png'] : [];
+            for (const name of moved) {
+                library.files.splice(library.files.indexOf(name), 1);
+                library.filesByPath.get('/second').push(name);
+            }
+            const failed = outcome === 'rejected' || outcome === 'partial';
+            const done = outcome === 'network' ? page.waitForEvent('requestfailed', failed => failed.url() === request.request().url())
+                : page.waitForResponse(response => response.url() === request.request().url()).then(response => response.finished());
+            if (outcome === 'network') await request.abort('failed');
+            else await request.fulfill(failed ? {status: 409, json: {success: false, message: 'Destination already contains a file.'}}
+                : {json: {success: true}});
+            await done;
+            await nextTask(page);
+            await page.waitForFunction(() => jQuery.active === 0);
+            assert.equal(await page.locator('#folders a.jstree-clicked').evaluate(anchor => anchor.parentElement.dataset.path), selectedFolder,
+                'A completed file move must retain the current folder selection');
+            assert.equal(await page.evaluate(() => getCurDir()), selectedFolder);
+            assert.deepEqual(await page.locator('#files li[data-fname]').evaluateAll(nodes => nodes.map(node => node.dataset.fname)),
+                selectedFolder === '/second' ? ['image2.png', 'photo.png'] : selectedFolder ? ['photo.png']
+                    : outcome !== 'success' ? ['image2.png', 'image10.png'] : allFiles ? [] : ['image10.png']);
+            assert.equal(await page.locator('#folders [data-path="/second/nested"]').count(), allFiles ? 1 : 0);
+            assert.deepEqual(await page.evaluate(() => window.libraryMessages), failed ? ['Destination already contains a file.'] : []);
+            if (selectedFolder === '/other') {
+                assert.equal(await page.locator('#files a.jstree-clicked').count(), 1);
+                assert.equal(new URL(await page.locator('#finfo a').getAttribute('href'), origin).pathname, '/pictures/other/photo.png');
+            }
+            assert.deepEqual(library.errors, []);
+        } catch (error) {
+            throw new Error(`media file move ${selectedFolder || 'root'}/${outcome}/${allFiles}: ${error.message}`, {cause: error});
+        } finally { await page.close(); }
+    }
+    console.log('media library: moving files clears source actions, keeps folder navigation and refreshes the current list');
+}
