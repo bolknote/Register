@@ -94,12 +94,7 @@ final readonly class PublicationMetadataGenerator
 
     private function extractPlainText(string $title, string $body): string
     {
-        $beforeCut = preg_split('#<cut\s*/?>#iu', $body, 2);
-        $preferredBody = $beforeCut !== false && \count($beforeCut) > 1 ? $beforeCut[0] : $body;
-        $plainText = $this->htmlToPlainText($preferredBody);
-        if ($plainText === '' && $preferredBody !== $body) {
-            $plainText = $this->htmlToPlainText($body);
-        }
+        $plainText = $this->htmlToPlainText($body);
 
         $title = $this->normalizePlainText($title);
         if ($title === '' || $plainText === '') {
@@ -117,17 +112,78 @@ final readonly class PublicationMetadataGenerator
 
     private function htmlToPlainText(string $html): string
     {
-        $html = preg_replace(
-            '#<(script|style|template|noscript|svg|math|pre|code)\b[^>]*>.*?</\1\s*>#isu',
-            ' ',
-            $html,
-        ) ?? $html;
-        $html = preg_replace(
-            '#</?(?:address|article|aside|blockquote|br|dd|div|dl|dt|figcaption|figure|footer|h[1-6]|header|hr|li|main|nav|ol|p|section|table|tbody|td|tfoot|th|thead|tr|ul)\b[^>]*>#iu',
-            "\n",
-            $html,
-        ) ?? $html;
-        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // The PHP 8.3 DOM parser understands HTML4 names. Numeric references
+        // preserve HTML5 entities without decoding them into source markup.
+        $html = preg_replace_callback('/&[a-z][a-z0-9]+;/i', static function (array $match): string {
+            $decoded = html_entity_decode($match[0], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            if ($decoded === $match[0]) {
+                return $match[0];
+            }
+
+            return implode('', array_map(
+                static fn(string $character): string => '&#' . mb_ord($character, 'UTF-8') . ';',
+                mb_str_split($decoded, 1, 'UTF-8'),
+            ));
+        }, $html) ?? $html;
+
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $loaded = $document->loadHTML(
+                '<!doctype html><html><head><meta charset="utf-8"></head><body>' . $html . '</body></html>',
+                LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_COMPACT,
+            );
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
+        $body = $document->getElementsByTagName('body')->item(0);
+        if (!$loaded || $body === null) {
+            return '';
+        }
+
+        $text = '';
+        $beforeCut = null;
+        $this->appendPlainText($body, $text, $beforeCut);
+        $lead = $this->normalizeTextLines($beforeCut ?? $text);
+        return $lead !== '' ? $lead : $this->normalizeTextLines($text);
+    }
+
+    private function appendPlainText(\DOMNode $node, string &$text, ?string &$beforeCut): void
+    {
+        if ($node instanceof \DOMText) {
+            $text .= $node->textContent;
+            return;
+        }
+        if (!$node instanceof \DOMElement) {
+            return;
+        }
+        $name = strtolower($node->tagName);
+        if (\in_array($name, ['script', 'style', 'template', 'noscript', 'svg', 'math', 'pre', 'code'], true)) {
+            $text .= ' ';
+            return;
+        }
+        if ($name === 'cut' && $beforeCut === null) {
+            $beforeCut = $text;
+        }
+        $block = \in_array($name, [
+            'address', 'article', 'aside', 'blockquote', 'br', 'dd', 'div', 'dl', 'dt', 'figcaption', 'figure', 'footer',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'section',
+            'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'ul',
+        ], true);
+        if ($block) {
+            $text .= "\n";
+        }
+        foreach ($node->childNodes as $child) {
+            $this->appendPlainText($child, $text, $beforeCut);
+        }
+        if ($block) {
+            $text .= "\n";
+        }
+    }
+
+    private function normalizeTextLines(string $text): string
+    {
         $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', ' ', $text) ?? $text;
         $text = preg_replace('/[\t ]+/u', ' ', $text) ?? $text;
         $text = preg_replace('/ *\R+ */u', "\n", $text) ?? $text;

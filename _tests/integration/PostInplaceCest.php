@@ -39,6 +39,20 @@ final class PostInplaceCest
     public function generatedMetadataPreservesLiteralTextAndJoiningCharacters(\IntegrationTester $I): void
     {
         $text = "Use <widget> &lt;example&gt; 👩🏽‍💻 می\u{200C}روم. 20\u{2060}°C.";
+        $this->assertCreatedPostMetadata($I, 'Literal text in publication metadata',
+            '<p>' . htmlspecialchars($text, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</p>', $text);
+    }
+
+    public function generatedMetadataRespectsHtmlStructure(\IntegrationTester $I): void
+    {
+        $this->assertCreatedPostMetadata($I, 'HTML structure in publication metadata',
+            '<p title="left > right">Intro.</p><template>outer<template>inner</template>hidden tail</template>'
+            . '<!-- <cut /> --><p title="<cut>">Visible ending.</p><CUT /><p>After real cut.</p>',
+            'Intro. Visible ending.');
+    }
+
+    private function assertCreatedPostMetadata(\IntegrationTester $I, string $title, string $body, string $text): void
+    {
         $html = htmlspecialchars($text, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $I->login('author', 'author');
         $I->amOnPage('https://localhost/');
@@ -50,8 +64,8 @@ final class PostInplaceCest
             'inplace_action' => 'create',
             'inplace_token' => $token,
             'revision' => '0',
-            'title' => 'Literal text in publication metadata',
-            'body' => '<p>' . $html . '</p>',
+            'title' => $title,
+            'body' => $body,
             'tags' => '',
             'published_at' => (string)(time() - 60),
         ]);
@@ -62,7 +76,7 @@ final class PostInplaceCest
         $stored = $dbLayer->select('body, excerpt, meta_description')->from(ContentSchema::TABLE_NAME)
             ->where('id = :id')->setParameter('id', (int)$payload['id'])->execute()->fetchAssoc();
         $I->assertIsArray($stored);
-        $I->assertSame('<p>' . $html . '</p>', $stored['body']);
+        $I->assertSame($body, $stored['body']);
         $I->assertSame($html, $stored['excerpt']);
         $I->assertSame($text, $stored['meta_description']);
         $I->amOnPage('https://localhost' . $payload['url']);

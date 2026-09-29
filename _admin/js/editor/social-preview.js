@@ -14,9 +14,7 @@ function firstImage(html) {
 
 function descriptionFromBody(html, title) {
     // Keep the local fallback consistent with PublicationMetadataGenerator.
-    const beforeCut = html.split(/<cut\s*\/?>/i, 1)[0];
-    let text = htmlToPlainText(beforeCut, true);
-    if (!text && beforeCut !== html) text = htmlToPlainText(html, true);
+    let text = htmlToPlainText(html, true, true);
     const lines = text.split(/\n+/);
     if (normalizePlainText(lines[0]).toLowerCase() === normalizePlainText(title).toLowerCase()) {
         lines.shift();

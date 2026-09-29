@@ -72,6 +72,45 @@ final class PublicationMetadataGeneratorTest extends TestCase
         }
     }
 
+    public function testLocalFallbackReadsHtmlStructure(): void
+    {
+        $generator = $this->generator($this->settings());
+        foreach ([
+            ['<p title="left > right">First.</p><p>Second.</p>', 'First. Second.'],
+            ["<p title='quoted > <em>markup</em>'>First.</p><p>Second.</p>", 'First. Second.'],
+            ['<p>Intro.</p><template>outer<template>inner</template>hidden tail</template><p>Ending.</p>', 'Intro. Ending.'],
+            ['<p>Intro.</p><code>outer<code>inner</code>hidden tail</code><p>Ending.</p>', 'Intro. Ending.'],
+            ['<p>Intro.</p><script title="quoted > marker">hidden script</script><p>Ending.</p>', 'Intro. Ending.'],
+            ['<p>First.<p>Second.<br>Third.', 'First. Second. Third.'],
+            ['<p>👩&zwj;💻 می&zwnj;روم 20&NoBreak;°C &NotEqualTilde; &amp;lt;tag&amp;gt;</p>',
+                "👩‍💻 می\u{200C}روم 20\u{2060}°C ≂̸ &lt;tag&gt;"],
+        ] as [$html, $expected]) {
+            $metadata = $generator->complete('Title', $html);
+            self::assertSame($expected, $metadata->metaDescription, $html);
+            self::assertSame(htmlspecialchars($expected, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'), $metadata->excerpt);
+        }
+    }
+
+    public function testLocalFallbackUsesOnlyEditorialCutMarkers(): void
+    {
+        $generator = $this->generator($this->settings());
+        foreach ([
+            ['<p>Intro.</p><!-- <cut /> --><p>Ending.</p>', 'Intro. Ending.'],
+            ['<p>Intro.</p><p title="<cut>">Ending.</p>', 'Intro. Ending.'],
+            ['<p>Intro.</p><script>const marker = "<cut>";</script><p>Ending.</p>', 'Intro. Ending.'],
+            ['<p>Intro.</p><style>p::before {content:"<cut>"}</style><p>Ending.</p>', 'Intro. Ending.'],
+            ['<p>Intro.</p><pre>sample <cut /> code</pre><p>Ending.</p>', 'Intro. Ending.'],
+            ['<p>Intro.</p><template><cut /></template><p>Ending.</p>', 'Intro. Ending.'],
+            ['<p>Intro.</p><!-- <cut /> --><p>Ending.</p><CUT /><p>After real cut.</p>', 'Intro. Ending.'],
+            ['<p>Intro.</p><cut><p>After real cut.</p>', 'Intro.'],
+            ['<pre>only code</pre><cut><p>Visible body.</p>', 'Visible body.'],
+        ] as [$html, $expected]) {
+            $metadata = $generator->complete('Title', $html);
+            self::assertSame($expected, $metadata->metaDescription, $html);
+            self::assertSame(htmlspecialchars($expected, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'), $metadata->excerpt);
+        }
+    }
+
     public function testLocalFallbackDecodesHtmlOnlyOnce(): void
     {
         $generator = $this->generator($this->settings());
