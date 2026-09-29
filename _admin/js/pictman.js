@@ -217,6 +217,7 @@ $(function () {
         isRenaming = false,
         folderDeletionConfirmed = false,
         fileDeletionConfirmed = false,
+        fileLoadRequest = null,
         fileLoadError = '',
         filesLoading = true;
 
@@ -267,6 +268,14 @@ $(function () {
     function beginFileLoading() {
         filesLoading = true;
         fileLoadError = '';
+        fExecDouble = function () {};
+        // Files from the previous path must not remain actionable while the
+        // new list is pending or if that request fails.
+        if (fileTree) {
+            fileTree.jstree('deselect_all');
+            fileTree.children('ul').empty();
+        }
+        $('#loadstatus').text('');
         document.getElementById('finfo')?.replaceChildren();
         document.getElementById('files')?.setAttribute('aria-busy', 'true');
         pictureManagerRoot?.querySelector('[data-media-selection-bar]')?.setAttribute('hidden', '');
@@ -349,6 +358,21 @@ $(function () {
         eButtons = $('#context_buttons');
     }
 
+    function syncSelectedFolder() {
+        var selected = folderTree.jstree('get_selected');
+        var newPath = selected.attr('data-path');
+        if (newPath === undefined) return;
+        var changed = path !== newPath;
+        path = newPath;
+        pathCsrfToken = selected.attr('data-csrf-token') || '';
+        replaceStrongText('fold_name', folderTree.jstree('get_text', selected));
+        var location = pictureManagerRoot?.querySelector('[data-media-folder-path]');
+        if (location) {
+            location.textContent = path || folderTree.jstree('get_text', selected);
+        }
+        if (changed) refreshFiles();
+    }
+
     var folderTree = $('#folders')
         .bind('before.jstree', function (e, data) {
             if (data.func !== 'remove') {
@@ -391,18 +415,7 @@ $(function () {
                 folderTree.find('.jstree-clicked').append(eButtons);
             }
 
-            var newPath = d.rslt.obj.attr('data-path');
-            pathCsrfToken = d.rslt.obj.attr('data-csrf-token') || '';
-
-            if (path !== newPath) {
-                path = newPath;
-                refreshFiles();
-                replaceStrongText('fold_name', folderTree.jstree('get_text', d.rslt.obj));
-            }
-            var location = pictureManagerRoot?.querySelector('[data-media-folder-path]');
-            if (location) {
-                location.textContent = path || folderTree.jstree('get_text', d.rslt.obj);
-            }
+            syncSelectedFolder();
         })
         .bind('deselect_node.jstree', function (e, d) {
             eButtons.detach();
@@ -436,9 +449,7 @@ $(function () {
                         data.rslt.obj.attr('data-csrf-token', d.csrf_token);
                     }
 
-                    var eSelected = folderTree.jstree('get_selected');
-                    path = eSelected.attr('data-path');
-                    replaceStrongText('fold_name', folderTree.jstree('get_text', eSelected));
+                    syncSelectedFolder();
                 })
                 .catch(() => {
                     folderRollback(data.rlbk);
@@ -511,7 +522,7 @@ $(function () {
                             if (d.csrf_token) {
                                 data.rslt.o.attr('data-csrf-token', d.csrf_token);
                             }
-                            path = folderTree.jstree('get_selected').attr('data-path');
+                            syncSelectedFolder();
                         }
                     })
                     .catch(() => {
@@ -756,20 +767,41 @@ $(function () {
                         beginFileLoading();
                         return sUrl + 'action=load_files&path=' + encodeURIComponent(path);
                     },
+                    beforeSend: function (xhr, settings) {
+                        var previous = fileLoadRequest;
+                        fileLoadRequest = xhr;
+                        // Guard the complete callback chain, including jsTree's
+                        // DOM updates and the global error handler. Its success
+                        // hook alone cannot stop jsTree from rendering stale data.
+                        ['success', 'error'].forEach(function (name) {
+                            var callbacks = Array.isArray(settings[name]) ? settings[name] : [settings[name]];
+                            settings[name] = function (...args) {
+                                if (fileLoadRequest !== xhr) return;
+                                callbacks.forEach(callback => {
+                                    if (typeof callback === 'function') callback.apply(this, args);
+                                });
+                            };
+                        });
+                        if (previous) previous.abort();
+                    },
+                    complete: function (xhr) {
+                        if (fileLoadRequest === xhr) fileLoadRequest = null;
+                    },
                     success: function (data) {
                         filesLoading = false;
                         fileLoadError = '';
                         document.getElementById('files')?.removeAttribute('aria-busy');
-                        if (data.length) {
+                        if (Array.isArray(data) && data.length) {
                             $('#loadstatus').text('');
                             return data;
                         }
-                        if (data.message !== pictureManagerConfig.emptyDirectory && !Array.isArray(data)) {
-                            fileLoadError = data.message || register_lang.unknown_error;
+                        if (!Array.isArray(data) && !(typeof data?.message === 'string' && data.message === pictureManagerConfig.emptyDirectory)) {
+                            fileLoadError = typeof data?.message === 'string' && data.message.trim() !== ''
+                                ? data.message : register_lang.unknown_error;
                         }
                         $('#loadstatus').text(fileLoadError);
                         window.setTimeout(updateFileView, 0);
-                        return false;
+                        return [];
                     },
                     error: function (xhr, status) {
                         filesLoading = false;

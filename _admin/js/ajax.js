@@ -56,6 +56,7 @@ function checkAjaxStatus(XHR) {
 }
 
 function UnknownError(sError, iStatus) {
+    sError = String(sError ?? '');
     if (sError.indexOf('</body>') === -1 || sError.indexOf('</html>') === -1) {
         sError = register_lang.unknown_error + ' ' + iStatus + '<br />' +
             register_lang.server_response + '<br />' + sError;

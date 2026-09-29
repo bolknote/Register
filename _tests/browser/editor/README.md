@@ -266,3 +266,13 @@ refreshes. Earlier replies preserve newer selections. Network, HTTP and malforme
 responses show one useful error and allow selecting the same file again; successful
 retries refresh the actual file list. Filenames sort naturally by their numbers,
 including values beyond JavaScript's safe integer range.
+
+Twelve folder scenarios reject outdated file lists and failures when switching
+folders, refreshing the same folder or returning to a previous folder. Cancelled
+requests retain the latest loading state without showing errors. Renaming and
+moving a folder refreshes the selected branch, including nested folders selected
+while the operation was pending, and preserves unrelated selections. File links,
+image insertion and subsequent uploads use the current folder path and token.
+Six more scenarios distinguish a failed current request from an empty directory,
+reject malformed responses without leaving the browser busy, and load the same
+folder successfully on retry.
