@@ -11,6 +11,7 @@ namespace Register\Content;
 
 final readonly class PublicationMetadata
 {
+    /** @param string $excerpt HTML fragment; generated plain text is escaped. */
     public function __construct(
         public string $excerpt,
         public string $metaDescription,

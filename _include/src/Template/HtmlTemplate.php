@@ -359,11 +359,12 @@ class HtmlTemplate
         $title = $this->plainText($this->hasContent('social_title')
             ? $this->renderValue($this->page['social_title'])
             : $this->buildHeadTitle());
-        $description = $this->plainText($this->hasContent('social_description')
-            ? $this->renderValue($this->page['social_description'])
+        // The metadata field is already plain text, unlike rendered social overrides.
+        $description = $this->hasContent('social_description')
+            ? $this->plainText($this->renderValue($this->page['social_description']))
             : ($this->hasContent('meta_description')
-                ? $this->renderValue($this->page['meta_description'])
-                : $this->siteTagline->get()));
+                ? trim(preg_replace('/\s+/u', ' ', $this->renderValue($this->page['meta_description'])) ?? '')
+                : $this->plainText($this->siteTagline->get()));
         $description = mb_substr($description, 0, 300);
 
         $request = $this->requestStack->getCurrentRequest();

@@ -1,7 +1,8 @@
 /** Plain text for image descriptions and publication previews. */
 
 export function normalizePlainText(text) {
-    return text.replace(/[\u00a0\u200b-\u200d\u2060\ufeff]/g, ' ').replace(/\s+/g, ' ').trim();
+    // Joining controls are part of words and emoji, not whitespace.
+    return text.replace(/[\u00a0\u200b\ufeff]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export function htmlToPlainText(html, omitCode = false) {

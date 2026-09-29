@@ -1112,7 +1112,7 @@ final readonly class AiClient
     private function normalizePlainText(string $value): string
     {
         $value = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $value = preg_replace('/[\x{00A0}\x{200B}-\x{200D}\x{2060}\x{FEFF}]/u', ' ', $value) ?? $value;
+        $value = preg_replace('/[\x{00A0}\x{200B}\x{FEFF}]/u', ' ', $value) ?? $value;
 
         return trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
     }

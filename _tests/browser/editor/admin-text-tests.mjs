@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {formData, holdRequests} from './save-tests.mjs';
 
 const value = page => page.evaluate(() => window.adminEditor.getValue());
+const joiningText = 'Семья 👨‍👩‍👧‍👦. Работа 👩🏽‍💻. می\u200cروم. क्\u200dष. 20\u2060°C.';
 
 async function withPage(browser, origin, params, run) {
     const page = await browser.newPage();
@@ -51,6 +52,9 @@ export async function runImageInsertionTextRegressions(browser, origin) {
         ['block and line boundaries', ['<p>First<br>line</p><p>Second paragraph</p>'], ['First line Second paragraph']],
         ['literal markup', ['&lt;em&gt;Camera&lt;/em&gt;'], ['<em>Camera</em>']],
         ['code text', ['<code>a &lt; b</code>'], ['a < b']],
+        ['Unicode joining characters', [joiningText], [joiningText]],
+        ['encoded joining characters', ['👩&#8205;💻 می&zwnj;روم 20&#8288;°C'], ['👩‍💻 می\u200cروم 20\u2060°C']],
+        ['literal entity names', ['&amp;lt;widget&amp;gt; &amp;amp;'], ['&lt;widget&gt; &amp;']],
         ['multiple reversed selections', ['First "camera"', 'Second &amp; camera'], ['First "camera"', 'Second & camera']],
         ['plain text', ['Plain description'], ['Plain description']],
         ['empty selection', [''], ['']],
@@ -142,6 +146,10 @@ export async function runSocialPreviewTextRegressions(browser, origin) {
             + '<template>template text</template><noscript>fallback text</noscript><svg><text>drawing</text></svg>'
             + '<math><mi>x</mi></math><p>Continuation.</p>', 'Intro. Continuation.'],
         ['entities and invisible separators', '<p>Camera &quot;Front&quot;&nbsp;&amp;&#8203;rear</p>', 'Camera "Front" & rear'],
+        ['Unicode joining characters', '<p>' + joiningText + '</p>', joiningText],
+        ['encoded joining characters', '<p>👩&#8205;💻 می&zwnj;روم 20&#8288;°C</p>', '👩‍💻 می\u200cروم 20\u2060°C'],
+        ['literal markup', '<p>Use &lt;widget&gt; and &lt;/widget&gt; as literal text.</p>', 'Use <widget> and </widget> as literal text.'],
+        ['literal entity names', '<p>Write &amp;lt;widget&amp;gt; and &amp;amp; in the source.</p>', 'Write &lt;widget&gt; and &amp; in the source.'],
         ['cut marker', '<p>Lead.</p><cut /><p>Rest of article.</p>', 'Lead.'],
         ['empty lead before cut', '<pre>only code</pre><cut><p>Visible body.</p>', 'Visible body.'],
         ['duplicated title', '<h1>Server title</h1><p>Body.</p>', 'Body.'],

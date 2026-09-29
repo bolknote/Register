@@ -23,7 +23,7 @@ final readonly class PublicationMetadataGenerator
 
     private const int MAX_AI_SOURCE_LENGTH = 60000;
 
-    private const string INVISIBLE_CHARACTERS = '[\x{00A0}\x{200B}-\x{200D}\x{2060}\x{FEFF}]';
+    private const string INVISIBLE_CHARACTERS = '[\x{00A0}\x{200B}\x{FEFF}]';
 
     public function __construct(
         private AiClient        $aiClient,
@@ -73,7 +73,8 @@ final readonly class PublicationMetadataGenerator
             $aiExcerpt = $aiMetadata === null
                 ? ''
                 : $this->summarize($this->normalizePlainText($aiMetadata['excerpt']), self::EXCERPT_LENGTH);
-            $excerpt = $aiExcerpt !== '' ? $aiExcerpt : $localExcerpt;
+            // Excerpts are rendered as HTML; generated metadata itself is plain text.
+            $excerpt = htmlspecialchars($aiExcerpt !== '' ? $aiExcerpt : $localExcerpt, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
             $generatedWithAi = $aiExcerpt !== '';
         }
 
@@ -136,7 +137,7 @@ final readonly class PublicationMetadataGenerator
 
     private function normalizePlainText(string $text): string
     {
-        $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Body HTML and AI responses have already been decoded; titles are plain text.
         $text = preg_replace('/' . self::INVISIBLE_CHARACTERS . '/u', ' ', $text) ?? $text;
 
         return trim(preg_replace('/\s+/u', ' ', $text) ?? $text);

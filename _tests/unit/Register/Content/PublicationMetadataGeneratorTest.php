@@ -32,7 +32,7 @@ final class PublicationMetadataGeneratorTest extends TestCase
             . '<p>Текст после ката не должен попасть в описание.</p>',
         );
 
-        self::assertSame('Первое предложение & важная деталь.', $metadata->excerpt);
+        self::assertSame('Первое предложение &amp; важная деталь.', $metadata->excerpt);
         self::assertSame('Первое предложение & важная деталь.', $metadata->metaDescription);
         self::assertFalse($metadata->generatedWithAi);
     }
@@ -60,6 +60,83 @@ final class PublicationMetadataGeneratorTest extends TestCase
         );
     }
 
+    public function testLocalFallbackPreservesUnicodeJoiningCharacters(): void
+    {
+        $generator = $this->generator($this->settings());
+        $text = "Семья 👨‍👩‍👧‍👦. Работа 👩🏽‍💻. می\u{200C}روم. क्\u{200D}ष. 20\u{2060}°C.";
+
+        foreach (['', 'Title'] as $title) {
+            $metadata = $generator->complete($title, '<p>' . $text . '</p>');
+            self::assertSame($text, $metadata->excerpt);
+            self::assertSame($text, $metadata->metaDescription);
+        }
+    }
+
+    public function testLocalFallbackDecodesHtmlOnlyOnce(): void
+    {
+        $generator = $this->generator($this->settings());
+        foreach ([
+            ['', '<p>Use &lt;widget&gt; and &lt;/widget&gt; as literal text.</p>', 'Use <widget> and </widget> as literal text.'],
+            ['Title', '<p>Write &amp;lt;widget&amp;gt; and &amp;amp; in the source.</p>', 'Write &lt;widget&gt; and &amp; in the source.'],
+            ['Title', '<p>Compare a &lt; b &gt; c and x &amp; y.</p>', 'Compare a < b > c and x & y.'],
+            ['<widget> &amp;', '<h1>&lt;widget&gt; &amp;amp;</h1><p>Body.</p>', 'Body.'],
+        ] as [$title, $html, $expected]) {
+            $metadata = $generator->complete($title, $html);
+            self::assertSame(htmlspecialchars($expected, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'), $metadata->excerpt);
+            self::assertSame($expected, $metadata->metaDescription);
+        }
+    }
+
+    public function testGeneratedExcerptRendersLiteralMarkupAsText(): void
+    {
+        $generator = $this->generator($this->settings());
+        $plainText = 'Literal <img src="x" onerror="alert(1)"> and &lt;widget&gt; 👩🏽‍💻.';
+        $html = htmlspecialchars($plainText, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $metadata = $generator->complete('Title', '<p>' . $html . '</p>');
+        self::assertSame($html, $metadata->excerpt);
+        self::assertSame($plainText, $metadata->metaDescription);
+
+        $document = new \DOMDocument('1.0', 'UTF-8');
+        $document->loadHTML('<!doctype html><html><head><meta charset="utf-8"></head><body>' . $metadata->excerpt . '</body></html>');
+        self::assertSame($plainText, $document->getElementsByTagName('body')->item(0)?->textContent);
+        self::assertSame(0, $document->getElementsByTagName('img')->length);
+    }
+
+    public function testAiMetadataPreservesPlainTextAndUnicodeJoiningCharacters(): void
+    {
+        $expected = "Use <widget>, &lt;entity&gt; 👩🏽‍💻 می\u{200C}روم. 20\u{2060}°C.";
+        $calls = [];
+        $generator = $this->generator(
+            $this->settings([
+                AiSettings::PROVIDER_CONFIG_KEY => AiSettings::PROVIDER_OPENROUTER,
+                AiSettings::API_KEY_CONFIG_KEY => 'secret',
+                AiSettings::AUTO_METADATA_CONFIG_KEY => '1',
+            ]),
+            static function (string $method, string $url, array $headers, ?string $body) use (&$calls, $expected): HttpResponse {
+                $calls[] = json_decode((string)$body, true, 512, JSON_THROW_ON_ERROR);
+                $html = '<b>' . htmlspecialchars($expected, ENT_QUOTES, 'UTF-8') . '</b>';
+
+                return new HttpResponse(statusCode: 200, content: json_encode([
+                    'choices' => [[
+                        'message' => ['content' => json_encode([
+                            'excerpt' => $html,
+                            'meta_description' => $html,
+                        ], JSON_THROW_ON_ERROR)],
+                    ]],
+                ], JSON_THROW_ON_ERROR));
+            },
+        );
+        $title = '👩🏽‍💻 <widget> &amp;';
+        $metadata = $generator->complete($title, '<p>' . htmlspecialchars($expected, ENT_QUOTES, 'UTF-8') . '</p>');
+
+        self::assertSame(htmlspecialchars($expected, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'), $metadata->excerpt);
+        self::assertSame($expected, $metadata->metaDescription);
+        self::assertTrue($metadata->generatedWithAi);
+        self::assertCount(1, $calls);
+        self::assertStringContainsString($title, $calls[0]['messages'][0]['content']);
+        self::assertStringContainsString($expected, $calls[0]['messages'][0]['content']);
+    }
+
     public function testExistingMetadataIsPreservedWithoutCallingAi(): void
     {
         $called = false;
@@ -78,11 +155,11 @@ final class PublicationMetadataGeneratorTest extends TestCase
         $metadata = $generator->complete(
             'Title',
             '<p>Body.</p>',
-            'Hand-written excerpt',
+            '<em>Hand-written &amp; excerpt</em>',
             'Hand-written meta description',
         );
 
-        self::assertSame('Hand-written excerpt', $metadata->excerpt);
+        self::assertSame('<em>Hand-written &amp; excerpt</em>', $metadata->excerpt);
         self::assertSame('Hand-written meta description', $metadata->metaDescription);
         self::assertFalse($called);
     }

@@ -36,6 +36,42 @@ final class PostInplaceCest
 {
     private const string ONE_PIXEL_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==';
 
+    public function generatedMetadataPreservesLiteralTextAndJoiningCharacters(\IntegrationTester $I): void
+    {
+        $text = "Use <widget> &lt;example&gt; 👩🏽‍💻 می\u{200C}روم. 20\u{2060}°C.";
+        $html = htmlspecialchars($text, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $I->login('author', 'author');
+        $I->amOnPage('https://localhost/');
+        $token = (string)$I->grabAttributeFrom(
+            '.site-header-shell .post-create-template input[name="inplace_token"]',
+            'value',
+        );
+        $I->sendAjaxPostRequest('https://localhost/_inplace/post/new', [
+            'inplace_action' => 'create',
+            'inplace_token' => $token,
+            'revision' => '0',
+            'title' => 'Literal text in publication metadata',
+            'body' => '<p>' . $html . '</p>',
+            'tags' => '',
+            'published_at' => (string)(time() - 60),
+        ]);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $payload = json_decode($I->grabResponse(), true, flags: JSON_THROW_ON_ERROR);
+        /** @var DbLayer $dbLayer */
+        $dbLayer = $I->grabService(DbLayer::class);
+        $stored = $dbLayer->select('body, excerpt, meta_description')->from(ContentSchema::TABLE_NAME)
+            ->where('id = :id')->setParameter('id', (int)$payload['id'])->execute()->fetchAssoc();
+        $I->assertIsArray($stored);
+        $I->assertSame('<p>' . $html . '</p>', $stored['body']);
+        $I->assertSame($html, $stored['excerpt']);
+        $I->assertSame($text, $stored['meta_description']);
+        $I->amOnPage('https://localhost' . $payload['url']);
+        $I->seeResponseCodeIs(Response::HTTP_OK);
+        $I->assertSame($text, $I->grabAttributeFrom('meta[name="description"]', 'content'));
+        $I->assertSame($text, $I->grabAttributeFrom('meta[property="og:description"]', 'content'));
+        $I->assertSame($text, $I->grabAttributeFrom('meta[name="twitter:description"]', 'content'));
+    }
+
     public function showsToolsOnlyForAnAuthorizedPostEditor(\IntegrationTester $I): void
     {
         /** @var DbLayer $dbLayer */
