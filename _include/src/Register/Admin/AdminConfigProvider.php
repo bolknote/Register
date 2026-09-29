@@ -18,6 +18,7 @@ use Register\Content\ContentPublicationScheduler;
 use Register\Content\PublicationMetadataGenerator;
 use Register\Content\Admin\ContentRevision;
 use Register\Content\Admin\ContentRevisionService;
+use Register\Content\Admin\RevisionTrackedVirtualFieldType;
 use Register\Content\ContentSchema;
 use Register\Content\ContentTagSchema;
 use Register\Content\ContentType;
@@ -1109,10 +1110,19 @@ class AdminConfigProvider implements StatefulServiceInterface
             ->addListener(EntityConfig::EVENT_BEFORE_UPDATE, function (BeforeSaveEvent $event) use ($articleEntity): void {
                 $this->contentPublicationScheduler->prepareForSave($event->data);
 
+                $revisionFields = [];
+                $revisionQueries = [];
+                foreach ($articleEntity->getFields(FieldConfig::ACTION_EDIT) as $field) {
+                    if ($field->type instanceof RevisionTrackedVirtualFieldType) {
+                        $revisionFields[$field->name] = $field->type;
+                        $revisionQueries[$field->name] = '(' . $field->type->getTitleSqlSubQuery() . ')';
+                    }
+                }
+
                 $oldData = $event->dataProvider->getEntity(
                     $this->dbPrefix . ContentSchema::TABLE_NAME,
                     $articleEntity->getFieldDataTypes(FieldConfig::ACTION_EDIT, includePrimaryKey: true),
-                    [],
+                    $revisionQueries,
                     [
                         new LogicalExpression('content_type', ContentType::PAGE->value),
                         ...$this->permissionChecker->isGranted(PermissionChecker::PERMISSION_EDIT_SITE) ? [] : [
@@ -1159,14 +1169,19 @@ class AdminConfigProvider implements StatefulServiceInterface
 
                 $contentId = ContentId::page($articleId);
                 $storedTags = $this->tagRepository->findForContent([$contentId]);
-                $oldData['column_tags'] = array_map(
-                    static fn(Tag $tag): string => mb_strtolower($tag->name),
-                    $storedTags[(string)$contentId],
-                );
+                $storedRevisionData = [...$oldData, 'column_tags' => array_map(
+                    static fn(Tag $tag): string => mb_strtolower($tag->name), $storedTags[(string)$contentId],
+                )];
+                $revisionData = [...$event->data, 'tags' => $this->normalizePageTags((string)$event->data['tags'])];
+                foreach ($revisionFields as $name => $type) {
+                    $revisionData[$name] = $type->revisionValue($event->data[$name]);
+                    $storedRevisionData['column_' . $name] = $type->revisionValue($oldData['virtual_' . $name]);
+                }
+
                 $revision = $this->contentRevisionService->resolve(
-                    [...$event->data, 'tags' => $this->normalizePageTags((string)$event->data['tags'])],
-                    $oldData,
-                    ['tags', ...array_keys($editableFieldTypes)],
+                    $revisionData,
+                    $storedRevisionData,
+                    ['tags', ...array_keys($editableFieldTypes), ...array_keys($revisionFields)],
                 );
                 if (!$revision instanceof ContentRevision) {
                     $event->errorMessages[] = $this->translator->trans('Outdated version');

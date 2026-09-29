@@ -11,10 +11,10 @@ namespace Register\Extension\activitypub\Admin;
 
 use Register\Content\ContentId;
 use Register\Content\ContentType;
+use Register\Content\Admin\RevisionTrackedVirtualFieldType;
 use Register\AdminYard\Config\AdminConfig;
 use Register\AdminYard\Config\EntityConfig;
 use Register\AdminYard\Config\FieldConfig;
-use Register\AdminYard\Config\VirtualFieldType;
 use Register\AdminYard\Event\AfterSaveEvent;
 use Register\AdminYard\Event\BeforeSaveEvent;
 use Register\AdminYard\Translator;
@@ -65,7 +65,10 @@ final readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 name: ContentSettingsEditor::PUBLICATION_FIELD,
                 label: $this->translator->trans('ActivityPub publication'),
                 hint: $this->translator->trans('ActivityPub publication help'),
-                type: new VirtualFieldType($this->settingExpression('publication_mode', $contentType, 'inherit')),
+                type: new RevisionTrackedVirtualFieldType(
+                    $this->settingExpression('publication_mode', $contentType, 'inherit'),
+                    static fn(mixed $value): mixed => $value ?? 'inherit',
+                ),
                 control: 'select',
                 options: [
                     'inherit'  => $this->translator->trans('Use federation default'),
@@ -78,7 +81,10 @@ final readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 name: ContentSettingsEditor::DELIVERY_FIELD,
                 label: $this->translator->trans('ActivityPub content mode'),
                 hint: $this->translator->trans('ActivityPub content mode help'),
-                type: new VirtualFieldType($this->settingExpression('delivery_mode', $contentType, 'inherit')),
+                type: new RevisionTrackedVirtualFieldType(
+                    $this->settingExpression('delivery_mode', $contentType, 'inherit'),
+                    static fn(mixed $value): mixed => $value ?? 'inherit',
+                ),
                 control: 'select',
                 options: [
                     'inherit' => $this->translator->trans('Use federation default'),
@@ -93,7 +99,10 @@ final readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 name: ContentSettingsEditor::OBJECT_TYPE_FIELD,
                 label: $this->translator->trans('ActivityPub object type'),
                 hint: $this->translator->trans('ActivityPub object type help'),
-                type: new VirtualFieldType($this->objectTypeExpression($contentType)),
+                type: new RevisionTrackedVirtualFieldType(
+                    $this->objectTypeExpression($contentType),
+                    static fn(mixed $value): mixed => $value ?? 'inherit',
+                ),
                 control: 'select',
                 options: [
                     'inherit' => $this->translator->trans('Use federation default'),
@@ -109,7 +118,10 @@ final readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 name: ContentSettingsEditor::VISIBILITY_FIELD,
                 label: $this->translator->trans('ActivityPub visibility'),
                 hint: $this->translator->trans('ActivityPub visibility help'),
-                type: new VirtualFieldType($this->settingExpression('visibility', $contentType, 'inherit')),
+                type: new RevisionTrackedVirtualFieldType(
+                    $this->settingExpression('visibility', $contentType, 'inherit'),
+                    static fn(mixed $value): mixed => $value ?? 'inherit',
+                ),
                 control: 'select',
                 options: [
                     'inherit'  => $this->translator->trans('Use federation default'),
@@ -122,7 +134,10 @@ final readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 name: ContentSettingsEditor::SUMMARY_FIELD,
                 label: $this->translator->trans('ActivityPub content warning'),
                 hint: $this->translator->trans('ActivityPub content warning help'),
-                type: new VirtualFieldType($this->settingExpression('summary', $contentType, '')),
+                type: new RevisionTrackedVirtualFieldType(
+                    $this->settingExpression('summary', $contentType, ''),
+                    static fn(mixed $value): string => trim((string)$value),
+                ),
                 control: 'textarea',
                 validators: [new Length(max: 500)],
                 useOnActions: $actions,
@@ -131,7 +146,10 @@ final readonly class AdminConfigExtender implements AdminConfigExtenderInterface
                 name: ContentSettingsEditor::LANGUAGE_FIELD,
                 label: $this->translator->trans('ActivityPub language'),
                 hint: $this->translator->trans('ActivityPub language help'),
-                type: new VirtualFieldType($this->settingExpression('language', $contentType, '')),
+                type: new RevisionTrackedVirtualFieldType(
+                    $this->settingExpression('language', $contentType, ''),
+                    static fn(mixed $value): string => strtolower(trim((string)$value)),
+                ),
                 control: 'input',
                 validators: [new Length(max: 35)],
                 useOnActions: $actions,

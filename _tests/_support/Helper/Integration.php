@@ -147,14 +147,34 @@ class Integration extends AbstractBrowserModule
         return $application;
     }
 
-    /** @param array<string, mixed> $parameterOverrides */
-    public function createAdminApplication(array $parameterOverrides = []): Application
+    /**
+     * @param array<string, mixed> $parameterOverrides
+     * @param list<class-string<\Register\Core\Framework\ModuleInterface>> $moduleClasses
+     */
+    public function createAdminApplication(array $parameterOverrides = [], array $moduleClasses = []): Application
     {
         $application = new Application();
         (new RegisterKernel(new BaseModuleRegistry()))->registerBaseModules($application, true);
+        foreach ($moduleClasses as $moduleClass) {
+            $application->addModule(new $moduleClass());
+        }
+
         $application->boot($this->collectParameters($parameterOverrides));
 
         return $application;
+    }
+
+    /** @param list<class-string<\Register\Core\Framework\ModuleInterface>> $moduleClasses */
+    public function withAdminModules(array $moduleClasses, \Closure $scenario): void
+    {
+        $original = $this->adminApplication;
+        try {
+            $this->adminApplication = $this->createAdminApplication(moduleClasses: $moduleClasses);
+            $this->adminApplication->container->decorate(\PDO::class, fn(): \PDO => $this->pdo);
+            $scenario();
+        } finally {
+            $this->adminApplication = $original;
+        }
     }
 
     public function grabService(string $serviceName): mixed
