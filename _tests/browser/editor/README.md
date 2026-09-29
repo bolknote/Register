@@ -258,3 +258,11 @@ Twelve mixed-media scenarios cover image/audio order, repeated attachments and
 insertion in the middle or at the end of text. Continued typing follows the last
 attachment during and after uploads. The batch is one insertion for undo/redo;
 recovery and saving retain all files and subsequent text in order.
+
+Fifteen media-library scenarios load the production file browser, jQuery tree
+and fetch interceptor. Overlapping file selections and drops retain the upload
+indicator until all requests settle, including reversed replies and manual
+refreshes. Earlier replies preserve newer selections. Network, HTTP and malformed
+responses show one useful error and allow selecting the same file again; successful
+retries refresh the actual file list. Filenames sort naturally by their numbers,
+including values beyond JavaScript's safe integer range.

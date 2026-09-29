@@ -20,6 +20,7 @@ var register_lang = {
 
 	unknown_error		: 'Unknown error',
 	save_failed			: 'Unable to save. Please try again.',
+	upload_failed		: 'Unable to upload files. Please try again.',
 	server_response		: 'Something is broken. Please report the conditions when error occurs to administrators or developers and attach the server response:',
 
 	unsaved_exit		: 'You have not saved the page that you had changed before. Do you really want to exit the control panel? In this case, your changes will be lost.',

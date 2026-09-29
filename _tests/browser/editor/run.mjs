@@ -27,6 +27,7 @@ import {runAdminNativeShortcutRegressions, runSmartParagraphMarkupRegressions, r
     runCommentParagraphRegressions, runDuplicateLineRegressions, runParagraphCaretRegressions} from './admin-formatting-tests.mjs';
 import {runAdminMediaPathRegressions, runAdminAudioInsertionRegressions, runAdminShortcutModifierRegressions} from './admin-media-shortcut-tests.mjs';
 import {runAdminCompositionRegressions, runAdminNativeCompositionRegressions, runAdminTagNavigationRegressions} from './admin-composition-tests.mjs';
+import {runMediaLibraryUploadRegressions, runMediaLibraryFailureRegressions, runMediaLibrarySortRegressions} from './media-library-tests.mjs';
 
 async function runAuthorWorkflowRegressions(browser, origin) {
     const page = await browser.newPage();
@@ -464,6 +465,9 @@ try {
             await runAdminNativeShortcutRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminMediaPathRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminAudioInsertionRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibrarySortRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryUploadRegressions(browser, `http://127.0.0.1:${server.address().port}`);
+            await runMediaLibraryFailureRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminDirtyFieldRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminShortcutModifierRegressions(browser, `http://127.0.0.1:${server.address().port}`);
             await runAdminCompositionRegressions(browser, `http://127.0.0.1:${server.address().port}`);

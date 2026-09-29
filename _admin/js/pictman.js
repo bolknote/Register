@@ -14,40 +14,17 @@ var sUrl = pictureManagerConfig.ajaxUrl || '';
 var sPicturePrefix = pictureManagerConfig.picturePrefix || '';
 var iMaxFileSize = Number.parseInt(pictureManagerConfig.maxFileSize || '0', 10);
 var sFriendlyMaxFileSize = pictureManagerConfig.friendlyMaxFileSize || '';
+var pendingFileUploads = 0;
 
 var refreshFiles = function () {
 };
 var getCurDir = function () {
 };
 
+var mediaNameCollator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
+
 function strNatCmp(a, b) {
-    function chunkify(t) {
-        var tz = [], x = 0, y = -1, n = 0, i, j;
-
-        while (i = (j = t.charAt(x++)).charCodeAt(0)) {
-            var m = (i === 46 || (i >= 48 && i <= 57));
-            if (m !== n) {
-                tz[++y] = "";
-                n = m;
-            }
-            tz[y] += j;
-        }
-        return tz;
-    }
-
-    var aa = chunkify(a.toLowerCase());
-    var bb = chunkify(b.toLowerCase());
-
-    for (x = 0; aa[x] && bb[x]; x++)
-        if (aa[x] !== bb[x]) {
-            var c = Number(aa[x]), d = Number(bb[x]);
-            if (c === aa[x] && d === bb[x])
-                return c - d;
-            else
-                return (aa[x] > bb[x]) ? 1 : -1;
-        }
-
-    return aa.length - bb.length;
+    return mediaNameCollator.compare(a, b);
 }
 
 var registerRetina = (function () {
@@ -882,7 +859,6 @@ function initFileDrop() {
 
         document.getElementById('brd').className = '';
 
-        FileCounter(0, 0);
         var files = dt.files,
             not_sent = '';
 
@@ -902,14 +878,6 @@ function initFileDrop() {
     }, false);
 }
 
-var FileCounter = (function (inc, new_value) {
-    var i;
-
-    return function (inc, new_value) {
-        return (i = (typeof (new_value) == 'number' ? new_value : i + inc));
-    }
-}());
-
 function SendDroppedFile(file) {
     var data = new FormData();
     data.append('pictures[]', file);
@@ -920,48 +888,49 @@ function SendDroppedFile(file) {
     handleFileUpload(data);
 }
 
-function handleFileUpload(data, callback) {
-    const fileCounter = FileCounter(1);
+async function handleFileUpload(data, callback) {
+    pendingFileUploads++;
     SetWait(true);
-    fetch(sUrl + 'action=upload', {
-        method: 'POST',
-        body: data
-    })
-        .then(response => response.json())
-        .then(responseJson => {
-            if (!responseJson.success) {
-                if (responseJson.errors) {
-                    PopupMessages.show(responseJson.errors.join("\n"));
-                } else if (responseJson.message) {
-                    PopupMessages.show(responseJson.message);
-                } else {
-                    PopupMessages.show('Unknown error');
-                }
-            }
-            if (callback) {
-                callback(responseJson);
-            }
-        })
-        .catch(error => {
-            console.error('An error occurred during the upload:', error);
-        })
-        .finally(() => {
-            const fileCounter = FileCounter(-1);
-            if (0 === fileCounter) {
-                SetWait(false);
-                refreshFiles();
-            }
+    const failed = register_lang.upload_failed || 'Unable to upload files. Please try again.';
+    try {
+        const response = await fetch(sUrl + 'action=upload', {
+            method: 'POST',
+            body: data,
+            registerHandleErrorsInline: true
         });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || payload?.success !== true) {
+            const errors = Array.isArray(payload?.errors)
+                ? payload.errors.filter(error => typeof error === 'string' && error.trim() !== '') : [];
+            const message = errors.join('\n') || (typeof payload?.message === 'string' && payload.message.trim() !== ''
+                ? payload.message : failed);
+            PopupMessages.show(message, null, null, response.status === 401 ? 'login' : null);
+        }
+    } catch (error) {
+        PopupMessages.show(failed);
+        console.error('An error occurred during the upload:', error);
+    } finally {
+        pendingFileUploads--;
+        SetWait(pendingFileUploads > 0);
+        if (callback) callback();
+        if (pendingFileUploads === 0) refreshFiles();
+    }
 }
 
 function UploadSubmit(eForm) {
     eForm.dir.value = getCurDir();
     eForm.csrf_token.value = getCurDirCsrfToken();
     const data = new FormData(eForm);
+    const input = eForm.elements['pictures[]'];
+    const submittedFiles = Array.from(input.files);
 
-    FileCounter(0, 0);
     handleFileUpload(data, () => {
-        eForm['pictures[]'].value = '';
+        // A delayed reply must not clear a later selection, even if its files
+        // have the same names. Release this selection after failures too so
+        // choosing the same files again triggers another change event.
+        if (input.files.length !== submittedFiles.length
+            || !submittedFiles.every((file, index) => file === input.files[index])) return;
+        input.value = '';
         const selection = pictureManagerRoot?.querySelector('[data-media-upload-selection]');
         if (selection) {
             selection.textContent = '';
@@ -981,6 +950,8 @@ function SetWait(bWait) {
     if (!eDiv) {
         return;
     }
+    // Folder requests use jQuery's global ajaxStop while uploads use fetch.
+    bWait = bWait || pendingFileUploads > 0;
     eDiv.classList.toggle('is-active', bWait);
     eDiv.setAttribute('aria-hidden', bWait ? 'false' : 'true');
     document.body.classList.toggle('is-busy', bWait);
