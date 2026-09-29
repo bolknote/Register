@@ -232,6 +232,35 @@ export async function runSmartParagraphMarkupRegressions(browser, origin) {
     }
 }
 
+export async function runSmartParagraphTagRegressions(browser, origin) {
+    for (const [name, block, formatted] of [
+        ['uppercase paragraph', '<P id="text">First\nSecond</P>', '<P id="text">First<br />\nSecond</P>'],
+        ['mixed-case heading', '<H2>First\nSecond</h2>', '<H2>First<br />\nSecond</h2>'],
+        ['uppercase quote', '<BLOCKQUOTE>First\nSecond</BLOCKQUOTE>', '<BLOCKQUOTE>First<br />\nSecond</BLOCKQUOTE>'],
+        ['picture element', '<picture><img src="/photo.png"></picture>\nCaption',
+            '<p><picture><img src="/photo.png"></picture><br />\nCaption</p>'],
+        ['custom element', '<link-preview>First\nSecond</link-preview>', '<p><link-preview>First<br />\nSecond</link-preview></p>'],
+        ['protected tag in an attribute', '<p title="<pre>">First\nSecond</p>', '<p title="<pre>">First<br />\nSecond</p>'],
+        ['quote in an attribute', '<span title="<blockquote>">First\nSecond</span>', '<p><span title="<blockquote>">First<br />\nSecond</span></p>'],
+        ['closing paragraph in an attribute', '<span title="</p>">First\nSecond</span>', '<p><span title="</p>">First<br />\nSecond</span></p>'],
+        ['quoted delimiter on an opening line', '<p title="x > y">\nFirst\nSecond\n</p>', '<p title="x > y">\nFirst<br />\nSecond<br />\n</p>'],
+        ['comment text in an attribute', '<span title="<!-- <pre> -->">First\nSecond</span>', '<p><span title="<!-- <pre> -->">First<br />\nSecond</span></p>'],
+        ['comments and uppercase tags', '<P><!-- <pre> -->First\nSecond<!-- </p> --></P>', '<P><!-- <pre> -->First<br />\nSecond<!-- </p> --></P>'],
+    ]) {
+        await withEditor(browser, origin, async page => {
+            const initial = 'Lead\nsecond line\n\n' + block + '\n\nTail.';
+            const expected = '<p>Lead<br />\nsecond line</p>\n\n' + formatted + '\n\n<p>Tail.</p>';
+            await setBody(page, initial);
+            await page.getByRole('button', {name: 'Smart paragraphs', exact: true}).click();
+            assert.equal(await value(page), expected, 'Only real HTML tags determine paragraph boundaries');
+            await checkHistoryAndSave(page, initial, expected);
+            await page.getByRole('button', {name: 'Smart paragraphs', exact: true}).click();
+            assert.equal(await value(page), expected, 'Formatting must remain idempotent');
+        });
+        console.log(`admin smart paragraph tags: ${name} preserves markup, history, recovery and saving`);
+    }
+}
+
 export async function runParagraphAttributeRegressions(browser, origin) {
     const prefix = '<p><a href="#details">Go to section</a></p>\n';
     const globals = ' id="details" class=\'lead\' lang=en title="x > y" data-note="a &amp; b" aria-label="Section" dir="auto"';

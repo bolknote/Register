@@ -86,6 +86,7 @@ export function initImageAlt(form, config) {
         activeEdit = {image, finish};
 
         input.addEventListener('keydown', function (event) {
+            if (event.isComposing || event.keyCode === 229) return;
             if (event.key === 'Enter') {
                 event.preventDefault();
                 finish(true);

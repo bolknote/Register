@@ -254,12 +254,15 @@ export function initTagsInput(config) {
         renderSuggestions(true);
     });
     input.addEventListener('keydown', function (event) {
+        if (event.isComposing || event.keyCode === 229) return;
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault();
             if (suggestionList.hidden) {
                 renderSuggestions(true);
             }
-            setActiveSuggestion(activeIndex + (event.key === 'ArrowDown' ? 1 : -1));
+            setActiveSuggestion(activeIndex < 0
+                ? (event.key === 'ArrowDown' ? 0 : matches.length - 1)
+                : activeIndex + (event.key === 'ArrowDown' ? 1 : -1));
             return;
         }
         if (event.key === 'Enter') {

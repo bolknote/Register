@@ -59,15 +59,27 @@ export function smartParagraphs(source) {
     for (const tag of htmlTags(masked)) {
         tagged += masked.slice(end, tag.start) + tag.text.replace(/\r\n?|\n/g, lineBreak => {
             lineBreaks.push(lineBreak);
-            return prefix + 'line-' + (lineBreaks.length - 1) + '\u0000';
+            // Retain a tag-name separator for the structural scanner below.
+            return ' ' + prefix + 'line-' + (lineBreaks.length - 1) + '\u0000';
         });
         end = tag.end;
     }
     tagged += masked.slice(end);
     return formatParagraphs(tagged)
-        .replace(new RegExp(prefix + 'line-(\\d+)\u0000', 'g'), (match, index) => lineBreaks[Number(index)])
+        .replace(new RegExp(' ' + prefix + 'line-(\\d+)\u0000', 'g'), (match, index) => lineBreaks[Number(index)])
         .replace(new RegExp('<!--' + prefix + '(\\d+)-->', 'g'), (match, index) => originals[Number(index)])
         .replace(new RegExp('<pre>' + prefix + '(\\d+)</pre>', 'g'), (match, index) => originals[Number(index)]);
+}
+
+function withoutComments(source) {
+    let result = '';
+    let end = 0;
+    for (const tag of htmlTags(source, {comments: true})) {
+        if (tag.name !== '') continue;
+        result += source.slice(end, tag.start);
+        end = tag.end;
+    }
+    return result + source.slice(end);
 }
 
 function formatParagraphs(sText) {
@@ -75,31 +87,40 @@ function formatParagraphs(sText) {
     const asParag = sText.split(/\n{2,}/);
 
     for (let i = asParag.length; i--;) {
-        if (asParag[i].replace(/<!--[\s\S]*?-->/g, '').trim() === '') {
+        if (withoutComments(asParag[i]).trim() === '') {
             continue;
         }
 
         asParag[i] = asParag[i].replace(/\s+$/gm, '');
 
-        if (/<\/?(?:pre|script|style|ol|ul|li|cut)[^>]*>/i.test(asParag[i])) {
+        if (Array.from(htmlTags(asParag[i])).some(tag => /^(?:pre|script|style|ol|ul|li|cut)$/.test(tag.name))) {
             continue;
         }
 
         asParag[i] = asParag[i]
             .replace(/<br \/>((?:[ \t]*<!--.*?-->)*[ \t]*)$/gm, '$1')
             .replace(/^.*$/gm, line => {
-                const visible = line.replace(/<!--.*?-->/g, '').trim();
-                return visible === '' || /^<(?:blockquote|p|h[2-4])\b[^>]*>$/.test(visible)
-                    || /<\/(?:blockquote|p|h[2-4])\b[^>]*>$/.test(visible) ? line : line + '<br />';
+                const visible = withoutComments(line).trim();
+                const tags = Array.from(htmlTags(visible));
+                const first = tags[0];
+                const last = tags.at(-1);
+                const openingLine = first && !first.closing && first.start === 0 && first.end === visible.length
+                    && /^(?:blockquote|p|h[2-4])$/.test(first.name);
+                const closingLine = last?.closing && last.end === visible.length
+                    && /^(?:blockquote|p|h[2-4])$/.test(last.name);
+                return visible === '' || openingLine || closingLine ? line : line + '<br />';
             })
             .replace(/<br \/>$/, '');
 
-        const visible = asParag[i].replace(/<!--.*?-->/g, '');
-        if (!/<\/?(?:blockquote|h[2-4])[^>]*>/.test(visible)) {
-            if (!/<\/p\b[^>]*>\s*$/.test(visible)) {
+        const visible = withoutComments(asParag[i]).trim();
+        const tags = Array.from(htmlTags(visible));
+        const first = tags[0];
+        const last = tags.at(-1);
+        if (!tags.some(tag => /^(?:blockquote|h[2-4])$/.test(tag.name))) {
+            if (!(last?.closing && last.name === 'p' && last.end === visible.length)) {
                 asParag[i] = asParag[i].replace(/\s*$/g, '</p>');
             }
-            if (!/^\s*<p[^>]*>/.test(visible)) {
+            if (!(first && !first.closing && first.name === 'p' && first.start === 0)) {
                 asParag[i] = asParag[i].replace(/^\s*/g, '<p>');
             }
         }
